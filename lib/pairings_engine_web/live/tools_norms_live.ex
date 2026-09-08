@@ -52,8 +52,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   alias PairingsEngine.Fide
   alias PairingsEngine.Norms.{Combine, Forms}
+  alias PairingsEngine.RateLimit
   alias PairingsEngine.Tools.{Parser, Session}
   alias PairingsEngine.Federations.BEL.SwarImport
+  alias PairingsEngineWeb.ClientIp
   alias PairingsEngineWeb.Live.ArbiterCombo
 
   @max_entries 10
@@ -99,7 +101,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
        # official/box asked for it (see `PairingsEngineWeb.Live.ArbiterCombo`).
        arbiter_search: nil,
        # Memoised IT3 counts breakdown - see assign_it3_counts/1.
-       it3_counts: nil
+       it3_counts: nil,
+       # Read HERE and kept, because connect info is only readable while
+       # mounting - `ClientIp.from_socket/1` says so and reaching for it in
+       # `handle_event/3` raises. `nil` on the static render, which parses
+       # nothing anyway.
+       client_ip: ClientIp.from_socket(socket),
+       upload_refused: nil
      )
      |> allow_upload(:files,
        accept: :any,
@@ -115,21 +123,38 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   @impl true
   def handle_event("validate_files", _params, socket), do: {:noreply, socket}
 
+  # The one place this page spends real CPU on a stranger's behalf: up to
+  # ten files of five megabytes, parsed on press, with no account anywhere in
+  # the story. Every other anonymous entry point in the app was rate-limited
+  # and this one was not, which made it the cheapest way to occupy the box.
+  #
+  # Counted per FILE, not per press, because that is where the cost is - and
+  # charged for what was actually consumed, so a refusal costs the caller
+  # nothing and an honest submission of three files is not billed for ten.
+  # The allowance is spent before parsing rather than after, so a caller
+  # cannot outrun it by pressing again while the first press is still
+  # working.
   def handle_event("parse_files", _params, socket) do
-    new_rows =
-      consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
-        content = File.read!(path)
-        {:ok, parse_row(entry.client_name, content)}
-      end)
+    wanted = length(socket.assigns.uploads.files.entries)
 
-    files = socket.assigns.files ++ new_rows
+    if upload_allowed?(socket, wanted) do
+      new_rows =
+        consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
+          content = File.read!(path)
+          {:ok, parse_row(entry.client_name, content)}
+        end)
 
-    {:noreply,
-     socket
-     |> assign(files: files)
-     |> prefill_from_master()
-     |> assign_it3_counts()
-     |> sync_session()}
+      files = socket.assigns.files ++ new_rows
+
+      {:noreply,
+       socket
+       |> assign(files: files, upload_refused: nil)
+       |> prefill_from_master()
+       |> assign_it3_counts()
+       |> sync_session()}
+    else
+      {:noreply, assign(socket, upload_refused: upload_refused_message())}
+    end
   end
 
   def handle_event("remove_file", %{"id" => id}, socket) do
@@ -722,6 +747,30 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     """
   end
 
+  # `nil` means the static render, which has no peer and parses nothing;
+  # there is no shared fallback key on purpose, since one would ration every
+  # visitor together (`ClientIp.from_socket/1`).
+  defp upload_allowed?(%{assigns: %{client_ip: nil}}, _wanted), do: true
+
+  defp upload_allowed?(%{assigns: %{client_ip: ip}}, wanted) do
+    if RateLimit.allow?(:tools_upload, ip) do
+      Enum.each(1..max(wanted, 1)//1, fn _ -> RateLimit.record(:tools_upload, ip) end)
+      true
+    else
+      false
+    end
+  end
+
+  defp upload_refused_message do
+    %{max: max, window_ms: window} = RateLimit.config(:tools_upload)
+
+    gettext(
+      "That is %{max} files in %{minutes} minutes from this address, which is more than building a report takes. Wait a few minutes and try again - nothing you have already parsed is lost.",
+      max: max,
+      minutes: div(window, 60_000)
+    )
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -794,6 +843,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <p :for={err <- upload_errors(@uploads.files)} class="error-note">
           {upload_error_label(err)}
         </p>
+
+        <%!-- The rate limit refusing this press. Beside the upload errors
+              rather than as a flash, because it is about the files sitting
+              in the box right now and it says the parsed ones are safe. --%>
+        <p :if={@upload_refused} class="error-note">{@upload_refused}</p>
 
         <div :for={entry <- @uploads.files.entries}>
           <p :for={err <- upload_errors(@uploads.files, entry)} class="error-note">

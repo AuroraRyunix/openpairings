@@ -30,6 +30,10 @@ defmodule PairingsEngine.RateLimit do
       registering from the venue wifi in the ten minutes before round one is
       the NORMAL use of that page, not abuse. This exists to stop a script
       filling an entry list, not to ration honest sign-ups.
+    * `:tools_upload` - TRF files parsed on the public norms tool, keyed by
+      CLIENT address and counted per FILE. Unlike the others this one
+      rations WORK rather than attempts: the page takes ten files of five
+      megabytes on each press and parses every one of them.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` - behind a proxy the latter is the same value for
@@ -50,7 +54,19 @@ defmodule PairingsEngine.RateLimit do
     # somebody filling in the entry form. A person typing a name fires a
     # handful; anything past this is not typing. Generous because a whole
     # club signing up from one venue's wifi shares an address.
-    fide_lookup: %{max: 60, window_ms: :timer.minutes(1)}
+    fide_lookup: %{max: 60, window_ms: :timer.minutes(1)},
+    # TRF files parsed on the public norms tool, counted PER FILE rather
+    # than per submission - the cost is in the parsing, and one submission
+    # carries up to ten files of up to five megabytes each.
+    #
+    # It was the last anonymous entry point with no limit at all, which made
+    # it the cheapest way to spend this machine's CPU without an account:
+    # fifty megabytes of TRF per press, repeated as fast as the uploads
+    # complete. Sixty files in ten minutes is six full submissions, well past
+    # what building one norm report takes - the tool combines a handful of
+    # files, and re-doing it after fixing one is a few more - while capping
+    # an address at 300 MB of parsing per window.
+    tools_upload: %{max: 60, window_ms: :timer.minutes(10)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."

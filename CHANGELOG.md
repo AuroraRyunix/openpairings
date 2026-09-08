@@ -99,6 +99,13 @@ wins.
 - [Fix] **The enrolment screen says eight digits, because the code is eight
   digits.** It had said six since the day it shipped, in English and in
   Dutch - the number a helper counts to before deciding they have mistyped.
+- [Fix] **The public norms tool has a rate limit, like every other page a
+  stranger can reach.** It was the last one without: no account, ten files of
+  five megabytes accepted on each press, and every one of them parsed. That
+  made it the cheapest way to spend this machine's processor. Sixty files in
+  ten minutes from one address now, counted per file because that is where
+  the cost is, and charged only for what was actually parsed - so a refused
+  press does not dig the caller deeper, and nothing already parsed is lost.
 - [Change] **Pinned to Ainalrami 0.24.0**, which reads a TRF in linear time
   and measures a line in bytes rather than characters. That is the engine
   half of the upload findings below: a 5 MB file of player records took over

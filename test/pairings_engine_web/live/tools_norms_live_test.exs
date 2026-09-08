@@ -1151,4 +1151,83 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       assert from_form == 4
     end
   end
+
+  ## ---------- the upload allowance ----------
+
+  # This page was the last anonymous entry point in the app with no rate
+  # limit, and it is the one that does real work per press: ten files of five
+  # megabytes, parsed. Every test here carries a control, because a limiter
+  # that refused everything would satisfy a refusal assertion on its own.
+  describe "rate limit" do
+    setup do
+      PairingsEngine.RateLimit.clear_all()
+      on_exit(&PairingsEngine.RateLimit.clear_all/0)
+      :ok
+    end
+
+    defp client_ip(lv), do: :sys.get_state(lv.pid).socket.assigns.client_ip
+
+    defp spend_allowance(lv) do
+      %{max: max} = PairingsEngine.RateLimit.config(:tools_upload)
+      ip = client_ip(lv)
+      Enum.each(1..max, fn _ -> PairingsEngine.RateLimit.record(:tools_upload, ip) end)
+      {ip, max}
+    end
+
+    test "an ordinary submission parses, and so does a second", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+      html =
+        upload_files(lv, [
+          {"a.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])},
+          {"b.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])}
+        ])
+
+      refute html =~ "more than building a report takes"
+      assert html =~ "a.trf"
+      assert html =~ "b.trf"
+    end
+
+    test "past the allowance the press is refused and the page says why", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+      {ip, max} = spend_allowance(lv)
+
+      html = upload_files(lv, [{"a.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      assert html =~ "more than building a report takes"
+
+      # A refused press costs nothing: the allowance is spent on what is
+      # actually parsed, so pressing again does not dig the caller deeper.
+      assert PairingsEngine.RateLimit.count(:tools_upload, ip) == max
+    end
+
+    test "a refusal keeps what was already parsed", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+      upload_files(lv, [{"kept.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])}])
+      spend_allowance(lv)
+
+      html =
+        upload_files(lv, [{"refused.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      assert html =~ "more than building a report takes"
+      # The message promises nothing already parsed is lost, so that has to
+      # be true on the page.
+      assert html =~ "kept.trf"
+    end
+
+    test "parsing spends the allowance, one per file", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+      ip = client_ip(lv)
+
+      assert PairingsEngine.RateLimit.count(:tools_upload, ip) == 0
+
+      upload_files(lv, [
+        {"a.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])},
+        {"b.trf", trf_text("Rate Open", [{"Alice", 111}, {"Bob", 222}])}
+      ])
+
+      assert PairingsEngine.RateLimit.count(:tools_upload, ip) == 2
+    end
+  end
 end
