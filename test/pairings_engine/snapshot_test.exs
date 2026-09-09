@@ -772,7 +772,15 @@ defmodule PairingsEngine.SnapshotTest do
             fide_id: fide_id,
             federation: fed,
             club: club,
+            # BOTH, because this is a raw insert and `Player.changeset/2` is
+            # what normally folds one into the other. Without `categories`
+            # the player carries an override for a tag they do not have, so
+            # `Categories.pairing_category/2` correctly refuses it and the
+            # published `category` is null - a state the migration cannot
+            # produce and no changeset will write, but one this fixture was
+            # quietly publishing into the contract OpenResults reads.
             category: category,
+            categories: if(category in [nil, ""], do: [], else: [category]),
             sex: if(no in [5, 6, 7, 10], do: "w", else: "m"),
             # The personal data the contract keeps out. Loaded onto every
             # player, not just one, so a leak of any single row is caught.
