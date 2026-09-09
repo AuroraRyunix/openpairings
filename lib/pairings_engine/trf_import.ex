@@ -394,6 +394,7 @@ defmodule PairingsEngine.TrfImport do
 
       warnings =
         points_warnings(tournament, data.players, players_by_rank) ++
+          unknown_result_warnings(data) ++
           notes ++ acceleration_notes ++ verification_warnings(data, paired)
 
       {:ok, tournament, warnings}
@@ -839,8 +840,27 @@ defmodule PairingsEngine.TrfImport do
   # through its own importer.
   @playing_codes Trf.playing_codes()
 
+  # `?` - ITDX's unknown-result code, which Ainalrami reads since v0.25.0 -
+  # is deliberately NOT in `playing_codes/0`: that list says what may be
+  # WRITTEN, and nothing here may write a result nobody knows. But it must
+  # count as a GAME here, and the comment above says exactly why. When
+  # `W`/`D`/`L` were missing from this guard they stopped being games, fell
+  # through to `single_sided/2`, and were reinterpreted as byes - losing the
+  # opponent. `?` would have gone further: `single_sided/2` has three
+  # clauses and no fallback, so it raises FunctionClauseError on an
+  # arbiter's file, mid-import.
+  #
+  # A `?` entry names an opponent, so who played whom IS known and is worth
+  # keeping. Only the result is missing, and `result_string/2` answers that
+  # with "" - no result recorded - rather than inventing one. The arbiter is
+  # told, in `unknown_result_warnings/1`; silently importing a blank would
+  # make a file that admits it lost a scoresheet indistinguishable from one
+  # whose round has not been played yet.
+  @unknown_code Trf.result_codes()[:unknown]
+  @game_codes [@unknown_code | @playing_codes]
+
   defp mutual_opponent(p, %{result: result, opponent_rank: opp_rank}, by_rank)
-       when result in @playing_codes and not is_nil(opp_rank) do
+       when result in @game_codes and not is_nil(opp_rank) do
     with {opp, opp_g} <- Map.get(by_rank, opp_rank),
          true <- opp.rank != p.rank,
          true <- opp_g.opponent_rank == p.rank,
@@ -885,6 +905,13 @@ defmodule PairingsEngine.TrfImport do
   defp result_string("+", _), do: "1-0FF"
   defp result_string("-", "+"), do: "0-1FF"
   defp result_string("-", "-"), do: "0-0FF"
+
+  # Both seats say `?` or the file is not one this app can read - the engine
+  # refuses `?` against anything else, since knowing one seat is knowing the
+  # other. Explicit rather than left to the catch-all below: the empty
+  # string here is a decision (the game happened, the result is not known),
+  # not a fallthrough.
+  defp result_string(@unknown_code, @unknown_code), do: ""
   defp result_string(_, _), do: ""
 
   # A round entry that never resolves to a real, mutual opponent this round:
@@ -1254,6 +1281,39 @@ defmodule PairingsEngine.TrfImport do
   # on some field shape nobody has met yet cannot take the import down with
   # it. Same reasoning, and the same shape, as `PairingsEngine.Pairing`'s
   # own `alternatives/6`.
+  # A file that says `?` is saying a game was played and its result is lost.
+  # That is a statement, and it does not survive the import: this app has no
+  # way to record "unknown" as distinct from "not entered yet", so both look
+  # like a blank result on the pairings page. The pairing itself is kept -
+  # who played whom is not in doubt - and the arbiter is told which rounds
+  # need a scoresheet rather than being left to notice the gaps.
+  defp unknown_result_warnings(data) do
+    rounds =
+      for player <- data.players,
+          {game, index} <- Enum.with_index(player[:games] || [], 1),
+          game[:result] == @unknown_code,
+          do: index
+
+    case Enum.sort(Enum.uniq(rounds)) do
+      [] ->
+        []
+
+      [one] ->
+        [
+          "Round #{one} carries a result the file records as not known (`?`). " <>
+            "The pairing was imported; the result was left blank."
+        ]
+
+      many ->
+        [
+          "Rounds #{Enum.join(many, ", ")} carry results the file records as " <>
+            "not known (`?`). The pairings were imported; the results were left blank."
+        ]
+    end
+  rescue
+    _ -> []
+  end
+
   defp verification_warnings(_data, paired) when paired < 1, do: []
 
   defp verification_warnings(data, paired) do

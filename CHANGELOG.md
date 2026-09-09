@@ -16,6 +16,24 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.52.0] - 2026-09-09
 
+- [Feature] **`?`, the ITDX unknown-result code, is read on import.** The
+  letter sent to FIDE TEC on 2026-09-08 makes exactly one commitment - "We
+  will implement `?`" - and this is the application half of it; Ainalrami
+  v0.25.0 is the other. A file that records a game as played with its result
+  lost now imports as a real board with both players on it and no result,
+  and the import warns which rounds those were. It is read but never
+  written: a code you can type is a placeholder waiting to be used for "not
+  entered yet", which is what a blank already says.
+
+  The interesting part is what it would have done instead. `?` is
+  deliberately absent from the engine's `playing_codes/0`, so the importer's
+  game test would not have matched it and the entry would have fallen
+  through to the single-sided path - which has three clauses and no
+  fallback, and raises on an arbiter's file mid-import. That is the same
+  drift that once turned `W`/`D`/`L` games into byes, recorded in that
+  file's own comments. The test for this reverts the guard and watches it
+  happen.
+
 Fourteen findings from the 2026-09-05 audit, closed together: the log that
 held live login tokens, three crashes that share one root cause, and a page
 anybody can reach that cost the server a copy of itself per upload.

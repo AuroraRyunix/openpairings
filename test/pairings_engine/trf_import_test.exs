@@ -646,6 +646,66 @@ defmodule PairingsEngine.TrfImportTest do
   # which is exactly how the earlier "opponentless bye" bug surfaced while
   # verifying this by hand) - mirrors the `place_col/3` the parser's own
   # tests use, now in Ainalrami's `test/ainalrami/trf_test.exs`.
+  describe "a result the file records as not known" do
+    # `?` is ITDX's unknown-result code, which the letter sent to FIDE TEC on
+    # 2026-09-08 commits this software to supporting. Ainalrami reads it as of
+    # v0.25.0 and deliberately keeps it out of `playing_codes/0`, because that
+    # list says what may be WRITTEN. Nothing here may write a result nobody
+    # knows - but this importer has to recognise it as a GAME, or it repeats
+    # the `W`/`D`/`L` drift documented in `trf_import.ex`: a code missing from
+    # that guard stops being a game and is reinterpreted as a bye, losing the
+    # opponent. `?` would have gone one worse and raised FunctionClauseError
+    # in `single_sided/2`, which has no fallback clause.
+    test "keeps the pairing, leaves the result blank, and says so" do
+      scope = user_scope()
+
+      lines = [
+        trf06_player_line(1, "Alpha, One", "0.0", {2, "w", "?"}, nil),
+        trf06_player_line(2, "Bravo, Two", "0.0", {1, "b", "?"}, nil)
+      ]
+
+      trf = Enum.join(lines, "\r\n") <> "\r\n"
+
+      assert {:ok, tournament, warnings} = TrfImport.import_text(trf, scope)
+
+      round =
+        tournament.id |> Tournaments.list_rounds() |> hd() |> Repo.preload(:pairings)
+
+      # One real board with two seats - NOT a bye, which is what a code
+      # missing from the game guard silently becomes.
+      assert [pairing] = round.pairings
+      refute is_nil(pairing.white_player_id)
+      refute is_nil(pairing.black_player_id)
+
+      # And no result invented for it. "" is this app's "not recorded".
+      assert pairing.result in [nil, ""]
+
+      assert Enum.any?(warnings, &(&1 =~ "not known"))
+    end
+
+    test "an ordinary result in the same file is untouched" do
+      scope = user_scope()
+      # The control. A change to the game guard that broke normal imports
+      # would still pass the test above.
+      lines = [
+        trf06_player_line(1, "Alpha, One", "1.0", {2, "w", "1"}, nil),
+        trf06_player_line(2, "Bravo, Two", "0.0", {1, "b", "0"}, nil)
+      ]
+
+      trf = Enum.join(lines, "\r\n") <> "\r\n"
+
+      assert {:ok, tournament, warnings} = TrfImport.import_text(trf, scope)
+
+      round =
+        tournament.id |> Tournaments.list_rounds() |> hd() |> Repo.preload(:pairings)
+
+      assert [pairing] = round.pairings
+      assert pairing.result == "1-0"
+
+      refute Enum.any?(warnings, &(&1 =~ "not known"))
+    end
+  end
+
   defp place_trf_col(line, position, text) do
     text = to_string(text)
     needed = position - 1 + String.length(text)
