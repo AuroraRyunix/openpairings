@@ -68,6 +68,7 @@ defmodule PairingsEngine.PlayerExport do
     {:club, "Club", :text},
     {:club_number, "Club number", :plain},
     {:category, "Category", :text},
+    {:categories, "Categories", :text},
     {:status, "Status", :text},
     {:paid, "Paid", :text},
     {:affiliated, "Affiliated", :plain},
@@ -215,6 +216,12 @@ defmodule PairingsEngine.PlayerExport do
   defp value(%Player{} = p, :elo_used) do
     if p.fide_rating && p.fide_rating > 0, do: p.fide_rating, else: p.national_rating
   end
+
+  # The whole set, semicolon-separated so a category name containing a comma
+  # cannot look like two. The existing "Category" column beside it keeps its
+  # name and its meaning - a spreadsheet somebody has a macro against must
+  # not change shape - and holds the pairing category as it always did.
+  defp value(%Player{} = p, :categories), do: Enum.join(p.categories || [], "; ")
 
   defp value(%Player{} = p, :birth_date) do
     case p.birth_date do

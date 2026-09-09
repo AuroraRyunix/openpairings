@@ -450,6 +450,67 @@ defmodule PairingsEngine.TournamentImportTest do
     assert Tournaments.list_tournaments(importer) == []
   end
 
+  describe "a player's categories cross the backup boundary" do
+    defp category_tournament(owner) do
+      Repo.insert!(%Tournament{
+        name: "Category Round Trip",
+        type: "swiss",
+        rounds_count: 4,
+        user_id: owner.user.id,
+        categories_enabled: true,
+        categories: ["Open", "Women"]
+      })
+    end
+
+    test "a player in several categories comes back in all of them" do
+      owner = user_scope()
+      importer = user_scope()
+      original = category_tournament(owner)
+
+      {:ok, _} =
+        Tournaments.create_player(original.id, %{
+          "name" => "Both",
+          "category" => "Women",
+          "categories" => ["Open", "Women"]
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      [player] = Tournaments.list_players(imported.id)
+      assert player.categories == ["Open", "Women"]
+      assert player.category == "Women"
+    end
+
+    test "a backup written before the field existed restores fully, not half" do
+      owner = user_scope()
+      importer = user_scope()
+      original = category_tournament(owner)
+
+      {:ok, _} =
+        Tournaments.create_player(original.id, %{"name" => "Legacy", "category" => "Open"})
+
+      # An envelope from an older release: it carries `category` and knows
+      # nothing about `categories`. Without the changeset folding the one
+      # into the other, this player would restore with an empty set - and
+      # `Categories.pairing_category/2`, which honours the override only
+      # while the player still carries it, would move them to the
+      # Uncategorized pool without a word.
+      envelope =
+        original
+        |> TournamentExport.export_tournament()
+        |> update_in(["tournaments", Access.at(0), "players"], fn players ->
+          Enum.map(players, &Map.delete(&1, "categories"))
+        end)
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      [player] = Tournaments.list_players(imported.id)
+      assert player.category == "Open"
+      assert player.categories == ["Open"]
+    end
+  end
+
   describe "fields that used to be silently dropped now survive the round trip" do
     test "the pairing shape (system, cycles, match format, categories) comes back intact" do
       owner = user_scope()

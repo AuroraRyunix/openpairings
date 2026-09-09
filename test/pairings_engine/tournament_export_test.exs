@@ -47,6 +47,13 @@ defmodule PairingsEngine.TournamentExportTest do
   # rather than being dropped in silence: the audit trail is the arbiter's
   # evidence and the collaborator list is who may touch the event, and both
   # are worse things to lose quietly than a tiebreak setting.
+  #
+  # Player and Team were the last two holes, and the widest: a `players`
+  # column is the ONE thing a backup cannot afford to drop, because it is the
+  # roster. They were added when `players.categories` was, and the field was
+  # deliberately left off `@player_fields` first to watch this fail - it
+  # named `categories` as unaccounted for, which is exactly the wall it
+  # exists to be.
   defp guarded_schemas do
     [
       {Tournament, TournamentExport.tournament_fields(),
@@ -56,6 +63,10 @@ defmodule PairingsEngine.TournamentExportTest do
        "@round_fields / @round_excluded"},
       {Pairing, pairing_exported_fields(), TournamentExport.pairing_excluded(),
        "pairing_map/1 / @pairing_excluded"},
+      {Player, TournamentExport.player_fields(), TournamentExport.player_excluded(),
+       "@player_fields / @player_excluded"},
+      {Team, TournamentExport.team_fields(), TournamentExport.team_excluded(),
+       "@team_fields / @team_excluded"},
       {AuditLog, TournamentExport.audit_fields(), TournamentExport.audit_excluded(),
        "@audit_fields / @audit_excluded"},
       {Collaborator, TournamentExport.collaborator_fields(),

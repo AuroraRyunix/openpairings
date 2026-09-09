@@ -29,6 +29,77 @@ defmodule PairingsEngine.PairingRationaleTest do
     assert PairingRationale.for_round(t, 1) == nil
   end
 
+  ## ---------- the board's category label is the pool it was paired in ----------
+
+  describe "category_for/2 (the board tag on a pair_by_category round)" do
+    # Two places used to answer "which category is this player in?"
+    # separately: `Pairing.category_groups/2` checked membership of the
+    # tournament's list and pooled anything else as Uncategorized, while this
+    # module printed `player.category` raw. So a player carrying a name the
+    # tournament does not list was PAIRED in Uncategorized and LABELLED with
+    # the unlisted name, on the page whose entire job is explaining the
+    # pairing. Both now ask `PairingsEngine.Categories`.
+    setup do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Cat labels",
+          type: "swiss",
+          rounds_count: 3,
+          categories: ["A"],
+          categories_enabled: true,
+          pair_by_category: true
+        })
+
+      {:ok, tournament: t}
+    end
+
+    defp cat_player(t, name, attrs) do
+      {:ok, p} =
+        Tournaments.create_player(
+          t.id,
+          Map.merge(%{"name" => name, "fide_rating" => 1500}, attrs)
+        )
+
+      p
+    end
+
+    defp board_categories(t) do
+      {:ok, _round} = Pairing.pair_next_round(t)
+      t |> PairingRationale.for_round(1) |> Map.fetch!(:boards) |> Enum.map(& &1.category)
+    end
+
+    test "a player whose category the tournament does not list is labelled Uncategorized", %{
+      tournament: t
+    } do
+      cat_player(t, "Ghost 1", %{"category" => "Z"})
+      cat_player(t, "Ghost 2", %{"category" => "Z"})
+
+      assert board_categories(t) == ["Uncategorized"]
+    end
+
+    test "a listed category is still labelled by name", %{tournament: t} do
+      cat_player(t, "A 1", %{"category" => "A"})
+      cat_player(t, "A 2", %{"category" => "A"})
+
+      assert board_categories(t) == ["A"]
+    end
+
+    test "a player with several categories is labelled with the one they were pooled in", %{
+      tournament: t
+    } do
+      {:ok, t} = Tournaments.update_tournament(t, %{"categories" => ["A", "B"]})
+
+      cat_player(t, "Both 1", %{"categories" => ["A", "B"]})
+      cat_player(t, "Both 2", %{"categories" => ["A", "B"]})
+      cat_player(t, "B only 1", %{"categories" => ["B"]})
+      cat_player(t, "B only 2", %{"categories" => ["B"]})
+
+      # The two "both" players derive to A (first in list order), so A and B
+      # are one board each - never one player on two boards.
+      assert Enum.sort(board_categories(t)) == ["A", "B"]
+    end
+  end
+
   ## ---------- round robin: deterministic Berger explanation ----------
 
   test "for_round/2 explains a round-robin round as a Berger schedule slot" do

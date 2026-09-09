@@ -522,6 +522,17 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(:not_owner),
     do: gettext("Only the owner of this tournament can do that.")
 
+  # A category write naming something that is not one of the tournament's
+  # categories. In practice this means the page was open while somebody else
+  # removed the category, so the remedy is a reload rather than anything the
+  # arbiter has to fix - and the atom fallback's "unknown category" would
+  # have said neither.
+  def error_text(:unknown_category),
+    do:
+      gettext(
+        "That category is not one of this tournament's - it may have just been removed on the Categories page. Reload and try again."
+      )
+
   # A permanent delete that was refused because the tournament is still up on
   # the results site and could not be taken down. The server's own words are
   # carried through rather than summarised - "connection timed out" and "the

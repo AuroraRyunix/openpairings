@@ -47,6 +47,41 @@ defmodule PairingsEngine.PlayerStats do
         category_rules,
         current_year \\ Date.utc_today().year
       ) do
+    case assign_categories(player, category_order, category_rules, current_year) do
+      [] -> ""
+      [first | _rest] -> first
+    end
+  end
+
+  @doc """
+  Every category `player` qualifies for under `category_rules`, in
+  `category_order`, rather than only the one that wins.
+
+  This is the same computation `assign_category/4` has always done - one
+  tightest match per rule KIND - stopping one step earlier. The collapse to
+  a single name was never a decision about what the player is; it was a
+  decision forced by there being one column to write it to. A player who is
+  under an Elo ceiling AND under an age ceiling really does belong to both
+  brackets, and both are prize lists somebody has to produce.
+
+  `assign_category/4` is now this list's head, so "the winner" keeps
+  meaning exactly what it did: first in `category_order`, which is the
+  arbiter's own order on the Categories page.
+
+  A category with no rule is never returned here - it stays a name the
+  arbiter assigns by hand, and a rule-driven re-run must not claim it.
+
+      iex> rules = %{"-1200" => %{"kind" => "elo_below", "value" => 1200}, "U16" => %{"kind" => "age_below", "value" => 16}}
+      iex> player = %PairingsEngine.Tournaments.Player{fide_rating: 1000, national_rating: 0, birth_year: 2015}
+      iex> PairingsEngine.PlayerStats.assign_categories(player, ["-1200", "U16"], rules, 2026)
+      ["-1200", "U16"]
+  """
+  def assign_categories(
+        %Player{} = player,
+        category_order,
+        category_rules,
+        current_year \\ Date.utc_today().year
+      ) do
     rating = Player.rating(player)
     age = if player.birth_year, do: current_year - player.birth_year, else: nil
     order_index = category_order |> Enum.with_index() |> Map.new()
@@ -58,13 +93,8 @@ defmodule PairingsEngine.PlayerStats do
     |> Enum.map(fn {_kind, matches} ->
       Enum.min_by(matches, fn {_n, r} -> tightness_key(r) end)
     end)
-    |> case do
-      [] ->
-        ""
-
-      candidates ->
-        candidates |> Enum.min_by(fn {name, _r} -> Map.fetch!(order_index, name) end) |> elem(0)
-    end
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.sort_by(&Map.fetch!(order_index, &1))
   end
 
   # An unrated player (rating 0 - `Player.rating/1` never returns a

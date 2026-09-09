@@ -37,7 +37,7 @@ defmodule PairingsEngineWeb.PrintController do
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{Tournaments, Keizer, PairingDisplay, PlayerCard, Standings}
+  alias PairingsEngine.{Tournaments, Categories, Keizer, PairingDisplay, PlayerCard, Standings}
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
   import Phoenix.HTML, only: [html_escape: 1, safe_to_string: 1]
@@ -447,7 +447,7 @@ defmodule PairingsEngineWeb.PrintController do
 
   defp player_list_value(:aff, p, _current_round), do: if(p.affiliated, do: "", else: "N")
   defp player_list_value(:nr, p, _current_round), do: blank_zero(p.pairing_number)
-  defp player_list_value(:cat, p, _current_round), do: esc(p.category)
+  defp player_list_value(:cat, p, _current_round), do: esc(Enum.join(p.categories || [], ", "))
   defp player_list_value(:title, p, _current_round), do: esc(p.title)
   defp player_list_value(:birth_year, p, _current_round), do: blank_zero(p.birth_year)
   # Stored internally as "m"/"w" (see PlayersLive.normalize_fide_sex/1) -
@@ -927,7 +927,7 @@ defmodule PairingsEngineWeb.PrintController do
     has_categories = tournament.categories != []
     cat_header = if has_categories, do: "<th>#{gettext("Category")}</th>", else: ""
 
-    rows = Enum.map_join(entries, "", &keizer_standings_row(&1, has_categories))
+    rows = Enum.map_join(entries, "", &keizer_standings_row(&1, tournament, has_categories))
 
     main_table =
       "<table><thead><tr>#{standings_head_cells()}" <>
@@ -952,7 +952,7 @@ defmodule PairingsEngineWeb.PrintController do
       Enum.map_join(entries, "", fn e ->
         cat_cell =
           if has_categories,
-            do: "<td>#{esc(category_or_dash(e.player.category))}</td>",
+            do: "<td>#{esc(category_or_dash(categories_text(tournament, e.player)))}</td>",
             else: ""
 
         standings_row(e, tournament, cat_cell)
@@ -969,13 +969,17 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
+  # Membership, not equality. A player who is both a junior and a woman
+  # belongs on both prize lists, and this is the surface the whole feature
+  # exists for: the equality test that used to be here is what put her on
+  # exactly one of the two tables she had won.
   defp category_standings_tables(entries, tournament) do
     tb_headers = Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
 
     Enum.map_join(tournament.categories, "", fn category ->
       rows =
         entries
-        |> Enum.filter(&(&1.player.category == category))
+        |> Enum.filter(&Categories.in_category?(&1.player, category))
         |> Enum.map_join("", &standings_row(&1, tournament))
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
@@ -988,8 +992,8 @@ defmodule PairingsEngineWeb.PrintController do
     Enum.map_join(tournament.categories, "", fn category ->
       rows =
         entries
-        |> Enum.filter(&(&1.player.category == category))
-        |> Enum.map_join("", &keizer_standings_row(&1, false))
+        |> Enum.filter(&Categories.in_category?(&1.player, category))
+        |> Enum.map_join("", &keizer_standings_row(&1, nil, false))
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
         "<table><thead><tr>#{standings_head_cells()}" <>
@@ -1011,10 +1015,13 @@ defmodule PairingsEngineWeb.PrintController do
       "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}#{cat_cell}</tr>"
   end
 
-  defp keizer_standings_row(e, has_categories) do
+  # `tournament` is nil for the per-category tables below, which never show
+  # the column - they are already titled with the category, so repeating it
+  # in every row would be noise.
+  defp keizer_standings_row(e, tournament, has_categories) do
     cat_cell =
       if has_categories,
-        do: "<td>#{esc(category_or_dash(e.player.category))}</td>",
+        do: "<td>#{esc(category_or_dash(categories_text(tournament, e.player)))}</td>",
         else: ""
 
     "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
@@ -1034,6 +1041,12 @@ defmodule PairingsEngineWeb.PrintController do
   defp category_or_dash(nil), do: "-"
   defp category_or_dash(""), do: "-"
   defp category_or_dash(category), do: category
+
+  # Every category the player is in, in the tournament's own order, as one
+  # cell. A set has no order of its own, so imposing the arbiter's is the
+  # only reading that is the same from one printout to the next.
+  defp categories_text(tournament, player),
+    do: tournament |> Categories.listed_categories(player) |> Enum.join(", ")
 
   def result_cards(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)

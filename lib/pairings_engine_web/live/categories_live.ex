@@ -258,6 +258,18 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
+  # Deliberately does not touch a single player row.
+  #
+  # A removed category left on a player is inert everywhere it could matter:
+  # `PairingsEngine.Categories.pairing_category/2` only ever returns a name
+  # the tournament still lists, so an unlisted one cannot decide a pairing
+  # pool, and `listed_categories/2` filters it out of every display and
+  # printed table. So stripping it from the roster would buy no correctness
+  # and cost the assignments outright - a settings edit that silently
+  # rewrote several hundred player rows, with nothing to undo it.
+  #
+  # Leaving them means re-adding the name brings the assignments back, which
+  # is the closest thing this page has to an undo for a mis-click.
   def handle_event("remove_category", %{"name" => name}, socket) do
     categories = List.delete(socket.assigns.tournament.categories || [], name)
     category_rules = Map.delete(socket.assigns.tournament.category_rules, name)
@@ -276,15 +288,21 @@ defmodule PairingsEngineWeb.CategoriesLive do
   end
 
   # "Assign categories" - SWAR-style bulk rule application, same pattern as
-  # the extra-points bands button: overwrites every player's category from
-  # `tournament.category_rules`. Step 1 is a dry run: compute the same
+  # the extra-points bands button: applies `tournament.category_rules` to
+  # every player, replacing the categories the rules own and leaving
+  # hand-set ones alone (see `Tournaments.auto_assign_categories/1` for why
+  # that is now narrower than it used to be). Step 1 is a dry run: compute the same
   # decisions `auto_assign_categories/1` would make (via
   # `preview_auto_assign_categories/1`, so preview and apply can never
   # disagree) without writing anything, and show the arbiter a before/after
   # diff to confirm. Nothing is persisted until `apply_category_confirm`.
   def handle_event("assign_categories", _params, socket) do
     preview = Tournaments.preview_auto_assign_categories(socket.assigns.tournament)
-    changes = Enum.filter(preview, fn %{from: from, to: to} -> from != to end)
+
+    changes =
+      Enum.filter(preview, fn c ->
+        c.from != c.to or c.from_category != c.to_category
+      end)
 
     if changes == [] do
       {:noreply,
@@ -527,7 +545,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
             <h2>{gettext("Assign categories?")}</h2>
             <p>
               {gettext(
-                "Applying the threshold rules would move %{changed} of %{total} players to a different category. Players with no change are omitted below.",
+                "Applying the threshold rules would change the categories of %{changed} of %{total} players. Categories with no rule are left alone. Players with no change are omitted below.",
                 changed: length(@category_confirm.changes),
                 total: @category_confirm.total
               )}
@@ -541,13 +559,20 @@ defmodule PairingsEngineWeb.CategoriesLive do
                     <th>{gettext("Player")}</th>
                     <th>{gettext("From")}</th>
                     <th>To</th>
+                    <th>{gettext("Pairing pool")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr :for={change <- @category_confirm.changes}>
                     <td>{change.player.name}</td>
-                    <td>{empty_dash(change.from)}</td>
-                    <td>{empty_dash(change.to)}</td>
+                    <td>{empty_dash(Enum.join(change.from, ", "))}</td>
+                    <td>{empty_dash(Enum.join(change.to, ", "))}</td>
+                    <%!-- The pairing pool is single-valued and changes on its
+                          own rules, so it gets its own column rather than
+                          being folded into the set it is drawn from. --%>
+                    <td>
+                      {empty_dash(change.from_category)} → {empty_dash(change.to_category)}
+                    </td>
                   </tr>
                 </tbody>
               </table>

@@ -27,7 +27,7 @@ defmodule PairingsEngine.Pairing do
 
   import Ecto.Query
   require Logger
-  alias PairingsEngine.{Repo, Standings, Tournaments, Exclusions}
+  alias PairingsEngine.{Repo, Standings, Tournaments, Exclusions, Categories}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
   # The app has one TRF16 implementation and it lives in the engine. There
@@ -718,21 +718,27 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
+  # A player can carry several categories, but only one of them can pool
+  # them here - three pools would mean three opponents in one round. Which
+  # one is `PairingsEngine.Categories.pairing_category/2`'s answer and
+  # nothing else's; this used to compare `player.category` to each name
+  # itself, and the pairing-explanation page derived the same fact its own
+  # way, which is how the label and the pool came to disagree.
+  #
+  # Still a partition: every player yields exactly one value, and the values
+  # are `tournament.categories ++ [""]`.
   defp category_groups(tournament, players) do
     named_categories = tournament.categories || []
-    named_set = MapSet.new(named_categories)
+    pool_by_player_id = Map.new(players, &{&1.id, Categories.pairing_category(tournament, &1)})
 
     named_groups =
       Enum.map(named_categories, fn cat_name ->
-        {cat_name, Enum.filter(players, &(&1.category == cat_name))}
+        {cat_name, Enum.filter(players, &(Map.fetch!(pool_by_player_id, &1.id) == cat_name))}
       end)
 
     # Blank/unlisted category players still get paired - as their own
     # "Uncategorized" pool, deliberately not excluded from pairing.
-    uncategorized =
-      Enum.filter(players, fn p ->
-        p.category in [nil, ""] or not MapSet.member?(named_set, p.category)
-      end)
+    uncategorized = Enum.filter(players, &(Map.fetch!(pool_by_player_id, &1.id) == ""))
 
     (named_groups ++ [{"Uncategorized", uncategorized}])
     |> Enum.reject(fn {_name, group} -> group == [] end)

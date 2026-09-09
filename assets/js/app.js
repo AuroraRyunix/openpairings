@@ -63,6 +63,51 @@ const CELL_MENUS = {
     items: [["Paid", "paid"], ["Not paid", "nopaid"], ["Gratis", "gratis"]],
     bulkItems: [["All Paid", "paid"], ["All Not paid", "nopaid"], ["All Gratis", "gratis"]],
   },
+  // Prize categories. The first of these three whose items cannot be a
+  // literal: the categories belong to the tournament, so the list has to be
+  // read out of the DOM at open time. `data-categories` on the grid is the
+  // vocabulary, `data-tags` on the cell is that one player's set.
+  //
+  // A player is in SEVERAL, so every item is a toggle of ONE name and the
+  // rest of the set is left alone -- a menu that replaced the whole set
+  // would be the multi-value column pretending to be single-valued again.
+  //
+  // The header menu carries the two things a multi-valued column can be
+  // ordered by honestly, and neither is "sort by categories": grouping on
+  // whether a player carries one (a boolean, so a real order) and filtering
+  // to one (not a sort at all -- it changes which rows exist). Left click on
+  // the header still sorts, by the single pairing category.
+  cat: {
+    event: "toggle_category",
+    bulkEvent: "set_all_category",
+    dynamic: true,
+    items: (categories, tags) =>
+      categories.map((c) =>
+        tags.includes(c)
+          ? [`Remove ${c}`, {name: c, value: "false"}]
+          : [`Add ${c}`, {name: c, value: "true"}]
+      ),
+    bulkItems: (categories) => [
+      ...categories.flatMap((c) => [
+        [`Group by ${c}`, {sort: "cat:" + c}],
+        [`Show only ${c}`, {filter: c}],
+        [`Add ${c} to everyone`, {name: c, value: "true"}],
+        [`Remove ${c} from everyone`, {name: c, value: "false"}],
+      ]),
+      ["Show all rows", {filter: ""}],
+      ["Sort by pairing category", {sort: "cat"}],
+    ],
+  },
+}
+
+function readJsonAttr(el, name) {
+  if (!el) return []
+  try {
+    const parsed = JSON.parse(el.dataset[name] || "[]")
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 const CELL_MENU_COLS = Object.keys(CELL_MENUS)
@@ -152,13 +197,26 @@ const PlayerGrid = {
     popup.style.left = `${x}px`
     popup.style.top = `${y}px`
 
-    for (const [label, value] of bulk ? menu.bulkItems : menu.items) {
+    const items = menu.dynamic
+      ? this.dynamicCellMenuItems(menu, col, bulk, playerId)
+      : bulk
+        ? menu.bulkItems
+        : menu.items
+
+    for (const [label, value] of items) {
       const btn = document.createElement("button")
       btn.type = "button"
       btn.className = "print-menu-item"
       btn.textContent = label
       btn.addEventListener("click", () => {
-        if (bulk) {
+        // A dynamic entry's value is already the whole payload (it names
+        // which category, and whether this is a sort, a filter or a write);
+        // a static one is a bare value the server reads as `value`.
+        if (typeof value === "object") {
+          if ("sort" in value) this.pushEvent("sort", {key: value.sort})
+          else if ("filter" in value) this.pushEvent("filter_category", {name: value.filter})
+          else this.pushEvent(bulk ? menu.bulkEvent : menu.event, bulk ? value : {id: playerId, ...value})
+        } else if (bulk) {
           this.pushEvent(menu.bulkEvent, {value})
         } else {
           this.pushEvent(menu.event, {id: playerId, value})
@@ -170,6 +228,21 @@ const PlayerGrid = {
 
     document.body.appendChild(popup)
     this.cellPopup = popup
+  },
+
+  // The tournament's own category names, and (for a row menu) that one
+  // player's set, read off the DOM the server rendered. Both are JSON
+  // attributes; a missing or malformed one degrades to an empty menu rather
+  // than throwing inside a contextmenu handler.
+  dynamicCellMenuItems(menu, col, bulk, playerId) {
+    const categories = readJsonAttr(this.el, "categories")
+    if (!categories.length) return []
+    if (bulk) return menu.bulkItems(categories)
+
+    const cell = this.el.querySelector(
+      `tr[data-player-id="${playerId}"] td[data-col="${col}"]`
+    )
+    return menu.items(categories, readJsonAttr(cell, "tags"))
   },
 
   closeCellMenu() {

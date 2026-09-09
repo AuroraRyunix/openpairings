@@ -107,6 +107,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
         club: "Chess Club A",
         pairing_number: 1,
         category: "-1800",
+        categories: ["-1800"],
         extra_points: 0.5
       })
 
@@ -116,7 +117,8 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
         pairing_number: 2,
         national_id: "5002",
         birth_year: 2005,
-        category: "-1100"
+        category: "-1100",
+        categories: ["-1100"]
       })
 
     c =
@@ -334,6 +336,52 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
 
     assert parsed.dates == ["2026-08-10", "2026-08-11", "2026-08-12"]
     assert parsed.tiebreaks == [1, 6, 8, 0, 0]
+  end
+
+  describe "one category per player on the wire" do
+    # SWAR carries ONE signed 32-bit category index per player and has no
+    # second slot, so what is written is the pairing category. The dangerous
+    # failure would have been silent: `Enum.find_index/2` matches no name
+    # against a list, `nil -> 0`, and every player in the file exports as
+    # uncategorised with no crash and no warning - a whole tournament's
+    # category assignment gone with nothing on screen to say so.
+    test "handing the writer a list raises instead of exporting zeros" do
+      assert_raise ArgumentError, ~r/one category per player/, fn ->
+        SwarExport.reverse_cat_index(["A", "B"], ["A", "B"])
+      end
+    end
+
+    test "a blank or unknown category is still a plain 0" do
+      assert SwarExport.reverse_cat_index("", ["A"]) == 0
+      assert SwarExport.reverse_cat_index(nil, ["A"]) == 0
+      assert SwarExport.reverse_cat_index("Ghost", ["A"]) == 0
+    end
+
+    test "a player in several categories exports the one they pair in" do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Multi",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          categories: ["-1100", "-1800", "Women"],
+          categories_enabled: true
+        })
+
+      # A player in both "-1800" and "Women" pairs in "-1800" - index 1 in
+      # the tournament's own list, so cat_index (1+1)*100 = 200.
+      {:ok, _} =
+        Tournaments.create_player(t.id, %{
+          "name" => "Multi Category",
+          "pairing_number" => 1,
+          "categories" => ["Women", "-1800"]
+        })
+
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+
+      multi = Enum.find(parsed.players, &(&1.name == "Multi Category"))
+      assert multi.cat_index == 200
+    end
   end
 
   test "categories round-trip into value1, with the leading blank slot", %{tournament: t} do

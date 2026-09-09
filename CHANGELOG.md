@@ -14,6 +14,62 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.53.0] - 2026-09-09
+
+- [Feature] **A player can be in several categories at once.** The same
+  person is a junior AND a woman AND a club member, and each of those is a
+  prize list somebody has to produce - but a player had exactly one
+  category, so the arbiter had to choose which prize the software would help
+  with. Now they carry a set. Prize lists, the printed per-category
+  standings, the Players grid and the published results all read all of
+  them.
+
+  Pairing cannot work that way, and that is the shape of the whole feature.
+  With "pair by category" on, each category is paired as an independent
+  tournament - its own engine call, its own bye - so a player in three
+  categories would be given three opponents in one round. Exactly one has to
+  win, and one function decides it, in one place, for the pairing partition
+  and every label that has to agree with it.
+
+  Nothing already recorded changes: every existing player's set is exactly
+  the category they had, backfilled in the same migration that adds the
+  column, so a round paired after the upgrade is the round that would have
+  been paired before it.
+
+- [Feature] **Sorting and filtering the Players grid by category.** Sorting
+  a multi-valued column has no honest answer, so the column does not pretend
+  to have one: clicking sorts by the pairing category, and right-clicking
+  offers one category at a time - "show only the U16s" - as a filter, which
+  changes which rows exist rather than their order. The right-click menu
+  toggles a single name and leaves the rest of a player's set alone.
+
+- [Fix] **An imported SWAR category was one too strong, and the last
+  category never received anybody.** SWAR stores a player's category index
+  one-based, with the first slot written as 100 (`Categories.cpp:737`); this
+  import divided by a hundred and stopped, which is one higher than the slot
+  it wanted. Found by reading SWAR's own source rather than by a bug report,
+  and invisible until now because every `.swar` fixture this project has
+  defines no categories at all, and because our own exporter writes a
+  leading blank that makes an export-import round trip agree with itself
+  while both halves are wrong. With "pair by category" on this was not a
+  label but a pairing pool.
+
+- [Fix] **The pairing-explanation page could name a category the pairing did
+  not use.** It labelled a board with whatever the player's category field
+  said, with no check that the tournament still lists it, while the pairing
+  itself pools an unlisted category as "Uncategorized". Both now ask the
+  same function, so the explanation and the pairing cannot disagree.
+
+- [Verified] **What SWAR's second category list means, settled from its
+  source.** `value2` is the second axis - age beside rating, or the reverse -
+  and for all four of SWAR's category types both lists hold numeric bounds
+  rather than names, which none of the three meanings previously guessed at
+  got right. The import still reads the first axis only, because SWAR renders
+  the pair as one label and a player here carries a name; the warning that
+  says so stays. Also confirmed correct as built: presence points on a
+  pairing-allocated bye, and the divide-by-four scale of the "3-2-1" point
+  values.
+
 ## [0.52.1] - 2026-09-09
 
 - [Fix] **The forced-unlock message named "the other machine" instead of the

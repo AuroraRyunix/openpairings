@@ -188,13 +188,37 @@ defmodule PairingsEngine.TournamentExport do
 
   @team_fields ~w(name captain)a
 
+  # A team's whole content is its name and its captain. `id` is carried
+  # outside the field list (`team_map/1` merges it in, because
+  # `import_teams!/3` needs it to re-attach players to the right team), and
+  # `tournament_id` is implied by the envelope's nesting - the same two
+  # exclusions, for the same two reasons, as a round's.
+  @team_excluded ~w(id tournament_id)a
+
   @player_fields ~w(
     name sex title fide_id fide_rating national_id national_rating
     federation birth_year birth_date club status start_round board_order
     pairing_number paid affiliated absent forfeit special_table
-    absent_rounds extra_points category club_number norm_data team_id
-    fixed_board manual_rank
+    absent_rounds extra_points category categories club_number norm_data
+    team_id fixed_board manual_rank
   )a
+
+  # The roster is the one thing a backup absolutely cannot lose, so the same
+  # coverage guard the Tournament/Round/Pairing lists have applies here:
+  # everything on the `players` schema is either exported above or named
+  # here with a reason.
+  #
+  #   id
+  #     Fresh on the far side. `player_map/1` does merge it in outside the
+  #     field list, for the same reason `round_map/1` does - the import needs
+  #     it to remap `pairings.white_player_id` / `black_player_id` - but the
+  #     restored row gets a new one.
+  #   tournament_id
+  #     Implied by the envelope's nesting, exactly as a round's is.
+  #   inserted_at, updated_at
+  #     Row bookkeeping, not tournament content. An imported player was
+  #     created by this import.
+  @player_excluded ~w(id tournament_id inserted_at updated_at)a
 
   @round_fields ~w(number date status published_at)a
 
@@ -384,6 +408,18 @@ defmodule PairingsEngine.TournamentExport do
 
   @doc false
   def round_fields, do: @round_fields
+
+  @doc false
+  def player_fields, do: @player_fields
+
+  @doc false
+  def player_excluded, do: @player_excluded
+
+  @doc false
+  def team_fields, do: @team_fields
+
+  @doc false
+  def team_excluded, do: @team_excluded
 
   @doc """
   Envelope wrapping a single tournament (caller is responsible for

@@ -2730,14 +2730,15 @@ defmodule PairingsEngine.TournamentsTest do
 
       assert Enum.sort(Enum.map(preview, & &1.player.id)) == Enum.sort([low.id, high.id])
 
-      assert %{from: "", to: "-1100"} =
+      assert %{from: [], to: ["-1100"], from_category: "", to_category: "-1100"} =
                Enum.find(preview, &(&1.player.id == low.id))
 
-      assert %{from: "", to: ""} =
+      assert %{from: [], to: [], from_category: "", to_category: ""} =
                Enum.find(preview, &(&1.player.id == high.id))
 
       # Read-only: the DB rows are untouched by the preview call.
       assert Repo.get!(Player, low.id).category == ""
+      assert Repo.get!(Player, low.id).categories == []
       assert Repo.get!(Player, high.id).category == ""
     end
 
@@ -2752,8 +2753,10 @@ defmodule PairingsEngine.TournamentsTest do
 
       assert {:ok, %{matched: 1, total: 2}} = Tournaments.auto_assign_categories(tournament)
 
-      assert Repo.get!(Player, low.id).category == Map.fetch!(predicted, low.id)
-      assert Repo.get!(Player, high.id).category == Map.fetch!(predicted, high.id)
+      assert Repo.get!(Player, low.id).categories == Map.fetch!(predicted, low.id)
+      assert Repo.get!(Player, high.id).categories == Map.fetch!(predicted, high.id)
+      assert Repo.get!(Player, low.id).category == "-1100"
+      assert Repo.get!(Player, high.id).category == ""
     end
 
     test "zero-change case: a roster already matching the rules stays unchanged and matched still counts it" do
@@ -2764,14 +2767,19 @@ defmodule PairingsEngine.TournamentsTest do
           tournament_id: tournament.id,
           name: "Low",
           fide_rating: 900,
-          category: "-1100"
+          category: "-1100",
+          categories: ["-1100"]
         })
 
       preview = Tournaments.preview_auto_assign_categories(tournament)
-      assert Enum.all?(preview, fn %{from: from, to: to} -> from == to end)
+
+      assert Enum.all?(preview, fn c ->
+               c.from == c.to and c.from_category == c.to_category
+             end)
 
       assert {:ok, %{matched: 1, total: 1}} = Tournaments.auto_assign_categories(tournament)
       assert Repo.get!(Player, low.id).category == "-1100"
+      assert Repo.get!(Player, low.id).categories == ["-1100"]
     end
   end
 

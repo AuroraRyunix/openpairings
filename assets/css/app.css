@@ -1423,6 +1423,11 @@ button.pe-btn, .pe-btn {
   border-radius: 6px;
   box-shadow: 0 6px 20px rgba(30, 25, 15, 0.12);
   padding: 4px;
+  /* The Cat column's menu is built from the tournament's own category list,
+     so its length is the arbiter's, not ours - four items per category runs
+     off the bottom of the screen on an event with a dozen prize groups. */
+  max-height: 70vh;
+  overflow-y: auto;
 }
 .print-menu-popup a,
 .print-menu-popup .print-menu-item {

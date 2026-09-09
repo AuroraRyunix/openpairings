@@ -103,8 +103,52 @@ defmodule PairingsEngine.SnapshotTest do
 
       for player <- snapshot["players"] do
         assert Map.keys(player) |> Enum.sort() ==
-                 ~w(category club federation fide_id name no rating title)
+                 ~w(categories category club federation fide_id name no rating title)
       end
+    end
+  end
+
+  describe "several categories per player" do
+    # `snapshot-schema.md` is additive only: `players[].category` is read by
+    # every already-published tournament, so it keeps meaning "this player's
+    # single category" and the set arrives beside it under a new key.
+    test "category stays the single pairing category and categories carries the set" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Tags",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          categories: ["Open", "Women"],
+          categories_enabled: true,
+          public_slug: "tags"
+        })
+
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Both",
+          "categories" => ["Women", "Open"],
+          "pairing_number" => 1
+        })
+
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{"name" => "Neither", "pairing_number" => 2})
+
+      players =
+        tournament.id
+        |> Tournaments.get_tournament!()
+        |> Snapshot.build()
+        |> Map.fetch!("players")
+        |> Map.new(&{&1["name"], &1})
+
+      both = players["Both"]
+      # Ordered by the tournament's own list, not the order they were stored.
+      assert both["categories"] == ["Open", "Women"]
+      assert both["category"] == "Open"
+
+      neither = players["Neither"]
+      assert neither["categories"] == []
+      assert neither["category"] == nil
     end
   end
 

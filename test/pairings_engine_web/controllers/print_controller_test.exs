@@ -485,9 +485,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       {:ok, tournament} =
         Tournaments.update_tournament(tournament, %{"categories" => ["Open", "Women"]})
 
-      a |> Ecto.Changeset.change(category: "Open") |> Repo.update!()
-      b |> Ecto.Changeset.change(category: "Women") |> Repo.update!()
-      c |> Ecto.Changeset.change(category: "Open") |> Repo.update!()
+      a |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+      b |> Ecto.Changeset.change(categories: ["Women"]) |> Repo.update!()
+      c |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
       Ecto.Changeset.change(d) |> Repo.update!()
 
       html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
@@ -505,6 +505,36 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       refute open_table =~ ">B<"
       assert women_and_after =~ "B"
       refute women_and_after =~ ">D<"
+    end
+
+    test "a player in two categories appears on both prize tables", %{conn: conn, scope: scope} do
+      # The reason the whole feature exists. The per-category tables used to
+      # be an equality test against one column, so a junior woman was on
+      # exactly one of the two prize lists she had won.
+      {tournament, %{a: a, b: b}} = fixture(scope)
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"categories" => ["Open", "Women"]})
+
+      a |> Ecto.Changeset.change(categories: ["Open", "Women"]) |> Repo.update!()
+      b |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      [_main, rest] = String.split(html, "Category: Open", parts: 2)
+      [open_table, women_table] = String.split(rest, "Category: Women", parts: 2)
+
+      # `<strong>` around the name, not the bare letter: these players are
+      # called "A" and "B", and every tiebreak header contains a B.
+      assert open_table =~ "<strong>#{a.name}</strong>"
+      assert open_table =~ "<strong>#{b.name}</strong>"
+
+      assert women_table =~ "<strong>#{a.name}</strong>"
+      refute women_table =~ "<strong>#{b.name}</strong>"
+
+      # And the main table's Category column lists both, in the tournament's
+      # own order rather than the order the row happens to hold.
+      assert html =~ "Open, Women"
     end
 
     test "a keizer tournament prints the ladder table (Value/Keizer pts/Score), not FIDE points/tiebreak columns",

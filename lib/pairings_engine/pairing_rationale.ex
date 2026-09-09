@@ -38,7 +38,7 @@ defmodule PairingsEngine.PairingRationale do
   """
 
   import Ecto.Query
-  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, PlayerCard}
+  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, PlayerCard, Categories}
   alias PairingsEngine.Tournaments.{Round, Player}
 
   @doc """
@@ -482,8 +482,23 @@ defmodule PairingsEngine.PairingRationale do
     }
   end
 
-  defp category_for(%{pair_by_category: true}, %Player{category: c}) when c not in [nil, ""],
-    do: c
+  # The board's category label, and it has to be the pool the player was
+  # ACTUALLY paired in. This used to read `player.category` raw with no
+  # membership check, while `Pairing.category_groups/2` pooled a player whose
+  # category the tournament no longer listed as "Uncategorized" - so a
+  # player carrying an unlisted name was paired in one pool and labelled with
+  # another, on the page whose whole job is explaining the pairing. Both
+  # sides now ask `PairingsEngine.Categories.pairing_category/2`.
+  #
+  # Only labelled at all when `pair_by_category` is on: without it there are
+  # no pools, and a category is a prize list rather than anything this page
+  # explains.
+  defp category_for(%{pair_by_category: true} = tournament, %Player{} = player) do
+    case Categories.pairing_category(tournament, player) do
+      "" -> "Uncategorized"
+      name -> name
+    end
+  end
 
   defp category_for(%{pair_by_category: true}, _player), do: "Uncategorized"
   defp category_for(_tournament, _player), do: nil

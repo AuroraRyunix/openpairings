@@ -49,8 +49,30 @@ defmodule PairingsEngine.Tournaments.Player do
     field :absent_rounds, :string, default: ""
     # SWAR XtPts
     field :extra_points, :float, default: 0.0
-    # SWAR player category
+    # The pairing-pool OVERRIDE, not "the player's category". A player can
+    # carry several categories (`categories` below); `pair_by_category` can
+    # only put them in one pool, so exactly one of those tags has to win.
+    # This field names which - and it is honoured only while it is still one
+    # of the player's tags AND still one of the tournament's categories, so a
+    # stale value self-heals into the derived answer rather than fighting it.
+    # `PairingsEngine.Categories.pairing_category/2` is the only reader that
+    # matters; nothing else should compare this to a category name directly.
+    #
+    # Still called `category` (singular) and still the SWAR wire field: SWAR
+    # carries one signed category index per player and has no second slot to
+    # put a tag in, so this is what a `.swar` round trip preserves.
     field :category, :string, default: ""
+
+    # Every category this player belongs to, as names drawn from the
+    # tournament's own `categories` list. Prize lists, filtering, the printed
+    # per-category standings tables - everything that is a LABEL rather than
+    # a pairing decision reads this. Order is not meaningful: it is a set,
+    # and the UI is careful never to sort on it as though it were not (see
+    # `PlayersLive`'s "cat" and "cat:<tag>" sort clauses).
+    #
+    # Stored as JSON in a TEXT column by the SQLite adapter, same as
+    # `tournaments.categories` has been since the SWAR admin fields landed.
+    field :categories, {:array, :string}, default: []
     # SWAR N° Club (club NAME stays in `club`)
     field :club_number, :integer
 
@@ -113,6 +135,7 @@ defmodule PairingsEngine.Tournaments.Player do
       :absent_rounds,
       :extra_points,
       :category,
+      :categories,
       :club_number,
       :norm_data,
       :birth_date,
@@ -126,6 +149,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_fixed_board()
     |> validate_team_in_tournament()
     |> normalize_absent_rounds()
+    |> normalize_categories()
     |> sync_special_table()
     |> validate_fide_id_range()
     |> unique_fide_id_in_tournament()
@@ -336,6 +360,60 @@ defmodule PairingsEngine.Tournaments.Player do
   # keeps its own value - the shape a database written by that older
   # importer still holds, and the one `TournamentImport` re-asserts
   # explicitly after the changeset so a backup can restore it verbatim.
+  # `categories` is a SET, and two things have to be true of it for
+  # `PairingsEngine.Categories.pairing_category/2` to mean what it says.
+  #
+  # It has to actually be a set: blanks dropped, whitespace trimmed,
+  # duplicates collapsed. Nothing downstream counts tags, but a list holding
+  # "Women" twice renders the chip twice and exports the name twice, and the
+  # cheapest place to make that impossible is before it is stored.
+  #
+  # And the pairing-pool override has to be IN it. `pairing_category/2`
+  # honours `category` only while the player still carries it, which is what
+  # stops a stale override from silently pairing someone in a pool the screen
+  # does not show - but that rule would also quietly demote every writer that
+  # sets `category` alone and knows nothing about tags: an old JSON backup, a
+  # `.swar` file, a caller written before this field existed. So a changeset
+  # that sets `category` and does NOT set `categories` folds the one into the
+  # other. Same shape, and the same reason, as `sync_special_table/1` below:
+  # the PRESENCE of the other key in the params is what says whether the
+  # writer had an opinion about it.
+  #
+  # A writer that sets both is left alone in both directions - that is the
+  # player dialog, where unticking a category is how an arbiter says the
+  # player is no longer in it, and re-adding it here would fight them.
+  defp normalize_categories(changeset) do
+    changeset =
+      case get_change(changeset, :categories) do
+        nil ->
+          changeset
+
+        categories ->
+          put_change(changeset, :categories, normalize_category_list(categories))
+      end
+
+    params = changeset.params || %{}
+    told_about_tags? = Map.has_key?(params, "categories") or Map.has_key?(params, :categories)
+    category = get_change(changeset, :category)
+
+    if not told_about_tags? and is_binary(category) and String.trim(category) != "" do
+      existing = get_field(changeset, :categories) || []
+      put_change(changeset, :categories, normalize_category_list(existing ++ [category]))
+    else
+      changeset
+    end
+  end
+
+  defp normalize_category_list(categories) when is_list(categories) do
+    categories
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  defp normalize_category_list(_other), do: []
+
   defp sync_special_table(changeset) do
     if Map.has_key?(changeset.params || %{}, "fixed_board") do
       put_change(changeset, :special_table, not is_nil(get_field(changeset, :fixed_board)))

@@ -81,7 +81,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   import Ecto.Query
   require Logger
 
-  alias PairingsEngine.{Encoding, Repo, Standings, Tournaments}
+  alias PairingsEngine.{Categories, Encoding, Repo, Standings, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Tournaments.Tournament
@@ -140,6 +140,16 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     round_records = build_round_records(players, rounds, ni_by_player_id)
     categories = tournament.categories |> Enum.take(16)
 
+    # Resolved here, where the tournament is still in scope, and threaded
+    # down as a ready-made map rather than as the category list plus a
+    # per-player lookup: SWAR has exactly one category slot per player, and
+    # the thing that decides which of a player's categories fills it lives
+    # in `PairingsEngine.Categories`, not in the writer.
+    cat_index_by_player_id =
+      Map.new(players, fn p ->
+        {p.id, reverse_cat_index(Categories.pairing_category(tournament, p), categories)}
+      end)
+
     w_str("v7.00") <>
       w_str(tournament.swar_guid) <>
       w_str("") <>
@@ -149,7 +159,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       reverse_exclusion() <>
       reverse_categories(categories) <>
       reverse_xtra_points() <>
-      reverse_joueurs(players, categories, ni_by_player_id, round_records)
+      reverse_joueurs(players, cat_index_by_player_id, ni_by_player_id, round_records)
   end
 
   ## ---------- Write primitives - the exact inverse of SwarImport's read_* ----------
@@ -456,18 +466,30 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     |> Map.new(fn {p, i} -> {p.id, i} end)
   end
 
-  defp reverse_joueurs(players, categories, ni_by_player_id, round_records) do
+  defp reverse_joueurs(players, cat_index_by_player_id, ni_by_player_id, round_records) do
     rank_by_player_id = assign_ranks(players)
 
     w_str("[JOUEURS]") <>
       w_i32(length(players)) <>
       w_n(
         players,
-        &reverse_player(&1, categories, ni_by_player_id, rank_by_player_id, round_records)
+        &reverse_player(
+          &1,
+          cat_index_by_player_id,
+          ni_by_player_id,
+          rank_by_player_id,
+          round_records
+        )
       )
   end
 
-  defp reverse_player(p, categories, ni_by_player_id, rank_by_player_id, round_records) do
+  defp reverse_player(
+         p,
+         cat_index_by_player_id,
+         ni_by_player_id,
+         rank_by_player_id,
+         round_records
+       ) do
     ni = Map.fetch!(ni_by_player_id, p.id)
     rank = Map.fetch!(rank_by_player_id, p.id)
     rounds = Map.get(round_records, p.id, [])
@@ -526,7 +548,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       w_str(p.name) <>
       w_i32(ni) <>
       w_i32(rank) <>
-      w_i32(reverse_cat_index(p.category, categories)) <>
+      w_i32(Map.fetch!(cat_index_by_player_id, p.id)) <>
       w_str(reverse_birth(p)) <>
       w_i32(reverse_sex(p.sex)) <>
       w_str(reverse_federation_code(p.federation)) <>
@@ -598,10 +620,30 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   defp reverse_handy_table(%{special_table: true}), do: 1
   defp reverse_handy_table(_p), do: 0
 
-  defp reverse_cat_index("", _categories), do: 0
-  defp reverse_cat_index(nil, _categories), do: 0
+  # SWAR carries ONE signed 32-bit category index per player and has no
+  # second slot, so what goes here is the pairing category - never a tag
+  # list. The caller resolves that (`Categories.pairing_category/2`), and
+  # this guard is here because getting it wrong would have been silent: the
+  # fallthrough below is `Enum.find_index/2`, a list argument matches no
+  # name, `nil -> 0`, and every player in the file exports as uncategorised
+  # with no crash and no warning. A tournament's whole category assignment
+  # gone, and nothing on screen to say so. Raising is the correct failure for
+  # a caller that hands this the wrong shape.
+  @doc false
+  # Public only so the guard can be tested directly. It is the one failure in
+  # this module that would have been completely silent, so a raise nobody has
+  # ever watched fire is not enough.
+  def reverse_cat_index(category, _categories) when not is_binary(category) and category != nil do
+    raise ArgumentError,
+          "SWAR carries one category per player - reverse_cat_index/2 needs the pairing " <>
+            "category (a string), got: #{inspect(category)}. Resolve it with " <>
+            "PairingsEngine.Categories.pairing_category/2 before calling."
+  end
 
-  defp reverse_cat_index(category, categories) do
+  def reverse_cat_index("", _categories), do: 0
+  def reverse_cat_index(nil, _categories), do: 0
+
+  def reverse_cat_index(category, categories) do
     case Enum.find_index(categories, &(&1 == category)) do
       nil -> 0
       index -> (index + 1) * 100

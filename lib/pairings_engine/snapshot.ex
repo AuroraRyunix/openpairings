@@ -47,7 +47,7 @@ defmodule PairingsEngine.Snapshot do
 
   ## Only the fields the contract lists may travel
 
-  `player_row/1` is a hand-written allowlist, never `Map.from_struct/1` or a
+  `player_row/2` is a hand-written allowlist, never `Map.from_struct/1` or a
   `Map.drop/2` of known-bad keys - a new personal-data column added to
   `players` must default to not being published, rather than defaulting to
   being published until somebody remembers to exclude it. Email, phone,
@@ -55,7 +55,16 @@ defmodule PairingsEngine.Snapshot do
   in the arbiter's database.
   """
 
-  alias PairingsEngine.{Keizer, PairingDisplay, PublicDisplay, Standings, Tiebreaks, Tournaments}
+  alias PairingsEngine.{
+    Categories,
+    Keizer,
+    PairingDisplay,
+    PublicDisplay,
+    Standings,
+    Tiebreaks,
+    Tournaments
+  }
+
   alias PairingsEngine.TiebreakWorking
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
@@ -104,7 +113,7 @@ defmodule PairingsEngine.Snapshot do
       "published_at" => now_iso8601(),
       "source" => %{"app" => "openpairings", "version" => app_version()},
       "tournament" => tournament_row(tournament),
-      "players" => Enum.map(players, &player_row/1),
+      "players" => Enum.map(players, &player_row(tournament, &1)),
       "rounds" => Enum.map(rounds, &round_row(&1, tournament, nos)),
       "standings" => standings(tournament, nos, after_round)
     }
@@ -212,7 +221,7 @@ defmodule PairingsEngine.Snapshot do
   # An allowlist by construction - see the moduledoc. Anything not named here
   # stays in the arbiter's database, whether or not it existed when this was
   # written.
-  defp player_row(%Player{} = p) do
+  defp player_row(%Tournament{} = t, %Player{} = p) do
     %{
       "no" => p.pairing_number,
       "name" => p.name,
@@ -221,7 +230,18 @@ defmodule PairingsEngine.Snapshot do
       "federation" => blank_to_nil(p.federation),
       "fide_id" => p.fide_id,
       "club" => blank_to_nil(p.club),
-      "category" => blank_to_nil(p.category)
+      # `category` keeps meaning exactly what the schema doc says it means -
+      # this player's SINGLE category - because the snapshot contract is
+      # additive only and every already-published tournament reads it. Under
+      # several categories per player the single one is the pairing category
+      # (`PairingsEngine.Categories`), which for a tournament that never puts
+      # a player in two is the same string it always was.
+      "category" => blank_to_nil(Categories.pairing_category(t, p)),
+      # Added 0.53.0. Every category, in the tournament's own order.
+      # Optional by the schema's own convention: an older publisher omits it
+      # and a reader that does not know it ignores it, exactly as `fide_id`
+      # and `rating` already work.
+      "categories" => Categories.listed_categories(t, p)
     }
   end
 
@@ -422,7 +442,7 @@ defmodule PairingsEngine.Snapshot do
           "points" => e.points,
           "value" => e.value,
           "score" => e.raw_points,
-          "category" => blank_to_nil(e.player.category)
+          "category" => blank_to_nil(Categories.pairing_category(t, e.player))
         }
       end)
 
@@ -497,7 +517,7 @@ defmodule PairingsEngine.Snapshot do
           # simply not part of the document.
           "tiebreaks" => Enum.map(shown, &Map.get(e.tiebreaks, &1, 0.0)),
           "working" => working_json(Map.get(working, e.player.id, %{}), nos),
-          "category" => blank_to_nil(e.player.category)
+          "category" => blank_to_nil(Categories.pairing_category(t, e.player))
         }
       end)
 

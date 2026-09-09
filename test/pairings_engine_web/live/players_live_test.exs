@@ -171,7 +171,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert updated.absent_rounds == "1,2,3,4"
     end
 
-    test "a category not in the tournament's category list is preserved as a selectable option",
+    test "a category not in the tournament's category list is preserved as a ticked checkbox",
          %{
            conn: conn,
            scope: scope
@@ -192,6 +192,241 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       assert html =~ ~s(value="Legacy")
       assert html =~ "Legacy"
+    end
+  end
+
+  describe "the Cat column: several categories per player" do
+    setup %{scope: scope} do
+      # The category list is deliberately NOT in alphabetical order: sorting
+      # the column has to follow the arbiter's order, and a fixture where the
+      # two agree cannot tell the difference.
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Cat Grid",
+          "type" => "swiss",
+          "rounds_count" => "5",
+          "categories" => ["Women", "-1100", "-1800"],
+          "categories_enabled" => "true"
+        })
+
+      # Ratings decide the grid's default order (no results yet), so they are
+      # what the "within a group, nothing moves" assertions rest on:
+      # low 1700, none 1500, both 1000.
+      {:ok, both} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Both Categories",
+          "fide_rating" => "1000",
+          "categories" => ["-1100", "Women"]
+        })
+
+      {:ok, low} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Low Only",
+          "fide_rating" => "1700",
+          "categories" => ["-1100"]
+        })
+
+      {:ok, none} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "No Category",
+          "fide_rating" => "1500"
+        })
+
+      {:ok, tournament: tournament, both: both, low: low, none: none}
+    end
+
+    defp cat_cells(html) do
+      ~r/<td[^>]*data-col="cat"[^>]*>(.*?)<\/td>/s
+      |> Regex.scan(html)
+      |> Enum.map(fn [_, inner] -> String.trim(inner) end)
+    end
+
+    test "the cell lists every category, in the tournament's own order", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "toggle_column", %{"key" => "cat"})
+
+      # Stored as ["-1100", "Women"]; shown in the arbiter's order.
+      assert "Women, -1100" in cat_cells(html)
+      assert "-1100" in cat_cells(html)
+      assert "-" in cat_cells(html)
+    end
+
+    test "sorting the column uses the tournament's list position, not the alphabet", %{
+      conn: conn,
+      tournament: tournament,
+      both: both,
+      low: low,
+      none: none
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "sort", %{"key" => "cat"})
+
+      # Pairing categories are "Women" (index 0) and "-1100" (index 1).
+      # Alphabetically "-1100" would come first; the arbiter put Women there,
+      # and "-1800 before -2000" is exactly the nonsense that motivates it.
+      # No category sorts last in either direction, because it is the absence
+      # of an answer rather than a value.
+      assert row_order(html) == [both.id, low.id, none.id]
+
+      desc = render_click(lv, "sort", %{"key" => "cat"})
+      assert row_order(desc) == [low.id, both.id, none.id]
+    end
+
+    test "grouping on one category puts its carriers first, and the header says which", %{
+      conn: conn,
+      tournament: tournament,
+      both: both,
+      low: low,
+      none: none
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      # The header only exists when the column is shown, and the header is
+      # where the grouped-on category has to be named.
+      render_click(lv, "toggle_column", %{"key" => "cat"})
+
+      html = render_click(lv, "sort", %{"key" => "cat:Women"})
+
+      # Carriers first, and WITHIN each group the grid keeps its own order -
+      # the standings rank, so 1700 before 1500. That is the point of
+      # grouping rather than sorting: it moves rows between two blocks and
+      # leaves the order inside them alone.
+      assert row_order(html) == [both.id, low.id, none.id]
+      assert html =~ "▲ Women"
+
+      # Descending puts the carriers last - still a real order, because the
+      # predicate is a boolean.
+      desc = render_click(lv, "sort", %{"key" => "cat:Women"})
+      assert row_order(desc) == [low.id, none.id, both.id]
+      assert desc =~ "▼ Women"
+    end
+
+    test "filtering to one category hides the rest and says so", %{
+      conn: conn,
+      tournament: tournament,
+      both: both,
+      low: low
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "filter_category", %{"name" => "-1100"})
+
+      # Still the standings order, and still each player's rank in the WHOLE
+      # tournament - a filter changes which rows exist, not what they say.
+      assert row_order(html) == [low.id, both.id]
+      assert html =~ "Showing only -1100"
+
+      all = render_click(lv, "filter_category", %{"name" => ""})
+      assert length(row_order(all)) == 3
+      refute all =~ "Showing only"
+    end
+
+    test "a filter naming a category the tournament does not define shows everyone", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "filter_category", %{"name" => "Ghost"})
+
+      assert length(row_order(html)) == 3
+      refute html =~ "Showing only"
+    end
+
+    test "the cell menu toggles ONE category and leaves the rest of the set alone", %{
+      conn: conn,
+      tournament: tournament,
+      both: both
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "toggle_category", %{
+        "id" => to_string(both.id),
+        "name" => "-1800",
+        "value" => "true"
+      })
+
+      assert Tournaments.get_player!(tournament.id, both.id).categories ==
+               ["Women", "-1100", "-1800"]
+
+      render_click(lv, "toggle_category", %{
+        "id" => to_string(both.id),
+        "name" => "-1100",
+        "value" => "false"
+      })
+
+      assert Tournaments.get_player!(tournament.id, both.id).categories == ["Women", "-1800"]
+    end
+
+    test "the header menu applies one category to everyone", %{
+      conn: conn,
+      tournament: tournament,
+      none: none
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "set_all_category", %{"name" => "-1800", "value" => "true"})
+
+      assert Tournaments.get_player!(tournament.id, none.id).categories == ["-1800"]
+
+      render_click(lv, "set_all_category", %{"name" => "-1800", "value" => "false"})
+
+      assert Tournaments.get_player!(tournament.id, none.id).categories == []
+    end
+
+    test "a category the tournament does not define is refused with a flash, not minted", %{
+      conn: conn,
+      tournament: tournament,
+      none: none
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html =
+        render_click(lv, "toggle_category", %{
+          "id" => to_string(none.id),
+          "name" => "Ghost",
+          "value" => "true"
+        })
+
+      assert html =~ "not one of this tournament&#39;s"
+      assert Tournaments.get_player!(tournament.id, none.id).categories == []
+    end
+
+    test "the grid carries the vocabulary and each cell its player's own set", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "toggle_column", %{"key" => "cat"})
+
+      # The right-click menu is built in the browser from exactly these two.
+      assert html =~ ~s(data-categories="[&quot;Women&quot;,&quot;-1100&quot;,&quot;-1800&quot;]")
+      assert html =~ ~s(data-tags="[&quot;Women&quot;,&quot;-1100&quot;]")
+    end
+
+    test "the edit dialog saves several categories at once", %{
+      conn: conn,
+      tournament: tournament,
+      none: none
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(none.id)})
+
+      lv
+      |> form("#player-edit-form", player: %{"categories" => ["-1800", "Women"]})
+      |> render_submit()
+
+      # Stored in the order the form posted them. The changeset has no view of
+      # the tournament's list, so ordering is a display decision and lives in
+      # `Categories.listed_categories/2` - one place, not every writer.
+      assert Tournaments.get_player!(tournament.id, none.id).categories == ["-1800", "Women"]
     end
   end
 

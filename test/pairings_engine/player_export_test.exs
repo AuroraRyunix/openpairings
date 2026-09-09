@@ -162,6 +162,17 @@ defmodule PairingsEngine.PlayerExportTest do
       assert Enum.at(lines(csv), 1) == "yes,no,"
     end
 
+    test "Category stays the pairing category and Categories carries the set" do
+      # A spreadsheet somebody has a macro against must not change shape, so
+      # the existing column keeps its name and its meaning and the set
+      # arrives in a new one beside it. Semicolons, not commas, so a category
+      # name containing a comma cannot look like two categories.
+      p = player(name: "A", category: "Women", categories: ["Women", "U16, junior"])
+
+      csv = PlayerExport.export([p], columns: [:category, :categories], bom: false)
+      assert Enum.at(lines(csv), 1) == ~s(Women,"Women; U16, junior")
+    end
+
     test "a birth date is ISO, and absent when unset" do
       with_date = player(name: "A", birth_date: ~D[1990-11-30])
       without = player(name: "B")

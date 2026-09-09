@@ -9,6 +9,7 @@ defmodule PairingsEngine.Tournaments do
   import Ecto.Query
   alias PairingsEngine.Audit
   alias PairingsEngine.BusyWrite
+  alias PairingsEngine.Categories
   alias PairingsEngine.Repo
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Standings
@@ -2154,6 +2155,75 @@ defmodule PairingsEngine.Tournaments do
 
   def set_all_players_paid(_tournament_id, _status), do: {:error, :invalid_paid_status}
 
+  @doc """
+  Adds `name` to (or removes it from) one player's categories.
+
+  Only ever touches that one name - the rest of the player's set is left
+  exactly as it was, which is what makes the right-click menu on a `cat`
+  cell a toggle rather than a replacement. `name` must be one of the
+  tournament's own categories: a category is a name the arbiter defined on
+  the Categories page, and an event carrying anything else is a malformed
+  client message rather than a new category, so it is refused here rather
+  than minting one.
+
+  Removing the category that is currently the player's pairing-pool override
+  deliberately does NOT clear `players.category`. A stale override is inert
+  by construction - `PairingsEngine.Categories.pairing_category/2` honours it
+  only while the player still carries it - so it self-heals into the derived
+  answer, and leaving it alone means re-adding the category restores the
+  arbiter's original placement instead of silently losing it.
+  """
+  @spec toggle_player_category(Tournament.t(), Player.t(), String.t(), boolean()) ::
+          {:ok, Player.t()} | {:error, term()}
+  def toggle_player_category(%Tournament{} = tournament, %Player{} = player, name, value)
+      when is_binary(name) and is_boolean(value) do
+    if name in (tournament.categories || []) do
+      current = player.categories || []
+
+      wanted =
+        if value,
+          do: Categories.order(tournament, current ++ [name]),
+          else: Enum.reject(current, &(&1 == name))
+
+      update_player(player, %{categories: wanted})
+    else
+      {:error, :unknown_category}
+    end
+  end
+
+  @doc """
+  The same toggle across every player in the tournament - the "Add ... to
+  everyone" / "Remove ... from everyone" actions on the Players grid's Cat
+  column header, the same shape as `set_all_players_paid/2` above.
+
+  One transaction, one broadcast, via `bulk_update_players/2`. Returns
+  `{:error, :unknown_category}` before touching the roster if `name` is not
+  one of the tournament's categories, so a malformed client event cannot
+  half-apply.
+  """
+  @spec set_all_players_category(Tournament.t(), String.t(), boolean()) ::
+          {:ok, [Player.t()]} | {:error, term()}
+  def set_all_players_category(%Tournament{} = tournament, name, value)
+      when is_binary(name) and is_boolean(value) do
+    if name in (tournament.categories || []) do
+      updates =
+        for player <- list_players(tournament.id) do
+          current = player.categories || []
+
+          wanted =
+            if value,
+              do: Categories.order(tournament, current ++ [name]),
+              else: Enum.reject(current, &(&1 == name))
+
+          {player, %{categories: wanted}}
+        end
+
+      bulk_update_players(tournament.id, updates)
+    else
+      {:error, :unknown_category}
+    end
+  end
+
   def change_player(%Player{} = player, attrs \\ %{}), do: Player.changeset(player, attrs)
 
   @doc """
@@ -2199,22 +2269,38 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Applies `tournament.category_rules` to every player, **overwriting**
-  each player's `category` - same shape as `apply_extra_points_bands/1`.
-  Unconditional: a player who matches no rule is set back to `""`, not
-  left alone, so re-running after a rating update (or a rule edit) always
-  reflects the current rules rather than a stale prior run - and, as a
-  direct consequence, running this DOES clear any category the arbiter
-  set by hand that doesn't happen to also be a ruled category's match.
-  Only meant for tournaments where category is fully rule-driven; a mix
-  of ruled and hand-picked categories doesn't survive a re-run.
+  Applies `tournament.category_rules` to every player - same shape as
+  `apply_extra_points_bands/1`, and the same "always reflects the current
+  rules, never a stale prior run" guarantee. What it overwrites is narrower
+  than it used to be, and deliberately so.
+
+  **Ruled categories are replaced. Hand-set ones are left alone.** A
+  category with no rule in `category_rules` is documented as a plain name
+  the arbiter assigns by hand (`PlayerStats.assign_categories/4`), and a
+  rule-driven pass has no way to decide such a name and no business
+  deleting it. Before a player could hold several categories there was one
+  column to write, so a re-run necessarily flattened "Women" (hand-set)
+  together with "-1200" (ruled), and the docs here simply warned that a
+  mixed tournament did not survive one. It survives now: the rated bracket
+  moves with the rating and the club prize stays put.
+
+  Ruled categories the player no longer qualifies for ARE removed - that is
+  what makes the run reflect the rules rather than layer on top of the last
+  one - and running it twice produces the same rows both times.
+
+  `players.category`, the pairing-pool override, keeps exactly the
+  behaviour it has always had: set to the winning ruled category, or back
+  to `""` when nothing matches. It is not widened to a set (it cannot be -
+  see `PairingsEngine.Categories`), and it is not newly protected either,
+  because leaving a stale override behind after the rules moved a player is
+  how the pool and the prize list would start disagreeing again.
 
   Reuses `preview_auto_assign_categories/1` for the actual assignment
   decisions - this function's only job beyond that is turning the preview
   into writes, so the preview shown to the arbiter and what actually gets
   written can never drift apart. One transaction, one broadcast
   (`bulk_update_players/2`). Returns `{:ok, %{matched: n, total: m}}` -
-  `matched` counts players who landed in a RULED category (not `""`) - for
+  `matched` counts players who landed in at least one RULED category - for
   the same "Assigned N of M players" summary `ExtraPointsLive` shows for its
   own bulk rule application.
   """
@@ -2224,9 +2310,11 @@ defmodule PairingsEngine.Tournaments do
     changes = preview_auto_assign_categories(tournament)
 
     updates =
-      Enum.map(changes, fn %{player: player, to: category} -> {player, %{category: category}} end)
+      Enum.map(changes, fn %{player: player, to: categories, to_category: category} ->
+        {player, %{categories: categories, category: category}}
+      end)
 
-    matched = Enum.count(changes, fn %{to: category} -> category != "" end)
+    matched = Enum.count(changes, fn %{to_category: category} -> category != "" end)
 
     case bulk_update_players(tournament.id, updates) do
       {:ok, _updated} -> {:ok, %{matched: matched, total: length(changes)}}
@@ -2244,23 +2332,51 @@ defmodule PairingsEngine.Tournaments do
   `auto_assign_categories/1`).
 
   Returns one entry per player, in `list_players/1` order:
-  `%{player: player, from: player.category, to: rule_decision}`. A player
-  whose `from == to` is not filtered out here - callers that only want the
-  players who'd actually change (e.g. the confirm-modal diff) should filter
-  on that themselves; callers that want the full roster (e.g. computing
-  `matched`/`total`) get it as-is.
+
+      %{
+        player: player,
+        from: [String.t()],        # the player's categories now
+        to: [String.t()],          # kept hand-set ones + the ruled decision
+        from_category: String.t(), # the pairing-pool override now
+        to_category: String.t()    # the winning ruled category, or ""
+      }
+
+  A player whose entry changes nothing is not filtered out here - callers
+  that only want the players who'd actually change (e.g. the confirm-modal
+  diff) should filter on that themselves; callers that want the full roster
+  (e.g. computing `matched`/`total`) get it as-is.
   """
   @spec preview_auto_assign_categories(Tournament.t()) :: [
-          %{player: Player.t(), from: String.t(), to: String.t()}
+          %{
+            player: Player.t(),
+            from: [String.t()],
+            to: [String.t()],
+            from_category: String.t(),
+            to_category: String.t()
+          }
         ]
   def preview_auto_assign_categories(%Tournament{} = tournament) do
+    # Which names the rules own. Everything else on a player is hand-set and
+    # survives the run untouched - including a name the tournament no longer
+    # lists, which a rating-driven pass is not the place to clean up.
+    ruled = tournament.category_rules |> Map.keys() |> MapSet.new()
+
     tournament.id
     |> list_players()
     |> Enum.map(fn player ->
-      category =
-        PlayerStats.assign_category(player, tournament.categories, tournament.category_rules)
+      assigned =
+        PlayerStats.assign_categories(player, tournament.categories, tournament.category_rules)
 
-      %{player: player, from: player.category || "", to: category}
+      current = player.categories || []
+      kept = Enum.reject(current, &MapSet.member?(ruled, &1))
+
+      %{
+        player: player,
+        from: current,
+        to: Categories.order(tournament, kept ++ assigned),
+        from_category: player.category || "",
+        to_category: List.first(assigned) || ""
+      }
     end)
   end
 

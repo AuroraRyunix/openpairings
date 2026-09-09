@@ -5,6 +5,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   alias PairingsEngine.{
     Audit,
+    Categories,
     Tournaments,
     Fide,
     Standings,
@@ -59,9 +60,10 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"rnk", "Rnk", true,
      "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
     {"cat", "Cat", false,
-     "Prize category (SWAR CATEGORIES) - only the categories defined for this tournament on " <>
-       "the Categories settings page, assigned per player either by hand or by the " <>
-       "\"Assign categories\" button's threshold rules"},
+     "Prize categories (SWAR CATEGORIES) - every category this player is in, from the ones " <>
+       "defined for this tournament on the Categories settings page, assigned by hand or by " <>
+       "the \"Assign categories\" button's threshold rules. Click to sort by pairing " <>
+       "category; right-click for one category at a time"},
     {"birth_year", "Birth", true, "Year of birth"},
     {"sex", "Sex", false, "Player's sex (M/F)"},
     {"federation", "Country", false, "Federation / country code (e.g. BEL)"},
@@ -136,6 +138,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
        sort_col: nil,
        sort_dir: nil,
+       cat_filter: nil,
        setup_complete: Tournament.setup_complete?(tournament),
        missing_setup: Tournament.missing_setup_fields(tournament)
      )
@@ -183,10 +186,25 @@ defmodule PairingsEngineWeb.PlayersLive do
       tournament
       |> Standings.grid_standings()
       |> build_grid(tournament)
+      |> filter_by_category(socket.assigns[:cat_filter])
       |> sort_entries(socket.assigns[:sort_col], socket.assigns[:sort_dir])
 
     assign(socket, :players, entries)
   end
+
+  # "Show only the U16s" - a FILTER, not a sort. It changes which rows exist
+  # and nothing else: `cl` still shows each player's rank in the whole event
+  # rather than a re-ranked position within the category, the same choice
+  # `PrintController`'s per-category standings tables already document.
+  #
+  # Filtering here rather than in the query for the same reason every other
+  # category filter in this codebase is in memory: `categories` is a JSON
+  # array in a TEXT column, which SQLite cannot compare against a list
+  # literal, and a tournament is a few hundred players.
+  defp filter_by_category(entries, nil), do: entries
+
+  defp filter_by_category(entries, tag),
+    do: Enum.filter(entries, &Categories.in_category?(&1.player, tag))
 
   # No column chosen (or the current one was toggled back off) - default
   # order: the real tournament ranking. `entry.rank` (set by
@@ -206,6 +224,13 @@ defmodule PairingsEngineWeb.PlayersLive do
     |> Enum.sort(fn {_e1, v1}, {_e2, v2} -> sort_lte?(v1, v2, dir) end)
     |> Enum.map(&elem(&1, 0))
   end
+
+  # Position in `tournament.categories`, or nil for "none" and for a name the
+  # tournament does not list. Only the ordering matters, never the number.
+  defp category_rank(_tournament, ""), do: nil
+
+  defp category_rank(tournament, name),
+    do: Enum.find_index(tournament.categories || [], &(&1 == name))
 
   # `sort_value/2` returns `{blank?, comparable_value}` - blanks (nil/"-"
   # equivalents, matching what `cell/2` itself treats as blank for that
@@ -246,7 +271,38 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  defp sort_value(entry, "cat"), do: text_sort_value(entry.grid["cat"])
+  # Sorting the "Cat" column, and the two honest ways to do it.
+  #
+  # A set has no order, so "sort by the categories this player has" is not a
+  # question with an answer - the three plausible collapses (first
+  # alphabetically, how many, the joined string) are each arbitrary and none
+  # of them is visible to the arbiter reading the column. The column offers
+  # the two orders that ARE real instead.
+  #
+  # Plain "cat" is the PAIRING category, which is single-valued by
+  # construction (`PairingsEngine.Categories.pairing_category/2`) and so
+  # genuinely sortable. It sorts by position in `tournament.categories`, not
+  # alphabetically: "-1800" before "-2000" is alphabetical nonsense, and the
+  # arbiter's own order is the one that means something. Blanks last in
+  # either direction is right here - unlike the `pr` column, where it was
+  # wrong and was fixed in 0.51.0, "no category" really is the absence of an
+  # answer.
+  defp sort_value(entry, "cat") do
+    case entry.grid["cat_rank"] do
+      nil -> {1, nil}
+      index -> {0, index}
+    end
+  end
+
+  # And "cat:<name>" groups on whether the player carries that one category -
+  # a boolean, so a real order. Ascending puts carriers first, descending
+  # puts them last, and the grid keeps its secondary order within each group.
+  # The name is in the sort key rather than in a second assign so that the
+  # existing `{sort_col, sort_dir}` pair carries it, and so the header can
+  # say WHICH category is being grouped on rather than picking one quietly.
+  defp sort_value(entry, "cat:" <> name),
+    do: {0, if(name in entry.grid["cat"], do: 0, else: 1)}
+
   defp sort_value(entry, "games"), do: numeric_sort_value(entry.grid["games"])
   defp sort_value(entry, "pts"), do: numeric_sort_value(entry.grid["pts"])
   defp sort_value(entry, "perf"), do: numeric_sort_value(entry.grid["perf"])
@@ -391,10 +447,17 @@ defmodule PairingsEngineWeb.PlayersLive do
         "nr" => entry.player.pairing_number,
         "rnk" => Map.get(live_seed_rank_by_id, entry.player.id),
         "elo_used" => Player.rating(entry.player),
-        # The tournament's OWN category (see Tournament.categories), never a
+        # The tournament's OWN categories (see Tournament.categories), never a
         # derived age bracket - the arbiter defines the category set, so
-        # nothing here may invent one they didn't create.
-        "cat" => entry.player.category || "",
+        # nothing here may invent one they didn't create. Every category the
+        # player is in, in the tournament's own order; a name the tournament
+        # no longer lists is not shown (it stays on the row - removing a
+        # category does not reach into the roster).
+        "cat" => Categories.listed_categories(tournament, entry.player),
+        # The single pairing category's position in that same list, which is
+        # what the column sorts on. `nil` = no category, sorted last.
+        "cat_rank" =>
+          category_rank(tournament, Categories.pairing_category(tournament, entry.player)),
         "games" => length(played_games),
         "pts" => entry.points,
         "perf" => PlayerStats.performance(opponent_ratings, wins, losses),
@@ -675,6 +738,81 @@ defmodule PairingsEngineWeb.PlayersLive do
             {:noreply, put_flash(socket, :error, error_text(reason))}
         end
     end
+  end
+
+  ## ---------- Categories (the Cat column) ----------
+  #
+  # The third column with its own little right-click menu, after Pr. and
+  # Paid, and the first one whose items cannot be a literal in `CELL_MENUS`:
+  # the categories are the tournament's own, so the menu is built in the
+  # browser from `data-categories` on the grid and `data-tags` on the cell.
+  # See `assets/js/app.js`.
+  #
+  # A category is added or removed one at a time, never replaced wholesale -
+  # a player is in several, and a menu click that silently dropped the other
+  # two would be the multi-value column pretending to be single-valued
+  # again. `Tournaments.toggle_player_category/4` refuses a name the
+  # tournament does not define rather than minting one.
+  def handle_event("toggle_category", %{"id" => id, "name" => name, "value" => value}, socket) do
+    tournament = socket.assigns.tournament
+
+    case Tournaments.get_player(tournament.id, id) do
+      nil ->
+        {:noreply, socket}
+
+      player ->
+        case Tournaments.toggle_player_category(tournament, player, name, value == "true") do
+          {:ok, updated} ->
+            if updated.categories != player.categories do
+              Audit.log(
+                tournament.id,
+                socket.assigns.current_scope,
+                "player.updated",
+                %{
+                  player_id: player.id,
+                  player_name: player.name,
+                  changed_fields: %{
+                    "categories" => [player.categories, updated.categories]
+                  }
+                }
+              )
+            end
+
+            {:noreply, assign_players(socket)}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, error_text(reason))}
+        end
+    end
+  end
+
+  def handle_event("set_all_category", %{"name" => name, "value" => value}, socket) do
+    tournament = socket.assigns.tournament
+    add? = value == "true"
+
+    case Tournaments.set_all_players_category(tournament, name, add?) do
+      {:ok, players} ->
+        Audit.log(
+          tournament.id,
+          socket.assigns.current_scope,
+          "player.bulk_category_set",
+          %{category: name, added: add?, player_count: length(players)}
+        )
+
+        {:noreply, assign_players(socket)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  # Showing only one category is a view state, not a write - nothing is
+  # audited and nothing is stored. `""` means "show all"; anything the
+  # tournament does not define means the same, so a stale menu cannot hide
+  # the whole roster behind a category that no longer exists.
+  def handle_event("filter_category", %{"name" => name}, socket) do
+    filter = if name in (socket.assigns.tournament.categories || []), do: name, else: nil
+    {:noreply, socket |> assign(cat_filter: filter) |> assign_players()}
   end
 
   def handle_event("set_all_paid", %{"value" => value}, socket) do
@@ -1097,8 +1235,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # audit trail - returns a `%{"field" => [before, after]}` map of only the
   # fields that actually changed (empty map when nothing tracked changed).
   @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
-    federation club club_number birth_year category status absent forfeit
-    absent_rounds fixed_board start_round extra_points manual_rank)a
+    federation club club_number birth_year category categories status absent
+    forfeit absent_rounds fixed_board start_round extra_points manual_rank)a
 
   defp player_diff(before, after_player) do
     for field <- @audited_player_fields,
@@ -1150,6 +1288,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       "fide_id" => blank_or(p.fide_id),
       "fide_rating" => blank_or(p.fide_rating),
       "category" => p.category,
+      "categories" => p.categories || [],
       "paid" => p.paid,
       "affiliated" => p.affiliated,
       "absent" => p.absent,
@@ -1250,6 +1389,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp sort_indicator(col, :desc, col), do: " ▼"
   defp sort_indicator(_col, _dir, _key), do: ""
 
+  # Grouping by ONE category has to say which one. The whole reason the
+  # column does not offer a plain "sort by categories" is that it would be
+  # picking a collapse the arbiter cannot see; a grouping whose category is
+  # not named on the header would be the same failure in a smaller place.
+  defp group_indicator("cat:" <> name, :asc, "cat"), do: " ▲ #{name}"
+  defp group_indicator("cat:" <> name, :desc, "cat"), do: " ▼ #{name}"
+  defp group_indicator(_col, _dir, _key), do: ""
+
   defp cell(entry, "status"), do: entry.player.status
 
   defp cell(entry, "sex") do
@@ -1282,8 +1429,8 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp cell(entry, "cat") do
     case entry.grid["cat"] do
-      "" -> "-"
-      value -> value
+      [] -> "-"
+      names -> Enum.join(names, ", ")
     end
   end
 
@@ -1652,7 +1799,31 @@ defmodule PairingsEngineWeb.PlayersLive do
             )}
           </p>
 
-          <table class="pe-table" id="players-table" phx-hook="PlayerGrid">
+          <p :if={@cat_filter} class="hint" style="padding: 0 16px 8px">
+            <strong>{gettext("Showing only %{name}.", name: @cat_filter)}</strong>
+            {gettext(
+              "Ranks are still this player's rank in the whole tournament, not a position within the category."
+            )}
+            <button
+              class="pe-btn"
+              style="padding: 2px 9px"
+              phx-click="filter_category"
+              phx-value-name=""
+            >
+              {gettext("Show all")}
+            </button>
+          </p>
+
+          <%!-- The Cat column's right-click menu is built in the browser and
+                the categories are this tournament's own, so the vocabulary
+                travels on the grid and each cell carries the player's own
+                set. See CELL_MENUS in assets/js/app.js. --%>
+          <table
+            class="pe-table"
+            id="players-table"
+            phx-hook="PlayerGrid"
+            data-categories={Jason.encode!(@tournament.categories || [])}
+          >
             <thead>
               <tr>
                 <th
@@ -1688,11 +1859,16 @@ defmodule PairingsEngineWeb.PlayersLive do
                     case key do
                       "pr" -> desc <> " - right-click here to set Present/Absent for everyone"
                       "paid" -> desc <> " - right-click here to set the fee status for everyone"
+                      "cat" -> desc <> " - right-click here for one category at a time"
                       _ -> desc
                     end
                   }
                 >
-                  {label}{sort_indicator(@sort_col, @sort_dir, key)}
+                  {label}{sort_indicator(@sort_col, @sort_dir, key)}{group_indicator(
+                    @sort_col,
+                    @sort_dir,
+                    key
+                  )}
                 </th>
 
                 <th></th>
@@ -1710,6 +1886,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   :if={key in @visible}
                   class={num && "num"}
                   data-col={key}
+                  data-tags={key == "cat" && Jason.encode!(p.grid["cat"])}
                 >
                   {cell(p, key)}
                 </td>
@@ -2143,32 +2320,76 @@ defmodule PairingsEngineWeb.PlayersLive do
             </div>
           </div>
 
-          <label class="field">
-            <span>{gettext("Category")}</span>
-            <select :if={@tournament.categories != []} name="player[category]">
-              <option value="" selected={@form["category"] in [nil, ""]}>---</option>
-
-              <option :for={c <- @tournament.categories} value={c} selected={@form["category"] == c}>
+          <%!-- A player is in as many categories as the arbiter ticks. The
+                hidden empty value is what makes UNTICKING the last one
+                reach the server at all: a form posts nothing for a checkbox
+                group with none checked, and without it clearing a player's
+                categories would silently do nothing. --%>
+          <div :if={@tournament.categories != []} class="field">
+            <span>{gettext("Categories")}</span>
+            <input type="hidden" name="player[categories][]" value="" />
+            <div class="radio-row" style="flex-wrap: wrap">
+              <label :for={c <- @tournament.categories} class="check">
+                <input
+                  type="checkbox"
+                  name="player[categories][]"
+                  value={c}
+                  checked={c in (@form["categories"] || [])}
+                />
                 {c}
+              </label>
+
+              <%!-- A category the player carries that the tournament no
+                    longer lists - from an import, or from a name removed on
+                    the Categories page after it was assigned. Shown, ticked,
+                    and labelled for what it is: without it, opening and
+                    saving this dialog would silently drop it, which is the
+                    same guarantee the old single-value select made with its
+                    own "(not in list)" option. --%>
+              <label
+                :for={c <- (@form["categories"] || []) -- @tournament.categories}
+                class="check"
+              >
+                <input type="checkbox" name="player[categories][]" value={c} checked />
+                {gettext("%{name} (not in list)", name: c)}
+              </label>
+            </div>
+          </div>
+
+          <%!-- The pairing-pool override, and ONLY when pairing by category
+                is on - it is the one setting where it decides anything, and
+                a control that does nothing is worse than no control. With
+                the setting off, `players.category` is still stored and still
+                round-trips through SWAR; it just has no effect the arbiter
+                could see, so there is nothing here to explain.
+
+                "First in the list" is not a blank - it is the derivation
+                `PairingsEngine.Categories.pairing_category/2` uses when no
+                pool is chosen, and saying so is the difference between a
+                default and a mystery. --%>
+          <label :if={@tournament.pair_by_category and @tournament.categories != []} class="field">
+            <span>{gettext("Pairing pool")}</span>
+            <select name="player[category]">
+              <option value="" selected={@form["category"] in [nil, ""]}>
+                {gettext("First of their categories in list order")}
               </option>
 
               <option
-                :if={
-                  @form["category"] not in [nil, ""] and
-                    @form["category"] not in @tournament.categories
-                }
-                value={@form["category"]}
-                selected
+                :for={c <- @form["categories"] || []}
+                value={c}
+                selected={@form["category"] == c}
               >
-                {gettext("%{name} (not in list)", name: @form["category"])}
+                {c}
               </option>
             </select>
+          </label>
 
-            <input
-              :if={@tournament.categories == []}
-              name="player[category]"
-              value={@form["category"]}
-            />
+          <%!-- No categories defined for this tournament: the free-text
+                escape hatch this field has always had, kept because a
+                tournament with an empty list has no checkboxes to offer. --%>
+          <label :if={@tournament.categories == []} class="field">
+            <span>{gettext("Category")}</span>
+            <input name="player[category]" value={@form["category"]} />
           </label>
           <%!-- Club & board --%>
           <label class="field">

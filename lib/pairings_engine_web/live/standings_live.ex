@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   alias PairingsEngineWeb.PublicLink
 
-  alias PairingsEngine.{Audit, Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
+  alias PairingsEngine.{Audit, Categories, Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
   alias PairingsEngine.Tournaments.Player
 
   @impl true
@@ -253,6 +253,12 @@ defmodule PairingsEngineWeb.StandingsLive do
   defp category_or_dash(nil), do: "-"
   defp category_or_dash(""), do: "-"
   defp category_or_dash(category), do: category
+
+  # Every category the player is in, in the tournament's own order, in one
+  # cell - the same reading, and the same helper shape, as the printed
+  # standings document's own `categories_text/2`.
+  defp categories_text(tournament, player),
+    do: tournament |> Categories.listed_categories(player) |> Enum.join(", ")
 
   defp sex_display(sex) do
     case Player.sex_label(sex) do
@@ -532,7 +538,9 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
 
-              <td :if={@tournament.categories != []}>{category_or_dash(entry.player.category)}</td>
+              <td :if={@tournament.categories != []}>
+                {category_or_dash(categories_text(@tournament, entry.player))}
+              </td>
 
               <td :if={@tournament.manual_ranking}>
                 <button
@@ -614,7 +622,9 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <td class="num">{entry.raw_points}</td>
 
-              <td :if={@tournament.categories != []}>{category_or_dash(entry.player.category)}</td>
+              <td :if={@tournament.categories != []}>
+                {category_or_dash(categories_text(@tournament, entry.player))}
+              </td>
             </tr>
           </tbody>
         </table>
