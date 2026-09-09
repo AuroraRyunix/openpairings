@@ -457,32 +457,47 @@ categories and both lists are padding.
 For any other type, the import reads them unevenly, and deliberately:
 
 - the tournament's category list is `value1 ++ value2`, de-duplicated;
-- a **player's** category comes from `value1` alone, because §10.2 defines
+- a **player's** category comes from `value1` alone, at a ONE-BASED slot
+  (`Categories.cpp` stores the first as 100, not 0 - this import read it as
+  zero-based until 0.53.0 and put every player one category too strong),
+  because §10.2 defines
   `CatIndex` as a slot in that list (stored pre-multiplied by 100 for
   indexes under 100).
 
 So a file with a non-empty `value2` imports categories that no player can be
 assigned to, sitting at list positions that correspond to no index.
 
-**What `value2` means is not established.** The manual does not say. The
-three `.swar` fixtures this repository has all carry `type = 0`, so there is
-nothing here to read it off. The candidates each imply a different import:
+**`value2` is the SECOND AXIS. Settled 2026-09-09** - not by a club file,
+which is what this section spent weeks waiting for, but by reading SWAR's
+own source. See [swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md).
 
-| If `value2` is | then the right import is |
-| --- | --- |
-| a second dimension (age beside rating) | two category axes per player, which the schema does not have |
-| the boundaries of the first list | rating floors, not names - not categories at all |
-| the same names in the other national language | one list, picked by locale |
+`Categories.cpp` defines four category types: rating alone, age alone,
+rating-then-age, and age-then-rating. For the two-axis types `value1` holds
+one dimension's boundaries and `value2` the other's, and **for all four both
+lists hold numeric bounds rather than names**. SWAR renders the pair as a
+single label - `"-2000 # -14"` - and a player is in exactly one such
+category.
 
-Guessing between them produces a plausible wrong answer, which is the worst
-of the three outcomes. So the import does the readable half and **warns**:
-`SwarImport.category_warnings/1` names both sets, says the second one has
-nobody in it, and points at the Settings page.
+None of the three meanings this section previously weighed was right. The
+closest, "a second dimension", had the shape but assumed the lists held
+names; the entry that guessed "boundaries of the first list" had the content
+but not the structure. Worth recording, because the reason the question
+survived so long is that all three readings were plausible and none could be
+falsified without either a real file or the source.
 
-**What would settle it:** one real club file with categories configured -
-`type` non-zero and `value2` non-blank. Comparing its `value2` entries
-against the club's own printed category list answers the question in a
-minute. Until then this stays a warning rather than an interpretation.
+**The warning stays**, and its text has been corrected rather than removed.
+Knowing what `value2` is does not make this app able to hold it: a player
+here carries a category NAME, and SWAR's two-axis label is a pair of numeric
+bounds. So a two-axis file still imports its first axis only, and
+`SwarImport.category_warnings/1` still tells the arbiter that the second set
+has nobody in it.
+
+**Also settled, and this one needed no change:** `SW321_PreBye` is a plain
+0/1 checkbox adding `SW321_Pre` on top of the bye's own value, which is
+exactly what `presence_on_allocated_bye` already models. Two bonuses fell
+out of the same read: the divide-by-four scale of the 3-2-1 point values is
+now *proven* rather than inferred (`TOptions.cpp` stores `4 * value`), and
+`abs_value` is inert under 3-2-1.
 
 ## 3-2-1 scoring (`[TOURNOI].Type == SWISS_321`)
 

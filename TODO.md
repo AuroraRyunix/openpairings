@@ -234,16 +234,31 @@ Still open, and each needs a decision rather than typing:
 
 ### Blocked on something outside the code
 
-- **SWAR `value1`/`value2`** and **`SW321_PreBye`** - both need one real club
-  file with categories configured. All three `.swar` fixtures carry
-  `type = 0`.
+- ~~**SWAR `value1`/`value2`** and **`SW321_PreBye`**~~ - **both settled
+  2026-09-09**, and not the way this entry expected. It said they needed one
+  real club file with categories configured; what they actually needed was
+  SWAR's own source, which arrived on 2026-09-09. See
+  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md).
 
-  The `value1`/`value2` half is now **warned about rather than silently
-  mis-imported** (2026-08-30): a file carrying a second value list gets a
-  named warning saying those categories have nobody in them.
-  `docs/swar-import.md` tabulates the three candidate meanings and what a
-  real file would have to show to pick between them. The interpretation is
-  still blocked; the silence is not.
+  `value2` is the **second axis** - age beside rating, or the reverse - and
+  for all four of SWAR's category types both lists hold numeric **bounds,
+  not names**. None of the three candidate meanings this was waiting to
+  choose between was right. `SW321_PreBye` is a plain checkbox adding
+  `SW321_Pre` on top of the bye's value, which `presence_on_allocated_bye`
+  already models correctly; the ÷4 scale of the 3-2-1 values is now proven
+  rather than inferred.
+
+  What is NOT closed by that: this app holds a category name, and SWAR's
+  two-axis label is a pair of bounds, so a two-axis file still imports its
+  first axis only and still warns. Reading the source also turned up a real
+  bug - the per-player slot is one-based and this read it as zero-based, so
+  every imported player came in one category too strong. Fixed in 0.53.0.
+
+  **The lesson is about the shape of the block, not the answer.** This sat
+  behind "we need a file from a club" for weeks while the program's own
+  source was a download away. Worth asking, next time something is blocked
+  on an artefact somebody else has to supply, whether it is really blocked
+  on that.
 - **The i18n fragment count** - unmeasurable by grep, because a HEEx text
   node spans lines. The instrument that would settle it is a pseudo-locale;
   not built, and nobody has asked.
@@ -265,8 +280,29 @@ Still open, and each needs a decision rather than typing:
   this app pins - so the reading the team work needs is settled. Size is now
   the only thing in the way.
 - **American accelerated pairing** - dropped, maintainer's own call.
-- **Auditing OpenPairings against SWAR's C++ source, file by file** - real,
-  never costed.
+- **Auditing OpenPairings against SWAR's C++ source, file by file** -
+  **costed 2026-09-09, and pass one is done**:
+  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md).
+
+  135 files, 74,234 lines, but the shape matters more than the total:
+
+    * **Tier A, 7,196 lines** - `Classement.cpp`, `Utils.cpp`,
+      `Categories.cpp`, `EnvoiJAVAFO.cpp`, `TournoiReadWrite.cpp`,
+      `XtraPoints.cpp`. Every finding from pass one, and both historical
+      real bugs, came from here. **~2.5 focused sessions.** This is the part
+      worth buying.
+    * **Tier B, 9,247 lines** - real logic buried in MFC dialog wiring. ~2
+      sessions, low expected yield.
+    * **Tier C, 298 lines** - verified to contain no logic at all.
+      `RoundRobinInfo.cpp` and `ExcludePairing.cpp` are pure display
+      dialogs; they come off the list.
+
+  `keizer.ex` comes off it too: **SWAR has no Keizer system**, and
+  `Pairtwo.cpp` rejects Keizer files outright. There is nothing to compare
+  it against.
+
+  Recommendation: Tier A only, in the document's order, stopping after five
+  items.
 
 ### Ainalrami (the engine)
 
