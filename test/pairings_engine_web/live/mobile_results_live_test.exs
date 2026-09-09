@@ -552,4 +552,62 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       assert html =~ "2 boards left"
     end
   end
+
+  describe "a tournament handed to another machine" do
+    setup do
+      tournament = new_tournament("Mobile Handoff")
+      {white, black} = two_players(tournament)
+      insert_round(tournament, 1, "playing", [{white, black, ""}])
+      %{tournament: tournament}
+    end
+
+    # Written straight to the column rather than through `Handoff.hand_off/3`,
+    # which broadcasts: the second test below needs a page that has not heard
+    # about it yet, which is the state a helper's phone is actually in for the
+    # moment between the arbiter handing off and the socket catching up.
+    defp check_out!(tournament) do
+      tournament
+      |> Ecto.Changeset.change(
+        handed_off_at: DateTime.utc_now() |> DateTime.truncate(:second),
+        handed_off_to: "the club laptop"
+      )
+      |> Repo.update!()
+    end
+
+    test "the result buttons are disabled, the same as when it is archived", %{
+      conn: conn,
+      tournament: t
+    } do
+      # One phone, enrolled while the tournament was still here - enrolling
+      # is itself refused once it is checked out.
+      conn = enrolled_conn(conn, t, level: "deputy")
+
+      {:ok, before_handoff, _html} = live(conn, ~p"/m/results")
+      refute has_element?(before_handoff, "button.mobile-result-btn[disabled]")
+
+      check_out!(t)
+
+      {:ok, after_handoff, _html} = live(conn, ~p"/m/results")
+      assert has_element?(after_handoff, "button.mobile-result-btn[disabled]")
+    end
+
+    test "a tap that lands anyway is told why, not just that it failed", %{
+      conn: conn,
+      tournament: t
+    } do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+
+      # Handed off after the page was rendered, so the buttons on this phone
+      # are still live. The write is refused either way; what is being
+      # asserted is that the phone is told which of the two refusals it is.
+      check_out!(t)
+      pairing = Enum.find(Repo.all(Pairing), &(&1.board == 1))
+
+      html = render_click(lv, "set_result", %{"id" => to_string(pairing.id), "result" => "1-0"})
+
+      assert html =~ "handed to another machine"
+      refute html =~ "Could not save that result."
+      assert Repo.reload!(pairing).result == ""
+    end
+  end
 end

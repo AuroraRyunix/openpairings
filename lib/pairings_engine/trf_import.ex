@@ -431,7 +431,15 @@ defmodule PairingsEngine.TrfImport do
       start_date: t[:start_date] || "",
       end_date: t[:end_date] || "",
       chief_arbiter: chief_arbiter || "",
-      time_control: t[:time_control] || "",
+      # TRF's `122` (`222 RateOfPlay` in TRF26) is "allotted times per
+      # moves/game", which is `rate_of_play` here - the field the Options
+      # page edits, the setup checklist looks for, the norms forms read and
+      # `trf_export.ex` writes that very line from. `time_control` is the
+      # free-text field it replaced, kept only as a fallback for tournaments
+      # that predate it and editable nowhere. Importing into that one emptied
+      # `rate_of_play` on every round trip: the checklist then reported "Rate
+      # of play" missing, and a second export emitted no `122` line at all.
+      rate_of_play: t[:time_control] || "",
       rounds_count: declared_rounds(data),
       round_dates: t[:round_dates] || [],
       officials: deputy_officials(t[:deputy_arbiters] || [], chief_fide_id)

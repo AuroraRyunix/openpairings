@@ -60,7 +60,17 @@ defmodule PairingsEngineWeb.Endpoint do
     cookie_key: "request_logger"
 
   plug Plug.RequestId
-  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+
+  # Five routes carry a bearer token in the PATH, which is the one part of a
+  # request Phoenix logs at `:info` in production. The plug redacts those and
+  # logs them itself; the `:log` option below is what stops Phoenix writing
+  # the unredacted line as well. See PairingsEngineWeb.Plugs.RequestLogging -
+  # everything else logs exactly as it did before.
+  plug PairingsEngineWeb.Plugs.RequestLogging
+
+  plug Plug.Telemetry,
+    event_prefix: [:phoenix, :endpoint],
+    log: {PairingsEngineWeb.Plugs.RequestLogging, :log_level, []}
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],

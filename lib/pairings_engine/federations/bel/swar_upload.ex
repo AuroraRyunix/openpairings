@@ -30,15 +30,26 @@ defmodule PairingsEngine.Federations.BEL.SwarUpload do
 
   A guid, in the shape `SwarPublish.generate_guid/1` documents, is itself
   `[prefix]-[date]-[hex]-{[uuid]}` - it carries its OWN literal `{`/`}`
-  around the UUID half. Building step 2's URL through Req's `params:` option
-  runs the value through `URI.encode_query/1`, which percent-encodes those
-  into `%7B`/`%7D` - confirmed by hand (see `swar_upload_test.exs`) against
-  what a real request actually puts on the wire, using `Req.Test`'s stub to
-  read `conn.query_string` back. The federation's own upload script expects
-  the literal characters, the same as a real SWAR install sends, so
-  `index/1` builds the query string by hand instead of via `params:` -
-  string concatenation into `url:` leaves `URI.parse/1` and `URI.to_string/1`
-  untouched, which is what carries the braces through unencoded.
+  around the UUID half, and they go on the wire **percent-encoded**.
+
+  SWAR's own documentation says the guid must "retain its { and }", and curl
+  needs `--globoff` to send one, which reads as "the federation's script
+  wants the literal characters". It does not: `{` and `}` are not legal in
+  an HTTP/1.1 request target at all, and curl only manages it by knowingly
+  sending an illegal one. Mint refuses, so the first real publish came back
+
+      {:invalid_request_target,
+       ".../SwarTournamentUpload.php?Guid=303-260812-379cf909-{03276dc2-...}"}
+
+  having never left the machine. The federation's own published URLs carry
+  the encoded form - `.../260902-000331af-%7B5b75f205-...%7D.html` - and PHP
+  decodes `%7B` back to `{` before its script ever sees it, so this is the
+  same request by the only spelling a conforming client can send.
+
+  `index/1` builds that query string itself (`URI.encode/2`) rather than
+  through Req's `params:` option. `swar_upload_test.exs` reads
+  `conn.query_string` back off a `Req.Test` stub, so what actually goes on
+  the wire is pinned by a test rather than by this paragraph.
 
   ## Recoverable, not "start over"
 
@@ -215,26 +226,10 @@ defmodule PairingsEngine.Federations.BEL.SwarUpload do
   end
 
   defp do_index(tournament) do
-    # NOT built through Req's `params:` option - see the moduledoc. That
-    # option runs the value through `URI.encode_query/1`, which percent-
-    # encodes the `{`/`}` this guid's own shape already contains into
-    # `%7B`/`%7D`; string concatenation into `url:` leaves them literal,
-    # which is what the federation's own script expects.
-    # Percent-encode the braces, do not send them raw.
-    #
-    # SWAR's own documentation says the guid must "retain its { and }", and
-    # curl needs `--globoff` to manage it - which reads as "the server wants
-    # literal braces". It does not: `{` and `}` are not legal in an HTTP/1.1
-    # request target at all, and curl only manages it by knowingly sending an
-    # illegal one. Mint refuses, and the first real publish came back
-    #
-    #   {:invalid_request_target,
-    #    ".../SwarTournamentUpload.php?Guid=303-260812-379cf909-{03276dc2-...}"}
-    #
-    # having never left the machine. The federation's own published URLs are
-    # percent-encoded - `.../260902-000331af-%7B5b75f205-...%7D.html` - and
-    # PHP decodes `%7B` back to `{` before the script ever sees it, so this is
-    # the same request by the only spelling a conforming client can send.
+    # Percent-encode the braces the guid carries, do not send them raw: they
+    # are not legal in an HTTP/1.1 request target and Mint refuses the whole
+    # request over them. The moduledoc's "The curly braces" section is the
+    # long version, including the error the first real publish came back with.
     url =
       index_url() <>
         "?Guid=" <> URI.encode(tournament.swar_guid, &URI.char_unreserved?/1)

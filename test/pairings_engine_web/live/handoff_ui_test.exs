@@ -441,5 +441,50 @@ defmodule PairingsEngineWeb.HandoffUiTest do
 
       refute html =~ "handoff-return-form"
     end
+
+    # A `phx-click` payload is written by whoever holds the socket, and the
+    # break-glass unlock is the last event in the app that should be reachable
+    # by accident. With nothing staged, `force_take_back/2` was handed `nil`
+    # against its single `%Tournament{}` clause and the page died of
+    # `FunctionClauseError`.
+    test "confirming an unlock with nothing staged does nothing at all", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _} = Handoff.hand_off(tournament, "the club laptop", scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      render_click(lv, "force_unlock_confirmed", %{})
+
+      assert render(lv) =~ "Handoff UI"
+      assert Tournaments.handed_off?(Repo.reload!(tournament))
+    end
+
+    # The button stays disabled until the word is typed, which is a courtesy
+    # to the person and not a gate on the socket.
+    test "confirming an unlock without typing the word does nothing either", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _} = Handoff.hand_off(tournament, "the club laptop", scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/?return=#{tournament.id}")
+      render_click(lv, "force_unlock_confirmed", %{})
+
+      assert Tournaments.handed_off?(Repo.reload!(tournament))
+    end
+
+    test "typing the word and confirming does unlock it", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _} = Handoff.hand_off(tournament, "the club laptop", scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/?return=#{tournament.id}")
+      lv |> form("#force-unlock-form", %{"confirm" => "UNLOCK"}) |> render_change()
+      render_click(lv, "force_unlock_confirmed", %{})
+
+      refute Tournaments.handed_off?(Repo.reload!(tournament))
+    end
   end
 end

@@ -143,9 +143,9 @@ defmodule PairingsEngine.ResultsImport do
   defp maybe_drop_header([first | rest] = lines, separator) do
     case String.split(first, separator, parts: 2) do
       [board_str, _] ->
-        case Integer.parse(String.trim(board_str)) do
-          {_n, ""} -> lines
-          _ -> rest
+        case board_number(board_str) do
+          {:ok, _n} -> lines
+          :error -> rest
         end
 
       _ ->
@@ -156,7 +156,7 @@ defmodule PairingsEngine.ResultsImport do
   defp parse_line(line, separator, line_no) do
     case String.split(line, separator, parts: 2) do
       [board_str, result_str] ->
-        with {board, ""} <- Integer.parse(String.trim(board_str)),
+        with {:ok, board} <- board_number(board_str),
              {:ok, result} <- normalize_result(result_str) do
           {:ok, line_no, board, result}
         else
@@ -169,6 +169,31 @@ defmodule PairingsEngine.ResultsImport do
 
       _ ->
         {:error, "line #{line_no}: expected \"board,result\" (got #{inspect(line)})"}
+    end
+  end
+
+  # The one place a board field becomes a number, because the length has to be
+  # checked BEFORE `Integer.parse/1` sees it.
+  #
+  # That function builds an arbitrary-precision integer out of however many
+  # digits it is handed, and the uploader allows a 2 MB file: 500,000 digits
+  # measured at eleven seconds of CPU here, and 1,300,000 raise
+  # `SystemLimitError` - which `parse_text/1`'s own doc promises never
+  # happens, and which would take the arbiter's Pairings LiveView down with
+  # it mid-round rather than returning the error the caller renders. The
+  # largest field FIDE's report format can describe is 9,999 boards, so
+  # anything longer than this is not a board number and is refused as one
+  # instead of being converted first and rejected afterwards.
+  @max_board_field 12
+
+  defp board_number(field) do
+    trimmed = String.trim(field)
+
+    with true <- byte_size(trimmed) <= @max_board_field,
+         {n, ""} <- Integer.parse(trimmed) do
+      {:ok, n}
+    else
+      _ -> :error
     end
   end
 

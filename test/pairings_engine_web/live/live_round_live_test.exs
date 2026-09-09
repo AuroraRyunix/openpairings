@@ -841,5 +841,33 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       refute html =~ "paired but not published"
       assert html =~ "Round 1"
     end
+
+    # With nothing published, `@round` was the atom `false` rather than `nil`,
+    # and both readers of it are written for `nil`. The two tests below are
+    # what that cost, on the same page.
+    test "a tournament with no round yet says so, rather than showing nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Brand new", "type" => "swiss"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      assert html =~ "No round has been paired yet."
+    end
+
+    test "the projector survives a round that is not published", %{conn: conn, scope: scope} do
+      tournament = two_round_tournament(scope, "manual")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live?display=1")
+
+      # The hall screen turns its own pages on a timer, and counting them
+      # reads `round.pairings` - which raised `BadMapError` on `false` and
+      # took the LiveView down with it, in front of the room.
+      send(lv.pid, :cycle_page)
+
+      assert render(lv) =~ "Round 1 is paired but not published"
+    end
   end
 end

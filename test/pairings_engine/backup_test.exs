@@ -90,6 +90,14 @@ defmodule PairingsEngine.BackupTest do
     count
   end
 
+  defp index_rows(path, table) do
+    {:ok, conn} = Exqlite.Sqlite3.open(path)
+    {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, "SELECT COUNT(*) FROM #{table}")
+    {:ok, [[count]]} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+    :ok = Exqlite.Sqlite3.close(conn)
+    count
+  end
+
   describe "creating one" do
     test "writes a file that verifies, with the tournament in it", %{dir: dir} do
       src = with_tournament(dir)
@@ -158,6 +166,29 @@ defmodule PairingsEngine.BackupTest do
                )
 
       :ok = Exqlite.Sqlite3.close(conn)
+    end
+
+    # `kbsb_players_fts` arrived a day after the list of indexes to empty was
+    # written, and was never added to it. So a backup emptied the mirror and
+    # shipped the index over it intact: a restore came up with no KBSB players
+    # and ~36k of them still in the index, which is a search offering names
+    # that are not there.
+    test "the KBSB index is emptied too, not just the FIDE one", %{dir: dir} do
+      src =
+        source(dir, [
+          "DELETE FROM kbsb_players",
+          """
+          INSERT INTO kbsb_players (national_id, last_name, first_name, club_name, federation)
+          VALUES ('50001', 'De Vos', 'Ilse', 'KGSRL', 'BEL')
+          """
+        ])
+
+      assert index_rows(src, "kbsb_players_fts") == 1
+
+      {:ok, path} = Backup.create(dir: dir, source: src)
+      {:ok, restored} = Backup.restore(path)
+
+      assert index_rows(restored, "kbsb_players_fts") == 0
     end
 
     test "a second backup does not overwrite the first", %{dir: dir} do

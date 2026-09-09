@@ -83,7 +83,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        results: @results,
        extra_results: @extra_results,
        paired: paired,
-       archived?: not is_nil(tournament.archived_at),
+       read_only?: read_only?(tournament),
        locked: false,
        # Finished boards are hidden by default: a helper cannot change one
        # anyway, so on a phone they are a list to scroll past on the way to
@@ -136,7 +136,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
     socket =
       if tournament,
-        do: assign(socket, tournament: tournament, archived?: not is_nil(tournament.archived_at)),
+        do: assign(socket, tournament: tournament, read_only?: read_only?(tournament)),
         else: socket
 
     paired = Engine.paired_rounds_count(socket.assigns.tournament.id)
@@ -196,7 +196,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   end
 
   def handle_event("set_result", _params, socket)
-      when socket.assigns.locked or socket.assigns.archived?,
+      when socket.assigns.locked or socket.assigns.read_only?,
       do: {:noreply, socket}
 
   # Only pairings belonging to the loaded round (which is loaded from the
@@ -254,6 +254,18 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                       "This tournament is archived - the arbiter needs to unarchive it before results can be entered."
                     )
 
+                  # The other half of the write gate, and the one that can
+                  # arrive mid-round: the arbiter handed the tournament to
+                  # another machine while this phone had the board open. Said
+                  # in the same words as its sibling, because "could not save"
+                  # sends a helper looking for a network problem.
+                  {:error, :handed_off} ->
+                    put_flash(
+                      socket,
+                      :error,
+                      "This tournament has been handed to another machine - the arbiter needs to take it back before results can be entered."
+                    )
+
                   {:error, _reason} ->
                     put_flash(socket, :error, "Could not save that result.")
                 end
@@ -308,6 +320,13 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   defp helper?(%Mobile.Enrollment{level: "helper"}), do: true
   defp helper?(%Mobile.Enrollment{}), do: false
+
+  # The same gate every write in the app is refused by, rather than a second
+  # reading of one of its two reasons. This was `archived_at` alone, so a
+  # tournament handed to another machine still rendered its result buttons
+  # enabled: the write was correctly refused server-side, but only after a
+  # helper had tapped it, and only as "Could not save that result."
+  defp read_only?(tournament), do: Tournaments.ensure_writable(tournament) != :ok
 
   # No-account phones weren't writing to the audit trail at all before this -
   # a real gap, since a mobile-entered result is exactly as write-worthy as
@@ -529,7 +548,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <button
             :for={{value, label} <- @results}
             type="button"
-            disabled={@locked || @archived?}
+            disabled={@locked || @read_only?}
             class={["mobile-result-btn", p.result == value && "chosen"]}
             phx-click="set_result"
             phx-value-id={p.id}
@@ -540,7 +559,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <button
             :if={p.result != ""}
             type="button"
-            disabled={@locked || @archived?}
+            disabled={@locked || @read_only?}
             class="mobile-result-btn mobile-clear"
             phx-click="set_result"
             phx-value-id={p.id}
@@ -551,7 +570,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           </button>
           <button
             type="button"
-            disabled={@locked || @archived?}
+            disabled={@locked || @read_only?}
             class={["mobile-result-btn", "mobile-more", @expanded_id == p.id && "chosen"]}
             phx-click="toggle_extra"
             phx-value-id={p.id}
@@ -572,7 +591,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <button
             :for={{value, label} <- @extra_results}
             type="button"
-            disabled={@locked || @archived?}
+            disabled={@locked || @read_only?}
             class={["mobile-result-btn", p.result == value && "chosen"]}
             phx-click="set_result"
             phx-value-id={p.id}

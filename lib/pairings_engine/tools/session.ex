@@ -146,8 +146,8 @@ defmodule PairingsEngine.Tools.Session do
   defp enforce_cap do
     if over_limit?() do
       @table
-      |> :ets.tab2list()
-      |> Enum.sort_by(fn {_token, _data, expires_at, _bytes} -> expires_at end)
+      |> eviction_rows()
+      |> Enum.sort_by(fn {_token, expires_at, _bytes} -> expires_at end)
       |> evict_until_within_limits()
     end
 
@@ -158,8 +158,28 @@ defmodule PairingsEngine.Tools.Session do
     :ets.info(@table, :size) > max_entries() or total_bytes() > max_bytes()
   end
 
+  # Both of these read the table WITHOUT reading the uploads in it.
+  #
+  # They used to be `:ets.foldl` and `:ets.tab2list`, which copy each matched
+  # row whole - `data` included - into the calling process's heap. That made
+  # every single `put/3` cost a copy of the entire store, up to `@max_bytes`
+  # of parsed tournament, on a page anybody can reach with no account: N
+  # simultaneous uploads meant N such copies alive at once, which is the
+  # store's own ceiling multiplied by however many connections an outsider
+  # cares to open. A `select` with the payload left out of the result copies
+  # only what the two limits are actually computed from - one integer per
+  # row here, one small tuple per row below - so the walk is bounded by the
+  # number of entries (`@max_entries`) instead of by their weight.
+  #
+  # Identical arithmetic, identical eviction order: only the copying is gone.
   defp total_bytes do
-    :ets.foldl(fn {_token, _data, _expires_at, bytes}, acc -> acc + bytes end, 0, @table)
+    @table
+    |> :ets.select([{{:_, :_, :_, :"$1"}, [], [:"$1"]}])
+    |> Enum.sum()
+  end
+
+  defp eviction_rows(table) do
+    :ets.select(table, [{{:"$1", :_, :"$2", :"$3"}, [], [{{:"$1", :"$2", :"$3"}}]}])
   end
 
   # Walks oldest-first, dropping rows until both limits are satisfied. The
@@ -168,10 +188,10 @@ defmodule PairingsEngine.Tools.Session do
   # it would only break their download link without freeing anything for
   # anyone else.
   defp evict_until_within_limits(rows) do
-    total = Enum.reduce(rows, 0, fn {_t, _d, _e, bytes}, acc -> acc + bytes end)
+    total = Enum.reduce(rows, 0, fn {_t, _e, bytes}, acc -> acc + bytes end)
     {max_entries, max_bytes} = {max_entries(), max_bytes()}
 
-    Enum.reduce(rows, {length(rows), total}, fn {token, _data, _expires, bytes}, {count, sum} ->
+    Enum.reduce(rows, {length(rows), total}, fn {token, _expires, bytes}, {count, sum} ->
       if count > 1 and (count > max_entries or sum > max_bytes) do
         :ets.delete(@table, token)
         {count - 1, sum - bytes}

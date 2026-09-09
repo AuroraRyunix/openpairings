@@ -359,7 +359,16 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       # Kept so the page can say a round is waiting rather than just appearing
       # to be a round behind.
       paired_rounds: paired,
-      round: shown > 0 && Tournaments.get_round(tournament.id, shown),
+      # `if`, not `&&`: with nothing published the latter assigns the atom
+      # `false`, and every reader of this assign is written for `nil` - which
+      # `get_round/2` itself returns for a round that is not there. That
+      # mismatch was two live defects at once. `page_count_for/1`'s `nil`
+      # clause never matched, so the footer fell through to the one that
+      # reads `round.pairings` and the projector view raised `BadMapError`
+      # the moment its round stopped being published; and the "no round has
+      # been paired yet" card, guarded on `@round == nil`, could not render
+      # at all, so a brand-new tournament's Live page explained nothing.
+      round: if(shown > 0, do: Tournaments.get_round(tournament.id, shown)),
       scores:
         if(shown > 0, do: Standings.player_scores_before_round(tournament, shown), else: %{}),
       round_byes:

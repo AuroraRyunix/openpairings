@@ -49,6 +49,23 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # PairingsEngine.Pairing.soft_pairs/5 and docs/forbidden-pairings.md.
   @soft_positions ~w(strong weak)
 
+  # `swar_guid` is minted by another program and imported verbatim from a
+  # `.swar` file, and it is then used as a filename:
+  # `SwarPublish.filename/1` puts it straight into a `Content-Disposition`
+  # header. A control character in it makes Plug reject that header, which is
+  # a 500 on this tournament's SWAR download for good rather than once, and a
+  # quote breaks out of the quoted `filename=` parameter.
+  #
+  # Deliberately a refusal of the characters that break something, not an
+  # allow-list of what a guid may look like: the value's shape is SWAR's to
+  # decide, and inventing one here would refuse whole imports over a
+  # character nothing in this app minds.
+  #
+  # `\A`/`\z`, not `^`/`$`: the latter pair matches before a FINAL newline, so
+  # a guid ending in one would have passed a check written to exclude exactly
+  # that character.
+  @safe_swar_guid ~r|\A[^\x00-\x1f\x7f"\\/]*\z|
+
   schema "tournaments" do
     field :name, :string
     field :type, :string, default: "swiss"
@@ -718,6 +735,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:soft_position, @soft_positions)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
+    |> validate_length(:swar_guid, max: 200)
+    |> validate_format(:swar_guid, @safe_swar_guid,
+      message: "must not contain quotes, slashes or control characters"
+    )
     |> validate_keizer_top_value()
     |> validate_pairing_engine()
     |> validate_abs_scoring()

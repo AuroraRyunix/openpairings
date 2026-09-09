@@ -106,4 +106,58 @@ defmodule PairingsEngine.Tools.SessionTest do
       assert {:ok, %{blob: _}} = Session.get(token)
     end
   end
+
+  describe "what a write costs" do
+    # Enforcing the cap used to read the WHOLE store into the writing
+    # process - `:ets.foldl` to total the bytes, `:ets.tab2list` to order the
+    # eviction - so one upload cost a copy of every other upload currently
+    # held. The page needs no account, so N connections meant N such copies
+    # alive at once, which is the store's own ceiling times however many
+    # connections somebody cares to open. The cap itself is unchanged; this
+    # is about what enforcing it costs, so it is measured rather than
+    # asserted.
+    setup do
+      on_exit(fn ->
+        Application.delete_env(:pairings_engine, :tools_session_max_bytes)
+        :ets.delete_all_objects(Session)
+      end)
+
+      :ok
+    end
+
+    test "a write does not copy the whole store into the writer's heap" do
+      # A list, not a binary: a large binary is reference-counted and shared
+      # rather than copied, so it would not weigh what actually hurt here.
+      # Ten of these is roughly 24 MB of term.
+      big = Enum.to_list(1..150_000)
+
+      for _ <- 1..10, do: Session.put(Session.token(), %{rows: big})
+
+      # Under the byte budget, so this write takes the eviction path too -
+      # the more expensive of the two reads.
+      Application.put_env(:pairings_engine, :tools_session_max_bytes, 1)
+
+      assert writes_within_heap?(2_000_000)
+    end
+
+    # One `put/3`, run in a process that may not grow past `bytes` - far
+    # smaller than the store it is writing into. Copying that store in
+    # exceeds the limit and the VM kills the process, so "did the write
+    # survive" is the measurement.
+    defp writes_within_heap?(bytes) do
+      words = div(bytes, :erlang.system_info(:wordsize))
+
+      {pid, ref} =
+        spawn_monitor(fn ->
+          Process.flag(:max_heap_size, %{size: words, kill: true, error_logger: false})
+          Session.put(Session.token(), %{v: 1})
+        end)
+
+      receive do
+        {:DOWN, ^ref, :process, ^pid, reason} -> reason == :normal
+      after
+        5_000 -> flunk("the write never finished")
+      end
+    end
+  end
 end

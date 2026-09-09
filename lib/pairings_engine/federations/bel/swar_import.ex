@@ -793,10 +793,23 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     end
   end
 
-  # One query per DISTINCT federation among players SWAR left with no FIDE
-  # id (`mat_fide == 0`), instead of one query per such PLAYER -
+  # SQLite refuses a statement past `SQLITE_MAX_VARIABLE_NUMBER` bound
+  # parameters, so the `in` below is fed in chunks. Well under the limit any
+  # build enforces, and far above the number of federations a real file names.
+  @federations_per_query 400
+
+  # Every DISTINCT federation among the players SWAR left with no FIDE id
+  # (`mat_fide == 0`) in ONE query, not one query each -
   # `fide_candidates/2` below reads from this instead of re-querying for a
   # federation an earlier player in the same file already covered.
+  #
+  # It used to issue that query per federation, and `fide_players.federation`
+  # had no index, so each one was a sequential scan of the whole 1.9M-row
+  # rating list. Nothing bounds how many distinct country strings an uploaded
+  # file names - it is free text per player - so a file naming 39,000 of them
+  # bought 39,000 full scans before a single row was written. The index
+  # (`20260909100000_index_fide_player_federation`) fixes the per-query cost
+  # and this fixes the multiplier; the cache's contents are unchanged.
   defp build_fide_candidates_cache(players) do
     federations =
       players
@@ -804,9 +817,19 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       |> Enum.map(&Federation.normalize(&1.country))
       |> Enum.uniq()
 
-    Map.new(federations, fn federation ->
-      {federation, Repo.all(from(f in FidePlayer, where: f.federation == ^federation))}
-    end)
+    found =
+      federations
+      |> Enum.chunk_every(@federations_per_query)
+      |> Enum.reduce(%{}, fn chunk, acc ->
+        from(f in FidePlayer, where: f.federation in ^chunk)
+        |> Repo.all()
+        |> Enum.group_by(& &1.federation)
+        |> then(&Map.merge(acc, &1))
+      end)
+
+    # Keyed by every federation asked about, including the ones nothing
+    # matched, so the map's shape does not depend on what the list holds.
+    Map.new(federations, &{&1, Map.get(found, &1, [])})
   end
 
   # `mat_fide == 0` means SWAR itself has no FIDE id on file for this

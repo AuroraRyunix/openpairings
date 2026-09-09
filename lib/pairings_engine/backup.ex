@@ -68,17 +68,24 @@ defmodule PairingsEngine.Backup do
   # emptied rather than dropped.
   @reproducible ~w(fide_players kbsb_players)
 
-  # The FTS5 index over `fide_players`. Emptied by deleting from the VIRTUAL
-  # table, never from its `_content` / `_data` / `_docsize` shadows - deleting
-  # from those leaves an index that is structurally broken rather than empty,
-  # and the damage only shows up later as a search that returns nothing.
+  # The FTS5 index over each of the two tables above. Emptied by deleting from
+  # the VIRTUAL table, never from its `_content` / `_data` / `_docsize`
+  # shadows - deleting from those leaves an index that is structurally broken
+  # rather than empty, and the damage only shows up later as a search that
+  # returns nothing.
   #
   # Not `INSERT INTO fts(fts) VALUES('delete-all')`, which is the command for
   # this and does not apply here: it is only legal on a contentless or
-  # external-content table, and this one owns its content. SQLite says so, and
+  # external-content table, and these own their content. SQLite says so, and
   # the first version of this code ignored that error and shipped backups with
   # 113 MB of index still in them.
-  @fts_tables ~w(fide_players_fts)
+  #
+  # One entry per line above, one per table here: `kbsb_players_fts` arrived a
+  # day after this was written and was not added, so every backup shipped that
+  # index intact while emptying the table under it - and a restore left
+  # `kbsb_players` empty with ~36k rows still in the index, which is a KBSB
+  # search that answers with names no longer in the mirror.
+  @fts_tables ~w(fide_players_fts kbsb_players_fts)
 
   @doc """
   Writes a backup and returns its path.

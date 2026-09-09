@@ -335,24 +335,41 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # the forcing distinctly from an ordinary take-back, because when two
   # divergent copies later surface that row is the only record of which one was
   # forced open.
+  #
+  # Matched the way `delete_confirmed` and `purge_confirmed` are, and for
+  # their reason: the event is a `phx-click` payload, so it arrives whether
+  # or not the control that sends it is on the page. `return_target` is `nil`
+  # until a return is staged and `force_take_back/2` has one clause, matching
+  # `%Tournament{}` - so firing this from a freshly loaded page raised
+  # `FunctionClauseError` and killed the LiveView. The typed word is checked
+  # here too rather than only by the button's `disabled`, which is a courtesy
+  # to the person, not a gate on the socket.
   def handle_event("force_unlock_confirmed", _params, socket) do
-    case Tournaments.force_take_back(socket.assigns.return_target, socket.assigns.current_scope) do
-      {:ok, tournament} ->
-        {:noreply,
-         socket
-         |> assign(return_target: nil, force_unlock_text: "", force_unlock_error: nil)
-         |> put_flash(
-           :info,
-           gettext(
-             "\"%{name}\" is unlocked here. The copy handed to %{place} must not be opened again.",
-             name: tournament.name,
-             place: tournament.handed_off_to || gettext("the other machine")
-           )
-         )
-         |> assign_tournaments()}
+    word = SettingsSupport.force_unlock_word()
 
-      {:error, reason} ->
-        {:noreply, assign(socket, force_unlock_error: SettingsSupport.error_text(reason))}
+    case socket.assigns do
+      %{return_target: %Tournament{} = tournament, force_unlock_text: ^word} ->
+        case Tournaments.force_take_back(tournament, socket.assigns.current_scope) do
+          {:ok, unlocked} ->
+            {:noreply,
+             socket
+             |> assign(return_target: nil, force_unlock_text: "", force_unlock_error: nil)
+             |> put_flash(
+               :info,
+               gettext(
+                 "\"%{name}\" is unlocked here. The copy handed to %{place} must not be opened again.",
+                 name: unlocked.name,
+                 place: unlocked.handed_off_to || gettext("the other machine")
+               )
+             )
+             |> assign_tournaments()}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, force_unlock_error: SettingsSupport.error_text(reason))}
+        end
+
+      _ ->
+        {:noreply, socket}
     end
   end
 

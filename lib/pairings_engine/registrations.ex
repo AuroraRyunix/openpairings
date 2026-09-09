@@ -325,30 +325,46 @@ defmodule PairingsEngine.Registrations do
   # to create the player. Everything is in one transaction, so a player who
   # cannot be created (duplicate FIDE ID, blank name) takes the claim back
   # with them and the entry stays pending for the arbiter to fix.
+  #
+  # `create_player/2` broadcasts `:players` on the way through, and it is
+  # called with two statements still to run inside this transaction. Under
+  # WAL a subscriber woken by that broadcast re-queries a database the insert
+  # is not visible in yet and renders a roster without the player it was just
+  # told about - the same shape every other bulk write here avoids (see
+  # `ResultsImport.write_all/2`, `SwarImport`, `TrfImport`). So the writes are
+  # suppressed and the one broadcast is sent after the commit, for real.
   defp accept_pending(%Registration{id: id} = registration, tournament) do
-    Repo.transaction(fn ->
-      {claimed, _} =
-        Repo.update_all(
-          from(r in Registration, where: r.id == ^id and r.status == "pending"),
-          set: [status: "accepted", decided_at: DateTime.utc_now()]
-        )
+    result =
+      Tournaments.with_broadcast_suppressed(fn ->
+        Repo.transaction(fn ->
+          {claimed, _} =
+            Repo.update_all(
+              from(r in Registration, where: r.id == ^id and r.status == "pending"),
+              set: [status: "accepted", decided_at: DateTime.utc_now()]
+            )
 
-      if claimed == 0 do
-        Repo.rollback(lost_the_race(id))
-      end
+          if claimed == 0 do
+            Repo.rollback(lost_the_race(id))
+          end
 
-      case Tournaments.create_player(tournament.id, player_attrs(registration, tournament)) do
-        {:ok, player} ->
-          Repo.update_all(from(r in Registration, where: r.id == ^id),
-            set: [player_id: player.id]
-          )
+          case Tournaments.create_player(tournament.id, player_attrs(registration, tournament)) do
+            {:ok, player} ->
+              Repo.update_all(from(r in Registration, where: r.id == ^id),
+                set: [player_id: player.id]
+              )
 
-          player
+              player
 
-        {:error, reason} ->
-          Repo.rollback(reason)
-      end
-    end)
+            {:error, reason} ->
+              Repo.rollback(reason)
+          end
+        end)
+      end)
+
+    with {:ok, player} <- result do
+      Tournaments.broadcast_tournament_change(tournament.id, :players)
+      {:ok, player}
+    end
   end
 
   # Only reached when the guarded update found nothing to claim, so the row

@@ -96,4 +96,48 @@ defmodule PairingsEngine.Federations.BEL.SwarGuidRoundTripTest do
 
     assert Repo.get!(Tournaments.Tournament, t.id).swar_guid == t.swar_guid
   end
+
+  # The guid is a filename: `SwarPublish.filename/1` puts it into a
+  # `Content-Disposition` header verbatim. It arrives from another program,
+  # and nothing checked it on the way in.
+  describe "a guid that could not be a filename" do
+    test "a control character is refused rather than stored" do
+      t = tournament()
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(t, %{"swar_guid" => "351-260801-a1\r\nb2-{x}"})
+
+      assert "must not contain quotes, slashes or control characters" in errors_on(changeset).swar_guid
+
+      # Plug refuses a header holding one, so the value stored here decides
+      # whether this tournament's SWAR download works at all - and it would
+      # have been a 500 every time, not once.
+      assert Repo.get!(Tournaments.Tournament, t.id).swar_guid in [nil, ""]
+    end
+
+    test "so are a quote and a slash, which break out of the filename" do
+      t = tournament()
+
+      bad = [
+        ~s(351-260801-"-{x}),
+        "351-260801-/-{x}",
+        "351-260801-\\-{x}",
+        # Last, because it is the one a `^...$` check would have let through:
+        # `$` matches before a final newline.
+        "351-260801-a1b2-{x}\n"
+      ]
+
+      for guid <- bad do
+        assert {:error, _changeset} = Tournaments.update_tournament(t, %{"swar_guid" => guid})
+      end
+    end
+
+    test "a real SWAR guid, braces and all, is still accepted" do
+      t = tournament()
+      guid = "601-260829-0002a320-{b050e04f-9bfc-4b69-a71a-211a537ddffa}"
+
+      assert {:ok, updated} = Tournaments.update_tournament(t, %{"swar_guid" => guid})
+      assert updated.swar_guid == guid
+    end
+  end
 end

@@ -95,6 +95,17 @@ defmodule PairingsEngine.Federations.BEL.MembersTest do
       assert [%Member{national_id: "00042"}] = Members.search("Janssens")
     end
 
+    # Each token is wrapped in quotes to build the FTS5 MATCH string, so a
+    # typed quote closed that quote early: FTS5 then answered with a syntax
+    # error, which drops the search to a full LIKE scan of the whole mirror
+    # and finds nobody. `%` and `_` were stripped here from the start and the
+    # two sibling searches strip the quote as well; this one did not.
+    test "a stray double quote is stripped rather than breaking the query" do
+      seed!()
+
+      assert Enum.map(Members.search(~s(Peet"ers)), & &1.national_id) == ["12345", "00042"]
+    end
+
     test "queries under 2 characters return nothing" do
       seed!()
 

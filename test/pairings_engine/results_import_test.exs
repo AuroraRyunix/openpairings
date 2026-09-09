@@ -134,6 +134,27 @@ defmodule PairingsEngine.ResultsImportTest do
     test "empty file is an error" do
       assert {:error, ["The file is empty"]} = ResultsImport.parse_text("")
     end
+
+    # `Integer.parse/1` builds a bignum out of whatever digits it is given.
+    # A 2 MB upload has room for a line like this, and at 1.3 million digits
+    # the conversion raises `SystemLimitError` - which is not an error the
+    # caller can render, it is the arbiter's Pairings page dying mid-round.
+    # The moduledoc has always said "Never raises."
+    test "a board number no board could have is an error, not a raise" do
+      csv = "Board;Result\n" <> String.duplicate("9", 1_300_000) <> ";1-0\n"
+
+      assert {:error, [reason]} = ResultsImport.parse_text(csv)
+      assert String.starts_with?(reason, "line 1: invalid board number")
+    end
+
+    # Same input in the position the header check reads: a first field that
+    # is not a board number is a header, and a header is dropped - the rest
+    # of the file still parses instead of the parse dying on line one.
+    test "the same board number in the header position does not raise either" do
+      csv = String.duplicate("9", 1_300_000) <> ";1-0\n2;0-1\n"
+
+      assert ResultsImport.parse_text(csv) == {:ok, [{2, "0-1"}]}
+    end
   end
 
   ## ---------- apply_import/3 ----------

@@ -14,6 +14,78 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.52.0] - 2026-09-09
+
+Fourteen findings from the 2026-09-05 audit, closed together: the log that
+held live login tokens, three crashes that share one root cause, and a page
+anybody can reach that cost the server a copy of itself per upload.
+
+- [Security] **A login link is no longer written into the server log.** The
+  request log recorded the full path of every request, and five routes carry
+  a bearer token in the path rather than in a header or a cookie: the
+  magic-link log-in, the confirm-email link, a collaborator invite, a
+  public-tools download and a phone enrolment. For all five, holding the URL
+  is the whole of the authentication - and a log-in token stayed live for
+  fifteen minutes after it landed in a file that is shipped, tailed and kept
+  for months. Those paths are now logged with the secret replaced
+  (`GET /users/log-in/[FILTERED]`); every other request is logged exactly as
+  before, because going quiet would have traded a leak for a blind spot.
+- [Fix] **The arbiter tools page no longer copies its whole upload store on
+  every upload.** Enforcing the store's memory budget read every parsed
+  tournament currently held into the writing process, so one upload cost a
+  copy of all the others - and the page needs no account, so a handful of
+  simultaneous connections multiplied that by however many somebody opened.
+  The budget and what it evicts are unchanged; only the cost of checking it
+  is gone.
+- [Fix] **A `.swar` file with many nationalities no longer scans the FIDE
+  list once per country.** Matching players SWAR left without a FIDE id
+  looked the 1.9-million-row rating list up per distinct country string in
+  the file, against a column with no index - and the file decides how many
+  distinct strings there are. It is one indexed query now.
+- [Fix] **The projector view survives its round being withheld.** With
+  nothing published, the page held a value that every reader of it was
+  written for the absence of, and the hall screen's own page-turn timer
+  raised on the difference - taking the LiveView down in front of the room.
+  The same mistake hid the "no round has been paired yet" card, so a
+  brand-new tournament's Live page explained nothing at all; it now says so.
+- [Fix] **The break-glass hand-off unlock cannot crash the tournament
+  list.** The confirm event killed the page when no return was staged, and
+  the word an arbiter has to type is now required by the server rather than
+  only by the button.
+- [Fix] **A phone is told when a tournament has been handed to another
+  machine.** The result buttons stayed enabled - the write was refused, but
+  only after the tap, and only as "Could not save that result." The buttons
+  now follow the same gate every other write does, and a tap that lands in
+  the moment between the hand-off and the phone hearing about it says what
+  actually happened.
+- [Fix] **A results CSV can no longer kill the Pairings page.** A board
+  number of a million digits was converted before it was checked and raised
+  where the parser promises never to raise. It is refused as a board number
+  now, which is what it is.
+- [Fix] **A tournament's rate of play survives a TRF round trip.** FIDE's
+  `122` (`222` in TRF26) was written out of the rate-of-play field and read
+  back into the free-text field it replaced, so an export-import loop emptied
+  it: the setup checklist then reported it missing and a second export
+  carried no rate of play at all.
+- [Fix] **Accepting an entry tells open pages about the new player after the
+  write, not during it.** The broadcast went out from inside the still-open
+  transaction, so a page could reload and render a roster without the player
+  it had just been told about.
+- [Fix] **A backup empties the Belgian rating index as well as the FIDE
+  one.** It was emptying the players table and shipping the search index over
+  it intact, so a restore came up with no KBSB players and 36,000 of them
+  still in the index - a lookup offering names that are not there. Restore
+  it, and the next sync repairs it either way.
+- [Fix] **A double quote typed into the Belgian player search no longer
+  breaks it.** The character ended up inside the search index's own syntax,
+  which either errored - dropping every keystroke to a full scan of the
+  mirror - or quietly searched for something else. The two sibling searches
+  already stripped it.
+- [Change] **A SWAR tournament id containing a quote, a slash or a control
+  character is refused on the way in.** It is used as a download filename
+  verbatim, and one of those made that download fail for good rather than
+  once. Real ids, braces and all, are unaffected.
+
 ## [0.51.0] - 2026-09-08
 
 Three things the players grid got wrong, all reported from real use.

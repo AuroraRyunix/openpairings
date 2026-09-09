@@ -80,10 +80,18 @@ defmodule PairingsEngine.Federations.BEL.Members do
     )
   end
 
+  # `%` and `_` because `like_search/1` below builds a LIKE pattern out of
+  # these, and `"` because `fts_search/1` above wraps each token in quotes: a
+  # query like `a"b` closed that quote early, which FTS5 answers either with
+  # a syntax error - falling the search back to a full LIKE scan of ~36k rows
+  # on every keystroke - or with a valid query carrying a column filter
+  # nobody typed. Not injection (the MATCH string is a bound parameter), and
+  # both sibling implementations (`Fide.search_tokens/1`,
+  # `SwarImport.fide_players_matching_tokens/1`) already strip it.
   defp search_tokens(query) do
     query
     |> String.split(~r/[,\s]+/, trim: true)
-    |> Enum.map(&String.replace(&1, ~r/[%_]/, ""))
+    |> Enum.map(&String.replace(&1, ~r/[%_"]/, ""))
     |> Enum.reject(&(&1 == ""))
   end
 

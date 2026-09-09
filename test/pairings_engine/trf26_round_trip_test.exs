@@ -126,6 +126,28 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     assert imported.bye_value == 1.0
   end
 
+  # `122` (TRF26's `222 RateOfPlay`) is "allotted times per moves/game", and
+  # it was written out of `rate_of_play` and read back into `time_control` -
+  # the free-text field that one replaced, editable on no page. So a round
+  # trip emptied the field the setup checklist looks for, and a second export
+  # carried no rate of play at all.
+  test "the rate of play survives, so the checklist does not ask for it again" do
+    {tournament, _} = configured()
+    {imported, _warnings, text} = round_trip(tournament)
+
+    assert text =~ tournament.rate_of_play
+    assert imported.rate_of_play == tournament.rate_of_play
+
+    refute Enum.any?(
+             Tournament.missing_recommended_fields(imported),
+             &match?({:rate_of_play, _}, &1)
+           )
+
+    # ...and the file it exports says so too, rather than dropping the line.
+    assert {:ok, reexported} = TrfExport.export(imported)
+    assert reexported =~ tournament.rate_of_play
+  end
+
   test "which edition of the rules paired the boards survives" do
     {ainalrami, _} = configured()
     {imported, _, _} = round_trip(ainalrami)

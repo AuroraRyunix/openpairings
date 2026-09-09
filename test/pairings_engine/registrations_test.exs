@@ -73,6 +73,59 @@ defmodule PairingsEngine.RegistrationsTest do
     stub(fn conn -> Req.Test.json(conn, %{"registrations" => entries}) end)
   end
 
+  # Every statement touching the `registrations` table that `fun` runs AFTER
+  # `{:tournament_changed, id, :players}` has already landed in this
+  # process's mailbox. Ecto's query telemetry runs in the process that ran
+  # the query, and Phoenix.PubSub hands a message to a local subscriber
+  # inside `broadcast/3` itself, so the mailbox is an exact record of whether
+  # the broadcast has gone out yet.
+  #
+  # Only that one table is counted: the broadcast's own tail
+  # (`Publishing.enqueue_id/1` reads the tournament and may write the publish
+  # queue) legitimately runs after it either way, and would drown the signal.
+  defp registration_writes_after_broadcast(tournament_id, fun) do
+    test_pid = self()
+    ref = make_ref()
+    handler_id = {__MODULE__, ref}
+
+    :telemetry.attach(
+      handler_id,
+      [:pairings_engine, :repo, :query],
+      fn _event, _measurements, metadata, _config ->
+        if self() == test_pid and String.contains?(metadata.query, "registrations") and
+             broadcast_waiting?(tournament_id) do
+          send(test_pid, {ref, metadata.query})
+        end
+      end,
+      nil
+    )
+
+    try do
+      fun.()
+    after
+      :telemetry.detach(handler_id)
+    end
+
+    drain_statements(ref, [])
+  end
+
+  defp broadcast_waiting?(tournament_id) do
+    {:messages, messages} = Process.info(self(), :messages)
+
+    Enum.any?(messages, fn
+      {:tournament_changed, ^tournament_id, :players} -> true
+      _ -> false
+    end)
+  end
+
+  defp drain_statements(ref, acc) do
+    receive do
+      {^ref, query} -> drain_statements(ref, [query | acc])
+    after
+      0 -> Enum.reverse(acc)
+    end
+  end
+
   describe "pulling" do
     test "a pull with nothing pending is an answer, not an error" do
       t = tournament()
@@ -275,6 +328,31 @@ defmodule PairingsEngine.RegistrationsTest do
 
       assert [found] = Repo.all(from p in Player, where: p.tournament_id == ^t.id)
       assert found.id == player.id
+    end
+
+    test "the roster broadcast waits until the write is finished" do
+      t = tournament()
+      serve([entry(1, ilse())])
+      {:ok, _} = Registrations.pull(t)
+      [registration] = Registrations.pending(t.id)
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+
+      # `create_player/2` broadcasts, and it is called with two statements
+      # still to run inside the transaction - so a subscriber woken by it
+      # re-queries a database the insert is not visible in yet. That is not
+      # observable through the SQL sandbox (every process shares the one
+      # connection), so what is asserted instead is the shape that causes it:
+      # no statement of this write may run after the broadcast has gone out.
+      seen =
+        registration_writes_after_broadcast(t.id, fn -> Registrations.accept(registration) end)
+
+      assert seen == [],
+             "the roster broadcast went out with #{length(seen)} statement(s) still to run, " <>
+               "from inside the transaction:\n" <> Enum.join(seen, "\n")
+
+      tid = t.id
+      assert_receive {:tournament_changed, ^tid, :players}
     end
 
     test "an accepted entrant lands absent, not in the room" do
