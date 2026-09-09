@@ -359,7 +359,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
                gettext(
                  "\"%{name}\" is unlocked here. The copy handed to %{place} must not be opened again.",
                  name: unlocked.name,
-                 place: unlocked.handed_off_to || gettext("the other machine")
+                 # The unlock clears `handed_off_to`, so the destination lives
+                 # only on the pre-unlock row. This is the one message that
+                 # tells an arbiter which physical copy is now dead, so it has
+                 # to name it.
+                 place: tournament.handed_off_to || gettext("the other machine")
                )
              )
              |> assign_tournaments()}

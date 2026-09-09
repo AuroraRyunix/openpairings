@@ -14,6 +14,18 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.52.1] - 2026-09-09
+
+- [Fix] **The forced-unlock message named "the other machine" instead of the
+  machine.** Breaking a hand-off open says which copy is now dead - the one
+  the arbiter carried to the club laptop, the tournament hall PC, the
+  secretary's desktop - and it is the only place the app says it. The
+  message was built from the row the unlock returns, and clearing
+  `handed_off_to` is part of what the unlock does, so the destination was
+  always gone by the time it was read and the placeholder won every time.
+  Taken from the staged row instead, which still carries it. The audit
+  entry the same function writes had this right all along.
+
 ## [0.52.0] - 2026-09-09
 
 - [Feature] **`?`, the ITDX unknown-result code, is read on import.** The

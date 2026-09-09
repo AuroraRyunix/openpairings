@@ -486,5 +486,26 @@ defmodule PairingsEngineWeb.HandoffUiTest do
 
       refute Tournaments.handed_off?(Repo.reload!(tournament))
     end
+
+    # The unlock clears `handed_off_to` on its way out, so building the message
+    # from the row it returns named the placeholder every time. An arbiter
+    # reads this line to know which physical copy is now dead; "the other
+    # machine" is no help when there are three of them on the table.
+    test "the unlock flash names the machine the copy was handed to", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _} = Handoff.hand_off(tournament, "the club laptop", scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/?return=#{tournament.id}")
+      lv |> form("#force-unlock-form", %{"confirm" => "UNLOCK"}) |> render_change()
+      render_click(lv, "force_unlock_confirmed", %{})
+
+      flash = lv |> element("#flash-info") |> render()
+
+      assert flash =~ "the club laptop"
+      refute flash =~ "the other machine"
+    end
   end
 end
