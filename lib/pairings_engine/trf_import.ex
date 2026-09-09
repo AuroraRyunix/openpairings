@@ -109,7 +109,9 @@ defmodule PairingsEngine.TrfImport do
   # measured before it is read.
   defp build_structs_with_data(content) do
     with :ok <- check_bounds(content),
-         {:ok, data} <- content |> decode_content() |> parse_trf(),
+         decoded = decode_content(content),
+         :ok <- check_single_document(decoded),
+         {:ok, data} <- parse_trf(decoded),
          {:ok, tournament} <- build_tournament_struct(data),
          {:ok, players} <- build_player_structs(data.players) do
       {:ok, {tournament, players, data}}
@@ -331,6 +333,42 @@ defmodule PairingsEngine.TrfImport do
   # over to the second - an orphan player nobody's games reference. Caught
   # up front, before any row is written, so this is always a clean rollback
   # rather than a half-imported tournament.
+  # TRF has no end marker, no length and no envelope, so two files
+  # concatenated are one syntactically valid file. `cat a.trf b.trf > both`
+  # produces it, a Windows `copy /b` produces it, and so does a script that
+  # loops over a directory of exports with one `>>` too many.
+  #
+  # `validate_unique_ranks/1` below catches the common case, because a second
+  # document usually restarts its numbering at 1 and every rank then appears
+  # twice. It does NOT catch the case where the numbering does not restart:
+  # two tournaments whose ranks happen to be disjoint parse as one
+  # tournament, holding everybody's players, named after whichever `012` line
+  # was read last. Nothing warns, and the result looks like a tournament.
+  # That is the quiet version, and it is worth refusing by structure rather
+  # than by the coincidence of a collision.
+  #
+  # `012` is the tournament's name and a document has exactly one, so two of
+  # them is two documents whatever the ranks say. Zero is left alone: the
+  # line is not mandatory here, and a file without one is a different
+  # complaint made elsewhere.
+  defp check_single_document(text) do
+    names =
+      text
+      |> String.split(~r/\r?\n/)
+      |> Enum.count(&String.starts_with?(&1, "012"))
+
+    if names > 1 do
+      {:error,
+       {:parse_failed,
+        "this file contains #{names} tournaments, not one - it has #{names} " <>
+          "\"012\" (tournament name) lines. Two TRF files joined end to end look " <>
+          "like a single valid file, so this is refused rather than guessed at. " <>
+          "Import them separately."}}
+    else
+      :ok
+    end
+  end
+
   defp validate_unique_ranks(data) do
     dupes =
       data.players

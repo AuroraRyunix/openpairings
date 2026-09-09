@@ -14,6 +14,30 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.53.2] - 2026-09-09
+
+- [Fix] **A file holding two tournaments is refused instead of imported as
+  one.** TRF has no end marker, no length and no envelope, so two files
+  joined end to end are one syntactically valid file - which `cat a.trf
+  b.trf`, a Windows `copy /b`, and a script with one `>>` too many all
+  produce.
+
+  The existing duplicate-rank check already caught the usual version of
+  this, because a second document normally restarts its numbering and every
+  rank then appears twice. It did not catch the quiet one: two tournaments
+  whose starting ranks happen not to overlap imported **cleanly, as a single
+  tournament holding everybody's players, named after whichever `012` line
+  was read last**, with no warning. A file is now checked for having exactly
+  one tournament-name line before anything is parsed, so this is refused by
+  structure rather than by the coincidence of a collision.
+
+  Uploading the same file twice is deliberately still allowed and still
+  makes two separate tournaments. A TRF carries no identity to compare
+  against, and two clubs can legitimately run events with the same name on
+  the same dates - refusing would block a real case to prevent a visible
+  one. Both behaviours are now pinned by tests, so the difference is written
+  down rather than assumed.
+
 ## [0.53.1] - 2026-09-09
 
 - [Security] **The publishing task can take its token from the environment,
