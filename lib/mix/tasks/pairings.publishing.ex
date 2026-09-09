@@ -8,7 +8,8 @@ defmodule Mix.Tasks.Pairings.Publishing do
       mix pairings.publishing --ensure \\
         --endpoint http://localhost:4004 \\
         --public https://openresults.example \\
-        --token SECRET
+        --token SECRET        (or the DEPLOY_PUBLISH_TOKEN environment
+                              variable, which keeps it out of `ps`)
 
   ## Why a deploy needs this
 
@@ -131,7 +132,7 @@ defmodule Mix.Tasks.Pairings.Publishing do
       &Publishing.put_public_base/1
     )
 
-    settle_token(force?, opts[:token])
+    settle_token(force?, opts[:token] || token_from_env())
   end
 
   defp settle(_force?, _label, _current, nil, _put), do: :ok
@@ -156,6 +157,25 @@ defmodule Mix.Tasks.Pairings.Publishing do
 
   # Compared without printing: the whole point of a token is that it does not
   # appear in a deploy log.
+  # The deploy prefers this to `--token`, and the reason is `ps`.
+  #
+  # A secret on a command line is in the argv of every process that carries
+  # it, and `/proc/<pid>/cmdline` is world-readable - so for the seconds this
+  # task runs, the ingest token is legible to any account on a box that also
+  # hosts other applications. The deploy script closed its own half of that
+  # (the token is no longer in the command string it builds, prints and sends
+  # over the wire) and could not close the last of it, because OptionParser
+  # reads argv and nothing else. This is that last part.
+  #
+  # `--token` still works and still wins when both are given: it is what a
+  # person types by hand, and a person typing it has decided.
+  defp token_from_env do
+    case System.get_env("DEPLOY_PUBLISH_TOKEN") do
+      value when is_binary(value) and value != "" -> value
+      _unset_or_blank -> nil
+    end
+  end
+
   defp settle_token(force?, wanted) when is_binary(wanted) do
     current = Publishing.token()
 

@@ -14,6 +14,18 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.53.1] - 2026-09-09
+
+- [Security] **The publishing task can take its token from the environment,
+  so the deploy stops putting it on a command line.** A secret passed as an
+  argument is in that process's argv, and `/proc/<pid>/cmdline` is readable
+  by every local account - so on a box that hosts other applications the
+  ingest token was legible for as long as the task ran. `--token` still
+  works and still wins when both are given: a person typing it has decided.
+  The deploy script closed its own half of this at the same time; this is
+  the half that had to live here, because `OptionParser` reads argv and
+  nothing else.
+
 ## [0.53.0] - 2026-09-09
 
 - [Feature] **A player can be in several categories at once.** The same
