@@ -337,8 +337,19 @@ static void start_server(void)
      * on every interface for a node whose cookie ships inside the download and
      * is therefore identical on every copy of it; and one fewer process.
      *
-     * `bin\pairings_engine_portable.bat remote|stop|rpc` still work against an
-     * instance started by OpenPairings.bat, which is untouched. */
+     * Set unconditionally here, and that is the difference from the other
+     * launchers: OpenPairings.bat, openpairings.sh and the macOS bundle now
+     * default to `none` too, but let a pre-set RELEASE_DISTRIBUTION through.
+     * This one does not, because it is the front door - the thing an arbiter
+     * double-clicks - and an escape hatch on the front door is a hole with a
+     * label on it. Somebody who wants a node to attach `remote` or `rpc` to
+     * runs `set RELEASE_DISTRIBUTION=sname` and then OpenPairings.bat, which
+     * is the diagnostic launcher and is where that belongs.
+     *
+     * The cost of `none`, stated plainly: `bin\pairings_engine_portable.bat
+     * stop|restart|pid` are RPC to a named node, so they have nothing to talk
+     * to. Irrelevant here - the stop button is the job object above, and it
+     * was already chosen over `stop` for the reasons at the top of this file. */
     SetEnvironmentVariableW(L"RELEASE_DISTRIBUTION", L"none");
 
     ZeroMemory(&sa, sizeof sa);

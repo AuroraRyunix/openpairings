@@ -14,6 +14,96 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.56.0] - 2026-09-10
+
+- [Feature] **A tournament tells you when its settings stop describing a
+  FIDE-handled event, and records the round it happened in.** FIDE Mode is
+  the default and there is no switch for it: the settings a new tournament
+  gets are the compliant ones, and only changing one can take that away. So
+  the state is computed, not set. Three settings can take a tournament out of
+  it, and all three change who plays whom: a Keizer ladder (FIDE defines the
+  Swiss and the round-robin Berger tables and nothing else), pairing each
+  category as its own separate tournament, and the immediate two-game Swiss
+  rematch, whose second leg is a colour-reversed copy with no pairing
+  decision behind it. Nothing is blocked - an arbiter running a club evening
+  that will never be rated has every right to any of it - and the pages that
+  host those settings say what it means, once, with a link to the setting
+  that did it.
+- [Feature] **The round in which that first happened is kept, and survives a
+  restore, a hand-off and a backup.** It is the one half of this that cannot
+  be recomputed: put the setting back and the tournament is compliant again,
+  but nothing left in the data could say which round it stopped. FIDE asks
+  for that round by name. It is recorded in the same write as the setting
+  change that causes it, is never cleared, and only ever moves earlier -
+  so rolling back to a snapshot from before it cannot un-record it, and a
+  tournament handed to another laptop comes home carrying what happened
+  there.
+- [Change] **The audit trail names the setting that did it, on its own
+  line.** `tournament.fide_compliance_lost`, beside the existing
+  round-1-freeze override rows rather than buried inside the bulk settings
+  diff - it is the entry an arbiter may have to point at later.
+- [Verified] **Most settings are not a compliance question, and the reasons
+  are written down.** Non-standard scoring, half-point byes and the
+  pairing-allocated bye value are all things FIDE's own checklist requires to
+  be configurable; administrative extra points have a dedicated record in
+  FIDE's own 2026 report format; a hand-set standings order is how an arbiter
+  records a play-off, which the tie-break regulations end in. None of them
+  raises a warning, and `PairingsEngine.Compliance` says why for each.
+
+## [0.55.0] - 2026-09-10
+
+- [Security] **The other three launchers start with Erlang distribution
+  switched off too, so no way of double-clicking OpenPairings leaves a node
+  on the network.** 0.54.0 closed this for `OpenPairings.exe` and said in as
+  many words that `OpenPairings.bat`, `openpairings.sh` and the macOS `.app`
+  still started with distribution on. They no longer do.
+
+  The exposure was identical on all four, and it was measured rather than
+  inferred: a portable release starts `epmd` on `0.0.0.0:4369` and the node
+  itself on `0.0.0.0:<ephemeral>`, both on every interface, while the web
+  port is correctly pinned to loopback. What turns that from untidy into a
+  door is the cookie: `releases/COOKIE` ships inside the download, so it is
+  byte-identical on every copy anybody installs, and a reachable Erlang node
+  plus a publicly known cookie is someone else running code on your machine.
+  An arbiter's laptop on club or hotel wifi is exactly where that gets used.
+
+  **Nothing in the application needed distribution**, which was checked
+  before it was switched off rather than after. There is no clustering - the
+  `dns_cluster` dependency is configured `:ignore` unless `DNS_CLUSTER_QUERY`
+  is set, which nothing local sets - and nothing calls `Node.connect/1`,
+  `Node.list/0` or `:rpc`. `mix pairings.role` and the `app-role` wrapper
+  that is the documented recovery path for an installation with no
+  administrators start the Repo themselves and never reach a running node.
+  The deploy script's restart warning goes over HTTP to loopback for the same
+  reason, and says so. Each launcher's stop was already its own - closing the
+  window, Ctrl-C, or a Windows job object - and never `bin/... stop`, which
+  is an RPC.
+
+  What it costs is exactly that: `bin/pairings_engine_portable stop`,
+  `restart`, `pid`, `remote` and `rpc` are RPC to a named node, so against an
+  instance a launcher started they have nothing to talk to. The three script
+  launchers let a pre-set value through, so `RELEASE_DISTRIBUTION=sname
+  ./openpairings.sh` still gives you a node to attach to when you want one.
+  `OpenPairings.exe` forces `none` and ignores the variable, deliberately: it
+  is the front door an arbiter double-clicks, and an escape hatch on the
+  front door is a hole with a label on it. `OpenPairings.bat` is the
+  diagnostic launcher, and that is where the escape hatch belongs.
+
+  The single-file Burrito binary never had the problem and needed no change.
+  Its launcher builds the `erl` command line itself and passes `-setcookie`
+  without `-name` or `-sname`; distribution only starts when the VM is given
+  a node name, so it opens no `epmd` and no listener.
+
+  Verified on Windows against a real portable release. Before: `epmd` on
+  `0.0.0.0:4369` and the node on `0.0.0.0:56324`. After: no `epmd` process at
+  all, and the BEAM holding exactly one listener, the web port on
+  `127.0.0.1`. The application is unaffected - a round pairs, the served page
+  reads it back out of the database, and closing the window still stops the
+  server. `openpairings.sh` and the macOS bundle cannot be run on a Windows
+  machine and were changed by reading; both were syntax-checked, and the
+  bundle's launcher was rendered out of the workflow heredoc and checked as
+  the script CI will actually write.
+
 ## [0.54.0] - 2026-09-10
 
 - [Fix] **A SWAR file's tie-breaks are imported in full, and a criterion this
@@ -30,15 +120,6 @@ Each entry is tagged so a version can be skimmed:
   a warning naming which criterion was lost and that everything after it
   moved up a place. Found by reading SWAR's own source rather than from a
   bug report.
-
-- [Security] **The Windows launcher starts the app with Erlang distribution
-  switched off.** A portable release was listening on `0.0.0.0` for both
-  `epmd` and the node itself, and `releases/COOKIE` ships inside the
-  download - so it is the same on every copy, and the pair is enough to run
-  code on an arbiter's laptop from anywhere that can reach it. The launcher
-  sets `RELEASE_DISTRIBUTION=none`, which also removes a first-run firewall
-  prompt. `OpenPairings.bat`, `openpairings.sh` and the macOS bundle still
-  start with distribution on; that is a separate change and is not done.
 
 - [Feature] **Windows has a real application to double-click.** The portable
   release now carries `OpenPairings.exe` beside `OpenPairings.bat`, and it is

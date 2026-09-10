@@ -171,6 +171,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
         })
 
         log_unlocked_field_changes(socket, tournament, updated, unlock_fields)
+        log_compliance_departures(socket, tournament, updated)
 
         {:noreply,
          socket
@@ -203,6 +204,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           })
 
           log_unlocked_field_changes(socket, tournament, updated, unlock_fields)
+          log_compliance_departures(socket, tournament, updated)
 
           {:noreply,
            socket
@@ -388,6 +390,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
       </div>
 
       <.settings_subnav tournament={@tournament} active={:categories} />
+
+      <.compliance_notice tournament={@tournament} />
 
       <div class="card">
         <h2>{gettext("Categories")}</h2>

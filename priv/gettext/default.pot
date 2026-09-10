@@ -6285,3 +6285,63 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Afwezig"
 msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:395
+#, elixir-autogen, elixir-format
+msgid "This tournament is no longer set up the way the FIDE pairing rules describe. That is allowed - an event nobody is sending to FIDE can be run however you like - but a FIDE report from it records that it happened, and in which round."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:412
+#, elixir-autogen, elixir-format
+msgid "This tournament is set up the way the FIDE pairing rules describe. There is nothing to switch on: that is what a new tournament gets, and only changing a setting can take it away."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:422
+#, elixir-autogen, elixir-format
+msgid "The settings match the FIDE rules again, but that is a fact about this tournament's history and it stands."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:433
+#, elixir-autogen, elixir-format
+msgid "Recorded: this stopped matching the FIDE rules before the first round was paired."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:436
+#, elixir-autogen, elixir-format
+msgid "Recorded: this stopped matching the FIDE rules in round %{round}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:443
+#, elixir-autogen, elixir-format
+msgid "Pair by category"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:444
+#, elixir-autogen, elixir-format
+msgid "Match format"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:457
+#, elixir-autogen, elixir-format
+msgid "FIDE defines the Swiss (C.04.3) and the round-robin Berger tables (C.05); it does not define a Keizer ladder, and the FIDE tie-breaks do not apply to one. Swiss or round robin puts this back."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:463
+#, elixir-autogen, elixir-format
+msgid "Each category is paired as a separate tournament and the results are merged into one round, so two players on the same score never meet if they are in different categories. That is not a pairing C.04.3 can produce for one field of players. Running the sections as separate tournaments does the same thing without this."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:469
+#, elixir-autogen, elixir-format
+msgid "The second game of each match is a colour-reversed copy of the first, with no pairing decision behind it, so half of this tournament's rounds were not paired by C.04.3 at all."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_fide_live.ex:151
+#, elixir-autogen, elixir-format
+msgid "FIDE handling"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_fide_live.ex:155
+#, elixir-autogen, elixir-format
+msgid "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
+msgstr ""

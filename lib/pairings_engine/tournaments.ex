@@ -654,6 +654,7 @@ defmodule PairingsEngine.Tournaments do
 
     %Tournament{tiebreaks: Tiebreaks.fide_defaults(type)}
     |> Tournament.changeset(attrs)
+    |> stamp_compliance_loss(0)
     |> Repo.insert()
     |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
   end
@@ -664,6 +665,7 @@ defmodule PairingsEngine.Tournaments do
 
     %Tournament{tiebreaks: Tiebreaks.fide_defaults(type), user_id: scope.user.id}
     |> Tournament.changeset(attrs)
+    |> stamp_compliance_loss(0)
     |> Repo.insert()
     |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
   end
@@ -679,11 +681,66 @@ defmodule PairingsEngine.Tournaments do
          :ok <- ensure_unlocked(tournament, attrs, opts) do
       tournament
       |> Tournament.changeset(attrs)
+      |> stamp_compliance_loss(fn ->
+        PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+      end)
       |> Repo.update()
       |> tap_ok(fn updated ->
         broadcast_tournament_change(updated.id, :settings)
         broadcast_tournament_list(updated)
       end)
+    end
+  end
+
+  # Records the round in which a tournament's settings first stopped
+  # describing a FIDE-handled event - see
+  # `Tournament.fide_compliance_lost_round`'s own comment and
+  # `PairingsEngine.Compliance`.
+  #
+  # Written into the SAME changeset as the save that causes it, rather than
+  # as a second `Repo.update` afterwards, and that is the point: the settings
+  # change and the record of it either both land or neither does. A follow-up
+  # write could fail on its own and leave a tournament that is
+  # non-compliant with nothing saying when it became so, which is precisely
+  # the fact that cannot be reconstructed later.
+  #
+  # Idempotent by the first clause: once stamped, never touched again. There
+  # is no code path anywhere that clears this column, so "no re-entry" is the
+  # absence of a function rather than a guard somebody can forget - putting
+  # the setting back makes `Compliance.compliant?/1` true again and leaves
+  # this alone.
+  #
+  # `round` is a thunk on the update path so the count query only runs on the
+  # rare save that actually loses compliance; on the create path it is
+  # literally 0, because a tournament being inserted has no rounds. Both are
+  # "how many rounds exist", not "how many are complete" - the question the
+  # `###` line asks is which round was under way when this happened, and the
+  # round under way is the highest one that exists.
+  #
+  # Two creation paths do NOT come through here: `SwarImport` and `TrfImport`
+  # each build their own `Tournament.changeset/2` and insert it. Neither can
+  # mint a non-compliant tournament today - neither writes `pair_by_category`
+  # or `swiss_match_format`, and both leave `pairing_system` at "swiss" - so
+  # there is nothing for them to stamp. If either ever learns to set one of
+  # those, it has to stamp too, and `compliance_test.exs` is where to say so.
+  #
+  # The `valid?: false` clause is not what makes a refused save record
+  # nothing - the whole changeset is discarded, so that was already true. It
+  # is there so a save that is going to be refused does not pay for a round
+  # count it will not use.
+  defp stamp_compliance_loss(changeset, round) when is_integer(round),
+    do: stamp_compliance_loss(changeset, fn -> round end)
+
+  defp stamp_compliance_loss(%Ecto.Changeset{valid?: false} = changeset, _round), do: changeset
+
+  defp stamp_compliance_loss(changeset, round) when is_function(round, 0) do
+    tournament = Ecto.Changeset.apply_changes(changeset)
+
+    if is_nil(tournament.fide_compliance_lost_round) and
+         not PairingsEngine.Compliance.compliant?(tournament) do
+      Ecto.Changeset.put_change(changeset, :fide_compliance_lost_round, round.())
+    else
+      changeset
     end
   end
 

@@ -384,246 +384,232 @@ Worth naming, because each one decides part of the design.
 
 ---
 
-## 3. The design
+## 3. What was built, 2026-09-10
 
-### 3.1 Scope: per tournament, defaulting on
+**This section replaces the design that stood here before.** That design
+proposed a stored mode with an explicit `FideMode.leave/3` and a one-way
+door; section 0c settled that there is no toggle, and the shape changed
+accordingly. What follows describes the code as it exists in **0.56.0**, not
+a proposal. Where the earlier design's reasoning was tested against the real
+code and found wrong, that is marked and kept rather than deleted - the
+mistakes are the useful part.
 
-**Recommendation: model the mode on the tournament, default it on, and
-satisfy VCL.01/VCL.02 by the default rather than by an installation
-switch.**
+**The subsection numbers were reused, and the earlier sections still point at
+the old ones.** Sections 1, 2 and 5 cite "section 3.1", "3.3", "3.6" and so
+on; those numbers now name different things. Read any such reference as
+naming *the design that was proposed*, not what is here - and the field they
+call `fide_mode_left_round` is the column called
+`fide_compliance_lost_round`, renamed because there is no mode to leave.
 
-Reasons, in order of weight:
+### 3.1 The shape: derived, plus one recorded fact
 
-- **"No re-entry" is only survivable per tournament.** OpenPairings runs
-  one BEAM node against one SQLite database serving many accounts and many
-  tournaments (`docs/architecture.md:8-46`). An installation-level one-way
-  door means one arbiter's decision on one club event permanently disables
-  FIDE mode for every other tournament on the box, with no way back short
-  of a reinstall. No reading of the requirement produces that on purpose.
-- **The `###` line needs a round, and rounds belong to tournaments.**
-- **VCL.01 is satisfied.** A tournament created by a standard installation
-  and a standard invocation is in FIDE mode, because the field defaults to
-  it and nothing has to be configured. That is what "default operating
-  mode" asks for.
-- **It matches how every other constraint in this app is scoped.**
-  `locked_fields/1`, `ensure_writable/1`, `absent_counts_as_vur`,
-  `pairing_engine` - the whole regulation-shaped surface is per tournament.
+Two pieces, and the split is the whole design:
 
-What it costs: if TEC's reading turns out to be installation-level, we have
-a per-tournament mechanism and would need an installation-level default on
-top of it (one `Application.get_env` read feeding the schema default). That
-is an addition, not a rewrite. The reverse mistake is not recoverable.
+- **`PairingsEngine.Compliance`** (`lib/pairings_engine/compliance.ex`) -
+  pure, no Repo, no gettext. `check/1` takes a `%Tournament{}` and returns
+  the list of settings that have taken it out of FIDE handling, each with
+  the value it holds now and the values that would bring it back.
+  `compliant?/1`, `settings/0` and `introduced/2` sit on top of it. Nothing
+  about "is this tournament compliant" is stored, because nothing needs to
+  be: it is a fact about the settings, and the settings are already stored.
+- **`tournaments.fide_compliance_lost_round`** (one nullable integer
+  column) - the round in which compliance was first lost. `nil` means never;
+  `0` means "before round 1 was paired", which is a real state a Keizer
+  tournament is in from creation. It is the one half that cannot be
+  recomputed: put the setting back and `compliant?/1` is true again, and
+  nothing left in the data could say which round it stopped. VCL4THP asks
+  for that round by name.
 
-### 3.2 Schema
+There is no `fide_mode` boolean, and there is no `enter`/`leave` pair. The
+"no re-entry" rule is not a guard anybody can forget - there is no code path
+that clears the column, because nothing was written that could.
 
-Three new columns on `tournaments`, and deliberately **no boolean**:
+### 3.2 The inventory, and why it is short
 
-```elixir
-# Whether this tournament is still being handled in FIDE Mode is not
-# stored: it is `is_nil(fide_mode_left_round)`. See PairingsEngine.FideMode.
-field :fide_mode_left_round, :integer            # nil while never left
-field :fide_mode_left_at, :utc_datetime          # nil while never left
-field :fide_mode_left_reason, :string, default: ""
-```
+The full reasoning per setting is in `Compliance`'s moduledoc, which is where
+it belongs (the next person to touch this reads the module, not this file).
+The summary:
 
-**Why no `fide_mode` boolean.** `docs/sweep-2026-08-26.md:2357` proposed
-`fide_mode` *and* `fide_mode_left_round`, and then noticed in the same
-sentence that the rule is `fide_mode_left_round != nil`. Two columns that
-must always agree are one rule spelled in two places - the exact shape
-`TODO.md:146-152` names as this codebase's recurring bug class, and the
-shape that produced the `absent_counts_as_vur` polarity error and the
-`voluntary` inconsistency between two paths in one file. One column, one
-predicate, no possible disagreement.
+**Three departures.** All three change *who plays whom*, away from what a
+FIDE pairing system produces, and that turned out to be the only line that
+survives contact with the regulations:
 
-**Why a nullable round rather than a sentinel.** `0` is a legitimate value:
-a mode left before round 1 was paired. `nil` has to mean "never left" and
-nothing else.
+| setting | code | why |
+|---|---|---|
+| `pairing_system == "keizer"` | `:non_fide_pairing_system` | FIDE defines the Dutch Swiss (C.04.3) and the round-robin Berger tables (C.05 Annex 1). It does not define a Keizer ladder, which is also why this app's own tie-break code says the C.07 breaks do not apply to one. `VCL.03` wants a system the program is endorsed for, and no program can be endorsed for a system FIDE has not written down. |
+| `pair_by_category == true` (Swiss only) | `:categories_paired_separately` | Each category gets its own engine run and its own pairing-allocated bye, merged into one Round. Two players on the same score never meet if they are in different categories - not a pairing C.04.3 can produce for one field. Running the sections as separate tournaments is the compliant way to do the same thing. |
+| `swiss_match_format == true` (Swiss only) | `:mirrored_second_leg` | The second leg is inserted as an exact colour-reversed mirror with no pairing decision behind it. Half the tournament's rounds were not paired by C.04.3 at all. |
 
-**Why `left_at` and `left_reason` at all.** Neither is required by anything
-we know of. `left_at` is cheap and answers "was this before or after the
-incident"; `left_reason` is what makes the audit row and the banner say
-something useful instead of "it was left". Both are ours (1.4).
+Both booleans are gated on `pairing_system == "swiss"`, because their own
+schema comments say they are never read otherwise. **This gating is
+load-bearing, not tidiness.** A compliance check that reports a setting no
+round will ever act on teaches arbiters that one of its lines is noise, and
+an arbiter who has learned that stops reading the other lines.
 
-**Migration.** One `ALTER TABLE` per column, SQLite-friendly, no table
-rebuild - the same shape as
-`priv/repo/migrations/20260906120000_add_soft_pairing_rules.exs`. Backfill
-is an open question (7.3): `nil` for every existing row means every
-historical tournament claims to have been handled in FIDE mode, which is
-neither provable nor disprovable from the data.
+**Everything else was examined and left out.** Briefly, with the reason each
+one failed to qualify - the point of writing these down is that they will be
+proposed again:
 
-### 3.3 The state machine, and why it is one function short
+- **Scoring values** - `points_win`/`draw`/`loss`, `bye_value`, `abs_value`
+  and its two caps, `presence_value`. `VCL.16` requires the
+  pairing-allocated bye value to be *configurable*; `VCL.17` requires
+  half-point byes to be assignable; `VCL.12` requires the TRF16 export to
+  stay analyzable **"even under a non-default scoring system"**. That is the
+  checklist we are measured against assuming non-default scoring exists. A
+  rule firing here would contradict it.
+- **`count_extra_points`** - TRF26 has a dedicated `299` record for "points
+  assigned outside the scoring system - a bonus or a penalty an arbiter
+  added by hand", and FIDE's own wording allows a negative value.
+  `TrfExport.free_point_records/2` already writes it. FIDE does not merely
+  permit administrative points, it asks to be told about them. They also
+  never reach pairing or the C.07 tie-breaks (`docs/extra-points.md`).
+- **`manual_ranking`** - C.07 ends in mechanisms whose outcome an arbiter has
+  to be able to record: a play-off, drawing of lots. Recording one is the
+  feature's first documented use (`docs/manual-standings.md`). A permanent
+  non-conformance mark for doing the right thing is the definition of crying
+  wolf. The case that *would* be a departure - a hand-set order contradicting
+  the score order - is a fact about the players, and no pure function over a
+  `%Tournament{}` can see it.
+- **`tiebreaks`** - C.07 lists systems and the tournament's own regulations
+  choose among them. FIDE mandates no selection. An empty list already blocks
+  pairing via `missing_setup_fields/1`.
+- **`acceleration`** - Baku is FIDE's own (C.04.7). Both values are FIDE's.
+- **`pairing_engine`** - and this is the interesting one. `VCL.03` wants a
+  system *the program is endorsed for*, which today points at **JaVaFo**;
+  rules currency points at **Ainalrami**, which implements the edition in
+  force since 1 February 2026 where JaVaFo implements the 2022 one. The
+  regulations point in opposite directions, so the module does not pretend
+  to settle it. The advisory note on the Options page is the right treatment
+  and stays. Flagging JaVaFo would also have unilaterally reversed a decision
+  the maintainer made on 2026-08-21.
+- **Forbidden pairings, club/federation exclusions, soft rules** - `XXP` is
+  FIDE's own TRF extension and the endorsed engine implements it. Q196 *does*
+  make adding a prohibited pairing after round 1 a hard failure, citing
+  C.05:5.2 - but that is an act at a round, not a setting, and
+  `docs/tec-feedback-2026-09.md:179-193` is a live disagreement with TEC
+  about whether the reading is right at all. Encoding one side of an open
+  argument as a permanent mark on somebody's tournament was not this change's
+  call. When Q196 settles, `Tournaments.add_forbidden_pairing/4` is where it
+  lands.
+- **`rr_match_format`** - reorders a fixed Berger schedule. Everybody still
+  meets everybody with the same colours; it changes the order of rounds, not
+  who meets whom.
+- **`absent_counts_as_vur`** - FIDE has no "absent" concept at all
+  (`docs/fide-endorsement.md:403-418`), so there is no regulation for either
+  setting of it to violate.
+- **`allow_swiss321`** - listed in the brief as a candidate, but it is not a
+  tournament setting: it is an option on
+  `Federations.BEL.SwarImport.parse/2`, and the import is refused without it
+  for data-fidelity reasons unrelated to FIDE.
 
-Two states, one transition:
+### 3.3 Where the round is written
 
-```
-    IN MODE                                    LEFT
-  left_round == nil   ──── leave/3 ────▶   left_round == n
-       ▲                                        │
-       └────────────── (nothing) ◀──────────────┘
-```
+`Tournaments.create_tournament/1,2` and `update_tournament/3`, through one
+private `stamp_compliance_loss/2` that puts the change **into the same
+changeset as the save that causes it**. Not a second `Repo.update`
+afterwards: the settings change and the record of it either both land or
+neither does, and a follow-up write that failed on its own would leave a
+tournament that is non-compliant with nothing saying when - precisely the
+fact that cannot be reconstructed later. A refused save records nothing,
+which is tested.
 
-**The no-re-entry rule is not a check. It is the absence of a function.**
+The round is `Pairing.paired_rounds_count/1` - how many rounds *exist*, not
+how many are complete. The question the `###` line asks is which round was
+under way, and the round under way is the highest one that exists. On the
+create path it is literally `0` with no query.
 
-`PairingsEngine.FideMode` exposes `leave/3` and does not expose `enter/1`.
-There is no code path that sets `fide_mode_left_round` back to `nil`, so
-there is no guard that can be forgotten, no `:unlock` option that can be
-passed, and no admin escape hatch that will be added "just for support" in
-six months. A caller cannot get it wrong because there is nothing to call.
+`SwarImport` and `TrfImport` build their own changesets and insert directly,
+bypassing `Tournaments`. Neither can mint a non-compliant tournament today -
+neither writes either boolean, and both leave `pairing_system` at "swiss" -
+so neither has anything to stamp. If either learns to set one, it has to
+stamp too; `compliance_test.exs` is where to say so.
 
-That only holds if nothing else can write the column. Three mechanisms in
-this app write tournament fields, and all three have to be handled:
+`manual_ranking` has its own writer (`do_set_manual_ranking_flag/2`) that
+does not go through `update_tournament/3`. That would have been a hole if
+`manual_ranking` were a compliance setting. It is not, per 3.2 - but if it
+ever becomes one, that writer is the second place to stamp.
 
-**(a) `Tournament.changeset/2` (`tournament.ex:~640-700`).** The three new
-fields are **not added to the cast list.** This is the codebase's own
-established answer for a field no ordinary save may touch, and there are
-three precedents: `openresults_key` (reasoning at `snapshots.ex:27-35`),
-`manual_ranking_stale` (`tournament_import.ex:242-246`), and
-`logo_data`/`logo_content_type` (`tournaments.ex:860-913`). Following the
-existing pattern also means the existing tests that assert the cast list
-keep their meaning.
+### 3.4 Surviving a restore and a hand-off - and where 3.3b was wrong
 
-**(b) `TournamentImport.restore_into!/2` (`tournament_import.ex:201-219`).**
-This is the sharpest hole in the whole design and it is invisible unless
-you go looking. `Tournaments`' own comment
-(`tournaments.ex:702-705`) says restore *deliberately* bypasses
-`update_tournament/3` "because restoring a snapshot legitimately sets every
-field back at once, locks included." A restore point taken before the exit
-would therefore un-leave FIDE mode, silently, through a button on the
-History page - and `Handoff` returns a tournament through the same function
-(`handoff.ex:688`), so the same hole exists on the round trip to another
-machine.
+The old section 3.3b called `restore_into!/2` "the sharpest hole in the whole
+design" and prescribed re-asserting the three fields **from the live row**.
+Tested against the real code, **both halves of that are wrong**, and the
+second half would have introduced the bug it was trying to prevent:
 
-The fix is two lines and it already has a template directly above it:
-`restore_into!/2` currently carries `manual_ranking_stale` across
-explicitly with `Ecto.Changeset.change/2` (`tournament_import.ex:206-209`)
-because it is outside the cast. The three FIDE-mode fields do the opposite
-- they are re-asserted from the **live row**, not from the snapshot:
+1. **A restore cannot clear an uncast field on its own.**
+   `restore_into!/2` builds its changeset on `tournament` - the live row -
+   so a field outside the cast list simply keeps the value it already had.
+   The danger only appears if somebody later adds the column to `cast`. That
+   combination is what `compliance_test.exs` fails on, and it was watched
+   failing.
+2. **The direction that really is broken points the other way.**
+   `Handoff.release/3` returns a tournament through the same
+   `restore_into!/2`, and the returning payload is the only record of what
+   happened on the other machine. This copy was locked for the whole trip and
+   knows nothing. Re-asserting the live value would have thrown away a
+   compliance loss that really happened, on the copy where the rounds were
+   actually played.
 
-```elixir
-|> Ecto.Changeset.change(
-     manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
-     fide_mode_left_round: tournament.fide_mode_left_round,
-     fide_mode_left_at: tournament.fide_mode_left_at,
-     fide_mode_left_reason: tournament.fide_mode_left_reason)
-```
+One rule covers both, and it is the rule the fact itself implies: **the
+record is a watermark on the first loss, so it only ever moves earlier -
+never later, and never back to `nil`.** `earliest_compliance_loss/2` in
+`TournamentImport`. `import_tournament!/2` (a brand-new row from a file)
+takes the file's value outright, since there is no live value to weigh
+against.
 
-The reasoning is identical to `openresults_key`'s, and `snapshots.ex:27-35`
-already writes it out for that field: rolling back past an event that has
-already been reported must not un-report it.
+The column is exported (`@tournament_fields`), which the export test forces a
+decision on. It is the one entry there whose reason is not "it is a setting":
+a backup carries the rounds that were played after the loss, and one that
+carried the rounds and dropped the record would restore a tournament claiming
+it was handled compliantly throughout.
 
-**(c) `TournamentImport.import_tournament!/2` (`tournament_import.ex:237-270`).**
-A *new* tournament minted from a file - a JSON backup, and also the
-"Duplicate" action, which round-trips through export and import
-(`tournaments_live.ex:688-705`). Here the file's values **should** be
-carried, so a backup of a tournament that left FIDE mode restores as one
-that left. Same `Ecto.Changeset.change/2` call, opposite source. The
-duplicate case is an open question (7.5).
+### 3.5 What the arbiter sees
 
-So: one writer, one cast exclusion, one line in each of two import
-functions. That is the entire no-re-entry rule, and every part of it is
-mechanical.
+`SettingsSupport.compliance_notice/1`, modelled on the setup checklist
+(`missing_setup_fields/1`) deliberately: a card, a sentence, one line per
+item, each linking to the page that item lives on. That is the vocabulary
+this app already uses for "here is what is not right yet".
 
-### 3.4 Where `leave/3` is triggered
+Rendered on **Settings → Options** and **Categories** (the pages that host
+the three settings, so the notice appears the moment one is changed) and on
+**Settings → FIDE** with `show_compliant`, which is where somebody goes to
+ask the question. Not in the layout: FIDE handling is the default, and a
+banner announcing it on every page is noise that teaches people to skip
+banners.
 
-```elixir
-@spec leave(Tournament.t(), Scope.t() | nil, String.t()) ::
-        {:ok, Tournament.t()} | {:error, :already_left | :archived | :handed_off}
-def leave(%Tournament{fide_mode_left_round: r}, _actor, _reason) when not is_nil(r),
-  do: {:error, :already_left}
+**It does not argue and it does not block.** No confirmation, no "fix it"
+button, no refusal. An arbiter running a club evening that will never be
+rated has every right to any of the three, and the software's job is to say
+what it means, once, and get out of the way.
 
-def leave(%Tournament{} = t, actor, reason) do
-  with :ok <- Tournaments.ensure_writable(t) do
-    round = PairingsEngine.Pairing.paired_rounds_count(t.id)
-    # ... one Repo.update, then Audit.log + broadcast_tournament_change
-  end
-end
-```
+`Compliance` returns codes and never sentences - the domain layer does not
+use gettext, and a warning that cannot be translated is a warning half this
+app's users cannot read. `compliance_message/1` in the web layer is the only
+place codes become words, and `compliance_notice_test.exs` fails if a code is
+added without one.
 
-**Which round.** `Pairing.paired_rounds_count/1` (`pairing.ex:266-268`)
-counts `Round` rows - "how many rounds exist", not "how many are complete".
-That is the right number here and it is worth saying why, because this
-codebase has been bitten by the wrong one: `TODO.md:705-716` records
-`adjusted_score/3` mixing a record count with a round number and putting a
-wrong figure on an arbiter's screen. Here the question is "which round was
-under way when this happened", and the round under way is the highest one
-that exists. `0` before any round is paired, and the `###` line has to be
-readable as "before the tournament started".
+### 3.6 The audit row
 
-**Callers.** Exactly one in Phase 1: the confirmed "Leave FIDE Mode" action
-on Settings → FIDE. Under reading B(ii) of section 1.3, some enforcement
-sites would call it too - `add_forbidden_pairing/4` (`tournaments.ex:2503`)
-being the first candidate, per the letter's B.6. **Do not wire those until
-B is settled.** An automatic exit that turns out not to be required is a
-tournament wrongly marked non-conforming in a file submitted to FIDE, and
-it is not correctable afterwards.
+`tournament.fide_compliance_lost`, one per departure a save actually
+introduced, carrying the setting, the code and the round. Its own action
+rather than folded into the bulk settings diff, for the same reason
+`tournament.locked_field_changed` is: the round is the fact FIDE asks for by
+name, and it must not go unnoticed inside whatever else that save touched.
+`fide_compliance_lost_round` is in `@settings_diff_ignore` for the mirror
+reason - in the bulk diff it would read as one more changed field with no
+cause attached.
 
-### 3.5 The warning funnel
+### 3.7 What was deliberately not built
 
-There is no warning funnel today. `settings_options_live.ex:645` and
-`:1012` render `.error-note` spans inline, per page, hand-written, and that
-is the whole of the app's vocabulary for "this is allowed but you should
-know".
-
-Recommended shape - one new module, `PairingsEngine.FideMode`:
-
-```elixir
-@spec check(Tournament.t(), atom(), map()) :: :ok | {:warn, 1..5, atom(), map()}
-```
-
-Four properties, each with a reason:
-
-- **Levels live in one table, and their provenance is marked.** A single
-  module attribute maps `{action, condition} -> level`, with each entry
-  tagged as taken from the TEC Manual or chosen by us pending it. That
-  localises the unknown from section 1.3.C to one literal instead of
-  scattering integers through call sites, and it is what makes the letter's
-  C.3 answer (may we warn louder than the minimum?) a one-file change when
-  it arrives.
-- **Warnings are events; blockers are predicates.** A warning is logged and
-  shown once, at the moment of the action - `Audit.log/4` with an action
-  code, the level and the code in `details`. A state that must persist
-  (adjourned games outstanding, mode left) is *derived* from the tournament
-  on read, never stored as a warning row. Mixing the two is how a warnings
-  table starts and then has to be reconciled with reality.
-- **No new table in Phase 1.** The audit trail already carries the acting
-  user, the timestamp, a structured payload and a rendering path
-  (`AuditLive.describe/1`, `audit_live.ex:121-309`). A second table
-  answering "what happened and who did it" would be a second answer to a
-  question that already has one.
-- **`check/3` returns codes, never sentences.** The domain layer does not
-  use gettext - `lib/pairings_engine/features.ex:62` is the only module in
-  `lib/pairings_engine/` that does. Message text belongs in a web-layer
-  renderer. Getting this backwards produces warnings that cannot be
-  translated, which is Q10's 10% penalty on exactly the elements Q10 names.
-
-### 3.6 What the arbiter sees
-
-**While in mode: almost nothing.** FIDE mode is the default (VCL.01), so a
-banner announcing it on every page is noise that trains people to ignore
-banners. One line on Settings → FIDE stating the mode and offering the exit.
-
-**On leaving: the double warning, satisfying all three readings of 1.3.D at
-once.** Two steps, the second demanding more than a click - the house
-precedent is `force_unlock_panel/1` (`settings_support.ex:252, :290`), which
-makes an arbiter type a word that names the act, on the stated reasoning
-that a half-read dialog should still spell out what the typing is for. The
-same warning then goes into the report as the `###` line (section 4), which
-is the "delivered twice" and "shown to the reader as well" readings.
-
-**After leaving: a layout banner.** In `Layouts.app/1` beside the archived
-and handed-off banners (`layouts.ex:259` and `:285`), which carry the
-argument in their own comment: rendered in the layout "so it cannot be
-forgotten on one" page. Permanent and not dismissible - the tournament's
-state changed and there is no way back, which is precisely the two
-properties those banners already encode.
-
-**Anywhere a control is inhibited: hide it or visibly disable it with a
-reason.** This is the Vega finding from 1.1, and it is the requirement most
-likely to be met by accident and then broken. A control that renders,
-accepts a click and does nothing was written up by the verifier as
-misleading.
-
-**Not decided here:** whether printed documents carry the mode. See 7.7.
+- **A FIDE Mode toggle.** Section 0c.
+- **Levels 1-5.** Still unknown, still blocked on TEC. When the definitions
+  arrive, a level is one more key on each entry in `Compliance`'s
+  `@departures` table; the mechanism underneath does not change. A guessed
+  level is worse than none, because the levels are what verification reads.
+- **The `###` TRF emitter.** Belongs in `Ainalrami.Trf`, and is a separate
+  change. `fide_compliance_lost_round` is what it will read.
+- **Any change to pairing behaviour.** This is observation and reporting.
+- **Anything touching `fide_homologated`.** See 7.4, which now has an answer.
 
 ---
 
@@ -740,6 +726,14 @@ them (4.1), which is the same change viewed from the other end. Phase 5.
 Every place that would have to be touched or consciously left alone. House
 style follows `docs/audit-2026-09-05.md`: file, approximate line, then what
 is actually there.
+
+**Written before 0.56.0, and still the best map of the affected surface** -
+every file and line below is real and was checked. Read it alongside section
+3, which says what actually landed where. Three items read differently now:
+item 1 became one column rather than three (3.1); item 4's reasoning about
+`restore_into!/2` is wrong in a way worth reading (3.4, and 6b item 1); and
+items 9-11 - the choke points in a live round - were deliberately **not**
+touched, because 0.56.0 refuses nothing.
 
 **Schema and persistence**
 
@@ -871,145 +865,249 @@ is actually there.
 
 ## 6. Build plan
 
-Sizes are rough and assume familiarity with the codebase. Each phase ends
-somewhere shippable.
+Re-phased on 2026-09-10 around what section 3 now describes. The first two
+phases are **done**; what follows them changed shape, because the mechanism
+they were waiting on exists and is not the one the old plan assumed.
 
-### Phase 0 - get the Level definitions. Not code. Blocking for Phase 2.
+### Phase 0 - get the Level definitions. Not code. Still blocking.
 
-Obtain VCL4THP v13 and the TEC Manual's Level 1-5 definitions, and file
-them in `docs/` so the next person is not reading one person's memory of
-one PDF. `docs/tec-feedback-2026-09.md:233-239` proves they were read once.
-Everything in Phase 1 can proceed without them; nothing in Phase 2 should.
+Obtain VCL4THP v13 and the TEC Manual's Level 1-5 definitions and file them
+in `docs/`. Attempted 2026-09-10 and **they cannot be got from any public
+source** - see section 0b for the search, which is worth not repeating. It is
+now a request rather than a search: `request-tec-vcl4thp.md`, on the
+correspondence the 2026-09-08 letter opened.
 
-**Also worth resolving here:** the letter's own unanswered question about
-warning louder than the minimum (C.3), and reading B from section 1.3 -
-whether a Level-4 warning and a mode exit are the same event.
+Three of the questions came back on 2026-09-10 and are section 0c. Two remain
+open and both still block: the Level definitions themselves, and the letter's
+C.3 (may we warn louder than the minimum?).
 
-### Phase 1 - state, the one-way door, audit, banner. ~1 day. Shippable.
+**No longer blocking anything that was going to be built anyway.** That is
+the difference this re-phasing makes: the old plan put a five-level warning
+funnel in phase 2 and everything downstream behind it. What exists instead is
+a mechanism the Levels are a *labelling* on top of, and it shipped without
+them.
 
-Migration; three fields outside the cast; `PairingsEngine.FideMode` with
-`in_mode?/1`, `left_round/1` and `leave/3` and no `enter/1`; the two
-`Ecto.Changeset.change/2` lines in the import functions; the Settings →
-FIDE card with the two-step confirm; the layout banner; audit action codes
-and their `describe/1` clauses; the export field-list decision.
+### Phase 1 - the inventory. DONE, 0.56.0.
 
-Ships as: *a tournament can leave FIDE Mode, it says so everywhere
-afterwards, and nothing can put it back.* No behaviour changes for anyone
-who does not press the button, which is what makes it safe to ship alone.
+Not code, and the real work: deciding for each tournament setting whether it
+has a FIDE-compliance dimension at all and whether its default is compliant.
+Three settings qualified out of roughly two dozen examined; section 3.2 is
+the result and `PairingsEngine.Compliance`'s moduledoc is the reasoning per
+setting, including every case that was rejected.
 
-Tests that earn their place: leaving twice is refused; restoring a
-pre-exit snapshot does not un-leave; a hand-off round trip does not
-un-leave; a JSON backup of a left tournament imports as left; the round
-recorded is the round that existed.
+Rejecting is most of the value here. Two of the rejections turned on
+documents rather than opinion (`VCL.12`/`VCL.16`/`VCL.17` requiring the
+scoring surface to be configurable; TRF26's `299` record existing for
+administrative points), and one on a live disagreement with TEC that this
+change had no business pre-empting (Q196).
 
-### Phase 2 - the warning funnel and its first two consumers. ~1-2 days. **This is the risky phase.**
+### Phase 2 - the derived state, the record, and the notice. DONE, 0.56.0.
 
-`FideMode.check/3`, the level table with per-entry provenance, the
-web-layer renderer, and then Q196 (`add_forbidden_pairing/4`) and Q189-191
-(`update_pairing_result/2`) routed through it.
+`PairingsEngine.Compliance`; `tournaments.fide_compliance_lost_round` and the
+migration; the stamp inside `update_tournament/3` and both
+`create_tournament` clauses; the watermark rule in both `TournamentImport`
+paths; the export field-list decision; the shared notice component on three
+pages; the audit action and its `describe/1` clause; the Dutch strings.
 
-**Why it is the risky one, in three parts.**
+Ships as: *a tournament says when its settings stop describing a FIDE-handled
+event, records the round, and nothing can rewrite that record.* No behaviour
+changes for anybody who does not change one of the three settings.
 
-*It is the only phase that changes what the app refuses during a live
-round*, at the two functions arbiters touch most - one of which
-(`update_pairing_result/2`) is described in its own code as the write made
-"most often, under the most time pressure" and wrapped in `BusyWrite` for
-exactly that reason (`tournaments.ex:2817-2823`). A wrong refusal here is
-an arbiter who cannot enter a result in a hall.
-
-*Its correctness depends on the definitions Phase 0 fetches.* Choosing
-level 3 where the Manual says 4 is not a cosmetic error - the levels are
-what the verification reads.
-
-*And a wrong choice is invisible.* A warning that should have been a
-refusal looks exactly like working software until FIDE verifies. There is
-no test that catches it and no user who reports it. This is the one place
-in the plan where going slower is straightforwardly cheaper.
+Tests that earned their place, and each was watched failing: a Keizer
+tournament records round 0 rather than nil; a mid-event save records the
+round that exists; a second departure does not move the record; putting the
+setting back leaves it standing; a refused save records nothing; a
+pre-loss snapshot restore does not un-record it; a hand-off brings home a
+loss that happened on the other machine; a hand-off does not un-record one
+that happened here; a JSON backup round-trips it; a Swiss-only setting is not
+reported on a tournament that never pairs Swiss.
 
 ### Phase 3 - the `###` comment. ~half a day in Ainalrami, ~half a day here.
 
-`tournament[:comments]` in `serialize/2`, a round-trip test, a tagged
-release, the pin move, then wiring it in `TrfExport.build/3` and
-deliberately not in `Pairing.build_category_trf/5`. Read `TODO.md:449-457`
-before the deploy that carries the new pin.
+`tournament[:comments]` in `Trf.serialize/2`, a round-trip test, a tagged
+release, the pin move, then wiring it in `TrfExport.build/3` from
+`fide_compliance_lost_round` and deliberately **not** in
+`Pairing.build_category_trf/5`. Read `TODO.md:449-457` before the deploy that
+carries the new pin.
 
-Could ship before Phase 2. Cannot ship before Phase 1, because there is
-nothing to write into the line.
+Unblocked: the round it needs is now stored and survives everything. Section
+4 below still describes the format, and the parts of it that are ours rather
+than FIDE's are still marked.
 
-### Phase 4 - adjournment (Q157-169). Days, not hours. Separate scope.
+### Phase 4 - the Levels, once they exist.
 
-Rides the funnel rather than growing its own. `docs/sweep-2026-08-26.md:2335-2348`
-has the three touch points already worked out, including the one warning
-worth repeating: express "counts as a draw for pairing purposes" in the
-single scoring function 0.17.1 consolidated on, not in a second mapping.
+One extra key per entry in `Compliance`'s `@departures`, and a level shown
+beside each line of the notice. That is the whole of it, provided nothing
+guesses in the meantime.
 
-### Phase 5 - read a `###` line back on import. ~half a day.
+**The open question this cannot answer for itself** is section 1.3.B: whether
+some acts (adding a prohibited pairing in round 5, Q196) are *themselves*
+exits, or merely high-level warnings. If they are exits, they call the same
+stamp that `update_tournament/3` does, at `add_forbidden_pairing/4` and
+`update_pairing_result/2`. **Do not wire those until B is settled** - getting
+it wrong in the strict direction permanently marks tournaments as
+non-conforming in files sent to FIDE, and that is not correctable.
+
+### Phase 5 - adjournment (Q157-169). Days, not hours. Separate scope.
+
+`docs/sweep-2026-08-26.md:2335-2348` has the three touch points worked out,
+including the warning worth repeating: express "counts as a draw for pairing
+purposes" in the single scoring function 0.17.1 consolidated on, not in a
+second mapping.
+
+### Phase 6 - read a `###` line back on import. ~half a day.
 
 Ainalrami's parser keeps comment lines; `TrfImport`'s existing
 `verification_warnings/2` channel reports them. Genuinely optional, and the
 cheapest of the lot once Phase 3 exists.
 
+### What the old plan had here, and why it is gone
+
+The old Phase 2 was "the warning funnel and its first two consumers", called
+"the risky phase" because it changed what the app refuses during a live
+round, at `update_pairing_result/2` and `add_forbidden_pairing/4`. That
+risk was real and the phase is gone: **nothing built in 0.56.0 refuses
+anything.** Compliance is observation and reporting, the two hot write paths
+were not touched, and the enforcement question is deferred to Phase 4 where
+it now sits behind the answer it always needed.
+
 ---
+
+## 6b. What the old sections got wrong against the real code
+
+Kept because a design document that quietly corrects itself teaches nobody.
+
+1. **Section 3.3b's premise.** It says a restore would un-leave the mode, and
+   prescribes re-asserting from the live row. An uncast field survives
+   `restore_into!/2` untouched, because the changeset is built on the live
+   struct - so the hole is not there. And re-asserting the live value would
+   have *created* a hole: `Handoff.release/3` returns through the same
+   function, and the returning payload is the only record of a loss that
+   happened on the other machine. See 3.4.
+2. **Three columns where one does.** The old 3.2 wanted `left_round`,
+   `left_at` and `left_reason`. `left_at` duplicates the audit row's
+   timestamp and `left_reason` duplicates the audit row's `details`. One
+   column, one fact, and the trail already answers who and why.
+3. **`allow_swiss321` is not a tournament setting.** It is an option on the
+   SWAR parser, refused by default for reasons about bye values, not FIDE.
+4. **The audit-diff assumption.** The old blast radius (item 24) says the new
+   fields "are outside the cast, so they will not appear in the settings
+   diff". `tournament_diff/2` walks `Tournament.__schema__(:fields)`, not the
+   cast list, so an uncast field appears unless it is named in
+   `@settings_diff_ignore`. It is.
+5. **The gettext catalogue is 172 strings behind `lib/`** (measured
+   2026-09-10 by running `mix gettext.extract --merge` and reverting it).
+   `translations_test.exs` cannot see this, because it only checks entries
+   that are already in the catalogue. Not a FIDE-mode problem, but anybody
+   adding UI strings here will meet it: extracting pulls in a large
+   untranslated backlog that is nothing to do with their change.
+
+---
+
 
 ## 7. Open questions for the maintainer
 
+Answers folded in on 2026-09-10 where 0.56.0 settled one. The question is
+kept above the answer in each case, because the reasoning for the answer only
+makes sense against the question that prompted it.
+
 **7.1 Is FIDE Mode per tournament or per installation?**
-Section 3.1 recommends per tournament and argues it from the consequences
-of "no re-entry" on a hosted box. If you read the requirement the other
-way, most of section 3 still stands but the fields move and the default
-becomes configuration.
+**Answered by 0c: per tournament, and the default.** Built that way. If TEC
+ever reads it the other way, what is here is still the right foundation - an
+installation-level default would feed the per-tournament computation, which
+is an addition rather than a rewrite.
 
-**7.2 Does anything besides an explicit act cause an exit?**
-Section 1.3.B. This decides whether Phase 2's enforcement sites call
-`leave/3` or merely warn. Getting it wrong in the permissive direction
-under-reports; getting it wrong in the strict direction permanently marks
-tournaments as non-conforming in files sent to FIDE. **The strict direction
-is not correctable, so the default answer should be "no" until TEC says
-otherwise.**
+**7.2 Does anything besides changing a setting cause a departure?**
+**Still open**, and it is section 1.3.B. This decides whether Q196's
+enforcement sites (`add_forbidden_pairing/4`, `update_pairing_result/2`) also
+stamp `fide_compliance_lost_round`, or merely warn. Getting it wrong in the
+permissive direction under-reports; getting it wrong in the strict direction
+permanently marks tournaments as non-conforming in files sent to FIDE.
+**The strict direction is not correctable, so the default answer stays "no"
+until TEC says otherwise**, and 0.56.0 wired none of them.
 
-**7.3 What happens to the ~existing tournaments at migration time?**
-Backfilling `fide_mode_left_round: nil` says every historical tournament
-was handled in FIDE mode, which is unprovable. Backfilling `0` says none of
-them were, which is unfair and would put a `###` line in every re-export of
-a past event. There is no third answer the data supports. Recommendation:
-`nil`, on the grounds that the mode is a statement about how the software
-behaves going forward rather than a verdict on rounds already paired - but
-this is your call and it should be written into the migration's own
-comment.
+**7.3 What happens to existing tournaments at migration time?**
+**Answered: `nil` for every existing row**, and the migration says why in its
+own comment. `nil` claims every tournament already in the database was
+handled compliantly, which is unprovable - but the alternative (`0` for
+everything) puts a `###` line in the re-export of every past event on the
+grounds that this software was not watching at the time. The mode is a
+statement about how the program behaves from here, not a verdict on rounds
+already paired.
 
 **7.4 Should `fide_homologated` stay, exactly as it is?**
-This document says yes: homologation is "will this be rated", the mode is
-"was this handled to the letter", and they are independent. But two
-FIDE-ish tickboxes on one settings page will confuse arbiters, and the
-copy on that page has to do real work to keep them apart.
+**Answered: yes, unchanged in 0.56.0 - and a proposal for what to do next
+sits alongside it.** The two facts really are independent (homologation is
+"will this be rated"; compliance is "was this handled to the letter"), and
+this change relied on that by leaving `swar_export.ex` and `swar_publish.ex`
+reading `fide_homologated` exactly as before. The confusion risk is real and
+it is now managed by copy rather than by structure: the FIDE settings page
+carries a card that states the compliance state and one sentence saying in as
+many words that it is **not** the same question as the tickbox below it.
 
-**7.5 Does "Duplicate" inherit a mode exit?**
-It copies rounds and results, so the exit is a true fact about the copied
-history and inheriting it is defensible. But a duplicate is often the start
-of a *new* event, where inheriting a permanent, unclearable mark would be
-unwelcome and unfixable. Section 3.3c currently inherits it because that
-falls out of the import path.
+The proposal, deliberately not executed - removing a user-visible field is a
+migration and a decision, not a refactor:
 
-**7.6 Does the mode reach OpenResults?**
-The snapshot is additive-only so it is safe to add. The question is whether
-the public results page for a club tournament should say the software left
-FIDE Mode in round 4 - which is meaningful to an arbiter and meaningless,
-or worse, to a parent looking up their child's game.
+  * **Keep the column.** All seven of its reads are load-bearing in ways
+    compliance cannot replace: `swar_export.ex:220` and `swar_publish.ex:415`
+    answer "is this rated and by whom", which is a federation question;
+    `snapshot.ex:153` publishes `"fide_rated"`; `print_controller.ex:1580`
+    prints the FIDE ID; `tournament.ex:1324` gates a soft nudge for the ID.
+  * **Rename what the arbiter reads, not what the code reads.** The label is
+    "This tournament is FIDE-homologated (rated/reportable)", which invites
+    exactly the confusion. "This tournament will be submitted to FIDE for
+    rating" says the same thing without using a word that sounds like a
+    conformance claim. One gettext string, one Dutch string, no migration.
+  * **Move the two advisory notes on the Options page** (`:645`, `:1012`,
+    both keyed on `fide_homologated`) to key on nothing at all. They are
+    about which edition of the rules an engine implements, which is true
+    whether or not the event is being rated - and section 3.2 explains why
+    the engine choice is deliberately *not* a compliance departure. Keying
+    them on homologation makes an engine question look like a rating
+    question.
+  * **Do not delete it, and do not fold compliance into it.** A second
+    FIDE-ish tickbox is what 0c warns against; one tickbox doing two jobs is
+    worse, because the arbiter cannot then say "rated, and run my own way",
+    which is a real and permitted thing to be.
+
+**7.5 Does "Duplicate" inherit a compliance loss?**
+**Still open, and now concrete.** "Duplicate" round-trips through
+export/import (`tournaments_live.ex:688-705`), so it inherits the recorded
+round because `import_tournament!/2` takes the file's value - which is right
+for a backup and arguable for a copy. A duplicate is often the start of a
+*new* event, where inheriting a permanent, unclearable mark is unwelcome. The
+counter-argument is that a duplicate also inherits the settings that caused
+it, so a fresh `nil` would immediately be re-stamped at round 0 anyway - the
+two answers differ only for a duplicate whose settings were since put back.
+Low stakes either way; worth a decision rather than an accident.
+
+**7.6 Does compliance reach OpenResults?**
+**Still open, and untouched by 0.56.0.** The snapshot is additive-only so a
+`fide_compliance_lost_round` key is safe to add. The question is whether the
+public results page for a club tournament should say the software stopped
+matching the FIDE rules in round 4 - meaningful to an arbiter, and meaningless
+or worse to a parent looking up their child's game.
 
 **7.7 Do printed documents carry it?**
-`print_controller.ex`'s `tournament_info_html/1` (`:1560-1590`) is shared
-by every printed document. A pairing sheet is posted on a wall.
+**Still open, and untouched.** `print_controller.ex`'s
+`tournament_info_html/1` (`:1560-1590`) is shared by every printed document,
+and a pairing sheet is posted on a wall.
 
 **7.8 Are the "Levels 1-5" a severity scale on warnings, or states the
 tournament occupies?**
-Section 3.5 assumes the former - a warning carries a level, the tournament
-is only ever in or out of the mode. If they are states, the design changes
-shape substantially, and the `###` line would presumably have to record the
-level too.
+**Still open, and it now costs less to be wrong about.** 0.56.0 assumes
+neither: it reports departures with no level attached at all. If the Levels
+are a severity scale, they are one key per entry in `@departures`. If they
+are states, `Compliance` grows a second function and the `###` line records
+the level too. Nothing built so far forecloses either.
 
 **7.9 Do you want the sweep's contradiction recorded?**
+**Recorded, and it is settled by what was built.**
 `docs/sweep-2026-08-26.md:2358` and `:2366` recommend routing the exit
-through `locked_fields/1` + `ensure_unlocked/3`. Section 5, item 13 argues that is
-wrong because that mechanism exists to be overridden. Whoever builds this
-will read the sweep, so the disagreement should be written down somewhere
-rather than silently resolved in code.
+through `locked_fields/1` + `ensure_unlocked/3`. Section 5, item 13 argues
+that is wrong because that mechanism exists to be overridden - and 0.56.0
+follows section 5, not the sweep. But the disagreement mostly dissolved: the
+three compliance settings are *already* in `locked_fields/1` for entirely
+separate reasons (they reinterpret rounds that already exist), and compliance
+neither refuses nor overrides. The two mechanisms sit side by side and answer
+different questions, so there was never a choice to make.

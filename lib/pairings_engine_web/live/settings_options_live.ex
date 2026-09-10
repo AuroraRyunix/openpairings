@@ -404,6 +404,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
         log_unlocked_field_changes(socket, base, tournament, unlock_fields)
+        log_compliance_departures(socket, base, tournament)
 
         {:noreply,
          socket
@@ -556,6 +557,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       </div>
       <.settings_subnav tournament={@tournament} active={:options} />
       <.stale_banner stale={@stale} />
+      <.compliance_notice tournament={@tournament} />
       <form id="pairing-settings-form" phx-submit="save">
         <input type="hidden" name="section" value="pairing" />
         <div class="card">

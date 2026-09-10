@@ -147,6 +147,16 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
       <.stale_banner stale={@stale} />
 
+      <div class="card">
+        <h2>{gettext("FIDE handling")}</h2>
+        <.compliance_notice tournament={@tournament} show_compliant />
+        <p class="hint" style="margin-bottom: 0">
+          {gettext(
+            "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
+          )}
+        </p>
+      </div>
+
       <form id="fide-settings-form" phx-submit="save" phx-change="validate">
         <div class="card">
           <h2>{gettext("FIDE report identifiers")}</h2>

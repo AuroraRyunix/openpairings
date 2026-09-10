@@ -647,6 +647,36 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # the current results. Managed by the Tournaments manual-ranking functions.
     field :manual_ranking_stale, :boolean, default: false
 
+    # The round in which this tournament's settings first stopped describing
+    # a FIDE-handled event, or nil if that has never happened. See
+    # `PairingsEngine.Compliance`, which decides WHETHER, and only ever from
+    # the settings - there is no stored "is it compliant" flag and there is
+    # no toggle, because FIDE Mode is the default and a second FIDE-ish
+    # tickbox is exactly the control VCL.01/VCL.02 do not describe.
+    #
+    # This is the one half that cannot be derived. VCL4THP wants a `###` TRF
+    # comment naming the round the mode was left in, and by the time anyone
+    # exports the file the setting may have been put back, or five more
+    # rounds may have been paired over it. So the round is recorded once, at
+    # the moment it happens, and never cleared - putting the setting back
+    # makes `Compliance.compliant?/1` true again while this column keeps
+    # saying it was once false. The two answer different questions.
+    #
+    # `0` is a legitimate value ("lost before round 1 was paired" - a Keizer
+    # tournament is non-compliant from creation); nil means "never lost", and
+    # nothing else.
+    #
+    # NOT in `cast/3`'s list below, and that is the whole safety property
+    # rather than tidiness: this is a fact about history, and an ordinary
+    # settings save - or a stale form, or an import - must not be able to
+    # rewrite it or, far worse, clear it. `Tournaments` writes it with
+    # `put_change/3` inside the same changeset as the save that causes it, so
+    # the settings change and the record of it either both land or neither
+    # does; `TournamentImport` carries it explicitly, taking the EARLIER of
+    # the live value and the file's. Same mechanism as `manual_ranking_stale`
+    # directly above.
+    field :fide_compliance_lost_round, :integer
+
     # Per-tournament print logo (SWAR parity #14-16), stored as a DB blob so
     # backups/deploys carry it. Written only by Tournaments.set_logo/2 and
     # clear_logo/1 - NOT cast by changeset/2, same reasoning as deleted_at.

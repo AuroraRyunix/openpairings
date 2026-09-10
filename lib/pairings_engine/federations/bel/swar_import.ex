@@ -1854,7 +1854,12 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       |> Enum.map(& &1.round_nr)
       |> Enum.max(fn -> 0 end)
 
-    for round_number <- 1..max(max_round, 0) do
+    # `//1` because a file with no rounds gives `1..0`, which Elixir's
+    # two-argument form reads as a DESCENDING range - it iterates [1, 0],
+    # warns, and asks for round 0 of a tournament that has none. The step
+    # makes an empty range empty. Same shape as the two ranges fixed in the
+    # engine's weighted matching (Ainalrami v0.25.0, audit finding 30).
+    for round_number <- 1..max(max_round, 0)//1 do
       entries =
         for p <- swar_players, r <- p.rounds, r.round_nr == round_number, do: {p, r}
 

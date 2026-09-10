@@ -1,6 +1,6 @@
 # TODO / Roadmap
 
-Version: **0.54.0** (not 1.0 yet - the maintainer will call that explicitly).
+Version: **0.56.0** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A second whole-codebase sweep ran on 2026-09-01** - 33 items, in
@@ -380,11 +380,18 @@ verdict - TEC verifies, we do not.
 
 ### Hard failures (verification stops)
 
-- **FIDE Mode does not exist.** We have a fide_homologated flag; the VCL
-  wants a MODE (Q40-46) with warning Levels 1-5, a Level-4 double warning
-  on exit, no re-entry once exited, and a ### TRF comment recording the
-  round it was left. Half the other requirements report THROUGH this, so it
-  is the spine: build it first, or build everything else twice.
+- **FIDE Mode: the mechanism exists as of 0.56.0, the Levels do not.**
+  Answered 2026-09-10: it is per tournament, it is the default, and there is
+  **no toggle** - the compliant settings are what a new tournament gets, and
+  compliance is computed from them rather than set. `PairingsEngine.Compliance`
+  is that computation; `tournaments.fide_compliance_lost_round` records the
+  round it was first lost, survives a restore, a hand-off and a backup, and is
+  what the `###` comment will read. Three settings qualify as departures and
+  roughly two dozen were examined and rejected - the reasoning per setting is
+  in that module, and it is the part worth reviewing.
+  Still to do: the `###` emitter itself (Ainalrami side, then
+  `TrfExport`), and the Levels, which stay blocked on TEC. See
+  [docs/design-fide-mode.md](docs/design-fide-mode.md) sections 3 and 6.
 - **Adjourned games are not implemented at all** (Q157-169). The word does
   not appear in the codebase. Needs a result state, "counts as a draw for
   pairing purposes", a Level-3 warning when a non-draw result is entered

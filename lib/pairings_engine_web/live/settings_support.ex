@@ -28,14 +28,22 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   import Phoenix.LiveView, only: [attach_hook: 4]
 
-  alias PairingsEngine.{Audit, Tournaments}
+  alias PairingsEngine.{Audit, Compliance, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   # Tournament fields excluded from the settings audit diff - derived,
   # internal or noisy (binary logo blob, PubSub-recomputed status/flags,
   # timestamps, ownership). Everything else is diffed field-by-field.
+  #
+  # `fide_compliance_lost_round` is here for the same reason
+  # `manual_ranking_stale` is: it is not a setting anybody submitted, it is
+  # written by `Tournaments` in the same changeset as the save that caused
+  # it, and it has its own audit action (`log_compliance_departures/3`)
+  # saying which setting did it. In the bulk diff it would read as an
+  # eleventh changed field with no cause attached.
   @settings_diff_ignore ~w(id status public_slug deleted_at
-    manual_ranking_stale logo_data logo_content_type inserted_at updated_at user_id)a
+    manual_ranking_stale fide_compliance_lost_round
+    logo_data logo_content_type inserted_at updated_at user_id)a
 
   @doc """
   Sub-nav shown at the top of every Settings page, so the user can hop
@@ -347,6 +355,170 @@ defmodule PairingsEngineWeb.SettingsSupport do
   end
 
   defp handoff_destination(_label), do: gettext("another copy")
+
+  @doc """
+  What a tournament's settings currently say about FIDE handling, and what
+  to change to say something else.
+
+  Modelled on the setup checklist on PairingsLive (`missing_setup_fields/1`),
+  deliberately: a card, a sentence saying what it is, and one line per item
+  linking to the page that item lives on. That is the vocabulary this app
+  already uses for "here is what is not right yet", and an arbiter has read
+  it before.
+
+  **It does not, and must not, argue.** An arbiter running a club evening
+  that will never be sent to FIDE has every right to pair by category or run
+  a Keizer ladder, and the software's job is to say what that means, once,
+  and get out of the way. Nothing here blocks anything; there is no
+  "fix it" button and no confirmation to click past.
+
+  `show_compliant` makes it say something when there is nothing wrong -
+  wanted on Settings → FIDE, which is where somebody goes to ask the
+  question, and not wanted on the pages that merely happen to host one of
+  the settings. FIDE handling is the default (`VCL.01`), so a banner
+  announcing it on every page would be noise that teaches people to skip
+  banners.
+  """
+  attr :tournament, :map, required: true
+  attr :show_compliant, :boolean, default: false
+
+  def compliance_notice(assigns) do
+    assigns = Phoenix.Component.assign(assigns, :departures, Compliance.check(assigns.tournament))
+
+    ~H"""
+    <div
+      :if={@departures != []}
+      class="card"
+      style="display: block; margin: 12px 0; border-left: 3px solid var(--accent)"
+    >
+      {gettext(
+        "This tournament is no longer set up the way the FIDE pairing rules describe. That is allowed - an event nobody is sending to FIDE can be run however you like - but a FIDE report from it records that it happened, and in which round."
+      )}
+      <ul style="margin: 6px 0 0; padding-left: 20px">
+        <li :for={departure <- @departures}>
+          <.link navigate={compliance_setting_path(@tournament, departure.setting)}>
+            {compliance_setting_label(departure.setting)}
+          </.link>
+          - {compliance_message(departure.code)}
+        </li>
+      </ul>
+      <p :if={@tournament.fide_compliance_lost_round} class="hint" style="margin: 8px 0 0">
+        {compliance_lost_line(@tournament.fide_compliance_lost_round)}
+      </p>
+    </div>
+
+    <p :if={@show_compliant and @departures == [] and is_nil(@tournament.fide_compliance_lost_round)}>
+      {gettext(
+        "This tournament is set up the way the FIDE pairing rules describe. There is nothing to switch on: that is what a new tournament gets, and only changing a setting can take it away."
+      )}
+    </p>
+
+    <p
+      :if={@show_compliant and @departures == [] and @tournament.fide_compliance_lost_round != nil}
+      class="error-note"
+    >
+      {compliance_lost_line(@tournament.fide_compliance_lost_round)}
+      {gettext(
+        "The settings match the FIDE rules again, but that is a fact about this tournament's history and it stands."
+      )}
+    </p>
+    """
+  end
+
+  # Round 0 is a real value and means "before round 1 was paired" - a Keizer
+  # tournament is not FIDE-paired from the moment it is created. "In round 0"
+  # would read as a bug, so it gets its own sentence.
+  defp compliance_lost_line(0),
+    do:
+      gettext("Recorded: this stopped matching the FIDE rules before the first round was paired.")
+
+  defp compliance_lost_line(round),
+    do: gettext("Recorded: this stopped matching the FIDE rules in round %{round}.", round: round)
+
+  @doc """
+  The one-line label for a compliance setting - the link text in
+  `compliance_notice/1`.
+
+  Not what the audit trail shows: `AuditLive.describe/1` renders the raw
+  field name, because the trail is evidence and a row that reads differently
+  depending on the reader's language is worse evidence than one that always
+  says `swiss_match_format`.
+  """
+  def compliance_setting_label(:pairing_system), do: gettext("Pairing system")
+  def compliance_setting_label(:pair_by_category), do: gettext("Pair by category")
+  def compliance_setting_label(:swiss_match_format), do: gettext("Match format")
+
+  @doc """
+  What one `PairingsEngine.Compliance` code means, in an arbiter's words.
+
+  Lives here rather than in `Compliance` because the domain layer does not
+  use gettext and must not start: a warning that cannot be translated is a
+  warning half this app's users cannot read. `Compliance` returns codes;
+  this is the only place they become sentences.
+  """
+  def compliance_message(:non_fide_pairing_system),
+    do:
+      gettext(
+        "FIDE defines the Swiss (C.04.3) and the round-robin Berger tables (C.05); it does not define a Keizer ladder, and the FIDE tie-breaks do not apply to one. Swiss or round robin puts this back."
+      )
+
+  def compliance_message(:categories_paired_separately),
+    do:
+      gettext(
+        "Each category is paired as a separate tournament and the results are merged into one round, so two players on the same score never meet if they are in different categories. That is not a pairing C.04.3 can produce for one field of players. Running the sections as separate tournaments does the same thing without this."
+      )
+
+  def compliance_message(:mirrored_second_leg),
+    do:
+      gettext(
+        "The second game of each match is a colour-reversed copy of the first, with no pairing decision behind it, so half of this tournament's rounds were not paired by C.04.3 at all."
+      )
+
+  @doc """
+  Which page hosts a given `PairingsEngine.Compliance` setting - the
+  compliance counterpart of `setup_field_path/2`, and separate from it
+  because the two lists have no reason to stay the same.
+  """
+  def compliance_setting_path(tournament, :pair_by_category),
+    do: ~p"/t/#{tournament.id}/categories"
+
+  # pairing_system and swiss_match_format both live on the Options page.
+  def compliance_setting_path(tournament, _setting),
+    do: ~p"/t/#{tournament.id}/settings/options"
+
+  @doc """
+  Records one "tournament.fide_compliance_lost" audit row per compliance
+  departure a save actually introduced - never for one that was already
+  there, and never for a save that left them alone.
+
+  Deliberately its own audit action rather than folded into
+  `log_settings_change/3`'s bulk diff, for the same reason
+  `log_unlocked_field_changes/4` is: the round this happened in is the one
+  fact about it FIDE asks for by name, and it must not go unnoticed inside
+  whatever else that same "Save" also touched. Call this alongside the bulk
+  diff, not instead of it.
+
+  `details.round` is read back off the tournament rather than counted here,
+  so the trail and `fide_compliance_lost_round` can never disagree about
+  which round it was - `Tournaments` writes that column in the same
+  changeset as the save itself.
+  """
+  def log_compliance_departures(socket, before, after_tournament) do
+    for departure <- Compliance.introduced(before, after_tournament) do
+      Audit.log(
+        after_tournament.id,
+        socket.assigns.current_scope,
+        "tournament.fide_compliance_lost",
+        %{
+          setting: to_string(departure.setting),
+          code: to_string(departure.code),
+          round: after_tournament.fide_compliance_lost_round
+        }
+      )
+    end
+
+    :ok
+  end
 
   @doc """
   The "this tournament was updated elsewhere while you were editing" banner,

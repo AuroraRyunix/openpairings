@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.54.0**. One page: everything the app does today, and where
+Current version: **0.56.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -116,6 +116,17 @@ carry a logo (stored in the database, shown on printed documents).
   reports with duplicate-player detection.
 - **Public tools page** (`/tools/norms`) - no login: upload `.swar`/`.trf`
   files, get combined norm reports; nothing is stored server-side.
+- **FIDE handling, without a switch** - the settings a new tournament gets are
+  the ones the FIDE pairing rules describe, so there is nothing to turn on.
+  Three settings can take a tournament out of that, and all three change who
+  plays whom: a Keizer ladder, pairing each category as its own separate
+  tournament, and the immediate two-game Swiss rematch. The pages that host
+  them say so and link to the setting; nothing is refused, and the round it
+  first happened in is recorded for the FIDE report. Non-standard scoring,
+  half-point byes, extra points, tie-break choice and a hand-set standings
+  order are all things FIDE's own rules provide for, and none of them raises
+  anything - see `PairingsEngine.Compliance` for the reasoning, setting by
+  setting.
 
 ## Accounts, sharing & transparency
 

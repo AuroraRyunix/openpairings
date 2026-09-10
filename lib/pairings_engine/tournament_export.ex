@@ -69,6 +69,16 @@ defmodule PairingsEngine.TournamentExport do
   # this list had silently rotted behind the schema for a long time, most
   # damagingly missing `pairing_system` itself, so a backup of a Keizer or
   # round-robin tournament restored as a Swiss one.
+  #
+  # `fide_compliance_lost_round` is here rather than excluded, and it is the
+  # one entry whose reason is not "it is a setting". It is a fact about this
+  # tournament's history - the round in which its settings stopped describing
+  # a FIDE-handled event - and the rounds in the same envelope are the rounds
+  # that were played after it happened. A backup that carried the rounds and
+  # dropped the record would restore a tournament that claims to have been
+  # handled compliantly throughout. It is deliberately not cast, so both
+  # import paths in `TournamentImport` carry it across by hand and each
+  # decides differently what to do with it; see them.
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count
@@ -85,6 +95,7 @@ defmodule PairingsEngine.TournamentExport do
     count_extra_points extra_points_bands
     publish_mode publish_delay_minutes
     manual_ranking manual_ranking_stale
+    fide_compliance_lost_round
     public_listed public_display public_hidden_tiebreaks
   )a
 

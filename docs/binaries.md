@@ -147,6 +147,56 @@ run wanting `DATABASE_PATH`.
 It is about 150 MB unpacked, most of which is the Erlang runtime and the
 FIDE rating tooling.
 
+#### It runs with Erlang distribution off
+
+Every launcher - `OpenPairings.exe`, `OpenPairings.bat`, `openpairings.sh`
+and the macOS `.app` - starts the release with `RELEASE_DISTRIBUTION=none`.
+
+Without it a release starts two listeners nobody asked for: `epmd` on
+`0.0.0.0:4369` and the node itself on `0.0.0.0:<ephemeral>`, both on every
+interface. That was measured on a real portable release, not inferred - and
+the web port was already correctly pinned to loopback, so these two were the
+exception rather than the rule.
+
+The reason it matters is `releases/COOKIE`. It ships **inside the download**,
+so it is byte-identical on every copy anybody installs, and the cookie is
+what authorises a connection to those ports. A reachable Erlang node plus a
+publicly known cookie is remote code execution. On an arbiter's laptop on
+club or hotel wifi that is an open door, not a hardening nicety.
+
+Nothing in a local run needs distribution. It is one person on one computer;
+the browser talks HTTP to loopback; stopping is closing the window, Ctrl-C,
+or - for `OpenPairings.exe` - a Windows job object. On Windows it also
+removes a Firewall prompt on first run, which is an alarming thing for a
+chess program to show a club arbiter.
+
+**What it costs.** `bin/pairings_engine_portable stop`, `restart` and `pid`
+are RPC to a named node, so against an instance started by a launcher they
+have nothing to talk to; `remote` and `rpc` likewise. None of the launchers
+used them - each has its own stop and always did.
+
+If you need one for debugging, the three script launchers pass a pre-set
+value through:
+
+```sh
+RELEASE_DISTRIBUTION=sname ./openpairings.sh
+```
+
+```bat
+set RELEASE_DISTRIBUTION=sname
+OpenPairings.bat
+```
+
+`OpenPairings.exe` forces `none` and ignores the variable, deliberately: it
+is the front door an arbiter double-clicks, and an escape hatch on the front
+door is a hole with a label on it. `OpenPairings.bat` is the diagnostic
+launcher, and that is where the escape hatch belongs.
+
+The single-file Burrito binary never had this problem. Its launcher builds
+the `erl` command line itself and passes `-setcookie` without `-name` or
+`-sname`, and distribution only starts when the VM is given a node name - so
+it starts no `epmd` and no distribution listener, with nothing to switch off.
+
 ### The Windows launcher (`OpenPairings.exe`)
 
 The Windows release carries two launchers, and they are for different
@@ -168,11 +218,10 @@ than left running. Closing its window stops OpenPairings; that is what the
 window says, and it is the console window's old contract kept after the
 console is gone.
 
-It also starts the release with `RELEASE_DISTRIBUTION=none`. The two other
-launchers do not, and that is worth knowing: without it a release starts
-`epmd` on `0.0.0.0:4369` and an Erlang distribution listener on another
-all-interfaces port, authorised by the cookie in `releases/COOKIE` - which
-ships inside the download and is therefore identical on every copy of it.
+It also starts the release with `RELEASE_DISTRIBUTION=none`, and unlike the
+three script launchers it forces it rather than letting a pre-set value
+through - see "It runs with Erlang distribution off" above for what that
+closes and what it costs.
 
 Two things depend on this executable existing. It is what an arbiter
 double-clicks, and it is what Velopack's `--mainExe` points at, so

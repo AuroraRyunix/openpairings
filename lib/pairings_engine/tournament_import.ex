@@ -205,7 +205,41 @@ defmodule PairingsEngine.TournamentImport do
       tournament
       |> Tournament.changeset(t_attrs)
       |> Ecto.Changeset.change(
-        manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale"))
+        manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
+        # The round FIDE-mode compliance was first lost in, and the ONLY
+        # field here that is not simply taken from the file.
+        #
+        # `docs/design-fide-mode.md` section 3.3b called a plain restore "the
+        # sharpest hole in the whole design" and prescribed re-asserting the
+        # live value here. Measured against the real code, that premise is
+        # wrong in both halves, and the second half matters:
+        #
+        #   * A restore CANNOT clear it on its own. The changeset above is
+        #     built on `tournament`, the live row, and the field is not cast -
+        #     so an uncast field simply keeps the value it already had. The
+        #     danger the section describes only appears if somebody later adds
+        #     it to the cast list, and `compliance_test.exs` fails on that
+        #     combination.
+        #   * The direction that IS broken is the opposite one, and re-asserting
+        #     the live value would have caused it. `Handoff.release/3` returns
+        #     a tournament through this same function, and the returning
+        #     payload is the only record of what happened on the other
+        #     machine. This copy was locked for the whole trip and knows
+        #     nothing; taking the live value would throw away a loss that
+        #     really happened, on the copy where the rounds were actually
+        #     played.
+        #
+        # One rule covers both, and it is the rule the fact itself implies:
+        # the record is a watermark on the FIRST loss, so it only ever moves
+        # earlier - never later, and never back to nil. Rolling back past an
+        # event that has already been reported must not un-report it (the
+        # argument `snapshots.ex` makes for `openresults_key`), and coming
+        # home must not lose what the other copy recorded.
+        fide_compliance_lost_round:
+          earliest_compliance_loss(
+            tournament.fide_compliance_lost_round,
+            Map.get(t_attrs, "fide_compliance_lost_round")
+          )
       )
       |> update!()
 
@@ -246,6 +280,13 @@ defmodule PairingsEngine.TournamentImport do
       # stale hand-set order would come back claiming to be fresh.
       |> Ecto.Changeset.change(
         manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
+        # A brand-new row, so there is no live value to weigh against: the
+        # file's is the only record there is. A backup of a tournament that
+        # lost FIDE-mode compliance in round 4 has to come back as one that
+        # lost it in round 4, because the rounds it carries are the rounds
+        # that were played after it happened. Outside the cast list for the
+        # same reason as `manual_ranking_stale` above.
+        fide_compliance_lost_round: coerce_int(Map.get(t_attrs, "fide_compliance_lost_round")),
         # The file's publishing key, filed away DORMANT - see
         # `dormant_claim/1`. Note where it comes from: `t_data`, the envelope
         # entry, not `t_attrs`. It is not a tournament field and is not cast,
@@ -464,6 +505,21 @@ defmodule PairingsEngine.TournamentImport do
   defp truthy(true), do: true
   defp truthy("true"), do: true
   defp truthy(_), do: false
+
+  # The watermark rule for `fide_compliance_lost_round` on a restore - see
+  # the long comment at `restore_into!/2`'s changeset for why it is neither
+  # "keep the live value" nor "take the file's". Only ever moves toward the
+  # earlier round, and never back to nil: a tournament that has once stopped
+  # being compliant cannot be made to have never stopped by restoring
+  # something older, and one that never was cannot lose the other copy's
+  # record by coming home.
+  defp earliest_compliance_loss(live, from_file) do
+    case {live, coerce_int(from_file)} do
+      {nil, other} -> other
+      {mine, nil} -> mine
+      {mine, other} -> min(mine, other)
+    end
+  end
 
   defp coerce_int(n) when is_integer(n), do: n
 

@@ -34,6 +34,7 @@ defmodule PairingsEngineWeb.AuditLive do
     {"pairings", "Pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.round_deleted pairing.results_imported)},
     {"settings", "Settings", ~w(tournament.settings_updated tournament.locked_field_changed
+        tournament.fide_compliance_lost
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed
         category.created category.removed)},
@@ -168,6 +169,15 @@ defmodule PairingsEngineWeb.AuditLive do
     do:
       "Overrode the round-1 freeze on #{bold_text(value(d, "field"))}: " <>
         "#{format_pair([d["from"], d["to"]])}."
+
+  # Its own line for the same reason as the one above, and one more: the
+  # round is the fact VCL4THP asks for by name, and a `###` TRF comment is
+  # eventually built from it. Buried inside a bulk settings diff it would be
+  # a field name among six others.
+  def describe("tournament.fide_compliance_lost", d),
+    do:
+      "#{bold_text(value(d, "setting"))} took this tournament out of FIDE handling " <>
+        "#{compliance_round_phrase(d["round"])} (#{value(d, "code")})."
 
   def describe("tournament.created", d),
     do: "Created tournament #{name(d, "name")} (#{value(d, "pairing_system")})."
@@ -421,6 +431,13 @@ defmodule PairingsEngineWeb.AuditLive do
   defp value(d, key), do: d[key] || "?"
   defp count(d, key), do: d[key] || 0
   defp bold_text(v), do: v
+
+  # Round 0 is a real recorded value - a tournament can be non-compliant
+  # before its first round is paired - so it gets words rather than a
+  # number nobody would read as a round.
+  defp compliance_round_phrase(0), do: "before the first round was paired"
+  defp compliance_round_phrase(round) when is_integer(round), do: "in round #{round}"
+  defp compliance_round_phrase(_), do: "at an unrecorded round"
 
   defp blank_dash(v) when v in [nil, ""], do: "-"
   defp blank_dash(v), do: to_string(v)

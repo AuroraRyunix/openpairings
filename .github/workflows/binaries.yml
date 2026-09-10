@@ -414,6 +414,17 @@ jobs:
           DIR="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
           export OPENPAIRINGS_LOCAL=1
           export PORT=${PORT:-4000}
+          # Erlang distribution off, for the reason openpairings.sh spells out
+          # at length: a release otherwise starts `epmd` on 0.0.0.0:4369 and a
+          # node listener on 0.0.0.0:<ephemeral>, authorised by a cookie that
+          # ships inside the download and is therefore the same on every copy.
+          #
+          # It matters most here. Finder gives this bundle no console, so there
+          # is no Ctrl-C and no visible output - an arbiter has no way to notice
+          # a listener they did not ask for, and no way to stop it short of
+          # Force Quit. Nothing in the bundle used distribution anyway: Force
+          # Quit sends SIGTERM to the foreground BEAM, which is not an RPC.
+          export RELEASE_DISTRIBUTION=${RELEASE_DISTRIBUTION:-none}
           exec "$DIR/bin/pairings_engine_portable" start
           EOF
           chmod +x "$app_name/Contents/MacOS/OpenPairings"
