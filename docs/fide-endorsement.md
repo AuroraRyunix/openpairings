@@ -90,9 +90,10 @@ arbiter may choose Ainalrami for a rated event, and the UI says plainly
 what it costs.
 
 **2026-08-25.** The default flipped. JaVaFo 2.2 implements C.04.3 as it
-stood in 2022 and has not been updated for the edition effective
-1 February 2026, so leaving it as the default meant handing arbiters
-superseded pairings by default. Ainalrami implements the current text.
+stood until 31 January 2026 and has not been updated for the edition
+effective 1 February 2026, so leaving it as the default meant handing
+arbiters superseded pairings by default. Ainalrami implements the current
+text.
 
 The reason for allowing it is that refusing asserted a quality judgement
 the measurements do not support - Ainalrami agrees with bbpPairings across

@@ -213,9 +213,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     # The direction reversed on 2026-08-25. It used to guard the way IN to
     # Ainalrami, when JaVaFo was the default and the endorsed one. Now the
     # choice that deserves a second look is the way OUT: JaVaFo implements
-    # C.04.3 as it stood in 2022 and has not been updated for the edition
-    # effective 1 February 2026, so selecting it means pairing a 2026
-    # tournament by superseded rules.
+    # C.04.3 as it stood until 31 January 2026 and has not been updated for
+    # the edition effective 1 February 2026, so selecting it means pairing a
+    # 2026 tournament by superseded rules.
     if switching_to_javafo?(base, params) do
       {:noreply, assign(socket, engine_confirm: params, engine_confirm_section: section)}
     else
@@ -595,7 +595,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <div class="locked-wrap">
                 <select name="tournament[pairing_engine]" disabled={@pairing_engine_locked?}>
                   <option value="javafo" selected={@tournament.pairing_engine == "javafo"}>
-                    {gettext("JaVaFo - external, implements the 2022 rules")}
+                    {gettext("JaVaFo - external, implements the 2017 rules")}
                   </option>
 
                   <option value="ainalrami" selected={@tournament.pairing_engine == "ainalrami"}>
@@ -628,7 +628,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   )
                 }>
                   <:part name="engine"><strong>JaVaFo</strong></:part>
-                  <:part name="edition"><strong>{gettext("2022 edition")}</strong></:part>
+                  <:part name="edition"><strong>{gettext("2017 edition")}</strong></:part>
                 </.rich_text>
               </span>
 
@@ -647,7 +647,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span :if={@tournament.fide_homologated} class="error-note">
                 <.rich_text text={
                   gettext(
-                    "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2022 one it was last built for. Neither is a settled paperwork position - it is yours to make."
+                    "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2017 one it was last built for. Neither is a settled paperwork position - it is yours to make."
                   )
                 }>
                   <:part name="flag"><strong>{gettext("FIDE-homologated")}</strong></:part>
@@ -988,10 +988,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <strong>{gettext("This pairs the tournament by superseded rules.")}</strong>
             <.rich_text text={
               gettext(
-                "JaVaFo implements C.04.3 as it stood in %[edition] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
+                "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
               )
             }>
-              <:part name="edition"><strong>{gettext("2022")}</strong></:part>
+              <:part name="date"><strong>{gettext("31 January 2026")}</strong></:part>
             </.rich_text>
           </p>
 
@@ -1015,7 +1015,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
             <.rich_text text={
               gettext(
-                "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2022 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
+                "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2017 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
               )
             }>
               <:part name="rated"><em>{gettext("submitted for rating")}</em></:part>

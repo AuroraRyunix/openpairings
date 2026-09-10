@@ -72,6 +72,28 @@ Each entry is tagged so a version can be skimmed:
   payload with no `OpenPairings.exe`, and CI still fails the Windows target
   when the file is missing. Read those two as this change's other half - it is
   only safe to warn here because they refuse there.
+- [Fix] **JaVaFo implements the 2017 edition of FIDE Handbook C.04.3,
+  not a "2022 edition" - there has never been one.** That wrong
+  year had spread through the Settings page (the engine picker, its
+  explanatory hints, and both halves of the switch-to-JaVaFo confirmation
+  dialog), several code comments, the cross-program test suite, and
+  `docs/conformance-evidence.md`, the evidence document written for FIDE's
+  Technical Commission. FIDE's handbook page for the version JaVaFo runs
+  (handbook.fide.com/chapter/C0403Till2026) names it plainly: approved at the
+  87th Congress in Baku 2016, with the Terms and Definitions and the Pairing
+  Guidelines For Programmers added at the 88th in Goynuk 2017 - which is why
+  FIDE's own 2026 report format calls it, in the ETT26 Tournament Type Code
+  Table, the 2017 edition, and carries no `FIDE_DUTCH_2022` code at all,
+  only `FIDE_DUTCH_2017`, `FIDE_DUTCH_2026` and `FIDE_DUTCH`. `TrfExport`
+  has written `FIDE_DUTCH_2017` for a JaVaFo-paired tournament since TRF26
+  support shipped in 0.47.0 - the code has been right the whole time,
+  and only the prose describing it was wrong. Where "2022" actually came
+  from: Gacrux, the FIDE Tie Break Server, keys its own ruleset selection
+  on `DUTCH_RULES = { 0: "2022-01-01", 1: "2026-02-01" }`, an internal
+  effective-from date meaning "the ruleset before the 2026 one" rather
+  than an edition year, and reading that label as an edition is what put
+  the wrong year everywhere else in this project. Corrected throughout;
+  which rules either engine runs has not changed.
 
 ## [0.55.0] - 2026-09-10
 
@@ -3336,7 +3358,7 @@ without anything failing. It found five, four of them live.
 
   What replaced it is the thing that is both true and actually decides the
   question: Ainalrami implements C.04.3 as it stands from 1 February 2026,
-  JaVaFo implements the 2022 edition it was last built for, and on a
+  JaVaFo implements the 2017 edition it was last built for, and on a
   homologated event that difference is what you would be defending. The
   reasons to prefer JaVaFo are stated without the badge - most tournament
   software ships it, so its boards are the ones that reconcile.
@@ -3370,11 +3392,11 @@ without anything failing. It found five, four of them live.
   used to be the other way round. The confirmation dialog flipped with it -
   it now asks before switching a running tournament *to* JaVaFo, since that
   is the change that swaps a maintained engine for a third-party one frozen
-  on the 2022 rules.
+  on the 2017 rules.
 
   The reason for the flip is that Ainalrami is no longer the riskier
   choice. It implements the 2026 handbook text where JaVaFo 2.2 implements
-  2022, it agrees with bbpPairings 6.0.0 across two independent corpora of
+  2017, it agrees with bbpPairings 6.0.0 across two independent corpora of
   roughly 488 million pairings each, and the second corpus - run after the
   optimisation work - found zero disagreements. Every claim the settings
   screen used to make about the engines has been rewritten to match: the

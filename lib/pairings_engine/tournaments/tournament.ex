@@ -436,11 +436,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # same as `pairing_system`; see
     # `PairingsEngine.Tournaments.locked_fields/1`.
     # Ainalrami by default since 2026-08-25. Not a preference: JaVaFo
-    # implements C.04.3 as it stood in 2022 and has not been updated for the
-    # edition effective 1 February 2026, so leaving it as the default handed
-    # arbiters superseded pairings. Existing tournaments keep whatever they
-    # were created with - the engine is locked once a round is paired, and
-    # changing one mid-event is exactly what C.04.2 forbids.
+    # implements C.04.3 as it stood until 31 January 2026 and has not been
+    # updated for the edition effective 1 February 2026, so leaving it as
+    # the default handed arbiters superseded pairings. Existing tournaments
+    # keep whatever they were created with - the engine is locked once a
+    # round is paired, and changing one mid-event is exactly what C.04.2
+    # forbids.
     field :pairing_engine, :string, default: "ainalrami"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
@@ -1449,7 +1450,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def soft_position_label("weak"), do: "Weak - only as a tie-break"
   def soft_position_label(other), do: other
 
-  def pairing_engine_label("javafo"), do: "JaVaFo (2022 rules)"
+  def pairing_engine_label("javafo"), do: "JaVaFo (2017 rules)"
   def pairing_engine_label("ainalrami"), do: "Ainalrami"
   def pairing_engine_label(other), do: other
 

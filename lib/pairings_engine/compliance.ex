@@ -63,7 +63,7 @@ defmodule PairingsEngine.Compliance do
       values are FIDE's.
     * **Pairing engine** (`pairing_engine`). JaVaFo is the FIDE-endorsed
       one; Ainalrami is not endorsed yet, and implements the edition of
-      C.04.3 in force since 1 February 2026 where JaVaFo implements the 2022
+      C.04.3 in force since 1 February 2026 where JaVaFo implements the 2017
       one. `VCL.03` ("a system the program is endorsed for") points at
       JaVaFo and rules-currency points at Ainalrami, so the regulations
       cannot settle it either way and this module does not pretend to. The

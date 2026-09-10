@@ -25,7 +25,7 @@ is inert for them.
 | Value | Engine | Status |
 |---|---|---|
 | `"ainalrami"` *(default)* | [Ainalrami](https://github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Implements C.04.3 effective 1 February 2026; permitted on a FIDE-homologated tournament, with the paperwork caveat below |
-| `"javafo"` | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; implements the 2022 edition of C.04.3 |
+| `"javafo"` | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; implements the 2017 edition of C.04.3 |
 
 **Both engines are handed the byte-identical TRF.** `Pairing.javafo_input/4`
 builds the file once and the engine choice only decides what turns those
@@ -37,13 +37,14 @@ delete it, pair it with the other, diff), rather than only on synthetic
 input.
 
 **Why Ainalrami is the default, and what that costs on the FIDE side.** The
-default flipped on 2026-08-25. JaVaFo 2.2 implements C.04.3 as it stood in
-2022 and has not been updated for the edition effective 1 February 2026, so
-leaving it as the default meant handing arbiters superseded pairings without
-their having asked for them. A program with no engine of its own answers
-FIDE's FE1 question *"Internal engine: YES/NO"* with **NO - thru JaVaFo**,
-exactly as Vega, Swiss Manager and TournamentService do, and JaVaFo's own
-endorsement is what then covers pairing legality for the whole event. That
+default flipped on 2026-08-25. JaVaFo 2.2 implements C.04.3 as it stood
+until 31 January 2026 and has not been updated for the edition effective
+1 February 2026, so leaving it as the default meant handing arbiters
+superseded pairings without their having asked for them. A program with no
+engine of its own answers FIDE's FE1 question *"Internal engine: YES/NO"*
+with **NO - thru JaVaFo**, exactly as Vega, Swiss Manager and
+TournamentService do, and JaVaFo's own endorsement is what then covers
+pairing legality for the whole event. That
 answer no longer describes what this app normally does. The cost is
 paperwork rather than pairing quality: a rated event paired by Ainalrami was
 not paired by the engine such an answer names. Which engine a homologated

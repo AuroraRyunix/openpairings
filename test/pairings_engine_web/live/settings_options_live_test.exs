@@ -315,9 +315,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
   describe "Swiss engine - Ainalrami by default, JaVaFo the opt-out" do
     # The direction reversed on 2026-08-25. JaVaFo implements C.04.3 as it
-    # stood in 2022 and was never updated for the edition effective
-    # 1 February 2026, so it was the default that handed arbiters superseded
-    # pairings. The dialog now guards the way OUT, not the way in.
+    # stood until 31 January 2026 and was never updated for the edition
+    # effective 1 February 2026, so it was the default that handed arbiters
+    # superseded pairings. The dialog now guards the way OUT, not the way in.
     test "both engines are offered, Ainalrami selected, and the copy is accurate", %{
       conn: conn,
       scope: scope
@@ -328,7 +328,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       assert html =~ ~s(name="tournament[pairing_engine]")
       assert html =~ "implements the 2026 rules"
-      assert html =~ "implements the 2022 rules"
+      assert html =~ "implements the 2017 rules"
 
       # The copy must be ACCURATE, which is stricter than "cautious".
       # Understating an engine misleads an arbiter exactly as badly as
@@ -455,7 +455,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       # the question: which edition of the rules each engine implements.
       refute html =~ "endorse"
       assert html =~ "1 February 2026"
-      assert html =~ "2022"
+      assert html =~ "2017"
     end
 
     test "switching a homologated tournament to JaVaFo still asks first", %{

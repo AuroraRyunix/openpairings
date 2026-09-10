@@ -477,7 +477,7 @@ proposed again:
 - **`pairing_engine`** - and this is the interesting one. `VCL.03` wants a
   system *the program is endorsed for*, which today points at **JaVaFo**;
   rules currency points at **Ainalrami**, which implements the edition in
-  force since 1 February 2026 where JaVaFo implements the 2022 one. The
+  force since 1 February 2026 where JaVaFo implements the 2017 one. The
   regulations point in opposite directions, so the module does not pretend
   to settle it. The advisory note on the Options page is the right treatment
   and stays. Flagging JaVaFo would also have unilaterally reversed a decision

@@ -4325,16 +4325,6 @@ msgstr ""
 msgid "2.5 billion individual pairings"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_options_live.ex:994
-#, elixir-autogen, elixir-format
-msgid "2022"
-msgstr ""
-
-#: lib/pairings_engine_web/live/settings_options_live.ex:631
-#, elixir-autogen, elixir-format
-msgid "2022 edition"
-msgstr ""
-
 #: lib/pairings_engine_web/live/settings_options_live.ex:602
 #, elixir-autogen, elixir-format
 msgid "Ainalrami - built in, implements the 2026 rules (default)"
@@ -4343,16 +4333,6 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_options_live.ex:637
 #, elixir-autogen, elixir-format
 msgid "Ainalrami is checked against bbpPairings, an independent implementation of the same 2026 rules, by replaying whole generated tournaments and diffing every board: %[pairings], with two disagreements that are both defects in bbpPairings. A third implementation agrees with it on both. Forbidden pairings, club and federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
-msgstr ""
-
-#: lib/pairings_engine_web/live/settings_options_live.ex:598
-#, elixir-autogen, elixir-format
-msgid "JaVaFo - external, implements the 2022 rules"
-msgstr ""
-
-#: lib/pairings_engine_web/live/settings_options_live.ex:990
-#, elixir-autogen, elixir-format
-msgid "JaVaFo implements C.04.3 as it stood in %[edition] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:1030
@@ -4370,11 +4350,6 @@ msgstr ""
 msgid "Switch to JaVaFo?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_options_live.ex:1017
-#, elixir-autogen, elixir-format
-msgid "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2022 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
-msgstr ""
-
 #: lib/pairings_engine_web/live/settings_options_live.ex:1000
 #, elixir-autogen, elixir-format
 msgid "There are real reasons to choose it. Most tournament software has shipped JaVaFo for years, so an arbiter reconciling this event against another program will find %[matching] boards - and a board that matches is a board nobody has to argue about."
@@ -4383,11 +4358,6 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_options_live.ex:988
 #, elixir-autogen, elixir-format
 msgid "This pairs the tournament by superseded rules."
-msgstr ""
-
-#: lib/pairings_engine_web/live/settings_options_live.ex:649
-#, elixir-autogen, elixir-format
-msgid "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2022 one it was last built for. Neither is a settled paperwork position - it is yours to make."
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:1027
@@ -7230,4 +7200,34 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:791
 #, elixir-autogen, elixir-format
 msgid "would have picked the proposal - worth a look"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:631
+#, elixir-autogen, elixir-format
+msgid "2017 edition"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:994
+#, elixir-autogen, elixir-format
+msgid "31 January 2026"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:598
+#, elixir-autogen, elixir-format
+msgid "JaVaFo - external, implements the 2017 rules"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:990
+#, elixir-autogen, elixir-format
+msgid "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:1017
+#, elixir-autogen, elixir-format
+msgid "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2017 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:649
+#, elixir-autogen, elixir-format
+msgid "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2017 one it was last built for. Neither is a settled paperwork position - it is yours to make."
 msgstr ""

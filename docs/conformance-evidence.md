@@ -48,10 +48,11 @@ per-axis figures, the seeds, and the method are in
 **The references, and why these ones.** bbpPairings 6.0.0 and Gacrux (the
 FIDE Tie Break Server) are the primary oracles because both implement the
 2026 edition. JaVaFo is run as a **control rather than a target**: it
-implements the superseded 2022 rules, so an engine agreeing with all three
-at once would prove the harness was measuring nothing. Over 3,352 rounds
-bbpPairings and Gacrux agreed with each other on every one, which is what
-makes them usable as a ruler at all.
+implements the 2017 edition of C.04.3 (approved at Baku 2016, amended at
+Goynuk 2017, in force until 31 January 2026), so an engine agreeing with
+all three at once would prove the harness was measuring nothing. Over
+3,352 rounds bbpPairings and Gacrux agreed with each other on every one,
+which is what makes them usable as a ruler at all.
 
 None of the three is vendored. Each is located at runtime from a path the
 operator supplies, so the comparison runs against the reader's own copy,

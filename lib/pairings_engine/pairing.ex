@@ -11,7 +11,7 @@ defmodule PairingsEngine.Pairing do
   (© Roberto Ricca), invoked as `java -jar javafo.jar input.trf -p
   output.txt`, whose output lists one "white black" pair of TRF starting
   ranks per line with 0 meaning the pairing-allocated bye. It carries FIDE's
-  endorsement, and implements the 2022 rules. Everything up to and including the TRF text is
+  endorsement, and implements the 2017 rules. Everything up to and including the TRF text is
   **identical** for both engines: `run_engine/5` is handed the very same
   bytes `javafo_input/4` built, so the two are directly comparable on real
   tournament data rather than only on synthetic input, and only the last

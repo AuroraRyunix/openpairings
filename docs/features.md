@@ -13,7 +13,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
     bbpPairings 6.0.0 over 2.5 billion individual pairings with two
     disagreements, both defects in bbpPairings. See
     [`fide-endorsement.md`](fide-endorsement.md).
-  - **JaVaFo 2.2** - FIDE's own reference implementation, of the **2022**
+  - **JaVaFo 2.2** - FIDE's own reference implementation, of the **2017**
     edition of C.04.3. External, needs a JVM, and is the choice for an
     organiser who wants the endorsed engine rather than the current rules.
   - **Accelerated Swiss (Baku, FIDE C.04.7)** - the app computes each Group-A

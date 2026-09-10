@@ -11,7 +11,7 @@ Swiss pairing runs on either of two engines, chosen per tournament:
 **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** - the default, a
 FIDE Dutch-system engine written for this project in Elixir, with no JVM and
 no external binary - or JaVaFo. Ainalrami implements C.04.3 **effective
-1 February 2026**, the current rules rather than the 2022 edition JaVaFo and
+1 February 2026**, the current rules rather than the 2017 edition JaVaFo and
 most other engines still ship. See [Pairing engines](#pairing-engines).
 
 ## Tech stack
@@ -62,7 +62,7 @@ Keizer have no such choice and never call either one.
 | engine | rules edition | runs as | needs Java |
 |---|---|---|---|
 | **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (default) | C.04.3, **1 Feb 2026** | in-process Elixir | no |
-| **JaVaFo 2.2** | C.04.3, 2022 | subprocess, `.jar` | yes |
+| **JaVaFo 2.2** | C.04.3, 2017 | subprocess, `.jar` | yes |
 
 The two disagree on roughly 4% of rounds, and that is the size of the rules
 change rather than a defect in either: JaVaFo is FIDE-endorsed, and it
