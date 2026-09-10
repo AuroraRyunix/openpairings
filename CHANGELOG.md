@@ -14,6 +14,80 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.54.0] - 2026-09-10
+
+- [Fix] **A SWAR file's tie-breaks are imported in full, and a criterion this
+  app cannot hold is named rather than dropped.** The importer mapped six of
+  SWAR's sixteen ranking methods; Buchholz Cut-2, Koya, ARO, ARO Cut-1,
+  median Buchholz and games-played-with-Black were all added to this app's
+  tie-break catalogue afterwards and the importer was never told. It is not
+  a blank column: the list is compacted, so a tournament SWAR ranked on
+  Cut-2 and then Buchholz arrived ranked on Buchholz, with the second
+  criterion silently promoted to first and the standings order changed.
+
+  Twelve of the sixteen now map. The other four - median-2, performance
+  rating, games won with Black - have no honest counterpart here and produce
+  a warning naming which criterion was lost and that everything after it
+  moved up a place. Found by reading SWAR's own source rather than from a
+  bug report.
+
+- [Security] **The Windows launcher starts the app with Erlang distribution
+  switched off.** A portable release was listening on `0.0.0.0` for both
+  `epmd` and the node itself, and `releases/COOKIE` ships inside the
+  download - so it is the same on every copy, and the pair is enough to run
+  code on an arbiter's laptop from anywhere that can reach it. The launcher
+  sets `RELEASE_DISTRIBUTION=none`, which also removes a first-run firewall
+  prompt. `OpenPairings.bat`, `openpairings.sh` and the macOS bundle still
+  start with distribution on; that is a separate change and is not done.
+
+- [Feature] **Windows has a real application to double-click.** The portable
+  release now carries `OpenPairings.exe` beside `OpenPairings.bat`, and it is
+  what the Windows installer installs. Double-clicking it shows a small
+  window that says OpenPairings is starting, waits until the server actually
+  answers, and only then opens your browser - no console window, no black
+  rectangle full of Erlang, nothing to type.
+
+  The window is deliberate rather than an oversight. Taking the console away
+  takes the stop button away with it, and the console window was the stop
+  button: "close this window to stop it" was the whole model. So the model is
+  kept and the window says so - closing it stops OpenPairings, and it stops it
+  for real. The server runs inside a Windows job object, which means it is
+  terminated with the launcher even if the launcher is killed from Task
+  Manager rather than closed. A launcher that leaves a server running after
+  you close it is the reason people end up with three copies of a program and
+  no idea which one holds their data.
+
+  Double-clicking a second time opens a browser tab at the copy already
+  running instead of starting another one. If something else is already on
+  port 4000, it says so and offers to open it anyway, rather than dying
+  silently. If the app fails to start it says that too, and offers to open the
+  log - which is now written to `launcher.log` next to your database, so a
+  problem report has something in it.
+
+  `OpenPairings.bat` is untouched and still there. It is now the diagnostic
+  route rather than the front door: it shows the output live, in a console,
+  which is what you want when something is wrong and not what you want when
+  it is fine.
+
+- [Security] **The Windows launcher starts the app with Erlang distribution
+  switched off.** A release defaults to starting `epmd` on `0.0.0.0:4369`
+  plus a distribution listener on another all-interfaces port. Measured, not
+  assumed - the web port was already correctly pinned to loopback, these were
+  not.
+
+  That matters more than it looks, because the Erlang cookie that authorises
+  a connection to those ports lives in `releases/COOKIE` inside the download,
+  so it is the same on every copy of a given release. Nothing in local mode
+  needs distribution: it is one person on one computer, and the new stop
+  button is a job object rather than a remote call. Turning it off also
+  removes a Windows Firewall prompt on first run, which is an alarming thing
+  for a chess program to show a club arbiter.
+
+  **`OpenPairings.bat`, `openpairings.sh` and the macOS `.app` still start
+  with distribution on** - they are unchanged, and on a machine without an
+  inbound firewall that exposure is real. Closing it there is a separate
+  change.
+
 ## [0.53.2] - 2026-09-09
 
 - [Fix] **A file holding two tournaments is refused instead of imported as

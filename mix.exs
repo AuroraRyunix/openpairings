@@ -4,7 +4,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.53.2",
+      version: "0.54.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -60,7 +60,7 @@ defmodule PairingsEngine.MixProject do
       # inside, so there is still nothing to install.
       pairings_engine_portable: [
         applications: [pairings_engine: :permanent],
-        steps: [:assemble],
+        steps: [:assemble, &__MODULE__.windows_launcher/1],
         include_executables_for: [:unix, :windows],
         # `bin/pairings_engine_portable start` works, but says nothing about
         # local mode - which a plain release cannot detect, since `__BURRITO`
@@ -68,6 +68,72 @@ defmodule PairingsEngine.MixProject do
         overlays: ["rel/portable"]
       ]
     ]
+  end
+
+  @doc false
+  # Compiles rel/windows/launcher.c into OpenPairings.exe at the root of the
+  # portable release. See that file's header for what it does and why it has to
+  # exist at all; this is only about how it gets into the package.
+  #
+  # A release STEP rather than an overlay, which was the obvious candidate and
+  # is the wrong one. `overlays: ["rel/portable"]` copies whatever is in that
+  # directory into the release root - so putting the executable there means
+  # either committing a binary to the repository, which goes stale silently and
+  # cannot be reviewed, or writing a build artifact into a source directory and
+  # hoping nobody builds a release without running the script first. A step
+  # cannot be forgotten: `mix release pairings_engine_portable` runs it, and
+  # that is the only way this release is ever produced.
+  #
+  # Windows only. macOS and Linux have openpairings.sh and no use for a .exe,
+  # and the portable release is built on a native runner per platform anyway.
+  #
+  # Missing Zig warns rather than fails, because a plain `mix release` on a
+  # machine without the documented toolchain should still give you a working
+  # portable release - the .bat launcher is untouched and still starts it.
+  # A Zig that IS present and fails to build raises, because that is a broken
+  # build rather than an absent tool. Either way the installer refuses to pack
+  # a payload with no OpenPairings.exe in it, so nothing ships half-made.
+  def windows_launcher(release) do
+    script = Path.join([__DIR__, "rel", "windows", "build_launcher.ps1"])
+    output = Path.join(release.path, "OpenPairings.exe")
+
+    cond do
+      elem(:os.type(), 0) != :win32 ->
+        release
+
+      is_nil(System.find_executable("zig")) ->
+        Mix.shell().info([
+          :yellow,
+          "Skipping OpenPairings.exe: zig is not on PATH.\n",
+          "The portable release still works through OpenPairings.bat, but\n",
+          "rel/windows/build_installer.ps1 will refuse this payload.",
+          :reset
+        ])
+
+        release
+
+      true ->
+        args = [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          script,
+          "-OutputPath",
+          output,
+          "-Version",
+          release.version
+        ]
+
+        case System.cmd("powershell", args, stderr_to_stdout: true) do
+          {out, 0} ->
+            Mix.shell().info(out)
+            release
+
+          {out, status} ->
+            Mix.raise("rel/windows/build_launcher.ps1 failed (exit #{status}):\n\n#{out}")
+        end
+    end
   end
 
   # Configuration for the OTP application.

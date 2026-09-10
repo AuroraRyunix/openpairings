@@ -129,7 +129,7 @@ both are started and checked before the build is called a success.
 
 Unzip it and run the launcher next to the `bin` folder:
 
-- **Windows** - double-click `OpenPairings.bat`
+- **Windows** - double-click `OpenPairings.exe`
 - **macOS / Linux** - `chmod +x openpairings.sh && ./openpairings.sh`
 
   The `chmod` is needed because GitHub's artifact upload zips without Unix
@@ -146,6 +146,73 @@ run wanting `DATABASE_PATH`.
 
 It is about 150 MB unpacked, most of which is the Erlang runtime and the
 FIDE rating tooling.
+
+### The Windows launcher (`OpenPairings.exe`)
+
+The Windows release carries two launchers, and they are for different
+occasions:
+
+| file | what happens | when to use it |
+|---|---|---|
+| `OpenPairings.exe` | a small window, then your browser opens | always |
+| `OpenPairings.bat` | a console window with the live output | when something is wrong |
+
+`OpenPairings.exe` is a ~100 KB native program built from
+[`rel/windows/launcher.c`](../rel/windows/launcher.c), whose header comment is
+the full rationale. In short it starts the release from its own directory (a
+Start Menu shortcut runs with an arbitrary working directory, so relative
+paths are not an option), waits for the port to actually answer before opening
+a browser, runs the whole BEAM with no console window, and holds it in a
+Windows **job object** so the server is terminated with the launcher rather
+than left running. Closing its window stops OpenPairings; that is what the
+window says, and it is the console window's old contract kept after the
+console is gone.
+
+It also starts the release with `RELEASE_DISTRIBUTION=none`. The two other
+launchers do not, and that is worth knowing: without it a release starts
+`epmd` on `0.0.0.0:4369` and an Erlang distribution listener on another
+all-interfaces port, authorised by the cookie in `releases/COOKIE` - which
+ships inside the download and is therefore identical on every copy of it.
+
+Two things depend on this executable existing. It is what an arbiter
+double-clicks, and it is what Velopack's `--mainExe` points at, so
+[`rel/windows/build_installer.ps1`](../rel/windows/build_installer.ps1)
+refuses to pack a payload without it.
+
+#### How it is built
+
+`mix release pairings_engine_portable` builds it, as a release step that runs
+after `:assemble` and writes it into the release root (see `mix.exs`). Nothing
+extra to run and nothing committed: a checked-in binary would go stale in
+silence, and there would be no way to review it.
+
+It needs **Zig**, which this document already asks for. `zig cc` compiles the C
+and `zig rc` compiles the icon, the application manifest and the version
+resource; the target is pinned to `x86_64-windows-gnu`, so this cross-compiles
+from a Linux or macOS host as happily as it builds natively. On a machine with
+no Zig the step prints a warning and skips itself - the portable release still
+works through `OpenPairings.bat` - and it fails loudly if Zig is present and
+the build breaks.
+
+To work on the launcher itself, build it on its own:
+
+```powershell
+py -3 rel\windows\build_brand_assets.py   # only if the icon changed
+.\rel\windows\build_launcher.ps1          # writes rel\windows\OpenPairings.exe
+```
+
+The installer is packed from a finished portable release by
+[`rel/windows/build_installer.ps1`](../rel/windows/build_installer.ps1), which
+is not run by CI - read its `.NOTES` before you ship one, because there is a
+recorded problem there that has nothing to do with the launcher.
+
+Why not .NET, which is the obvious thing to reach for on Windows:
+framework-dependent needs a runtime installed on the arbiter's machine, which
+is the one promise the portable release makes, and self-contained adds ~60 MB
+to a payload that is already 155 MB. Why C rather than Zig-the-language: CI
+pins Zig 0.15.2 because Burrito requires exactly that, a developer machine has
+whatever is current, and Zig's standard library changes between releases while
+`zig cc` and `windows.h` do not.
 
 ## Running it locally (the default)
 

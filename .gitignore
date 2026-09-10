@@ -40,6 +40,11 @@ pairings_engine-*.tar
 /priv/static/favicon-*.ico
 /priv/static/robots-*.txt
 /priv/static/images/logo-*.svg
+# The same, for the two raster marks. These were missed when logo.png and
+# favicon.png were added, so every `mix assets.deploy` left two untracked
+# files behind and made `git status` lie about whether a tree was clean.
+/priv/static/images/logo-*.png
+/priv/static/images/favicon-*.png
 
 # Node/npm leftovers
 npm-debug.log

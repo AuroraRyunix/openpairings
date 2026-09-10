@@ -727,7 +727,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
 
       warnings =
         points_adjusted_warnings(tournament, data, players_by_ni) ++
-          category_warnings(data.categories)
+          category_warnings(data.categories) ++
+          tiebreak_warnings(data.tiebreaks || [])
 
       {:ok, tournament, warnings}
     end
@@ -1346,13 +1347,83 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   defp map_bye_value(2), do: 0.0
   defp map_bye_value(_), do: 1.0
 
-  # Only the six methods explicitly requested map to our codes; everything
-  # else (Koya, ARO, performance, black-piece stats, ...) is skipped.
-  @tiebreak_codes %{1 => "BH", 4 => "BHC1", 6 => "SB", 8 => "DE", 10 => "WIN", 7 => "PS"}
+  # SWAR's `DEPARTAGES` enum, in its own declaration order (`Swar.h`):
+  #
+  #   0 none          4 Buchholz Cut-1     8 direct encounter  12 ARO
+  #   1 Buchholz      5 Buchholz Cut-2     9 Koya              13 ARO Cut-1
+  #   2 median-1      6 Sonneborn-Berger  10 wins              14 black games
+  #   3 median-2      7 cumulative        11 performance       15 black wins
+  #
+  # This mapped six of them, with a comment saying the rest were "skipped"
+  # because they had no counterpart here. That was true when it was written
+  # and stopped being true as the tie-break catalogue grew: Koya, ARO, ARO
+  # Cut-1, Buchholz Cut-2, median Buchholz and black-games-played are all in
+  # `PairingsEngine.Tiebreaks` now, all `available: true`, and the importer
+  # was never told. Same drift as `@playing_codes` in `TrfImport` and
+  # `@fts_tables` in `Backup`: a list that was complete on the day it was
+  # written, in a file that does not get read when the OTHER list grows.
+  #
+  # It is not a missing column. `map_tiebreaks/1` compacts, so a tournament
+  # SWAR ranked on Cut-2 then Buchholz imported ranked on Buchholz - the
+  # second criterion silently promoted to first, and the standings order
+  # changed with nothing on screen saying so.
+  @tiebreak_codes %{
+    1 => "BH",
+    2 => "MBH",
+    4 => "BHC1",
+    5 => "BHC2",
+    6 => "SB",
+    7 => "PS",
+    8 => "DE",
+    9 => "KS",
+    10 => "WIN",
+    12 => "ARO",
+    13 => "AROC1",
+    14 => "BPG"
+  }
+
+  # Three have no honest counterpart and are left out on purpose:
+  #
+  #   3  median-2       we have one median Buchholz, which is median-1
+  #   11 performance    not a tie-break in this app's catalogue
+  #   15 black wins     `WON` counts wins over the board, not black wins
+  #
+  # Named rather than left to fall through `nil`, so the warning below can
+  # say WHICH criterion was lost instead of only that the count changed.
+  @tiebreak_names %{
+    3 => "Buchholz median-2",
+    11 => "performance rating",
+    15 => "games won with Black"
+  }
+
   defp map_tiebreaks(codes) do
     codes
     |> Enum.map(&Map.get(@tiebreak_codes, &1))
     |> Enum.reject(&is_nil/1)
+  end
+
+  @doc false
+  def tiebreak_warnings(codes) do
+    dropped =
+      codes
+      |> Enum.reject(&(&1 == 0))
+      |> Enum.reject(&Map.has_key?(@tiebreak_codes, &1))
+      |> Enum.map(&Map.get(@tiebreak_names, &1, "an unrecognised method (code #{&1})"))
+      |> Enum.uniq()
+
+    case dropped do
+      [] ->
+        []
+
+      names ->
+        [
+          "This file ranks on a tie-break this app does not have " <>
+            "(#{Enum.join(names, ", ")}). It has been left out, which moves every " <>
+            "criterion after it up one place - so the standings order here may " <>
+            "differ from SWAR's. Check the tie-break list on the Settings page " <>
+            "before publishing."
+        ]
+    end
   end
 
   # TournoiStd: 0=Standard, 1=Rapid, 2=Blitz (manual §5.13/4.2 field 87).

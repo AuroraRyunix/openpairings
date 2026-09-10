@@ -118,6 +118,33 @@ jobs:
       # needs neither and works today.
       - run: mix release pairings_engine_portable --overwrite
 
+      # The Windows entry point, OpenPairings.exe, is produced by a release
+      # step (mix.exs -> windows_launcher/1) that skips itself when Zig is not
+      # on PATH. Zig is always on PATH here, so a missing file means the step
+      # did not run at all - and nothing downstream would notice until somebody
+      # tried to pack an installer, or worse, ran one.
+      #
+      # The subsystem check is the other half. "No console window" is one
+      # linker flag, it is invisible in the source, and a regression would only
+      # show up as a black window on an arbiter's screen.
+      - name: Check the Windows launcher was built
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = "_build\prod\rel\pairings_engine_portable\OpenPairings.exe"
+          if (-not (Test-Path $exe)) {
+            throw "No OpenPairings.exe in the portable release - the mix.exs release step did not run."
+          }
+          $item = Get-Item $exe
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($item.FullName).FileVersion
+          Write-Host "OpenPairings.exe $version, $([math]::Round($item.Length / 1KB, 1)) KB"
+
+          $bytes = [System.IO.File]::ReadAllBytes($item.FullName)
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $subsystem = [BitConverter]::ToUInt16($bytes, $pe + 92)
+          if ($subsystem -ne 2) {
+            throw "OpenPairings.exe has subsystem $subsystem, not 2 (GUI) - it would show a console window."
+          }
 
       # Prove the thing we just built actually starts. A Burrito build can
       # succeed and still produce a binary that dies at boot - the release

@@ -1,1 +1,7 @@
 __pycache__/
+
+# Build outputs of build_launcher.ps1. The .exe belongs in a release, not in
+# the repository: a committed binary goes stale silently and cannot be
+# reviewed. launcher.c and the script that compiles it are the source of truth.
+obj/
+OpenPairings.exe
