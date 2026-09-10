@@ -67,6 +67,51 @@ so a regression back to `rank = ni` fails loudly. `Class` staying a
 constant 0 remains correct - see `reverse_player/5`'s own comment for
 the full citations on both.
 
+## Re-opening an exported TRF file in SWAR: byes do not survive
+
+This is about a different file - a TRF export
+(`PairingsEngine.TrfExport`/`Ainalrami.Trf`), not the `.swar` binary this
+document is mostly about - but the hazard is real enough, and specific enough
+to this pairing, to belong here rather than only in the audit document that
+found it
+([swar-source-audit-pass3-2026-09-09.md, §2.4](swar-source-audit-pass3-2026-09-09.md#24-f24--chasing-the-question-into-swars-own-trf-importer)).
+
+**If an arbiter exports a TRF file from OpenPairings and opens it in SWAR,
+every bye in it turns into an ordinary rated game.** SWAR's own TRF importer
+(`ImportTrfFile.cpp:GetResult`) maps the three standard arbiter-decided bye
+codes onto plain results instead of onto anything tagged "not played":
+
+| TRF code | What it means | What SWAR's importer does with it |
+|---|---|---|
+| `H` (half-point bye) | player did not play, scores half | becomes an ordinary **draw**, against opponent `0000` |
+| `F` (full-point bye) | player did not play, scores a full point | becomes an ordinary **win**, against opponent `0000` |
+| `Z` (zero-point bye) | player did not play, scores nothing | becomes an ordinary **loss**, against opponent `0000` |
+| `U` (pairing-allocated bye) | the pairing engine gave this player a bye | correctly becomes a tagged bye - **this one survives** |
+
+The one other place that information could have survived is overwritten in
+the same loop. SWAR marks a round as not played with a table number of
+`-1`, and its own TRF writers test that field to decide a game was a bye.
+The importer sets every imported round's table field to `0` instead, and
+says so in its own comment - `-1 == non jouee, donc on y met 0`. So after
+an import there is nothing left anywhere in that player's record to say the
+game didn't happen.
+Every tiebreak that specifically excludes unplayed rounds will silently
+include these instead.
+
+**OpenPairings' own export is not at fault.** `bye_code/1` (`pairing.ex`) and
+`future_bye_code/1` (`PairingsEngine.TrfExport`) write exactly the FIDE-
+standard codes (`F`/`H`/`Z`/`U`), matching `Ainalrami.Trf.result_codes/0`, and
+`Ainalrami.Trf`'s own importer preserves all four correctly. The corruption
+happens only if the file is subsequently opened in SWAR - reading it back into
+OpenPairings itself is unaffected.
+
+**What to do about it:** nothing changes in this codebase - there is no way to
+write a TRF file that both conforms to the FIDE spec and survives SWAR's own
+import bug for three of its four bye codes. If a report ever comes in of a
+tournament's bye scores or tiebreaks looking wrong immediately after being
+reopened in SWAR, check whether it passed through a TRF export/import step
+first before assuming the bug is on this side.
+
 ## What the parser refuses before anything is written
 
 Two pre-flight checks in `parse/1`, both because the alternative is damage
@@ -445,24 +490,27 @@ and always have been (`federations/bel/swar_import.ex`'s
   the `abs_jusque`/`abs_nbfois` caps just described. Never affected by
   `ByeValue`.
 
-## Tiebreaks: two places our numbers legitimately differ from SWAR's
+## Tiebreaks: three places our numbers legitimately differ from SWAR's
 
 Everything above is about reading the file correctly. This section is about
 the case where the file was read correctly and **the printed numbers still
 disagree** - where OpenPairings' Buchholz Cut-1 column and SWAR's Buchholz
 Cut-1 column, on the same tournament, are different numbers.
 
-Both of these are deliberate on both sides. **SWAR is not broken here**: it
-implements a Belgian convention that predates the current FIDE text and
-documents it to its own users. OpenPairings implements FIDE C.07 as written.
-An arbiter comparing two screens does not need to be told who is at fault,
-because nobody is - they need to be told which number answers which question.
+The first two of these are deliberate on both sides. **SWAR is not broken
+there**: it implements a Belgian convention that predates the current FIDE
+text and documents it to its own users. The third is different in kind - it
+is a SWAR bug, not a house convention, and it is worth knowing that too,
+because "both programs are right" is not always the honest answer and an
+arbiter deserves to be told when it isn't. OpenPairings implements FIDE C.07
+as written throughout.
 
-Read this before answering a "your tiebreak is wrong" report, because in both
-cases the honest answer is "both programs are right, and here is why they
-differ". The source citations are in
-[swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md) and
-[swar-source-audit-pass2-2026-09-09.md](swar-source-audit-pass2-2026-09-09.md);
+Read this before answering a "your tiebreak is wrong" report. The source
+citations are in
+[swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md),
+[swar-source-audit-pass2-2026-09-09.md](swar-source-audit-pass2-2026-09-09.md)
+and
+[swar-source-audit-pass3-2026-09-09.md](swar-source-audit-pass3-2026-09-09.md);
 what follows is the arbiter-facing summary.
 
 ### 1. SWAR cuts fewer results than "Cut-1"/"Cut-2" names, and cuts none at all before round 5
@@ -591,13 +639,55 @@ saying Article 10 is why.
 plain Buchholz in the Cut column by design; we cut, and prefer to cut the
 unplayed round, which is what Article 16.5.1 asks for.
 
-### What not to do about either of these
+### 3. SWAR's mid-round tiebreaks can run a round ahead of ours, for players who haven't played that round yet
 
-Do not change the calculations toward SWAR. Both audits landed on the same
-answer, and the regulations are on this side in both cases. The value of this
-section is that it turns a *predictable* support report into a one-line answer
-instead of a re-derivation from SWAR's source, which is what producing the
-answer the first time actually took.
+This one only shows up while a round is still being entered. It disappears
+the moment the round finishes, and it never affects a tournament's final
+standings.
+
+**SWAR's round horizon is "at least one result reported this round", not "all
+of them".** `GetLastRoundWithResult` (`Utils.cpp:652-662`) scans backward and
+returns the first round with any real result in it at all - its own comment
+says so: "la dernière ronde possédant **au moins un** résultat". That value is
+not a display number; it is the literal loop bound (`LastRoundWithResult`,
+recomputed every time standings are shown, `Classement.cpp:1368`) inside
+*every* tiebreak in `Classement.cpp` - Buchholz, Sonneborn-Berger, Koya, ARO,
+even a player's own raw point total. None of those loops test whether the
+specific game being summed was actually decided, only whether the player was
+paired that round at all.
+
+**Concretely:** the moment one board in the newest round reports a result,
+every player who was paired that round - not just the two on that board -
+has the round folded into their Buchholz and Koya numbers, using opponents
+whose own games in that same round may still be unplayed.
+
+**What OpenPairings does.** `completed_rounds/2` (`standings.ex`) requires
+every pairing in a round to have a result before the round counts at all. This
+is not a house-convention difference the way the first two items are - an
+earlier version of this codebase had exactly SWAR's bug (`rounds_played_count/1`,
+long since replaced), found because it let one reported board give every other
+player in the round a phantom result. `completed_rounds/2` exists specifically
+to close that hole.
+
+**Which the regulations support:** OpenPairings. This isn't a case of two
+defensible readings - full detail, including why it reads as an unintentional
+bug in SWAR rather than a deliberate choice, is in
+[swar-source-audit-pass3-2026-09-09.md](swar-source-audit-pass3-2026-09-09.md#1-f23--swars-tiebreak-horizon-moves-the-instant-one-board-reports).
+
+**The one-line answer:** if the two programs' live standings disagree
+mid-round, check whether every board in the newest round has reported yet -
+if not, that's why, and both sides will agree again once it has. This does
+not affect final results.
+
+### What not to do about any of these
+
+Do not change the calculations toward SWAR. All three audits landed on the
+same answer, and the regulations are on this side throughout - including
+item 3, where SWAR's own comments disagree with each other about what the
+code is supposed to do. The value of this section is that it turns a
+*predictable* support report into a one-line answer instead of a
+re-derivation from SWAR's source, which is what producing the answer the
+first time actually took.
 
 The audits carry further, smaller divergences. Two more of this kind - the
 `WIN` tiebreak counting a full-point bye here and not in SWAR, and a

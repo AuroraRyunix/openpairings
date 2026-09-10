@@ -281,22 +281,31 @@ Still open, and each needs a decision rather than typing:
   the only thing in the way.
 - **American accelerated pairing** - dropped, maintainer's own call.
 - **Auditing OpenPairings against SWAR's C++ source, file by file** -
-  **costed 2026-09-09; passes one and two are done**:
-  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md)
+  **costed 2026-09-09; all three passes are done, tier A is closed**:
+  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md),
+  [docs/swar-source-audit-pass2-2026-09-09.md](docs/swar-source-audit-pass2-2026-09-09.md)
   and
-  [docs/swar-source-audit-pass2-2026-09-09.md](docs/swar-source-audit-pass2-2026-09-09.md).
+  [docs/swar-source-audit-pass3-2026-09-09.md](docs/swar-source-audit-pass3-2026-09-09.md).
 
   135 files, 74,234 lines, but the shape matters more than the total:
 
     * **Tier A, 7,196 lines** - `Classement.cpp`, `Utils.cpp`,
       `Categories.cpp`, `EnvoiJAVAFO.cpp`, `TournoiReadWrite.cpp`,
-      `XtraPoints.cpp`. Every finding from both passes, and both historical
-      real bugs, came from here. Pass one costed it at **~2.5 focused
-      sessions**; two of those are spent and **roughly half a session is
-      left**, all of it in `Utils.cpp`. `Classement.cpp`, `EnvoiJAVAFO.cpp`
-      and `XtraPoints.cpp` are read in full, `Categories.cpp` was pass one's
-      subject, and `TournoiReadWrite.cpp` is done apart from its `ReadStr`/
-      `ReadInt` primitives.
+      `XtraPoints.cpp`. Every finding from all three passes, and both
+      historical real bugs, came from here. **Fully read as of pass three.**
+      `Classement.cpp`, `EnvoiJAVAFO.cpp` and `XtraPoints.cpp` were read in
+      full in pass two; `Categories.cpp` was pass one's subject.
+      `TournoiReadWrite.cpp`'s structural reads were pass two's, and its
+      `ReadStr`/`ReadInt` primitives were pass three's - plain binary I/O
+      with no business logic to diverge over, confirmed rather than assumed.
+      `Utils.cpp`'s last two pockets, `GetLastRoundWithResult`/
+      `GetFirstRoundOnlyPairing` and the three `ConvertResult2*_TRNfile`
+      encoders, were pass three's main subject (below). Its ~900 lines of
+      `Format*`/`Write*` display and CSV-writer helpers were **deliberately
+      never read**, on pass two's recommendation, carried out by pass three:
+      description/formatting code with no OpenPairings counterpart to
+      diverge from, never expected to return a finding, and it didn't need
+      to be checked to know that.
     * **Tier B, 9,247 lines** - real logic buried in MFC dialog wiring. ~2
       sessions, low expected yield. Unchanged, and still not worth buying.
     * **Tier C, 298 lines** - verified to contain no logic at all.
@@ -307,30 +316,36 @@ Still open, and each needs a decision rather than typing:
   `Pairtwo.cpp` rejects Keizer files outright. There is nothing to compare
   it against.
 
-  **What the last half session buys**, from pass two §8 - only two pockets
-  of `Utils.cpp` are likely to return anything an arbiter can see, and the
-  rest (the `Format*`/`Write*` display helpers, ~900 lines of description
-  and CSV writers) can be skipped outright:
-
-    * the three `ConvertResult2*_TRNfile` encoders, against `Ainalrami.Trf`'s
-      code table - this is where the `AbsValue` mis-scale and the
-      handicap-table board bug both lived, and pass two already found the
-      three encoders disagreeing with each other over a bye;
-    * `GetLastRoundWithResult` / `GetFirstRoundOnlyPairing`, which bound
-      every tiebreak in `Classement.cpp`. Whether SWAR's horizon is "rounds
-      with at least one result" or "rounds with all results" decides whether
-      the two programs' mid-tournament Buchholz can agree at all, and
-      `completed_rounds/2` is a deliberately-chosen third answer. Half an
-      hour, and the highest-value unread function in the tier.
+  **What pass three found**, both SWAR-side, neither actionable as an
+  OpenPairings code change: SWAR's tiebreak round-horizon is "at least one
+  result reported this round", not "all of them" - live, mid-tournament, the
+  literal loop bound of every tiebreak in `Classement.cpp` - which is the
+  same failure shape `completed_rounds/2` was specifically built to avoid, so
+  there is nothing to fix here, only to document (pass three §1). And SWAR's
+  own TRF importer collapses the three standard bye codes (`H`/`F`/`Z`) into
+  ordinary rated results against opponent `0000`, discarding "not played" -
+  reachable through a TRF file OpenPairings itself correctly writes, so the
+  fix (if any is ever possible) is SWAR's, not ours (pass three §2.4). Both
+  are written up for arbiters in
+  [docs/swar-import.md](docs/swar-import.md). A third, smaller finding (the
+  FIDE encoder mis-tagging a forfeit-ruled-a-draw) is recorded only in the
+  audit document, being too small and too rare to need an arbiter-facing
+  paragraph before anyone reports it.
 
   **Actionable and not yet done**, all from pass two: the importer drops
   five SWAR tiebreaks it can compute (§2, a real defect - the drop silently
   promotes a different tiebreak to primary), a round-robin `ByeValue`
   divergence (§3), SWAR's manual acceleration disappearing at the import
   boundary with nothing said (§5.4), and the legacy `CatIndex < 100`
-  normalisation (§5.2). The two divergences that are **not** defects on
-  either side are written up for arbiters in
-  [docs/swar-import.md](docs/swar-import.md).
+  normalisation (§5.2). These four are unaffected by pass three and remain
+  the only open code-shaped work this item leaves behind; everything else it
+  found is either fixed already (pass one's F1) or is a divergence to
+  document rather than to change, per each pass's own verdict.
+
+  **Nothing further is scheduled.** Tier A is fully read across the three
+  passes; tier B stays off the schedule for the reasons pass one costed it
+  at. Any future work on this item is symptom-driven - read the specific
+  file a real report points at, not another scheduled pass.
 
 ### Ainalrami (the engine)
 
