@@ -453,8 +453,17 @@ Over 100% fails, so these add up rather than standing alone:
   warning levels at all** - so the Level machinery has no prior art to
   reason from. A request is drafted at
   [docs/request-tec-vcl4thp.md](docs/request-tec-vcl4thp.md); the
-  maintainer sends it. Phase 2 of the build plan should not start until it
-  is answered.
+  maintainer sends it - **sent 2026-09-10**. Phase 2 of the build plan
+  should not start until it is answered.
+
+  There is also a contact inside the commission who can be telephoned, which
+  is a better channel for the parts that are ambiguous rather than missing.
+  [docs/tec-call-questions.md](docs/tec-call-questions.md) is the call sheet,
+  ordered by what it costs to guess wrong; the first four questions decide
+  code that cannot be written without them. Whatever is said should be
+  written into that file the same day, including the hedges - a remembered
+  phone call is the same kind of single unverifiable source that this whole
+  section exists to warn about.
 
   Also worth fixing while writing to them: we say endorsement where the
   thing being pursued first is a **TAPC**, and endorsement is a separate
