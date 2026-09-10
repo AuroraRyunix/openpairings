@@ -87,12 +87,42 @@ defmodule PairingsEngine.MixProject do
   # Windows only. macOS and Linux have openpairings.sh and no use for a .exe,
   # and the portable release is built on a native runner per platform anyway.
   #
-  # Missing Zig warns rather than fails, because a plain `mix release` on a
-  # machine without the documented toolchain should still give you a working
-  # portable release - the .bat launcher is untouched and still starts it.
-  # A Zig that IS present and fails to build raises, because that is a broken
-  # build rather than an absent tool. Either way the installer refuses to pack
-  # a payload with no OpenPairings.exe in it, so nothing ships half-made.
+  # Nothing in here fails the release. Not an absent Zig, and - since 0.56.x -
+  # not a Zig that is present and cannot build the launcher either. Both warn,
+  # and both name the file that will not exist and what will refuse it.
+  #
+  # Missing Zig warns because a plain `mix release` on a machine without the
+  # documented toolchain should still give you a working portable release -
+  # the .bat launcher is untouched and still starts it.
+  #
+  # A Zig that FAILS used to raise, on the reasoning that a present tool
+  # breaking is a broken build rather than an absent one. That reasoning does
+  # not survive the version fork: CI pins Zig 0.15.2 because Burrito 1.5
+  # requires exactly that, while a developer machine carries whatever is
+  # current (0.16.0 as this was written). `zig rc` stops parsing options at
+  # the first non-option argument - build_launcher.ps1 already documents
+  # having to order its arguments around that - and that is precisely the kind
+  # of surface that moves between Zig releases. So a launcher build can fail
+  # on one machine and succeed on the other for a reason that has nothing to
+  # do with this application, and raising made that fatal to the whole
+  # release: no OpenPairings.exe, and no portable release either, when the
+  # portable release was complete apart from a 100 KB C stub.
+  #
+  # What is NOT soft, and must stay that way - read these as the other half of
+  # this branch, because it is only safe to warn here because they refuse
+  # there:
+  #
+  #   * rel/windows/build_installer.ps1 hard-stops when OpenPairings.exe is
+  #     not in the payload. Velopack will happily pack a --mainExe that does
+  #     not exist and hand you a Setup.exe that installs an application
+  #     nothing can start, which is worse than no installer at all.
+  #   * .github/workflows/binaries.yml's "Check the Windows launcher was
+  #     built" step throws when the file is missing. Zig is always on PATH
+  #     there, so missing means this step ran and did not produce it.
+  #
+  # The consequence of softening is therefore local, and deliberate: a
+  # developer gets a usable portable release plus a warning instead of a dead
+  # build. CI still goes red on the Windows target - it should.
   def windows_launcher(release) do
     script = Path.join([__DIR__, "rel", "windows", "build_launcher.ps1"])
     output = Path.join(release.path, "OpenPairings.exe")
@@ -131,7 +161,24 @@ defmodule PairingsEngine.MixProject do
             release
 
           {out, status} ->
-            Mix.raise("rel/windows/build_launcher.ps1 failed (exit #{status}):\n\n#{out}")
+            Mix.shell().error("""
+            OpenPairings.exe was NOT built: rel/windows/build_launcher.ps1 exited #{status}.
+
+            The portable release is otherwise complete and still starts through
+            OpenPairings.bat. What will not work:
+
+              * rel/windows/build_installer.ps1 refuses this payload outright -
+                Velopack's --mainExe has to exist.
+              * CI's "Check the Windows launcher was built" step fails the
+                Windows target.
+
+            A Zig version difference is the usual cause; see the header of
+            rel/windows/build_launcher.ps1. The script's own output follows.
+
+            #{out}
+            """)
+
+            release
         end
     end
   end

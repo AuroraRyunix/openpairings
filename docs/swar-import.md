@@ -445,6 +445,169 @@ and always have been (`federations/bel/swar_import.ex`'s
   the `abs_jusque`/`abs_nbfois` caps just described. Never affected by
   `ByeValue`.
 
+## Tiebreaks: two places our numbers legitimately differ from SWAR's
+
+Everything above is about reading the file correctly. This section is about
+the case where the file was read correctly and **the printed numbers still
+disagree** - where OpenPairings' Buchholz Cut-1 column and SWAR's Buchholz
+Cut-1 column, on the same tournament, are different numbers.
+
+Both of these are deliberate on both sides. **SWAR is not broken here**: it
+implements a Belgian convention that predates the current FIDE text and
+documents it to its own users. OpenPairings implements FIDE C.07 as written.
+An arbiter comparing two screens does not need to be told who is at fault,
+because nobody is - they need to be told which number answers which question.
+
+Read this before answering a "your tiebreak is wrong" report, because in both
+cases the honest answer is "both programs are right, and here is why they
+differ". The source citations are in
+[swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md) and
+[swar-source-audit-pass2-2026-09-09.md](swar-source-audit-pass2-2026-09-09.md);
+what follows is the arbiter-facing summary.
+
+### 1. SWAR cuts fewer results than "Cut-1"/"Cut-2" names, and cuts none at all before round 5
+
+**This is the one that moves numbers for everybody**, not just for a player
+with something unusual on their card.
+
+`TieBucholtz` (`Classement.cpp:1131-1286`) does not take the cut count from
+the tiebreak. It computes one up front, from the number of rounds played
+(`Classement.cpp:1144-1154`), as `min((rounds played - 1) / 4, n)` with `n`
+being 1 for Cut-1 and Median-1 and 2 for Cut-2 and Median-2. Integer division:
+
+| Rounds played | SWAR's Cut-1 / Median-1 drops | SWAR's Cut-2 / Median-2 drops |
+|---|---|---|
+| 1-4 | **0** | **0** |
+| 5-8 | 1 | **1** |
+| 9 or more | 1 | 2 |
+
+A zero makes the whole drop loop (`Classement.cpp:1276-1282`) a no-op. So a
+tournament configured for Buchholz Cut-1 **shows plain Buchholz for its first
+four rounds, and forever if it is a four-round event**, and a **seven-round
+event configured for Cut-2 never cuts more than one result**, including in the
+final standings that decide the prizes.
+
+**It is deliberate and it is documented to arbiters.** SWAR's code attributes
+the scheme to Luc Cornet, the KBSB's tiebreak authority, and dates it to v3.93
+(`Classement.cpp:1121-1125`). SWAR's own arbiter manual carries a footnote on
+all four variants saying that for rounds 1-4 SWAR removes no results at all
+(`(**)`, "on enlève pas de résultats"), one from round 5, and two from round 9
+- and the table rows themselves say the count follows the number of games
+played. So Belgian arbiters using SWAR have been told this is how it works,
+and it has worked this way since long before the version audited here.
+
+**What OpenPairings does.** `tiebreak("BHC1"/"BHC2"/"MBH", ...)`
+(`standings.ex`) calls `cut/3` with a fixed count of 1, 2, and 1-high-1-low.
+There is no round-count term anywhere in the calculation, at any point in the
+tournament.
+
+**Which the regulations support: OpenPairings.** C.07's Cut modifiers
+(Article 14.1) define Cut-1 as cutting one contribution and Cut-2 as cutting
+two. Nothing in the regulation makes the count a function of the round number.
+SWAR is applying a national convention on top of a FIDE tiebreak while keeping
+FIDE's name for it, which is a house choice it is entitled to make and is not
+the same tiebreak C.07 describes.
+
+**Who this reaches.** Everyone, in the events this importer exists for.
+Belgian club and weekend tournaments run 5 to 7 rounds; on Cut-2 every player
+in one of those has a different number in the two programs. On Cut-1 - which
+is **FIDE's own first tiebreak for a Swiss**, and therefore what a new
+tournament here starts with (`Tiebreaks.fide_defaults/1`) - a four-round event
+diverges for every player. And in a longer
+event the mid-tournament standings diverge even where the final ones agree: a
+nine-round Swiss on Cut-2 prints plain Buchholz from SWAR after rounds 1-4,
+Cut-1 after rounds 5-8, and Cut-2 only at the end.
+
+**The one-line answer:** SWAR's Cut-1 and Cut-2 scale the number of cuts to
+the number of rounds played and cut nothing before round 5; ours cut what the
+FIDE tiebreak name says, always. If the Belgian convention is what the
+tournament regulations actually announced, that is a display convention to
+record in the regulations, not a defect here - and if it is ever wanted in
+this app it belongs behind a per-tournament switch, not inside the FIDE codes.
+
+### 2. SWAR drops the cut entirely for a player who was declared absent
+
+The second divergence only moves numbers for players with an absence - but
+where it applies, it applies to a whole tiebreak.
+
+**Buchholz Cut/Median variants.** `TieBucholtz` gates the entire
+drop-lowest/drop-highest block on the player having had no declared absence at
+all (`Classement.cpp:1275`, `if (Dep > DEP_BUCHOLTZ && nbAbsent == 0)`, over
+the block at `:1273-1283`). So a player with one or more absences gets **plain
+Buchholz reported in the Cut-1 column**. The extent, mapped in full by the
+second audit:
+
+- **Only the four cut/median variants.** Plain Buchholz has no drop to
+  suppress, and Sonneborn-Berger is a different function and is untouched.
+- **Only a declared absence** (`TABLE_ABSENT`). A pairing-allocated bye does
+  not suppress the cut, a withdrawal does not, and a forfeited game at a real
+  board does not. This is narrower than it first looks.
+- **Per player.** Everyone else in the same tournament still gets their cuts.
+- **Invisible before round 5**, because of the divergence above - there is no
+  cut to suppress yet.
+
+**ARO-Cut1, with a much wider trigger.** `TieAro` (`Classement.cpp:335-382`)
+performs its cut only when a flag is clear (`:373`), and four separate things
+set it: an unpaired round, no opponent, **any** unplayed result including a
+forfeit at a real board, and - the one nobody guesses - **a single unrated
+opponent** (`elo == 0`). SWAR's own comment at `:329` gives the reasoning for
+the first group: a bye or an absence is treated as a Cut-1 already taken.
+
+**What OpenPairings does.** `cut/3` and `drop_lowest_with_vur_priority/2`
+always perform the configured number of cuts, and implement Article 16.5.1 as
+what it says it is - a **preference** about which contribution to cut, taking
+a voluntary-unplayed-round contribution first where one exists. `aro/3` cuts
+unconditionally. The unrated case is answered one level up and much more
+loudly: `Standings.effective_tiebreaks/2` **drops ARO and ARO-Cut1 from the
+whole tournament** when any unrated player is entered, and
+`dropped_tiebreaks_with_reasons/2` puts the reason on the page rather than
+silently showing one fewer column.
+
+**Which the regulations support: OpenPairings, on both halves.**
+
+- Article 16.5.1 is a rule about *which* contribution to cut when a cut
+  applies. It is not a licence to skip the cut, and SWAR's own comment cites
+  an internal analysis document rather than a FIDE article.
+- Article 16's opening sentence names its own scope - Buchholz,
+  Sonneborn-Berger and their variants - and **ARO is not in it**, so 16.5.1
+  does not reach ARO-Cut1 at all.
+- For the unrated opponent, Article 10's answer is that the rating-based
+  tiebreak is dropped from the tournament unless the arbiter published a rule
+  in advance. It gives no substitute rating and no "leave that opponent out of
+  the average". Quietly excluding one opponent from one player's average is
+  inventing the rule FIDE declined to write; the long note above
+  `effective_tiebreaks/2` in `standings.ex` argues this at length.
+
+**Where the two agree by coincidence, and where they visibly do not.** For the
+common case - one absence, Cut-1, from round 5 on - skipping the contribution
+and cutting it come to the same number, so nobody notices. They diverge for
+Cut-2 with one absence (SWAR performs one effective cut, we perform two) and
+for any player with two or more absences under any cut variant. On ARO-Cut1
+with an unrated player in the field the difference is not a number at all:
+SWAR prints an uncut average, and this app prints no ARO column and a line
+saying Article 10 is why.
+
+**The one-line answer:** for a player with a declared absence, SWAR reports
+plain Buchholz in the Cut column by design; we cut, and prefer to cut the
+unplayed round, which is what Article 16.5.1 asks for.
+
+### What not to do about either of these
+
+Do not change the calculations toward SWAR. Both audits landed on the same
+answer, and the regulations are on this side in both cases. The value of this
+section is that it turns a *predictable* support report into a one-line answer
+instead of a re-derivation from SWAR's source, which is what producing the
+answer the first time actually took.
+
+The audits carry further, smaller divergences. Two more of this kind - the
+`WIN` tiebreak counting a full-point bye here and not in SWAR, and a
+round-robin bye scoring a full point in SWAR where the file itself says zero -
+and one that is not: in a 3-2-1 tournament SWAR computes the Koya threshold
+and several other tiebreaks on the classic 1/0.5/0 scale while the scores
+themselves are on the club's own, so there it is SWAR's number that is wrong.
+None of them is worth an arbiter's attention until it is reported; all are
+cited in the audit documents.
+
 ## Categories: two value lists, one of them unread
 
 `[CATEGORIES]` carries `Categorie type` plus **two** parallel lists,

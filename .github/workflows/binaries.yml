@@ -371,6 +371,23 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          # Read the version BEFORE the `cd` - mix.exs is in the workspace
+          # root, and it is the single source of truth for it (the release job
+          # below reads it the same way, and rel/windows/build_installer.ps1
+          # does the same for the Windows installer; mix pairings.version_check
+          # keeps CHANGELOG.md, TODO.md and docs/features.md agreeing with it).
+          #
+          # This was hardcoded until 0.56.x, and had said 0.18.0 the whole
+          # time: the bundle told Finder, Spotlight and every crash reporter
+          # that an 0.56 application was 0.18. Nothing in a build reads
+          # Info.plist back, so no step could have caught it - the only real
+          # defence is not keeping a second copy of the number.
+          version=$(grep -m1 "version:" mix.exs | cut -d'"' -f2)
+          if [ -z "$version" ]; then
+            echo "Could not read a version out of mix.exs" >&2
+            exit 1
+          fi
+
           cd _build/prod/rel
           app_name="OpenPairings.app"
           rm -rf "$app_name" dmg_staging
@@ -380,8 +397,11 @@ jobs:
           # Copy the portable release into Resources/app
           cp -R pairings_engine_portable/* "$app_name/Contents/Resources/app/"
 
-          # Create Info.plist
-          cat << 'EOF' | sed 's/^[ ]*//' > "$app_name/Contents/Info.plist"
+          # Create Info.plist. The heredoc stays quoted so the plist body is
+          # never shell-expanded - it is full of `version="1.0"` attributes and
+          # double quotes, and one stray `$` in a future edit should not become
+          # an empty string. The version arrives through sed instead.
+          cat << 'EOF' | sed -e 's/^[ ]*//' -e "s/__VERSION__/${version}/g" > "$app_name/Contents/Info.plist"
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -397,9 +417,9 @@ jobs:
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.18.0</string>
+              <string>__VERSION__</string>
               <key>CFBundleVersion</key>
-              <string>0.18.0</string>
+              <string>__VERSION__</string>
               <key>LSMinimumSystemVersion</key>
               <string>11.0</string>
               <key>NSHighResolutionCapable</key>

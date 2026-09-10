@@ -2,6 +2,26 @@
 
 Date: 2026-09-09. Read-only. Nothing in any repository was modified.
 
+**Pass two is
+[swar-source-audit-pass2-2026-09-09.md](swar-source-audit-pass2-2026-09-09.md)**,
+and it carries out §7's programme apart from item 3 (a fixture with a non-zero
+category type), which is repository work rather than reading. Read it before
+acting on anything below, because four findings here have moved:
+
+* **F1 is FIXED** in 0.53.0 — pass two §5.1.
+* **F2 is sharpened.** The nationality exclusion is dead code, and a *working*
+  implementation sits unwired beside it — pass two §6.5.
+* **F4's caveat is settled.** The `Advers`/`Rank` comparison is a genuine field
+  mix-up, not a coincidence — pass two §6.2.
+* **F8's conclusion is WRONG.** SWAR forces a round-robin bye to a full point at
+  file-load time, which is the opposite of what F8 inferred from the Options
+  dialog — pass two §3.
+
+Nothing below has been edited to match. A finding that was reasoned carefully to
+a wrong answer is worth more intact than corrected in place, because the failure
+was in the method (a dialog path read as if it were the only one), and that is
+only visible if the reasoning stays.
+
 Sources:
 
 * SWAR: `C:/Users/jorian/Downloads/Swar - 20250906 v6.65 FRBE/` (135 `.cpp`/`.h`, 74,234 lines).

@@ -281,18 +281,24 @@ Still open, and each needs a decision rather than typing:
   the only thing in the way.
 - **American accelerated pairing** - dropped, maintainer's own call.
 - **Auditing OpenPairings against SWAR's C++ source, file by file** -
-  **costed 2026-09-09, and pass one is done**:
-  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md).
+  **costed 2026-09-09; passes one and two are done**:
+  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md)
+  and
+  [docs/swar-source-audit-pass2-2026-09-09.md](docs/swar-source-audit-pass2-2026-09-09.md).
 
   135 files, 74,234 lines, but the shape matters more than the total:
 
     * **Tier A, 7,196 lines** - `Classement.cpp`, `Utils.cpp`,
       `Categories.cpp`, `EnvoiJAVAFO.cpp`, `TournoiReadWrite.cpp`,
-      `XtraPoints.cpp`. Every finding from pass one, and both historical
-      real bugs, came from here. **~2.5 focused sessions.** This is the part
-      worth buying.
+      `XtraPoints.cpp`. Every finding from both passes, and both historical
+      real bugs, came from here. Pass one costed it at **~2.5 focused
+      sessions**; two of those are spent and **roughly half a session is
+      left**, all of it in `Utils.cpp`. `Classement.cpp`, `EnvoiJAVAFO.cpp`
+      and `XtraPoints.cpp` are read in full, `Categories.cpp` was pass one's
+      subject, and `TournoiReadWrite.cpp` is done apart from its `ReadStr`/
+      `ReadInt` primitives.
     * **Tier B, 9,247 lines** - real logic buried in MFC dialog wiring. ~2
-      sessions, low expected yield.
+      sessions, low expected yield. Unchanged, and still not worth buying.
     * **Tier C, 298 lines** - verified to contain no logic at all.
       `RoundRobinInfo.cpp` and `ExcludePairing.cpp` are pure display
       dialogs; they come off the list.
@@ -301,8 +307,30 @@ Still open, and each needs a decision rather than typing:
   `Pairtwo.cpp` rejects Keizer files outright. There is nothing to compare
   it against.
 
-  Recommendation: Tier A only, in the document's order, stopping after five
-  items.
+  **What the last half session buys**, from pass two §8 - only two pockets
+  of `Utils.cpp` are likely to return anything an arbiter can see, and the
+  rest (the `Format*`/`Write*` display helpers, ~900 lines of description
+  and CSV writers) can be skipped outright:
+
+    * the three `ConvertResult2*_TRNfile` encoders, against `Ainalrami.Trf`'s
+      code table - this is where the `AbsValue` mis-scale and the
+      handicap-table board bug both lived, and pass two already found the
+      three encoders disagreeing with each other over a bye;
+    * `GetLastRoundWithResult` / `GetFirstRoundOnlyPairing`, which bound
+      every tiebreak in `Classement.cpp`. Whether SWAR's horizon is "rounds
+      with at least one result" or "rounds with all results" decides whether
+      the two programs' mid-tournament Buchholz can agree at all, and
+      `completed_rounds/2` is a deliberately-chosen third answer. Half an
+      hour, and the highest-value unread function in the tier.
+
+  **Actionable and not yet done**, all from pass two: the importer drops
+  five SWAR tiebreaks it can compute (§2, a real defect - the drop silently
+  promotes a different tiebreak to primary), a round-robin `ByeValue`
+  divergence (§3), SWAR's manual acceleration disappearing at the import
+  boundary with nothing said (§5.4), and the legacy `CatIndex < 100`
+  normalisation (§5.2). The two divergences that are **not** defects on
+  either side are written up for arbiters in
+  [docs/swar-import.md](docs/swar-import.md).
 
 ### Ainalrami (the engine)
 
@@ -1022,27 +1050,26 @@ gaps identified there, extracted here as actionable items:
   distinct from the free-text `start_date`/`end_date` it already showed).
   Both added as their own line items, labeled "Deputy arbiter" and "Round
   date(s)" to stay unambiguous next to the existing "Dates: start - end".
-- **Audit OpenPairings' logic against SWAR's own C++ source, file by
-  file.** Very low priority - this is a "nice to have more confidence,"
-  not a response to anything currently broken. Scoping notes from
-  discussing it: SWAR's source is ~74k lines/135 files total, but almost
-  all of that is UI/vendored-library noise; the actually-comparable
-  business logic is ~14 files / ~15,600 lines / ~490 functions
-  (`Utils.cpp`, `Joueur.cpp`, `Classement.cpp`, `Categories.cpp`,
-  `Tournoi.cpp`, the four `Pairing*.cpp` files, `Pairtwo.cpp`,
-  `EnvoiJAVAFO.cpp`, `ImportTrfFile.cpp`, `ImportCsv.cpp`,
-  `XtraPoints.cpp`). A full function-by-function pass is genuinely
-  multiple days of work for uncertain payoff, since most of those
-  functions are mundane and will never diverge. If this ever gets picked
-  up, prioritize the highest-risk subset instead of going exhaustive:
-  `Classement.cpp` (tiebreaks), `Utils.cpp` (shared edge-case logic - this
-  is where the round-specific-absence bug lived), and `EnvoiJAVAFO.cpp`
-  (SWAR's own TRF builder, directly comparable to
-  `Pairing.javafo_input`/`TrfExport` - the class of bug already found
-  twice). Both real bugs found so far came from symptom-driven
-  investigation (a real tournament comparison surfacing something odd,
-  then a targeted SWAR-source dive), not exhaustive pre-auditing - that's
-  the higher-leverage pattern to keep leaning on rather than this.
+- ~~**Audit OpenPairings' logic against SWAR's own C++ source, file by
+  file.**~~ **Bought, and nearly finished** - see the entry under "Parked
+  by decision" above for the live state, and
+  [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md)
+  plus
+  [docs/swar-source-audit-pass2-2026-09-09.md](docs/swar-source-audit-pass2-2026-09-09.md)
+  for the work itself. Roughly half a session is left, all in `Utils.cpp`.
+
+  The scoping notes that used to sit here (~14 files / ~15,600 lines /
+  ~490 functions, "genuinely multiple days") were **right on line count
+  and wrong on shape**, which is the part worth keeping. The cost does not
+  spread evenly across a file list; it collapses onto six dense files.
+  Several files this entry named are not worth opening at all -
+  `ImportCsv.cpp` is SWAR's own club-CSV format, which this app never
+  reads, and `Joueur.cpp`/`Tournoi.cpp` are MFC dialog wiring around a few
+  logic islands best reached by targeted lookup. And the file that turned
+  out to matter most after `Classement.cpp` - `TournoiReadWrite.cpp`, the
+  on-disk format itself - is not on this list at all. The total was about
+  right; where the work sits was not, and an estimate that is right in
+  total and wrong about distribution is what makes an item look unbuyable.
 - Remaining SWAR-parity items: hard pairing variants (accelerated pairing
   beyond Baku, more exotic tiebreak orderings) and printing extras beyond
   what's in `docs/printing.md`.

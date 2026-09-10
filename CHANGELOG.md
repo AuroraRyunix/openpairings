@@ -49,6 +49,29 @@ Each entry is tagged so a version can be skimmed:
   FIDE's own 2026 report format; a hand-set standings order is how an arbiter
   records a play-off, which the tie-break regulations end in. None of them
   raises a warning, and `PairingsEngine.Compliance` says why for each.
+- [Fix] **The macOS application reports the version it actually is.** The
+  `.app` bundle's `Info.plist` carried a hardcoded `0.18.0`, so Finder's Get
+  Info, Spotlight and any crash report described this 0.56 application as
+  0.18.0 - on the one platform where the version is not written anywhere else
+  the user can see. The build now reads it from
+  `mix.exs`, the same single source of truth the release job and the Windows
+  installer already read, because a second copy of a number is the whole bug:
+  nothing in a build reads `Info.plist` back, so no step could ever have
+  noticed it was stale.
+- [Change] **A Windows launcher that fails to build no longer takes the whole
+  release with it.** `mix release pairings_engine_portable` used to raise when
+  Zig was present and `rel/windows/build_launcher.ps1` failed. It now prints a
+  loud warning that names the file that will not exist (`OpenPairings.exe`)
+  and what will refuse it, and finishes the release. The reason is a version
+  fork rather than a broken build: CI pins Zig 0.15.2 because Burrito requires
+  exactly that, a developer machine carries whatever is current, and `zig rc`'s
+  argument handling is exactly the kind of surface that moves between the two -
+  so a build could die over a 100 KB C stub while the portable release it
+  belongs to was complete and working through `OpenPairings.bat`. Nothing
+  ships half-made: `rel/windows/build_installer.ps1` still hard-stops on a
+  payload with no `OpenPairings.exe`, and CI still fails the Windows target
+  when the file is missing. Read those two as this change's other half - it is
+  only safe to warn here because they refuse there.
 
 ## [0.55.0] - 2026-09-10
 

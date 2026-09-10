@@ -23,8 +23,6 @@ defmodule PairingsEngine.BackupTest do
   """
   use PairingsEngine.DataCase, async: false
 
-  import Bitwise
-
   alias PairingsEngine.Backup
 
   setup do
