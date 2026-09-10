@@ -112,6 +112,59 @@ the code is hard, but because the Level definitions decide what the code
 is supposed to do, and a wrong choice there is invisible until FIDE
 verifies.
 
+## 0c. Answered 2026-09-10, and it changes the shape
+
+Three of the questions came back. **Relayed by the maintainer; whether the
+first two are TEC's words or the maintainer's own call is not yet pinned
+down, and should be** - this document's entire section 0 is about not
+letting an unattributed answer harden into a fact.
+
+**There is no reference corpus.** Verification does not run a candidate
+against a set of tournaments with known-correct answers. That is worth more
+than it first sounds: it means nobody hands us a target, and it means the
+evidence we bring is our own. See "What to build instead" below.
+
+**FIDE Mode is per tournament, and it is the default.**
+
+**And there is no toggle.** This is the part that changes the design. The
+mode is not a switch an arbiter turns on - *the defaults are compliant, and
+changing settings can make a tournament less so*. Compliance is a state the
+tournament is in, computed from its settings, not a flag somebody sets.
+
+That reading is the one the 2017 checklist already had. `VCL.01` says the
+FIDE mode must be the DEFAULT OPERATING MODE, and `VCL.02` that it must be
+reachable by a standard installation and a standard invocation. Neither
+describes a control. A program that ships compliant and warns you on your
+way out satisfies both without ever drawing a checkbox.
+
+**What this settles, and what it does not:**
+
+- Section 3's design below is now wrong in its first move. It proposed a
+  stored mode with an explicit `FideMode.leave/3`. What is wanted instead is
+  a DERIVED state - a function over the tournament's settings answering "is
+  this still compliant, and if not, which setting stopped it" - plus a
+  record of the round it stopped, which is what the `###` comment needs.
+- `fide_homologated` (question 7.4) is answered by implication: a second
+  FIDE-ish tickbox is exactly the toggle this says not to have.
+- The Level 1-5 machinery is still unknown, and still blocks phase 2. But
+  it is now clearly a LABELLING on top of a mechanism we can build without
+  it: which settings are compliant, what warns, and what gets recorded.
+
+## What to build instead, given there is no corpus
+
+Nobody will hand us a set of tournaments and their correct answers. So the
+only evidence that this software pairs correctly is evidence we produce -
+and unusually, that already exists: two independent ~488-million-pairing
+corpora comparing Ainalrami against bbpPairings and Gacrux, with the
+disagreements adjudicated one at a time and written up.
+
+That is worth assembling into something a verifier can read, rather than
+leaving as engineering notes. It is also the reason the Gacrux Article 5.2.5
+finding matters beyond the bug itself: a candidate that can demonstrate a
+defect in the commission's own tool, with a reproducible position, is making
+a different kind of argument about its own testing than a candidate that
+says "we tested it thoroughly".
+
 ## 1. What FIDE Mode actually is
 
 ### 1.1 The concept, as it has stood since before v13
