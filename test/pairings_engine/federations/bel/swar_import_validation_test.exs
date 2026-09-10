@@ -11,7 +11,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
 
   alias PairingsEngine.Repo
   alias PairingsEngine.Federations.BEL.SwarImport
-  alias PairingsEngine.Tournaments.{Pairing, Player, Tournament}
+  alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
   ## ---------- synthetic .swar binary builder ----------
   #
@@ -214,6 +214,15 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
     )
   end
 
+  defp round_numbers(tournament) do
+    Repo.all(
+      from r in Round,
+        where: r.tournament_id == ^tournament.id,
+        order_by: r.number,
+        select: r.number
+    )
+  end
+
   ## ---------- M8: an invalid player is reported, not a MatchError ----------
 
   describe "a player the Player changeset rejects" do
@@ -395,6 +404,33 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
 
       assert {:ok, tournament, _warnings} = import_synthetic!(opts)
       assert tournament.rounds_count == 30
+    end
+  end
+
+  ## ---------- a file with no [RONDE] records at all ----------
+  #
+  # The boundary the check above cannot speak to: nothing is out of range
+  # because there is nothing at all. `create_rounds/3` takes its loop bound
+  # from the highest round number any player carries, so an event that was
+  # entered but never played leaves that bound at 0 - and `1..0` written
+  # without a step counts *down*, running the body for round 1 and then
+  # round 0 rather than not running it. Which is why that loop says `//1`.
+
+  describe "a tournament whose players have played no rounds" do
+    test "imports, and creates no rounds" do
+      opts = %{players: [%{ni: 1, name: "Entered, One"}, %{ni: 2, name: "Entered, Two"}]}
+
+      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+      assert round_numbers(tournament) == []
+      assert pairings(tournament) == []
+
+      assert Repo.aggregate(from(p in Player, where: p.tournament_id == ^tournament.id), :count) ==
+               2
+    end
+
+    test "and so does a file carrying no players either" do
+      assert {:ok, tournament, _warnings} = import_synthetic!(%{players: []})
+      assert round_numbers(tournament) == []
     end
   end
 end
