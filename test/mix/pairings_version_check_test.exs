@@ -8,9 +8,10 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
   use ExUnit.Case, async: false
 
   @documents ["TODO.md", "docs/features.md", "CHANGELOG.md"]
+  @workflow ".github/workflows/binaries.yml"
 
   setup do
-    originals = Map.new(@documents, &{&1, File.read!(&1)})
+    originals = Map.new([@workflow | @documents], &{&1, File.read!(&1)})
     on_exit(fn -> Enum.each(originals, fn {path, body} -> File.write!(path, body) end) end)
     {:ok, version: Mix.Project.config()[:version]}
   end
@@ -62,9 +63,63 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
     assert error.message =~ "states no version this could find"
   end
 
+  describe "files that derive the version" do
+    test "the macOS bundle's plist names no version of its own" do
+      # The committed workflow substitutes a placeholder. If this fails, the
+      # 2026-09-10 bug is back: a literal in the Info.plist heredoc.
+      body = File.read!(@workflow)
+
+      assert body =~ "CFBundleShortVersionString"
+      assert Mix.Tasks.Pairings.VersionCheck.run([]) == :ok
+    end
+
+    test "a hardcoded plist version fails, naming the file and the value" do
+      hardcode("0.18.0")
+
+      error = assert_raise Mix.Error, fn -> Mix.Tasks.Pairings.VersionCheck.run([]) end
+
+      assert error.message =~ @workflow
+      assert error.message =~ "0.18.0"
+      assert error.message =~ "take it from mix.exs at build time"
+    end
+
+    test "a hardcoded version fails even when it is the right one", %{version: version} do
+      # The whole point. 0.18.0 was correct on the day it was typed; what
+      # made it a bug was the next bump, and a check that only compares
+      # values would have waved that day's commit through.
+      hardcode(version)
+
+      error = assert_raise Mix.Error, fn -> Mix.Tasks.Pairings.VersionCheck.run([]) end
+
+      assert error.message =~ "hardcodes #{version}"
+    end
+
+    test "the workflow's other version numbers are not mistaken for this one" do
+      # It pins OTP, Elixir, Zig and an action per step, most of them
+      # three-part - so a check anchored on "a number that looks like a
+      # version" would fire on a clean tree. Which numbers those are is
+      # dependabot's business and changes; that there are several is the
+      # part worth asserting.
+      body = File.read!(@workflow)
+
+      assert length(Regex.scan(~r/\d+\.\d+\.\d+/, body)) > 3
+      assert Mix.Tasks.Pairings.VersionCheck.run([]) == :ok
+    end
+  end
+
   defp bump(path, from, to) do
     body = File.read!(path)
     assert String.contains?(body, from), "#{path} does not contain #{inspect(from)}"
     File.write!(path, String.replace(body, from, to, global: false))
+  end
+
+  defp hardcode(version) do
+    body = File.read!(@workflow)
+    assert String.contains?(body, "<string>__VERSION__</string>")
+
+    File.write!(
+      @workflow,
+      String.replace(body, "<string>__VERSION__</string>", "<string>#{version}</string>")
+    )
   end
 end

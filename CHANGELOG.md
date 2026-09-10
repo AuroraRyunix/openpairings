@@ -58,6 +58,14 @@ Each entry is tagged so a version can be skimmed:
   installer already read, because a second copy of a number is the whole bug:
   nothing in a build reads `Info.plist` back, so no step could ever have
   noticed it was stale.
+
+  `mix pairings.version_check` now guards the class rather than the instance.
+  For the three prose documents it still asserts they name mix.exs's version;
+  for a file that is supposed to *derive* it, the test is inverted - finding a
+  literal version in the workflow's `Info.plist` block is itself the failure,
+  because finding one means somebody hardcoded it again. That check runs in
+  `mix precommit`, so the next attempt fails before it can ship 37 more
+  releases telling macOS the wrong number.
 - [Change] **A Windows launcher that fails to build no longer takes the whole
   release with it.** `mix release pairings_engine_portable` used to raise when
   Zig was present and `rel/windows/build_launcher.ps1` failed. It now prints a
