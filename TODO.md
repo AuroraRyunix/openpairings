@@ -445,6 +445,22 @@ Over 100% fails, so these add up rather than standing alone:
 
 ### Blocked on FIDE
 
+- **The VCL4THP v13 text and the Level 1-5 definitions** - phase 0 of the
+  FIDE Mode work, attempted 2026-09-10 and **not obtainable publicly**. SPP
+  is still down, TEC publishes neither, and the endorsement page points at
+  a handbook appendix the current handbook does not contain. The newest
+  public checklist is the 2017 one, which has eighteen items and **no
+  warning levels at all** - so the Level machinery has no prior art to
+  reason from. A request is drafted at
+  [docs/request-tec-vcl4thp.md](docs/request-tec-vcl4thp.md); the
+  maintainer sends it. Phase 2 of the build plan should not start until it
+  is answered.
+
+  Also worth fixing while writing to them: we say endorsement where the
+  thing being pursued first is a **TAPC**, and endorsement is a separate
+  later step needing a commercial agreement. Using a body's own terms
+  wrongly in a submission is a poor first impression.
+
 - **TRF-26.** Required throughout (Q21 PTC input, Q217 report completeness
   at 30%), but the Manual documents Records 162/172/299 as clarifications
   OF a specification rather than as one. Whether it is published *as* a

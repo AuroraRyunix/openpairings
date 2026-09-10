@@ -56,6 +56,62 @@ Where this document says **not established**, it means exactly that.
 
 ---
 
+## 0b. Phase 0, attempted 2026-09-10: the documents are not obtainable
+
+The build plan's phase 0 is "get the VCL4THP v13 text and the TEC Manual's
+Level 1-5 definitions into `docs/` before phase 2 starts". That was
+attempted. **They cannot be got from any public source**, and the search
+was thorough enough to be worth writing down so nobody repeats it:
+
+| where | result, 2026-09-10 |
+| --- | --- |
+| `spp.fide.com/verification-checklist/` | still a WordPress maintenance page - unchanged from 09-09 |
+| `tec.fide.com/official-documents/` | six documents, none of them a checklist |
+| `tec.fide.com/fide-technical-manual/` | navigation stub, no download |
+| `tec.fide.com/spp-documents-archive/` | four papers, all about pairing theory |
+| `tec.fide.com/endorsement/` | names the six endorsed programs; points at "Appendix A of section C.04" for the procedure |
+| `handbook.fide.com/chapter/C04` | **has no annex or appendix at all** - C.04.1 through C.04.7 and nothing else |
+
+That last row is the finding. The endorsement page sends a reader to a
+handbook appendix **that the current handbook does not contain**. The
+checklist used to live there: `old.fide.com/FIDE/handbook/C04Annex4_VCL17.pdf`
+still resolves, and is the newest version anybody outside the process can
+read.
+
+**What the 2017 checklist tells us, and it is not nothing.** It is eighteen
+items in four groups - FIDE Mode, Pairing, Import/Export, Tournament -
+numbered `VCL.01` to `VCL.18`. Its FIDE Mode group is six flat
+requirements about what the mode must be and must inhibit.
+
+**There are no warning levels in it at all.** No levels, no level
+thresholds, no exit, no re-entry rule, no TRF comment recording an exit.
+So the Level 1-5 machinery in v13 is not a refinement of something with
+prior art that could be reasoned from - it is new, and section 1 of this
+document is reasoning about a mechanism no public text describes.
+
+It is deliberately not reproduced here. It is FIDE's copyrighted handbook
+material and the URL above is stable; a paraphrase plus a link is the right
+amount to hold in this repository.
+
+**A vocabulary gap, found the same way.** Public TEC material uses two
+terms this repository does not: **TAPC** (Tournament Acceptance and Play
+Certificate) is what a compliant program is issued, and endorsement is a
+*separate*, later step requiring a commercial agreement approved by the
+FIDE Council. The **Acceptance Cycle** is at least three years and begins
+six months before the New Rules Date (**NRD**). This document and TODO.md
+both talk about "endorsement" where the thing actually being pursued first
+is a TAPC. Worth straightening out before anything is written to FIDE,
+because using a body's own terms incorrectly in a submission is a poor
+first impression.
+
+**So phase 0 is now a request, not a search**, and there is a channel for
+it: the feedback letter of 2026-09-08 opened a correspondence with TEC.
+The draft is [request-tec-vcl4thp.md](request-tec-vcl4thp.md). Until it is
+answered, phase 2 of the build plan below should not start - not because
+the code is hard, but because the Level definitions decide what the code
+is supposed to do, and a wrong choice there is invisible until FIDE
+verifies.
+
 ## 1. What FIDE Mode actually is
 
 ### 1.1 The concept, as it has stood since before v13
