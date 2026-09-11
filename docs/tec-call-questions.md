@@ -12,6 +12,47 @@ we build, or are things worth handing over while you have their attention.
 
 ---
 
+## 0. What the public sources already answer (checked 2026-09-11)
+
+Searched before asking anyone. All of this is from published sources, read
+on 2026-09-11:
+
+- **2.2 - answered.** TAPC stands for **Technical Acceptance of Product
+  Compliance** (handbook C.02.01, General Regulations, effective 1 March
+  2026) - not "Tournament Acceptance and Play Certificate", as this sheet
+  used to say. The regulations cover software explicitly, naming "Tournament
+  Handler Programs (historically called Pairing Programs)". A TAPC does get
+  a program listed: C.02.04's table of Tournament Handler Programs has
+  separate TAPC and Endorsed columns. Endorsement ("FIDE Endorsement of
+  Accepted Product") is a TAPC plus a commercial agreement approved by the
+  FIDE Council. The route to a TAPC is a self-declaration, the online
+  verification checklist, testing by at least three TEC testers, then
+  Council approval; fees are in the TEC Manual's Annexure A.
+- **2.3 - answered in substance, and differently from the draft.** The
+  published regulations have no "Acceptance Cycle" and no "New Rules Date".
+  A TAPC has no fixed expiry. It is revoked automatically on the effective
+  date of a rule change that affects compliance, or when the manufacturer
+  ships a major version ("incompatible changes"; minor and patch versions do
+  not revoke it). Every one of the eleven programs in C.02.04's table shows
+  an expiry of 2026-02-01, the day the 2026 Dutch rules took effect.
+- **TRF26 (section 4) - still not formally approved.** The published
+  TRF-2026 PDF's own cover reads "Approved by ???", dated "??/??/????".
+- **`###` - only the comment prefix.** TRF-2026, Remark 1: any line whose
+  first three characters are `###` is a comment. It prescribes no wording
+  for leaving FIDE mode; that belongs to the checklist, not the format.
+- **The unknown-result code (section 4) - the published spec has no `?`.**
+  TRF-2026's only "unknown result" is the symbol `X` in record 162, the
+  points table: "unknown result (like for instance in an adjourned game)",
+  scored like a draw by default. Ainalrami currently refuses a 162 line that
+  uses `X`.
+- **Not public anywhere: 1.1, 1.2, the 1.4 wording, 2.4.** The Verification
+  Checklist page on spp.fide.com is a maintenance page. The TEC Manual page
+  on tec.fide.com is a navigation stub: the Manual was announced on fide.com
+  on 2026-04-02 with no download. The regulations point to the checklist as
+  an online form that cannot be read without starting a submission. The
+  2017 checklist (VCL17) is public but has no warning levels. The draft
+  circulated for the consultation would answer all four.
+
 ## 1. Blocks the build. Ask these first.
 
 **1.1 The warning Levels 1 to 5 - a severity scale, or states?**
@@ -63,16 +104,16 @@ interpretation into a test suite. We already run two ~488-million-pairing
 comparison corpora against reference implementations; pointing that machine
 at TEC's own cases would be a day's work.
 
-**2.2 TAPC first, endorsement second - have we got that right?**
+**2.2 ~~TAPC first, endorsement second - have we got that right?~~ ANSWERED from public sources 2026-09-11 - see section 0.**
 
-Our reading: a Tournament Acceptance and Play Certificate is what a
+Our reading was: a TAPC is what a
 compliant program is issued, and endorsement is a separate later step
 requiring a commercial agreement approved by the FIDE Council. Is a TAPC on
 its own enough to be listed publicly, or does only endorsement get you on
 the page?
 
-**2.3 When does the Acceptance Cycle actually open, and what is the New
-Rules Date?**
+**2.3 ~~When does the Acceptance Cycle actually open, and what is the New
+Rules Date?~~ ANSWERED in substance from public sources - see section 0.**
 
 We understand the cycle begins six months before NRD and runs at least
 three years, and that existing endorsements are revoked when it opens. A
@@ -111,10 +152,10 @@ handling, one on a separate Gacrux 5.2.4 issue.
 
 ## 4. Cheap confirmations, if the call is still going
 
-- **Is TRF26 final, or still draft?** We read and write it in both
+- **Is TRF26 final, or still draft?** *(Section 0: its cover still reads "Approved by ???" - so the question is whether, and when, it will be approved.)* We read and write it in both
   directions already; if the published text will differ we would rather
   adjust a writer we have than discover it at verification.
-- **`?` as the ITDX unknown-result code** - is the spelling settled? Our
+- **`?` as the ITDX unknown-result code** - is the spelling settled? *(Section 0: the published TRF-2026 has no `?` at all; its only unknown result is `X`, in record 162.)* Our
   feedback letter commits us to implementing it and the engine reads it as
   of v0.25.0. We deliberately do not *write* it, on the grounds that a code
   you can type becomes a placeholder for "not entered yet". Is that the

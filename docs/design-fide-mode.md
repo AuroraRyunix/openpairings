@@ -94,11 +94,15 @@ material and the URL above is stable; a paraphrase plus a link is the right
 amount to hold in this repository.
 
 **A vocabulary gap, found the same way.** Public TEC material uses two
-terms this repository does not: **TAPC** (Tournament Acceptance and Play
-Certificate) is what a compliant program is issued, and endorsement is a
-*separate*, later step requiring a commercial agreement approved by the
-FIDE Council. The **Acceptance Cycle** is at least three years and begins
-six months before the New Rules Date (**NRD**). This document and TODO.md
+terms this repository does not: **TAPC** (Technical Acceptance of Product
+Compliance - handbook C.02.01, effective 1 March 2026) is what a compliant
+program is issued, and endorsement is a *separate*, later step requiring a
+commercial agreement approved by the FIDE Council. The draft we read
+described an **Acceptance Cycle** of at least three years beginning six
+months before a New Rules Date (**NRD**); the published regulations use
+neither term, and instead revoke a TAPC automatically when a rule change
+affecting compliance takes effect, or when a major version ships. See
+tec-call-questions.md section 0. This document and TODO.md
 both talk about "endorsement" where the thing actually being pursued first
 is a TAPC. Worth straightening out before anything is written to FIDE,
 because using a body's own terms incorrectly in a submission is a poor
