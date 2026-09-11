@@ -103,9 +103,9 @@ round 2, with bbpPairings and Ainalrami silent - then adjudicated by hand
 because an instrument firing is not yet a finding. Written up with the
 board table and a fixture. **Offer it; do not lead with it.**
 
-**3.3 Two more discrepancy reports are written and unsent** - one on
-bbpPairings' C2 handling, one on a separate Gacrux 5.2.4 issue. Ask who
-they should go to and in what form.
+**3.3 ~~Two more discrepancy reports are written and unsent~~ DONE,
+confirmed 2026-09-11: both reported upstream** - one on bbpPairings' C2
+handling, one on a separate Gacrux 5.2.4 issue.
 
 ---
 
