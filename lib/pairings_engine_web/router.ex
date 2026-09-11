@@ -39,6 +39,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
+        PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated},
         {PairingsEngineWeb.RequireRole, :support}
       ] do
@@ -50,6 +51,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
+        PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated},
         {PairingsEngineWeb.RequireRole, :admin}
       ] do
@@ -65,6 +67,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
+        PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/", TournamentsLive
@@ -199,6 +202,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
+        PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/users/settings", UserLive.Settings, :edit
@@ -278,6 +282,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
+        PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
       live "/changelog", ChangelogLive
@@ -299,6 +304,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
+        PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
       live "/tools/norms", ToolsNormsLive

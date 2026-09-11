@@ -329,11 +329,10 @@ admin every time it does, the same as installing it did. Per-user has no
 such problem: `%LOCALAPPDATA%` is always writable by its own owner, which is
 why the per-user install stays the one this document actually recommends -
 per-machine exists because the `.msi` genuinely offers the choice, not
-because it is the better path for an arbiter's own laptop. **The
-auto-update check itself is not built yet** - only the update feed a future
-in-app checker will read (see "CI (all five targets)" below) - so today this
-only affects the manual "download the new `.msi` and run it again" path, but
-it will affect the in-app one the same way once that exists.
+because it is the better path for an arbiter's own laptop. **The in-app
+update notice (see "Updates" below) reads this too** - a per-machine
+install is told plainly that an administrator is needed, rather than being
+offered an action that would only fail.
 
 **Unsigned, so expect prompts.** Neither installer is code-signed (see "The
 real fix on Windows is an Authenticode signature" above - the same economics
@@ -468,13 +467,11 @@ deliberately not "everything vpk wrote":
 - `OpenPairings-win-Setup.msi` and `OpenPairings-win-Setup.exe` - the two
   human-facing downloads, friendly-named exactly as a local build produces
   them.
-- `releases.win.json` and the `.nupkg` file(s) - the update feed. This is
-  what a future in-app update checker will read (see
-  `rel/windows/build_installer.ps1`'s `.NOTES` for why one is not built yet:
-  packaging and publishing a feed has to exist before anything can check it).
-  These two are **never renamed** - Velopack's updater resolves them by these
-  exact names, so renaming either would silently break updates for every
-  install already out there.
+- `releases.win.json` and the `.nupkg` file(s) - the update feed. Nothing in
+  this repository fetches these yet (the "Updates" section below checks
+  GitHub's Releases API directly, not this feed - see why there), but a
+  future Velopack-native updater would read them by these exact names, so
+  they are **never renamed**.
 - `RELEASES` is deliberately **not** attached. It exists only for migrating
   from Squirrel.Windows/Clowd.Squirrel, and OpenPairings has never shipped on
   either, so there is no legacy client for it to serve.
@@ -490,3 +487,81 @@ very first tag to carry this feed has nothing to diff against yet, and a
 transient network failure here should not fail the whole release, so `vpk
 pack` below it still runs (and still succeeds, just without a delta) either
 way.
+
+## Updates
+
+Desktop builds - the standalone binary, the portable release, either Windows
+installer, the macOS `.app` - check GitHub for a newer OpenPairings release
+and say so. **`openpairings.zerotwo.cloud` never does**, and it is not a
+configuration choice: `PairingsEngine.Updates.eligible?/0` reads
+`PairingsEngine.Authz.local_mode?/0`, the same signal that already decides
+whether this is a local run everywhere else in the app (no login, no SMTP
+required, where the database lives), checked three times over - before the
+checker's own timer is ever scheduled, again on every tick since the
+on/off setting can change while it does not, and a third time by the notice
+itself - so a hosted server cannot show this even if state somehow existed.
+See `PairingsEngine.Updates`'s moduledoc for the full reasoning.
+
+**Notify, and the arbiter applies it. Never automatic.** An update can
+change Ainalrami's (the pairing engine's) version, and a tournament locks
+the engine's *name*, not its version - applying one under a running event
+could change the pairing algorithm mid-tournament. So this only ever
+answers "is there something newer" and links to the release page; nothing
+is downloaded or installed on its own.
+
+**The check.** On start, then at most every six hours
+(`PairingsEngine.Updates.Checker`, always in the supervision tree and idle
+everywhere but a desktop install - see its moduledoc for why that is safer
+than a conditional child). It asks
+`https://api.github.com/repos/AuroraRyunix/openpairings/releases` (`Req`,
+already a dependency) for the newest release that is neither a draft nor a
+prerelease, and compares its tag to this build's own version with
+`Version.compare/2`. GitHub's unauthenticated API is capped at 60
+requests/hour/IP; this uses at most 4. Offline, a timeout and the rate limit
+all look the same from here: logged at `:debug`, never shown as an error -
+an arbiter at a venue with no wifi must never see a warning about a
+background check they did not ask to watch.
+
+**The setting.** On by default, since it contacts a third party an arbiter
+must always be able to stop. Lives on the Connections page (`/fide`) next to
+everything else this machine talks to, and is hidden there entirely on a
+hosted install - a toggle for a check that can never run anywhere but a
+desktop build would be a control that visibly does nothing.
+
+**The notice.** A non-modal card at the top of every page (threaded through
+`Layouts.app` the same way the publishing-status pill is, and for the same
+reason - it is not free to compute, so it is assigned once per mount rather
+than read on every render). It names the version, links to the release, and
+- if any tournament currently has a round paired but not yet finished
+(`PairingsEngine.Tournaments.running_tournament_names/0`) - says so
+explicitly next to the install action, since that is exactly the moment an
+update should wait.
+
+**The install action depends on how this copy was installed**
+(`PairingsEngine.Updates.InstallKind`, pure filesystem detection - reads
+`RELEASE_ROOT` and whether `Update.exe` sits beside its parent directory,
+touches no Velopack library to answer it):
+
+| install | told | why |
+|---|---|---|
+| per-user Velopack (`%LOCALAPPDATA%\OpenPairingsApp`) | the installer updates it in place | writable by its own owner, same as the manual path above |
+| per-machine Velopack (`Program Files\OpenPairingsApp`) | an administrator is needed | `Update.exe` sits under `Program Files` either way - see "Per-machine installs cannot update without an admin prompt" above |
+| portable zip, the single-file binary, macOS, Linux | a plain link to the release page | no `Update.exe` exists for any of these to detect |
+
+**Why there is no "Install and restart" button yet.** Velopack's supported
+mechanism for a non-.NET app is `velopack_libc`, a plain C ABI
+(`vpkc_*`) - confirmed during this feature's implementation to link and run
+correctly against this project's own toolchain (`zig cc -target
+x86_64-windows-gnu`), so the mechanism itself is not what is missing. What
+blocks it is architectural: that call has to be made by the process
+Velopack's own apply-and-restart is built around, `OpenPairings.exe`
+(`rel/windows/launcher.c`, which already handles Velopack's `--veloapp-*`/
+`--squirrel-*` hook arguments - see the comment near its line 627) - not by
+the Phoenix/LiveView process an "Install and restart" click would reach,
+which is a *child* of that launcher's own job object. Signalling across
+that boundary, with no second real release yet to update FROM and no way to
+exercise a live Windows install end to end in the environment this was
+built in, was judged exactly the "poke at Velopack internals" this feature
+was asked not to do speculatively. A real button belongs in
+`rel/windows/launcher.c`, as a follow-up, once there is a release to test it
+against.

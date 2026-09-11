@@ -1306,6 +1306,36 @@ button.pe-btn, .pe-btn {
 }
 .archived-banner > span:first-child { flex: 1; min-width: 220px; }
 
+/* The in-app update notice - see PairingsEngineWeb.UpdateNotice and
+   PairingsEngine.Updates. Same rounded-card shape as .archived-banner
+   rather than the root layout's sticky .deploy-banner/.site-notice bars:
+   this is threaded through Layouts.app as an ordinary assign, not pushed as
+   a client event, so it lives inside the page content like any other card-
+   style notice. Deliberately calm - an update is information, not an
+   alarm, and it may sit here for weeks between tournaments. */
+.update-notice {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.update-notice-lead { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
+.update-notice-text { color: var(--text); font-weight: 600; }
+.update-notice-hint { color: var(--text-soft); }
+/* The in-progress-round caveat, next to the install action per the
+   requirement it exists for - styled like the warn tier of the deploy
+   banner (amber text, no background change) since it is advice, not an
+   error: nothing here is refused, it is just not the best moment. */
+.update-notice-warn { color: var(--warn); font-weight: 600; flex-basis: 100%; }
+.update-notice .pe-btn { margin-left: auto; }
+
 .empty { text-align: center; color: var(--text-soft); padding: 48px 20px; }
 .empty p { margin: 4px 0; }
 

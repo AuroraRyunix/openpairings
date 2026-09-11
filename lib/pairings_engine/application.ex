@@ -43,6 +43,13 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Tools.Session,
       PairingsEngine.RateLimit,
       PairingsEngine.Deploy,
+      # Always supervised, idle on a hosted server - see its own moduledoc
+      # for why (same "idle at the entrances" reasoning as
+      # `PairingsEngine.Federations.BEL.Sync` just above). It never so much
+      # as schedules its first timer unless `PairingsEngine.Authz.local_mode?/0`
+      # says this is a desktop install, so a hosted server's copy of this
+      # process sits doing nothing for the life of the node.
+      PairingsEngine.Updates.Checker,
       PairingsEngine.Publishing.Drain,
       PairingsEngine.Registrations.Poll,
       PairingsEngine.Backup.Scheduler,

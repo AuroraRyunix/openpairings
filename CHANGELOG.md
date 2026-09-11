@@ -16,6 +16,52 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.56.0] - 2026-09-10
 
+- [Feature] **Desktop builds check for a newer OpenPairings release and say
+  so - never anything more.** Once a day at most (a check on start, then
+  every six hours), `PairingsEngine.Updates` asks GitHub Releases for
+  `AuroraRyunix/openpairings`'s newest non-draft, non-prerelease tag and
+  compares it to this build's own version. Finding a newer one puts a
+  non-modal notice at the top of every page - the version, a link to the
+  release, and, if any tournament currently has a round paired but
+  unfinished, a plain warning next to the install action saying so. Nothing
+  is ever downloaded or applied automatically: an update can change
+  Ainalrami's version, and a tournament locks the engine's *name*, not its
+  version, so applying one under a running event could change the pairing
+  algorithm mid-tournament. Applying is always the arbiter's own act, from
+  the release page this links to.
+
+  **Never on the hosted server**, by construction rather than by a flag left
+  off: eligibility reads `PairingsEngine.Authz.local_mode?/0`, the same
+  signal the rest of the app already uses to tell a desktop install from
+  `openpairings.zerotwo.cloud`, checked once before the checker's timer is
+  even scheduled, again before every tick, and a third time by the notice
+  itself - so a hosted server never so much as sends itself a message that
+  could reach GitHub. A setting to turn the check off entirely (default on)
+  lives on the Connections page, next to everything else this machine talks
+  to - because it contacts a third party, and an arbiter must be able to
+  stop that without needing a reason.
+
+  The notice's install action depends on how the running copy got there
+  (`PairingsEngine.Updates.InstallKind`, pure filesystem detection - no
+  Velopack library touched to answer it): a per-user Velopack install
+  (`%LOCALAPPDATA%\OpenPairingsApp`) is told the installer updates it in
+  place; a per-machine one (`Program Files\OpenPairingsApp`) is told plainly
+  that an administrator is needed; the portable zip, the single-file
+  Burrito binary, macOS and Linux all get a plain link to the release page.
+  An actual in-app "Install and restart" was researched rather than assumed
+  away: Velopack's native C ABI (`velopack_libc`) was confirmed, during this
+  work, to link and run correctly against this project's own toolchain
+  (`zig cc -target x86_64-windows-gnu`) - so the mechanism is not the
+  obstacle. What blocks it is that the call has to be made by the process
+  Velopack's own apply-and-restart is built around, `OpenPairings.exe`
+  (`rel/windows/launcher.c`), not by the Phoenix/LiveView process a browser
+  click reaches - which is a *child* of that launcher's job object. Wiring a
+  signal across that boundary, with no second real release yet to update
+  FROM and no way to exercise a live Windows install end to end here, was
+  judged exactly the kind of Velopack-internals guesswork this feature was
+  asked not to do speculatively - so it stops at notify-and-link for every
+  install type, and a real "Install and restart" is left as a follow-up for
+  `rel/windows/launcher.c` once there is a release to test it against.
 - [Feature] **A tournament tells you when its settings stop describing a
   FIDE-handled event, and records the round it happened in.** FIDE Mode is
   the default and there is no switch for it: the settings a new tournament

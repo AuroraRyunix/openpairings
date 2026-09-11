@@ -66,6 +66,9 @@ config :pairings_engine, :publishing_req_plug, PairingsEngine.PublishingTest
 # that module's moduledoc - so every test exercising it stubs this name.
 config :pairings_engine, :bel_swar_upload_req_plug, PairingsEngine.Federations.BEL.SwarUploadTest
 
+# The GitHub update check (PairingsEngine.Updates) - same convention again.
+config :pairings_engine, :updates_req_plug, PairingsEngine.UpdatesTest
+
 # The publish drain is the only worker that schedules work from `init`, and a
 # timer firing mid-test would query the database from a process that does not
 # own the sandbox connection. Tests call `Publishing.drain/0` directly.
@@ -73,6 +76,7 @@ config :pairings_engine, :publishing_drain_interval, :disabled
 config :pairings_engine, :registration_poll_interval, :disabled
 config :pairings_engine, :backup_interval, :disabled
 config :pairings_engine, :publishing_monitor_interval, :disabled
+config :pairings_engine, :updates_check_interval, :disabled
 
 # Print only warnings and errors during test
 config :logger, level: :warning

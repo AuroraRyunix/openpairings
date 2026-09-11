@@ -14,6 +14,7 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Publishing
+  alias PairingsEngine.Updates
 
   # The Belgian rating-list panel on this page - the roster count, the sync
   # button, and the search box over the local copy - belongs to the pack, so
@@ -66,7 +67,15 @@ defmodule PairingsEngineWeb.FideLive do
        # because the person at the keyboard already holds the database and
        # the binary. See `PairingsEngine.Authz`.
        may_admin?: Authz.may_administer?(socket.assigns.current_scope.user),
-       may_support?: Authz.may_support?(socket.assigns.current_scope.user)
+       may_support?: Authz.may_support?(socket.assigns.current_scope.user),
+       # The update check is desktop-only - see `PairingsEngine.Updates`'s
+       # moduledoc for why a hosted server must never even offer the
+       # setting, not just leave it off. `local_mode?` here hides the whole
+       # card; `updates_enabled?` is read fresh at mount, the same way
+       # `swar_version` above is, because it is machine-wide storage rather
+       # than something this socket ever holds a changeset for.
+       local_mode?: Authz.local_mode?(),
+       updates_enabled?: Updates.enabled?()
      )
      |> assign_publishing()}
   end
@@ -150,6 +159,20 @@ defmodule PairingsEngineWeb.FideLive do
         {:error, reason} ->
           {:noreply, assign(socket, backup_note: reason)}
       end
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
+  end
+
+  # Machine-wide, so the same `may_admin?` gate as the rest of this page's
+  # settings - an arbiter cannot switch off a check nobody but the
+  # administrator turned on either. Local mode makes everyone an
+  # administrator (`PairingsEngine.Authz`), so on the one install type that
+  # actually reaches GitHub, the one person there can always flip it.
+  def handle_event("toggle_update_check", _params, socket) do
+    if socket.assigns.may_admin? do
+      Updates.put_enabled(!socket.assigns.updates_enabled?)
+      {:noreply, assign(socket, updates_enabled?: Updates.enabled?())}
     else
       {:noreply, put_flash(socket, :error, publishing_restricted())}
     end
@@ -494,6 +517,7 @@ defmodule PairingsEngineWeb.FideLive do
     ~H"""
     <Layouts.app
       publish_status={assigns[:publish_status]}
+      update_notice={assigns[:update_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -761,6 +785,36 @@ defmodule PairingsEngineWeb.FideLive do
             dir: Backup.directory()
           )}
         </p>
+      </div>
+
+      <%!-- Desktop only - hidden entirely on a hosted install rather than
+            shown disabled, because there is nothing this setting could ever
+            do there: the check itself refuses to run anywhere but a local
+            install (`PairingsEngine.Updates.eligible?/0`), so an offered
+            toggle on a server would be a control that visibly does
+            nothing. --%>
+      <div :if={@local_mode?} class="card">
+        <h2>{gettext("Updates")}</h2>
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Checks GitHub for a newer OpenPairings release every few hours, and shows a banner at the top of every page when one is out. It only ever notifies - nothing is downloaded or installed automatically, because an update can change the pairing engine's version, and this decides when that happens, not a background timer."
+          )}
+        </p>
+
+        <div class="set-field solo">
+          <span class="set-label">{gettext("Status")}</span>
+          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+            <span>{if @updates_enabled?, do: gettext("On"), else: gettext("Off")}</span>
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="toggle_update_check"
+              disabled={!@may_admin?}
+            >
+              {if @updates_enabled?, do: gettext("Turn off"), else: gettext("Turn on")}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="card">

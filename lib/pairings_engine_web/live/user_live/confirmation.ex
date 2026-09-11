@@ -8,6 +8,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
     ~H"""
     <Layouts.app
       publish_status={assigns[:publish_status]}
+      update_notice={assigns[:update_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}

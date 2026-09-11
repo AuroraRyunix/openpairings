@@ -90,6 +90,7 @@ defmodule PairingsEngineWeb.UserLive.Features do
     ~H"""
     <Layouts.app
       publish_status={assigns[:publish_status]}
+      update_notice={assigns[:update_notice]}
       flash={@flash}
       current_scope={@current_scope}
       current_path={assigns[:current_path]}

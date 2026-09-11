@@ -56,6 +56,16 @@ defmodule PairingsEngineWeb.Layouts do
         "re-invokes it when one of those attributes changes, so a global read would " <>
         "paint once and then never move, showing \"Live\" straight through an outage."
 
+  attr :update_notice, :any,
+    default: nil,
+    doc:
+      "from `PairingsEngineWeb.UpdateNotice` - nil everywhere but a desktop install " <>
+        "that has found a newer release. Threaded rather than read here for the " <>
+        "opposite reason to publish_status above: there is no cheap fallback for a " <>
+        "page that forgets it. `PairingsEngine.Updates.notice_for_render/0` runs a " <>
+        "database query and a filesystem check, so a page that omits this attribute " <>
+        "gets nothing rather than that cost paid on every single render."
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -253,6 +263,30 @@ defmodule PairingsEngineWeb.Layouts do
     </header>
 
     <main class="page">
+      <%!-- Non-modal, machine-wide, desktop-only - see
+            `PairingsEngineWeb.UpdateNotice` and `PairingsEngine.Updates`.
+            Notify, and the arbiter applies it; nothing here installs
+            anything, which is why the only action is a link to the release
+            page rather than a button. --%>
+      <div :if={@update_notice} id="update-notice" class="update-notice" role="status">
+        <strong class="update-notice-lead">{gettext("Update available")}</strong>
+        <span class="update-notice-text">
+          {gettext("OpenPairings v%{version} is out.", version: @update_notice.version)}
+        </span>
+        <span class="update-notice-hint">{update_notice_hint(@update_notice.install_kind)}</span>
+        <span :if={@update_notice.running != []} class="update-notice-warn">
+          {update_notice_running_warning(@update_notice.running)}
+        </span>
+        <.link
+          href={@update_notice.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="pe-btn primary"
+        >
+          {gettext("View the release")}
+        </.link>
+      </div>
+
       <%!-- Rendered in the layout rather than per-page so it cannot be
             forgotten on one: every authenticated tournament page goes through
             here, so archiving is visible on all of them at once. --%>
@@ -380,6 +414,48 @@ defmodule PairingsEngineWeb.Layouts do
   # registrations, round publication) - explicitly UTC, because the machine
   # holding the tournament is quite possibly in another timezone.
   defp handoff_time(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
+
+  # What the update notice says about applying it, per
+  # `PairingsEngine.Updates.InstallKind`. All three link to the same release
+  # page (see the caller) - this is only the text beside that link, which is
+  # the one thing that genuinely differs between them.
+  defp update_notice_hint(:velopack_per_user) do
+    gettext("Downloading and running the installer updates this install in place.")
+  end
+
+  defp update_notice_hint(:velopack_per_machine) do
+    gettext("This is a shared, per-machine install - updating needs an administrator.")
+  end
+
+  defp update_notice_hint(:other) do
+    gettext("Download the new build and swap it in when you next update.")
+  end
+
+  # Same truncate-to-three-plus-a-count shape as `PairingsEngineWeb.FideLive`'s
+  # `sync_warning/1`, for the same reason: a banner naming every tournament on
+  # a busy installation is a banner nobody reads to the end.
+  defp update_notice_running_warning(names) do
+    shown = Enum.take(names, 3)
+    extra = length(names) - length(shown)
+
+    listed =
+      if extra > 0 do
+        ngettext(
+          "%{names} and %{count} other",
+          "%{names} and %{count} others",
+          extra,
+          names: Enum.join(shown, ", "),
+          count: extra
+        )
+      else
+        Enum.join(shown, ", ")
+      end
+
+    gettext(
+      "%{names} have a round paired but not finished - best to install between tournaments.",
+      names: listed
+    )
+  end
 
   # Whether this is a single-user local install (`OPENPAIRINGS_LOCAL=1`).
   # False everywhere else, including every server deployment.
