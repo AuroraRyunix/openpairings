@@ -10,6 +10,7 @@ defmodule PairingsEngineWeb.Layouts do
   alias PairingsEngine.Authz
   alias PairingsEngine.Build
   alias PairingsEngine.Publishing.Monitor
+  alias PairingsEngine.Updates
 
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
@@ -265,26 +266,44 @@ defmodule PairingsEngineWeb.Layouts do
     <main class="page">
       <%!-- Non-modal, machine-wide, desktop-only - see
             `PairingsEngineWeb.UpdateNotice` and `PairingsEngine.Updates`.
-            Notify, and the arbiter applies it; nothing here installs
-            anything, which is why the only action is a link to the release
-            page rather than a button. --%>
+            Notify, and the arbiter applies it - never a timer. A
+            `:velopack_per_user` install that the launcher says can update
+            in-app (`Updates.install_and_restart_available?/0`) gets a
+            confirmed "Install and restart" button; every other case still
+            only ever gets a link to the release page, because this
+            application never touches Velopack itself - see
+            rel/windows/launcher.c's "In-app updates" header section. --%>
       <div :if={@update_notice} id="update-notice" class="update-notice" role="status">
         <strong class="update-notice-lead">{gettext("Update available")}</strong>
         <span class="update-notice-text">
           {gettext("OpenPairings v%{version} is out.", version: @update_notice.version)}
         </span>
-        <span class="update-notice-hint">{update_notice_hint(@update_notice.install_kind)}</span>
-        <span :if={@update_notice.running != []} class="update-notice-warn">
-          {update_notice_running_warning(@update_notice.running)}
+        <span :if={@update_notice[:installing]} class="update-notice-hint">
+          {gettext("Installing the update - OpenPairings will restart in a moment…")}
         </span>
-        <.link
-          href={@update_notice.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="pe-btn primary"
-        >
-          {gettext("View the release")}
-        </.link>
+        <%= unless @update_notice[:installing] do %>
+          <span class="update-notice-hint">{update_notice_hint(@update_notice)}</span>
+          <span :if={@update_notice.running != []} class="update-notice-warn">
+            {update_notice_running_warning(@update_notice.running)}
+          </span>
+          <.link
+            :if={update_notice_can_install?(@update_notice)}
+            phx-click="install_and_restart"
+            data-confirm={update_notice_confirm(@update_notice)}
+            class="pe-btn primary"
+          >
+            {gettext("Install and restart")}
+          </.link>
+          <.link
+            :if={!update_notice_can_install?(@update_notice)}
+            href={@update_notice.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="pe-btn primary"
+          >
+            {gettext("View the release")}
+          </.link>
+        <% end %>
       </div>
 
       <%!-- Rendered in the layout rather than per-page so it cannot be
@@ -416,23 +435,61 @@ defmodule PairingsEngineWeb.Layouts do
   defp handoff_time(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
 
   # What the update notice says about applying it, per
-  # `PairingsEngine.Updates.InstallKind`. All three link to the same release
-  # page (see the caller) - this is only the text beside that link, which is
-  # the one thing that genuinely differs between them.
-  defp update_notice_hint(:velopack_per_user) do
-    gettext(
-      "Download the new installer and run it - your tournaments are kept separately and carry over."
-    )
+  # `PairingsEngine.Updates.InstallKind`. A `:velopack_per_user` install gets
+  # one of two texts depending on whether the launcher said an in-app update
+  # is actually available (`update_notice_can_install?/1`) - the other two
+  # kinds are unaffected by 0.58.0 and keep their single text each, pointing
+  # at the same release-page link the caller renders below it.
+  defp update_notice_hint(%{install_kind: :velopack_per_user} = notice) do
+    if update_notice_can_install?(notice) do
+      gettext(
+        "Click \"Install and restart\" below - your tournaments are kept separately and carry over."
+      )
+    else
+      gettext(
+        "Download the new installer and run it - your tournaments are kept separately and carry over."
+      )
+    end
   end
 
-  defp update_notice_hint(:velopack_per_machine) do
+  defp update_notice_hint(%{install_kind: :velopack_per_machine}) do
     gettext("This is a shared, per-machine install - updating needs an administrator.")
   end
 
-  defp update_notice_hint(:other) do
+  defp update_notice_hint(%{install_kind: :other}) do
     gettext(
       "Download the new version and use it in place of this one - your tournaments are kept separately and carry over."
     )
+  end
+
+  # The one place both the button and the fallback link check eligibility -
+  # `:velopack_per_user` AND the launcher's own signal
+  # (`Updates.install_and_restart_available?/0`, set from a cheap
+  # `velopack_libc.dll` file-exists check - see rel/windows/launcher.c).
+  # Neither install kind on its own is enough: a per-machine install gets
+  # the same environment variable today (the DLL ships in every Windows
+  # payload) but must never see the button - see
+  # `PairingsEngine.Updates.InstallKind`'s moduledoc.
+  defp update_notice_can_install?(%{install_kind: :velopack_per_user}) do
+    Updates.install_and_restart_available?()
+  end
+
+  defp update_notice_can_install?(_notice), do: false
+
+  # The browser's own confirm() dialog (`data-confirm`, the same mechanism
+  # every other destructive-ish action in this app uses - see
+  # e.g. PairingsEngineWeb.PairingsLive's unpair-round button). Repeats the
+  # in-progress-round warning here too, not only in the banner beside it:
+  # this is the dialog an arbiter actually reads before clicking through,
+  # and the banner text is easy to skim past.
+  defp update_notice_confirm(notice) do
+    base = gettext("Install OpenPairings v%{version} and restart now?", version: notice.version)
+
+    if notice.running != [] do
+      base <> " " <> update_notice_running_warning(notice.running)
+    else
+      base
+    end
   end
 
   # Same truncate-to-three-plus-a-count shape as `PairingsEngineWeb.FideLive`'s

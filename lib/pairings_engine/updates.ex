@@ -33,6 +33,26 @@ defmodule PairingsEngine.Updates do
   never surfaced as an error. An arbiter running this at a tournament with no
   wifi must never see a warning about a background check they never asked to
   watch.
+
+  ## Applying it - per-user Velopack only, and still never on its own
+
+  "Never automatic" above still holds: applying an update always starts with
+  an arbiter clicking "Install and restart" and confirming, never a timer.
+  What changed in 0.58.0 is that a `:velopack_per_user` install
+  (`PairingsEngine.Updates.InstallKind`) can now carry out that click, where
+  every other install kind still only links to the release page - see
+  `install_and_restart_available?/0` and `request_install_and_restart/0`.
+
+  This application never touches Velopack itself. `request_install_and_restart/0`
+  only shuts this BEAM down cleanly, with a dedicated exit code -
+  `rel/windows/launcher.c` is what watches for that code on its child
+  process and drives `velopack_libc.dll` from there, because it alone is the
+  process Velopack's apply-and-restart is built around (see that file's
+  "In-app updates" header section, and `InstallKind`'s moduledoc for why the
+  Phoenix/LiveView process itself cannot do this). `System.stop/1`, not
+  `halt/1`, is what gets called - the same graceful shutdown that closes
+  every Ecto/SQLite connection on an ordinary stop, so the database is never
+  open across the file swap that follows.
   """
 
   alias PairingsEngine.Authz
@@ -132,6 +152,86 @@ defmodule PairingsEngine.Updates do
       end
     end
   end
+
+  # The exit code rel/windows/launcher.c watches for on its child process -
+  # see its "In-app updates" header section and request_install_and_restart/0
+  # below. Arbitrary; chosen only to avoid 0 (this exiting because nothing
+  # went wrong) and 1 (Erlang's usual crash code). The two sides cannot share
+  # this as a config value - a native launcher compiled separately cannot
+  # read this application's config at compile time - so it is a plain
+  # integer literal on both, cross-referenced by comment.
+  @install_and_restart_exit_code 90
+
+  @available_override_key :updates_install_and_restart_override
+  @stop_fun_key :updates_stop_fun
+
+  @doc """
+  Whether `rel/windows/launcher.c` told this process it can carry out an
+  in-app "Install and restart" - `OPENPAIRINGS_UPDATE_AVAILABLE=1`, set
+  right before the server starts, from nothing heavier than a file-exists
+  check on `velopack_libc.dll` beside the launcher (see that file's
+  `velopack_dll_present/0`).
+
+  Not proof an attempt will succeed - offline, no release newer than this
+  one, a download error, or an antivirus scanner having quarantined the DLL
+  after the launcher's own check can all still make the real attempt fail;
+  the launcher's own fallback (restart on the current version, see its
+  header comment) is what actually has to handle that, not this function.
+
+  Every install kind gets this same environment variable today - the DLL
+  ships in every Windows payload, per-machine included - so this alone is
+  NOT what gates the button. `PairingsEngineWeb.Components.Layouts` combines
+  it with `install_kind == :velopack_per_user` before showing anything; see
+  `notice_for_render/0`.
+  """
+  def install_and_restart_available? do
+    case Application.get_env(:pairings_engine, @available_override_key) do
+      nil -> System.get_env("OPENPAIRINGS_UPDATE_AVAILABLE") == "1"
+      override when is_boolean(override) -> override
+    end
+  end
+
+  @doc """
+  Shuts this BEAM down cleanly with `@install_and_restart_exit_code`, which
+  `rel/windows/launcher.c` watches for on its child process and alone acts
+  on - see the moduledoc's "Applying it" section for the whole path this is
+  one end of, and that file's own comment for the other.
+
+  `System.stop/1`-based (through `stop_fun/0`, overridable for tests -
+  calling the real one would halt the test VM), not `System.halt/1`:
+  `:init.stop/1` walks the supervision tree down - Ecto's SQLite
+  connections, the Endpoint, everything - before the OS process actually
+  exits, the same graceful shutdown an ordinary stop already does. Never a
+  swap out from under an open database handle.
+
+  Guarded on `eligible?/0` again here, even though every caller of this
+  (the LiveView event `PairingsEngineWeb.UpdateNotice` handles) already
+  requires a non-nil `update_notice` assign that cannot exist on a hosted
+  server - the same "checked more than once" discipline the moduledoc's
+  "Never on the hosted server" section applies everywhere else in this
+  feature, for the property that matters most: a hosted server must never
+  do this.
+  """
+  def request_install_and_restart do
+    if eligible?() do
+      Task.start(fn ->
+        # A moment before the halt, so the LiveView event that called this
+        # can finish pushing its own "installing" assign to the browser
+        # first - :init.stop/1 starts tearing down supervised processes
+        # essentially immediately, and a process racing its own socket push
+        # is not a thing to depend on timing-wise.
+        Process.sleep(300)
+        stop_fun().(@install_and_restart_exit_code)
+      end)
+    end
+
+    :ok
+  end
+
+  # `&System.stop/1` by default; a test overrides this with
+  # `Application.put_env(:pairings_engine, :updates_stop_fun, fun)` so
+  # calling request_install_and_restart/0 does not halt the test VM.
+  defp stop_fun, do: Application.get_env(:pairings_engine, @stop_fun_key, &System.stop/1)
 
   defp fetch_latest_release do
     request =

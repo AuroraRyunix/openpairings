@@ -135,4 +135,78 @@ defmodule PairingsEngine.UpdatesTest do
       assert Updates.enabled?()
     end
   end
+
+  describe "install_and_restart_available?/0" do
+    setup do
+      on_exit(fn ->
+        System.delete_env("OPENPAIRINGS_UPDATE_AVAILABLE")
+        Application.delete_env(:pairings_engine, :updates_install_and_restart_override)
+      end)
+
+      :ok
+    end
+
+    test "false with no signal from the launcher" do
+      System.delete_env("OPENPAIRINGS_UPDATE_AVAILABLE")
+
+      refute Updates.install_and_restart_available?()
+    end
+
+    test "true once the launcher sets OPENPAIRINGS_UPDATE_AVAILABLE=1" do
+      System.put_env("OPENPAIRINGS_UPDATE_AVAILABLE", "1")
+
+      assert Updates.install_and_restart_available?()
+    end
+
+    test "false for anything other than the literal \"1\"" do
+      System.put_env("OPENPAIRINGS_UPDATE_AVAILABLE", "0")
+
+      refute Updates.install_and_restart_available?()
+    end
+
+    test "the test override wins over the environment variable" do
+      System.put_env("OPENPAIRINGS_UPDATE_AVAILABLE", "1")
+      Application.put_env(:pairings_engine, :updates_install_and_restart_override, false)
+
+      refute Updates.install_and_restart_available?()
+    end
+  end
+
+  describe "request_install_and_restart/0" do
+    setup do
+      on_exit(fn ->
+        Application.delete_env(:pairings_engine, :updates_stop_fun)
+        Application.delete_env(:pairings_engine, :local_mode)
+      end)
+
+      :ok
+    end
+
+    # Stubbed - the real one would halt the test VM. See rel/windows/launcher.c's
+    # "In-app updates" header section for what OP_UPDATE_EXIT_CODE (90 on
+    # both sides, cross-referenced by comment rather than shared) is for.
+    test "shuts down with the dedicated exit code, on a desktop install" do
+      test_pid = self()
+      Application.put_env(:pairings_engine, :local_mode, true)
+
+      Application.put_env(:pairings_engine, :updates_stop_fun, fn code ->
+        send(test_pid, {:stopped, code})
+      end)
+
+      assert Updates.request_install_and_restart() == :ok
+      assert_receive {:stopped, 90}, 1000
+    end
+
+    test "never stops the BEAM on a hosted server, even if called directly" do
+      test_pid = self()
+      Application.put_env(:pairings_engine, :local_mode, false)
+
+      Application.put_env(:pairings_engine, :updates_stop_fun, fn code ->
+        send(test_pid, {:stopped, code})
+      end)
+
+      assert Updates.request_install_and_restart() == :ok
+      refute_receive {:stopped, _}, 500
+    end
+  end
 end

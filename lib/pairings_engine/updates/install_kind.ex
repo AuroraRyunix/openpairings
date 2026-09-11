@@ -16,30 +16,27 @@ defmodule PairingsEngine.Updates.InstallKind do
     * `:other` - everything else: the portable zip, the single-file Burrito
       binary, macOS, Linux. No `Update.exe` exists to detect.
 
-  ## Why this stops at detection
+  ## Detection only - `:velopack_per_user` is what unlocks the button
 
-  Velopack's own supported mechanism for a non-.NET app to check for and
-  apply an update is `velopack_libc` - a C ABI (`vpkc_*`), confirmed during
-  this feature's implementation to link and run correctly against this
-  project's own toolchain (`zig cc -target x86_64-windows-gnu`). That part
-  is not the obstacle.
+  This module still only ever inspects the filesystem; it never touches
+  `velopack_libc.dll` itself. What changed in 0.58.0 is what a
+  `:velopack_per_user` result now permits elsewhere: the process that
+  actually applies an update is `OpenPairings.exe`
+  (`rel/windows/launcher.c`), the running `--mainExe` Velopack's own
+  `vpkc_wait_exit_then_apply_updates` is designed around - never the
+  Phoenix/LiveView process, which is only ever a *child* of that launcher's
+  job object. The signal that crosses that boundary is a dedicated exit
+  code the app shuts down with on confirmation
+  (`PairingsEngine.Updates.request_install_and_restart/0`) and the launcher
+  watches for on its child - see that file's "In-app updates" header
+  section.
 
-  What blocks going further is architectural, not a toolchain problem: the
-  process that would have to make that call is the one Velopack's own
-  `wait_exit_then_apply_updates` is designed around - the running `--mainExe`
-  itself, `OpenPairings.exe` (`rel/windows/launcher.c`) - and the "Install
-  and restart" click happens inside the Phoenix/LiveView process, which is a
-  *child* of that launcher's job object, not the launcher itself. Making the
-  launcher perform the apply on the browser's behalf needs a signal from the
-  BEAM process to the separate native one, which nothing in this codebase
-  has today, and inventing one now - with no second real release yet to
-  update FROM, and no way to exercise a live Windows install end to end in
-  this environment - is exactly the "poke at Velopack internals" this
-  feature was asked not to do speculatively. So detection stops here, and
-  the notice offers a link to the release page for all three kinds - see
-  `PairingsEngine.Updates.notice_for_render/0`. A follow-up that wires a real
-  "Install and restart" button belongs in `rel/windows/launcher.c`, once
-  there is a second release to test it against.
+  `:velopack_per_machine` still only ever gets a link, on purpose, not as a
+  gap to close later: an update there needs an administrator every time (see
+  docs/binaries.md's "Per-machine installs cannot update without an admin
+  prompt"), so offering a button that would only fail is worse than not
+  offering one. `:other` has no `Update.exe` to apply anything with, same as
+  before.
 
   ## Detection is pure filesystem inspection - no Velopack library involved
 
