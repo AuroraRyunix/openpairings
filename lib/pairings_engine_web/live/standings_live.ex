@@ -24,9 +24,36 @@ defmodule PairingsEngineWeb.StandingsLive do
        # preference recorded yet", not "hide everything", so a visitor
        # who's never touched the Players page's Display panel keeps
        # seeing every column exactly as before this existed.
-       visible: nil
+       visible: nil,
+       # Set by `handle_params/3`, which Phoenix always calls after `mount/3`
+       # (both the disconnected and the connected render) - `nil` here is
+       # simply what a mount with no `?category=` in the URL would resolve
+       # to anyway, kept as an explicit default so `reload_standings/1`
+       # never reads an unassigned key on the very first call.
+       selected_category: nil
      )
      |> reload_standings()}
+  end
+
+  # The category selector's own URL state (`?category=NAME`), read on every
+  # mount and every `push_patch` from `handle_event("category_change", ...)`
+  # below - see docs on that handler for why a patch rather than a plain
+  # assign. A name the tournament does not (or no longer) list - a stale
+  # link, a category since removed - falls back to "All players" instead of
+  # showing an empty table with no way to tell why.
+  @impl true
+  def handle_params(params, _uri, socket) do
+    tournament = socket.assigns.tournament
+    requested = params["category"]
+
+    selected =
+      if is_binary(requested) and requested in (tournament.categories || []), do: requested
+
+    {:noreply,
+     assign(socket,
+       selected_category: selected,
+       filtered_entries: compute_filtered_entries(socket.assigns.entries, selected)
+     )}
   end
 
   # Nothing here is user-editable except the manual-ranking controls below
@@ -133,6 +160,23 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   def handle_event("columns_loaded", _params, socket), do: {:noreply, socket}
 
+  # `push_patch` rather than a plain `assign` so the choice lands in the URL
+  # (`?category=NAME`) - it survives a reload and can be linked/bookmarked,
+  # per the feature's own requirement. The patch round-trips through
+  # `handle_params/3` above, which is the one place `selected_category` and
+  # `filtered_entries` actually get set - this handler only decides the
+  # target URL.
+  def handle_event("category_change", %{"category" => value}, socket) do
+    tournament = socket.assigns.tournament
+
+    path =
+      if value in [nil, ""],
+        do: ~p"/t/#{tournament.id}/standings",
+        else: ~p"/t/#{tournament.id}/standings?category=#{value}"
+
+    {:noreply, push_patch(socket, to: path)}
+  end
+
   # An archived tournament refuses every write (Tournaments.ensure_writable/1).
   # These controls are hidden while archived, so reaching one of these clauses
   # means a stale tab or an event queued before the archive landed - say so
@@ -199,15 +243,42 @@ defmodule PairingsEngineWeb.StandingsLive do
         |> Standings.apply_manual_ranking(tournament)
       end
 
+    selected_category = Map.get(socket.assigns, :selected_category)
+
     assign(socket,
       keizer?: keizer?,
       entries: entries,
+      filtered_entries: compute_filtered_entries(entries, selected_category),
+      category_places: category_places_by_name(tournament, entries),
       rounds_paired: Standings.rounds_paired(tournament.id),
       manual_stale?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
       manual_incomplete?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_incomplete?(entries)
     )
+  end
+
+  # The category selector's filtered view - `entries`, cut down to one
+  # category and renumbered 1..n by `Categories.category_places/2`. `nil`
+  # (rather than an empty list) for "All players" so the template can tell
+  # "no filter" apart from "this category genuinely has nobody in it".
+  defp compute_filtered_entries(_entries, nil), do: nil
+
+  defp compute_filtered_entries(entries, category),
+    do: Categories.category_places(entries, category)
+
+  # Every category's place, for every player who is in it -
+  # `%{category_name => %{player_id => place}}` - computed once per reload
+  # rather than once per row: the Category column's chips (unfiltered view)
+  # need every one of a player's categories' places at once, and
+  # `Categories.category_places/2` itself is an O(n) pass per category.
+  defp category_places_by_name(tournament, entries) do
+    Map.new(tournament.categories || [], fn name ->
+      places =
+        entries |> Categories.category_places(name) |> Map.new(&{&1.player.id, &1.category_place})
+
+      {name, places}
+    end)
   end
 
   # Attaches `:we` / `:wmwe` (FIDE expected score / W−We, Table 8.1.2) to
@@ -248,17 +319,39 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   defp format_tb(value), do: value
 
-  # Same "-" convention PrintController's standings document already
-  # uses for a player with no category assigned.
-  defp category_or_dash(nil), do: "-"
-  defp category_or_dash(""), do: "-"
-  defp category_or_dash(category), do: category
+  # Every category `entry.player` is in, in the tournament's own order, each
+  # with its in-category place (from `@category_places`, built by
+  # `category_places_by_name/2`) and whether that place is a prize place -
+  # the Category column's chips, one `{name, place, prize?}` triple per
+  # category. `place` is `nil` only if `entry.player` somehow is not
+  # actually one of `@entries` (defensive; cannot happen through this
+  # page's own data flow).
+  defp category_chips(tournament, entry, category_places) do
+    tournament
+    |> Categories.listed_categories(entry.player)
+    |> Enum.map(fn name ->
+      place = get_in(category_places, [name, entry.player.id])
+      {name, place, place != nil and Categories.prize_place?(tournament, name, place)}
+    end)
+  end
 
-  # Every category the player is in, in the tournament's own order, in one
-  # cell - the same reading, and the same helper shape, as the printed
-  # standings document's own `categories_text/2`.
-  defp categories_text(tournament, player),
-    do: tournament |> Categories.listed_categories(player) |> Enum.join(", ")
+  # The category selector's header line - "U1800 - 3 prizes" when a prize
+  # count is configured for the selected category, the bare name otherwise.
+  defp category_header_text(tournament, name) do
+    case Map.get(tournament.category_prizes || %{}, name) do
+      count when is_integer(count) and count > 0 ->
+        ngettext(
+          "%{category} - %{count} prize",
+          "%{category} - %{count} prizes",
+          count,
+          category: name,
+          count: count
+        )
+
+      _ ->
+        name
+    end
+  end
 
   defp sex_display(sex) do
     case Player.sex_label(sex) do
@@ -339,9 +432,11 @@ defmodule PairingsEngineWeb.StandingsLive do
           <h1>{@tournament.name}</h1>
 
           <p class="subtitle" style="margin: 0">
-            {if @rounds_paired > 0,
-              do: gettext("Standings after round %{n}", n: @rounds_paired),
-              else: gettext("Standings")}
+            {cond do
+              @selected_category -> category_header_text(@tournament, @selected_category)
+              @rounds_paired > 0 -> gettext("Standings after round %{n}", n: @rounds_paired)
+              true -> gettext("Standings")
+            end}
           </p>
         </div>
 
@@ -360,6 +455,24 @@ defmodule PairingsEngineWeb.StandingsLive do
             {gettext("Print")}
           </a>
         </div>
+      </div>
+
+      <%!-- Above the table, per the feature's own spec - applies to both the
+            FIDE-tiebreak table and the Keizer ladder below, so it sits above
+            both rather than being duplicated inside each. The choice lives in
+            the URL (`?category=NAME`, via `handle_event("category_change",
+            ...)`'s `push_patch`), so it survives a reload and can be
+            linked/bookmarked. --%>
+      <div :if={@tournament.categories != []} class="card" style="margin-bottom: 12px">
+        <label style="display: flex; align-items: center; gap: 10px">
+          <span class="set-label" style="margin: 0">{gettext("Category")}</span>
+          <select name="category" phx-change="category_change">
+            <option value="" selected={is_nil(@selected_category)}>{gettext("All players")}</option>
+            <option :for={c <- @tournament.categories} value={c} selected={@selected_category == c}>
+              {c}
+            </option>
+          </select>
+        </label>
       </div>
 
       <div :if={!@keizer?} class="card manual-ranking-card" style="margin-bottom: 12px">
@@ -446,10 +559,13 @@ defmodule PairingsEngineWeb.StandingsLive do
         class="card table-card"
         phx-hook="ColumnPrefs"
       >
+        <% display_entries = @filtered_entries || @entries %>
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">{gettext("Rank")}</th>
+              <th class="num">
+                {if @selected_category, do: gettext("Place"), else: gettext("Rank")}
+              </th>
 
               <th>{gettext("Name")}</th>
 
@@ -499,15 +615,22 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {code}
               </th>
 
-              <th :if={@tournament.categories != []}>{gettext("Category")}</th>
+              <th :if={@tournament.categories != [] and is_nil(@selected_category)}>
+                {gettext("Category")}
+              </th>
 
-              <th :if={@tournament.manual_ranking}>{gettext("Reorder")}</th>
+              <th :if={@tournament.manual_ranking and is_nil(@selected_category)}>
+                {gettext("Reorder")}
+              </th>
             </tr>
           </thead>
 
           <tbody>
-            <tr :for={entry <- @entries}>
-              <td class="num">{entry.rank}</td>
+            <tr :for={entry <- display_entries}>
+              <% place = Map.get(entry, :category_place) || entry.rank %>
+              <% prize? =
+                @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
+              <td class={["num", prize? && "pe-cat-place is-prize"]}>{place}</td>
 
               <td>
                 <strong>
@@ -539,11 +662,18 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
 
-              <td :if={@tournament.categories != []}>
-                {category_or_dash(categories_text(@tournament, entry.player))}
+              <td :if={@tournament.categories != [] and is_nil(@selected_category)}>
+                <% chips = category_chips(@tournament, entry, @category_places) %>
+                <span :if={chips == []}>-</span>
+                <span
+                  :for={{name, chip_place, chip_prize?} <- chips}
+                  class={["pe-cat-chip", chip_prize? && "is-prize"]}
+                >
+                  {name}{if chip_place, do: " · #{chip_place}"}
+                </span>
               </td>
 
-              <td :if={@tournament.manual_ranking}>
+              <td :if={@tournament.manual_ranking and is_nil(@selected_category)}>
                 <button
                   class="pe-btn"
                   style="padding: 2px 9px; font-size: 13px;"
@@ -580,10 +710,13 @@ defmodule PairingsEngineWeb.StandingsLive do
       </p>
 
       <div :if={@entries != [] and @keizer?} class="card table-card">
+        <% display_entries = @filtered_entries || @entries %>
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">{gettext("Rank")}</th>
+              <th class="num">
+                {if @selected_category, do: gettext("Place"), else: gettext("Rank")}
+              </th>
 
               <th>{gettext("Name")}</th>
 
@@ -597,13 +730,18 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <th class="num">{gettext("Score")}</th>
 
-              <th :if={@tournament.categories != []}>{gettext("Category")}</th>
+              <th :if={@tournament.categories != [] and is_nil(@selected_category)}>
+                {gettext("Category")}
+              </th>
             </tr>
           </thead>
 
           <tbody>
-            <tr :for={entry <- @entries}>
-              <td class="num">{entry.rank}</td>
+            <tr :for={entry <- display_entries}>
+              <% place = Map.get(entry, :category_place) || entry.rank %>
+              <% prize? =
+                @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
+              <td class={["num", prize? && "pe-cat-place is-prize"]}>{place}</td>
 
               <td>
                 <strong>
@@ -623,8 +761,15 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <td class="num">{entry.raw_points}</td>
 
-              <td :if={@tournament.categories != []}>
-                {category_or_dash(categories_text(@tournament, entry.player))}
+              <td :if={@tournament.categories != [] and is_nil(@selected_category)}>
+                <% chips = category_chips(@tournament, entry, @category_places) %>
+                <span :if={chips == []}>-</span>
+                <span
+                  :for={{name, chip_place, chip_prize?} <- chips}
+                  class={["pe-cat-chip", chip_prize? && "is-prize"]}
+                >
+                  {name}{if chip_place, do: " · #{chip_place}"}
+                </span>
               </td>
             </tr>
           </tbody>

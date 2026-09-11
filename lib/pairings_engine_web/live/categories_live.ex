@@ -3,15 +3,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments}
-
-  @rule_kinds [
-    {"", "None - assign by hand"},
-    {"elo_below", "Below this Elo"},
-    {"elo_above", "Above this Elo"},
-    {"age_below", "Below this age"},
-    {"age_above", "Above this age"}
-  ]
+  alias PairingsEngine.{Audit, CategoryRules, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -27,7 +19,6 @@ defmodule PairingsEngineWeb.CategoriesLive do
        tournament: tournament,
        page_title: "#{tournament.name} · Categories",
        category_error: nil,
-       rule_kinds: @rule_kinds,
        assign_note: nil,
        toggle_error: nil,
        category_confirm: nil,
@@ -41,7 +32,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
        # the moment a toggle using it lands (see `toggle_pair_by_category/2`).
        unlocked_fields: MapSet.new()
      )
-     |> assign_pair_by_category_lock()}
+     |> assign_pair_by_category_lock()
+     |> assign_rules_editor()}
   end
 
   # Same rationale as the other pairing-shape controls on the Options page
@@ -74,11 +66,49 @@ defmodule PairingsEngineWeb.CategoriesLive do
     |> assign(categories_off_locked?: locked? and tournament.pair_by_category)
   end
 
-  defp pair_by_category_warning,
-    do:
-      gettext(
-        "The per-category split is baked into every board number and bye the round already produced. Changing this now doesn't renumber what's already on the board - it changes how the NEXT round is built, so boards from before and after the change follow different numbering rules within the same tournament."
-      )
+  # `rules_draft` mirrors the "one editable row per category" table below,
+  # index-aligned with `tournament.categories` - the same "flat list, index
+  # is identity" shape `SettingsDatesLive`'s `round_dates` form state uses,
+  # chosen for the same reason: a category NAME is free text and cannot
+  # safely become an HTML form field name, so the form addresses rows by
+  # position (`rule[0][rating_from]`, `rule[1][rating_from]`, ...) and this
+  # list is what the phx-change handler updates and the template reads back
+  # from - unsaved keystrokes included, which is what lets the live
+  # birth-year hint and the live summary track what the arbiter is
+  # actually typing rather than only what was last saved.
+  #
+  # `tournament_year` drives the age conditions' birth-year hints
+  # (`CategoryRules.tournament_year/1` - see its own doc for which year
+  # that is); reassigned alongside `rules_draft` any time the tournament
+  # changes, since a round-date edit elsewhere can change it.
+  defp assign_rules_editor(socket) do
+    tournament = socket.assigns.tournament
+
+    assign(socket,
+      rules_draft: build_rules_draft(tournament),
+      tournament_year: CategoryRules.tournament_year(tournament)
+    )
+  end
+
+  defp build_rules_draft(tournament) do
+    Enum.map(tournament.categories, fn name ->
+      rule = Map.get(tournament.category_rules, name) || %{}
+      prize = Map.get(tournament.category_prizes, name)
+
+      %{
+        "rating_from" => draft_string(Map.get(rule, "rating_from")),
+        "rating_below" => draft_string(Map.get(rule, "rating_below")),
+        "age_from" => draft_string(Map.get(rule, "age_from")),
+        "age_below" => draft_string(Map.get(rule, "age_below")),
+        "women" => if(Map.get(rule, "women") == true, do: "true", else: "false"),
+        "prize" => draft_string(prize)
+      }
+    end)
+  end
+
+  defp draft_string(nil), do: ""
+  defp draft_string(n) when is_integer(n), do: Integer.to_string(n)
+  defp draft_string(n), do: to_string(n)
 
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
@@ -96,7 +126,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
         {:noreply,
          socket
          |> assign(tournament: tournament)
-         |> assign_pair_by_category_lock()}
+         |> assign_pair_by_category_lock()
+         |> assign_rules_editor()}
     end
   end
 
@@ -224,39 +255,45 @@ defmodule PairingsEngineWeb.CategoriesLive do
     trimmed = String.trim(name)
     categories = socket.assigns.tournament.categories || []
 
-    with {:ok, rule} <- parse_rule(params) do
-      cond do
-        trimmed == "" ->
-          {:noreply, assign(socket, category_error: "Enter a category name")}
+    cond do
+      trimmed == "" ->
+        {:noreply, assign(socket, category_error: gettext("Enter a category name"))}
 
-        trimmed in categories ->
-          {:noreply, assign(socket, category_error: "That category already exists")}
+      trimmed in categories ->
+        {:noreply, assign(socket, category_error: gettext("That category already exists"))}
 
-        true ->
-          category_rules =
-            case rule do
-              nil -> socket.assigns.tournament.category_rules
-              rule -> Map.put(socket.assigns.tournament.category_rules, trimmed, rule)
+      true ->
+        case parse_rule_fields(params) do
+          {:ok, rule} ->
+            category_rules =
+              if CategoryRules.rule_owned?(rule) do
+                Map.put(socket.assigns.tournament.category_rules, trimmed, rule)
+              else
+                socket.assigns.tournament.category_rules
+              end
+
+            case Tournaments.update_tournament(socket.assigns.tournament, %{
+                   "categories" => categories ++ [trimmed],
+                   "category_rules" => category_rules
+                 }) do
+              {:ok, tournament} ->
+                Audit.log(tournament.id, socket.assigns.current_scope, "category.created", %{
+                  name: trimmed,
+                  rule: Map.get(category_rules, trimmed)
+                })
+
+                {:noreply,
+                 socket
+                 |> assign(tournament: tournament, category_error: nil)
+                 |> assign_rules_editor()}
+
+              {:error, changeset} ->
+                {:noreply, assign(socket, category_error: error_text(changeset))}
             end
 
-          case Tournaments.update_tournament(socket.assigns.tournament, %{
-                 "categories" => categories ++ [trimmed],
-                 "category_rules" => category_rules
-               }) do
-            {:ok, tournament} ->
-              Audit.log(tournament.id, socket.assigns.current_scope, "category.created", %{
-                name: trimmed,
-                rule: rule
-              })
-
-              {:noreply, assign(socket, tournament: tournament, category_error: nil)}
-
-            {:error, changeset} ->
-              {:noreply, assign(socket, category_error: error_text(changeset))}
-          end
-      end
-    else
-      {:error, message} -> {:noreply, assign(socket, category_error: message)}
+          {:error, message} ->
+            {:noreply, assign(socket, category_error: message)}
+        end
     end
   end
 
@@ -271,21 +308,76 @@ defmodule PairingsEngineWeb.CategoriesLive do
   # rewrote several hundred player rows, with nothing to undo it.
   #
   # Leaving them means re-adding the name brings the assignments back, which
-  # is the closest thing this page has to an undo for a mis-click.
+  # is the closest thing this page has to an undo for a mis-click. The rule
+  # and the prize count DO come off with the category, same as they always
+  # have for the rule - a category that no longer exists having an orphaned
+  # rule or prize count sitting in either map would be surprising the first
+  # time someone re-added a DIFFERENT category of the same name.
   def handle_event("remove_category", %{"name" => name}, socket) do
     categories = List.delete(socket.assigns.tournament.categories || [], name)
     category_rules = Map.delete(socket.assigns.tournament.category_rules, name)
+    category_prizes = Map.delete(socket.assigns.tournament.category_prizes, name)
 
     case Tournaments.update_tournament(socket.assigns.tournament, %{
            "categories" => categories,
-           "category_rules" => category_rules
+           "category_rules" => category_rules,
+           "category_prizes" => category_prizes
          }) do
       {:ok, tournament} ->
         Audit.log(tournament.id, socket.assigns.current_scope, "category.removed", %{name: name})
-        {:noreply, assign(socket, tournament: tournament, category_error: nil, assign_note: nil)}
+
+        {:noreply,
+         socket
+         |> assign(tournament: tournament, category_error: nil, assign_note: nil)
+         |> assign_rules_editor()}
 
       {:error, reason} ->
         {:noreply, assign(socket, category_error: error_text(reason))}
+    end
+  end
+
+  # Tracks what the arbiter is typing into the rules table WITHOUT saving -
+  # the live birth-year hint and the live summary both read `rules_draft`,
+  # not `tournament.category_rules`, so they follow every keystroke. Only
+  # the rows Phoenix actually reports (`params["rule"]`, keyed "0", "1", ...
+  # by position) are merged in; a row nothing changed keeps its last known
+  # draft value rather than being reset to blank.
+  def handle_event("rules_change", %{"rule" => rule_params}, socket) do
+    {:noreply,
+     assign(socket, rules_draft: merge_rules_draft(socket.assigns.rules_draft, rule_params))}
+  end
+
+  def handle_event("rules_change", _params, socket), do: {:noreply, socket}
+
+  # The single save for every category's rule AND prize count at once - one
+  # table, one submit, same "whole list travels together" shape
+  # `SettingsDatesLive`'s round-dates form already uses. `build_rules_and_prizes/2`
+  # validates every row before anything is written, so a typo in row 3
+  # cannot half-save rows 1-2.
+  def handle_event("save_rules", %{"rule" => rule_params}, socket) do
+    tournament = socket.assigns.tournament
+    draft = merge_rules_draft(socket.assigns.rules_draft, rule_params)
+
+    case build_rules_and_prizes(tournament.categories, draft) do
+      {:ok, category_rules, category_prizes} ->
+        case Tournaments.update_tournament(tournament, %{
+               "category_rules" => category_rules,
+               "category_prizes" => category_prizes
+             }) do
+          {:ok, updated} ->
+            Audit.log(updated.id, socket.assigns.current_scope, "category.rules_updated", %{})
+
+            {:noreply,
+             socket
+             |> assign(tournament: updated, category_error: nil, assign_note: nil)
+             |> assign_rules_editor()}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, category_error: error_text(reason), rules_draft: draft)}
+        end
+
+      {:error, message} ->
+        {:noreply, assign(socket, category_error: message, rules_draft: draft)}
     end
   end
 
@@ -311,7 +403,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
        assign(socket,
          category_confirm: nil,
          category_error: nil,
-         assign_note: "No changes needed - every player already matches the rules."
+         assign_note: gettext("No changes needed - every player already matches the rules.")
        )}
     else
       {:noreply,
@@ -344,7 +436,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
         {:noreply,
          assign(socket,
            category_confirm: nil,
-           assign_note: "Assigned #{matched} of #{total} players."
+           assign_note:
+             gettext("Assigned %{matched} of %{total} players.", matched: matched, total: total)
          )}
 
       {:error, reason} ->
@@ -357,19 +450,166 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
-  # No kind picked ("") means a plain hand-assigned category, same as
-  # before threshold rules existed - `nil` rather than an error.
-  defp parse_rule(%{"kind" => ""}), do: {:ok, nil}
+  defp merge_rules_draft(draft, rule_params) do
+    draft
+    |> Enum.with_index()
+    |> Enum.map(fn {row, index} ->
+      case Map.get(rule_params, Integer.to_string(index)) do
+        nil -> row
+        submitted -> Map.merge(row, submitted)
+      end
+    end)
+  end
 
-  defp parse_rule(%{"kind" => kind, "value" => value})
-       when kind in ~w(elo_below elo_above age_below age_above) do
-    case Integer.parse(String.trim(value)) do
-      {n, ""} when n > 0 -> {:ok, %{"kind" => kind, "value" => n}}
-      _ -> {:error, "Enter a positive whole number for the threshold"}
+  defp build_rules_and_prizes(categories, draft) do
+    categories
+    |> Enum.zip(draft)
+    |> Enum.reduce_while({:ok, %{}, %{}}, fn {name, row}, {:ok, rules, prizes} ->
+      with {:ok, rule} <- parse_rule_fields(row),
+           {:ok, prize} <- parse_prize_field(row) do
+        rules = if CategoryRules.rule_owned?(rule), do: Map.put(rules, name, rule), else: rules
+
+        prizes =
+          if is_integer(prize) and prize > 0, do: Map.put(prizes, name, prize), else: prizes
+
+        {:cont, {:ok, rules, prizes}}
+      else
+        {:error, message} -> {:halt, {:error, "#{name}: #{message}"}}
+      end
+    end)
+  end
+
+  ## ---------- Condition parsing (shared by the add-form and the table) ----------
+
+  # Both the "New category" form's params and one row of `rules_draft` are
+  # flat string-keyed maps with the same five keys, so one parser serves
+  # both call sites.
+  defp parse_rule_fields(fields) do
+    with {:ok, rule} <- put_int_field(%{}, fields, "rating_from"),
+         {:ok, rule} <- put_int_field(rule, fields, "rating_below"),
+         {:ok, rule} <- put_int_field(rule, fields, "age_from"),
+         {:ok, rule} <- put_int_field(rule, fields, "age_below") do
+      {:ok, maybe_put_women(rule, fields)}
     end
   end
 
-  defp parse_rule(_params), do: {:ok, nil}
+  defp put_int_field(rule, fields, key) do
+    case String.trim(to_string(Map.get(fields, key, ""))) do
+      "" ->
+        {:ok, rule}
+
+      value ->
+        case Integer.parse(value) do
+          {n, ""} when n > 0 ->
+            {:ok, Map.put(rule, key, n)}
+
+          _ ->
+            {:error,
+             gettext("Enter a positive whole number for %{field}", field: field_label(key))}
+        end
+    end
+  end
+
+  defp field_label("rating_from"), do: gettext("rating from")
+  defp field_label("rating_below"), do: gettext("rating below")
+  defp field_label("age_from"), do: gettext("age from")
+  defp field_label("age_below"), do: gettext("under age")
+
+  defp maybe_put_women(rule, fields) do
+    if truthy?(Map.get(fields, "women")), do: Map.put(rule, "women", true), else: rule
+  end
+
+  defp truthy?(value), do: value in ["true", "on", true]
+
+  defp parse_prize_field(fields) do
+    case String.trim(to_string(Map.get(fields, "prize", ""))) do
+      "" ->
+        {:ok, nil}
+
+      value ->
+        case Integer.parse(value) do
+          {n, ""} when n >= 0 -> {:ok, n}
+          _ -> {:error, gettext("Enter a whole number for the prize count")}
+        end
+    end
+  end
+
+  ## ---------- Live summary + birth-year hints ----------
+
+  # Best-effort parse of one draft row for the LIVE summary/hint only - a
+  # field that doesn't parse yet (mid-keystroke, or genuinely invalid) is
+  # simply treated as unset here rather than surfaced as an error; real
+  # validation is `parse_rule_fields/1`'s job, at save time.
+  defp draft_rule(row) do
+    case parse_rule_fields(row) do
+      {:ok, rule} -> rule
+      {:error, _message} -> %{}
+    end
+  end
+
+  defp rule_summary(rule) do
+    if CategoryRules.rule_owned?(rule) do
+      [rating_summary(rule), age_summary(rule), women_summary(rule)]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(", ")
+    else
+      gettext("Hand-assigned - no rule")
+    end
+  end
+
+  defp rating_summary(%{"rating_from" => f, "rating_below" => b}),
+    do: gettext("rating %{from}-%{to}", from: f, to: b - 1)
+
+  defp rating_summary(%{"rating_from" => f}), do: gettext("rating %{from}+", from: f)
+  defp rating_summary(%{"rating_below" => b}), do: gettext("rating below %{value}", value: b)
+  defp rating_summary(_rule), do: nil
+
+  defp age_summary(%{"age_from" => f, "age_below" => b}),
+    do: gettext("age %{from}-%{to}", from: f, to: b - 1)
+
+  defp age_summary(%{"age_from" => f}), do: gettext("age %{from}+", from: f)
+  defp age_summary(%{"age_below" => b}), do: gettext("under age %{value}", value: b)
+  defp age_summary(_rule), do: nil
+
+  defp women_summary(%{"women" => true}), do: gettext("women")
+  defp women_summary(_rule), do: nil
+
+  # The live "born YYYY or later/earlier" hint shown next to each age
+  # input - `nil` (rendered as nothing) while the field is blank or not yet
+  # a valid positive integer, same tolerance `draft_rule/1` has for a
+  # mid-keystroke value.
+  defp age_below_hint(row, year) do
+    case parse_positive(Map.get(row, "age_below", "")) do
+      {:ok, v} ->
+        gettext("under %{age} = born %{year} or later",
+          age: v,
+          year: CategoryRules.birth_year_on_or_after(year, v)
+        )
+
+      :error ->
+        nil
+    end
+  end
+
+  defp age_from_hint(row, year) do
+    case parse_positive(Map.get(row, "age_from", "")) do
+      {:ok, v} ->
+        gettext("%{age}+ = born %{year} or earlier",
+          age: v,
+          year: CategoryRules.birth_year_on_or_before(year, v)
+        )
+
+      :error ->
+        nil
+    end
+  end
+
+  defp parse_positive(value) do
+    case Integer.parse(String.trim(to_string(value))) do
+      {n, ""} when n > 0 -> {:ok, n}
+      _ -> :error
+    end
+  end
 
   @impl true
   def render(assigns) do
@@ -468,7 +708,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <p class="hint" style="margin-top: 0">
             <.rich_text text={
               gettext(
-                ~s(Players are assigned a category on the %[players] page. Give one a threshold instead of picking "None" and it can be filled in for every player automatically, below.)
+                ~s(Players are assigned a category on the %[players] page. Set any combination of the conditions below and a category can be filled in for every player automatically, further down. Leave every condition blank to keep assigning it by hand.)
               )
             }>
               <:part name="players">
@@ -476,20 +716,35 @@ defmodule PairingsEngineWeb.CategoriesLive do
               </:part>
             </.rich_text>
           </p>
+          <p class="hint">
+            {gettext(
+              "An unrated player satisfies a \"rating below\" condition (0 is under any ceiling) but never a \"rating from\" one."
+            )}
+          </p>
+
           <form id="add-category-form" phx-submit="add_category">
             <.setting_group>
               <.setting_field label={gettext("New category name")}>
-                <input type="text" name="name" value="" placeholder={gettext("e.g. -1100 or U18")} />
+                <input type="text" name="name" value="" placeholder={gettext("e.g. U1800 or 45+")} />
               </.setting_field>
-              <.setting_field label={gettext("Rule")}>
-                <select name="kind">
-                  <option :for={{value, label} <- @rule_kinds} value={value}>{label}</option>
-                </select>
+              <.setting_field label={gettext("Rating from")}>
+                <input type="number" name="rating_from" value="" min="1" />
               </.setting_field>
-              <.setting_field label={gettext("Threshold")} hint={gettext("Ignored when Rule is None")}>
-                <input type="number" name="value" value="" min="1" placeholder="e.g. 1100" />
+              <.setting_field label={gettext("Rating below")}>
+                <input type="number" name="rating_below" value="" min="1" />
+              </.setting_field>
+              <.setting_field label={gettext("Age from")}>
+                <input type="number" name="age_from" value="" min="1" />
+              </.setting_field>
+              <.setting_field label={gettext("Under age")}>
+                <input type="number" name="age_below" value="" min="1" />
               </.setting_field>
             </.setting_group>
+            <label class="set-toggle" style="margin-top: 6px">
+              <input type="hidden" name="women" value="false" />
+              <input type="checkbox" name="women" value="true" />
+              <span class="set-toggle-text">{gettext("Women only")}</span>
+            </label>
             <p :if={@category_error} class="error-note">{@category_error}</p>
             <div class="actions">
               <button type="submit" class="pe-btn primary">Add</button>
@@ -497,26 +752,104 @@ defmodule PairingsEngineWeb.CategoriesLive do
           </form>
 
           <div :if={@tournament.categories != []} class="card-table-wrap" style="margin-top: 16px">
-            <table class="pe-table">
-              <thead>
-                <tr>
-                  <th>{gettext("Category")}</th>
-                  <th>{gettext("Rule")}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={c <- @tournament.categories}>
-                  <td>{c}</td>
-                  <td>{rule_description(Map.get(@tournament.category_rules, c))}</td>
-                  <td style="text-align: right">
-                    <button class="pe-btn danger-link" phx-click="remove_category" phx-value-name={c}>
-                      {gettext("Remove")}
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <form id="rules-form" phx-change="rules_change" phx-submit="save_rules">
+              <table class="pe-table">
+                <thead>
+                  <tr>
+                    <th>{gettext("Category")}</th>
+                    <th class="num">{gettext("Rating from")}</th>
+                    <th class="num">{gettext("Rating below")}</th>
+                    <th class="num">{gettext("Age from")}</th>
+                    <th class="num">{gettext("Under age")}</th>
+                    <th>{gettext("Women")}</th>
+                    <th class="num">{gettext("Prizes")}</th>
+                    <th>{gettext("Summary")}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={
+                    {{c, row}, idx} <- Enum.with_index(Enum.zip(@tournament.categories, @rules_draft))
+                  }>
+                    <td>{c}</td>
+                    <td class="num">
+                      <input
+                        type="number"
+                        name={"rule[#{idx}][rating_from]"}
+                        value={row["rating_from"]}
+                        min="1"
+                        style="width: 80px"
+                      />
+                    </td>
+                    <td class="num">
+                      <input
+                        type="number"
+                        name={"rule[#{idx}][rating_below]"}
+                        value={row["rating_below"]}
+                        min="1"
+                        style="width: 80px"
+                      />
+                    </td>
+                    <td class="num">
+                      <input
+                        type="number"
+                        name={"rule[#{idx}][age_from]"}
+                        value={row["age_from"]}
+                        min="1"
+                        style="width: 70px"
+                      />
+                      <div :if={age_from_hint(row, @tournament_year)} class="hint" style="margin: 0">
+                        {age_from_hint(row, @tournament_year)}
+                      </div>
+                    </td>
+                    <td class="num">
+                      <input
+                        type="number"
+                        name={"rule[#{idx}][age_below]"}
+                        value={row["age_below"]}
+                        min="1"
+                        style="width: 70px"
+                      />
+                      <div :if={age_below_hint(row, @tournament_year)} class="hint" style="margin: 0">
+                        {age_below_hint(row, @tournament_year)}
+                      </div>
+                    </td>
+                    <td>
+                      <input type="hidden" name={"rule[#{idx}][women]"} value="false" />
+                      <input
+                        type="checkbox"
+                        name={"rule[#{idx}][women]"}
+                        value="true"
+                        checked={row["women"] == "true"}
+                      />
+                    </td>
+                    <td class="num">
+                      <input
+                        type="number"
+                        name={"rule[#{idx}][prize]"}
+                        value={row["prize"]}
+                        min="0"
+                        style="width: 60px"
+                      />
+                    </td>
+                    <td>{rule_summary(draft_rule(row))}</td>
+                    <td style="text-align: right">
+                      <button
+                        type="button"
+                        class="pe-btn danger-link"
+                        phx-click="remove_category"
+                        phx-value-name={c}
+                      >
+                        {gettext("Remove")}
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="actions" style="margin-top: 10px">
+                <button type="submit" class="pe-btn primary">{gettext("Save rules")}</button>
+              </div>
+            </form>
           </div>
 
           <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">
@@ -601,13 +934,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
     """
   end
 
+  defp pair_by_category_warning,
+    do:
+      gettext(
+        "The per-category split is baked into every board number and bye the round already produced. Changing this now doesn't renumber what's already on the board - it changes how the NEXT round is built, so boards from before and after the change follow different numbering rules within the same tournament."
+      )
+
   defp empty_dash(""), do: "-"
   defp empty_dash(value), do: value
-
-  defp rule_description(nil), do: "-"
-  defp rule_description(%{"kind" => "elo_below", "value" => v}), do: "below #{v} Elo"
-  defp rule_description(%{"kind" => "elo_above", "value" => v}), do: "above #{v} Elo"
-  defp rule_description(%{"kind" => "age_below", "value" => v}), do: "below age #{v}"
-  defp rule_description(%{"kind" => "age_above", "value" => v}), do: "above age #{v}"
-  defp rule_description(_rule), do: "-"
 end

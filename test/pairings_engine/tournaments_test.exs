@@ -2716,7 +2716,7 @@ defmodule PairingsEngine.TournamentsTest do
         rounds_count: 3,
         categories_enabled: true,
         categories: ["-1100", "Open"],
-        category_rules: %{"-1100" => %{"kind" => "elo_below", "value" => 1100}}
+        category_rules: %{"-1100" => %{"rating_below" => 1100}}
       })
     end
 

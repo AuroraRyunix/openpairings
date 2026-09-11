@@ -132,4 +132,61 @@ defmodule PairingsEngine.Categories do
   def in_category?(%Player{} = player, name) when is_binary(name) do
     name in (player.categories || [])
   end
+
+  @doc """
+  `entries` (standings entries - maps carrying `:player` and the overall
+  `:rank`, in the order they are actually displayed: pass them through
+  `PairingsEngine.Standings.apply_manual_ranking/2` first when the
+  tournament uses manual ranking, exactly as the standings page already
+  does before rendering) filtered down to the players in category `name`,
+  each with a `:category_place` key added: 1..n in that same order.
+
+  This is the ONE place an in-category place is computed - both
+  `PairingsEngineWeb.StandingsLive` (the Category column's per-chip place
+  and the category selector's place column) and
+  `PairingsEngineWeb.PrintController`'s per-category standings tables call
+  this rather than each re-deriving it.
+
+  Entries that share the overall `:rank` share their `:category_place` too,
+  the same way two entries would share `:rank` itself if this codebase's
+  standings ever stopped breaking every tie with player id (it does not
+  today - see `PairingsEngine.Standings.build_standings/3` - so in practice
+  this densely numbers 1..n with no repeats, but the rule is stated in
+  terms of `:rank` rather than "never happens" so it stays correct if that
+  ever changes).
+  """
+  @spec category_places([map()], String.t()) :: [map()]
+  def category_places(entries, name) when is_binary(name) do
+    entries
+    |> Enum.filter(&in_category?(&1.player, name))
+    |> place_by_rank()
+  end
+
+  defp place_by_rank(entries) do
+    entries
+    |> Enum.map_reduce({:none, 0}, fn entry, {prev_rank, place} ->
+      place = if prev_rank == entry.rank, do: place, else: place + 1
+      {Map.put(entry, :category_place, place), {entry.rank, place}}
+    end)
+    |> elem(0)
+  end
+
+  @doc """
+  True when `place` (a `:category_place` from `category_places/2`) falls
+  within `tournament.category_prizes`'s configured count for category
+  `name` - the "prize place" highlight on the standings page and, per
+  `Tournament.category_prizes`'s own field doc, informational only: no
+  prize is actually allocated anywhere from this.
+
+  False whenever no count is set (nil/missing) or the count is `0` - the
+  same "nothing configured, nothing highlighted" reading `category_prizes`'s
+  own field doc describes.
+  """
+  @spec prize_place?(map(), String.t(), pos_integer()) :: boolean()
+  def prize_place?(tournament, name, place) do
+    case Map.get(tournament.category_prizes || %{}, name) do
+      count when is_integer(count) and count > 0 -> place <= count
+      _ -> false
+    end
+  end
 end

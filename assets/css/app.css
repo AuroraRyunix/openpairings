@@ -2272,6 +2272,24 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-pref.is-strong { color: var(--warn); border-color: var(--warn); }
 .pe-pref.is-mild { color: var(--text-soft); }
 .pe-pref.is-none { color: var(--text-soft); opacity: 0.7; }
+/* Standings' Category column (one chip per category the player is in,
+   "U1800 - 1") and the category selector's own in-category place column.
+   `.is-prize` is the same "carried by colour alone" treatment as
+   `.pe-pref` above, picked up when `Categories.prize_place?/3` says the
+   place is within that category's configured prize count. */
+.pe-cat-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  margin: 1px 3px 1px 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.pe-cat-chip.is-prize { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.pe-cat-place.is-prize { color: var(--accent); font-weight: 700; }
 .pe-account-excluded { margin: 4px 0 8px; padding-left: 18px; font-size: 13px; }
 .pe-account-excluded li { line-height: 1.5; }
 .pe-account-excluded .pe-excluded-why { color: var(--text-soft); }

@@ -31,7 +31,7 @@ defmodule PairingsEngine.TournamentImport do
   `PairingsEngine.TournamentExport` for the inverse.
   """
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{CategoryRules, Repo, Tournaments}
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.Audit.AuditLog
   alias PairingsEngine.Tournaments.{Collaborator, Tournament, Team, Player, Round, Pairing}
@@ -199,7 +199,7 @@ defmodule PairingsEngine.TournamentImport do
   something a restore should be able to do.
   """
   def restore_into!(%Tournament{} = tournament, entry) when is_map(entry) do
-    t_attrs = fetch_map!(entry, "tournament")
+    t_attrs = entry |> fetch_map!("tournament") |> migrate_legacy_category_rules()
 
     tournament =
       tournament
@@ -269,7 +269,7 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   defp import_tournament!(t_data, scope) do
-    t_attrs = fetch_map!(t_data, "tournament")
+    t_attrs = t_data |> fetch_map!("tournament") |> migrate_legacy_category_rules()
 
     tournament =
       %Tournament{user_id: scope.user.id}
@@ -759,6 +759,22 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   ## ---------- helpers ----------
+
+  # Same conversion the `MigrateLegacyCategoryRules` data migration runs
+  # over every existing tournament in the database - here for a file that
+  # still carries the pre-conversion `"kind"`/`"value"` shape, whether an
+  # old backup being imported fresh or one being restored over a live
+  # tournament. See `CategoryRules.migrate_legacy_rules/2` for what "still
+  # carries" means: entries already in the new shape pass through
+  # untouched, so this is a no-op on a file exported after that migration
+  # shipped.
+  defp migrate_legacy_category_rules(%{"category_rules" => rules} = t_attrs)
+       when is_map(rules) and map_size(rules) > 0 do
+    categories = t_attrs |> Map.get("categories") |> List.wrap()
+    Map.put(t_attrs, "category_rules", CategoryRules.migrate_legacy_rules(rules, categories))
+  end
+
+  defp migrate_legacy_category_rules(t_attrs), do: t_attrs
 
   defp fetch_map!(data, key) do
     case Map.get(data, key) do

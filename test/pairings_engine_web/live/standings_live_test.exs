@@ -53,7 +53,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      refute html =~ "<th>Category</th>"
+      refute html =~ ~r/<th>\s*Category\s*<\/th>/
     end
 
     test "shows the assigned category per player, unconditionally - not gated by the Players Display panel's tick",
@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      assert html =~ "<th>Category</th>"
+      assert html =~ ~r/<th>\s*Category\s*<\/th>/
       assert html =~ "Open"
       # Bob has no category assigned - shows the same "-" print already uses.
       assert html =~ "-"
@@ -80,7 +80,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       # Not tied to the "cat" Players-grid preference - even an explicit,
       # empty preference list (everything toggleable hidden) still shows it.
       html = render_hook(lv, "columns_loaded", %{"columns" => []})
-      assert html =~ "<th>Category</th>"
+      assert html =~ ~r/<th>\s*Category\s*<\/th>/
       assert html =~ "Open"
       assert Enum.find(Tournaments.list_players(tournament.id), &(&1.id == alice.id))
     end
@@ -99,8 +99,166 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      assert html =~ "<th>Category</th>"
+      assert html =~ ~r/<th>\s*Category\s*<\/th>/
       assert html =~ "Open"
+    end
+  end
+
+  describe "Category column - chips carry each category's in-category place, prize places highlighted" do
+    defp category_places_tournament(scope) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Category Places",
+          "type" => "swiss",
+          "categories" => ["Open"],
+          "category_prizes" => %{"Open" => 1}
+        })
+
+      # Rating order decides the computed rank with no results entered yet:
+      # Alice (2000) 1st, Bob (1900) 2nd, both in "Open".
+      a =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Alice",
+          fide_rating: 2000,
+          category: "Open",
+          categories: ["Open"]
+        })
+
+      b =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Bob",
+          fide_rating: 1900,
+          category: "Open",
+          categories: ["Open"]
+        })
+
+      {tournament, a, b}
+    end
+
+    test "each chip shows the category and the player's place in it", %{conn: conn, scope: scope} do
+      {tournament, _a, _b} = category_places_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ "Open · 1"
+      assert html =~ "Open · 2"
+    end
+
+    test "a place within the configured prize count is marked, one beyond it is not", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _a, _b} = category_places_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ ~r/pe-cat-chip is-prize">\s*Open · 1/
+      refute html =~ ~r/pe-cat-chip is-prize">\s*Open · 2/
+    end
+  end
+
+  describe "Category selector - filters the table, keeps the choice in the URL" do
+    test "the selector is hidden when the tournament has no categories", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "No Categories", "type" => "swiss"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      refute html =~ ~s(name="category")
+    end
+
+    test "choosing a category filters the table, renumbers 1..n, and updates the URL", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _a, _b} = category_places_tournament(scope)
+
+      {:ok, third} =
+        Tournaments.create_player(tournament.id, %{"name" => "Carol", "fide_rating" => 1800})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      assert html =~ "Carol"
+
+      html = lv |> element(~s(select[name="category"])) |> render_change(%{"category" => "Open"})
+
+      assert html =~ "Open - 1 prize"
+      assert html =~ "Alice"
+      assert html =~ "Bob"
+      refute html =~ "Carol"
+      refute html =~ third.name
+      assert_patch(lv, ~p"/t/#{tournament.id}/standings?category=Open")
+    end
+
+    test "the choice survives a fresh page load via the URL query param", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _a, _b} = category_places_tournament(scope)
+
+      {:ok, _third} =
+        Tournaments.create_player(tournament.id, %{"name" => "Carol", "fide_rating" => 1800})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings?category=Open")
+
+      assert html =~ "Open - 1 prize"
+      assert html =~ "Alice"
+      refute html =~ "Carol"
+    end
+
+    test "an unknown category in the URL falls back to All players instead of crashing", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _a, _b} = category_places_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings?category=Ghost")
+
+      assert html =~ "Alice"
+      refute html =~ "Open - "
+    end
+
+    test "picking 'All players' clears the filter and the URL param", %{conn: conn, scope: scope} do
+      {tournament, _a, _b} = category_places_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings?category=Open")
+
+      lv |> element(~s(select[name="category"])) |> render_change(%{"category" => ""})
+
+      assert_patch(lv, ~p"/t/#{tournament.id}/standings")
+    end
+
+    test "the selector and place column also work on the Keizer ladder", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Keizer Category Places",
+          "type" => "swiss",
+          "pairing_system" => "keizer",
+          "categories" => ["Open"],
+          "category_prizes" => %{"Open" => 1}
+        })
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Alice",
+        fide_rating: 2000,
+        category: "Open",
+        categories: ["Open"]
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      html = lv |> element(~s(select[name="category"])) |> render_change(%{"category" => "Open"})
+
+      assert html =~ "Open - 1 prize"
+      assert html =~ "Alice"
     end
   end
 

@@ -84,8 +84,15 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **SWAR-style player grid** - every column sortable, plain-language tooltips
   on the abbreviated headers, and a per-user Display panel choosing which
   columns show.
-- **Categories** - per-tournament age/rating categories with per-category
-  standings and, for Swiss, native per-category pairing.
+- **Categories** - per-tournament categories, each an optional rule combining
+  any of five conditions (rating from/below, age from/below, women-only) -
+  nested, banded or combined categories all expressible, going beyond SWAR's
+  single non-overlapping threshold per category. Age is FIDE's 1-January
+  convention, with a live birth-year hint in the editor. Auto-assign fills
+  a category from its rule; per-category standings and, for Swiss, native
+  per-category pairing follow. An optional prize count per category
+  highlights the in-category places that are actually prizes, on the
+  standings page and its per-category filter.
 
 ## Import & export
 

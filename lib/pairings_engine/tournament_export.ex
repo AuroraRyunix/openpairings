@@ -86,7 +86,7 @@ defmodule PairingsEngine.TournamentExport do
     abs_jusque abs_nbfois absent_counts_as_vur
     presence_on_allocated_bye tiebreaks acceleration
     status standard rate_of_play organizer_club_number round_dates
-    categories category_rules categories_enabled event_code
+    categories category_rules category_prizes categories_enabled event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
     pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category

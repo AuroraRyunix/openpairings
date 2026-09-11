@@ -4,83 +4,75 @@ defmodule PairingsEngine.PlayerStatsTest do
   alias PairingsEngine.PlayerStats
   alias PairingsEngine.Tournaments.Player
 
-  describe "assign_category/4 (SWAR CATEGORIES threshold rules)" do
+  # Condition-set rule matching itself (rating/age/women, nested/overlapping
+  # categories, the legacy-shape conversion) is covered exhaustively in
+  # `PairingsEngine.CategoryRulesTest` - these tests are about
+  # `assign_category/4` and `assign_categories/4` themselves: picking the
+  # single winner, preserving `category_order`, and threading
+  # `tournament_year` through to the age computation.
+  describe "assign_category/4 and assign_categories/4" do
     defp player(attrs), do: struct(Player, attrs)
 
-    test "a 1000-rated player picks the tighter of two overlapping elo_below ceilings" do
-      rules = %{
-        "-1200" => %{"kind" => "elo_below", "value" => 1200},
-        "-1100" => %{"kind" => "elo_below", "value" => 1100}
-      }
+    test "returns every category whose conditions all match, in category_order" do
+      rules = %{"U1800" => %{"rating_below" => 1800}, "U16" => %{"age_below" => 16}}
+      p = player(fide_rating: 1000, national_rating: 0, birth_year: 2015)
 
+      assert PlayerStats.assign_categories(p, ["U1800", "U16"], rules, 2026) == ["U1800", "U16"]
+      # Order in the list is the tournament's own order, not insertion order.
+      assert PlayerStats.assign_categories(p, ["U16", "U1800"], rules, 2026) == ["U16", "U1800"]
+    end
+
+    test "assign_category/4 is the first of assign_categories/4's list" do
+      rules = %{"U1800" => %{"rating_below" => 1800}}
       p = player(fide_rating: 1000, national_rating: 0)
-      assert PlayerStats.assign_category(p, ["-1200", "-1100"], rules) == "-1100"
-      # Order in the list must not matter - it's the value that's tighter.
-      assert PlayerStats.assign_category(p, ["-1100", "-1200"], rules) == "-1100"
-    end
-
-    test "elo_above picks the larger (more specific) floor" do
-      rules = %{
-        "+1800" => %{"kind" => "elo_above", "value" => 1800},
-        "+2000" => %{"kind" => "elo_above", "value" => 2000}
-      }
-
-      p = player(fide_rating: 2100, national_rating: 0)
-      assert PlayerStats.assign_category(p, ["+1800", "+2000"], rules) == "+2000"
-    end
-
-    test "age_below/age_above use birth_year against the given current_year" do
-      rules = %{"U18" => %{"kind" => "age_below", "value" => 18}}
-      p = player(fide_rating: 0, national_rating: 0, birth_year: 2015)
-      assert PlayerStats.assign_category(p, ["U18"], rules, 2026) == "U18"
-      assert PlayerStats.assign_category(p, ["U18"], rules, 2035) == ""
-    end
-
-    test "a plain category with no rule is never auto-matched" do
-      rules = %{}
-      p = player(fide_rating: 1000, national_rating: 0)
-      assert PlayerStats.assign_category(p, ["Open"], rules) == ""
-    end
-
-    test "no match at all (unrated, and no age rule) gives blank" do
-      rules = %{"+1800" => %{"kind" => "elo_above", "value" => 1800}}
-      p = player(fide_rating: 0, national_rating: 0)
-      assert PlayerStats.assign_category(p, ["+1800"], rules) == ""
-    end
-
-    # Real report: a real tournament's "U1800" (elo_below 1800) bracket
-    # wasn't picking up its unrated players at all - 0 (an unrated
-    # player's `Player.rating/1`) genuinely IS under any positive
-    # ceiling, so excluding them was backwards.
-    test "an unrated player (rating 0) still qualifies for an elo_below ceiling" do
-      rules = %{"U1800" => %{"kind" => "elo_below", "value" => 1800}}
-      p = player(fide_rating: 0, national_rating: 0)
       assert PlayerStats.assign_category(p, ["U1800"], rules) == "U1800"
     end
 
-    # An unrated player has no proven rating to be ABOVE anything -
-    # elo_above deliberately keeps excluding them, unlike elo_below.
-    test "an unrated player never qualifies for an elo_above floor" do
-      rules = %{"+1800" => %{"kind" => "elo_above", "value" => 1800}}
+    test "assign_category/4 returns blank when nothing matches" do
+      rules = %{"1800+" => %{"rating_from" => 1800}}
       p = player(fide_rating: 0, national_rating: 0)
-      assert PlayerStats.assign_category(p, ["+1800"], rules) == ""
+      assert PlayerStats.assign_category(p, ["1800+"], rules) == ""
     end
 
-    test "matching more than one KIND at once is broken by list order" do
-      rules = %{
-        "-1200" => %{"kind" => "elo_below", "value" => 1200},
-        "U18" => %{"kind" => "age_below", "value" => 18}
-      }
+    test "nested categories (U1800 and U1600) both match a 1500-rated player" do
+      rules = %{"U1800" => %{"rating_below" => 1800}, "U1600" => %{"rating_below" => 1600}}
+      p = player(fide_rating: 1500, national_rating: 0)
+      assert PlayerStats.assign_categories(p, ["U1800", "U1600"], rules) == ["U1800", "U1600"]
+    end
 
-      p = player(fide_rating: 1000, national_rating: 0, birth_year: 2015)
-      assert PlayerStats.assign_category(p, ["-1200", "U18"], rules, 2026) == "-1200"
-      assert PlayerStats.assign_category(p, ["U18", "-1200"], rules, 2026) == "U18"
+    test "a plain category with no rule is never auto-matched" do
+      p = player(fide_rating: 1000, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["Open"], %{}) == ""
+    end
+
+    test "an unrated player (rating 0) qualifies for a rating_below ceiling but not rating_from" do
+      p = player(fide_rating: 0, national_rating: 0)
+
+      assert PlayerStats.assign_category(p, ["U1800"], %{"U1800" => %{"rating_below" => 1800}}) ==
+               "U1800"
+
+      assert PlayerStats.assign_category(p, ["1+"], %{"1+" => %{"rating_from" => 1}}) == ""
     end
 
     test "falls back to national_rating when there is no FIDE rating" do
-      rules = %{"-1500" => %{"kind" => "elo_below", "value" => 1500}}
       p = player(fide_rating: 0, national_rating: 1400)
+      rules = %{"-1500" => %{"rating_below" => 1500}}
       assert PlayerStats.assign_category(p, ["-1500"], rules) == "-1500"
+    end
+
+    test "age uses the FIDE 1-January convention against the given tournament_year" do
+      rules = %{"U18" => %{"age_below" => 18}}
+      p = player(fide_rating: 0, national_rating: 0, birth_year: 2008)
+      # age at 1 Jan 2026 = 2026 - 2008 - 1 = 17, under 18.
+      assert PlayerStats.assign_category(p, ["U18"], rules, 2026) == "U18"
+      # age at 1 Jan 2027 = 18, no longer under 18.
+      assert PlayerStats.assign_category(p, ["U18"], rules, 2027) == ""
+    end
+
+    test "no birth data at all never matches an age condition" do
+      rules = %{"U18" => %{"age_below" => 18}}
+      p = player(fide_rating: 0, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["U18"], rules, 2026) == ""
     end
   end
 

@@ -14,6 +14,32 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Feature] **A category can now combine rating, age and sex instead of picking
+  one SWAR-style threshold.** Each category's rule is any combination of five
+  conditions - rating from, rating below, age from, under age, women only - and
+  a player qualifies whenever every condition set is true for them. That makes
+  nested prizes (U1800 and U1600 both), bands (set both a rating floor and
+  ceiling on one category), and combined categories (rating below 1800 AND age
+  45+) all expressible directly, where SWAR's non-overlapping single-threshold
+  categories could not express any of the three. Age is counted the FIDE way -
+  on 1 January of the tournament's year, not "years since birth" - and the
+  Categories editor shows the equivalent birth-year range live next to every
+  age input so the arbiter can see exactly who qualifies before saving.
+  Existing tournaments' categories are converted to the new shape
+  automatically, on upgrade and on importing an older backup, with the exact
+  same auto-assign results they had before.
+- [Feature] **An optional prize count per category now highlights the places
+  that are actually prizes.** Set how many prizes a category has on the
+  Categories page, and the standings page's Category column shows each
+  player's place within every category they're in, with prize places picked
+  out visibly. A category selector above the table narrows the view to one
+  category at a time - "U1800 - 3 prizes" - numbered 1..n in that category
+  alone, with the choice kept in the page's link so it can be shared or
+  bookmarked. The printed per-category standings now number players the same
+  way, in place of the overall rank they used to show.
+
 ## [0.58.1] - 2026-09-11
 
 - [Fix] **The release 0.58.0 should have been.** 0.58.0's release page went out

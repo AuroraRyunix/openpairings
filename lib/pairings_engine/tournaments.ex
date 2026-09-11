@@ -10,6 +10,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Audit
   alias PairingsEngine.BusyWrite
   alias PairingsEngine.Categories
+  alias PairingsEngine.CategoryRules
   alias PairingsEngine.Repo
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Standings
@@ -2417,12 +2418,18 @@ defmodule PairingsEngine.Tournaments do
     # survives the run untouched - including a name the tournament no longer
     # lists, which a rating-driven pass is not the place to clean up.
     ruled = tournament.category_rules |> Map.keys() |> MapSet.new()
+    tournament_year = CategoryRules.tournament_year(tournament)
 
     tournament.id
     |> list_players()
     |> Enum.map(fn player ->
       assigned =
-        PlayerStats.assign_categories(player, tournament.categories, tournament.category_rules)
+        PlayerStats.assign_categories(
+          player,
+          tournament.categories,
+          tournament.category_rules,
+          tournament_year
+        )
 
       current = player.categories || []
       kept = Enum.reject(current, &MapSet.member?(ruled, &1))

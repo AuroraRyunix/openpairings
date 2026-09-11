@@ -973,14 +973,22 @@ defmodule PairingsEngineWeb.PrintController do
   # belongs on both prize lists, and this is the surface the whole feature
   # exists for: the equality test that used to be here is what put her on
   # exactly one of the two tables she had won.
+  #
+  # The rank column here is the IN-CATEGORY place (`Categories.category_places/2`
+  # - the one shared function `PairingsEngineWeb.StandingsLive`'s Category
+  # column and category selector also use), not the overall rank: a prize
+  # list for "U1800" reading "14, 27, 41, ..." made the arbiter recount by
+  # hand every time. Still the overall DISPLAYED order (`entries` arrives
+  # here already in that order, manual ranking included) - only the number
+  # printed beside each row changed.
   defp category_standings_tables(entries, tournament) do
     tb_headers = Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
 
     Enum.map_join(tournament.categories, "", fn category ->
       rows =
         entries
-        |> Enum.filter(&Categories.in_category?(&1.player, category))
-        |> Enum.map_join("", &standings_row(&1, tournament))
+        |> Categories.category_places(category)
+        |> Enum.map_join("", &standings_row(&1, tournament, "", &1.category_place))
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
         "<table><thead><tr>#{standings_head_cells()}" <>
@@ -992,8 +1000,8 @@ defmodule PairingsEngineWeb.PrintController do
     Enum.map_join(tournament.categories, "", fn category ->
       rows =
         entries
-        |> Enum.filter(&Categories.in_category?(&1.player, category))
-        |> Enum.map_join("", &keizer_standings_row(&1, nil, false))
+        |> Categories.category_places(category)
+        |> Enum.map_join("", &keizer_standings_row(&1, nil, false, &1.category_place))
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
         "<table><thead><tr>#{standings_head_cells()}" <>
@@ -1003,13 +1011,16 @@ defmodule PairingsEngineWeb.PrintController do
     end)
   end
 
-  defp standings_row(e, tournament, cat_cell \\ "") do
+  # `rank_override` is the in-category place for a per-category table
+  # (`category_standings_tables/2`); `nil` (the default, and what the main
+  # table always passes) keeps showing the overall `e.rank`.
+  defp standings_row(e, tournament, cat_cell, rank_override \\ nil) do
     tb_cells =
       Enum.map_join(tournament.tiebreaks, "", fn code ->
         "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
       end)
 
-    "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}#{cat_cell}</tr>"
@@ -1017,14 +1028,15 @@ defmodule PairingsEngineWeb.PrintController do
 
   # `tournament` is nil for the per-category tables below, which never show
   # the column - they are already titled with the category, so repeating it
-  # in every row would be noise.
-  defp keizer_standings_row(e, tournament, has_categories) do
+  # in every row would be noise. `rank_override` is the in-category place
+  # for those same tables, same reasoning as `standings_row/4`'s own.
+  defp keizer_standings_row(e, tournament, has_categories, rank_override \\ nil) do
     cat_cell =
       if has_categories,
         do: "<td>#{esc(category_or_dash(categories_text(tournament, e.player)))}</td>",
         else: ""
 
-    "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       "<td class=\"num\">#{e.value}</td><td class=\"num\"><strong>#{e.points}</strong></td>" <>

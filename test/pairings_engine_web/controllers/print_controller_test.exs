@@ -537,6 +537,54 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "Open, Women"
     end
 
+    test "the per-category table shows the IN-CATEGORY place, not the overall rank", %{
+      conn: conn,
+      scope: scope
+    } do
+      # After R2: A=2 (overall rank 1), B=1 (rank 2), C=0.5 (rank 3), D=0.5
+      # (rank 4) - see fixture/1's own comment. Only B and D are in "Open",
+      # so a table showing overall ranks would read "2, 4"; the in-category
+      # place renumbers them 1, 2.
+      {tournament, %{b: b, d: d}} = fixture(scope)
+
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"categories" => ["Open"]})
+      b |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+      d |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      [_main, category_table] = String.split(html, "Category: Open", parts: 2)
+
+      assert category_table =~
+               ~r/<td class="num">1<\/td><td><strong>#{b.name}<\/strong>/
+
+      assert category_table =~
+               ~r/<td class="num">2<\/td><td><strong>#{d.name}<\/strong>/
+
+      # The overall ranks (2 and 4) do not appear as this table's place
+      # numbers - confirms the column was actually renumbered, not just
+      # coincidentally showing "1" and "2" some other way.
+      refute category_table =~ ~r/<td class="num">4<\/td><td><strong>#{d.name}<\/strong>/
+    end
+
+    test "a keizer tournament's per-category table also shows the in-category place", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = keizer_fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"categories" => ["Open"]})
+
+      [p1, p2 | _rest] = Tournaments.list_players(tournament.id)
+      p1 |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+      p2 |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      [_main, category_table] = String.split(html, "Category: Open", parts: 2)
+      assert category_table =~ ~s(<td class="num">1</td>)
+      assert category_table =~ ~s(<td class="num">2</td>)
+    end
+
     test "a keizer tournament prints the ladder table (Value/Keizer pts/Score), not FIDE points/tiebreak columns",
          %{
            conn: conn,

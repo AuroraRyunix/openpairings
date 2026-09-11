@@ -291,8 +291,31 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
     end
   end
 
-  describe "threshold rules" do
-    test "a category with a rule shows it, and one without shows a dash", %{
+  describe "condition-set rules" do
+    test "a category with a rule shows a summary, and one without says hand-assigned", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      html =
+        lv
+        |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "1100"})
+        |> render_submit()
+
+      assert html =~ "rating below 1100"
+
+      html = lv |> form("#add-category-form", %{"name" => "Open"}) |> render_submit()
+      assert html =~ "Open"
+      assert html =~ "Hand-assigned"
+
+      reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert reloaded.categories == ["-1100", "Open"]
+      assert reloaded.category_rules == %{"-1100" => %{"rating_below" => 1100}}
+    end
+
+    test "a category combining rating, age and women shows every condition in the summary", %{
       conn: conn,
       scope: scope
     } do
@@ -302,20 +325,26 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       html =
         lv
         |> form("#add-category-form", %{
-          "name" => "-1100",
-          "kind" => "elo_below",
-          "value" => "1100"
+          "name" => "45+ women",
+          "rating_from" => "1600",
+          "rating_below" => "1800",
+          "age_from" => "45",
+          "women" => "true"
         })
         |> render_submit()
 
-      assert html =~ "below 1100 Elo"
-
-      html = lv |> form("#add-category-form", %{"name" => "Open"}) |> render_submit()
-      assert html =~ "Open"
+      assert html =~ "rating 1600-1799, age 45+, women"
 
       reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
-      assert reloaded.categories == ["-1100", "Open"]
-      assert reloaded.category_rules == %{"-1100" => %{"kind" => "elo_below", "value" => 1100}}
+
+      assert reloaded.category_rules == %{
+               "45+ women" => %{
+                 "rating_from" => 1600,
+                 "rating_below" => 1800,
+                 "age_from" => 45,
+                 "women" => true
+               }
+             }
     end
 
     test "a non-numeric or zero threshold is rejected, and no category is created", %{
@@ -327,30 +356,26 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
 
       html =
         lv
-        |> form("#add-category-form", %{
-          "name" => "-1100",
-          "kind" => "elo_below",
-          "value" => "abc"
-        })
+        |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "abc"})
         |> render_submit()
 
       assert html =~ "positive whole number"
 
       html =
         lv
-        |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "0"})
+        |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "0"})
         |> render_submit()
 
       assert html =~ "positive whole number"
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == []
     end
 
-    test "removing a category also removes its rule", %{conn: conn, scope: scope} do
+    test "removing a category also removes its rule and prize count", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope, %{"categories_enabled" => true})
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
 
       lv
-      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "1100"})
       |> render_submit()
 
       lv |> element(~s(button[phx-value-name="-1100"]), "Remove") |> render_click()
@@ -359,6 +384,45 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
       assert reloaded.categories == []
       assert reloaded.category_rules == %{}
+      assert reloaded.category_prizes == %{}
+    end
+
+    test "editing an existing category's conditions and prize count through the rules table", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv |> form("#add-category-form", %{"name" => "U1800"}) |> render_submit()
+
+      html =
+        lv
+        |> form("#rules-form", %{"rule" => %{"0" => %{"rating_below" => "1800", "prize" => "3"}}})
+        |> render_submit()
+
+      assert html =~ "rating below 1800"
+
+      reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert reloaded.category_rules == %{"U1800" => %{"rating_below" => 1800}}
+      assert reloaded.category_prizes == %{"U1800" => 3}
+    end
+
+    test "the birth-year hint next to an age input updates live as it is typed", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv |> form("#add-category-form", %{"name" => "U16"}) |> render_submit()
+
+      html =
+        lv
+        |> form("#rules-form", %{"rule" => %{"0" => %{"age_below" => "16"}}})
+        |> render_change()
+
+      assert html =~ "born #{Date.utc_today().year - 16} or later"
     end
 
     test "Assign categories only appears once a rule exists, previews the diff, and applies on confirm",
@@ -378,7 +442,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       refute html =~ "Assign categories"
 
       lv
-      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "1100"})
       |> render_submit()
 
       html =
@@ -423,7 +487,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
 
       lv
-      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "1100"})
       |> render_submit()
 
       lv |> element(~s(button[phx-click="assign_categories"])) |> render_click()
@@ -451,7 +515,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
 
       lv
-      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> form("#add-category-form", %{"name" => "-1100", "rating_below" => "1100"})
       |> render_submit()
 
       html =

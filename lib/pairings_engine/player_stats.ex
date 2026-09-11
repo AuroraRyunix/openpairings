@@ -5,49 +5,30 @@ defmodule PairingsEngine.PlayerStats do
   can be unit tested without building a tournament/DB fixture.
   """
 
+  alias PairingsEngine.CategoryRules
   alias PairingsEngine.Tournaments.Player
 
   @doc """
-  Picks the tightest-matching threshold PRIZE category (SWAR CATEGORIES -
-  distinct from the Belgian age category above) for `player`, from a
-  tournament's `category_order` (its `categories` list, in the order
-  shown/defined) and `category_rules` (name => `%{"kind" =>
-  "elo_below"|"elo_above"|"age_below"|"age_above", "value" => integer}`).
+  The single category that wins for `player` under `category_rules` - the
+  first of `assign_categories/4`'s result, in `category_order`. Kept for
+  callers (and tests) that only want "the" ruled category; `player.category`
+  itself is written from this same list by
+  `PairingsEngine.Categories.pairing_category/2`, not by re-deriving a
+  winner here.
 
-  A category with no rule in `category_rules` is never matched here - it
-  stays a plain name the arbiter assigns by hand.
+  Returns `""` when nothing matches.
 
-  ## Picking the tightest match
-
-  A 1000-rated player in a tournament with both "-1200" (`elo_below`
-  1200) and "-1100" (`elo_below` 1100) qualifies for both - 1000 is under
-  either ceiling - and lands in **"-1100"**: the smaller ceiling is the
-  more specific bracket. Symmetrically, `elo_above`/`age_above` pick the
-  LARGEST qualifying floor. This is computed independently per `kind`
-  (comparing an Elo ceiling against an age floor means nothing), so each
-  kind present contributes at most one candidate.
-
-  If a player ends up qualifying under more than one KIND at once - an
-  Elo category and an age category both defined and both matching - the
-  tie is broken by `category_order`: whichever kind's winning category
-  comes FIRST in that list wins outright. Arbiters who want a specific
-  kind to take priority should list it first.
-
-  Returns `""` when nothing matches, including when the player is missing
-  the data a rule needs (no rating for an Elo rule, no birth year for an
-  age rule).
-
-      iex> rules = %{"-1200" => %{"kind" => "elo_below", "value" => 1200}, "-1100" => %{"kind" => "elo_below", "value" => 1100}}
-      iex> PairingsEngine.PlayerStats.assign_category(%PairingsEngine.Tournaments.Player{fide_rating: 1000, national_rating: 0}, ["-1200", "-1100"], rules)
-      "-1100"
+      iex> rules = %{"U1800" => %{"rating_below" => 1800}}
+      iex> PairingsEngine.PlayerStats.assign_category(%PairingsEngine.Tournaments.Player{fide_rating: 1000, national_rating: 0}, ["U1800"], rules)
+      "U1800"
   """
   def assign_category(
         %Player{} = player,
         category_order,
         category_rules,
-        current_year \\ Date.utc_today().year
+        tournament_year \\ Date.utc_today().year
       ) do
-    case assign_categories(player, category_order, category_rules, current_year) do
+    case assign_categories(player, category_order, category_rules, tournament_year) do
       [] -> ""
       [first | _rest] -> first
     end
@@ -55,76 +36,47 @@ defmodule PairingsEngine.PlayerStats do
 
   @doc """
   Every category `player` qualifies for under `category_rules`, in
-  `category_order`, rather than only the one that wins.
+  `category_order`.
 
-  This is the same computation `assign_category/4` has always done - one
-  tightest match per rule KIND - stopping one step earlier. The collapse to
-  a single name was never a decision about what the player is; it was a
-  decision forced by there being one column to write it to. A player who is
-  under an Elo ceiling AND under an age ceiling really does belong to both
-  brackets, and both are prize lists somebody has to produce.
+  Delegates the actual condition matching to `PairingsEngine.CategoryRules`
+  - see its moduledoc for what a rule's five conditions mean and why
+  qualifying for several at once (an Elo ceiling AND an age ceiling, or two
+  overlapping Elo ceilings such as U1800 and U1600) is correct here rather
+  than something to collapse to one winner. That collapse only ever
+  happened for the single pairing-pool override
+  (`PairingsEngine.Categories.pairing_category/2`), never for this list.
 
-  `assign_category/4` is now this list's head, so "the winner" keeps
-  meaning exactly what it did: first in `category_order`, which is the
-  arbiter's own order on the Categories page.
+  `tournament_year` is the year a category's age conditions are evaluated
+  against (FIDE's 1 January convention - see
+  `CategoryRules.age_at_year_start/2`); callers with a real tournament
+  should pass `CategoryRules.tournament_year(tournament)` rather than
+  relying on the default, which is today's real calendar year and exists
+  mainly for callers (and tests) with no tournament record to derive one
+  from.
 
-  A category with no rule is never returned here - it stays a name the
-  arbiter assigns by hand, and a rule-driven re-run must not claim it.
+  A category with no rule (`CategoryRules.rule_owned?/1` false) is never
+  returned here - it stays a name the arbiter assigns by hand, and a
+  rule-driven re-run must not claim it.
 
-      iex> rules = %{"-1200" => %{"kind" => "elo_below", "value" => 1200}, "U16" => %{"kind" => "age_below", "value" => 16}}
+      iex> rules = %{"U1800" => %{"rating_below" => 1800}, "U16" => %{"age_below" => 16}}
       iex> player = %PairingsEngine.Tournaments.Player{fide_rating: 1000, national_rating: 0, birth_year: 2015}
-      iex> PairingsEngine.PlayerStats.assign_categories(player, ["-1200", "U16"], rules, 2026)
-      ["-1200", "U16"]
+      iex> PairingsEngine.PlayerStats.assign_categories(player, ["U1800", "U16"], rules, 2026)
+      ["U1800", "U16"]
   """
   def assign_categories(
         %Player{} = player,
         category_order,
         category_rules,
-        current_year \\ Date.utc_today().year
+        tournament_year \\ Date.utc_today().year
       ) do
     rating = Player.rating(player)
-    age = if player.birth_year, do: current_year - player.birth_year, else: nil
-    order_index = category_order |> Enum.with_index() |> Map.new()
+    age = CategoryRules.age_at_year_start(player, tournament_year)
 
     category_order
-    |> Enum.map(fn name -> {name, Map.get(category_rules, name)} end)
-    |> Enum.filter(fn {_name, rule} -> rule != nil and rule_qualifies?(rule, rating, age) end)
-    |> Enum.group_by(fn {_name, rule} -> rule["kind"] end)
-    |> Enum.map(fn {_kind, matches} ->
-      Enum.min_by(matches, fn {_n, r} -> tightness_key(r) end)
+    |> Enum.filter(fn name ->
+      CategoryRules.matches?(Map.get(category_rules, name), player, rating, age)
     end)
-    |> Enum.map(&elem(&1, 0))
-    |> Enum.sort_by(&Map.fetch!(order_index, &1))
   end
-
-  # An unrated player (rating 0 - `Player.rating/1` never returns a
-  # negative number) still qualifies for a below-ceiling bracket: 0 is
-  # genuinely under any positive threshold, and treating "no rating on
-  # file" as "definitely not the lowest bracket" was backwards - an
-  # unrated player is, if anything, the LEAST likely to be over a rating
-  # ceiling. `elo_above` keeps its `rating > 0` guard deliberately: an
-  # unrated player has no proven rating to be ABOVE anything.
-  defp rule_qualifies?(%{"kind" => "elo_below", "value" => v}, rating, _age),
-    do: rating < v
-
-  defp rule_qualifies?(%{"kind" => "elo_above", "value" => v}, rating, _age),
-    do: rating > 0 and rating > v
-
-  defp rule_qualifies?(%{"kind" => "age_below", "value" => v}, _rating, age),
-    do: age != nil and age < v
-
-  defp rule_qualifies?(%{"kind" => "age_above", "value" => v}, _rating, age),
-    do: age != nil and age > v
-
-  defp rule_qualifies?(_rule, _rating, _age), do: false
-
-  # Smaller is tighter for both kinds: a below-rule's own value (smaller
-  # ceiling wins), or the negation of an above-rule's value (so a LARGER
-  # floor produces a SMALLER key and still wins the `min_by`).
-  defp tightness_key(%{"kind" => "elo_below", "value" => v}), do: v
-  defp tightness_key(%{"kind" => "elo_above", "value" => v}), do: -v
-  defp tightness_key(%{"kind" => "age_below", "value" => v}), do: v
-  defp tightness_key(%{"kind" => "age_above", "value" => v}), do: -v
 
   # NOTE: a hardcoded Belgian KBSB age-bracket helper (`category/2`,
   # returning "-8"/"-18"/"SEN"/"S50"/"S65") used to live here and fed the

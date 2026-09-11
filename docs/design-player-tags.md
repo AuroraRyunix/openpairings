@@ -1,5 +1,19 @@
 # Several categories per player
 
+**Superseded in part by the condition-set category rules (2026-09-11).**
+This document was written before `category_rules` had any shape at all -
+every citation below still describes the legacy `"kind"`/`"value"` shape,
+which no longer exists in a live tournament (see
+`PairingsEngine.CategoryRules.migrate_legacy_rules/2` and the
+`MigrateLegacyCategoryRules` data migration). The single-valued
+pairing-pool problem this document diagnoses, and the "one pairing
+category, many tags" split it proposes, are exactly what shipped and
+still stand; the RULE part - "one threshold per category, tightest wins" -
+is superseded by `PairingsEngine.CategoryRules`'s any-combination-of-five-
+conditions model (rating from/below, age from/below, women), and by the
+per-category prize counts on `tournament.category_prizes`. Read this for
+the pairing-pool history, not for the current rule shape.
+
 Design for the TODO.md item "Several categories per player, and sorting on
 them - wanted 2026-09-08". Nothing here has been built; every claim about
 current behaviour was checked against the source and carries a file and

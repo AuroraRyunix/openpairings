@@ -195,16 +195,66 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # tournament-defined category names (SWAR CATEGORIES)
     field :categories, {:array, :string}, default: []
 
-    # Optional threshold RULE behind a category name, keyed by that name -
-    # `%{"-1100" => %{"kind" => "elo_below", "value" => 1100}}`. `kind` is
-    # one of "elo_below" | "elo_above" | "age_below" | "age_above". A
-    # category with no entry here stays exactly what it always was: a
-    # plain name the arbiter assigns to `player.category` by hand on the
-    # Players page. One with a rule can instead be filled in for every
-    # player at once via `Tournaments.auto_assign_categories/1` - see
-    # `PairingsEngine.PlayerStats.assign_category/4` for how a player
-    # matching more than one threshold picks the tightest.
+    # Optional CONDITION SET behind a category name, keyed by that name -
+    # e.g. `%{"1600-1799" => %{"rating_from" => 1600, "rating_below" =>
+    # 1800}, "45+ women" => %{"age_from" => 45, "women" => true}}`. Each
+    # entry is a map carrying any combination of five recognised keys, all
+    # optional:
+    #
+    #   "rating_from"  - integer, player's Elo (`Player.rating/1`) >= this
+    #   "rating_below" - integer, player's Elo < this
+    #   "age_from"     - integer, player's FIDE age (see below) >= this
+    #   "age_below"    - integer, player's FIDE age < this
+    #   "women"        - `true`, player's `sex` field == "w"
+    #
+    # Only the keys actually set are stored - an empty map (or no entry at
+    # all) means the same thing a missing entry always has: this category
+    # stays a plain name the arbiter assigns to `player.category`/
+    # `player.categories` by hand on the Players page. A category WITH at
+    # least one key set is rule-owned and can instead be filled in for
+    # every player at once via `Tournaments.auto_assign_categories/1` - a
+    # player qualifies when EVERY condition the category sets is true for
+    # them, so two rule-owned categories are free to overlap (U1800 and
+    # U1600 both matching a 1500-rated player is the point, not a
+    # collapse-away case the way SWAR's non-overlapping bands would
+    # force). See `PairingsEngine.CategoryRules` for the full condition
+    # language, the exact matching semantics (including the unrated-player
+    # and missing-birth-data readings), and `rule_owned?/1`, the one test
+    # for "does this category have a rule".
+    #
+    # Age is the player's age on 1 January of the tournament's year (FIDE's
+    # convention - see `CategoryRules.tournament_year/1` for which year
+    # that is and `CategoryRules.age_at_year_start/2` for the exact
+    # arithmetic, birth-date-aware when the player has one). This differs
+    # by one from the legacy age arithmetic a tournament created before
+    # this shape existed used (`year - birth_year`, no adjustment) - a
+    # tournament migrated from the old `"kind"`/`"value"` shape
+    # (`CategoryRules.migrate_legacy_rules/2`, run once by
+    # `MigrateLegacyCategoryRules` for every tournament that predates this
+    # field, and again by `PairingsEngine.TournamentImport` for an older
+    # backup file) has already had that difference translated away, so its
+    # auto-assign results are unchanged by the shape switch.
     field :category_rules, :map, default: %{}
+
+    # Optional PRIZE COUNT per category, keyed by name - e.g. `%{"U1800" =>
+    # 3}` for "3 prizes in this category". Deliberately a SEPARATE field
+    # from `category_rules` rather than a sixth key on its entry: whether a
+    # category is rule-owned is decided entirely by `category_rules`
+    # (`CategoryRules.rule_owned?/1`), and a prize count has nothing to do
+    # with that question - giving a hand-assigned category a prize count
+    # must not turn it into one `auto_assign_categories/1` would touch, and
+    # a rule-owned category with no prizes configured (most of them, most
+    # of the time) must not need an empty placeholder here just to avoid
+    # looking rule-owned by this field's presence.
+    #
+    # A name with no entry (or an entry of `0`) means "no prize count set" -
+    # `PairingsEngine.Categories.prize_place?/3` treats both the same way,
+    # so nothing here is highlighted on the standings page until an arbiter
+    # actually sets a count. Purely informational: nothing allocates an
+    # actual prize or enforces "one prize per player" across categories a
+    # player is in more than one of - see docs/design-player-tags.md for
+    # that as a documented follow-up, not something this field does.
+    field :category_prizes, :map, default: %{}
 
     # FIDE "Code of event" (FA1/IA1 B6, IT4 S4 "FIDE Event code")
     field :event_code, :string, default: ""
@@ -725,6 +775,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :round_dates,
       :categories,
       :category_rules,
+      :category_prizes,
       :event_code,
       :fide_tournament_id,
       :fide_homologated,
@@ -780,6 +831,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
     |> normalize_fide_id_ranges()
+    |> normalize_category_prizes()
     |> put_public_slug()
     |> pad_round_dates_to_rounds_count()
     |> derive_dates_from_round_dates()
@@ -1255,6 +1307,47 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @doc "A fresh random public-page slug (72 bits, url-safe). Also used by Tournaments.rotate_public_slug/1."
   def generate_public_slug, do: :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)
+
+  # Coerces every value in `category_prizes` to a non-negative integer,
+  # dropping anything that doesn't parse as one (a blank form field, a
+  # negative number, stray non-numeric input) rather than failing the whole
+  # save - the same "tidy what's there, refuse nothing outright" precedent
+  # `normalize_exclusion_list/2` sets, chosen here because a bad prize count
+  # is display-only (see `PairingsEngine.Categories.prize_place?/3`) and
+  # never something pairing or scoring reads. A category name is not
+  # checked against `categories` here - same reasoning as
+  # `category_rules`, which has never pruned itself when a category is
+  # removed (see `CategoriesLive.remove_category/2`): the count is a fact
+  # an arbiter set, and re-adding the name should bring it back.
+  defp normalize_category_prizes(changeset) do
+    case get_change(changeset, :category_prizes) do
+      nil ->
+        changeset
+
+      value when is_map(value) ->
+        normalized =
+          value
+          |> Enum.map(fn {name, count} -> {to_string(name), coerce_prize_count(count)} end)
+          |> Enum.reject(fn {_name, count} -> count == nil end)
+          |> Map.new()
+
+        put_change(changeset, :category_prizes, normalized)
+
+      _not_a_map ->
+        add_error(changeset, :category_prizes, "must be a map of category name to prize count")
+    end
+  end
+
+  defp coerce_prize_count(count) when is_integer(count) and count >= 0, do: count
+
+  defp coerce_prize_count(count) when is_binary(count) do
+    case Integer.parse(String.trim(count)) do
+      {n, ""} when n >= 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp coerce_prize_count(_count), do: nil
 
   @doc """
   The fields an arbiter must fill before a tournament can be paired. Until

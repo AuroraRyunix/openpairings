@@ -273,8 +273,8 @@ defmodule PairingsEngine.CategoriesTest do
 
   describe "PlayerStats.assign_categories/4" do
     @rules %{
-      "-1100" => %{"kind" => "elo_below", "value" => 1100},
-      "U16" => %{"kind" => "age_below", "value" => 16}
+      "-1100" => %{"rating_below" => 1100},
+      "U16" => %{"age_below" => 16}
     }
 
     test "a player under an Elo ceiling AND an age ceiling gets both" do
@@ -313,8 +313,8 @@ defmodule PairingsEngine.CategoriesTest do
         categories_enabled: true,
         categories: ["-1100", "-1800", "Women"],
         category_rules: %{
-          "-1100" => %{"kind" => "elo_below", "value" => 1100},
-          "-1800" => %{"kind" => "elo_below", "value" => 1800}
+          "-1100" => %{"rating_below" => 1100},
+          "-1800" => %{"rating_from" => 1100, "rating_below" => 1800}
         }
       })
     end
@@ -438,6 +438,59 @@ defmodule PairingsEngine.CategoriesTest do
 
       {:ok, p} = Tournaments.toggle_player_category(t, p, "Women", true)
       assert Categories.pairing_category(t, p) == "Women"
+    end
+  end
+
+  describe "category_places/2" do
+    defp entry(player, rank), do: %{player: player, rank: rank}
+
+    test "numbers 1..n in the given order, dropping players not in the category" do
+      a = %Player{id: 1, categories: ["Open"]}
+      b = %Player{id: 2, categories: []}
+      c = %Player{id: 3, categories: ["Open"]}
+
+      entries = [entry(a, 1), entry(b, 2), entry(c, 3)]
+
+      assert Categories.category_places(entries, "Open") == [
+               Map.put(entry(a, 1), :category_place, 1),
+               Map.put(entry(c, 3), :category_place, 2)
+             ]
+    end
+
+    test "entries sharing the overall rank share the in-category place too" do
+      a = %Player{id: 1, categories: ["Open"]}
+      b = %Player{id: 2, categories: ["Open"]}
+      c = %Player{id: 3, categories: ["Open"]}
+
+      # a and b are tied for 1st overall; c is clear 3rd.
+      entries = [entry(a, 1), entry(b, 1), entry(c, 3)]
+      places = Categories.category_places(entries, "Open")
+
+      assert Enum.map(places, & &1.category_place) == [1, 1, 2]
+    end
+
+    test "a category with nobody in it returns an empty list" do
+      a = %Player{id: 1, categories: ["Open"]}
+      assert Categories.category_places([entry(a, 1)], "U1800") == []
+    end
+  end
+
+  describe "prize_place?/3" do
+    test "true within the configured count, false beyond it" do
+      t = %Tournament{category_prizes: %{"Open" => 3}}
+      assert Categories.prize_place?(t, "Open", 1)
+      assert Categories.prize_place?(t, "Open", 3)
+      refute Categories.prize_place?(t, "Open", 4)
+    end
+
+    test "false when no count is configured for that category" do
+      t = %Tournament{category_prizes: %{}}
+      refute Categories.prize_place?(t, "Open", 1)
+    end
+
+    test "false when the configured count is zero" do
+      t = %Tournament{category_prizes: %{"Open" => 0}}
+      refute Categories.prize_place?(t, "Open", 1)
     end
   end
 end

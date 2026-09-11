@@ -553,7 +553,13 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.keizer_top_value == 40
       assert imported.categories_enabled
       assert imported.categories == ["Open", "U18"]
-      assert imported.category_rules == %{"U18" => %{"kind" => "age_below", "value" => 18}}
+      # The legacy rule shape this tournament was written with (bypassing
+      # `Tournament.changeset/2`, same as a pre-conversion export would
+      # carry) is converted at the import door - see
+      # `CategoryRules.migrate_legacy_rules/2` and the "legacy category
+      # rules are converted at the import door" describe block below for
+      # the conversion arithmetic itself.
+      assert imported.category_rules == %{"U18" => %{"age_below" => 17}}
       assert imported.club_exclusion == "all"
       assert imported.fed_exclusion == "listed"
       assert imported.fed_exclusion_list == "BEL, NED"
@@ -695,6 +701,89 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.id
              |> Tournaments.list_players()
              |> Enum.all?(&is_nil(&1.manual_rank))
+    end
+  end
+
+  describe "legacy category rules are converted at the import door" do
+    # A file from before the condition-set shape existed still carries the
+    # `"kind"`/`"value"` rules - built with a raw struct insert (bypassing
+    # `Tournament.changeset/2`, same as `original` in the describe block
+    # above) so the export genuinely carries the old shape rather than a
+    # changeset silently normalising it away first.
+    defp legacy_category_tournament(owner, category_rules) do
+      Repo.insert!(%Tournament{
+        name: "Legacy Categories",
+        type: "swiss",
+        rounds_count: 3,
+        user_id: owner.user.id,
+        categories_enabled: true,
+        categories: category_rules |> Map.keys() |> Enum.sort(),
+        category_rules: category_rules
+      })
+    end
+
+    test "a single-rule import converts kind/value to the new condition keys" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        legacy_category_tournament(owner, %{"U18" => %{"kind" => "age_below", "value" => 18}})
+
+      assert {:ok, [imported]} =
+               original
+               |> TournamentExport.export_tournament()
+               |> TournamentImport.import(importer)
+
+      assert Repo.reload!(imported).category_rules == %{"U18" => %{"age_below" => 17}}
+    end
+
+    test "a same-kind pair converts to mutually exclusive bands, same as the migration" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        legacy_category_tournament(owner, %{
+          "-1100" => %{"kind" => "elo_below", "value" => 1100},
+          "-1200" => %{"kind" => "elo_below", "value" => 1200}
+        })
+
+      assert {:ok, [imported]} =
+               original
+               |> TournamentExport.export_tournament()
+               |> TournamentImport.import(importer)
+
+      assert Repo.reload!(imported).category_rules == %{
+               "-1100" => %{"rating_below" => 1100},
+               "-1200" => %{"rating_from" => 1100, "rating_below" => 1200}
+             }
+    end
+
+    test "restoring a snapshot converts the same way import does" do
+      owner = user_scope()
+
+      original =
+        legacy_category_tournament(owner, %{"U18" => %{"kind" => "age_below", "value" => 18}})
+
+      restore(original)
+
+      assert Repo.reload!(original).category_rules == %{"U18" => %{"age_below" => 17}}
+    end
+
+    test "a file already in the new shape is left untouched" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        legacy_category_tournament(owner, %{"45+" => %{"age_from" => 45, "women" => true}})
+
+      assert {:ok, [imported]} =
+               original
+               |> TournamentExport.export_tournament()
+               |> TournamentImport.import(importer)
+
+      assert Repo.reload!(imported).category_rules == %{
+               "45+" => %{"age_from" => 45, "women" => true}
+             }
     end
   end
 
