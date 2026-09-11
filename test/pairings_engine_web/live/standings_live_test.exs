@@ -535,4 +535,74 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       refute Tournaments.get_authorized_tournament!(scope, tournament.id).manual_ranking
     end
   end
+
+  describe "Publish the starting rank before round 1" do
+    test "shown before any round is paired, on by default", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Starting Rank", "type" => "swiss"})
+
+      assert tournament.publish_starting_rank
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ "Publish the starting rank before round 1"
+      assert html =~ ~s(phx-click="toggle_publish_starting_rank")
+      assert html =~ "Turn off"
+    end
+
+    test "gone once round 1 has been paired, whatever the value", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Already Paired", "type" => "swiss"})
+
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: ""
+      })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      refute html =~ "Publish the starting rank before round 1"
+    end
+
+    test "clicking Turn off persists, and survives a fresh page load", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Toggle Persists", "type" => "swiss"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      html = lv |> element("button", "Turn off") |> render_click()
+
+      assert html =~ "Turn on"
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).publish_starting_rank
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      assert html =~ "Turn on"
+      assert html =~ "Publish the starting rank before round 1"
+    end
+
+    test "clicking Turn on flips it back", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Toggle Back", "type" => "swiss"})
+
+      {:ok, off} = Tournaments.update_tournament(tournament, %{"publish_starting_rank" => false})
+      refute off.publish_starting_rank
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      html = lv |> element("button", "Turn on") |> render_click()
+
+      assert html =~ "Turn off"
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_starting_rank
+    end
+  end
 end

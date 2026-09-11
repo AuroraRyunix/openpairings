@@ -46,9 +46,13 @@ defmodule PairingsEngine.SnapshotTest do
       refute json =~ @unpublished_round_result
 
       # And its results must not reach the standings either: `after_round` is
-      # the longest contiguous published prefix, so round 5's published
-      # results do not drag round 4's held-back ones in behind them.
-      assert snapshot["standings"]["after_round"] == 3
+      # the longest contiguous prefix of rounds both published AND complete,
+      # so round 5's published results do not drag round 4's held-back ones
+      # in behind them. It stops at 2 rather than 3 for a second, independent
+      # reason: round 3's own board 3 has no result yet (see
+      # `result_at(snapshot, 3, 3) == nil` below) - a published-but-incomplete
+      # round stops the count exactly like an unpublished one does.
+      assert snapshot["standings"]["after_round"] == 2
     end
 
     test "a hidden board is absent from boards, players and results alike" do
@@ -105,6 +109,68 @@ defmodule PairingsEngine.SnapshotTest do
         assert Map.keys(player) |> Enum.sort() ==
                  ~w(categories category club federation fide_id name no rating title)
       end
+    end
+  end
+
+  describe "publish_starting_rank - withholding the roster before round 1" do
+    defp roster_tournament(attrs) do
+      tournament =
+        Repo.insert!(
+          struct(
+            %Tournament{
+              name: "Roster",
+              type: "swiss",
+              pairing_system: "swiss",
+              rounds_count: 3,
+              publish_mode: "manual",
+              public_slug: "roster-#{System.unique_integer([:positive])}"
+            },
+            attrs
+          )
+        )
+
+      for {no, name} <- [{1, "Alice"}, {2, "Bob"}] do
+        Repo.insert!(%Player{tournament_id: tournament.id, pairing_number: no, name: name})
+      end
+
+      tournament
+    end
+
+    test "withheld when the toggle is off and no round has published yet" do
+      tournament = roster_tournament(%{publish_starting_rank: false})
+
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["players"] == []
+      assert snapshot["rounds"] == []
+      assert snapshot["standings"]["rows"] == []
+      assert snapshot["standings"]["after_round"] == 0
+    end
+
+    test "shown when nothing is published, but the toggle is on (the default)" do
+      tournament = roster_tournament(%{})
+
+      snapshot = Snapshot.build(tournament)
+
+      assert length(snapshot["players"]) == 2
+    end
+
+    test "shown once any round is published, regardless of the toggle" do
+      tournament = roster_tournament(%{publish_starting_rank: false})
+
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: ~U[2026-01-01 00:00:00Z]
+      })
+
+      snapshot = Snapshot.build(Tournaments.get_tournament!(tournament.id))
+
+      # By this point the round names these same players on its own boards
+      # (once any are paired) - withholding the roster here would leave a
+      # snapshot that is internally inconsistent, not merely sparse.
+      assert length(snapshot["players"]) == 2
     end
   end
 

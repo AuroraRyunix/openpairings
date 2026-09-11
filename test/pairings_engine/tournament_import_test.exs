@@ -535,6 +535,7 @@ defmodule PairingsEngine.TournamentImportTest do
           extra_points_bands: "1400:1",
           publish_mode: "manual",
           publish_delay_minutes: 15,
+          publish_starting_rank: false,
           abs_value: 0.5,
           abs_jusque: 7,
           abs_nbfois: 2,
@@ -567,11 +568,42 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.extra_points_bands == "1400:1"
       assert imported.publish_mode == "manual"
       assert imported.publish_delay_minutes == 15
+      refute imported.publish_starting_rank
       assert imported.abs_value == 0.5
       assert imported.abs_jusque == 7
       assert imported.abs_nbfois == 2
       assert imported.absent_counts_as_vur
       assert imported.fide_homologated
+    end
+
+    test "an older backup with no publish_starting_rank key imports as the default (true)" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Pre-existing Backup",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id,
+          publish_starting_rank: false
+        })
+
+      # A file written before this key existed simply does not have it -
+      # simulated here by removing it from a real export rather than by
+      # hand-writing an envelope, so the shape stays honest. The live
+      # tournament is deliberately `false` first, to prove the import path
+      # is not just carrying the live default through unexamined.
+      envelope =
+        update_in(
+          TournamentExport.export_tournament(original),
+          ["tournaments", Access.at(0), "tournament"],
+          &Map.delete(&1, "publish_starting_rank")
+        )
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert imported.publish_starting_rank
     end
 
     test "manual ranking round-trips with its actual order, not just the flag" do

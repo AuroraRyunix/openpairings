@@ -130,6 +130,44 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
+  # SWAR has no equivalent - this is what OpenResults calls the "Starting
+  # rank": the entry list, ordered by start number, shown in place of
+  # standings on the public page until round 1 has results. Only offered
+  # while `@rounds_paired == 0` (see `render/1`), so this is unreachable
+  # once a round exists - the write path still refuses defensively rather
+  # than trust that.
+  #
+  # `Tournaments.update_tournament/2` rather than a dedicated `set_*`
+  # function like the other publish toggles on the Results settings page:
+  # this is an ordinary cast field (see `Tournament.changeset/2`), ONLY
+  # visible in a different place, so it gets the ordinary write path
+  # instead of a special one - the usual broadcast/publish-enqueue and the
+  # archived/writable guards apply exactly as they do for any other
+  # settings save.
+  @impl true
+  def handle_event("toggle_publish_starting_rank", _params, socket) do
+    tournament = socket.assigns.tournament
+    enabled? = !tournament.publish_starting_rank
+
+    case Tournaments.update_tournament(tournament, %{"publish_starting_rank" => enabled?}) do
+      {:ok, tournament} ->
+        Audit.log(
+          tournament.id,
+          socket.assigns.current_scope,
+          "standings.starting_rank_toggled",
+          %{enabled: enabled?}
+        )
+
+        {:noreply, assign(socket, tournament: tournament)}
+
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+    end
+  end
+
   @impl true
   def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket)
       when direction in ["up", "down"] do
@@ -454,6 +492,43 @@ defmodule PairingsEngineWeb.StandingsLive do
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
             {gettext("Print")}
           </a>
+        </div>
+      </div>
+
+      <%!-- Only meaningful before this tournament has anything to show
+            instead of a roster - once round 1 is paired, the public page
+            never falls back to the starting rank again regardless of this
+            setting (see PairingsEngine.Snapshot), so the control would be a
+            toggle with no effect. Gone rather than disabled, so its
+            disappearance is itself the confirmation that it no longer
+            matters. --%>
+      <div :if={@rounds_paired == 0} class="card" style="margin-bottom: 12px">
+        <div class="set-field solo">
+          <span class="set-label">{gettext("Publish the starting rank before round 1")}</span>
+          <p class="hint" style="margin: 4px 0 0">
+            {gettext(
+              "Shows the entry list, ordered by start number, on the public results page until round 1 has results."
+            )}
+          </p>
+          <p class="hint" style="margin: 4px 0 0">
+            <.rich_text text={
+              gettext("Only has an effect while %[link] is turned on for this tournament.")
+            }>
+              <:part name="link">
+                <.link navigate={~p"/t/#{@tournament.id}/settings/results"}>
+                  {gettext("publishing")}
+                </.link>
+              </:part>
+            </.rich_text>
+          </p>
+          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+            <span class={["state-pill", @tournament.publish_starting_rank && "is-on"]}>
+              {if @tournament.publish_starting_rank, do: gettext("On"), else: gettext("Off")}
+            </span>
+            <button type="button" class="pe-btn" phx-click="toggle_publish_starting_rank">
+              {if @tournament.publish_starting_rank, do: gettext("Turn off"), else: gettext("Turn on")}
+            </button>
+          </div>
         </div>
       </div>
 

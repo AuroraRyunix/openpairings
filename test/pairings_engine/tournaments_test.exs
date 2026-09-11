@@ -2262,17 +2262,23 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
-  describe "published_through_round/1" do
-    defp gated_tournament(mode) do
+  describe "standings_through_round/1" do
+    defp gated_tournament(mode, attrs \\ %{}) do
       scope = user_scope()
 
       {:ok, t} =
-        Tournaments.create_tournament(scope, %{
-          "name" => "Gated",
-          "type" => "swiss",
-          "rounds_count" => 5,
-          "publish_mode" => mode
-        })
+        Tournaments.create_tournament(
+          scope,
+          Map.merge(
+            %{
+              "name" => "Gated",
+              "type" => "swiss",
+              "rounds_count" => 5,
+              "publish_mode" => mode
+            },
+            attrs
+          )
+        )
 
       t
     end
@@ -2286,11 +2292,29 @@ defmodule PairingsEngine.TournamentsTest do
       })
     end
 
+    # A single board in `round`, with `result` - `""` leaves the round
+    # incomplete (`Pairing.round_complete?/2` looks for exactly that), any
+    # other value (including "bye") finishes it. Two fresh players every
+    # call rather than shared ones, since nothing here cares who's on the
+    # board, only whether it carries a result.
+    defp seat_board(t, round, result) do
+      a = Repo.insert!(%Player{tournament_id: t.id, name: "R#{round.number}A"})
+      b = Repo.insert!(%Player{tournament_id: t.id, name: "R#{round.number}B"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: result
+      })
+    end
+
     test "immediate mode publishes every round that exists" do
       t = gated_tournament("immediate")
       for n <- 1..3, do: round_with(t, n, nil)
 
-      assert Tournaments.published_through_round(t) == 3
+      assert Tournaments.standings_through_round(t) == 3
     end
 
     test "manual mode counts only the rounds actually published" do
@@ -2301,7 +2325,7 @@ defmodule PairingsEngine.TournamentsTest do
       round_with(t, 2, now)
       round_with(t, 3, nil)
 
-      assert Tournaments.published_through_round(t) == 2
+      assert Tournaments.standings_through_round(t) == 2
     end
 
     test "a hole stops the count, even when later rounds are published" do
@@ -2317,14 +2341,14 @@ defmodule PairingsEngine.TournamentsTest do
       # highest published number: standings through 3 would carry round 2's
       # results, so withholding round 2 would hide its pairings and publish
       # its results in the table beside them.
-      assert Tournaments.published_through_round(t) == 1
+      assert Tournaments.standings_through_round(t) == 1
     end
 
     test "nothing published is zero, not one" do
       t = gated_tournament("manual")
       round_with(t, 1, nil)
 
-      assert Tournaments.published_through_round(t) == 0
+      assert Tournaments.standings_through_round(t) == 0
     end
 
     test "a round scheduled for the future is not published yet" do
@@ -2334,7 +2358,61 @@ defmodule PairingsEngine.TournamentsTest do
       round_with(t, 1, now)
       round_with(t, 2, DateTime.add(now, 3600, :second))
 
-      assert Tournaments.published_through_round(t) == 1
+      assert Tournaments.standings_through_round(t) == 1
+    end
+
+    test "a published round with no results yet does not count until complete" do
+      t = gated_tournament("immediate")
+      round = round_with(t, 1, nil)
+      seat_board(t, round, "")
+
+      assert Tournaments.standings_through_round(t) == 0
+    end
+
+    test "a published round counts once every board carries a result" do
+      t = gated_tournament("immediate")
+      round = round_with(t, 1, nil)
+      seat_board(t, round, "1-0")
+
+      assert Tournaments.standings_through_round(t) == 1
+    end
+
+    test "round 2 half-entered leaves the bound at round 1, not 2" do
+      t = gated_tournament("immediate")
+
+      r1 = round_with(t, 1, nil)
+      seat_board(t, r1, "1-0")
+
+      r2 = round_with(t, 2, nil)
+      seat_board(t, r2, "")
+
+      assert Tournaments.standings_through_round(t) == 1
+    end
+
+    test "a published-but-incomplete round in the middle stops the prefix, even with a complete round after it" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      r1 = round_with(t, 1, now)
+      seat_board(t, r1, "1-0")
+
+      r2 = round_with(t, 2, now)
+      seat_board(t, r2, "")
+
+      r3 = round_with(t, 3, now)
+      seat_board(t, r3, "1-0")
+
+      assert Tournaments.standings_through_round(t) == 1
+    end
+
+    test "Keizer tournaments are bound by the same published-and-complete rule" do
+      incomplete = gated_tournament("immediate", %{"pairing_system" => "keizer"})
+      seat_board(incomplete, round_with(incomplete, 1, nil), "")
+      assert Tournaments.standings_through_round(incomplete) == 0
+
+      complete = gated_tournament("immediate", %{"pairing_system" => "keizer"})
+      seat_board(complete, round_with(complete, 1, nil), "1-0")
+      assert Tournaments.standings_through_round(complete) == 1
     end
   end
 

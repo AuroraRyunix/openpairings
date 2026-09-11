@@ -463,6 +463,28 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :publish_mode, :string, default: "manual"
     field :publish_delay_minutes, :integer, default: 0
 
+    # Whether the snapshot may publish the entry list, ordered by start
+    # number, before round 1 has any results - what OpenResults calls the
+    # "Starting rank" and shows in place of standings whenever
+    # `PairingsEngine.Snapshot` reports `after_round: 0` with players
+    # present. See that module's withholding section for exactly when this
+    # applies: once any round is published, players travel regardless of
+    # this flag - it only ever withholds the roster before the event has a
+    # single result.
+    #
+    # Default TRUE, unlike `registration_open`/`publish_to_openresults`
+    # above: those hand strangers a new ability (writing an entry, or
+    # putting the event online at all), where this only decides whether an
+    # already-public tournament's page shows the field before it shows
+    # scores. An arbiter who has turned publishing on has already decided
+    # spectators may look; showing them who is playing before round 1 is
+    # the ordinary case, not the one that needs an opt-in.
+    #
+    # Cast by the ordinary changeset, same reasoning as `publish_mode`
+    # above - an everyday settings choice, not a separate toggle-action
+    # with its own guardrails.
+    field :publish_starting_rank, :boolean, default: true
+
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
@@ -799,7 +821,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :categories_enabled,
       :manual_ranking,
       :publish_mode,
-      :publish_delay_minutes
+      :publish_delay_minutes,
+      :publish_starting_rank
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)

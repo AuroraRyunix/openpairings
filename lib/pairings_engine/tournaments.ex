@@ -2852,28 +2852,43 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  The highest round `n` such that rounds 1..n are ALL published.
+  The highest round `n` such that rounds 1..n are ALL published AND
+  complete (`PairingsEngine.Pairing.round_complete?/2` - every pairing in
+  the round carries a result).
 
-  The bound every public surface computes standings through, and the reason
-  it is the contiguous prefix rather than the highest published number: with
-  round 3 published and round 2 held back, standings through 3 would carry
-  round 2's results anyway, and withholding a round would withhold only its
-  pairings while its results leaked out of the table beside them.
+  The bound `PairingsEngine.Snapshot` computes its public standings
+  through. Published alone used to be enough (this function's own
+  behaviour until it gained the completeness half): the instant round 1's
+  pairings reached the public, the public page said "Standings after
+  round 1" while every board still read 0-0 - a published round counted
+  even with no results in it. Requiring completeness too means "after
+  round N" always means N rounds with every result in: the starting
+  roster shows until round 1's results are all entered, and while round
+  N+1 is still being entered the public standings stay at N rather than
+  jumping to a phantom N+1.
 
-  One definition, used by both public surfaces. `PairingsEngine.Snapshot`
-  had this privately first, which meant OpenResults enforced the gate and
-  the page served from this app did not - the two publics disagreeing about
-  what "not published yet" means.
+  Contiguous, for the same reason as before, now with two ways for a round
+  to fail to extend the prefix instead of one: with round 3
+  published-and-complete and round 2 either held back or simply not yet
+  finished, standings through 3 would carry round 2's results anyway, and
+  withholding round 2 would withhold only its pairings while its results
+  leaked out of the table beside them.
+
+  One definition, used by `PairingsEngine.Snapshot` alone today for both
+  the Swiss and the Keizer standings paths - see that module's moduledoc.
   """
-  @spec published_through_round(Tournament.t()) :: non_neg_integer()
-  def published_through_round(%Tournament{} = tournament) do
-    published =
+  @spec standings_through_round(Tournament.t()) :: non_neg_integer()
+  def standings_through_round(%Tournament{} = tournament) do
+    ready =
       tournament.id
       |> list_rounds()
-      |> Enum.filter(&round_published?(tournament, &1))
+      |> Enum.filter(fn round ->
+        round_published?(tournament, round) and
+          PairingsEngine.Pairing.round_complete?(tournament.id, round.number)
+      end)
       |> MapSet.new(& &1.number)
 
-    contiguous_from(published, 0)
+    contiguous_from(ready, 0)
   end
 
   defp contiguous_from(published, n) do

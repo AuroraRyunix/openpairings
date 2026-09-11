@@ -29,12 +29,26 @@ defmodule PairingsEngine.Snapshot do
     * `rounds` contains only rounds `Tournaments.round_published?/2` accepts -
       the same gate `PairingsEngineWeb.PublicPairingsLive` applies, per round,
       because publishing can be manual and therefore out of order.
-    * `standings` is computed `through_round: published_through/1`, the
-      longest *contiguous* published prefix. The highest published round is
-      the wrong bound: with round 3 published and round 2 held back, standings
-      through 3 would silently carry round 2's results. This is exactly the
-      contract's note that `after_round` need not be the highest published
-      round.
+    * `standings` is computed `through_round: standings_through_round/1`, the
+      longest *contiguous* prefix of rounds that are BOTH published AND
+      complete (`PairingsEngine.Pairing.round_complete?/2` - every pairing has
+      a result). The highest published round is the wrong bound, for two
+      reasons: with round 3 published and round 2 held back, standings
+      through 3 would silently carry round 2's results (the contract's note
+      that `after_round` need not be the highest published round); and with
+      round 1 published the moment it is paired, standings through 1 would
+      say "after round 1" while every board still reads 0-0, because a
+      published round used to count even with no results in it.
+    * `players` is withheld entirely - `[]`, and with it every standings row -
+      when `tournament.publish_starting_rank` is false AND no round has been
+      published yet. This is the one piece of withholding that depends on a
+      tournament SETTING rather than on publish/hide state per round or
+      board: an arbiter who has not turned "Publish the starting rank" on
+      does not want the entry list itself doubling as an early standings page
+      with every score at zero. The moment any round publishes - even with
+      results still coming in - the roster is exactly as load-bearing as
+      every board that names these players, so it travels regardless of the
+      toggle from then on.
     * A `Pairing` with `hidden` set never reaches `boards`.
 
   One consequence of the last point, stated rather than left to be discovered:
@@ -99,13 +113,18 @@ defmodule PairingsEngine.Snapshot do
   """
   @spec build(Tournament.t()) :: map()
   def build(%Tournament{} = tournament) do
-    players = publishable_players(tournament)
+    rounds = published_rounds(tournament)
+
+    players =
+      tournament
+      |> publishable_players()
+      |> withhold_starting_rank(tournament, rounds)
+
     # Every cross-reference in the document resolves through this map, so
     # there is exactly one place `no` is decided.
     nos = Map.new(players, &{&1.id, &1.pairing_number})
 
-    rounds = published_rounds(tournament)
-    after_round = Tournaments.published_through_round(tournament)
+    after_round = Tournaments.standings_through_round(tournament)
 
     %{
       "schema" => @schema,
@@ -218,6 +237,20 @@ defmodule PairingsEngine.Snapshot do
     |> Enum.sort_by(& &1.pairing_number)
   end
 
+  # The one withholding rule that reads a tournament SETTING rather than
+  # publish/hide state on a round or a board - see the moduledoc. `rounds` is
+  # `published_rounds/1`'s own result, already computed by the caller, rather
+  # than asked again here: "no round has been published" and "`rounds` is
+  # empty" are the same fact, and re-deriving it a second way is how the two
+  # drift.
+  #
+  # Once any round is published, the players named on its boards are exactly
+  # as load-bearing as the board itself - withholding them here would leave
+  # `boards[].white`/`boards[].black` pointing at a `no` with no row in
+  # `players` - so this only ever fires while `rounds` is still empty.
+  defp withhold_starting_rank(_players, %Tournament{publish_starting_rank: false}, []), do: []
+  defp withhold_starting_rank(players, %Tournament{}, _rounds), do: players
+
   # An allowlist by construction - see the moduledoc. Anything not named here
   # stays in the arbiter's database, whether or not it existed when this was
   # written.
@@ -264,10 +297,11 @@ defmodule PairingsEngine.Snapshot do
     |> Enum.sort_by(& &1.number)
   end
 
-  # The contiguous bound this used to compute privately now lives in
-  # `Tournaments.published_through_round/1`, because the public standings page
-  # served from this app needs exactly the same number. Two copies meant
-  # OpenResults enforced the gate and the local page did not.
+  # The contiguous bound `standings/3` below needs (published AND complete)
+  # lives in `Tournaments.standings_through_round/1`, not here - this
+  # function only gates `rounds` itself, which stays published-only: a
+  # round's pairings are withheld for being unpublished, never for being
+  # incomplete.
 
   defp round_row(%Round{} = round, %Tournament{} = t, nos) do
     visible = Enum.reject(round.pairings, & &1.hidden)

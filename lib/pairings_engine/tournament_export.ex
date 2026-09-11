@@ -93,7 +93,7 @@ defmodule PairingsEngine.TournamentExport do
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
     count_extra_points extra_points_bands
-    publish_mode publish_delay_minutes
+    publish_mode publish_delay_minutes publish_starting_rank
     manual_ranking manual_ranking_stale
     fide_compliance_lost_round
     public_listed public_display public_hidden_tiebreaks

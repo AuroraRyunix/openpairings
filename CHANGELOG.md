@@ -16,6 +16,27 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Public standings now wait for a complete round, not just a
+  published one.** Publishing round 1's pairings used to be enough on its own
+  for the public page to say "Standings after round 1" with every player on
+  zero - a published round counted toward the standings even with no results
+  in it. The public `after_round` bound is now the longest contiguous prefix
+  of rounds that are both published AND complete (every board has a result):
+  the results site shows the starting rank until round 1's results are all
+  in, and while a later round is still being entered the public standings
+  stay at the last fully-entered one instead of jumping ahead with holes in
+  it. Published rounds themselves are unaffected - a round with results still
+  coming in still shows its pairings, exactly as before.
+- [Feature] **An arbiter can now choose whether the starting rank publishes
+  before round 1.** OpenResults shows the entry list, ordered by start
+  number, on a tournament's public page whenever there are no standings to
+  show yet. "Publish the starting rank before round 1", on the Standings page
+  while the tournament has not paired a round, turns that off - the roster
+  stays off the public page until round 1 has results, the same way a hidden
+  round or a hidden board already stays off it. Defaults to on, so every
+  existing tournament keeps behaving exactly as it does today; the moment any
+  round publishes, the roster travels regardless of this setting, because by
+  then the same players are already named on the public boards.
 - [Feature] **A category can now combine rating, age and sex instead of picking
   one SWAR-style threshold.** Each category's rule is any combination of five
   conditions - rating from, rating below, age from, under age, women only - and
