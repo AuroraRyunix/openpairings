@@ -41,7 +41,18 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 ## Everything that is open, in one place
 
-### Several categories per player, and sorting on them - wanted 2026-09-08
+### Several categories per player, and sorting on them - BUILT
+
+**Status 2026-09-11: built; this entry stays as the design record.** It
+shipped as the changelog's `[Feature] A player can be in several categories
+at once`: one pairing `category` per player, unchanged, and a `categories`
+set for everything else. The Players grid sorts on the pairing category
+(`cat`) or on whether a player carries one tag (`cat:<tag>`), filters to
+"show only" one tag, and a bulk action sets or clears a tag for everyone.
+The open question at the end of this entry was answered by the build: tags
+are per tournament, drawn from the tournament's own `categories` list. Tags
+that outlive one event would need a player registry this app does not have,
+and none is planned.
 
 Today a player has exactly one: `field :category, :string, default: ""`,
 chosen from the tournament's own `categories` list. Real events do not work
