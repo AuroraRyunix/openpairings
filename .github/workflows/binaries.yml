@@ -109,6 +109,59 @@ jobs:
       # but a build script should not depend on which release is the default.
       - run: mix release pairings_engine --overwrite
 
+      # Pinned to the same velopack_libc version as the `vpk` pin further
+      # down (1.2.0) - not "latest", for the same reason that pin is a
+      # version and not a floating one. The checksum is this exact .zip's
+      # own SHA256, computed once from the real download and hardcoded here,
+      # so a corrupted or substituted asset on GitHub's end fails this step
+      # loudly rather than shipping silently in every release from here on.
+      #
+      # Hard-fail (no soft skip like "Skipping OpenPairings.exe" below):
+      # unlike a developer machine that may not have Zig installed, this
+      # runner always has network access, so a failure here means something
+      # is actually wrong - the checksum mismatching most of all - and that
+      # is worth stopping the whole Windows build over, not shipping a
+      # release that silently lacks the in-app update button.
+      #
+      # Runs on every push, same as the rest of this job (see this file's
+      # own top comment on why binaries build on every push and not only
+      # tags): mix.exs's windows_velopack_dll/1 release step below copies
+      # this DLL into the portable payload whenever it is present, and skips
+      # itself otherwise - the same soft behaviour a developer machine
+      # without this file gets locally, so a branch build missing it just
+      # does not carry the button.
+      - name: Fetch velopack_libc (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vpkcVersion = "1.2.0"
+          $url = "https://github.com/velopack/velopack/releases/download/$vpkcVersion/velopack_libc_$vpkcVersion.zip"
+          $expectedSha256 = "547262ed7a1ab1ff62f580aa53851ede2f1a451ac61b8974eb7bc01117488835"
+          $zip = Join-Path $env:RUNNER_TEMP "velopack_libc.zip"
+          $extractDir = Join-Path $env:RUNNER_TEMP "velopack_libc"
+
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+
+          $actualSha256 = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLower()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "velopack_libc_$vpkcVersion.zip checksum mismatch: expected $expectedSha256, got $actualSha256"
+          }
+
+          Expand-Archive -Path $zip -DestinationPath $extractDir -Force
+
+          # Renamed on the way in - see rel/windows/.gitignore and mix.exs's
+          # windows_velopack_dll/1: velopack_libc.dll is the name baked into
+          # this DLL's own export table, not the filename Velopack ships it
+          # under (confirmed by actually loading it under that name).
+          $dll = Join-Path $extractDir "lib\velopack_libc_win_x64_msvc.dll"
+          if (-not (Test-Path $dll)) {
+            throw "lib\velopack_libc_win_x64_msvc.dll not found in velopack_libc_$vpkcVersion.zip"
+          }
+          Copy-Item -Path $dll -Destination "rel\windows\velopack_libc.dll" -Force
+
+          Get-Item "rel\windows\velopack_libc.dll" |
+            Select-Object Name, @{n = 'KB'; e = { [math]::Round($_.Length / 1KB, 1) } }
+
       # The same app as an ordinary Erlang release - a folder with the runtime
       # inside and a launcher beside it. Built because the single-file binary
       # gets DELETED by antivirus, not warned about: an unsigned executable
@@ -145,6 +198,18 @@ jobs:
           if ($subsystem -ne 2) {
             throw "OpenPairings.exe has subsystem $subsystem, not 2 (GUI) - it would show a console window."
           }
+
+          # velopack_libc.dll travels with the release step above, not as an
+          # overlay - see mix.exs's windows_velopack_dll/1. The "Fetch
+          # velopack_libc" step earlier in this job hard-fails if it cannot
+          # get the DLL, so finding it missing here means the release step
+          # itself did not run, the same reasoning the OpenPairings.exe check
+          # above already applies.
+          $dll = "_build\prod\rel\pairings_engine_portable\velopack_libc.dll"
+          if (-not (Test-Path $dll)) {
+            throw "No velopack_libc.dll in the portable release - the mix.exs windows_velopack_dll/1 release step did not run."
+          }
+          Write-Host "velopack_libc.dll $([math]::Round((Get-Item $dll).Length / 1KB, 1)) KB"
 
       # Prove the thing we just built actually starts. A Burrito build can
       # succeed and still produce a binary that dies at boot - the release
@@ -664,6 +729,29 @@ jobs:
           # command above went.
           $env:Path = "$env:USERPROFILE\.dotnet\tools;$env:Path"
           vpk download github --repoUrl https://github.com/AuroraRyunix/openpairings --channel win --outputDir installer_out --token $env:GH_TOKEN
+
+          # Discard a download whose version equals the one THIS job is
+          # building - found 2026-09-11 re-running a release build for an
+          # already-published tag: `vpk download github` fetches the LATEST
+          # release, which on a re-run IS this version, and `vpk pack` below
+          # then refuses outright ("already holds a $Version package" - see
+          # build_installer.ps1's own check) even though a real PREVIOUS
+          # version's .nupkg would otherwise be sitting right next to it to
+          # diff against. A normal next-version build never hits this - the
+          # latest published release is always the version before the one
+          # being built - so this only ever discards something on exactly
+          # the re-run case, and a normal build's deltas are untouched.
+          $match = Select-String -Path mix.exs -Pattern 'version:\s*"([0-9]+\.[0-9]+\.[0-9]+)"' |
+            Select-Object -First 1
+          $version = $match.Matches[0].Groups[1].Value
+          if (Test-Path installer_out) {
+            Get-ChildItem installer_out -Filter "*$version*.nupkg" -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host "Discarding downloaded $($_.Name) - same version as this build ($version)" -ForegroundColor DarkGray
+                Remove-Item $_.FullName -Force
+              }
+          }
+
           exit 0
 
       - name: Pack the Windows installers

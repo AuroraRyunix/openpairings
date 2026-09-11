@@ -12,3 +12,13 @@ OpenPairings.exe
 # it would be a second copy of the licence text that could drift from the
 # real one.
 installer-content/LICENSE.md
+
+# Velopack's own C ABI library, used by OpenPairings.exe for the in-app
+# "Install and restart" button (see launcher.c's "In-app updates" header
+# section). A pinned, checksummed third-party release asset - CI fetches
+# and verifies it in .github/workflows/binaries.yml, the same way
+# build_installer.ps1 pins `vpk` itself, not something this repository
+# builds or vendors. mix.exs's windows_velopack_dll/1 release step copies it
+# from here into the portable payload when present, and skips itself
+# (same as a missing Zig) when it is not - see that step's own comment.
+velopack_libc.dll
