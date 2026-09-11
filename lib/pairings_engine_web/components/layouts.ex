@@ -420,7 +420,9 @@ defmodule PairingsEngineWeb.Layouts do
   # page (see the caller) - this is only the text beside that link, which is
   # the one thing that genuinely differs between them.
   defp update_notice_hint(:velopack_per_user) do
-    gettext("Downloading and running the installer updates this install in place.")
+    gettext(
+      "Download the new installer and run it - your tournaments are kept separately and carry over."
+    )
   end
 
   defp update_notice_hint(:velopack_per_machine) do
@@ -428,7 +430,9 @@ defmodule PairingsEngineWeb.Layouts do
   end
 
   defp update_notice_hint(:other) do
-    gettext("Download the new build and swap it in when you next update.")
+    gettext(
+      "Download the new version and use it in place of this one - your tournaments are kept separately and carry over."
+    )
   end
 
   # Same truncate-to-three-plus-a-count shape as `PairingsEngineWeb.FideLive`'s
@@ -452,7 +456,7 @@ defmodule PairingsEngineWeb.Layouts do
       end
 
     gettext(
-      "%{names} have a round paired but not finished - best to install between tournaments.",
+      "A round is paired but not finished in %{names} - best to install between tournaments.",
       names: listed
     )
   end

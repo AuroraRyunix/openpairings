@@ -95,7 +95,7 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
 
       {:ok, _lv, html} = live(conn, ~p"/")
 
-      assert html =~ "updates this install in place"
+      assert html =~ "Download the new installer and run it"
       refute html =~ "needs an administrator"
     end
 
@@ -114,9 +114,9 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
 
       {:ok, _lv, html} = live(conn, ~p"/")
 
-      assert html =~ "swap it in when you next update"
+      assert html =~ "use it in place of this one"
       refute html =~ "needs an administrator"
-      refute html =~ "updates this install in place"
+      refute html =~ "Download the new installer and run it"
     end
 
     test "names a tournament with a round paired but unfinished", %{conn: conn} do
@@ -126,7 +126,7 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
       {:ok, _lv, html} = live(conn, ~p"/")
 
       assert html =~ "Bruges Open"
-      assert html =~ "round paired but not finished"
+      assert html =~ "is paired but not finished"
     end
 
     test "says nothing about tournaments when none are running", %{conn: conn} do
@@ -134,7 +134,7 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
 
       {:ok, _lv, html} = live(conn, ~p"/")
 
-      refute html =~ "round paired but not finished"
+      refute html =~ "is paired but not finished"
     end
   end
 end
