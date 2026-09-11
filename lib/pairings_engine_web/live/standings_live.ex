@@ -495,13 +495,15 @@ defmodule PairingsEngineWeb.StandingsLive do
         </div>
       </div>
 
-      <%!-- Only meaningful before this tournament has anything to show
-            instead of a roster - once round 1 is paired, the public page
-            never falls back to the starting rank again regardless of this
-            setting (see PairingsEngine.Snapshot), so the control would be a
-            toggle with no effect. Gone rather than disabled, so its
-            disappearance is itself the confirmation that it no longer
-            matters. --%>
+      <%!-- Shown only until round 1 is paired - the maintainer's call: it is a
+            decision about the entry list, taken before play starts. Its value
+            keeps applying after that until round 1 is PUBLISHED (a manual or
+            timed publish can lag the pairing), and from then on it no longer
+            matters: the roster travels with the published boards, and the
+            public page shows the starting rank only until round 1 is
+            complete (see PairingsEngine.Snapshot). Gone rather than disabled,
+            so its disappearance marks the point the arbiter can no longer
+            change it here. --%>
       <div :if={@rounds_paired == 0} class="card" style="margin-bottom: 12px">
         <div class="set-field solo">
           <span class="set-label">{gettext("Publish the starting rank before round 1")}</span>
