@@ -505,7 +505,22 @@ jobs:
           ln -s /Applications dmg_staging/Applications
 
           dmg_name="openpairings_${{ matrix.target }}.dmg"
-          hdiutil create -volname "OpenPairings" -srcfolder dmg_staging -ov -format UDZO "$dmg_name"
+          # GitHub's macOS runners intermittently refuse this with "hdiutil:
+          # create failed - Resource busy" - a runner-side race, not this
+          # build, and it has hit this job more than once. On a tag it blocks
+          # the whole release, because the release job needs every target, so
+          # a few spaced retries before giving up.
+          for attempt in 1 2 3 4 5; do
+            if hdiutil create -volname "OpenPairings" -srcfolder dmg_staging -ov -format UDZO "$dmg_name"; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then
+              echo "::error::hdiutil create failed 5 times" >&2
+              exit 1
+            fi
+            echo "hdiutil create failed (attempt $attempt), retrying in $((attempt * 5))s" >&2
+            sleep $((attempt * 5))
+          done
           ls -lh "$dmg_name"
 
       # Same reasoning as the portable-release smoke test above, for the
