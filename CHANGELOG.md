@@ -37,6 +37,20 @@ Each entry is tagged so a version can be skimmed:
   file name, because that name now changes every release. Point it at
   <https://github.com/AuroraRyunix/openpairings/releases/latest> instead, or
   look the asset up through the GitHub releases API.
+- [Fix] **A TRF-2026 file whose points table declares `X` imports instead of
+  being refused.** FIDE's 2026 report format lets record 162 say what an
+  unknown result is worth (`X`); the engine used to reject any file that did.
+  Ainalrami v0.26.1 reads it, and scores an unknown result (`?`) with it when
+  - and only when - the file itself declares it.
+- [Fix] **Before round 1, the public standings page lists the players instead
+  of staying blank.** The public site knows every player by their start
+  number, and start numbers are only handed out when round 1 is paired - so
+  until then there was nobody it could show, whatever the "before round 1"
+  setting said. The field is now numbered provisionally, in the order pairing
+  round 1 will number it, so the numbers normally stay the same afterwards.
+- [Change] **"Before round 1: public" is a small button beside Public page**
+  instead of a panel above the standings, and only appears while the
+  tournament is being published and round 1 has not been paired yet.
 
 ## [0.59.0] - 2026-09-11
 
