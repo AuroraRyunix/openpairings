@@ -92,7 +92,9 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   a category from its rule; per-category standings and, for Swiss, native
   per-category pairing follow. An optional prize count per category
   highlights the in-category places that are actually prizes, on the
-  standings page and its per-category filter.
+  standings page and its per-category filter - informational only for now;
+  actually allocating a prize (and the "one prize per player" rule a
+  player in several categories needs) is a possible follow-up, not built.
 
 ## Import & export
 
