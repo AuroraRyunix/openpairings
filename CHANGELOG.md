@@ -114,7 +114,11 @@ Each entry is tagged so a version can be skimmed:
   WiX "Bitmap" dialog controls, so `.bmp`, not `.png`) are drawn by an
   extended `build_brand_assets.py` from the same site mark as the icon and
   splash - no new artwork. The `.msi` is renamed `OpenPairings-win-Setup.msi`
-  the same way `Setup.exe` already is.
+  the same way `Setup.exe` already is. Both images keep clear of where
+  Windows draws each page's own text. The wizard's "just me / everyone"
+  page defaults to just me: vpk leaves it on "everyone", and a
+  machine-wide copy needs an administrator for every update, so the build
+  sets the default in the finished `.msi` and stops if that does not take.
 
   Verified without installing it (per-machine needs admin, and even per-user
   installs software on whoever runs it): opened with the Windows Installer

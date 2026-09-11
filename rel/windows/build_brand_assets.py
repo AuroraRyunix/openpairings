@@ -29,9 +29,12 @@ Their layout is fixed by that same embedded template, not chosen here:
     renders in the Windows default control text colour - black. A dark
     image under it, past x=180, would make it unreadable.
 
-  So the logo splits at x=180: an ink-dark left column carrying the mark
-  (safe - it never has text over it), and everything from x=180 onward left
-  as the light background these dialogs were built to draw dark text on.
+  So the logo's ink-dark column, carrying the mark, ends at x=164 - WiX's
+  own convention for this bitmap - leaving a white gutter before the text
+  at x=180. The banner works the same way round: each page's Title and
+  Description are drawn over its left side (x=20 and x=33), so that side
+  stays white and the mark sits at the right edge. Both used to put ink
+  exactly where WiX puts text.
   This is the same reasoning as the .ico's white-fill-plus-dark-stroke mark,
   applied in the other direction: know what the mark sits on, don't fight it.
 
@@ -259,33 +262,23 @@ def build_splash(out_path):
 
 def build_msi_banner(out_path):
     """The 493x58 strip WiX shows across the top of every MSI wizard page
-    except Welcome/Exit. Light, because MsiBanner/MsiLogo sit under text the
-    template draws in the default (black) colour - see the module docstring.
+    except Welcome/Exit.
+
+    WiX draws each page's own title and description over the LEFT of this
+    strip, in its default black: the title from x=20, the description from
+    x=33 (15 and 25 of the dialog's 370 units, at 493/370 px per unit). So
+    everything there stays plain white, and the mark sits in the space WiX
+    leaves free at the right edge. No wordmark: the page title already says
+    what is being installed, and ours was the text that collided with it.
+
+    No bottom rule either. WiX draws its own line under the banner
+    (`BannerLine`), and a stripe of ours sat on top of it.
     """
     width, height = 493, 58
     canvas = Image.new("RGBA", (width, height), (255, 255, 255, 255))
-    draw = ImageDraw.Draw(canvas)
 
-    mark = render_mark(50)
-    my = (height - mark.height) // 2
-    canvas.alpha_composite(mark, (16, my))
-
-    title_font = _font(["segoeuib.ttf", "seguisb.ttf", "arialbd.ttf"], 24)
-    title = "OpenPairings"
-    bbox = draw.textbbox((0, 0), title, font=title_font)
-    tx = 16 + mark.width + 14
-    ty = (height - (bbox[3] - bbox[1])) // 2 - bbox[1]
-    draw.text((tx, ty), title, font=title_font, fill=INK + (255,))
-
-    # A thin strip of the orb's own gradient along the bottom edge - the one
-    # colour cue that survives at this size, tying every wizard page back to
-    # the mark without repeating it on each one.
-    for x in range(width):
-        t = x / (width - 1)
-        colour = tuple(
-            round(ORB_FROM[i] + (ORB_TO[i] - ORB_FROM[i]) * t) for i in range(3)
-        )
-        draw.line([(x, height - 3), (x, height - 1)], fill=colour + (255,))
+    mark = render_mark(44)
+    canvas.alpha_composite(mark, (width - mark.width - 12, (height - mark.height) // 2))
 
     canvas.convert("RGB").save(out_path, format="BMP")
     return out_path
@@ -294,26 +287,28 @@ def build_msi_banner(out_path):
 def build_msi_logo(out_path):
     """The 493x312 background of the MSI's Welcome/Exit pages.
 
-    Split at x=180 (see module docstring): an ink-dark column on the left
-    carries the mark, matching the splash; everything the wizard's own text
-    can land on stays light.
+    WiX draws these pages' title and body from x=180 (135 of the dialog's
+    370 units), in its default black. The ink-dark column carrying the mark
+    therefore ends at x=164 - WiX's own convention for this bitmap - leaving
+    a white gutter before the first letter. It used to end at exactly 180,
+    which put the title's first characters on the dark edge.
     """
     width, height = 493, 312
-    left_w = 180
+    left_w = 164
     canvas = Image.new("RGBA", (width, height), (255, 255, 255, 255))
     draw = ImageDraw.Draw(canvas)
     draw.rectangle([0, 0, left_w - 1, height - 1], fill=INK + (255,))
 
-    mark = render_mark(140)
+    mark = render_mark(124)
     mx = (left_w - mark.width) // 2
-    my = 90
+    my = 96
     canvas.alpha_composite(mark, (mx, my))
 
-    title_font = _font(["segoeuib.ttf", "seguisb.ttf", "arialbd.ttf"], 22)
+    title_font = _font(["segoeuib.ttf", "seguisb.ttf", "arialbd.ttf"], 20)
     title = "OpenPairings"
     tw = draw.textlength(title, font=title_font)
     draw.text(
-        (max(8, (left_w - tw) / 2), my + mark.height + 22),
+        (max(8, (left_w - tw) / 2), my + mark.height + 20),
         title,
         font=title_font,
         fill=TEXT + (255,),

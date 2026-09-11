@@ -415,6 +415,46 @@ foreach ($from in $renames.Keys) {
     }
 }
 
+# The .msi's "just me / everyone" page (WiX's InstallScopeDlg, which
+# `--instLocation Either` switches on) pre-selects EVERYONE: vpk 1.2.0 ships
+# the dialog's radio property, WixAppFolder, as WixPerMachineFolder, and has
+# no flag to change it. The maintainer's decision (2026-09-11) is just-me by
+# default - a machine-wide copy needs an administrator for every update, and
+# welcome.md says so - so the default is set here, in the built .msi's own
+# Property table, through the same Windows Installer COM API used to verify
+# it. ALLUSERS=2 with MSIINSTALLPERUSER=1, which vpk already writes, is the
+# per-user half of that; this is the half the dialog shows. A hard stop if
+# it does not take: an installer whose first page and default disagree is
+# the thing this block exists to prevent.
+# [string], not Join-Path's own output: a cmdlet's result reaches COM
+# wrapped in a PSObject, and InvokeMember rejects the wrapper with
+# DISP_E_TYPEMISMATCH (0x80020005) - reproduced on this exact call. A plain
+# string worked, which is how a manual check passed while this step failed.
+$msi = [string](Join-Path $OutputDir 'OpenPairings-win-Setup.msi')
+if (Test-Path $msi) {
+    $wi = New-Object -ComObject WindowsInstaller.Installer
+    $db = $wi.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $wi, @($msi, 1))
+    $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db, @('UPDATE `Property` SET `Value`=''WixPerUserFolder'' WHERE `Property`=''WixAppFolder'''))
+    $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+    $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null) | Out-Null
+    $db.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $db, $null) | Out-Null
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($view)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($db)
+
+    $db = $wi.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $wi, @($msi, 0))
+    $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db, @('SELECT `Value` FROM `Property` WHERE `Property`=''WixAppFolder'''))
+    $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+    $row = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+    $value = if ($row) { $row.GetType().InvokeMember('StringData', 'GetProperty', $null, $row, 1) } else { $null }
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($view)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($db)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($wi)
+    if ($value -ne 'WixPerUserFolder') {
+        throw "Could not set the .msi's default install scope to just-me (WixAppFolder is '$value'). See the comment above this check."
+    }
+    Write-Host "MSI default install scope: just me (WixAppFolder = $value)" -ForegroundColor Cyan
+}
+
 # assets.win.json is vpk's own manifest of what it just built, written
 # before the rename above - so left alone it would name two files that no
 # longer exist on disk. Nothing in this repository reads it today, but
@@ -438,7 +478,10 @@ if (Test-Path $assetsManifest) {
     }
     # -Compress to match vpk's own (unindented) formatting.
     $json = $assets | ConvertTo-Json -Compress
-    Set-Content -Path $assetsManifest -Value $json -Encoding utf8 -NoNewline
+    # UTF-8 WITHOUT a byte-order mark, like vpk's own file. Windows
+    # PowerShell 5.1's `Set-Content -Encoding utf8` writes one, and a BOM in
+    # front of JSON is exactly what a strict parser trips on.
+    [System.IO.File]::WriteAllText($assetsManifest, $json, (New-Object System.Text.UTF8Encoding $false))
 }
 
 Write-Host "`nInstaller written to $OutputDir" -ForegroundColor Green
