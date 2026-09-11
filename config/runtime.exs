@@ -426,9 +426,28 @@ if config_env() == :prod do
     secret_key_base: secret_key_base
 
   if local_mode? do
+    # `Application.spec/2`, not an app module (see the note below): it reads
+    # the .app files a release has already loaded by the time runtime config
+    # runs, so the worst a missing value can do is leave the line out - never
+    # stop the boot.
+    version_of = fn app ->
+      case Application.spec(app, :vsn) do
+        nil -> nil
+        vsn -> List.to_string(vsn)
+      end
+    end
+
+    version_line =
+      case {version_of.(:pairings_engine), version_of.(:ainalrami)} do
+        {nil, nil} -> ""
+        {app, nil} -> "\n  version   #{app}"
+        {nil, engine} -> "\n  version   Ainalrami #{engine}"
+        {app, engine} -> "\n  version   #{app} (Ainalrami #{engine})"
+      end
+
     IO.puts("""
 
-    OpenPairings - local mode
+    OpenPairings - local mode#{version_line}
       database  #{database_path}
       address   http://#{host}:#{port}
 
