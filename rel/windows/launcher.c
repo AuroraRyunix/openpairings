@@ -149,6 +149,7 @@
 #define IDC_HINT 104
 #define IDC_OPEN 105
 #define IDC_STOP 106
+#define IDC_VERSION 107
 
 #define WM_APP_READY (WM_APP + 1)
 #define WM_APP_SLOW (WM_APP + 2)
@@ -190,8 +191,12 @@
 
 static HINSTANCE g_inst;
 static HWND g_wnd;
-static HWND g_status, g_hint;
+static HWND g_status, g_hint, g_version;
 static HFONT g_font, g_title_font;
+/* "OpenPairings 0.59.0 · Ainalrami 0.26.0" and "OpenPairings 0.59.0" - see
+ * read_versions(). Empty when nothing could be read. */
+static WCHAR g_versions[96];
+static WCHAR g_title[48] = L"OpenPairings";
 static HANDLE g_job, g_child, g_log_handle;
 static int g_dpi = 96;
 static int g_port = 4000;
@@ -232,6 +237,77 @@ static void join(WCHAR *out, const WCHAR *dir, const WCHAR *tail)
 {
     lstrcpynW(out, dir, PATH_MAX_W);
     lstrcpynW(out + lstrlenW(out), tail, PATH_MAX_W - lstrlenW(out));
+}
+
+/* Copies a version string (digits, dots and the odd letter - always ASCII)
+ * until the first character that cannot be part of one. */
+static void copy_version(WCHAR *out, int out_len, const char *in)
+{
+    int i = 0;
+    while (i < out_len - 1 && in[i] && in[i] != ' ' && in[i] != '\r' && in[i] != '\n' &&
+           in[i] != '\t')
+    {
+        out[i] = (WCHAR)(unsigned char)in[i];
+        i++;
+    }
+    out[i] = 0;
+}
+
+/* Which OpenPairings and which pairing engine this window is running, read
+ * from the release on disk rather than asked of the server, so the line is
+ * there from the moment the window opens - including when the server never
+ * answers, which is exactly when somebody wants to quote a version.
+ *
+ *   releases\start_erl.data   "<erts version> <release version>", written by
+ *                             `mix release`; the release version is mix.exs's
+ *   lib\ainalrami-<version>\  the engine's own application directory
+ *
+ * Either one missing just drops out of the line; neither leaves it blank. */
+static void read_versions(void)
+{
+    WCHAR path[PATH_MAX_W], app[32] = L"", engine[32] = L"";
+    char buf[128];
+    DWORD got = 0;
+    HANDLE file, find;
+    WIN32_FIND_DATAW found;
+
+    join(path, g_root, L"releases\\start_erl.data");
+    file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                       FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file != INVALID_HANDLE_VALUE) {
+        if (ReadFile(file, buf, sizeof buf - 1, &got, NULL)) {
+            char *p = buf;
+            buf[got] = 0;
+            while (*p && *p != ' ')
+                p++;
+            while (*p == ' ')
+                p++;
+            copy_version(app, 32, p);
+        }
+        CloseHandle(file);
+    }
+
+    join(path, g_root, L"lib\\ainalrami-*");
+    find = FindFirstFileW(path, &found);
+    if (find != INVALID_HANDLE_VALUE) {
+        do {
+            if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                lstrcpynW(engine, found.cFileName + lstrlenW(L"ainalrami-"), 32);
+                break;
+            }
+        } while (FindNextFileW(find, &found));
+        FindClose(find);
+    }
+
+    if (app[0] && engine[0])
+        wsprintfW(g_versions, L"OpenPairings %s \x00B7 Ainalrami %s", app, engine);
+    else if (app[0])
+        wsprintfW(g_versions, L"OpenPairings %s", app);
+    else if (engine[0])
+        wsprintfW(g_versions, L"Ainalrami %s", engine);
+
+    if (app[0])
+        wsprintfW(g_title, L"OpenPairings %s", app);
 }
 
 static int read_port(void)
@@ -951,6 +1027,11 @@ static void build_controls(HWND wnd)
 
     SendMessageW(open_button, WM_SETFONT, (WPARAM)g_font, TRUE);
     SendMessageW(stop_button, WM_SETFONT, (WPARAM)g_font, TRUE);
+
+    /* Quiet, under the buttons, and in the text column: something to read out
+     * when asked "which version are you on", not something to act on. */
+    if (g_versions[0])
+        g_version = label(wnd, IDC_VERSION, g_versions, 70, 186, 348, 18, g_font);
 }
 
 static LRESULT CALLBACK window_proc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -962,10 +1043,11 @@ static LRESULT CALLBACK window_proc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp)
 
     case WM_CTLCOLORSTATIC:
         /* Statics default to a grey that does not match the window, and the
-         * hint line is deliberately quieter than the rest. */
+         * hint and version lines are deliberately quieter than the rest. */
         SetBkMode((HDC)wp, TRANSPARENT);
-        SetTextColor((HDC)wp,
-                     GetSysColor((HWND)lp == g_hint ? COLOR_GRAYTEXT : COLOR_WINDOWTEXT));
+        SetTextColor((HDC)wp, GetSysColor((HWND)lp == g_hint || (HWND)lp == g_version
+                                              ? COLOR_GRAYTEXT
+                                              : COLOR_WINDOWTEXT));
         return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
 
     case WM_COMMAND:
@@ -1065,14 +1147,15 @@ static void create_window(void)
     rect.left = 0;
     rect.top = 0;
     rect.right = S(440);
-    rect.bottom = S(190);
+    /* 24 more for the version line under the buttons, when there is one. */
+    rect.bottom = S(g_versions[0] ? 214 : 190);
     /* Not resizable and not maximisable: the layout is fixed, and a status
      * window that can be dragged into a useless shape is only a way to make it
      * look broken. */
     AdjustWindowRect(&rect, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                      FALSE);
 
-    g_wnd = CreateWindowExW(0, wc.lpszClassName, L"OpenPairings",
+    g_wnd = CreateWindowExW(0, wc.lpszClassName, g_title,
                             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                             CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left,
                             rect.bottom - rect.top, NULL, NULL, g_inst, NULL);
@@ -1140,6 +1223,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     InitCommonControlsEx(&icc);
 
     resolve_root();
+    read_versions();
     g_port = read_port();
     wsprintfW(g_url, L"http://localhost:%d", g_port);
     resolve_log_path();

@@ -60,6 +60,12 @@ Each entry is tagged so a version can be skimmed:
   alone, with the choice kept in the page's link so it can be shared or
   bookmarked. The printed per-category standings now number players the same
   way, in place of the overall rank they used to show.
+- [Feature] **The OpenPairings window says which version it is running, and
+  which Ainalrami.** The small window that starts OpenPairings on Windows now
+  shows both versions under its buttons, and the OpenPairings version in its
+  title bar - read from the installed files, so they are there even when the
+  server does not start. On macOS and Linux the same versions are printed
+  when OpenPairings starts.
 - [Fix] **The Windows installer's wizard looks the way it was drawn.** The
   picture meant for the welcome and finish pages was squashed into the strip
   across the top of every other page, and that strip was stretched down the
