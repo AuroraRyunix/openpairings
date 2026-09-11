@@ -66,10 +66,13 @@
     precisely because the id is awkward to change once a release exists, and
     none does yet.
 
-    The installer is renamed back to OpenPairings-win-Setup.exe afterwards.
-    That filename appears nowhere in the update feed - the updater reads
-    releases.win.json and fetches .nupkg files - so it is a label on the
-    download and nothing more.
+    The installer is renamed to OpenPairings-<version>-win-Setup.exe
+    afterwards, so a copy sitting in somebody's Downloads folder says which
+    version it is. That filename appears nowhere in the update feed - the
+    updater reads releases.win.json and fetches .nupkg files by the pack id,
+    never by this friendly name - so the version can ride along on the
+    human-facing download without touching what an installed copy uses to
+    find its own updates.
 
     `Assert-DataDirectorySafe` below enforces this, for both install roots
     Velopack can produce - see "PER-MACHINE AND THE DATA DIRECTORY" further
@@ -96,13 +99,14 @@
     three siblings are consumed by a *different* installer artifact, a WiX
     .msi, which is what --msi below builds, and which is the file the wizard
     content, --instLocation, --msiBanner and --msiLogo all actually reach.
-    OpenPairings-win-Setup.exe stays a silent one-click installer regardless
-    - that is Velopack's design, not a gap in this script - and remains
-    beside the .msi as the one-click alternative. See docs/binaries.md for
-    which one the release page actually points people at.
+    OpenPairings-<version>-win-Setup.exe stays a silent one-click installer
+    regardless - that is Velopack's design, not a gap in this script - and
+    remains beside the .msi as the one-click alternative. See
+    docs/binaries.md for which one the release page actually points people
+    at.
 
-    The .msi is renamed OpenPairings-win-Setup.msi below, the same way the
-    Setup.exe is - see the rename block near the bottom.
+    The .msi is renamed OpenPairings-<version>-win-Setup.msi below, the same
+    way the Setup.exe is - see the rename block near the bottom.
 
     Verifying the .msi without installing it: per-machine needs admin, and
     even per-user would install software on whoever runs this script.
@@ -418,14 +422,17 @@ Write-Host "Packing OpenPairings $Version from $PayloadDir" -ForegroundColor Cya
 
 if ($LASTEXITCODE -ne 0) { throw "vpk pack failed with exit code $LASTEXITCODE" }
 
-# Back to the product's name. Only the two human-facing downloads' labels
-# change; the update feed (releases.win.json, RELEASES) and the .nupkg files
-# inside keep the pack id - Velopack's updater resolves those by name, so
-# renaming them would break every install already out there. Never rename
-# those three.
+# Back to the product's name, WITH the version - so a copy sitting in
+# somebody's Downloads folder says which release it is. Only the two
+# human-facing downloads' labels change; the update feed (releases.win.json,
+# RELEASES) and the .nupkg files inside keep the pack id rather than this
+# friendly name (the .nupkg files already carry a version of their own, in
+# Velopack's own naming - OpenPairingsApp-<version>-full.nupkg - just never
+# this one) - Velopack's updater resolves those by name, so renaming them
+# would break every install already out there. Never rename those three.
 $renames = @{
-    "$packId-win-Setup.exe" = 'OpenPairings-win-Setup.exe'
-    "$packId-win.msi"       = 'OpenPairings-win-Setup.msi'
+    "$packId-win-Setup.exe" = "OpenPairings-$Version-win-Setup.exe"
+    "$packId-win.msi"       = "OpenPairings-$Version-win-Setup.msi"
 }
 foreach ($from in $renames.Keys) {
     $built = Join-Path $OutputDir $from
@@ -449,7 +456,7 @@ foreach ($from in $renames.Keys) {
 # wrapped in a PSObject, and InvokeMember rejects the wrapper with
 # DISP_E_TYPEMISMATCH (0x80020005) - reproduced on this exact call. A plain
 # string worked, which is how a manual check passed while this step failed.
-$msi = [string](Join-Path $OutputDir 'OpenPairings-win-Setup.msi')
+$msi = [string](Join-Path $OutputDir "OpenPairings-$Version-win-Setup.msi")
 if (Test-Path $msi) {
     $wi = New-Object -ComObject WindowsInstaller.Installer
     $db = $wi.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $wi, @($msi, 1))

@@ -14,6 +14,30 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Change] **The installer file names now carry the version.** A download
+  sitting in someone's Downloads folder used to say nothing about which
+  release it was: `OpenPairings-win-Setup.msi`, `OpenPairings-win-Setup.exe`,
+  `openpairings_macos_aarch64.dmg` and `openpairings_macos_x86_64.dmg` are
+  now `OpenPairings-<version>-win-Setup.msi`,
+  `OpenPairings-<version>-win-Setup.exe`,
+  `OpenPairings-<version>-macos-aarch64.dmg` and
+  `OpenPairings-<version>-macos-x86_64.dmg` (e.g.
+  `OpenPairings-0.59.0-win-Setup.msi`). The portable zips and the bare
+  Linux/macOS binaries are unaffected - only the four installers above
+  changed. The in-app updater's own files did NOT change and deliberately
+  keep the Velopack pack id instead of this friendly name:
+  `releases.win.json`, `RELEASES` and every
+  `OpenPairingsApp-<version>-full/delta.nupkg` keep the exact names an
+  already-installed copy looks for, because Velopack's updater finds its
+  updates by those names, not by browsing a folder - renaming them would
+  break every install already out there. One consequence: a download link
+  that wants "always the newest installer" can no longer point at a fixed
+  file name, because that name now changes every release. Point it at
+  <https://github.com/AuroraRyunix/openpairings/releases/latest> instead, or
+  look the asset up through the GitHub releases API.
+
 ## [0.59.0] - 2026-09-11
 
 - [Change] **Public standings now wait for a complete round, not just a
