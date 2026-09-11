@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.58.0] - 2026-09-11
 
+- [Fix] **A fresh install's first launch no longer races itself for the database.**
+  On the very first boot there is no database file yet, and every connection in
+  the app's pool tried to switch the new file into SQLite's WAL mode at once - a
+  change that needs an exclusive lock, attempted before the library had been told
+  to wait for one. All but one connection were refused on the spot, the setup
+  that runs before the app starts waited on a pool with nothing to give, and
+  after four seconds the program gave up without opening. Reproduced on an
+  ordinary SSD in 2 fresh boots of 5; a slower machine makes it likelier. Setup
+  now runs through one throwaway connection before the pool exists, so the file
+  is created and switched exactly once, and the pool only ever confirms a mode
+  already set.
 - [Feature] **A per-user Velopack install can now apply an update from
   inside the app - "Install and restart", confirmed, not a follow-up
   anymore.** 0.57.0's notice offered every install kind a link and nothing
