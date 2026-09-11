@@ -14,6 +14,16 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Fix] **The Windows installer's wizard looks the way it was drawn.** The
+  picture meant for the welcome and finish pages was squashed into the strip
+  across the top of every other page, and that strip was stretched down the
+  welcome page: Velopack fills those two slots the other way round from what
+  its own help says. The welcome and finish text also broke mid-sentence and
+  ran out of room; it is now plain paragraphs the page wraps itself. The
+  build now checks that each picture is in its own slot and stops if not.
+
 ## [0.58.2] - 2026-09-11
 
 - [Verified] **Install and restart, tried for real.** Nothing in the program

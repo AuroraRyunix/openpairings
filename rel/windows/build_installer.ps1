@@ -253,9 +253,17 @@ foreach ($asset in @($icon, $splash, $msiBanner, $msiLogo)) {
 # Wizard content for the pages listed in .NOTES. Welcome and Conclusion are
 # hand-written and versioned normally; Licence is derived below rather than
 # hand-copied, so it can never say something LICENSE itself does not.
+#
+# Welcome and Conclusion are .txt, one line per paragraph, plain ASCII. Those
+# two pages are a plain WiX Text control, not the licence page's rich-text
+# box, and vpk 1.2.0's --help says as much ("plain-text"). As .md they
+# reached the control with every source line break kept, the heading's text
+# left in, blank lines dropped and one break swallowed ("needs
+# anadministrator") - so the welcome page wrapped mid-sentence and ran out of
+# room. A paragraph per line lets the control do the wrapping.
 $installerContentDir = Join-Path $PSScriptRoot 'installer-content'
-$welcome = Join-Path $installerContentDir 'welcome.md'
-$conclusion = Join-Path $installerContentDir 'conclusion.md'
+$welcome = Join-Path $installerContentDir 'welcome.txt'
+$conclusion = Join-Path $installerContentDir 'conclusion.txt'
 
 foreach ($asset in @($welcome, $conclusion)) {
     if (-not (Test-Path $asset)) {
@@ -378,6 +386,17 @@ Write-Host "Packing OpenPairings $Version from $PayloadDir" -ForegroundColor Cya
 # for why they are drawn (not converted) from the same mark as the icon and
 # splash, and why the logo splits into a dark column and a light one instead
 # of going full-bleed like the splash does.
+#
+# ...and passed CROSSED, on purpose. vpk 1.2.0's own --help calls --msiBanner
+# "the top banner" and --msiLogo "the background logo", but the .msi it builds
+# puts --msiBanner's file in WixUI_Bmp_Dialog (the 493x312 image behind the
+# welcome and finish pages) and --msiLogo's in WixUI_Bmp_Banner (the 493x58
+# strip across the top of every other page). Passed by their names, 0.58.2
+# shipped the strip stretched down the welcome page and the tall image
+# squashed behind every page title - read back from that .msi's Binary table,
+# where Banner held 461,814 bytes (msi_logo.bmp) and Dialog 85,894
+# (msi_banner.bmp). The Binary-table check after packing holds this in place,
+# and fails the build if a later vpk starts following its help text.
 & vpk pack `
     --packId $packId `
     --packVersion $Version `
@@ -393,8 +412,8 @@ Write-Host "Packing OpenPairings $Version from $PayloadDir" -ForegroundColor Cya
     --instConclusion $conclusion `
     --instLocation Either `
     --msi `
-    --msiBanner $msiBanner `
-    --msiLogo $msiLogo `
+    --msiBanner $msiLogo `
+    --msiLogo $msiBanner `
     --outputDir $OutputDir
 
 if ($LASTEXITCODE -ne 0) { throw "vpk pack failed with exit code $LASTEXITCODE" }
@@ -420,7 +439,7 @@ foreach ($from in $renames.Keys) {
 # the dialog's radio property, WixAppFolder, as WixPerMachineFolder, and has
 # no flag to change it. The maintainer's decision (2026-09-11) is just-me by
 # default - a machine-wide copy needs an administrator for every update, and
-# welcome.md says so - so the default is set here, in the built .msi's own
+# welcome.txt says so - so the default is set here, in the built .msi's own
 # Property table, through the same Windows Installer COM API used to verify
 # it. ALLUSERS=2 with MSIINSTALLPERUSER=1, which vpk already writes, is the
 # per-user half of that; this is the half the dialog shows. A hard stop if
@@ -453,6 +472,40 @@ if (Test-Path $msi) {
         throw "Could not set the .msi's default install scope to just-me (WixAppFolder is '$value'). See the comment above this check."
     }
     Write-Host "MSI default install scope: just me (WixAppFolder = $value)" -ForegroundColor Cyan
+}
+
+# The two wizard images, read back from the built .msi's Binary table: each
+# WiX slot must hold exactly the file drawn for it, compared by size since the
+# two files differ by a factor of five. This is what holds the crossed
+# --msiBanner/--msiLogo above in place - a vpk that one day follows its own
+# --help would otherwise quietly reintroduce the stretched welcome page and
+# the squashed title strip 0.58.2 shipped.
+if (Test-Path $msi) {
+    $wi = New-Object -ComObject WindowsInstaller.Installer
+    $db = $wi.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $wi, @($msi, 0))
+    $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db, @('SELECT `Name`, `Data` FROM `Binary`'))
+    $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+    $slots = @{}
+    while ($row = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)) {
+        $slots[$row.GetType().InvokeMember('StringData', 'GetProperty', $null, $row, 1)] =
+            $row.GetType().InvokeMember('DataSize', 'GetProperty', $null, $row, 2)
+    }
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($view)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($db)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($wi)
+
+    $expected = [ordered]@{
+        'WixUI_Bmp_Banner' = @{ File = $msiBanner; What = 'the strip across the top of the inner pages' }
+        'WixUI_Bmp_Dialog' = @{ File = $msiLogo; What = 'the image behind the welcome and finish pages' }
+    }
+    foreach ($slot in $expected.Keys) {
+        $file = $expected[$slot].File
+        $want = (Get-Item $file).Length
+        if ($slots[$slot] -ne $want) {
+            throw "The .msi's $slot ($($expected[$slot].What)) holds $($slots[$slot]) bytes, not $(Split-Path $file -Leaf)'s $want. vpk has changed which of --msiBanner/--msiLogo fills which slot - see the comment above ``vpk pack``."
+        }
+    }
+    Write-Host "MSI wizard images: each in its own slot (Banner $($slots['WixUI_Bmp_Banner']) B, Dialog $($slots['WixUI_Bmp_Dialog']) B)" -ForegroundColor Cyan
 }
 
 # assets.win.json is vpk's own manifest of what it just built, written

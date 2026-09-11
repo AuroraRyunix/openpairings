@@ -1,0 +1,3 @@
+OpenPairings runs chess tournaments: Swiss pairings (FIDE Dutch), round robin and Keizer, FIDE tiebreaks, results, standings, printing, and TRF and SWAR import and export.
+
+It installs for your own Windows account, with no administrator rights needed. The next step lets you install it for everyone on this computer instead; a copy installed for everyone needs an administrator for every update.
