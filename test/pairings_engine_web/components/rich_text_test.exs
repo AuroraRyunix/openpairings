@@ -1,4 +1,4 @@
-defmodule PairingsEngineWeb.RichTextTest do
+defmodule PairingsEngineWeb.Components.RichTextComponentTest do
   @moduledoc """
   `rich_text/1` is the thing that lets a sentence with a link inside it stay
   a single msgid. Two properties matter and neither is obvious from reading
