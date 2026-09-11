@@ -14,6 +14,16 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.58.1] - 2026-09-11
+
+- [Fix] **The release 0.58.0 should have been.** 0.58.0's release page went out
+  without its Windows installers (the MSI and `Setup.exe`), without the update
+  package that "Install and restart" updates from, and without any of the
+  portable zips. The steps that build them ran only for tagged builds, and
+  0.58.0 was released automatically from `main`. Those steps now run for every
+  build that can publish a release. Nothing in the program itself changed.
+  0.58.0 is marked as a pre-release, so no installed copy is told about it.
+
 ## [0.58.0] - 2026-09-11
 
 - [Fix] **A fresh install's first launch no longer races itself for the database.**
