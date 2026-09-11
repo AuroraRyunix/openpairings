@@ -114,10 +114,12 @@ verifies.
 
 ## 0c. Answered 2026-09-10, and it changes the shape
 
-Three of the questions came back. **Relayed by the maintainer; whether the
-first two are TEC's words or the maintainer's own call is not yet pinned
-down, and should be** - this document's entire section 0 is about not
-letting an unattributed answer harden into a fact.
+Three of the questions came back - **informally, not as an official
+Commission position.** That was pinned down on 2026-09-11, and it is the
+distinction this document's section 0 exists to keep: none of the three may
+be cited to the Commission as the Commission's answer. The second and third,
+per tournament by default and no toggle, are adopted below as this project's
+own design decisions, and they stand on their own reasoning either way.
 
 **There is no reference corpus.** Verification does not run a candidate
 against a set of tournaments with known-correct answers. That is worth more

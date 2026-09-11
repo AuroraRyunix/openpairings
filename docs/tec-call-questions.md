@@ -31,7 +31,7 @@ Is there a list, or is it left to the program? If a list exists, we want it
 verbatim - this is exactly where two vendors implement the same rule
 differently and both think they are right.
 
-**1.3 ~~Is FIDE Mode a property of a tournament, or of the installation?~~ ANSWERED 2026-09-10: per tournament, and the default - with NO toggle. See design-fide-mode.md section 0c.**
+**1.3 ~~Is FIDE Mode a property of a tournament, or of the installation?~~ ANSWERED 2026-09-10, informally - not an official Commission position: per tournament, and the default - with NO toggle. See design-fide-mode.md section 0c.**
 
 The 2017 checklist (C.04 Annex 4, VCL.01-02) reads as the installation: the
 mode is the program's default operating mode, entered by a standard
@@ -52,7 +52,7 @@ and whether "no re-entry" binds the tournament or the installation.
 
 ## 2. Changes how much we build
 
-**2.1 How is a program actually verified? ~~And is there a corpus?~~ ANSWERED 2026-09-10: there is NO reference corpus.**
+**2.1 How is a program actually verified? ~~And is there a corpus?~~ ANSWERED 2026-09-10, informally - not an official Commission position: there is NO reference corpus.**
 
 Checklist walkthrough, live demonstration, or submitted files? And is there
 a set of reference tournaments a candidate is expected to reproduce?

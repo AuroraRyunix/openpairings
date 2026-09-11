@@ -5,10 +5,9 @@
 pairing and tie-break engine)
 **Drafted:** 2026-09-10
 
-This is a front door, not the evidence. It exists because the Commission
-confirmed on 2026-09-10 that **there is no reference corpus** - no set of
-tournaments with known-correct answers a candidate is expected to
-reproduce. So the only account of whether this software pairs correctly is
+This is a front door, not the evidence. It exists because we know of **no
+published reference corpus** - no set of tournaments with known-correct
+answers a candidate is expected to reproduce. So the only account of whether this software pairs correctly is
 the one its authors produce, and an account of that kind is worth exactly
 what its method is worth.
 
@@ -91,7 +90,7 @@ written by other people.
   [`finding-gacrux-5-2-5.md`](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/finding-gacrux-5-2-5.md).
   **Gacrux is the Commission's own tie-break server.**
 - A separate Gacrux issue at Article 5.2.4, and a bbpPairings issue in its
-  C.2 handling, are written up and not yet filed upstream.
+  C.2 handling, are written up and have been reported upstream.
 
 That document's closing section is also worth the Commission's attention,
 for the opposite reason: it records that a reading of Gacrux's source had
