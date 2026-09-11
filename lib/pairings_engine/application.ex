@@ -7,11 +7,15 @@ defmodule PairingsEngine.Application do
 
   @impl true
   def start(_type, _args) do
+    # Migrations run here - before `children` below ever builds a
+    # connection pool - not as an entry in that list, where they ran until
+    # this comment was written. See `run_migrations/0`'s comment for why
+    # moving them out was the fix and not just a rearrangement.
+    unless skip_migrations?(), do: run_migrations()
+
     children = [
       PairingsEngineWeb.Telemetry,
       PairingsEngine.Repo,
-      {Ecto.Migrator,
-       repos: Application.fetch_env!(:pairings_engine, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,
@@ -115,6 +119,50 @@ defmodule PairingsEngine.Application do
   # depend on Burrito's launcher continuing to set any particular variable.
   defp skip_migrations? do
     not release?()
+  end
+
+  # Migrations run through a single, throwaway connection - never through
+  # `PairingsEngine.Repo`'s own pool - because that pool's very first boot
+  # against a brand-new database (every fresh install, every fresh CI
+  # runner, every wiped `OPENPAIRINGS_DATA_DIR`) is a race its own
+  # connections can lose to each other.
+  #
+  # SQLite only needs an exclusive lock to CHANGE `journal_mode` to `:wal`,
+  # not to confirm it is already there - and on a database file that does
+  # not exist yet, EVERY connection that opens it is making that change, not
+  # confirming it. `PairingsEngine.Repo`'s pool opens more than one
+  # connection at once (`pool_size: 2` in local mode, 5 on a server - see
+  # `config/runtime.exs`), and exqlite's `connect/1` sets `:journal_mode`
+  # before `:busy_timeout` (`exqlite/lib/exqlite/connection.ex`), so on that
+  # first boot every connection but the one that wins the lock hits
+  # SQLITE_BUSY with no busy-wait configured yet to ride it out - there is
+  # nothing to wait WITH. DBConnection then retries that failed connect on
+  # its own backoff (starting at `:backoff_min`, 1 000 ms by default, not
+  # ours), while `Ecto.Migrator`'s checkout for "CREATE TABLE
+  # schema_migrations" sits in the pool's queue with nothing to check out -
+  # and DBConnection's own queue drops it once it has waited long enough:
+  # "connection not available and request was dropped from queue after
+  # 4000ms", the portable release's intermittent boot failure on the CI
+  # macOS x86_64 runner (the slowest in the build matrix, and so the one
+  # slow enough to open this window). `pool_size` was already lowered from 5
+  # to 2 for local mode for exactly this race (see the comment on
+  # `PairingsEngine.Repo`'s config) and it narrowed the window without
+  # closing it - two connections can still open the same new file at once.
+  #
+  # A single connection cannot race itself. `with_repo/3` below starts its
+  # own `pool_size: 1` copy of the repo - ours is not running yet, since
+  # this runs before `children` in `start/2` - so exactly one connection
+  # ever performs the create-the-file-and-switch-to-:wal step, runs every
+  # migration, then stops. By the time `PairingsEngine.Repo` starts as an
+  # ordinary child right after this returns, the file already exists and is
+  # already `:wal`, so every pool connection's own `:journal_mode` pragma is
+  # now the cheap confirmation rather than the exclusive-locking change -
+  # opening two, or five, of them at once is no longer a race.
+  defp run_migrations do
+    for repo <- Application.fetch_env!(:pairings_engine, :ecto_repos) do
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true), pool_size: 1)
+    end
   end
 
   defp release? do

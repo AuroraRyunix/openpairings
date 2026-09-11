@@ -434,9 +434,11 @@ PORT=4000 \
 ```
 
 - `DATABASE_PATH` - where the SQLite database file lives. Created and
-  migrated on first start: `PairingsEngine.Application` supervises
-  `Ecto.Migrator`, which runs whenever `RELEASE_NAME` is set, i.e. in every
-  release. There is no `mix ecto.migrate` step and no `eval` to run first.
+  migrated on first start: `PairingsEngine.Application.start/2` runs
+  `Ecto.Migrator` through a single throwaway connection before its own
+  supervision tree - and so before its own connection pool - ever opens,
+  whenever `RELEASE_NAME` or `RELEASE_ROOT` is set, i.e. in every release.
+  There is no `mix ecto.migrate` step and no `eval` to run first.
 - `SECRET_KEY_BASE` - required; generate once and keep it stable.
 - `PHX_SERVER=true` - actually serve HTTP (a release doesn't by default).
 - SMTP (`SMTP_USERNAME` / `SMTP_PASSWORD`) is required in prod for magic-link
