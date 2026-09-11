@@ -1,0 +1,3 @@
+OpenPairings is installed. Start it from the shortcut on your Desktop or in the Start menu: a small window appears while it starts, then your browser opens. There is nothing to type and no login.
+
+Your tournaments are kept in your own Windows account, in %LOCALAPPDATA%\OpenPairings, separate from the program. Uninstalling OpenPairings removes the program only; your tournaments and backups stay.
