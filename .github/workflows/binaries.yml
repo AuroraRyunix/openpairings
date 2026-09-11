@@ -476,6 +476,59 @@ jobs:
           Compress-Archive -Path "_build/prod/rel/pairings_engine_portable" -DestinationPath $out
           Get-Item $out | Select-Object Name, Length
 
+      # The Windows installers (Setup.exe + the .msi) and the update feed a
+      # future in-app updater will read - see docs/binaries.md's "The Windows
+      # installers and the update feed" for what gets attached and why, and
+      # rel/windows/build_installer.ps1's .NOTES for what building --msi
+      # established about where it installs and whether it can update
+      # without admin. Tag builds only, same as the zip above: a real
+      # installer for every push to main is not worth the ~45s WiX
+      # compilation costs for builds that are never downloaded.
+      - name: Install vpk (Windows)
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Pinned to the exact version this was built and verified against
+          # locally (`vpk --version`) - not "latest", which would let a vpk
+          # release nobody has run against this project's payload decide
+          # what ships.
+          dotnet tool install -g vpk --version 1.2.0
+
+      - name: Fetch the previous Windows release for delta packages
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Best-effort, deliberately not checked. `vpk pack` below (its
+          # default --delta BestSpeed, unchanged by build_installer.ps1) only
+          # produces a delta package when it finds a previous version's
+          # .nupkg already sitting in -outputDir to diff against - it does
+          # not fetch one itself, so this is what makes delta generation do
+          # anything at all. It can legitimately find nothing: the first tag
+          # to carry this feed has no previous release to fetch, and that is
+          # not a failure - `vpk pack` below still succeeds either way, it
+          # just ships a Full-only package for this version when there was
+          # nothing to diff against. A transient network error here must not
+          # fail the release either, hence `exit 0` regardless of how the
+          # command above went.
+          $env:Path = "$env:USERPROFILE\.dotnet\tools;$env:Path"
+          vpk download github --repoUrl https://github.com/AuroraRyunix/openpairings --channel win --outputDir installer_out --token $env:GH_TOKEN
+          exit 0
+
+      - name: Pack the Windows installers
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # No -Version: build_installer.ps1 reads it from mix.exs itself, so
+          # it can never drift from the release this build actually is - see
+          # mix pairings.version_check, which fails on a hardcoded version
+          # anywhere it expects one derived instead. No -Overwrite either:
+          # -outputDir may already hold the previous version's files from the
+          # download above, but never this version's, so the safety check
+          # that flag would bypass never fires here.
+          .\rel\windows\build_installer.ps1 -PayloadDir "_build\prod\rel\pairings_engine_portable" -OutputDir installer_out
+
       # Everything this target contributes to a release, in one artifact for
       # the release job to collect. The build job cannot attach it itself any
       # more: attaching needs `contents: write`, and a matrix job that runs on
@@ -496,14 +549,26 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release_assets_${{ matrix.target }}
-          # `*.dmg` matches on macOS only, and the zip is only built on tags -
+          # `*.dmg` matches on macOS only, the zip and the installer_out/*
+          # lines only exist on tag builds (Windows-only for installer_out) -
           # so this deliberately does NOT use if-no-files-found: error. Every
           # runner is missing something here, and the release job below is
           # what checks that the set as a whole arrived.
+          #
+          # installer_out/* is deliberately NOT a bare glob: build_installer.ps1
+          # also renames assets.win.json in place there, and RELEASES (the
+          # legacy Squirrel feed file) sits there too - neither belongs on the
+          # release page, see docs/binaries.md. Named explicitly instead of
+          # excluded, so a future file added to that directory does not reach
+          # the release by default.
           path: |
             burrito_out/*
             _build/prod/rel/openpairings_portable_${{ matrix.target }}.zip
             _build/prod/rel/*.dmg
+            installer_out/*.exe
+            installer_out/*.msi
+            installer_out/releases.win.json
+            installer_out/*.nupkg
 
   # The only job in this workflow that can write to the repository, and it
   # only exists on a tag. `needs: build` means no release is created unless
@@ -599,3 +664,7 @@ jobs:
             release_assets/burrito_out/*
             release_assets/_build/prod/rel/*.zip
             release_assets/_build/prod/rel/*.dmg
+            release_assets/installer_out/*.exe
+            release_assets/installer_out/*.msi
+            release_assets/installer_out/releases.win.json
+            release_assets/installer_out/*.nupkg

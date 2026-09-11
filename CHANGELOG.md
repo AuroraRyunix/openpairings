@@ -102,6 +102,72 @@ Each entry is tagged so a version can be skimmed:
   than an edition year, and reading that label as an edition is what put
   the wrong year everywhere else in this project. Corrected throughout;
   which rules either engine runs has not changed.
+- [Feature] **OpenPairings gets a real Windows installer wizard - a `.msi`
+  alongside `Setup.exe`, and it is the recommended download.** `vpk pack
+  --msi` (WiX 5 underneath) now runs inside `rel/windows/build_installer.ps1`
+  and CI packs both on every tagged release, feeding it the same Welcome,
+  Licence and Conclusion content that was wired in but unreachable before
+  this: `Setup.exe` is Velopack's "one-click" installer by design and was
+  never going to show a wizard, no matter what content it was handed - only
+  a `.msi` does. Two new WiX dialog images
+  (`rel/windows/msi_banner.bmp`/`msi_logo.bmp`, exactly 493x58 and 493x312 -
+  WiX "Bitmap" dialog controls, so `.bmp`, not `.png`) are drawn by an
+  extended `build_brand_assets.py` from the same site mark as the icon and
+  splash - no new artwork. The `.msi` is renamed `OpenPairings-win-Setup.msi`
+  the same way `Setup.exe` already is.
+
+  Verified without installing it (per-machine needs admin, and even per-user
+  installs software on whoever runs it): opened with the Windows Installer
+  COM API and its Property, Directory and ControlEvent tables read directly.
+  That is how a real, load-bearing discrepancy with Velopack's own docs
+  turned up - `docs.velopack.io/packaging/installer` describes a per-machine
+  install as going to `Program Files\{publisher}\{packTitle}`, but the `.msi`
+  this project actually builds (vpk 1.2.0) uses the *pack id* for both
+  install roots: `%LOCALAPPDATA%\OpenPairingsApp` per-user (identical to
+  `Setup.exe`'s existing root) and `Program Files\OpenPairingsApp`
+  per-machine - one path segment, not two. `Assert-DataDirectorySafe`, the
+  guard that refuses to pack an installer whose uninstall could reach the
+  database, was checking the *documented* (wrong) per-machine path; it now
+  checks the real one. The database directory
+  (`%LOCALAPPDATA%\OpenPairings`) was never at risk on the true path either,
+  since it does not depend on packAuthors/packTitle - but the guard is only
+  worth having if it checks the path Velopack actually uses, not the one its
+  docs say it does.
+
+  **Per-machine installs cannot update without an admin prompt**, checked
+  before shipping this per the maintainer's own condition for doing so:
+  Velopack's docs confirm updates go through the same `Update.exe` either
+  way, and a per-machine install puts that, like everything else, under
+  `Program Files`, which an ordinary process cannot write to without
+  elevation. Per-user has no such problem, which is why it stays the install
+  this project actually recommends; per-machine exists because the `.msi`'s
+  wizard genuinely offers the choice. The in-app update *check* itself is
+  still not built - a different, later change - so today this only affects
+  manually re-running a newer `.msi`, but it will affect the automatic path
+  the same way once that exists.
+
+  CI (`.github/workflows/binaries.yml`) now packs both installers on tag
+  builds and attaches exactly `OpenPairings-win-Setup.msi`,
+  `OpenPairings-win-Setup.exe`, `releases.win.json` and the `.nupkg` - the
+  files Velopack's GitHub update source actually reads, per its docs.
+  Neither `RELEASES` (legacy Squirrel-migration file; OpenPairings never
+  shipped on Squirrel) nor `assets.win.json` (vpk's own build manifest,
+  read by nothing in this repository) is attached. `vpk` is pinned in CI to
+  1.2.0, the exact version this was built and verified against locally, and
+  a best-effort `vpk download github` step runs first so delta packages get
+  generated once a previous release exists to diff against - the very first
+  tag to carry this feed has nothing to diff against yet, which is expected,
+  not a failure.
+
+  Also fixed in passing: `assets.win.json` used to be left naming the two
+  files this script renames by their pre-rename names, i.e. files that no
+  longer existed on disk after a build - it is now rewritten to match.
+  `build_installer.ps1`'s `-OutputDir` default used to read `$PSScriptRoot`
+  from inside the parameter block, where it is not yet populated for a
+  top-level script - it silently resolved to a bare, drive-root-relative
+  path and made every run that did not pass `-OutputDir` explicitly fail
+  outright; the default is now computed in the script body instead, where
+  `$PSScriptRoot` is reliable.
 
 ## [0.55.0] - 2026-09-10
 

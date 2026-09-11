@@ -250,10 +250,12 @@ py -3 rel\windows\build_brand_assets.py   # only if the icon changed
 .\rel\windows\build_launcher.ps1          # writes rel\windows\OpenPairings.exe
 ```
 
-The installer is packed from a finished portable release by
-[`rel/windows/build_installer.ps1`](../rel/windows/build_installer.ps1), which
-is not run by CI - read its `.NOTES` before you ship one, because there is a
-recorded problem there that has nothing to do with the launcher.
+The installer(s) are packed from a finished portable release by
+[`rel/windows/build_installer.ps1`](../rel/windows/build_installer.ps1). CI
+runs it too, on tag builds - see "CI (all five targets)" below - but read its
+`.NOTES` before you ship one by hand, because it records real, verified
+findings about install locations and updates that have nothing to do with
+the launcher.
 
 Why not .NET, which is the obvious thing to reach for on Windows:
 framework-dependent needs a runtime installed on the arbiter's machine, which
@@ -262,6 +264,86 @@ to a payload that is already 155 MB. Why C rather than Zig-the-language: CI
 pins Zig 0.15.2 because Burrito requires exactly that, a developer machine has
 whatever is current, and Zig's standard library changes between releases while
 `zig cc` and `windows.h` do not.
+
+#### The installers: `OpenPairings-win-Setup.msi` and `OpenPairings-win-Setup.exe`
+
+`build_installer.ps1` packs **two** installer artifacts from the same
+payload, and **the `.msi` is the recommended download** - it is what the
+release page and this document point an arbiter at first. `Setup.exe` stays
+beside it as the one-click alternative.
+
+|  | `.msi` | `Setup.exe` |
+|---|---|---|
+| shows a wizard | yes - Welcome, Licence, install-location choice, Conclusion | no - installs and launches immediately |
+| per-user install | `%LOCALAPPDATA%\OpenPairingsApp` | `%LOCALAPPDATA%\OpenPairingsApp` (same folder, unconditional) |
+| per-machine install | `Program Files\OpenPairingsApp` (choice offered in the wizard) | not available |
+| needs admin | only if per-machine is chosen | never |
+| Add/Remove Programs entry | yes | yes |
+
+**Why both exist.** Velopack's `Setup.exe` is, by its own design, a
+"one-click" installer: `docs.velopack.io/packaging/installer` says plainly
+that running it "will not show any questions / wizards to the user", and
+that holds regardless of any wizard-content flags passed to `vpk pack` -
+verified locally by packing a throwaway payload with and without them and
+diffing the resulting `Setup.exe` files byte for byte (identical but for the
+pack id string). A genuine wizard - Welcome, Licence, a real per-user/
+per-machine choice, Conclusion - only exists in a second artifact, a WiX
+`.msi`, which `vpk pack --msi` builds alongside `Setup.exe` from the same
+`--inst*` flags. `build_installer.ps1` builds both and renames both to a
+friendly name; only `Setup.exe` existed before this was added.
+
+**Where each one installs, and what was actually checked.** Velopack's own
+docs describe a per-machine install as going to
+`Program Files\{publisher}\{packTitle}`. That is not what this project's
+`.msi` does - established by opening a built `.msi` with the Windows
+Installer COM API (`New-Object -ComObject WindowsInstaller.Installer`, no
+extra tooling needed) and reading its Property, Directory and ControlEvent
+tables directly, rather than trusting the docs or re-deriving it from
+memory. The `.msi`'s `ApplicationFolderName` property is the **pack id**
+(`OpenPairingsApp`), not the title, and its per-machine path resolves to
+`[ProgramFiles64Folder][ApplicationFolderName]` - one path segment, the same
+one `%LOCALAPPDATA%\OpenPairingsApp` already uses per-user. See
+`rel/windows/build_installer.ps1`'s `.NOTES` for the full derivation.
+
+Either way, this does not produce a shared tournament database: the data
+directory (`%LOCALAPPDATA%\OpenPairings`, see below) is resolved per Windows
+account by both `config/runtime.exs` and `OpenPairings.exe` itself, and
+neither reads anything about where the program was installed. Two arbiters
+sharing one machine-wide install would each get their own empty database on
+first run, not one shared between them - worth knowing before recommending a
+shared install as a way to get a shared database. Uninstalling likewise
+never touches that directory, on either install path: Velopack's uninstaller
+(both artifacts use the same underlying mechanism) deletes its own install
+directory whole, not just the files it tracked, which is exactly why the
+install directory's name is the pack id and not the product's name - see
+`WHY THE PACK ID IS NOT "OpenPairings"` in the script's `.NOTES`.
+
+**Per-machine installs cannot update without an admin prompt.** This was
+checked before shipping the `.msi`, per the maintainer's own condition for
+doing so. Velopack's docs state that "updates work identically via
+`Update.exe` regardless of whether the app was installed with `Setup.exe` or
+the `.msi`" - and a per-machine install puts `Update.exe`, like everything
+else, under `Program Files`, which an ordinary user process cannot write to
+without elevation. A per-machine install can only update by prompting for
+admin every time it does, the same as installing it did. Per-user has no
+such problem: `%LOCALAPPDATA%` is always writable by its own owner, which is
+why the per-user install stays the one this document actually recommends -
+per-machine exists because the `.msi` genuinely offers the choice, not
+because it is the better path for an arbiter's own laptop. **The
+auto-update check itself is not built yet** - only the update feed a future
+in-app checker will read (see "CI (all five targets)" below) - so today this
+only affects the manual "download the new `.msi` and run it again" path, but
+it will affect the in-app one the same way once that exists.
+
+**Unsigned, so expect prompts.** Neither installer is code-signed (see "The
+real fix on Windows is an Authenticode signature" above - the same economics
+apply here). `Setup.exe` and a per-user `.msi` install get SmartScreen's
+"Windows protected your PC" wall on a fresh download, same as the portable
+release. A per-machine `.msi` install additionally triggers Windows' UAC
+elevation prompt, and because the binary is unsigned that prompt reads
+"Unknown publisher" rather than naming OpenPairings - unsettling to see on a
+club laptop, and worth saying so before someone clicks through it for an
+arbiter who is watching.
 
 ## Running it locally (the default)
 
@@ -375,3 +457,36 @@ Burrito binaries also accept `maintenance` sub-commands, e.g.
 `.github/workflows/binaries.yml` builds every target on its **native** GitHub
 runner (native NIFs, no cross-compile guesswork) and uploads the executables as
 workflow artifacts - and as release assets when you push a `v*` tag.
+
+### The Windows installers and the update feed
+
+On a **tag** build only, the Windows runner also packs
+`rel/windows/build_installer.ps1` (`vpk` pinned to the exact version used
+locally) and the release job attaches the result. What gets attached is
+deliberately not "everything vpk wrote":
+
+- `OpenPairings-win-Setup.msi` and `OpenPairings-win-Setup.exe` - the two
+  human-facing downloads, friendly-named exactly as a local build produces
+  them.
+- `releases.win.json` and the `.nupkg` file(s) - the update feed. This is
+  what a future in-app update checker will read (see
+  `rel/windows/build_installer.ps1`'s `.NOTES` for why one is not built yet:
+  packaging and publishing a feed has to exist before anything can check it).
+  These two are **never renamed** - Velopack's updater resolves them by these
+  exact names, so renaming either would silently break updates for every
+  install already out there.
+- `RELEASES` is deliberately **not** attached. It exists only for migrating
+  from Squirrel.Windows/Clowd.Squirrel, and OpenPairings has never shipped on
+  either, so there is no legacy client for it to serve.
+- `assets.win.json` is deliberately **not** attached either - it is `vpk`'s
+  own manifest of what it built, not part of what any updater reads, and
+  nothing in this repository consumes it.
+
+CI runs `vpk download github` against this repository before packing, so
+that if a previous tag's release already carries a `.nupkg`, this build can
+diff against it and produce a **delta package** - a much smaller download
+for anyone already on the previous version. That step is best-effort: the
+very first tag to carry this feed has nothing to diff against yet, and a
+transient network failure here should not fail the whole release, so `vpk
+pack` below it still runs (and still succeeds, just without a delta) either
+way.

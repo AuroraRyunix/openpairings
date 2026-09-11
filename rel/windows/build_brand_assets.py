@@ -1,4 +1,5 @@
-"""Builds the Windows installer's icon and splash from the site's brand mark.
+"""Builds the Windows installer's icon, splash and MSI dialog art from the
+site's brand mark.
 
 Run when the mark changes; the outputs are committed beside this script so a
 build machine needs no image tooling:
@@ -6,6 +7,33 @@ build machine needs no image tooling:
     py -3 rel/windows/build_brand_assets.py
 
 Needs Pillow (`py -3 -m pip install pillow`) and nothing else.
+
+## The MSI images
+
+`vpk pack --msi` takes `--msiBanner` and `--msiLogo`: WiX's "Bitmap" dialog
+controls, which is why they must be `.bmp` (Velopack's own docs say so under
+`--msiBanner`/`--msiLogo` - confirmed against the .wxs template embedded in
+`vpk` itself, which wires both straight into `<Binary SourceFile="...">`
+elements consumed by `Type="Bitmap"` controls: Windows Installer's classic
+dialog art, not a modern image control that would tolerate PNG).
+
+Their layout is fixed by that same embedded template, not chosen here:
+
+  * The banner (493x58) is `BannerBitmap`, full width and top-aligned, on
+    every wizard page except Welcome/Exit.
+  * The logo (493x312) is `Bitmap`, the FULL background of the Welcome and
+    Exit pages - the wizard's Title and Description text is drawn
+    transparently on top of it, left edge at dialog-unit x=135 of 370, i.e.
+    pixel 180 of 493 (`135/370 * 493`). That text has no colour of its own
+    in the template (no `TextStyle` colour, no per-control override), so it
+    renders in the Windows default control text colour - black. A dark
+    image under it, past x=180, would make it unreadable.
+
+  So the logo splits at x=180: an ink-dark left column carrying the mark
+  (safe - it never has text over it), and everything from x=180 onward left
+  as the light background these dialogs were built to draw dark text on.
+  This is the same reasoning as the .ico's white-fill-plus-dark-stroke mark,
+  applied in the other direction: know what the mark sits on, don't fight it.
 
 ## What the mark is, and why it is drawn here rather than loaded
 
@@ -229,11 +257,79 @@ def build_splash(out_path):
     return out_path
 
 
+def build_msi_banner(out_path):
+    """The 493x58 strip WiX shows across the top of every MSI wizard page
+    except Welcome/Exit. Light, because MsiBanner/MsiLogo sit under text the
+    template draws in the default (black) colour - see the module docstring.
+    """
+    width, height = 493, 58
+    canvas = Image.new("RGBA", (width, height), (255, 255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+
+    mark = render_mark(50)
+    my = (height - mark.height) // 2
+    canvas.alpha_composite(mark, (16, my))
+
+    title_font = _font(["segoeuib.ttf", "seguisb.ttf", "arialbd.ttf"], 24)
+    title = "OpenPairings"
+    bbox = draw.textbbox((0, 0), title, font=title_font)
+    tx = 16 + mark.width + 14
+    ty = (height - (bbox[3] - bbox[1])) // 2 - bbox[1]
+    draw.text((tx, ty), title, font=title_font, fill=INK + (255,))
+
+    # A thin strip of the orb's own gradient along the bottom edge - the one
+    # colour cue that survives at this size, tying every wizard page back to
+    # the mark without repeating it on each one.
+    for x in range(width):
+        t = x / (width - 1)
+        colour = tuple(
+            round(ORB_FROM[i] + (ORB_TO[i] - ORB_FROM[i]) * t) for i in range(3)
+        )
+        draw.line([(x, height - 3), (x, height - 1)], fill=colour + (255,))
+
+    canvas.convert("RGB").save(out_path, format="BMP")
+    return out_path
+
+
+def build_msi_logo(out_path):
+    """The 493x312 background of the MSI's Welcome/Exit pages.
+
+    Split at x=180 (see module docstring): an ink-dark column on the left
+    carries the mark, matching the splash; everything the wizard's own text
+    can land on stays light.
+    """
+    width, height = 493, 312
+    left_w = 180
+    canvas = Image.new("RGBA", (width, height), (255, 255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle([0, 0, left_w - 1, height - 1], fill=INK + (255,))
+
+    mark = render_mark(140)
+    mx = (left_w - mark.width) // 2
+    my = 90
+    canvas.alpha_composite(mark, (mx, my))
+
+    title_font = _font(["segoeuib.ttf", "seguisb.ttf", "arialbd.ttf"], 22)
+    title = "OpenPairings"
+    tw = draw.textlength(title, font=title_font)
+    draw.text(
+        (max(8, (left_w - tw) / 2), my + mark.height + 22),
+        title,
+        font=title_font,
+        fill=TEXT + (255,),
+    )
+
+    canvas.convert("RGB").save(out_path, format="BMP")
+    return out_path
+
+
 def main():
     icon = build_icon(os.path.join(HERE, "OpenPairings.ico"))
     splash = build_splash(os.path.join(HERE, "splash.png"))
+    msi_banner = build_msi_banner(os.path.join(HERE, "msi_banner.bmp"))
+    msi_logo = build_msi_logo(os.path.join(HERE, "msi_logo.bmp"))
 
-    for path in (icon, splash):
+    for path in (icon, splash, msi_banner, msi_logo):
         print("wrote %s (%d bytes)" % (os.path.relpath(path, ROOT), os.path.getsize(path)))
 
 

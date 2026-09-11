@@ -5,3 +5,10 @@ __pycache__/
 # reviewed. launcher.c and the script that compiles it are the source of truth.
 obj/
 OpenPairings.exe
+
+# Build output of build_installer.ps1: a copy of the repository's own
+# top-level LICENSE with a .md extension, so vpk's format-by-extension
+# detection renders it. Regenerated from LICENSE on every build - committing
+# it would be a second copy of the licence text that could drift from the
+# real one.
+installer-content/LICENSE.md
