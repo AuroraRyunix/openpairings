@@ -172,6 +172,80 @@ defmodule PairingsEngine.SnapshotTest do
       # snapshot that is internally inconsistent, not merely sparse.
       assert length(snapshot["players"]) == 2
     end
+
+    # The case the tests above never had: before round 1 is paired NOBODY has
+    # a start number (they are issued by pairing), and the roster used to be
+    # filtered down to nothing - a blank public page on a live tournament.
+    defp unnumbered_tournament(attrs) do
+      tournament =
+        Repo.insert!(
+          struct(
+            %Tournament{
+              name: "Unnumbered",
+              type: "swiss",
+              pairing_system: "swiss",
+              rounds_count: 3,
+              publish_mode: "manual",
+              public_slug: "unnumbered-#{System.unique_integer([:positive])}"
+            },
+            attrs
+          )
+        )
+
+      for {name, rating, status} <- [
+            {"Carol", 1500, "active"},
+            {"Bob", 1900, "active"},
+            {"Alice", 1900, "active"},
+            {"Walter", 2400, "withdrawn"}
+          ] do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: name,
+          fide_rating: rating,
+          status: status
+        })
+      end
+
+      tournament
+    end
+
+    test "before round 1 is paired, the field is numbered provisionally in pairing order" do
+      tournament = unnumbered_tournament(%{})
+
+      snapshot = Snapshot.build(tournament)
+
+      # Highest rating first, name as the tie-break; a withdrawn player is not
+      # part of the field pairing will number, so not part of this list.
+      assert Enum.map(snapshot["players"], &{&1["no"], &1["name"]}) ==
+               [{1, "Alice"}, {2, "Bob"}, {3, "Carol"}]
+
+      assert snapshot["standings"]["after_round"] == 0
+      assert length(snapshot["standings"]["rows"]) == 3
+    end
+
+    test "the provisional numbers are the ones pairing round 1 then issues" do
+      tournament = unnumbered_tournament(%{})
+      provisional = Map.new(Snapshot.build(tournament)["players"], &{&1["name"], &1["no"]})
+
+      PairingsEngine.Pairing.ensure_pairing_numbers(
+        tournament,
+        PairingsEngine.Pairing.active_players(tournament.id)
+      )
+
+      issued =
+        tournament.id
+        |> Tournaments.list_players()
+        |> Enum.filter(& &1.pairing_number)
+        |> Map.new(&{&1.name, &1.pairing_number})
+
+      assert issued == provisional
+    end
+
+    test "the toggle withholds the provisional list too" do
+      tournament = unnumbered_tournament(%{publish_starting_rank: false})
+
+      assert Snapshot.build(tournament)["players"] == []
+    end
   end
 
   describe "several categories per player" do

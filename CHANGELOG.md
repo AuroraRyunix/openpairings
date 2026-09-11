@@ -14,6 +14,18 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Fix] **Before round 1, the public standings page lists the players instead
+  of staying blank.** The public site knows every player by their start
+  number, and start numbers are only handed out when round 1 is paired - so
+  until then there was nobody it could show, whatever the "before round 1"
+  setting said. The field is now numbered provisionally, in the order pairing
+  round 1 will number it, so the numbers normally stay the same afterwards.
+- [Change] **"Before round 1: public" is a small button beside Public page**
+  instead of a panel above the standings, and only appears while the
+  tournament is being published and round 1 has not been paired yet.
+
 ## [0.59.0] - 2026-09-11
 
 - [Change] **Public standings now wait for a complete round, not just a

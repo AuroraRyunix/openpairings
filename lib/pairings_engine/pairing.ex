@@ -298,7 +298,7 @@ defmodule PairingsEngine.Pairing do
 
       players
       |> Enum.filter(&is_nil(&1.pairing_number))
-      |> Enum.sort_by(&{-Player.rating(&1), &1.name})
+      |> initial_order()
       |> Enum.with_index(max_existing + 1)
       |> Enum.each(fn {player, number} ->
         {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
@@ -307,6 +307,18 @@ defmodule PairingsEngine.Pairing do
 
     tournament
   end
+
+  @doc """
+  The order pairing numbers are handed out in: highest rating first, name
+  ascending as the tie-break (FIDE C.04.2.B).
+
+  One definition, used by `ensure_pairing_numbers/2` when it issues the real
+  numbers and by `PairingsEngine.Snapshot` when it numbers the field
+  provisionally before round 1 is paired - so the public list a spectator
+  reads before the first round is the same order the numbers will actually
+  come out in.
+  """
+  def initial_order(players), do: Enum.sort_by(players, &{-Player.rating(&1), &1.name})
 
   # The highest number ever ISSUED in this tournament, over the whole roster.
   #

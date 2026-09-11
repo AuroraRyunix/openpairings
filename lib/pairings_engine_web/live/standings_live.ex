@@ -489,48 +489,34 @@ defmodule PairingsEngineWeb.StandingsLive do
             {gettext("Public page")}
           </a>
 
+          <%!-- Beside "Public page" because that is the page it changes, and
+                only while there is one: a tournament that does not publish has
+                nothing for it to show or hide. Only until round 1 is paired,
+                too - the maintainer's call, it is a decision about the entry
+                list taken before play starts. Its value keeps applying until
+                round 1 is PUBLISHED (a manual or timed publish can lag the
+                pairing); after that the roster travels with the published
+                boards regardless (see PairingsEngine.Snapshot). --%>
+          <button
+            :if={PublicLink.public?(@tournament) and @rounds_paired == 0}
+            type="button"
+            class="pe-btn"
+            phx-click="toggle_publish_starting_rank"
+            aria-pressed={to_string(@tournament.publish_starting_rank)}
+            title={
+              gettext(
+                "Whether the public page lists the players, by start number, before round 1 has results. Click to change."
+              )
+            }
+          >
+            {if @tournament.publish_starting_rank,
+              do: gettext("Before round 1: public"),
+              else: gettext("Before round 1: hidden")}
+          </button>
+
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
             {gettext("Print")}
           </a>
-        </div>
-      </div>
-
-      <%!-- Shown only until round 1 is paired - the maintainer's call: it is a
-            decision about the entry list, taken before play starts. Its value
-            keeps applying after that until round 1 is PUBLISHED (a manual or
-            timed publish can lag the pairing), and from then on it no longer
-            matters: the roster travels with the published boards, and the
-            public page shows the starting rank only until round 1 is
-            complete (see PairingsEngine.Snapshot). Gone rather than disabled,
-            so its disappearance marks the point the arbiter can no longer
-            change it here. --%>
-      <div :if={@rounds_paired == 0} class="card" style="margin-bottom: 12px">
-        <div class="set-field solo">
-          <span class="set-label">{gettext("Publish the starting rank before round 1")}</span>
-          <p class="hint" style="margin: 4px 0 0">
-            {gettext(
-              "Shows the entry list, ordered by start number, on the public results page until round 1 has results."
-            )}
-          </p>
-          <p class="hint" style="margin: 4px 0 0">
-            <.rich_text text={
-              gettext("Only has an effect while %[link] is turned on for this tournament.")
-            }>
-              <:part name="link">
-                <.link navigate={~p"/t/#{@tournament.id}/settings/results"}>
-                  {gettext("publishing")}
-                </.link>
-              </:part>
-            </.rich_text>
-          </p>
-          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span class={["state-pill", @tournament.publish_starting_rank && "is-on"]}>
-              {if @tournament.publish_starting_rank, do: gettext("On"), else: gettext("Off")}
-            </span>
-            <button type="button" class="pe-btn" phx-click="toggle_publish_starting_rank">
-              {if @tournament.publish_starting_rank, do: gettext("Turn off"), else: gettext("Turn on")}
-            </button>
-          </div>
         </div>
       </div>
 

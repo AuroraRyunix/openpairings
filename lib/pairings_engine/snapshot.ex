@@ -230,11 +230,31 @@ defmodule PairingsEngine.Snapshot do
   # the first pairing), so nothing in the document could reference them - `no`
   # is the only identifier that crosses. Publishing them with a null `no` would
   # put an unreferenceable row in `players`; they are left out instead.
+  #
+  # Except before round 1 is paired, when NOBODY has a number yet. Filtering
+  # then left `players` empty, so the public standings page - which shows the
+  # field in start order until round 1 has results - was blank for exactly
+  # the stretch it exists for (reported 2026-09-11, on a live tournament).
+  # So while no player has a number, the field is numbered provisionally:
+  # the same players (`Pairing.active_players/1`) in the same order
+  # (`Pairing.initial_order/1`) that pairing round 1 will number, so the
+  # provisional numbers normally come out identical to the real ones. Nothing
+  # is written back: the real numbers are still issued, and frozen, only by
+  # pairing round 1.
   defp publishable_players(%Tournament{} = t) do
-    t.id
-    |> Tournaments.list_players()
-    |> Enum.filter(&is_integer(&1.pairing_number))
-    |> Enum.sort_by(& &1.pairing_number)
+    players = Tournaments.list_players(t.id)
+
+    if Enum.any?(players, &is_integer(&1.pairing_number)) do
+      players
+      |> Enum.filter(&is_integer(&1.pairing_number))
+      |> Enum.sort_by(& &1.pairing_number)
+    else
+      t.id
+      |> PairingsEngine.Pairing.active_players()
+      |> PairingsEngine.Pairing.initial_order()
+      |> Enum.with_index(1)
+      |> Enum.map(fn {player, number} -> %{player | pairing_number: number} end)
+    end
   end
 
   # The one withholding rule that reads a tournament SETTING rather than
