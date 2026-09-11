@@ -14,6 +14,14 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.58.2] - 2026-09-11
+
+- [Verified] **Install and restart, tried for real.** Nothing in the program
+  changed. 0.58.1 is the first release with every installer and update
+  package on its release page; this release exists to give an installed
+  0.58.1 a genuine update to offer, so "Install and restart" can be tried end
+  to end from the user's side.
+
 ## [0.58.1] - 2026-09-11
 
 - [Fix] **The release 0.58.0 should have been.** 0.58.0's release page went out
