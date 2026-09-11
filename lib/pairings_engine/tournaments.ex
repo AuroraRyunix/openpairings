@@ -2856,16 +2856,24 @@ defmodule PairingsEngine.Tournaments do
   complete (`PairingsEngine.Pairing.round_complete?/2` - every pairing in
   the round carries a result).
 
-  The bound `PairingsEngine.Snapshot` computes its public standings
-  through. Published alone used to be enough (this function's own
-  behaviour until it gained the completeness half): the instant round 1's
-  pairings reached the public, the public page said "Standings after
-  round 1" while every board still read 0-0 - a published round counted
-  even with no results in it. Requiring completeness too means "after
-  round N" always means N rounds with every result in: the starting
-  roster shows until round 1's results are all entered, and while round
-  N+1 is still being entered the public standings stay at N rather than
-  jumping to a phantom N+1.
+  In "immediate" publish mode, this IS the round public standings go
+  through (`effective_standings_through/1` returns it unchanged - every
+  round is already public, so there is nothing else to fold in). In every
+  other mode it is instead the hard CAP `effective_standings_through/1`
+  never publishes past - safety rule 7 of the publish model: an arbiter's
+  explicit `standings_through`, and the "a published round's own sheet
+  already shows the previous round's standings" floor, can each say a
+  higher number, but neither may ever publish through a round that isn't
+  actually complete.
+
+  Published alone used to be enough (this function's own behaviour until
+  it gained the completeness half): the instant round 1's pairings reached
+  the public, the public page said "Standings after round 1" while every
+  board still read 0-0 - a published round counted even with no results in
+  it. Requiring completeness too means "after round N" always means N
+  rounds with every result in: the starting roster shows until round 1's
+  results are all entered, and while round N+1 is still being entered the
+  public standings stay at N rather than jumping to a phantom N+1.
 
   Contiguous, for the same reason as before, now with two ways for a round
   to fail to extend the prefix instead of one: with round 3
@@ -2873,9 +2881,6 @@ defmodule PairingsEngine.Tournaments do
   finished, standings through 3 would carry round 2's results anyway, and
   withholding round 2 would withhold only its pairings while its results
   leaked out of the table beside them.
-
-  One definition, used by `PairingsEngine.Snapshot` alone today for both
-  the Swiss and the Keizer standings paths - see that module's moduledoc.
   """
   @spec standings_through_round(Tournament.t()) :: non_neg_integer()
   def standings_through_round(%Tournament{} = tournament) do
@@ -2908,8 +2913,7 @@ defmodule PairingsEngine.Tournaments do
   def publish_round_now(%Round{} = round) do
     with :ok <- ensure_writable(round.tournament_id) do
       round
-      |> Round.changeset(%{published_at: DateTime.utc_now() |> DateTime.truncate(:second)})
-      |> Repo.update()
+      |> set_round_published_at(DateTime.utc_now() |> DateTime.truncate(:second))
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
     end
   end
@@ -2929,10 +2933,18 @@ defmodule PairingsEngine.Tournaments do
   def unpublish_round(%Round{} = round) do
     with :ok <- ensure_writable(round.tournament_id) do
       round
-      |> Round.changeset(%{published_at: nil})
-      |> Repo.update()
+      |> set_round_published_at(nil)
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
     end
+  end
+
+  # Shared by the single-round writers above and the cascading
+  # publish/unpublish-through functions below, which call this directly
+  # (skipping the per-round `ensure_writable`/broadcast each of those two
+  # already does) so that publishing or hiding several rounds at once
+  # checks writability once and broadcasts once, not N times.
+  defp set_round_published_at(%Round{} = round, value) do
+    round |> Round.changeset(%{published_at: value}) |> Repo.update()
   end
 
   @doc """
@@ -2957,6 +2969,324 @@ defmodule PairingsEngine.Tournaments do
             r.published_at <= ^now,
         select: max(r.number)
     ) || 0
+  end
+
+  ## ---------- Publishing pairings and standings (2026-09-11 model) ----------
+  #
+  # A pairing sheet for round N shows every player's points BEFORE round N,
+  # so publishing round N's pairings reveals the standings after round N-1;
+  # standings after round N reveal round N's results. Public standings are
+  # therefore always level with the public pairings or exactly one round
+  # behind - see `PairingsEngine.Snapshot`'s moduledoc, the specification
+  # this whole section implements.
+  #
+  # Two cumulative values, both "through round X meaning rounds 1..X":
+  # pairings (the existing per-round `published_at`, gated by
+  # `round_published?/2` above) and `tournament.standings_through` (`nil` =
+  # nothing public, `0` = the before-round-1 entry list, `N` = standings
+  # after round N). The functions below are the only writers of the second;
+  # every write cascades to keep both a contiguous prefix from round 1, so a
+  # later sheet can never disclose a standing the arbiter just pulled back.
+
+  @doc """
+  Rule 1: publishes pairings 1..`round_number`, filling any round below it
+  that manual publishing left held back (`round_published?/2`'s own doc
+  explains how a gap gets there at all) - never touches a round above
+  `round_number`. A click of the "Pairings round N" control while it reads
+  not-public.
+
+  Deliberately does not touch `standings_through`: the "standings after
+  N-1 are now implied" half of this rule is folded in only when a snapshot
+  is actually built (`effective_standings_through/1`), so a "timed" or
+  "scheduled" round crossing its own publish instant moves the public
+  standings with no background job either.
+  """
+  @spec publish_pairings_through(Tournament.t(), pos_integer()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def publish_pairings_through(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) and round_number > 0 do
+    with :ok <- ensure_writable(tournament) do
+      tournament.id
+      |> list_rounds()
+      |> Enum.filter(&(&1.number <= round_number and not round_published?(tournament, &1)))
+      |> set_rounds_published_at(DateTime.utc_now() |> DateTime.truncate(:second))
+      |> case do
+        :ok ->
+          broadcast_tournament_change(tournament.id, :settings)
+          {:ok, tournament}
+
+        {:error, _} = error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Rule 4: hides round `round_number` and every round above it, so the
+  public pairings stay a contiguous prefix 1..`round_number - 1` rather
+  than a hidden round with a still-public one above it (which would leak
+  the very thing being withdrawn, one round late, on the sheet above it).
+  Also lowers `standings_through` to at most `round_number - 1` -
+  see `maybe_lower_standings_through/2`. A click of the "Pairings round N"
+  control while it reads public; the caller is expected to confirm first
+  and name what else gets hidden, same as the standings cascade below.
+  """
+  @spec unpublish_pairings_through(Tournament.t(), pos_integer()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def unpublish_pairings_through(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) and round_number > 0 do
+    with :ok <- ensure_writable(tournament) do
+      tournament.id
+      |> list_rounds()
+      |> Enum.filter(&(&1.number >= round_number and round_published?(tournament, &1)))
+      |> set_rounds_published_at(nil)
+      |> case do
+        :ok ->
+          tournament = maybe_lower_standings_through(tournament, round_number - 1)
+          broadcast_tournament_change(tournament.id, :settings)
+          {:ok, tournament}
+
+        {:error, _} = error ->
+          error
+      end
+    end
+  end
+
+  defp set_rounds_published_at(rounds, value) do
+    Enum.reduce_while(rounds, :ok, fn round, :ok ->
+      case set_round_published_at(round, value) do
+        {:ok, _} -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  @doc """
+  Rule 2: publishes standings after round `round_number` and nothing else -
+  a click of the "Standings after round N" control while it reads
+  not-public. Refuses, rather than publishing something a board can't yet
+  back up, unless round `round_number` is both complete
+  (`PairingsEngine.Pairing.round_complete?/2`) AND its own pairings are
+  already public (`round_published?/2`) - the reason is symmetric with rule
+  1's own: a pairing sheet is what discloses the PREVIOUS round's
+  standings, so publishing standings after N ahead of round N+1's sheet (or
+  ahead of round N's own sheet, for the last round - rule 5) would show a
+  number with no board anywhere to explain it. `round_number: 0` (the entry
+  list) has neither requirement, there being no round 0 pairings to be
+  complete or public.
+
+  Returns `{:error, :not_paired | :pairings_not_public | :round_not_complete}`
+  for the three ways `round_number` can fail that check, so a caller can
+  show a specific reason rather than a generic refusal.
+  """
+  @spec publish_standings_through(Tournament.t(), non_neg_integer()) ::
+          {:ok, Tournament.t()}
+          | {:error, :not_paired | :pairings_not_public | :round_not_complete}
+  def publish_standings_through(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) and round_number >= 0 do
+    with :ok <- ensure_writable(tournament),
+         :ok <- validate_standings_publishable(tournament, round_number) do
+      tournament = put_standings_through(tournament, round_number)
+      broadcast_tournament_change(tournament.id, :settings)
+      {:ok, tournament}
+    end
+  end
+
+  defp validate_standings_publishable(%Tournament{}, 0), do: :ok
+
+  defp validate_standings_publishable(%Tournament{} = tournament, round_number) do
+    validate_standings_publishable_round(tournament, get_round(tournament.id, round_number))
+  end
+
+  defp validate_standings_publishable_round(%Tournament{}, nil), do: {:error, :not_paired}
+
+  defp validate_standings_publishable_round(%Tournament{} = tournament, %Round{} = round) do
+    cond do
+      not round_published?(tournament, round) -> {:error, :pairings_not_public}
+      not PairingsEngine.Pairing.round_complete?(tournament.id, round.number) -> {:error, :round_not_complete}
+      true -> :ok
+    end
+  end
+
+  @doc """
+  `nil` when `publish_standings_through/2` would currently succeed for
+  `round_number` on `tournament`, or the specific reason it would not -
+  the same atoms that function's own `{:error, reason}` uses. What the
+  Pairings and Standings pages build the "Standings after round N"
+  control's disabled tooltip from, so a control that cannot be clicked yet
+  says why rather than only refusing silently.
+
+  `round`, when the caller already has `round_number`'s `%Round{}` loaded
+  (`PairingsEngineWeb.PairingsLive` always does - it is the round the page
+  is showing), is used directly instead of this function running its own
+  second `get_round/2` - one fewer query, and one fewer place for that
+  query's answer to ever read differently from the round the rest of the
+  page is already looking at. Callers with only a round NUMBER (round 0,
+  or `PairingsEngineWeb.StandingsLive`'s "latest complete round") omit it
+  and get the ordinary fresh lookup.
+  """
+  @spec standings_publish_blocked_reason(Tournament.t(), non_neg_integer(), Round.t() | nil) ::
+          nil | :not_paired | :pairings_not_public | :round_not_complete
+  def standings_publish_blocked_reason(tournament, round_number, round \\ :lookup)
+
+  def standings_publish_blocked_reason(%Tournament{}, 0, _round), do: nil
+
+  def standings_publish_blocked_reason(%Tournament{} = tournament, round_number, :lookup) do
+    standings_publish_blocked_reason(
+      tournament,
+      round_number,
+      get_round(tournament.id, round_number)
+    )
+  end
+
+  def standings_publish_blocked_reason(%Tournament{} = tournament, _round_number, round) do
+    case validate_standings_publishable_round(tournament, round) do
+      :ok -> nil
+      {:error, reason} -> reason
+    end
+  end
+
+  @doc """
+  Whether `publish_standings_through/2` would currently succeed for
+  `round_number` on `tournament` - the enablement check behind
+  `standings_publish_blocked_reason/3`. Same optional preloaded `round`.
+  """
+  @spec standings_publishable?(Tournament.t(), non_neg_integer(), Round.t() | nil) :: boolean()
+  def standings_publishable?(tournament, round_number, round \\ :lookup),
+    do: is_nil(standings_publish_blocked_reason(tournament, round_number, round))
+
+  @doc """
+  Rule 3: pulls public standings back to after round `round_number - 1`
+  (or withholds the roster entirely, when `round_number` is `0`) AND hides
+  the pairings of every round above `round_number` - the same "a later
+  sheet would leak it right back" reasoning as
+  `unpublish_pairings_through/2`'s own doc. A click of the "Standings
+  after round N" control while it reads public; the caller is expected to
+  confirm first and name what else gets hidden.
+  """
+  @spec unpublish_standings_through(Tournament.t(), non_neg_integer()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def unpublish_standings_through(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) and round_number >= 0 do
+    with :ok <- ensure_writable(tournament) do
+      tournament = put_standings_through(tournament, if(round_number == 0, do: nil, else: round_number - 1))
+
+      tournament.id
+      |> list_rounds()
+      |> Enum.filter(&(&1.number > round_number and round_published?(tournament, &1)))
+      |> set_rounds_published_at(nil)
+      |> case do
+        :ok ->
+          broadcast_tournament_change(tournament.id, :settings)
+          {:ok, tournament}
+
+        {:error, _} = error ->
+          error
+      end
+    end
+  end
+
+  # Never raises: every caller above already holds `:ok <- ensure_writable/1`
+  # on the same tournament, so the write this performs cannot itself be
+  # refused - the only realistic failure would be the row vanishing under a
+  # concurrent delete, which every other write in this module also treats
+  # as an acceptable race rather than guarding against by hand.
+  defp put_standings_through(%Tournament{} = tournament, value) do
+    tournament
+    |> Ecto.Changeset.change(standings_through: value)
+    |> Repo.update!()
+  end
+
+  # `unpublish_pairings_through/2`'s half of rule 4: never RAISES
+  # `standings_through` (an already-nil value stays nil - there is no lower
+  # withheld state than "nothing at all" - and a value already at or below
+  # `cap` is left alone), only ever lowers it to at most `cap`.
+  defp maybe_lower_standings_through(%Tournament{standings_through: nil} = tournament, _cap),
+    do: tournament
+
+  defp maybe_lower_standings_through(%Tournament{standings_through: s} = tournament, cap)
+       when s > cap,
+       do: put_standings_through(tournament, max(cap, 0))
+
+  defp maybe_lower_standings_through(%Tournament{} = tournament, _cap), do: tournament
+
+  @doc """
+  The round public STANDINGS actually go through when a snapshot is built -
+  `PairingsEngine.Snapshot`'s only caller for this. Not simply
+  `tournament.standings_through`: that is only what an arbiter has
+  explicitly PUBLISHED (`publish_standings_through/2`), but rule 1 of the
+  publish model means a round's own pairing sheet can disclose standings
+  nobody explicitly published for - see this section's own comment above
+  and `PairingsEngine.Snapshot`'s moduledoc.
+
+      effective S = max(stored S, contiguous published pairings - 1)
+
+  capped at `standings_through_round/1` (published AND complete,
+  contiguous) so this can never publish through an incomplete round
+  regardless of what is stored or what pairings are public - safety rule 7
+  of the publish model. Always a plain non-negative integer, never `nil`:
+  whether the roster is withheld at all is a separate question, answered by
+  `tournament.standings_through` itself being `nil` (see
+  `PairingsEngine.Snapshot.withhold_starting_rank/3`) - once anything is
+  public at all this function's job is only to say how far.
+
+  "immediate" mode ignores the stored value entirely and returns
+  `standings_through_round/1` unchanged: every paired round is already
+  public the instant it exists, so there is no "ahead of the sheet" for a
+  stored value to ever ADD to.
+  """
+  @spec effective_standings_through(Tournament.t()) :: non_neg_integer()
+  def effective_standings_through(%Tournament{publish_mode: "immediate"} = tournament) do
+    standings_through_round(tournament)
+  end
+
+  def effective_standings_through(%Tournament{standings_through: stored} = tournament) do
+    contiguous = contiguous_published_pairings(tournament)
+    candidate = max(stored || -1, contiguous - 1)
+    cap = standings_through_round(tournament)
+
+    candidate |> max(0) |> min(cap)
+  end
+
+  @doc """
+  The highest round P such that pairing rounds 1..P are ALL published, with
+  no gap - the "contiguous published pairings" `effective_standings_through/1`
+  needs. Unlike `latest_published_round_number/1` (the highest published
+  round, full stop - manual publishing can leave a hole below it), this
+  stops at the first one, the same contiguity `standings_through_round/1`
+  already requires of "published AND complete".
+  """
+  @spec contiguous_published_pairings(Tournament.t()) :: non_neg_integer()
+  def contiguous_published_pairings(%Tournament{} = tournament) do
+    published =
+      tournament.id
+      |> list_rounds()
+      |> Enum.filter(&round_published?(tournament, &1))
+      |> MapSet.new(& &1.number)
+
+    contiguous_from(published, 0)
+  end
+
+  @doc """
+  The highest round K such that rounds 1..K are ALL complete
+  (`PairingsEngine.Pairing.round_complete?/2`), regardless of whether their
+  pairings are published - what `PairingsEngineWeb.StandingsLive` offers as
+  the NEXT round an arbiter could publish standings for.
+  `publish_standings_through/2` still separately requires round K's
+  pairings to already be public before it will actually do so - this only
+  answers "how far has the tournament actually got", not "how far may its
+  standings travel". `0` before round 1 has a single result in, same
+  convention as `standings_through_round/1`.
+  """
+  @spec latest_complete_round(Tournament.t()) :: non_neg_integer()
+  def latest_complete_round(%Tournament{} = tournament) do
+    complete =
+      tournament.id
+      |> list_rounds()
+      |> Enum.filter(&PairingsEngine.Pairing.round_complete?(tournament.id, &1.number))
+      |> MapSet.new(& &1.number)
+
+    contiguous_from(complete, 0)
   end
 
   @doc """

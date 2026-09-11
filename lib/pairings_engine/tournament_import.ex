@@ -249,7 +249,7 @@ defmodule PairingsEngine.TournamentImport do
     import_byes!(tournament, list(entry, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(entry, "forbidden_pairings"), player_map)
 
-    tournament
+    apply_standings_through!(tournament, t_attrs)
   end
 
   defp update!(changeset) do
@@ -309,7 +309,55 @@ defmodule PairingsEngine.TournamentImport do
     import_audit_log!(tournament, list(t_data, "audit_log"), player_map)
     import_collaborators!(tournament, list(t_data, "collaborators"))
 
-    tournament
+    apply_standings_through!(tournament, t_attrs)
+  end
+
+  # `standings_through` is not cast (see `Tournament.standings_through`'s own
+  # field doc, same reasoning as `manual_ranking_stale`/`openresults_claim`
+  # above) and needs the rounds THIS import just (re)created, with fresh ids -
+  # `Tournaments.round_published?/2` and `PairingsEngine.Pairing.round_complete?/2`
+  # both read from the database, not from the file - so this runs LAST, after
+  # `import_rounds!/3` has landed every round and result.
+  #
+  # A modern export always carries the `"standings_through"` key (possibly
+  # `null`, coerced through the same `coerce_int/1` every other nullable
+  # integer here uses). An older backup predates the field entirely and falls
+  # back to `Tournament.legacy_standings_through/3` - the same conversion the
+  # `AddStandingsThrough` migration applied to every tournament already in
+  # this database - fed by the rounds this import just inserted and the
+  # file's own (now-retired) `"publish_starting_rank"` key.
+  defp apply_standings_through!(tournament, t_attrs) do
+    value =
+      case Map.fetch(t_attrs, "standings_through") do
+        {:ok, value} ->
+          coerce_int(value)
+
+        :error ->
+          rounds = Tournaments.list_rounds(tournament.id)
+
+          ready =
+            rounds
+            |> Enum.filter(fn round ->
+              Tournaments.round_published?(tournament, round) and
+                PairingsEngine.Pairing.round_complete?(tournament.id, round.number)
+            end)
+            |> MapSet.new(& &1.number)
+
+          contiguous = contiguous_from(ready, 0)
+          any_published? = Enum.any?(rounds, &Tournaments.round_published?(tournament, &1))
+
+          Tournament.legacy_standings_through(
+            contiguous,
+            any_published?,
+            truthy(Map.get(t_attrs, "publish_starting_rank", true))
+          )
+      end
+
+    tournament |> Ecto.Changeset.change(standings_through: value) |> update!()
+  end
+
+  defp contiguous_from(set, n) do
+    if MapSet.member?(set, n + 1), do: contiguous_from(set, n + 1), else: n
   end
 
   defp import_teams!(tournament, teams) do

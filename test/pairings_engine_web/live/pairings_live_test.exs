@@ -1721,7 +1721,12 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       html = arm_and_pick(lv, e.id, f.id)
       assert html =~ "Swap colours"
       refute html =~ "not the current round"
-      refute html =~ "disabled"
+      # Scoped to the confirm modal's own primary button - the page also
+      # carries a "Standings after round N" toggle that can legitimately be
+      # `disabled` for reasons that have nothing to do with this modal (see
+      # `CoreComponents.publish_toggle/1`), so a page-wide substring check
+      # would be a false positive on this feature's own markup.
+      refute has_element?(lv, ".pe-modal-go[disabled]")
     end
 
     test "swapping on a past (non-latest) round shows the frozen warning with a disabled primary button",
@@ -1734,7 +1739,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       html = arm_and_pick(lv, a.id, d.id)
       assert html =~ "not the current round"
       assert html =~ "round 2"
-      assert html =~ "disabled"
+      assert has_element?(lv, ".pe-modal-go[disabled]")
 
       # Refused server-side too, not just a disabled button client-side.
       render_click(lv, "apply_confirm", %{})
@@ -1770,138 +1775,187 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     end
   end
 
-  describe "publish now / unpublish (publish-delay feature)" do
-    test "immediate mode shows neither the badge nor any publish buttons", %{
-      conn: conn,
-      scope: scope
-    } do
+  describe "publish/unpublish controls (Pairings page)" do
+    test "immediate mode shows both toggles locked and public, with no publish/unpublish events",
+         %{conn: conn, scope: scope} do
       # Immediate is no longer the default, so a test about immediate has to
-      # ask for it. The default is manual, which shows exactly the publish
-      # controls this asserts are absent.
+      # ask for it. The default is manual, which shows exactly the controls
+      # this asserts are locked away.
       tournament = fixture(scope)
       {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      # Lowercase "public" only ever comes from the badge text below - the
-      # unrelated "Public pairings link" button is capitalized.
-      refute html =~ "public"
-      refute html =~ "Publish now"
-      refute html =~ "Unpublish"
+      assert html =~ "Pairings round 2"
+      assert html =~ "Standings after round 2"
+      assert has_element?(lv, "#pairings-toggle-2.is-locked[disabled]")
+      assert has_element?(lv, "#standings-toggle-2.is-locked[disabled]")
+      assert html =~ "Change that in Settings"
+      refute has_element?(lv, "[phx-click='publish_pairings']")
+      refute has_element?(lv, "[phx-click='unpublish_pairings']")
+      refute has_element?(lv, "[phx-click='publish_standings']")
+      refute has_element?(lv, "[phx-click='unpublish_standings']")
     end
 
-    test "manual mode shows 'not public yet' and a Publish now button for an unpublished round",
+    test "manual mode: an unpublished (but complete) round shows pairings red and standings disabled",
          %{conn: conn, scope: scope} do
       tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-      Repo.update_all(Round, set: [published_at: nil])
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      assert html =~ "not public yet"
-      assert html =~ "Publish now"
-      refute html =~ "Unpublish"
+      refute Tournaments.round_published?(tournament, Tournaments.get_round(tournament.id, 2))
+      assert has_element?(lv, "#pairings-toggle-2:not(.is-public)")
+      assert has_element?(lv, "[phx-click='publish_pairings'][phx-value-round='2']")
+
+      # Round 2 is complete (both fixture rounds carry a result) but its own
+      # pairings are not public yet - rule 2's own requirement, and the
+      # reason the disabled control names.
+      assert has_element?(lv, "#standings-toggle-2:not(.is-public)[disabled]")
+      assert html =~ "Round 2&#39;s pairings aren&#39;t public yet"
     end
 
-    test "manual mode shows 'public' and an Unpublish button once the round is published", %{
+    test "clicking the pairings toggle while red publishes the round and audits it", %{
       conn: conn,
       scope: scope
     } do
       tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
-      Repo.update_all(Round, set: [published_at: now])
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-
-      assert html =~ "public"
-      refute html =~ "not public yet"
-      assert html =~ "Unpublish"
-      refute html =~ "Publish now"
-    end
-
-    test "clicking Publish now sets published_at and flips the button to Unpublish", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-      Repo.update_all(Round, set: [published_at: nil])
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      html = lv |> element("button", "Publish now") |> render_click()
+      html = lv |> element("#pairings-toggle-2") |> render_click()
 
-      assert html =~ "Unpublish"
-      refute html =~ "Publish now"
-
+      assert html =~ ~s(id="pairings-toggle-2" role="switch" aria-checked="true")
       round = Tournaments.get_round(tournament.id, 2)
       assert round.published_at
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "pairing.pairings_published")
+      assert log.details["through_round"] == 2
+
+      # And the standings toggle is now enabled - round 2 is complete AND
+      # public. Checked against the click's OWN returned markup (rather than
+      # a fresh `has_element?/2` sampled afterward) so this can't be
+      # confused by a broadcast this same click sends to itself landing at
+      # an unpredictable moment relative to the assertion.
+      refute html =~ ~r/id="standings-toggle-2"[^>]*disabled/
     end
 
-    test "clicking Unpublish clears published_at and flips the button back to Publish now", %{
+    test "clicking the pairings toggle while green unpublishes it, cascades to standings, and audits it",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.publish_pairings_through(tournament, 2)
+      {:ok, _tournament} = Tournaments.publish_standings_through(tournament, 2)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      assert has_element?(lv, "#pairings-toggle-2.is-public")
+
+      html = lv |> element("#pairings-toggle-2") |> render_click()
+
+      assert html =~ ~s(id="pairings-toggle-2" role="switch" aria-checked="false")
+      round = Tournaments.get_round(tournament.id, 2)
+      refute round.published_at
+
+      # Rule 4: unpublishing round 2's pairings drops standings to at most
+      # round 1 - they were at round 2.
+      reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert reloaded.standings_through == 1
+
+      assert [log] =
+               Audit.list_for_tournament(tournament.id, action: "pairing.pairings_unpublished")
+
+      assert log.details["from_round"] == 2
+    end
+
+    test "the pairings toggle's unpublish confirm names the standings that will drop back", %{
       conn: conn,
       scope: scope
     } do
       tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
-      Repo.update_all(Round, set: [published_at: now])
+      {:ok, tournament} = Tournaments.publish_pairings_through(tournament, 2)
+      {:ok, _tournament} = Tournaments.publish_standings_through(tournament, 2)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      html = lv |> element("button", "Unpublish") |> render_click()
+      html = render(lv)
+      assert html =~ "Public standings will also drop back to after round 1."
+    end
 
-      assert html =~ "Publish now"
-      refute html =~ "Unpublish"
+    test "publishing standings after round 2 (once eligible) publishes them and audits it", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.publish_pairings_through(tournament, 2)
 
-      round = Tournaments.get_round(tournament.id, 2)
-      refute round.published_at
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      refute has_element?(lv, "#standings-toggle-2[disabled]")
+
+      html = lv |> element("#standings-toggle-2") |> render_click()
+
+      assert html =~ ~s(id="standings-toggle-2" role="switch" aria-checked="true")
+      assert Tournaments.effective_standings_through(Repo.reload!(tournament)) == 2
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "standings.published")
+      assert log.details["through_round"] == 2
+    end
+
+    test "unpublishing standings after round 2 pulls back to round 1 and audits it", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.publish_pairings_through(tournament, 2)
+      {:ok, _tournament} = Tournaments.publish_standings_through(tournament, 2)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      assert has_element?(lv, "#standings-toggle-2.is-public")
+
+      html = lv |> element("#standings-toggle-2") |> render_click()
+
+      assert html =~ ~s(id="standings-toggle-2" role="switch" aria-checked="false")
+      reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert reloaded.standings_through == 1
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "standings.unpublished")
+      assert log.details["from_round"] == 2
     end
   end
 
-  describe "the round-level Publish/Unpublish entry in the right-click menu" do
+  describe "the same controls in the round-level right-click menu" do
     # The menu opens with `scope: "round"` rather than a player/pairing id -
     # right-clicking anywhere on the board that isn't already a more
-    # specific target (a seat, an empty seat) falls through to it.
+    # specific target (a seat, an empty seat) falls through to it. It shows
+    # the identical pair of controls as the page header, with an
+    # `id_prefix="menu-"` so the two copies never collide on id.
 
-    test "manual mode, unpublished round: the menu offers Publish now, not Unpublish", %{
+    test "manual mode, unpublished round: the menu's pairings toggle is red", %{
       conn: conn,
       scope: scope
     } do
       tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-      Repo.update_all(Round, set: [published_at: nil])
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
       html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
 
-      assert html =~ "Publish round 2 now"
-      refute html =~ "Unpublish round 2"
+      assert html =~ ~s(id="menu-pairings-toggle-2")
+      assert has_element?(lv, "#menu-pairings-toggle-2:not(.is-public)")
     end
 
-    test "manual mode, published round: the menu offers Unpublish, not Publish now", %{
+    test "manual mode, published round: the menu's pairings toggle is green", %{
       conn: conn,
       scope: scope
     } do
       tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
-      Repo.update_all(Round, set: [published_at: now])
+      {:ok, _tournament} = Tournaments.publish_pairings_through(tournament, 2)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
 
-      assert html =~ "Unpublish round 2"
-      refute html =~ "Publish round 2 now"
+      assert has_element?(lv, "#menu-pairings-toggle-2.is-public")
     end
 
-    test "immediate mode: the menu offers neither button, only the explanation", %{
+    test "immediate mode: the menu shows both toggles locked, with the same explanation", %{
       conn: conn,
       scope: scope
     } do
@@ -1912,44 +1966,39 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
 
-      refute html =~ "Publish round 2 now"
-      refute html =~ "Unpublish round 2"
-      assert html =~ "nothing to publish or unpublish"
+      assert has_element?(lv, "#menu-pairings-toggle-2.is-locked[disabled]")
+      assert has_element?(lv, "#menu-standings-toggle-2.is-locked[disabled]")
+      assert html =~ "Change that in Settings"
     end
 
-    test "clicking Publish now / Unpublish in the menu actually flips round_published?/2", %{
+    test "clicking the menu's pairings toggle actually flips round_published?/2", %{
       conn: conn,
       scope: scope
     } do
       tournament = fixture(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
-      Repo.update_all(Round, set: [published_at: nil])
 
       round = Tournaments.get_round(tournament.id, 2)
       refute Tournaments.round_published?(tournament, round)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      # publish_round_now's own handle_event calls `refresh/1`, which closes
-      # the menu as a side effect (a just-consumed gesture shouldn't linger)
-      # - so the flip is checked against the database, and the menu is
-      # reopened to see the button on the other side of it.
+      # The handler's own `refresh/1` closes the menu as a side effect (a
+      # just-consumed gesture shouldn't linger) - so the flip is checked
+      # against the database, and the menu is reopened to see the toggle on
+      # the other side of it.
       render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
-      lv |> element("button", "Publish round 2 now") |> render_click()
+      lv |> element("#menu-pairings-toggle-2") |> render_click()
 
       round = Tournaments.get_round(tournament.id, 2)
       assert Tournaments.round_published?(tournament, round)
 
-      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
-      assert html =~ "Unpublish round 2"
+      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+      assert has_element?(lv, "#menu-pairings-toggle-2.is-public")
 
-      lv |> element("button", "Unpublish round 2") |> render_click()
+      lv |> element("#menu-pairings-toggle-2") |> render_click()
 
       round = Tournaments.get_round(tournament.id, 2)
       refute Tournaments.round_published?(tournament, round)
-
-      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
-      assert html =~ "Publish round 2 now"
     end
   end
 

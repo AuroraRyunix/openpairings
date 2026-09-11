@@ -463,27 +463,41 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :publish_mode, :string, default: "manual"
     field :publish_delay_minutes, :integer, default: 0
 
-    # Whether the snapshot may publish the entry list, ordered by start
-    # number, before round 1 has any results - what OpenResults calls the
-    # "Starting rank" and shows in place of standings whenever
-    # `PairingsEngine.Snapshot` reports `after_round: 0` with players
-    # present. See that module's withholding section for exactly when this
-    # applies: once any round is published, players travel regardless of
-    # this flag - it only ever withholds the roster before the event has a
-    # single result.
+    # Public STANDINGS go up to round S - the maintainer's 2026-09-11
+    # publish-model rewrite (see `PairingsEngine.Snapshot`'s moduledoc and
+    # `PairingsEngine.Tournaments`' "Publishing pairings and standings"
+    # section for the full rules). Cumulative, like the pairings prefix it
+    # travels beside:
     #
-    # Default TRUE, unlike `registration_open`/`publish_to_openresults`
-    # above: those hand strangers a new ability (writing an entry, or
-    # putting the event online at all), where this only decides whether an
-    # already-public tournament's page shows the field before it shows
-    # scores. An arbiter who has turned publishing on has already decided
-    # spectators may look; showing them who is playing before round 1 is
-    # the ordinary case, not the one that needs an opt-in.
+    #   * `nil` - nothing public at all, not even the entry list. The one
+    #     surface where round 0 and "unset" are different states.
+    #   * `0` - "standings after round 0", i.e. the entry list in start
+    #     order, before round 1 has any result. What OpenResults calls the
+    #     "Starting rank". Replaces `publish_starting_rank: true` with no
+    #     round published - see the migration that dropped that field.
+    #   * `N > 0` - standings after round N are public.
     #
-    # Cast by the ordinary changeset, same reasoning as `publish_mode`
-    # above - an everyday settings choice, not a separate toggle-action
-    # with its own guardrails.
-    field :publish_starting_rank, :boolean, default: true
+    # Written only by `Tournaments.publish_standings_through/2` and
+    # `unpublish_standings_through/2`, and NOT cast by the ordinary
+    # changeset - same reasoning as `publish_to_openresults`/
+    # `registration_open` above: publishing standings is a deliberate act
+    # with its own cascade (unpublishing standings after round N also hides
+    # any pairings that would leak them), not an everyday settings save.
+    #
+    # The value STORED here is not what a snapshot publishes through,
+    # except in "immediate" mode where it is ignored outright - see
+    # `Tournaments.effective_standings_through/1`, which folds in "a
+    # published round's own sheet already reveals the standings before it"
+    # and caps the result at the complete-and-published prefix, so nothing
+    # here can ever publish through an incomplete round on its own.
+    #
+    # Default `0`: a brand-new tournament's entry list is public from
+    # creation, same intent `publish_starting_rank`'s own `true` default
+    # carried, restated as "round 0's standings are already public" rather
+    # than as a separate toggle. Like the other uncast fields above, the
+    # default reaches every insert through the struct itself, not through
+    # `cast/3`.
+    field :standings_through, :integer, default: 0
 
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
@@ -821,8 +835,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :categories_enabled,
       :manual_ranking,
       :publish_mode,
-      :publish_delay_minutes,
-      :publish_starting_rank
+      :publish_delay_minutes
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
@@ -1667,4 +1680,38 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def publish_mode_label("timed"), do: "After a delay - a fixed number of minutes"
   def publish_mode_label("scheduled"), do: "On the round's own date (Dates page)"
   def publish_mode_label(other), do: other
+
+  @doc """
+  The `standings_through` a tournament converts to, from what publishing
+  looked like under the pre-2026-09-11 model where the entry list was
+  gated by a single `publish_starting_rank` flag rather than a per-round
+  value. Shared, frozen logic: `20260911130000_add_standings_through.exs`
+  (backfilling every existing tournament at deploy) and
+  `PairingsEngine.TournamentImport` (a backup written before this field
+  existed) both need the exact same conversion, and this is a pure
+  function of three already-computed facts so that calling it from the
+  migration carries none of the "drifts from a live computation" risk that
+  migration's own moduledoc warns about - there is no schema or query
+  inside it to drift.
+
+  `contiguous_prefix` is the deepest round N such that rounds 1..N are
+  both published and complete (what `standings_through_round/1` already
+  computes); `any_published?` is whether any round is published at all,
+  contiguous or not; `publish_starting_rank?` is the flag's own value.
+
+  Returns `nil` - "withhold the roster entirely" - only in the one case
+  that used to mean exactly that: nothing published, and the flag off.
+  Every other combination keeps the roster public via `contiguous_prefix`
+  (itself `0` when nothing is complete yet), matching what publishing
+  already looked like before this field existed.
+  """
+  @spec legacy_standings_through(non_neg_integer(), boolean(), boolean()) ::
+          non_neg_integer() | nil
+  def legacy_standings_through(contiguous_prefix, any_published?, publish_starting_rank?) do
+    if contiguous_prefix == 0 and not any_published? and not publish_starting_rank? do
+      nil
+    else
+      contiguous_prefix
+    end
+  end
 end

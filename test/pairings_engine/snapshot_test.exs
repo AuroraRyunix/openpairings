@@ -112,7 +112,7 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
-  describe "publish_starting_rank - withholding the roster before round 1" do
+  describe "standings_through - withholding the roster before round 1" do
     defp roster_tournament(attrs) do
       tournament =
         Repo.insert!(
@@ -136,8 +136,8 @@ defmodule PairingsEngine.SnapshotTest do
       tournament
     end
 
-    test "withheld when the toggle is off and no round has published yet" do
-      tournament = roster_tournament(%{publish_starting_rank: false})
+    test "withheld when standings_through is nil and no round has published yet" do
+      tournament = roster_tournament(%{standings_through: nil})
 
       snapshot = Snapshot.build(tournament)
 
@@ -147,7 +147,7 @@ defmodule PairingsEngine.SnapshotTest do
       assert snapshot["standings"]["after_round"] == 0
     end
 
-    test "shown when nothing is published, but the toggle is on (the default)" do
+    test "shown when nothing is published, but standings_through is 0 (the default)" do
       tournament = roster_tournament(%{})
 
       snapshot = Snapshot.build(tournament)
@@ -155,8 +155,8 @@ defmodule PairingsEngine.SnapshotTest do
       assert length(snapshot["players"]) == 2
     end
 
-    test "shown once any round is published, regardless of the toggle" do
-      tournament = roster_tournament(%{publish_starting_rank: false})
+    test "shown once any round is published, regardless of standings_through" do
+      tournament = roster_tournament(%{standings_through: nil})
 
       Repo.insert!(%Round{
         tournament_id: tournament.id,
@@ -241,8 +241,8 @@ defmodule PairingsEngine.SnapshotTest do
       assert issued == provisional
     end
 
-    test "the toggle withholds the provisional list too" do
-      tournament = unnumbered_tournament(%{publish_starting_rank: false})
+    test "standings_through nil withholds the provisional list too" do
+      tournament = unnumbered_tournament(%{standings_through: nil})
 
       assert Snapshot.build(tournament)["players"] == []
     end
@@ -450,7 +450,13 @@ defmodule PairingsEngine.SnapshotTest do
 
       assert snapshot["tournament"]["system"] == "keizer"
       assert snapshot["standings"]["tiebreaks"] == []
-      assert snapshot["standings"]["after_round"] == 2
+
+      # Rounds 1 and 2 are published (round 3 is not), but nobody has
+      # explicitly published STANDINGS for either - under the 2026-09-11
+      # publish model, round 2's own pairings being public only guarantees
+      # "at least round 1" (rule 1: `effective_standings_through/1` floors
+      # at "contiguous published pairings - 1"), not round 2's own results.
+      assert snapshot["standings"]["after_round"] == 1
 
       for row <- snapshot["standings"]["rows"] do
         assert Map.keys(row) |> Enum.sort() == ~w(category player points rank score value)
@@ -1157,7 +1163,15 @@ defmodule PairingsEngine.SnapshotTest do
       result: "bye"
     })
 
-    {Tournaments.get_tournament!(tournament.id), seated, byed}
+    # Round 1's pairings being public only floors public standings at round 0
+    # (rule 1 - see `Tournaments.effective_standings_through/1`); this
+    # fixture is a single-round tournament, so round 1's OWN standings need
+    # an explicit publish to exercise the property under test - that the
+    # published per-board points agree with the standings in the same
+    # document.
+    {:ok, tournament} = Tournaments.publish_standings_through(tournament, 1)
+
+    {tournament, seated, byed}
   end
 
   defp result_at(snapshot, round_number, board_number) do

@@ -29,10 +29,13 @@ defmodule PairingsEngine.Snapshot do
     * `rounds` contains only rounds `Tournaments.round_published?/2` accepts -
       the same gate `PairingsEngineWeb.PublicPairingsLive` applies, per round,
       because publishing can be manual and therefore out of order.
-    * `standings` is computed `through_round: standings_through_round/1`, the
-      longest *contiguous* prefix of rounds that are BOTH published AND
-      complete (`PairingsEngine.Pairing.round_complete?/2` - every pairing has
-      a result). The highest published round is the wrong bound, for two
+    * `standings` is computed `through_round: Tournaments.effective_standings_through/1`,
+      the round public standings actually go through - see that function's
+      own doc for the exact formula. It is capped at the longest
+      *contiguous* prefix of rounds that are BOTH published AND complete
+      (`PairingsEngine.Pairing.round_complete?/2` - every pairing has a
+      result; `Tournaments.standings_through_round/1` computes that cap on
+      its own). The highest published round is the wrong bound, for two
       reasons: with round 3 published and round 2 held back, standings
       through 3 would silently carry round 2's results (the contract's note
       that `after_round` need not be the highest published round); and with
@@ -40,15 +43,18 @@ defmodule PairingsEngine.Snapshot do
       say "after round 1" while every board still reads 0-0, because a
       published round used to count even with no results in it.
     * `players` is withheld entirely - `[]`, and with it every standings row -
-      when `tournament.publish_starting_rank` is false AND no round has been
+      while `tournament.standings_through` is `nil` AND no round has been
       published yet. This is the one piece of withholding that depends on a
-      tournament SETTING rather than on publish/hide state per round or
-      board: an arbiter who has not turned "Publish the starting rank" on
-      does not want the entry list itself doubling as an early standings page
-      with every score at zero. The moment any round publishes - even with
-      results still coming in - the roster is exactly as load-bearing as
-      every board that names these players, so it travels regardless of the
-      toggle from then on.
+      tournament SETTING (what an arbiter has explicitly published via
+      `Tournaments.publish_standings_through/2`, or the migration/import
+      default - see `Tournament.standings_through`'s own field doc) rather
+      than purely on publish/hide state per round or board: an arbiter who
+      has never published so much as the before-round-1 entry list does not
+      want it doubling as an early standings page with every score at zero.
+      The moment any round publishes - even with results still coming in -
+      the roster is exactly as load-bearing as every board that names these
+      players, so it travels regardless of that setting from then on (see
+      `withhold_starting_rank/3` below).
     * A `Pairing` with `hidden` set never reaches `boards`.
 
   One consequence of the last point, stated rather than left to be discovered:
@@ -124,7 +130,7 @@ defmodule PairingsEngine.Snapshot do
     # there is exactly one place `no` is decided.
     nos = Map.new(players, &{&1.id, &1.pairing_number})
 
-    after_round = Tournaments.standings_through_round(tournament)
+    after_round = Tournaments.effective_standings_through(tournament)
 
     %{
       "schema" => @schema,
@@ -257,18 +263,20 @@ defmodule PairingsEngine.Snapshot do
     end
   end
 
-  # The one withholding rule that reads a tournament SETTING rather than
-  # publish/hide state on a round or a board - see the moduledoc. `rounds` is
-  # `published_rounds/1`'s own result, already computed by the caller, rather
-  # than asked again here: "no round has been published" and "`rounds` is
-  # empty" are the same fact, and re-deriving it a second way is how the two
-  # drift.
+  # The one withholding rule that reads a tournament SETTING
+  # (`standings_through`, written only by `Tournaments.publish_standings_through/2`
+  # and its migration/import defaults - nil means nothing has ever been
+  # published) rather than publish/hide state on a round or a board - see
+  # the moduledoc. `rounds` is `published_rounds/1`'s own result, already
+  # computed by the caller, rather than asked again here: "no round has been
+  # published" and "`rounds` is empty" are the same fact, and re-deriving it
+  # a second way is how the two drift.
   #
   # Once any round is published, the players named on its boards are exactly
   # as load-bearing as the board itself - withholding them here would leave
   # `boards[].white`/`boards[].black` pointing at a `no` with no row in
   # `players` - so this only ever fires while `rounds` is still empty.
-  defp withhold_starting_rank(_players, %Tournament{publish_starting_rank: false}, []), do: []
+  defp withhold_starting_rank(_players, %Tournament{standings_through: nil}, []), do: []
   defp withhold_starting_rank(players, %Tournament{}, _rounds), do: players
 
   # An allowlist by construction - see the moduledoc. Anything not named here

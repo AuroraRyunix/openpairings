@@ -124,6 +124,69 @@ defmodule PairingsEngineWeb.CoreComponents do
   end
 
   @doc """
+  A green/red publish toggle - "Pairings round N" and "Standings after
+  round N" on the Pairings and Standings pages
+  (`PairingsEngineWeb.PairingsLive`/`StandingsLive`), each backed by one of
+  `PairingsEngine.Tournaments`' `publish_pairings_through/2`,
+  `unpublish_pairings_through/2`, `publish_standings_through/2` or
+  `unpublish_standings_through/2`.
+
+  Green (`state={:public}`) means public; clicking it unpublishes, and
+  `confirm` (shown only in that state) is the `data-confirm` text naming
+  what else that cascades into - unpublishing either one can hide more than
+  the one thing being clicked, so the caller is expected to spell that out
+  rather than let a plain "are you sure?" stand in for it. Red
+  (`state={:not_public}`) means not yet public; clicking it publishes, and
+  `disabled`/`reason` grey it out with a tooltip when the underlying
+  action would currently refuse (see
+  `Tournaments.standings_publish_blocked_reason/2`).
+
+  `locked` is the third state "immediate" publish mode shows on both pages:
+  always green, always disabled, `reason` explaining that it is controlled
+  from Settings instead - there is nothing here to publish or unpublish
+  because every paired round (and the standings behind it) is already
+  public the instant it exists.
+
+  `role="switch"` + `aria-checked` throughout, a visible text label AND a
+  visible "Public"/"Not public" state word (colour is reinforcement, not
+  the only signal), and a real `<button>` so keyboard focus and activation
+  come for free. `phx-click`/`phx-value-*` are passed straight through via
+  `rest`.
+  """
+  attr :id, :string, required: true
+  attr :label, :string, required: true
+  attr :state, :atom, values: [:public, :not_public], required: true
+  attr :locked, :boolean, default: false
+  attr :disabled, :boolean, default: false
+  attr :reason, :string, default: nil, doc: "tooltip shown while locked or disabled"
+  attr :confirm, :string, default: nil, doc: "data-confirm text, used only when state is :public"
+  attr :rest, :global
+
+  def publish_toggle(assigns) do
+    ~H"""
+    <button
+      type="button"
+      id={@id}
+      role="switch"
+      aria-checked={to_string(@state == :public)}
+      class={["pe-toggle", @state == :public && "is-public", @locked && "is-locked"]}
+      disabled={@locked or @disabled}
+      title={(@locked or @disabled) && @reason}
+      data-confirm={@state == :public and not @locked and not @disabled and @confirm}
+      {@rest}
+    >
+      <span class="pe-toggle-track" aria-hidden="true"><span class="pe-toggle-thumb"></span></span>
+      <span class="pe-toggle-text">
+        <span class="pe-toggle-label">{@label}</span>
+        <span class="pe-toggle-state">
+          {if @state == :public, do: gettext("Public"), else: gettext("Not public")}
+        </span>
+      </span>
+    </button>
+    """
+  end
+
+  @doc """
   Renders an input with label and error messages.
 
   A `Phoenix.HTML.FormField` may be passed as argument,

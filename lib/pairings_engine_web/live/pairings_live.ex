@@ -226,23 +226,79 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # The manual override available in every publish mode, not just
-  # "manual" - see `Tournaments.publish_round_now/1`'s own doc for why.
-  # Guarded by `@round != nil` in the template rather than here; nothing
-  # bad happens either way if this somehow fires with no round (`refresh/2`
-  # just reloads the same nil), but there's genuinely no button to click
-  # in that state.
-  def handle_event("publish_round_now", _params, socket) do
-    case Tournaments.publish_round_now(socket.assigns.round) do
-      {:ok, _round} -> {:noreply, refresh(socket)}
-      {:error, reason} -> {:noreply, put_flash(socket, :error, error_text(reason))}
+  # The four publish/unpublish controls - see the "Publishing pairings and
+  # standings" section of `PairingsEngine.Tournaments` for the four rules
+  # these implement, and `CoreComponents.publish_toggle/1` for the button
+  # that sends them. `round` comes from `phx-value-round` on each toggle
+  # rather than `socket.assigns.round` (the round being VIEWED) so the
+  # round-context-menu's copy of these controls - which can target a round
+  # other than the one on screen - and the on-page copy share one pair of
+  # handlers.
+  def handle_event("publish_pairings", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.publish_pairings_through(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.pairings_published", %{
+          through_round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
-  def handle_event("unpublish_round", _params, socket) do
-    case Tournaments.unpublish_round(socket.assigns.round) do
-      {:ok, _round} -> {:noreply, refresh(socket)}
-      {:error, reason} -> {:noreply, put_flash(socket, :error, error_text(reason))}
+  def handle_event("unpublish_pairings", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.unpublish_pairings_through(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.pairings_unpublished", %{
+          from_round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  def handle_event("publish_standings", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.publish_standings_through(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "standings.published", %{
+          through_round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  def handle_event("unpublish_standings", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.unpublish_standings_through(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "standings.unpublished", %{
+          from_round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
@@ -1302,24 +1358,151 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
-  # Tooltip on the public/not-public badge - spells out WHEN, not just
-  # whether, for the two modes that resolve to a concrete future instant
-  # ("scheduled" is a date-only concept, so "at midnight UTC" is worth
-  # being explicit about - an arbiter reading a bare date could easily
-  # assume "first thing that morning", not literally 00:00).
-  defp publish_status_title(%{publish_mode: "manual"}, %{published_at: nil}),
-    do: "Hidden from the public pairings page until you publish it"
+  ## ---------- publish/unpublish controls ----------
 
-  defp publish_status_title(_tournament, %{published_at: nil}),
-    do: "Not public yet"
+  attr :tournament, Tournament, required: true
+  attr :round, :any, required: true
+  # This component is rendered twice on screen at once - once in the
+  # round-header actions row, once in the round's own right-click context
+  # menu (hidden by CSS/JS until opened, but still present in the DOM, so
+  # LiveView still requires its ids to be unique) - so the caller gives each
+  # copy its own id prefix.
+  attr :id_prefix, :string, default: ""
 
-  defp publish_status_title(tournament, round) do
-    if Tournaments.round_published?(tournament, round) do
-      "Public since #{Calendar.strftime(round.published_at, "%Y-%m-%d %H:%M UTC")}"
+  defp publish_controls(assigns) do
+    ~H"""
+    <.publish_toggle
+      :if={@tournament.publish_mode == "immediate"}
+      id={"#{@id_prefix}pairings-toggle-#{@round.number}"}
+      label={gettext("Pairings round %{n}", n: @round.number)}
+      state={:public}
+      locked
+      reason={immediate_lock_reason()}
+    />
+
+    <%= if @tournament.publish_mode != "immediate" do %>
+      <% pairings_public? = Tournaments.round_published?(@tournament, @round) %>
+      <.publish_toggle
+        id={"#{@id_prefix}pairings-toggle-#{@round.number}"}
+        label={gettext("Pairings round %{n}", n: @round.number)}
+        state={if pairings_public?, do: :public, else: :not_public}
+        confirm={confirm_unpublish_pairings(@tournament, @round)}
+        phx-click={if pairings_public?, do: "unpublish_pairings", else: "publish_pairings"}
+        phx-value-round={@round.number}
+      />
+    <% end %>
+
+    <.publish_toggle
+      :if={@tournament.publish_mode == "immediate"}
+      id={"#{@id_prefix}standings-toggle-#{@round.number}"}
+      label={gettext("Standings after round %{n}", n: @round.number)}
+      state={:public}
+      locked
+      reason={immediate_lock_reason()}
+    />
+
+    <%= if @tournament.publish_mode != "immediate" do %>
+      <% standings_public? = Tournaments.effective_standings_through(@tournament) >= @round.number %>
+      <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round.number, @round) %>
+      <.publish_toggle
+        id={"#{@id_prefix}standings-toggle-#{@round.number}"}
+        label={gettext("Standings after round %{n}", n: @round.number)}
+        state={if standings_public?, do: :public, else: :not_public}
+        disabled={not standings_public? and not is_nil(blocked)}
+        reason={standings_reason_text(blocked, @round.number)}
+        confirm={confirm_unpublish_standings(@tournament, @round.number)}
+        phx-click={if standings_public?, do: "unpublish_standings", else: "publish_standings"}
+        phx-value-round={@round.number}
+      />
+    <% end %>
+    """
+  end
+
+  defp immediate_lock_reason do
+    gettext(
+      "Every round - and the standings behind it - is public here the instant it's paired. Change that in Settings → OpenResults."
+    )
+  end
+
+  # Rule 4's confirm - named consequences, not a bare "are you sure?": which
+  # rounds actually go dark (the round clicked is always at least one of
+  # them; manual publishing can make it more, per `round_published?/2`'s own
+  # doc), and whether the cascade in `unpublish_pairings_through/2` would
+  # also pull public standings back.
+  defp confirm_unpublish_pairings(tournament, round) do
+    cap = round.number - 1
+
+    standings_drop? =
+      not is_nil(tournament.standings_through) and tournament.standings_through > cap
+
+    hide =
+      gettext(
+        "Hide round %{n} - and every round after it - from the public pairings page?",
+        n: round.number
+      )
+
+    if standings_drop? do
+      hide <> " " <> gettext("Public standings will also drop back to after round %{n}.", n: cap)
     else
-      "Becomes public at #{Calendar.strftime(round.published_at, "%Y-%m-%d %H:%M UTC")}"
+      hide
     end
   end
+
+  # Rule 3's confirm - the mirror image: which rounds' PAIRINGS would go
+  # dark as a side effect of pulling standings back (see
+  # `unpublish_standings_through/2`'s own doc for why a later sheet has to
+  # be hidden too).
+  defp confirm_unpublish_standings(tournament, round_number) do
+    base =
+      if round_number == 0 do
+        gettext("Hide the entry list from the public page again?")
+      else
+        gettext(
+          "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
+          n: round_number,
+          prev: round_number - 1
+        )
+      end
+
+    case lowest_published_round_above(tournament, round_number) do
+      nil ->
+        base
+
+      hidden_from ->
+        base <>
+          " " <>
+          gettext(
+            "This also hides round %{n}'s pairings, and every round after it.",
+            n: hidden_from
+          )
+    end
+  end
+
+  defp lowest_published_round_above(tournament, round_number) do
+    tournament.id
+    |> Tournaments.list_rounds()
+    |> Enum.filter(&(&1.number > round_number and Tournaments.round_published?(tournament, &1)))
+    |> Enum.map(& &1.number)
+    |> case do
+      [] -> nil
+      numbers -> Enum.min(numbers)
+    end
+  end
+
+  defp standings_reason_text(nil, _round_number), do: nil
+
+  defp standings_reason_text(:not_paired, round_number),
+    do: gettext("Round %{n} hasn't been paired yet.", n: round_number)
+
+  defp standings_reason_text(:pairings_not_public, round_number),
+    do: gettext("Round %{n}'s pairings aren't public yet - publish them first.", n: round_number)
+
+  defp standings_reason_text(:round_not_complete, round_number),
+    do:
+      gettext(
+        "Round %{n} isn't finished yet - every result must be entered first.",
+        n: round_number
+      )
 
   ## ---------- Hand-editing UI pieces ----------
 
@@ -1585,43 +1768,9 @@ defmodule PairingsEngineWeb.PairingsLive do
               {gettext("Delete this board…")}
             </button>
           <% "round" -> %>
-            <%!-- "immediate" makes unpublish meaningless (see
-                  `Tournaments.unpublish_round/1`'s own doc) and every round
-                  is already public, so there is nothing here to toggle -
-                  say so instead of showing a button that would do nothing,
-                  or silently showing neither with no explanation. --%>
-            <p
-              :if={@tournament.publish_mode == "immediate"}
-              class="hint"
-              style="margin: 0; padding: 8px 10px"
-            >
-              {gettext(
-                "Every round is public here the instant it's paired, so there's nothing to publish or unpublish. Change that in Settings → OpenResults."
-              )}
-            </p>
-
-            <button
-              :if={
-                @tournament.publish_mode != "immediate" and
-                  not Tournaments.round_published?(@tournament, @round)
-              }
-              type="button"
-              phx-click="publish_round_now"
-            >
-              {gettext("Publish round %{n} now", n: @round.number)}
-            </button>
-
-            <button
-              :if={
-                @tournament.publish_mode != "immediate" and
-                  Tournaments.round_published?(@tournament, @round)
-              }
-              type="button"
-              phx-click="unpublish_round"
-              data-confirm={gettext("Hide this round from the public pairings page again?")}
-            >
-              {gettext("Unpublish round %{n}", n: @round.number)}
-            </button>
+            <div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 8px">
+              <.publish_controls id_prefix="menu-" tournament={@tournament} round={@round} />
+            </div>
         <% end %>
       </div>
     </div>
@@ -1752,47 +1901,11 @@ defmodule PairingsEngineWeb.PairingsLive do
                 true -> "finished"
               end}
             </span>
-            <%!-- Only shown once a tournament has actually opted into a
-                 non-instant publish mode - "immediate" is unchanged/today's
-                 behaviour, and this would just be noise for every other
-                 tournament that never touches this feature. --%>
-            <span
-              :if={@round != nil and @tournament.publish_mode != "immediate"}
-              class={["badge", !Tournaments.round_published?(@tournament, @round) && "muted"]}
-              title={publish_status_title(@tournament, @round)}
-            >
-              {if Tournaments.round_published?(@tournament, @round),
-                do: "public",
-                else: "not public yet"}
-            </span>
           </p>
         </div>
 
-        <div class="actions" style="margin: 0">
-          <button
-            :if={
-              @round != nil and @tournament.publish_mode != "immediate" and
-                not Tournaments.round_published?(@tournament, @round)
-            }
-            type="button"
-            class="pe-btn"
-            phx-click="publish_round_now"
-          >
-            {gettext("Publish now")}
-          </button>
-
-          <button
-            :if={
-              @round != nil and @tournament.publish_mode != "immediate" and
-                Tournaments.round_published?(@tournament, @round)
-            }
-            type="button"
-            class="pe-btn"
-            phx-click="unpublish_round"
-            data-confirm={gettext("Hide this round from the public pairings page again?")}
-          >
-            {gettext("Unpublish")}
-          </button>
+        <div class="actions" style="margin: 0; align-items: center">
+          <.publish_controls :if={@round != nil} tournament={@tournament} round={@round} />
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"

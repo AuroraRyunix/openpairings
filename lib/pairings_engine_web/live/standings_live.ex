@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.StandingsLive do
   alias PairingsEngineWeb.PublicLink
 
   alias PairingsEngine.{Audit, Categories, Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
-  alias PairingsEngine.Tournaments.Player
+  alias PairingsEngine.Tournaments.{Player, Tournament}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -130,40 +130,48 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
-  # SWAR has no equivalent - this is what OpenResults calls the "Starting
-  # rank": the entry list, ordered by start number, shown in place of
-  # standings on the public page until round 1 has results. Only offered
-  # while `@rounds_paired == 0` (see `render/1`), so this is unreachable
-  # once a round exists - the write path still refuses defensively rather
-  # than trust that.
-  #
-  # `Tournaments.update_tournament/2` rather than a dedicated `set_*`
-  # function like the other publish toggles on the Results settings page:
-  # this is an ordinary cast field (see `Tournament.changeset/2`), ONLY
-  # visible in a different place, so it gets the ordinary write path
-  # instead of a special one - the usual broadcast/publish-enqueue and the
-  # archived/writable guards apply exactly as they do for any other
-  # settings save.
+  # The "Standings after round K" control beside "Public page" - see the
+  # `publish_controls/1` section below for K's own meaning and the two
+  # handlers' shared reasoning with `PairingsEngineWeb.PairingsLive`'s
+  # identical pair (same `Tournaments` functions, same rules 2/3).
   @impl true
-  def handle_event("toggle_publish_starting_rank", _params, socket) do
+  def handle_event("publish_standings", %{"round" => round}, socket) do
     tournament = socket.assigns.tournament
-    enabled? = !tournament.publish_starting_rank
+    round_number = String.to_integer(round)
 
-    case Tournaments.update_tournament(tournament, %{"publish_starting_rank" => enabled?}) do
+    case Tournaments.publish_standings_through(tournament, round_number) do
       {:ok, tournament} ->
-        Audit.log(
-          tournament.id,
-          socket.assigns.current_scope,
-          "standings.starting_rank_toggled",
-          %{enabled: enabled?}
-        )
+        Audit.log(tournament.id, socket.assigns.current_scope, "standings.published", %{
+          through_round: round_number
+        })
 
-        {:noreply, assign(socket, tournament: tournament)}
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
 
       {:error, :archived} ->
         {:noreply, archived_refusal(socket)}
 
-      {:error, _changeset} ->
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+    end
+  end
+
+  @impl true
+  def handle_event("unpublish_standings", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.unpublish_standings_through(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "standings.unpublished", %{
+          from_round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+
+      {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
     end
   end
@@ -214,6 +222,102 @@ defmodule PairingsEngineWeb.StandingsLive do
 
     {:noreply, push_patch(socket, to: path)}
   end
+
+  ## ---------- the "Standings after round K" control ----------
+
+  attr :tournament, Tournament, required: true
+  attr :round_number, :integer, required: true
+  # The already-loaded `%Round{}` for `round_number`, when one exists (`nil`
+  # for round 0) - see `Tournaments.standings_publish_blocked_reason/3`'s own
+  # doc on why the caller passes this rather than letting the check re-fetch.
+  attr :round, :any, default: nil
+
+  defp standings_publish_control(assigns) do
+    ~H"""
+    <.publish_toggle
+      :if={@tournament.publish_mode == "immediate"}
+      id={"standings-toggle-#{@round_number}"}
+      label={gettext("Standings after round %{n}", n: @round_number)}
+      state={:public}
+      locked
+      reason={
+        gettext(
+          "Standings publish automatically here, through the latest complete round. Change that in Settings → OpenResults."
+        )
+      }
+    />
+
+    <%= if @tournament.publish_mode != "immediate" do %>
+      <% public? = Tournaments.effective_standings_through(@tournament) >= @round_number %>
+      <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round_number, @round) %>
+      <.publish_toggle
+        id={"standings-toggle-#{@round_number}"}
+        label={gettext("Standings after round %{n}", n: @round_number)}
+        state={if public?, do: :public, else: :not_public}
+        disabled={not public? and not is_nil(blocked)}
+        reason={standings_reason_text(blocked, @round_number)}
+        confirm={confirm_unpublish_standings(@tournament, @round_number)}
+        phx-click={if public?, do: "unpublish_standings", else: "publish_standings"}
+        phx-value-round={@round_number}
+      />
+    <% end %>
+    """
+  end
+
+  # Same rule 3 confirm text as `PairingsEngineWeb.PairingsLive` - which
+  # published rounds would go dark as a side effect of pulling standings
+  # back (`Tournaments.unpublish_standings_through/2`'s own doc).
+  defp confirm_unpublish_standings(tournament, round_number) do
+    base =
+      if round_number == 0 do
+        gettext("Hide the entry list from the public page again?")
+      else
+        gettext(
+          "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
+          n: round_number,
+          prev: round_number - 1
+        )
+      end
+
+    case lowest_published_round_above(tournament, round_number) do
+      nil ->
+        base
+
+      hidden_from ->
+        base <>
+          " " <>
+          gettext(
+            "This also hides round %{n}'s pairings, and every round after it.",
+            n: hidden_from
+          )
+    end
+  end
+
+  defp lowest_published_round_above(tournament, round_number) do
+    tournament.id
+    |> Tournaments.list_rounds()
+    |> Enum.filter(&(&1.number > round_number and Tournaments.round_published?(tournament, &1)))
+    |> Enum.map(& &1.number)
+    |> case do
+      [] -> nil
+      numbers -> Enum.min(numbers)
+    end
+  end
+
+  defp standings_reason_text(nil, _round_number), do: nil
+
+  defp standings_reason_text(:not_paired, round_number),
+    do: gettext("Round %{n} hasn't been paired yet.", n: round_number)
+
+  defp standings_reason_text(:pairings_not_public, round_number),
+    do: gettext("Round %{n}'s pairings aren't public yet - publish them first.", n: round_number)
+
+  defp standings_reason_text(:round_not_complete, round_number),
+    do:
+      gettext(
+        "Round %{n} isn't finished yet - every result must be entered first.",
+        n: round_number
+      )
 
   # An archived tournament refuses every write (Tournaments.ensure_writable/1).
   # These controls are hidden while archived, so reaching one of these clauses
@@ -282,6 +386,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       end
 
     selected_category = Map.get(socket.assigns, :selected_category)
+    latest_complete_round = Tournaments.latest_complete_round(tournament)
 
     assign(socket,
       keizer?: keizer?,
@@ -289,6 +394,14 @@ defmodule PairingsEngineWeb.StandingsLive do
       filtered_entries: compute_filtered_entries(entries, selected_category),
       category_places: category_places_by_name(tournament, entries),
       rounds_paired: Standings.rounds_paired(tournament.id),
+      latest_complete_round: latest_complete_round,
+      # Loaded alongside the number rather than re-fetched inside the
+      # component (see `Tournaments.standings_publish_blocked_reason/3`'s
+      # own doc on the optional preloaded round) - one query per reload
+      # instead of one per render, and one fewer place for two reads of the
+      # same round in the same pass to ever disagree.
+      latest_complete_round_struct:
+        if(latest_complete_round > 0, do: Tournaments.get_round(tournament.id, latest_complete_round)),
       manual_stale?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
       manual_incomplete?:
@@ -491,28 +604,18 @@ defmodule PairingsEngineWeb.StandingsLive do
 
           <%!-- Beside "Public page" because that is the page it changes, and
                 only while there is one: a tournament that does not publish has
-                nothing for it to show or hide. Only until round 1 is paired,
-                too - the maintainer's call, it is a decision about the entry
-                list taken before play starts. Its value keeps applying until
-                round 1 is PUBLISHED (a manual or timed publish can lag the
-                pairing); after that the roster travels with the published
-                boards regardless (see PairingsEngine.Snapshot). --%>
-          <button
-            :if={PublicLink.public?(@tournament) and @rounds_paired == 0}
-            type="button"
-            class="pe-btn"
-            phx-click="toggle_publish_starting_rank"
-            aria-pressed={to_string(@tournament.publish_starting_rank)}
-            title={
-              gettext(
-                "Whether the public page lists the players, by start number, before round 1 has results. Click to change."
-              )
-            }
-          >
-            {if @tournament.publish_starting_rank,
-              do: gettext("Before round 1: public"),
-              else: gettext("Before round 1: hidden")}
-          </button>
+                nothing for it to show or hide. `@latest_complete_round` is the
+                round this control targets - the entry list (round 0) before
+                round 1 has a single result, otherwise the latest round that is
+                actually complete (`Tournaments.latest_complete_round/1`); the
+                control itself still refuses (disabled, with a reason) unless
+                that round's own pairings are already public too. --%>
+          <.standings_publish_control
+            :if={PublicLink.public?(@tournament)}
+            tournament={@tournament}
+            round_number={@latest_complete_round}
+            round={@latest_complete_round_struct}
+          />
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
             {gettext("Print")}

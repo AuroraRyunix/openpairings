@@ -1288,6 +1288,65 @@ button.pe-btn, .pe-btn {
   color: var(--warn);
 }
 
+/* The publish/unpublish switch - "Pairings round N" / "Standings after
+   round N" on the Pairings and Standings pages
+   (`PairingsEngineWeb.CoreComponents.publish_toggle/1`). Built entirely
+   from the app's own theme tokens (`--success`/`--danger`/`--border`/
+   `--text`/`--surface`), so it follows every theme this app ships,
+   light and dark alike, with no colours of its own. */
+.pe-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 5px 14px 5px 6px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+}
+.pe-toggle:hover:not(:disabled) { background: var(--bg); }
+
+.pe-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 20%, var(--surface-alt));
+  transition: background 0.15s ease;
+}
+.pe-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--danger);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.pe-toggle.is-public .pe-toggle-track {
+  background: color-mix(in srgb, var(--success) 24%, var(--surface-alt));
+}
+.pe-toggle.is-public .pe-toggle-thumb { background: var(--success); transform: translateX(14px); }
+
+.pe-toggle-text { display: flex; flex-direction: column; line-height: 1.25; }
+.pe-toggle-label { font-weight: 600; font-size: 13.5px; }
+.pe-toggle-state { font-size: 11.5px; color: var(--text-soft); }
+.pe-toggle.is-public .pe-toggle-state { color: var(--success); }
+.pe-toggle:not(.is-public):not(.is-locked) .pe-toggle-state { color: var(--danger); }
+
+.pe-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pe-toggle:disabled { opacity: 0.6; cursor: default; }
+.pe-toggle.is-locked { cursor: default; }
+
 /* The persistent "this tournament is archived" banner shown at the top of
    every page of an archived tournament. Louder than .hint, quieter than
    .error-note - this is a state, not a failure. */

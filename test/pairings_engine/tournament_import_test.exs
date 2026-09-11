@@ -535,7 +535,7 @@ defmodule PairingsEngine.TournamentImportTest do
           extra_points_bands: "1400:1",
           publish_mode: "manual",
           publish_delay_minutes: 15,
-          publish_starting_rank: false,
+          standings_through: nil,
           abs_value: 0.5,
           abs_jusque: 7,
           abs_nbfois: 2,
@@ -568,7 +568,7 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.extra_points_bands == "1400:1"
       assert imported.publish_mode == "manual"
       assert imported.publish_delay_minutes == 15
-      refute imported.publish_starting_rank
+      assert imported.standings_through == nil
       assert imported.abs_value == 0.5
       assert imported.abs_jusque == 7
       assert imported.abs_nbfois == 2
@@ -576,34 +576,70 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.fide_homologated
     end
 
-    test "an older backup with no publish_starting_rank key imports as the default (true)" do
+    test "a backup written before standings_through existed defaults to the pre-feature default (roster public)" do
       owner = user_scope()
       importer = user_scope()
 
       original =
         Repo.insert!(%Tournament{
-          name: "Pre-existing Backup",
+          name: "Ancient Backup",
           type: "swiss",
           rounds_count: 3,
-          user_id: owner.user.id,
-          publish_starting_rank: false
+          user_id: owner.user.id
         })
 
-      # A file written before this key existed simply does not have it -
-      # simulated here by removing it from a real export rather than by
-      # hand-writing an envelope, so the shape stays honest. The live
-      # tournament is deliberately `false` first, to prove the import path
-      # is not just carrying the live default through unexamined.
+      # A file written before EITHER key existed (predating both
+      # `publish_starting_rank` and the `standings_through` that replaced
+      # it) simply carries neither - simulated by removing "standings_through"
+      # from a real export, so the shape stays honest.
+      #
+      # legacy_standings_through/3's own rule: nothing published, and the
+      # (absent, defaulting true) old flag was not off, so the roster stays
+      # public - standings_through comes back 0, not nil.
       envelope =
         update_in(
           TournamentExport.export_tournament(original),
           ["tournaments", Access.at(0), "tournament"],
-          &Map.delete(&1, "publish_starting_rank")
+          &Map.delete(&1, "standings_through")
         )
 
       assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
 
-      assert imported.publish_starting_rank
+      assert imported.standings_through == 0
+    end
+
+    test "a backup carrying the old publish_starting_rank flag (off) withholds the roster" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Flag-era Backup",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id
+        })
+
+      # A file written under the SHORT-LIVED `publish_starting_rank` schema
+      # (between that field's own migration and the one that replaced it):
+      # no `standings_through` key, but the old flag, off. `publish_starting_rank`
+      # is no longer a live schema field, so this is written directly into
+      # the exported JSON - exactly what a real file from that window would
+      # contain.
+      envelope =
+        update_in(
+          TournamentExport.export_tournament(original),
+          ["tournaments", Access.at(0), "tournament"],
+          fn attrs ->
+            attrs
+            |> Map.delete("standings_through")
+            |> Map.put("publish_starting_rank", false)
+          end
+        )
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert imported.standings_through == nil
     end
 
     test "manual ranking round-trips with its actual order, not just the flag" do
