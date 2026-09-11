@@ -343,15 +343,55 @@ Still open, and each needs a decision rather than typing:
   audit document, being too small and too rare to need an arbiter-facing
   paragraph before anyone reports it.
 
-  **Actionable and not yet done**, all from pass two: the importer drops
-  five SWAR tiebreaks it can compute (§2, a real defect - the drop silently
-  promotes a different tiebreak to primary), a round-robin `ByeValue`
-  divergence (§3), SWAR's manual acceleration disappearing at the import
-  boundary with nothing said (§5.4), and the legacy `CatIndex < 100`
-  normalisation (§5.2). These four are unaffected by pass three and remain
-  the only open code-shaped work this item leaves behind; everything else it
-  found is either fixed already (pass one's F1) or is a divergence to
-  document rather than to change, per each pass's own verdict.
+  **The four code-shaped items pass two left open are now closed, as of
+  2026-09-11** - three fixed, one turned out to already be fixed:
+
+    * **§2, the dropped tiebreaks** - already closed by 0.54.0, before this
+      remediation pass started: `@tiebreak_codes` maps all twelve mappable
+      SWAR ordinals, `@tiebreak_names` names the three genuinely unmappable
+      ones instead of dropping them silently, and
+      `swar_tiebreak_mapping_test.exs` already pinned the whole table. No
+      code change; a dated note in the audit document records it so the
+      section does not keep reading as open.
+    * **§3, the round-robin `ByeValue` divergence** - fixed. `scoring_attrs/1`
+      now forces a round-robin bye to a full point, mirroring SWAR's own
+      load-time forcing rather than the file's stored value, with an import
+      warning naming it. OpenPairings' own, non-imported round robin is
+      untouched - it still scores its structural bye at zero, which is
+      still correct for a native round robin.
+    * **§5.2, the legacy `CatIndex < 100` normalisation** - fixed.
+      `category_name/2` now mirrors SWAR's own unconditional normalisation,
+      agreeing with the off-by-one fix already there.
+    * **§5.4, SWAR's XtraPoints (F13)** - a warning, per the section's own
+      "minimum action". Manual acceleration itself is not implemented and
+      was never asked for; the import now says plainly, when a file carries
+      it, that OpenPairings does not reproduce it and a further round may
+      pair differently.
+
+  All four are written up for arbiters in `docs/swar-import.md`, tested (a
+  new `swar_import_pass2_test.exs`, plus additions to
+  `swar_category_warning_test.exs` and the tournaments LiveView test),
+  and dated in
+  [docs/swar-source-audit-pass2-2026-09-09.md](docs/swar-source-audit-pass2-2026-09-09.md)
+  under each section closed. One thing found and fixed along the way rather
+  than asked for: `PairingsEngineWeb.TournamentsLive`'s SWAR-import flash
+  handler assumed every warning was the `points_adjusted` shape (a map) and
+  would have raised on the plain-sentence warnings `category_warnings/1`
+  and `tiebreak_warnings/1` already produced - latent because nothing had
+  exercised that combination at the LiveView layer before. Fixed alongside
+  the two new warnings that would otherwise have hit it first.
+
+  `PairingsEngine.Compliance` was checked for whether an imported round
+  robin with a forced full-point bye should be a new departure - it
+  should not, and no change was made. The module's own moduledoc already
+  excludes scoring values from the departure list by name, for reasons
+  (VCL.16/17, TRF export staying analyzable under non-default scoring)
+  that apply exactly as well here; extending it would be a new design
+  decision, not a bug fix.
+
+  Nothing else from pass two is affected - the rest of it is either fixed
+  already (pass one's F1) or is a divergence to document rather than to
+  change, per each pass's own verdict.
 
   **Nothing further is scheduled.** Tier A is fully read across the three
   passes; tier B stays off the schedule for the reasons pass one costed it

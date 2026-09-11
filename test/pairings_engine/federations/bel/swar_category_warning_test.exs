@@ -106,12 +106,35 @@ defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
       assert name(900, ["Senior"]) == ""
     end
 
-    test "a second-axis component on its own resolves to nothing" do
+    test "a second-axis component on its own resolves to nothing, here" do
       # The units place is the OTHER axis (`i + 1`, no hundreds). It indexes
       # `value2`, which this app does not model, so there is no first-axis
       # answer to give - and answering with `value1`'s first entry would be
-      # inventing one.
+      # inventing one. This still comes back blank only because slot 2 of
+      # `value1` happens to be padding in THIS fixture - see the legacy
+      # normalisation test below for the case where it is not, which is the
+      # same ambiguity SWAR's own file format carries and this import now
+      # mirrors rather than resolves.
       assert name(3, ["Senior", "Junior"]) == ""
+    end
+
+    # `TournoiReadWrite.cpp:623-624` normalises any stored `CatIndex` under
+    # 100 by multiplying it by 100, unconditionally - not only for files old
+    # enough to still use the un-scaled encoding. That collides with the
+    # second-axis-only reading directly above: SWAR itself cannot tell "an
+    # old file's first-axis slot 1" (raw `2`) from "a two-axis file's
+    # second-axis-only slot 1, no first axis" (also raw `2`) apart, and
+    # neither can this import once it mirrors the normalisation. See
+    # docs/swar-source-audit-pass2-2026-09-09.md §5.2.
+    test "a legacy file's un-scaled index still resolves, once value1 has enough slots" do
+      list = ["Senior", "Junior", "Cadet"]
+
+      # Raw `2` used to divide to `div(2, 100) - 1 = -1` (the second-axis-only
+      # branch above) and return "". Normalised to `200` first, it is
+      # `div(200, 100) - 1 = 1` - the same slot the modern, already-scaled
+      # `name(200, list)` case above resolves to.
+      assert name(2, list) == "Junior"
+      assert name(2, list) == name(200, list)
     end
   end
 end

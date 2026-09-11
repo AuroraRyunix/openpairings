@@ -568,6 +568,219 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     end
   end
 
+  ## ---------- SWAR import: a warning that isn't points_adjusted ----------
+  #
+  # `commit_swar/3` folds `SwarImport`'s whole warnings list -
+  # `points_adjusted_warnings/3` (one map per player) alongside
+  # `category_warnings/1`, `tiebreak_warnings/1`, `round_robin_bye_warnings/1`
+  # and `xtra_points_warnings/1` (each a plain sentence) - into one flash.
+  # `maybe_flash_swar_warnings/2` used to assume every entry was the first
+  # shape (`w.player_name`), which raises on a plain string; nothing had
+  # exercised the second shape at this layer before, so it went uncaught.
+  # Built from a synthetic binary rather than a fixture, same convention as
+  # `SwarImportPass2Test` - this only needs to be a round robin with one
+  # bye, not a real club export.
+
+  # Same field-by-field layout as `SwarImportPass2Test`'s builder (which
+  # this mirrors line for line rather than inlining by hand, on purpose -
+  # the format has no index, so one miscounted field silently corrupts
+  # everything after it). Trimmed to exactly what this scenario needs: a
+  # round robin, one player, one pairing-allocated bye, a configurable
+  # `mat_fide` so the test can skip the FIDE-match confirm step.
+
+  defp pass2_w_str(s), do: <<byte_size(s)::little-signed-32, s::binary>>
+  defp pass2_w_i32(n), do: <<n::little-signed-32>>
+  defp pass2_w_i16(n), do: <<n::little-signed-16>>
+  defp pass2_w_u8(n), do: <<n::8>>
+
+  # Version pinned below v6.49 so `points_adjusted_warnings/3` never fires -
+  # see `SwarImportPass2Test`'s moduledoc for why a forced bye's non-zero
+  # score would otherwise add an unrelated warning here.
+  @swar_pass2_version "v6.40"
+
+  defp round_robin_bye_swar_binary(mat_fide) do
+    version = @swar_pass2_version
+    header = pass2_w_str(version) <> pass2_w_str("guid") <> pass2_w_str("mac")
+
+    # nb_rounds
+    # type = 4 (ROBIN)
+    # sw_elo_r1, sw_amer_presence, plusieurs, first_table
+    # sw321_win, sw321_nul, sw321_los, sw321_bye, sw321_pre
+    # sw321_prebye (v6.03+)
+    # elo_used, tournoi_std, tb_personel, appar_order, elo_equal
+    # ByeValue: 2 = zero points, per the file - ignored for a round
+    # robin, which is the whole point of this fixture.
+    tournoi =
+      pass2_w_str("[TOURNOI]") <>
+        pass2_w_str("Test Tournament") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_i32(0) <>
+        pass2_w_str("") <>
+        pass2_w_i32(1) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        Enum.map_join(1..16, "", fn _ -> pass2_w_i32(0) <> pass2_w_i32(0) <> pass2_w_i32(0) end) <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_str("") <>
+        pass2_w_i32(4) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(2) <>
+        pass2_w_u8(0) <>
+        pass2_w_u8(0) <>
+        pass2_w_u8(0) <>
+        pass2_w_u8(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0)
+
+    dates = pass2_w_str("[DATES]") <> pass2_w_str("")
+    tie_break = pass2_w_str("TIE_BREAK") <> Enum.map_join(1..5, "", fn _ -> pass2_w_i32(0) end)
+    exclusion = pass2_w_str("EXCLUSION") <> pass2_w_i32(0) <> pass2_w_str("")
+    cat_strs = Enum.map_join(1..13, "", fn _ -> pass2_w_str("") end)
+    categories = pass2_w_str("CATEGORIES") <> pass2_w_i32(0) <> cat_strs <> cat_strs
+
+    xtra_points =
+      pass2_w_str("XTRA_POINTS") <>
+        Enum.map_join(1..4, "", fn _ -> pass2_w_i32(0) <> pass2_w_i32(0) end)
+
+    # class
+    # ni
+    # rank
+    # cat_index
+    # birth
+    # sex
+    # country
+    # mat_nat
+    # mat_fide
+    # affilie
+    # elo
+    # elo_fide (version < v7.00, read separately)
+    # title
+    # club_nr
+    # club
+    # nb_parties
+    # points
+    # points_adjusted (v6.40 < v6.49, absent)
+    # amer_pts
+    # tiebreak x5
+    # perf
+    # paye (v6.40 >= v5.52, present)
+    # absent
+    # absent_rondes
+    # extra_pts
+    # special_pts
+    # nb_round
+    # handy_table
+    # WIN_BYE (0x0040) - a pairing-allocated bye, the only kind
+    # `round_robin_bye_warnings/1` looks for. round_nr, table, advers,
+    # result, color, float, xtra_pts.
+    player =
+      pass2_w_i32(0) <>
+        pass2_w_str("Odd, One") <>
+        pass2_w_i32(1) <>
+        pass2_w_i32(1) <>
+        pass2_w_i32(0) <>
+        pass2_w_str("") <>
+        pass2_w_i32(0) <>
+        pass2_w_str("") <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(mat_fide) <>
+        pass2_w_i32(1) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_str("") <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        Enum.map_join(1..5, "", fn _ -> pass2_w_i32(0) end) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(1) <>
+        pass2_w_i32(0) <>
+        pass2_w_str("") <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i16(1) <>
+        pass2_w_i16(0) <>
+        pass2_w_str("[RONDE]") <>
+        pass2_w_i32(1) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0x0040) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0) <>
+        pass2_w_i32(0)
+
+    joueurs = pass2_w_str("[JOUEURS]") <> pass2_w_i32(1) <> player
+
+    header <>
+      tournoi <> dates <> tie_break <> exclusion <> categories <> xtra_points <> joueurs
+  end
+
+  describe "SWAR import: warnings other than points_adjusted reach the arbiter" do
+    setup :enable_federation_features
+
+    test "a round-robin bye-value warning flashes instead of crashing the page", %{conn: conn} do
+      # Nonzero mat_fide skips the FIDE-match confirm step entirely - this
+      # is about what happens after a plain, one-player commit, not about
+      # FIDE matching.
+      binary = round_robin_bye_swar_binary(555_555)
+      path = Path.join(System.tmp_dir!(), "rrbye-#{System.unique_integer([:positive])}.swar")
+      File.write!(path, binary)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "Import SWAR file") |> render_click()
+
+      swar =
+        file_input(lv, "form", :swar, [
+          %{name: "rrbye.swar", content: File.read!(path), type: "application/octet-stream"}
+        ])
+
+      render_upload(swar, "rrbye.swar")
+
+      # The point of this test: this used to raise inside
+      # `maybe_flash_swar_warnings/2` (`w.player_name` on a plain string),
+      # which would surface here as an exception rather than a redirect.
+      {:ok, _players_lv, html} =
+        lv
+        |> form("#swar-import-form", %{})
+        |> render_submit()
+        |> follow_redirect(conn)
+
+      File.rm(path)
+
+      assert html =~ "full point"
+      assert html =~ "round robin"
+    end
+  end
+
   describe "SWAR import: re-uploading the same tournament warns instead of duplicating" do
     # SWAR import belongs to the Belgian pack and is absent for an account
     # that has not switched it on - see `PairingsEngine.Features`.

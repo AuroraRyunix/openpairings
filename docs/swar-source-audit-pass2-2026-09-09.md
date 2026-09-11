@@ -217,6 +217,27 @@ code:
 
 ---
 
+**Closed 2026-09-11, and it turns out it already was.** This finding was
+written against `@tiebreak_codes` as it stood before 0.54.0
+(`%{1 => "BH", 4 => "BHC1", 6 => "SB", 8 => "DE", 10 => "WIN", 7 => "PS"}`,
+six mappings). By the time this remediation pass started, that commit had
+already shipped: `@tiebreak_codes` now carries all twelve mappable
+ordinals - `2 => "MBH"`, `5 => "BHC2"`, `9 => "KS"`, `12 => "ARO"`,
+`13 => "AROC1"` and `14 => "BPG"` are exactly the six this section names as
+missing - `@tiebreak_names` names the three genuinely unmappable ones
+(median-2, performance, black wins) instead of dropping them silently, and
+`tiebreak_warnings/1` reports whichever of those a file actually carries.
+Both caveats above are folded into the code comment above
+`@tiebreak_codes`, word for word what this section asked for: `BPG` maps
+with a noted near-exact difference, and `WIN`'s existing narrower-than-SWAR
+reading is called out as OpenPairings being right rather than a bug.
+`test/pairings_engine/federations/bel/swar_tiebreak_mapping_test.exs` pins
+the whole table, including every one of the six late additions. Nothing
+further changed here in this pass; see `CHANGELOG.md`'s 0.54.0 entry and
+`TODO.md`.
+
+---
+
 ## 3. F11 — SWAR forces a round-robin bye to a FULL POINT at load; pass one's F8 concluded the opposite
 
 **VERIFIED both sides. This corrects pass one.**
@@ -272,6 +293,35 @@ SWAR's by one point per bye.
 
 **Practical weight:** low frequency (odd-sized round robins imported from SWAR),
 high visibility when it happens (a whole point).
+
+---
+
+**Closed 2026-09-11.** Mirrored, per the maintainer's decision, rather than
+warned-only: `scoring_attrs/1` now forces `bye_value: 1.0` whenever
+`map_tournament_type(t.type) == "roundrobin"`, before ever consulting the
+file's own stored `ByeValue` - reproducing what SWAR itself shows for the
+same file, on the reasoning above that the importer's job is the file's
+tournament, not the file's raw bytes. A new import warning
+(`round_robin_bye_warnings/1`) names it, but only when the file actually
+carries a pairing-allocated bye to score - an even-sized round robin
+triggers nothing, keeping the common case quiet. OpenPairings' own,
+non-imported round robin is untouched: `round_robin.ex`'s
+`"requested-zero"` row still scores zero, which this section already said
+stays right. Written up for arbiters in `docs/swar-import.md`'s new "Round
+robin: SWAR forces a bye to a full point" section, and tested end to end
+against a synthetic round-robin `.swar` file in
+`test/pairings_engine/federations/bel/swar_import_pass2_test.exs`.
+
+`PairingsEngine.Compliance` was checked and deliberately NOT touched. Its
+own moduledoc already excludes scoring values (`bye_value` named
+explicitly) from the departure list, on the reasoning that VCL.16/17
+require the pairing-allocated bye value to stay configurable and TRF export
+to stay analyzable "even under a non-default scoring system" - a rule
+firing on this would contradict the very checklist the module is answering
+to. A forced full-point round-robin bye is exactly a scoring value, so the
+module's existing design already covers this correctly by omission; adding
+a departure for it would be a new design decision this pass was told not to
+make.
 
 ---
 
@@ -387,6 +437,26 @@ one difference: with `pair_by_category` on, OpenPairings would put every such
 player in a `""` pool together, where SWAR puts them in no category. Worth a
 line in the multi-category work rather than a change here.
 
+**Closed 2026-09-11.** `category_name/2` now normalises unconditionally,
+mirroring `TournoiReadWrite.cpp:623-624` exactly as this section describes:
+`cat_index < 100` is multiplied by 100 before the existing
+`div(cat_index, 100) - 1` slot computation runs, so a legacy file's raw `2`
+now resolves the same as a modern file's already-scaled `200` does. The two
+changes agree, as asked: the off-by-one fix (`- 1`) and this normalisation
+are independent steps applied in sequence, and nothing here revisits the
+off-by-one.
+
+One consequence worth recording rather than treating as a defect: SWAR
+applies this same multiplication unconditionally, with no version check, so
+it collides with the second-axis-only reading directly above it in
+`category_name/2` - raw `2` cannot be told apart from "no first axis,
+second-axis slot 1" once normalised, in SWAR's own file format as much as
+in this importer's mirror of it. `test/pairings_engine/federations/bel/
+swar_category_warning_test.exs` now pins both the legacy-index resolution
+and this exact ambiguity at the unit level, and
+`swar_import_pass2_test.exs` pins it again through a full synthetic-file
+import.
+
 ### 5.3 `ExtraPts` is zeroed on load for round robin and 3-2-1 in SWAR, imported as-is here
 
 **VERIFIED both sides.** `TournoiReadWrite.cpp:666-667` zeroes `p.ExtraPts` on
@@ -437,6 +507,20 @@ and there is currently nothing that tells the arbiter. **Minimum action: warn on
 import when any player has non-zero `extra_pts` or the band table is populated.**
 `category_warnings/1` (`swar_import.ex:1478-1500`) is the existing precedent for
 exactly this shape of "we imported it, we cannot act on it" notice.
+
+**Closed 2026-09-11, as the minimum action above and not more.**
+`xtra_points_warnings/1` fires whenever a Swiss import (never round robin
+or 3-2-1 - see §5.3 just above: SWAR itself zeroes `ExtraPts` for both
+before its own pairing engine would ever see them, so warning there too
+would blame this app for a number SWAR itself already discarded) carries a
+non-zero per-player `extra_pts` or a populated `[XTRA_POINTS]` band table.
+Manual acceleration itself is **not implemented** - the warning says
+plainly that OpenPairings does not reproduce it and that a further round
+may pair differently, nothing more. Written up for arbiters in
+`docs/swar-import.md`'s new "XtraPoints: SWAR's manual acceleration does
+not reach pairing here" section, and tested (both triggers, and the
+round-robin/3-2-1 silence) in
+`test/pairings_engine/federations/bel/swar_import_pass2_test.exs`.
 
 ### 5.5 F14 — The Elo-band rule runs the opposite way in the two programs
 

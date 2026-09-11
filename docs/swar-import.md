@@ -689,14 +689,85 @@ code is supposed to do. The value of this section is that it turns a
 re-derivation from SWAR's source, which is what producing the answer the
 first time actually took.
 
-The audits carry further, smaller divergences. Two more of this kind - the
-`WIN` tiebreak counting a full-point bye here and not in SWAR, and a
-round-robin bye scoring a full point in SWAR where the file itself says zero -
-and one that is not: in a 3-2-1 tournament SWAR computes the Koya threshold
-and several other tiebreaks on the classic 1/0.5/0 scale while the scores
-themselves are on the club's own, so there it is SWAR's number that is wrong.
-None of them is worth an arbiter's attention until it is reported; all are
-cited in the audit documents.
+The audits carry further, smaller divergences. One of this kind - the `WIN`
+tiebreak counting a full-point bye here and not in SWAR - and one that is
+not: in a 3-2-1 tournament SWAR computes the Koya threshold and several
+other tiebreaks on the classic 1/0.5/0 scale while the scores themselves are
+on the club's own, so there it is SWAR's number that is wrong. Neither is
+worth an arbiter's attention until it is reported; both are cited in the
+audit documents.
+
+A related item used to sit in this same "leave it, it's small" list: a
+round-robin bye scoring a full point in SWAR where the file itself says
+zero. That one is no longer left alone - see the next section - because
+unlike the two above it is not a case of two defensible readings of the
+same rule; it is this importer not reading the file the way SWAR itself
+does.
+
+## Round robin: SWAR forces a bye to a full point, and this import now matches it
+
+**If you import a round robin with an odd number of players, the
+pairing-allocated bye is worth a full point here, whatever the file's own
+`ByeValue` setting says - because that is what SWAR itself shows for the
+same file.**
+
+`TournoiReadStream` (SWAR's file-load routine) forces `Tournoi.ByeValue` to
+a full point for every round-robin file, unconditionally, the moment the
+file is opened - regardless of what byte `ByeValue` is actually stored as.
+A separate, dialog-only forcing to zero also exists in SWAR's Options
+dialog code, but it only reaches the tournament if the arbiter opens that
+tab and the dialog writes back; the load-path forcing above runs every
+time, so it is the one that matters. Confirmed against SWAR's own source -
+see
+[swar-source-audit-pass2-2026-09-09.md, §3](swar-source-audit-pass2-2026-09-09.md#3-f11--swar-forces-a-round-robin-bye-to-a-full-point-at-load-pass-ones-f8-concluded-the-opposite).
+
+This importer's job is to reproduce the tournament the file describes, and
+for a round robin that tournament always has a full-point bye once SWAR has
+opened it - so `scoring_attrs/1` mirrors SWAR's forcing rather than the
+file's stored value, and an import warning names it whenever the file
+actually has a pairing-allocated bye to score (an even-sized round robin
+has none, and says nothing).
+
+**This does not touch OpenPairings' own round robin.** A round robin built
+and paired here, with no SWAR file involved, still gives its structural
+bye zero points (`round_robin.ex`'s `"requested-zero"` row) - a deliberate,
+correct choice, since FIDE does not award a point for an odd-player
+round-robin bye either. The forcing above only concerns a round robin
+**read from** a `.swar` file.
+
+## XtraPoints: SWAR's manual acceleration does not reach pairing here
+
+SWAR's `[XTRA_POINTS]` band table and each player's `ExtraPts` are not only
+a number on a standings column - in SWAR itself they are an input to
+**manual acceleration**. `CalculLeClassement` (SWAR's standings routine)
+adds `ExtraPts` into the sort unconditionally, and separately,
+`AssignExtraPointsNextRound` copies each player's `ExtraPts` into the round
+record and writes it into the `.trn` file handed to JaVaFo as an `XXA`
+line - so JaVaFo brackets the *next* round by score-plus-acceleration, the
+same mechanism Baku uses here, just driven by hand instead of by a formula.
+See
+[swar-source-audit-pass2-2026-09-09.md, §5.4](swar-source-audit-pass2-2026-09-09.md#54-f13--swars-xtrapoints-reach-the-pairing-engine-openpairings-extra_points-never-can).
+
+OpenPairings' `extra_points` is a different feature under the same name -
+a **handicap bonus** that pairing never reads at all (`docs/extra-points.md`
+states this plainly), and `tournament.acceleration` only ever means Baku
+(FIDE's own C.04.7 method, computed from the roster, never from a
+per-player number an arbiter typed in). There is no manual-acceleration
+setting here to receive what SWAR's XtraPoints were doing.
+
+**So a SWAR tournament that used manual acceleration is paired differently
+here than it would have been in SWAR, from the next round on, and until
+this warning was added nothing said so.** The rounds already recorded in
+the imported file are unaffected - they are read as results, not
+re-paired - the warning is about pairing anything further from this
+tournament. It fires when the file carries a non-zero `ExtraPts` for any
+player, or a populated `[XTRA_POINTS]` band table, on an ordinary Swiss
+import (SWAR itself zeroes `ExtraPts` on load for a round robin or a 3-2-1
+tournament, so the importer stays quiet there - warning about a number
+SWAR's own pairing engine never saw either would blame this app for
+SWAR's own choice). Manual acceleration itself is not implemented, and
+this warning is not a step toward it - it exists so the arbiter knows to
+expect a different result, not to reproduce SWAR's own.
 
 ## Categories: two value lists, one of them unread
 

@@ -560,10 +560,14 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   Pass a `%PairingsEngine.Accounts.Scope{}` as `scope` to make the logged-in
   user the owner; `nil` creates it unowned (visible to nobody in the web UI).
   Returns `{:ok, %Tournament{}, warnings}` or `{:error, reason}` - `warnings`
-  is a (possibly empty) list from `points_adjusted_warnings/3`: SWAR's own
-  arbiter-entered `points_adjusted` correction (file version >= v6.49) can't
-  be reconstructed from replayed pairings/byes the way ordinary standings
-  always are, so an import that silently drops it is flagged here instead.
+  is a (possibly empty) list, one entry per thing the import read correctly
+  but cannot fully carry over: `points_adjusted_warnings/3` (SWAR's own
+  arbiter-entered `points_adjusted` correction, file version >= v6.49, which
+  can't be reconstructed from replayed pairings/byes the way ordinary
+  standings always are), `category_warnings/1`, `tiebreak_warnings/1`,
+  `round_robin_bye_warnings/1` and `xtra_points_warnings/1` - see each for
+  what it flags. `PairingsEngineWeb.TournamentsLive.maybe_flash_swar_warnings/2`
+  is what turns them into what the arbiter actually sees.
   """
   def import_file(path, scope \\ nil, opts \\ []) do
     with {:ok, binary} <- File.read(path),
@@ -728,9 +732,88 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       warnings =
         points_adjusted_warnings(tournament, data, players_by_ni) ++
           category_warnings(data.categories) ++
-          tiebreak_warnings(data.tiebreaks || [])
+          tiebreak_warnings(data.tiebreaks || []) ++
+          round_robin_bye_warnings(data) ++
+          xtra_points_warnings(data)
 
       {:ok, tournament, warnings}
+    end
+  end
+
+  # `scoring_attrs/1`'s round-robin clause always scores a pairing-allocated
+  # bye at a full point now, mirroring SWAR's own forcing rather than the
+  # file's stored `ByeValue` - see the comment there and
+  # docs/swar-source-audit-pass2-2026-09-09.md §3 (F11). Only worth saying
+  # when the file actually has one: an even-sized round robin has none, and
+  # a warning nobody's tournament ever triggers is a warning nobody reads.
+  defp round_robin_bye_warnings(data) do
+    if map_tournament_type(data.tournament.type) == "roundrobin" and
+         any_pairing_allocated_bye?(data) do
+      [
+        "This round robin has an odd number of players, so at least one round " <>
+          "leaves someone without an opponent. SWAR forces that bye to a full " <>
+          "point the instant the file is opened, no matter what its own stored " <>
+          "bye value says - this import mirrors SWAR rather than the file, so " <>
+          "the imported bye is worth a full point here even though FIDE does " <>
+          "not award one for a round-robin bye. Check the standings against " <>
+          "SWAR's own crosstable if the tournament's own regulations promised " <>
+          "otherwise."
+      ]
+    else
+      []
+    end
+  end
+
+  defp any_pairing_allocated_bye?(data) do
+    Enum.any?(data.players, fn p ->
+      Enum.any?(p.rounds, &(result_class(&1.result) == :win_bye))
+    end)
+  end
+
+  # SWAR's `ExtraPts` are a manual-acceleration input, not only a display
+  # number: `AssignExtraPointsNextRound` copies each player's stored
+  # `ExtraPts` into every round record (`XtraPoints.cpp:268-288`), and
+  # `EcrireXXA_AccelereManuel` (`EnvoiJAVAFO.cpp:601-634`) writes them as
+  # `XXA` lines in the `.trn` SWAR hands to JaVaFo - so JaVaFo brackets by
+  # score-plus-acceleration for the next round paired inside SWAR.
+  # OpenPairings' own `extra_points` is a handicap bonus pairing never reads
+  # (`docs/extra-points.md`) and `tournament.acceleration` only knows Baku -
+  # so a SWAR tournament that used manual acceleration is paired differently
+  # here than it was there, silently, with nothing on screen saying so.
+  #
+  # Only meaningful for an ordinary Swiss: SWAR itself zeroes `ExtraPts` on
+  # load for round robin and 3-2-1 (`TournoiReadWrite.cpp:666-667` - see
+  # `scoring_attrs/1`'s round-robin clause and §5.3), so warning there too
+  # would blame this app for a number SWAR itself already discarded before
+  # its own pairing engine ever saw it.
+  #
+  # The rounds already IN the file import correctly regardless of any of
+  # this - what the warning is about is pairing any FURTHER round from
+  # here on, which is the only place the acceleration would have mattered.
+  # See docs/swar-source-audit-pass2-2026-09-09.md §5.4 (F13).
+  defp xtra_points_warnings(data) do
+    t = data.tournament
+
+    if map_tournament_type(t.type) == "roundrobin" or swiss321?(t) do
+      []
+    else
+      any_player_extra? = Enum.any?(data.players, &(&1.extra_pts != 0))
+      band_populated? = Enum.any?(data.xtra_points, fn {pts, elo} -> pts != 0 or elo != 0 end)
+
+      if any_player_extra? or band_populated? do
+        [
+          "This file carries SWAR XtraPoints. SWAR treats them as manual " <>
+            "acceleration - it hands them to its own pairing engine as extra " <>
+            "score, not only as a number on screen - and OpenPairings does not: " <>
+            "extra points here are a handicap bonus that pairing never reads, " <>
+            "and there is no manual-acceleration setting that reproduces " <>
+            "SWAR's. The rounds already in this file are imported correctly " <>
+            "either way, but any round paired from here on may not match what " <>
+            "SWAR would have paired."
+        ]
+      else
+        []
+      end
     end
   end
 
@@ -1298,7 +1381,38 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     }
   end
 
-  defp scoring_attrs(t), do: %{bye_value: map_bye_value(t.bye_value)}
+  # Round robin: SWAR forces this to a full point at load, for every
+  # round-robin file, regardless of what `ByeValue` itself says.
+  # `TournoiReadStream` (`TournoiReadWrite.cpp:451-452`) runs this
+  # unconditionally right after reading `ByeValue`:
+  #
+  #   if (IsRobin(Tournoi.Type))
+  #       Tournoi.ByeValue = (USE_POINTS)PTS_1;
+  #
+  # `IsRobin` is `ROBIN || ROBIN_DBL || ROBIN_AR` (`Utils.cpp:538-540`) - the
+  # same three ordinals `map_tournament_type/1` below already calls
+  # "roundrobin". A second, dialog-only forcing to `PTS_0` also exists
+  # (`TOptions.cpp:569-583`), but it only reaches the tournament if the
+  # arbiter opens the Options tab and the dialog writes back - the load-path
+  # forcing above always runs regardless, so it is the one worth mirroring.
+  # This importer's job is to reproduce the tournament the file describes,
+  # and for a round robin that is SWAR's forced full point, not whatever the
+  # file's own `ByeValue` byte happens to say -
+  # `round_robin_bye_warnings/1` tells the arbiter so.
+  #
+  # OpenPairings' OWN round robin (no SWAR file involved) still writes a
+  # zero-point "requested-zero" bye (`round_robin.ex`) - a deliberate,
+  # correct choice for a NATIVE round robin, since FIDE does not award a
+  # point for one, and this clause never touches it: it only concerns a
+  # round robin read FROM a SWAR file. See
+  # docs/swar-source-audit-pass2-2026-09-09.md §3 (F11).
+  defp scoring_attrs(t) do
+    if map_tournament_type(t.type) == "roundrobin" do
+      %{bye_value: 1.0}
+    else
+      %{bye_value: map_bye_value(t.bye_value)}
+    end
+  end
 
   # `SW321_PreBye` (manual §5.16, field 85 - only present in file version >=
   # "v6.03", nil in older files) reads as a 0/1 int (raw 1 in the real
@@ -1606,11 +1720,29 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # Public (`@doc false`) for the same reason `category_warnings/1` below is:
   # exercising it through `import_file/2` needs a categorised club export
   # nobody has, and the parse is not what is under test.
+  # Legacy normalisation: old SWAR files stored `CatIndex` as a small
+  # ordinal (the slot itself, `1..16`); current ones store it pre-multiplied
+  # by 100 (`(slot + 1) * 100`, see above). SWAR normalises on the way in,
+  # unconditionally, for any file - `TournoiReadStream` (`TournoiReadWrite.
+  # cpp:623-624`) multiplies whenever the stored value is under 100:
+  #
+  #   if (CatIndex < 100)
+  #       CatIndex *= 100
+  #
+  # Without mirroring this, a legacy file's `cat_index: 2` divides to
+  # `div(2, 100) - 1 = -1` and falls into the second-axis-only branch below,
+  # returning "" - the player loses their category entirely, where SWAR
+  # shows `Value1[1]`. Reachability is bounded (`TournoiReadStream` itself
+  # refuses a file older than SWAR can still open) but not dated from the
+  # source, and such files are exactly why SWAR still carries the step. See
+  # docs/swar-source-audit-pass2-2026-09-09.md §5.2.
   @doc false
   def category_name(0, _categories), do: ""
 
   def category_name(cat_index, categories) do
-    case div(cat_index, 100) - 1 do
+    normalized = if cat_index < 100, do: cat_index * 100, else: cat_index
+
+    case div(normalized, 100) - 1 do
       slot when slot >= 0 ->
         categories.value1 |> Enum.at(slot, "") |> to_string()
 

@@ -168,6 +168,56 @@ Each entry is tagged so a version can be skimmed:
   path and made every run that did not pass `-OutputDir` explicitly fail
   outright; the default is now computed in the script body instead, where
   `$PSScriptRoot` is reliable.
+- [Fix] **An imported round robin's odd-player bye is worth a full point,
+  matching what SWAR itself shows for the same file.** SWAR forces
+  `ByeValue` to a full point the instant a round-robin file is opened,
+  unconditionally, regardless of what byte the file actually stores there -
+  confirmed against SWAR's own source
+  (`docs/swar-source-audit-pass2-2026-09-09.md` §3). The importer was
+  reading the file's stored value instead, so an imported round robin's
+  crosstable could differ from SWAR's own by a point per bye. `scoring_attrs/1`
+  now mirrors SWAR's forcing for a SWAR-imported round robin, and a new
+  warning names it whenever the file actually has a bye to score. OpenPairings'
+  own, natively-built round robin is untouched - its structural bye still
+  scores zero, which stays correct, since FIDE does not award a point for
+  one either.
+- [Fix] **A player's category survives an old SWAR file instead of quietly
+  going blank.** Old SWAR files stored a player's `CatIndex` as a small
+  ordinal; current ones store it pre-multiplied by 100, and SWAR itself
+  normalises the old encoding on load, unconditionally. `category_name/2`
+  only had the multiplied reading, so a legacy file's small index fell
+  through the "this is a second-axis component, not modelled" branch and
+  the player lost their category outright, where SWAR still shows one.
+  Mirrored now, agreeing with the off-by-one fix that already lives in that
+  function.
+- [Fix] **Importing a SWAR file that used manual acceleration now says
+  so.** SWAR's XtraPoints are not only a display column - they reach
+  SWAR's own pairing engine as extra score for whichever round is paired
+  next, and OpenPairings has no equivalent feature and said nothing about
+  the gap. A new import warning fires on an ordinary Swiss file that
+  carries a non-zero per-player XtraPoints value or a populated
+  acceleration-band table, saying plainly that manual acceleration is not
+  reproduced here and that a further round may pair differently. Manual
+  acceleration itself remains unimplemented - this is the warning the
+  audit's own "minimum action" asked for, not a step toward building it.
+  Silent for a round robin or a 3-2-1 tournament, where SWAR itself
+  discards XtraPoints before its own pairing engine would ever see them.
+- [Fix] **A SWAR import's warnings other than the points-mismatch one now
+  reach the page instead of a crash.** `category_warnings/1` and
+  `tiebreak_warnings/1` already returned a plain sentence rather than the
+  points-mismatch shape, and the two above join them - but the LiveView
+  that turns an import's warnings into a flash message assumed every entry
+  carried a player name, which raises on a plain string. Latent until this
+  release, since nothing had produced a sentence-shaped SWAR warning that
+  actually reached that code path before.
+- [Verified] **The SWAR tiebreaks September's audit found dropped on
+  import were already fixed, in 0.54.0.**
+  `docs/swar-source-audit-pass2-2026-09-09.md` §2 was written against the
+  importer's mapping table before that release landed. Re-checked against
+  the current one: `@tiebreak_codes` already carries every mappable SWAR
+  ordinal, and `tiebreak_warnings/1` already names the three it genuinely
+  cannot compute rather than dropping them. No code change; the audit
+  document now says so instead of reading as still open.
 
 ## [0.55.0] - 2026-09-10
 

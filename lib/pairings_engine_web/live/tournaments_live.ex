@@ -1245,15 +1245,38 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp maybe_flash_swar_warnings(socket, warnings) do
     # Same reasoning as maybe_flash_trf_warnings/2 - :info, not :error, since
-    # this is a notice about a discarded arbiter correction, not a failure.
-    put_flash(
-      socket,
-      :info,
+    # every one of these is a notice about something the import could not
+    # fully carry over, not a failure.
+    #
+    # Two shapes travel in one list here, and always have -
+    # `SwarImport.do_import/2` concatenates `points_adjusted_warnings/3`
+    # (one map per player, built into its own sentence below, same as
+    # `trf_points_message/1` does for the TRF path) with `category_warnings/1`,
+    # `tiebreak_warnings/1`, `round_robin_bye_warnings/1` and
+    # `xtra_points_warnings/1` (each already a whole, finished sentence).
+    # This used to assume every entry was the first shape - `w.player_name`
+    # on a plain string raises - which was latent rather than caught,
+    # because nothing had yet exercised a SWAR import with any warning of
+    # the second kind at the LiveView layer. Splitting on `is_binary/1`
+    # handles both without inventing the `:kind` tag the string-producing
+    # functions were never given.
+    {notes, points} = Enum.split_with(warnings, &is_binary/1)
+
+    case swar_points_message(points) ++ notes do
+      [] -> socket
+      messages -> put_flash(socket, :info, Enum.join(messages, " "))
+    end
+  end
+
+  defp swar_points_message([]), do: []
+
+  defp swar_points_message(warnings) do
+    [
       "Imported, but the SWAR file's points_adjusted didn't match the recomputed total for " <>
         Enum.map_join(warnings, ", ", fn w ->
           "#{w.player_name} (file: #{format_points(w.swar_adjusted_points)}, recomputed: #{format_points(w.computed_points)})"
         end)
-    )
+    ]
   end
 
   defp format_points(p), do: :erlang.float_to_binary(p / 1, decimals: 1)
