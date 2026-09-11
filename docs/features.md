@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.57.0**. One page: everything the app does today, and where
+Current version: **0.58.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -181,10 +181,13 @@ carry a logo (stored in the database, shown on printed documents).
   and needs no administrator, and uninstalling leaves your tournaments where
   they are.
 - **Update notice** - a desktop copy checks GitHub every few hours and says
-  when a newer release is out. It never downloads or installs anything
-  itself, because an update can change the pairing engine's version under a
-  running event: the arbiter picks the moment. It can be switched off, and
-  the hosted site never checks.
+  when a newer release is out. The arbiter still always picks the moment -
+  an update can change the pairing engine's version under a running event -
+  but a per-user Windows install can now do the applying itself: "Install
+  and restart", confirmed, handled by the native launcher rather than this
+  application (see [binaries.md](binaries.md)'s "Updates" section). Every
+  other install kind still only ever gets a link to the release page. It
+  can be switched off, and the hosted site never checks.
 - **Interface language** - a full gettext catalogue with a per-session picker;
   English and Dutch ship today, and the player-facing public pages stay
   English on purpose because an open draws players from many federations.

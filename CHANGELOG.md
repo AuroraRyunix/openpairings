@@ -14,6 +14,58 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.58.0] - 2026-09-11
+
+- [Feature] **A per-user Velopack install can now apply an update from
+  inside the app - "Install and restart", confirmed, not a follow-up
+  anymore.** 0.57.0's notice offered every install kind a link and nothing
+  else; a `:velopack_per_user` install (`%LOCALAPPDATA%\OpenPairingsApp`)
+  now gets a real button too, when `rel/windows/launcher.c` says it can.
+
+  Neither side crosses into the other's territory to make this work. This
+  application still never touches Velopack: clicking the button and
+  confirming (a plain browser confirm, repeating the in-progress-round
+  caveat when one applies) calls
+  `PairingsEngine.Updates.request_install_and_restart/0`, which shuts the
+  BEAM down cleanly - `System.stop/1`, the same graceful shutdown an
+  ordinary stop already uses, so every Ecto/SQLite connection is closed
+  before anything else happens - with a dedicated exit code.
+  `OpenPairings.exe`, which has watched its child process for the server's
+  whole lifetime since this release (not only during startup, as before),
+  sees that exact code and knows this is the update signal rather than a
+  crash. Only then does it load `velopack_libc.dll` with
+  `LoadLibrary`/`GetProcAddress` - never linked, and never touched at
+  ordinary startup, so an arbiter who never clicks the button never pays
+  for it - check for an update against this same repository, download it,
+  and hand off to Velopack's own apply-and-restart, which relaunches
+  `OpenPairings.exe` fresh once it is done.
+
+  Every failure - offline, nothing newer, a download error, an apply
+  error, or the DLL missing or blocked (antivirus quarantine is the
+  expected case) - is treated identically: say so in the launcher's small
+  window, then start the server again on the version already on disk. An
+  arbiter must never be left without a running program because an update
+  attempt did not work out, and the button only ever appears at all when
+  both `:velopack_per_user` and the launcher's own DLL-presence check
+  agree - a per-machine install gets the same DLL in its payload today but
+  never sees the button, because updating there needs an administrator
+  regardless (see 0.57.0's entry).
+
+  Packaging: `velopack_libc.dll` travels in the portable payload next to
+  `OpenPairings.exe`, fetched and SHA256-checksummed by CI from Velopack's
+  own pinned 1.2.0 release asset (matching the `vpk` pin already in place)
+  rather than committed - see `docs/binaries.md`'s "Updates" section for
+  the manual test plan, and its "The Windows installers and the update
+  feed" section for the packaging detail and a CI trap this also fixed: a
+  re-run of an already-published tag's release build no longer fails
+  packing over its own delta-diff download.
+
+  **An antivirus re-test is due on this release** - 0.57.0's entry noted
+  Symantec Endpoint Protection passes the portable release and an unsigned
+  Velopack `Setup.exe`; this is the first release to ship a native DLL
+  beside the launcher, and that shape has not been checked against a
+  scanner yet.
+
 ## [0.57.0] - 2026-09-11
 
 - [Feature] **Desktop builds check for a newer OpenPairings release and say

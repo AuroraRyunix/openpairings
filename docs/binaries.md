@@ -467,11 +467,13 @@ deliberately not "everything vpk wrote":
 - `OpenPairings-win-Setup.msi` and `OpenPairings-win-Setup.exe` - the two
   human-facing downloads, friendly-named exactly as a local build produces
   them.
-- `releases.win.json` and the `.nupkg` file(s) - the update feed. Nothing in
-  this repository fetches these yet (the "Updates" section below checks
-  GitHub's Releases API directly, not this feed - see why there), but a
-  future Velopack-native updater would read them by these exact names, so
-  they are **never renamed**.
+- `releases.win.json` and the `.nupkg` file(s) - the update feed. The
+  in-app updater (`rel/windows/launcher.c`, since 0.58.0 - see "Updates"
+  below) reads these through `velopack_libc.dll`'s own GitHub source, by
+  name, so they are **never renamed**. The "Updates" section's own notice
+  still checks GitHub's Releases API directly rather than this feed - see
+  why there - the two exist for different questions ("is something newer"
+  versus "here is the file to install").
 - `RELEASES` is deliberately **not** attached. It exists only for migrating
   from Squirrel.Windows/Clowd.Squirrel, and OpenPairings has never shipped on
   either, so there is no legacy client for it to serve.
@@ -487,6 +489,33 @@ very first tag to carry this feed has nothing to diff against yet, and a
 transient network failure here should not fail the whole release, so `vpk
 pack` below it still runs (and still succeeds, just without a delta) either
 way.
+
+**Re-running a release build for an already-published tag used to fail
+here.** `vpk download github` fetches the *latest* release, which on a
+re-run is this same version - `vpk pack` then refuses outright ("already
+holds a `$Version` package"), even with a genuine previous version sitting
+right there to diff against. Fixed by discarding a downloaded `.nupkg`
+whose version matches the one this job is building, right after the
+download - see the `binaries.yml` step's own comment. A normal
+next-version build never hits this (the latest published release is always
+the version before the one being built), so this only changes behaviour on
+exactly the re-run case; deltas on an ordinary build are untouched.
+
+**`velopack_libc.dll`**, next to `OpenPairings.exe` in the portable payload
+since 0.58.0, is what the in-app updater loads - see "Updates" below and
+`rel/windows/launcher.c`'s own "In-app updates" header section. It is
+Velopack's own pinned release asset (version 1.2.0, matching the `vpk` pin
+above), fetched and SHA256-checksummed by a dedicated CI step before `mix
+release pairings_engine_portable` runs - see that step in `binaries.yml`.
+Not committed to this repository (see `rel/windows/.gitignore`): it is a
+third-party binary this project pins and verifies, the same way
+`mix.lock` pins `ainalrami` without vendoring its source, not something
+built here. `mix.exs`'s `windows_velopack_dll/1` release step copies it
+from `rel/windows/velopack_libc.dll` into the payload when present, and
+skips itself when it is not - the same soft behaviour as a Zig-less machine
+skipping `OpenPairings.exe` itself (see "The Windows launcher" above) - so
+a local build without it still produces a working portable release, just
+one whose update notice falls back to a plain link.
 
 ## Updates
 
@@ -544,24 +573,80 @@ touches no Velopack library to answer it):
 
 | install | told | why |
 |---|---|---|
-| per-user Velopack (`%LOCALAPPDATA%\OpenPairingsApp`) | the installer updates it in place | writable by its own owner, same as the manual path above |
-| per-machine Velopack (`Program Files\OpenPairingsApp`) | an administrator is needed | `Update.exe` sits under `Program Files` either way - see "Per-machine installs cannot update without an admin prompt" above |
+| per-user Velopack (`%LOCALAPPDATA%\OpenPairingsApp`) | an "Install and restart" button, when the launcher says it can (see below) - otherwise the same "download the installer" link as before | writable by its own owner, and the one install kind that can apply an update itself |
+| per-machine Velopack (`Program Files\OpenPairingsApp`) | an administrator is needed | `Update.exe` sits under `Program Files` either way - see "Per-machine installs cannot update without an admin prompt" above; a button that would only fail is worse than none |
 | portable zip, the single-file binary, macOS, Linux | a plain link to the release page | no `Update.exe` exists for any of these to detect |
 
-**Why there is no "Install and restart" button yet.** Velopack's supported
-mechanism for a non-.NET app is `velopack_libc`, a plain C ABI
-(`vpkc_*`) - confirmed during this feature's implementation to link and run
-correctly against this project's own toolchain (`zig cc -target
-x86_64-windows-gnu`), so the mechanism itself is not what is missing. What
-blocks it is architectural: that call has to be made by the process
-Velopack's own apply-and-restart is built around, `OpenPairings.exe`
-(`rel/windows/launcher.c`, which already handles Velopack's `--veloapp-*`/
-`--squirrel-*` hook arguments - see the comment near its line 627) - not by
-the Phoenix/LiveView process an "Install and restart" click would reach,
-which is a *child* of that launcher's own job object. Signalling across
-that boundary, with no second real release yet to update FROM and no way to
-exercise a live Windows install end to end in the environment this was
-built in, was judged exactly the "poke at Velopack internals" this feature
-was asked not to do speculatively. A real button belongs in
-`rel/windows/launcher.c`, as a follow-up, once there is a release to test it
-against.
+### "Install and restart" (per-user Velopack, since 0.58.0)
+
+Only `OpenPairings.exe` (`rel/windows/launcher.c`) ever calls into
+Velopack - never this application. The two sides meet at a signal, not a
+shared library:
+
+1. The arbiter clicks "Install and restart" on the notice and confirms
+   (a plain `data-confirm`, repeating the in-progress-round caveat if one
+   applies). `PairingsEngine.Updates.request_install_and_restart/0` shuts
+   the BEAM down cleanly - `System.stop/1`, the same graceful shutdown an
+   ordinary stop already uses, so every Ecto/SQLite connection closes
+   before anything else happens - with a dedicated exit code.
+2. The launcher, which has been watching its child process the whole time
+   it has been running (not only during startup, since 0.58.0), sees that
+   exact exit code and knows this is the update signal rather than a crash.
+3. It loads `velopack_libc.dll` with `LoadLibrary`/`GetProcAddress` - only
+   now, never at ordinary startup - checks for an update against this same
+   repository's releases, downloads it, and calls Velopack's own
+   apply-and-restart. From there Velopack's `Update.exe` takes over: it
+   waits for the launcher to exit, swaps the `current` directory for the
+   new version, and starts `OpenPairings.exe` again, fresh.
+4. Anything at all going wrong along the way - offline, nothing newer, a
+   download error, an apply error, or the DLL missing or blocked
+   (antivirus quarantine is the expected case) - is treated identically:
+   say so in the launcher's small window, then start the server again on
+   the version already on disk. An arbiter must never be left without a
+   running program because an update attempt did not work out.
+
+**The button only appears when two things are both true**: this is a
+`:velopack_per_user` install, AND the launcher has told the app in-app
+updating is available (`OPENPAIRINGS_UPDATE_AVAILABLE=1`, set right before
+the server starts, from nothing heavier than a `velopack_libc.dll`
+file-exists check beside the launcher -
+`PairingsEngine.Updates.install_and_restart_available?/0`). A per-machine
+install gets that same environment variable today - the DLL ships in every
+Windows payload - but never sees the button regardless, because the
+install-kind check comes first. Missing either one falls back to exactly
+the link-only behaviour this project shipped before 0.58.0.
+
+**Why `velopack_libc`, and why loaded this way.** It is Velopack's own
+supported mechanism for a non-.NET app, a plain C ABI (`vpkc_*`) - linking
+and running it was confirmed empirically while building this feature, not
+assumed from its docs. `LoadLibrary`/`GetProcAddress` rather than linking
+it at compile time, and only from the moment an update is actually
+requested, so an arbiter who never touches the button never pays for it -
+no extra DLL load, no extra antivirus scan, on every single launch - and a
+missing or blocked DLL is invisible until the one moment it would matter,
+never a reason `OpenPairings.exe` fails to start. See
+`rel/windows/launcher.c`'s "In-app updates" header section for the rest of
+the design, including why the call has to be made by the launcher and
+cannot be made by this application directly - the same boundary
+`PairingsEngine.Updates.InstallKind`'s moduledoc describes.
+
+**Manual test plan** (an end-to-end update needs two real releases, so this
+cannot be exercised as a single automated test):
+
+1. Install 0.58.0 from its own release - the `.msi` or `Setup.exe`, per-user.
+2. Publish 0.58.1 (or later).
+3. Open OpenPairings, confirm the notice appears with an "Install and
+   restart" button (not a plain link), click it, confirm the dialog.
+4. Watch `OpenPairings.exe`'s window: "Checking for updates…" ->
+   "Downloading the update…" -> "Installing the update…", then the window
+   closes and reopens on its own at the new version, with the same
+   tournaments still there.
+5. **Offline**: disconnect networking, click "Install and restart",
+   confirm. Expect a plain "Could not install the update" message in the
+   launcher window and OpenPairings back up and running on the version it
+   was already on.
+6. **DLL deleted**: with OpenPairings closed, delete
+   `velopack_libc.dll` from the install's `current\` folder (simulating an
+   antivirus quarantine), then start OpenPairings. Expect the app to start
+   normally, with a plain "View the release" link rather than a button -
+   the app must never fail to open because of this file.

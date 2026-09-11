@@ -4,7 +4,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.57.0",
+      version: "0.58.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -60,7 +60,7 @@ defmodule PairingsEngine.MixProject do
       # inside, so there is still nothing to install.
       pairings_engine_portable: [
         applications: [pairings_engine: :permanent],
-        steps: [:assemble, &__MODULE__.windows_launcher/1],
+        steps: [:assemble, &__MODULE__.windows_launcher/1, &__MODULE__.windows_velopack_dll/1],
         include_executables_for: [:unix, :windows],
         # `bin/pairings_engine_portable start` works, but says nothing about
         # local mode - which a plain release cannot detect, since `__BURRITO`
@@ -180,6 +180,43 @@ defmodule PairingsEngine.MixProject do
 
             release
         end
+    end
+  end
+
+  @doc false
+  # Copies velopack_libc.dll into the portable payload, next to
+  # OpenPairings.exe, when it is present at rel/windows/velopack_libc.dll -
+  # see that file's entry in rel/windows/.gitignore and
+  # .github/workflows/binaries.yml's "Fetch velopack_libc" step for where it
+  # comes from. Never committed: it is Velopack's own pinned, checksummed
+  # release asset (see build_installer.ps1's own `vpk` pin for the same
+  # idea), not something this repository builds.
+  #
+  # Soft, exactly like windows_launcher/1 above and for the same reason: an
+  # arbiter's portable release must never depend on this file existing. Its
+  # ENTIRE purpose is the in-app "Install and restart" button
+  # (`PairingsEngine.Updates`, `rel/windows/launcher.c`) - a build missing it
+  # just does not offer that button. `OpenPairings.exe` itself starts the
+  # app exactly the same either way, because it loads this DLL with
+  # LoadLibrary only at update time, never at link time and never at
+  # startup - see the launcher's own "In-app updates" header section.
+  #
+  # Windows only, same guard as windows_launcher/1: this release definition
+  # also builds on macOS and Linux runners (for openpairings.sh), where
+  # neither OpenPairings.exe nor this DLL means anything.
+  def windows_velopack_dll(release) do
+    source = Path.join([__DIR__, "rel", "windows", "velopack_libc.dll"])
+
+    cond do
+      elem(:os.type(), 0) != :win32 ->
+        release
+
+      not File.exists?(source) ->
+        release
+
+      true ->
+        File.cp!(source, Path.join(release.path, "velopack_libc.dll"))
+        release
     end
   end
 
