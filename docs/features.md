@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.56.0**. One page: everything the app does today, and where
+Current version: **0.57.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -174,10 +174,21 @@ carry a logo (stored in the database, shown on printed documents).
 - Elixir/Phoenix LiveView + SQLite; runs locally with `mix phx.server` and
   deploys unchanged to a server (systemd, SMTP e-mail, production hardening).
 - Responsive layout for tablet/phone; desktop stays full-width.
+- **Desktop builds** for Windows, macOS and Linux, each with a double-click
+  launcher (see [binaries.md](binaries.md)). On Windows the recommended
+  download is an MSI with a proper wizard - welcome, licence, just-me or
+  everyone - with a one-click `Setup.exe` beside it. Just-me is the default
+  and needs no administrator, and uninstalling leaves your tournaments where
+  they are.
+- **Update notice** - a desktop copy checks GitHub every few hours and says
+  when a newer release is out. It never downloads or installs anything
+  itself, because an update can change the pairing engine's version under a
+  running event: the arbiter picks the moment. It can be switched off, and
+  the hosted site never checks.
 - **Interface language** - a full gettext catalogue with a per-session picker;
-  English ships today, and the player-facing public pages stay English on
-  purpose because an open draws players from many federations.
-- CI on GitHub Actions; 2,000+ tests including end-to-end runs against the real
+  English and Dutch ship today, and the player-facing public pages stay
+  English on purpose because an open draws players from many federations.
+- CI on GitHub Actions; 3,500+ tests including end-to-end runs against the real
   JaVaFo engine.
 
 ## What's next

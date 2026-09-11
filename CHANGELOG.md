@@ -14,7 +14,7 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
-## [0.56.0] - 2026-09-10
+## [0.57.0] - 2026-09-11
 
 - [Feature] **Desktop builds check for a newer OpenPairings release and say
   so - never anything more.** Once a day at most (a check on start, then
@@ -62,39 +62,6 @@ Each entry is tagged so a version can be skimmed:
   asked not to do speculatively - so it stops at notify-and-link for every
   install type, and a real "Install and restart" is left as a follow-up for
   `rel/windows/launcher.c` once there is a release to test it against.
-- [Feature] **A tournament tells you when its settings stop describing a
-  FIDE-handled event, and records the round it happened in.** FIDE Mode is
-  the default and there is no switch for it: the settings a new tournament
-  gets are the compliant ones, and only changing one can take that away. So
-  the state is computed, not set. Three settings can take a tournament out of
-  it, and all three change who plays whom: a Keizer ladder (FIDE defines the
-  Swiss and the round-robin Berger tables and nothing else), pairing each
-  category as its own separate tournament, and the immediate two-game Swiss
-  rematch, whose second leg is a colour-reversed copy with no pairing
-  decision behind it. Nothing is blocked - an arbiter running a club evening
-  that will never be rated has every right to any of it - and the pages that
-  host those settings say what it means, once, with a link to the setting
-  that did it.
-- [Feature] **The round in which that first happened is kept, and survives a
-  restore, a hand-off and a backup.** It is the one half of this that cannot
-  be recomputed: put the setting back and the tournament is compliant again,
-  but nothing left in the data could say which round it stopped. FIDE asks
-  for that round by name. It is recorded in the same write as the setting
-  change that causes it, is never cleared, and only ever moves earlier -
-  so rolling back to a snapshot from before it cannot un-record it, and a
-  tournament handed to another laptop comes home carrying what happened
-  there.
-- [Change] **The audit trail names the setting that did it, on its own
-  line.** `tournament.fide_compliance_lost`, beside the existing
-  round-1-freeze override rows rather than buried inside the bulk settings
-  diff - it is the entry an arbiter may have to point at later.
-- [Verified] **Most settings are not a compliance question, and the reasons
-  are written down.** Non-standard scoring, half-point byes and the
-  pairing-allocated bye value are all things FIDE's own checklist requires to
-  be configurable; administrative extra points have a dedicated record in
-  FIDE's own 2026 report format; a hand-set standings order is how an arbiter
-  records a play-off, which the tie-break regulations end in. None of them
-  raises a warning, and `PairingsEngine.Compliance` says why for each.
 - [Fix] **The macOS application reports the version it actually is.** The
   `.app` bundle's `Info.plist` carried a hardcoded `0.18.0`, so Finder's Get
   Info, Spotlight and any crash report described this 0.56 application as
@@ -268,6 +235,42 @@ Each entry is tagged so a version can be skimmed:
   ordinal, and `tiebreak_warnings/1` already names the three it genuinely
   cannot compute rather than dropping them. No code change; the audit
   document now says so instead of reading as still open.
+
+## [0.56.0] - 2026-09-10
+
+- [Feature] **A tournament tells you when its settings stop describing a
+  FIDE-handled event, and records the round it happened in.** FIDE Mode is
+  the default and there is no switch for it: the settings a new tournament
+  gets are the compliant ones, and only changing one can take that away. So
+  the state is computed, not set. Three settings can take a tournament out of
+  it, and all three change who plays whom: a Keizer ladder (FIDE defines the
+  Swiss and the round-robin Berger tables and nothing else), pairing each
+  category as its own separate tournament, and the immediate two-game Swiss
+  rematch, whose second leg is a colour-reversed copy with no pairing
+  decision behind it. Nothing is blocked - an arbiter running a club evening
+  that will never be rated has every right to any of it - and the pages that
+  host those settings say what it means, once, with a link to the setting
+  that did it.
+- [Feature] **The round in which that first happened is kept, and survives a
+  restore, a hand-off and a backup.** It is the one half of this that cannot
+  be recomputed: put the setting back and the tournament is compliant again,
+  but nothing left in the data could say which round it stopped. FIDE asks
+  for that round by name. It is recorded in the same write as the setting
+  change that causes it, is never cleared, and only ever moves earlier -
+  so rolling back to a snapshot from before it cannot un-record it, and a
+  tournament handed to another laptop comes home carrying what happened
+  there.
+- [Change] **The audit trail names the setting that did it, on its own
+  line.** `tournament.fide_compliance_lost`, beside the existing
+  round-1-freeze override rows rather than buried inside the bulk settings
+  diff - it is the entry an arbiter may have to point at later.
+- [Verified] **Most settings are not a compliance question, and the reasons
+  are written down.** Non-standard scoring, half-point byes and the
+  pairing-allocated bye value are all things FIDE's own checklist requires to
+  be configurable; administrative extra points have a dedicated record in
+  FIDE's own 2026 report format; a hand-set standings order is how an arbiter
+  records a play-off, which the tie-break regulations end in. None of them
+  raises a warning, and `PairingsEngine.Compliance` says why for each.
 
 ## [0.55.0] - 2026-09-10
 
