@@ -54,8 +54,9 @@ Two smaller points while I am writing:
   the 2017 version on `old.fide.com`. If the appendix has moved, a pointer
   would help more vendors than us.
 
-- We would like to confirm we have the sequence right: a Tournament
-  Acceptance and Play Certificate is what a compliant program is issued,
+- We would like to confirm we have the sequence right: a TAPC (Technical
+  Acceptance of Product Compliance, handbook C.02.01) is what a compliant
+  program is issued,
   and endorsement is a separate later step requiring a commercial agreement
   approved by the FIDE Council. We are pursuing the former.
 
