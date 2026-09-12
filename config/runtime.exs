@@ -346,7 +346,22 @@ if config_env() == :prod do
     # starve every writer, and the adapter's 2000ms default busy_timeout is
     # too short for a multi-arbiter app with concurrent readers/writers.
     busy_timeout: 15_000,
-    journal_mode: :wal
+    journal_mode: :wal,
+    # DBConnection's own defaults (`queue_target: 50`, `queue_interval:
+    # 2 000`) are tuned for a pool serving concurrent web requests, where
+    # dropping a queued checkout after sustained congestion protects
+    # everybody else waiting behind it. The migration boot path
+    # (`PairingsEngine.Application.run_migrations/0`) has no one else behind
+    # it - a solitary connection, checked out once, with nothing to
+    # protect - so those defaults only cost it: they let DBConnection give up
+    # on the connection's own first-ever `connect/1` (open the file, switch
+    # to `:wal`, apply `busy_timeout` above) before a slow CI runner has
+    # finished it, which is the "dropped from queue after 4000ms" boot
+    # failure `run_migrations/0`'s comment covers in full. Raised to match
+    # `busy_timeout` above rather than invented separately: the connection
+    # layer should not give up sooner than SQLite's own lock-wait does.
+    queue_target: 5_000,
+    queue_interval: 15_000
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

@@ -14,6 +14,24 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Fix] **A first-boot migration could still crash the app on the slowest CI
+  runner, even after the earlier "two connections race for the WAL lock"
+  fix.** That fix (`pool_size: 1` for the throwaway migration connection)
+  closed the multi-connection race, but left a second, subtler one: on a
+  loaded macOS runner, that single connection's first-ever `connect/1` could
+  simply take longer than DBConnection's default queue patience
+  (`queue_target`/`queue_interval`, 50ms/2000ms), which then dropped the
+  very first migration query - "connection not available and request was
+  dropped from queue after 4000ms" - before the connection had even finished
+  connecting. `PairingsEngine.Repo` now gives that connection the same
+  patience `busy_timeout` already does (`config/runtime.exs`,
+  `config/dev.exs`), and first boot retries a connection-availability
+  failure up to three times with a fresh connection before giving up - a
+  genuine migration error still crashes immediately, on the first attempt,
+  with its own message.
+
 ## [0.60.0] - 2026-09-12
 
 - [Change] **The installer file names now carry the version.** A download

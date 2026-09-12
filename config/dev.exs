@@ -10,7 +10,14 @@ config :pairings_engine, PairingsEngine.Repo,
   # every writer, and the adapter's 2000ms default busy_timeout is too short
   # for a multi-arbiter app with concurrent readers/writers.
   busy_timeout: 15_000,
-  journal_mode: :wal
+  journal_mode: :wal,
+  # See config/runtime.exs for why: `mix ecto.migrate` (and `mix setup`,
+  # `mix test`) run migrations through the same `Ecto.Migrator.with_repo/3`
+  # throwaway connection as a release's boot, so a slow first `connect/1`
+  # here can hit the same DBConnection queue-congestion drop as
+  # `PairingsEngine.Application.run_migrations/0`'s comment describes.
+  queue_target: 5_000,
+  queue_interval: 15_000
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

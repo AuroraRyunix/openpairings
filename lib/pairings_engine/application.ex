@@ -5,6 +5,19 @@ defmodule PairingsEngine.Application do
 
   use Application
 
+  require Logger
+
+  # How many times `run_migrations/0` will throw the current migration
+  # connection away and start a fresh one if it never became available
+  # (queue_timeout, not a migration error - see the comment on
+  # `run_migrations/0`). Not one: a single slow connect on a loaded CI
+  # runner is exactly the transient case worth trying again for. Not
+  # unbounded: a database that is genuinely unreachable must still say so
+  # and stop the boot, per `run_migrations/0`'s own comment on why this is
+  # not `PairingsEngine.BusyWrite`'s "no retry loop" case.
+  @migration_connection_attempts 3
+  @migration_connection_retry_backoff_ms 2_000
+
   @impl true
   def start(_type, _args) do
     # Migrations run here - before `children` below ever builds a
@@ -158,11 +171,110 @@ defmodule PairingsEngine.Application do
   # already `:wal`, so every pool connection's own `:journal_mode` pragma is
   # now the cheap confirmation rather than the exclusive-locking change -
   # opening two, or five, of them at once is no longer a race.
+  #
+  # ## The same message came back anyway (2026-09-12)
+  #
+  # `pool_size: 1` closes the race ABOVE - two connections fighting over the
+  # WAL switch - but it does not make the one remaining connection instant,
+  # and it turns out DBConnection was never actually waiting for THAT lock
+  # in the run that reopened this: run 34696140761 (commit 81c0925, a
+  # docs-only change - the identical code had passed run 34695187793 twenty
+  # minutes earlier) died on `Ecto.Migrator.verbose_schema_migration/3` -
+  # "create schema migrations table", the very FIRST query this throwaway
+  # connection ever runs, before a single migration file has executed. With
+  # only one connection ever existing, nothing else could have been holding
+  # it; the only thing left that takes a variable amount of time is the
+  # connection itself finishing `connect/1` (open the file, switch it to
+  # `:wal`, apply `:busy_timeout` and the rest of `config/runtime.exs`'s
+  # pragmas) on whatever the slowest machine in the fleet is doing at that
+  # moment - and the macOS x86_64 runner, the slowest target in the build
+  # matrix, is exactly where both failures happened.
+  #
+  # DBConnection does not treat "the pool has zero ready connections because
+  # the only one is still connecting" as a special case - it queues the
+  # checkout like any other, and its CoDel-based congestion control
+  # (`:queue_target`/`:queue_interval`, defaults 50ms/2000ms) starts
+  # actively dropping queued requests once the queue looks "slow" for about
+  # one full interval, which is what "dropped from queue after 4000ms" is:
+  # roughly two default `:queue_interval`s, not a hardcoded 4 000. The
+  # error's own text names the fix - "4. Allowing requests to wait longer by
+  # increasing :queue_target and :queue_interval" - so `PairingsEngine.Repo`
+  # now sets both generously (`config/runtime.exs`, `config/dev.exs`),
+  # matching the existing `busy_timeout: 15_000` rather than the
+  # library defaults that were tuned for a pool serving concurrent web
+  # requests, not a solitary boot-time migration with nothing else queued
+  # behind it to protect against.
+  #
+  # That should already close this for good, but the retry below stays as a
+  # backstop for however much slower a CI runner can still get: it is NOT
+  # the retry loop `PairingsEngine.BusyWrite` argues against, because it is
+  # not the same failure shape. `BusyWrite` is about an application write
+  # hitting a lock that a DIFFERENT writer already holds - trying again
+  # immediately just queues behind the same holder, so waiting longer is the
+  # only real fix, which is exactly why that module has no loop. Here the
+  # failed attempt holds NOTHING - `with_repo/3`'s `after` clause has
+  # already stopped the pool that failed to connect in time - so a retry
+  # starts a genuinely fresh connection with a full new budget, not a second
+  # queue entry behind the same slow one. A migration that fails for its OWN
+  # reason (bad SQL, a bug in a backfill) does not raise
+  # `DBConnection.ConnectionError` and is never caught here - it crashes the
+  # boot immediately, exactly as before.
   defp run_migrations do
     for repo <- Application.fetch_env!(:pairings_engine, :ecto_repos) do
-      {:ok, _, _} =
-        Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true), pool_size: 1)
+      run_migrations_for(repo, @migration_connection_attempts)
     end
+  end
+
+  defp run_migrations_for(repo, attempts_left) do
+    migrate = fn ->
+      Ecto.Migrator.with_repo(
+        repo,
+        # `log: :info` is already the default (see `Ecto.Migration.Runner`),
+        # kept explicit so which migration is running - the one thing worth
+        # seeing if a long backfill is what makes a future boot slow - does
+        # not depend on that default never changing upstream.
+        &Ecto.Migrator.run(&1, :up, all: true, log: :info),
+        pool_size: 1
+      )
+    end
+
+    with_migration_retry(migrate, repo, attempts_left)
+  end
+
+  # Split out from `run_migrations_for/2` so the retry/give-up decision -
+  # retry only a connection-availability failure, and only a bounded number
+  # of times, backing off between attempts - can be exercised directly in
+  # `PairingsEngine.ApplicationTest` against a stub `migrate` that fails on
+  # command, without a real flaky database connection. `@doc false` rather
+  # than `defp`: this is still a private implementation detail of
+  # `run_migrations/0`, just one the test module next to it needs to reach.
+  @doc false
+  def with_migration_retry(
+        migrate,
+        repo,
+        attempts_left,
+        backoff_ms \\ @migration_connection_retry_backoff_ms
+      ) do
+    {:ok, _, _} = migrate.()
+  rescue
+    error in [DBConnection.ConnectionError] ->
+      if attempts_left > 1 do
+        Logger.warning(
+          "[#{inspect(repo)}] migration connection was not available " <>
+            "(#{Exception.message(error)}); starting a fresh connection " <>
+            "(#{attempts_left - 1} attempt(s) left)."
+        )
+
+        Process.sleep(backoff_ms)
+        with_migration_retry(migrate, repo, attempts_left - 1, backoff_ms)
+      else
+        Logger.error(
+          "[#{inspect(repo)}] migration connection did not become available " <>
+            "after #{@migration_connection_attempts} attempts; giving up."
+        )
+
+        reraise error, __STACKTRACE__
+      end
   end
 
   defp release? do
