@@ -1034,20 +1034,30 @@ defmodule PairingsEngineWeb.NormsLive do
           )}
         </p>
 
-        <label :if={fa1_candidate_options(@tournament) != []} class="field">
-          <span>{gettext("Pick an arbiter")}</span>
-          <select name="fa1_candidate" phx-change="pick_fa1_candidate">
-            <option value="">{gettext("- type the details by hand -")}</option>
+        <%!-- On the form, not on the select - see the comment on the same fix
+              in `PairingsEngineWeb.StandingsLive`: LiveView never fires a
+              change from a select that has no enclosing form. --%>
+        <form
+          :if={fa1_candidate_options(@tournament) != []}
+          id="fa1-candidate-picker"
+          phx-change="pick_fa1_candidate"
+          style="display: contents"
+        >
+          <label class="field">
+            <span>{gettext("Pick an arbiter")}</span>
+            <select name="fa1_candidate">
+              <option value="">{gettext("- type the details by hand -")}</option>
 
-            <option
-              :for={{label, key} <- fa1_candidate_options(@tournament)}
-              value={key}
-              selected={false}
-            >
-              {label}
-            </option>
-          </select>
-        </label>
+              <option
+                :for={{label, key} <- fa1_candidate_options(@tournament)}
+                value={key}
+                selected={false}
+              >
+                {label}
+              </option>
+            </select>
+          </label>
+        </form>
 
         <form
           id="fa1-candidate-form"

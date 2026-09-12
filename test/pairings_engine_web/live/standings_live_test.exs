@@ -184,7 +184,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
       assert html =~ "Carol"
 
-      html = lv |> element(~s(select[name="category"])) |> render_change(%{"category" => "Open"})
+      html = lv |> element("#category-filter") |> render_change(%{"category" => "Open"})
 
       assert html =~ "Open - 1 prize"
       assert html =~ "Alice"
@@ -227,7 +227,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings?category=Open")
 
-      lv |> element(~s(select[name="category"])) |> render_change(%{"category" => ""})
+      lv |> element("#category-filter") |> render_change(%{"category" => ""})
 
       assert_patch(lv, ~p"/t/#{tournament.id}/standings")
     end
@@ -255,7 +255,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      html = lv |> element(~s(select[name="category"])) |> render_change(%{"category" => "Open"})
+      html = lv |> element("#category-filter") |> render_change(%{"category" => "Open"})
 
       assert html =~ "Open - 1 prize"
       assert html =~ "Alice"
@@ -547,7 +547,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       tournament
     end
 
-    test "shows 'Standings after round 0' beside Public page before any round has results, public by default",
+    test "shows 'Initial standings' beside Public page before any round has results, public by default",
          %{conn: conn, scope: scope} do
       tournament = public_tournament(scope, "Starting Rank")
       assert tournament.standings_through == 0
@@ -556,7 +556,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       assert html =~ "Public page"
       assert has_element?(lv, "#standings-toggle-0.is-public")
-      assert html =~ "Standings after round 0"
+      assert html =~ "Initial standings"
     end
 
     test "not shown for a tournament that does not publish", %{conn: conn, scope: scope} do
@@ -680,7 +680,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
       html = render(lv)
-      assert html =~ "Hide the entry list from the public page again?"
+      assert html =~ "Hide the initial standings from the public page again?"
     end
 
     test "immediate mode shows the control locked and public", %{conn: conn, scope: scope} do

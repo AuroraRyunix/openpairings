@@ -344,7 +344,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       html =
         lv
-        |> element("select[name=fa1_candidate]")
+        |> element("#fa1-candidate-picker")
         |> render_change(%{"fa1_candidate" => "deputy1"})
 
       # FIDE's "Last, First" drives the split, so the surname stays intact --
@@ -364,7 +364,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       html =
         lv
-        |> element("select[name=fa1_candidate]")
+        |> element("#fa1-candidate-picker")
         |> render_change(%{"fa1_candidate" => "chief_arbiter"})
 
       assert html =~ ~s(value="Peeters")
@@ -376,11 +376,11 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
       lv
-      |> element("select[name=fa1_candidate]")
+      |> element("#fa1-candidate-picker")
       |> render_change(%{"fa1_candidate" => "chief_arbiter"})
 
       html =
-        lv |> element("select[name=fa1_candidate]") |> render_change(%{"fa1_candidate" => ""})
+        lv |> element("#fa1-candidate-picker") |> render_change(%{"fa1_candidate" => ""})
 
       refute html =~ ~s(value="Peeters")
     end
