@@ -1276,13 +1276,28 @@ defmodule PairingsEngine.SnapshotTest do
   # above asserts the real `build/1` output parses as an ISO-8601 instant.
   @fixture_published_at "2026-08-29T00:00:00Z"
 
+  # `source.version` gets the same treatment, for the same reason, and this
+  # one was worse in practice: `app_version/0` is `PairingsEngine.Build.id/0`,
+  # which carries THIS checkout's own dev version - so every version bump
+  # rewrote both fixtures whether or not the contract itself had changed,
+  # dirtying the sibling repository's checkout on every release and twice
+  # leaving stale hardcoded assertions failing over there. A placeholder
+  # nobody could mistake for a real release - it is not, and never has been,
+  # a version this app shipped - decouples the two entirely; the real value
+  # is still exercised in production and by the `is_binary/1` assertion
+  # above, which does not care what the string says.
+  @fixture_source_version "0.0.0-fixture"
+
   defp write_fixture!(name, snapshot) do
     case fixture_dir() do
       nil ->
         :ok
 
       dir ->
-        stable = Map.put(snapshot, "published_at", @fixture_published_at)
+        stable =
+          snapshot
+          |> Map.put("published_at", @fixture_published_at)
+          |> put_in(["source", "version"], @fixture_source_version)
 
         File.mkdir_p!(dir)
         File.write!(Path.join(dir, name), Jason.encode!(stable, pretty: true) <> "\n")

@@ -57,6 +57,19 @@ Each entry is tagged so a version can be skimmed:
   anyway." Nothing was ever actually lost either way - `PairingsEngine.
   BusyWrite` already turns a lock collision into a clean, retryable error -
   this only changes when the person is asked to decide.
+- [Fix] **A version bump no longer dirties the OpenResults checkout.** The
+  contract test that regenerates `test/fixtures/snapshot_swiss.json` and
+  `snapshot_keizer.json` in the sibling repository stamped both with THIS
+  checkout's own dev version (`source.version`, from `Build.id/0`), so every
+  release rewrote both files whether or not the snapshot contract itself had
+  changed - which left the sibling checkout dirty right after a deploy
+  stamped its own build `-dirty` from exactly that, and twice left a stale
+  hardcoded assertion failing over there instead. The fixture writer now
+  pins `source.version` to a fixed placeholder (`0.0.0-fixture`) before
+  writing - the same treatment `published_at` already got, and for the same
+  reason. The real value `Snapshot.build/1` sends in production is
+  unaffected, and the envelope test's `is_binary/1` assertion does not care
+  what a placeholder says.
 
 ## [0.60.0] - 2026-09-12
 
