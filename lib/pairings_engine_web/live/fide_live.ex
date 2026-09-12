@@ -240,7 +240,7 @@ defmodule PairingsEngineWeb.FideLive do
 
       # Warned about, not refused - see `sync_warning/1`. A second press goes
       # ahead; `confirm_sync` is that second press.
-      (running = Tournaments.running_tournament_names()) != [] and
+      (running = Tournaments.recently_scored_tournament_names()) != [] and
           socket.assigns.confirm_sync != :fide ->
         {:noreply,
          socket
@@ -299,7 +299,7 @@ defmodule PairingsEngineWeb.FideLive do
       not socket.assigns.may_admin? ->
         {:noreply, put_flash(socket, :error, sync_restricted())}
 
-      (running = Tournaments.running_tournament_names()) != [] and
+      (running = Tournaments.recently_scored_tournament_names()) != [] and
           socket.assigns.confirm_sync != :kbsb ->
         {:noreply,
          socket
@@ -329,24 +329,45 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   # A warning, not a refusal - and it was a refusal for about an hour, which
-  # was wrong.
+  # was wrong. It then warned on "does this tournament have an unfinished
+  # round", which was also wrong, just less loudly: a club championship runs
+  # from September to June, so that was true for most of a season on exactly
+  # the installations that have the most tournaments. The maintainer hit it
+  # with ten tournaments at once and every one of them was irrelevant to the
+  # sync he was about to run - "and 8 others have rounds in progress" trained
+  # him to click through it without reading it, which is what a warning that
+  # is always on does to a person.
   #
-  # "Running" means paired and not yet fully scored. For a club championship
-  # that runs from September to June that is true the whole season, so
-  # refusing made the rating lists permanently un-syncable on exactly the
-  # installations that have most tournaments. The maintainer hit it with ten
-  # at once, most of a season's worth.
+  # What actually matters is measured, not assumed. Both imports commit in
+  # chunks (2000 rows for FIDE, 500 for KBSB), so the write lock is free
+  # again between one chunk and the next - a chunk's own commit was 9.4ms
+  # for 2000 rows in a local timing run. What is NOT chunked is the FTS
+  # index: `DELETE FROM fide_players_fts` and the `INSERT ... SELECT` that
+  # rebuilds it are each one statement, and on a synthetic 1.9M-row table
+  # (the real list's rough size) those two measured 9.3s and 11.5s locally -
+  # about 21s combined, not the milliseconds the chunking alone would
+  # suggest, because FTS5 has no fast "drop everything" path the way the
+  # plain table's own `DELETE` does (that one measured 180ms for the same
+  # 1.9M rows). KBSB's roster is ~50x smaller, and its own sync already has a
+  # measured cost at that scale (see `PairingsEngine.Federations.BEL.Sync`'s
+  # `do_import_rows/4`): well under a second.
   #
-  # The risk it was guarding is also much smaller than when it was written.
-  # Both imports now commit in chunks, so the write lock is free between
-  # them; what remains long is two single statements - the bulk delete and
-  # the FTS rebuild - which are seconds, not minutes. A result entered during
-  # one of those waits, rather than failing, and `PairingsEngine.BusyWrite`
-  # catches it plainly if it ever does not.
-  #
-  # So the person is told which tournaments are live and asked to decide.
-  # They know whether a round is actually being played right now; a status
-  # column does not.
+  # So a FIDE sync can hold the write lock for a real, double-digit-second
+  # stretch - long enough that a write landing in it waits noticeably, and
+  # on a slow enough box could still hit `busy_timeout` and get the clean
+  # `PairingsEngine.BusyWrite` refusal rather than a silent success. Nothing
+  # is ever lost either way - a refused write raises before it's applied,
+  # and the remount re-reads from the database - but a click that stalls or
+  # has to be retried in the middle of a round is worth warning about.
+  # "This tournament has an unfinished round" was simply the wrong test for
+  # that: nearly always true, and no better than chance at guessing whether
+  # anyone is actually at a board that second. "A result was entered here in
+  # the last couple of minutes" (`Tournaments.recently_scored_tournament_names/1`)
+  # is: false almost all the time, on installations with ten tournaments and
+  # on installations with one, and true only in the narrow window where the
+  # risk this exists to flag is real. Applied to both syncs identically, even
+  # though KBSB's own lock is cheap enough that it would pass unwarned on its
+  # own merits - one rule is easier to trust than two.
   defp start_fide_sync(socket) do
     FideSync.start_sync()
     Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
@@ -377,7 +398,7 @@ defmodule PairingsEngineWeb.FideLive do
       end
 
     gettext(
-      "%{names} have rounds in progress. A sync briefly locks the database, so a result entered at that moment could be delayed. Press again to sync anyway.",
+      "%{names} just had a result entered. A sync can lock the database for several seconds, so the next one could be delayed. Press again to sync anyway.",
       names: listed
     )
   end

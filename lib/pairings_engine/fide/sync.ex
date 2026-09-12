@@ -575,7 +575,23 @@ defmodule PairingsEngine.Fide.Sync do
     # multi-minute transaction. SQLite still guarantees each statement below
     # is atomic to any other connection, so what a reader sees mid-import is
     # always a real, fully-committed count - never a torn row.
+    #
+    # Measured locally (2026-09-12) on a synthetic 1.9M-row table, the real
+    # list's rough size: this DELETE (which SQLite can satisfy with its
+    # "drop every page" fast path, since it has no WHERE clause) took
+    # 180ms. The FTS delete right after it is NOT this cheap - see its own
+    # comment below - which is why `PairingsEngineWeb.FideLive.sync_warning/1`
+    # exists at all despite the chunked inserts making everything else here
+    # sub-10ms.
     Repo.query!("DELETE FROM fide_players")
+
+    # Unlike the plain table above, FTS5 has no fast "drop everything" path -
+    # clearing it means walking its internal index structures row by row.
+    # Measured locally (2026-09-12) at the same 1.9M-row scale: 9.3s. That is
+    # the real reason a FIDE sync's write-lock exposure is seconds, not
+    # milliseconds, despite every other statement in this function being
+    # chunked - see `PairingsEngineWeb.FideLive.start_fide_sync/1`'s comment
+    # for what this measurement is actually used to decide.
     Repo.query!("DELETE FROM fide_players_fts")
 
     imported =
@@ -609,6 +625,11 @@ defmodule PairingsEngine.Fide.Sync do
         progress: "Rebuilding the name index…"
     })
 
+    # The other half of the "seconds, not milliseconds" lock exposure -
+    # measured locally (2026-09-12) at 11.5s for the same 1.9M-row table.
+    # One statement, so one uninterrupted hold of the write lock; see
+    # `PairingsEngineWeb.FideLive.start_fide_sync/1` for what these two
+    # measurements (this and the FTS delete above) are used to decide.
     Repo.query!(
       "INSERT INTO fide_players_fts(fide_id, name) SELECT fide_id, name FROM fide_players"
     )

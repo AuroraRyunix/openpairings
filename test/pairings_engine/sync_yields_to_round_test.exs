@@ -1,12 +1,20 @@
 defmodule PairingsEngine.SyncYieldsToRoundTest do
   @moduledoc """
-  A rating-list sync must not start while a round is being played.
+  `PairingsEngine.Tournaments.running_tournament_names/0` names the
+  tournaments that are paired but not yet fully scored.
 
-  SQLite takes one write lock for the whole database, and the two sync
-  transactions are the only things in the application that hold it for more
-  than milliseconds - long enough that an arbiter entering a result waits out
-  `busy_timeout` and is refused. A rating list can be refreshed whenever; a
-  result cannot wait. So the sync is what yields.
+  Once also read by `PairingsEngineWeb.FideLive` before a rating-list sync -
+  that use was removed (see
+  `PairingsEngine.Tournaments.recently_scored_tournament_names/1` and
+  `test/pairings_engine_web/live/fide_live_test.exs`'s "a sync while a round
+  is being played" describe block) because "paired, not yet fully scored" is
+  true for most of a season on a club installation, which made that
+  confirmation fire on nearly every press.
+
+  Its one remaining caller is `PairingsEngine.Updates.notice_for_render/0`:
+  installing an update restarts the whole app, which is disruptive to a
+  tournament in progress no matter how long ago its last result was entered,
+  so the broad question is the right one there.
   """
   use PairingsEngine.DataCase, async: true
 
@@ -23,21 +31,21 @@ defmodule PairingsEngine.SyncYieldsToRoundTest do
     })
   end
 
-  test "no tournaments at all leaves the syncs free to run" do
+  test "no tournaments at all means nothing to warn an update about" do
     assert Tournaments.running_tournament_names() == []
   end
 
-  test "a tournament still in setup does not hold a sync back" do
+  test "a tournament still in setup is not named" do
     tournament("Not started yet", "setup")
     assert Tournaments.running_tournament_names() == []
   end
 
-  test "a finished tournament does not hold a sync back" do
+  test "a finished tournament is not named" do
     tournament("Last month", "finished")
     assert Tournaments.running_tournament_names() == []
   end
 
-  test "scoring the last round releases the hold" do
+  test "scoring the last round drops it from the list" do
     t = tournament("Bruges Open", "running")
     assert Tournaments.running_tournament_names() == ["Bruges Open"]
 
@@ -48,7 +56,7 @@ defmodule PairingsEngine.SyncYieldsToRoundTest do
     assert Tournaments.running_tournament_names() == []
   end
 
-  test "a running tournament does, and is named so the operator knows which" do
+  test "a running tournament is named so the operator knows which" do
     tournament("Bruges Open", "running")
 
     assert Tournaments.running_tournament_names() == ["Bruges Open"]

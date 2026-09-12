@@ -40,6 +40,23 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **"Standings after round 0" is now called "Initial standings".**
   The control publishes the field as entered, before a game has been played,
   and naming that "after round 0" read like a bug report.
+- [Change] **The FIDE and KBSB sync buttons no longer warn just because a
+  tournament has an unfinished round.** "Paired, not yet fully scored" is
+  true for most of a season on a real club installation, so the confirmation
+  fired on almost every press and trained the maintainer to click through it
+  without reading it. It now asks only when a result was actually entered,
+  changed or cleared somewhere in the last two minutes - measured locally,
+  a FIDE sync's write lock is a genuine multi-second hold (the FTS index's
+  bulk delete and rebuild alone measured 9.3s and 11.5s against a synthetic
+  1.9M-row table, since FTS5 has no fast "drop everything" path the plain
+  table's own delete does), so the risk is real; "this tournament has a
+  round in progress somewhere" was simply never the right way to detect it.
+  The warning, when it does appear, now names the tournament and says why:
+  "Bruges Open just had a result entered. A sync can lock the database for
+  several seconds, so the next one could be delayed. Press again to sync
+  anyway." Nothing was ever actually lost either way - `PairingsEngine.
+  BusyWrite` already turns a lock collision into a clean, retryable error -
+  this only changes when the person is asked to decide.
 
 ## [0.60.0] - 2026-09-12
 

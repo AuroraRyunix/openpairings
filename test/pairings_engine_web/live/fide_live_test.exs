@@ -2,6 +2,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
   use PairingsEngineWeb.ConnCase
 
   import Phoenix.LiveViewTest
+  import Ecto.Query
 
   alias PairingsEngine.Accounts
   alias PairingsEngine.Repo
@@ -672,40 +673,95 @@ defmodule PairingsEngineWeb.FideLiveTest do
   end
 
   describe "a sync while a round is being played" do
-    # SQLite has one write lock for the whole database. A sync holds it for
-    # long enough that an arbiter entering a result waits out busy_timeout and
-    # is refused - which is how "the 2 box for round 2 does nothing" happens.
-    # The rating list is what can wait, so the rating list is what yields.
+    # "Running" (paired, not yet fully scored) used to be the whole test, and
+    # that was wrong: a club championship is "running" from September to
+    # June, so a sync's confirmation fired on nearly every press regardless
+    # of whether anyone was at a board that instant - see
+    # `PairingsEngine.Tournaments.recently_scored_tournament_names/1`'s
+    # moduledoc and `PairingsEngineWeb.FideLive.start_fide_sync/1`'s comment
+    # for the measurements behind the real test: a result entered in the
+    # last couple of minutes.
+    #
+    # So a merely "running" tournament with no recent result is the FALSE
+    # case here, not the true one - it must NOT warn, which is exactly what
+    # the maintainer's report says it used to do wrong.
     setup do
-      Repo.insert!(%PairingsEngine.Tournaments.Tournament{
-        name: "Bruges Open",
-        type: "swiss",
-        rounds_count: 5,
-        status: "running"
-      })
+      tournament =
+        Repo.insert!(%PairingsEngine.Tournaments.Tournament{
+          name: "Bruges Open",
+          type: "swiss",
+          rounds_count: 5,
+          status: "running"
+        })
 
-      :ok
+      %{tournament: tournament}
     end
 
-    test "the FIDE sync warns first, and names the tournament", %{conn: conn} do
+    # `seconds_ago` lets a test place the audit row just inside or just
+    # outside the window without waiting on a real clock.
+    defp log_result(tournament_id, seconds_ago \\ 0) do
+      {:ok, log} = PairingsEngine.Audit.log(tournament_id, nil, "pairing.result_entered", %{})
+
+      if seconds_ago > 0 do
+        backdated =
+          DateTime.utc_now() |> DateTime.add(-seconds_ago, :second) |> DateTime.truncate(:second)
+
+        Repo.update_all(
+          from(a in PairingsEngine.Audit.AuditLog, where: a.id == ^log.id),
+          set: [inserted_at: backdated]
+        )
+      end
+
+      log
+    end
+
+    test "a tournament that is merely running, with no recent result, does not warn",
+         %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
       # The event, not the button: the control is disabled here for want of a
       # list URL, but this file already establishes that a control absent from
       # the page is still an event anyone can send.
+      render_click(lv, "sync", %{})
+
+      refute PairingsEngine.Fide.Sync.status().status == :idle,
+             "an unfinished round by itself is not a reason to ask twice"
+
+      PairingsEngine.Fide.Sync.cancel_sync()
+    end
+
+    test "a result entered moments ago warns, and names the tournament",
+         %{conn: conn, tournament: tournament} do
+      log_result(tournament.id)
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
       html = render_click(lv, "sync", %{})
 
-      assert html =~ "Bruges Open"
-      assert html =~ "rounds in progress"
+      assert html =~ tournament.name
+      assert html =~ "just had a result entered"
 
       assert PairingsEngine.Fide.Sync.status().status == :idle,
              "the first press warns, it does not start"
     end
 
-    test "and a second press goes ahead anyway", %{conn: conn} do
-      # The whole point of warning rather than refusing: a club championship
-      # is "running" from September to June, so a refusal would mean the
-      # rating lists could never be synced at all.
+    test "a result entered a while ago no longer warns", %{conn: conn, tournament: tournament} do
+      # Well past the default two-minute window - somebody was at this board
+      # earlier in the round, not right now.
+      log_result(tournament.id, 200)
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+      render_click(lv, "sync", %{})
+
+      refute PairingsEngine.Fide.Sync.status().status == :idle,
+             "a result from minutes ago is not 'right now' any more"
+
+      PairingsEngine.Fide.Sync.cancel_sync()
+    end
+
+    test "a second press goes ahead anyway", %{conn: conn, tournament: tournament} do
+      # The whole point of warning rather than refusing.
+      log_result(tournament.id)
+
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
       render_click(lv, "sync", %{})
@@ -721,25 +777,46 @@ defmodule PairingsEngineWeb.FideLiveTest do
       PairingsEngine.Fide.Sync.cancel_sync()
     end
 
-    test "the Belgian sync warns too", %{conn: conn} do
+    test "the Belgian sync does not warn without a recent result", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
+      refute render_click(lv, "sync_kbsb_api", %{}) =~ "just had a result entered"
+      assert KbsbSync.status().status != :idle, "no recent result - it should just start"
+
+      # However it landed (started importing, or already failed fast because
+      # the data-platform API is not configured in this test env), reset the
+      # shared singleton before the next test touches it - same reasoning as
+      # `PairingsEngine.Fide.Sync.cancel_sync()` above, but `cancel_import/0`
+      # only resets from `:importing`, not the `:error` this can also reach.
+      :sys.replace_state(KbsbSync, fn s -> %{s | status: :idle} end)
+    end
+
+    test "the Belgian sync warns on the same condition as the FIDE one",
+         %{conn: conn, tournament: tournament} do
+      log_result(tournament.id)
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
       html = render_click(lv, "sync_kbsb_api", %{})
 
-      assert html =~ "Bruges Open"
-      assert KbsbSync.status().status == :idle, "the first press warns, it does not start"
+      assert html =~ tournament.name
+      assert KbsbSync.status().status == :idle, "a recent result - now it warns"
     end
 
     test "the warning names a few and counts the rest, not all ten", %{conn: conn} do
       # The maintainer's own screen listed ten tournaments in one sentence,
-      # most of a season, and the message became unreadable.
+      # most of a season, and the message became unreadable. Now it takes a
+      # recent result in each to even qualify, but the same three-then-count
+      # rule applies once several do.
       for name <- ~w(Antwerp Ghent Leuven Mechelen Namur) do
-        Repo.insert!(%PairingsEngine.Tournaments.Tournament{
-          name: name,
-          type: "swiss",
-          rounds_count: 5,
-          status: "running"
-        })
+        t =
+          Repo.insert!(%PairingsEngine.Tournaments.Tournament{
+            name: name,
+            type: "swiss",
+            rounds_count: 5,
+            status: "running"
+          })
+
+        log_result(t.id)
       end
 
       {:ok, lv, _html} = live(conn, ~p"/fide")

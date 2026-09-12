@@ -4061,12 +4061,18 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Names the tournaments that are mid-event: paired, and not yet fully scored.
 
-  Used to keep a rating-list sync from starting on top of a live round.
-  SQLite takes ONE write lock for the whole database, and the two sync
-  transactions are the only things in the application that hold it for more
-  than milliseconds - long enough that an arbiter entering a result waits out
-  `busy_timeout` and is refused. A rating list can be refreshed at any time;
-  a result cannot wait for one. So the sync yields, not the arbiter.
+  Used by `PairingsEngine.Updates.notice_for_render/0` to decide whether the
+  update banner should call out a live round: installing an update restarts
+  the whole app, which is disruptive to a tournament in progress no matter
+  when its last result was entered, so "paired and not yet fully scored" is
+  the right, broad question there.
+
+  It is deliberately NOT what `PairingsEngineWeb.FideLive` asks before a
+  rating-list sync any more - see
+  `PairingsEngine.Tournaments.recently_scored_tournament_names/1` for that
+  narrower question and why this one used to answer it badly (a club
+  installation has a "running" tournament for most of its season, which
+  made a sync's confirmation fire on nearly every press).
   """
   def running_tournament_names do
     Repo.all(
@@ -4075,6 +4081,42 @@ defmodule PairingsEngine.Tournaments do
         order_by: t.name,
         select: t.name
     )
+  end
+
+  # The three audit actions that mean "a human just touched a scoreboard" -
+  # the same three `PairingsEngineWeb.PairingsLive` and
+  # `PairingsEngineWeb.MobileResultsLive` already write on every result write.
+  # Reading them here means `recently_scored_tournament_names/1` shares its
+  # definition of "a result happened" with the audit trail rather than
+  # keeping a second one that could drift from it.
+  @scoring_actions ~w(pairing.result_entered pairing.result_changed pairing.result_cleared)
+
+  @doc """
+  Names the tournaments where a result was entered, changed or cleared in
+  the last `within_seconds` (default 120) - "someone is actually at the
+  board right now", not `running_tournament_names/0`'s much broader "this
+  tournament has an unfinished round somewhere", which is true for nearly
+  every tournament for nearly all of a season and is therefore useless as a
+  sync's confirmation trigger (see that function's moduledoc, and
+  `PairingsEngineWeb.FideLive.sync_warning/1`, which is the one caller of
+  this).
+
+  Distinct tournament names, sorted, same as `running_tournament_names/0` -
+  a flash message reads better sorted than insertion-ordered, and a machine
+  with several events running at once can have more than one true here.
+  """
+  def recently_scored_tournament_names(within_seconds \\ 120) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-within_seconds, :second)
+
+    Repo.all(
+      from a in Audit.AuditLog,
+        join: t in Tournament,
+        on: t.id == a.tournament_id,
+        where: a.action in ^@scoring_actions and a.inserted_at >= ^cutoff,
+        order_by: t.name,
+        select: t.name
+    )
+    |> Enum.uniq()
   end
 
   defp derive_status(%Tournament{} = tournament) do
