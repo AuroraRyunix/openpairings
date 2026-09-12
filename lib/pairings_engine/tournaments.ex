@@ -1138,13 +1138,19 @@ defmodule PairingsEngine.Tournaments do
   copy alongside it. `PairingsEngine.Publishing.rotate_address/1` is the
   operation an arbiter actually wants, and it calls this in the middle.
   Broadcasts `:settings`.
+
+  Clears `public_slug_minted_at`: the new slug is a local placeholder, and in
+  public mode the results site mints the real one before any link is shown.
   """
   @spec rotate_public_slug(Tournament.t()) ::
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
   def rotate_public_slug(%Tournament{} = tournament) do
     with :ok <- ensure_writable(tournament) do
       tournament
-      |> Ecto.Changeset.change(public_slug: Tournament.generate_public_slug())
+      |> Ecto.Changeset.change(
+        public_slug: Tournament.generate_public_slug(),
+        public_slug_minted_at: nil
+      )
       |> Repo.update()
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
     end

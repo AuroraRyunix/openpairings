@@ -680,7 +680,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </div>
           </div>
         <% else %>
-          <p class="hint">
+          <%!-- Published, and the results site has not created the address
+                yet (public mode). No QR code: one printed from the
+                placeholder slug would be dead. --%>
+          <p :if={PublicLink.pending?(@tournament)} class="hint">
+            {gettext(
+              "This tournament is published, but the results site has not created its address yet, so there is no link or QR code to show. They appear here once it has."
+            )}
+          </p>
+          <p :if={not PublicLink.pending?(@tournament)} class="hint">
             <.rich_text text={
               gettext(
                 "This tournament is not published, so there is no page for spectators to open. %[settings] to publish it to the results site and get a link and QR code."

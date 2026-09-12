@@ -144,18 +144,21 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
       # A body carrying a code IS an OpenResults server. Until the code has a
       # sentence, the card says which code - technical on purpose, so the gap
       # is visible - and the top bar still renders.
+      # `installation_revoked` was the example here until public publishing
+      # gave it a sentence - which is exactly the "one clause and one msgid"
+      # this test promised. A code no version has words for stands in now.
       stub(fn conn ->
-        Plug.Conn.send_resp(conn, 403, ~s({"error":"installation_revoked","detail":"Revoked."}))
+        Plug.Conn.send_resp(conn, 403, ~s({"error":"some_future_code","detail":"Whatever."}))
       end)
 
       status = Publishing.status()
 
       assert {"refused", "Token refused",
-              "Could not confirm the connection (403 installation_revoked)."} =
+              "Could not confirm the connection (403 some_future_code)."} =
                card(status, "en")
 
       assert {"refused", "Token geweigerd",
-              "Kon de verbinding niet bevestigen (403 installation_revoked)."} =
+              "Kon de verbinding niet bevestigen (403 some_future_code)."} =
                card(status, "nl")
     end
   end

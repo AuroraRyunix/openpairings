@@ -16,6 +16,64 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The desktop app publishes to openresults.zerotwo.cloud without a
+  token.** On your own computer, with no token configured, the results site's
+  address now defaults to `https://openresults.zerotwo.cloud`, and turning
+  publishing on for a tournament is all it takes. The first time, the app
+  asks the results site who runs it and shows you once: who operates the
+  site, a link to its terms when it has them, and what will be published.
+  Say no and nothing is sent and publishing stays off; say yes and this
+  computer gets a key of its own from the results site, which creates the
+  tournament's address, and the tournament is published as before. Nothing
+  at all is sent to the results site - no connection check, no question -
+  until you turn publishing on for a tournament. The hosted service is
+  unchanged and never does this: it still needs a token from its operator,
+  and a token you enter on the desktop takes over from the computer's own
+  key the moment it is saved.
+- [Feature] **No link or QR code until the results site has created the
+  address.** In this mode the results site picks each tournament's address,
+  so the share link, the "Public page" buttons on Pairings and Standings,
+  the entry-form link and the spectator QR code on the local view all stay
+  hidden until it has - a link printed before then would have been dead.
+  The Results site settings page says what the tournament is waiting for
+  instead: your go-ahead, registering this computer, the address being
+  created, or changes being sent. "Move to a new address" asks the results
+  site for a new address and removes the copy at the old one. A tournament
+  already published with a token keeps its address and its link if the
+  token is later removed, rather than being moved and leaving the old copy
+  up with nothing here able to take it down.
+- [Feature] **The results site's refusals are explained, in English and
+  Dutch.** Paused publishing (amber), a suspended or revoked key, a blocked
+  network address, the limit on tournaments (with the number), a tournament
+  too large to accept (with the size), a tournament owned by another
+  installation or hidden by the site's operator (red) each get their own
+  sentence on Connections, in the top-bar indicator and on the tournament's
+  Results site settings page. A rate limit is honoured quietly, waiting at
+  least as long as the site asks, and a refusal that applies to every
+  tournament - offline, paused, rate limited, not registering - is asked
+  once per round of sending rather than once per waiting tournament. When a
+  pause ends or registration reopens, what was waiting goes out without
+  waiting for its next retry. What only the arbiter can resolve stops
+  instead of retrying: "Try again" sends it again, and a key the site no
+  longer accepts offers "Register again", which asks you again first - the
+  app never registers again on its own. A tournament owned by another
+  installation (after a hand-off, or a rebuilt laptop) names its address and
+  this computer's installation, which is what the site's operator needs to
+  move it. Fetching entries from the results site is refused in the same
+  terms: a 403 now says which refusal it was instead of always blaming
+  "a different machine", and a blocked network address can still fetch.
+- [Security] **This computer's publishing key never leaves it.** The key the
+  results site gives a desktop copy is left out of every backup - deleted
+  from the copy before it is written, so a backup restored on another
+  computer does not make that computer this installation - and it is in no
+  export, hand-off file, restore point or TRF, is never shown after it is
+  stored, and never reaches a log line or the audit trail. It is also only
+  ever sent to the results site that issued it: pointing the app at another
+  address stops using it. Tournament keys are still carried in backups as
+  before, so a rebuilt laptop can still manage what it published; restoring
+  a backup means registering this computer again, and the site's operator
+  can move its tournaments to the new key.
+
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status
   pill's panel and tooltip in the top bar, and the answer to Test connection

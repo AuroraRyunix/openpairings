@@ -13,7 +13,9 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
   alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Publishing
+  alias PairingsEngine.Publishing.Installation
   alias PairingsEngine.Updates
+  alias PairingsEngineWeb.PublicConsent
 
   # The Belgian rating-list panel on this page - the roster count, the sync
   # button, and the search box over the local copy - belongs to the pack, so
@@ -33,6 +35,7 @@ defmodule PairingsEngineWeb.FideLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, FideSync.topic())
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Installation.topic())
       # No panel, no reason to be woken by its progress.
       if kbsb?, do: Phoenix.PubSub.subscribe(PairingsEngine.PubSub, KbsbSync.topic())
       if connection_polling?(), do: send(self(), :poll_connection)
@@ -80,16 +83,35 @@ defmodule PairingsEngineWeb.FideLive do
   # actually has rather than what this socket last typed.
   defp assign_publishing(socket) do
     assign(socket,
-      publish_endpoint: Publishing.endpoint() || "",
+      # Stored, not `endpoint/0`: on a local run that falls back to the public
+      # results site, and showing the fallback as the field's value would
+      # make it permanent on the next save. It is the placeholder instead.
+      publish_endpoint: Publishing.stored_endpoint() || "",
+      publish_default_endpoint: Publishing.default_endpoint(),
       publish_public_base: Publishing.stored_public_base() || "",
       publish_token_set?: is_binary(Publishing.token()) and Publishing.token() != "",
       publish_configured?: Publishing.configured?(),
       publish_pending: Publishing.pending_count(),
       publish_test: nil,
       connection: nil,
+      consent: nil,
       backups: Backup.list(),
       backup_encrypted?: Backup.encrypted?(),
       backup_note: nil
+    )
+    |> assign_installation()
+  end
+
+  # Public mode's own facts for the panel. Never the key - the id is what the
+  # operator of the results site needs to move a tournament to this computer,
+  # and it is not a credential.
+  defp assign_installation(socket) do
+    assign(socket,
+      public_mode?: Publishing.public_mode?(),
+      installation_id: Installation.id(),
+      installation_consented?: Installation.consented?(),
+      installation_state: Installation.state(),
+      installation_stopped?: Installation.stopping_state?()
     )
   end
 
@@ -126,6 +148,8 @@ defmodule PairingsEngineWeb.FideLive do
     {:noreply, assign(socket, connection: status)}
   end
 
+  def handle_info(:installation_changed, socket), do: {:noreply, assign_installation(socket)}
+
   @impl true
   def handle_info({:fide_sync, _state}, socket) do
     {:noreply, assign(socket, status: FideSync.status())}
@@ -134,6 +158,11 @@ defmodule PairingsEngineWeb.FideLive do
   def handle_info({:kbsb_sync, _state}, socket) do
     {:noreply, assign(socket, kbsb_status: socket.assigns.kbsb? && KbsbSync.status())}
   end
+
+  # "Register again"'s question - see `PairingsEngineWeb.PublicConsent`.
+  @impl true
+  def handle_async(:public_server_info, result, socket),
+    do: {:noreply, PublicConsent.received(socket, result)}
 
   def handle_event("run_backup", _params, socket) do
     if socket.assigns.may_admin? do
@@ -209,6 +238,75 @@ defmodule PairingsEngineWeb.FideLive do
          :info,
          gettext("Token removed. Nothing will be published until a new one is set.")
        )}
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
+  end
+
+  # "Register again", after the server refused this installation's key. Admin,
+  # like the rest of this card: it replaces what this machine publishes with
+  # (a local run is always admin - see `PairingsEngine.Authz`).
+  def handle_event("public_register_again", _params, socket) do
+    if socket.assigns.may_admin? do
+      {:noreply, PublicConsent.open(socket, :again)}
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
+  end
+
+  def handle_event("public_consent_accept", _params, socket) do
+    if socket.assigns.may_admin? do
+      case PublicConsent.accept(socket) do
+        {socket, %{} = info, purpose} ->
+          Audit.log_system(socket.assigns.current_scope, "publishing.public_consent_given", %{
+            host: info.host,
+            operator: info.operator,
+            register_again: purpose == :again
+          })
+
+          {:noreply,
+           socket
+           |> assign_installation()
+           |> put_flash(
+             :info,
+             gettext(
+               "Thank you. This computer registers with %{host} the next time a tournament is sent.",
+               host: info.host
+             )
+           )}
+
+        {socket, nil, nil} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
+  end
+
+  # Nothing to undo here: the dialog on this page is only ever "Register
+  # again", and saying no to that leaves everything as it was.
+  def handle_event("public_consent_decline", _params, socket) do
+    {socket, _purpose} = PublicConsent.dismiss(socket)
+    {:noreply, socket}
+  end
+
+  # The dialog's "Try again" after it could not reach the server. Only the
+  # first-time purpose ever routes here, and this page never opens that one.
+  def handle_event("public_consent_open", _params, socket) do
+    {:noreply, PublicConsent.open(socket, :again)}
+  end
+
+  # Only a blocked address is answered by trying again; a revoked or
+  # unrecognised key is answered by registering again, and clearing that
+  # here would send the dead key once more for nothing.
+  def handle_event("public_retry", _params, socket) do
+    if socket.assigns.may_admin? do
+      if match?({:rejected, _, "address_blocked", _}, Installation.state()),
+        do: Installation.clear_state()
+
+      Publishing.retry_pending()
+
+      {:noreply, socket |> assign_installation() |> put_flash(:info, gettext("Trying again."))}
     else
       {:noreply, put_flash(socket, :error, publishing_restricted())}
     end
@@ -412,6 +510,19 @@ defmodule PairingsEngineWeb.FideLive do
     # have to ask for again is worse than a moment's wait.
     socket = socket |> assign_publishing() |> assign(publish_test: nil)
 
+    cond do
+      # A desktop copy with no token: saving the address is not a reason to
+      # contact anybody. Nothing goes to the results site before a
+      # tournament's publishing is switched on - see `Publishing.check/0`.
+      Publishing.public_mode?() ->
+        {:noreply, put_flash(socket, :info, gettext("Saved."))}
+
+      true ->
+        report_saved_check(socket)
+    end
+  end
+
+  defp report_saved_check(socket) do
     case Publishing.configured?() and Publishing.check() do
       false ->
         {:noreply,
@@ -769,6 +880,67 @@ defmodule PairingsEngineWeb.FideLive do
           )}
         </p>
 
+        <%!-- A desktop copy with no token. What it will do, and where it has
+              got to - never the key itself, which is not shown after it is
+              stored. The installation id is shown because it is what the
+              operator of the results site needs to move a tournament here. --%>
+        <div :if={@public_mode?} id="public-installation" class="set-field solo">
+          <p style="margin: 0">
+            {gettext(
+              "Without a token, this computer publishes to %{host} with a key of its own. The first time you turn publishing on for a tournament, you are asked once, and nothing is sent before you agree.",
+              host: host_of(@publish_endpoint, @publish_default_endpoint)
+            )}
+          </p>
+
+          <p :if={@installation_stopped?} style="margin: 8px 0 0; color: var(--danger)">
+            <strong>
+              {PairingsEngineWeb.Components.ConnectionStatus.describe_public(
+                {:refused, @installation_state}
+              )}
+            </strong>
+          </p>
+
+          <p :if={@installation_id && not @installation_stopped?} class="hint" style="margin: 8px 0 0">
+            {gettext(
+              "This computer is registered with the results site as installation %{id}. If a tournament ever has to be moved to this computer, that is the name to give its operator.",
+              id: @installation_id
+            )}
+          </p>
+
+          <p
+            :if={is_nil(@installation_id) and @installation_consented? and not @installation_stopped?}
+            class="hint"
+            style="margin: 8px 0 0"
+          >
+            {gettext(
+              "You agreed to publish on the results site. This computer registers the next time a tournament is sent."
+            )}
+          </p>
+
+          <div :if={@installation_stopped?} class="actions" style="margin-top: 8px">
+            <button
+              :if={
+                match?({:rejected, _, code, _} when code != "address_blocked", @installation_state)
+              }
+              type="button"
+              class="pe-btn primary"
+              phx-click="public_register_again"
+              disabled={!@may_admin?}
+            >
+              {gettext("Register again")}
+            </button>
+            <button
+              :if={match?({:rejected, _, "address_blocked", _}, @installation_state)}
+              type="button"
+              class="pe-btn"
+              phx-click="public_retry"
+              disabled={!@may_admin?}
+            >
+              {gettext("Try again")}
+            </button>
+          </div>
+        </div>
+
         <form id="fide-publishing-form" phx-submit="save_publishing">
           <label class="field">
             <span>{gettext("Address")}</span>
@@ -776,7 +948,7 @@ defmodule PairingsEngineWeb.FideLive do
               type="text"
               name="endpoint"
               value={@publish_endpoint}
-              placeholder="https://openresults.zerotwo.cloud"
+              placeholder={@publish_default_endpoint || "https://openresults.zerotwo.cloud"}
               class="pe-input"
               autocomplete="off"
             />
@@ -788,7 +960,7 @@ defmodule PairingsEngineWeb.FideLive do
               type="text"
               name="public_base"
               value={@publish_public_base}
-              placeholder={@publish_endpoint}
+              placeholder={blank_or(@publish_endpoint, @publish_default_endpoint)}
               class="pe-input"
               autocomplete="off"
             />
@@ -816,12 +988,21 @@ defmodule PairingsEngineWeb.FideLive do
             <span class="hint" style="display: block">
               {gettext("Never shown once saved. Leave this empty to keep the one already stored.")}
             </span>
+            <span :if={@public_mode?} class="hint" style="display: block">
+              {gettext(
+                "Optional on this computer. A token from the operator of a results site takes over from this computer's own key as soon as it is saved."
+              )}
+            </span>
           </label>
 
           <div class="row" style="gap: 8px; margin-top: 12px">
             <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
+            <%!-- Not in public mode: a test is a request, and nothing goes to
+                  the results site before a tournament is switched on. The
+                  indicator above says how an installation that IS publishing
+                  is doing. --%>
             <button
-              :if={@publish_configured?}
+              :if={@publish_configured? and not @public_mode?}
               type="button"
               class="pe-btn"
               phx-click="test_publishing"
@@ -862,9 +1043,22 @@ defmodule PairingsEngineWeb.FideLive do
           </.rich_text>
         </p>
       </div>
+
+      <PublicConsent.consent_dialog consent={@consent} />
     </Layouts.app>
     """
   end
+
+  defp host_of(stored, default) do
+    case URI.parse(blank_or(stored, default) || "") do
+      %URI{host: host} when is_binary(host) -> host
+      _ -> blank_or(stored, default)
+    end
+  end
+
+  defp blank_or("", fallback), do: fallback
+  defp blank_or(nil, fallback), do: fallback
+  defp blank_or(value, _fallback), do: value
 
   # Off in the test environment, like every other timer in this app: a poll
   # firing mid-test would make a real request from a process that owns no HTTP

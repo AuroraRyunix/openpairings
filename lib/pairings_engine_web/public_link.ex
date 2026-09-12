@@ -55,9 +55,26 @@ defmodule PairingsEngineWeb.PublicLink do
   about the future - a tournament can be marked to publish on a machine that
   has not been told an address yet - and offering a link built from a blank
   address is worse than offering none.
+
+  In public mode there is a third: the results site has created this
+  tournament's address (`public_slug_minted_at`). See `base/1`.
   """
   @spec public?(Tournament.t()) :: boolean()
   def public?(%Tournament{} = tournament), do: not is_nil(base(tournament))
+
+  @doc """
+  Whether this tournament is switched on and waiting for the results site to
+  create its address - public mode only (`Publishing.public_mode?/0`).
+
+  For the surfaces that would otherwise say "not published" about a
+  tournament the arbiter has just published: it is, and the link is simply
+  not there yet.
+  """
+  @spec pending?(Tournament.t()) :: boolean()
+  def pending?(%Tournament{publish_to_openresults: true} = tournament),
+    do: Publishing.public_mode?() and not Publishing.has_address?(tournament)
+
+  def pending?(%Tournament{}), do: false
 
   @doc """
   The URL to hand a spectator, or `nil` if this tournament has none.
@@ -94,7 +111,22 @@ defmodule PairingsEngineWeb.PublicLink do
   # somebody `http://localhost:4004` is the failure this distinction exists to
   # prevent. When no public address is set the two are the same value, so
   # nothing changes for an installation that never configures one.
-  defp base(%Tournament{publish_to_openresults: true}) do
+  #
+  # In public mode the slug is the results site's to create, and until it has
+  # (`Publishing.has_address?/1`), the one on the row is a placeholder: a link
+  # built from it - on a screen, a QR code, a printed sheet - would be dead
+  # the moment somebody followed it. So there is no base at all, and every
+  # surface that gates on `public?/1` shows nothing, without any of them
+  # having to know why.
+  defp base(%Tournament{publish_to_openresults: true} = tournament) do
+    if Publishing.public_mode?() and not Publishing.has_address?(tournament),
+      do: nil,
+      else: base_address()
+  end
+
+  defp base(%Tournament{}), do: nil
+
+  defp base_address do
     case Publishing.public_base() do
       endpoint when is_binary(endpoint) and endpoint != "" ->
         String.trim_trailing(endpoint, "/")
@@ -103,8 +135,6 @@ defmodule PairingsEngineWeb.PublicLink do
         nil
     end
   end
-
-  defp base(%Tournament{}), do: nil
 
   defp path(%Tournament{public_slug: slug}, :register),
     do: "/t/#{URI.encode_www_form(slug)}/register"
