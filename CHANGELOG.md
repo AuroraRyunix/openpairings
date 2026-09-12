@@ -25,6 +25,31 @@ Each entry is tagged so a version can be skimmed:
   partitions storage - a private window in older Safari, an embedded frame,
   or site data disabled outright. `ColumnPrefs` is the one spot that was not
   guarded; both calls now are.
+- [Fix] **"roughly 4%% of rounds" now reads "roughly 4%", in English as well
+  as in Dutch.** The engine comparison under Settings > Options and the body
+  of the "Switch to JaVaFo?" confirmation both wrote the percent sign
+  doubled, on the assumption that gettext undoes it the way a printf format
+  does. It does not: `Gettext.Interpolation.Default` replaces `%{name}` and
+  passes every other byte through, so both sentences showed two percent
+  signs to everyone, in the one paragraph an arbiter reads while deciding
+  which edition of the pairing rules their tournament follows. The test suite
+  now refuses `%%` anywhere in the catalogues.
+- [Fix] **Thirteen Dutch translation defects, from the first audit of the
+  catalogue as prose** (`docs/translations-audit-2026-09-12.md`). The ones
+  that misinformed rather than merely read oddly: the Norms page's red bar
+  told the arbiter to fill in a card called "Functionarissen & FIDE-rapport-
+  gegevens", while the card is headed "Officials & FIDE-rapportgegevens"; the
+  Players page's live-rank tooltip said "zelfde als Pl" about a column headed
+  `Cl`; the standings header `W-We` - FIDE's own symbol for score minus
+  expected score - was translated to `W-Wv`, right beside a `We` column that
+  is not translated at all; a pairing sheet's absentee list said "bye van een
+  halve punt" where a point is neuter in Dutch ("een half punt"); and one
+  sentence on Settings > FIDE had its subject and object swapped, so it read
+  "a rated event may run its arbiter". Also: "resultatensite" in four places
+  where the other thirty-four say "uitslagensite", "ronde-robin" where the
+  rest say "rondetoernooi", three different Dutch names for the starting-rank
+  number, and eleven strings that addressed the arbiter as "u" in a
+  catalogue that says "je" everywhere else.
 - [Fix] **A first-boot migration could still crash the app on the slowest CI
   runner, even after the earlier "two connections race for the WAL lock"
   fix.** That fix (`pool_size: 1` for the throwaway migration connection)

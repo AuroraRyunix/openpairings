@@ -625,7 +625,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span class="hint">
                 <.rich_text text={
                   gettext(
-                    "%[engine] is the external engine this app paired with first. It implements the %[edition] of the same rules and has not been updated for the current one, so the two disagree on roughly 4%% of rounds - that gap is the size of the rules change, not a fault in either."
+                    "%[engine] is the external engine this app paired with first. It implements the %[edition] of the same rules and has not been updated for the current one, so the two disagree on roughly 4% of rounds - that gap is the size of the rules change, not a fault in either."
                   )
                 }>
                   <:part name="engine"><strong>JaVaFo</strong></:part>
@@ -989,7 +989,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <strong>{gettext("This pairs the tournament by superseded rules.")}</strong>
             <.rich_text text={
               gettext(
-                "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
+                "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4% of rounds, and that gap is the size of the rules change."
               )
             }>
               <:part name="date"><strong>{gettext("31 January 2026")}</strong></:part>
