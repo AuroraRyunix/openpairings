@@ -14,6 +14,29 @@ defmodule PairingsEngineWeb.AuditLive do
   `PairingsEngineWeb.AdminLive` rather than here. See the "machine-wide
   rows" section further down for why this page's own queries never surface
   them.
+
+  ## Language
+
+  A row stores an action code and structured `details`, never a sentence,
+  so every row - including ones written long before this page was
+  translated - is worded at render time, in the reader's language. The
+  action code itself is an identifier and is never translated (it is what
+  an unknown action falls back to).
+
+  A few `details` values are prose that was already a finished string when
+  the row was written, and they are shown verbatim, framed by a translated
+  sentence: a restore point's name (`snapshot.restored`'s `restored_to` is
+  the snapshot's own summary, which the History page shows as-is too) and
+  the federation upload's error message (`swar.publish_failed`'s `error`).
+  Rewording them here would mean pattern-matching English, and rewriting
+  them in the table would be rewriting the record.
+
+  Field names in a settings or player diff stay the schema's own
+  identifiers (`rounds_count`, `swiss_match_format`) in every language - see
+  `PairingsEngineWeb.SettingsSupport.compliance_setting_label/1` for why the
+  trail says `swiss_match_format` rather than a label. Words that are
+  values rather than identifiers - on/off, a role, a phone's access level -
+  go through the same msgids the arbiter sees for them elsewhere.
   """
   use PairingsEngineWeb, :live_view
 
@@ -25,27 +48,27 @@ defmodule PairingsEngineWeb.AuditLive do
   # Action-code buckets for the category filter. `:all` means "no filter";
   # every other bucket passes its explicit list of codes to
   # `Audit.list_for_tournament/2`. Novel codes not listed here still appear
-  # under "All".
+  # under "All". The button labels are in `category_label/1`: this is a
+  # module attribute, evaluated at compile time, so it cannot hold anything
+  # translated.
   @categories [
-    {"all", "All", :all},
-    {"players", "Players",
-     ~w(player.created player.updated player.deleted player.ratings_refreshed
+    {"all", :all},
+    {"players", ~w(player.created player.updated player.deleted player.ratings_refreshed
         registration.accepted registration.discarded)},
-    {"pairings", "Pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
+    {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.round_deleted pairing.results_imported)},
-    {"settings", "Settings", ~w(tournament.settings_updated tournament.locked_field_changed
+    {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed
         category.created category.removed)},
-    {"standings", "Standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
+    {"standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
         standings.manual_ranking_disabled standings.manual_reseeded
         standings.extra_points_applied)},
-    {"imports", "Imports", ~w(import.swar import.trf import.json)},
-    {"collaborators", "Collaborators",
-     ~w(collaborator.invited collaborator.accepted collaborator.declined
+    {"imports", ~w(import.swar import.trf import.json)},
+    {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
-    {"tournament", "Tournament",
+    {"tournament",
      ~w(tournament.created tournament.deleted tournament.restored tournament.purged)}
   ]
 
@@ -70,8 +93,10 @@ defmodule PairingsEngineWeb.AuditLive do
     {:ok, socket}
   end
 
-  defp page_title(:explain, tournament), do: "#{tournament.name} · Pairing rationale"
-  defp page_title(_, tournament), do: "#{tournament.name} · Audit trail"
+  defp page_title(:explain, tournament),
+    do: gettext("%{name} · Pairing rationale", name: tournament.name)
+
+  defp page_title(_, tournament), do: gettext("%{name} · Audit trail", name: tournament.name)
 
   @impl true
   def handle_event("filter", %{"category" => category}, socket) do
@@ -104,162 +129,360 @@ defmodule PairingsEngineWeb.AuditLive do
   defp count_opts(actions), do: [actions: actions]
 
   defp category_actions(key) do
-    case Enum.find(@categories, fn {k, _label, _codes} -> k == key end) do
-      {_k, _label, :all} -> :all
-      {_k, _label, codes} -> codes
+    case Enum.find(@categories, fn {k, _codes} -> k == key end) do
+      {_k, :all} -> :all
+      {_k, codes} -> codes
       nil -> :all
     end
   end
 
   defp categories, do: @categories
 
+  defp category_label("all"), do: gettext("All")
+  defp category_label("players"), do: gettext("Players")
+  defp category_label("pairings"), do: gettext("Pairings")
+  defp category_label("settings"), do: gettext("Settings")
+  defp category_label("standings"), do: gettext("Standings")
+  defp category_label("imports"), do: gettext("Imports")
+  defp category_label("collaborators"), do: gettext("Collaborators")
+  defp category_label("tournament"), do: gettext("Tournament")
+
   ## ---------- rendering the log ----------
+  #
+  # Every clause below returns one or more WHOLE sentences, each its own
+  # msgid, with the row's values as bindings. Where a value is a word rather
+  # than data (on/off, up/down, which pairing system, which failed step),
+  # the clause picks between complete sentences instead of interpolating the
+  # word - Dutch does not put a clause's pieces where English does. Two
+  # sentences in one row (a result and the phone it came from, a round and
+  # its bye) are joined by `sentences/1`, never by gluing a fragment on.
+  #
+  # `test/pairings_engine_web/live/audit_describe_test.exs` reads this file
+  # and fails for a `describe/2` clause it has no Dutch rendering of.
 
   @doc """
-  Renders one audit row's `action` + `details` into a readable sentence.
-  `details` maps come back from the JSON column with string keys.
+  Renders one audit row's `action` + `details` into a readable sentence, in
+  the current Gettext locale. `details` maps come back from the JSON column
+  with string keys.
   """
   def describe(%{action: action, details: details}), do: describe(action, details || %{})
 
-  def describe("player.created", d),
-    do: "Registered player #{name(d, "player_name")}#{rating_suffix(d)}."
+  def describe(action, details) when not is_map(details), do: describe(action, %{})
 
-  def describe("player.updated", d),
-    do: "Updated player #{name(d, "player_name")}: #{changed_fields(d)}."
+  def describe("player.created", d) do
+    case d["rating"] do
+      rating when is_integer(rating) and rating > 0 ->
+        gettext("Registered player %{name} (rating %{rating}).",
+          name: name(d, "player_name"),
+          rating: rating
+        )
 
-  def describe("player.deleted", d), do: "Deleted player #{name(d, "player_name")}."
+      _ ->
+        gettext("Registered player %{name}.", name: name(d, "player_name"))
+    end
+  end
+
+  def describe("player.updated", d) do
+    case changes(d) do
+      nil ->
+        gettext("Updated player %{name}, but no tracked field changed.",
+          name: name(d, "player_name")
+        )
+
+      changes ->
+        gettext("Updated player %{name}: %{changes}.",
+          name: name(d, "player_name"),
+          changes: changes
+        )
+    end
+  end
+
+  def describe("player.deleted", d),
+    do: gettext("Deleted player %{name}.", name: name(d, "player_name"))
 
   def describe("registration.accepted", d),
-    do: "Accepted an entry from the results site: #{name(d, "player_name")}."
+    do: gettext("Accepted an entry from the results site: %{name}.", name: name(d, "player_name"))
 
   def describe("registration.discarded", d),
-    do: "Turned down an entry from the results site: #{name(d, "player_name")}."
+    do:
+      gettext("Turned down an entry from the results site: %{name}.",
+        name: name(d, "player_name")
+      )
 
   def describe("player.ratings_refreshed", d),
-    do: "Refreshed ratings for #{count(d, "players_updated")} player(s)."
+    do:
+      ngettext(
+        "Refreshed ratings for %{count} player.",
+        "Refreshed ratings for %{count} players.",
+        count(d, "players_updated")
+      )
 
   def describe("pairing.round_paired", d), do: describe_round_paired(d)
 
   def describe("pairing.result_entered", d),
-    do:
-      "Entered result #{value(d, "to")} on board #{value(d, "board")} (round #{value(d, "round")}): #{board_players(d)}.#{mobile_suffix(d)}"
+    do: sentences([result_sentence(:entered, d), phone_sentence(d)])
 
-  def describe("pairing.result_changed", d),
-    do:
-      "Changed result on board #{value(d, "board")} (round #{value(d, "round")}) from #{blank_dash(d["from"])} to #{value(d, "to")}: #{board_players(d)}.#{mobile_suffix(d)}"
+  # Before 2026-08-03 there was no `pairing.result_cleared`: blanking a board
+  # was logged as a change TO nothing. Those rows are still in every older
+  # database, and "changed from 1-0 to -" is a worse description of what the
+  # arbiter did than the one the app gives the same act today.
+  def describe("pairing.result_changed", d) do
+    kind = if blank?(d["to"]), do: :cleared, else: :changed
+    sentences([result_sentence(kind, d), phone_sentence(d)])
+  end
 
   def describe("pairing.result_cleared", d),
-    do:
-      "Cleared the result on board #{value(d, "board")} (round #{value(d, "round")}) (was #{blank_dash(d["from"])}): #{board_players(d)}.#{mobile_suffix(d)}"
+    do: sentences([result_sentence(:cleared, d), phone_sentence(d)])
 
-  def describe("pairing.round_deleted", d), do: "Unpaired round #{value(d, "round")}."
+  def describe("pairing.round_deleted", d),
+    do: gettext("Unpaired round %{round}.", round: value(d, "round"))
 
   def describe("pairing.results_imported", d),
-    do: "Imported #{count(d, "results_set")} result(s) for round #{value(d, "round")} (CSV)."
+    do:
+      ngettext(
+        "Imported %{count} result for round %{round} (CSV).",
+        "Imported %{count} results for round %{round} (CSV).",
+        count(d, "results_set"),
+        round: value(d, "round")
+      )
 
-  def describe("tournament.settings_updated", d),
-    do: "Updated tournament settings: #{changed_fields(d)}."
+  def describe("tournament.settings_updated", d) do
+    case changes(d) do
+      nil -> gettext("Updated tournament settings, but no tracked field changed.")
+      changes -> gettext("Updated tournament settings: %{changes}.", changes: changes)
+    end
+  end
 
   # A locked-field change is spelled out on its own line, not left to be
-  # found inside `changed_fields` above - see
+  # found inside `changes/1` above - see
   # `PairingsEngineWeb.SettingsSupport.log_unlocked_field_changes/4` for why
   # this is a separate audit action rather than folded into the bulk
   # settings diff.
   def describe("tournament.locked_field_changed", d),
     do:
-      "Overrode the round-1 freeze on #{bold_text(value(d, "field"))}: " <>
-        "#{format_pair([d["from"], d["to"]])}."
+      gettext("Overrode the round-1 freeze on %{field}: %{from} → %{to}.",
+        field: value(d, "field"),
+        from: shown(d["from"]),
+        to: shown(d["to"])
+      )
 
   # Its own line for the same reason as the one above, and one more: the
   # round is the fact VCL4THP asks for by name, and a `###` TRF comment is
   # eventually built from it. Buried inside a bulk settings diff it would be
   # a field name among six others.
-  def describe("tournament.fide_compliance_lost", d),
-    do:
-      "#{bold_text(value(d, "setting"))} took this tournament out of FIDE handling " <>
-        "#{compliance_round_phrase(d["round"])} (#{value(d, "code")})."
+  #
+  # Round 0 is a real recorded value - a tournament can be non-compliant
+  # before its first round is paired - so it gets words rather than a
+  # number nobody would read as a round.
+  def describe("tournament.fide_compliance_lost", d) do
+    setting = value(d, "setting")
+    code = value(d, "code")
 
-  def describe("tournament.created", d),
-    do: "Created tournament #{name(d, "name")} (#{value(d, "pairing_system")})."
+    case d["round"] do
+      0 ->
+        gettext(
+          "%{setting} took this tournament out of FIDE handling before the first round was paired (%{code}).",
+          setting: setting,
+          code: code
+        )
+
+      round when is_integer(round) ->
+        gettext(
+          "%{setting} took this tournament out of FIDE handling in round %{round} (%{code}).",
+          setting: setting,
+          round: round,
+          code: code
+        )
+
+      _ ->
+        gettext(
+          "%{setting} took this tournament out of FIDE handling at an unrecorded round (%{code}).",
+          setting: setting,
+          code: code
+        )
+    end
+  end
+
+  def describe("tournament.created", d) do
+    name = name(d, "name")
+
+    case d["pairing_system"] do
+      "swiss" ->
+        gettext("Created tournament %{name} (Swiss).", name: name)
+
+      "round_robin" ->
+        gettext("Created tournament %{name} (round robin).", name: name)
+
+      "keizer" ->
+        gettext("Created tournament %{name} (Keizer).", name: name)
+
+      system when system in [nil, ""] ->
+        gettext("Created tournament %{name}.", name: name)
+
+      # A system this version does not know is shown as its code - an
+      # identifier, not a word to translate.
+      system ->
+        gettext("Created tournament %{name} (%{system}).", name: name, system: text(system))
+    end
+  end
 
   def describe("tournament.deleted", d),
-    do: "Moved tournament #{name(d, "name")} to the recycle bin."
+    do: gettext("Moved tournament %{name} to the recycle bin.", name: name(d, "name"))
 
   def describe("tournament.restored", d),
-    do: "Restored tournament #{name(d, "name")} from the recycle bin."
+    do: gettext("Restored tournament %{name} from the recycle bin.", name: name(d, "name"))
 
-  def describe("tournament.purged", d), do: "Permanently deleted tournament #{name(d, "name")}."
+  def describe("tournament.purged", d),
+    do: gettext("Permanently deleted tournament %{name}.", name: name(d, "name"))
 
-  def describe("import.swar", d), do: "Imported tournament #{name(d, "name")} from a SWAR file."
-  def describe("import.trf", d), do: "Imported tournament #{name(d, "name")} from a TRF file."
-  def describe("import.json", d), do: "Imported tournament #{name(d, "name")} from a JSON backup."
+  def describe("import.swar", d),
+    do: gettext("Imported tournament %{name} from a SWAR file.", name: name(d, "name"))
 
-  def describe("collaborator.invited", d), do: "Invited #{value(d, "email")} as a collaborator."
+  def describe("import.trf", d),
+    do: gettext("Imported tournament %{name} from a TRF file.", name: name(d, "name"))
+
+  def describe("import.json", d),
+    do: gettext("Imported tournament %{name} from a JSON backup.", name: name(d, "name"))
+
+  def describe("collaborator.invited", d),
+    do: gettext("Invited %{email} as a collaborator.", email: value(d, "email"))
 
   def describe("collaborator.accepted", d),
-    do: "Accepted the collaboration invite (#{value(d, "email")})."
+    do: gettext("Accepted the collaboration invite (%{email}).", email: value(d, "email"))
 
   def describe("collaborator.declined", d),
-    do: "Declined the collaboration invite (#{value(d, "email")})."
+    do: gettext("Declined the collaboration invite (%{email}).", email: value(d, "email"))
 
-  def describe("collaborator.removed", d), do: "Removed collaborator #{value(d, "email")}."
+  def describe("collaborator.removed", d),
+    do: gettext("Removed collaborator %{email}.", email: value(d, "email"))
 
   def describe("forbidden_pairing.added", d),
     do:
-      "Added a forbidden pairing (players ##{value(d, "player_a_id")} and ##{value(d, "player_b_id")})."
+      gettext("Added a forbidden pairing (players #%{a} and #%{b}).",
+        a: value(d, "player_a_id"),
+        b: value(d, "player_b_id")
+      )
 
   def describe("forbidden_pairing.removed", d),
     do:
-      "Removed a forbidden pairing (players ##{value(d, "player_a_id")} and ##{value(d, "player_b_id")})."
+      gettext("Removed a forbidden pairing (players #%{a} and #%{b}).",
+        a: value(d, "player_a_id"),
+        b: value(d, "player_b_id")
+      )
 
-  def describe("category.created", d), do: "Added category #{name(d, "name")}."
-  def describe("category.removed", d), do: "Removed category #{name(d, "name")}."
+  def describe("category.created", d),
+    do: gettext("Added category %{name}.", name: name(d, "name"))
 
-  def describe("logo.uploaded", _d), do: "Uploaded a tournament logo."
-  def describe("logo.cleared", _d), do: "Removed the tournament logo."
+  def describe("category.removed", d),
+    do: gettext("Removed category %{name}.", name: name(d, "name"))
 
-  def describe("standings.manual_reorder", d),
-    do: "Moved #{name(d, "player_name")} #{value(d, "direction")} in the manual standings order."
+  def describe("logo.uploaded", _d), do: gettext("Uploaded a tournament logo.")
+  def describe("logo.cleared", _d), do: gettext("Removed the tournament logo.")
 
-  def describe("standings.manual_ranking_enabled", _d), do: "Enabled manual standings ordering."
-  def describe("standings.manual_ranking_disabled", _d), do: "Disabled manual standings ordering."
+  def describe("standings.manual_reorder", d) do
+    name = name(d, "player_name")
+
+    case d["direction"] do
+      "up" -> gettext("Moved %{name} up in the manual standings order.", name: name)
+      "down" -> gettext("Moved %{name} down in the manual standings order.", name: name)
+      _ -> gettext("Moved %{name} in the manual standings order.", name: name)
+    end
+  end
+
+  def describe("standings.manual_ranking_enabled", _d),
+    do: gettext("Enabled manual standings ordering.")
+
+  def describe("standings.manual_ranking_disabled", _d),
+    do: gettext("Disabled manual standings ordering.")
 
   def describe("standings.manual_reseeded", _d),
-    do: "Re-seeded the manual standings order from the computed ranking."
+    do: gettext("Re-seeded the manual standings order from the computed ranking.")
 
   def describe("standings.extra_points_applied", d),
-    do: "Applied extra-points bands to #{value(d, "matched")} of #{value(d, "total")} players."
+    do:
+      ngettext(
+        "Applied extra-points bands to %{matched} of %{count} player.",
+        "Applied extra-points bands to %{matched} of %{count} players.",
+        count(d, "total"),
+        matched: value(d, "matched")
+      )
 
   def describe("tournament.archived", d),
-    do: "Archived tournament #{name(d, "name")} - it is now read-only."
+    do: gettext("Archived tournament %{name} - it is now read-only.", name: name(d, "name"))
 
   def describe("tournament.unarchived", d),
-    do: "Unarchived tournament #{name(d, "name")} - it is editable again."
+    do: gettext("Unarchived tournament %{name} - it is editable again.", name: name(d, "name"))
 
   # Spelled out rather than summarised. When two copies of one tournament
   # turn up months later disagreeing about board 4, this row is the only
   # record of which of them was abandoned, and the sentence has to say so
   # without the reader already knowing what a hand-off token is.
-  def describe("tournament.handoff_forced", d),
-    do:
-      "Forced the hand-off lock on #{name(d, "name")} open without the token. " <>
-        "The copy handed to #{name(d, "was_handed_off_to")} still exists and must not be used again."
+  def describe("tournament.handoff_forced", d) do
+    case d["was_handed_off_to"] do
+      to when is_binary(to) and to != "" ->
+        gettext(
+          "Forced the hand-off lock on %{name} open without the token. The copy handed to %{to} still exists and must not be used again.",
+          name: name(d, "name"),
+          to: to
+        )
+
+      _ ->
+        gettext(
+          "Forced the hand-off lock on %{name} open without the token. The copy it was handed to still exists and must not be used again.",
+          name: name(d, "name")
+        )
+    end
+  end
 
   def describe("tournament.duplicated", d),
-    do: "Duplicated tournament #{name(d, "from_name")} into a new copy."
+    do: gettext("Duplicated tournament %{name} into a new copy.", name: name(d, "from_name"))
 
   def describe("tournament.left", d),
-    do: "Left tournament #{name(d, "name")} (gave up collaborator access)."
+    do: gettext("Left tournament %{name} (gave up collaborator access).", name: name(d, "name"))
 
-  def describe("snapshot.restored", d), do: describe_restored(d)
+  # `restored_to` is the restore point's own summary, copied in when the
+  # row was written. For a point the app took itself that summary is an
+  # English sentence ("Before unpairing round 3") and no later version can
+  # reword it without guessing at English; it is shown quoted, as the
+  # point's name, exactly as the History page lists it.
+  def describe("snapshot.restored", d) do
+    case d["restored_to"] do
+      label when is_binary(label) and label != "" ->
+        gettext(
+          ~s(Restored the tournament back to the restore point "%{label}". The state it replaced was saved first.),
+          label: label
+        )
 
-  def describe("snapshot.manual", d), do: describe_manual_snapshot(d)
+      _ ->
+        gettext(
+          "Restored the tournament back to an earlier restore point. The state it replaced was saved first."
+        )
+    end
+  end
 
-  def describe("categories.toggled", d),
-    do: "Turned categories #{on_off(d["enabled"])}."
+  # The one restore point nobody's action forced - the arbiter asked for it
+  # from the History page, optionally naming it.
+  def describe("snapshot.manual", d) do
+    case d["label"] do
+      label when is_binary(label) and label != "" ->
+        gettext(~s(Saved a restore point: "%{label}".), label: label)
 
-  def describe("pair_by_category.toggled", d),
-    do: "Turned per-category pairing #{on_off(d["enabled"])}."
+      _ ->
+        gettext("Saved a restore point.")
+    end
+  end
+
+  def describe("categories.toggled", d) do
+    if truthy?(d["enabled"]),
+      do: gettext("Turned categories on."),
+      else: gettext("Turned categories off.")
+  end
+
+  def describe("pair_by_category.toggled", d) do
+    if truthy?(d["enabled"]),
+      do: gettext("Turned per-category pairing on."),
+      else: gettext("Turned per-category pairing off.")
+  end
 
   # Nothing emits this any more - the local public pages were removed on
   # 2026-08-29 - and it stays anyway. The audit trail is a RECORD, and every
@@ -270,25 +493,58 @@ defmodule PairingsEngineWeb.AuditLive do
   #
   # Its neighbour below is still emitted, by the address rotation on the
   # OpenResults settings page.
-  def describe("public_pages.toggled", d),
-    do: "Turned the public pages #{on_off(d["enabled"])}."
+  def describe("public_pages.toggled", d) do
+    if truthy?(d["enabled"]),
+      do: gettext("Turned the public pages on."),
+      else: gettext("Turned the public pages off.")
+  end
 
   def describe("public_pages.link_rotated", _d),
-    do: "Generated a new public link - the previous one stopped working."
+    do: gettext("Generated a new public link - the previous one stopped working.")
 
-  def describe("registration.toggled", d),
-    do: "#{if truthy?(d["open"]), do: "Opened", else: "Closed"} the public registration form."
+  def describe("registration.toggled", d) do
+    if truthy?(d["open"]),
+      do: gettext("Opened the public registration form."),
+      else: gettext("Closed the public registration form.")
+  end
 
   def describe("pairing.result_clear_attempted", d),
     do:
-      "Attempted to clear the result on board #{value(d, "board")} (round #{value(d, "round")}) - refused."
+      gettext("Attempted to clear the result on board %{board} (round %{round}) - refused.",
+        board: value(d, "board"),
+        round: value(d, "round")
+      )
 
   def describe("swar.published", d),
     do:
-      "Published the SWAR results page to the federation's results site (guid #{value(d, "guid")})."
+      gettext(
+        "Published the SWAR results page to the federation's results site (guid %{guid}).",
+        guid: value(d, "guid")
+      )
 
-  def describe("swar.publish_failed", d),
-    do: "Could not publish the SWAR results page (#{value(d, "step")} step): #{value(d, "error")}"
+  # `error` is the message the upload returned, already a finished string
+  # when it was recorded - often the federation server's own words - so it
+  # is quoted as it was, after a sentence that says which step failed.
+  def describe("swar.publish_failed", d) do
+    error = value(d, "error")
+
+    case d["step"] do
+      "upload" ->
+        gettext(
+          "Could not upload the SWAR results page to the federation's results site: %{error}",
+          error: error
+        )
+
+      "index" ->
+        gettext(
+          "Uploaded the SWAR results page, but the federation's results site did not confirm it was indexed: %{error}",
+          error: error
+        )
+
+      _ ->
+        gettext("Could not publish the SWAR results page: %{error}", error: error)
+    end
+  end
 
   # ---------- machine-wide rows (PairingsEngine.Audit.log_system/3) ----------
   #
@@ -299,109 +555,187 @@ defmodule PairingsEngineWeb.AuditLive do
   # `describe/1`. They are deliberately absent from `@categories`: a filter
   # bucket for rows that can never appear on this page would be dead weight
   # here, not a feature.
-  def describe("admin.role_changed", d),
-    do: "Changed #{value(d, "email")}'s role: #{changed_fields(d)}."
+  def describe("admin.role_changed", d) do
+    email = value(d, "email")
 
-  def describe("backup.downloaded", d), do: "Downloaded a backup (#{value(d, "filename")})."
-
-  def describe("publishing.endpoint_changed", d),
-    do: "Changed the publishing address: #{changed_fields(d)}."
-
-  def describe("publishing.public_base_changed", d),
-    do: "Changed the address given to spectators: #{changed_fields(d)}."
-
-  def describe("publishing.token_replaced", _d), do: "Replaced the publishing token."
-  def describe("publishing.token_cleared", _d), do: "Cleared the publishing token."
-
-  def describe("fide.sync_started", _d), do: "Started a FIDE rating list sync."
-
-  # Fallback for any code not explicitly handled - still readable.
-  def describe(action, _details), do: "#{action}"
-
-  defp describe_restored(d) do
-    to = d["restored_to"]
-
-    where =
-      if is_binary(to) and to != "" do
-        "\"#{to}\""
-      else
-        "an earlier restore point"
-      end
-
-    "Restored the tournament back to #{where}. The state it replaced was saved first."
-  end
-
-  # The one restore point nobody's action forced - the arbiter asked for it
-  # from the History page, optionally naming it.
-  defp describe_manual_snapshot(d) do
-    case d["label"] do
-      label when is_binary(label) and label != "" ->
-        "Saved a restore point: \"#{label}\"."
+    case d["changed_fields"] do
+      %{"role" => [from, to]} ->
+        gettext("Changed the role of %{email} from %{from} to %{to}.",
+          email: email,
+          from: role_name(from),
+          to: role_name(to)
+        )
 
       _ ->
-        "Saved a restore point."
+        case changes(d) do
+          nil ->
+            gettext("Changed the role of %{email}.", email: email)
+
+          changes ->
+            gettext("Changed the role of %{email}: %{changes}.", email: email, changes: changes)
+        end
     end
   end
 
-  defp on_off(value), do: if(truthy?(value), do: "on", else: "off")
+  def describe("backup.downloaded", d),
+    do: gettext("Downloaded a backup (%{filename}).", filename: value(d, "filename"))
 
-  defp truthy?(true), do: true
-  defp truthy?("true"), do: true
-  defp truthy?(_), do: false
+  def describe("publishing.endpoint_changed", d) do
+    case {d["changed_fields"], changes(d)} do
+      {%{"endpoint" => [from, to]}, _} ->
+        gettext("Changed the publishing address from %{from} to %{to}.",
+          from: shown(from),
+          to: shown(to)
+        )
+
+      {_, nil} ->
+        gettext("Changed the publishing address.")
+
+      {_, changes} ->
+        gettext("Changed the publishing address: %{changes}.", changes: changes)
+    end
+  end
+
+  def describe("publishing.public_base_changed", d) do
+    case {d["changed_fields"], changes(d)} do
+      {%{"public_base" => [from, to]}, _} ->
+        gettext("Changed the address given to spectators from %{from} to %{to}.",
+          from: shown(from),
+          to: shown(to)
+        )
+
+      {_, nil} ->
+        gettext("Changed the address given to spectators.")
+
+      {_, changes} ->
+        gettext("Changed the address given to spectators: %{changes}.", changes: changes)
+    end
+  end
+
+  def describe("publishing.token_replaced", _d), do: gettext("Replaced the publishing token.")
+  def describe("publishing.token_cleared", _d), do: gettext("Cleared the publishing token.")
+
+  def describe("fide.sync_started", _d), do: gettext("Started a FIDE rating list sync.")
+
+  # Fallback for any code not explicitly handled: the code itself, which is
+  # an identifier and reads the same in every language.
+  def describe(action, _details), do: text(action)
 
   defp describe_round_paired(d) do
     round = value(d, "round")
-    boards = d["board_count"] || 0
-    byes = d["bye_count"] || 0
-    floaters = d["floater_count"] || 0
+    bye_count = count(d, "bye_count")
+    floater_count = count(d, "floater_count")
 
-    parts =
-      [
-        "#{plural(boards, "board")}",
-        byes > 0 && "#{plural(byes, "bye")}",
-        floaters > 0 && "#{plural(floaters, "floater")}"
-      ]
-      |> Enum.filter(& &1)
-      |> Enum.join(", ")
+    boards = ngettext("%{count} board", "%{count} boards", count(d, "board_count"))
+    byes = ngettext("%{count} bye", "%{count} byes", bye_count)
+    floaters = ngettext("%{count} floater", "%{count} floaters", floater_count)
+
+    paired =
+      cond do
+        bye_count > 0 and floater_count > 0 ->
+          gettext("Paired round %{round}: %{boards}, %{byes}, %{floaters}.",
+            round: round,
+            boards: boards,
+            byes: byes,
+            floaters: floaters
+          )
+
+        bye_count > 0 ->
+          gettext("Paired round %{round}: %{boards}, %{byes}.",
+            round: round,
+            boards: boards,
+            byes: byes
+          )
+
+        floater_count > 0 ->
+          gettext("Paired round %{round}: %{boards}, %{floaters}.",
+            round: round,
+            boards: boards,
+            floaters: floaters
+          )
+
+        true ->
+          gettext("Paired round %{round}: %{boards}.", round: round, boards: boards)
+      end
 
     bye_note =
       case d["allocated_bye"] do
-        %{"player" => player} when is_binary(player) -> " Bye awarded to #{player}."
-        _ -> ""
+        %{"player" => player} when is_binary(player) ->
+          gettext("Bye awarded to %{player}.", player: player)
+
+        _ ->
+          nil
       end
 
-    "Paired round #{round}: #{parts}.#{bye_note}"
+    sentences([paired, bye_note])
   end
 
-  ## ---------- detail helpers (details use string keys after JSON round-trip) ----------
+  # A board with no Black player is a bye board, and says so instead of
+  # inventing an opponent.
+  defp result_sentence(kind, d) do
+    board = value(d, "board")
+    round = value(d, "round")
+    white = value(d, "white")
 
-  defp changed_fields(d) do
-    case d["changed_fields"] do
-      map when is_map(map) and map_size(map) > 0 ->
-        map
-        |> Enum.map(fn {field, pair} -> "#{field} #{format_pair(pair)}" end)
-        |> Enum.join("; ")
+    case {kind, d["black"]} do
+      {:entered, black} when black in [nil, ""] ->
+        gettext(
+          "Entered result %{result} on board %{board} (round %{round}): %{player} (bye).",
+          result: shown(d["to"]),
+          board: board,
+          round: round,
+          player: white
+        )
 
-      _ ->
-        "(no tracked field changed)"
-    end
-  end
+      {:entered, black} ->
+        gettext(
+          "Entered result %{result} on board %{board} (round %{round}): %{white} vs %{black}.",
+          result: shown(d["to"]),
+          board: board,
+          round: round,
+          white: white,
+          black: text(black)
+        )
 
-  defp format_pair([before, after_value]),
-    do: "#{blank_dash(before)} → #{blank_dash(after_value)}"
+      {:changed, black} when black in [nil, ""] ->
+        gettext(
+          "Changed result on board %{board} (round %{round}) from %{from} to %{to}: %{player} (bye).",
+          board: board,
+          round: round,
+          from: shown(d["from"]),
+          to: shown(d["to"]),
+          player: white
+        )
 
-  defp format_pair(other), do: inspect(other)
+      {:changed, black} ->
+        gettext(
+          "Changed result on board %{board} (round %{round}) from %{from} to %{to}: %{white} vs %{black}.",
+          board: board,
+          round: round,
+          from: shown(d["from"]),
+          to: shown(d["to"]),
+          white: white,
+          black: text(black)
+        )
 
-  defp board_players(d) do
-    white = d["white"] || "?"
-    black = d["black"]
-    if black, do: "#{white} vs #{black}", else: "#{white} (bye)"
-  end
+      {:cleared, black} when black in [nil, ""] ->
+        gettext(
+          "Cleared the result on board %{board} (round %{round}) (was %{from}): %{player} (bye).",
+          board: board,
+          round: round,
+          from: shown(d["from"]),
+          player: white
+        )
 
-  defp rating_suffix(d) do
-    case d["rating"] do
-      r when is_integer(r) and r > 0 -> " (rating #{r})"
-      _ -> ""
+      {:cleared, black} ->
+        gettext(
+          "Cleared the result on board %{board} (round %{round}) (was %{from}): %{white} vs %{black}.",
+          board: board,
+          round: round,
+          from: shown(d["from"]),
+          white: white,
+          black: text(black)
+        )
     end
   end
 
@@ -409,41 +743,126 @@ defmodule PairingsEngineWeb.AuditLive do
   # `nil` case, rendered as "System" elsewhere on this page) - this is the
   # one place that still says WHICH phone, using whatever label the arbiter
   # gave the enrollment (see `MobileResultsLive.log_mobile_result/4`).
-  defp mobile_suffix(%{"via" => "mobile"} = d) do
+  #
+  # A row logged before `level` existed has nothing true to say about it -
+  # the enrollment it came from has SINCE been backfilled to "deputy" (see
+  # the migration), but that is a fact about the row today, not about what
+  # the phone was actually allowed to do at the moment this line was
+  # written, which is what this sentence claims. Left off rather than
+  # guessed at.
+  defp phone_sentence(%{"via" => "mobile"} = d) do
     label = d["enrollment_label"]
+    level = level_name(d["enrollment_level"])
+    labelled? = is_binary(label) and label != ""
 
-    device =
-      if label not in [nil, ""], do: "\"#{label}\"", else: "enrollment ##{d["enrollment_id"]}"
+    case {labelled?, level} do
+      {true, nil} ->
+        gettext(~s(Via the phone "%{label}".), label: label)
 
-    # A row logged before `level` existed has nothing true to say here - the
-    # enrollment it came from has SINCE been backfilled to "deputy" (see the
-    # migration), but that is a fact about the row today, not about what the
-    # phone was actually allowed to do at the moment this line was written,
-    # which is what this suffix claims. Left off rather than guessed at.
-    level = if d["enrollment_level"], do: ", #{d["enrollment_level"]}", else: ""
+      {true, level} ->
+        gettext(~s[Via the phone "%{label}" (%{level}).], label: label, level: level)
 
-    " (via phone, #{device}#{level})"
+      {false, nil} ->
+        gettext("Via phone enrollment #%{id}.", id: value(d, "enrollment_id"))
+
+      {false, level} ->
+        gettext("Via phone enrollment #%{id} (%{level}).",
+          id: value(d, "enrollment_id"),
+          level: level
+        )
+    end
   end
 
-  defp mobile_suffix(_d), do: ""
+  defp phone_sentence(_d), do: nil
 
-  defp name(d, key), do: bold_text(d[key] || "(unnamed)")
-  defp value(d, key), do: d[key] || "?"
-  defp count(d, key), do: d[key] || 0
-  defp bold_text(v), do: v
+  # The same two words the Live round page shows when the phone is enrolled
+  # (`LiveRoundLive.enrollment_level_label/1`), so the trail names a level
+  # exactly as the arbiter chose it.
+  defp level_name("deputy"), do: gettext("Deputy")
+  defp level_name("helper"), do: gettext("Helper")
+  defp level_name(level) when level in [nil, ""], do: nil
+  defp level_name(level), do: text(level)
 
-  # Round 0 is a real recorded value - a tournament can be non-compliant
-  # before its first round is paired - so it gets words rather than a
-  # number nobody would read as a round.
-  defp compliance_round_phrase(0), do: "before the first round was paired"
-  defp compliance_round_phrase(round) when is_integer(round), do: "in round #{round}"
-  defp compliance_round_phrase(_), do: "at an unrecorded round"
+  # The labels `AdminLive` shows for the same three roles.
+  defp role_name("admin"), do: gettext("Administrator")
+  defp role_name("support"), do: gettext("Support")
+  defp role_name("owner"), do: gettext("Account owner")
+  defp role_name(role), do: shown(role)
 
-  defp blank_dash(v) when v in [nil, ""], do: "-"
-  defp blank_dash(v), do: to_string(v)
+  ## ---------- detail helpers (details use string keys after JSON round-trip) ----------
 
-  defp plural(1, word), do: "1 #{word}"
-  defp plural(n, word), do: "#{n} #{word}s"
+  defp sentences(list), do: list |> Enum.reject(&is_nil/1) |> Enum.join(" ")
+
+  # `field before → after; field before → after`. The field is the schema's
+  # identifier and the glue is punctuation, so nothing in here is a word to
+  # translate except the values `shown/1` gives words to.
+  defp changes(d) do
+    case d["changed_fields"] do
+      map when is_map(map) and map_size(map) > 0 ->
+        Enum.map_join(map, "; ", fn {field, pair} -> "#{field} #{format_pair(pair)}" end)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp format_pair([before, after_value]), do: "#{shown(before)} → #{shown(after_value)}"
+  defp format_pair(other), do: shown(other)
+
+  # One recorded value, as the reader should see it. Booleans read as the
+  # On/Off the settings screens use (and the History page's diff); a list is
+  # its items; a map - the officials, the category rules - is shown whole, as
+  # the JSON it was stored as, rather than crashing the page, which
+  # `to_string/1` on it did.
+  defp shown(v) when v in [nil, "", [], %{}], do: "-"
+  defp shown(true), do: gettext("On")
+  defp shown(false), do: gettext("Off")
+  defp shown(list) when is_list(list), do: Enum.map_join(list, ", ", &shown/1)
+  defp shown(map) when is_map(map), do: Jason.encode!(map)
+  defp shown(v), do: text(v)
+
+  defp name(d, key) do
+    case d[key] do
+      blank when blank in [nil, ""] -> gettext("(unnamed)")
+      other -> text(other)
+    end
+  end
+
+  defp value(d, key) do
+    case d[key] do
+      nil -> "?"
+      other -> text(other)
+    end
+  end
+
+  # A count that arrived as anything but a non-negative integer - a string
+  # from a hand-edited backup, a null - counts as none rather than raising
+  # inside `ngettext/3`, which only takes integers.
+  defp count(d, key) do
+    case d[key] do
+      n when is_integer(n) and n >= 0 ->
+        n
+
+      s when is_binary(s) ->
+        case Integer.parse(s) do
+          {n, ""} when n >= 0 -> n
+          _ -> 0
+        end
+
+      _ ->
+        0
+    end
+  end
+
+  defp text(v) when is_binary(v), do: v
+  defp text(v) when is_number(v) or is_atom(v), do: to_string(v)
+  defp text(v), do: inspect(v)
+
+  defp blank?(v), do: v in [nil, ""]
+
+  defp truthy?(true), do: true
+  defp truthy?("true"), do: true
+  defp truthy?(_), do: false
 
   @doc """
   The acting user's email for one audit row's `:user` preload.
@@ -461,7 +880,7 @@ defmodule PairingsEngineWeb.AuditLive do
   def actor(%{details: %{"imported_actor" => actor}}) when is_binary(actor) and actor != "",
     do: actor
 
-  def actor(_), do: "System"
+  def actor(_), do: gettext("System")
 
   @doc "Formats an audit row's `inserted_at` for display."
   def format_time(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%Y-%m-%d %H:%M")
@@ -575,12 +994,12 @@ defmodule PairingsEngineWeb.AuditLive do
 
       <div class="round-picker" style="flex-wrap: wrap">
         <button
-          :for={{key, label, _codes} <- categories()}
+          :for={{key, _codes} <- categories()}
           class={["pe-btn", "filter-picker", key == @category && "active"]}
           phx-click="filter"
           phx-value-category={key}
         >
-          {label}
+          {category_label(key)}
         </button>
       </div>
 

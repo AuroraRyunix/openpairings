@@ -16,6 +16,32 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The audit trail is in Dutch for a Dutch arbiter - the rows, not
+  just the page around them.** Every line on the Audit page ("Registered
+  player…", "Entered result 1-0 on board 4 (round 2)…", every settings
+  change, restore, import and role change), and the same lines on
+  the Admin page's recent activity and the History timeline, stayed English
+  whatever language was picked, because they were assembled by hand where no
+  translation pass could see them. They are now worded when the page is
+  shown, so rows written by earlier versions read in Dutch too. Shown as
+  stored, in either language: action codes, the field names in a settings
+  diff (`rounds_count`), result notation, engine names, a restore point's
+  own name and the SWAR upload's error message. The category filter
+  buttons, the "System" actor and the tab title are translated as well. The
+  English wording is unchanged except where a sentence had to be rebuilt to
+  translate: a phone's result now ends "Via the phone "Tafel 3" (Deputy)."
+  instead of "(via phone, "Tafel 3", deputy)", and a new tournament names
+  its system as "(Swiss)" rather than "(swiss)".
+- [Fix] **Saving the officials on the Norms page no longer makes the Audit
+  page crash.** The settings diff printed each old and new value with
+  `to_string/1`, which raises for a map, so one officials save (or any
+  other map-valued setting) left that tournament's audit trail unopenable.
+  The same formatter printed a tie-break list as "BHSB" and a switch as
+  "false → true"; they now read "BH, SB" and "Off → On". Two older row
+  shapes read better too: a result blanked before 2026-08-03 said "changed
+  from 1-0 to" and now reads as a cleared result, and a role change names
+  the roles as the Admin page does ("from Account owner to Administrator").
+
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status
   pill's panel and tooltip in the top bar, and the answer to Test connection
