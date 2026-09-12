@@ -265,7 +265,7 @@ pins Zig 0.15.2 because Burrito requires exactly that, a developer machine has
 whatever is current, and Zig's standard library changes between releases while
 `zig cc` and `windows.h` do not.
 
-#### The installers: `OpenPairings-win-Setup.msi` and `OpenPairings-win-Setup.exe`
+#### The installers: `OpenPairings-<version>-win-Setup.msi` and `OpenPairings-<version>-win-Setup.exe`
 
 `build_installer.ps1` packs **two** installer artifacts from the same
 payload, and **the `.msi` is the recommended download** - it is what the
@@ -280,6 +280,28 @@ beside it as the one-click alternative.
 | needs admin | only if per-machine is chosen | never |
 | Add/Remove Programs entry | yes | yes |
 
+**The human-facing file name carries the version; the update feed's names
+deliberately keep the pack id instead.** `build_installer.ps1` renames the
+two installers it packs to `OpenPairings-<version>-win-Setup.msi` and
+`OpenPairings-<version>-win-Setup.exe` - version, e.g. `0.59.0` - so a copy
+already sitting in someone's Downloads folder says which release it is. The
+macOS disk images get the same treatment in `binaries.yml`:
+`OpenPairings-<version>-macos-aarch64.dmg` and
+`OpenPairings-<version>-macos-x86_64.dmg`. The update feed - `releases.win.json`,
+`RELEASES` and every `OpenPairingsApp-<version>-full.nupkg` /
+`-delta.nupkg` - is the one thing that must NOT follow this rename: an
+installed copy's in-app updater (see "Updates" below) finds new versions by
+those exact names. The `.nupkg` files already carry a version of their own,
+in Velopack's own naming convention, but under the pack id
+(`OpenPairingsApp`) rather than this friendly `OpenPairings-` product name,
+and this rename never touches them - renaming any of the three would break
+every install already out there. One consequence: a download link that
+wants "always point at the newest installer" can no longer use a fixed file
+name, because that name now changes every release. Point it at the
+latest-release page instead
+(`https://github.com/AuroraRyunix/openpairings/releases/latest`), or look
+the asset up through the GitHub releases API.
+
 **Why both exist.** Velopack's `Setup.exe` is, by its own design, a
 "one-click" installer: `docs.velopack.io/packaging/installer` says plainly
 that running it "will not show any questions / wizards to the user", and
@@ -290,7 +312,8 @@ pack id string). A genuine wizard - Welcome, Licence, a real per-user/
 per-machine choice, Conclusion - only exists in a second artifact, a WiX
 `.msi`, which `vpk pack --msi` builds alongside `Setup.exe` from the same
 `--inst*` flags. `build_installer.ps1` builds both and renames both to a
-friendly name; only `Setup.exe` existed before this was added.
+friendly, version-carrying name; only `Setup.exe` existed before this was
+added.
 
 **Where each one installs, and what was actually checked.** Velopack's own
 docs describe a per-machine install as going to
@@ -466,13 +489,19 @@ On a **tag** build only, the Windows runner also packs
 locally) and the release job attaches the result. What gets attached is
 deliberately not "everything vpk wrote":
 
-- `OpenPairings-win-Setup.msi` and `OpenPairings-win-Setup.exe` - the two
-  human-facing downloads, friendly-named exactly as a local build produces
-  them.
+- `OpenPairings-<version>-win-Setup.msi` and
+  `OpenPairings-<version>-win-Setup.exe` - the two human-facing downloads,
+  friendly-named exactly as a local build produces them, version and all
+  (e.g. `OpenPairings-0.59.0-win-Setup.msi`) - so a copy in someone's
+  Downloads folder says which release it is.
 - `releases.win.json` and the `.nupkg` file(s) - the update feed. The
   in-app updater (`rel/windows/launcher.c`, since 0.58.0 - see "Updates"
   below) reads these through `velopack_libc.dll`'s own GitHub source, by
-  name, so they are **never renamed**. The "Updates" section's own notice
+  name, so they are **never renamed** to the friendly `OpenPairings-<version>-`
+  form the two installers above get - installed copies find their updates by
+  these exact, pack-id-based names (`releases.win.json`,
+  `OpenPairingsApp-<version>-full.nupkg`), and renaming any of them would
+  break every install already out there. The "Updates" section's own notice
   still checks GitHub's Releases API directly rather than this feed - see
   why there - the two exist for different questions ("is something newer"
   versus "here is the file to install").

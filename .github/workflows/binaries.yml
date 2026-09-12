@@ -569,7 +569,15 @@ jobs:
           cp -R "$app_name" dmg_staging/
           ln -s /Applications dmg_staging/Applications
 
-          dmg_name="openpairings_${{ matrix.target }}.dmg"
+          # Carries the version, so a .dmg sitting in someone's Downloads
+          # folder says which one it is - same reasoning as the Windows
+          # installers, see rel/windows/build_installer.ps1's .NOTES. Only
+          # the "_" between "macos" and the arch becomes "-"; the "_" inside
+          # "x86_64" itself is untouched (matrix.target is macos_x86_64 or
+          # macos_aarch64, and only the first "_" is replaced below).
+          dmg_target="${{ matrix.target }}"
+          dmg_target="${dmg_target/macos_/macos-}"
+          dmg_name="OpenPairings-${version}-${dmg_target}.dmg"
           # GitHub's macOS runners intermittently refuse this with "hdiutil:
           # create failed - Resource busy" - a runner-side race, not this
           # build, and it has hit this job more than once. On a tag it blocks
