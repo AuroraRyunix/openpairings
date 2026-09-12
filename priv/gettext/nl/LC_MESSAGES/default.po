@@ -220,7 +220,7 @@ msgstr "Gemiddelde rating van de echt gespeelde tegenstanders"
 #: lib/pairings_engine_web/live/pairings_live.ex:1749
 #, elixir-autogen, elixir-format
 msgid "Award a bye to the remaining player"
-msgstr "Ken een bye toe aan de overblijvende speler"
+msgstr "Een bye toekennen aan de overblijvende speler"
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1827
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1856
@@ -927,7 +927,7 @@ msgstr "Live stand, afdrukken & publieke deellinks"
 #: lib/pairings_engine_web/live/players_live.ex:1835
 #, elixir-autogen, elixir-format
 msgid "Live tournament rank - click to sort by current standings rank (same as Cl)"
-msgstr "Live toernooiplaats - klik om te sorteren op de huidige plaats in de stand (zelfde als Pl)"
+msgstr "Live toernooiplaats - klik om te sorteren op de huidige plaats in de stand (zelfde als Cl)"
 
 #: lib/pairings_engine_web/components/layouts.ex:253
 #: lib/pairings_engine_web/live/user_live/registration.ex:104
@@ -1843,7 +1843,7 @@ msgstr "Gebruik in plaats daarvan een wachtwoord"
 #: lib/pairings_engine_web/live/standings_live.ex:801
 #, elixir-autogen, elixir-format
 msgid "W-We"
-msgstr "W-Wv"
+msgstr "W-We"
 
 #: lib/pairings_engine_web/live/user_live/confirmation.ex:19
 #, elixir-autogen, elixir-format
@@ -3153,7 +3153,7 @@ msgstr "FIDE-ID: %{value}"
 #: lib/pairings_engine_web/live/norms_live.ex:516
 #, elixir-autogen, elixir-format
 msgid "FIDE identifies every official by FIDE ID, so a report missing one gets bounced. Fill these in under \"Officials & FIDE report data\" above:"
-msgstr "FIDE identificeert elke functionaris via het FIDE-ID, dus een rapport waarin er een ontbreekt wordt geweigerd. Vul deze hierboven in onder \"Functionarissen & FIDE-rapportgegevens\":"
+msgstr "FIDE identificeert elke functionaris via het FIDE-ID, dus een rapport waarin er een ontbreekt wordt geweigerd. Vul deze hierboven in onder \"Officials & FIDE-rapportgegevens\":"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1085
 #: lib/pairings_engine_web/live/norms_live.ex:1214
@@ -4193,7 +4193,7 @@ msgstr "ratingverschil %{gap}"
 #: lib/pairings_engine_web/controllers/print_controller.ex:828
 #, elixir-autogen, elixir-format
 msgid "requested half-point bye"
-msgstr "aangevraagde bye van een halve punt"
+msgstr "aangevraagde bye van een half punt"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:829
 #, elixir-autogen, elixir-format
@@ -4209,7 +4209,7 @@ msgstr "scoreverschil %{gap}"
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2244
 #, elixir-autogen, elixir-format
 msgid "seed #%{n}"
-msgstr "plaatsingsnr. #%{n}"
+msgstr "startnr. #%{n}"
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:2077
 #: lib/pairings_engine_web/live/tournaments_live.ex:2204
@@ -4269,8 +4269,8 @@ msgstr "%[engine] is de standaard. Ze zit ingebouwd in de app - geen Java, niets
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:627
 #, elixir-autogen, elixir-format
-msgid "%[engine] is the external engine this app paired with first. It implements the %[edition] of the same rules and has not been updated for the current one, so the two disagree on roughly 4%% of rounds - that gap is the size of the rules change, not a fault in either."
-msgstr "%[engine] is de externe engine waarmee deze app eerst paarde. Ze volgt de %[edition] van dezelfde regels en is niet bijgewerkt voor de huidige, dus verschillen de twee in ongeveer 4%% van de rondes - dat verschil is precies de omvang van de regelwijziging, geen fout van een van beide."
+msgid "%[engine] is the external engine this app paired with first. It implements the %[edition] of the same rules and has not been updated for the current one, so the two disagree on roughly 4% of rounds - that gap is the size of the rules change, not a fault in either."
+msgstr "%[engine] is de externe engine waarmee deze app eerst paarde. Ze volgt de %[edition] van dezelfde regels en is niet bijgewerkt voor de huidige, dus verschillen de twee in ongeveer 4% van de rondes - dat verschil is precies de omvang van de regelwijziging, geen fout van een van beide."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:621
 #, elixir-autogen, elixir-format
@@ -4290,7 +4290,7 @@ msgstr "Ainalrami - ingebouwd, volgt de regels van 2026 (standaard)"
 #: lib/pairings_engine_web/live/settings_options_live.ex:638
 #, elixir-autogen, elixir-format
 msgid "Ainalrami is checked against bbpPairings, an independent implementation of the same 2026 rules, by replaying whole generated tournaments and diffing every board: %[pairings], with two disagreements that are both defects in bbpPairings. A third implementation agrees with it on both. Forbidden pairings, club and federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
-msgstr "Ainalrami wordt getoetst aan bbpPairings, een onafhankelijke uitwerking van dezelfde regels van 2026, door volledige gegenereerde toernooien opnieuw af te spelen en elk bord te vergelijken: %[pairings], met twee verschillen die beide fouten in bbpPairings zijn. Een derde uitwerking geeft haar op allebei gelijk. Verboden paringen, club- en bondsuitsluitingen en versnelling worden allemaal ondersteund; elke TRF-uitbreiding die ze niet kent, doet haar de ronde weigeren en dat melden, in plaats van stilzwijgend een regel te negeren die u hebt ingesteld."
+msgstr "Ainalrami wordt getoetst aan bbpPairings, een onafhankelijke uitwerking van dezelfde regels van 2026, door volledige gegenereerde toernooien opnieuw af te spelen en elk bord te vergelijken: %[pairings], met twee verschillen die beide fouten in bbpPairings zijn. Een derde uitwerking geeft haar op allebei gelijk. Verboden paringen, club- en bondsuitsluitingen en versnelling worden allemaal ondersteund; elke TRF-uitbreiding die ze niet kent, doet haar de ronde weigeren en dat melden, in plaats van stilzwijgend een regel te negeren die je hebt ingesteld."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:1031
 #, elixir-autogen, elixir-format
@@ -4300,7 +4300,7 @@ msgstr "Ainalrami behouden"
 #: lib/pairings_engine_web/live/tournaments_live.ex:1547
 #, elixir-autogen, elixir-format
 msgid "Paired by %[engine], our own Dutch engine, following C.04.3 as it stands in the edition effective 1 February 2026. You can change the engine per tournament in Settings."
-msgstr "Gepaard door %[engine], onze eigen Dutch-engine, volgens C.04.3 zoals die luidt in de editie die geldt vanaf 1 februari 2026. U kunt de engine per toernooi wijzigen bij Instellingen."
+msgstr "Gepaard door %[engine], onze eigen Dutch-engine, volgens C.04.3 zoals die luidt in de editie die geldt vanaf 1 februari 2026. Je kan de engine per toernooi wijzigen bij Instellingen."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:986
 #, elixir-autogen, elixir-format
@@ -4325,7 +4325,7 @@ msgstr "JaVaFo gebruiken"
 #: lib/pairings_engine_web/live/settings_options_live.ex:1010
 #, elixir-autogen, elixir-format
 msgid "You can switch back at any time before round one is paired. Once a round exists the engine is locked, because changing pairing system mid-tournament is not something the regulations allow."
-msgstr "U kunt altijd terugschakelen zolang ronde één nog niet gepaard is. Zodra er een ronde bestaat, ligt de engine vast, want het paringsysteem wijzigen tijdens een toernooi staat het reglement niet toe."
+msgstr "Je kan altijd terugschakelen zolang ronde één nog niet gepaard is. Zodra er een ronde bestaat, ligt de engine vast, want het paringsysteem wijzigen tijdens een toernooi staat het reglement niet toe."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:1005
 #, elixir-autogen, elixir-format
@@ -4916,7 +4916,7 @@ msgstr[1] "%{count} toernooien wachten om naar %{host} verzonden te worden"
 #: lib/pairings_engine_web/components/connection_status.ex:167
 #, elixir-autogen, elixir-format
 msgid "Checking the results-site connection"
-msgstr "De verbinding met de resultatensite controleren"
+msgstr "De verbinding met de uitslagensite controleren"
 
 #: lib/pairings_engine_web/components/connection_status.ex:169
 #, elixir-autogen, elixir-format
@@ -5088,7 +5088,7 @@ msgstr "Wanneer een ronde die je paart ook echt op %[link] verschijnt - afhankel
 #: lib/pairings_engine_web/live/settings_results_live.ex:525
 #, elixir-autogen, elixir-format
 msgid "this tournament's page on the results site"
-msgstr "de pagina van dit toernooi op de resultatensite"
+msgstr "de pagina van dit toernooi op de uitslagensite"
 
 #: lib/pairings_engine_web/live/admin_live.ex:273
 #, elixir-autogen, elixir-format
@@ -5113,7 +5113,7 @@ msgstr "De meest recente machinebrede acties: rolwijzigingen, back-updownloads, 
 #: lib/pairings_engine_web/live/fide_live.ex:796
 #, elixir-autogen, elixir-format
 msgid "Where spectators go - share links, QR codes and printed addresses. Leave blank to use the address above. Set it only when this machine reaches the results site by a different address than the public one, which is the case when both run on the same server: send to http://localhost:4004 and put the public name here."
-msgstr "Waar toeschouwers terechtkomen - deellinks, QR-codes en gedrukte adressen. Laat leeg om het adres hierboven te gebruiken. Vul dit alleen in wanneer deze machine de resultatensite via een ander adres bereikt dan het publieke, wat het geval is wanneer beide op dezelfde server draaien: verzend naar http://localhost:4004 en zet hier de publieke naam."
+msgstr "Waar toeschouwers terechtkomen - deellinks, QR-codes en gedrukte adressen. Laat leeg om het adres hierboven te gebruiken. Vul dit alleen in wanneer deze machine de uitslagensite via een ander adres bereikt dan het publieke, wat het geval is wanneer beide op dezelfde server draaien: verzend naar http://localhost:4004 en zet hier de publieke naam."
 
 #: lib/pairings_engine_web/live/standings_live.ex:740
 #, elixir-autogen, elixir-format
@@ -5798,7 +5798,7 @@ msgstr "Geclaimd %{when}"
 #: lib/pairings_engine_web/controllers/mobile_enroll_controller.ex:43
 #, elixir-autogen, elixir-format
 msgid "Enter your code."
-msgstr "Voer uw code in."
+msgstr "Voer je code in."
 
 #: lib/pairings_engine_web/live/live_round_live.ex:555
 #, elixir-autogen, elixir-format
@@ -6170,7 +6170,7 @@ msgstr "Afwezig"
 #: lib/pairings_engine_web/live/settings_support.ex:394
 #, elixir-autogen, elixir-format
 msgid "This tournament is no longer set up the way the FIDE pairing rules describe. That is allowed - an event nobody is sending to FIDE can be run however you like - but a FIDE report from it records that it happened, and in which round."
-msgstr "Dit toernooi is niet langer ingesteld zoals de FIDE-paringsregels het beschrijven. Dat mag - een evenement dat niemand naar de FIDE stuurt, mag u draaien zoals u wilt - maar een FIDE-rapport ervan legt vast dat het gebeurd is, en in welke ronde."
+msgstr "Dit toernooi is niet langer ingesteld zoals de FIDE-paringsregels het beschrijven. Dat mag - een evenement dat niemand naar de FIDE stuurt, mag je draaien zoals je wilt - maar een FIDE-rapport ervan legt vast dat het gebeurd is, en in welke ronde."
 
 #: lib/pairings_engine_web/live/settings_support.ex:411
 #, elixir-autogen, elixir-format
@@ -6205,7 +6205,7 @@ msgstr "Matchformaat"
 #: lib/pairings_engine_web/live/settings_support.ex:461
 #, elixir-autogen, elixir-format
 msgid "FIDE defines the Swiss (C.04.3) and the round-robin Berger tables (C.05); it does not define a Keizer ladder, and the FIDE tie-breaks do not apply to one. Swiss or round robin puts this back."
-msgstr "De FIDE definieert het Zwitsers systeem (C.04.3) en de Bergertabellen voor de ronde-robin (C.05); ze definieert geen Keizerladder, en de FIDE-tiebreaks gelden er niet voor. Zwitsers of ronde-robin zet dit terug."
+msgstr "De FIDE definieert het Zwitsers systeem (C.04.3) en de Bergertabellen voor het rondetoernooi (C.05); ze definieert geen Keizerladder, en de FIDE-tiebreaks gelden er niet voor. Zwitsers of rondetoernooi zet dit terug."
 
 #: lib/pairings_engine_web/live/settings_support.ex:467
 #, elixir-autogen, elixir-format
@@ -6215,7 +6215,7 @@ msgstr "Elke categorie wordt gepaard als een apart toernooi en de resultaten wor
 #: lib/pairings_engine_web/live/settings_support.ex:473
 #, elixir-autogen, elixir-format
 msgid "The second game of each match is a colour-reversed copy of the first, with no pairing decision behind it, so half of this tournament's rounds were not paired by C.04.3 at all."
-msgstr "De tweede partij van elke match is een kopie van de eerste met omgekeerde kleuren, zonder enige paringsbeslissing erachter, dus de helft van de ronden van dit toernooi is helemaal niet volgens C.04.3 gepaard."
+msgstr "De tweede partij van elke match is een kopie van de eerste met omgekeerde kleuren, zonder enige paringsbeslissing erachter, dus de helft van de rondes van dit toernooi is helemaal niet volgens C.04.3 gepaard."
 
 #: lib/pairings_engine_web/live/settings_fide_live.ex:152
 #, elixir-autogen, elixir-format
@@ -6225,7 +6225,7 @@ msgstr "FIDE-behandeling"
 #: lib/pairings_engine_web/live/settings_fide_live.ex:155
 #, elixir-autogen, elixir-format
 msgid "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
-msgstr "Dit is niet dezelfde vraag als het vinkje hieronder. Deze gaat over hoe de software het evenement behandeld heeft; dat vinkje gaat over de vraag of u het naar de FIDE stuurt om verwerkt te worden. Een clubavond kan tot op de letter behandeld worden en nooit gerapporteerd, en een verwerkt evenement mag zijn arbiter draaien zoals hij verkiest."
+msgstr "Dit is niet dezelfde vraag als het vinkje hieronder. Deze gaat over hoe de software het evenement behandeld heeft; dat vinkje gaat over de vraag of je het naar de FIDE stuurt om te laten rateren. Een clubavond kan tot op de letter behandeld worden en nooit gerapporteerd, en een gerateerd evenement mag de arbiter draaien zoals die verkiest."
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2649
 #, elixir-autogen, elixir-format
@@ -6555,7 +6555,7 @@ msgstr "Niets op te lossen - %{name} had de bye."
 #: lib/pairings_engine_web/live/settings_support.ex:715
 #, elixir-autogen, elixir-format
 msgid "Nothing was deleted. This tournament is still published on the results site and could not be taken down: %{message}"
-msgstr "Er is niets verwijderd. Dit toernooi staat nog gepubliceerd op de resultatensite en kon niet offline gehaald worden: %{message}"
+msgstr "Er is niets verwijderd. Dit toernooi staat nog gepubliceerd op de uitslagensite en kon niet offline gehaald worden: %{message}"
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2888
 #, elixir-autogen, elixir-format
@@ -7156,23 +7156,23 @@ msgstr "JaVaFo - extern, volgt de regels van 2017"
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:991
 #, elixir-autogen, elixir-format
-msgid "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
-msgstr "JaVaFo volgt C.04.3 zoals die gold tot %[date] en is niet bijgewerkt voor de editie die geldt vanaf 1 februari 2026. Het is een goede engine; ze antwoordt alleen op een ouder reglement. De twee verschillen in ongeveer 4%% van de rondes, en dat verschil is precies de omvang van de regelwijziging."
+msgid "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4% of rounds, and that gap is the size of the rules change."
+msgstr "JaVaFo volgt C.04.3 zoals die gold tot %[date] en is niet bijgewerkt voor de editie die geldt vanaf 1 februari 2026. Het is een goede engine; ze antwoordt alleen op een ouder reglement. De twee verschillen in ongeveer 4% van de rondes, en dat verschil is precies de omvang van de regelwijziging."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:1018
 #, elixir-autogen, elixir-format
 msgid "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2017 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
-msgstr "Dat houdt u niet tegen, maar het verhoogt de inzet van de alinea hierboven: dit toernooi wordt %[rated], en de borden zijn dan gepaard volgens de editie 2017 van de regels in plaats van de geldende. Wordt een uitslag betwist, dan is dat het antwoord dat u geeft."
+msgstr "Dat houdt je niet tegen, maar het verhoogt de inzet van de alinea hierboven: dit toernooi wordt %[rated], en de borden zijn dan gepaard volgens de editie 2017 van de regels in plaats van de geldende. Wordt een uitslag betwist, dan is dat het antwoord dat je geeft."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:650
 #, elixir-autogen, elixir-format
 msgid "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2017 one it was last built for. Neither is a settled paperwork position - it is yours to make."
-msgstr "Dit toernooi is aangeduid als %[flag] (Instellingen → FIDE). Beide engines zijn toegestaan; de keuze bepaalt welke editie van de regels de borden volgen: Ainalrami paart volgens die welke geldt sinds 1 februari 2026, JaVaFo volgens die van 2017 waarvoor ze het laatst is gebouwd. Geen van beide is administratief een uitgemaakte zaak - de keuze is aan u."
+msgstr "Dit toernooi is aangeduid als %[flag] (Instellingen → FIDE). Beide engines zijn toegestaan; de keuze bepaalt welke editie van de regels de borden volgen: Ainalrami paart volgens die welke geldt sinds 1 februari 2026, JaVaFo volgens die van 2017 waarvoor ze het laatst is gebouwd. Geen van beide is administratief een uitgemaakte zaak - de keuze is aan jou."
 
 #: lib/pairings_engine_web/live/fide_live.ex:731
 #, elixir-autogen, elixir-format
 msgid "Checks GitHub for a newer OpenPairings release every few hours, and shows a banner at the top of every page when one is out. It only ever notifies - nothing is downloaded or installed automatically, because an update can change the pairing engine's version, and this decides when that happens, not a background timer."
-msgstr "Controleert elke paar uur op GitHub of er een nieuwere versie van OpenPairings is, en toont dan een banner bovenaan elke pagina. Er wordt alleen gemeld - niets wordt automatisch gedownload of geïnstalleerd, want een update kan de versie van de partij-engine wijzigen, en dat is een beslissing voor u, niet voor een achtergrondtimer."
+msgstr "Controleert elke paar uur op GitHub of er een nieuwere versie van OpenPairings is, en toont dan een banner bovenaan elke pagina. Er wordt alleen gemeld - niets wordt automatisch gedownload of geïnstalleerd, want een update kan de versie van de partij-engine wijzigen, en dat is een beslissing voor jou, niet voor een achtergrondtimer."
 
 #: lib/pairings_engine_web/live/fide_live.ex:739
 #, elixir-autogen, elixir-format
@@ -7227,17 +7227,17 @@ msgstr "In %{names} is een ronde ingedeeld maar nog niet afgerond - installeer b
 #: lib/pairings_engine_web/components/layouts.ex:449
 #, elixir-autogen, elixir-format
 msgid "Download the new installer and run it - your tournaments are kept separately and carry over."
-msgstr "Download het nieuwe installatieprogramma en voer het uit - uw toernooien worden apart bewaard en blijven behouden."
+msgstr "Download het nieuwe installatieprogramma en voer het uit - je toernooien worden apart bewaard en blijven behouden."
 
 #: lib/pairings_engine_web/components/layouts.ex:460
 #, elixir-autogen, elixir-format
 msgid "Download the new version and use it in place of this one - your tournaments are kept separately and carry over."
-msgstr "Download de nieuwe versie en gebruik die in plaats van deze - uw toernooien worden apart bewaard en blijven behouden."
+msgstr "Download de nieuwe versie en gebruik die in plaats van deze - je toernooien worden apart bewaard en blijven behouden."
 
 #: lib/pairings_engine_web/components/layouts.ex:445
 #, elixir-autogen, elixir-format
 msgid "Click \"Install and restart\" below - your tournaments are kept separately and carry over."
-msgstr "Klik hieronder op \"Installeren en herstarten\" - uw toernooien worden apart bewaard en blijven behouden."
+msgstr "Klik hieronder op \"Installeren en herstarten\" - je toernooien worden apart bewaard en blijven behouden."
 
 #: lib/pairings_engine_web/components/layouts.ex:486
 #, elixir-autogen, elixir-format
