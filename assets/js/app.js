@@ -26,14 +26,23 @@ import {hooks as colocatedHooks} from "phoenix-colocated/pairings_engine"
 import topbar from "../vendor/topbar"
 
 // Persists the player-grid column selection (the "Display" panel) in localStorage.
+//
+// Both calls are guarded the same way the theme bootstrap and the version
+// toast (below) already are: localStorage.getItem/setItem THROW rather than
+// returning null when a browser blocks or partitions storage (Safari's
+// default for a cross-origin frame, or any browser with site data disabled).
+// Unguarded, that throw would happen inside `mounted()` and take the whole
+// hook down with it - on the Players grid and the Standings page, whichever
+// mounts this - rather than just silently skipping the remembered columns.
 const ColumnPrefs = {
   mounted() {
-    const stored = localStorage.getItem("pairingsengine.playerColumns")
+    let stored = null
+    try { stored = localStorage.getItem("pairingsengine.playerColumns") } catch (_) {}
     if (stored) {
       try { this.pushEvent("columns_loaded", {columns: JSON.parse(stored)}) } catch {}
     }
     this.handleEvent("store_columns", ({columns}) => {
-      localStorage.setItem("pairingsengine.playerColumns", JSON.stringify(columns))
+      try { localStorage.setItem("pairingsengine.playerColumns", JSON.stringify(columns)) } catch (_) {}
     })
   },
 }

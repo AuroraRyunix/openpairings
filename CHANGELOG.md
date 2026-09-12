@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Remembered column choices on the Players grid and the Standings
+  page could silently fail to load or save, in a way that could also break
+  the rest of the hook.** `ColumnPrefs` (`assets/js/app.js`) read and wrote
+  `localStorage` directly; every other localStorage access in the app (the
+  theme bootstrap, the version toast) already wraps it in try/catch because
+  `getItem`/`setItem` throw, not return null, when a browser blocks or
+  partitions storage - a private window in older Safari, an embedded frame,
+  or site data disabled outright. `ColumnPrefs` is the one spot that was not
+  guarded; both calls now are.
 - [Fix] **A first-boot migration could still crash the app on the slowest CI
   runner, even after the earlier "two connections race for the WAL lock"
   fix.** That fix (`pool_size: 1` for the throwaway migration connection)
