@@ -3102,9 +3102,14 @@ defmodule PairingsEngine.Tournaments do
 
   defp validate_standings_publishable_round(%Tournament{} = tournament, %Round{} = round) do
     cond do
-      not round_published?(tournament, round) -> {:error, :pairings_not_public}
-      not PairingsEngine.Pairing.round_complete?(tournament.id, round.number) -> {:error, :round_not_complete}
-      true -> :ok
+      not round_published?(tournament, round) ->
+        {:error, :pairings_not_public}
+
+      not PairingsEngine.Pairing.round_complete?(tournament.id, round.number) ->
+        {:error, :round_not_complete}
+
+      true ->
+        :ok
     end
   end
 
@@ -3169,7 +3174,8 @@ defmodule PairingsEngine.Tournaments do
   def unpublish_standings_through(%Tournament{} = tournament, round_number)
       when is_integer(round_number) and round_number >= 0 do
     with :ok <- ensure_writable(tournament) do
-      tournament = put_standings_through(tournament, if(round_number == 0, do: nil, else: round_number - 1))
+      tournament =
+        put_standings_through(tournament, if(round_number == 0, do: nil, else: round_number - 1))
 
       tournament.id
       |> list_rounds()
@@ -3246,6 +3252,38 @@ defmodule PairingsEngine.Tournaments do
     cap = standings_through_round(tournament)
 
     candidate |> max(0) |> min(cap)
+  end
+
+  @doc """
+  Whether standings after `round_number` are ACTUALLY public right now -
+  what the "Standings after round N" control's green/red state reflects.
+
+  Not simply `effective_standings_through/1` >= `round_number`: that
+  function floors at `0` (a JSON-contract requirement - see its own doc),
+  so comparing against round 0 would always read "public" even while the
+  roster is genuinely withheld. Round 0 asks the real question instead -
+  the same one `PairingsEngine.Snapshot.withhold_starting_rank/3` answers:
+  is the roster withheld, i.e. `standings_through` nil AND no round
+  published at all. Every other round number is unaffected by the floor
+  (comparing `>= 1` or higher can never be satisfied by a value pinned at
+  `0`), so it reduces to the ordinary `effective_standings_through/1`
+  comparison.
+  """
+  @spec standings_public?(Tournament.t(), non_neg_integer()) :: boolean()
+  def standings_public?(%Tournament{standings_through: nil} = tournament, 0) do
+    any_round_published?(tournament)
+  end
+
+  def standings_public?(%Tournament{}, 0), do: true
+
+  def standings_public?(%Tournament{} = tournament, round_number) do
+    effective_standings_through(tournament) >= round_number
+  end
+
+  defp any_round_published?(%Tournament{} = tournament) do
+    tournament.id
+    |> list_rounds()
+    |> Enum.any?(&round_published?(tournament, &1))
   end
 
   @doc """

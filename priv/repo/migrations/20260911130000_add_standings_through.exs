@@ -93,28 +93,30 @@ defmodule PairingsEngine.Repo.Migrations.AddStandingsThrough do
 
     tournaments =
       repo.all(
-        from t in "tournaments",
+        from(t in "tournaments",
           select: %{
             id: t.id,
             publish_mode: type(t.publish_mode, :string),
             publish_starting_rank: type(t.publish_starting_rank, :boolean)
           }
+        )
       )
 
     rounds_by_tournament =
       repo.all(
-        from r in "rounds",
+        from(r in "rounds",
           select: %{
             id: r.id,
             tournament_id: r.tournament_id,
             number: r.number,
             published_at: type(r.published_at, :utc_datetime)
           }
+        )
       )
       |> Enum.group_by(& &1.tournament_id)
 
     incomplete_round_ids =
-      repo.all(from p in "pairings", where: p.result == "", distinct: true, select: p.round_id)
+      repo.all(from(p in "pairings", where: p.result == "", distinct: true, select: p.round_id))
       |> MapSet.new()
 
     Enum.each(tournaments, fn t ->

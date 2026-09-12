@@ -1828,7 +1828,9 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       round = Tournaments.get_round(tournament.id, 2)
       assert round.published_at
 
-      assert [log] = Audit.list_for_tournament(tournament.id, action: "pairing.pairings_published")
+      assert [log] =
+               Audit.list_for_tournament(tournament.id, action: "pairing.pairings_published")
+
       assert log.details["through_round"] == 2
 
       # And the standings toggle is now enabled - round 2 is complete AND

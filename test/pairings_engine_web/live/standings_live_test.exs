@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Publishing, Repo, Tournaments}
+  alias PairingsEngine.{Audit, Publishing, Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
   setup :register_and_log_in_user
@@ -536,8 +536,8 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     end
   end
 
-  describe "the 'before round 1' button beside Public page" do
-    # The button only exists while there IS a public page to change.
+  describe "the 'Standings after round K' control beside Public page" do
+    # The control only exists while there IS a public page to change.
     defp public_tournament(scope, name) do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => name, "type" => "swiss"})
@@ -547,30 +547,31 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       tournament
     end
 
-    test "shown beside Public page before any round is paired, on by default", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "shows 'Standings after round 0' beside Public page before any round has results, public by default",
+         %{conn: conn, scope: scope} do
       tournament = public_tournament(scope, "Starting Rank")
-      assert tournament.publish_starting_rank
+      assert tournament.standings_through == 0
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
       assert html =~ "Public page"
-      assert html =~ ~s(phx-click="toggle_publish_starting_rank")
-      assert html =~ "Before round 1: public"
+      assert has_element?(lv, "#standings-toggle-0.is-public")
+      assert html =~ "Standings after round 0"
     end
 
     test "not shown for a tournament that does not publish", %{conn: conn, scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => "Private", "type" => "swiss"})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      refute html =~ "toggle_publish_starting_rank"
+      refute has_element?(lv, "#standings-toggle-0")
     end
 
-    test "gone once round 1 has been paired, whatever the value", %{conn: conn, scope: scope} do
+    test "still targets round 0 while round 1 is paired but not yet complete", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = public_tournament(scope, "Already Paired")
 
       a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
@@ -585,41 +586,113 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
         result: ""
       })
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
       assert html =~ "Public page"
-      refute html =~ "toggle_publish_starting_rank"
+      # Round 1 isn't complete yet (no result), so the latest COMPLETE round
+      # is still 0 - unlike the old flag, which vanished the instant a round
+      # was merely paired, this control stays and keeps naming round 0.
+      assert has_element?(lv, "#standings-toggle-0")
     end
 
-    test "clicking it hides the list, and that survives a fresh page load", %{
+    test "moves to round 1 once round 1 is complete and its own pairings are public", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = public_tournament(scope, "Round One Complete")
+
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob"})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      round =
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: 1,
+          status: "finished",
+          published_at: now
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ "Standings after round 1"
+      refute has_element?(lv, "#standings-toggle-1[disabled]")
+    end
+
+    test "publishing the entry list persists, survives a reload, and is audited", %{
       conn: conn,
       scope: scope
     } do
       tournament = public_tournament(scope, "Toggle Persists")
+      {:ok, tournament} = Tournaments.unpublish_standings_through(tournament, 0)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      assert has_element?(lv, "#standings-toggle-0:not(.is-public)")
 
-      html = lv |> element("button", "Before round 1: public") |> render_click()
+      html = lv |> element("#standings-toggle-0") |> render_click()
 
-      assert html =~ "Before round 1: hidden"
-      refute Tournaments.get_authorized_tournament!(scope, tournament.id).publish_starting_rank
+      assert html =~ ~s(id="standings-toggle-0" role="switch" aria-checked="true")
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).standings_through == 0
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "standings.published")
+      assert log.details["through_round"] == 0
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
-      assert html =~ "Before round 1: hidden"
+      assert html =~ ~s(id="standings-toggle-0" role="switch" aria-checked="true")
     end
 
-    test "clicking it again makes the list public again", %{conn: conn, scope: scope} do
+    test "unpublishing the entry list persists, survives a reload, and is audited", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = public_tournament(scope, "Toggle Back")
+      assert tournament.standings_through == 0
 
-      {:ok, off} = Tournaments.update_tournament(tournament, %{"publish_starting_rank" => false})
-      refute off.publish_starting_rank
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      assert has_element?(lv, "#standings-toggle-0.is-public")
+
+      html = lv |> element("#standings-toggle-0") |> render_click()
+
+      assert html =~ ~s(id="standings-toggle-0" role="switch" aria-checked="false")
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).standings_through == nil
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "standings.unpublished")
+      assert log.details["from_round"] == 0
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      assert html =~ ~s(id="standings-toggle-0" role="switch" aria-checked="false")
+    end
+
+    test "the unpublish confirm names the entry list, not a round number", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = public_tournament(scope, "Confirm Text")
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      html = lv |> element("button", "Before round 1: hidden") |> render_click()
+      html = render(lv)
+      assert html =~ "Hide the entry list from the public page again?"
+    end
 
-      assert html =~ "Before round 1: public"
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_starting_rank
+    test "immediate mode shows the control locked and public", %{conn: conn, scope: scope} do
+      tournament = public_tournament(scope, "Immediate Mode")
+      {:ok, _tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert has_element?(lv, "#standings-toggle-0.is-locked[disabled]")
+      assert html =~ "Change that in Settings"
+      refute has_element?(lv, "[phx-click='publish_standings']")
+      refute has_element?(lv, "[phx-click='unpublish_standings']")
     end
   end
 end

@@ -27,9 +27,36 @@ Each entry is tagged so a version can be skimmed:
   until then there was nobody it could show, whatever the "before round 1"
   setting said. The field is now numbered provisionally, in the order pairing
   round 1 will number it, so the numbers normally stay the same afterwards.
-- [Change] **"Before round 1: public" is a small button beside Public page**
-  instead of a panel above the standings, and only appears while the
-  tournament is being published and round 1 has not been paired yet.
+- [Feature] **Pairings and standings now publish on two independent,
+  cumulative tracks, each with its own green/red toggle.** The Pairings page
+  shows "Pairings round N" and "Standings after round N" for the round being
+  viewed (in both the page header and the round's right-click menu); the
+  Standings page shows "Standings after round K" beside Public page, for the
+  latest complete round K (K = 0 is the entry list, before round 1 has
+  results). Green means public - click to unpublish, with a confirmation
+  naming what else that hides; red means not yet public - click to publish,
+  disabled with a reason when the round isn't ready (not yet paired, not yet
+  complete, or its own pairings aren't public yet). In "immediate" publish
+  mode both controls are shown locked (green, permanently on), since every
+  round - and the standings behind it - is already public the instant it's
+  paired.
+- [Change] **Publishing a round's pairings can now put its own before-it
+  standings out ahead of any explicit click.** A pairing sheet for round N
+  shows every player's score BEFORE round N, so publishing round N always
+  means standings through at least round N-1 are already public, whether or
+  not anyone published them on purpose - no separate step, and no background
+  job, for a "timed" or "scheduled" round crossing its own publish instant
+  either. Unpublishing either pairings or standings cascades the other way:
+  taking a round's pairings back down also pulls public standings back to
+  before it, and pulling standings back also hides any later round whose
+  sheet would otherwise disclose them right back.
+- [Change] **The "Before round 1: public" flag is gone, replaced by the
+  "Standings after round K" control's round 0.** It was a single before/after
+  on-off switch that vanished the moment round 1 was paired at all - the new
+  control instead tracks whichever round is actually the latest complete
+  one, works the same way before and after round 1, and every existing
+  tournament keeps showing the public exactly what it showed before this
+  shipped.
 
 ## [0.59.0] - 2026-09-11
 

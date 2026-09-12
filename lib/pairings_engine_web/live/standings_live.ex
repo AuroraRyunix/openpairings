@@ -248,7 +248,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     />
 
     <%= if @tournament.publish_mode != "immediate" do %>
-      <% public? = Tournaments.effective_standings_through(@tournament) >= @round_number %>
+      <% public? = Tournaments.standings_public?(@tournament, @round_number) %>
       <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round_number, @round) %>
       <.publish_toggle
         id={"standings-toggle-#{@round_number}"}
@@ -401,7 +401,9 @@ defmodule PairingsEngineWeb.StandingsLive do
       # instead of one per render, and one fewer place for two reads of the
       # same round in the same pass to ever disagree.
       latest_complete_round_struct:
-        if(latest_complete_round > 0, do: Tournaments.get_round(tournament.id, latest_complete_round)),
+        if(latest_complete_round > 0,
+          do: Tournaments.get_round(tournament.id, latest_complete_round)
+        ),
       manual_stale?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
       manual_incomplete?:

@@ -1402,7 +1402,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     />
 
     <%= if @tournament.publish_mode != "immediate" do %>
-      <% standings_public? = Tournaments.effective_standings_through(@tournament) >= @round.number %>
+      <% standings_public? = Tournaments.standings_public?(@tournament, @round.number) %>
       <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round.number, @round) %>
       <.publish_toggle
         id={"#{@id_prefix}standings-toggle-#{@round.number}"}
