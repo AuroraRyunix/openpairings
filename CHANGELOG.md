@@ -14,6 +14,18 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Fix] **The category selector on the standings page did nothing, and so
+  did the arbiter picker on the norms page.** Both were a drop-down that
+  announced its own changes, which a browser never sends: the change has to
+  be announced by the form around it. Every test passed because a test
+  raises the event directly on the drop-down. There is now a check that
+  fails the build if any drop-down is wired that way again.
+- [Change] **"Standings after round 0" is now called "Initial standings".**
+  The control publishes the field as entered, before a game has been played,
+  and naming that "after round 0" read like a bug report.
+
 ## [0.60.0] - 2026-09-12
 
 - [Change] **The installer file names now carry the version.** A download

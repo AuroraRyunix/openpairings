@@ -237,7 +237,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     <.publish_toggle
       :if={@tournament.publish_mode == "immediate"}
       id={"standings-toggle-#{@round_number}"}
-      label={gettext("Standings after round %{n}", n: @round_number)}
+      label={standings_control_label(@round_number)}
       state={:public}
       locked
       reason={
@@ -252,7 +252,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round_number, @round) %>
       <.publish_toggle
         id={"standings-toggle-#{@round_number}"}
-        label={gettext("Standings after round %{n}", n: @round_number)}
+        label={standings_control_label(@round_number)}
         state={if public?, do: :public, else: :not_public}
         disabled={not public? and not is_nil(blocked)}
         reason={standings_reason_text(blocked, @round_number)}
@@ -264,13 +264,23 @@ defmodule PairingsEngineWeb.StandingsLive do
     """
   end
 
+  # Round 0 is the field as entered, before a single game has been played.
+  # "Standings after round 0" is literally what it is and reads like a bug
+  # report; the maintainer named it "Initial standings" (2026-09-12). Every
+  # other round keeps the plain "after round N", which is what an arbiter
+  # would say out loud.
+  defp standings_control_label(0), do: gettext("Initial standings")
+
+  defp standings_control_label(round_number),
+    do: gettext("Standings after round %{n}", n: round_number)
+
   # Same rule 3 confirm text as `PairingsEngineWeb.PairingsLive` - which
   # published rounds would go dark as a side effect of pulling standings
   # back (`Tournaments.unpublish_standings_through/2`'s own doc).
   defp confirm_unpublish_standings(tournament, round_number) do
     base =
       if round_number == 0 do
-        gettext("Hide the entry list from the public page again?")
+        gettext("Hide the initial standings from the public page again?")
       else
         gettext(
           "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
@@ -632,15 +642,31 @@ defmodule PairingsEngineWeb.StandingsLive do
             ...)`'s `push_patch`), so it survives a reload and can be
             linked/bookmarked. --%>
       <div :if={@tournament.categories != []} class="card" style="margin-bottom: 12px">
-        <label style="display: flex; align-items: center; gap: 10px">
-          <span class="set-label" style="margin: 0">{gettext("Category")}</span>
-          <select name="category" phx-change="category_change">
-            <option value="" selected={is_nil(@selected_category)}>{gettext("All players")}</option>
-            <option :for={c <- @tournament.categories} value={c} selected={@selected_category == c}>
-              {c}
-            </option>
-          </select>
-        </label>
+        <%!-- The `phx-change` belongs on the FORM, not on the `<select>`:
+              LiveView serialises a change from the closest enclosing form, so
+              a bare select with `phx-change` on it never fires in a browser at
+              all. It passed every test here because `render_change/2` raises
+              the event directly on the element, which is exactly the gap that
+              let this ship (reported 2026-09-12: "changing doesn't do
+              anything"). `display: contents` keeps the layout the label had.
+              Same fix, same reason, in `PairingsEngineWeb.NormsLive`. --%>
+        <form id="category-filter" phx-change="category_change" style="display: contents">
+          <label style="display: flex; align-items: center; gap: 10px">
+            <span class="set-label" style="margin: 0">{gettext("Category")}</span>
+            <select name="category">
+              <option value="" selected={is_nil(@selected_category)}>
+                {gettext("All players")}
+              </option>
+              <option
+                :for={c <- @tournament.categories}
+                value={c}
+                selected={@selected_category == c}
+              >
+                {c}
+              </option>
+            </select>
+          </label>
+        </form>
       </div>
 
       <div :if={!@keizer?} class="card manual-ranking-card" style="margin-bottom: 12px">
