@@ -70,6 +70,26 @@ Each entry is tagged so a version can be skimmed:
   reason. The real value `Snapshot.build/1` sends in production is
   unaffected, and the envelope test's `is_binary/1` assertion does not care
   what a placeholder says.
+- [Fix] **A FIDE sync no longer holds the database's one write lock for
+  several seconds.** `do_import_list/4`'s replace of the ~1.9M-row rating
+  list already committed in chunks, but the search index
+  (`fide_players_fts`) was rebuilt with two single, unchunked statements -
+  `DELETE FROM fide_players_fts` and the `INSERT ... SELECT` that refilled
+  it - measured at 9.3s and 11.5s against a synthetic 1.9M-row table, ~21s
+  combined, because FTS5 has no fast "drop everything" path the plain
+  table's own `DELETE` does. That was the actual multi-second stall a sync
+  confirmation on this page existed to warn an arbiter about. It now builds
+  a fresh index in the same 2000-row chunks as the player rows themselves,
+  while the live index keeps answering searches unchanged throughout, and
+  swaps the new one in with an atomic rename once it's complete - measured
+  locally at the same 1.9M-row scale, every chunk stayed under 100ms, the
+  rename swap itself took 13ms, and the longest single lock left anywhere
+  in a FIDE sync is now the same sub-250ms `DELETE FROM fide_players` that
+  was already there. A run killed mid-build or mid-cleanup leaves at most an
+  inert leftover table, cleaned up by the next sync - never a broken or
+  half-built search index. With the real stall gone, neither the FIDE sync
+  nor the KBSB one (already sub-second) asks for confirmation before
+  starting any more.
 
 ## [0.60.0] - 2026-09-12
 

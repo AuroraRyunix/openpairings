@@ -4,12 +4,15 @@ defmodule PairingsEngine.SyncYieldsToRoundTest do
   tournaments that are paired but not yet fully scored.
 
   Once also read by `PairingsEngineWeb.FideLive` before a rating-list sync -
-  that use was removed (see
-  `PairingsEngine.Tournaments.recently_scored_tournament_names/1` and
-  `test/pairings_engine_web/live/fide_live_test.exs`'s "a sync while a round
-  is being played" describe block) because "paired, not yet fully scored" is
+  that use was removed in favour of a narrower "was a result entered in the
+  last couple of minutes" check (a former `recently_scored_tournament_names/1`
+  on `PairingsEngine.Tournaments`), because "paired, not yet fully scored" is
   true for most of a season on a club installation, which made that
-  confirmation fire on nearly every press.
+  confirmation fire on nearly every press. That narrower check was in turn
+  removed entirely once the FIDE sync's own write lock dropped to sub-second
+  (see `PairingsEngine.Fide.Sync.do_import_list/4` and
+  `PairingsEngineWeb.FideLive.start_fide_sync/1`) - there is no sync
+  confirmation left for either function to feed.
 
   Its one remaining caller is `PairingsEngine.Updates.notice_for_render/0`:
   installing an update restarts the whole app, which is disruptive to a

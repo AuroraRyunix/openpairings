@@ -4067,12 +4067,15 @@ defmodule PairingsEngine.Tournaments do
   when its last result was entered, so "paired and not yet fully scored" is
   the right, broad question there.
 
-  It is deliberately NOT what `PairingsEngineWeb.FideLive` asks before a
-  rating-list sync any more - see
-  `PairingsEngine.Tournaments.recently_scored_tournament_names/1` for that
-  narrower question and why this one used to answer it badly (a club
-  installation has a "running" tournament for most of its season, which
-  made a sync's confirmation fire on nearly every press).
+  `PairingsEngineWeb.FideLive` used to ask a narrower version of this before
+  a rating-list sync too - "was a result entered somewhere in the last
+  couple of minutes" (a former `recently_scored_tournament_names/1` here) -
+  because a FIDE sync's write lock was once a real multi-second hold. It no
+  longer is (`PairingsEngine.Fide.Sync.do_import_list/4` now swaps the FTS
+  index in with an atomic rename instead of rebuilding it in place; measured
+  locally the longest single lock left is under 250ms), so neither sync
+  asks anything before it starts - see `PairingsEngineWeb.FideLive.
+  start_fide_sync/1` for the measurement this rests on.
   """
   def running_tournament_names do
     Repo.all(
@@ -4081,42 +4084,6 @@ defmodule PairingsEngine.Tournaments do
         order_by: t.name,
         select: t.name
     )
-  end
-
-  # The three audit actions that mean "a human just touched a scoreboard" -
-  # the same three `PairingsEngineWeb.PairingsLive` and
-  # `PairingsEngineWeb.MobileResultsLive` already write on every result write.
-  # Reading them here means `recently_scored_tournament_names/1` shares its
-  # definition of "a result happened" with the audit trail rather than
-  # keeping a second one that could drift from it.
-  @scoring_actions ~w(pairing.result_entered pairing.result_changed pairing.result_cleared)
-
-  @doc """
-  Names the tournaments where a result was entered, changed or cleared in
-  the last `within_seconds` (default 120) - "someone is actually at the
-  board right now", not `running_tournament_names/0`'s much broader "this
-  tournament has an unfinished round somewhere", which is true for nearly
-  every tournament for nearly all of a season and is therefore useless as a
-  sync's confirmation trigger (see that function's moduledoc, and
-  `PairingsEngineWeb.FideLive.sync_warning/1`, which is the one caller of
-  this).
-
-  Distinct tournament names, sorted, same as `running_tournament_names/0` -
-  a flash message reads better sorted than insertion-ordered, and a machine
-  with several events running at once can have more than one true here.
-  """
-  def recently_scored_tournament_names(within_seconds \\ 120) do
-    cutoff = DateTime.utc_now() |> DateTime.add(-within_seconds, :second)
-
-    Repo.all(
-      from a in Audit.AuditLog,
-        join: t in Tournament,
-        on: t.id == a.tournament_id,
-        where: a.action in ^@scoring_actions and a.inserted_at >= ^cutoff,
-        order_by: t.name,
-        select: t.name
-    )
-    |> Enum.uniq()
   end
 
   defp derive_status(%Tournament{} = tournament) do

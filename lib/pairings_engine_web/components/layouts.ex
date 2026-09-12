@@ -492,9 +492,10 @@ defmodule PairingsEngineWeb.Layouts do
     end
   end
 
-  # Same truncate-to-three-plus-a-count shape as `PairingsEngineWeb.FideLive`'s
-  # `sync_warning/1`, for the same reason: a banner naming every tournament on
-  # a busy installation is a banner nobody reads to the end.
+  # Truncate-to-three-plus-a-count, same reason a sync confirmation in
+  # `PairingsEngineWeb.FideLive` once did this too (since removed - see that
+  # module's `start_fide_sync/1`): a banner naming every tournament on a
+  # busy installation is a banner nobody reads to the end.
   defp update_notice_running_warning(names) do
     shown = Enum.take(names, 3)
     extra = length(names) - length(shown)

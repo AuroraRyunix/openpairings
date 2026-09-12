@@ -16,6 +16,15 @@ defmodule PairingsEngine.Fide.Sync do
   statement in `do_import_list/4` now commits on its own instead, so the
   lock is free again between one insert chunk and the next. See that
   function for what that trade costs and why it is accepted.
+
+  The search index (`fide_players_fts`) used to be cleared and rebuilt in
+  place with two single, unchunked statements - together a multi-second
+  hold of that same one-writer-at-a-time lock, and the one place a
+  concurrent search could see the index itself empty or half-built rather
+  than merely stale. `do_import_list/4` now builds the new index as a
+  separate table, chunked the same way the row replace already was, and
+  swaps it in with an atomic rename once it's complete - see that
+  function's comments for the measurements behind it.
   """
 
   use GenServer
@@ -125,6 +134,17 @@ defmodule PairingsEngine.Fide.Sync do
   }
 
   @numeric ~w(fide_id standard_rating rapid_rating blitz_rating birth_year)a
+
+  # See `do_import_list/4`: the live search index, the scratch copy built
+  # beside it, and the old copy waiting to be dropped once the scratch one
+  # has been swapped into `@fts_table`'s place.
+  @fts_table "fide_players_fts"
+  @fts_scratch_table "fide_players_fts_new"
+  @fts_retired_table "fide_players_fts_old"
+
+  # Row-chunk size for both `fide_players` and the FTS scratch table built
+  # beside it in `do_import_list/4` - one constant so the two stay in step.
+  @import_chunk_size 2000
 
   defstruct status: :idle,
             progress: "",
@@ -536,7 +556,47 @@ defmodule PairingsEngine.Fide.Sync do
   # explicit BEGIN) rather than the whole thing riding one transaction, so
   # the write lock is free again between an insert chunk and the next - see
   # the moduledoc for why that matters.
+  #
+  # The FTS index used to be rebuilt in place: one `DELETE FROM
+  # fide_players_fts` (no fast "drop everything" path for FTS5 - measured
+  # 9.3s against a synthetic 1.9M-row table), then one `INSERT ... SELECT`
+  # to refill it (measured 11.5s) - two single statements, each holding
+  # SQLite's one database-wide write lock for several seconds apiece no
+  # matter how finely everything else here was chunked, and the one place a
+  # concurrent search could see the index itself empty or half-built rather
+  # than merely stale (`fide_players` accepts a "sees a partly reloaded
+  # table" trade-off below; a search box going blank for several seconds is
+  # a worse failure than a slow one). That ~21s combined is what a sync
+  # confirmation in `PairingsEngineWeb.FideLive` used to warn about, before
+  # this change removed the need for it - see that module's
+  # `start_fide_sync/1` for the measurement behind removing it.
+  #
+  # Now a fresh `fide_players_fts_new` table is built - in the same 2000-row
+  # chunks as `fide_players` itself - while the LIVE `fide_players_fts` is
+  # untouched and keeps answering searches with the old (but complete and
+  # correct) list. Only once the new table is fully built does an atomic
+  # `ALTER TABLE ... RENAME` swap - one transaction, two statements - make
+  # it live; the now-orphaned old table is dropped right after, which is
+  # cleanup rather than something correctness depends on. Measured locally
+  # (2026-09-12) against the same synthetic 1.9M-row
+  # table: every chunk of the new build stayed under 100ms, the swap itself
+  # took 13ms, and the drop of the orphaned table took 134ms. The longest
+  # single lock left anywhere in this function is the plain `DELETE FROM
+  # fide_players` a few lines down, which was already there and already
+  # accepted.
   defp do_import_list(server, rows, state, total) do
+    # A run killed between building `fide_players_fts_new` and the rename
+    # swap below (`cancel_sync`, or the watchdog) leaves that scratch table
+    # behind - half-built and never made live, so harmless on its own
+    # (nothing ever queries it by name) - but the NEXT sync must not try to
+    # `CREATE` over it. A run killed right after a PREVIOUS sync's swap but
+    # before that sync's own cleanup leaves `fide_players_fts_old` behind
+    # the same way. Both are dropped unconditionally before anything else
+    # starts, so an interrupted run never accumulates leftovers across
+    # retries and the search index itself is never the thing left broken.
+    Repo.query!("DROP TABLE IF EXISTS #{@fts_scratch_table}")
+    Repo.query!("DROP TABLE IF EXISTS #{@fts_retired_table}")
+
     # The `fide_players_fts` triggers are per-row, and the delete/update
     # ones look the doomed row up with `WHERE fide_id = ?` on a column the
     # FTS5 table declares UNINDEXED - so each firing scans the whole index.
@@ -568,41 +628,48 @@ defmodule PairingsEngine.Fide.Sync do
     # Full replace: the monthly list is authoritative (players do get
     # removed). Deleting first and inserting after means a lookup landing
     # between the DELETE below and the last insert chunk sees a table that
-    # is empty or only partly reloaded - the mirror image of the trigger
-    # trade-off above, and accepted for the same reason: the guard already
-    # ran, so what follows is known-good data going in, and a shrunken read
-    # is a far smaller failure than every write in the app queuing behind a
-    # multi-minute transaction. SQLite still guarantees each statement below
-    # is atomic to any other connection, so what a reader sees mid-import is
-    # always a real, fully-committed count - never a torn row.
+    # is empty or only partly reloaded - accepted, because the guard in
+    # `import_list/3` already ran, so what follows is known-good data going
+    # in, and a shrunken read is a far smaller failure than every write in
+    # the app queuing behind a multi-minute transaction. SQLite still
+    # guarantees each statement below is atomic to any other connection, so
+    # what a reader sees mid-import is always a real, fully-committed count
+    # - never a torn row.
     #
     # Measured locally (2026-09-12) on a synthetic 1.9M-row table, the real
     # list's rough size: this DELETE (which SQLite can satisfy with its
     # "drop every page" fast path, since it has no WHERE clause) took
-    # 180ms. The FTS delete right after it is NOT this cheap - see its own
-    # comment below - which is why `PairingsEngineWeb.FideLive.sync_warning/1`
-    # exists at all despite the chunked inserts making everything else here
-    # sub-10ms.
+    # 195-215ms.
     Repo.query!("DELETE FROM fide_players")
 
-    # Unlike the plain table above, FTS5 has no fast "drop everything" path -
-    # clearing it means walking its internal index structures row by row.
-    # Measured locally (2026-09-12) at the same 1.9M-row scale: 9.3s. That is
-    # the real reason a FIDE sync's write-lock exposure is seconds, not
-    # milliseconds, despite every other statement in this function being
-    # chunked - see `PairingsEngineWeb.FideLive.start_fide_sync/1`'s comment
-    # for what this measurement is actually used to decide.
-    Repo.query!("DELETE FROM fide_players_fts")
+    # See this function's own comment above: everything from here to the
+    # rename swap below builds `fide_players_fts_new` from nothing, and
+    # `fide_players_fts` - the table search actually reads - is not touched
+    # until that swap. Same schema as the migration that created the live
+    # table, byte for byte.
+    Repo.query!("""
+    CREATE VIRTUAL TABLE #{@fts_scratch_table} USING fts5(
+      fide_id UNINDEXED,
+      name,
+      tokenize = 'unicode61 remove_diacritics 2'
+    )
+    """)
 
     imported =
       rows
-      |> Stream.chunk_every(2000)
+      |> Stream.chunk_every(@import_chunk_size)
       |> Stream.with_index(1)
       |> Enum.reduce(0, fn {chunk, i}, acc ->
         Repo.insert_all(FidePlayer, chunk,
           on_conflict: :replace_all,
           conflict_target: :fide_id
         )
+
+        # Built alongside `fide_players`, chunk for chunk, rather than one
+        # `INSERT ... SELECT` after the fact once every row is in - that
+        # one statement is exactly what used to cost 11.5s. See the measured
+        # per-chunk cost (under 100ms) in the comment above this function.
+        insert_fts_chunk(chunk)
 
         # Real running total (not an i * 2000 approximation, which
         # overcounts on a partial final chunk).
@@ -625,18 +692,44 @@ defmodule PairingsEngine.Fide.Sync do
         progress: "Rebuilding the name index…"
     })
 
-    # The other half of the "seconds, not milliseconds" lock exposure -
-    # measured locally (2026-09-12) at 11.5s for the same 1.9M-row table.
-    # One statement, so one uninterrupted hold of the write lock; see
-    # `PairingsEngineWeb.FideLive.start_fide_sync/1` for what these two
-    # measurements (this and the FTS delete above) are used to decide.
-    Repo.query!(
-      "INSERT INTO fide_players_fts(fide_id, name) SELECT fide_id, name FROM fide_players"
-    )
+    # The atomic switch: `fide_players_fts` - the OLD table, fully intact and
+    # exactly what every search up to this instant has been reading - is
+    # renamed out of the way and the freshly-built scratch table renamed
+    # into its place, both inside one transaction. Any other connection
+    # therefore sees either the complete old index or the complete new one
+    # - never that name missing, and never a partially swapped one. SQLite
+    # renames a virtual table's shadow storage along with it, so this moves
+    # rather than rebuilds it. Measured locally (2026-09-12): 13ms for both
+    # statements together.
+    Repo.transaction(fn ->
+      Repo.query!("ALTER TABLE #{@fts_table} RENAME TO #{@fts_retired_table}")
+      Repo.query!("ALTER TABLE #{@fts_scratch_table} RENAME TO #{@fts_table}")
+    end)
+
+    # Cosmetic from here on: the swap above already made the new index
+    # live, so this DROP reclaims space rather than protecting correctness.
+    # Measured locally (2026-09-12): 134ms for the full 1.9M-row table. If a
+    # hard kill lands before this runs, the cleanup at the top of this
+    # function drops it on the next sync instead.
+    Repo.query!("DROP TABLE #{@fts_retired_table}")
 
     Enum.each(triggers, fn %{sql: sql} -> Repo.query!(sql) end)
 
     {:ok, %{state | imported_rows: imported}}
+  end
+
+  # One multi-row `INSERT ... VALUES (?, ?), (?, ?), ...` per chunk - the
+  # same shape `Repo.insert_all/3` above generates for `fide_players`.
+  # `fide_players_fts_new` is a scratch virtual table, not part of the
+  # persistent schema, so it has no Ecto schema module to insert through.
+  defp insert_fts_chunk(chunk) do
+    placeholders = chunk |> Enum.map(fn _row -> "(?, ?)" end) |> Enum.join(", ")
+    params = Enum.flat_map(chunk, fn row -> [row.fide_id, row.name] end)
+
+    Repo.query!(
+      "INSERT INTO #{@fts_scratch_table}(fide_id, name) VALUES " <> placeholders,
+      params
+    )
   end
 
   # The `fide_players` triggers that maintain `fide_players_fts`, read back

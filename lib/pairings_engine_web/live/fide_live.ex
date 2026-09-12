@@ -12,7 +12,6 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
   alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
   alias PairingsEngine.Federations.BEL.SwarPublish
-  alias PairingsEngine.Tournaments
   alias PairingsEngine.Publishing
   alias PairingsEngine.Updates
 
@@ -47,11 +46,6 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb?: kbsb?,
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
-       # Which sync, if either, has been warned about and is waiting for a
-       # second press. Cleared once it starts, or when the page reloads - a
-       # confirmation should not outlive the moment it was asked in.
-       confirm_sync: nil,
-       confirm_sync_names: [],
        kbsb_results: [],
        # Read once at mount: this comes from the server's environment, so it
        # cannot change while the page is open. False hides the sync button
@@ -234,42 +228,11 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_event("sync", _params, socket) do
-    cond do
-      not socket.assigns.may_admin? ->
-        {:noreply, put_flash(socket, :error, sync_restricted())}
-
-      # Warned about, not refused - see `sync_warning/1`. A second press goes
-      # ahead; `confirm_sync` is that second press.
-      (running = Tournaments.recently_scored_tournament_names()) != [] and
-          socket.assigns.confirm_sync != :fide ->
-        {:noreply,
-         socket
-         |> assign(confirm_sync: :fide, confirm_sync_names: running)
-         |> put_flash(:error, sync_warning(running))}
-
-      true ->
-        {:noreply, start_fide_sync(socket)}
-    end
-  end
-
-  def handle_event("confirm_sync", %{"which" => "fide"}, socket) do
     if socket.assigns.may_admin? do
       {:noreply, start_fide_sync(socket)}
     else
       {:noreply, put_flash(socket, :error, sync_restricted())}
     end
-  end
-
-  def handle_event("confirm_sync", %{"which" => "kbsb"}, socket) do
-    cond do
-      not socket.assigns.kbsb? -> {:noreply, put_flash(socket, :error, kbsb_off())}
-      not socket.assigns.may_admin? -> {:noreply, put_flash(socket, :error, sync_restricted())}
-      true -> {:noreply, start_kbsb_api_import(clear_confirm(socket))}
-    end
-  end
-
-  def handle_event("cancel_sync_confirm", _params, socket) do
-    {:noreply, clear_confirm(socket)}
   end
 
   @impl true
@@ -299,15 +262,8 @@ defmodule PairingsEngineWeb.FideLive do
       not socket.assigns.may_admin? ->
         {:noreply, put_flash(socket, :error, sync_restricted())}
 
-      (running = Tournaments.recently_scored_tournament_names()) != [] and
-          socket.assigns.confirm_sync != :kbsb ->
-        {:noreply,
-         socket
-         |> assign(confirm_sync: :kbsb, confirm_sync_names: running)
-         |> put_flash(:error, sync_warning(running))}
-
       true ->
-        {:noreply, start_kbsb_api_import(clear_confirm(socket))}
+        {:noreply, start_kbsb_api_import(socket)}
     end
   end
 
@@ -328,79 +284,34 @@ defmodule PairingsEngineWeb.FideLive do
     end
   end
 
-  # A warning, not a refusal - and it was a refusal for about an hour, which
-  # was wrong. It then warned on "does this tournament have an unfinished
-  # round", which was also wrong, just less loudly: a club championship runs
-  # from September to June, so that was true for most of a season on exactly
-  # the installations that have the most tournaments. The maintainer hit it
-  # with ten tournaments at once and every one of them was irrelevant to the
-  # sync he was about to run - "and 8 others have rounds in progress" trained
-  # him to click through it without reading it, which is what a warning that
-  # is always on does to a person.
+  # Neither sync asks for confirmation before it starts any more - it used
+  # to, through three iterations. First a refusal outright; then a warning
+  # whenever a tournament had an unfinished round, which was true for most
+  # of a season on exactly the installations that have the most tournaments
+  # and trained the maintainer to click through it unread; then a narrower
+  # warning that fired only when a result had been entered somewhere in the
+  # last couple of minutes, because a FIDE sync's write lock was a real,
+  # measured multi-second hold - the FTS index's `DELETE FROM
+  # fide_players_fts` and the `INSERT ... SELECT` that rebuilt it were each
+  # one unchunked statement, measured at 9.3s and 11.5s against a synthetic
+  # 1.9M-row table, against KBSB's own sub-second cost at its ~50x smaller
+  # scale (see `PairingsEngine.Federations.BEL.Sync`'s `do_import_rows/4`).
   #
-  # What actually matters is measured, not assumed. Both imports commit in
-  # chunks (2000 rows for FIDE, 500 for KBSB), so the write lock is free
-  # again between one chunk and the next - a chunk's own commit was 9.4ms
-  # for 2000 rows in a local timing run. What is NOT chunked is the FTS
-  # index: `DELETE FROM fide_players_fts` and the `INSERT ... SELECT` that
-  # rebuilds it are each one statement, and on a synthetic 1.9M-row table
-  # (the real list's rough size) those two measured 9.3s and 11.5s locally -
-  # about 21s combined, not the milliseconds the chunking alone would
-  # suggest, because FTS5 has no fast "drop everything" path the way the
-  # plain table's own `DELETE` does (that one measured 180ms for the same
-  # 1.9M rows). KBSB's roster is ~50x smaller, and its own sync already has a
-  # measured cost at that scale (see `PairingsEngine.Federations.BEL.Sync`'s
-  # `do_import_rows/4`): well under a second.
-  #
-  # So a FIDE sync can hold the write lock for a real, double-digit-second
-  # stretch - long enough that a write landing in it waits noticeably, and
-  # on a slow enough box could still hit `busy_timeout` and get the clean
-  # `PairingsEngine.BusyWrite` refusal rather than a silent success. Nothing
-  # is ever lost either way - a refused write raises before it's applied,
-  # and the remount re-reads from the database - but a click that stalls or
-  # has to be retried in the middle of a round is worth warning about.
-  # "This tournament has an unfinished round" was simply the wrong test for
-  # that: nearly always true, and no better than chance at guessing whether
-  # anyone is actually at a board that second. "A result was entered here in
-  # the last couple of minutes" (`Tournaments.recently_scored_tournament_names/1`)
-  # is: false almost all the time, on installations with ten tournaments and
-  # on installations with one, and true only in the narrow window where the
-  # risk this exists to flag is real. Applied to both syncs identically, even
-  # though KBSB's own lock is cheap enough that it would pass unwarned on its
-  # own merits - one rule is easier to trust than two.
+  # `PairingsEngine.Fide.Sync.do_import_list/4` no longer rebuilds that index
+  # in place - it builds a fresh copy in the same 2000-row chunks as the
+  # player rows themselves and swaps it in with an atomic rename. Measured
+  # locally (2026-09-12) against the same synthetic 1.9M-row table, the
+  # longest single lock left anywhere in a FIDE sync is under 250ms - the
+  # same "plain DELETE on `fide_players`" cost that was already there and
+  # already accepted, not the FTS work. That's the same order of magnitude
+  # as KBSB's own sync, which never needed a warning at its scale. There is
+  # no longer a real stall to ask permission for, on either sync, so neither
+  # does any more - one rule (never ask) is as easy to trust as the two-tier
+  # one used to be, and easier than three.
   defp start_fide_sync(socket) do
     FideSync.start_sync()
     Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
-
-    socket
-    |> clear_confirm()
-    |> assign(status: FideSync.status())
-  end
-
-  defp clear_confirm(socket),
-    do: assign(socket, confirm_sync: nil, confirm_sync_names: [])
-
-  defp sync_warning(names) do
-    shown = Enum.take(names, 3)
-    extra = length(names) - length(shown)
-
-    listed =
-      if extra > 0 do
-        ngettext(
-          "%{names} and %{count} other",
-          "%{names} and %{count} others",
-          extra,
-          names: Enum.join(shown, ", "),
-          count: extra
-        )
-      else
-        Enum.join(shown, ", ")
-      end
-
-    gettext(
-      "%{names} just had a result entered. A sync can lock the database for several seconds, so the next one could be delayed. Press again to sync anyway.",
-      names: listed
-    )
+    assign(socket, status: FideSync.status())
   end
 
   defp start_kbsb_api_import(socket) do

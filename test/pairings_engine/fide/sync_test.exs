@@ -345,6 +345,127 @@ defmodule PairingsEngine.Fide.SyncTest do
     end
   end
 
+  # `do_import_list/4` no longer rebuilds `fide_players_fts` in place - it
+  # builds `fide_players_fts_new` beside it and swaps the two in with an
+  # atomic rename (see that function's own comments for the measurements
+  # behind this). These tests cover what that adds: a run killed before the
+  # swap, or after the swap but before the old table is dropped, must not
+  # wedge the NEXT sync, and the live index must never be the thing left
+  # broken - only ever a leftover scratch/retired table, which is cosmetic.
+  describe "FTS swap recovery (fide_players_fts_new / fide_players_fts_old)" do
+    setup do
+      pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: false)
+      on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+      :ok
+    end
+
+    defp fts_scratch_object_names do
+      %{rows: rows} =
+        Repo.query!(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'fide_players_fts%' ORDER BY name"
+        )
+
+      List.flatten(rows)
+    end
+
+    test "a normal import leaves no scratch or retired FTS table behind" do
+      text =
+        fide_text([
+          fide_row(%{"ID Number" => "5000001", "Name" => "Clean, Sweep", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), text, %Sync{})
+
+      names = fts_scratch_object_names()
+      refute "fide_players_fts_new" in names
+      refute "fide_players_fts_old" in names
+      assert "fide_players_fts" in names
+    end
+
+    test "a scratch table left by a run killed mid-build is cleaned up, and the next import still succeeds" do
+      # Simulates `cancel_sync`/the watchdog landing between `CREATE VIRTUAL
+      # TABLE fide_players_fts_new` and the rename swap: the scratch table
+      # exists, half-populated, and was never made live.
+      Repo.query!("""
+      CREATE VIRTUAL TABLE fide_players_fts_new USING fts5(
+        fide_id UNINDEXED,
+        name,
+        tokenize = 'unicode61 remove_diacritics 2'
+      )
+      """)
+
+      Repo.query!("INSERT INTO fide_players_fts_new(fide_id, name) VALUES (?, ?)", [
+        9_999_999,
+        "Leftover, Ghost"
+      ])
+
+      # The leftover table is inert: it isn't the table search reads, so its
+      # existence cannot make a concurrent search see stale or half-built
+      # data. This is the property the swap design exists to guarantee.
+      assert PairingsEngine.Fide.search("Leftover") == []
+
+      text =
+        fide_text([
+          fide_row(%{"ID Number" => "5000002", "Name" => "Recovered, Player", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), text, %Sync{})
+
+      names = fts_scratch_object_names()
+      refute "fide_players_fts_new" in names
+      refute "fide_players_fts_old" in names
+      assert fts_search("Recovered") == [5_000_002]
+    end
+
+    test "a retired table left by a run killed right after the swap is cleaned up, and the next import still succeeds" do
+      # Simulates a kill between the rename swap (which already made the new
+      # index live - correctness was never at risk here) and the final
+      # `DROP TABLE fide_players_fts_old` that was only ever cleanup.
+      Repo.query!("""
+      CREATE VIRTUAL TABLE fide_players_fts_old USING fts5(
+        fide_id UNINDEXED,
+        name,
+        tokenize = 'unicode61 remove_diacritics 2'
+      )
+      """)
+
+      text =
+        fide_text([
+          fide_row(%{"ID Number" => "5000003", "Name" => "Reswept, Player", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), text, %Sync{})
+
+      names = fts_scratch_object_names()
+      refute "fide_players_fts_new" in names
+      refute "fide_players_fts_old" in names
+      assert fts_search("Reswept") == [5_000_003]
+    end
+
+    test "search finds the new rows immediately after a sync, and no longer finds removed ones" do
+      first =
+        fide_text([
+          fide_row(%{"ID Number" => "6000001", "Name" => "Before, Alpha", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), first, %Sync{})
+      assert fts_search("Before") == [6_000_001]
+
+      second =
+        fide_text([
+          fide_row(%{"ID Number" => "6000002", "Name" => "After, Beta", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), second, %Sync{})
+
+      # The new row is searchable ...
+      assert fts_search("After") == [6_000_002]
+      # ... and the row the new list no longer contains is gone from the
+      # index too, not just from `fide_players` - a full replace, not a merge.
+      assert fts_search("Before") == []
+    end
+  end
+
   # `@max_download_bytes` bounds the COMPRESSED stream; nothing bounded what
   # it inflates to, and `:zip.extract(…, [:memory])` materialises the lot at
   # once. The ceiling is read from the central directory before inflating, so
