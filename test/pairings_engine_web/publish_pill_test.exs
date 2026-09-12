@@ -38,7 +38,7 @@ defmodule PairingsEngineWeb.PublishPillTest do
     Map.merge(
       %{
         state: :connected,
-        message: "Connected. The address and token are both accepted.",
+        reason: nil,
         latency_ms: 40,
         endpoint: "https://openresults.example",
         pending: 0,
@@ -66,9 +66,10 @@ defmodule PairingsEngineWeb.PublishPillTest do
     for {attrs, word} <- [
           {%{state: :connected, pending: 0}, "Live"},
           {%{state: :connected, pending: 3}, "Sending"},
-          {%{state: :refused}, "Refused"},
-          {%{state: :unreachable}, "Offline"},
-          {%{state: :unconfigured}, "Not publishing"}
+          {%{state: :refused, reason: {:refused, {:rejected, 401, "unauthorized", nil}}},
+           "Refused"},
+          {%{state: :unreachable, reason: {:unreachable, :timeout}}, "Offline"},
+          {%{state: :unconfigured, reason: {:unconfigured, :no_address}}, "Not publishing"}
         ] do
       broadcast(status(attrs))
       assert render(lv) =~ word
@@ -100,7 +101,7 @@ defmodule PairingsEngineWeb.PublishPillTest do
     # anyway; this pairing exists only in this test.
     {:ok, lv, _html} = live(conn, ~p"/")
 
-    broadcast(status(%{state: :unreachable, latency_ms: 40}))
+    broadcast(status(%{state: :unreachable, reason: {:unreachable, :timeout}, latency_ms: 40}))
 
     refute lv |> element("summary.pub-pill .pub-ms") |> has_element?()
   end
@@ -122,7 +123,7 @@ defmodule PairingsEngineWeb.PublishPillTest do
     # So clicking a status light gives MORE STATUS, in place.
     {:ok, lv, _html} = live(conn, ~p"/")
 
-    broadcast(status(%{state: :unreachable, message: "Could not reach the results site."}))
+    broadcast(status(%{state: :unreachable, reason: {:unreachable, :econnrefused}}))
 
     refute lv |> element("a.pub-pill") |> has_element?()
     assert lv |> element("details.pub-menu summary.pub-pill") |> has_element?()
@@ -130,7 +131,7 @@ defmodule PairingsEngineWeb.PublishPillTest do
 
     # The reason, in words, is inside the panel - which is the thing the pill
     # has never had room for.
-    assert render(lv) =~ "Could not reach the results site."
+    assert render(lv) =~ "The connection was refused - is the server running?"
   end
 
   test "it shares the popover group with the other top-bar menus", %{conn: conn} do
@@ -208,23 +209,38 @@ defmodule PairingsEngineWeb.PublishPillTest do
       refute text =~ "last sent just now"
     end
 
-    test "the message does not repeat the headline above it", %{conn: conn} do
-      text =
-        panel(conn, %{
-          state: :connected,
-          message: "Connected. The address and token are both accepted."
-        })
+    test "the sentence does not repeat the headline above it", %{conn: conn} do
+      # This used to be done by stripping the headline off the front of
+      # `Publishing`'s own sentence, which only ever matched in English. The
+      # sentence is written not to repeat it now - see
+      # `ConnectionStatusTest` for the same card in Dutch.
+      text = panel(conn, %{state: :connected, pending: 0})
 
       assert text =~ "The address and token are both accepted."
       # "Connected" once, as the headline - not again to open the sentence.
       refute text =~ "Connected. The address"
     end
 
-    test "a message that does not echo the headline is shown whole", %{conn: conn} do
-      # Trimming on a guess would eat real text.
-      text = panel(conn, %{state: :refused, message: "Reached the server, but it said no."})
+    test "while sending, the sentence still says the connection is fine", %{conn: conn} do
+      # Not a repeat under "Sending": the headline says the queue is moving,
+      # and the sentence is the only place that says the connection is up.
+      text = panel(conn, %{state: :connected, pending: 2})
 
-      assert text =~ "Reached the server, but it said no."
+      assert text =~ "Connected. The address and token are both accepted."
+    end
+
+    test "the pill's tooltip is the same sentence as the panel", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      broadcast(
+        status(%{state: :refused, reason: {:refused, {:rejected, 401, "unauthorized", nil}}})
+      )
+
+      assert lv
+             |> element(
+               ~s|summary.pub-pill[title="Reached the server, but it rejected the token."]|
+             )
+             |> has_element?()
     end
 
     test "the facts are separated rather than run together", %{conn: conn} do

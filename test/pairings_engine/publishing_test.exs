@@ -184,8 +184,7 @@ defmodule PairingsEngine.PublishingTest do
         Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
       end)
 
-      assert {:ok, message} = Publishing.check()
-      assert message =~ "Connected"
+      assert :ok = Publishing.check()
 
       # Without `at` the real server answers 400 before it looks the slug up,
       # and the first version of this check reported a correctly configured
@@ -206,33 +205,55 @@ defmodule PairingsEngine.PublishingTest do
         Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
       end)
 
-      assert {:ok, _} = Publishing.check()
+      assert :ok = Publishing.check()
     end
 
     test "a rejected token is reported as a token problem, not an address one" do
       stub(fn conn -> Plug.Conn.send_resp(conn, 401, ~s({"error":"unauthorized"})) end)
 
-      assert {:error, message} = Publishing.check()
-      assert message =~ "rejected the token"
-      refute message =~ "not an OpenResults server"
+      # The server's own code travels in the reason. It is what the words are
+      # chosen by - OpenResults' contract says to dispatch on it, not on the
+      # status alone.
+      assert Publishing.check() == {:error, {:refused, {:rejected, 401, "unauthorized", nil}}}
     end
 
-    test "something that is not an OpenResults server says so" do
+    test "something that is not an OpenResults server says so, with what it answered" do
       stub(fn conn -> Plug.Conn.send_resp(conn, 200, "<html>hello</html>") end)
 
-      assert {:error, message} = Publishing.check()
-      assert message =~ "not an OpenResults server"
+      # No code: nothing an OpenResults server sends lacks one. The start of
+      # the body rides along for logs, and is never dispatched on.
+      assert Publishing.check() ==
+               {:error, {:refused, {:rejected, 200, nil, "<html>hello</html>"}}}
+    end
+
+    test "a server's detail sentence is carried beside its code, not instead of it" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(403, ~s({"error":"installation_revoked","detail":"Key revoked."}))
+      end)
+
+      assert Publishing.check() ==
+               {:error, {:refused, {:rejected, 403, "installation_revoked", "Key revoked."}}}
+    end
+
+    test "a network failure carries the transport's own reason, not a sentence" do
+      stub(fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
+      assert Publishing.check() == {:error, {:unreachable, :econnrefused}}
+
+      stub(fn conn -> Req.Test.transport_error(conn, :timeout) end)
+      assert Publishing.check() == {:error, {:unreachable, :timeout}}
     end
 
     test "missing settings are reported before anything is sent" do
       Publishing.put_token(nil)
       stub(fn _conn -> flunk("nothing should have been sent") end)
 
-      assert {:error, "No token is set."} = Publishing.check()
+      assert Publishing.check() == {:error, {:unconfigured, :no_token}}
 
       Publishing.put_token("s3cret")
       Publishing.put_endpoint(nil)
-      assert {:error, "No address is set."} = Publishing.check()
+      assert Publishing.check() == {:error, {:unconfigured, :no_address}}
     end
   end
 
@@ -597,7 +618,7 @@ defmodule PairingsEngine.PublishingTest do
 
     test "a key the server refuses is reported as a key problem, not a token one" do
       t = tournament()
-      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"wrong_key"})) end)
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"key_mismatch"})) end)
 
       assert {:error, message} = Publishing.publish(t)
 
@@ -606,6 +627,28 @@ defmodule PairingsEngine.PublishingTest do
       # have, which is time between rounds.
       assert message =~ "different machine"
       refute message =~ "rejected the token"
+    end
+
+    test "a missing key reads the same, and so does a bare 403 from an older server" do
+      t = tournament()
+
+      for body <- [~s({"error":"key_required"}), "Forbidden", ""] do
+        stub(fn conn -> Plug.Conn.send_resp(conn, 403, body) end)
+
+        assert {:error, message} = Publishing.publish(t)
+        assert message =~ "different machine", "403 with #{inspect(body)}"
+      end
+    end
+
+    test "a 403 with a code this version has no words for is not passed off as a key problem" do
+      # OpenResults' contract: dispatch on the code, never on the status alone -
+      # two 403s can mean two different things. Until a code has its own
+      # words, it is shown by name rather than mis-described.
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"installation_suspended"})) end)
+
+      assert {:error, message} = Publishing.publish(t)
+      assert message == "the server answered 403: installation_suspended"
     end
   end
 
@@ -616,6 +659,7 @@ defmodule PairingsEngine.PublishingTest do
       status = Publishing.status()
 
       assert status.state == :connected
+      assert status.reason == nil
       assert is_integer(status.latency_ms)
       assert status.endpoint == "https://openresults.example"
     end
@@ -624,11 +668,34 @@ defmodule PairingsEngine.PublishingTest do
       # They want opposite fixes - one is a wrong secret on a working network,
       # the other is a network problem - so one "error" state would send an
       # arbiter to check the wrong thing.
+      #
+      # This used to be decided by whether the check's English sentence began
+      # with "Reached". The state is now the reason's own first element, so
+      # no wording of either sentence, in any language, can move a wrong
+      # token into the red.
       stub(fn conn -> Plug.Conn.send_resp(conn, 401, "{}") end)
-      assert Publishing.status().state == :refused
+      status = Publishing.status()
+      assert status.state == :refused
+      assert status.reason == {:refused, {:rejected, 401, nil, nil}}
+      assert is_integer(status.latency_ms)
 
       stub(fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
-      assert Publishing.status().state == :unreachable
+      status = Publishing.status()
+      assert status.state == :unreachable
+      assert status.reason == {:unreachable, :econnrefused}
+      assert status.latency_ms == nil
+    end
+
+    test "something that answers but is not OpenResults is amber, not red" do
+      # Something DID answer, so the network is not the problem and the round
+      # trip is worth showing - the same side of the line as a wrong token.
+      stub(fn conn -> Plug.Conn.send_resp(conn, 502, "Bad gateway") end)
+
+      status = Publishing.status()
+
+      assert status.state == :refused
+      assert status.reason == {:refused, {:rejected, 502, nil, "Bad gateway"}}
+      assert is_integer(status.latency_ms)
     end
 
     test "and both apart from never having been set up" do
@@ -637,7 +704,13 @@ defmodule PairingsEngine.PublishingTest do
       status = Publishing.status()
 
       assert status.state == :unconfigured
+      assert status.reason == {:unconfigured, :no_address}
       assert status.latency_ms == nil
+
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token(nil)
+
+      assert Publishing.status().reason == {:unconfigured, :no_token}
     end
 
     test "counts what is waiting to go out" do
@@ -920,7 +993,7 @@ defmodule PairingsEngine.PublishingTest do
     end
 
     test "a refused key is reported in words and changes nothing here", %{published: t} do
-      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"wrong_key"})) end)
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"key_mismatch"})) end)
 
       assert {:error, message} = Publishing.take_down(t)
       assert message =~ "refused this tournament's key"
@@ -928,6 +1001,20 @@ defmodule PairingsEngine.PublishingTest do
       unchanged = Tournaments.get_tournament!(t.id)
       assert unchanged.publish_to_openresults
       assert unchanged.openresults_key == t.openresults_key
+    end
+
+    test "an older server's bare 403 still reads as a key problem", %{published: t} do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, "Forbidden") end)
+
+      assert {:error, message} = Publishing.take_down(t)
+      assert message =~ "refused this tournament's key"
+    end
+
+    test "a 403 with an unknown code says the code, and still changes nothing", %{published: t} do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"not_owner"})) end)
+
+      assert {:error, "the server answered 403: not_owner"} = Publishing.take_down(t)
+      assert Tournaments.get_tournament!(t.id).publish_to_openresults
     end
 
     test "a dead connection is reported in words and changes nothing here", %{published: t} do

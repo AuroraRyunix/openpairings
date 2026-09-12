@@ -421,16 +421,16 @@ defmodule PairingsEngineWeb.FideLive do
            gettext("Saved. Nothing is published until both an address and a token are set.")
          )}
 
-      {:ok, _message} ->
+      :ok ->
         {:noreply, put_flash(socket, :info, gettext("Saved, and the results site answered."))}
 
-      {:error, message} ->
+      {:error, _reason} = failure ->
         # An :error flash rather than :info: the settings ARE saved, but a
         # green tick over an address that does not answer is the reason
         # somebody discovers this at a tournament instead of now.
         {:noreply,
          socket
-         |> assign(publish_test: {:error, message})
+         |> assign(publish_test: failure)
          |> put_flash(:error, gettext("Saved, but the results site did not answer."))}
     end
   end
@@ -841,10 +841,10 @@ defmodule PairingsEngineWeb.FideLive do
 
         <p :if={@publish_test} class="hint" style="margin-top: 12px">
           <%= case @publish_test do %>
-            <% {:ok, message} -> %>
-              <strong style="color: var(--success)">{message}</strong>
-            <% {:error, message} -> %>
-              <strong style="color: var(--danger)">{message}</strong>
+            <% :ok -> %>
+              <strong style="color: var(--success)">{describe_check(@publish_test)}</strong>
+            <% {:error, _reason} -> %>
+              <strong style="color: var(--danger)">{describe_check(@publish_test)}</strong>
           <% end %>
         </p>
 

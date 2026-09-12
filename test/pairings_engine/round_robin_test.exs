@@ -101,12 +101,9 @@ defmodule PairingsEngine.RoundRobinTest do
       end
     end
 
-    test "pairing beyond the final round returns the schedule-complete error" do
-      assert RoundRobin.schedule(4, 1, 4) ==
-               {:error, "All rounds have been paired (round-robin schedule complete)"}
-
-      assert RoundRobin.schedule(4, 2, 7) ==
-               {:error, "All rounds have been paired (round-robin schedule complete)"}
+    test "pairing beyond the final round returns the schedule-complete reason, with the total" do
+      assert RoundRobin.schedule(4, 1, 4) == {:error, {:all_rounds_paired, 3}}
+      assert RoundRobin.schedule(4, 2, 7) == {:error, {:all_rounds_paired, 6}}
     end
 
     test "determinism: computing the same round twice yields identical results" do
@@ -175,7 +172,7 @@ defmodule PairingsEngine.RoundRobinTest do
         end
 
         assert RoundRobin.schedule(n, cycles, cycle_length * cycles + 1) ==
-                 {:error, "All rounds have been paired (round-robin schedule complete)"}
+                 {:error, {:all_rounds_paired, cycle_length * cycles}}
       end
     end
 
@@ -241,9 +238,10 @@ defmodule PairingsEngine.RoundRobinTest do
       end
     end
 
-    test "pairing beyond the final match errors like schedule/3" do
-      assert RoundRobin.match_schedule(4, 7) ==
-               {:error, "All rounds have been paired (round-robin schedule complete)"}
+    test "pairing beyond the final match errors like schedule/3, counting rounds not matches" do
+      # Three matches of two legs each: the tournament has six rounds, and the
+      # reason says so rather than passing through schedule/3's three.
+      assert RoundRobin.match_schedule(4, 7) == {:error, {:all_rounds_paired, 6}}
     end
 
     test "determinism: computing the same physical round twice yields identical results" do
@@ -550,8 +548,7 @@ defmodule PairingsEngine.RoundRobinTest do
         end)
       end
 
-      assert Pairing.pair_next_round(tournament) ==
-               {:error, "All 6 rounds have already been paired"}
+      assert Pairing.pair_next_round(tournament) == {:error, {:all_rounds_paired, 6}}
     end
 
     test "rounds_count set lower than the Berger schedule needs is corrected up, not respected as a clamp" do
@@ -574,8 +571,7 @@ defmodule PairingsEngine.RoundRobinTest do
         assert round.number == expected_round
       end
 
-      assert Pairing.pair_next_round(tournament) ==
-               {:error, "All 5 rounds have already been paired"}
+      assert Pairing.pair_next_round(tournament) == {:error, {:all_rounds_paired, 5}}
 
       assert Repo.reload!(tournament).rounds_count == 5
       assert Tournaments.list_rounds(tournament.id) |> length() == 5
@@ -865,6 +861,39 @@ defmodule PairingsEngine.RoundRobinTest do
       assert {:error, message} = RoundRobin.pair_all_rounds(tournament)
       assert message =~ "needs 62 rounds"
       assert Pairing.paired_rounds_count(tournament.id) == 0
+    end
+  end
+
+  describe "pair_all_rounds/1's loop decides by the reason, not by its wording" do
+    # It used to recognise a finished schedule with `{:error, "All " <> _}` -
+    # the first four bytes of an English sentence. Any refusal that happened
+    # to begin with "All" would have been reported as a fully paired
+    # schedule, and translating the real one would have made finishing an
+    # error.
+    test "a finished schedule is recognised by its tag and ends the run" do
+      assert RoundRobin.after_step({:error, {:all_rounds_paired, 6}}) == :schedule_complete
+      assert RoundRobin.after_step({:ok, %Tournaments.Round{number: 1}}) == :continue
+    end
+
+    test "an unrelated error that begins with \"All\" is an error, not a finished schedule" do
+      for error <- [
+            {:error, "All rounds have already been paired"},
+            {:error, "All players are withdrawn"},
+            {:error, :all_rounds_paired}
+          ] do
+        assert RoundRobin.after_step(error) == error
+      end
+    end
+
+    test "and the whole run still finishes as a success through that tag" do
+      # End to end: the last step of every run IS the tag, so a run that ends
+      # in {:ok, n} rather than {:error, _} proves the loop recognised it.
+      tournament = round_robin_tournament(rr_cycles: 2, rounds_count: 9)
+
+      for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}],
+          do: insert_player(tournament, name, fide_rating: rating)
+
+      assert {:ok, 6} = RoundRobin.pair_all_rounds(tournament)
     end
   end
 

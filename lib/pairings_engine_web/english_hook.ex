@@ -3,7 +3,9 @@ defmodule PairingsEngineWeb.EnglishHook do
   Pins a page to English regardless of the visitor's chosen locale.
 
   Used on the one player-facing page left in this application: **mobile
-  result entry**.
+  result entry**. The enrolment pages in front of it are controller routes a
+  `live_session` hook cannot reach; `PairingsEngineWeb.Plugs.English` pins
+  those, for the same reason.
 
   It named three more until 2026-08-29 - the public pairings and standings,
   and the registration form. Those moved to OpenResults with the rest of the

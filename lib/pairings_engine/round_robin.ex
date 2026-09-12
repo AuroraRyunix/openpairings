@@ -114,7 +114,7 @@ defmodule PairingsEngine.RoundRobin do
 
     cond do
       next_number > tournament.rounds_count ->
-        {:error, "All #{tournament.rounds_count} rounds have already been paired"}
+        {:error, {:all_rounds_paired, tournament.rounds_count}}
 
       length(frozen) < 2 ->
         {:error, "At least two active players are needed"}
@@ -184,17 +184,27 @@ defmodule PairingsEngine.RoundRobin do
   end
 
   defp pair_remaining(tournament, frozen) do
-    case do_pair_next_round(tournament, frozen) do
-      {:ok, _round} ->
-        pair_remaining(tournament, frozen)
-
-      {:error, "All " <> _} ->
-        {:ok, Engine.paired_rounds_count(tournament.id)}
-
-      {:error, reason} ->
-        {:error, reason}
+    case tournament |> do_pair_next_round(frozen) |> after_step() do
+      :continue -> pair_remaining(tournament, frozen)
+      :schedule_complete -> {:ok, Engine.paired_rounds_count(tournament.id)}
+      {:error, _reason} = error -> error
     end
   end
+
+  @doc false
+  # What one round's result means for the loop in `pair_all_rounds/1`.
+  #
+  # Matched on the TAG. This used to be `{:error, "All " <> _}`, which read
+  # "the schedule is finished" off the first four bytes of an English
+  # sentence - so any refusal that happened to start with "All" ("All
+  # players are withdrawn", say) would have been reported to the arbiter as
+  # a successfully paired schedule, and wrapping the sentence in gettext
+  # would have turned the real finish into an error in every other language.
+  #
+  # Public only so a test can hand it a reason no producer emits today.
+  def after_step({:ok, _round}), do: :continue
+  def after_step({:error, {:all_rounds_paired, _rounds}}), do: :schedule_complete
+  def after_step({:error, _reason} = error), do: error
 
   @doc """
   Computes the Berger schedule for `round_number` (1-indexed, spanning
@@ -204,12 +214,14 @@ defmodule PairingsEngine.RoundRobin do
   Pure: touches no database, depends only on these three integers. Returns
   `{:ok, matches}` where each entry is `{:pairing, white_number,
   black_number}` (both 1-indexed pairing numbers) or `{:bye, player_number}`
-  (the odd-N structural bye), or `{:error, reason}` once every round of the
-  schedule has already been returned.
+  (the odd-N structural bye), or `{:error, {:all_rounds_paired, total}}` once
+  every round of the schedule has already been returned - the same reason,
+  with the same meaning, that `PairingsEngine.Pairing.pair_next_round/1`
+  gives for a finished tournament of any system.
   """
   @spec schedule(pos_integer(), pos_integer(), pos_integer()) ::
           {:ok, [{:pairing, pos_integer(), pos_integer()} | {:bye, pos_integer()}]}
-          | {:error, String.t()}
+          | {:error, {:all_rounds_paired, pos_integer()}}
   def schedule(player_count, cycles, round_number) when player_count >= 2 do
     effective_n = if rem(player_count, 2) == 0, do: player_count, else: player_count + 1
     dummy_number = if rem(player_count, 2) == 1, do: effective_n, else: nil
@@ -217,7 +229,7 @@ defmodule PairingsEngine.RoundRobin do
     total_rounds = cycle_length * cycles
 
     if round_number > total_rounds do
-      {:error, "All rounds have been paired (round-robin schedule complete)"}
+      {:error, {:all_rounds_paired, total_rounds}}
     else
       cycle_index = div(round_number - 1, cycle_length)
       r = Integer.mod(round_number - 1, cycle_length)
@@ -259,7 +271,7 @@ defmodule PairingsEngine.RoundRobin do
   """
   @spec match_schedule(pos_integer(), pos_integer()) ::
           {:ok, [{:pairing, pos_integer(), pos_integer()} | {:bye, pos_integer()}]}
-          | {:error, String.t()}
+          | {:error, {:all_rounds_paired, pos_integer()}}
   def match_schedule(player_count, physical_round) when physical_round >= 1 do
     match_number = div(physical_round + 1, 2)
 
@@ -268,8 +280,9 @@ defmodule PairingsEngine.RoundRobin do
         leg2? = rem(physical_round, 2) == 0
         {:ok, if(leg2?, do: Enum.map(matches, &mirror_leg/1), else: matches)}
 
-      error ->
-        error
+      # `schedule/3` counted matches; the tournament plays two rounds each.
+      {:error, {:all_rounds_paired, matches}} ->
+        {:error, {:all_rounds_paired, matches * 2}}
     end
   end
 

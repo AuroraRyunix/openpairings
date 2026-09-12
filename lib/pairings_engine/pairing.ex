@@ -88,7 +88,10 @@ defmodule PairingsEngine.Pairing do
   Returns `{:ok, round}` or `{:error, reason}`. This is the single public
   entry point the UI calls (see `PairingsEngineWeb.PairingsLive`'s "pair"
   event) - it never crashes on an unimplemented pairing system, it just
-  returns a plain-string error the caller already renders as-is.
+  returns an error the caller renders through
+  `PairingsEngineWeb.SettingsSupport.error_text/1`. Most refusals are still
+  plain strings; `{:all_rounds_paired, rounds_count}` is a reason instead,
+  for every pairing system, because round robin's own loop decides by it.
   """
   # A frozen tournament is refused before the pairing-system dispatch below,
   # so this covers Swiss, round robin and Keizer in one place. Returns a
@@ -131,8 +134,12 @@ defmodule PairingsEngine.Pairing do
 
     result =
       cond do
+        # A reason, not a sentence: the same one round robin's loop recognises
+        # a finished schedule by (`PairingsEngine.RoundRobin.after_step/1`),
+        # and Keizer gives too. The words are
+        # `PairingsEngineWeb.SettingsSupport.error_text/1`'s.
         next_number > max_pairable_round(tournament) ->
-          {:error, "All #{tournament.rounds_count} rounds have already been paired"}
+          {:error, {:all_rounds_paired, tournament.rounds_count}}
 
         length(eligible) < 2 ->
           {:error, "At least two active players are needed"}
@@ -178,9 +185,9 @@ defmodule PairingsEngine.Pairing do
   # `{:error, :not_implemented}` stub return value - once RoundRobin/Keizer
   # are actually implemented this same function keeps working unchanged)
   # and turns a not-implemented stub result into a friendly, user-facing
-  # string. PairingsLive's "pair" handler just does `to_string(reason)` on
-  # any non-changeset error, so a plain string here is what ends up on
-  # screen - no atom formatting, no crash.
+  # string. PairingsLive's "pair" handler renders any non-changeset error
+  # through `SettingsSupport.error_text/1`, so a plain string here is what
+  # ends up on screen - no atom formatting, no crash.
   #
   # On success, refreshes the tournament's derived status the same way the
   # Swiss path below does - RoundRobin/Keizer pair a round and broadcast

@@ -524,22 +524,81 @@ defmodule PairingsEngine.Publishing do
   published would be a trap: the arbiter presses it to find out whether the
   settings work and a tournament goes live as a side effect.
 
-  Reading the outcome from the status code is the point of the probe:
+  Reading the outcome is the point of the probe:
 
-    * 401 - the address is right and the token is wrong
     * 404 - the token was accepted; the route exists and the slug does not
-    * anything else, or a transport error - the address is wrong
+    * `unauthorized` (or a bare 401) - the address is right and the token is
+      wrong
+    * any other answer, or a transport error - the address is wrong
 
-  Returns `{:ok, message}` or `{:error, message}`, both already in words an
-  arbiter can act on.
+  Returns `:ok`, or `{:error, reason}` with a `t:check_failure/0` - a reason as
+  data, never a sentence. The words live in
+  `PairingsEngineWeb.Components.ConnectionStatus.describe_check/1`, which is
+  where they can be translated.
   """
+  @spec check() :: :ok | {:error, check_failure()}
   def check do
     cond do
-      is_nil(endpoint()) or endpoint() == "" -> {:error, "No address is set."}
-      is_nil(token()) or token() == "" -> {:error, "No token is set."}
+      blank?(endpoint()) -> {:error, {:unconfigured, :no_address}}
+      blank?(token()) -> {:error, {:unconfigured, :no_token}}
       true -> do_check()
     end
   end
+
+  @typedoc """
+  Why `check/0` could not confirm that this machine can publish.
+
+  Always `{state, detail}`. The first element IS the state the connection
+  indicator shows (`status/0`), so which colour a reason gets is decided
+  here, by the shape of the value, and not afterwards by reading it. The
+  second is what exactly happened, carried as data.
+
+  This used to be English prose, and the prose was load-bearing:
+  `status/0` sorted "rejected the token" from "server not there" with
+  `String.starts_with?(message, "Reached")`, and matched "No address is set."
+  by its exact text. Translating any of those sentences would have turned a
+  wrong token into a red "cannot reach" light in Dutch, silently.
+
+    * `{:unconfigured, :no_address | :no_token}` - nothing was sent
+    * `{:refused, rejection}` - something answered, and not with the 404 that
+      means yes. See `t:rejection/0`: the server's own error code travels in
+      it, and that code - not the status - is what the words are chosen by.
+      Amber rather than red because something DID answer, which is what the
+      latency beside it says.
+    * `{:unreachable, reason}` - nothing answered. `reason` is the
+      `Req.TransportError`'s own reason (`:timeout`, `:econnrefused`, ...)
+      when there is one, and the error term itself otherwise.
+
+  A new server code is one clause and one sentence in `ConnectionStatus`,
+  and nothing here: it already arrives inside `{:refused, rejection}`, and
+  until it has a sentence it is shown by its code rather than mis-worded.
+  """
+  @type check_failure ::
+          {:unconfigured, :no_address | :no_token}
+          | {:refused, rejection()}
+          | {:unreachable, term()}
+
+  @typedoc """
+  An OpenResults server answered, and not with a success:
+  `{:rejected, status, code, detail}`.
+
+  `code` is the body's `error` field - OpenResults' own name for what went
+  wrong, and **the thing to dispatch on**. Every error body the server sends
+  carries one (`docs/public-publishing.md` in OpenResults, "Error bodies"),
+  and the status alone is not enough: two different 403s mean two different
+  things to an arbiter. `nil` when the body has none, which means something
+  at the address that is not an OpenResults server, or one older than the
+  codes. Wording therefore keys on the code first and falls back to the
+  status only for `nil`, so a server that predates the codes still gets the
+  sentence it always got.
+
+  `detail` is the body's `detail` sentence, or the start of a body that is
+  not an error document at all. For logs and the last-resort wording only -
+  never dispatched on, as the contract says.
+  """
+  @type rejection :: {:rejected, pos_integer(), String.t() | nil, String.t() | nil}
+
+  defp blank?(value), do: is_nil(value) or value == ""
 
   defp do_check do
     url =
@@ -565,18 +624,115 @@ defmodule PairingsEngine.Publishing do
 
     case Req.get(maybe_put_test_plug(request)) do
       {:ok, %Req.Response{status: 404}} ->
-        {:ok, "Connected. The address and token are both accepted."}
+        :ok
 
-      {:ok, %Req.Response{status: 401}} ->
-        {:error, "Reached the server, but it rejected the token."}
+      {:ok, %Req.Response{} = response} ->
+        {:error, {:refused, rejection(response)}}
 
-      {:ok, %Req.Response{status: status}} ->
-        {:error, "Reached #{url} and it answered #{status}, which is not an OpenResults server."}
-
-      {:error, reason} ->
-        {:error, describe_transport(reason)}
+      {:error, error} ->
+        {:error, {:unreachable, transport_reason(error)}}
     end
   end
+
+  # Every non-success answer from OpenResults, as a `t:rejection/0`. The one
+  # place a response body is read for its code, so the three calls here
+  # cannot come to disagree about where the code lives.
+  defp rejection(%Req.Response{status: status, body: body}) do
+    body = decode_error_body(body)
+    {:rejected, status, error_code(body), error_detail(body)}
+  end
+
+  # Req decodes JSON when the server says it is JSON. A body that arrives as
+  # a string - a proxy in front of the server, a test stub - is tried once
+  # more, and left alone if it is not an error document.
+  defp decode_error_body(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, %{} = decoded} -> decoded
+      _not_json -> body
+    end
+  end
+
+  defp decode_error_body(body), do: body
+
+  defp error_code(%{"error" => code}) when is_binary(code), do: code
+  defp error_code(_body), do: nil
+
+  defp error_detail(%{"detail" => detail}) when is_binary(detail), do: detail
+  defp error_detail(%{"error" => code}) when is_binary(code), do: nil
+  defp error_detail(body) when body in ["", nil] or body == %{}, do: nil
+  defp error_detail(body), do: describe_body(body)
+
+  defp transport_reason(%Req.TransportError{reason: reason}), do: reason
+  defp transport_reason(error), do: error
+
+  # The English a publish or a takedown still returns - both are `{:error,
+  # message}` to screens that are not translated yet. Keyed on the server's
+  # code, with the status as the fallback only when there is none (see
+  # `t:rejection/0`); the clauses a single operation words its own way come
+  # first, and the rest are shared.
+  defp publish_words({:rejected, _status, code, _detail}, _url)
+       when code in ["key_mismatch", "key_required"],
+       do: different_machine_publish_words()
+
+  defp publish_words({:rejected, 403, nil, _detail}, _url), do: different_machine_publish_words()
+
+  defp publish_words({:rejected, 404, code, _detail}, url) when code in [nil, "not_found"],
+    do: "no snapshot endpoint at #{url} (404) - check the address"
+
+  defp publish_words(failure, _url), do: failure_words(failure)
+
+  # The key was refused. Said in terms of what actually happened rather than
+  # as "403", because the situation it describes is a real one an arbiter can
+  # be in - two machines restored from the same backup, or a tournament
+  # somebody else already published to this slug - and "check your token"
+  # would send them to fix the wrong thing.
+  defp different_machine_publish_words,
+    do:
+      "the results site says a different machine published this tournament (403) - " <>
+        "it will not accept an update from here"
+
+  defp take_down_words({:rejected, _status, code, _detail}, _url)
+       when code in ["key_mismatch", "key_required"],
+       do: different_machine_take_down_words()
+
+  defp take_down_words({:rejected, 403, nil, _detail}, _url),
+    do: different_machine_take_down_words()
+
+  # NOT treated as "already gone, close enough". A 404 here is genuinely
+  # ambiguous - the tournament may not be published, or this server may
+  # simply have no takedown route yet - and the two want opposite responses.
+  # Guessing "already gone" would clear the local publishing state and tell
+  # the arbiter their event was withdrawn while an older server was still
+  # serving it.
+  defp take_down_words({:rejected, 404, code, _detail}, url) when code in [nil, "not_found"],
+    do: "nothing is published at #{url}, or this results site is too old to remove one (404)"
+
+  defp take_down_words(failure, _url), do: failure_words(failure)
+
+  defp different_machine_take_down_words,
+    do:
+      "the results site refused this tournament's key (403) - it was published by a " <>
+        "different machine, which is the one that can remove it"
+
+  defp failure_words({:rejected, _status, "unauthorized", _detail}),
+    do: "the server rejected the token (401)"
+
+  defp failure_words({:rejected, 401, nil, _detail}), do: "the server rejected the token (401)"
+
+  # Also where a code this version has no words for yet ends up - by its
+  # code, which is the part somebody can look up.
+  defp failure_words({:rejected, status, code, detail}) do
+    case code || detail do
+      nil -> "the server answered #{status}"
+      said -> "the server answered #{status}: #{said}"
+    end
+  end
+
+  defp failure_words({:unreachable, reason}) when is_exception(reason),
+    do: describe_transport(reason)
+
+  defp failure_words({:unreachable, reason}),
+    do: describe_transport(%Req.TransportError{reason: reason})
 
   @doc """
   A `Req` request for `path` on the configured server, carrying the token.
@@ -631,27 +787,13 @@ defmodule PairingsEngine.Publishing do
         record_publish(payload_bytes(payload))
         {:ok, resp.body}
 
-      {:ok, %Req.Response{status: 401}} ->
-        {:error, "the server rejected the token (401)"}
+      # Classified first and worded second, so the words are chosen by the
+      # server's code rather than by the status - see `publish_words/2`.
+      {:ok, %Req.Response{} = response} ->
+        {:error, response |> rejection() |> publish_words(url)}
 
-      # The key was refused. Said in terms of what actually happened rather
-      # than as "403", because the situation it describes is a real one an
-      # arbiter can be in - two machines restored from the same backup, or a
-      # tournament somebody else already published to this slug - and "check
-      # your token" would send them to fix the wrong thing.
-      {:ok, %Req.Response{status: 403}} ->
-        {:error,
-         "the results site says a different machine published this tournament (403) - " <>
-           "it will not accept an update from here"}
-
-      {:ok, %Req.Response{status: 404}} ->
-        {:error, "no snapshot endpoint at #{url} (404) - check the address"}
-
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error, "the server answered #{status}: #{describe_body(body)}"}
-
-      {:error, reason} ->
-        {:error, describe_transport(reason)}
+      {:error, error} ->
+        {:error, publish_words({:unreachable, transport_reason(error)}, url)}
     end
   end
 
@@ -789,29 +931,13 @@ defmodule PairingsEngine.Publishing do
         forget_published(tournament)
         {:ok, "Removed from the results site. Publishing is now off for this tournament."}
 
-      {:ok, %Req.Response{status: 401}} ->
-        {:error, "the server rejected the token (401)"}
+      # Every failure leaves the tournament alone - see `take_down_words/2`
+      # for why a 404 is one of them.
+      {:ok, %Req.Response{} = response} ->
+        {:error, response |> rejection() |> take_down_words(url)}
 
-      {:ok, %Req.Response{status: 403}} ->
-        {:error,
-         "the results site refused this tournament's key (403) - it was published by a " <>
-           "different machine, which is the one that can remove it"}
-
-      # NOT treated as "already gone, close enough". A 404 here is genuinely
-      # ambiguous - the tournament may not be published, or this server may
-      # simply have no takedown route yet - and the two want opposite
-      # responses. Guessing "already gone" would clear the local publishing
-      # state and tell the arbiter their event was withdrawn while an older
-      # server was still serving it.
-      {:ok, %Req.Response{status: 404}} ->
-        {:error,
-         "nothing is published at #{url}, or this results site is too old to remove one (404)"}
-
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error, "the server answered #{status}: #{describe_body(body)}"}
-
-      {:error, reason} ->
-        {:error, describe_transport(reason)}
+      {:error, error} ->
+        {:error, take_down_words({:unreachable, transport_reason(error)}, url)}
     end
   end
 
@@ -855,6 +981,11 @@ defmodule PairingsEngine.Publishing do
   single-digit number, and saying "2 ms" is a more convincing "yes, really
   connected" than a green dot on its own.
 
+  `reason` is `check/0`'s `t:check_failure/0` - `nil` when connected - and is
+  what the indicator words its sentence from. There is no `message`: a
+  sentence built here would be in English whatever the arbiter chose, and
+  the indicator used to repeat it under a translated heading.
+
   `pending` is how many tournaments are queued. It is the difference between
   "connected" and "connected and currently sending", which is the thing an
   arbiter actually wants to see after entering a result.
@@ -868,41 +999,39 @@ defmodule PairingsEngine.Publishing do
   """
   @spec status() :: %{
           state: :unconfigured | :connected | :refused | :unreachable,
-          message: String.t(),
+          reason: check_failure() | nil,
           latency_ms: non_neg_integer() | nil,
           endpoint: String.t() | nil,
           pending: non_neg_integer(),
-          last_published_at: DateTime.t() | nil
+          last_published_at: DateTime.t() | nil,
+          last_publish_bytes: pos_integer() | nil
         }
   def status do
     started = System.monotonic_time(:millisecond)
     result = check()
     elapsed = System.monotonic_time(:millisecond) - started
 
-    {state, message, latency} =
+    # The state is the reason's own first element - see `t:check_failure/0`.
+    # The only decision left here is whether the round trip means anything.
+    {state, reason, latency} =
       case result do
-        {:ok, message} ->
-          {:connected, message, elapsed}
+        :ok ->
+          {:connected, nil, elapsed}
 
-        {:error, "No address is set." = message} ->
-          {:unconfigured, message, nil}
+        # A rejected token is a working network and a wrong secret, which is
+        # a different problem from a server that is not there - and the two
+        # want different fixes, so they get different words and different
+        # colours. Something answered, so the latency is real and shown.
+        {:error, {:refused, _detail} = reason} ->
+          {:refused, reason, elapsed}
 
-        {:error, "No token is set." = message} ->
-          {:unconfigured, message, nil}
-
-        {:error, message} ->
-          # "Reached the server, but it rejected the token" is a working
-          # network and a wrong secret, which is a different problem from a
-          # server that is not there - and the two want different fixes, so
-          # they get different words and different colours.
-          if String.starts_with?(message, "Reached"),
-            do: {:refused, message, elapsed},
-            else: {:unreachable, message, nil}
+        {:error, {state, _detail} = reason} when state in [:unconfigured, :unreachable] ->
+          {state, reason, nil}
       end
 
     %{
       state: state,
-      message: message,
+      reason: reason,
       latency_ms: latency,
       endpoint: endpoint(),
       pending: pending_count(),
@@ -1326,6 +1455,13 @@ defmodule PairingsEngine.Publishing do
   never reaches a page: an arbiter cannot act on a struct, and "the
   connection was refused - is the server running?" is the same fact in a
   form they can.
+
+  Not used by `check/0` any more. The connection check returns the
+  transport's reason as data, and
+  `PairingsEngineWeb.Components.ConnectionStatus` words the same four cases
+  through gettext. What remains here is the English that `publish/1`,
+  `take_down/1` and `PairingsEngine.Registrations` still carry as prose; a
+  reword of one of these cases wants the other side changed with it.
   """
   def describe_transport(%Req.TransportError{reason: :timeout}), do: "connection timed out"
   def describe_transport(%Req.TransportError{reason: :closed}), do: "connection closed"

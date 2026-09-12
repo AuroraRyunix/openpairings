@@ -43,7 +43,12 @@ Fixed in the source string and in `default.pot`, `en/default.po` and
 `nl/default.po` (msgid and msgstr). `translations_test.exs` now refuses `%%`
 anywhere in any msgid, msgid_plural or msgstr, templates included.
 
-## 2. The Connections panel repeats an English sentence under a Dutch heading - RECOMMENDED
+## 2. The Connections panel repeats an English sentence under a Dutch heading - FIXED IN A FOLLOW-UP
+
+> **Follow-up, 2026-09-12:** `Publishing.check/0` returns tagged reasons
+> (carrying OpenResults' error code), the panel words them through gettext,
+> and the headline-stripping regex is gone. See `docs/i18n.md`, "Reasons, not
+> sentences". The text below is the finding as it was written.
 
 `lib/pairings_engine_web/components/connection_status.ex:318-323`, against
 `lib/pairings_engine/publishing.ex`.
@@ -82,7 +87,12 @@ control flow. The narrow alternative is to have `Publishing` return a
 `{reason, params}` pair and let the component pick both the headline and the
 detail from one place.
 
-## 3. Mobile result entry is half English, half Dutch on its first page - RECOMMENDED
+## 3. Mobile result entry is half English, half Dutch on its first page - FIXED IN A FOLLOW-UP
+
+> **Follow-up, 2026-09-12:** decided as neither of the two answers below:
+> enrolment is pinned English, by `Plugs.English`'s request-scoped pin, with
+> the error lines left wrapped. The reasoning is in `docs/i18n.md`. The text
+> below is the finding as it was written.
 
 `lib/pairings_engine_web/controllers/mobile_enroll_controller.ex` and
 `mobile_enroll_html.ex`, against `router.ex:322-327`.
@@ -311,7 +321,7 @@ None of them are fragments except where said.
 | `controllers/export_controller.ex:72` | `"Could not export TRF: %{message}"` | The only unwrapped refusal in a file whose other seven are wrapped. |
 | `pairings_engine/norms/counts_breakdown.ex:22-23` | 2 group labels | `:25-29` are FIDE title names; leave those. |
 | `live/pairings_live.ex:1324-1327`, `live/live_round_live.ex:444-447` | `bye_type_label/1` - the same three labels `print_controller.ex:828-830` wraps | The comment at `print_controller.ex:825` says it uses "same labels PairingsEngineWeb.PairingsLive uses". It no longer does: the printed sheet says "afwezig", the screen says "absent". |
-| `print_controller.ex:934`, `:1008` | `<th class="num">Keizer pts</th>` | **Narrowest and most clearly wrong of these.** `msgid "Keizer pts"` already exists, translated (`Keizer-ptn`), because `standings_live.ex:923` wraps it. So a printed Keizer standings table shows one English header in a row where `Value` and `Score` beside it are Dutch. One-line fix; left out only because wrapping needs the `.pot` references updated to stay honest. |
+| `print_controller.ex:934`, `:1008` | `<th class="num">Keizer pts</th>` | **Narrowest and most clearly wrong of these.** `msgid "Keizer pts"` already exists, translated (`Keizer-ptn`), because `standings_live.ex:923` wraps it. So a printed Keizer standings table shows one English header in a row where `Value` and `Score` beside it are Dutch. One-line fix; left out only because wrapping needs the `.pot` references updated to stay honest. **Fixed in a follow-up, 2026-09-12.** |
 | `print_controller.ex:337`, `:340`, `:342` | `Paid`, `Title`, `Sex` in `@player_list_columns` | All three already exist as translated msgids (`Betaald`, `Titel`, `Geslacht`) from the players screen, and `Sex` is wrapped 700 lines later in the same file (`standings_head_cells/0`). So the printed standings say "Geslacht" and the printed player list says "Sex". A module attribute is compile-time, so this needs the list to become a function first. |
 | `live/players_live.ex:48-105` | the `title=` tooltip on ~33 columns | Also compile-time. Three of them are concatenated with unwrapped suffixes at `:1861-1863` (`" - right-click here to set Present/Absent for everyone"`). **Those suffixes are fragments.** Wrap the whole tooltip as one msgid per column with the suffix folded in - three extra msgids - not the suffix alone. |
 | `pairing.ex`, `keizer.ex`, `round_robin.ex`, `publishing.ex`, `norms/combine.ex`, `federations/bel/parser.ex`, `federations/bel/api.ex`, `tournament_import.ex`, `trf_import.ex`, `tools/parser.ex` | `{:error, "sentence"}` prose that reaches a flash, a banner or the Connections panel | See 13b before touching these. |
@@ -330,6 +340,15 @@ behaviour in Dutch, silently:
   (red, "server is not there")
 
 Finding 2 is the same coupling, already broken.
+
+> **Follow-up, 2026-09-12:** all three now match on tags
+> (`{:all_rounds_paired, rounds}`, and `Publishing.check/0`'s
+> `{state, detail}` reasons). A grep of `lib/` for the same shape (`=~`,
+> `String.starts_with?`/`contains?` on a reason, `"..." <> _` inside an
+> `{:error, _}` pattern) found one more, outside these paths and not ours to
+> reword: `busy_write.ex` recognises a lock by SQLite's own message text,
+> which is documented there. The rest of the 13a error tuples are still
+> prose.
 
 ### 13c. Not a hole
 

@@ -224,6 +224,73 @@ defmodule PairingsEngineWeb.LocaleTest do
     end
   end
 
+  describe "mobile enrolment is English, like the result entry it leads to" do
+    # `/m` is a controller, not a LiveView, so `EnglishHook` never reached it
+    # and `Plugs.Locale` won: a Dutch session got the unwrapped English card
+    # with a Dutch error line inside it, then an all-English /m/results.
+    # `Plugs.English` pins those routes - and must do it for the request
+    # only, because the phone scanning the code may be the arbiter's own, and
+    # their admin screens must stay in the language they picked.
+    setup %{conn: conn} do
+      PairingsEngine.RateLimit.clear(:mobile_enroll, "127.0.0.1")
+      on_exit(fn -> PairingsEngine.RateLimit.clear(:mobile_enroll, "127.0.0.1") end)
+
+      conn =
+        conn
+        |> Plug.Test.init_test_session(%{Locale.session_key() => "nl"})
+        |> put_req_header("accept-language", "nl-BE,nl;q=0.9")
+
+      {:ok, conn: conn}
+    end
+
+    defp english_card!(conn) do
+      html = html_response(conn, 200)
+
+      assert html =~ "Enter results"
+      assert html =~ "Enrollment code"
+      assert html =~ ~s(lang="en")
+      refute html =~ ~s(lang="nl")
+
+      # Request-scoped: what `Plugs.Locale` resolved and stored is untouched.
+      assert get_session(conn, Locale.session_key()) == "nl"
+
+      html
+    end
+
+    test "GET /m", %{conn: conn} do
+      conn |> get(~p"/m") |> english_card!()
+    end
+
+    test "POST /m, with its error lines", %{conn: conn} do
+      html = conn |> post(~p"/m", %{}) |> english_card!()
+      assert html =~ "Enter your code."
+      refute html =~ "Voer je code in."
+
+      html = conn |> post(~p"/m", %{"code" => "00000000"}) |> english_card!()
+      assert html =~ "That code is wrong or has expired."
+      refute html =~ "Die code is onjuist of is verlopen."
+    end
+
+    test "GET /m/e/:token, with its error line", %{conn: conn} do
+      html = conn |> get(~p"/m/e/no-such-token") |> english_card!()
+      assert html =~ "That enrollment link is invalid or has expired."
+      refute html =~ "Die inschrijvingslink is ongeldig of is verlopen."
+    end
+
+    test "GET /m/leave, and the arbiter's own pages are still Dutch after", %{conn: conn} do
+      conn = get(conn, ~p"/m/leave")
+
+      assert redirected_to(conn) == ~p"/m"
+      assert conn.assigns.locale == "en"
+      assert get_session(conn, Locale.session_key()) == "nl"
+
+      # The session cookie this phone carries away still says Dutch, so the
+      # next page that is not pinned renders Dutch.
+      html = conn |> recycle() |> get(~p"/users/log-in") |> html_response(200)
+      assert html =~ ~s(lang="nl")
+    end
+  end
+
   describe "the catalogues themselves" do
     # Two kinds of placeholder live in these msgids and neither survives
     # being dropped: `%{name}` is a gettext binding, and `%[name]` is a slot

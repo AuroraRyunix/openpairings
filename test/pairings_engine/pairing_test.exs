@@ -1266,8 +1266,7 @@ defmodule PairingsEngine.PairingTest do
     assert {:ok, round4} = Pairing.pair_next_round(tournament)
     assert round4.number == 4
 
-    assert {:error, "All 4 rounds have already been paired"} =
-             Pairing.pair_next_round(tournament)
+    assert {:error, {:all_rounds_paired, 4}} = Pairing.pair_next_round(tournament)
   end
 
   @tag :javafo

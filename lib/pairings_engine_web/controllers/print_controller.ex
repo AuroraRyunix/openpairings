@@ -931,7 +931,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     main_table =
       "<table><thead><tr>#{standings_head_cells()}" <>
-        "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">Keizer pts</th>" <>
+        "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">#{gettext("Keizer pts")}</th>" <>
         "<th class=\"num\">#{gettext("Score")}</th>" <>
         "#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
@@ -1005,7 +1005,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
         "<table><thead><tr>#{standings_head_cells()}" <>
-        "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">Keizer pts</th>" <>
+        "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">#{gettext("Keizer pts")}</th>" <>
         "<th class=\"num\">#{gettext("Score")}</th>" <>
         "</tr></thead><tbody>#{rows}</tbody></table>"
     end)

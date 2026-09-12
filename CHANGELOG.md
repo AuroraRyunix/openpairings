@@ -16,6 +16,57 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The publishing connection panel no longer prints an English
+  sentence under a Dutch heading.** The panel on Connections, the status
+  pill's panel and tooltip in the top bar, and the answer to Test connection
+  all showed the connection check's own English sentence - "Verbonden" above
+  "Connected. The address and token are both accepted." - because the check
+  returned a finished sentence and the panel could only strip the headline
+  off the front of it in English. The check now returns what happened as
+  data, and the panel words it in the arbiter's language. That also closes
+  a quieter fault behind it: whether a failure showed amber ("the server
+  answered, but refused the token") or red ("cannot reach the results site")
+  was decided by whether the English sentence began with "Reached", so
+  translating it would have turned every wrong token into a red light. The
+  English wording is unchanged apart from three details: a server that is
+  not OpenResults now reads "Reached the server and it answered 200, which
+  is not an OpenResults server." instead of naming the internal probe
+  address; the network failures are full sentences ("The connection timed
+  out."); and an answer from OpenResults carrying an error code this version
+  has no words for shows that code ("Could not confirm the connection (403
+  installation_revoked).") rather than calling it "not an OpenResults
+  server". The top-bar panel also updates when the reason changes but the
+  colour does not - it kept saying "No address is set." after the address
+  was saved and the token turned out to be missing too.
+- [Change] **A refusal from the results site is worded by the error code it
+  sends, not by its HTTP status alone.** OpenResults names every refusal
+  (`key_mismatch`, `unauthorized`, ...) and two answers with the same status
+  can mean different things. Publishing and taking a tournament down still
+  say "a different machine published this tournament" for `key_mismatch`,
+  `key_required`, and a bare 403 from an older server; a 403 carrying any
+  other code now says "the server answered 403:" and the code, instead of
+  sending the arbiter to look for another machine.
+- [Fix] **Pairing a whole round-robin schedule recognised "finished" by the
+  first word of an English sentence.** The loop behind the pair-everything
+  button stopped successfully on any error that began with "All " - so a
+  future refusal worded that way would have been reported as a fully paired
+  schedule, and translating the real one would have turned finishing into an
+  error. It now stops on the reason itself. The sentence an arbiter sees when
+  every round is already paired, from any pairing system, is now translated,
+  and a one-round event says "The only round has already been paired" rather
+  than "All 1 rounds have already been paired".
+- [Change] **The mobile enrolment pages are English, like the result entry
+  they lead to.** `/m`, a scanned QR link and "leave" rendered their card in
+  English with the error line in the arbiter's language - "Die code is onjuist
+  of is verlopen." inside an otherwise English page - and then handed the
+  helper to an all-English result entry page. Player-facing pages are
+  English; these are now too. The arbiter's own language choice is left
+  exactly as it was, so a phone that is also the arbiter's still shows their
+  admin screens in Dutch.
+- [Fix] **A printed Keizer standings table has its "Keizer points" header in
+  Dutch too.** It was the one English word in "Waarde | Keizer pts | Score",
+  in the main table and in every category table; the on-screen standings
+  already said "Keizer-ptn".
 - [Fix] **Remembered column choices on the Players grid and the Standings
   page could silently fail to load or save, in a way that could also break
   the rest of the hook.** `ColumnPrefs` (`assets/js/app.js`) read and wrote

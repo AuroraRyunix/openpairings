@@ -492,6 +492,21 @@ defmodule PairingsEngineWeb.FideLiveTest do
       assert html =~ "Connected. The address and token are both accepted."
     end
 
+    test "and the check's answer is in the arbiter's language", %{conn: conn} do
+      # `Publishing.check/0` used to return that sentence itself, in English,
+      # so a Dutch Connections page printed it under Dutch buttons. It
+      # returns a reason now, worded on the page.
+      PairingsEngine.Publishing.put_endpoint("https://openresults.example")
+      PairingsEngine.Publishing.put_token("operators-token")
+
+      conn = conn |> support_conn() |> get(~p"/locale/nl?redirect_to=/fide")
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+      html = lv |> element("button[phx-click=test_publishing]") |> render_click()
+
+      assert html =~ "Verbonden. Het adres en de token worden allebei aanvaard."
+      refute html =~ "The address and token are both accepted."
+    end
+
     test "but not change where this machine publishes", %{conn: conn} do
       PairingsEngine.Publishing.put_endpoint("https://openresults.example")
       PairingsEngine.Publishing.put_token("operators-token")

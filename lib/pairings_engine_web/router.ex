@@ -29,6 +29,13 @@ defmodule PairingsEngineWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Player-facing controller pages, after `:browser`: English for this request
+  # whatever `Plugs.Locale` resolved, without touching the session it wrote.
+  # The controller-side twin of `EnglishHook` - see `Plugs.English`.
+  pipeline :english do
+    plug PairingsEngineWeb.Plugs.English
+  end
+
   scope "/", PairingsEngineWeb do
     pipe_through [:browser, :require_authenticated_user]
 
@@ -316,8 +323,11 @@ defmodule PairingsEngineWeb.Router do
   ## Mobile no-account result entry - see PairingsEngine.Mobile. An arbiter
   # generates a QR + numeric code from a tournament; a helper's phone enrolls
   # here (no account) and gets a result-entry-only session for that tournament.
+  #
+  # English throughout, like the result entry it leads to: `:english` pins the
+  # controller routes, `EnglishHook` the live_session.
   scope "/m", PairingsEngineWeb do
-    pipe_through :browser
+    pipe_through [:browser, :english]
 
     get "/", MobileEnrollController, :new
     post "/", MobileEnrollController, :submit

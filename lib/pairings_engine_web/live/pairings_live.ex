@@ -1158,7 +1158,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           {:noreply, assign(socket, error: "Could not save the round")}
 
         {:error, reason} ->
-          {:noreply, assign(socket, error: to_string(reason))}
+          {:noreply, assign(socket, error: error_text(reason))}
       end
     end
   end
@@ -1203,7 +1203,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply, assign(socket, error: "Could not save the round")}
 
       {:error, reason} ->
-        {:noreply, assign(socket, error: to_string(reason))}
+        {:noreply, assign(socket, error: error_text(reason))}
     end
   end
 

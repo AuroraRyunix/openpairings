@@ -604,6 +604,30 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       refute html =~ "<th class=\"num\">BH</th>"
       refute html =~ "<th class=\"num\">SB</th>"
     end
+
+    test "in Dutch the ladder header is Dutch across the whole row, category tables too", %{
+      conn: conn,
+      scope: scope
+    } do
+      # `Keizer pts` was a bare literal between a translated `Value` and
+      # `Score`, in both the main table and each category table, so a Dutch
+      # print read "Waarde | Keizer pts | Score". The on-screen standings had
+      # wrapped it all along.
+      tournament = keizer_fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"categories" => ["Open"]})
+      [p1 | _rest] = Tournaments.list_players(tournament.id)
+      p1 |> Ecto.Changeset.change(categories: ["Open"]) |> Repo.update!()
+
+      conn = get(conn, ~p"/locale/nl?redirect_to=/")
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      [main_table, category_table] = String.split(html, "Categorie: Open", parts: 2)
+
+      for table <- [main_table, category_table] do
+        assert table =~ ~s(<th class="num">Waarde</th><th class="num">Keizer-ptn</th>)
+        refute table =~ "Keizer pts"
+      end
+    end
   end
 
   describe "standings/2 - manual ranking (SWAR parity #23)" do

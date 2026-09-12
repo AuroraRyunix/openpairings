@@ -111,7 +111,7 @@ defmodule PairingsEngine.Keizer do
 
     cond do
       next_number > tournament.rounds_count ->
-        {:error, "All #{tournament.rounds_count} rounds have already been paired"}
+        {:error, {:all_rounds_paired, tournament.rounds_count}}
 
       length(eligible) < 2 ->
         {:error, "At least two active players are needed"}

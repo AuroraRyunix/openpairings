@@ -732,6 +732,19 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "This tournament is already handed off to another copy - take it back before handing it anywhere else."
       )
 
+  # Pairing a tournament that has nothing left to pair, from any of the three
+  # systems. A reason rather than a sentence because round robin's
+  # pair-everything loop stops on it - it used to recognise the sentence by
+  # its first word, "All". The count is the tournament's round count, so a
+  # one-round event does not read "All 1 rounds".
+  def error_text({:all_rounds_paired, rounds}) when is_integer(rounds),
+    do:
+      ngettext(
+        "The only round has already been paired",
+        "All %{count} rounds have already been paired",
+        rounds
+      )
+
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
 

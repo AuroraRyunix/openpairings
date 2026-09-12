@@ -41,7 +41,7 @@ defmodule PairingsEngine.PublishingStabilityTest do
            state: state,
            latency_ms: ms,
            pending: 0,
-           message: "x",
+           reason: if(state == :connected, do: nil, else: {state, :timeout}),
            endpoint: "https://x",
            last_published_at: nil,
            last_publish_bytes: nil
@@ -130,6 +130,33 @@ defmodule PairingsEngine.PublishingStabilityTest do
 
       assert DateTime.diff(DateTime.utc_now(), window.since) < 5
     end
+  end
+
+  test "a different reason in the same state is broadcast, a repeated one is not", %{monitor: pid} do
+    # The panel's sentence is worded from the reason. Compared on the state
+    # alone, saving a missing address and then discovering the token was
+    # missing too left the top bar saying "No address is set." - both are
+    # `:unconfigured`.
+    Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Monitor.topic())
+
+    base = %{
+      state: :unconfigured,
+      latency_ms: nil,
+      pending: 0,
+      endpoint: nil,
+      last_published_at: nil,
+      last_publish_bytes: nil
+    }
+
+    for reason <- [:no_address, :no_address, :no_token] do
+      send(pid, {:connection, Map.put(base, :reason, {:unconfigured, reason})})
+    end
+
+    GenServer.call(pid, :stability)
+
+    assert_receive {:publish_status, %{reason: {:unconfigured, :no_address}}}
+    assert_receive {:publish_status, %{reason: {:unconfigured, :no_token}}}
+    refute_receive {:publish_status, _}, 50
   end
 
   test "stability/0 answers nil when no Monitor is running" do

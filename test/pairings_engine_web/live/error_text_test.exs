@@ -55,6 +55,21 @@ defmodule PairingsEngineWeb.ErrorTextTest do
     assert SettingsSupport.error_text(:archived) =~ "archived"
   end
 
+  test "a finished tournament is worded from its reason, in the arbiter's language" do
+    # `{:all_rounds_paired, n}` replaced three identical English sentences in
+    # the pairing engines - and the round-robin loop that recognised one of
+    # them by its first word.
+    assert SettingsSupport.error_text({:all_rounds_paired, 7}) ==
+             "All 7 rounds have already been paired"
+
+    assert SettingsSupport.error_text({:all_rounds_paired, 1}) ==
+             "The only round has already been paired"
+
+    assert Gettext.with_locale(PairingsEngineWeb.Gettext, "nl", fn ->
+             SettingsSupport.error_text({:all_rounds_paired, 7})
+           end) == "Alle 7 rondes zijn al gepaard"
+  end
+
   test "an unknown atom still degrades to something readable rather than raising" do
     assert SettingsSupport.error_text(:some_future_reason) == "some future reason"
   end

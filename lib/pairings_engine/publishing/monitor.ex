@@ -323,10 +323,21 @@ defmodule PairingsEngine.Publishing.Monitor do
   # "broadcast every time".
   defp changed?(nil, _new), do: true
 
+  # The reason is compared too. Two reasons can share a state - no address
+  # and then no token, a timeout and then a refused connection - and the
+  # panel's sentence is worded from the reason, so a comparison on the state
+  # alone left the top bar saying the previous one. A rejection's `detail` is
+  # left out: it is never shown, and a body excerpt that carries a request id
+  # would otherwise make every check a change.
   defp changed?(old, new) do
-    {old.state, old.pending, old.last_published_at, band(old.latency_ms)} !=
-      {new.state, new.pending, new.last_published_at, band(new.latency_ms)}
+    {old.state, reason_key(old[:reason]), old.pending, old.last_published_at,
+     band(old.latency_ms)} !=
+      {new.state, reason_key(new[:reason]), new.pending, new.last_published_at,
+       band(new.latency_ms)}
   end
+
+  defp reason_key({state, {:rejected, status, code, _detail}}), do: {state, status, code}
+  defp reason_key(reason), do: reason
 
   defp band(nil), do: nil
   defp band(ms) when ms < 100, do: div(ms, 10)

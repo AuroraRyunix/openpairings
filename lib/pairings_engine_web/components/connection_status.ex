@@ -89,11 +89,10 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
           <span :if={@status.latency_ms} class="conn-latency">{@status.latency_ms} ms</span>
         </p>
 
-        <%!-- The headline already said the state, and every message begins
-              by repeating it - "Connected" above "Connected. The address and
-              token are both accepted." Stripped, so the sentence adds
-              something instead of echoing. --%>
-        <p :if={not @compact} class="conn-detail">{detail(@status, headline(@status))}</p>
+        <%!-- Worded here from the reason, never passed through from
+              `Publishing`: see `detail/1` for why the sentence and the
+              headline above it now come from the same place. --%>
+        <p :if={not @compact} class="conn-detail">{detail(@status)}</p>
 
         <p class="conn-detail conn-facts">
           <span :if={@status.endpoint}>{host(@status.endpoint)}</span>
@@ -285,7 +284,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     gettext("Publishing to %{host} is working", host: host(status.endpoint || ""))
   end
 
-  defp pill_title(status), do: status.message
+  defp pill_title(%{reason: reason}), do: reason_sentence(reason)
 
   # Amber while work is in flight, whatever the connection says: "connected,
   # and eight tournaments are still waiting" is not a green situation.
@@ -312,17 +311,82 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     end
   end
 
-  # The message repeated the headline it sits under. Dropped only when it
-  # genuinely leads with the same words - a message this does not recognise
-  # is shown whole rather than trimmed on a guess.
-  defp detail(%{message: message}, headline) when is_binary(message) do
-    case String.split(message, ~r/^#{Regex.escape(headline)}[.:]\s+/, parts: 2) do
-      ["", rest] -> rest
-      _not_a_repeat -> message
-    end
-  end
+  @doc """
+  What `PairingsEngine.Publishing.check/0` returned, as the sentence an
+  arbiter reads - the result of the Test connection button on Connections.
 
-  defp detail(%{message: message}, _headline), do: message
+  Standalone, so unlike the indicator's detail line it says "Connected" in
+  its own words: nothing above it has said so already.
+  """
+  def describe_check(:ok), do: gettext("Connected. The address and token are both accepted.")
+  def describe_check({:error, reason}), do: reason_sentence(reason)
+
+  # The line under the headline.
+  #
+  # This used to be `Publishing`'s own English sentence, with the headline
+  # stripped off the front by a regex when it repeated it: "Connected" above
+  # "Connected. The address and token are both accepted." The headline was
+  # translated and the sentence was not, so in Dutch the regex never matched
+  # and the card read "Verbonden" above "Connected. The address and token are
+  # both accepted." - the repetition the strip existed to remove, plus a
+  # language switch mid-card. Both halves are worded here now, so the
+  # sentence is simply written not to repeat the headline.
+  #
+  # "Sending" keeps the whole sentence, because there it is not a repeat:
+  # the headline says the queue is moving, the sentence says the connection
+  # under it is fine.
+  defp detail(%{state: :connected, pending: pending}) when pending > 0,
+    do: gettext("Connected. The address and token are both accepted.")
+
+  defp detail(%{state: :connected}), do: gettext("The address and token are both accepted.")
+  defp detail(%{reason: reason}), do: reason_sentence(reason)
+
+  # One clause per `t:PairingsEngine.Publishing.check_failure/0`, each a whole
+  # sentence that reads on its own and does not repeat the headline above it.
+  #
+  # An answer from the server is worded by its CODE - OpenResults' `error`
+  # field, which is what its contract says to dispatch on - and by the status
+  # only when there is no code. A code with no clause yet falls to the last
+  # resort at the bottom and shows itself, rather than being passed off as
+  # "not an OpenResults server", which a body carrying a code plainly is. So
+  # a new code (`installation_revoked`, say) is one clause and one msgid here.
+  defp reason_sentence({:unconfigured, :no_address}), do: gettext("No address is set.")
+  defp reason_sentence({:unconfigured, :no_token}), do: gettext("No token is set.")
+
+  defp reason_sentence({:refused, {:rejected, _status, "unauthorized", _detail}}),
+    do: gettext("Reached the server, but it rejected the token.")
+
+  defp reason_sentence({:refused, {:rejected, 401, nil, _detail}}),
+    do: gettext("Reached the server, but it rejected the token.")
+
+  defp reason_sentence({:refused, {:rejected, status, nil, _detail}}),
+    do:
+      gettext("Reached the server and it answered %{status}, which is not an OpenResults server.",
+        status: status
+      )
+
+  defp reason_sentence({:unreachable, :timeout}), do: gettext("The connection timed out.")
+  defp reason_sentence({:unreachable, :closed}), do: gettext("The connection was closed.")
+  defp reason_sentence({:unreachable, :nxdomain}), do: gettext("The address did not resolve.")
+
+  defp reason_sentence({:unreachable, :econnrefused}),
+    do: gettext("The connection was refused - is the server running?")
+
+  defp reason_sentence({:unreachable, other}),
+    do: gettext("Could not connect (%{reason}).", reason: technical(other))
+
+  # Last resort, for a reason or a server code with no sentence yet. This
+  # renders in the top bar of every page, so a missing clause must not raise -
+  # a crash here is every page down for as long as the reason persists. It is
+  # deliberately technical, so the gap is visible rather than papered over.
+  defp reason_sentence({_state, detail}),
+    do: gettext("Could not confirm the connection (%{reason}).", reason: technical(detail))
+
+  # The status and the server's code are what somebody can look up; the
+  # server's `detail` is an English sentence meant for logs.
+  defp technical({:rejected, status, code, _detail}) when is_binary(code), do: "#{status} #{code}"
+  defp technical(error) when is_exception(error), do: Exception.message(error)
+  defp technical(detail), do: inspect(detail)
 
   defp host(endpoint) do
     case URI.parse(endpoint) do
