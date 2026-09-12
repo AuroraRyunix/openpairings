@@ -225,6 +225,28 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
     end
   end
 
+  describe "legacy_standings_through/3 - the migration/import conversion rule" do
+    # The one-time backfill/import rule for the pre-2026-09-11 model: nil
+    # only in the exact case that used to mean "withhold the roster
+    # entirely" - nothing published, and the flag off.
+    test "nil only when nothing is published and the flag is off" do
+      assert Tournament.legacy_standings_through(0, false, false) == nil
+    end
+
+    test "0, not nil, once anything at all is published even with the flag off" do
+      assert Tournament.legacy_standings_through(0, true, false) == 0
+    end
+
+    test "0 when nothing is published but the flag is on (the common case)" do
+      assert Tournament.legacy_standings_through(0, false, true) == 0
+    end
+
+    test "the contiguous prefix travels through unchanged, flag or no flag" do
+      assert Tournament.legacy_standings_through(3, true, false) == 3
+      assert Tournament.legacy_standings_through(3, true, true) == 3
+    end
+  end
+
   defp find_missing(tournament, field) do
     Enum.find(Tournament.missing_setup_fields(tournament), fn {f, _msg} -> f == field end)
   end

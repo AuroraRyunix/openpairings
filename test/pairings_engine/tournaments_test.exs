@@ -2652,6 +2652,435 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "publish_pairings_through/2 - rule 1" do
+    test "publishes rounds 1..N, filling a gap manual publishing left held back below N" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+      round_with(t, 2, nil)
+      round_with(t, 3, nil)
+
+      assert {:ok, _} = Tournaments.publish_pairings_through(t, 2)
+
+      assert Tournaments.round_published?(t, Tournaments.get_round(t.id, 1))
+      assert Tournaments.round_published?(t, Tournaments.get_round(t.id, 2))
+      refute Tournaments.round_published?(t, Tournaments.get_round(t.id, 3))
+    end
+
+    test "leaves an already-published round's own timestamp untouched" do
+      t = gated_tournament("manual")
+      past = DateTime.add(DateTime.utc_now(), -3600, :second) |> DateTime.truncate(:second)
+      round_with(t, 1, past)
+      round_with(t, 2, nil)
+
+      assert {:ok, _} = Tournaments.publish_pairings_through(t, 2)
+
+      assert Tournaments.get_round(t.id, 1).published_at == past
+    end
+
+    test "does not touch standings_through - the floor is folded in only at snapshot time" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+
+      assert {:ok, updated} = Tournaments.publish_pairings_through(t, 1)
+      assert updated.standings_through == 0
+    end
+
+    test "broadcasts :settings" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+
+      assert {:ok, _} = Tournaments.publish_pairings_through(t, 1)
+
+      tid = t.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "refuses on an archived tournament" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+      {:ok, archived} = Tournaments.archive_tournament(t)
+
+      assert {:error, :archived} = Tournaments.publish_pairings_through(archived, 1)
+    end
+  end
+
+  describe "unpublish_pairings_through/2 - rule 4" do
+    test "hides round N and every round above it, leaving 1..N-1 public" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      round_with(t, 3, now)
+
+      assert {:ok, updated} = Tournaments.unpublish_pairings_through(t, 2)
+
+      assert Tournaments.round_published?(updated, Tournaments.get_round(t.id, 1))
+      refute Tournaments.round_published?(updated, Tournaments.get_round(t.id, 2))
+      refute Tournaments.round_published?(updated, Tournaments.get_round(t.id, 3))
+    end
+
+    test "lowers standings_through to at most N - 1" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      {:ok, t} = Tournaments.publish_standings_through(t, 2)
+
+      assert {:ok, updated} = Tournaments.unpublish_pairings_through(t, 2)
+      assert updated.standings_through == 1
+    end
+
+    test "leaves standings_through alone when it is already at or below the new cap" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      {:ok, t} = Tournaments.publish_standings_through(t, 1)
+
+      assert {:ok, updated} = Tournaments.unpublish_pairings_through(t, 2)
+      assert updated.standings_through == 1
+    end
+
+    test "never raises a withheld (nil) standings_through" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      t = Ecto.Changeset.change(t, standings_through: nil) |> Repo.update!()
+
+      assert {:ok, updated} = Tournaments.unpublish_pairings_through(t, 1)
+      assert updated.standings_through == nil
+    end
+
+    test "broadcasts :settings" do
+      t = gated_tournament("manual")
+      round_with(t, 1, DateTime.utc_now() |> DateTime.truncate(:second))
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+
+      assert {:ok, _} = Tournaments.unpublish_pairings_through(t, 1)
+
+      tid = t.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "refuses on an archived tournament" do
+      t = gated_tournament("manual")
+      round_with(t, 1, DateTime.utc_now() |> DateTime.truncate(:second))
+      {:ok, archived} = Tournaments.archive_tournament(t)
+
+      assert {:error, :archived} = Tournaments.unpublish_pairings_through(archived, 1)
+    end
+  end
+
+  describe "publish_standings_through/2 - rule 2 (and rules 5, 6, 7)" do
+    test "round 0 is always publishable, even with no rounds at all" do
+      t = gated_tournament("manual")
+
+      assert {:ok, updated} = Tournaments.publish_standings_through(t, 0)
+      assert updated.standings_through == 0
+    end
+
+    test "refuses :not_paired when the round doesn't exist yet" do
+      t = gated_tournament("manual")
+
+      assert {:error, :not_paired} = Tournaments.publish_standings_through(t, 1)
+    end
+
+    test "refuses :pairings_not_public when the round is complete but its pairings aren't public" do
+      t = gated_tournament("manual")
+      round = round_with(t, 1, nil)
+      seat_board(t, round, "1-0")
+
+      assert {:error, :pairings_not_public} = Tournaments.publish_standings_through(t, 1)
+    end
+
+    test "refuses :round_not_complete when the round is published but missing a result" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = round_with(t, 1, now)
+      seat_board(t, round, "")
+
+      assert {:error, :round_not_complete} = Tournaments.publish_standings_through(t, 1)
+    end
+
+    test "succeeds once the round is both published and complete" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = round_with(t, 1, now)
+      seat_board(t, round, "1-0")
+
+      assert {:ok, updated} = Tournaments.publish_standings_through(t, 1)
+      assert updated.standings_through == 1
+    end
+
+    test "broadcasts :settings" do
+      t = gated_tournament("manual")
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+
+      assert {:ok, _} = Tournaments.publish_standings_through(t, 0)
+
+      tid = t.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "refuses on an archived tournament" do
+      t = gated_tournament("manual")
+      {:ok, archived} = Tournaments.archive_tournament(t)
+
+      assert {:error, :archived} = Tournaments.publish_standings_through(archived, 0)
+    end
+
+    # Rule 5: the last round has no NEXT round to float its own standings
+    # forward via rule 1's floor, so outside "immediate" mode its final
+    # standings only ever come from an explicit publish.
+    test "rule 5: the last round's own standings never publish on their own, only by a click" do
+      t = gated_tournament("manual", %{"rounds_count" => 2})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      r1 = round_with(t, 1, now)
+      seat_board(t, r1, "1-0")
+
+      r2 = round_with(t, 2, now)
+      seat_board(t, r2, "1-0")
+
+      # Both rounds published and complete, but nobody has explicitly
+      # published standings - round 2 is the LAST round, so there is no
+      # round 3 to float it forward.
+      assert Tournaments.effective_standings_through(t) == 1
+
+      assert {:ok, updated} = Tournaments.publish_standings_through(t, 2)
+      assert Tournaments.effective_standings_through(updated) == 2
+    end
+
+    # Rule 6: a correction to an already-published round needs no re-publish
+    # - the snapshot layer recomputes live from current data every time.
+    test "rule 6: a corrected result in an already-published round needs no re-publish" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = round_with(t, 1, now)
+      pairing = seat_board(t, round, "1-0")
+
+      {:ok, t} = Tournaments.publish_standings_through(t, 1)
+      assert Tournaments.effective_standings_through(t) == 1
+
+      Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
+
+      assert Tournaments.effective_standings_through(Repo.reload!(t)) == 1
+    end
+  end
+
+  describe "unpublish_standings_through/2 - rule 3" do
+    test "round 0: withholds the roster (nil) and hides any already-published round" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+
+      assert {:ok, updated} = Tournaments.unpublish_standings_through(t, 0)
+      assert updated.standings_through == nil
+      refute Tournaments.round_published?(updated, Tournaments.get_round(t.id, 1))
+    end
+
+    test "round N > 0: drops standings to N - 1 and hides pairings above N, leaving 1..N public" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      round_with(t, 3, now)
+      {:ok, t} = Tournaments.publish_standings_through(t, 3)
+
+      assert {:ok, updated} = Tournaments.unpublish_standings_through(t, 2)
+      assert updated.standings_through == 1
+      assert Tournaments.round_published?(updated, Tournaments.get_round(t.id, 1))
+      assert Tournaments.round_published?(updated, Tournaments.get_round(t.id, 2))
+      refute Tournaments.round_published?(updated, Tournaments.get_round(t.id, 3))
+    end
+
+    test "pulls the EFFECTIVE floor back too, when pairings alone (rule 1) had pushed it higher than anything ever explicitly published" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      round_with(t, 3, now)
+      round_with(t, 4, now)
+
+      # Nobody ever explicitly published standings - round 4's own pairings
+      # being public floors it at round 3 (rule 1).
+      assert Tournaments.effective_standings_through(t) == 3
+
+      assert {:ok, updated} = Tournaments.unpublish_standings_through(t, 3)
+      assert Tournaments.effective_standings_through(updated) == 2
+      refute Tournaments.round_published?(updated, Tournaments.get_round(t.id, 4))
+    end
+
+    test "broadcasts :settings" do
+      t = gated_tournament("manual")
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+
+      assert {:ok, _} = Tournaments.unpublish_standings_through(t, 0)
+
+      tid = t.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "refuses on an archived tournament" do
+      t = gated_tournament("manual")
+      {:ok, archived} = Tournaments.archive_tournament(t)
+
+      assert {:error, :archived} = Tournaments.unpublish_standings_through(archived, 0)
+    end
+  end
+
+  describe "effective_standings_through/1 - the formula" do
+    test "round 0 default: a fresh tournament with no rounds reads 0" do
+      t = gated_tournament("manual")
+      assert Tournaments.effective_standings_through(t) == 0
+    end
+
+    test "rule 7 safety cap: an explicit standings_through higher than the complete prefix is capped" do
+      t = gated_tournament("manual")
+      round = round_with(t, 1, DateTime.utc_now() |> DateTime.truncate(:second))
+      seat_board(t, round, "")
+
+      t = Ecto.Changeset.change(t, standings_through: 5) |> Repo.update!()
+
+      assert Tournaments.effective_standings_through(t) == 0
+    end
+
+    test "a published round's own sheet floors standings at N - 1, with no explicit publish and no background job" do
+      t = gated_tournament("timed", %{"publish_delay_minutes" => "0"})
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      r1 = round_with(t, 1, now)
+      seat_board(t, r1, "1-0")
+
+      # Round 2's own pairings are already public purely because its
+      # `published_at` (what `compute_published_at/2` would have set,
+      # `publish_delay_minutes` after pairing) has already passed - there is
+      # no call to `publish_pairings_through/2` or `publish_standings_through/2`
+      # anywhere in this test.
+      round_with(t, 2, now)
+
+      assert Tournaments.effective_standings_through(t) == 1
+    end
+
+    test "a round scheduled for the future does not move the floor yet" do
+      t = gated_tournament("scheduled")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      future = DateTime.add(now, 3600, :second) |> DateTime.truncate(:second)
+
+      r1 = round_with(t, 1, now)
+      seat_board(t, r1, "1-0")
+      round_with(t, 2, future)
+
+      assert Tournaments.effective_standings_through(t) == 0
+    end
+
+    test "immediate mode ignores the stored value entirely" do
+      t = gated_tournament("immediate")
+      round = round_with(t, 1, nil)
+      seat_board(t, round, "1-0")
+
+      t = Ecto.Changeset.change(t, standings_through: nil) |> Repo.update!()
+
+      assert Tournaments.effective_standings_through(t) == 1
+    end
+
+    test "a gap below floors the contiguous term at the hole, not the higher published round" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, nil)
+      round_with(t, 2, now)
+
+      assert Tournaments.effective_standings_through(t) == 0
+    end
+  end
+
+  describe "contiguous_published_pairings/1" do
+    test "the contiguous prefix of published rounds, stopping at the first hole" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      round_with(t, 3, nil)
+      round_with(t, 4, now)
+
+      assert Tournaments.contiguous_published_pairings(t) == 2
+    end
+
+    test "zero when nothing is published" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+
+      assert Tournaments.contiguous_published_pairings(t) == 0
+    end
+
+    test "immediate mode counts every round that exists" do
+      t = gated_tournament("immediate")
+      round_with(t, 1, nil)
+      round_with(t, 2, nil)
+
+      assert Tournaments.contiguous_published_pairings(t) == 2
+    end
+  end
+
+  describe "latest_complete_round/1" do
+    test "the contiguous prefix of COMPLETE rounds, regardless of publish state" do
+      t = gated_tournament("manual")
+      r1 = round_with(t, 1, nil)
+      seat_board(t, r1, "1-0")
+
+      r2 = round_with(t, 2, nil)
+      seat_board(t, r2, "1-0")
+
+      r3 = round_with(t, 3, nil)
+      seat_board(t, r3, "")
+
+      assert Tournaments.latest_complete_round(t) == 2
+    end
+
+    test "zero before round 1 has a single result in" do
+      t = gated_tournament("manual")
+      round = round_with(t, 1, nil)
+      seat_board(t, round, "")
+
+      assert Tournaments.latest_complete_round(t) == 0
+    end
+  end
+
+  describe "standings_public?/2 - round 0's degenerate case" do
+    test "round 0 reads public when standings_through is 0 (the default)" do
+      t = gated_tournament("manual")
+      assert Tournaments.standings_public?(t, 0)
+    end
+
+    test "round 0 reads NOT public when standings_through is nil and nothing is published" do
+      t = gated_tournament("manual")
+      t = Ecto.Changeset.change(t, standings_through: nil) |> Repo.update!()
+
+      refute Tournaments.standings_public?(t, 0)
+    end
+
+    test "round 0 reads public once any round is published, even with standings_through nil" do
+      t = gated_tournament("manual")
+      t = Ecto.Changeset.change(t, standings_through: nil) |> Repo.update!()
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round_with(t, 1, now)
+
+      assert Tournaments.standings_public?(t, 0)
+    end
+
+    test "round N > 0 matches effective_standings_through/1" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = round_with(t, 1, now)
+      seat_board(t, round, "1-0")
+
+      refute Tournaments.standings_public?(t, 1)
+      {:ok, t} = Tournaments.publish_standings_through(t, 1)
+      assert Tournaments.standings_public?(t, 1)
+    end
+  end
+
   describe "latest_published_round_number/1" do
     test "immediate mode delegates straight to the paired-rounds count" do
       tournament = immediate_tournament("T")

@@ -248,6 +248,81 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "effective standings through the snapshot (2026-09-11 publish model)" do
+    defp floor_fixture(publish_mode \\ "manual") do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Floor",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 4,
+          publish_mode: publish_mode,
+          public_slug: "floor-#{System.unique_integer([:positive])}"
+        })
+
+      [a, b] =
+        for no <- 1..2 do
+          Repo.insert!(%Player{tournament_id: tournament.id, pairing_number: no, name: "P#{no}"})
+        end
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      r1 = insert_round(tournament, 1, now)
+      boards(r1, [{1, a, b, "1-0"}])
+
+      r2 = insert_round(tournament, 2, now)
+      boards(r2, [{1, b, a, "1-0"}])
+
+      {Tournaments.get_tournament!(tournament.id), a, b}
+    end
+
+    test "rule 1: round 2's own pairings being public floors standings at round 1, with no explicit standings publish" do
+      {tournament, _a, _b} = floor_fixture()
+
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["standings"]["after_round"] == 1
+      assert Enum.map(snapshot["rounds"], & &1["number"]) == [1, 2]
+    end
+
+    test "rule 2: an explicit publish_standings_through/2 call reaches the snapshot exactly" do
+      {tournament, _a, _b} = floor_fixture()
+
+      {:ok, tournament} = Tournaments.publish_standings_through(tournament, 2)
+
+      assert Snapshot.build(tournament)["standings"]["after_round"] == 2
+    end
+
+    test "rule 8: immediate mode ignores standings_through and always shows the complete prefix" do
+      {tournament, _a, _b} = floor_fixture("immediate")
+      tournament = Ecto.Changeset.change(tournament, standings_through: nil) |> Repo.update!()
+
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["standings"]["after_round"] == 2
+      assert snapshot["players"] != []
+    end
+
+    test "round 0 default: a fresh tournament with no rounds shows the roster public, standings after round 0" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Fresh",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual",
+          public_slug: "fresh-#{System.unique_integer([:positive])}"
+        })
+
+      Repo.insert!(%Player{tournament_id: tournament.id, pairing_number: 1, name: "Solo"})
+
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["standings"]["after_round"] == 0
+      assert length(snapshot["players"]) == 1
+    end
+  end
+
   describe "several categories per player" do
     # `snapshot-schema.md` is additive only: `players[].category` is read by
     # every already-published tournament, so it keeps meaning "this player's
