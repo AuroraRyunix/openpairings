@@ -919,3 +919,31 @@ jobs:
             release_assets/installer_out/*.msi
             release_assets/installer_out/releases.win.json
             release_assets/installer_out/*.nupkg
+
+      # GitHub's API has answered a release creation with HTTP 500 while
+      # creating the release anyway (v0.60.1, 2026-09-13): the action retried,
+      # each "failed" attempt left an empty draft with the same tag, and the
+      # action's own duplicate cleanup then failed as well. Delete what is left -
+      # only drafts, only for this tag, only with no assets, and only once a
+      # published release for the tag exists - so the release list and
+      # `gh release view <tag>` see exactly one release.
+      - name: Remove empty duplicate drafts for this tag
+        if: steps.ver.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          set -euo pipefail
+          releases=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
+          published=$(echo "$releases" | jq --arg tag "$TAG" '[.[] | select(.tag_name == $tag and (.draft | not))] | length')
+          if [ "$published" -lt 1 ]; then
+            echo "No published release for ${TAG} - leaving every draft alone."
+            exit 0
+          fi
+          echo "$releases" |
+            jq -r --arg tag "$TAG" '.[] | select(.draft and .tag_name == $tag and (.assets | length) == 0) | .id' |
+            while read -r id; do
+              echo "Deleting empty duplicate draft ${id} for ${TAG}"
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}" ||
+                echo "::warning::could not delete empty draft ${id} for ${TAG}"
+            done
