@@ -19,6 +19,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   use ExUnit.Case, async: true
 
   alias PairingsEngineWeb.AuditLive
+  alias PairingsEngine.AuditActionCodes
 
   @source "lib/pairings_engine_web/live/audit_live.ex"
 
@@ -222,7 +223,6 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     ],
     "tournament.deleted" => [%{"name" => "Paasopen Brugge"}],
     "tournament.restored" => [%{"name" => "Paasopen Brugge"}],
-    "tournament.purged" => [%{"name" => "Paasopen Brugge"}],
     "import.swar" => [%{"name" => "Paasopen Brugge"}],
     "import.trf" => [%{"name" => "Paasopen Brugge"}],
     "import.json" => [%{"name" => "Paasopen Brugge"}],
@@ -848,5 +848,60 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     # a row that arrived on a hand-off.
     assert en("pairing.board_renumbered", %{"round" => 2}) == "pairing.board_renumbered"
     assert nl("pairing.board_renumbered", %{"round" => 2}) == "pairing.board_renumbered"
+  end
+
+  describe "the other direction: every recorded code has a sentence" do
+    # Everything above starts from `describe/2` and asks whether its Dutch is
+    # any good. None of it asks the opposite question: a new `Audit.log/4` or
+    # `Audit.log_system/3` call site with no `describe/2` clause at all just
+    # shows its bare code on the page, in every language, and nothing above
+    # would notice - that is how 35 codes went without a sentence until
+    # 2026-09-13. `PairingsEngine.AuditActionCodes` (test/support, shared with
+    # the category-filter guard in `audit_live_test.exs`) walks every
+    # `Audit.log`/`Audit.log_system` call site under `lib/` via
+    # `Code.string_to_quoted!/1` and works out which codes the app can write
+    # today; these two tests close the gap.
+
+    test "AuditActionCodes' documented non-literal call sites are exactly the ones parsing finds" do
+      # Most call sites pass the action as a string literal, read straight off
+      # the AST. A handful build it from a variable, a module attribute or a
+      # helper function - `@non_literal_call_sites` in AuditActionCodes lists
+      # those by hand, because working out what a variable can hold means
+      # reading the call site, not parsing it. This is what keeps that list
+      # honest: a new non-literal call site (or a literal one going dynamic)
+      # changes what parsing finds, and this fails until the list is updated.
+      found = AuditActionCodes.found_non_literal_sites()
+      documented = AuditActionCodes.documented_non_literal_sites()
+
+      assert found == documented, """
+      test/support/audit_action_codes.ex's @non_literal_call_sites no longer \
+      matches what parsing finds under lib/.
+
+      Found but undocumented (add an entry, with the codes it can write):
+        #{inspect(found -- documented)}
+
+      Documented but not found any more (its action is a literal now, or the \
+      call site is gone - remove the entry):
+        #{inspect(documented -- found)}
+      """
+    end
+
+    test "every action code a current Audit.log/Audit.log_system call site can write has a describe/2 clause" do
+      recorded = MapSet.new(AuditActionCodes.recorded_codes())
+      described = MapSet.new(described_codes())
+
+      missing = recorded |> MapSet.difference(described) |> Enum.sort()
+
+      assert missing == [], """
+      These action codes are written by a current Audit.log/4 or \
+      Audit.log_system/3 call site under lib/, but describe/2 (in \
+      lib/pairings_engine_web/live/audit_live.ex) has no clause for them - an \
+      arbiter would see the bare code on the Audit page instead of a \
+      sentence. Add the clause, and its row in @entries above, in the same \
+      change as the call site:
+
+        #{inspect(missing)}
+      """
+    end
   end
 end
