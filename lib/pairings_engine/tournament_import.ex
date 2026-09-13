@@ -241,6 +241,7 @@ defmodule PairingsEngine.TournamentImport do
             Map.get(t_attrs, "fide_compliance_lost_round")
           )
       )
+      |> Ecto.Changeset.change(pairing_state(t_attrs, tournament.initial_colour_drawn))
       |> update!()
 
     team_map = import_teams!(tournament, list(entry, "teams"))
@@ -249,7 +250,36 @@ defmodule PairingsEngine.TournamentImport do
     import_byes!(tournament, list(entry, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(entry, "forbidden_pairings"), player_map)
 
-    apply_standings_through!(tournament, t_attrs)
+    tournament
+    |> PairingsEngine.TeamSwiss.settle_mode()
+    |> apply_standings_through!(t_attrs)
+  end
+
+  # The drawn initial colour and a team Swiss's pairing mode are written by
+  # the pairing code, never cast, so both import paths carry them by hand.
+  #
+  # A file without `initial_colour_drawn` predates the draw; `fallback` is
+  # what to keep then - nil for a new row, the live value for a restore (a
+  # draw that happened after the restore point was taken still happened,
+  # and C.04.3 5.1 draws once). A file without `team_pairing_mode` predates
+  # team Swiss pairing; nil is written and `TeamSwiss.settle_mode/1` decides
+  # it from the rounds once they have landed - rounds without matches were
+  # paired player by player.
+  defp pairing_state(t_attrs, fallback) do
+    drawn =
+      case Map.fetch(t_attrs, "initial_colour_drawn") do
+        {:ok, colour} when colour in ~w(white black) -> colour
+        {:ok, _other} -> nil
+        :error -> fallback
+      end
+
+    mode =
+      case Map.get(t_attrs, "team_pairing_mode") do
+        mode when mode in ~w(teams players) -> mode
+        _ -> nil
+      end
+
+    [initial_colour_drawn: drawn, team_pairing_mode: mode]
   end
 
   defp update!(changeset) do
@@ -294,6 +324,7 @@ defmodule PairingsEngine.TournamentImport do
         # the schema rather than a rule this function has to remember.
         openresults_claim: dormant_claim(t_data)
       )
+      |> Ecto.Changeset.change(pairing_state(t_attrs, nil))
       |> insert!()
 
     team_map = import_teams!(tournament, list(t_data, "teams"))
@@ -301,6 +332,7 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, list(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, list(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
+    tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
 
     # Last, and after the players, because an audit row's `details` can
     # name a player and the remap needs the finished map. Both blocks are

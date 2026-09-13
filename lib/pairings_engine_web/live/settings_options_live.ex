@@ -103,7 +103,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       pairing_engine_locked?: :pairing_engine in locked,
       rr_cycles_locked?: :rr_cycles in locked,
       rr_match_format_locked?: :rr_match_format in locked,
-      swiss_match_format_locked?: :swiss_match_format in locked
+      swiss_match_format_locked?: :swiss_match_format in locked,
+      initial_colour_locked?: :initial_colour in locked
     )
   end
 
@@ -157,7 +158,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # send. `String.to_existing_atom/1` on an unguarded param is a crafted
   # event away from an `ArgumentError` that takes the sender's socket down
   # with it, and the atom table is not the caller's to grow either.
-  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format)
+  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format initial_colour)
 
   def handle_event("locked_hint", %{"field" => field}, socket)
       when field in @locked_fields do
@@ -465,6 +466,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
+    |> maybe_drop_locked("initial_colour", assigns.initial_colour_locked?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -516,6 +518,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     do:
       gettext(
         "JaVaFo and Ainalrami are two independent implementations of the pairing rules. A round already on the board was decided by whichever engine was configured at the time; switching now hands the new engine a history it did not produce, so every colour, float and rematch judgement from here on is made against a bracket shape the other engine chose."
+      )
+
+  defp initial_colour_warning,
+    do:
+      gettext(
+        "The initial colour decided who had White on every board of round 1, and on every later board where both players had yet to play. Changing it now doesn't recolour those boards; it tells the engine a different starting colour than the one the boards already on the board were paired with."
       )
 
   defp rr_cycles_warning,
@@ -653,6 +661,40 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 }>
                   <:part name="flag"><strong>{gettext("FIDE-homologated")}</strong></:part>
                 </.rich_text>
+              </span>
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Initial colour")}
+              hint={
+                gettext(
+                  "Swiss only. FIDE draws it by lot before round 1, and it decides who has White on round 1's boards. Left on drawn by lot, it is drawn when round 1 is paired and then kept."
+                )
+              }
+            >
+              <div class="locked-wrap">
+                <select
+                  id="initial-colour-select"
+                  name="tournament[initial_colour]"
+                  disabled={@initial_colour_locked?}
+                >
+                  <option
+                    :for={value <- Tournament.initial_colours()}
+                    value={value}
+                    selected={@tournament.initial_colour == value}
+                  >
+                    {initial_colour_label(value)}
+                  </option>
+                </select>
+                <.locked_overlay field={:initial_colour} locked?={@initial_colour_locked?} />
+              </div>
+              <.locked_hint_message
+                field={:initial_colour}
+                locked_hint={@locked_hint}
+                warning={initial_colour_warning()}
+              />
+              <span :if={initial_colour_status(@tournament)} id="initial-colour-status" class="hint">
+                {initial_colour_status(@tournament)}
               </span>
             </.setting_field>
 

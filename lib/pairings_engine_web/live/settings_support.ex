@@ -650,6 +650,31 @@ defmodule PairingsEngineWeb.SettingsSupport do
   end
 
   @doc """
+  One line saying what a Swiss's initial colour is and where it came from -
+  "Initial colour: drawn by lot: White", or set by the arbiter - for the
+  Pairings and Settings pages. nil while the setting is "drawn by lot" and
+  nothing has been drawn yet.
+  """
+  def initial_colour_status(%Tournament{initial_colour: "white"}),
+    do: gettext("Initial colour: White, set by the arbiter")
+
+  def initial_colour_status(%Tournament{initial_colour: "black"}),
+    do: gettext("Initial colour: Black, set by the arbiter")
+
+  def initial_colour_status(%Tournament{initial_colour_drawn: "white"}),
+    do: gettext("Initial colour: drawn by lot: White")
+
+  def initial_colour_status(%Tournament{initial_colour_drawn: "black"}),
+    do: gettext("Initial colour: drawn by lot: Black")
+
+  def initial_colour_status(_tournament), do: nil
+
+  @doc "The label of one `initial_colour` setting value."
+  def initial_colour_label("lot"), do: gettext("Drawn by lot (default)")
+  def initial_colour_label("white"), do: gettext("White")
+  def initial_colour_label("black"), do: gettext("Black")
+
+  @doc """
   Human-readable error string for whatever a context write returned.
 
   Usually an `Ecto.Changeset`, but the context also returns bare reason atoms

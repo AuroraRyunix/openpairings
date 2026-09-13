@@ -40,6 +40,18 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   individual board statistics, a team pairing sheet and team standings print,
   and the TRF16 team section. Not published to OpenResults yet. See
   [`team-tournaments.md`](team-tournaments.md).
+- **Team Swiss (FIDE C.04.6, February 2026)** - team against team, paired by
+  Ainalrami's team engine with the regulation's defaults (match points
+  primary, game points for colours, Type A colour preferences), each pairing
+  a match seated like the team round robin's. The pairing-allocated bye
+  scores a drawn match; team tie-breaks apply C.07 Article 16 to byes,
+  forfeited matches and withdrawn teams. A team Swiss already paired player by
+  player before this carries on that way. See
+  [`team-tournaments.md`](team-tournaments.md).
+- **Initial colour** - drawn by lot at the first Swiss pairing (the FIDE
+  rule, C.04.3 5.1 / C.04.6 4.1), stored and shown on the Pairings page, or
+  set to White or Black by the arbiter; both engines are told it (JaVaFo as
+  `XXC`).
 - **Keizer system** - classic ladder values with retroactive recalculation and
   a dedicated Keizer standings table.
 - **Forbidden pairings** - arbiter-managed never-pair list, plus rule-based
@@ -252,12 +264,8 @@ Near-term, in rough order:
 
 Later / larger:
 
-- **Team Swiss (C.04.6)** - team round robin is built (above); team Swiss
-  still pairs player by player. Ainalrami already carries a first cut of the
-  C.04.6 engine with brute-force proofs of Article 3.6's lexicographic head;
-  what is left is its open reading questions, Article 16 for team
-  tie-breaks, and wiring it in. See
-  [`teams-phase-2-plan.md`](teams-phase-2-plan.md).
+- **Team Swiss explanations** - the engine returns the brackets it formed;
+  storing them for the rationale page, as the individual engine's are.
 - **Team pages on OpenResults** - additive snapshot fields for teams,
   matches and team standings, so a team event can be published.
 

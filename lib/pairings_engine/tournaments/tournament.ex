@@ -52,6 +52,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Where a soft pairing wish sits on Ainalrami's criteria ladder - see
   # PairingsEngine.Pairing.soft_pairs/5 and docs/forbidden-pairings.md.
   @soft_positions ~w(strong weak)
+  @initial_colours ~w(lot white black)
 
   # `swar_guid` is minted by another program and imported verbatim from a
   # `.swar` file, and it is then used as a filename:
@@ -611,6 +612,28 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :team_match_points_draw, :float, default: 1.0
     field :team_match_points_loss, :float, default: 0.0
 
+    # Swiss (teams) only: how its rounds are paired. "teams" - team against
+    # team under C.04.6 (`PairingsEngine.TeamSwiss`); "players" - player by
+    # player on the individual Swiss path, which is how every team Swiss was
+    # paired before C.04.6 was wired in and how those events carry on (no
+    # conversion mid-event); nil - nothing paired yet, so the first pairing
+    # will be by teams and will store "teams". Set by the pairing code and by
+    # import, never cast. See docs/team-tournaments.md.
+    field :team_pairing_mode, :string
+
+    # The initial colour (C.04.3 Art. 5.1, C.04.6 Art. 4.1: "determined by
+    # drawing of lots before the pairing of the first round"). "lot" draws it
+    # at the first Swiss pairing and stores the result in
+    # `initial_colour_drawn`; "white"/"black" is the arbiter's own choice.
+    # Locked once round 1 is paired (`Tournaments.locked_fields/1`).
+    # `initial_colour_drawn` is written only by
+    # `Tournaments.ensure_initial_colour/2`, never cast. A tournament that
+    # paired round 1 before this setting existed has neither a choice nor a
+    # draw on record, and its engine keeps reading the colour off the boards
+    # as before. See `effective_initial_colour/1`.
+    field :initial_colour, :string, default: "lot"
+    field :initial_colour_drawn, :string
+
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:
@@ -878,6 +901,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :team_match_points_win,
       :team_match_points_draw,
       :team_match_points_loss,
+      :initial_colour,
       :pair_by_category,
       :club_exclusion,
       :club_exclusion_list,
@@ -906,6 +930,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:club_exclusion, @exclusion_modes)
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_inclusion(:soft_position, @soft_positions)
+    |> validate_inclusion(:initial_colour, @initial_colours)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)
     |> validate_number(:team_match_points_win, greater_than_or_equal_to: 0)
@@ -1625,9 +1650,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def team?(_), do: false
 
   @doc """
-  Whether teams are actually PAIRED as teams - a team round robin. A team
-  Swiss is still classified as a team event but, until C.04.6 is wired in,
-  pairs its players one by one; see docs/team-tournaments.md.
+  Whether this is a team round robin that runs the Berger table over teams.
 
   Both fields, because they are set independently: the TRF importer
   classifies a file's `092` into `type` and always pairs the result as a
@@ -1635,6 +1658,51 @@ defmodule PairingsEngine.Tournaments.Tournament do
   """
   def team_round_robin?(%{type: "team-roundrobin", pairing_system: "round_robin"}), do: true
   def team_round_robin?(_), do: false
+
+  @doc """
+  Whether this is a team Swiss paired team against team (C.04.6,
+  `PairingsEngine.TeamSwiss`): type "team-swiss", Swiss pairing, and not an
+  event whose rounds were paired player by player (`team_pairing_mode`
+  "players"), which stays on the individual path. nil - nothing paired yet -
+  counts as by teams, because that is how its first round will be paired.
+  """
+  def team_swiss?(%{type: "team-swiss", pairing_system: "swiss", team_pairing_mode: mode})
+      when mode in [nil, "teams"],
+      do: true
+
+  def team_swiss?(_), do: false
+
+  @doc """
+  Whether this tournament is paired as teams - team against team, in
+  matches - by either system: a team round robin (`team_round_robin?/1`), or
+  a team Swiss paired under C.04.6 (`team_swiss?/1`: new, not yet paired, or
+  already paired by teams).
+
+  False for an individual tournament, and false for a team Swiss whose rounds
+  were paired player by player before C.04.6 was wired in
+  (`team_pairing_mode` "players"): that event has no matches and no team
+  standings, and its real standings are the individual ones. So this, not
+  `team?/1`, is the question for anything that shows or publishes matches,
+  team standings or team printing; `team?/1` only says the event is
+  classified as a team event (it has a Teams page and a TRF team section).
+  """
+  def paired_as_teams?(t), do: team_round_robin?(t) or team_swiss?(t)
+
+  @doc "The values `initial_colour` takes: drawn by lot, or set by the arbiter."
+  def initial_colours, do: @initial_colours
+
+  @doc """
+  The initial colour the engines are told, as "white" / "black", or nil when
+  there is none to tell: the setting is "lot" and nothing has been drawn yet
+  (before round 1, or a tournament paired before the draw was recorded).
+  """
+  def effective_initial_colour(%{initial_colour: colour}) when colour in ["white", "black"],
+    do: colour
+
+  def effective_initial_colour(%{initial_colour_drawn: drawn}) when drawn in ["white", "black"],
+    do: drawn
+
+  def effective_initial_colour(_), do: nil
 
   def max_team_boards, do: @max_team_boards
 

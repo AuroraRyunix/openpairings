@@ -191,11 +191,12 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # A team round robin's matches for the round on screen - the summary card
-  # above the board list. Empty for every other tournament, so nothing about
-  # an individual event's page changes.
+  # The matches of a tournament paired as teams, for the round on screen - the
+  # summary card above the board list. Empty for every other tournament
+  # (including a team Swiss paired player by player), so nothing about an
+  # individual event's page changes.
   defp team_matches(t, round) do
-    if round && Tournament.team_round_robin?(t) do
+    if round && Tournament.paired_as_teams?(t) do
       t
       |> PairingsEngine.TeamStandings.matches(through_round: round.number)
       |> Enum.filter(&(&1.round == round.number))
@@ -203,6 +204,16 @@ defmodule PairingsEngineWeb.PairingsLive do
       []
     end
   end
+
+  # The initial colour, where a Swiss has one to show (C.04.3 Art. 5.1,
+  # C.04.6 Art. 4.1): what the lot gave, or what the arbiter set. Nothing
+  # before a draw, for round robin and Keizer, or for an event paired before
+  # the draw was recorded.
+  defp initial_colour_text(%Tournament{pairing_system: "swiss"} = t) do
+    PairingsEngineWeb.SettingsSupport.initial_colour_status(t)
+  end
+
+  defp initial_colour_text(_t), do: nil
 
   defp teams_by_id(t) do
     if Tournament.team?(t),
@@ -2704,6 +2715,10 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </div>
 
+      <p :if={initial_colour_text(@tournament)} id="initial-colour" class="hint">
+        {initial_colour_text(@tournament)}
+      </p>
+
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
           <caption>{gettext("Matches - round %{n}", n: @round_number)}</caption>
@@ -2726,9 +2741,13 @@ defmodule PairingsEngineWeb.PairingsLive do
               <td :if={!m.bye?} class="num">
                 {format_match_score(m.gp_a)} - {format_match_score(m.gp_b)}
               </td>
-              <td :if={m.bye?}><em>{gettext("does not play this round")}</em></td>
+              <td :if={m.bye? and is_nil(m.mp_a)}><em>{gettext("does not play this round")}</em></td>
+              <td :if={m.bye? and not is_nil(m.mp_a)}>
+                <em>{gettext("pairing-allocated bye, scored as a drawn match")}</em>
+              </td>
               <td :if={!m.bye?}><strong>{match_team_name(@teams_by_id, m.team_b_id)}</strong></td>
-              <td :if={m.bye?} class="num">-</td>
+              <td :if={m.bye? and is_nil(m.mp_a)} class="num">-</td>
+              <td :if={m.bye? and not is_nil(m.mp_a)} class="num">{format_match_score(m.mp_a)}</td>
               <td :if={!m.bye? and m.complete?} class="num">
                 {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
               </td>

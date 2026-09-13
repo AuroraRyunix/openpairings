@@ -1115,6 +1115,13 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
+  # A team Swiss's pairing-allocated bye scores a draw (C.04.6 Art. 1.4); a
+  # round robin's bye scores nothing, and has no match points to show.
+  defp team_match_table(%{bye?: true, mp_a: mp} = m, teams, _pairings) when not is_nil(mp) do
+    "<p class=\"sub\" style=\"margin-top:18px\"><strong>#{esc(team_print_name(teams, m.team_a_id))}</strong> - " <>
+      "#{gettext("pairing-allocated bye, scored as a drawn match")}</p>"
+  end
+
   defp team_match_table(%{bye?: true} = m, teams, _pairings) do
     "<p class=\"sub\" style=\"margin-top:18px\"><strong>#{esc(team_print_name(teams, m.team_a_id))}</strong> - " <>
       "#{gettext("does not play this round")}</p>"

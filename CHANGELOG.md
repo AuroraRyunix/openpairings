@@ -16,6 +16,44 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Team Swiss: teams play teams.** A Swiss created with *Team
+  tournament* ticked now pairs team against team under FIDE's Swiss Team
+  Pairing System (C.04.6, February 2026), with Ainalrami's team engine. Each
+  pairing is a match seated exactly as a team round robin's: board order,
+  reserves moving up, a forfeit for a board one team cannot fill, White on
+  board 1 and every odd board for the team the colour rules give White. A
+  team with no player available sits the round out. Match points are the
+  score, game points decide colours between teams level on match points, and
+  colour preferences are FIDE's Type A - the regulation's defaults, and the
+  only ones offered. The pairing-allocated bye scores a drawn match: the
+  draw's match points and a draw on every board. The Pairings page lists the
+  matches, and the Standings, Print and Teams pages treat the event as a team
+  event. See `docs/team-tournaments.md`.
+- [Change] **A team Swiss already paired player by player stays that way.**
+  Before this, every team Swiss was paired player by player, and an event
+  part-way through is not converted: its rounds carry on on the individual
+  path, and the Teams page says so. Unpair every round and it pairs team
+  against team from round 1. A team Swiss imported from a TRF file with games
+  counts as paired player by player too.
+- [Feature] **Team tie-breaks follow C.07 Article 16 in a team Swiss.**
+  Buchholz, Sonneborn-Berger and EMGSB count a bye, a forfeited match or a
+  round a team did not play against a dummy opponent (its own match points,
+  capped as Article 16.4 says), and a team that withdrew counts its remaining
+  rounds as draws for its opponents. The *Working* line names such rounds
+  ("bye", "forfeit win", "not paired"). A team round robin is unchanged.
+- [Feature] **Initial colour: drawn by lot, or set by the arbiter.** FIDE
+  draws the colour that decides round 1's boards by lot (C.04.3 5.1, C.04.6
+  4.1). Settings - Options now has *Initial colour*: *Drawn by lot* (the
+  default), *White* or *Black*, for individual and team Swiss. Drawn by lot,
+  it is drawn when round 1 is paired, stored, and shown on the Pairings page
+  and in Settings ("Initial colour: drawn by lot: White"); it locks once
+  round 1 is paired, and backups, restore points and TRF imports carry it.
+  Tournaments that paired round 1 before this keep what they had.
+- [Fix] **Round 1's colours were never really drawn.** Ainalrami gave the
+  first board White in every tournament, and JaVaFo drew its own lot on
+  every run - so the same round, paired twice with JaVaFo, could come out
+  with every colour reversed, and nothing recorded which it had been. Both
+  engines are now told the stored colour (JaVaFo reads it as `XXC`).
 - [Feature] **Team round robin: teams play teams.** A tournament created as a
   round robin with *Team tournament* ticked now pairs team against team. A new
   **Teams** tab next to Players (team tournaments only) adds, renames and

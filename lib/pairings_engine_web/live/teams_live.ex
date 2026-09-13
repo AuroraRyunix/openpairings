@@ -320,11 +320,32 @@ defmodule PairingsEngineWeb.TeamsLive do
       </div>
 
       <%= if Tournament.team?(@tournament) do %>
-        <div :if={!Tournament.team_round_robin?(@tournament)} class="card">
-          <h2>{gettext("Team Swiss is not paired by team yet")}</h2>
+        <div
+          :if={
+            !Tournament.paired_as_teams?(@tournament) and @tournament.type == "team-swiss" and
+              @tournament.pairing_system == "swiss"
+          }
+          class="card"
+        >
+          <h2>{gettext("This team Swiss pairs player by player")}</h2>
           <p class="hint">
             {gettext(
-              "Teams and board orders can be set up here, but a team Swiss still pairs players one by one: the FIDE team Swiss system (C.04.6) is not wired in yet. A team round robin pairs team against team."
+              "Its rounds were paired player by player before team pairing (FIDE C.04.6) was available, so it carries on that way: switching mid-event would pair teams from a history the team rules never saw. Unpair every round and it pairs team against team from round 1."
+            )}
+          </p>
+        </div>
+
+        <div
+          :if={
+            !Tournament.paired_as_teams?(@tournament) and
+              !(@tournament.type == "team-swiss" and @tournament.pairing_system == "swiss")
+          }
+          class="card"
+        >
+          <h2>{gettext("Not paired by team")}</h2>
+          <p class="hint">
+            {gettext(
+              "Teams and board orders can be set up here, but this tournament pairs players one by one. A team round robin or a team Swiss pairs team against team."
             )}
           </p>
         </div>

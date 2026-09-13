@@ -18,11 +18,11 @@ defmodule PairingsEngineWeb.PrintLive do
       individual_documents(tournament, rounds_paired, latest)
   end
 
-  # A team round robin's own sheets lead the list: the matches with their
+  # A tournament paired as teams leads with its own sheets: the matches with their
   # boards, and the team table. The individual documents stay below - result
   # slips, score sheets and the player list are still per board and per player.
   defp team_documents(tournament, rounds_paired, latest) do
-    if PairingsEngine.Tournaments.Tournament.team_round_robin?(tournament) do
+    if PairingsEngine.Tournaments.Tournament.paired_as_teams?(tournament) do
       [
         %{
           name: gettext("Team pairings (latest round)"),

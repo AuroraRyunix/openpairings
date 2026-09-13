@@ -53,6 +53,29 @@ defmodule PairingsEngine.TeamFixtures do
     {Repo.reload!(tournament), created}
   end
 
+  @doc """
+  A team Swiss (C.04.6) with `teams` like `team_round_robin/2`. Options:
+  `:boards` (default 2), `:rounds` (default 5), `:tiebreaks`, `:user_id`,
+  and any other tournament attribute.
+  """
+  def team_swiss(teams, opts \\ []) do
+    team_round_robin(
+      teams,
+      [
+        type: "team-swiss",
+        pairing_system: "swiss",
+        rounds_count: Keyword.get(opts, :rounds, 5),
+        name: "Team Swiss"
+      ] ++ Keyword.drop(opts, [:rounds])
+    )
+  end
+
+  @doc "Pairs the next round through the app's entry point; returns the round."
+  def pair_next!(%Tournament{} = t) do
+    {:ok, round} = PairingsEngine.Pairing.pair_next_round(Repo.reload!(t))
+    round
+  end
+
   @doc "Pairs the whole schedule; returns the reloaded tournament."
   def pair_all!(%Tournament{} = t) do
     {:ok, _} = RoundRobin.pair_all_rounds(t)

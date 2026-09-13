@@ -280,12 +280,15 @@ Still open, and each needs a decision rather than typing:
   spine. Detailed in the next section. Q208 came off this list on
   2026-08-29 when ARO was fixed, because it was never only an acceptance
   item.
-- **Team Swiss (C.04.6)** - phase 2 of team tournaments. Phase 1, the team
-  round robin, is built (2026-09-13, unreleased; `docs/team-tournaments.md`).
-  Ainalrami already carries a first cut of the C.04.6 engine with
-  brute-force proofs of Article 3.6's head; the plan for the rest - its open
-  reading questions, Article 16 for team tie-breaks, the wiring - is
-  `docs/teams-phase-2-plan.md`.
+- **Team Swiss (C.04.6)** - phase 2 of team tournaments, **built 2026-09-13**
+  (unreleased, on a worktree branch): `PairingsEngine.TeamSwiss` pairs team
+  against team with Ainalrami's `TeamPairing` (branch `team-swiss`, not yet
+  tagged - the pin still says v0.26.1), Article 16 in the team tie-breaks,
+  the initial-colour draw for individual and team Swiss. Left before a
+  release: tag Ainalrami and bump the pin; `snapshot.ex` to gate team fields
+  on `Tournament.paired_as_teams?/1`; the three readings (questions 5-7) are
+  research, not SPP rulings; the large-field fuzz on the fuzz server; brackets
+  stored as the round's explanation. See `docs/team-tournaments.md`.
 
   **No longer blocked on the SPP.** C.04.6 Article 4.3.1 is the same
   TPN-parity rule as the individual 5.2.5, and the SPP answered it on
@@ -421,13 +424,12 @@ Still open, and each needs a decision rather than typing:
 - **Three upstream reports written and unsent** - the bbpPairings C2
   report, `docs/finding-gacrux-5-2-4.md`, and now
   `docs/finding-gacrux-5-2-5.md`. The maintainer sends those.
-- **Team Swiss** - the reading is done and Ainalrami has a first cut; the
-  OpenPairings wiring is not. C.04.6 is not the Dutch engine applied to
-  teams: it has its own C1-C10 criteria, and Article 3.6 defines the answer
-  as the head of a lexicographic order rather than an optimum, so weighted
-  matching does not choose at all. No reference implementation pairs teams -
-  not bbpPairings, JaVaFo, Gacrux or SWAR - so there is nothing to
-  differential-test against. See `docs/teams-phase-2-plan.md`.
+- **Team Swiss** - wired in 2026-09-13 (see above). No reference
+  implementation pairs teams - not bbpPairings, JaVaFo, Gacrux or SWAR - so
+  the engine's validation is a brute-force whole-round reference written
+  from the text (Ainalrami's `team_pairing_validation_test.exs`). Questions
+  5-7 still worth sending to the SPP; the research answers are recorded in
+  Ainalrami's `docs/conformance-c0406-teams.md`.
 - **Team pages on OpenResults** - team tournaments are refused publishing
   until the results site can show teams, matches and team standings.
 
@@ -709,9 +711,21 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   and read, matches in backups, the team pairing sheet and team standings
   print. See `docs/team-tournaments.md`.
 
+  **Phase 2 built 2026-09-13** (unreleased): team Swiss paired by teams
+  (`PairingsEngine.TeamSwiss`), the shared match writer
+  (`PairingsEngine.TeamRounds`), the Swiss bye scoring a draw, C.07 Article 16
+  in `TeamStandings` for team Swiss, `team_pairing_mode` keeping old team
+  Swiss events player by player, `Tournament.paired_as_teams?/1`.
+
   Still open:
-  * **Team Swiss** still pairs player by player - phase 2,
-    `docs/teams-phase-2-plan.md`.
+  * **Ainalrami tag and pin** - the team Swiss code needs Ainalrami's
+    `team-swiss` branch tagged and `mix.exs` bumped to it.
+  * **The round's explanation** - `TeamPairing.pair_round/2` returns its
+    brackets; they are not stored on `rounds.explanation` yet, so the
+    rationale page has nothing to show for a team Swiss round.
+  * **A match forfeited by decision** after games were played cannot be
+    recorded as a forfeit: "won by forfeit" is derived from the boards (no
+    game played). The research note suggests an arbiter-set match flag.
   * **Not published to OpenResults** - refused on purpose until the results
     site has team pages (additive snapshot fields in OpenResults'
     `docs/snapshot-schema.md`, plus the pages).
