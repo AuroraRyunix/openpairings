@@ -1130,6 +1130,19 @@ defmodule PairingsEngine.SnapshotTest do
   end
 
   describe "team tournaments" do
+    test "a team Swiss, still paired player by player, publishes as an individual event" do
+      # Flagged as a team event it would show empty team standings on the
+      # results site in place of its real individual ones.
+      {t, _teams} = team_snapshot_fixture()
+      snapshot = Snapshot.build(%{t | type: "team-swiss", pairing_system: "swiss"})
+
+      refute Map.has_key?(snapshot["tournament"], "team_event")
+      refute Map.has_key?(snapshot, "teams")
+      refute Map.has_key?(snapshot, "team_standings")
+      refute Map.has_key?(snapshot, "board_stats")
+      assert Enum.all?(snapshot["rounds"], &(not Map.has_key?(&1, "matches")))
+    end
+
     test "team_event, teams, matches and team_standings travel; individual snapshot fields are untouched" do
       {t, _teams} = team_snapshot_fixture()
 

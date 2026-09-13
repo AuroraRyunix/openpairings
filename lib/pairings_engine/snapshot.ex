@@ -147,10 +147,10 @@ defmodule PairingsEngine.Snapshot do
     after_round = Tournaments.effective_standings_through(tournament)
     results_public = &Tournaments.results_public?(tournament, &1, after_round)
 
-    team_nos = if Tournament.team?(tournament), do: team_numbers(tournament), else: %{}
+    team_nos = if paired_as_teams?(tournament), do: team_numbers(tournament), else: %{}
 
     matches_by_round =
-      if Tournament.team?(tournament) do
+      if paired_as_teams?(tournament) do
         tournament |> TeamStandings.matches() |> Enum.group_by(& &1.round)
       else
         %{}
@@ -177,7 +177,7 @@ defmodule PairingsEngine.Snapshot do
       "standings" => standings(tournament, nos, after_round)
     }
 
-    if Tournament.team?(tournament) do
+    if paired_as_teams?(tournament) do
       base
       |> Map.put("teams", teams_row(tournament, nos, team_nos))
       |> Map.put("team_standings", team_standings_row(tournament, team_nos, after_round))
@@ -266,8 +266,15 @@ defmodule PairingsEngine.Snapshot do
   # exactly how every already-published snapshot read before this field
   # existed - so it is added only for a team event rather than sent as
   # `false` on every other one.
+  # Team data travels only for a tournament whose teams are actually PAIRED
+  # as teams. A team Swiss still pairs player by player, so it publishes as an
+  # individual event: flagged as a team event, it would show empty team
+  # standings on the results site in place of its real ones. Replace this
+  # with the team-Swiss-aware predicate once C.04.6 pairing is wired in.
+  defp paired_as_teams?(t), do: Tournament.team_round_robin?(t)
+
   defp put_team_event(row, %Tournament{} = t) do
-    if Tournament.team?(t), do: Map.put(row, "team_event", true), else: row
+    if paired_as_teams?(t), do: Map.put(row, "team_event", true), else: row
   end
 
   # Added 2026-09-13. The tournament's own category vocabulary, in its own
@@ -436,7 +443,7 @@ defmodule PairingsEngine.Snapshot do
       "byes" => byes(round, visible, t, nos, results_public?)
     }
 
-    if Tournament.team?(t) do
+    if paired_as_teams?(t) do
       Map.put(row, "matches", Enum.map(matches, &match_row(&1, team_nos, results_public?)))
     else
       row

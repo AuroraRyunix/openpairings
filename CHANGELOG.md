@@ -71,6 +71,9 @@ Each entry is tagged so a version can be skimmed:
   with no points, and the team standings and board statistics stop at
   whatever round the arbiter has published standings through, exactly like
   the individual table. An individual tournament's snapshot is unchanged.
+  The team data travels for a team round robin; a team Swiss, which still
+  pairs player by player, publishes as an individual event, with its
+  individual standings, until team Swiss pairing arrives.
   Settings - OpenResults now explains what a team event sends instead of
   refusing it. See `docs/snapshot-schema.md` on the OpenResults side.
 - [Change] **Backups and restore points carry team matches**, the teams'
