@@ -16,6 +16,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A production server without `PHX_HOST` now refuses to start** instead
+  of quietly using `example.com` for every emailed link - login, invitations,
+  email changes - and the Keycloak callback. Guarded like the SMTP check: only
+  the running server (`PHX_SERVER`) enforces it, so `mix ecto.migrate` and other
+  build tasks still run without it, and the desktop app keeps `localhost`.
 - [Fix] **A collaborator invite that failed to send was still reported to
   the tournament owner as sent.** `add_collaborator/3` called the mailer and
   discarded what it returned, always setting `mail_status: :sent` - so the
