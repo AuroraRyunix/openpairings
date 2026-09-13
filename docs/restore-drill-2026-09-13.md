@@ -22,6 +22,31 @@ procedure is rewritten in `docs/deployment.md` ("Backups", "Restoring a
 backup", "What a restore undoes", "Restoring on a desktop install") and was
 re-run from that text. Everything that needs code is a recommendation below.
 
+## Since the drill: what was fixed (2026-09-13)
+
+The drill changed no code. The same day, on branch
+`worktree-agent-adbd6dd26466b4531`, the findings below were fixed and each
+heading now says where. `docs/deployment.md`, "Restoring a backup", is the
+procedure as it stands after them.
+
+| Finding | Status | Commit | Proven by |
+| --- | --- | --- | --- |
+| 1 printed swap left the WAL | fixed: the task prints the swap that moves `-wal`/`-shm` with the database, migrates, sets the token, starts | `1f65112`, `0790e3a` | `backup_swap_test.exs` runs the printed commands against a killed database's files; against the old two `mv`s SQLite served "Written after the backup" under the restored name |
+| 2 a restore undid takedowns | fixed: a takedown journal beside the database, replayed at every boot before anything publishes | `1f4294f` | `takedown_journal_test.exs`, including a real backup taken before the takedown, restored and read through the app's Repo; also a prod-mode boot on a restored copy |
+| 3 published after the backup | the refusal now says the tournament was probably published after the backup and the operator can move or remove it; a tournament created after the backup still needs the operator's token | `83f9dc0` | `publishing_after_restore_test.exs` |
+| 4 backup older than the code | a production `mix phx.server` start refuses a database with pending migrations, saying which and to run `mix ecto.migrate`; a release migrates | `954067c` | `application_test.exs`, a restored file one migration behind in `backup_restore_test.exs`, and a prod-mode boot that refused and then started after migrating |
+| 5 no procedure | rewritten again for the fixes | docs commit | |
+| 6 the token in every backup | the operator token is stripped from backups; a restore sets it again from the results site's unit. Passphrase: recommended, not set | `0790e3a` | `backup_test.exs` - not a byte of the token in the file |
+| 7 verify did not read the pages | `PRAGMA integrity_check` | `1f65112` | `backup_restore_test.exs`, fails on the old code |
+| 8 decrypted copy left in `%TEMP%` | statements released, connection closed on every path | `1f65112` | `backup_restore_test.exs`, fails on the old code |
+| 9 retention 0 or less | refused at boot; never fewer than one day, the newest always kept | `d7689a4` | `backup_test.exs` |
+| 10 thirty files | retention is days; a boot with a recent backup does not write another | `d7689a4` | `backup_test.exs` |
+| 11 `database is locked` at first boot | `restore/1` hands the file back in WAL mode | `1f65112` | `backup_restore_test.exs`; no such line in the prod-mode boot |
+| 12 passwords, roles, sessions | every session, sign-in link and email-change link is ended in the recovered copy; passwords and roles are documented as the backup's | `dc3ed40` | `backup_restore_test.exs` |
+| 13 machine-bound values | the token no longer travels; the rest is as reported | `0790e3a` | |
+| 14 desktop restore needs `eval` | unchanged; the steps are updated for the swap, the journal and the token | docs commit | |
+| 15 listed names not found | resolved from the backup directory | `1f65112` | `backup_swap_test.exs` |
+| aside: token in debug SQL | `mix pairings.publishing` starts its Repo with `log: false` | `0790e3a` | |
 ## How it was run
 
 Local only, on a Windows 11 workstation (16 threads). No SSH, no deploy, no
@@ -100,7 +125,7 @@ the results site, and OpenResults answered 404.
 Nothing here was fixed in code: `backup.ex` and the export code were off
 limits for this drill. "Documented" means the procedure now works around it.
 
-### 1. The printed swap could put the old data back live, silently - DOCUMENTED; code recommended
+### 1. The printed swap could put the old data back live, silently - FIXED (`1f65112`)
 
 `--restore` prints `mv live live.before-restore` and `mv restored live`. That
 moves the database without its `-wal` and `-shm`. After a clean stop those do
@@ -133,7 +158,7 @@ Recommended: make `Mix.Tasks.Pairings.Backup` print that swap (OpenResults'
 task now does, with a test), and correct its moduledoc, which promises "three
 commands" and prints four.
 
-### 2. A restore undoes takedowns on the results site - DOCUMENTED; code recommended
+### 2. A restore undoes takedowns on the results site - FIXED (`1f4294f`)
 
 A tournament taken down after the backup still has its key, its address and
 `publish_to_openresults` in the restored database. The takedown had released
@@ -155,7 +180,7 @@ restore task could carry publishing state forward itself when the live
 database is readable; or, on boot after a restore, ask the results site
 whether each key still holds its address before republishing anything.
 
-### 3. Tournaments published after the backup become unmanageable - DOCUMENTED; code recommended
+### 3. Tournaments published after the backup become unmanageable - FIXED where it can be (`83f9dc0`); the rest DOCUMENTED
 
 - **First published after the backup**: the restored row has no key. Turning
   publishing back on mints a new one, and every update is refused with "the
@@ -170,7 +195,7 @@ report lists what it cannot fix. Recommended: when the results site answers
 `key_mismatch` for a tournament that has never had a key here, say that a
 restore is the likely cause and what the operator can do.
 
-### 4. A backup older than the code boots and fails every tournament page - DOCUMENTED
+### 4. A backup older than the code boots and fails every tournament page - FIXED (`954067c`)
 
 The service runs `mix phx.server`, which skips migrations (only a release runs
 them at boot), and the restore instructions never said to migrate. A backup
@@ -194,7 +219,7 @@ write read-only, so the app would load pages and save nothing - from the
 unit's `User=` and SQLite's documented fallback, not reproduced on Windows.
 Step 1 and step 5's `chown` cover it.
 
-### 6. An unencrypted backup is a key ring - RECOMMENDED
+### 6. An unencrypted backup is a key ring - token FIXED (`0790e3a`); passphrase RECOMMENDED
 
 The deploy script sets no `PAIRINGS_BACKUP_PASSPHRASE`, so production backups
 are plain. Inspected, the drill's backup held: player email addresses, every
@@ -209,7 +234,7 @@ installation key now is - the deploy re-applies it on every run
 (`mix pairings.publishing --ensure --force`) - and set the passphrase in a
 drop-in on the VPS.
 
-### 7. `verify/1` does not read the pages - DOCUMENTED; code recommended
+### 7. `verify/1` does not read the pages - FIXED (`1f65112`)
 
 A correct envelope around a database with a damaged `pairings` or
 `audit_logs` page verified, restored, and failed `PRAGMA integrity_check`.
@@ -220,7 +245,7 @@ is exactly a backup of a database with a bad page. Step 3 runs the integrity
 check. Recommended: `verify/1` should, as OpenResults' now does. Its error for
 a malformed file also reads `<<109, 97, 108, 102, ...>>` rather than words.
 
-### 8. On Windows, every `verify/1` leaves a decrypted copy of the database in `%TEMP%` - RECOMMENDED
+### 8. On Windows, every `verify/1` leaves a decrypted copy of the database in `%TEMP%` - FIXED (`1f65112`)
 
 `tables/1` and `scalar/2` never release their prepared statements, and SQLite
 defers the close of a connection with live statements until they are
@@ -234,7 +259,7 @@ On Linux the unlink succeeds and only the handle leaks until collection.
 OpenResults' identical code is fixed (release every statement, close on every
 path); the same few lines fix this one.
 
-### 9. `BACKUP_RETENTION` of 0 or less deletes the newest backups - RECOMMENDED
+### 9. `BACKUP_RETENTION` of 0 or less deletes the newest backups - FIXED (`d7689a4`)
 
 `prune/1` is `Enum.drop(list, keep)`, and `config/runtime.exs` accepts any
 integer. With 0 the scheduler writes a backup and deletes it, with every
@@ -243,7 +268,7 @@ and kept the oldest. The promise that the newest is never pruned holds for a
 count of 1 or more. Recommended: never keep fewer than one, and refuse the
 value at boot - OpenResults does both now.
 
-### 10. "A month of retention" is thirty files - RECOMMENDED
+### 10. "A month of retention" is thirty files - FIXED (`d7689a4`)
 
 Every boot writes one five minutes in, and every "take one now" another. A
 week with a few deploys a day is a week of backups, not a month. And a backup
@@ -252,7 +277,7 @@ by the next prune (measured) - five minutes after the next boot. Documented.
 Recommended: skip the boot-time run when the newest backup is younger than
 the interval.
 
-### 11. The first boot after a restore logs `database is locked` - DOCUMENTED
+### 11. The first boot after a restore logs `database is locked` - FIXED (`1f65112`)
 
 `VACUUM INTO` writes a rollback-journal database. The boot that meets it has
 five pooled connections all trying to switch it to WAL - the race
@@ -263,7 +288,7 @@ self-healing. With step 7 the migrator takes the switch instead (one line,
 harmless) and the boot is clean. Recommended: `restore/1` should switch the
 recovered file to WAL itself, as OpenResults' now does.
 
-### 12. A restore revives passwords, roles and sessions - DOCUMENTED
+### 12. A restore revives passwords, roles and sessions - sessions FIXED (`dc3ed40`); passwords and roles DOCUMENTED
 
 Measured: the password the arbiter changed after the backup was the old one
 again (the arbiter signed in with it); the support role removed after the
@@ -295,7 +320,7 @@ In the backup, and restored wherever the file is restored:
   instead carry the live database's key rows forward, as step 6 does for
   tournament keys.
 
-### 14. A desktop install cannot restore its own backups - DOCUMENTED; code recommended
+### 14. A desktop install cannot restore its own backups - DOCUMENTED; code still recommended
 
 A desktop copy writes backups beside its database, and `Backup.restore/1` is
 reachable only from `mix pairings.backup`, which a desktop copy does not
@@ -304,12 +329,12 @@ because the `.bat` launcher passes its arguments through `cmd`, which eats
 parentheses and pipes. "Restoring on a desktop install" gives the steps.
 Recommended: a restore an arbiter can reach without a terminal.
 
-### 15. `--list` prints names `--verify` and `--restore` cannot find - DOCUMENTED
+### 15. `--list` prints names `--verify` and `--restore` cannot find - FIXED (`1f65112`)
 
 Typed back as listed: "no such file". The guide gives full paths; OpenResults'
 task now resolves listed names.
 
-### Aside
+### Aside - FIXED (`0790e3a`)
 
 `mix pairings.publishing` (like any task that only loads config) logs SQL at
 debug level when run by hand, and the `INSERT INTO meta` line carries the
@@ -339,11 +364,21 @@ and the drill's real before/after databases.
 
 ## The corrected procedure
 
-It is `docs/deployment.md`, "Restoring a backup". In one breath: load the
-unit's environment into a root shell and run `mix` as the service account;
-verify with a full path; recover beside the live file and run the integrity
-check on it; stop and confirm; rename the database **with** its `-wal` and
-`-shm`; restore ownership; carry publishing state forward from the replaced
-database and read the report; `mix ecto.migrate`; start and check for a 302;
-then sync the rating lists, check the publishing connection, and re-apply
-what the report listed.
+It is `docs/deployment.md`, "Restoring a backup". In one breath, as it was
+at the drill: load the unit's environment into a root shell and run `mix` as
+the service account; verify with a full path; recover beside the live file and
+run the integrity check on it; stop and confirm; rename the database **with**
+its `-wal` and `-shm`; restore ownership; carry publishing state forward from
+the replaced database and read the report; `mix ecto.migrate`; start and check
+for a 302; then sync the rating lists, check the publishing connection, and
+re-apply what the report listed.
+
+And as it is after the fixes: load the environment; verify by the listed name
+(it reads every page now); recover (the copy comes back in WAL mode with every
+sign-in ended); stop and confirm; rename the database with its `-wal` and
+`-shm` and restore ownership - the task prints exactly that now; if the old
+database opens, carry keys forward and read the report; `mix ecto.migrate` (a
+start refuses without it); set the operator token again from the results
+site's unit; start and check for a 302 and for the takedown journal's "kept
+off the results site" lines; sync the rating lists and re-apply roles and
+passwords.

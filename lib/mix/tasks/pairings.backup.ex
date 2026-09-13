@@ -18,9 +18,9 @@ defmodule Mix.Tasks.Pairings.Backup do
   `--restore` deliberately does not swap the live file. A SQLite database
   cannot be replaced underneath an open connection pool without risking the
   very thing being recovered, so it writes the recovered copy beside it and
-  prints the swap, the migration and the start with this machine's paths -
-  steps 4 to 8 of `docs/deployment.md`, "Restoring a backup". What to
-  re-apply afterwards is in the same guide.
+  prints the swap, the migration, the operator token and the start with this
+  machine's paths - steps 4, 5, 7, 8 and 9 of `docs/deployment.md`,
+  "Restoring a backup". What to re-apply afterwards is in the same guide.
   """
   use Mix.Task
 

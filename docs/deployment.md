@@ -7,8 +7,9 @@ distribution path (a completely separate, self-contained option), see
 ## Where it's running
 
 The live instance is served at **https://pairings.zerotwo.cloud** - a
-Rocky Linux VPS running the app directly as a Phoenix release under
-`systemd`, `MIX_ENV=prod`. This document intentionally omits the host's IP
+Rocky Linux VPS running the app directly under `systemd` with
+`mix phx.server`, `MIX_ENV=prod`. Not an OTP release, which matters in one
+place: nothing migrates at boot (see "Restoring a backup", step 7). This document intentionally omits the host's IP
 address, SSH access details, and any credentials - those live outside this
 repository (see "Secrets" below), not in version control.
 
@@ -291,52 +292,78 @@ for `ecto.migrate` applying new migrations.
 
 ## Backups
 
-`PairingsEngine.Backup.Scheduler` writes one five minutes after every boot and
-then every 24 hours; **Connections → Backups** and `mix pairings.backup` write
-one on demand. Each is `openpairings-<UTC time>.opbak` in `backups/` beside
-the database (`/var/lib/pairingsengine/backups`): the whole database,
-gzip-compressed, with the FIDE and KBSB rating lists emptied (a sync rebuilds
-them).
+`PairingsEngine.Backup.Scheduler` writes one a day: five minutes after a boot
+when the newest backup on disk is at least a day old, otherwise when that one
+comes due, and every 24 hours after that. **Connections → Backups** and
+`mix pairings.backup` write one on demand. Each is
+`openpairings-<UTC time>.opbak` in `backups/` beside the database
+(`/var/lib/pairingsengine/backups`): the whole database, gzip-compressed, with
+the FIDE and KBSB rating lists emptied (a sync rebuilds them) and two secrets
+left out - the OpenResults operator token, and a desktop copy's own
+results-site key.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `BACKUP_DIR` | `backups/` beside the database | where they are written |
-| `BACKUP_RETENTION` | 30 | how many files are kept |
+| `BACKUP_RETENTION` | 30 | how many **days** a backup is kept; the newest is always kept, however old. A whole number of at least 1, or the app refuses to boot |
 | `PAIRINGS_BACKUP_PASSPHRASE` | none | encrypts them (AES-256-GCM); the same value is needed to verify or restore one |
 
 All three are read only in production (`config/runtime.exs`, prod block).
-**The deploy script sets none of them**, so on this host backups are
-unencrypted - and an unencrypted OpenPairings backup is a key ring, not just a
-copy of results: player email addresses from the entry form, every
-tournament's publishing key, the password hashes and live session tokens of
-every account, and **the OpenResults operator token itself** (`meta`,
-`openresults_token`), which can overwrite or delete any tournament on the
-results site. Anyone an administrator hands a downloaded backup to holds all
-of that.
 
-Retention is a count, and every boot and every "take one now" spends one:
-thirty files are thirty days only on a box nobody restarts.
-`BACKUP_RETENTION=0` deletes every backup, the one just written included,
-and a negative value deletes the newest and keeps the oldest - the drill ran
-both. Keep it at 1 or more.
+**Retention is days, since 2026-09-13.** It was a count of files, and every
+boot and every "take one now" spent one, so thirty files were thirty days only
+on a box nobody restarted. Now `BACKUP_RETENTION=30` keeps the last thirty
+days - about one backup a day plus whatever was taken by hand, however often
+the service restarts. **A value set before that date means days now.**
+
+**The deploy script sets none of the three**, so on this host backups are
+unencrypted. An unencrypted backup still carries the entry form's email
+addresses, every tournament's publishing key, and every account's password
+hash. It no longer carries the OpenResults operator token: that is stripped
+from the copy since 2026-09-13, and a restore sets it again (step 8 below).
+
+**Recommended: set `PAIRINGS_BACKUP_PASSPHRASE`.** Either teach the deploy to
+write it into the unit from its own `.env`, as it does the other secrets, or
+put it in a drop-in the deploy does not rewrite -
+`/etc/systemd/system/pairingsengine.service.d/backup.conf` with `[Service]`
+and `Environment="PAIRINGS_BACKUP_PASSPHRASE=..."`, then `systemctl
+daemon-reload` - which step 1 below already reads. Keep the passphrase
+somewhere other than this box: a backup nobody can decrypt is not a backup.
+Existing backups stay unencrypted; new ones are encrypted from the next run.
 
 A backup on the same disk survives a bad deploy, not the disk: download one
 from Connections now and then. Keep the copy you would restore from **outside**
-`backups/`, where the next prune counts it.
+`backups/`, where a prune removes it once it is older than the window (unless
+it is the newest).
+
+### The takedown journal, beside the database
+
+`pairings_engine-takedowns.jsonl`, next to `pairings_engine.db`, is not a
+backup and is in none: it is where every takedown is written down - the Take
+down button, moving a tournament to a new address, deleting a tournament for
+good - once the results site has confirmed it. One line each: the tournament's
+id, the address that was withdrawn, the time, and a short fingerprint of the
+key the takedown retired (never the key). At every start, before anything can
+publish, a tournament that still holds exactly such a claim - which only a
+restored backup brings back - has publishing switched off again, with an
+audit row. See `PairingsEngine.Publishing.TakedownJournal`.
+
+Never delete it, and restore nothing over it. **If the installation moves to
+another machine, copy it along with the backup**: without it, a restore there
+brings back every takedown made after the backup.
 
 ## Restoring a backup
 
 Rehearsed on 2026-09-13; `docs/restore-drill-2026-09-13.md` has the run, the
-timings and everything that broke. The commands below take about fifteen
-seconds; `mix` starting is most of it, so allow a minute or two on the box.
-`mix pairings.backup --restore` prints four commands of its own when it
-finishes. **Do not use them**: they move the database without its WAL, which
-in the drill had SQLite read the old database back through the restored
-file's name. Step 5 is what they should have said.
+timings and everything that broke. The code that broke is fixed, and this
+procedure is what it became. The commands take about fifteen seconds; `mix`
+starting is most of it, so allow a minute or two on the box.
+`mix pairings.backup --restore` prints steps 4, 5, 7, 8 and 9 with this
+machine's paths.
 
 Before you start, read "What a restore undoes". If the current database still
 opens, do not delete it: it is the only record of what happened after the
-backup, and step 6 needs it.
+backup, and step 6 reads it.
 
 All as root.
 
@@ -362,25 +389,25 @@ purpose: with it set, `config/runtime.exs` also demands the SMTP credentials.
 
 ```bash
 app pairings.backup --list
-app pairings.backup --verify /var/lib/pairingsengine/backups/openpairings-2026-09-13T00-24-27Z.opbak
+app pairings.backup --verify openpairings-2026-09-13T00-24-27Z.opbak   # a name as listed, or a path
 ```
 
-Give `--verify` and `--restore` the whole path: the name `--list` prints is
-not found on its own. `--verify` proves the file decrypts, decompresses and
-has this app's core tables - and nothing more: it does not read the pages,
-and in the drill it passed a backup whose `pairings` table was damaged. Step 3
-checks that.
+`--verify` decrypts, decompresses, checks this app's core tables and reads
+every page of the database (`PRAGMA integrity_check`), on a copy in the temp
+directory that it then deletes - accepted or refused. A backup whose database
+has a damaged table is refused; try an older one.
 
-**3. Recover it beside the live database, and read every page of it.**
+**3. Recover it beside the live database.**
 
 ```bash
-app pairings.backup --restore /var/lib/pairingsengine/backups/openpairings-2026-09-13T00-24-27Z.opbak
-runuser -u pairingsengine -- python3 -c "import sqlite3; print(sqlite3.connect('file:/var/lib/pairingsengine/pairings_engine.db.restored?mode=ro', uri=True).execute('PRAGMA integrity_check').fetchone()[0])"
+app pairings.backup --restore openpairings-2026-09-13T00-24-27Z.opbak
 ```
 
-The second line must print `ok`. Anything else: delete the `.restored` file
-and try an older backup. (Read-only on purpose: a plain `connect` on a path
-that is not there creates an empty database, which checks `ok`.)
+This verifies again and writes `/var/lib/pairingsengine/pairings_engine.db.restored`,
+already switched to WAL. In that copy **every sign-in is ended** - sessions,
+unused sign-in links, email-change links - so everyone signs in again, and it
+is marked with when its backup was written and when it was restored. The live
+database is not touched.
 
 **4. Stop the service, and make sure it stopped.**
 
@@ -403,29 +430,27 @@ chown --reference=. pairings_engine.db
 
 After a clean stop there is no `-wal` or `-shm`. After a crash, an OOM kill, a
 stop that ran into systemd's timeout - or a `mix` task that exited without
-checkpointing, which `mix ecto.migrate` on a fresh database does - there is,
-and the newest writes are in it. Moving the `.db` alone does two kinds of
-damage, both reproduced in the drill: the `before-restore` copy is missing
-everything in the WAL (it was a single empty page), and the WAL left behind is
-read INTO the restored file, because SQLite cannot tell it belongs to a
-different database - in the drill SQLite read the old database back under
-the restored file's name, and `PRAGMA integrity_check` said `ok`. Renamed
-together, the `before-restore` file and its `-wal` still open as one
-database.
+checkpointing - there is, and the newest writes are in it. Moving the `.db`
+alone, which is what `--restore` printed until 2026-09-13, does two kinds of
+damage, both reproduced in the drill and now in
+`test/pairings_engine/backup_swap_test.exs`: the `before-restore` copy is
+missing everything in the WAL, and the WAL left behind is read INTO the
+restored file, because SQLite cannot tell it belongs to a different database.
+Renamed together, the `before-restore` file and its `-wal` still open as one
+database. Leave `pairings_engine-takedowns.jsonl` where it is.
 
-`chown`: if the recovered file was written by root rather than through `app`,
-SQLite opens it read-only for the service - pages load and nothing saves.
-`--reference=.` takes the owner of the directory, which the deploy gives the
-service account.
+`chown`: a file written by root is opened read-only by the service - pages load
+and nothing saves. `--reference=.` takes the owner of the directory, which the
+deploy gives the service account.
 
-**6. Carry the results site forward, and see what else the restore undid.**
+**6. If the old database still opens: carry keys forward, and see what else
+the restore undid.** Optional - skip it if the old database is gone.
 
-What the backup says about publishing is older than what the results site
-knows. A tournament taken down after the backup still has its key here and is
-published again on its next change (the drill's came back online); one first
-published after the backup has no key here, and the results site refuses every
-update from it. Both are fixed by taking each tournament's publishing state
-from the database you just moved aside, before the app starts:
+Takedowns made after the backup need nothing here: the journal puts them back
+in force at the start (step 9). What the journal cannot know is a tournament
+first published after the backup - its key is not in the restored database, and
+the results site refuses every update from it. This copies each tournament's
+publishing state from the database you just moved aside:
 
 ```bash
 runuser -u pairingsengine -- python3 - pairings_engine.db pairings_engine.db.before-restore-$stamp <<'EOF'
@@ -447,7 +472,9 @@ print(f"publishing state carried forward for {moved} tournament(s); {dropped} st
 EOF
 ```
 
-Then list what is left to re-apply by hand:
+It composes with the journal: a tournament it hands its post-backup state no
+longer holds the claim a journalled takedown retired, so the start leaves it
+alone. Then list what is left to re-apply by hand:
 
 ```bash
 runuser -u pairingsengine -- python3 - pairings_engine.db pairings_engine.db.before-restore-$stamp <<'EOF'
@@ -466,19 +493,17 @@ show("accounts whose role or password changed after the backup - the old ones ar
      "SELECT m.email, m.role || ' -> ' || o.role, CASE WHEN m.hashed_password IS NOT o.hashed_password THEN 'password changed' ELSE '' END "
      "FROM main.users m JOIN old.users o USING (id) WHERE m.role <> o.role OR m.hashed_password IS NOT o.hashed_password")
 show("accounts created after the backup - gone", "SELECT email FROM old.users WHERE id NOT IN (SELECT id FROM main.users)")
-show("sign-in sessions ended after the backup - valid again",
-     "SELECT u.email, count(*) FROM main.users_tokens t JOIN main.users u ON u.id = t.user_id "
-     "WHERE t.context = 'session' AND t.id NOT IN (SELECT id FROM old.users_tokens) GROUP BY u.email")
 show("machine settings that differ (restored -> before)",
      "SELECT key, CASE WHEN key LIKE '%token%' OR key LIKE '%key%' THEN 'differs' ELSE ifnull(m.value, '-') || ' -> ' || ifnull(o.value, '-') END "
      "FROM (SELECT key FROM main.meta UNION SELECT key FROM old.meta) k LEFT JOIN main.meta m USING (key) LEFT JOIN old.meta o USING (key) "
-     "WHERE m.value IS NOT o.value AND key NOT LIKE 'openresults_last_publish%'")
+     "WHERE m.value IS NOT o.value AND key NOT LIKE 'openresults_last_publish%' AND key <> 'restored_from_backup'")
 EOF
 ```
 
 Both run as the service account, because SQLite may create a `-shm` even for
-a database it only reads. If the old database is gone, skip this step and use
-"What a restore undoes" as a checklist.
+a database it only reads. `openresults_token` shows as differing: the backup
+has none, and step 8 sets it. Sign-in sessions are not listed any more: the
+restore ended all of them.
 
 **7. Migrate.**
 
@@ -487,34 +512,50 @@ app ecto.migrate
 ```
 
 The service runs `mix phx.server`, which does not migrate - only a release
-does. A backup older than the code boots and answers HTTP while every page
-that reads a tournament fails: the drill restored a backup one migration
-behind and got `no such column: t0.standings_through` on the tournament list.
-On a freshly restored file this step logs one `database is locked` line: the
-file comes back from the backup in rollback-journal mode, and the migrator's
-second connection loses the switch to WAL and retries. It is harmless, and it
-is better here than on the service's first boot, where it would otherwise
-appear.
+does. A backup older than the code used to boot, answer HTTP, and fail every
+tournament page (the drill's, one migration behind: `no such column:
+t0.standings_through`). Since 2026-09-13 a production start refuses a database
+that is behind the code instead: `systemctl start` fails, and the journal says
+how many migrations are pending and to run this step.
 
-**8. Start, and check.**
+**8. Set the OpenResults operator token again.** Backups do not carry it.
+With both applications on this box, read it from the results site's own unit,
+exactly as the deploy's `.env` supplies it, and hand it over in the environment
+rather than on a command line:
+
+```bash
+export DEPLOY_PUBLISH_TOKEN="$(sed -n 's|^Environment="OPENRESULTS_INGEST_TOKEN=\(.*\)"$|\1|p' /etc/systemd/system/openresults.service /etc/systemd/system/openresults.service.d/*.conf 2>/dev/null | tail -1)"
+app pairings.publishing --ensure
+unset DEPLOY_PUBLISH_TOKEN
+```
+
+It prints `token set`. If OpenResults runs elsewhere, take the token from that
+machine's environment. Running the deploy does the same (`--ensure --force`
+from its `.env`). Until this step a restored server publishes nothing, and
+Connections says the token is missing.
+
+**9. Start, and check.**
 
 ```bash
 systemctl start pairingsengine
 curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:${PORT:-4001}/"   # 302, to the login page
-journalctl -u pairingsengine -n 20 --no-pager
+journalctl -u pairingsengine -n 30 --no-pager
 ```
 
-Then, signed in as an administrator:
+The journal shows no `database is locked` (the recovered file is already WAL),
+and - if the backup predates any takedown - `Kept N tournament(s) off the
+results site after a restore`, one line per tournament before it. Each of those
+tournaments has an audit row saying so.
+
+Then, signed in again as an administrator:
 
 - **Connections**: the rating lists are empty (they are not in a backup) -
   start a FIDE sync, and a KBSB one if you use it. The page may still show
-  the last sync's date beside "0 players"; the count is the truth.
-- **Connections → publishing**: the address and token are the backup's. If the
-  OpenResults token was rotated since, the indicator says "refused" - run the
-  deploy, or `app pairings.publishing --ensure --force` with the current
-  values, as the deploy does.
-- Re-apply what step 6 listed: role changes, password resets, and - if a
-  session was ended for a reason - sign that account out again.
+  the last sync's date beside "0 players"; the count is the truth. The
+  publishing indicator should be connected after step 8.
+- Re-apply what step 6 listed: role changes, password resets.
+- Revoke again any phone enrolment revoked after the backup (Live round page):
+  enrolments come back as the backup had them.
 - Tournaments created after the backup exist only in the `before-restore`
   file. A published one can be withdrawn from the results site only with the
   operator token (OpenResults' `docs/deployment.md`, "It is also the
@@ -524,17 +565,20 @@ Keep the `before-restore` files until all of that is done.
 
 ## What a restore undoes
 
-Everything written after the backup. The rows are the obvious part; these are
-the ones that bite:
+Everything written after the backup - except what the restore and the
+takedown journal now put back on purpose. The rows are the obvious part; these
+are the ones that bite:
 
 | After the backup, somebody... | After the restore |
 | --- | --- |
-| took a tournament off the results site, or moved it to a new address | the old key is back, and the next change to the tournament publishes it again under the old address - withdrawn, then silently back online (step 6 fixes it) |
-| published a tournament for the first time | no key here; every update is refused as "a different machine published this tournament" - a message that is wrong about which machine (step 6 fixes it) |
+| took a tournament off the results site, moved it to a new address, or deleted it for good | **kept off.** At the first start the takedown journal switches its publishing off again and drops its key and queued publish, with an audit row; a moved one also gets a new address, so the old one cannot come back. Needs the journal file beside the database |
+| published a tournament for the first time | no key here; every update is refused, and the refusal now says the tournament was probably published after the backup and that the results site's operator can move or remove it. Step 6 copies the key back if the old database still opens |
 | created and published a tournament | the tournament is gone from here, and its public page has nobody who can take it down except the operator |
-| changed a password, lost a role, or was signed out | the old password works, the role is back, the session is valid again |
+| changed a password or lost a role | **the old password works and the role is back.** Nothing journals accounts; step 6 lists them, re-apply by hand |
+| was signed in, or signed out | **everybody is signed out**: the restore ends every session, sign-in link and email-change link in the recovered copy |
+| revoked a phone enrolment | valid again - revoke it again |
 | accepted an entry from the form | the entry is pending again; ones still on the results site are pulled again on the next poll |
-| rotated the OpenResults token | the old token is back in `meta`; publishing is refused until it is set again |
+| rotated the OpenResults token | backups hold no token at all; step 8 sets the current one |
 
 The per-installation results-site key of a desktop copy in public mode (see
 OpenResults' `docs/public-publishing.md`) is deliberately never in a backup:
@@ -570,11 +614,16 @@ with. The portable release's own `eval` can - tested in the drill with a
    and `openpairings.db-shm` together (for example to
    `openpairings.db.before-restore`, `openpairings.db.before-restore-wal`,
    `openpairings.db.before-restore-shm`), then rename
-   `openpairings.db.restored` to `openpairings.db`.
-5. Start OpenPairings. A release migrates at boot.
+   `openpairings.db.restored` to `openpairings.db`. Leave
+   `openpairings-takedowns.jsonl` where it is.
+5. Start OpenPairings. A release migrates at boot, and the takedown journal
+   keeps anything withdrawn after the backup off the results site.
+6. If this copy published with an operator token, type it in again on
+   Connections: backups do not carry it. A copy publishing without one asks
+   for consent and registers again the next time publishing is turned on,
+   and the results site's operator moves its tournaments across.
 
-On Windows the restore also leaves a full, decrypted copy of the database in
-`%TEMP%` (`opbak-verify-*.db`) - see the drill document. Delete it.
+The restore no longer leaves a decrypted copy of the database in `%TEMP%`.
 
 ## Configuration (environment variables)
 

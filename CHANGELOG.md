@@ -134,18 +134,19 @@ Each entry is tagged so a version can be skimmed:
   read into the restored file (fixed, above).
   `docs/deployment.md` now has "Backups", "Restoring a backup" (tested step by
   step: move the WAL with the database, restore ownership, migrate - a backup
-  one migration old boots and fails every tournament page otherwise), "What a
+  one migration old booted and failed every tournament page without it, and
+  now refuses to start), "What a
   restore undoes", and "Restoring on a desktop install", which had no way at
   all.
-- [Change] **What a restore undoes, written down.** A tournament taken off the
-  results site after the backup is published again on its next change; one
-  first published after it can no longer be updated; passwords, roles and
-  signed-out sessions go back to what they were; the rating lists are empty
-  until a sync. The guide carries a tested script that takes each tournament's
-  publishing state from the database the restore replaced, and a report of
-  everything else to re-apply. Also written down: an unencrypted backup - which
-  is what the deploy produces - holds the OpenResults operator token, not just
-  player emails and tournament keys.
+- [Change] **What a restore undoes, written down.** As the drill found it, a
+  tournament taken off the results site after the backup was published again
+  on its next change, and signed-out sessions were valid again - both fixed
+  above. Still true after the fixes, and in the guide: a tournament first
+  published after the backup can no longer be updated from here, passwords and
+  roles go back to what they were, and the rating lists are empty until a
+  sync. The guide carries a tested script that carries each tournament's
+  publishing state forward from the database the restore replaced, when that
+  database still opens, and a report of everything else to re-apply.
 
 - [Fix] **Pulling entry-form registrations words a refusal by the server's
   own error code, like publishing already does.** `PairingsEngine.
