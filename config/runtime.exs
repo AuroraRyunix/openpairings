@@ -376,7 +376,23 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || (local_mode? && "localhost") || "example.com"
+  # Every link this app emails (login, invitations, email changes) and the
+  # Keycloak callback are built from the host. The running server refuses to
+  # start without it rather than sending links to https://example.com that
+  # nobody can act on. Guarded by PHX_SERVER like the SMTP check above: build
+  # tasks such as `mix ecto.migrate` build no links, so they may run without it.
+  host =
+    System.get_env("PHX_HOST") ||
+      (local_mode? && "localhost") ||
+      (System.get_env("PHX_SERVER") &&
+         raise("""
+         environment variable PHX_HOST is missing.
+
+         Every link this app emails (login, invitations, email changes) is built
+         from it; without it they point at https://example.com, which nobody can
+         act on. Set it to the public domain, e.g. pairings.example.org.
+         """)) ||
+      "example.com"
 
   config :pairings_engine, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 

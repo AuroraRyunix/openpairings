@@ -1166,6 +1166,37 @@ defmodule PairingsEngine.TournamentsTest do
       end)
     end
 
+    test "add_collaborator/3 still creates the row when the invite mail fails, and reports :failed rather than :sent" do
+      # Regression test: `deliver_invitation_email/3` used to call
+      # `UserNotifier.deliver_invitation/4` and discard its result, so an
+      # SMTP hiccup - the exact case its own comment described - was
+      # reported to the owner as a successful send. `Mailer.deliver/1`
+      # (Swoosh) returns `{:error, reason}` for a failed send; it does not
+      # raise, so the `rescue` clause guarding this never actually caught
+      # it. `PairingsEngine.FailingMailer` (test/support) makes every send
+      # fail the same way a real SMTP outage would, without touching the
+      # network.
+      previous = Application.get_env(:pairings_engine, PairingsEngine.Mailer)
+
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer,
+        adapter: PairingsEngine.FailingMailer
+      )
+
+      on_exit(fn -> Application.put_env(:pairings_engine, PairingsEngine.Mailer, previous) end)
+
+      owner = user_scope()
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      assert {:ok, collaborator} =
+               Tournaments.add_collaborator(owner, tournament, "friend@example.com")
+
+      assert collaborator.mail_status == :failed
+      # The row itself is still there - the owner can share the link by hand.
+      assert [%{status: "pending"}] = Tournaments.list_collaborators(tournament)
+    end
+
     test "add_collaborator/3 leaves user_id nil (pending) when no user has that email yet" do
       owner = user_scope()
 

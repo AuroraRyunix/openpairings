@@ -74,6 +74,44 @@ Each entry is tagged so a version can be skimmed:
   before - the merge is covered by its own test, alongside one pinning that
   N field edits never rewrite the stored file payload.
 
+- [Fix] **A production server without `PHX_HOST` now refuses to start** instead
+  of quietly using `example.com` for every emailed link - login, invitations,
+  email changes - and the Keycloak callback. Guarded like the SMTP check: only
+  the running server (`PHX_SERVER`) enforces it, so `mix ecto.migrate` and other
+  build tasks still run without it, and the desktop app keeps `localhost`.
+- [Fix] **A collaborator invite that failed to send was still reported to
+  the tournament owner as sent.** `add_collaborator/3` called the mailer and
+  discarded what it returned, always setting `mail_status: :sent` - so the
+  Team panel's own "share this link manually" fallback for a failed send
+  could never actually show, because an SMTP failure comes back from Swoosh
+  as `{:error, reason}`, not an exception, and nothing looked at it. It now
+  does, so a real send failure shows the manual-share notice instead of a
+  silent, false "sent".
+- [Fix] **Account emails were always sent in English, regardless of the
+  arbiter's chosen language.** The magic-link, account-confirmation,
+  email-change, and collaborator-invitation emails had no translation in
+  them at all. They now render in whichever locale the person taking the
+  action - logging in, registering, changing their email, or inviting a
+  collaborator - already has selected for their own screen. An invitation
+  is worded in the INVITING arbiter's language, since the invitee may not
+  have an OpenPairings account yet to have a language of their own.
+- [Fix] **A failed magic-link resend or email-change confirmation vanished
+  without a trace.** Both call sites sent the mail and ignored what came
+  back, so an SMTP hiccup left the person waiting for an email that was
+  never coming, with no log line and no different flash to say so
+  (registration's own equivalent already logged this correctly). Both now
+  log the failure; the email-change confirmation, which is already the
+  logged-in user's own account, now tells them too. The log-in form's resend
+  keeps its one message either way on purpose - it must not become a second,
+  quieter way to learn whether an address exists.
+- [Fix] **A local/desktop build (`OPENPAIRINGS_LOCAL=1`, or the Burrito app)
+  gave no sign that a login or invite email had gone anywhere.** That build
+  prints the email to its own terminal instead of sending it - there is no
+  mail server on a single-user machine - but the log-in page's notice about
+  local mail only recognised the dev preview mailbox, not this adapter, so
+  it said nothing for a second account on the same machine, an invited
+  collaborator, or a password reset. It now names the terminal instead.
+
 - [Feature] **The desktop app publishes to openresults.zerotwo.cloud without a
   token.** On your own computer, with no token configured, the results site's
   address now defaults to `https://openresults.zerotwo.cloud`, and turning
@@ -185,6 +223,23 @@ Each entry is tagged so a version can be skimmed:
   shapes read better too: a result blanked before 2026-08-03 said "changed
   from 1-0 to" and now reads as a cleared result, and a role change names
   the roles as the Admin page does ("from Account owner to Administrator").
+- [Fix] **Thirty-four kinds of audit row said what they were instead of
+  what happened.** Hand edits to a paired round, publishing and taking
+  down pairings and standings, hiding an empty board, all four hand-off
+  steps, the results site settings, the bulk edits on the Players grid, the
+  club refresh, category rules and assignment, and recomputing the pairing
+  rationale all showed an internal code - `pairing.players_swapped`,
+  `handoff.returned` - on the Audit page, the History page and the Admin
+  page's activity list, in English and Dutch alike. Each now reads as a
+  sentence in the arbiter's language, rows written by earlier versions
+  included, and says what an incident needs: "Took the pairings of round 4
+  and every later round off the public page. Public standings now go no
+  further than after round 3." Round 0 reads as the initial standings. A
+  hand edit names its round, but those rows never stored which players
+  moved - only the confirmation's own English line - so that line follows
+  the sentence in quotes: `Recorded as "Chris Maes takes Bram Claes's
+  place".` The rows 0.59.0 wrote for its "Publish the starting rank before
+  round 1" switch read as a sentence too.
 
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status

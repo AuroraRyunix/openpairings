@@ -63,6 +63,39 @@ defmodule PairingsEngineWeb.UserLive.RegistrationTest do
                ~r/An email was sent to .*, please access it to confirm your account/
     end
 
+    test "logs the failure and tells the user, rather than claiming the email was sent, when it fails to send",
+         %{conn: conn} do
+      # This branch of `do_register/2` already existed and already did the
+      # right thing - unlike the three sibling call sites this audit found
+      # discarding the same kind of result - but nothing exercised it before.
+      previous = Application.get_env(:pairings_engine, PairingsEngine.Mailer)
+
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer,
+        adapter: PairingsEngine.FailingMailer
+      )
+
+      on_exit(fn -> Application.put_env(:pairings_engine, PairingsEngine.Mailer, previous) end)
+
+      {:ok, lv, _html} = live(conn, ~p"/users/register")
+
+      email = unique_user_email()
+      form = form(lv, "#registration_form", user: valid_user_attributes(email: email))
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          {:ok, _lv, html} =
+            render_submit(form)
+            |> follow_redirect(conn, ~p"/users/log-in")
+
+          assert html =~ "we could not send the email"
+          refute html =~ "please access it to confirm your account"
+        end)
+
+      assert log =~ "Failed to send login instructions to #{email}"
+      # The account itself was still created - only the mail failed.
+      assert PairingsEngine.Accounts.get_user_by_email(email)
+    end
+
     test "renders errors for duplicated email", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/register")
 

@@ -26,10 +26,12 @@ defmodule PairingsEngineWeb.AuditLive do
   A few `details` values are prose that was already a finished string when
   the row was written, and they are shown verbatim, framed by a translated
   sentence: a restore point's name (`snapshot.restored`'s `restored_to` is
-  the snapshot's own summary, which the History page shows as-is too) and
-  the federation upload's error message (`swar.publish_failed`'s `error`).
-  Rewording them here would mean pattern-matching English, and rewriting
-  them in the table would be rewriting the record.
+  the snapshot's own summary, which the History page shows as-is too), the
+  federation upload's error message (`swar.publish_failed`'s `error`), and
+  the confirmation line a hand edit of a paired round stored as its
+  `summary` - the only record of which players that edit moved. Rewording
+  them here would mean pattern-matching English, and rewriting them in the
+  table would be rewriting the record.
 
   Field names in a settings or player diff stay the schema's own
   identifiers (`rounds_count`, `swiss_match_format`) in every language - see
@@ -217,6 +219,93 @@ defmodule PairingsEngineWeb.AuditLive do
         count(d, "players_updated")
       )
 
+  def describe("player.clubs_refreshed", d),
+    do:
+      ngettext(
+        "Refreshed clubs for %{count} player.",
+        "Refreshed clubs for %{count} players.",
+        count(d, "players_updated")
+      )
+
+  # The three right-click actions on a Players column header. Each writes the
+  # whole roster, so `player_count` is every player in the tournament, not
+  # the ones whose value happened to change.
+  def describe("player.bulk_absent_set", d) do
+    count = count(d, "player_count")
+
+    if truthy?(d["absent"]),
+      do:
+        ngettext(
+          "Marked every player absent for the whole tournament (%{count} player).",
+          "Marked every player absent for the whole tournament (%{count} players).",
+          count
+        ),
+      else:
+        ngettext(
+          "Marked every player present for the whole tournament (%{count} player).",
+          "Marked every player present for the whole tournament (%{count} players).",
+          count
+        )
+  end
+
+  def describe("player.bulk_paid_set", d) do
+    count = count(d, "player_count")
+
+    case d["paid"] do
+      "paid" ->
+        ngettext(
+          "Marked every player as paid (%{count} player).",
+          "Marked every player as paid (%{count} players).",
+          count
+        )
+
+      "nopaid" ->
+        ngettext(
+          "Marked every player as not paid (%{count} player).",
+          "Marked every player as not paid (%{count} players).",
+          count
+        )
+
+      "gratis" ->
+        ngettext(
+          "Marked every player as gratis (%{count} player).",
+          "Marked every player as gratis (%{count} players).",
+          count
+        )
+
+      # `Tournaments.set_all_players_paid/2` refuses anything else, so only a
+      # hand-edited backup gets here - shown as the stored code.
+      other ->
+        ngettext(
+          "Set every player's registration fee status to %{status} (%{count} player).",
+          "Set every player's registration fee status to %{status} (%{count} players).",
+          count,
+          status: shown(other)
+        )
+    end
+  end
+
+  def describe("player.bulk_category_set", d) do
+    count = count(d, "player_count")
+    category = name(d, "category")
+
+    if truthy?(d["added"]),
+      do:
+        ngettext(
+          "Added category %{category} to every player (%{count} player).",
+          "Added category %{category} to every player (%{count} players).",
+          count,
+          category: category
+        ),
+      else:
+        ngettext(
+          "Removed category %{category} from every player (%{count} player).",
+          "Removed category %{category} from every player (%{count} players).",
+          count,
+          category: category
+        )
+  end
+
   def describe("pairing.round_paired", d), do: describe_round_paired(d)
 
   def describe("pairing.result_entered", d),
@@ -243,6 +332,180 @@ defmodule PairingsEngineWeb.AuditLive do
         "Imported %{count} result for round %{round} (CSV).",
         "Imported %{count} results for round %{round} (CSV).",
         count(d, "results_set"),
+        round: value(d, "round")
+      )
+
+  # ---------- a paired round, edited by hand ----------
+  #
+  # `PairingsLive.apply_confirm/2` stores two things for every one of these:
+  # the round, and `summary` - the subtitle of the confirmation the arbiter
+  # pressed, built in English from the players' names at that moment ("Chris
+  # Maes takes Bram Claes's place"). Nothing else about who moved where, or on
+  # which board, was ever stored. So the sentence says which kind of edit it
+  # was and in which round, in the reader's language, and the summary follows
+  # it quoted as recorded (`recorded_summary/1`) - the treatment a restore
+  # point's name gets in `snapshot.restored`, and for the same reason.
+  def describe("pairing.players_swapped", d),
+    do:
+      hand_edit(
+        gettext("Edited round %{round} by hand: swapped two players' seats.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.player_substituted", d),
+    do:
+      hand_edit(
+        gettext(
+          "Edited round %{round} by hand: replaced a seated player with one who was not playing.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.seat_vacated", d),
+    do:
+      hand_edit(
+        gettext(
+          "Edited round %{round} by hand: marked a seated player absent for this round and left their seat empty.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.bye_awarded", d),
+    do:
+      hand_edit(
+        gettext(
+          "Edited round %{round} by hand: awarded a bye to the player left without an opponent.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.seat_filled", d),
+    do:
+      hand_edit(
+        gettext(
+          "Edited round %{round} by hand: put a player who was not playing into an empty seat.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.pool_paired", d),
+    do:
+      hand_edit(
+        gettext(
+          "Edited round %{round} by hand: paired two players who were not playing on a new board.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.deleted", d),
+    do:
+      hand_edit(
+        gettext("Edited round %{round} by hand: deleted an empty board.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  # Only a board with both seats empty can be hidden or shown again
+  # (`Tournaments.set_pairing_hidden/3`), so "empty" is true of every row.
+  def describe("pairing.hidden", d),
+    do:
+      gettext("Hid empty board %{board} of round %{round} from the pairings.",
+        board: value(d, "board"),
+        round: value(d, "round")
+      )
+
+  def describe("pairing.unhidden", d),
+    do:
+      gettext("Showed empty board %{board} of round %{round} on the pairings again.",
+        board: value(d, "board"),
+        round: value(d, "round")
+      )
+
+  # ---------- publishing pairings and standings ----------
+  #
+  # The four controls of the 2026-09-11 publishing model - see "Publishing
+  # pairings and standings" in `PairingsEngine.Tournaments`, whose rules
+  # these sentences restate. Pairings are published through round N (every
+  # round up to it); taking round N's pairings down takes every later round
+  # with it and caps public standings at after round N-1. Standings are
+  # published as they stood after round N; taking those down drops them back
+  # to after round N-1 and takes the pairings of every round after N with
+  # them.
+  # Round 0 is the field before a game is played, which the page calls
+  # "Initial standings", so it is never "after round 0" here either.
+  #
+  # The two "go no further than" sentences state a ceiling rather than a
+  # before-and-after, because the row does not record where public standings
+  # stood before the click - and the ceiling is true whatever they were.
+  def describe("pairing.pairings_published", d),
+    do:
+      gettext("Published the pairings up to and including round %{round}.",
+        round: value(d, "through_round")
+      )
+
+  def describe("pairing.pairings_unpublished", d) do
+    case d["from_round"] do
+      # 0 is refused before anything is written. Were it ever stored it would
+      # mean what 1 means: every round, with the standings ceiling floored at
+      # the initial standings (`maybe_lower_standings_through/2`).
+      round when round in [0, 1] ->
+        sentences([
+          gettext("Took the pairings of every round off the public page."),
+          gettext("Public standings now go no further than the initial standings.")
+        ])
+
+      round when is_integer(round) and round > 1 ->
+        sentences([
+          pairings_taken_down(round),
+          gettext("Public standings now go no further than after round %{round}.",
+            round: round - 1
+          )
+        ])
+
+      _ ->
+        pairings_taken_down(value(d, "from_round"))
+    end
+  end
+
+  # How far the rationale page has worked out a round's account. Neither ever
+  # touches a board - `Pairing.reexplain_round/2` and `deepen_round/2` write
+  # the account and nothing else - which is the fact the sentences end on.
+  def describe("pairing.account_recomputed", d) do
+    recomputed =
+      ngettext(
+        "Recomputed the pairing rationale of %{count} round from the boards as played. No pairing was changed.",
+        "Recomputed the pairing rationale of %{count} rounds from the boards as played. No pairing was changed.",
+        count(d, "recomputed")
+      )
+
+    left =
+      case skipped_count(d) do
+        0 ->
+          nil
+
+        skipped ->
+          ngettext(
+            "%{count} other round was left unchanged.",
+            "%{count} other rounds were left unchanged.",
+            skipped
+          )
+      end
+
+    sentences([recomputed, left])
+  end
+
+  def describe("pairing.account_deepened", d),
+    do:
+      gettext(
+        "Worked out every alternative in the pairing rationale of round %{round}. No pairing was changed.",
         round: value(d, "round")
       )
 
@@ -376,6 +639,22 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("category.removed", d),
     do: gettext("Removed category %{name}.", name: name(d, "name"))
 
+  # One save for the whole rules table, prize counts included; the row
+  # records that it happened and nothing about what it said.
+  def describe("category.rules_updated", _d),
+    do: gettext("Saved the category rules and prize counts.")
+
+  # `matched` counts the players who landed in at least one ruled category,
+  # `total` every player the rules were run over.
+  def describe("category.auto_assigned", d),
+    do:
+      ngettext(
+        "Assigned categories by rule to %{matched} of %{count} player.",
+        "Assigned categories by rule to %{matched} of %{count} players.",
+        count(d, "total"),
+        matched: value(d, "matched")
+      )
+
   def describe("logo.uploaded", _d), do: gettext("Uploaded a tournament logo.")
   def describe("logo.cleared", _d), do: gettext("Removed the tournament logo.")
 
@@ -407,6 +686,59 @@ defmodule PairingsEngineWeb.AuditLive do
         matched: value(d, "matched")
       )
 
+  # The standings half of the publishing controls - see the comment above
+  # `pairing.pairings_published`.
+  def describe("standings.published", d) do
+    case d["through_round"] do
+      0 ->
+        gettext("Published the initial standings.")
+
+      _ ->
+        gettext("Published the standings after round %{round}.",
+          round: value(d, "through_round")
+        )
+    end
+  end
+
+  def describe("standings.unpublished", d) do
+    case d["from_round"] do
+      0 ->
+        sentences([
+          gettext(
+            "Took the initial standings off the public page, together with any public pairings."
+          ),
+          gettext("No standings are public now.")
+        ])
+
+      1 ->
+        sentences([
+          standings_taken_down(1),
+          gettext("Public standings now go no further than the initial standings.")
+        ])
+
+      round when is_integer(round) and round > 1 ->
+        sentences([
+          standings_taken_down(round),
+          gettext("Public standings now go no further than after round %{round}.",
+            round: round - 1
+          )
+        ])
+
+      _ ->
+        standings_taken_down(value(d, "from_round"))
+    end
+  end
+
+  # Nothing emits this any more: 0.60.0 replaced the Standings page's
+  # "Publish the starting rank before round 1" switch with publishing the
+  # initial standings (`standings.published` through round 0). Kept for the
+  # rows 0.59.0 wrote, for the reason `public_pages.toggled` below is kept.
+  def describe("standings.starting_rank_toggled", d) do
+    if truthy?(d["enabled"]),
+      do: gettext("Turned on publishing the starting rank before round 1."),
+      else: gettext("Turned off publishing the starting rank before round 1.")
+  end
+
   def describe("tournament.archived", d),
     do: gettext("Archived tournament %{name} - it is now read-only.", name: name(d, "name"))
 
@@ -432,6 +764,102 @@ defmodule PairingsEngineWeb.AuditLive do
           name: name(d, "name")
         )
     end
+  end
+
+  # The four steps of `PairingsEngine.Handoff`, one row each: handed off and
+  # given back lock the copy they happen on; received and brought back leave
+  # the copy they happen on live. Each place is what the arbiter typed or
+  # the other machine called itself, so it is shown as recorded.
+  def describe("handoff.handed_off", d) do
+    name = name(d, "name")
+
+    case present(d["to"]) do
+      nil ->
+        gettext("Handed %{name} off to another copy. This copy became read-only.", name: name)
+
+      to ->
+        gettext("Handed %{name} off to %{to}. This copy became read-only.", name: name, to: to)
+    end
+  end
+
+  def describe("handoff.received", d) do
+    name = name(d, "name")
+
+    received =
+      case {present(d["from"]), present(d["address"])} do
+        {nil, nil} ->
+          gettext("Received %{name} as a hand-off from another copy.", name: name)
+
+        {from, address} when is_nil(address) or is_nil(from) ->
+          gettext("Received %{name} as a hand-off from %{from}.",
+            name: name,
+            from: from || address
+          )
+
+        {from, address} ->
+          gettext("Received %{name} as a hand-off from %{from} (%{address}).",
+            name: name,
+            from: from,
+            address: address
+          )
+      end
+
+    sentences([
+      received,
+      gettext(
+        "This copy is now the one in use, and the copy it came from stays locked until it is given back."
+      )
+    ])
+  end
+
+  # `to` falls back to the origin's address when it did not name itself, so
+  # the address is only added when it says something `to` did not.
+  def describe("handoff.returned", d) do
+    name = name(d, "name")
+    address = present(d["address"])
+
+    case present(d["to"]) do
+      nil ->
+        gettext("Gave %{name} back to the copy it came from. This copy became read-only.",
+          name: name
+        )
+
+      to when is_nil(address) or address == to ->
+        gettext("Gave %{name} back to %{to}. This copy became read-only.", name: name, to: to)
+
+      to ->
+        gettext("Gave %{name} back to %{to} (%{address}). This copy became read-only.",
+          name: name,
+          to: to,
+          address: address
+        )
+    end
+  end
+
+  # Every version that shipped hand-off (0.22.0 on) brings a tournament back
+  # by replacing this copy's contents with the returning file's, behind a
+  # restore point it refuses to go ahead without - so both sentences hold for
+  # every row there is.
+  def describe("handoff.released", d) do
+    name = name(d, "name")
+
+    brought =
+      case present(d["from"]) do
+        nil ->
+          gettext(
+            "Brought %{name} back from the copy it was handed to, with its returning file: this copy now holds what was played there and can be edited again.",
+            name: name
+          )
+
+        from ->
+          gettext(
+            "Brought %{name} back from %{from} with its returning file: this copy now holds what was played there and can be edited again.",
+            name: name,
+            from: from
+          )
+      end
+
+    sentences([brought, gettext("The state it replaced was saved as a restore point first.")])
   end
 
   def describe("tournament.duplicated", d),
@@ -507,6 +935,80 @@ defmodule PairingsEngineWeb.AuditLive do
       do: gettext("Opened the public registration form."),
       else: gettext("Closed the public registration form.")
   end
+
+  # ---------- the results site (Settings > Results site) ----------
+
+  # Turning it off stops sending; it does not take down what was already
+  # sent (that is `openresults.taken_down`), and the sentence says so because
+  # the two are exactly what gets confused afterwards.
+  def describe("openresults.toggled", d) do
+    if truthy?(d["enabled"]),
+      do: gettext("Turned on publishing this tournament to the results site."),
+      else:
+        gettext(
+          "Turned off publishing this tournament to the results site. Anything already sent stays there."
+        )
+  end
+
+  def describe("openresults.listed", d) do
+    if truthy?(d["listed"]),
+      do: gettext("Listed this tournament on the results site's front page."),
+      else:
+        gettext("Took this tournament off the results site's front page. Its link still works.")
+  end
+
+  # The state after the save, not a diff: the form saves every box at once.
+  # `hidden` holds the public-display keys that are off (`rating`, `club`) -
+  # the snapshot contract's identifiers, shown as stored for the reason a
+  # settings diff shows `rounds_count` - and `hidden_tiebreaks` the tie-break
+  # codes. A row from before tie-breaks could be hidden has no
+  # `hidden_tiebreaks`, and says nothing about them.
+  def describe("openresults.display", d) do
+    hidden = as_list(d["hidden"])
+    tiebreaks = as_list(d["hidden_tiebreaks"])
+
+    sentences([
+      gettext("Changed what the public page shows."),
+      if(hidden == [] and tiebreaks == [], do: gettext("Nothing is hidden.")),
+      if(hidden != [], do: gettext("Hidden: %{fields}.", fields: shown(hidden))),
+      if(tiebreaks != [],
+        do: gettext("Hidden tie-breaks: %{tiebreaks}.", tiebreaks: shown(tiebreaks))
+      )
+    ])
+  end
+
+  def describe("openresults.taken_down", d),
+    do:
+      gettext(
+        "Removed this tournament from the results site (address %{slug}): its page, its history there and any entries collected for it were deleted. Nothing here was touched.",
+        slug: value(d, "slug")
+      )
+
+  def describe("openresults.claim_adopted", d),
+    do:
+      gettext(
+        "Took over publishing the tournament the imported backup came from (address %{slug}). This copy now publishes there, and can remove it.",
+        slug: value(d, "slug")
+      )
+
+  def describe("openresults.claim_discarded", _d),
+    do:
+      gettext(
+        "Threw away the publishing key the imported backup carried. This copy publishes to its own address, and can neither update nor remove the tournament the backup came from."
+      )
+
+  # Public publishing's consent dialog, answered from this tournament's
+  # settings; `publishing.public_consent_given` below is the same answer
+  # given on Connections. Declining is only recorded here, because only this
+  # page switches publishing back off when the answer is no.
+  def describe("openresults.public_consent_given", d), do: consent_given(d)
+
+  def describe("openresults.public_consent_declined", d),
+    do:
+      gettext(
+        "Declined to publish on %{host}: nothing was sent, and publishing was switched off for this tournament.",
+        host: value(d, "host")
+      )
 
   def describe("pairing.result_clear_attempted", d),
     do:
@@ -614,6 +1116,7 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("publishing.token_replaced", _d), do: gettext("Replaced the publishing token.")
   def describe("publishing.token_cleared", _d), do: gettext("Cleared the publishing token.")
+  def describe("publishing.public_consent_given", d), do: consent_given(d)
 
   def describe("fide.sync_started", _d), do: gettext("Started a FIDE rating list sync.")
 
@@ -789,6 +1292,71 @@ defmodule PairingsEngineWeb.AuditLive do
   defp role_name("owner"), do: gettext("Account owner")
   defp role_name(role), do: shown(role)
 
+  # A hand edit's sentence, then the line its confirmation showed - see the
+  # comment above `describe("pairing.players_swapped", _)`. Quoted, and only
+  # ever after a sentence of the reader's own: it was written in whatever
+  # language the confirmation had, which so far has always been English.
+  defp hand_edit(sentence, d), do: sentences([sentence, recorded_summary(d)])
+
+  defp recorded_summary(%{"summary" => summary}) when is_binary(summary) and summary != "",
+    do: gettext(~s(Recorded as "%{summary}".), summary: summary)
+
+  defp recorded_summary(_d), do: nil
+
+  defp pairings_taken_down(round),
+    do:
+      gettext("Took the pairings of round %{round} and every later round off the public page.",
+        round: round
+      )
+
+  defp standings_taken_down(round),
+    do:
+      gettext(
+        "Took the standings after round %{round} and every later round off the public page, together with any public pairings of later rounds.",
+        round: round
+      )
+
+  # `skipped` counts rounds per reason (already current, edited by hand, not
+  # a Swiss round...); the reasons are `inspect/1`ed atoms, so the sentence
+  # gives the total and leaves the codes out.
+  defp skipped_count(%{"skipped" => skipped}) when is_map(skipped),
+    do: Enum.reduce(Map.keys(skipped), 0, &(count(skipped, &1) + &2))
+
+  defp skipped_count(_d), do: 0
+
+  # `operator` is whoever the results site says runs it, and nil when it does
+  # not say - the dialog then names the host alone, and so does this.
+  # "Register again" discards the old key before asking for a new one
+  # (`Installation.start_over/1`), which is what the second sentence records.
+  defp consent_given(d) do
+    host = value(d, "host")
+
+    agreed =
+      case present(d["operator"]) do
+        nil ->
+          gettext("Agreed to publish on %{host}.", host: host)
+
+        operator ->
+          gettext("Agreed to publish on %{host}, the results site run by %{operator}.",
+            host: host,
+            operator: operator
+          )
+      end
+
+    next =
+      if truthy?(d["register_again"]),
+        do:
+          gettext(
+            "This computer's old key was thrown away, so it registers there again for a new one."
+          ),
+        else:
+          gettext(
+            "This computer may now register there for a key of its own, for every tournament it publishes."
+          )
+
+    sentences([agreed, next])
+  end
+
   ## ---------- detail helpers (details use string keys after JSON round-trip) ----------
 
   defp sentences(list), do: list |> Enum.reject(&is_nil/1) |> Enum.join(" ")
@@ -859,6 +1427,13 @@ defmodule PairingsEngineWeb.AuditLive do
   defp text(v), do: inspect(v)
 
   defp blank?(v), do: v in [nil, ""]
+
+  # A value worth naming in a sentence, or nil for one that says nothing.
+  defp present(v) when v in [nil, ""], do: nil
+  defp present(v), do: text(v)
+
+  defp as_list(v) when is_list(v), do: v
+  defp as_list(_v), do: []
 
   defp truthy?(true), do: true
   defp truthy?("true"), do: true

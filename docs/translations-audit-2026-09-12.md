@@ -319,6 +319,12 @@ None of them are fragments except where said.
 > `openresults.*` settings, the bulk player edits, and
 > `category.rules_updated`/`category.auto_assigned`. The text below is the
 > finding as it was written.
+>
+> **Follow-up, 2026-09-13:** every one of them has a sentence now - 34 by
+> then, counting the three consent codes desktop public publishing added a
+> few hours after this audit - and so does `standings.starting_rank_toggled`,
+> which only 0.59.0 wrote. The hand edits of a paired round still quote one
+> English line each; see `docs/i18n.md`, "The audit trail", for why.
 
 | where | what | note |
 |---|---|---|
