@@ -85,6 +85,7 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Publishing.Drain,
       PairingsEngine.Registrations.Poll,
       PairingsEngine.Backup.Scheduler,
+      PairingsEngine.Registrations.Retention.Scheduler,
       # For work a LiveView must not do in its own process. The publishing
       # connection check is a network round trip with a fifteen-second timeout,
       # and running it inline would freeze the page - every click, every

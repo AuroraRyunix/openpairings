@@ -98,6 +98,17 @@ defmodule PairingsEngine.Backup do
   on the way back, so a corrupted or tampered file fails loudly rather than
   restoring something subtly wrong.
 
+  Each file says in its own header whether it is encrypted, and reading
+  follows the header, not the configuration: a backup written before a
+  passphrase was set still verifies and restores after one is.
+
+  **Rotation.** New backups are only ever encrypted with the current
+  `PAIRINGS_BACKUP_PASSPHRASE`. Reading also tries each passphrase listed in
+  `PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` (comma-separated), current one first,
+  so a backup written before a change stays readable until it ages out of
+  retention. A passphrase that is lost, and not in that list either, makes
+  its backups permanently unreadable.
+
   Without a passphrase the file is plain, and the moduledoc says so in one
   place so nobody has to guess: **an unencrypted backup contains player email
   addresses.**
@@ -678,34 +689,45 @@ defmodule PairingsEngine.Backup do
   end
 
   defp decrypt(%{"encrypted" => true, "crypto" => crypto}, payload) when is_map(crypto) do
-    case passphrase() do
-      nil ->
+    case candidate_passphrases() do
+      [] ->
         {:error,
          "this backup is encrypted and no passphrase is configured - set " <>
            "PAIRINGS_BACKUP_PASSPHRASE to the one it was written with"}
 
-      secret ->
+      secrets ->
         with {:ok, iterations} <- checked_iterations(crypto["iterations"]) do
           salt = Base.decode64!(crypto["salt"])
           iv = Base.decode64!(crypto["iv"])
           tag = Base.decode64!(crypto["tag"])
-          key = :crypto.pbkdf2_hmac(:sha256, secret, salt, iterations, @key_bytes)
 
-          # `:error` here means the tag did not check out: a wrong passphrase, a
-          # truncated download, or a tampered file. All three deserve the same
-          # refusal, and none of them should produce a partly-decrypted database.
-          case :crypto.crypto_one_time_aead(@cipher, key, iv, payload, @magic, tag, false) do
-            :error ->
-              {:error, "wrong passphrase, or the backup has been altered since it was written"}
+          # Current passphrase first - the common case, and every miss costs a
+          # full PBKDF2 derivation - then each previous one in order.
+          #
+          # `:error` from the AEAD call means the tag did not check out: a
+          # wrong passphrase, a truncated download, or a tampered file. All
+          # three deserve the same refusal, and none of them should produce a
+          # partly-decrypted database.
+          Enum.find_value(secrets, wrong_passphrase(), fn secret ->
+            key = :crypto.pbkdf2_hmac(:sha256, secret, salt, iterations, @key_bytes)
 
-            plain ->
-              {:ok, plain}
-          end
+            case :crypto.crypto_one_time_aead(@cipher, key, iv, payload, @magic, tag, false) do
+              :error -> nil
+              plain -> {:ok, plain}
+            end
+          end)
         end
     end
   end
 
   defp decrypt(_header, payload), do: {:ok, payload}
+
+  defp wrong_passphrase,
+    do: {:error, "wrong passphrase, or the backup has been altered since it was written"}
+
+  defp candidate_passphrases do
+    Enum.uniq(List.wrap(passphrase()) ++ previous_passphrases())
+  end
 
   # The iteration count comes out of the backup file's own header, which is
   # not authenticated - it is read *before* the AEAD tag is checked, because
@@ -870,6 +892,14 @@ defmodule PairingsEngine.Backup do
     case Application.get_env(:pairings_engine, :backup_passphrase) do
       secret when is_binary(secret) and secret != "" -> secret
       _ -> nil
+    end
+  end
+
+  # Decrypt-only: `encrypt/1` and `encrypted?/0` never look at these.
+  defp previous_passphrases do
+    case Application.get_env(:pairings_engine, :backup_passphrase_previous, []) do
+      list when is_list(list) -> Enum.filter(list, &(is_binary(&1) and &1 != ""))
+      _ -> []
     end
   end
 

@@ -14,6 +14,25 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Fix] **Changing the backup passphrase no longer strands the backups
+  written under the old one.** Verify and restore tried only the current
+  `PAIRINGS_BACKUP_PASSPHRASE`, so a rotation made every existing backup
+  unreadable. They now also try each passphrase in the new
+  `PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` (comma-separated), current one first;
+  new backups are still encrypted with the current one only. Backups written
+  before any passphrase was set keep verifying and restoring once one is -
+  that already worked, and is now tested. `docs/deployment.md` explains the
+  rotation, and that a lost passphrase means unreadable backups.
+- [Feature] **Entrants' email addresses are cleared once their tournament is
+  over.** A daily job removes the email from pulled registrations of any
+  tournament whose end date is at least `PAIRINGS_REGISTRATION_RETENTION_DAYS`
+  (default 30) days past; name, decision and the rest of the entry stay.
+  Tournaments with no end date, or one still to come, are left alone.
+  `docs/privacy-retention.md` lists what personal data is kept and for how
+  long.
+
 ## [0.60.1] - 2026-09-13
 
 - [Fix] **After a restore, a refused publish says what probably happened

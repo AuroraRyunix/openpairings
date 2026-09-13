@@ -75,6 +75,7 @@ config :pairings_engine, :updates_req_plug, PairingsEngine.UpdatesTest
 config :pairings_engine, :publishing_drain_interval, :disabled
 config :pairings_engine, :registration_poll_interval, :disabled
 config :pairings_engine, :backup_interval, :disabled
+config :pairings_engine, :registration_retention_interval, :disabled
 
 # No takedown journal (`PairingsEngine.Publishing.TakedownJournal`): beside
 # the test database it would collect a line from every takedown test, run

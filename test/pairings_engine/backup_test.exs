@@ -36,6 +36,8 @@ defmodule PairingsEngine.BackupTest do
 
     Application.delete_env(:pairings_engine, :backup_passphrase)
     on_exit(fn -> Application.delete_env(:pairings_engine, :backup_passphrase) end)
+    Application.delete_env(:pairings_engine, :backup_passphrase_previous)
+    on_exit(fn -> Application.delete_env(:pairings_engine, :backup_passphrase_previous) end)
 
     {:ok, dir: dir}
   end
@@ -440,6 +442,85 @@ defmodule PairingsEngine.BackupTest do
       |> Jason.encode!()
 
     File.write!(path, magic <> "\n" <> header <> "\n" <> payload)
+  end
+
+  describe "a passphrase configured after the fact" do
+    # Reading follows each file's own header, not the configuration, so the
+    # plain backups already on disk stay usable once encryption is switched on.
+    test "older unencrypted backups still list, verify and restore", %{dir: dir} do
+      src = with_tournament(dir, "Plain Open")
+      {:ok, path} = Backup.create(dir: dir, source: src)
+
+      Application.put_env(:pairings_engine, :backup_passphrase, "set later")
+
+      assert [%{path: ^path, encrypted: false}] = Backup.list(dir: dir)
+      assert {:ok, %{tournaments: 1}} = Backup.verify(path)
+      assert {:ok, restored} = Backup.restore(path)
+      assert File.exists?(restored)
+    end
+  end
+
+  describe "passphrase rotation" do
+    test "a backup written under a previous passphrase still verifies and restores", %{dir: dir} do
+      Application.put_env(:pairings_engine, :backup_passphrase, "passphrase A")
+      {:ok, path} = Backup.create(dir: dir, source: with_tournament(dir, "Rotated Open"))
+
+      Application.put_env(:pairings_engine, :backup_passphrase, "passphrase B")
+      assert {:error, _} = Backup.verify(path)
+
+      Application.put_env(:pairings_engine, :backup_passphrase_previous, ["old Z", "passphrase A"])
+
+      assert {:ok, %{tournaments: 1}} = Backup.verify(path)
+      assert {:ok, _restored} = Backup.restore(path)
+    end
+
+    test "previous passphrases alone are enough to read, but never encrypt", %{dir: dir} do
+      Application.put_env(:pairings_engine, :backup_passphrase, "passphrase A")
+      {:ok, old} = Backup.create(dir: dir, source: source(dir))
+
+      Application.delete_env(:pairings_engine, :backup_passphrase)
+      Application.put_env(:pairings_engine, :backup_passphrase_previous, ["passphrase A"])
+
+      refute Backup.encrypted?()
+      assert {:ok, _} = Backup.verify(old)
+
+      {:ok, new} =
+        Backup.create(dir: dir, source: source(dir), stamp: DateTime.add(DateTime.utc_now(), 60))
+
+      assert Enum.find(Backup.list(dir: dir), &(&1.path == new)).encrypted == false
+    end
+
+    test "none of them matching is still a refusal", %{dir: dir} do
+      Application.put_env(:pairings_engine, :backup_passphrase, "passphrase A")
+      {:ok, path} = Backup.create(dir: dir, source: source(dir))
+
+      Application.put_env(:pairings_engine, :backup_passphrase, "passphrase B")
+      Application.put_env(:pairings_engine, :backup_passphrase_previous, ["passphrase C"])
+
+      assert {:error, message} = Backup.verify(path)
+      assert message =~ "wrong passphrase"
+    end
+
+    test "PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS is read as a trimmed, comma-separated list" do
+      runtime = Path.expand("../../config/runtime.exs", __DIR__)
+
+      data_dir =
+        Path.join(System.tmp_dir!(), "opbak-runtime-#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf(data_dir) end)
+
+      config =
+        with_env(
+          %{
+            "OPENPAIRINGS_LOCAL" => "1",
+            "OPENPAIRINGS_DATA_DIR" => data_dir,
+            "PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS" => " one ,, two ,"
+          },
+          fn -> Config.Reader.read!(runtime, env: :prod) end
+        )
+
+      assert config[:pairings_engine][:backup_passphrase_previous] == ["one", "two"]
+    end
   end
 
   describe "retention" do

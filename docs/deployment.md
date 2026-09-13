@@ -307,8 +307,10 @@ results-site key.
 | `BACKUP_DIR` | `backups/` beside the database | where they are written |
 | `BACKUP_RETENTION` | 30 | how many **days** a backup is kept; the newest is always kept, however old. A whole number of at least 1, or the app refuses to boot |
 | `PAIRINGS_BACKUP_PASSPHRASE` | none | encrypts them (AES-256-GCM); the same value is needed to verify or restore one |
+| `PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` | none | comma-separated passphrases older backups were written under; tried (after the current one) to verify or restore, never to encrypt |
+| `PAIRINGS_REGISTRATION_RETENTION_DAYS` | 30 | days after a tournament's end date that pulled entrants' email addresses are kept, then cleared (`PairingsEngine.Registrations.Retention`). A whole number of at least 1, or the app refuses to boot |
 
-All three are read only in production (`config/runtime.exs`, prod block).
+All of these are read only in production (`config/runtime.exs`, prod block).
 
 **Retention is days, since 2026-09-13.** It was a count of files, and every
 boot and every "take one now" spent one, so thirty files were thirty days only
@@ -316,20 +318,31 @@ on a box nobody restarted. Now `BACKUP_RETENTION=30` keeps the last thirty
 days - about one backup a day plus whatever was taken by hand, however often
 the service restarts. **A value set before that date means days now.**
 
-**The deploy script sets none of the three**, so on this host backups are
-unencrypted. An unencrypted backup still carries the entry form's email
-addresses, every tournament's publishing key, and every account's password
-hash. It no longer carries the OpenResults operator token: that is stripped
-from the copy since 2026-09-13, and a restore sets it again (step 8 below).
+**The deploy script (`openpairings-deploy`, a separate repo) sets
+`PAIRINGS_BACKUP_PASSPHRASE` for you** from its own `.env`, so once that
+`.env` entry is set, backups are encrypted by default from the next run.
+Without it they are plain, and an unencrypted backup carries the entry form's
+email addresses, every tournament's publishing key, and every account's
+password hash. It no longer carries the OpenResults operator token: that is
+stripped from the copy since 2026-09-13, and a restore sets it again (step 8
+below). **Keep the passphrase somewhere safe off the server** - a password
+manager - not only in the deploy's `.env`: that file lives on the machine
+whose loss the backups exist for.
 
-**Recommended: set `PAIRINGS_BACKUP_PASSPHRASE`.** Either teach the deploy to
-write it into the unit from its own `.env`, as it does the other secrets, or
-put it in a drop-in the deploy does not rewrite -
-`/etc/systemd/system/pairingsengine.service.d/backup.conf` with `[Service]`
-and `Environment="PAIRINGS_BACKUP_PASSPHRASE=..."`, then `systemctl
-daemon-reload` - which step 1 below already reads. Keep the passphrase
-somewhere other than this box: a backup nobody can decrypt is not a backup.
-Existing backups stay unencrypted; new ones are encrypted from the next run.
+Backups written before a passphrase was set stay readable afterwards: each
+file's header says whether it is encrypted, and reading follows the header.
+
+**Rotating the passphrase.** Move the current value to
+`PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` (comma-append it if there is already
+one there) and set the new one as `PAIRINGS_BACKUP_PASSPHRASE`. New backups
+use only the new one; verify and restore try the new one first, then each
+previous one in order. Drop an entry from `_PREVIOUS` once every backup
+written under it has aged out of `BACKUP_RETENTION`.
+
+**A lost passphrase is permanent.** If a passphrase is gone, and not in
+`PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` either, every backup written under it is
+unreadable - there is no recovery. That is why it has to be kept off the
+server, in a password manager or equivalent, not only in the deploy's `.env`.
 
 A backup on the same disk survives a bad deploy, not the disk: download one
 from Connections now and then. Keep the copy you would restore from **outside**
@@ -374,7 +387,7 @@ keeps what they write from being owned by root.
 
 ```bash
 unit=/etc/systemd/system/pairingsengine.service
-for k in MIX_ENV DATABASE_PATH SECRET_KEY_BASE MIX_HOME HEX_HOME PATH PORT BACKUP_DIR PAIRINGS_BACKUP_PASSPHRASE; do
+for k in MIX_ENV DATABASE_PATH SECRET_KEY_BASE MIX_HOME HEX_HOME PATH PORT BACKUP_DIR PAIRINGS_BACKUP_PASSPHRASE PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS; do
   v=$(cat "$unit" "$unit".d/*.conf 2>/dev/null | sed -n "s|^Environment=\"$k=\(.*\)\"\$|\1|p" | tail -1)
   [ -n "$v" ] && export "$k=$v"
 done
@@ -644,7 +657,7 @@ server.
 | `OPENPAIRINGS_LISTEN_IP` | no (default `127.0.0.1`) | which address to bind. The default is loopback, because the only client here is the cloudflared process on the same host; set `0.0.0.0` (every IPv4 address) or `::` (every address) only for a deployment that is genuinely reached directly. An unparseable value refuses to boot rather than falling back to a wide bind |
 | `TRUSTED_PROXY_HOPS` | no (default 0) | how many proxies sit in front of the app, i.e. how many entries to trust from the right of `x-forwarded-for` &mdash; **the unit sets 1**, for the single cloudflared hop. Left at 0 the app trusts no forwarded address at all and every visitor shares one rate-limit bucket, which makes the login throttle effectively global |
 | `DEPLOY_NOTICE_TOKEN` | no | shared secret for the pre-restart warning below. Unset means the endpoint refuses everything, so the only cost of omitting it is no banner |
-| `BACKUP_DIR` / `BACKUP_RETENTION` / `PAIRINGS_BACKUP_PASSPHRASE` | no | see "Backups" above |
+| `BACKUP_DIR` / `BACKUP_RETENTION` / `PAIRINGS_BACKUP_PASSPHRASE` / `PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` / `PAIRINGS_REGISTRATION_RETENTION_DAYS` | no | see "Backups" above |
 | `DNS_CLUSTER_QUERY` | no | multi-node clustering, unused in this single-node deployment |
 | `KEYCLOAK_CLIENT_ID` | no | 02cloud SSO client id (`openpairings`). Omit to disable SSO entirely |
 | `KEYCLOAK_CLIENT_SECRET` | no | the confidential client's secret - **treat like `SECRET_KEY_BASE`** |

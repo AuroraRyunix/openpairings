@@ -329,6 +329,17 @@ if config_env() == :prod do
     config :pairings_engine, :backup_passphrase, passphrase
   end
 
+  # PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS: comma-separated passphrases that
+  # backups were written under before a rotation. Tried on verify/restore
+  # only, after the current one; never used to encrypt. Drop an entry once
+  # every backup written under it has aged out of BACKUP_RETENTION.
+  config :pairings_engine,
+         :backup_passphrase_previous,
+         (System.get_env("PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS") || "")
+         |> String.split(",")
+         |> Enum.map(&String.trim/1)
+         |> Enum.reject(&(&1 == ""))
+
   # BACKUP_RETENTION is DAYS - how long a backup is kept - and a whole number
   # of at least one, or the app does not start. It was a count of files until
   # 2026-09-13, which every boot spent (see `PairingsEngine.Backup.prune/1`),
@@ -343,6 +354,19 @@ if config_env() == :prod do
 
       _ ->
         raise "BACKUP_RETENTION is a number of days, a whole number of at least 1, got: #{inspect(keep)}"
+    end
+  end
+
+  # PAIRINGS_REGISTRATION_RETENTION_DAYS: how many days after a tournament's
+  # end_date the entrants' emails are kept in pulled registrations - see
+  # `PairingsEngine.Registrations.Retention`. Same rule as BACKUP_RETENTION.
+  if days = System.get_env("PAIRINGS_REGISTRATION_RETENTION_DAYS") do
+    case Integer.parse(days) do
+      {n, ""} when n >= 1 ->
+        config :pairings_engine, :registration_retention_days, n
+
+      _ ->
+        raise "PAIRINGS_REGISTRATION_RETENTION_DAYS is a number of days, a whole number of at least 1, got: #{inspect(days)}"
     end
   end
 
