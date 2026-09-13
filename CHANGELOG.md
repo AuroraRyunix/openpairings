@@ -127,6 +127,23 @@ Each entry is tagged so a version can be skimmed:
   shapes read better too: a result blanked before 2026-08-03 said "changed
   from 1-0 to" and now reads as a cleared result, and a role change names
   the roles as the Admin page does ("from Account owner to Administrator").
+- [Fix] **Thirty-four kinds of audit row said what they were instead of
+  what happened.** Hand edits to a paired round, publishing and taking
+  down pairings and standings, hiding an empty board, all four hand-off
+  steps, the results site settings, the bulk edits on the Players grid, the
+  club refresh, category rules and assignment, and recomputing the pairing
+  rationale all showed an internal code - `pairing.players_swapped`,
+  `handoff.returned` - on the Audit page, the History page and the Admin
+  page's activity list, in English and Dutch alike. Each now reads as a
+  sentence in the arbiter's language, rows written by earlier versions
+  included, and says what an incident needs: "Took the pairings of round 4
+  and every later round off the public page. Public standings now go no
+  further than after round 3." Round 0 reads as the initial standings. A
+  hand edit names its round, but those rows never stored which players
+  moved - only the confirmation's own English line - so that line follows
+  the sentence in quotes: `Recorded as "Chris Maes takes Bram Claes's
+  place".` The rows 0.59.0 wrote for its "Publish the starting rank before
+  round 1" switch read as a sentence too.
 
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status
