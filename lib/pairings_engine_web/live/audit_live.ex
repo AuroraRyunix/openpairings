@@ -53,25 +53,78 @@ defmodule PairingsEngineWeb.AuditLive do
   # under "All". The button labels are in `category_label/1`: this is a
   # module attribute, evaluated at compile time, so it cannot hold anything
   # translated.
+  #
+  # 2026-09-13: the category lists predated most of `describe/2` having a
+  # sentence at all, so 35 codes that got one that day (hand edits to a
+  # paired round, board hiding, publishing pairings/standings, hand-off,
+  # the results site, bulk player edits, category rules/auto-assign, the
+  # rationale recompute/deepen actions) were only ever reachable under
+  # "All" - exactly what an arbiter filters for after an incident. Folded
+  # in here, alongside the same-shaped codes already sitting next to them:
+  #
+  #   * every `pairing.*` code - hand edits, board hiding, publish/unpublish,
+  #     the two result variants, the rationale actions - joins "pairings",
+  #     next to the round/result/import codes already there;
+  #   * `standings.published`/`unpublished`/`starting_rank_toggled` join
+  #     "standings", next to its other publish/reorder codes;
+  #   * the results-site cluster (`openresults.*`, `swar.*`,
+  #     `public_pages.*`, `registration.toggled`) and the categories-feature
+  #     toggles/bulk actions (`category.*`, `categories.toggled`,
+  #     `pair_by_category.toggled`) join "settings" - there was no existing
+  #     results-site bucket to defer to, so they went with the other
+  #     Settings-sub-page codes already there (logo, forbidden pairings,
+  #     category create/remove);
+  #   * the bulk player edits (`player.bulk_*`, `player.clubs_refreshed`)
+  #     join "players";
+  #   * the four hand-off steps and the forced-unlock join "tournament",
+  #     next to created/deleted/restored - all whole-tournament acts, not
+  #     specific to any pairing, player or setting.
+  #
+  # `snapshot.restored` and `snapshot.manual` fit none of these: a restore
+  # point can touch anything (players, pairings, settings, standings), so
+  # no single bucket names it - `HistoryLive`, which shows the same rows
+  # around their restore points, deliberately has no kind filter either.
+  # They stay reachable only under "All" - see `@all_only_codes` in
+  # `PairingsEngineWeb.AuditLiveTest`, whose guard test is what keeps this
+  # comment from silently going stale.
+  #
+  # `publishing.public_consent_given` is not here at all, on purpose: it is
+  # written by `Audit.log_system/3` (see the "machine-wide rows" comment
+  # below), so it never carries a tournament_id and can never reach this
+  # page's own `load_entries/1` - a filter bucket for it would be dead
+  # weight under every heading, "All" included.
   @categories [
     {"all", :all},
     {"players", ~w(player.created player.updated player.deleted player.ratings_refreshed
-        registration.accepted registration.discarded)},
+        player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
+        player.bulk_category_set registration.accepted registration.discarded)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
-        pairing.round_deleted pairing.results_imported)},
+        pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
+        pairing.results_imported pairing.players_swapped pairing.player_substituted
+        pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
+        pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
+        pairing.pairings_unpublished pairing.account_recomputed pairing.account_deepened)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed
-        category.created category.removed)},
+        category.created category.removed category.rules_updated category.auto_assigned
+        categories.toggled pair_by_category.toggled
+        openresults.toggled openresults.listed openresults.display openresults.taken_down
+        openresults.claim_adopted openresults.claim_discarded openresults.public_consent_given
+        openresults.public_consent_declined public_pages.toggled public_pages.link_rotated
+        registration.toggled swar.published swar.publish_failed)},
     {"standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
         standings.manual_ranking_disabled standings.manual_reseeded
-        standings.extra_points_applied)},
+        standings.extra_points_applied standings.published standings.unpublished
+        standings.starting_rank_toggled)},
     {"imports", ~w(import.swar import.trf import.json)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
     {"tournament",
-     ~w(tournament.created tournament.deleted tournament.restored tournament.purged)}
+     ~w(tournament.created tournament.deleted tournament.restored tournament.archived
+        tournament.unarchived tournament.duplicated tournament.left tournament.handoff_forced
+        handoff.handed_off handoff.received handoff.returned handoff.released)}
   ]
 
   @impl true
@@ -594,9 +647,6 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("tournament.restored", d),
     do: gettext("Restored tournament %{name} from the recycle bin.", name: name(d, "name"))
-
-  def describe("tournament.purged", d),
-    do: gettext("Permanently deleted tournament %{name}.", name: name(d, "name"))
 
   def describe("import.swar", d),
     do: gettext("Imported tournament %{name} from a SWAR file.", name: name(d, "name"))

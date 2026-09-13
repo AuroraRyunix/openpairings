@@ -5,8 +5,38 @@ defmodule PairingsEngineWeb.AuditLiveTest do
   import PairingsEngine.AccountsFixtures
 
   alias PairingsEngine.{Audit, Pairing, Tournaments}
+  alias PairingsEngine.AuditActionCodes
 
   setup :register_and_log_in_user
+
+  @source "lib/pairings_engine_web/live/audit_live.ex"
+
+  # The two recorded, tournament-scoped codes that fit no @categories
+  # bucket: a restore point can touch anything a row in ANY other bucket
+  # touches (players, pairings, settings, standings), so no single filter
+  # names it - see the comment above `@categories` in audit_live.ex, and
+  # `HistoryLive`'s own moduledoc, which shows these same rows around their
+  # restore points and deliberately has no kind filter either. Reachable
+  # only under "All".
+  @all_only_codes ~w(snapshot.manual snapshot.restored)
+
+  # Reads `@categories` back out of audit_live.ex by parsing rather than
+  # hard-coding a second copy of it here, so this test cannot fall behind a
+  # reshuffle of the real list. `~w(...)` sigils and literal tuples need
+  # nothing from the module around them, so evaluating the extracted AST
+  # on its own is enough to get the real list back.
+  defp category_buckets do
+    ast = @source |> File.read!() |> Code.string_to_quoted!()
+
+    {_ast, [list_ast]} =
+      Macro.prewalk(ast, [], fn
+        {:@, _, [{:categories, _, [list_ast]}]} = node, acc -> {node, [list_ast | acc]}
+        node, acc -> {node, acc}
+      end)
+
+    {categories, _binding} = Code.eval_quoted(list_ast)
+    for {key, codes} <- categories, key != "all", into: %{}, do: {key, codes}
+  end
 
   defp make_tournament(scope) do
     {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Audit T", "type" => "swiss"})
@@ -218,5 +248,81 @@ defmodule PairingsEngineWeb.AuditLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/audit/explain")
     assert html =~ "No rounds have been paired yet"
+  end
+
+  describe "the category filters cover every recorded action code" do
+    # `@categories` is hand-maintained, so it silently falls behind: 35
+    # codes got a describe/2 sentence on 2026-09-13 and NONE of them were
+    # added to a filter, so they only ever showed up under "All" - exactly
+    # what an arbiter searches for after an incident. These two tests make
+    # that a test failure instead of a support ticket, the same way the
+    # sentence guard in `audit_describe_test.exs` does for `describe/2`.
+    test "every recorded, tournament-scoped code is in exactly one category filter, or documented as all-only" do
+      buckets = category_buckets()
+      bucket_of = fn code -> for {key, codes} <- buckets, code in codes, do: key end
+
+      recorded = AuditActionCodes.tournament_scoped_codes()
+
+      uncategorized =
+        for code <- recorded, code not in @all_only_codes, bucket_of.(code) == [], do: code
+
+      assert uncategorized == [], """
+      These tournament-scoped action codes are recorded but appear in no \
+      @categories filter in audit_live.ex, and are not in @all_only_codes \
+      above - filtering by any category hides them; only "All" shows them. \
+      Add each to the filter an arbiter would look under it for (see the \
+      comment above @categories), or to @all_only_codes with a reason if it \
+      genuinely fits none:
+
+        #{inspect(uncategorized)}
+      """
+
+      in_several =
+        for code <- recorded, length(bucket_of.(code)) > 1, do: {code, bucket_of.(code)}
+
+      assert in_several == [], """
+      These action codes are in more than one @categories filter, so a row \
+      would appear under either one - not "exactly one":
+
+        #{inspect(in_several)}
+      """
+
+      stale_all_only = Enum.reject(@all_only_codes, &(&1 in recorded))
+
+      assert stale_all_only == [], """
+      @all_only_codes (in this test) lists codes nothing currently records - \
+      drop them:
+
+        #{inspect(stale_all_only)}
+      """
+
+      wrongly_all_only = for code <- @all_only_codes, bucket_of.(code) != [], do: code
+
+      assert wrongly_all_only == [], """
+      @all_only_codes lists codes that ARE in a category filter now - drop \
+      them from @all_only_codes, they don't need it any more:
+
+        #{inspect(wrongly_all_only)}
+      """
+    end
+
+    test "machine-wide codes never appear in a category filter - they can never reach this page" do
+      # Written by Audit.log_system/3, so tournament_id is always nil - they
+      # never match load_entries/1's tournament-scoped query (see the
+      # "machine-wide rows" comment in audit_live.ex), on ANY filter, "All"
+      # included. A bucket for one would be dead weight, not a fix.
+      buckets = category_buckets()
+      all_bucketed = buckets |> Map.values() |> List.flatten()
+
+      leaked = for code <- AuditActionCodes.machine_wide_codes(), code in all_bucketed, do: code
+
+      assert leaked == [], """
+      These codes are written by Audit.log_system/3 (tournament_id: nil), so \
+      they can never reach AuditLive's tournament-scoped queries - remove \
+      them from @categories in audit_live.ex:
+
+        #{inspect(leaked)}
+      """
+    end
   end
 end

@@ -182,6 +182,21 @@ Each entry is tagged so a version can be skimmed:
   the sentence in quotes: `Recorded as "Chris Maes takes Bram Claes's
   place".` The rows 0.59.0 wrote for its "Publish the starting rank before
   round 1" switch read as a sentence too.
+- [Fix] **The Audit page's category filters missed every one of the 35
+  codes above, so they only ever showed up under "All".** Filtering by
+  "Pairings" hid hand edits to a paired round, board hiding, and
+  publishing or unpublishing pairings and standings - exactly what an
+  arbiter filters for after an incident. Pairing edits, board visibility,
+  pairings/standings publishing and the pairing-rationale actions now join
+  Pairings; standings publishing and the 0.59.0 starting-rank switch join
+  Standings; the results site (`openresults.*`, the SWAR publish actions,
+  the public link rotation, the public registration toggle) and the
+  categories feature's toggles, rules save and auto-assign join Settings,
+  next to the category codes already there; the bulk Players-grid edits
+  join Players; the four hand-off steps join Tournament, next to
+  created/deleted/restored. A restore point still fits none of them - it
+  can touch anything a row in any other bucket can - and stays reachable
+  only under "All".
 
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status
