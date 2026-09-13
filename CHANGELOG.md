@@ -16,6 +16,25 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A restore no longer puts a withdrawn tournament back online.** A
+  tournament taken off the results site after a backup still had its key,
+  its address and publishing switched on in that backup, so after a restore
+  its next change published it again - the restore drill measured 404 before
+  and 200 after, and nobody was told. Every takedown - the Take down button,
+  moving to a new address, deleting a tournament for good - now also appends
+  a line to a journal kept beside the database and outside it
+  (`pairings_engine-takedowns.jsonl` next to `pairings_engine.db`,
+  `openpairings-takedowns.jsonl` in a desktop copy's data folder), which no
+  backup contains and no restore touches. At every start, before anything can
+  publish, a tournament that still holds exactly the claim a journalled
+  takedown retired has publishing switched off again, its key and queued
+  publish dropped, and an audit row ("Kept this tournament off the results
+  site after a restore"); a tournament that was moved also gets a new
+  address, so the old one cannot come back. A tournament its arbiter
+  deliberately published again after the takedown is never touched. The
+  journal holds tournament ids, withdrawn addresses, times and a short
+  fingerprint of each retired key - never a key. It does not travel with a
+  backup to another machine; copy it along if the whole installation moves.
 - [Security] **A restore signs everybody out.** A backup holds the sign-in
   sessions that existed when it was written, including ones that were ended
   since - signed out, or cut off by a password change - and the restore drill

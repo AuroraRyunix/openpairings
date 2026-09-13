@@ -111,6 +111,7 @@ defmodule PairingsEngineWeb.AuditLive do
         category.created category.removed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled
         openresults.toggled openresults.listed openresults.display openresults.taken_down
+        openresults.kept_withdrawn
         openresults.claim_adopted openresults.claim_discarded openresults.public_consent_given
         openresults.public_consent_declined public_pages.toggled public_pages.link_rotated
         registration.toggled swar.published swar.publish_failed)},
@@ -1033,6 +1034,26 @@ defmodule PairingsEngineWeb.AuditLive do
         "Removed this tournament from the results site (address %{slug}): its page, its history there and any entries collected for it were deleted. Nothing here was touched.",
         slug: value(d, "slug")
       )
+
+  # Written at boot by `PairingsEngine.Publishing.TakedownJournal`, never by
+  # a person: a restored backup brought back a tournament that had been taken
+  # off the results site after it, and publishing was switched off again.
+  # `kind` is how it had left: taken down, moved to a new address, or deleted.
+  def describe("openresults.kept_withdrawn", d) do
+    slug = value(d, "slug")
+
+    if d["kind"] == "moved" do
+      gettext(
+        "Kept the old address of this tournament (%{slug}) off the results site after a restore: it had moved to a new address after the backup was made. Publishing is off, and the next publish goes to a new address.",
+        slug: slug
+      )
+    else
+      gettext(
+        "Kept this tournament off the results site after a restore: it had been removed from there (address %{slug}) after the backup was made. Publishing is off until somebody turns it on again.",
+        slug: slug
+      )
+    end
+  end
 
   def describe("openresults.claim_adopted", d),
     do:

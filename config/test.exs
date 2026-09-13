@@ -75,6 +75,12 @@ config :pairings_engine, :updates_req_plug, PairingsEngine.UpdatesTest
 config :pairings_engine, :publishing_drain_interval, :disabled
 config :pairings_engine, :registration_poll_interval, :disabled
 config :pairings_engine, :backup_interval, :disabled
+
+# No takedown journal (`PairingsEngine.Publishing.TakedownJournal`): beside
+# the test database it would collect a line from every takedown test, run
+# after run, and the boot replay would read them into whatever the next run
+# left in the database. Its own tests point it at a file of their own.
+config :pairings_engine, :takedown_journal, false
 config :pairings_engine, :publishing_monitor_interval, :disabled
 config :pairings_engine, :updates_check_interval, :disabled
 

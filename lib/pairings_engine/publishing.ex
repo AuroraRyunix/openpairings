@@ -125,7 +125,7 @@ defmodule PairingsEngine.Publishing do
   import Ecto.Query
 
   alias PairingsEngine.{Authz, Meta, Repo, Snapshot, Tournaments}
-  alias PairingsEngine.Publishing.{Drain, Failure, Installation, QueueEntry}
+  alias PairingsEngine.Publishing.{Drain, Failure, Installation, QueueEntry, TakedownJournal}
   alias PairingsEngine.Tournaments.Tournament
 
   require Logger
@@ -1474,8 +1474,9 @@ defmodule PairingsEngine.Publishing do
   this copy pulling the event off the results site is exactly the kind of
   thing the lock is for.
   """
-  @spec take_down(Tournament.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def take_down(%Tournament{} = tournament) do
+  @spec take_down(Tournament.t(), :taken_down | :moved) ::
+          {:ok, String.t()} | {:error, String.t()}
+  def take_down(%Tournament{} = tournament, journal_as \\ :taken_down) do
     cond do
       not configured?() ->
         {:error, "no OpenResults server is configured"}
@@ -1494,7 +1495,7 @@ defmodule PairingsEngine.Publishing do
         refusal
 
       true ->
-        do_take_down(tournament)
+        do_take_down(tournament, journal_as)
     end
   end
 
@@ -1570,14 +1571,18 @@ defmodule PairingsEngine.Publishing do
         refusal
 
       true ->
-        case do_take_down(tournament) do
+        case do_take_down(tournament, :retracted) do
           {:ok, _message} -> :ok
           {:error, _message} = refusal -> refusal
         end
     end
   end
 
-  defp do_take_down(%Tournament{} = tournament) do
+  # `journal_as` names the line `PairingsEngine.Publishing.TakedownJournal`
+  # writes when the results site confirms the removal - the record, outside
+  # the database, that keeps a restore of an older backup from putting the
+  # tournament back online.
+  defp do_take_down(%Tournament{} = tournament, journal_as) do
     slug = tournament.public_slug
 
     request =
@@ -1589,6 +1594,10 @@ defmodule PairingsEngine.Publishing do
 
     case Req.delete(request) do
       {:ok, %Req.Response{status: status}} when status in 200..299 ->
+        # Journal first, then forget: a crash between the two leaves a line
+        # whose claim the tournament still holds, and the next boot's replay
+        # finishes the job.
+        TakedownJournal.record(tournament, journal_as)
         forget_published(tournament)
         {:ok, "Removed from the results site. Publishing is now off for this tournament."}
 
@@ -1924,7 +1933,7 @@ defmodule PairingsEngine.Publishing do
 
   defp do_rotate_address(%Tournament{} = tournament) do
     if published?(tournament) do
-      with {:ok, _msg} <- take_down(tournament) do
+      with {:ok, _msg} <- take_down(tournament, :moved) do
         # `take_down/1` switched publishing off and dropped the key, which is
         # right for a takedown and wrong for a move - so it is turned back on
         # here, deliberately, on a tournament that now has a new address and

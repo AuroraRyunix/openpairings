@@ -321,6 +321,10 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"hidden" => ["dates"]}
     ],
     "openresults.taken_down" => [%{"slug" => "k3v9x2"}],
+    "openresults.kept_withdrawn" => [
+      %{"slug" => "k3v9x2", "kind" => "taken_down", "taken_down_at" => "2026-09-13T10:02:11Z"},
+      %{"slug" => "k3v9x2", "kind" => "moved", "taken_down_at" => "2026-09-13T10:02:11Z"}
+    ],
     "openresults.claim_adopted" => [%{"slug" => "k3v9x2"}],
     "openresults.claim_discarded" => [%{}],
     "openresults.public_consent_given" => [

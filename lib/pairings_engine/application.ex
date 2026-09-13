@@ -75,6 +75,13 @@ defmodule PairingsEngine.Application do
       # says this is a desktop install, so a hosted server's copy of this
       # process sits doing nothing for the life of the node.
       PairingsEngine.Updates.Checker,
+      # Before the drain, the registration poll and the endpoint, and it
+      # finishes before any of them starts: a restored backup can bring back a
+      # tournament that was taken off the results site after it, with its key
+      # and a queued publish, and the drain's first send would put it back
+      # online. This switches publishing off again for exactly those - see
+      # its moduledoc.
+      PairingsEngine.Publishing.TakedownJournal,
       PairingsEngine.Publishing.Drain,
       PairingsEngine.Registrations.Poll,
       PairingsEngine.Backup.Scheduler,
