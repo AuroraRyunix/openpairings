@@ -14,6 +14,7 @@ defmodule PairingsEngine.PublicPublishingTest do
 
   import Ecto.Query
   import ExUnit.CaptureLog
+  import Phoenix.LiveViewTest, only: [render_component: 2]
 
   alias PairingsEngine.{Publishing, Repo, Tournaments}
   alias PairingsEngine.PublicServerStub, as: Server
@@ -371,6 +372,9 @@ defmodule PairingsEngine.PublicPublishingTest do
       {"publishing_paused", 503, "/api/snapshots", %{}, nil,
        "The results site has paused publishing. Everything waiting is sent when it resumes.",
        "De uitslagensite heeft publiceren gepauzeerd. Alles wat wacht, wordt verzonden zodra het weer kan."},
+      {"storage_low", 503, "/api/snapshots", %{"retry_after" => 300}, nil,
+       "The results site is low on storage. Everything waiting is sent when it has room again.",
+       "De uitslagensite heeft bijna geen opslagruimte meer. Alles wat wacht, wordt verzonden zodra er weer ruimte is."},
       {"installation_suspended", 403, "/api/snapshots", %{}, nil,
        "The results site has suspended this computer's key. Contact the operator of the results site.",
        "De uitslagensite heeft de sleutel van deze computer geschorst. Neem contact op met de beheerder van de uitslagensite."},
@@ -465,6 +469,55 @@ defmodule PairingsEngine.PublicPublishingTest do
       end
     end
 
+    test "storage_low keeps every queued tournament, backs off at least retry_after, and the next success clears it" do
+      tournaments = for _ <- 1..3, do: tournament()
+      register!()
+
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => fn conn ->
+          conn
+          |> Plug.Conn.put_resp_header("retry-after", "300")
+          |> Server.json(503, %{
+            "error" => "storage_low",
+            "detail" => "Test.",
+            "retry_after" => 300
+          })
+        end
+      })
+
+      Enum.each(tournaments, &Publishing.enqueue/1)
+      capture_log(fn -> assert {0, 3} = Publishing.drain() end)
+
+      # Asked once for the pass: the whole server has no room.
+      assert Enum.count(Server.calls(), &(&1 == {"POST", "/api/snapshots"})) == 1
+
+      for t <- tournaments do
+        entry = Publishing.queued(t.id)
+        refute entry.stopped_at
+        assert DateTime.diff(entry.next_attempt_at, DateTime.utc_now()) >= 290
+
+        assert %Failure{stop: nil, reason: {:refused, {:rejected, 503, "storage_low", _}}} =
+                 Failure.decode(entry.last_reason)
+      end
+
+      # Remembered for the top bar - amber, not a stop - until a send succeeds.
+      assert {:rejected, 503, "storage_low", nil} = Installation.state()
+      refute Installation.halted?()
+      assert {"refused", "Results site low on storage"} = tone_and_headline(Publishing.status())
+
+      Server.install(self())
+      Enum.each(tournaments, &make_due(&1.id))
+      assert {3, 0} = Publishing.drain()
+      refute Installation.state()
+    end
+
+    defp tone_and_headline(status) do
+      html = render_component(&ConnectionStatus.connection_status/1, status: status)
+      [_, tone] = Regex.run(~r/class="conn-status is-(\w+)/, html)
+      [_, headline] = Regex.run(~r/<strong>([^<]*)<\/strong>/, html)
+      {tone, String.trim(headline)}
+    end
+
     test "rate_limited backs off at least retry_after, from the body or the header" do
       t = tournament()
       register!()
@@ -500,7 +553,8 @@ defmodule PairingsEngine.PublicPublishingTest do
 
     for {code, status, extra} <- [
           {"rate_limited", 429, %{"retry_after" => 300}},
-          {"publishing_paused", 503, %{}}
+          {"publishing_paused", 503, %{}},
+          {"storage_low", 503, %{"retry_after" => 300}}
         ] do
       @code code
       @status status

@@ -268,6 +268,11 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp pill_word(%{reason: {:refused, {:rejected, _status, "publishing_paused", _detail}}}),
     do: gettext("Paused")
 
+  # Low storage keeps everything queued and sends it when there is room, so
+  # the pill says it is waiting rather than that something was refused.
+  defp pill_word(%{reason: {:refused, {:rejected, _status, "storage_low", _detail}}}),
+    do: gettext("Waiting")
+
   defp pill_word(%{state: :refused}), do: gettext("Refused")
   defp pill_word(%{state: :unreachable}), do: gettext("Offline")
   defp pill_word(%{reason: {:unconfigured, :consent_required}}), do: gettext("Waiting")
@@ -323,6 +328,10 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
 
   defp headline(%{reason: {:refused, {:rejected, _status, "publishing_paused", _detail}}}),
     do: gettext("Publishing paused")
+
+  # Amber like the pause: nothing is lost, the queue waits for room.
+  defp headline(%{reason: {:refused, {:rejected, _status, "storage_low", _detail}}}),
+    do: gettext("Results site low on storage")
 
   # One clause per code below, same rule `reason_sentence/1` follows and for
   # the same reason: a headline chosen from the STATE alone ("Token
@@ -545,6 +554,12 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     do:
       gettext(
         "The results site has paused publishing. Everything waiting is sent when it resumes."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "storage_low", _detail}}),
+    do:
+      gettext(
+        "The results site is low on storage. Everything waiting is sent when it has room again."
       )
 
   defp reason_sentence({:refused, {:rejected, _status, "installation_suspended", _detail}}),
