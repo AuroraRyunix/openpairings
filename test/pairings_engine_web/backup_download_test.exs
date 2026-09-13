@@ -96,7 +96,7 @@ defmodule PairingsEngineWeb.BackupDownloadTest do
       assert conn.status == 403
     end
 
-    test "a local run needs no role at all", %{conn: conn, name: name} do
+    test "a local run needs no role at all", %{conn: conn, dir: dir, name: name} do
       # There is nobody to gate against: the listener is pinned to loopback,
       # the auto-sign-in re-checks the connection came from this machine,
       # and the file being downloaded is sitting beside a database the
@@ -104,9 +104,14 @@ defmodule PairingsEngineWeb.BackupDownloadTest do
       # of their own backups and protect nothing.
       local_mode(true)
 
+      on_disk = File.read!(Path.join(dir, name))
       conn = get(conn, ~p"/backups/#{name}")
 
       assert conn.status == 200
+      assert [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ name
+      assert conn.resp_body == on_disk
+      assert byte_size(conn.resp_body) > 0
     end
   end
 

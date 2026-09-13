@@ -34,7 +34,7 @@ defmodule PairingsEngine.LocalModeTest do
     end
   end
 
-  defp read_prod(env), do: Config.Reader.read!(@runtime, env: :prod)
+  defp read_prod(_env), do: Config.Reader.read!(@runtime, env: :prod)
 
   describe "local mode" do
     test "binds to loopback, never to every interface", %{dir: dir} do

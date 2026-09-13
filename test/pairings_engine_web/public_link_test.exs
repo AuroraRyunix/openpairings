@@ -111,7 +111,7 @@ defmodule PairingsEngineWeb.PublicLinkTest do
   end
 
   describe "the send target and the public address are separate" do
-    @moduletag :public_base
+    @describetag :public_base
 
     setup do
       Publishing.put_token("t")

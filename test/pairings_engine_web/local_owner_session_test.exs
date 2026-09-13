@@ -73,7 +73,7 @@ defmodule PairingsEngineWeb.LocalOwnerSessionTest do
       assert user.confirmed_at
     end
 
-    test "accepts IPv6 loopback and IPv4-mapped IPv6 too", %{conn: conn} do
+    test "accepts IPv6 loopback and IPv4-mapped IPv6 too", %{} do
       local_mode(true)
 
       for ip <- [{0, 0, 0, 0, 0, 0, 0, 1}, {0, 0, 0, 0, 0, 0xFFFF, 0x7F00, 0x0001}] do
@@ -99,7 +99,7 @@ defmodule PairingsEngineWeb.LocalOwnerSessionTest do
       refute signed_in(run(conn, {127, 0, 0, 1}))
     end
 
-    test "refuses a non-loopback request even with local mode on", %{conn: conn} do
+    test "refuses a non-loopback request even with local mode on", %{} do
       local_mode(true)
 
       # The config pins the listener to loopback, so in a correct run these

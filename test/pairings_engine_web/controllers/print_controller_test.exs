@@ -1183,12 +1183,33 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       html = html_response(conn, 200)
       assert html =~ "Cross table"
-      assert html =~ "A"
-      assert html =~ "B"
-      assert html =~ "C"
-      assert html =~ "D"
-      # A won both games, so total points after round 2 is 2.0.
-      assert html =~ ~r/A.*?<strong>2\.0<\/strong>/s
+
+      # Bare letters ("A", "B", ...) match the CSP nonce (a warning another
+      # test in this file gives) - parse the table instead of matching
+      # substrings, and check the whole shape: exactly one row per player,
+      # each with its rank, name and points in the cell that carries them.
+      doc = LazyHTML.from_document(html)
+      rows = LazyHTML.query(doc, "table.crosstable tbody tr") |> Enum.to_list()
+      assert length(rows) == 4
+
+      by_name =
+        for row <- rows, into: %{} do
+          rank = row |> LazyHTML.query("td.num") |> Enum.at(0) |> LazyHTML.text()
+          name = row |> LazyHTML.query("td strong") |> Enum.at(0) |> LazyHTML.text()
+          # The points cell is the only `td.num` that wraps its value in
+          # `<strong>` (the round/Elo/tiebreak cells beside it don't), so
+          # this selector picks it out uniquely.
+          points = row |> LazyHTML.query("td.num strong") |> Enum.at(0) |> LazyHTML.text()
+          {name, {rank, points}}
+        end
+
+      # A won both games (2.0), B and C 1.0/0.5 respectively per the
+      # fixture, D drew round 1 and lost round 2 (0.5) - rank 1..4 in that
+      # order.
+      assert by_name["A"] == {"1", "2.0"}
+      assert by_name["B"] == {"2", "1.0"}
+      assert by_name["C"] == {"3", "0.5"}
+      assert by_name["D"] == {"4", "0.5"}
     end
 
     test "shows a compact result code once a result exists", %{conn: conn, scope: scope} do
