@@ -177,4 +177,21 @@ end
 exclude_tags = for {tag, _reason, _count} <- missing, do: tag
 
 ExUnit.start(max_cases: 1, exclude: exclude_tags)
+
+# While the Sandbox is still in its default automatic mode, so the deletes
+# commit: rows an earlier process committed to this database outside the
+# Sandbox are removed, and no test inherits them. They were the flaky test of
+# 2026-09-10/11 - see PairingsEngine.Test.LeftoverRows.
+case PairingsEngine.Test.LeftoverRows.clear!() do
+  [] ->
+    :ok
+
+  found ->
+    IO.puts(
+      "Cleared rows committed to the test database outside the SQL Sandbox: " <>
+        Enum.map_join(found, ", ", fn {table, count} -> "#{table} (#{count})" end) <>
+        ". See PairingsEngine.Test.LeftoverRows."
+    )
+end
+
 Ecto.Adapters.SQL.Sandbox.mode(PairingsEngine.Repo, :manual)
