@@ -214,7 +214,9 @@ defmodule PairingsEngineWeb.ContrastTest do
       [color] =
         Regex.run(
           ~r/(?:^|\n)#{Regex.escape(selector)}\s*\{[^}]*?(?:^|[;{\s])color:\s*([^;]+);/,
-          css, capture: :all_but_first)
+          css,
+          capture: :all_but_first
+        )
 
       back = gradient(stops, at)
       ratio = ratio(over(colour(%{}, color), back), back)
@@ -226,7 +228,9 @@ defmodule PairingsEngineWeb.ContrastTest do
     [button_back, button_text] =
       Regex.run(
         ~r/\.auth-hero-cta-btn\s*\{[^}]*background:\s*([^;]+);[^}]*color:\s*([^;]+);/,
-        css, capture: :all_but_first)
+        css,
+        capture: :all_but_first
+      )
 
     back = over(colour(%{}, button_back), gradient(stops, 0.65))
     assert ratio(colour(%{}, button_text), back) >= 4.5
@@ -324,7 +328,9 @@ defmodule PairingsEngineWeb.ContrastTest do
       for [where, body] <-
             Regex.scan(
               ~r/(?:^|\n)\[data-accent="#{accent}"\]:where\(([^)]*)\)\s*\{([^}]*)\}/,
-              css, capture: :all_but_first),
+              css,
+              capture: :all_but_first
+            ),
           where =~ ~s([data-theme="#{theme}"]),
           do: body
 
