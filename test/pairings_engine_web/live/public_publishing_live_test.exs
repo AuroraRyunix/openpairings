@@ -500,12 +500,18 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       Installation.put_state({:rejected, 403, "installation_revoked", nil})
       revoked = %{Publishing.status() | pending: 0}
 
+      # "Refused by the results site" over this sentence was the same class
+      # of mismatch as "Token refused" over "not an OpenResults server"
+      # (docs/audit-2026-09-05.md) - a generic headline burying a specific,
+      # actionable cause. "Key revoked" is mode-agnostic in
+      # `ConnectionStatus.headline/1`, so it reads the same way here as it
+      # would for an operator-token installation.
       assert card(revoked, "en") ==
-               {"down", "Refused by the results site",
+               {"down", "Key revoked",
                 "The results site no longer accepts this computer's key. Publishing has stopped."}
 
       assert card(revoked, "nl") ==
-               {"down", "Geweigerd door de uitslagensite",
+               {"down", "Sleutel niet meer aanvaard",
                 "De uitslagensite aanvaardt de sleutel van deze computer niet meer. Publiceren is gestopt."}
     end
   end

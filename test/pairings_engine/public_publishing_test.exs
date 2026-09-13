@@ -711,7 +711,16 @@ defmodule PairingsEngine.PublicPublishingTest do
       })
 
       assert {:error, message} = PairingsEngine.Registrations.pull(published)
-      assert message == "the server answered 403: installation_suspended"
+      # A real sentence for this code now (PairingsEngine.Registrations
+      # reuses Publishing.rejection_of/1 and Failure.effective_code/1
+      # instead of wording every answer from the HTTP status alone) - not
+      # just the bare "answered 403: installation_suspended" this used to
+      # fall back to, and still never "a different machine", which is
+      # key_mismatch/key_required's sentence, not this code's.
+      assert message ==
+               "the results site has suspended this computer's key (403) - " <>
+                 "contact the operator of the results site"
+
       refute message =~ "different machine"
     end
   end

@@ -78,6 +78,67 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
 
   defp arrange(:sending), do: %{arrange(:connected) | pending: 3}
 
+  defp arrange(:not_owner) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"not_owner"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:installation_suspended) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"installation_suspended"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:installation_revoked) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"installation_revoked"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:tournament_limit) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"tournament_limit"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:snapshot_too_large) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"snapshot_too_large"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:tournament_hidden) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"tournament_hidden"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:registration_closed) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 503, ~s({"error":"registration_closed"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:address_blocked) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"address_blocked"})) end)
+    Publishing.status()
+  end
+
+  defp arrange(:rate_limited) do
+    stub(fn conn -> Plug.Conn.send_resp(conn, 429, ~s({"error":"rate_limited"})) end)
+    Publishing.status()
+  end
+
+  # Public mode's credential is a key, not a token - arranged by overriding
+  # an already-real status's mode/reason rather than standing up the whole
+  # installation/consent dance, the same technique the "no sentence yet"
+  # edge cases below already use.
+  defp arrange(:key_not_recognised_bare) do
+    %{arrange(:token_rejected) | mode: :public, reason: {:refused, {:rejected, 401, nil, nil}}}
+  end
+
+  defp arrange(:key_not_recognised_coded) do
+    %{
+      arrange(:token_rejected)
+      | mode: :public,
+        reason: {:refused, {:rejected, 401, "unauthorized", nil}}
+    }
+  end
+
   describe "every state reads correctly in English and in Dutch" do
     for {name, tone, en, nl} <- [
           {:no_address, "off", {"Not set up", "No address is set."},
@@ -87,10 +148,69 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
           {:token_rejected, "refused",
            {"Token refused", "Reached the server, but it rejected the token."},
            {"Token geweigerd", "De server antwoordde, maar weigerde de token."}},
+          # The token was never the problem here - the server answered, just
+          # not as an OpenResults server (docs/audit-2026-09-05.md, "Reasons,
+          # not sentences"). "Token refused" over this sentence was the bug.
           {:not_openresults, "refused",
-           {"Token refused",
+           {"Not an OpenResults server",
             "Reached the server and it answered 200, which is not an OpenResults server."},
-           {"Token geweigerd", "Er antwoordde iets met 200, maar dat is geen OpenResults-server."}},
+           {"Geen OpenResults-server",
+            "Er antwoordde iets met 200, maar dat is geen OpenResults-server."}},
+          {:not_owner, "down",
+           {"Owned by another installation",
+            "A different installation owns this tournament on the results site. Ask the operator of the results site to transfer it to this computer."},
+           {"Eigendom van een andere installatie",
+            "Een andere installatie is eigenaar van dit toernooi op de uitslagensite. Vraag de beheerder van de uitslagensite om het naar deze computer over te dragen."}},
+          {:installation_suspended, "down",
+           {"Key suspended",
+            "The results site has suspended this computer&#39;s key. Contact the operator of the results site."},
+           {"Sleutel geschorst",
+            "De uitslagensite heeft de sleutel van deze computer geschorst. Neem contact op met de beheerder van de uitslagensite."}},
+          {:installation_revoked, "down",
+           {"Key revoked",
+            "The results site no longer accepts this computer&#39;s key. Publishing has stopped."},
+           {"Sleutel niet meer aanvaard",
+            "De uitslagensite aanvaardt de sleutel van deze computer niet meer. Publiceren is gestopt."}},
+          {:tournament_limit, "down",
+           {"Tournament limit reached",
+            "This computer has reached the results site&#39;s limit on tournaments. Publishing has stopped for this tournament."},
+           {"Toernooilimiet bereikt",
+            "Deze computer heeft de limiet van de uitslagensite voor het aantal toernooien bereikt. Publiceren is gestopt voor dit toernooi."}},
+          {:snapshot_too_large, "down",
+           {"Tournament too large",
+            "This tournament is too large for the results site. Publishing has stopped for this tournament."},
+           {"Toernooi te groot",
+            "Dit toernooi is te groot voor de uitslagensite. Publiceren is gestopt voor dit toernooi."}},
+          {:tournament_hidden, "down",
+           {"Tournament hidden",
+            "The operator of the results site has hidden this tournament. Publishing has stopped for this tournament."},
+           {"Toernooi verborgen",
+            "De beheerder van de uitslagensite heeft dit toernooi verborgen. Publiceren is gestopt voor dit toernooi."}},
+          {:registration_closed, "refused",
+           {"Registration closed",
+            "The results site is not accepting new installations right now. Nothing has been sent, and it will be tried again later."},
+           {"Registratie gesloten",
+            "De uitslagensite aanvaardt op dit moment geen nieuwe installaties. Er is niets verzonden, en het wordt later opnieuw geprobeerd."}},
+          {:address_blocked, "down",
+           {"Address blocked",
+            "The results site has blocked this computer&#39;s network address. Contact the operator of the results site."},
+           {"Adres geblokkeerd",
+            "De uitslagensite heeft het netwerkadres van deze computer geblokkeerd. Neem contact op met de beheerder van de uitslagensite."}},
+          {:rate_limited, "refused",
+           {"Waiting a moment",
+            "The results site asked this computer to wait a moment. It will try again shortly."},
+           {"Even wachten",
+            "De uitslagensite vroeg deze computer om even te wachten. Er wordt straks opnieuw geprobeerd."}},
+          {:key_not_recognised_bare, "down",
+           {"Key not recognised",
+            "The results site does not recognise this computer&#39;s key. Publishing has stopped until you register again."},
+           {"Sleutel niet herkend",
+            "De uitslagensite herkent de sleutel van deze computer niet. Publiceren is gestopt tot je opnieuw registreert."}},
+          {:key_not_recognised_coded, "down",
+           {"Key not recognised",
+            "The results site does not recognise this computer&#39;s key. Publishing has stopped until you register again."},
+           {"Sleutel niet herkend",
+            "De uitslagensite herkent de sleutel van deze computer niet. Publiceren is gestopt tot je opnieuw registreert."}},
           {:unreachable, "down",
            {"Cannot reach the results site",
             "The connection was refused - is the server running?"},
@@ -153,11 +273,11 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
 
       status = Publishing.status()
 
-      assert {"refused", "Token refused",
+      assert {"refused", "Refused by the results site",
               "Could not confirm the connection (403 some_future_code)."} =
                card(status, "en")
 
-      assert {"refused", "Token geweigerd",
+      assert {"refused", "Geweigerd door de uitslagensite",
               "Kon de verbinding niet bevestigen (403 some_future_code)."} =
                card(status, "nl")
     end
@@ -209,7 +329,8 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
     # visibly technical - and not as a FunctionClauseError on every render.
     status = %{arrange(:token_rejected) | reason: {:refused, :something_new}}
 
-    assert {"refused", "Token refused", "Could not confirm the connection (:something_new)."} =
+    assert {"refused", "Refused by the results site",
+            "Could not confirm the connection (:something_new)."} =
              card(status, "en")
   end
 end

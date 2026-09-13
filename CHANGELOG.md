@@ -16,6 +16,64 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Pulling entry-form registrations words a refusal by the server's
+  own error code, like publishing already does.** `PairingsEngine.
+  Registrations` still dispatched on the HTTP status alone - a 403 with
+  `installation_suspended`, `installation_revoked` or `not_owner` all fell
+  back to a bare "the server answered 403: `<code>`" - even though
+  `PairingsEngine.Publishing` was refactored two days ago to read the JSON
+  `error` code the same way `PairingsEngineWeb.Components.ConnectionStatus`
+  does. Now reuses `Publishing.rejection_of/1` and `Failure.effective_code/1`
+  to decode the body rather than re-parsing it, and gets its own sentence
+  for each: `not_owner` names the other installation (the same words
+  `Publishing.take_down_words/2` already uses for it), `installation_
+  suspended`/`installation_revoked` say the key was suspended or is no
+  longer accepted, and `key_mismatch`/`key_required`/a bare 403 keep the
+  "a different machine published it" sentence they already had. Pulled in
+  public mode too (a per-installation key rather than a token), which gets
+  its own "does not recognise this computer's key" wording for a rejected
+  credential, same as publishing's.
+- [Fix] **The Connections panel's headline no longer contradicts the
+  sentence under it.** `headline/1` picked "Token refused" for almost every
+  refusal (only "Publishing paused" had its own wording), whatever the
+  server actually said - so a 200 from some other website read "Token
+  refused" above "which is not an OpenResults server", and a suspended key,
+  a hidden tournament, a blocked address or a different installation owning
+  the tournament all read "Token refused" too, in operator mode, or a
+  blanket "Refused by the results site" in public mode. Every code
+  `reason_sentence/1` already has a sentence for now gets its own matching
+  headline instead ("Owned by another installation", "Key suspended", "Key
+  revoked", "Tournament limit reached", "Tournament too large", "Tournament
+  hidden", "Registration closed", "Address blocked", "Waiting a moment", and
+  "Key not recognised" for public mode's own unrecognised-key wording); "Not
+  an OpenResults server" for a server that answered with no error code at
+  all, which was the reported case. New Dutch msgstrs throughout. Found by
+  checking every `{state, reason}` pairing, as asked - one more of the same
+  bug was already pinned as expected behaviour in
+  `public_publishing_live_test.exs` (an installation-revoked key), fixed
+  alongside it.
+- [Security] **The public `/tools/norms` page no longer re-serialises every
+  uploaded file on every officials-form keystroke.** `update_fields` and its
+  siblings (picking an arbiter from search results, adding or removing one,
+  choosing an FA1/IA1 candidate) synced the *entire* session into
+  `PairingsEngine.Tools.Session` on each call - every uploaded file's parsed
+  tournament and full player list included, not just the small
+  overlay/candidate map that actually changed - on a page with no login and
+  no rate limit on this path. `Session.put/3` runs `:erlang.external_size/1`
+  over the whole term and deep-copies it into a shared ETS table, so the cost
+  scaled with everything uploaded so far, on every keystroke. Measured on a
+  real 5,000-player upload (5.48 MB session payload), averaged over 200
+  calls: re-syncing the whole session this way cost **~7.5 ms**; the fields
+  that actually change now sync through a new small "patch" entry
+  (`Session.put_patch/2`) that `Session.get/1` merges back on for the reader
+  (the download route included), costing **~8.5 µs** - about **880x less**,
+  and no longer proportional to what has been uploaded. The officials form
+  also gained the same 300ms `phx-debounce` the signed-in Norms page's
+  already has, so a keystroke does not even reach the LiveView until typing
+  pauses. A reload or reconnect still restores exactly what it restored
+  before - the merge is covered by its own test, alongside one pinning that
+  N field edits never rewrite the stored file payload.
+
 - [Fix] **A production server without `PHX_HOST` now refuses to start** instead
   of quietly using `example.com` for every emailed link - login, invitations,
   email changes - and the Keycloak callback. Guarded like the SMTP check: only

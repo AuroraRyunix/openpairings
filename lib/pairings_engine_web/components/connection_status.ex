@@ -325,9 +325,66 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp headline(%{reason: {:refused, {:rejected, _status, "publishing_paused", _detail}}}),
     do: gettext("Publishing paused")
 
-  # Not "Token refused": in public mode there is no token to refuse.
-  defp headline(%{state: :refused, mode: :public}), do: gettext("Refused by the results site")
-  defp headline(%{state: :refused}), do: gettext("Token refused")
+  # One clause per code below, same rule `reason_sentence/1` follows and for
+  # the same reason: a headline chosen from the STATE alone ("Token
+  # refused" for any `:refused`, whatever the code) told an arbiter the
+  # token was the problem when the server had said something else entirely -
+  # a different installation owning the tournament, a suspended key, this
+  # computer's address being blocked. Each of these pairs with the sentence
+  # `reason_sentence/1` gives the same code, so the two halves of the card
+  # never point at different causes.
+  defp headline(%{reason: {:refused, {:rejected, _status, "rate_limited", _detail}}}),
+    do: gettext("Waiting a moment")
+
+  # Public mode's credential is a key, not a token - matches
+  # `describe_public/2`'s `unrecognised_key_sentence/0` below, the one
+  # sentence in this whole table that reads differently by mode.
+  defp headline(%{mode: :public, reason: {:refused, {:rejected, 401, nil, _detail}}}),
+    do: gettext("Key not recognised")
+
+  defp headline(%{
+         mode: :public,
+         reason: {:refused, {:rejected, _status, "unauthorized", _detail}}
+       }),
+       do: gettext("Key not recognised")
+
+  defp headline(%{reason: {:refused, {:rejected, 401, nil, _detail}}}),
+    do: gettext("Token refused")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "unauthorized", _detail}}}),
+    do: gettext("Token refused")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "not_owner", _detail}}}),
+    do: gettext("Owned by another installation")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "installation_suspended", _detail}}}),
+    do: gettext("Key suspended")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "installation_revoked", _detail}}}),
+    do: gettext("Key revoked")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "tournament_limit", _detail}}}),
+    do: gettext("Tournament limit reached")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "snapshot_too_large", _detail}}}),
+    do: gettext("Tournament too large")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "tournament_hidden", _detail}}}),
+    do: gettext("Tournament hidden")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "registration_closed", _detail}}}),
+    do: gettext("Registration closed")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "address_blocked", _detail}}}),
+    do: gettext("Address blocked")
+
+  # A status with no code at all is some other website answering, not a
+  # rejected token - see `reason_sentence/1`'s matching clause. The 401 case
+  # is handled above, before this one, precisely because a BARE 401 reads as
+  # a rejected token/key; every other status with no code lands here.
+  defp headline(%{reason: {:refused, {:rejected, _status, nil, _detail}}}),
+    do: gettext("Not an OpenResults server")
+
   defp headline(%{state: :unreachable}), do: gettext("Cannot reach the results site")
 
   defp headline(%{reason: {:unconfigured, :consent_required}}),
@@ -335,6 +392,13 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
 
   defp headline(%{reason: {:unconfigured, :public_idle}}), do: gettext("Not publishing")
   defp headline(%{reason: {:unconfigured, :token_required}}), do: gettext("Needs a token")
+
+  # Last resort, for a `:refused` shape none of the clauses above name - a
+  # server code with no clause yet (see `reason_sentence/1`'s own last
+  # resort, which the sentence falls to at the same time) or a reason with
+  # no rejection tuple at all. Never "Token refused": that would go back to
+  # naming a cause the sentence beneath it does not make.
+  defp headline(%{state: :refused}), do: gettext("Refused by the results site")
   defp headline(%{state: :unconfigured}), do: gettext("Not set up")
 
   # "82 KB sent just now" rather than "last sent just now" beside "82.0 KB

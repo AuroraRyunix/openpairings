@@ -32,6 +32,24 @@ defmodule PairingsEngine.Tools.Session do
   (`@sweep_interval_ms`) that walks the table and deletes anything already
   past its expiry - a backstop for entries nobody ever calls `get/1` on
   again, so memory doesn't grow unbounded across many abandoned sessions.
+
+  ## Patches
+
+  `put/2,3` replaces the whole entry, which is right for `data` that changes
+  as a unit (a newly parsed file, say) and wrong for a caller that only wants
+  to update a small slice of it - doing so through `put/2,3` still means
+  serialising and copying everything else `data` carries, on every such
+  update. `put_patch/2,3` is that other case: it upserts a SEPARATE, small
+  entry (keyed off `token`, never colliding with a real one - see
+  `patch_key/1`) that `get/1` shallow-merges onto `data` when both exist, at
+  a cost proportional to the patch alone. `clear_patch/1` drops it once a
+  fresh `put/2,3` has folded its contents back into `data` itself, so a stale
+  patch never outlives the write that made it redundant.
+
+  Patch entries are ordinary rows in the same table under the same
+  eviction/sweep/cap machinery below (`enforce_cap/0`, `sweep/0`) - neither
+  needed a single change for this, since both already walk the table by
+  position rather than by what a key means.
   """
 
   use GenServer
@@ -78,12 +96,21 @@ defmodule PairingsEngine.Tools.Session do
     token
   end
 
-  @doc "Fetches the data stored under `token`. `:error` if unknown or expired."
+  @doc """
+  Fetches the data stored under `token`. `:error` if unknown or expired.
+
+  When `token` also has a live patch (`put_patch/2,3`), it is shallow-merged
+  on top of `data` here - the one place the two halves are put back together,
+  so every reader (this store has exactly one: whichever process calls
+  `get/1`) sees one map, current as of the last `put/2,3` OR `put_patch/2,3`,
+  whichever happened more recently. `data` itself is never rewritten to
+  absorb a patch; see `put_patch/2,3` for why that's the point.
+  """
   def get(token) do
     case :ets.lookup(@table, token) do
       [{^token, data, expires_at, _bytes}] ->
         if System.monotonic_time(:millisecond) < expires_at do
-          {:ok, data}
+          {:ok, merge_patch(token, data)}
         else
           :ets.delete(@table, token)
           :error
@@ -94,14 +121,84 @@ defmodule PairingsEngine.Tools.Session do
     end
   end
 
-  @doc "Removes `token`, if present. Always returns `:ok`."
+  @doc """
+  Upserts `patch`, shallow-merged onto `token`'s main entry by every `get/1`
+  from now on, WITHOUT reading or re-copying that entry's own `data` - the
+  point being a caller that wants to update a small, frequently-changing
+  slice of what it stores under `token` (an edited form field, say) at a
+  cost proportional to `patch` alone, not to everything else `put/2,3` once
+  wrote there (an uploaded file's parsed contents, say).
+
+  Refreshes `token`'s own sliding expiry too (see `touch/2`) - a patch is a
+  write to the session exactly as `put/2,3` is, so it must keep the session
+  alive the same way.
+
+  Returns `token`. `ttl_ms` covers the patch's own entry; `touch/2` is called
+  with the same value so both halves expire together.
+  """
+  def put_patch(token, patch, ttl_ms \\ @default_ttl_ms) when is_map(patch) do
+    :ets.insert(
+      @table,
+      {patch_key(token), patch, expires_at(ttl_ms), :erlang.external_size(patch)}
+    )
+
+    enforce_cap()
+    touch(token, ttl_ms)
+    token
+  end
+
+  @doc """
+  Clears `token`'s patch, if any. Always returns `:ok`.
+
+  Called after a `put/2,3` that rewrites the FULL entry (so it already
+  includes whatever the patch used to carry) - otherwise a stale patch would
+  go on shadowing a newer `data` write with older values forever, rather than
+  just until the next full write.
+  """
+  def clear_patch(token) do
+    :ets.delete(@table, patch_key(token))
+    :ok
+  end
+
+  @doc """
+  Refreshes `token`'s expiry to `ttl_ms` (default one hour) from now, without
+  touching what is stored there - the sliding-TTL half of `put/2,3`, split out
+  so a caller can keep an entry alive without paying to re-serialize and
+  re-copy data that has not changed (see `put_patch/3`, which calls this).
+
+  A no-op, harmlessly, when `token` is unknown: this runs opportunistically
+  alongside a write elsewhere in the table and must not be a second thing
+  that can fail.
+  """
+  def touch(token, ttl_ms \\ @default_ttl_ms) do
+    :ets.update_element(@table, token, {3, expires_at(ttl_ms)})
+    :ok
+  end
+
+  @doc "Removes `token` and its patch, if any. Always returns `:ok`."
   def delete(token) do
     :ets.delete(@table, token)
+    :ets.delete(@table, patch_key(token))
     :ok
   end
 
   @doc "A fresh random URL-safe token - 24 bytes, same shape as a tournament's `public_slug`."
   def token, do: :crypto.strong_rand_bytes(24) |> Base.url_encode64(padding: false)
+
+  # A patch's key never collides with a real token: `token/0` only ever
+  # produces a bare string, and this is a 2-tuple.
+  defp patch_key(token), do: {token, :patch}
+
+  defp merge_patch(token, data) when is_map(data) do
+    now = System.monotonic_time(:millisecond)
+
+    case :ets.lookup(@table, patch_key(token)) do
+      [{_key, patch, expires_at, _bytes}] when expires_at > now -> Map.merge(data, patch)
+      _ -> data
+    end
+  end
+
+  defp merge_patch(_token, data), do: data
 
   ## ---------- GenServer ----------
 
