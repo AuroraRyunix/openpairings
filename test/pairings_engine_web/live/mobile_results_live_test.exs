@@ -216,7 +216,7 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       assert entry.details["enrollment_label"] == "Board 3 tablet"
 
       assert AuditLive.describe(entry.action, entry.details) =~
-               ~s(via phone, "Board 3 tablet")
+               ~s(Via the phone "Board 3 tablet")
     end
 
     @tag :javafo
@@ -235,7 +235,7 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       [entry] = Audit.list_for_tournament(tournament.id)
 
       assert AuditLive.describe(entry.action, entry.details) =~
-               "via phone, enrollment ##{enrollment.id}"
+               "Via phone enrollment ##{enrollment.id}"
     end
 
     test "records the level the phone was minted with, so the trail says what it could do", %{
@@ -254,7 +254,7 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
 
       [entry] = Audit.list_for_tournament(tournament.id)
       assert entry.details["enrollment_level"] == "deputy"
-      assert AuditLive.describe(entry.action, entry.details) =~ "deputy"
+      assert AuditLive.describe(entry.action, entry.details) =~ "(Deputy)"
     end
   end
 

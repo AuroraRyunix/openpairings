@@ -307,6 +307,19 @@ None of them are fragments except where said.
 
 ### 13a. Worth wrapping
 
+> **Follow-up, 2026-09-12:** `audit_live.ex` is wrapped - all 59 actions
+> `describe/2` has a clause for, the filter buttons, the "System" actor and
+> the tab title. See `docs/i18n.md`, "The audit trail". Wrapping it turned
+> up a gap the table below does not list, because it is not a translation
+> gap: 31 action codes the app writes have **no sentence at all** and show
+> their raw code on the page in every language - the hand-edits of a paired
+> round (`pairing.players_swapped`, `pairing.seat_vacated`,
+> `pairing.bye_awarded`, ...), publishing and unpublishing pairings and
+> standings, hiding a board, the four `handoff.*` acts, the six
+> `openresults.*` settings, the bulk player edits, and
+> `category.rules_updated`/`category.auto_assigned`. The text below is the
+> finding as it was written.
+
 | where | what | note |
 |---|---|---|
 | `live/audit_live.ex:125-300` (`describe/2`) | ~59 sentences - *"Entered result %{…} on board %{…} (round %{…}): %{…}."* and so on | The entire readable content of the Audit page, built by interpolation. `docs/i18n.md` counts "audit" as wrapped; that covers the chrome (16 calls) and not the sentences. Each is a whole sentence with value-shaped holes, so they wrap cleanly as ordinary `%{}` bindings. **Biggest single hole.** |

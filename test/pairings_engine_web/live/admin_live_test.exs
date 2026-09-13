@@ -68,7 +68,7 @@ defmodule PairingsEngineWeb.AdminLiveTest do
 
       html = lv |> element("button", "Change the role") |> render_click()
 
-      assert html =~ "Changed #{colleague.email}&#39;s role: role owner → admin."
+      assert html =~ "Changed the role of #{colleague.email} from Account owner to Administrator."
       refute html =~ "No installation-wide activity recorded yet."
     end
 

@@ -83,6 +83,71 @@ defmodule PairingsEngineWeb.AuditLiveTest do
     refute html =~ "Registered player Alice"
   end
 
+  test "a Dutch arbiter reads the trail in Dutch - the rows, not just the page around them", %{
+    conn: conn,
+    scope: scope
+  } do
+    # The rows were the part that stayed English: `describe/2` built them by
+    # interpolation, so the headings, the filter and the table header came
+    # out Dutch around a column of English sentences. A phone's result has
+    # no account behind it, which is also the one place the "Who" column
+    # speaks for itself.
+    t = make_tournament(scope)
+
+    Audit.log(t.id, scope, "player.created", %{player_name: "Alice"})
+
+    Audit.log(t.id, nil, "pairing.result_entered", %{
+      round: 1,
+      board: 2,
+      white: "Alice",
+      black: "Bob",
+      from: nil,
+      to: "1-0",
+      via: "mobile",
+      enrollment_id: 1,
+      enrollment_label: "Tafel 2",
+      enrollment_level: "helper"
+    })
+
+    conn = get(conn, ~p"/locale/nl?redirect_to=/")
+    {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/audit")
+
+    assert html =~ "Speler Alice ingeschreven."
+
+    assert html =~
+             "Resultaat 1-0 ingevoerd op bord 2 (ronde 1): Alice tegen Bob. " <>
+               "Via de telefoon &quot;Tafel 2&quot; (Helper)."
+
+    assert html =~ "Systeem"
+    refute html =~ "Registered player"
+    refute html =~ "Entered result"
+
+    html = lv |> element("button", "Spelers") |> render_click()
+    assert html =~ "Speler Alice ingeschreven."
+    refute html =~ "Resultaat 1-0"
+  end
+
+  test "saving the officials does not take the audit page down", %{conn: conn, scope: scope} do
+    # `officials` is a map, and the Norms page's save logs it in the ordinary
+    # settings diff. The diff formatter called `to_string/1` on each value,
+    # which raises for a map - so one officials save made this tournament's
+    # audit trail unopenable.
+    t = make_tournament(scope)
+
+    Audit.log(t.id, scope, "tournament.settings_updated", %{
+      changed_fields: %{
+        "officials" => [%{}, %{"chief_arbiter" => %{"name" => "Dirk Jacobs"}}],
+        "tiebreaks" => [["BH"], ["BH", "SB"]]
+      }
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/audit")
+
+    assert html =~ "Updated tournament settings"
+    assert html =~ "Dirk Jacobs"
+    assert html =~ "tiebreaks BH → BH, SB"
+  end
+
   test "a non-collaborator cannot open another user's audit page", %{conn: conn} do
     other = user_scope_fixture()
     {:ok, t} = Tournaments.create_tournament(other, %{"name" => "Not Yours", "type" => "swiss"})

@@ -84,6 +84,50 @@ Each entry is tagged so a version can be skimmed:
   restore - onto the same computer too - this computer registers again, and
   the site's operator moves all its tournaments across in one step.
 
+- [Verified] **The one 2026-09-05 audit finding that was never judged
+  ("the public officials form re-serialises the whole session on every
+  keystroke") turned out to be two pages.** The signed-in Norms page's
+  officials form was already fixed three days before the audit ran -
+  `632d77a` and `319b0e8` (2026-09-02) memoised the roster sort/IT3 counts
+  out of the template and debounced the form, so `officials_change` is now
+  `assign(socket, dirty: true)` on an assign the template never reads.
+  Re-verified directly: a 200-player tournament costs the same 397 VM
+  reductions per keystroke as a 5-player one, touches no database query,
+  and broadcasts nothing - no code change, one more test pinning it. The
+  actual public, no-login `/tools/norms` page has its own, still-open
+  version of the same shape: its officials card carries no debounce at all,
+  and every keystroke re-syncs the *entire* upload session (every parsed
+  file, not just the changed field) into `PairingsEngine.Tools.Session`,
+  measured to cost linearly in the total uploaded data (10 µs empty, 5.9 ms
+  at 4.6 MB uploaded). Real, and out of scope for this pass - see
+  `docs/audit-2026-09-05.md`'s "One finding was never judged" for the
+  numbers and a follow-up flagged separately.
+- [Fix] **The audit trail is in Dutch for a Dutch arbiter - the rows, not
+  just the page around them.** Every line on the Audit page ("Registered
+  player…", "Entered result 1-0 on board 4 (round 2)…", every settings
+  change, restore, import and role change), and the same lines on
+  the Admin page's recent activity and the History timeline, stayed English
+  whatever language was picked, because they were assembled by hand where no
+  translation pass could see them. They are now worded when the page is
+  shown, so rows written by earlier versions read in Dutch too. Shown as
+  stored, in either language: action codes, the field names in a settings
+  diff (`rounds_count`), result notation, engine names, a restore point's
+  own name and the SWAR upload's error message. The category filter
+  buttons, the "System" actor and the tab title are translated as well. The
+  English wording is unchanged except where a sentence had to be rebuilt to
+  translate: a phone's result now ends "Via the phone "Tafel 3" (Deputy)."
+  instead of "(via phone, "Tafel 3", deputy)", and a new tournament names
+  its system as "(Swiss)" rather than "(swiss)".
+- [Fix] **Saving the officials on the Norms page no longer makes the Audit
+  page crash.** The settings diff printed each old and new value with
+  `to_string/1`, which raises for a map, so one officials save (or any
+  other map-valued setting) left that tournament's audit trail unopenable.
+  The same formatter printed a tie-break list as "BHSB" and a switch as
+  "false → true"; they now read "BH, SB" and "Off → On". Two older row
+  shapes read better too: a result blanked before 2026-08-03 said "changed
+  from 1-0 to" and now reads as a cleared result, and a role change names
+  the roles as the Admin page does ("from Account owner to Administrator").
+
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status
   pill's panel and tooltip in the top bar, and the answer to Test connection
