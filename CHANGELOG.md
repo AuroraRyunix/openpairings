@@ -16,6 +16,31 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Verified] **A backup has now been restored, end to end - and restoring one
+  has a written procedure, which it never had.** The first restore drill
+  (`docs/restore-drill-2026-09-13.md`) rebuilt a working installation from a
+  backup: every table back except the rating lists, which come back empty by
+  design, the app booting on it, a round paired, and a tournament published
+  before the backup withdrawn from the results site with the key the backup
+  kept - the reason backups exist. It also found that following
+  `mix pairings.backup --restore`'s own printed commands could put the OLD
+  database back live without a word: they move the database without its
+  `-wal` file, which after a crash or a kill holds the newest writes and gets
+  read into the restored file. **Do not use those four commands.**
+  `docs/deployment.md` now has "Backups", "Restoring a backup" (tested step by
+  step: move the WAL with the database, restore ownership, migrate - a backup
+  one migration old boots and fails every tournament page otherwise), "What a
+  restore undoes", and "Restoring on a desktop install", which had no way at
+  all.
+- [Change] **What a restore undoes, written down.** A tournament taken off the
+  results site after the backup is published again on its next change; one
+  first published after it can no longer be updated; passwords, roles and
+  signed-out sessions go back to what they were; the rating lists are empty
+  until a sync. The guide carries a tested script that takes each tournament's
+  publishing state from the database the restore replaced, and a report of
+  everything else to re-apply. Also written down: an unencrypted backup - which
+  is what the deploy produces - holds the OpenResults operator token, not just
+  player emails and tournament keys.
 - [Fix] **The audit trail is in Dutch for a Dutch arbiter - the rows, not
   just the page around them.** Every line on the Audit page ("Registered
   player…", "Entered result 1-0 on board 4 (round 2)…", every settings

@@ -15,7 +15,11 @@ everything the app does and what is planned next.
   boundaries.
 - [Setup guide](setup-guide.md) - environment setup, prerequisites, dev
   workflow.
-- [Deployment](deployment.md) - how the live instance is actually run.
+- [Deployment](deployment.md) - how the live instance is actually run,
+  including backups and the rehearsed restore procedure.
+- [Restore drill, 2026-09-13](restore-drill-2026-09-13.md) - the first
+  restore drill of both apps: what a restore gives back, what it undoes,
+  and why each step of the procedure is there.
 - [AGENTS.md](AGENTS.md) - deep technical context for AI coding agents
   (invariants, non-obvious patterns, gotchas) - read this before making a
   change to the pairing engine, norms/`.xlsx` filling, or standings.
