@@ -379,6 +379,58 @@ defmodule PairingsEngine.SnapshotTest do
       assert neither["categories"] == []
       assert neither["category"] == nil
     end
+
+    test "tournament.categories carries the tournament's own vocabulary, in order" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Tags",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          categories: ["U1800", "Women", "U14"],
+          categories_enabled: true,
+          public_slug: "tags2"
+        })
+
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["tournament"]["categories"] == ["U1800", "Women", "U14"]
+    end
+
+    test "hiding the category display key omits both new fields, and leaves category alone" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Tags",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          categories: ["Open", "Women"],
+          categories_enabled: true,
+          public_slug: "tags3"
+        })
+
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Both",
+          "categories" => ["Women", "Open"],
+          "pairing_number" => 1
+        })
+
+      {:ok, hidden} =
+        Tournaments.set_public_display(tournament, %{all_shown() | "category" => "false"})
+
+      snapshot = Snapshot.build(hidden)
+
+      refute Map.has_key?(snapshot["tournament"], "categories")
+
+      player = snapshot["players"] |> Enum.find(&(&1["name"] == "Both"))
+      refute Map.has_key?(player, "categories")
+      # `category` - the single pairing category - keeps travelling: hiding
+      # the display key is about grouping/filtering by category in public,
+      # not about withholding the pairing partition, and it was never gated
+      # before this change.
+      assert player["category"] == "Open"
+    end
   end
 
   describe "build/1 - the document" do
@@ -410,7 +462,8 @@ defmodule PairingsEngine.SnapshotTest do
                "fide_rated" => true,
                "registration_open" => true,
                "listed" => true,
-               "display" => PairingsEngine.PublicDisplay.resolve(nil)
+               "display" => PairingsEngine.PublicDisplay.resolve(nil),
+               "categories" => ~w(A B)
              }
     end
 
