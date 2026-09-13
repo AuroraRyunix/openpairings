@@ -531,8 +531,11 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       send(lv.pid, {:settle_board, board_one.id})
       html = render(lv)
 
-      refute html =~ "Board 1"
+      # The card, not the words: the status line a screen reader hears the
+      # save through still says "Board 1: 1-0 saved", as it should.
+      refute has_element?(lv, "#mobile-board-#{board_one.id}")
       assert html =~ "All results in"
+      assert has_element?(lv, ~s(p[role="status"]), "Board 1: 1-0 saved")
     end
 
     test "clearing a result puts the board back on the list", %{conn: conn, tournament: t} do

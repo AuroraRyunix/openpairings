@@ -764,7 +764,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                     <th>{gettext("Women")}</th>
                     <th class="num">{gettext("Prizes")}</th>
                     <th>{gettext("Summary")}</th>
-                    <th></th>
+                    <th><span class="sr-only">{gettext("Actions")}</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -878,9 +878,19 @@ defmodule PairingsEngineWeb.CategoriesLive do
         phx-window-keydown="cancel_category_confirm"
         phx-key="escape"
       >
-        <div class="pe-modal-card pe-modal-wide" phx-click-away="cancel_category_confirm">
+        <div
+          class="pe-modal-card pe-modal-wide"
+          phx-click-away="cancel_category_confirm"
+          id="category-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="category-confirm-title"
+          tabindex="-1"
+          phx-hook="DialogFocus"
+          data-dialog
+        >
           <div class="pe-modal-head">
-            <h2>{gettext("Assign categories?")}</h2>
+            <h2 id="category-confirm-title">{gettext("Assign categories?")}</h2>
             <p>
               {gettext(
                 "Applying the threshold rules would change the categories of %{changed} of %{total} players. Categories with no rule are left alone. Players with no change are omitted below.",

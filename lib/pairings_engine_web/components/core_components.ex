@@ -57,12 +57,18 @@ defmodule PairingsEngineWeb.CoreComponents do
   def flash(assigns) do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
 
+    # No `role="alert"` and no live region here: the `Flash` hook in
+    # assets/js/app.js says the message through the root layout's #announcer,
+    # politely. A region inside the LiveView is replaced along with it on
+    # every live navigation, so the flash a redirect carries - "Tournament
+    # created" - was a brand-new region and went unannounced, and an alert
+    # interrupted whatever the screen reader was in the middle of saying.
     ~H"""
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
-      role="alert"
+      phx-hook="Flash"
       class="toast toast-top toast-end z-50"
       {@rest}
     >
@@ -181,6 +187,11 @@ defmodule PairingsEngineWeb.CoreComponents do
         <span class="pe-toggle-state">
           {if @state == :public, do: gettext("Public"), else: gettext("Not public")}
         </span>
+        <%!-- Why it cannot be pressed. The `title` is a hover tooltip, and a
+              disabled button can neither be focused nor hovered by a keyboard,
+              so the reason reached nobody but a mouse. A screen reader's
+              browse mode still reads a disabled button's text. --%>
+        <span :if={(@locked or @disabled) && @reason} class="sr-only">{@reason}</span>
       </span>
     </button>
     """
@@ -292,11 +303,13 @@ defmodule PairingsEngineWeb.CoreComponents do
             value="true"
             checked={@checked}
             class={@class || "checkbox checkbox-sm"}
+            aria-invalid={@errors != [] && "true"}
+            aria-describedby={error_id(@id, @errors)}
             {@rest}
           />{@label}
         </span>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.errors id={error_id(@id, @errors)} errors={@errors} />
     </div>
     """
   end
@@ -311,13 +324,15 @@ defmodule PairingsEngineWeb.CoreComponents do
           name={@name}
           class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
           multiple={@multiple}
+          aria-invalid={@errors != [] && "true"}
+          aria-describedby={error_id(@id, @errors)}
           {@rest}
         >
           <option :if={@prompt} value="">{@prompt}</option>
           {Phoenix.HTML.Form.options_for_select(@options, @value)}
         </select>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.errors id={error_id(@id, @errors)} errors={@errors} />
     </div>
     """
   end
@@ -334,10 +349,12 @@ defmodule PairingsEngineWeb.CoreComponents do
             @class || "w-full textarea",
             @errors != [] && (@error_class || "textarea-error")
           ]}
+          aria-invalid={@errors != [] && "true"}
+          aria-describedby={error_id(@id, @errors)}
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.errors id={error_id(@id, @errors)} errors={@errors} />
     </div>
     """
   end
@@ -357,9 +374,30 @@ defmodule PairingsEngineWeb.CoreComponents do
             @class || "w-full input",
             @errors != [] && (@error_class || "input-error")
           ]}
+          aria-invalid={@errors != [] && "true"}
+          aria-describedby={error_id(@id, @errors)}
           {@rest}
         />
       </label>
+      <.errors id={error_id(@id, @errors)} errors={@errors} />
+    </div>
+    """
+  end
+
+  # A field's messages, in one element the field points at with
+  # `aria-describedby`, so a screen reader reads them with the field instead
+  # of leaving them to be found. Red text beside a box said "this one" to the
+  # eye only; `aria-invalid` on the field says it to everyone else.
+  defp error_id(nil, _errors), do: nil
+  defp error_id(_id, []), do: nil
+  defp error_id(id, _errors), do: "#{id}-error"
+
+  attr :id, :string, default: nil
+  attr :errors, :list, required: true
+
+  defp errors(assigns) do
+    ~H"""
+    <div :if={@errors != []} id={@id}>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """

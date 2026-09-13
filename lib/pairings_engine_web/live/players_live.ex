@@ -1389,6 +1389,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp sort_indicator(col, :desc, col), do: " ▼"
   defp sort_indicator(_col, _dir, _key), do: ""
 
+  # The arrow above, said to a screen reader: `aria-sort` on the header cell
+  # of the column the grid is ordered by, grouping by a category included.
+  defp aria_sort(col, dir, col), do: aria_sort_word(dir)
+  defp aria_sort("cat:" <> _, dir, "cat"), do: aria_sort_word(dir)
+  defp aria_sort(_col, _dir, _key), do: nil
+
+  defp aria_sort_word(:asc), do: "ascending"
+  defp aria_sort_word(:desc), do: "descending"
+
   # Grouping by ONE category has to say which one. The whole reason the
   # column does not offer a plain "sort by categories" is that it would be
   # picking a collapse the arbiter cannot see; a grouping whose category is
@@ -1825,28 +1834,39 @@ defmodule PairingsEngineWeb.PlayersLive do
             phx-hook="PlayerGrid"
             data-categories={Jason.encode!(@tournament.categories || [])}
           >
+            <%!-- Each sortable header holds a real button, so a keyboard can
+                  sort: the click still lands on the `<th>`'s own phx-click,
+                  and the context-menu key on the focused button opens the
+                  column's bulk menu (Pr., Paid, Cat) just as a right-click
+                  does. The arrow is `aria-sort` for a screen reader. --%>
             <thead>
               <tr>
                 <th
                   class={["num", "sortable"]}
                   phx-click="sort"
                   phx-value-key="cl"
+                  aria-sort={aria_sort(@sort_col, @sort_dir, "cl")}
                   title={
                     gettext(
                       "Live tournament rank - click to sort by current standings rank (same as Cl)"
                     )
                   }
                 >
-                  N1{sort_indicator(@sort_col, @sort_dir, "cl")}
+                  <button type="button" class="th-sort">
+                    N1{sort_indicator(@sort_col, @sort_dir, "cl")}
+                  </button>
                 </th>
 
                 <th
                   class="sortable"
                   phx-click="sort"
                   phx-value-key="name"
+                  aria-sort={aria_sort(@sort_col, @sort_dir, "name")}
                   title={gettext("Player's full name")}
                 >
-                  {gettext("Name")}{sort_indicator(@sort_col, @sort_dir, "name")}
+                  <button type="button" class="th-sort">
+                    {gettext("Name")}{sort_indicator(@sort_col, @sort_dir, "name")}
+                  </button>
                 </th>
 
                 <th
@@ -1856,6 +1876,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   data-col={key}
                   phx-click="sort"
                   phx-value-key={key}
+                  aria-sort={aria_sort(@sort_col, @sort_dir, key)}
                   title={
                     case key do
                       "pr" -> desc <> " - right-click here to set Present/Absent for everyone"
@@ -1865,14 +1886,16 @@ defmodule PairingsEngineWeb.PlayersLive do
                     end
                   }
                 >
-                  {label}{sort_indicator(@sort_col, @sort_dir, key)}{group_indicator(
-                    @sort_col,
-                    @sort_dir,
-                    key
-                  )}
+                  <button type="button" class="th-sort">
+                    {label}{sort_indicator(@sort_col, @sort_dir, key)}{group_indicator(
+                      @sort_col,
+                      @sort_dir,
+                      key
+                    )}
+                  </button>
                 </th>
 
-                <th></th>
+                <th><span class="sr-only">{gettext("Remove")}</span></th>
               </tr>
             </thead>
 
@@ -1880,7 +1903,22 @@ defmodule PairingsEngineWeb.PlayersLive do
               <tr :for={{p, i} <- Enum.with_index(@players, 1)} data-player-id={p.player.id}>
                 <td class="num">{i}</td>
 
-                <td><strong>{p.player.name}</strong></td>
+                <%!-- The keyboard's way to the registration dialog a
+                      double-click opens: Enter or Space on the name (see
+                      `PlayerGrid` in assets/js/app.js), which also lets the
+                      context-menu key open the Players Card from here. The
+                      mouse is unchanged - a single click still does nothing. --%>
+                <td>
+                  <strong
+                    class="grid-name"
+                    tabindex="0"
+                    role="button"
+                    aria-haspopup="dialog"
+                    data-edit-player={p.player.id}
+                  >
+                    {p.player.name}
+                  </strong>
+                </td>
 
                 <td
                   :for={{key, _label, num, _desc} <- all_columns(@tournament)}
@@ -1950,8 +1988,19 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp rating_refresh_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_rating_refresh" phx-key="escape">
-      <div class="modal-card" phx-click-away="close_rating_refresh" style="max-width: 700px">
-        <h2>{gettext("Refresh ratings")}</h2>
+      <div
+        class="modal-card"
+        phx-click-away="close_rating_refresh"
+        style="max-width: 700px"
+        id="rating-refresh-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rating-refresh-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="rating-refresh-title">{gettext("Refresh ratings")}</h2>
 
         <p class="hint">
           {gettext(
@@ -2021,8 +2070,19 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp club_refresh_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_club_refresh" phx-key="escape">
-      <div class="modal-card" phx-click-away="close_club_refresh" style="max-width: 700px">
-        <h2>{gettext("Update clubs")}</h2>
+      <div
+        class="modal-card"
+        phx-click-away="close_club_refresh"
+        style="max-width: 700px"
+        id="club-refresh-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="club-refresh-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="club-refresh-title">{gettext("Update clubs")}</h2>
 
         <p class="hint">
           {gettext(
@@ -2198,8 +2258,14 @@ defmodule PairingsEngineWeb.PlayersLive do
         phx-submit="save_player"
         phx-change="edit_form_change"
         phx-click-away="close_edit"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="player-edit-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
       >
-        <h2>{gettext("Player registration")}</h2>
+        <h2 id="player-edit-title">{gettext("Player registration")}</h2>
 
         <div class="modal-lookup-bar">
           <span class="hint" style="margin:0">{gettext("Auto-fill from the local rating databases:")}</span>
@@ -2506,8 +2572,19 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_card" phx-key="escape">
-      <div class="modal-card" phx-click-away="close_card" style="max-width: 900px">
-        <h2>{gettext("Players Card")}</h2>
+      <div
+        class="modal-card"
+        phx-click-away="close_card"
+        style="max-width: 900px"
+        id="player-card-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="player-card-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="player-card-title">{gettext("Players Card")}</h2>
 
         <p class="card-header-line">{PlayerCard.header(@entry)}</p>
 

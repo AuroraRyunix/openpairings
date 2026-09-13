@@ -447,7 +447,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
       html = render_click(lv, "show_card", %{"id" => to_string(player.id)})
-      assert html =~ "<h2>Players Card</h2>"
+      assert html =~ ~s(<h2 id="player-card-title">Players Card</h2>)
       refute html =~ "stopPropagation"
       assert html =~ ~s(phx-click-away="close_card")
     end
@@ -2079,8 +2079,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     # Only the roster rows: the page chrome has its own <strong>, and a nav
     # label sorting itself to the top of the list would be a confusing way to
     # fail.
+    # The name is a focusable `<strong class="grid-name">` since the
+    # accessibility pass, so the tag carries attributes and the name its own
+    # surrounding whitespace.
     defp names_in_order(html) do
-      ~r/<tr[^>]*data-player-id[^>]*>.*?<strong>([^<]+)<\/strong>/s
+      ~r/<tr[^>]*data-player-id[^>]*>.*?<strong[^>]*>\s*([^<]+?)\s*<\/strong>/s
       |> Regex.scan(html)
       |> Enum.map(fn [_, name] -> name end)
     end

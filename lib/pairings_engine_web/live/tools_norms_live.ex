@@ -863,8 +863,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           class={["dropzone", @uploads.files.entries != [] && "has-file"]}
           phx-drop-target={@uploads.files.ref}
         >
-          <.live_file_input upload={@uploads.files} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.files}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.files.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.files.ref}-label"}>
             <%= if @uploads.files.entries == [] do %>
               <strong>{gettext("Choose SWAR/TRF files")}</strong>
               <span class="hint">{gettext("or drag and drop them here")}</span>
@@ -918,7 +922,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
               <th class="num" style="text-align: right">Feds</th>
 
-              <th></th>
+              <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
 

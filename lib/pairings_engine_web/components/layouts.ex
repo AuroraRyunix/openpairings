@@ -85,24 +85,45 @@ defmodule PairingsEngineWeb.Layouts do
         <.brand_mark />
         <span class="brand-name">Open<strong>Pairings</strong></span>
       </.link>
-      <nav>
-        <.link navigate={~p"/"} class={tab_class(@active == "tournaments")}>
+      <%!-- Two navs in one banner, so each is named - a screen reader's
+            landmark list otherwise offers "navigation" twice and nothing to
+            choose between them. The current page's tab says `aria-current`,
+            which the `active` class only ever said to the eye. --%>
+      <nav aria-label={gettext("Main navigation")}>
+        <.link
+          navigate={~p"/"}
+          class={tab_class(@active == "tournaments")}
+          aria-current={@active == "tournaments" && "page"}
+        >
           {if @tournament, do: "Home", else: "Tournaments"}
         </.link>
         <%= if @tournament do %>
-          <.link navigate={~p"/t/#{@tournament.id}/players"} class={tab_class(@active == "players")}>
+          <.link
+            navigate={~p"/t/#{@tournament.id}/players"}
+            class={tab_class(@active == "players")}
+            aria-current={@active == "players" && "page"}
+          >
             {gettext("Players")}
           </.link>
-          <.link navigate={~p"/t/#{@tournament.id}/pairings"} class={tab_class(@active == "pairings")}>
+          <.link
+            navigate={~p"/t/#{@tournament.id}/pairings"}
+            class={tab_class(@active == "pairings")}
+            aria-current={@active == "pairings" && "page"}
+          >
             {gettext("Pairings")}
           </.link>
           <.link
             navigate={~p"/t/#{@tournament.id}/standings"}
             class={tab_class(@active == "standings")}
+            aria-current={@active == "standings" && "page"}
           >
             {gettext("Standings")}
           </.link>
-          <.link navigate={~p"/t/#{@tournament.id}/print"} class={tab_class(@active == "print")}>
+          <.link
+            navigate={~p"/t/#{@tournament.id}/print"}
+            class={tab_class(@active == "print")}
+            aria-current={@active == "print" && "page"}
+          >
             {gettext("Print")}
           </.link>
           <details class="topbar-menu" name="topbar-popover">
@@ -180,6 +201,7 @@ defmodule PairingsEngineWeb.Layouts do
           :if={!@tournament && @current_scope && Authz.may_support?(@current_scope.user)}
           navigate={~p"/fide"}
           class={tab_class(@active == "fide")}
+          aria-current={@active == "fide" && "page"}
         >
           {gettext("Connections")}
         </.link>
@@ -187,6 +209,7 @@ defmodule PairingsEngineWeb.Layouts do
           :if={!@tournament && @current_scope && Authz.may_administer?(@current_scope.user)}
           navigate={~p"/admin"}
           class={tab_class(@active == "admin")}
+          aria-current={@active == "admin" && "page"}
         >
           {gettext("Admin")}
         </.link>
@@ -194,6 +217,7 @@ defmodule PairingsEngineWeb.Layouts do
           :if={!@tournament}
           navigate={~p"/tools/norms"}
           class={tab_class(@active == "tools")}
+          aria-current={@active == "tools" && "page"}
         >
           {gettext("Tools")}
         </.link>
@@ -201,11 +225,12 @@ defmodule PairingsEngineWeb.Layouts do
           :if={!@tournament && @current_scope}
           navigate={~p"/changelog"}
           class={tab_class(@active == "changelog")}
+          aria-current={@active == "changelog" && "page"}
         >
           {gettext("Changelog")}
         </.link>
       </nav>
-      <nav class="topbar-auth">
+      <nav class="topbar-auth" aria-label={gettext("Account and display")}>
         <.accent_picker />
         <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
         <.theme_switch />
@@ -238,7 +263,11 @@ defmodule PairingsEngineWeb.Layouts do
                 genuinely needs - "I am not in Belgium, take those buttons
                 away" - and there is nothing on that page to confirm by
                 email or to sign in for. --%>
-          <.link navigate={~p"/users/features"} class={tab_class(@active == "features")}>
+          <.link
+            navigate={~p"/users/features"}
+            class={tab_class(@active == "features")}
+            aria-current={@active == "features" && "page"}
+          >
             {gettext("Features")}
           </.link>
           <%!-- No log out on a local install. There is no second account to
@@ -263,7 +292,9 @@ defmodule PairingsEngineWeb.Layouts do
       </nav>
     </header>
 
-    <main class="page">
+    <%!-- `id` and `tabindex="-1"` for the root layout's skip link, which
+          moves focus here as well as the scroll position. --%>
+    <main class="page" id="main-content" tabindex="-1">
       <%!-- Non-modal, machine-wide, desktop-only - see
             `PairingsEngineWeb.UpdateNotice` and `PairingsEngine.Updates`.
             Notify, and the arbiter applies it - never a timer. A
@@ -546,7 +577,11 @@ defmodule PairingsEngineWeb.Layouts do
 
   def flash_group(assigns) do
     ~H"""
-    <div id={@id} aria-live="polite">
+    <%!-- Not a live region: each flash is announced by its own `Flash` hook,
+          and the two connection flashes below - shown by a JS command rather
+          than rendered, so no hook sees them appear - by a `pe:announce`
+          event dispatched as they are shown. See assets/js/app.js. --%>
+    <div id={@id}>
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
 
@@ -557,6 +592,7 @@ defmodule PairingsEngineWeb.Layouts do
         phx-disconnected={
           show(".phx-client-error #client-error")
           |> JS.remove_attribute("hidden", to: ".phx-client-error #client-error")
+          |> JS.dispatch("pe:announce", to: ".phx-client-error #client-error")
         }
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
         hidden
@@ -572,6 +608,7 @@ defmodule PairingsEngineWeb.Layouts do
         phx-disconnected={
           show(".phx-server-error #server-error")
           |> JS.remove_attribute("hidden", to: ".phx-server-error #server-error")
+          |> JS.dispatch("pe:announce", to: ".phx-server-error #server-error")
         }
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
         hidden
@@ -583,18 +620,33 @@ defmodule PairingsEngineWeb.Layouts do
     """
   end
 
-  # Accent choices shown in the picker: {key, swatch colour, label}.
+  # Accent choices shown in the picker: {key, swatch colour}. The swatch is
+  # the light-theme `--accent` from app.css, so the preview is the colour the
+  # buttons actually get (blue and teal were darkened a step for contrast on
+  # 2026-09-13). The names go through `accent_label/1`: they are each
+  # swatch's only accessible name, and a Dutch screen reader reading "Green"
+  # pronounces it as Dutch.
   @accents [
-    {"green", "#2e5e44", "Green"},
-    {"blue", "#2563eb", "Blue"},
-    {"teal", "#0d7d74", "Teal"},
-    {"violet", "#7c3aed", "Violet"},
-    {"rose", "#be123c", "Rose"},
-    {"slate", "#475569", "Slate"},
-    {"indigo", "#4338ca", "Indigo"},
-    {"cyan", "#0e7490", "Cyan"},
-    {"fuchsia", "#a21caf", "Fuchsia"}
+    {"green", "#2e5e44"},
+    {"blue", "#2160eb"},
+    {"teal", "#0d7870"},
+    {"violet", "#7c3aed"},
+    {"rose", "#be123c"},
+    {"slate", "#475569"},
+    {"indigo", "#4338ca"},
+    {"cyan", "#0e7490"},
+    {"fuchsia", "#a21caf"}
   ]
+
+  defp accent_label("green"), do: gettext("Green")
+  defp accent_label("blue"), do: gettext("Blue")
+  defp accent_label("teal"), do: gettext("Teal")
+  defp accent_label("violet"), do: gettext("Violet")
+  defp accent_label("rose"), do: gettext("Rose")
+  defp accent_label("slate"), do: gettext("Slate")
+  defp accent_label("indigo"), do: gettext("Indigo")
+  defp accent_label("cyan"), do: gettext("Cyan")
+  defp accent_label("fuchsia"), do: gettext("Fuchsia")
 
   @doc """
   Accent-colour picker for the top bar - a palette popover of swatches,
@@ -616,15 +668,15 @@ defmodule PairingsEngineWeb.Layouts do
       </summary>
       <div class="accent-picker-panel">
         <button
-          :for={{key, color, label} <- @accents}
+          :for={{key, color} <- @accents}
           type="button"
           class="accent-swatch"
           data-accent-opt={key}
           data-phx-accent={key}
           phx-click={JS.dispatch("phx:set-accent")}
           style={"--swatch: #{color}"}
-          title={label}
-          aria-label={label}
+          title={accent_label(key)}
+          aria-label={accent_label(key)}
         ></button>
       </div>
     </details>
@@ -637,14 +689,24 @@ defmodule PairingsEngineWeb.Layouts do
   # is a real, named palette with its own `[data-theme="key"]` block in
   # app.css. Order here is display order in the popover.
   @themes [
-    {"light", "hero-sun-micro", "Light"},
-    {"dark", "hero-moon-micro", "Dark"},
-    {"slate", "hero-window-micro", "Slate"},
-    {"mocha", "hero-heart-micro", "Mocha"},
-    {"paper", "hero-document-micro", "Paper"},
-    {"board", "hero-squares-2x2-micro", "Board"},
-    {"contrast", "hero-eye-micro", "High Contrast"}
+    {"light", "hero-sun-micro"},
+    {"dark", "hero-moon-micro"},
+    {"slate", "hero-window-micro"},
+    {"mocha", "hero-heart-micro"},
+    {"paper", "hero-document-micro"},
+    {"board", "hero-squares-2x2-micro"},
+    {"contrast", "hero-eye-micro"}
   ]
+
+  # Translated for the same reason as `accent_label/1`: the words are the
+  # buttons' names, spoken in the page's language.
+  defp theme_label("light"), do: gettext("Light")
+  defp theme_label("dark"), do: gettext("Dark")
+  defp theme_label("slate"), do: gettext("Slate")
+  defp theme_label("mocha"), do: gettext("Mocha")
+  defp theme_label("paper"), do: gettext("Paper")
+  defp theme_label("board"), do: gettext("Board")
+  defp theme_label("contrast"), do: gettext("High Contrast")
 
   attr :locale, :string, default: nil
   attr :path, :string, default: "/"
@@ -678,6 +740,8 @@ defmodule PairingsEngineWeb.Layouts do
           :for={{code, name} <- @locales}
           href={~p"/locale/#{code}?redirect_to=#{@path}"}
           class={["theme-picker-item", code == @locale && "is-current"]}
+          aria-current={code == @locale && "true"}
+          lang={code}
         >
           {name}
         </a>
@@ -718,14 +782,14 @@ defmodule PairingsEngineWeb.Layouts do
           <.icon name="hero-computer-desktop-micro" class="size-4" /> {gettext("System")}
         </button>
         <button
-          :for={{key, icon, label} <- @themes}
+          :for={{key, icon} <- @themes}
           type="button"
           class="theme-picker-item"
           data-theme-opt={key}
           data-phx-theme={key}
           phx-click={JS.dispatch("phx:set-theme")}
         >
-          <.icon name={icon} class="size-4" /> {label}
+          <.icon name={icon} class="size-4" /> {theme_label(key)}
         </button>
       </div>
     </details>

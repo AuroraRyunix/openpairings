@@ -78,6 +78,11 @@ defmodule PairingsEngineWeb.PairingsLive do
        # The pairing (if any) awaiting explicit confirmation to have its
        # result CLEARED - see `handle_event("result", ...)`'s guard below.
        confirm_clear_pairing_id: nil,
+       # The board whose result select takes focus back when it reappears:
+       # the clear-confirmation box replaces the select that had focus, and
+       # without this closing the box dropped the keyboard at the top of the
+       # page, mid-round.
+       refocus_result: nil,
        # Hand-editing state - see "Editing a paired round by hand" below.
        # `menu` is the open right-click menu; `swap_first`/`pool_first` are
        # half-finished two-click gestures; `seat_pick` is a pool player
@@ -186,7 +191,10 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   @impl true
   def handle_event("select_round", %{"number" => number}, socket) do
-    {:noreply, socket |> assign(round_number: String.to_integer(number), error: nil) |> refresh()}
+    {:noreply,
+     socket
+     |> assign(round_number: String.to_integer(number), error: nil, refocus_result: nil)
+     |> refresh()}
   end
 
   def handle_event("pair", _params, socket) do
@@ -580,7 +588,10 @@ defmodule PairingsEngineWeb.PairingsLive do
               from: previous
             })
 
-            {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
+            {:noreply,
+             socket
+             |> assign(confirm_clear_pairing_id: nil, refocus_result: pairing.id)
+             |> refresh()}
 
           {:error, reason} ->
             {:noreply,
@@ -599,7 +610,11 @@ defmodule PairingsEngineWeb.PairingsLive do
   # reverts to its real (unchanged) value on the next render, since the DB
   # was never touched.
   def handle_event("cancel_clear_result", _params, socket) do
-    {:noreply, assign(socket, confirm_clear_pairing_id: nil)}
+    {:noreply,
+     assign(socket,
+       confirm_clear_pairing_id: nil,
+       refocus_result: socket.assigns.confirm_clear_pairing_id
+     )}
   end
 
   ## ---------- CSV results import ----------
@@ -1832,6 +1847,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               type="text"
               name="rounds"
               placeholder={gettext("e.g. 1-5 or 1,3,5")}
+              aria-label={gettext("Rounds to export")}
               class="pe-select"
               style="width: 150px"
             />
@@ -1882,6 +1898,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             match_format?(@tournament) && "filter-picker",
             n == @round_number && "active"
           ]}
+          aria-pressed={to_string(n == @round_number)}
           phx-click="select_round"
           phx-value-number={n}
         >
@@ -2123,8 +2140,12 @@ defmodule PairingsEngineWeb.PairingsLive do
           class={["dropzone", @uploads.results_csv.entries != [] && "has-file"]}
           phx-drop-target={@uploads.results_csv.ref}
         >
-          <.live_file_input upload={@uploads.results_csv} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.results_csv}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.results_csv.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.results_csv.ref}-label"}>
             <%= if @uploads.results_csv.entries == [] do %>
               <strong>{gettext("Choose a .csv file")}</strong>
               <span class="hint">{gettext("or drag and drop it here")}</span>
@@ -2202,9 +2223,19 @@ defmodule PairingsEngineWeb.PairingsLive do
       </div>
       <.pairing_menu :if={@menu} menu={@menu} round={@round} tournament={@tournament} />
       <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
-        <div class="pe-modal-card pe-modal-wide" phx-click-away="cancel_confirm">
+        <div
+          class="pe-modal-card pe-modal-wide"
+          phx-click-away="cancel_confirm"
+          id="hand-edit-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hand-edit-title"
+          tabindex="-1"
+          phx-hook="DialogFocus"
+          data-dialog
+        >
           <header class="pe-modal-head">
-            <h2>{@confirm.title}</h2>
+            <h2 id="hand-edit-title">{@confirm.title}</h2>
 
             <p>{@confirm.subtitle}</p>
           </header>
@@ -2391,8 +2422,12 @@ defmodule PairingsEngineWeb.PairingsLive do
                   <% pairing.result == "bye" -> %>
                     <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
                   <% @confirm_clear_pairing_id == pairing.id -> %>
+                    <%!-- This box REPLACES the result select, which had focus, so
+                          focus is put on Cancel as it appears - the safe answer,
+                          one Shift+Tab from "Yes" - and both buttons carry the
+                          question, which a screen reader otherwise never reads. --%>
                     <div class="confirm-clear-result">
-                      <span class="hint">
+                      <span class="hint" id={"confirm-clear-#{pairing.id}"}>
                         {gettext("Clear the recorded result (%{result}) for this board?",
                           result: pairing.result
                         )}
@@ -2403,15 +2438,27 @@ defmodule PairingsEngineWeb.PairingsLive do
                         class="pe-btn danger-link"
                         phx-click="confirm_clear_result"
                         phx-value-pairing-id={pairing.id}
+                        aria-describedby={"confirm-clear-#{pairing.id}"}
                       >
                         {gettext("Yes, clear it")}
                       </button>
 
-                      <button type="button" class="pe-btn" phx-click="cancel_clear_result">
+                      <button
+                        type="button"
+                        class="pe-btn"
+                        phx-click="cancel_clear_result"
+                        aria-describedby={"confirm-clear-#{pairing.id}"}
+                        phx-mounted={JS.focus()}
+                      >
                         {gettext("Cancel")}
                       </button>
                     </div>
                   <% true -> %>
+                    <%!-- Named for the board and the two players: tabbing (or
+                          typing 1/2/3) from board to board, the name is all a
+                          screen reader says about which game this is. Focus comes
+                          back here when the clear-confirmation box above closes
+                          (`refocus_result`). --%>
                     <form phx-change="result" id={"result-form-#{pairing.id}"}>
                       <input type="hidden" name="pairing-id" value={pairing.id} />
                       <select
@@ -2419,6 +2466,14 @@ defmodule PairingsEngineWeb.PairingsLive do
                         class="pe-select"
                         id={"result-select-#{pairing.id}"}
                         phx-hook=".BlindResultEntry"
+                        aria-label={
+                          gettext("Result, board %{board}: %{white} against %{black}",
+                            board: display_board,
+                            white: player_name(pairing.white_player),
+                            black: player_name(pairing.black_player)
+                          )
+                        }
+                        phx-mounted={@refocus_result == pairing.id && JS.focus()}
                         data-board-select
                         data-result={pairing.result}
                         data-refused={@write_refused_nonce}
@@ -2564,6 +2619,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             // normally (still needed to pick a code with no 1/2/3 shortcut,
             // e.g. a forfeit result).
             this.onMousedown = (e) => {
+              this.abandon();
               if (document.activeElement !== this.el) {
                 e.preventDefault();
                 this.el.focus();
@@ -2571,7 +2627,53 @@ defmodule PairingsEngineWeb.PairingsLive do
             };
             this.el.addEventListener("mousedown", this.onMousedown);
 
+            // Walking the options with the arrow keys. On a CLOSED select,
+            // Windows and Linux browsers change the value - and fire
+            // "change" - on every arrow press, so going from 1-0 to 0-1 by
+            // keyboard wrote 1/2-1/2 on the way (a result and an audit row),
+            // and passing the blank option staged the "clear this result?"
+            // box, which replaced the select under the keyboard mid-walk.
+            // While `browsing`, those intermediate events are held back here,
+            // before LiveView (listening further up) sees them; the choice
+            // is sent once, on Enter or when focus leaves, and Escape puts
+            // the recorded result back. A mouse pick, the 1/2/3 keys and an
+            // opened dropdown's own Enter still send straight away.
+            this.browsing = false;
+
+            this.hold = (e) => {
+              if (this.browsing && !this.committing) { e.stopPropagation(); }
+            };
+            this.el.addEventListener("input", this.hold);
+            this.el.addEventListener("change", this.hold);
+
+            this.onBlur = () => { if (this.browsing) { this.commit(); } };
+            this.el.addEventListener("blur", this.onBlur);
+
             this.onKeydown = (e) => {
+              // Opening the list (Alt+Down, F4, Space) abandons an arrow walk:
+              // the pick is about to come from the list, whose own Enter the
+              // page never sees, so nothing may still be held back by then.
+              if ((e.altKey && ["ArrowUp", "ArrowDown"].includes(e.key)) || e.key === "F4" || e.key === " ") {
+                this.abandon();
+                return;
+              }
+
+              if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(e.key)) {
+                this.browsing = true;
+                return;
+              }
+
+              if (e.key === "Enter" && this.browsing) {
+                e.preventDefault();
+                this.commit();
+                return;
+              }
+
+              if (e.key === "Escape" && this.browsing) {
+                this.abandon();
+                return;
+              }
+
               const value = CODE_TO_VALUE[e.code] || KEY_TO_VALUE[e.key];
               if (!value) return; // let every other key behave natively
 
@@ -2583,6 +2685,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               // value ourselves.
               e.preventDefault();
 
+              this.browsing = false;
               this.el.value = value;
               // LiveView's phx-change listens for a real "change" event
               // bubbling up from the form.
@@ -2596,6 +2699,24 @@ defmodule PairingsEngineWeb.PairingsLive do
             };
 
             this.el.addEventListener("keydown", this.onKeydown);
+          },
+
+          // Drops an arrow-key walk and shows the recorded result again.
+          abandon() {
+            if (!this.browsing) { return; }
+            this.browsing = false;
+            this.el.value = this.el.dataset.result || "";
+          },
+
+          // Sends the value an arrow-key walk ended on, if it differs from
+          // what is recorded.
+          commit() {
+            this.browsing = false;
+            if (this.el.value === (this.el.dataset.result || "")) { return; }
+
+            this.committing = true;
+            this.el.dispatchEvent(new Event("change", {bubbles: true}));
+            this.committing = false;
           },
 
           // Real incident: an arbiter changed a result on one tab (e.g.
@@ -2641,13 +2762,22 @@ defmodule PairingsEngineWeb.PairingsLive do
               next.focus({ preventScroll: true });
 
               const row = next.closest("tr") || next;
-              row.scrollIntoView({ behavior: "smooth", block: "center" });
+              const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              row.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "center" });
+            } else {
+              // The last board: stay on it. The blur above closed any open
+              // dropdown, and leaving focus there dropped the keyboard onto
+              // the page itself, somewhere above the table.
+              this.el.focus({ preventScroll: true });
             }
           },
 
           destroyed() {
             this.el.removeEventListener("keydown", this.onKeydown);
             this.el.removeEventListener("mousedown", this.onMousedown);
+            this.el.removeEventListener("input", this.hold);
+            this.el.removeEventListener("change", this.hold);
+            this.el.removeEventListener("blur", this.onBlur);
           }
         }
       </script>
@@ -2957,6 +3087,13 @@ defmodule PairingsEngineWeb.PairingsLive do
         // built from the hidden ".print-menu-items" sibling's own <a> tags,
         // so each menu item is a real link with its own href/target/title -
         // no data-JSON to keep in sync with the markup.
+        //
+        // From the keyboard - the context-menu key or Shift+F10 on the focused
+        // print link - the same menu opens under the link and takes focus:
+        // Up and Down walk it, Enter follows a link, Escape and Tab close it
+        // and put focus back on the link. Before this the variants (the
+        // absentees section, the test print, stack-cut order, the PGN
+        // exports) had no way in without a mouse.
         export default {
           mounted() {
             this.menu = this.el.querySelector(".print-menu-items");
@@ -2964,7 +3101,14 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             this.onContextMenu = (e) => {
               e.preventDefault();
-              this.openAt(e.clientX, e.clientY);
+              const fromKeyboard = e.pointerType === "" || (e.clientX === 0 && e.clientY === 0);
+              if (fromKeyboard) {
+                const box = (e.target.closest("a, button") || this.el).getBoundingClientRect();
+                this.opener = document.activeElement;
+                this.openAt(box.left, box.bottom, true);
+              } else {
+                this.openAt(e.clientX, e.clientY, false);
+              }
             };
             this.el.addEventListener("contextmenu", this.onContextMenu);
 
@@ -2972,34 +3116,51 @@ defmodule PairingsEngineWeb.PairingsLive do
               if (this.popup && !this.popup.contains(e.target)) this.close();
             };
             this.onDocKeydown = (e) => {
-              if (e.key === "Escape") this.close();
+              if (!this.popup) return;
+              const items = Array.from(this.popup.querySelectorAll("a"));
+              const index = items.indexOf(document.activeElement);
+
+              if (e.key === "Escape" || (e.key === "Tab" && index >= 0)) {
+                if (e.key === "Tab") e.preventDefault();
+                this.close(true);
+              } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && items.length) {
+                e.preventDefault();
+                const step = e.key === "ArrowDown" ? 1 : -1;
+                items[(index + step + items.length) % items.length].focus();
+              }
             };
             document.addEventListener("mousedown", this.onDocMousedown);
             document.addEventListener("keydown", this.onDocKeydown);
           },
 
-          openAt(x, y) {
+          openAt(x, y, takeFocus) {
             this.close();
 
             const popup = document.createElement("div");
             popup.className = "print-menu-popup";
+            popup.setAttribute("role", "menu");
             popup.style.left = `${x}px`;
             popup.style.top = `${y}px`;
 
             Array.from(this.menu.querySelectorAll("a")).forEach((link) => {
               const item = link.cloneNode(true);
+              item.setAttribute("role", "menuitem");
               item.addEventListener("click", () => this.close());
               popup.appendChild(item);
             });
 
             document.body.appendChild(popup);
             this.popup = popup;
+
+            if (takeFocus) popup.querySelector("a")?.focus();
           },
 
-          close() {
+          // `refocus` when the keyboard closed it: back onto the print link.
+          close(refocus) {
             if (this.popup) {
               this.popup.remove();
               this.popup = null;
+              if (refocus && this.opener?.isConnected) this.opener.focus();
             }
           },
 

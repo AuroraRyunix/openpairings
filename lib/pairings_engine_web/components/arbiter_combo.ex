@@ -64,9 +64,13 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
 
   def arbiter_combo(assigns) do
     ~H"""
+    <%!-- Two boxes under one visible label, each named for itself: the
+          placeholders were the only thing saying which was which, and a
+          placeholder is gone the moment the box has a value. The red star is
+          `aria-required` on the name box for a screen reader. --%>
     <div class="field arbiter-combo" id={"arbiter-combo-#{@role}"}>
       <span class="arbiter-combo-label">
-        {@label}<span :if={@required} style="color: var(--danger)">*</span>
+        {@label}<span :if={@required} style="color: var(--danger)" aria-hidden="true">*</span>
       </span>
       <div class="arbiter-combo-row">
         <div class="search-wrap arbiter-combo-name">
@@ -79,9 +83,15 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             phx-debounce="300"
             autocomplete="off"
             placeholder={gettext("Name")}
+            aria-label={gettext("%{role}: name", role: @label)}
+            aria-required={@required && "true"}
+            aria-describedby={
+              (@name_value in ["", nil] and @hint not in ["", nil]) && "arbiter-combo-#{@role}-hint"
+            }
           />
           <p
             :if={@name_value in ["", nil] and @hint not in ["", nil]}
+            id={"arbiter-combo-#{@role}-hint"}
             class="hint"
             style="margin: 2px 0 0; font-size: 0.85em"
           >
@@ -113,6 +123,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             phx-debounce="300"
             autocomplete="off"
             placeholder="FIDE ID"
+            aria-label={gettext("%{role}: FIDE ID", role: @label)}
           />
           <.results
             id={"arbiter-combo-#{@role}-id-results"}
