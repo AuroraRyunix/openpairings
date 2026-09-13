@@ -5,7 +5,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Publishing, Repo, Tournaments}
+  alias PairingsEngine.{Repo, Tournaments}
 
   setup :register_and_log_in_user
 
@@ -241,7 +241,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
       # has an "OpenResults" tab - the arbiter it was written for is already
       # looking at it.
       refute html =~ "the share link, what the public page shows and the entry form"
-      assert html =~ "OpenResults"
+
+      # The sub-nav's replacement tab: an actual link to the Results
+      # settings page, not just some other mention of the product name
+      # somewhere on the page.
+      doc = LazyHTML.from_document(html)
+
+      [link] =
+        doc
+        |> LazyHTML.query(~s(a.topbar-menu-item[href="/t/#{tournament.id}/settings/results"]))
+        |> Enum.to_list()
+
+      assert LazyHTML.text(link) =~ "OpenResults"
     end
   end
 

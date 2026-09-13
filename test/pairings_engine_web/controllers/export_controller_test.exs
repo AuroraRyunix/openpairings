@@ -98,7 +98,11 @@ defmodule PairingsEngineWeb.ExportControllerTest do
         )
         |> response(200)
 
-      assert body =~ "Name"
+      # Unrecognised cols/delimiter/sort all fall back to their defaults
+      # (PlayerExport.parse_columns/1, export/2): the default column set,
+      # comma-separated, seed order - not just some header containing "Name".
+      assert body =~ "Nr,Name,Title,FIDE rating,National rating,Federation,Club\r\n"
+      assert body =~ "1,Alice,,0,0,,\r\n"
     end
 
     test "another user's tournament 404s like every other export", %{scope: scope} do

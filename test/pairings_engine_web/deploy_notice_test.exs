@@ -6,7 +6,6 @@ defmodule PairingsEngineWeb.DeployNoticeTest do
   use PairingsEngineWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  import PairingsEngine.AccountsFixtures
 
   alias PairingsEngine.Deploy
 

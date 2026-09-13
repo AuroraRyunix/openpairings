@@ -12,7 +12,7 @@ defmodule PairingsEngine.RegistrationPollTest do
   """
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Publishing, Registrations, Repo, Tournaments}
+  alias PairingsEngine.{Publishing, Registrations, Repo}
   alias PairingsEngine.Registrations.Registration
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
