@@ -387,22 +387,56 @@ Each was confirmed by breaking the code under it and watching it stay green.
   sibling `../openresults/test/fixtures/` on every `mix test`**. Intentional,
   but a generator running as a test: it cannot fail on contract drift, and it
   edits another repository's working tree as a side effect. A mix task, or
-  asserting the written file round-trips, would say what it is.
-- `PrintControllerTest` "renders one row per player with rank, name and points"
-  asserts `html =~ "A"`, `"B"`, `"C"`, `"D"`: bare letters match the CSP nonce,
-  which another test in the same file warns about. Only its last regex checks
-  anything, and not "one row per player".
+  asserting the written file round-trips, would say what it is. **Still not
+  changed (2026-09-13, second pass)**: two other agents are changing the
+  snapshot format and its fixtures at the same time this pass ran. Recorded
+  again rather than touched: turn it into a mix task, or at least assert the
+  written file round-trips, next time nobody else is mid-edit on
+  `snapshot.ex`.
+
+### Weak or odd, fixed in a second pass (2026-09-13)
+
+Each was confirmed weak by breaking the code it names and watching the test
+stay green, then strengthened and the mutation re-run to see it fail. Commit
+`0f3a515` on the worktree branch.
+
+- `PrintControllerTest` "renders one row per player with rank, name and
+  points" asserted `html =~ "A"`, `"B"`, `"C"`, `"D"`: bare letters match the
+  CSP nonce, which another test in the same file warns about. Now parses the
+  crosstable with `LazyHTML`, asserts exactly 4 `tbody tr` rows, and reads
+  each row's rank, name and points cell into a map keyed by player name.
+  Proven twice: dropping to `Enum.take(3)` before the row loop failed the row
+  count; un-wrapping the name cell's `<strong>` failed the per-player lookup.
+  Both reverted, `git diff` clean on `lib/`.
 - `SettingsTournamentLiveTest` "the Tournament page carries no pointer card"
-  proves the replacement sub-nav tab is there with `html =~ "OpenResults"`; any
-  other mention of the product on the page satisfies it.
-- `ExportControllerTest` "a nonsense parameter still yields a file" asserts the
-  body contains `"Name"`. Acceptable: the default header has it.
-- `BackupDownloadTest` "a local run needs no role at all" checks the status
-  only. Backup code, left for the backup work.
-- Five test files compile with six unused-variable or unused-alias warnings
+  proved the replacement sub-nav tab was there with `html =~ "OpenResults"`;
+  any other mention of the product on the page satisfied it. Now selects
+  `a.topbar-menu-item[href="/t/#{id}/settings/results"]` and checks its text.
+  Proven by renaming the link's `gettext("OpenResults")` to `"Elsewhere"`:
+  the test failed on the text assertion; reverted.
+- `ExportControllerTest` "a nonsense parameter still yields a file" asserted
+  the body contains `"Name"`. Now asserts the real default header row
+  (`Nr,Name,Title,FIDE rating,National rating,Federation,Club`) and a data
+  row. Proven by renaming the `Nr` column label to `No.`: the header
+  assertion failed; reverted.
+- `public_link_test.exs`: `@moduletag :public_base` inside a `describe` is
+  now `@describetag :public_base`, as intended. `mix test --only public_base`
+  still selects exactly the same four tests.
+- Five test files compiled with six unused-variable or unused-alias warnings
   (`local_mode_test.exs`, `registration_poll_test.exs`, `deploy_notice_test.exs`,
   `settings_tournament_live_test.exs`, `local_owner_session_test.exs` twice).
-  Harmless, but noise that hides the warning that is not.
+  All fixed (an unused parameter prefixed with `_`, two test params that never
+  used `conn` dropped from the pattern, two unused aliases and one unused
+  import removed). `mix test <those five files> --warnings-as-errors` now
+  passes clean.
+- `BackupDownloadTest` "a local run needs no role at all" checked only the
+  status. Now also asserts the `content-disposition` header names the backup
+  file and that the response body is byte-identical to the file on disk.
+  Proven by replacing the real download with `send_resp(200, "")`: this test
+  (and, incidentally, the pre-existing admin-download test) failed; reverted.
+
+### Older weak/odd notes, unrelated to the above
+
 - About 60 `refute ... =~ "..."` lines refute literals found nowhere in `lib/`
   or `priv/gettext`. Sampled: nearly all are regression guards for copy that was
   deliberately removed, which is fine, or refute a format the same test also
