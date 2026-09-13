@@ -725,14 +725,17 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   * **Not published to OpenResults** - refused on purpose until the results
     site has team pages (additive snapshot fields in OpenResults'
     `docs/snapshot-schema.md`, plus the pages).
-  * **A TRF import rebuilds teams, not matches** - TRF16 does not record
-    which boards formed which match; a team round robin imported from TRF
-    comes back with its teams and individual games only.
 
   **Follow-ups built 2026-09-14** (unreleased, worktree branch): a match
   forfeited by decision (`PairingsEngine.TeamMatches.forfeit_match/3`,
   withdrawable, honoured by [C2]); a board added by hand joins its teams'
-  match when it fits and is marked "no team" when it does not. Still open
+  match when it fits and is marked "no team" when it does not; a TRF import
+  rebuilds matches from the boards (`PairingsEngine.TeamMatchInference`,
+  unclear rounds not guessed: no matches in that round for a round robin,
+  none at all and "players" mode for a team Swiss). Still open: a team Swiss
+  round with one board-less team is ASSUMED to be the bye on import (TRF16
+  cannot tell a bye from a team not paired; TRF-2026's team records would).
+  Also open
   from that pass: the forfeit decision is not in the OpenResults snapshot
   (the match's points already reflect it; an additive `forfeited` flag
   would need OpenResults' schema doc).

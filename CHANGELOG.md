@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A team tournament imported from TRF gets its matches back.**
+  TRF files record teams and games but not which boards formed which match;
+  the import now works the matches out from the boards - the same two teams
+  board by board, board orders rising together, White on the first team's
+  odd boards, a lone forfeit board placed by board order - and creates them,
+  so the team standings, printing and publishing work straight away and a
+  team Swiss pairs on by teams. A file exported by OpenPairings comes back
+  with identical matches. A round whose boards do not form clean matches is
+  not guessed at: the notice names the round and the reason; in a team round
+  robin that round's games count for no team (and are marked on the Pairings
+  page), and a team Swiss with such a round carries on player by player.
 - [Feature] **Forfeit a team match by decision.** The Pairings page's match
   list has a *Forfeit by decision* column: *To Team A* / *To Team B* makes
   every board of the match a forfeit win for that team and records the
@@ -51,8 +62,9 @@ Each entry is tagged so a version can be skimmed:
   Before this, every team Swiss was paired player by player, and an event
   part-way through is not converted: its rounds carry on on the individual
   path, and the Teams page says so. Unpair every round and it pairs team
-  against team from round 1. A team Swiss imported from a TRF file with games
-  counts as paired player by player too.
+  against team from round 1. A team Swiss imported from a TRF file whose
+  rounds cannot all be rebuilt as matches counts as paired player by player
+  too.
 - [Feature] **Team tie-breaks follow C.07 Article 16 in a team Swiss.**
   Buchholz, Sonneborn-Berger and EMGSB count a bye, a forfeited match or a
   round a team did not play against a dummy opponent (its own match points,

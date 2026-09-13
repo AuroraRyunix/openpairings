@@ -165,16 +165,28 @@ defmodule PairingsEngine.TeamSwiss do
 
   # C.04.2 Art. 3.6 for the order of the pairs; the bye last.
   defp entries(result, by_tpn) do
-    score = fn tpn -> by_tpn |> Map.fetch!(tpn) |> Map.fetch!(:match_points) end
-
     played =
       result.pairs
-      |> Enum.sort_by(fn p ->
-        {-score.(p.first_team), -(score.(p.white) + score.(p.black)), p.first_team}
-      end)
+      |> order_pairs(by_tpn)
       |> Enum.map(&{:pairing, &1.white, &1.black})
 
     played ++ if(result.bye, do: [{:bye, result.bye}], else: [])
+  end
+
+  @doc """
+  Pairs `%{white: tpn, black: tpn, first_team: tpn}` in C.04.2 Art. 3.6's
+  recommended order: the higher match-point score of the pair's first team,
+  then the higher sum of both scores, then the smaller number of the first
+  team. `by_tpn` maps each number to its `%Ainalrami.TeamPairing.Team{}`.
+  Shared with the TRF import, which rebuilds a team Swiss's match numbers the
+  way the pairing wrote them.
+  """
+  def order_pairs(pairs, by_tpn) do
+    score = fn tpn -> by_tpn |> Map.fetch!(tpn) |> Map.fetch!(:match_points) end
+
+    Enum.sort_by(pairs, fn p ->
+      {-score.(p.first_team), -(score.(p.white) + score.(p.black)), p.first_team}
+    end)
   end
 
   defp refusal(:no_legal_bye),

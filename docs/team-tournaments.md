@@ -214,7 +214,7 @@ two apart:
 |---|---|---|
 | nil | nothing paired yet - the next pairing is by teams | default; unpairing every round resets it |
 | `"teams"` | paired team against team | `TeamSwiss` at its first round |
-| `"players"` | paired player by player; stays on the individual path | the migration, for every team Swiss that had a round; a TRF import with games; `TeamSwiss.settle_mode/1` for data without the flag whose rounds have no matches |
+| `"players"` | paired player by player; stays on the individual path | the migration, for every team Swiss that had a round; a TRF import whose rounds could not all be rebuilt as matches (see TRF below); `TeamSwiss.settle_mode/1` for data without the flag whose rounds have no matches |
 
 The Teams page of such an event says it carries on player by player, and its
 Standings page keeps the individual table. Unpairing every round makes it a
@@ -330,9 +330,53 @@ want of a player has no opponent and goes out as the point without a game,
 the same record a vacated seat produces. An individual tournament's file is
 unchanged: `082 0` and no `013` line.
 
-Importing a TRF with a team section creates the teams and their board orders.
-The games come back as individual games: TRF16 does not say which boards made
-up which match, and the import says so.
+Importing a TRF with a team section creates the teams and their board orders,
+and then rebuilds each round's matches from the boards
+(`PairingsEngine.TeamMatchInference`) - TRF16 does not record which boards
+made up which match, so they are worked out, and only where the boards leave
+no doubt:
+
+1. Every board with two players pairs two teams; the boards between the same
+   two teams are one match. A player on no team, two players of one team, or
+   a team with boards against two different teams makes the round unclear.
+2. A board with one player and no opponent (the point without a game, which
+   is how a board one team could not fill is written) is a forfeit win in
+   that player's team's match. A team with only such boards has no known
+   opponent: unclear.
+3. Within a match both teams' board orders must rise together, board by
+   board. Forfeit boards go where their player's board order puts them.
+4. The team with White on board 1 is the match's first team and must have
+   White on every odd board and Black on every even one.
+5. Teams without boards: in a round robin, the one team of an odd field is
+   the Berger bye. In a team Swiss, one such team that has not had a bye is
+   taken to have had the pairing-allocated bye, and the notice says it was
+   assumed (TRF16 cannot tell a bye from a team not paired); one that already
+   had a bye was not paired; two or more are unclear.
+
+Teams are numbered in the file's `013` order (the order the export writes
+them in), boards per match is the largest match in the file, and match
+numbers follow the order the pairing writes them in: by lower team number in
+a round robin, C.04.2 Art. 3.6's order in a team Swiss, worked out from the
+rebuilt earlier rounds. So a file exported by this app comes back with the
+same matches, match numbers and board numbers, and the same team standings.
+
+**An unclear round is not guessed.** The notice names the round and the
+reason ("Round 2: no matches were rebuilt - A has boards against both B and
+C").
+
+- In a **team round robin** the other rounds keep their matches, and the
+  unclear round's games stay individual games that count for no team: the
+  Pairings page marks each of them *no team*, and *Make it board n of match
+  m* is there for any that fit a match.
+- In a **team Swiss** no round gets matches, and the event is imported as
+  paired player by player (`team_pairing_mode` "players"), which is how every
+  team Swiss TRF import behaved before. C.04.6 pairs every round from the
+  whole team history - opponents, colours, byes, floats - and a history with
+  a round missing from it cannot be continued as teams; matches that nothing
+  reads would only mislead. Unpairing every round starts it again as teams.
+
+A file whose type is not a team round robin or a team Swiss (a team section
+on an individual event) keeps its games as individual games and says so.
 
 ## Backups, restore points, hand-off
 

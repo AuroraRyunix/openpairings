@@ -139,13 +139,16 @@ opinion of it.
   the file, or doesn't reference back for that round); an ordinary game
   between two players who are both present and agree with each other is
   never affected.
-- **Teams (TRF16 `013` lines) are not imported.** Only individual
-  tournaments are handled; a team TRF's `013` rows are silently ignored.
+- **Teams (TRF16 `013` lines) become teams, and the matches are rebuilt
+  from the boards.** TRF16 does not record which boards formed a match, so
+  a team round robin or team Swiss gets its matches worked out where the
+  boards are unambiguous, and an unclear round is named in the import
+  notice rather than guessed. See `docs/team-tournaments.md`, "TRF".
 - **062/072/082 (player/rated-player/team counts) are not read** - they're
   derivable from the roster that's actually imported, so the app never
   needs to trust a header count that could disagree with the data.
 - **National Rating Support records and `172`** are not read, and neither
-  are the team records (`013`, `300`, `310`, `320`, `330`, `352`, `362`,
+  are the TRF-2026 team records (`300`, `310`, `320`, `330`, `352`, `362`,
   `801`, `802`).
 - **A `260` limited to a range of rounds is widened to the whole event.**
   This app's forbidden pairings hold for every round, so "no clubmates in

@@ -431,12 +431,19 @@ defmodule PairingsEngine.TrfImport do
 
       {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
 
-      tournament =
-        tournament
-        |> import_initial_colour(data)
-        # A team Swiss whose file carries games was paired player by player -
-        # TRF16 has no matches - so it carries on that way.
-        |> PairingsEngine.TeamSwiss.settle_mode()
+      tournament = import_initial_colour(tournament, data)
+
+      # TRF16 has teams but no matches: rebuild them from the boards where
+      # the boards say it unambiguously (`TeamMatchInference`). A team Swiss
+      # with matches then pairs on by teams; one whose rounds could not all
+      # be rebuilt has none, and `settle_mode/1` makes it "players".
+      {tournament, match_notes} =
+        if data.teams in [nil, []],
+          do: {tournament, []},
+          else: PairingsEngine.TeamMatchInference.rebuild(Repo.reload!(tournament))
+
+      tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
+      notes = notes ++ match_notes
 
       warnings =
         points_warnings(tournament, data.players, players_by_rank) ++
@@ -1212,9 +1219,11 @@ defmodule PairingsEngine.TrfImport do
   # listed starting ranks its roster in that order. Before this nothing read
   # it, and a team event came back as a field of individuals with no teams.
   #
-  # The rounds still import as individual games: TRF16 records who played
-  # for whom, not which boards made up which match, so the matches of a team
-  # round robin are not rebuilt. The note says so.
+  # TRF16 records who played for whom, not which boards made up which match;
+  # the matches are rebuilt from the boards afterwards
+  # (`PairingsEngine.TeamMatchInference`), and its notices say what came of
+  # it. A team section on a file whose type is not a team system (so nothing
+  # is rebuilt) still says the games stayed individual.
   defp import_teams(_tournament, %{teams: []}, _players_by_rank), do: []
 
   defp import_teams(tournament, %{teams: teams}, players_by_rank) do
@@ -1233,15 +1242,24 @@ defmodule PairingsEngine.TrfImport do
       end)
     end)
 
-    [
-      note(
-        "The file's teams and their board orders were imported. Its games were imported as " <>
-          "individual games: a TRF file does not say which boards formed which team match."
-      )
-    ]
+    if team_system?(tournament) do
+      []
+    else
+      [
+        note(
+          "The file's teams and their board orders were imported. Its games were imported as " <>
+            "individual games: a TRF file does not say which boards formed which team match, and " <>
+            "this file does not describe a team round robin or a team Swiss to rebuild them for."
+        )
+      ]
+    end
   end
 
   defp import_teams(_tournament, _data, _players_by_rank), do: []
+
+  defp team_system?(t),
+    do:
+      Tournament.team_round_robin?(t) or (t.type == "team-swiss" and t.pairing_system == "swiss")
 
   # `250`/`XXA` virtual points are DATA - the numbers each player was
   # actually given - where `192`'s `_BAKU` suffix is only a declaration.
