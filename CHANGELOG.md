@@ -16,6 +16,28 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Security] **The public `/tools/norms` page no longer re-serialises every
+  uploaded file on every officials-form keystroke.** `update_fields` and its
+  siblings (picking an arbiter from search results, adding or removing one,
+  choosing an FA1/IA1 candidate) synced the *entire* session into
+  `PairingsEngine.Tools.Session` on each call - every uploaded file's parsed
+  tournament and full player list included, not just the small
+  overlay/candidate map that actually changed - on a page with no login and
+  no rate limit on this path. `Session.put/3` runs `:erlang.external_size/1`
+  over the whole term and deep-copies it into a shared ETS table, so the cost
+  scaled with everything uploaded so far, on every keystroke. Measured on a
+  real 5,000-player upload (5.48 MB session payload), averaged over 200
+  calls: re-syncing the whole session this way cost **~7.5 ms**; the fields
+  that actually change now sync through a new small "patch" entry
+  (`Session.put_patch/2`) that `Session.get/1` merges back on for the reader
+  (the download route included), costing **~8.5 µs** - about **880x less**,
+  and no longer proportional to what has been uploaded. The officials form
+  also gained the same 300ms `phx-debounce` the signed-in Norms page's
+  already has, so a keystroke does not even reach the LiveView until typing
+  pauses. A reload or reconnect still restores exactly what it restored
+  before - the merge is covered by its own test, alongside one pinning that
+  N field edits never rewrite the stored file payload.
+
 - [Feature] **The desktop app publishes to openresults.zerotwo.cloud without a
   token.** On your own computer, with no token configured, the results site's
   address now defaults to `https://openresults.zerotwo.cloud`, and turning

@@ -190,6 +190,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   def handle_event("set_master", _params, socket), do: {:noreply, socket}
 
+  # ---------- events below only ever change overlay/candidate, never files/
+  # master_index - see sync_fields/1 for why that earns them a cheaper sync
+  # than parse_files/remove_file/set_master above use. ----------
+
   def handle_event("update_fields", params, socket) do
     overlay =
       socket.assigns.overlay
@@ -198,7 +202,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
     candidate = Map.merge(socket.assigns.candidate, Map.get(params, "candidate", %{}))
 
-    {:noreply, socket |> assign(overlay: overlay, candidate: candidate) |> sync_session()}
+    {:noreply, socket |> assign(overlay: overlay, candidate: candidate) |> sync_fields()}
   end
 
   ## ---------- FIDE lookup for officials (shared with the signed-in Norms page) ----------
@@ -231,33 +235,33 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           |> Map.put("#{role}_fide_id", to_string(fp.fide_id))
           |> Map.delete(arbiter_name_key(role) <> "_hint")
 
-        {:noreply, socket |> assign(overlay: overlay, arbiter_search: nil) |> sync_session()}
+        {:noreply, socket |> assign(overlay: overlay, arbiter_search: nil) |> sync_fields()}
     end
   end
 
   # Arbiters beyond the IT3 template's 4 built-in deputy slots - see the
   # identical mechanism (and why it's a plain count, not a list) on
-  # `PairingsEngineWeb.NormsLive`. `sync_session/1` because the count lives
+  # `PairingsEngineWeb.NormsLive`. `sync_fields/1` because the count lives
   # in `overlay`, same as any other officials field on this page.
   def handle_event("add_arbiter", _params, socket) do
     overlay = bump_extra_arbiters(socket.assigns.overlay, 1)
-    {:noreply, socket |> assign(overlay: overlay) |> sync_session()}
+    {:noreply, socket |> assign(overlay: overlay) |> sync_fields()}
   end
 
   def handle_event("remove_last_arbiter", _params, socket) do
     overlay = bump_extra_arbiters(socket.assigns.overlay, -1)
-    {:noreply, socket |> assign(overlay: overlay) |> sync_session()}
+    {:noreply, socket |> assign(overlay: overlay) |> sync_fields()}
   end
 
   def handle_event("pick_candidate", %{"pick" => ""}, socket) do
-    {:noreply, assign(socket, candidate: empty_fields(@candidate_fields)) |> sync_session()}
+    {:noreply, assign(socket, candidate: empty_fields(@candidate_fields)) |> sync_fields()}
   end
 
   def handle_event("pick_candidate", %{"pick" => role}, socket) do
     {:noreply,
      socket
      |> assign(candidate: candidate_from_official(socket.assigns.overlay, role))
-     |> sync_session()}
+     |> sync_fields()}
   end
 
   def handle_event("pick_candidate", _params, socket), do: {:noreply, socket}
@@ -547,7 +551,27 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   ## ---------- session sync ----------
-
+  #
+  # Two ways to reach `PairingsEngine.Tools.Session`, at two different costs,
+  # because "every uploaded file's parsed contents, on every keystroke" was
+  # the actual finding here (docs/audit-2026-09-05.md, "One finding was never
+  # judged"): a session can hold several files' worth of players, and the
+  # officials/candidate fields that change on every keystroke are a handful
+  # of short strings next to that.
+  #
+  # `sync_session/1` - files or master_index just changed (parse_files,
+  # remove_file, set_master) - writes the FULL entry, exactly as it always
+  # has, and clears any patch left over from field edits since the last full
+  # write: this write already carries their contents (both live in
+  # `socket.assigns`), so an old patch would only go on shadowing this newer
+  # data with older values.
+  #
+  # `sync_fields/1` - only overlay or candidate changed (update_fields and
+  # its siblings below) - upserts just those two as a `Session.put_patch/2`,
+  # which `Session.get/1` shallow-merges onto the last full entry for every
+  # reader (the download route included). Its cost is proportional to the
+  # overlay/candidate maps alone, not to whatever files a session happens to
+  # be holding - see `PairingsEngine.Tools.Session`'s "Patches" section.
   defp sync_session(socket) do
     Session.put(
       socket.assigns.token,
@@ -557,6 +581,17 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         socket.assigns.candidate
       )
     )
+
+    Session.clear_patch(socket.assigns.token)
+
+    socket
+  end
+
+  defp sync_fields(socket) do
+    Session.put_patch(socket.assigns.token, %{
+      overlay: socket.assigns.overlay,
+      candidate: socket.assigns.candidate
+    })
 
     socket
   end
@@ -986,7 +1021,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           )}
         </p>
 
-        <form id="tools-fields-form" phx-change="update_fields">
+        <%!-- `phx-debounce` on the form applies to every input in it (the
+        arbiter comboboxes carry their own, since they run a FIDE search) -
+        same reasoning, and the same value, as the signed-in Norms page's
+        officials form. The "Pick an arbiter" select below overrides it back
+        to 0: a pick is a discrete choice, not something worth delaying the
+        way a still-being-typed word is. --%>
+        <form id="tools-fields-form" phx-change="update_fields" phx-debounce="300">
           <div class="form-grid">
             <.arbiter_combo
               role="chief_arbiter"
@@ -1105,7 +1146,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
           <label :if={candidate_options(@overlay) != []} class="field">
             <span>{gettext("Pick an arbiter")}</span>
-            <select name="pick" phx-change="pick_candidate">
+            <select name="pick" phx-change="pick_candidate" phx-debounce="0">
               <option value="">{gettext("- type the details by hand -")}</option>
 
               <option :for={{label, role} <- candidate_options(@overlay)} value={role}>
