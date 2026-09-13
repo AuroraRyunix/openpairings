@@ -81,6 +81,19 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
       assert html =~ "switched off for your account"
       refute html =~ "Hidden"
     end
+
+    test "the results-site sync event refuses too, same as the data-platform one", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      html = render_click(lv, "sync_kbsb_results_site", %{})
+
+      assert html =~ "switched off for your account"
+      assert PairingsEngine.Federations.BEL.Sync.status().status == :idle
+    end
   end
 
   describe "bel_ratings_sync, switched on" do
