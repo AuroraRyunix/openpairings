@@ -153,6 +153,8 @@ defmodule PairingsEngine.TeamStandings do
       team_a_id: m.team_a_id,
       team_b_id: nil,
       bye?: true,
+      forfeited_to: nil,
+      played_before_decision?: false,
       complete?: true,
       gp_a: gp,
       gp_b: 0.0,
@@ -199,6 +201,10 @@ defmodule PairingsEngine.TeamStandings do
       team_a_id: m.team_a_id,
       team_b_id: m.team_b_id,
       bye?: false,
+      # A decision to forfeit the match (`PairingsEngine.TeamMatches`): the
+      # team it was awarded to, and whether games had been played first.
+      forfeited_to: m.forfeited_to_team_id,
+      played_before_decision?: PairingsEngine.TeamMatches.played_before_decision?(m),
       complete?: complete?,
       gp_a: gp_a,
       gp_b: gp_b,
@@ -355,7 +361,13 @@ defmodule PairingsEngine.TeamStandings do
   Whether a scored match (`matches/2`) was PLAYED: at least one of its games
   was contested over the board. A match whose every board was a forfeit or
   an empty seat was not (C.04.2 Art. 3.5, C.07 Art. 15.1).
+
+  A match forfeited by decision after a game was played still was: its
+  boards now read as forfeits, but the teams sat down and played
+  (`PairingsEngine.TeamMatches`).
   """
+  def match_played?(%{played_before_decision?: true}), do: true
+
   def match_played?(%{boards: boards}) do
     Enum.any?(boards, fn b -> b.pairing.result != "" and Results.played?(b.pairing.result) end)
   end
@@ -483,6 +495,8 @@ defmodule PairingsEngine.TeamStandings do
   defp slot_kind(nil), do: :bye
   defp slot_kind(%{bye?: true}), do: :pab
   defp slot_kind(%{complete?: false}), do: :pending
+  # A match forfeited by decision after games were played is `played?`
+  # (C.07 Art. 15.1: the teams did play a match), so it lands here too.
   defp slot_kind(%{played?: true}), do: :played
   defp slot_kind(%{gp: gp, opp_gp: opp_gp}) when gp > opp_gp, do: :forfeit_win
   defp slot_kind(_record), do: :forfeit_loss

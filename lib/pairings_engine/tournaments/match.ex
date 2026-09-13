@@ -12,16 +12,23 @@ defmodule PairingsEngine.Tournaments.Match do
   `team_a` is the team the schedule named first. It has White on board 1 and
   on every odd board; see `PairingsEngine.TeamRoundRobin` for the convention.
 
-  A match with no `team_b` is the round's bye in an odd-sized team round
-  robin: no boards, no points.
+  A match with no `team_b` is the round's bye: in an odd-sized team round
+  robin no boards and no points, in a team Swiss the pairing-allocated bye.
+
+  `forfeited_to_team_id` is set when the arbiter forfeited the match by
+  decision (`Tournaments.forfeit_match/3`), and `forfeit_previous_results`
+  keeps the board results from before that decision, keyed by board number,
+  so it can be withdrawn. Both nil for a match decided on its boards.
   """
   use Ecto.Schema
 
   schema "matches" do
     field :board, :integer
+    field :forfeit_previous_results, :map
 
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :team_a, PairingsEngine.Tournaments.Team
     belongs_to :team_b, PairingsEngine.Tournaments.Team
+    belongs_to :forfeited_to_team, PairingsEngine.Tournaments.Team
   end
 end

@@ -48,6 +48,9 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   forfeited matches and withdrawn teams. A team Swiss already paired player by
   player before this carries on that way. See
   [`team-tournaments.md`](team-tournaments.md).
+- **Team match actions** (both team systems) - forfeit a match to one team by
+  decision, and withdraw the decision; a board added by hand joins its teams'
+  match when it fits, and is marked as counting for no team when it does not.
 - **Initial colour** - drawn by lot at the first Swiss pairing (the FIDE
   rule, C.04.3 5.1 / C.04.6 4.1), stored and shown on the Pairings page, or
   set to White or Black by the arbiter; both engines are told it (JaVaFo as

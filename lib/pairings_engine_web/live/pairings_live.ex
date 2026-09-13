@@ -13,6 +13,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     RoundRobin,
     Snapshots,
     Standings,
+    TeamMatches,
     Tournaments
   }
 
@@ -176,7 +177,8 @@ defmodule PairingsEngineWeb.PairingsLive do
         can_pair:
           setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
         team_matches: team_matches(t, round),
-        teams_by_id: teams_by_id(t)
+        teams_by_id: teams_by_id(t),
+        unattached_boards: unattached_boards(t, round)
       )
 
     if Keyword.get(opts, :keep_gesture, false) do
@@ -200,6 +202,28 @@ defmodule PairingsEngineWeb.PairingsLive do
       t
       |> PairingsEngine.TeamStandings.matches(through_round: round.number)
       |> Enum.filter(&(&1.round == round.number))
+    else
+      []
+    end
+  end
+
+  # Boards of a round paired as teams that belong to no match - added by hand
+  # from the pool, or left over from an import that could not rebuild the
+  # round's matches - each with where it would fit, if anywhere
+  # (`TeamMatches.fitting_slot/5`). They count for neither team, and the page
+  # says so.
+  defp unattached_boards(t, round) do
+    if round do
+      t
+      |> TeamMatches.unattached_boards(round)
+      |> Enum.map(fn p ->
+        slot =
+          if p.white_player_id && p.black_player_id,
+            do: TeamMatches.fitting_slot(t, round, p.white_player_id, p.black_player_id, p.id),
+            else: {:error, :no_team}
+
+        %{pairing: p, slot: slot}
+      end)
     else
       []
     end
@@ -637,7 +661,22 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("set_confirm_board", %{"board" => board}, socket) do
     case Integer.parse(String.trim(board)) do
       {n, ""} when n > 0 ->
-        {:noreply, assign(socket, confirm: Map.put(socket.assigns.confirm, :board, n))}
+        confirm = Map.put(socket.assigns.confirm, :board, n)
+
+        confirm =
+          case confirm do
+            %{kind: :pool_pair, a_id: a, b_id: b} ->
+              %{
+                confirm
+                | team_note:
+                    pool_pair_team_note(socket.assigns.tournament, socket.assigns.round, a, b, n)
+              }
+
+            other ->
+              other
+          end
+
+        {:noreply, assign(socket, confirm: confirm)}
 
       _ ->
         {:noreply, socket}
@@ -785,6 +824,110 @@ defmodule PairingsEngineWeb.PairingsLive do
        confirm_clear_pairing_id: nil,
        refocus_result: socket.assigns.confirm_clear_pairing_id
      )}
+  end
+
+  ## ---------- team matches: forfeit by decision, boards outside a match ----------
+
+  # "Forfeit this match to <team>": every board becomes that team's forfeit
+  # win and the decision is recorded (`TeamMatches.forfeit_match/3`). A
+  # restore point is taken first, as for a results import - it rewrites a
+  # whole match's results in one go - and the decision itself can be
+  # withdrawn from the same row.
+  def handle_event("forfeit_match", %{"match-id" => match_id, "team-id" => team_id}, socket) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    with %{} = match <- find_match(socket, match_id),
+         team_id when is_integer(team_id) <- parse_id(team_id) do
+      Snapshots.capture(t, "pairing.match_forfeited", socket.assigns.current_scope,
+        summary: "Before forfeiting match #{match.board} of round #{round_number}"
+      )
+
+      case TeamMatches.forfeit_match(t, match, team_id) do
+        {:ok, _} ->
+          loser = if team_id == match.team_a_id, do: match.team_b_id, else: match.team_a_id
+          teams = socket.assigns.teams_by_id
+
+          Audit.log(t.id, socket.assigns.current_scope, "pairing.match_forfeited", %{
+            round: round_number,
+            match: match.board,
+            winner: match_team_name(teams, team_id),
+            loser: match_team_name(teams, loser)
+          })
+
+          text =
+            gettext("Match %{match} forfeited to %{team}.",
+              match: match.board,
+              team: match_team_name(teams, team_id)
+            )
+
+          {:noreply, socket |> assign(error: nil) |> refresh() |> announce(text)}
+
+        {:error, reason} ->
+          {:noreply,
+           socket |> put_flash(:error, error_text(reason)) |> assign(error: nil) |> refresh()}
+      end
+    else
+      _ -> {:noreply, refresh(socket)}
+    end
+  end
+
+  def handle_event("withdraw_match_forfeit", %{"match-id" => match_id}, socket) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    case find_match(socket, match_id) do
+      nil ->
+        {:noreply, refresh(socket)}
+
+      match ->
+        teams = socket.assigns.teams_by_id
+
+        case TeamMatches.withdraw_forfeit(t, match) do
+          {:ok, _} ->
+            Audit.log(t.id, socket.assigns.current_scope, "pairing.match_forfeit_withdrawn", %{
+              round: round_number,
+              match: match.board,
+              winner: match_team_name(teams, match.forfeited_to_team_id)
+            })
+
+            text = gettext("Decision on match %{match} withdrawn.", match: match.board)
+            {:noreply, socket |> assign(error: nil) |> refresh() |> announce(text)}
+
+          {:error, reason} ->
+            {:noreply, socket |> put_flash(:error, error_text(reason)) |> refresh()}
+        end
+    end
+  end
+
+  # A board outside every match, moved into the one it fits.
+  def handle_event("attach_board", %{"pairing-id" => pairing_id}, socket) do
+    %{tournament: t, round: round, round_number: round_number} = socket.assigns
+
+    with id when is_integer(id) <- parse_id(pairing_id),
+         {:ok, pairing} <- fetch_pairing(round, id) do
+      case TeamMatches.attach_board(t, round, pairing) do
+        {:ok, updated} ->
+          Audit.log(t.id, socket.assigns.current_scope, "pairing.board_attached", %{
+            round: round_number,
+            from_board: pairing.board,
+            board: updated.board
+          })
+
+          text =
+            gettext("Board %{board} is now part of a match and counts for its team.",
+              board: updated.board
+            )
+
+          {:noreply, socket |> assign(error: nil) |> refresh() |> announce(text)}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(error: "Could not attach that board: " <> slot_reason(reason))
+           |> refresh()}
+      end
+    else
+      _ -> {:noreply, refresh(socket)}
+    end
   end
 
   ## ---------- CSV results import ----------
@@ -1105,9 +1248,19 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   defp confirm_for(socket, {:pool_pair, a_id, b_id}) do
+    %{tournament: t, round: round} = socket.assigns
+
+    # In a round paired as teams, the board is offered where it fits one of
+    # the round's matches - number and colours included - so it counts for
+    # its team. `team_note` says which, or that it will count for no team.
+    {board, a_id, b_id} =
+      case Tournament.paired_as_teams?(t) && TeamMatches.fitting_slot(t, round, a_id, b_id) do
+        {:ok, slot} -> {slot.board, slot.white_id, slot.black_id}
+        _ -> {Tournaments.next_free_board(round), a_id, b_id}
+      end
+
     a = display_name(socket, a_id)
     b = display_name(socket, b_id)
-    board = Tournaments.next_free_board(socket.assigns.round)
 
     {:ok,
      %{
@@ -1118,9 +1271,54 @@ defmodule PairingsEngineWeb.PairingsLive do
        title: "Pair these two",
        subtitle: "#{a}  vs  #{b}",
        changes: [%{board: board, before: {"", ""}, after: {a, b}}],
-       note: "Neither will be marked absent for this round any more."
+       note: "Neither will be marked absent for this round any more.",
+       team_note: pool_pair_team_note(t, round, a_id, b_id, board)
      }}
   end
+
+  # What the new board will be to the team standings, for the dialog: nil
+  # for a tournament not paired as teams.
+  defp pool_pair_team_note(t, round, a_id, b_id, board) do
+    if Tournament.paired_as_teams?(t) do
+      case TeamMatches.slot_at(t, round, a_id, b_id, board) do
+        {:ok, match} ->
+          {:ok,
+           gettext(
+             "This board becomes part of match %{match}: %{a} - %{b}, and counts for both teams.",
+             match: match.board,
+             a: match_team_name(teams_by_id(t), match.team_a_id),
+             b: match_team_name(teams_by_id(t), match.team_b_id)
+           )}
+
+        {:error, reason} ->
+          {:warn,
+           gettext("Not part of a match: this board counts for no team.") <>
+             " " <> slot_reason(reason)}
+      end
+    end
+  end
+
+  @doc false
+  def slot_reason(:no_team),
+    do: gettext("Its two players are not on two different teams.")
+
+  def slot_reason(:no_match),
+    do:
+      gettext("No match of this round is between these two players' teams at that table number.")
+
+  def slot_reason(:board_taken),
+    do: gettext("Every board of their teams' match is already taken.")
+
+  def slot_reason(:colours),
+    do:
+      gettext(
+        "The colours do not fit: the team named first in the match has White on the odd boards."
+      )
+
+  def slot_reason(:board_order),
+    do: gettext("Their board orders do not fit between the boards already in the match.")
+
+  def slot_reason(_other), do: ""
 
   defp apply_confirm(socket, nil), do: {:noreply, socket}
 
@@ -1265,6 +1463,17 @@ defmodule PairingsEngineWeb.PairingsLive do
         "are back for good, or the next round will leave them out again."
     else
       ""
+    end
+  end
+
+  # A match of the round on screen, by the id a button carried - nil for an
+  # id that is not one of them.
+  defp find_match(socket, match_id) do
+    with %{} = round <- socket.assigns.round,
+         id when is_integer(id) <- parse_id(match_id) do
+      round.id |> Tournaments.list_matches() |> Enum.find(&(&1.id == id))
+    else
+      _ -> nil
     end
   end
 
@@ -2676,6 +2885,24 @@ defmodule PairingsEngineWeb.PairingsLive do
             <p :if={@confirm.note} class="pe-modal-note">{@confirm.note}</p>
 
             <p
+              :if={match?({:ok, _}, @confirm[:team_note])}
+              id="confirm-team-note"
+              class="pe-modal-note"
+              role="status"
+            >
+              {elem(@confirm.team_note, 1)}
+            </p>
+
+            <p
+              :if={match?({:warn, _}, @confirm[:team_note])}
+              id="confirm-team-note"
+              class="pe-modal-warn"
+              role="status"
+            >
+              {elem(@confirm.team_note, 1)}
+            </p>
+
+            <p
               :if={Enum.any?(@confirm.changes, &Map.get(&1, :result_will_clear?))}
               class="pe-modal-warn"
             >
@@ -2730,10 +2957,11 @@ defmodule PairingsEngineWeb.PairingsLive do
               <th scope="col" class="num">{gettext("Game points")}</th>
               <th scope="col">{gettext("Team")}</th>
               <th scope="col" class="num">{gettext("Match points")}</th>
+              <th scope="col">{gettext("Forfeit by decision")}</th>
             </tr>
           </thead>
           <tbody>
-            <tr :for={m <- @team_matches}>
+            <tr :for={m <- @team_matches} id={"team-match-#{m.match_id}"}>
               <td class="num">{m.number}</td>
               <td class="num">{match_board_range(m.boards)}</td>
               <td><strong>{match_team_name(@teams_by_id, m.team_a_id)}</strong></td>
@@ -2754,9 +2982,101 @@ defmodule PairingsEngineWeb.PairingsLive do
               <td :if={!m.bye? and !m.complete?} class="num">
                 <span class="hint">{gettext("in progress")}</span>
               </td>
+              <td :if={m.bye?}>-</td>
+              <td :if={!m.bye? and not is_nil(m.forfeited_to)}>
+                <span id={"match-decision-#{m.match_id}"}>
+                  {gettext("Forfeited to %{team} by decision",
+                    team: match_team_name(@teams_by_id, m.forfeited_to)
+                  )}
+                </span>
+                <button
+                  type="button"
+                  class="pe-btn"
+                  phx-click="withdraw_match_forfeit"
+                  phx-value-match-id={m.match_id}
+                  aria-describedby={"match-decision-#{m.match_id}"}
+                  data-confirm={
+                    gettext(
+                      "Withdraw the decision? The boards of match %{match} get back the results they had before it.",
+                      match: m.number
+                    )
+                  }
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Withdraw the decision")}
+                </button>
+              </td>
+              <td :if={!m.bye? and is_nil(m.forfeited_to)}>
+                <button
+                  :for={team_id <- [m.team_a_id, m.team_b_id]}
+                  type="button"
+                  class="pe-btn"
+                  phx-click="forfeit_match"
+                  phx-value-match-id={m.match_id}
+                  phx-value-team-id={team_id}
+                  aria-label={
+                    gettext("Forfeit match %{match} to %{team}",
+                      match: m.number,
+                      team: match_team_name(@teams_by_id, team_id)
+                    )
+                  }
+                  data-confirm={
+                    gettext(
+                      "Forfeit match %{match} to %{team}? Every board becomes a forfeit win for %{team}. The decision can be withdrawn.",
+                      match: m.number,
+                      team: match_team_name(@teams_by_id, team_id)
+                    )
+                  }
+                  disabled={!is_nil(@tournament.archived_at) or m.boards == []}
+                >
+                  {gettext("To %{team}", team: match_team_name(@teams_by_id, team_id))}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div
+        :if={@unattached_boards != []}
+        id="unattached-boards"
+        class="card"
+        role="region"
+        aria-labelledby="unattached-boards-title"
+      >
+        <h2 id="unattached-boards-title" class="pe-modal-warn" style="margin: 0 0 8px">
+          {ngettext(
+            "%{count} board in this round is not part of a match: it counts for no team.",
+            "%{count} boards in this round are not part of a match: they count for no team.",
+            length(@unattached_boards)
+          )}
+        </h2>
+        <ul>
+          <li :for={u <- @unattached_boards} id={"unattached-board-#{u.pairing.id}"}>
+            {gettext("Board %{board}: %{white} - %{black}.",
+              board: u.pairing.board,
+              white: player_name(u.pairing.white_player) || "-",
+              black: player_name(u.pairing.black_player) || "-"
+            )}
+            <%= case u.slot do %>
+              <% {:ok, slot} -> %>
+                <button
+                  type="button"
+                  class="pe-btn"
+                  phx-click="attach_board"
+                  phx-value-pairing-id={u.pairing.id}
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Make it board %{board} of match %{match}",
+                    board: slot.board,
+                    match: slot.match.board
+                  )}
+                </button>
+              <% {:error, reason} -> %>
+                <span class="hint">{slot_reason(reason)}</span>
+            <% end %>
+          </li>
+        </ul>
       </div>
 
       <div class="card table-card">
@@ -2832,7 +3152,18 @@ defmodule PairingsEngineWeb.PairingsLive do
               }
               id={"pairing-row-#{pairing.id}"}
             >
-              <td class="num">{display_board}</td>
+              <td class="num">
+                {display_board}
+                <span
+                  :if={Enum.any?(@unattached_boards, &(&1.pairing.id == pairing.id))}
+                  class="badge"
+                  title={gettext("Not part of a match: counts for no team")}
+                >
+                  {gettext("no team")}<span class="sr-only">{gettext(
+                    ": not part of a match, counts for no team"
+                  )}</span>
+                </span>
+              </td>
 
               <td class="pairing-white">
                 <.seat_cell

@@ -16,6 +16,24 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Forfeit a team match by decision.** The Pairings page's match
+  list has a *Forfeit by decision* column: *To Team A* / *To Team B* makes
+  every board of the match a forfeit win for that team and records the
+  decision, with a restore point taken first and a row in the audit trail.
+  *Withdraw the decision* gives the boards back the results they had. In a
+  team Swiss the team the match was awarded to cannot then take the
+  pairing-allocated bye (C.04.6 [C2]); if games were played before the
+  decision, the teams still count as having met and played, for colours,
+  repeat pairings and tie-breaks. Backups and restore points carry the
+  decision. See `docs/team-tournaments.md`.
+- [Feature] **A board added by hand joins its teams' match when it fits.**
+  Pairing two players from the not-playing list in a team event now offers
+  the board where it fits their teams' match - a free board of it, the
+  colours the match needs, board orders in line - and it counts for both
+  teams. A board that fits no match is marked *no team* on the Pairings page,
+  listed with the reason it counts for no team, and offered *Make it board n
+  of match m* once it does fit. Before this such a board silently counted
+  for neither team.
 - [Feature] **Team Swiss: teams play teams.** A Swiss created with *Team
   tournament* ticked now pairs team against team under FIDE's Swiss Team
   Pairing System (C.04.6, February 2026), with Ainalrami's team engine. Each

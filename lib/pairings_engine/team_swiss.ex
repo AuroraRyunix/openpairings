@@ -293,10 +293,13 @@ defmodule PairingsEngine.TeamSwiss do
         :b -> {m.team_a_id, m.mp_b, m.gp_b, m.gp_a, :black}
       end
 
+    team_id = if side == :a, do: m.team_a_id, else: m.team_b_id
+
     %{
       round: m.round,
       opponent_id: opp,
       bye?: m.bye?,
+      forfeit_decision: forfeit_decision(Map.get(m, :forfeited_to), team_id),
       played?: not m.bye? and TeamStandings.match_played?(m),
       mp: mp,
       gp: gp,
@@ -325,13 +328,25 @@ defmodule PairingsEngine.TeamSwiss do
   present"; the 2026 Olympiad regulations define an unplayed match as one
   where "all games were scored as defaults". Both teams defaulting some
   boards with none played is still an unplayed match, won by the team with
-  more game points. A match forfeited "by decision" after games were played
-  is not covered: this app has no such record, and the reading counts it as
-  played (medium confidence). Not an SPP ruling.
+  more game points.
+
+  A match the arbiter FORFEITED BY DECISION (`PairingsEngine.TeamMatches.
+  forfeit_match/3`, `forfeit_decision` here) is won by forfeit by the team
+  it was awarded to, whether or not games were played before the decision,
+  and never by the other team. The research note gives that part medium
+  confidence: Swiss-Manager keeps a match-level forfeit flag the arbiter
+  sets, TRF-2026's record 330 records forfeits at match level, and the
+  model it proposes bars the bye on that recorded status. Not an SPP ruling.
   """
   def won_match_by_forfeit?(%{bye?: true}), do: false
+  def won_match_by_forfeit?(%{forfeit_decision: :won}), do: true
+  def won_match_by_forfeit?(%{forfeit_decision: :lost}), do: false
   def won_match_by_forfeit?(%{played?: true}), do: false
   def won_match_by_forfeit?(%{gp: gp, opp_gp: opp_gp}), do: gp > opp_gp
+
+  defp forfeit_decision(nil, _team_id), do: nil
+  defp forfeit_decision(team_id, team_id), do: :won
+  defp forfeit_decision(_winner, _team_id), do: :lost
 
   # C.04.6 Art. 1.5: "a team that plays against an opponent with a different
   # score". Read on the PAIRING: a team paired in round `previous` against a

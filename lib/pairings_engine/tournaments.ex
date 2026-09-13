@@ -4407,13 +4407,32 @@ defmodule PairingsEngine.Tournaments do
       if taken? do
         Repo.rollback(:board_taken)
       else
+        # In a round paired as teams, a board that fits one of the round's
+        # matches - its players on that match's two teams, the number one of
+        # its free boards, the colours and board orders right - joins it and
+        # counts for its team. Anything else belongs to no match, and the
+        # Pairings page says it counts for no team. See
+        # `PairingsEngine.TeamMatches`.
+        match_id =
+          case Repo.get(Tournament, round.tournament_id) do
+            %Tournament{} = t ->
+              case PairingsEngine.TeamMatches.slot_at(t, round, white_id, black_id, board) do
+                {:ok, match} -> match.id
+                {:error, _} -> nil
+              end
+
+            nil ->
+              nil
+          end
+
         {:ok, created} =
           %Pairing{round_id: round.id}
           |> Pairing.changeset(%{
             board: board,
             white_player_id: white_id,
             black_player_id: black_id,
-            result: ""
+            result: "",
+            match_id: match_id
           })
           |> Repo.insert()
 

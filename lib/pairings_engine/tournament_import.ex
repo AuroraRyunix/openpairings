@@ -480,7 +480,9 @@ defmodule PairingsEngine.TournamentImport do
               round_id: new_round.id,
               board: coerce_int(Map.get(m, "board")) || 1,
               team_a_id: Map.get(team_map, Map.get(m, "team_a_id")),
-              team_b_id: Map.get(team_map, Map.get(m, "team_b_id"))
+              team_b_id: Map.get(team_map, Map.get(m, "team_b_id")),
+              forfeited_to_team_id: Map.get(team_map, Map.get(m, "forfeited_to_team_id")),
+              forfeit_previous_results: forfeit_previous_results(m)
             })
 
           {Map.get(m, "id"), new_match.id}
@@ -914,6 +916,22 @@ defmodule PairingsEngine.TournamentImport do
     case Map.get(data, key) do
       l when is_list(l) -> l
       _ -> []
+    end
+  end
+
+  # A forfeit decision's replaced board results: board number (as a string)
+  # to a result code. Anything else in a hand-edited payload is dropped,
+  # which leaves the decision in place with nothing to withdraw it to.
+  defp forfeit_previous_results(m) do
+    case Map.get(m, "forfeit_previous_results") do
+      previous when is_map(previous) ->
+        for {board, result} <- previous,
+            is_binary(result) and result in PairingsEngine.Results.codes(),
+            into: %{},
+            do: {to_string(board), result}
+
+      _ ->
+        nil
     end
   end
 

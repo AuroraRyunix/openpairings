@@ -561,9 +561,19 @@ defmodule PairingsEngine.TournamentExport do
   # so the round's pairings can name it (`"match_id"` below) and the import
   # can re-attach them to the new row, the same way players' ids do for
   # `white_player_id`. The team ids are remapped through the import's team
-  # map. Empty for every individual tournament.
+  # map. Empty for every individual tournament. A forfeit decision travels
+  # with it - the team it was awarded to (remapped like the other two) and
+  # the board results it replaced, keyed by board number - so a restore can
+  # still withdraw it.
   defp match_map(m) do
-    %{"id" => m.id, "board" => m.board, "team_a_id" => m.team_a_id, "team_b_id" => m.team_b_id}
+    %{
+      "id" => m.id,
+      "board" => m.board,
+      "team_a_id" => m.team_a_id,
+      "team_b_id" => m.team_b_id,
+      "forfeited_to_team_id" => m.forfeited_to_team_id,
+      "forfeit_previous_results" => m.forfeit_previous_results
+    }
   end
 
   # `match_id` names a match in the same round's `"matches"` list, by the id

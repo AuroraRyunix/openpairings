@@ -106,7 +106,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
-        pairing.account_recomputed pairing.account_deepened)},
+        pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
+        pairing.match_forfeit_withdrawn pairing.board_attached)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -505,6 +506,36 @@ defmodule PairingsEngineWeb.AuditLive do
           round: value(d, "round")
         ),
         d
+      )
+
+  # A team match forfeited by the arbiter's decision, and the decision taken
+  # back (`PairingsEngine.TeamMatches`). Team names are the row's data.
+  def describe("pairing.match_forfeited", d),
+    do:
+      gettext(
+        "Forfeited match %{match} of round %{round} to %{winner} by decision: every board became a forfeit win for %{winner} against %{loser}.",
+        match: value(d, "match"),
+        round: value(d, "round"),
+        winner: name(d, "winner"),
+        loser: name(d, "loser")
+      )
+
+  def describe("pairing.match_forfeit_withdrawn", d),
+    do:
+      gettext(
+        "Withdrew the decision forfeiting match %{match} of round %{round} to %{winner}; its boards got back the results they had before.",
+        match: value(d, "match"),
+        round: value(d, "round"),
+        winner: name(d, "winner")
+      )
+
+  def describe("pairing.board_attached", d),
+    do:
+      gettext(
+        "Made board %{from} of round %{round} part of its teams' match, as board %{board}; it now counts for both teams.",
+        from: value(d, "from_board"),
+        round: value(d, "round"),
+        board: value(d, "board")
       )
 
   def describe("pairing.deleted", d),

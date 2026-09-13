@@ -99,9 +99,47 @@ Each scheduled pairing becomes a **match** (`matches` table) and its boards:
   sheets are unchanged.
 
 A player who drops out after the schedule is paired is handled on the Pairings
-page as in any round: vacate the seat, fill it, or record the forfeit. A board
-added by hand from the pool belongs to no match and is not counted for either
-team.
+page as in any round: vacate the seat, fill it, or record the forfeit.
+
+### A board added by hand
+
+Pairing two players from the not-playing list (*Pair these two*) in a round
+paired as teams puts the board into a match when it fits one
+(`PairingsEngine.TeamMatches.slot_at/5`):
+
+- the two players are on that match's two teams;
+- the table number is one of that match's boards (match `m` owns boards
+  `(m - 1) x boards-per-match + 1` to `m x boards-per-match`) and is free;
+- the colours are the match's: the team named first has White on the odd
+  boards;
+- on each side, the players already on the match's lower boards have lower
+  board orders, and those on higher boards higher ones.
+
+The dialog offers the first place that fits, colours included, and says
+"This board becomes part of match n". Changed to a table number that does not
+fit, it warns instead: "Not part of a match: this board counts for no team",
+with the reason. Such a board - or one left over from a TRF import that could
+not rebuild its round - is marked *no team* in the board list, and a card
+above the list names each one; when it has come to fit a match, *Make it board
+n of match m* moves it there (swapping its seats if the match needs the other
+colours, which is refused once it has a result). The rule is attach when
+valid, mark otherwise: guessing a match for a board that breaks the colours or
+the board order would put a game into the wrong team's score.
+
+### A match forfeited by decision
+
+*Forfeit by decision* on the match list: *To Team A* / *To Team B* makes every
+board of the match the forfeit result for that team (`1-0FF` where it has
+White, `0-1FF` where it has Black), records the decision on the match, and
+keeps the results the boards had (`matches.forfeited_to_team_id`,
+`forfeit_previous_results`). A restore point is taken first and the audit
+trail records it. *Withdraw the decision* puts the old results back.
+
+| Question | Answer | Source |
+|---|---|---|
+| Can the team it was awarded to take the pairing-allocated bye? | No: it "won a match by forfeit" ([C2]) | local C.04.6 Art. 2.1.2; the research note on open question 6 (medium confidence: Swiss-Manager's match forfeit flag, TRF-2026 record 330) |
+| Have the teams met, and do their colours count? | Yes when at least one game was played before the decision; no when nobody played | C.04.2 Art. 3.5 ("did not play their game or match"), C.04.6 Art. 1.6.1 ("actually played") |
+| Is it an Article 16 unplayed round? | Not when games were played: "an unplayed round is any round in which a participant ... did not play a match" - it counts as a played match with the match points awarded | local C.07 Art. 15.1 |
 
 Unpairing every round gives the teams back to the Teams page (their pairing
 numbers are cleared), so a team can be added or removed before the event
@@ -137,8 +175,10 @@ What each team is, per round:
 - **Had the bye** - a previous pairing-allocated bye.
 - **Won a match by forfeit** (bars the bye, [C2]) - a match in which no game
   was played and the team scored more game points: the opponent did not turn
-  up. One game played makes it a played match. This is open question 6 of
-  the plan, answered by research rather than by the SPP; the reading is in
+  up. One game played makes it a played match. A match the arbiter forfeited
+  to the team by decision counts too, games or not (see "A match forfeited
+  by decision"). This is open question 6 of the plan, answered by research
+  rather than by the SPP; the reading is in
   `TeamSwiss.won_match_by_forfeit?/1`.
 - **Floated last round** - paired in the previous round against a team on a
   different match-point score (the pairing, whether or not the match was then

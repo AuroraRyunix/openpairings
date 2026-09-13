@@ -202,6 +202,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "pairing.seat_filled" => [%{"round" => 3, "summary" => "Chris Maes joins board 7"}],
     "pairing.pool_paired" => [%{"round" => 3, "summary" => "Chris Maes  vs  Dirk Jacobs"}],
     "pairing.deleted" => [%{"round" => 3, "summary" => "Board 12 is removed from round 3"}],
+    "pairing.match_forfeited" => [
+      %{"round" => 3, "match" => 2, "winner" => "Brugse SK", "loser" => "Deurne"}
+    ],
+    "pairing.match_forfeit_withdrawn" => [%{"round" => 3, "match" => 2, "winner" => "Brugse SK"}],
+    "pairing.board_attached" => [%{"round" => 3, "from_board" => 9, "board" => 7}],
     "pairing.hidden" => [%{"pairing_id" => 41, "round" => 3, "board" => 12}],
     "pairing.unhidden" => [%{"pairing_id" => 41, "round" => 3, "board" => 12}],
     "pairing.pairings_published" => [%{"through_round" => 4}, %{"through_round" => 1}],

@@ -722,18 +722,20 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   * **The round's explanation** - `TeamPairing.pair_round/2` returns its
     brackets; they are not stored on `rounds.explanation` yet, so the
     rationale page has nothing to show for a team Swiss round.
-  * **A match forfeited by decision** after games were played cannot be
-    recorded as a forfeit: "won by forfeit" is derived from the boards (no
-    game played). The research note suggests an arbiter-set match flag.
   * **Not published to OpenResults** - refused on purpose until the results
     site has team pages (additive snapshot fields in OpenResults'
     `docs/snapshot-schema.md`, plus the pages).
   * **A TRF import rebuilds teams, not matches** - TRF16 does not record
     which boards formed which match; a team round robin imported from TRF
     comes back with its teams and individual games only.
-  * **A board added by hand from the pool** (Pairings page) carries no
-    match and counts for neither team. Arbiters substitute by filling a
-    vacated seat instead, which keeps the match.
+
+  **Follow-ups built 2026-09-14** (unreleased, worktree branch): a match
+  forfeited by decision (`PairingsEngine.TeamMatches.forfeit_match/3`,
+  withdrawable, honoured by [C2]); a board added by hand joins its teams'
+  match when it fits and is marked "no team" when it does not. Still open
+  from that pass: the forfeit decision is not in the OpenResults snapshot
+  (the match's points already reflect it; an additive `forfeited` flag
+  would need OpenResults' schema doc).
 - **American (accelerated pairing) system** - explicitly dropped, not planned
   ("no one cares" - maintainer's own call).
 - **SWAR categories: value1 / value2 are merged on import** - the
