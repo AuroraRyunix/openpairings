@@ -46,6 +46,12 @@ defmodule PairingsEngineWeb.A11y do
     * `:hidden_live_region` - no polite live region is rendered `hidden`.
       A region that is not in the accessibility tree when its text arrives
       is, in practice, not announced
+    * `:grid_tab_stop` - an ARIA grid (`role="grid"`) is one stop in the Tab
+      order: exactly one element inside it is reachable by Tab, and every
+      cell either takes focus itself or holds the one control that does
+      (`tabindex="-1"` on it, for a roving tabindex to move). A second Tab
+      stop, or a cell the arrow keys cannot land on, is the grid pattern
+      broken
 
   `skip:` takes a list of rule names for a page that legitimately differs.
   """
@@ -91,7 +97,8 @@ defmodule PairingsEngineWeb.A11y do
       duplicate_id: &duplicate_id/1,
       dialog: &dialog/1,
       hidden_focusable: &hidden_focusable/1,
-      hidden_live_region: &hidden_live_region/1
+      hidden_live_region: &hidden_live_region/1,
+      grid_tab_stop: &grid_tab_stop/1
     ]
     |> Enum.reject(fn {rule, _check} -> rule in skip end)
     |> Enum.flat_map(fn {rule, check} -> Enum.map(check.(ctx), &{rule, &1}) end)
@@ -295,6 +302,39 @@ defmodule PairingsEngineWeb.A11y do
       "#{describe(el)} is a live region rendered hidden"
     end
   end
+
+  defp grid_tab_stop(ctx) do
+    for grid <- ctx.elements,
+        grid.attrs["role"] == "grid",
+        message <- grid_problems(grid, ctx),
+        do: message
+  end
+
+  defp grid_problems(grid, ctx) do
+    inside =
+      Enum.filter(ctx.elements, fn el -> Enum.any?(el.ancestors, &(&1.ref == grid.ref)) end)
+
+    stops =
+      case Enum.count(inside, &focusable?/1) do
+        1 -> []
+        n -> ["#{describe(grid)} has #{n} Tab stops, not one"]
+      end
+
+    unreachable =
+      for cell <- inside,
+          cell.tag in ~w(th td),
+          not roving?(cell),
+          not Enum.any?(
+            inside,
+            &(roving?(&1) and Enum.any?(&1.ancestors, fn a -> a.ref == cell.ref end))
+          ) do
+        "#{describe(cell)} in #{describe(grid)} cannot take focus"
+      end
+
+    stops ++ unreachable
+  end
+
+  defp roving?(el), do: el.attrs["tabindex"] in ["0", "-1"]
 
   # ---------------------------------------------------------------------------
   # Names

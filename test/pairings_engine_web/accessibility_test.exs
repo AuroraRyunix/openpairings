@@ -373,6 +373,12 @@ defmodule PairingsEngineWeb.AccessibilityTest do
                "hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut, Flash, DialogFocus}"
     end
 
+    test "the app script loads the grid's keyboard model" do
+      js = File.read!("assets/js/app.js")
+      assert js =~ ~s(from "./grid_keys")
+      assert File.exists?("assets/js/grid_keys.js")
+    end
+
     test "every result select is named for its board and players", %{conn: conn, tournament: t} do
       {:ok, view, _} = live(conn, "/t/#{t.id}/pairings")
       document = view |> render() |> LazyHTML.from_fragment()
@@ -383,6 +389,268 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       for label <- LazyHTML.attribute(selects, "aria-label") do
         assert label =~ ~r/^Result, board \d+: .+ against .+$/
       end
+    end
+  end
+
+  # R1 of the report: the Players grid as an ARIA grid with a roving tabindex.
+  # The hook's keys are JavaScript (checked outside this suite, see the
+  # report); what it relies on the server for is asserted here.
+  describe "the Players grid, by keyboard" do
+    defp grid(view), do: view |> render() |> LazyHTML.from_fragment()
+
+    defp attrs(nodes, name), do: LazyHTML.attribute(nodes, name)
+
+    test "is one grid, one Tab stop, every cell named by column and reachable", %{
+      conn: conn,
+      tournament: t
+    } do
+      {:ok, view, _} = live(conn, "/t/#{t.id}/players")
+      doc = grid(view)
+
+      table = LazyHTML.query(doc, "table#players-table")
+      assert attrs(table, "role") == ["grid"]
+      assert attrs(table, "aria-label") == ["Players"]
+      assert attrs(table, "aria-describedby") == ["players-grid-keys"]
+      assert [gone] = attrs(table, "data-row-gone")
+      assert gone =~ "%[name]"
+
+      # Exactly one tabindex="0" in the grid, and it is the first header's
+      # button - the rest wait for the hook to move the stop to them.
+      assert doc |> LazyHTML.query(~s(#players-table [tabindex="0"])) |> Enum.count() == 1
+
+      assert doc
+             |> LazyHTML.query(~s(#players-table thead th:first-child .th-sort[tabindex="0"]))
+             |> Enum.count() == 1
+
+      assert audit_fragment(render(view)) == []
+
+      # Every row names its cells' columns the same way, header included, so
+      # the hook can find the same column again after a patch.
+      header_cols = doc |> LazyHTML.query("#players-table thead th") |> attrs("data-grid-col")
+      assert "n" in header_cols and "name" in header_cols and "remove" in header_cols
+
+      for row <- LazyHTML.query(doc, "#players-table tbody tr") do
+        assert row |> LazyHTML.query("td") |> attrs("data-grid-col") == header_cols
+      end
+
+      # The name is the row's header, and still the button Enter opens.
+      names =
+        LazyHTML.query(doc, ~s(#players-table tbody td[role="rowheader"] [data-edit-player]))
+
+      assert Enum.count(names) == 7
+      assert Enum.uniq(attrs(names, "tabindex")) == ["-1"]
+    end
+
+    test "the cells with a menu say what they hold, in words, for whose row", %{
+      conn: conn,
+      tournament: t,
+      player: player
+    } do
+      {:ok, view, _} = live(conn, "/t/#{t.id}/players")
+
+      # Pr., Paid and Cat. may be hidden by default - show them.
+      for key <- ~w(pr paid cat) do
+        unless view
+               |> render()
+               |> LazyHTML.from_fragment()
+               |> LazyHTML.query(~s(th[data-col="#{key}"]))
+               |> Enum.any?() do
+          render_click(view, "toggle_column", %{"key" => key})
+        end
+      end
+
+      doc = grid(view)
+      row = ~s(#players-table tr[data-player-id="#{player.id}"])
+
+      [pr] = doc |> LazyHTML.query(~s(#{row} td[data-col="pr"])) |> attrs("aria-label")
+      assert pr =~ ~r/^Presence, #{player.name}: (present|absent|available|forfeited)/
+      [paid] = doc |> LazyHTML.query(~s(#{row} td[data-col="paid"])) |> attrs("aria-label")
+      assert paid =~ ~r/^Paid, #{player.name}: (yes|no|free of charge|not recorded)$/
+      [cat] = doc |> LazyHTML.query(~s(#{row} td[data-col="cat"])) |> attrs("aria-label")
+      assert cat =~ ~r/^Categories, #{player.name}: /
+
+      for key <- ~w(pr paid cat) do
+        cells = LazyHTML.query(doc, ~s(#players-table tbody td[data-col="#{key}"]))
+        assert Enum.uniq(attrs(cells, "aria-haspopup")) == ["menu"]
+      end
+
+      # A cell without a menu has no name of its own - its header reads it.
+      assert doc |> LazyHTML.query(~s(#{row} td[data-grid-col="n"][aria-label])) |> Enum.empty?()
+
+      # What the menu's items push - the keyboard opens the same menu the
+      # mouse does, so these are the events both paths send.
+      render_click(view, "set_paid", %{"id" => to_string(player.id), "value" => "gratis"})
+
+      [paid] =
+        view |> grid() |> LazyHTML.query(~s(#{row} td[data-col="paid"])) |> attrs("aria-label")
+
+      assert paid == "Paid, #{player.name}: free of charge"
+
+      render_click(view, "set_absent_flag", %{"id" => to_string(player.id), "value" => "true"})
+      [pr] = view |> grid() |> LazyHTML.query(~s(#{row} td[data-col="pr"])) |> attrs("aria-label")
+      assert pr == "Presence, #{player.name}: absent for the whole event"
+
+      # Still exactly one Tab stop after the patches.
+      assert view |> grid() |> LazyHTML.query(~s(#players-table [tabindex="0"])) |> Enum.count() ==
+               1
+    end
+  end
+
+  # R2: hand-editing a paired round without a mouse.
+  describe "the pairing hand edits, by keyboard" do
+    defp page(view), do: view |> render() |> LazyHTML.from_fragment()
+
+    defp seated_board(t) do
+      t.id
+      |> Tournaments.get_round(2)
+      |> Map.fetch!(:pairings)
+      |> Enum.filter(& &1.black_player_id)
+      |> Enum.sort_by(& &1.board)
+    end
+
+    test "every seat is a named button in the Tab order, with an id to come back to", %{
+      conn: conn,
+      tournament: t
+    } do
+      {:ok, view, _} = live(conn, "/t/#{t.id}/pairings")
+      doc = page(view)
+      [board | _] = seated_board(t)
+
+      seats = LazyHTML.query(doc, "[data-seat]")
+      assert Enum.count(seats) >= 6
+      assert Enum.uniq(attrs(seats, "role")) == ["button"]
+      assert Enum.uniq(attrs(seats, "tabindex")) == ["0"]
+      assert Enum.uniq(attrs(seats, "aria-haspopup")) == ["menu"]
+
+      [white] = doc |> LazyHTML.query("#seat-#{board.id}-white") |> Enum.to_list()
+      assert [label] = LazyHTML.attribute(white, "aria-label")
+      assert label =~ ~r/^White on board \d+: .*#{board.white_player.name}/
+      [black_label] = doc |> LazyHTML.query("#seat-#{board.id}-black") |> attrs("aria-label")
+      assert black_label =~ ~r/^Black on board \d+: .*#{board.black_player.name}/
+
+      for label <- attrs(seats, "aria-label") do
+        assert label =~ ~r/^(White|Black) on board \d+: .+$|^Not playing: .+$/
+      end
+    end
+
+    test "the keyboard's menu is the right-click's menu, plus focus", %{conn: conn, tournament: t} do
+      {:ok, view, _} = live(conn, "/t/#{t.id}/pairings")
+      [board | _] = seated_board(t)
+
+      payload = %{
+        "x" => "10",
+        "y" => "10",
+        "scope" => "seated",
+        "player-id" => to_string(board.white_player_id),
+        "pairing-id" => nil
+      }
+
+      by_mouse = render_click(view, "open_menu", payload)
+      mouse_menu = by_mouse |> LazyHTML.from_fragment() |> LazyHTML.query("#hand-edit-menu")
+      assert attrs(mouse_menu, "data-keyboard") == []
+      render_click(view, "close_menu", %{})
+
+      by_keys = render_click(view, "open_menu", Map.put(payload, "keyboard", true))
+      keys_menu = by_keys |> LazyHTML.from_fragment() |> LazyHTML.query("#hand-edit-menu")
+      assert attrs(keys_menu, "data-keyboard") == [""]
+
+      assert attrs(keys_menu, "role") == ["menu"]
+      assert attrs(keys_menu, "phx-hook") |> hd() =~ "HandEditMenu"
+      assert attrs(keys_menu, "data-transient-menu") == [""]
+
+      items = LazyHTML.query(keys_menu, "button")
+      assert Enum.uniq(attrs(items, "role")) == ["menuitem"]
+
+      # Same items, same events, same values - only the focus flag differs.
+      events = fn menu ->
+        menu
+        |> LazyHTML.query("button")
+        |> Enum.map(
+          &{LazyHTML.attribute(&1, "phx-click"), LazyHTML.attribute(&1, "phx-value-player-id"),
+           LazyHTML.text(&1)}
+        )
+      end
+
+      assert events.(keys_menu) == events.(mouse_menu)
+
+      # The round's publishing controls are switches, not menu items.
+      html =
+        render_click(view, "open_menu", %{
+          "x" => "1",
+          "y" => "1",
+          "scope" => "round",
+          "keyboard" => "true"
+        })
+
+      assert html
+             |> LazyHTML.from_fragment()
+             |> LazyHTML.query("#hand-edit-menu")
+             |> attrs("role") == ["group"]
+    end
+
+    test "a swap armed and cancelled is said, shown in words, and completed by the same event", %{
+      conn: conn,
+      tournament: t
+    } do
+      {:ok, view, _} = live(conn, "/t/#{t.id}/pairings")
+      [first, second | _] = seated_board(t)
+      a = first.white_player_id
+      b = second.black_player_id
+
+      render_click(view, "arm_swap", %{"player-id" => to_string(a)})
+
+      assert_push_event(view, "announce", %{
+        text: "Swap armed: choose the second seat and press Enter; Escape to cancel."
+      })
+
+      doc = page(view)
+
+      # The armed seat says so in a word, not only in colour.
+      assert doc |> LazyHTML.query("#seat-#{first.id}-white .swap-armed-tag") |> LazyHTML.text() =~
+               "swapping"
+
+      # Every other player is `data-armed`: Enter there is the left-click.
+      assert doc |> LazyHTML.query("#seat-#{first.id}-white[data-armed]") |> Enum.empty?()
+      target = LazyHTML.query(doc, "#seat-#{second.id}-black[data-armed]")
+      assert Enum.count(target) == 1
+      assert attrs(target, "phx-click") == ["pick_swap_target"]
+      assert attrs(target, "phx-value-player-id") == [to_string(b)]
+      assert attrs(target, "aria-describedby") == ["swap-banner-text"]
+      assert doc |> LazyHTML.query("#swap-banner-text") |> Enum.count() == 1
+
+      render_click(view, "cancel_swap", %{})
+      assert_push_event(view, "announce", %{text: "Swap cancelled."})
+      assert view |> page() |> LazyHTML.query("[data-armed]") |> Enum.empty?()
+
+      # Armed again and completed with the seat's own phx-click: the
+      # confirmation opens, and applying it lands focus on the edited board.
+      render_click(view, "arm_swap", %{"player-id" => to_string(a)})
+      html = render_click(view, "pick_swap_target", %{"player-id" => to_string(b)})
+      assert html =~ "hand-edit-dialog"
+
+      render_click(view, "apply_confirm", %{})
+      assert_push_event(view, "hand_edit_applied", %{pairing_id: pairing_id})
+      assert pairing_id == second.id
+
+      round = Tournaments.get_round(t.id, 2)
+      assert Enum.find(round.pairings, &(&1.id == second.id)).black_player_id == a
+    end
+
+    test "vacating a seat from its menu puts focus back on that board", %{
+      conn: conn,
+      tournament: t
+    } do
+      {:ok, view, _} = live(conn, "/t/#{t.id}/pairings")
+      [board | _] = seated_board(t)
+
+      render_click(view, "stage_vacate", %{"player-id" => to_string(board.white_player_id)})
+      render_click(view, "apply_confirm", %{})
+      assert_push_event(view, "hand_edit_applied", %{pairing_id: id})
+      assert id == board.id
+
+      # The empty seat is a keyboard target too, named as an empty seat.
+      [label] = view |> page() |> LazyHTML.query("#seat-#{board.id}-white") |> attrs("aria-label")
+      assert label =~ ~r/^White on board \d+: empty seat$/
     end
   end
 end

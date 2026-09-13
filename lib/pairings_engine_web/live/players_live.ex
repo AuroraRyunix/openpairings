@@ -1509,6 +1509,68 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp cell(entry, "xtpts"), do: format_num(entry.extra_points)
   defp cell(entry, "ptot"), do: format_num(entry.total)
 
+  # The columns whose cells open a menu (`CELL_MENUS` in assets/js/app.js).
+  defp menu_column?(key), do: key in ~w(pr paid cat)
+
+  # A menu cell's accessible name: the column, whose cell it is, and what the
+  # letter in it means, as one sentence per state - the letters ("A(1,3)",
+  # "G") are a sighted arbiter's shorthand and say nothing read aloud. Other
+  # cells have no name of their own and are read with their column header.
+  defp cell_label(entry, "pr") do
+    player = entry.player
+    name = player.name
+    rounds = to_string(player.absent_rounds)
+
+    cond do
+      player.forfeit ->
+        gettext("Presence, %{name}: forfeited", name: name)
+
+      player.absent ->
+        gettext("Presence, %{name}: absent for the whole event", name: name)
+
+      rounds == "" ->
+        gettext("Presence, %{name}: present", name: name)
+
+      absent_this_round?(entry, rounds) ->
+        gettext("Presence, %{name}: absent this round (sitting out rounds %{rounds})",
+          name: name,
+          rounds: rounds
+        )
+
+      true ->
+        gettext("Presence, %{name}: available this round (sat out rounds %{rounds})",
+          name: name,
+          rounds: rounds
+        )
+    end
+  end
+
+  defp cell_label(entry, "paid") do
+    name = entry.player.name
+
+    case entry.player.paid do
+      "paid" -> gettext("Paid, %{name}: yes", name: name)
+      "nopaid" -> gettext("Paid, %{name}: no", name: name)
+      "gratis" -> gettext("Paid, %{name}: free of charge", name: name)
+      _ -> gettext("Paid, %{name}: not recorded", name: name)
+    end
+  end
+
+  defp cell_label(entry, "cat") do
+    case entry.grid["cat"] do
+      [] ->
+        gettext("Categories, %{name}: none", name: entry.player.name)
+
+      names ->
+        gettext("Categories, %{name}: %{categories}",
+          name: entry.player.name,
+          categories: Enum.join(names, ", ")
+        )
+    end
+  end
+
+  defp cell_label(_entry, _key), do: nil
+
   # Integers render as-is; floats drop a trailing ".0" and trim to the
   # decimals actually present (6.5, 24.25, but zero always shows as "0").
   defp format_num(nil), do: "-"
@@ -1807,6 +1869,11 @@ defmodule PairingsEngineWeb.PlayersLive do
             {gettext(
               "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
             )}
+            <span id="players-grid-keys">
+              {gettext(
+                "By keyboard, the grid is one Tab stop: the arrow keys move between cells, Enter or Space opens a Pr., Paid or Cat. cell's menu, Enter on a name edits the player, and the context-menu key opens what a right-click would."
+              )}
+            </span>
           </p>
 
           <p :if={@cat_filter} class="hint" style="padding: 0 16px 8px">
@@ -1828,11 +1895,25 @@ defmodule PairingsEngineWeb.PlayersLive do
                 the categories are this tournament's own, so the vocabulary
                 travels on the grid and each cell carries the player's own
                 set. See CELL_MENUS in assets/js/app.js. --%>
+          <%!-- An ARIA grid with a roving tabindex (`PlayerGrid` in
+                assets/js/app.js, R1 of docs/accessibility-2026-09-13.md):
+                every cell, or the one control in it, is `tabindex="-1"`
+                except the first header's button, and the hook moves that
+                single stop with the arrow keys. `data-grid-col` names each
+                column so the hook can find the same cell again after a
+                patch; `data-row-gone` is what it says when the player it was
+                on has left the grid. --%>
           <table
             class="pe-table"
             id="players-table"
+            role="grid"
+            aria-label={gettext("Players")}
+            aria-describedby="players-grid-keys"
             phx-hook="PlayerGrid"
             data-categories={Jason.encode!(@tournament.categories || [])}
+            data-row-gone={
+              gettext("%[name] is no longer in the grid; you are on the row that took its place.")
+            }
           >
             <%!-- Each sortable header holds a real button, so a keyboard can
                   sort: the click still lands on the `<th>`'s own phx-click,
@@ -1843,6 +1924,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               <tr>
                 <th
                   class={["num", "sortable"]}
+                  data-grid-col="n"
                   phx-click="sort"
                   phx-value-key="cl"
                   aria-sort={aria_sort(@sort_col, @sort_dir, "cl")}
@@ -1852,19 +1934,20 @@ defmodule PairingsEngineWeb.PlayersLive do
                     )
                   }
                 >
-                  <button type="button" class="th-sort">
+                  <button type="button" class="th-sort" tabindex="0">
                     N1{sort_indicator(@sort_col, @sort_dir, "cl")}
                   </button>
                 </th>
 
                 <th
                   class="sortable"
+                  data-grid-col="name"
                   phx-click="sort"
                   phx-value-key="name"
                   aria-sort={aria_sort(@sort_col, @sort_dir, "name")}
                   title={gettext("Player's full name")}
                 >
-                  <button type="button" class="th-sort">
+                  <button type="button" class="th-sort" tabindex="-1">
                     {gettext("Name")}{sort_indicator(@sort_col, @sort_dir, "name")}
                   </button>
                 </th>
@@ -1874,6 +1957,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   :if={key in @visible}
                   class={[num && "num", "sortable"]}
                   data-col={key}
+                  data-grid-col={key}
                   phx-click="sort"
                   phx-value-key={key}
                   aria-sort={aria_sort(@sort_col, @sort_dir, key)}
@@ -1886,7 +1970,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                     end
                   }
                 >
-                  <button type="button" class="th-sort">
+                  <button type="button" class="th-sort" tabindex="-1">
                     {label}{sort_indicator(@sort_col, @sort_dir, key)}{group_indicator(
                       @sort_col,
                       @sort_dir,
@@ -1895,23 +1979,27 @@ defmodule PairingsEngineWeb.PlayersLive do
                   </button>
                 </th>
 
-                <th><span class="sr-only">{gettext("Remove")}</span></th>
+                <th data-grid-col="remove" tabindex="-1">
+                  <span class="sr-only">{gettext("Remove")}</span>
+                </th>
               </tr>
             </thead>
 
             <tbody>
               <tr :for={{p, i} <- Enum.with_index(@players, 1)} data-player-id={p.player.id}>
-                <td class="num">{i}</td>
+                <td class="num" data-grid-col="n" tabindex="-1">{i}</td>
 
                 <%!-- The keyboard's way to the registration dialog a
                       double-click opens: Enter or Space on the name (see
                       `PlayerGrid` in assets/js/app.js), which also lets the
                       context-menu key open the Players Card from here. The
-                      mouse is unchanged - a single click still does nothing. --%>
-                <td>
+                      mouse is unchanged - a single click still does nothing.
+                      The row's header, so a screen reader moving down a
+                      column says whose cell it is on. --%>
+                <td role="rowheader" data-grid-col="name">
                   <strong
                     class="grid-name"
-                    tabindex="0"
+                    tabindex="-1"
                     role="button"
                     aria-haspopup="dialog"
                     data-edit-player={p.player.id}
@@ -1920,19 +2008,27 @@ defmodule PairingsEngineWeb.PlayersLive do
                   </strong>
                 </td>
 
+                <%!-- The three cells with a menu say, in words, what their
+                      letter means and whose it is ("Paid, Anna Peeters:
+                      yes"); the others are read with their column header. --%>
                 <td
                   :for={{key, _label, num, _desc} <- all_columns(@tournament)}
                   :if={key in @visible}
                   class={num && "num"}
                   data-col={key}
+                  data-grid-col={key}
+                  tabindex="-1"
+                  aria-label={cell_label(p, key)}
+                  aria-haspopup={menu_column?(key) && "menu"}
                   data-tags={key == "cat" && Jason.encode!(p.grid["cat"])}
                 >
                   {cell(p, key)}
                 </td>
 
-                <td style="text-align: right">
+                <td style="text-align: right" data-grid-col="remove">
                   <button
                     class="pe-btn danger-link"
+                    tabindex="-1"
                     phx-click="delete"
                     phx-value-id={p.player.id}
                     data-confirm={"Remove #{p.player.name} from the tournament?"}

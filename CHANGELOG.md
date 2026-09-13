@@ -14,6 +14,31 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+- [Feature] **The Players grid works from the keyboard.** The grid is one stop
+  in the Tab order: the arrow keys move between cells, Home and End go to the
+  ends of a row, Ctrl+Home and Ctrl+End to the ends of the grid, Page Up and
+  Page Down ten rows. On a player's Pr., Paid or Cat. cell, Enter, Space, the
+  context-menu key or Shift+F10 opens that cell's menu with focus in it; Escape
+  returns to the cell. Your place survives live changes: when a result entered
+  elsewhere re-ranks the grid, focus stays on the same player's cell, and if
+  that player leaves the grid a screen reader is told and focus moves to the
+  next row. Screen readers hear the grid as a grid, the player's name as each
+  row's header, and a menu cell in words ("Paid, Anna Peeters: yes").
+  Clicking, right-clicking and sorting are unchanged.
+- [Feature] **Pairings can be hand-edited from the keyboard.** Every player on
+  a board, every empty seat and every name in the not-playing list can be
+  reached with Tab and is named for its board and colour ("White on board 3:
+  ..."). Enter, the context-menu key or Shift+F10 opens the same menu a
+  right-click does, with focus in it. "Swap with..." then says "Swap armed" to
+  a screen reader, shows the word "swapping" on the armed seat, and Enter on
+  the second seat completes the swap; Escape cancels and says so. Pairing two
+  players from the not-playing list and choosing an empty seat work the same
+  way. A confirmation you cancel returns focus to the seat you started from; one
+  you apply leaves focus on the board you edited. What each edit does is
+  unchanged. English and Dutch.
+
 ## [0.60.2] - 2026-09-13
 
 - [Fix] **The Players grid's right-click menu no longer opens off the edge of the

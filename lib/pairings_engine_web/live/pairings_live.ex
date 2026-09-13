@@ -351,7 +351,11 @@ defmodule PairingsEngineWeb.PairingsLive do
       player_id: int_or_nil(params["player-id"]),
       pairing_id: int_or_nil(params["pairing-id"]),
       seat: params["seat"],
-      scope: params["scope"] || "seated"
+      scope: params["scope"] || "seated",
+      # Opened from the keyboard (Enter, Space, the context-menu key or
+      # Shift+F10 on a seat): the menu takes focus. The same menu, the same
+      # items, the same events either way - only where focus goes differs.
+      keyboard: params["keyboard"] in [true, "true"]
     }
 
     {:noreply, assign(socket, menu: menu)}
@@ -359,18 +363,27 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("close_menu", _params, socket), do: {:noreply, assign(socket, menu: nil)}
 
+  # Arming says so out loud as well as in the banner: a screen reader has no
+  # other way to learn that the next seat it presses Enter on is the swap.
   def handle_event("arm_swap", %{"player-id" => id}, socket) do
     player_id = String.to_integer(id)
 
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        menu: nil,
        confirm: nil,
        swap_first: %{id: player_id, name: display_name(socket, player_id)}
-     )}
+     )
+     |> announce(gettext("Swap armed: choose the second seat and press Enter; Escape to cancel."))}
   end
 
   def handle_event("cancel_swap", _params, socket) do
+    socket =
+      if socket.assigns.swap_first,
+        do: announce(socket, gettext("Swap cancelled.")),
+        else: socket
+
     {:noreply, assign(socket, swap_first: nil, confirm: nil, menu: nil)}
   end
 
@@ -438,12 +451,25 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply, stage(socket, {:fill, only.id, player_id})}
 
       _many ->
-        {:noreply, assign(socket, menu: nil, seat_pick: player_id)}
+        {:noreply,
+         socket
+         |> assign(menu: nil, seat_pick: player_id)
+         |> announce(
+           gettext(
+             "Seat choice armed: choose which empty seat they take and press Enter; Escape to cancel."
+           )
+         )}
     end
   end
 
-  def handle_event("cancel_seat_pick", _params, socket),
-    do: {:noreply, assign(socket, seat_pick: nil)}
+  def handle_event("cancel_seat_pick", _params, socket) do
+    socket =
+      if socket.assigns.seat_pick,
+        do: announce(socket, gettext("Seat choice cancelled.")),
+        else: socket
+
+    {:noreply, assign(socket, seat_pick: nil)}
+  end
 
   def handle_event("stage_pool_pair", %{"player-id" => id}, socket) do
     player_id = String.to_integer(id)
@@ -454,15 +480,27 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       _ ->
         {:noreply,
-         assign(socket,
+         socket
+         |> assign(
            menu: nil,
            pool_first: %{id: player_id, name: display_name(socket, player_id)}
+         )
+         |> announce(
+           gettext(
+             "Pairing armed: choose their opponent in the not-playing list and press Enter; Escape to cancel."
+           )
          )}
     end
   end
 
-  def handle_event("cancel_pool_pair", _params, socket),
-    do: {:noreply, assign(socket, pool_first: nil, menu: nil)}
+  def handle_event("cancel_pool_pair", _params, socket) do
+    socket =
+      if socket.assigns.pool_first,
+        do: announce(socket, gettext("Pairing cancelled.")),
+        else: socket
+
+    {:noreply, assign(socket, pool_first: nil, menu: nil)}
+  end
 
   def handle_event("set_confirm_board", %{"board" => board}, socket) do
     case Integer.parse(String.trim(board)) do
@@ -922,7 +960,45 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
+    apply_confirmed(socket, confirm, round, t)
+  end
 
+  # Said through the root layout's `#announcer` by the `phx:announce`
+  # listener in assets/js/app.js - the words are gettext's, here.
+  defp announce(socket, text), do: push_event(socket, "announce", %{text: text})
+
+  # The board an applied hand edit leaves focus on, in the round as it now
+  # is: where the swap's first player now sits (the seat the keyboard
+  # completed the swap on), the board a change was made to, or - for a
+  # deleted board - the board above it. `nil` when there is none to show.
+  defp edited_pairing_id(nil, _confirm, _old_round), do: nil
+
+  defp edited_pairing_id(round, %{kind: :swap, a_id: a}, _old_round) do
+    case locate_seat(round.pairings, a) do
+      {:ok, {pairing, _field}} -> pairing.id
+      _ -> nil
+    end
+  end
+
+  defp edited_pairing_id(round, %{kind: :delete_pairing, pairing_id: id}, old_round) do
+    with %{board: gone} <- find_pairing(old_round, id),
+         [_ | _] = above <- Enum.filter(round.pairings, &(not &1.hidden and &1.board < gone)) do
+      Enum.max_by(above, & &1.board).id
+    else
+      _ -> nil
+    end
+  end
+
+  defp edited_pairing_id(round, %{changes: [%{board: board} | _]}, _old_round) do
+    case Enum.find(round.pairings, &(&1.board == board)) do
+      nil -> nil
+      pairing -> pairing.id
+    end
+  end
+
+  defp edited_pairing_id(_round, _confirm, _old_round), do: nil
+
+  defp apply_confirmed(socket, confirm, round, t) do
     result =
       case confirm do
         %{kind: :swap, a_id: a, b_id: b} ->
@@ -957,7 +1033,14 @@ defmodule PairingsEngineWeb.PairingsLive do
           summary: confirm.subtitle
         })
 
-        {:noreply, socket |> assign(error: nil) |> refresh()}
+        socket = socket |> assign(error: nil) |> refresh()
+
+        # After the patch, focus lands on the edited board (the
+        # `.PairingMenu` hook), not wherever the closing dialog left it.
+        {:noreply,
+         push_event(socket, "hand_edit_applied", %{
+           pairing_id: edited_pairing_id(socket.assigns.round, confirm, round)
+         })}
 
       {:error, :archived} ->
         {:noreply,
@@ -1648,9 +1731,19 @@ defmodule PairingsEngineWeb.PairingsLive do
   # (right-click for the menu, left-click to complete an armed swap), a
   # bye's empty black side (nothing to act on - the Result column already
   # says "bye"), and a VACANCY, which is the one that asks to be filled.
+  #
+  # Every seat that has something to act on is a keyboard target too (R2 of
+  # docs/accessibility-2026-09-13.md): `role="button"`, in the Tab order,
+  # named for its colour and board, with `data-seat` for the `.PairingMenu`
+  # hook. Enter, Space, the context-menu key or Shift+F10 opens the same menu
+  # a right-click does - except on a seat marked `data-armed`, where Enter
+  # completes the armed swap exactly as a left-click does. Spans rather than
+  # `<button>`s so a browser's own Enter/Space activation can never fire the
+  # `phx-click` behind the hook's back, and the seats look as they did.
   attr :player, :any, required: true
   attr :pairing, :map, required: true
   attr :side, :atom, required: true
+  attr :board, :any, required: true
   attr :swap_first, :any, required: true
   attr :seat_pick, :any, required: true
   attr :scores, :map, required: true
@@ -1666,6 +1759,14 @@ defmodule PairingsEngineWeb.PairingsLive do
             @swap_first && @swap_first.id == @player.id && "swap-selected",
             @swap_first && @swap_first.id != @player.id && "swap-eligible"
           ]}
+          id={seat_id(@pairing, @side)}
+          role="button"
+          tabindex="0"
+          aria-haspopup="menu"
+          aria-label={seat_name(@side, @board, seat_label(@player, @scores))}
+          aria-describedby={@swap_first && "swap-banner-text"}
+          data-seat
+          data-armed={@swap_first && @swap_first.id != @player.id}
           data-player-id={@player.id}
           data-scope="seated"
           phx-click="pick_swap_target"
@@ -1673,6 +1774,9 @@ defmodule PairingsEngineWeb.PairingsLive do
           title={gettext("Right-click for swap / absent options")}
         >
           {seat_label(@player, @scores)}
+          <span :if={@swap_first && @swap_first.id == @player.id} class="swap-armed-tag">
+            {gettext("swapping")}
+          </span>
         </span>
       <% @pairing.result == "bye" -> %>
         <span class="seat-none">-</span>
@@ -1680,6 +1784,8 @@ defmodule PairingsEngineWeb.PairingsLive do
         <button
           type="button"
           class="seat-vacant seat-vacant-armed"
+          id={seat_id(@pairing, @side)}
+          aria-label={put_here_name(@side, @board)}
           phx-click="stage_fill"
           phx-value-pairing-id={@pairing.id}
           phx-value-player-id={@seat_pick}
@@ -1689,6 +1795,12 @@ defmodule PairingsEngineWeb.PairingsLive do
       <% true -> %>
         <span
           class="seat-vacant"
+          id={seat_id(@pairing, @side)}
+          role="button"
+          tabindex="0"
+          aria-haspopup="menu"
+          aria-label={seat_name(@side, @board, gettext("empty seat"))}
+          data-seat
           data-pairing-id={@pairing.id}
           data-scope="vacant"
           title={
@@ -1702,6 +1814,22 @@ defmodule PairingsEngineWeb.PairingsLive do
     <% end %>
     """
   end
+
+  # One id per seat position, whoever sits there, so focus can find the same
+  # seat again after a patch - `DialogFocus` returns to it by id.
+  defp seat_id(pairing, side), do: "seat-#{pairing.id}-#{side}"
+
+  defp seat_name(:white, board, who),
+    do: gettext("White on board %{board}: %{name}", board: board, name: who)
+
+  defp seat_name(:black, board, who),
+    do: gettext("Black on board %{board}: %{name}", board: board, name: who)
+
+  defp put_here_name(:white, board),
+    do: gettext("Put them here: white on board %{board}", board: board)
+
+  defp put_here_name(:black, board),
+    do: gettext("Put them here: black on board %{board}", board: board)
 
   # The right-click menu. Fixed-positioned at the click point, so it opens
   # where the pointer is instead of at the top of the page.
@@ -1723,41 +1851,77 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     ~H"""
     <div class="ctx-backdrop" phx-click="close_menu" phx-window-keydown="close_menu" phx-key="escape">
+      <%!-- A real menu for the three seat scopes (`role="menu"`, its buttons
+            `menuitem`s); the round's publishing controls are switches, not
+            menu items, so that scope stays a plain group. `.HandEditMenu`
+            moves focus in when the keyboard opened it (`data-keyboard`),
+            walks the items with the arrow keys, and puts focus back on the
+            seat it came from when it closes. `data-transient-menu` keeps
+            `DialogFocus` from mistaking an item for the control a
+            confirmation should return to. --%>
       <div
         class="ctx-menu"
+        id="hand-edit-menu"
+        role={if @menu.scope == "round", do: "group", else: "menu"}
+        aria-label={gettext("Hand edits")}
         style={"left: #{@menu.x}px; top: #{@menu.y}px"}
         phx-click-away="close_menu"
+        phx-hook=".HandEditMenu"
+        data-keyboard={@menu.keyboard}
+        data-transient-menu
       >
         <%= case @menu.scope do %>
           <% "seated" -> %>
-            <button type="button" phx-click="arm_swap" phx-value-player-id={@menu.player_id}>
+            <button
+              type="button"
+              role="menuitem"
+              phx-click="arm_swap"
+              phx-value-player-id={@menu.player_id}
+            >
               {gettext("Swap with…")}
             </button>
 
-            <button type="button" phx-click="stage_vacate" phx-value-player-id={@menu.player_id}>
+            <button
+              type="button"
+              role="menuitem"
+              phx-click="stage_vacate"
+              phx-value-player-id={@menu.player_id}
+            >
               {gettext("Mark absent for this round")}
             </button>
           <% "pool" -> %>
-            <button type="button" phx-click="arm_swap" phx-value-player-id={@menu.player_id}>
+            <button
+              type="button"
+              role="menuitem"
+              phx-click="arm_swap"
+              phx-value-player-id={@menu.player_id}
+            >
               {gettext("Swap with a player on a board…")}
             </button>
 
             <button
               :if={@vacancies > 0}
               type="button"
+              role="menuitem"
               phx-click="offer_seats"
               phx-value-player-id={@menu.player_id}
             >
               {gettext("Put in an empty seat")}{if @vacancies > 1, do: "…", else: ""}
             </button>
 
-            <button type="button" phx-click="stage_pool_pair" phx-value-player-id={@menu.player_id}>
+            <button
+              type="button"
+              role="menuitem"
+              phx-click="stage_pool_pair"
+              phx-value-player-id={@menu.player_id}
+            >
               {gettext("Pair with another player who isn't playing…")}
             </button>
           <% "vacant" -> %>
             <button
               :if={!@fully_vacant?}
               type="button"
+              role="menuitem"
               phx-click="stage_bye"
               phx-value-pairing-id={@menu.pairing_id}
             >
@@ -1767,6 +1931,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             <button
               :if={@fully_vacant?}
               type="button"
+              role="menuitem"
               phx-click="toggle_hidden"
               phx-value-pairing-id={@menu.pairing_id}
             >
@@ -1776,6 +1941,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             <button
               :if={@deletable?}
               type="button"
+              role="menuitem"
               class="danger-link"
               phx-click="stage_delete_pairing"
               phx-value-pairing-id={@menu.pairing_id}
@@ -2180,11 +2346,14 @@ defmodule PairingsEngineWeb.PairingsLive do
         )}
         <strong>{gettext("Right-click any player")}</strong>
         {gettext("to swap them, or to mark them absent for this round.")}
+        {gettext(
+          "By keyboard, Tab to a player or an empty seat and press Enter or the context-menu key for the same menu; with a swap armed, Enter on the second seat completes it."
+        )}
       </p>
 
       <div :if={@swap_first} class="swap-banner" phx-window-keydown="cancel_swap" phx-key="escape">
         <span class="swap-banner-dot"></span>
-        <span>
+        <span id="swap-banner-text">
           <.rich_text text={
             gettext(
               "Swapping %[name] - now click whoever they should trade places with, on a board or in the not-playing list below."
@@ -2203,7 +2372,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         phx-key="escape"
       >
         <span class="swap-banner-dot"></span>
-        <span>
+        <span id="pool-pair-banner-text">
           <.rich_text text={gettext("Pairing %[name] - now click who they should play.")}>
             <:part name="name"><strong>{@pool_first.name}</strong></:part>
           </.rich_text>
@@ -2411,6 +2580,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   player={pairing.white_player}
                   pairing={pairing}
                   side={:white}
+                  board={display_board}
                   swap_first={@swap_first}
                   seat_pick={@seat_pick}
                   scores={@scores}
@@ -2496,6 +2666,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   player={pairing.black_player}
                   pairing={pairing}
                   side={:black}
+                  board={display_board}
                   swap_first={@swap_first}
                   seat_pick={@seat_pick}
                   scores={@scores}
@@ -2582,8 +2753,37 @@ defmodule PairingsEngineWeb.PairingsLive do
             phx-value-player-id={entry.player.id}
             title={gettext("Right-click for options")}
           >
-            <span class="pool-chip-name">{player_label(entry.player)}</span>
+            <%!-- The keyboard target is the name, not the `<li>` (a list
+                  item cannot be a button); a keydown or a click on it
+                  reaches the chip's `data-scope` and `phx-click` above. --%>
+            <span
+              class="pool-chip-name"
+              id={"pool-seat-#{entry.player.id}"}
+              role="button"
+              tabindex="0"
+              aria-haspopup="menu"
+              aria-label={gettext("Not playing: %{name}", name: player_label(entry.player))}
+              aria-describedby={
+                (@swap_first && "swap-banner-text") || (@pool_first && "pool-pair-banner-text")
+              }
+              data-seat
+              data-armed={
+                (@swap_first && @swap_first.id != entry.player.id) ||
+                  (@pool_first && @pool_first.id != entry.player.id)
+              }
+            >
+              {player_label(entry.player)}
+            </span>
             <span class="pool-chip-tag">{pool_tag(entry, @tournament, @absent_counts)}</span>
+            <span
+              :if={
+                (@swap_first && @swap_first.id == entry.player.id) ||
+                  (@pool_first && @pool_first.id == entry.player.id)
+              }
+              class="swap-armed-tag"
+            >
+              {if @swap_first, do: gettext("swapping"), else: gettext("pairing")}
+            </span>
           </li>
         </ul>
       </div>
@@ -3049,31 +3249,176 @@ defmodule PairingsEngineWeb.PairingsLive do
         // A right-click NEVER completes anything - it only ever opens the
         // menu. Every write is behind a menu item plus the confirm modal,
         // so no two-right-clicks-in-a-row can change a pairing by accident.
+        //
+        // The keyboard (R2 of docs/accessibility-2026-09-13.md): every seat
+        // with something to act on is a `[data-seat]` button. The
+        // context-menu key and Shift+F10 open the menu through the same
+        // `contextmenu` event, placed under the seat instead of at a pointer;
+        // Enter or Space opens it too - except on a seat the server marked
+        // `data-armed` (a swap or a pool pairing is waiting for its second
+        // player), where Enter or Space is the left-click that completes it, sent as
+        // that very click so both paths push the same event. Either way the
+        // payload is the one a right-click sends, plus `keyboard: true` so
+        // the menu takes focus.
+
+        // What a keydown on a seat asks for: "menu-key" (a contextmenu event
+        // follows), "complete", "menu", or null. Pure, so it can be checked
+        // on its own.
+        export const seatKeyAction = (e, armed) => {
+          if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) return "menu-key";
+          if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return null;
+          if (e.key !== "Enter" && e.key !== " ") return null;
+          return armed ? "complete" : "menu";
+        };
+
+        // Where a menu opens: at the pointer, or under the seat from the
+        // keyboard, kept on screen either way (it's ~280x150).
+        export const menuPosition = (x, y, width, height) => ({
+          x: Math.max(8, Math.min(x, width - 300)),
+          y: Math.max(8, Math.min(y, height - 170))
+        });
+
         export default {
           mounted() {
+            this.keyMenuAt = 0;
+
+            this.openMenu = (target, x, y, keyboard) => {
+              const at = menuPosition(x, y, window.innerWidth, window.innerHeight);
+              this.pushEvent("open_menu", {
+                x: at.x,
+                y: at.y,
+                scope: target.dataset.scope,
+                "player-id": target.dataset.playerId || null,
+                "pairing-id": target.dataset.pairingId || null,
+                keyboard
+              });
+            };
+
             this.onContextMenu = (e) => {
               const target = e.target.closest("[data-scope]");
               if (!target) return;
               e.preventDefault();
 
-              // Keep the menu fully on screen: it's ~280x150, so flip it
-              // back inside the viewport when the click lands near an edge.
-              const x = Math.min(e.clientX, window.innerWidth - 300);
-              const y = Math.min(e.clientY, window.innerHeight - 170);
+              const keyboard =
+                Date.now() - this.keyMenuAt < 1000 ||
+                e.pointerType === "" ||
+                (e.clientX === 0 && e.clientY === 0);
+              this.keyMenuAt = 0;
 
-              this.pushEvent("open_menu", {
-                x: Math.max(8, x),
-                y: Math.max(8, y),
-                scope: target.dataset.scope,
-                "player-id": target.dataset.playerId || null,
-                "pairing-id": target.dataset.pairingId || null
-              });
+              if (keyboard) {
+                const box = (e.target.closest("[data-seat], select, button") || target).getBoundingClientRect();
+                this.openMenu(target, box.left, box.bottom, true);
+              } else {
+                this.openMenu(target, e.clientX, e.clientY, false);
+              }
             };
+
+            this.onKeydown = (e) => {
+              const seat = e.target.closest("[data-seat]");
+              if (!seat) return;
+
+              const action = seatKeyAction(e, seat.hasAttribute("data-armed"));
+              if (action === "menu-key") { this.keyMenuAt = Date.now(); return; }
+              if (!action) return;
+              e.preventDefault();
+
+              if (action === "complete") {
+                seat.click();
+              } else {
+                const box = seat.getBoundingClientRect();
+                this.openMenu(seat.closest("[data-scope]"), box.left, box.bottom, true);
+              }
+            };
+
             this.el.addEventListener("contextmenu", this.onContextMenu);
+            this.el.addEventListener("keydown", this.onKeydown);
+
+            // After an applied hand edit the confirmation closes and
+            // `DialogFocus` puts focus back where the edit started - a frame
+            // later. Two frames later still, focus moves onto the edited
+            // board if it is not on it already: the seat it was on, when that
+            // seat is on the board, else the board's first seat or result.
+            // Only the table's copy of this hook listens; the pool's has no
+            // boards.
+            if (this.el.tagName === "TABLE") {
+              this.handleEvent("hand_edit_applied", ({pairing_id}) => {
+                if (!pairing_id) return;
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                  const row = document.getElementById(`pairing-row-${pairing_id}`);
+                  if (!row || row.contains(document.activeElement)) return;
+                  const target = row.querySelector("[data-seat], select, button");
+                  if (target) target.focus();
+                }));
+              });
+            }
           },
 
           destroyed() {
             this.el.removeEventListener("contextmenu", this.onContextMenu);
+            this.el.removeEventListener("keydown", this.onKeydown);
+          }
+        }
+      </script>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".HandEditMenu">
+        // The hand-edit menu itself, rendered by the server. Opened from the
+        // keyboard (`data-keyboard`) it takes focus on its first item; Up,
+        // Down, Home and End walk the items; Tab closes it the way Escape
+        // does (Escape is the backdrop's `phx-window-keydown`). However it
+        // closes - an item chosen, Escape, a click away - focus goes back to
+        // the seat that opened it, by id when a patch has replaced that seat,
+        // unless something else (a confirmation dialog) has already taken it.
+
+        // The item Up/Down/Home/End moves to, from `index` among `count`
+        // (-1 when focus is not on an item yet). Pure.
+        export const menuStep = (key, index, count) => {
+          if (!count) return null;
+          switch (key) {
+            case "ArrowDown": return (index + 1 + count) % count;
+            case "ArrowUp": return index < 0 ? count - 1 : (index - 1 + count) % count;
+            case "Home": return 0;
+            case "End": return count - 1;
+            default: return null;
+          }
+        };
+
+        export default {
+          mounted() {
+            const at = document.activeElement;
+            this.opener = at && at !== document.body && !this.el.contains(at) ? at : null;
+            this.openerId = this.opener && this.opener.id;
+
+            this.items = () =>
+              Array.from(this.el.querySelectorAll("button:not([disabled])"));
+
+            this.onKeydown = (e) => {
+              const items = this.items();
+              if (e.key === "Tab") {
+                e.preventDefault();
+                this.pushEvent("close_menu", {});
+                return;
+              }
+              const next = menuStep(e.key, items.indexOf(document.activeElement), items.length);
+              if (next === null) return;
+              e.preventDefault();
+              items[next].focus();
+            };
+            this.el.addEventListener("keydown", this.onKeydown);
+
+            if (this.el.hasAttribute("data-keyboard")) {
+              const first = this.items()[0];
+              if (first) first.focus();
+            }
+          },
+
+          destroyed() {
+            const at = document.activeElement;
+            if (at && at !== document.body && at.isConnected) return;
+
+            const back =
+              (this.opener && this.opener.isConnected && this.opener) ||
+              (this.openerId && document.getElementById(this.openerId));
+            if (back) back.focus({preventScroll: true});
           }
         }
       </script>

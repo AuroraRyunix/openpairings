@@ -115,7 +115,7 @@ time it escalates - not every second - the site notice and the version toast.
 The banners are no longer live regions themselves. The phone's result entry
 has its own status line ("Board 3: 1-0 saved", "Board 3: result cleared").
 
-### 4. The right-click menus had no keyboard way in · PARTLY FIXED
+### 4. The right-click menus had no keyboard way in · FIXED (the last two parts as R1 and R2, same day)
 
 The player grid, the print buttons and the pairing table are right-click
 driven.
@@ -134,10 +134,10 @@ driven.
   and the PGN exports lived only behind a right-click on a print link. The
   context-menu key on the focused link now opens the same menu, under the
   link, with focus in it (`role="menu"`, arrow keys, Escape and Tab return).
-- **Not fixed:** the per-player cell menus in the grid (the cells are not
-  focusable) and the pairing table's hand-edit menu (the seats are spans).
-  Both need a real keyboard model, not an attribute - recommendations R1 and
-  R2.
+- **Not fixed in the first pass:** the per-player cell menus in the grid (the
+  cells were not focusable) and the pairing table's hand-edit menu (the seats
+  were spans). Both needed a real keyboard model, not an attribute - built
+  afterwards as R1 and R2, below.
 
 ### 5. Secondary text was 2.0-3.1:1 in Slate, and other themes fell short in places · FIXED (token changes)
 
@@ -484,45 +484,99 @@ sets its own text and background.
 "Edge of a field" before is the `--border` the fields were edged in; after,
 the `--text-soft` they are edged in now.
 
-## Recommended, not built
+## Recommended
 
-### R1. Full keyboard navigation of the player grid
+R1 and R2 were built the same day, after the pass; R3 to R6 are not built.
 
-The grid's per-player cell menus (presence, paid, categories) open on a
-right-click on a cell, and the cells are not focusable: a keyboard user can
-sort, open the bulk menus and edit a player through the registration dialog,
-but not change one player's cell in place.
+### R1. Full keyboard navigation of the player grid · DONE
 
-Plan: make the grid an ARIA grid with a roving tabindex - one cell in the tab
-order, the arrow keys move between cells, Home/End and Ctrl+Home/End jump - in
-the `PlayerGrid` hook, which already owns the menus. The context-menu key or
-Shift+F10 on a cell calls the existing `openCellMenu(x, y, col, playerId,
-true)` at the cell; Enter on a name opens registration as now. The hard part
-is that LiveView re-renders rows on every change from any tab: keep the active
-cell as `{player id, column}` in the hook and restore focus and tabindex in
-`updated()`. Announce the column name when moving between columns only if NVDA
-testing shows the table headers are not enough. **Size: medium** - two to
-three days, most of it NVDA and Firefox testing against live updates from a
-second tab.
+The grid's per-player cell menus (presence, paid, categories) opened on a
+click or right-click on a cell, and the cells were not focusable: a keyboard
+user could sort, open the bulk menus and edit a player through the
+registration dialog, but not change one player's cell in place.
 
-### R2. Hand-editing pairings without a mouse
+Built as planned, in `PlayerGrid` (`assets/js/app.js`) with its decisions in
+`assets/js/grid_keys.js`:
 
-Swap, vacate, award a bye, fill a seat and substitute all start from a
-right-click on a seat (`.PairingMenu`); the seats are spans. Plan:
+- **Semantics.** The native table carries `role="grid"`, is named "Players"
+  and described by the keyboard sentence under the hint. Each player's name
+  cell is `role="rowheader"`, so moving down a column says whose cell it is.
+  Pr., Paid and Cat. cells carry a name that spells out their letter
+  ("Paid, Anna Peeters: yes", "Presence, Bram Claes: absent this round
+  (sitting out rounds 2,3)") and `aria-haspopup="menu"`; other cells are read
+  with their column header. No `aria-rowindex`/`aria-colindex`: every row and
+  column that exists is rendered, and the category filter says what it hides.
+- **One Tab stop.** Every cell - or the one control in it: a header's sort
+  button, the name, the Remove button - is rendered `tabindex="-1"`, except
+  the first header's button. The hook moves the single `tabindex="0"`.
+- **Keys.** Arrows move one cell; Home/End to the row's first/last cell;
+  Ctrl+Home/End to the grid's; Page Up/Down ten rows. On a player's Pr., Paid
+  or Cat. cell, Enter, Space, the context-menu key or Shift+F10 open that
+  cell's menu under the cell with focus on its first item (the existing
+  `openCellMenu(..., true)`, which still keeps itself on screen); Up/Down walk
+  it, Enter chooses, Escape or Tab close it back to the cell. Space opens on
+  key-up, so the key-up cannot land on the first item and choose it. Enter
+  elsewhere does what it did: sorts on a header, opens the registration on a
+  name, asks to remove on Remove. The context-menu key on any other cell opens
+  the Players Card, as a right-click on the row does.
+- **Patches.** The active cell is remembered as `{player id, column}` (plus
+  the indexes it had). LiveView patches rows in place, so after a sort or a
+  result entered in another tab the focused `<td>` can hold someone else - and
+  the server's render puts every `tabindex` back as it drew them. `updated()`
+  finds the same player's same column, makes it the Tab stop, and, only when
+  focus was in the grid before the patch, focuses it. When the player is gone
+  (filtered out, deleted) focus goes to the row that took its place (or the
+  new last row) and `#announcer` says "Bram Claes is no longer in the grid;
+  you are on the row that took its place" - from `data-row-gone`, rendered by
+  the server through gettext. A column hidden from Display falls back to the
+  nearest column, silently.
+- **The mouse** is untouched: a click on a menu cell still opens its menu, the
+  right-click, double-click and header sort are as they were, and a click
+  makes the clicked cell the Tab stop.
 
-1. Seats become `<button type="button">`s carrying the same `data-scope`
-   attributes, styled as the spans are; an armed swap completes on Enter as it
-   does on a left-click (the `phx-click` is already there).
-2. The context-menu key or Shift+F10 on a seat pushes `open_menu` with the
-   seat's position instead of the pointer's (the same trick the print menu now
-   uses) and the menu takes focus: `role="menu"`, `menuitem`s, Up/Down,
-   Escape back to the seat.
-3. "Swap with..." armed says so through `#announcer` ("Pick the player to swap
-   with"), and after the confirmation dialog closes focus returns to the seat
-   by id - `DialogFocus` already does that part.
+### R2. Hand-editing pairings without a mouse · DONE
 
-**Size: medium** - about two days, half of it walking the five gestures by
-keyboard in a real round.
+Swap, vacate, award a bye, fill a seat, substitute, pair from the pool and
+delete an empty board all started from a right-click on a seat
+(`.PairingMenu`); the seats were spans.
+
+- **Seats are buttons.** Every seated player, every empty seat and every
+  not-playing chip's name is `role="button"`, `tabindex="0"`,
+  `aria-haspopup="menu"`, named "White on board 3: Anna Peeters (2210, 1)",
+  "Black on board 4: empty seat" or "Not playing: Gert Willems (1540)", with a
+  stable id (`seat-<pairing>-<side>`, `pool-seat-<player>`). They stayed
+  spans with button semantics rather than `<button>`s so a browser's own
+  Enter/Space activation can never fire the seat's `phx-click` behind the
+  hook's back, and so they look exactly as before. The "Put them here"
+  buttons of a seat choice are named for their board and colour.
+- **The menu.** Enter, Space, the context-menu key or Shift+F10 on a seat
+  pushes the same `open_menu` a right-click does - same scope and ids, placed
+  under the seat - plus `keyboard: true`, which renders `data-keyboard` on the
+  menu. The menu is `role="menu"` with `menuitem`s (the round's publishing
+  switches, which are not menu items, are a named group), and its hook,
+  `.HandEditMenu`, focuses the first item when the keyboard opened it; Up,
+  Down, Home and End walk it; Escape (the backdrop's existing key binding) or
+  Tab close it; however it closes, focus goes back to the seat, by id if the
+  patch replaced it.
+- **Arm, then complete.** Choosing "Swap with..." arms the swap as before and
+  `#announcer` says "Swap armed: choose the second seat and press Enter;
+  Escape to cancel." (a `phx:announce` event whose words come from gettext on
+  the server). Every other player's seat is then `data-armed` and described
+  by the banner's sentence; Enter or Space on it is sent as a click on the
+  seat itself, so it pushes the very `pick_swap_target` a left-click does.
+  Escape cancels and says "Swap cancelled.". A pool pairing and a seat choice
+  arm, complete and cancel the same way, with their own sentences. The armed
+  seat or chip carries the word "swapping" (or "pairing"), not only the
+  accent fill.
+- **Confirmations.** `DialogFocus` returns focus to the seat that started the
+  edit: it no longer mistakes an item of the menu (which is gone by the time
+  the dialog opens, `data-transient-menu`) for the control to return to. After
+  an applied edit the server pushes `hand_edit_applied` with the edited
+  board's pairing - where the swap's first player now sits, the board a change
+  was made to, the board above a deleted one - and two frames later, after the
+  dialog has let go, focus moves onto that board unless it is already there.
+- **Nothing a click does changed**: the same events, the same staging, the
+  same confirmation, the same writes.
 
 ### R3. A keyboard way to pan the bracket map
 
@@ -593,7 +647,34 @@ Escape in the loading state, pushing the same decline event. **Size: tiny.**
   id references, no duplicate ids, dialogs named and modal, nothing focusable
   under `aria-hidden`, no live region rendered `hidden`. `explain/1` prints
   every violation on a page at once.
-- `test/pairings_engine_web/accessibility_test.exs` (7 tests) - every LiveView
+- For R1 and R2: `:grid_tab_stop` in `A11y.audit/2` (a `role="grid"` has
+  exactly one Tab stop and every cell can take focus, on every page walked),
+  and seven tests in `accessibility_test.exs` - the grid's role, name, single
+  `tabindex="0"`, row headers, `data-grid-col` lined up across rows, the menu
+  cells' names before and after `set_paid`/`set_absent_flag`; every seat a
+  named `role="button"` with its id; the keyboard's `open_menu` rendering the
+  same items with the same events as the mouse's, plus `data-keyboard`;
+  `announce` pushed on arming and cancelling a swap; `data-armed` and the
+  word "swapping"; `hand_edit_applied` naming the edited board after a swap
+  and a vacated seat.
+- The key handling itself has no test runner here. It was checked in Node
+  (22 checks, all passing) by importing `grid_keys.js`, the colocated
+  `.PairingMenu`/`.HandEditMenu` hooks as the compiler extracted them, and
+  `app.js` with its imports stubbed, then driving the real `PlayerGrid`,
+  `DialogFocus` and the two hooks against a ~200-line stand-in DOM: arrows,
+  Home/End and Ctrl+End with one `tabindex="0"` throughout; Enter and Space
+  (on key-up) opening a Paid menu with focus, Down and a pick pushing the same
+  `set_paid` a mouse pick pushes, Escape back to the cell; the context-menu
+  key placing the menu under the cell; a re-sorting patch keeping focus on the
+  same player's cell, a patch with focus elsewhere leaving it there, a
+  vanished row moving focus and announcing it; Enter on a seat pushing the
+  right-click's `open_menu` payload plus `keyboard: true`; Enter on an armed
+  seat clicking it; the menu's focus, arrows, Tab and return by id; a
+  confirmation opened from a menu item returning to the seat; focus landing on
+  the edited board. Not committed: it needs the stand-in DOM, and this repo
+  adds no JS dependency for it. A browser and a person are still what the
+  checklist below is for.
+- `test/pairings_engine_web/accessibility_test.exs` (7 tests at the pass) - every LiveView
   walked from the router, static and connected; the signed-out pages; the
   phone's enrolment and result entry; the dialogs, context menu and clear
   confirmation opened with the events a click sends, each a named, modal
@@ -626,15 +707,39 @@ plus Firefox, NVDA 2024 or later on Windows.
 2. **Tournament list.** Tab to a tournament's Delete and press Enter: the
    dialog opens with focus on it, Tab cycles Cancel and Delete without leaving it, Escape closes
    it and focus is back on Delete.
-3. **Players.** On `/t/:id/players`, Tab to the "Name" header and press Enter:
-   the grid sorts, again reverses. Tab to the "Pr." header and press the
-   context-menu key (or Shift+F10): the bulk menu opens under the header with
-   its first item focused; Down and Up move, Escape closes it with focus back
-   on the header. Tab to a player's name and press Enter: the registration
-   dialog opens with focus in its first field; Tab stays inside; Escape
-   returns focus to the name. Press the context-menu key on a name: the
-   Players Card opens, and closes back to the name.
-4. **Pairings - result entry.** On a playing round, Tab to board 1's result.
+3. **Players - the grid is one Tab stop.** On `/t/:id/players` (with Pr.,
+   Paid and Cat. shown under Display), Tab into the grid: focus is on the
+   "N1" header, and one more Tab leaves the grid altogether. Right Arrow to
+   "Name" and press Enter: the grid sorts, again reverses, and focus stays on
+   the header. Right Arrow to "Pr." and press the context-menu key (or
+   Shift+F10): the bulk menu opens under the header with its first item
+   focused; Down and Up move, Escape closes it with focus back on the header.
+   Down Arrow to the first player's Pr. cell; Left and Right walk the row,
+   Home and End jump to its ends, Ctrl+End to the last player's last cell,
+   Ctrl+Home back to "N1", Page Down ten rows. Tab away and Shift+Tab back:
+   focus returns to the cell you left, not to "N1".
+4. **Players - a cell menu.** On a player's Paid cell press Enter: the menu
+   opens under the cell with "Paid" focused and fully on screen (try the last
+   visible row, and a narrow window). Down to "Not paid", Enter: the cell
+   shows N and focus is back on that cell. Do it with Space: nothing is
+   chosen by the key coming back up. Escape on an open menu returns to the
+   cell unchanged. On the name press Enter: the registration dialog opens
+   with focus in its first field; Escape returns focus to the name. Press
+   the context-menu key on a name, or on a rating cell: the Players Card
+   opens, and closes back to where you were.
+5. **Players - live changes under the keyboard.** Open the same tournament in
+   a second tab. Put focus on the third player's Paid cell in the first tab.
+   In the second tab, enter a result that re-ranks the players (or sort by
+   rating descending in the first): focus in the first tab follows that
+   player to their new row, same column. In the second tab, delete that
+   player: focus moves to the row that took its place and the screen reader
+   hears "<name> is no longer in the grid...". With focus outside the grid (on
+   the Display panel), a change in the other tab leaves focus where it is.
+6. **Players - the mouse.** Right-click a Pr. cell, left-click a Paid cell,
+   double-click a row, right-click the Cat. header, click a header to sort:
+   each does exactly what it did before. Clicking a cell and then pressing
+   Down moves from that cell.
+7. **Pairings - result entry.** On a playing round, Tab to board 1's result (past its White seat).
    Press 1: 1-0 is recorded and focus moves to board 2. On board 2 press Down
    three times, then Enter: exactly one result is recorded (check the audit
    trail - no half points on the way). On board 2 again press Down to the
@@ -642,20 +747,41 @@ plus Firefox, NVDA 2024 or later on Windows.
    Cancel; Enter on Cancel puts focus back on board 2's select with its result
    unchanged. Do it again and choose "Yes, clear it": focus is back on board
    2's select, now empty. On the last board enter a result: focus stays there.
-5. **Print variants.** Tab to "Pairings" under Print, press the context-menu
+8. **Pairings - a hand-edited swap.** On the current round, Tab to board 1's
+   White seat and press Enter (then again with the context-menu key, and with
+   Shift+F10): the hand-edit menu opens under the seat with "Swap with..."
+   focused; Down and Up walk it, Escape closes it with focus back on the seat.
+   Open it again and press Enter on "Swap with...": the banner appears, the
+   seat reads "SWAPPING" beside the name, and focus is on the seat. Tab to
+   board 3's Black seat and press Escape: the banner goes and focus stays
+   where it is. Arm it again, Tab to board 3's Black seat, press Enter: the
+   confirmation opens with focus on it. Escape: focus is back on board 3's
+   Black seat. Arm, pick and this time press "Swap players": the dialog closes
+   and focus is on board 3 (the seat the first player now sits in), not at
+   the top of the page.
+9. **Pairings - the other gestures.** On a seat choose "Mark absent for this
+   round", apply: focus lands on that board's now-empty seat. Enter on the
+   empty seat: "Award a bye to the remaining player", apply: focus is on that
+   board. From the not-playing list (Tab to a name, Enter): "Put in an empty
+   seat" with two vacancies shows "Put them here" buttons - Tab to one, Enter,
+   apply; "Pair with another player who isn't playing", then Enter on a second
+   name, apply: focus is on the new board. On a fully empty last board, "Delete
+   this board", apply: focus is on the board above. Throughout, a mouse
+   right-click and left-click still do exactly what they did.
+10. **Print variants.** Tab to "Pairings" under Print, press the context-menu
    key: the variants menu opens under the link, Down walks it, Enter opens
    one, Escape closes it back to the link.
-6. **Settings.** Change the tournament name and press Save: "Saved." appears
+11. **Settings.** Change the tournament name and press Save: "Saved." appears
    (and is announced - see NVDA 6). Tab through the tiebreak list: each arrow
    button's name says its tiebreak.
-7. **Pickers.** Tab to the theme picker, Enter opens it, choose Slate; Escape
+12. **Pickers.** Tab to the theme picker, Enter opens it, choose Slate; Escape
    closes it with focus on the trigger. Every focused control, in every theme,
    shows the accent ring; on the bracket map (`/t/:id/pairings/2/explain`)
    tab through the dots - none is hidden under the score gutter.
-8. **Live display.** Open `/t/:id/live?display=1` on a round with more boards
+13. **Live display.** Open `/t/:id/live?display=1` on a round with more boards
    than fit: Tab to "Pause cycling", Enter pauses, the button reads "Resume
    cycling".
-9. **Phone.** Enrol a phone (or a narrow window) at `/m`. Enter a wrong code:
+14. **Phone.** Enrol a phone (or a narrow window) at `/m`. Enter a wrong code:
    the error is read with the box. On `/m/results`, Tab to board 1's "1-0" and
    press Enter: about two seconds later board 1 leaves the list and focus is
    on the first result button of the board that took its place.
@@ -679,15 +805,33 @@ Browse mode unless stated. Once in English, once in Dutch.
    pressed", the others "not pressed".
 6. Save something on a settings page: "Saved." is spoken once. Enter a bad
    value: the refusal is spoken.
-7. Open a hand-edit confirmation (right-click a seat, choose an item - by mouse,
-   see R2): NVDA says the dialog's title and "dialog"; Tab does not leave it;
-   Escape returns to the page.
-8. Accept an invitation from a second account: "You now have access to ..."
-   is spoken once, politely, after the tournament's page loads.
-9. On a phone with TalkBack or iOS VoiceOver (or NVDA on `/m/results`): enter
-   a result; "Board 1: 1-0 saved" is spoken.
-10. Note anything read in the wrong language, anything read twice, and any
-    moment focus lands on the page itself.
+7. Tab (focus mode) to a seat: NVDA says "White on board 1: <name> (<rating>,
+   <score>), button, submenu" (or "menu button"). Press Enter: "Hand edits,
+   menu, Swap with..., menu item, 1 of 2". Enter on it: after the seat is read
+   again, "Swap armed: choose the second seat and press Enter; Escape to
+   cancel." is spoken once. Tab to another seat: its name, then the banner's
+   sentence as its description. Escape: "Swap cancelled." is spoken.
+8. Arm a swap and complete it on a second seat: NVDA says the confirmation's
+   title and "dialog"; Tab does not leave it; Escape returns to the seat it
+   was opened from and reads its name. Apply one instead: focus and speech
+   land on the edited board's seat, not on the page.
+9. On `/t/:id/players`, Tab into the grid (focus mode starts by itself): NVDA
+   says "Players, grid" and the keyboard sentence, then "N1, column header,
+   button". Down Arrow twice, Right Arrow along the row: each cell is read
+   with its column header, and moving down a column reads the player's name
+   (the row header). On a Paid cell: "Paid, <name>: yes, submenu". Enter,
+   choose "Not paid": focus is back on the cell, which now says "no".
+10. With focus on a player's cell, delete that player from a second tab:
+    "<name> is no longer in the grid; you are on the row that took its place."
+    is spoken once, and the new cell is read.
+11. Accept an invitation from a second account: "You now have access to ..."
+    is spoken once, politely, after the tournament's page loads.
+12. On a phone with TalkBack or iOS VoiceOver (or NVDA on `/m/results`): enter
+    a result; "Board 1: 1-0 saved" is spoken.
+13. Note anything read in the wrong language, anything read twice, and any
+    moment focus lands on the page itself - in Dutch the seat reads "Wit op
+    bord 1: ...", the arming "Wissel klaargezet: ...", a Paid cell
+    "Betaald, <naam>: ja".
 
 ### Look
 

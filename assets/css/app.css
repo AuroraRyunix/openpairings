@@ -993,6 +993,11 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
   cursor: pointer;
 }
 
+/* The Players grid's cells take focus themselves (a roving tabindex, see
+   `PlayerGrid` in app.js). The card clips anything outside it, so the ring
+   is drawn inside the cell rather than round it. */
+.pe-table[role="grid"] :is(th, td):focus-visible { outline-offset: -2px; }
+
 .table-card { padding: 0; overflow: hidden; }
 
 .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -1657,6 +1662,14 @@ button.pe-btn, .pe-btn {
   background: var(--accent);
   color: var(--accent-ink);
   box-shadow: none;
+}
+/* The armed seat or chip says so in a word, not only in the accent fill. */
+.swap-armed-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .seat-none { color: var(--text-soft); }
 .seat-vacant {

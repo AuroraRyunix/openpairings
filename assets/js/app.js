@@ -24,6 +24,7 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/pairings_engine"
 import topbar from "../vendor/topbar"
+import {isMenuKey, gridKeyAction, movePosition, restorePosition, fillTemplate} from "./grid_keys"
 
 // Persists the player-grid column selection (the "Display" panel) in localStorage.
 //
@@ -122,6 +123,20 @@ function readJsonAttr(el, name) {
 const CELL_MENU_COLS = Object.keys(CELL_MENUS)
 const cellMenuSelector = (tag) => CELL_MENU_COLS.map((c) => tag + "[data-col=\"" + c + "\"]").join(", ")
 
+// The grid is one stop in the Tab order - an ARIA grid with a roving tabindex.
+// Every cell (or the one control inside it: a header's sort button, a name, a
+// Remove button) is rendered `tabindex="-1"` except the first header cell's
+// button; the hook moves the single `tabindex="0"` with the arrow keys, Home
+// and End (Ctrl for the whole grid) and Page Up/Down. Enter or Space on one
+// player's Pr., Paid or Cat. cell opens that cell's menu - the context-menu key
+// and Shift+F10 already did, through the `contextmenu` listener below.
+//
+// A LiveView patch re-renders rows under the keyboard (a result entered in
+// another tab re-ranks everyone), so the active cell is remembered as {player
+// id, column}, not as a DOM node, and put back after every patch. The
+// decisions live in grid_keys.js as pure functions.
+const gridFocusTarget = (cell) => cell.querySelector(".th-sort, [data-edit-player], button") || cell
+
 const PlayerGrid = {
   mounted() {
     // Double-clicking must not text-select the player name; e.detail > 1
@@ -129,6 +144,48 @@ const PlayerGrid = {
     // still select text normally.
     this.el.addEventListener("mousedown", (e) => {
       if (e.detail > 1) e.preventDefault()
+    })
+
+    this.active = null
+    this.keyMenuAt = 0
+    this.spaceOn = null
+
+    // Focus arriving anywhere in the grid - a click, a Tab, a script - makes
+    // that cell the active one, so the mouse and the keyboard never disagree
+    // about where the user is.
+    this.el.addEventListener("focusin", (e) => {
+      const cell = e.target.closest("th, td")
+      if (cell && this.el.contains(cell)) this.remember(cell)
+    })
+
+    this.el.addEventListener("keydown", (e) => {
+      if (isMenuKey(e)) { this.keyMenuAt = Date.now(); return }
+      // An open cell menu owns the arrow keys (see onCellMenuDocKeydown).
+      if (this.cellPopup) return
+
+      const cell = e.target.closest("th, td")
+      if (!cell || !this.el.contains(cell)) return
+
+      const action = gridKeyAction(e, {hasMenu: this.cellHasMenu(cell)})
+      if (!action) return
+      e.preventDefault()
+
+      if (action.move) {
+        const at = this.position(cell)
+        const to = movePosition(at, action.move, this.widths())
+        this.activate(this.cellAt(to), true)
+      } else if (action.open === "now") {
+        this.openFromKeyboard(cell)
+      } else {
+        this.spaceOn = cell
+      }
+    })
+
+    this.el.addEventListener("keyup", (e) => {
+      if (e.key !== " " || !this.spaceOn) return
+      const cell = this.spaceOn
+      this.spaceOn = null
+      if (e.target.closest("th, td") === cell) this.openFromKeyboard(cell)
     })
     this.el.addEventListener("dblclick", (e) => {
       const tr = e.target.closest("tr[data-player-id]")
@@ -145,9 +202,13 @@ const PlayerGrid = {
     })
     this.el.addEventListener("contextmenu", (e) => {
       // A menu opened from the keyboard - the context-menu key or Shift+F10
-      // on a focused header button - has no pointer to open at, and has to
-      // take focus, or nobody without a mouse can use it.
-      const fromKeyboard = e.pointerType === "" || (e.clientX === 0 && e.clientY === 0)
+      // on a focused header button or cell - has no pointer to open at, and
+      // has to take focus, or nobody without a mouse can use it. The keydown
+      // just before says so most reliably; the event's own shape is the
+      // fallback for a browser that sends it without one.
+      const fromKeyboard =
+        Date.now() - this.keyMenuAt < 1000 || e.pointerType === "" || (e.clientX === 0 && e.clientY === 0)
+      this.keyMenuAt = 0
       const at = (el) => {
         if (!fromKeyboard) return [e.clientX, e.clientY]
         const box = el.getBoundingClientRect()
@@ -221,6 +282,109 @@ const PlayerGrid = {
     }
     document.addEventListener("mousedown", this.onCellMenuDocMousedown)
     document.addEventListener("keydown", this.onCellMenuDocKeydown)
+  },
+
+  // ---- the roving tabindex ----
+
+  rows() { return Array.from(this.el.rows) },
+
+  widths() { return this.rows().map((row) => row.cells.length) },
+
+  position(cell) {
+    const row = cell.parentElement
+    return {r: this.rows().indexOf(row), c: Array.prototype.indexOf.call(row.cells, cell)}
+  },
+
+  cellAt({r, c}) {
+    const row = this.rows()[r]
+    return row && row.cells[c]
+  },
+
+  cellHasMenu(cell) {
+    return cell.tagName === "TD" && cell.dataset.col in CELL_MENUS && !!cell.closest("tr[data-player-id]")
+  },
+
+  // The active cell, as keys that survive a re-render: the row by its player
+  // id ("head" for the header row), the column by `data-grid-col`, and the
+  // indexes it had, for when either is gone. The name is kept for saying so.
+  remember(cell) {
+    const row = cell.parentElement
+    const {r, c} = this.position(cell)
+    this.active = {
+      row: row.dataset.playerId || "head",
+      col: cell.dataset.gridCol,
+      r,
+      c,
+      name: row.querySelector("[data-edit-player]")?.textContent.trim() || null,
+    }
+    this.syncTabStop(cell)
+  },
+
+  activate(cell, focus) {
+    if (!cell) return
+    this.remember(cell)
+    if (focus) {
+      const target = gridFocusTarget(cell)
+      target.focus()
+      target.scrollIntoView?.({block: "nearest", inline: "nearest"})
+    }
+  },
+
+  // Exactly one `tabindex="0"` in the grid, on `cell`'s focus target.
+  syncTabStop(cell) {
+    const target = gridFocusTarget(cell)
+    this.el.querySelectorAll('[tabindex="0"]').forEach((el) => { if (el !== target) el.tabIndex = -1 })
+    target.tabIndex = 0
+  },
+
+  rowKeys() {
+    return this.rows().map((row) => ({
+      key: row.dataset.playerId || "head",
+      cols: Array.from(row.cells, (cell) => cell.dataset.gridCol),
+    }))
+  },
+
+  openFromKeyboard(cell) {
+    const box = cell.getBoundingClientRect()
+    this.openCellMenu(box.left, box.bottom, cell.dataset.col, cell.parentElement.dataset.playerId, true)
+  },
+
+  // A patch may have re-ordered, re-used or removed the row under the
+  // keyboard - LiveView patches rows in place, so the focused <td> can come
+  // back holding somebody else. The server's render also puts every
+  // `tabindex` back as it drew them. So: find the remembered player and
+  // column again, make that the tab stop, and - only when focus was in the
+  // grid - put focus there. When that player's row is gone, focus goes to the
+  // row that took its place and the announcer says whose row went.
+  beforeUpdate() {
+    this.hadFocus = this.el.contains(document.activeElement)
+  },
+
+  updated() {
+    if (!this.active) {
+      return
+    }
+
+    const at = restorePosition(this.active, this.rowKeys())
+    const cell = at && this.cellAt(at)
+    if (!cell) {
+      return
+    }
+
+    const goneName = at.lost && this.active.row !== "head" ? this.active.name : null
+    this.remember(cell)
+
+    if (!this.hadFocus) {
+      return
+    }
+
+    const target = gridFocusTarget(cell)
+    if (document.activeElement !== target) {
+      target.focus({preventScroll: true})
+    }
+    if (goneName) {
+      announce(fillTemplate(this.el.dataset.rowGone, {name: goneName}))
+    }
   },
 
   // `playerId` is null for the column-header (bulk, every player) menu, a
@@ -592,6 +756,11 @@ const Flash = {
 // dispatch this as they appear (see `flash_group/1`).
 window.addEventListener("pe:announce", (e) => announce(flashText(e.target)))
 
+// A sentence the server wants said - already in the reader's language, since
+// gettext chose the words (`announce/2` in pairings_live.ex: a swap armed or
+// cancelled).
+window.addEventListener("phx:announce", (e) => announce(e.detail && e.detail.text))
+
 // ---- the "Saved." and "could not save" notes ----
 //
 // Every settings page confirms a save, and refuses a bad one, with an
@@ -648,8 +817,12 @@ new MutationObserver((mutations) => {
 // element, or on whatever carries its id after the re-render.
 let lastFocusedOutsideDialog = null
 
+// Not an item of a menu that closes in the same render as the dialog opens
+// (`data-transient-menu`, the Pairings page's hand-edit menu): the dialog
+// should return to the seat the menu was opened from, not to an item that no
+// longer exists.
 document.addEventListener("focusin", (e) => {
-  if (!e.target.closest("[data-dialog]")) { lastFocusedOutsideDialog = e.target }
+  if (!e.target.closest("[data-dialog], [data-transient-menu]")) { lastFocusedOutsideDialog = e.target }
 })
 
 const TABBABLE =
