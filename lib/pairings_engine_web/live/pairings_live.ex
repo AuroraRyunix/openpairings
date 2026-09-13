@@ -342,23 +342,36 @@ defmodule PairingsEngineWeb.PairingsLive do
     {:noreply, put_flash(socket, :error, error_text(:archived))}
   end
 
+  # The payload is the `.PairingMenu` hook's, so it is checked rather than
+  # trusted: a missing position, an id that is not a whole number or a scope
+  # `pairing_menu/1` has no branch for used to crash the page (a MatchError,
+  # an ArgumentError, a CaseClauseError in the render). Any of those now opens
+  # nothing.
+  @menu_scopes ~w(seated pool vacant round)
+
   def handle_event("open_menu", params, socket) do
-    %{"x" => x, "y" => y} = params
+    scope = params["scope"] || "seated"
+    player_id = menu_id(params["player-id"])
+    pairing_id = menu_id(params["pairing-id"])
 
-    menu = %{
-      x: coord(x),
-      y: coord(y),
-      player_id: int_or_nil(params["player-id"]),
-      pairing_id: int_or_nil(params["pairing-id"]),
-      seat: params["seat"],
-      scope: params["scope"] || "seated",
-      # Opened from the keyboard (Enter, Space, the context-menu key or
-      # Shift+F10 on a seat): the menu takes focus. The same menu, the same
-      # items, the same events either way - only where focus goes differs.
-      keyboard: params["keyboard"] in [true, "true"]
-    }
+    if scope in @menu_scopes and player_id != :error and pairing_id != :error do
+      menu = %{
+        x: coord(params["x"]),
+        y: coord(params["y"]),
+        player_id: player_id,
+        pairing_id: pairing_id,
+        seat: params["seat"],
+        scope: scope,
+        # Opened from the keyboard (Enter, Space, the context-menu key or
+        # Shift+F10 on a seat): the menu takes focus. The same menu, the same
+        # items, the same events either way - only where focus goes differs.
+        keyboard: params["keyboard"] in [true, "true"]
+      }
 
-    {:noreply, assign(socket, menu: menu)}
+      {:noreply, assign(socket, menu: menu)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("close_menu", _params, socket), do: {:noreply, assign(socket, menu: nil)}
@@ -708,10 +721,16 @@ defmodule PairingsEngineWeb.PairingsLive do
   # a `style` attribute by `context_menu/1`. HEEx escapes the attribute, so
   # this was never markup injection - but it was a raw client string in a
   # CSS declaration list, which the ids beside it never were
-  # (`int_or_nil/1`). A number is what the renderer wants and the only thing
+  # (`menu_id/1`). A number is what the renderer wants and the only thing
   # the browser sends, so parse one and put the menu at the origin when the
   # value is anything else.
+  #
+  # Including a fractional one: a menu opened from the keyboard is placed at
+  # the seat's `getBoundingClientRect()`, which is fractional under display
+  # scaling or zoom, and a float used to fall through to the origin - the menu
+  # opened in the top-left corner of the window instead of under the seat.
   defp coord(value) when is_integer(value), do: value
+  defp coord(value) when is_float(value), do: round(value)
 
   defp coord(value) when is_binary(value) do
     case Integer.parse(value) do
@@ -722,10 +741,21 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp coord(_value), do: 0
 
-  defp int_or_nil(nil), do: nil
-  defp int_or_nil(""), do: nil
-  defp int_or_nil(value) when is_integer(value), do: value
-  defp int_or_nil(value), do: String.to_integer(value)
+  # nil when the payload names no id, the id when it is a whole number, and
+  # :error for anything else - which `open_menu` refuses rather than passing
+  # a non-id on to the menu's buttons.
+  defp menu_id(nil), do: nil
+  defp menu_id(""), do: nil
+  defp menu_id(value) when is_integer(value), do: value
+
+  defp menu_id(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} -> n
+      _ -> :error
+    end
+  end
+
+  defp menu_id(_value), do: :error
 
   # Builds the confirm state for an action and closes every transient bit
   # of UI around it, so the modal is always the only thing on screen

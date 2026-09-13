@@ -214,6 +214,40 @@ defmodule PairingsEngineWeb.PlayersLive do
   # inherited from the order `Tournaments.list_players/1` happened to hand it
   # - rating descending, name ascending, `id`. That's exactly "points, then
   # configured tiebreaks, then rating" with no need to re-derive it here.
+  defp sort_by(socket, key) do
+    dir =
+      case {socket.assigns.sort_col, socket.assigns.sort_dir} do
+        {^key, :asc} -> :desc
+        {^key, :desc} -> :asc
+        _ -> :asc
+      end
+
+    {:noreply, socket |> assign(sort_col: key, sort_dir: dir) |> assign_players()}
+  end
+
+  # Every key `sort_value/2` has a clause for: the name, each grid column, and
+  # "cat:<name>" for grouping on one category.
+  @sortable_keys ["name"] ++
+                   Enum.map(
+                     @columns_before_tiebreaks ++ @tiebreak_columns ++ @columns_after_tiebreaks,
+                     &elem(&1, 0)
+                   )
+
+  defp sortable_key?("cat:" <> _name), do: true
+  defp sortable_key?(key), do: key in @sortable_keys
+
+  # A whole number from an event payload, or nil.
+  defp parse_id(id) when is_integer(id), do: id
+
+  defp parse_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_id(_id), do: nil
+
   defp sort_entries(entries, nil, _dir) do
     Enum.sort_by(entries, & &1.rank)
   end
@@ -517,16 +551,16 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Clicking a header sorts by that column, ascending first; clicking the
   # same header again flips direction; clicking a different header resets to
   # ascending on the new column.
-  def handle_event("sort", %{"key" => key}, socket) do
-    dir =
-      case {socket.assigns.sort_col, socket.assigns.sort_dir} do
-        {^key, :asc} -> :desc
-        {^key, :desc} -> :asc
-        _ -> :asc
-      end
-
-    {:noreply, socket |> assign(sort_col: key, sort_dir: dir) |> assign_players()}
+  #
+  # The key is checked against the columns `sort_value/2` knows before it is
+  # stored: it arrives from a `phx-value-key` or from the Cat column's menu
+  # script, and an unknown one used to be stored and then crash the next
+  # `assign_players/1` on a missing `sort_value/2` clause.
+  def handle_event("sort", %{"key" => key}, socket) when is_binary(key) do
+    if sortable_key?(key), do: sort_by(socket, key), else: {:noreply, socket}
   end
+
+  def handle_event("sort", _params, socket), do: {:noreply, socket}
 
   def handle_event("search", %{"q" => q}, socket) do
     {:noreply, assign(socket, query: q, results: Fide.search(q))}
@@ -673,6 +707,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  def handle_event("set_absent_flag", _params, socket), do: {:noreply, socket}
+
   # Right-clicking the Pr. COLUMN HEADER instead of one player's cell -
   # same whole-tournament flag, applied to every player in the tournament
   # at once. `set_all_players_absent/2` touches only `absent`;
@@ -697,6 +733,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
+
+  def handle_event("set_all_absent_flag", _params, socket), do: {:noreply, socket}
 
   ## ---------- Paid cell click/right-click menu (registration fee) ----------
   #
@@ -740,6 +778,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  def handle_event("set_paid", _params, socket), do: {:noreply, socket}
+
   ## ---------- Categories (the Cat column) ----------
   #
   # The third column with its own little right-click menu, after Pr. and
@@ -753,7 +793,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # two would be the multi-value column pretending to be single-valued
   # again. `Tournaments.toggle_player_category/4` refuses a name the
   # tournament does not define rather than minting one.
-  def handle_event("toggle_category", %{"id" => id, "name" => name, "value" => value}, socket) do
+  def handle_event("toggle_category", %{"id" => id, "name" => name, "value" => value}, socket)
+      when is_binary(name) do
     tournament = socket.assigns.tournament
 
     case Tournaments.get_player(tournament.id, id) do
@@ -786,7 +827,12 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  def handle_event("set_all_category", %{"name" => name, "value" => value}, socket) do
+  # A name that is not a string never reaches `Tournaments`, whose guards
+  # would raise on it rather than refuse it.
+  def handle_event("toggle_category", _params, socket), do: {:noreply, socket}
+
+  def handle_event("set_all_category", %{"name" => name, "value" => value}, socket)
+      when is_binary(name) do
     tournament = socket.assigns.tournament
     add? = value == "true"
 
@@ -806,6 +852,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  def handle_event("set_all_category", _params, socket), do: {:noreply, socket}
+
   # Showing only one category is a view state, not a write - nothing is
   # audited and nothing is stored. `""` means "show all"; anything the
   # tournament does not define means the same, so a stale menu cannot hide
@@ -814,6 +862,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     filter = if name in (socket.assigns.tournament.categories || []), do: name, else: nil
     {:noreply, socket |> assign(cat_filter: filter) |> assign_players()}
   end
+
+  def handle_event("filter_category", _params, socket), do: {:noreply, socket}
 
   def handle_event("set_all_paid", %{"value" => value}, socket) do
     tournament_id = socket.assigns.tournament.id
@@ -833,6 +883,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
+
+  def handle_event("set_all_paid", _params, socket), do: {:noreply, socket}
 
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
 
@@ -930,6 +982,8 @@ defmodule PairingsEngineWeb.PlayersLive do
          )}
     end
   end
+
+  def handle_event("edit_player", _params, socket), do: {:noreply, socket}
 
   def handle_event("close_edit", _params, socket) do
     {:noreply,
@@ -1099,9 +1153,18 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   ## ---------- Players Card (right-click a row) ----------
 
+  # The id comes from the row the PlayerGrid hook was right-clicked on, and is
+  # parsed rather than `String.to_integer/1`-ed: anything that is not a whole
+  # number used to crash the page. The card itself only ever shows a player
+  # from `@players`, so a number from another tournament shows nothing.
   def handle_event("show_card", %{"id" => id}, socket) do
-    {:noreply, assign(socket, card_player_id: String.to_integer(id))}
+    case parse_id(id) do
+      nil -> {:noreply, socket}
+      player_id -> {:noreply, assign(socket, card_player_id: player_id)}
+    end
   end
+
+  def handle_event("show_card", _params, socket), do: {:noreply, socket}
 
   def handle_event("close_card", _params, socket) do
     {:noreply, assign(socket, card_player_id: nil)}
