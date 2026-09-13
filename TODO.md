@@ -743,10 +743,12 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   none at all and "players" mode for a team Swiss). Still open: a team Swiss
   round with one board-less team is ASSUMED to be the bye on import (TRF16
   cannot tell a bye from a team not paired; TRF-2026's team records would).
-  Also open
-  from that pass: the forfeit decision is not in the OpenResults snapshot
-  (the match's points already reflect it; an additive `forfeited` flag
-  would need OpenResults' schema doc).
+  ~~Also open
+  from that pass: the forfeit decision is not in the OpenResults snapshot~~
+  **Done** in the follow-up: `rounds[].matches[].forfeit_decision`
+  (`{"to": team no}` or null, withheld with the match points), documented in
+  OpenResults' `docs/snapshot-schema.md` and shown on its round and team
+  pages (branch `match-forfeit` there).
 - **American (accelerated pairing) system** - explicitly dropped, not planned
   ("no one cares" - maintainer's own call).
 - **SWAR categories: value1 / value2 are merged on import** - the

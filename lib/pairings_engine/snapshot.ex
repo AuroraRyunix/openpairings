@@ -497,12 +497,19 @@ defmodule PairingsEngine.Snapshot do
   # players. A hidden board is left out of the board-number list (display
   # only - see the moduledoc's note on `hidden`), which does not change the
   # points: those are the arithmetic the round's own standings already ran.
+  #
+  # `forfeit_decision` (added with match forfeits by decision): the team the
+  # arbiter awarded the match to, `%{"to" => team no}`, or null. It says who
+  # won the match, so it travels exactly when the match points do - one
+  # condition, `points_public?`, gates both.
   defp match_row(m, team_nos, results_public?) do
     boards =
       m.boards
       |> Enum.reject(& &1.pairing.hidden)
       |> Enum.map(& &1.pairing.board)
       |> Enum.sort()
+
+    points_public? = results_public? and m.complete?
 
     %{
       "number" => m.number,
@@ -515,9 +522,15 @@ defmodule PairingsEngine.Snapshot do
       "board1_white_team" => not m.bye? && Map.get(team_nos, m.team_a_id),
       "boards" => boards,
       "game_points" => if(results_public?, do: %{"a" => m.gp_a, "b" => m.gp_b}),
-      "match_points" => if(results_public? and m.complete?, do: %{"a" => m.mp_a, "b" => m.mp_b})
+      "match_points" => if(points_public?, do: %{"a" => m.mp_a, "b" => m.mp_b}),
+      "forfeit_decision" => if(points_public?, do: forfeit_decision_row(m, team_nos))
     }
   end
+
+  defp forfeit_decision_row(%{forfeited_to: team_id}, team_nos) when not is_nil(team_id),
+    do: %{"to" => Map.get(team_nos, team_id)}
+
+  defp forfeit_decision_row(_match, _team_nos), do: nil
 
   defp team_standings_row(%Tournament{} = t, team_nos, after_round) do
     codes = TeamStandings.effective_tiebreaks(t)

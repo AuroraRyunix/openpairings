@@ -16,6 +16,12 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A match forfeited by decision is published as one.** The
+  OpenResults snapshot names the team the arbiter awarded a match to
+  (`matches[].forfeit_decision`), so the results site can say so rather than
+  show only a row of forfeit results. It is withheld exactly like the
+  match's points: not sent while the round's results are private or the
+  match is incomplete.
 - [Feature] **The team Swiss rationale page gives the engine's reasons.**
   For a round paired from now on, the *Pairing rationale* page says why each
   bracket took the upfloaters it did - the criterion that decided against

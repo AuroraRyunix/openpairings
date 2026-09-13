@@ -447,6 +447,14 @@ table. Settings - OpenResults explains, for a team event, that publishing
 sends the team standings, matches and board statistics OpenPairings
 computed.
 
+A match forfeited by decision carries `"forfeit_decision": {"to": <team
+no>}` (null for every other match), so the results site can say "Awarded to
+Team A by the arbiter" instead of leaving a reader to guess from a row of
+forfeit results. It says who won the match, so it is withheld exactly when
+the match points are: null while the round's results are not public, and
+null while the match is incomplete (`Snapshot`'s `match_row/3` gates both on
+one condition).
+
 A team Swiss paired by teams publishes the same fields as a team round robin.
 A team Swiss that was already paired player by player before team pairing
 arrived (`team_pairing_mode` "players") publishes as an individual event,

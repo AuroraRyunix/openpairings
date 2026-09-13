@@ -1255,6 +1255,69 @@ defmodule PairingsEngine.SnapshotTest do
       refute is_nil(match["match_points"])
     end
 
+    test "a match forfeited by decision says whom to, null otherwise, and is withheld with the match points" do
+      {t, teams} = team_snapshot_fixture()
+      antwerp = Enum.find(teams, &(&1.name == "Antwerp Knights"))
+      round1 = Tournaments.get_round(t.id, 1)
+
+      match =
+        round1.id
+        |> Tournaments.list_matches()
+        |> Enum.find(&(antwerp.id in [&1.team_a_id, &1.team_b_id]))
+
+      {:ok, _} = PairingsEngine.TeamMatches.forfeit_match(t, match, antwerp.id)
+
+      matches_of = fn t ->
+        Snapshot.build(Tournaments.get_tournament!(t.id))["rounds"]
+        |> Enum.find(&(&1["number"] == 1))
+        |> Map.fetch!("matches")
+      end
+
+      # Withheld: round 1's results switch is off, so the decision - which
+      # says who won - is null exactly as the match points are.
+      for m <- matches_of.(t) do
+        assert Map.has_key?(m, "forfeit_decision")
+        assert m["forfeit_decision"] == nil
+        assert m["match_points"] == nil
+      end
+
+      {:ok, t} = Tournaments.publish_results(t, 1)
+      antwerp_no = Tournaments.get_team(t.id, antwerp.id).pairing_number
+
+      [forfeited, other] =
+        Enum.sort_by(matches_of.(t), &(antwerp_no not in [&1["team_a"], &1["team_b"]]))
+
+      # Present: the team the arbiter awarded it to, by team number.
+      assert forfeited["forfeit_decision"] == %{"to" => antwerp_no}
+      refute is_nil(forfeited["match_points"])
+
+      # Null: a match decided on its boards.
+      assert Map.has_key?(other, "forfeit_decision")
+      assert other["forfeit_decision"] == nil
+      refute is_nil(other["match_points"])
+
+      # Withheld while the match is incomplete, as its match points are: a
+      # board of the forfeited match loses its result.
+      board = Enum.find(Tournaments.get_round(t.id, 1).pairings, &(&1.match_id == match.id))
+      {:ok, _} = Tournaments.update_pairing_result(board, "")
+
+      [forfeited, _other] =
+        Enum.sort_by(matches_of.(t), &(antwerp_no not in [&1["team_a"], &1["team_b"]]))
+
+      assert {forfeited["match_points"], forfeited["forfeit_decision"]} == {nil, nil}
+      {:ok, _} = Tournaments.update_pairing_result(Repo.reload!(board), board.result)
+
+      # Withdrawn, it is null again.
+      {:ok, _} = PairingsEngine.TeamMatches.withdraw_forfeit(t, Repo.reload!(match))
+      assert Enum.all?(matches_of.(t), &is_nil(&1["forfeit_decision"]))
+    end
+
+    test "an individual tournament never carries forfeit_decision (absent: no matches at all)" do
+      {tournament, _} = swiss_fixture()
+      rounds = Snapshot.build(tournament)["rounds"]
+      refute Enum.any?(rounds, &Map.has_key?(&1, "matches"))
+    end
+
     test "an unpaired round leaves no trace of its matches" do
       {t, _teams} = team_snapshot_fixture()
 
