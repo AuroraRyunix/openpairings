@@ -731,7 +731,7 @@ defmodule PairingsEngine.Publishing do
         # path into a publish - the button, the drain, a future one - gets it
         # without having to know it exists.
         tournament = ensure_key(tournament)
-        tournament |> Snapshot.build() |> post(tournament.openresults_key)
+        tournament |> Snapshot.build() |> post(tournament)
     end
   end
 
@@ -1329,6 +1329,45 @@ defmodule PairingsEngine.Publishing do
       "the results site refused this tournament's key (403) - it was published by a " <>
         "different machine, which is the one that can remove it"
 
+  # The same refusal, on a database that came out of a backup the tournament
+  # was already in. Then "a different machine" is very likely wrong about the
+  # machine: it was this one, before the restore. A tournament first published
+  # after the backup comes back with no key; turning publishing on mints a new
+  # one, and the results site, which bound the address to the old one, refuses
+  # it (restore drill, finding 3). Nothing here can fix that - only the
+  # operator's token can move or remove the copy - so the sentence says who
+  # can. `nil` when it does not apply, and the ordinary words are used.
+  defp restored_words(rejection, %Tournament{} = tournament, operation) do
+    if key_refused?(rejection) and in_restored_backup?(tournament) do
+      lead =
+        case operation do
+          :publish -> "the results site will not accept an update from here (403)"
+          :take_down -> "the results site refused this tournament's key (403)"
+        end
+
+      lead <>
+        " - this tournament was probably published after the backup this installation was " <>
+        "restored from, and its key did not come back with it; the results site's operator " <>
+        "can move or remove it"
+    end
+  end
+
+  defp key_refused?({:rejected, _status, code, _detail})
+       when code in ["key_mismatch", "key_required"],
+       do: true
+
+  defp key_refused?({:rejected, 403, nil, _detail}), do: true
+  defp key_refused?(_rejection), do: false
+
+  defp in_restored_backup?(%Tournament{inserted_at: %DateTime{} = inserted}) do
+    case PairingsEngine.Backup.restored_from() do
+      %{backup_created_at: %DateTime{} = backup} -> DateTime.compare(inserted, backup) != :gt
+      _never_restored -> false
+    end
+  end
+
+  defp in_restored_backup?(%Tournament{}), do: false
+
   defp failure_words({:rejected, _status, "unauthorized", _detail}),
     do: "the server rejected the token (401)"
 
@@ -1411,7 +1450,7 @@ defmodule PairingsEngine.Publishing do
   # were duplicated word for word) and adding the key header to only one of
   # them is exactly the kind of drift that would ship a publish the server
   # refuses.
-  defp post(payload, key) do
+  defp post(payload, %Tournament{openresults_key: key} = tournament) do
     request = request("/api/snapshots", json: payload, headers: [{@key_header, key}])
     url = URI.to_string(request.url)
 
@@ -1432,7 +1471,8 @@ defmodule PairingsEngine.Publishing do
       # Classified first and worded second, so the words are chosen by the
       # server's code rather than by the status - see `publish_words/2`.
       {:ok, %Req.Response{} = response} ->
-        {:error, response |> rejection() |> publish_words(url)}
+        rejection = rejection(response)
+        {:error, restored_words(rejection, tournament, :publish) || publish_words(rejection, url)}
 
       {:error, error} ->
         {:error, publish_words({:unreachable, transport_reason(error)}, url)}
@@ -1621,7 +1661,8 @@ defmodule PairingsEngine.Publishing do
             end
 
           rejection ->
-            {:error, take_down_words(rejection, url)}
+            {:error,
+             restored_words(rejection, tournament, :take_down) || take_down_words(rejection, url)}
         end
 
       {:error, error} ->

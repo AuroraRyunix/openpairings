@@ -80,18 +80,16 @@ defmodule PairingsEngine.BackupTest do
     ])
   end
 
-  defp rating_rows(path) do
-    {:ok, conn} = Exqlite.Sqlite3.open(path)
-    {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, "SELECT COUNT(*) FROM fide_players")
-    {:ok, [[count]]} = Exqlite.Sqlite3.fetch_all(conn, stmt)
-    :ok = Exqlite.Sqlite3.close(conn)
-    count
-  end
+  defp rating_rows(path), do: index_rows(path, "fide_players")
 
+  # Statements released before the close: a connection closed with one still
+  # prepared stays open until it is garbage-collected, and on Windows the
+  # `.restored` file it holds then survives this file's `on_exit` cleanup.
   defp index_rows(path, table) do
     {:ok, conn} = Exqlite.Sqlite3.open(path)
     {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, "SELECT COUNT(*) FROM #{table}")
     {:ok, [[count]]} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+    :ok = Exqlite.Sqlite3.release(conn, stmt)
     :ok = Exqlite.Sqlite3.close(conn)
     count
   end
@@ -155,6 +153,7 @@ defmodule PairingsEngine.BackupTest do
         )
 
       assert {:ok, [[0]]} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+      :ok = Exqlite.Sqlite3.release(conn, stmt)
 
       # And it still accepts writes, so the next sync can fill it.
       assert :ok =
@@ -304,6 +303,7 @@ defmodule PairingsEngine.BackupTest do
         Exqlite.Sqlite3.prepare(conn, "SELECT name, openresults_key FROM tournaments")
 
       {:ok, rows} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+      :ok = Exqlite.Sqlite3.release(conn, stmt)
       :ok = Exqlite.Sqlite3.close(conn)
 
       # The key is the point of the whole exercise: it is the only thing that

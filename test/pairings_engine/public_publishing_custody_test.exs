@@ -115,6 +115,9 @@ defmodule PairingsEngine.PublicPublishingCustodyTest do
       {:ok, conn} = Exqlite.Sqlite3.open(path)
       {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, "SELECT key FROM meta ORDER BY key")
       {:ok, rows} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+      # Released before the close, or the `.restored` file stays open until
+      # the statement is collected and survives on_exit's delete on Windows.
+      :ok = Exqlite.Sqlite3.release(conn, stmt)
       :ok = Exqlite.Sqlite3.close(conn)
       Enum.map(rows, fn [key] -> key end)
     end
@@ -148,6 +151,7 @@ defmodule PairingsEngine.PublicPublishingCustodyTest do
       {:ok, conn} = Exqlite.Sqlite3.open(restored)
       {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, "SELECT openresults_key FROM tournaments")
       {:ok, [[tournament_key]]} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+      :ok = Exqlite.Sqlite3.release(conn, stmt)
       :ok = Exqlite.Sqlite3.close(conn)
 
       assert tournament_key == "a-tournament-key-that-stays"

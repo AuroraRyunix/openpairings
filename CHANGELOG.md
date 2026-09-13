@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **After a restore, a refused publish says what probably happened
+  instead of blaming "a different machine".** A tournament first published
+  after a backup comes back from the restore with no key; publishing it again
+  mints a new one, and the results site refuses every update because it bound
+  the address to the old one. The message said a different machine had
+  published the tournament - in the restore drill it was this machine, before
+  the restore. On a restored database, for a tournament that was already in
+  the backup, publishing and taking down now say the tournament was probably
+  published after the backup this installation was restored from, and that
+  the results site's operator can move or remove it.
 - [Fix] **A restore no longer puts a withdrawn tournament back online.** A
   tournament taken off the results site after a backup still had its key,
   its address and publishing switched on in that backup, so after a restore
