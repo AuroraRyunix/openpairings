@@ -66,8 +66,14 @@
 # SILENTLY unless it's built to hard-fail the instant the download isn't a
 # real jar - and there is no way to prove that reliably against a site this
 # repo doesn't control. Loud-but-not-fatal exclusion is the honest answer.
-swar_fixtures_present? =
-  File.exists?("test/fixtures/c-reeks.swar") and File.exists?("test/fixtures/problemski.swar")
+# All three, because swar_import_test.exs reads all three: with only the first
+# two present (the state of any checkout made before test3-321.swar existed)
+# its test3-321 tests failed on a missing file instead of being excluded.
+swar_fixtures =
+  ~w(test/fixtures/c-reeks.swar test/fixtures/problemski.swar test/fixtures/test3-321.swar)
+
+missing_swar_fixtures = Enum.reject(swar_fixtures, &File.exists?/1)
+swar_fixtures_present? = missing_swar_fixtures == []
 
 javafo_present? = File.exists?(PairingsEngine.Pairing.javafo_jar())
 
@@ -135,7 +141,8 @@ lenient_tags =
 lenient? = fn tag -> lenient_tags == :all or MapSet.member?(lenient_tags, Atom.to_string(tag)) end
 
 candidates = [
-  {swar_fixtures_present?, :swar_fixture, "test/fixtures/c-reeks.swar not present"},
+  {swar_fixtures_present?, :swar_fixture,
+   "#{Enum.join(missing_swar_fixtures, ", ")} not present"},
   {javafo_present?, :javafo, "#{PairingsEngine.Pairing.javafo_jar()} not present"},
   {bbppairings_present?, :bbppairings, "no vendored bbpPairings binary for this OS"}
 ]
