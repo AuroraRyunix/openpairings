@@ -16,6 +16,20 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **`BACKUP_RETENTION` is now a number of DAYS, not a number of
+  files - and a restart no longer spends a backup.** It was a count, every
+  boot wrote a backup five minutes in, and every "take one now" another, so
+  the default "30" was a month only on a box nobody restarted: a week of a few
+  deploys a day was a week of backups. Now a backup is kept while it is
+  younger than that many days (by the time in its own header), **the newest
+  is always kept** whatever its age - a machine that was switched off for a
+  season comes back with its last one - and the scheduler skips the boot-time
+  backup when the newest on disk is less than a day old, scheduling the next
+  one for when that one comes due. **If you set `BACKUP_RETENTION`, read it
+  again as days.** A value that is not a whole number of at least 1 now stops
+  the boot: `0` used to delete every backup, the one just written included,
+  and a negative value deleted the newest and kept the oldest. Listing backups
+  also reads each file's header instead of the whole file.
 - [Fix] **`mix pairings.backup --restore` prints a swap that moves the WAL
   with the database, `--verify` reads every page, and neither leaves a
   decrypted copy of the database behind.** What the restore drill found in

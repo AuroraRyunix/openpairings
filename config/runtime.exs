@@ -329,8 +329,21 @@ if config_env() == :prod do
     config :pairings_engine, :backup_passphrase, passphrase
   end
 
+  # BACKUP_RETENTION is DAYS - how long a backup is kept - and a whole number
+  # of at least one, or the app does not start. It was a count of files until
+  # 2026-09-13, which every boot spent (see `PairingsEngine.Backup.prune/1`),
+  # and 0 deleted every backup including the one just written while a
+  # negative count deleted the NEWEST. `prune/1` refuses to keep fewer than
+  # one day's worth regardless, and always keeps the newest; this says so at
+  # boot instead of quietly doing something else.
   if keep = System.get_env("BACKUP_RETENTION") do
-    config :pairings_engine, :backup_retention, String.to_integer(keep)
+    case Integer.parse(keep) do
+      {days, ""} when days >= 1 ->
+        config :pairings_engine, :backup_retention, days
+
+      _ ->
+        raise "BACKUP_RETENTION is a number of days, a whole number of at least 1, got: #{inspect(keep)}"
+    end
   end
 
   config :pairings_engine, PairingsEngine.Repo,

@@ -23,7 +23,7 @@ defmodule PairingsEngine.Backup do
 
   What is left - tournaments, players, rounds, pairings, results, snapshots,
   registrations, keys, audit log, settings - is about 12 MB, which is small
-  enough to keep a month of.
+  enough to keep a month of: `prune/1` keeps 30 days by default.
 
   ## The one key that is deliberately left out
 
@@ -212,25 +212,63 @@ defmodule PairingsEngine.Backup do
   end
 
   @doc """
-  Deletes all but the newest `keep`, returning how many went.
+  Deletes every backup older than the retention window, except the newest,
+  and returns how many went.
 
-  Retention is a count rather than an age on purpose: a machine that has been
-  switched off for a fortnight should still have its last backups when it comes
-  back, and an age rule would have thrown them away.
+  **Retention is an age, in days** (`BACKUP_RETENTION`, 30 by default): a
+  backup is kept while it was written less than that many days ago, by the
+  time in its own header. Until 2026-09-13 it was a count of files, and every
+  boot and every "take one now" spent one, so "30" was a month only on a box
+  nobody restarted - a week of deploys was a week of backups (restore drill,
+  finding 10). `PairingsEngine.Backup.Scheduler` no longer writes one at a
+  boot that already has a recent one, so the window holds about one a day
+  plus whatever was taken by hand.
+
+  **The newest is always kept**, whatever its age and whatever `:days` says.
+  That is what the count used to guarantee and what an age alone would not: a
+  laptop that spent a season in a cupboard comes back with its last backup,
+  not with an empty directory. `:days` below one is treated as one - a count
+  of 0 used to delete every backup including the one just written, and a
+  negative count deleted the newest (finding 9); `config/runtime.exs` refuses
+  such a value at boot.
+
+  `opts`: `:days` (default `retention/0`), `:now` for tests, `:dir`.
   """
   @spec prune(keyword()) :: non_neg_integer()
   def prune(opts \\ []) do
-    keep = Keyword.get(opts, :keep, retention())
+    days = opts |> Keyword.get(:days, retention()) |> at_least_one()
+    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+    cutoff = DateTime.add(now, -days * 86_400, :second)
 
-    list(opts)
-    |> Enum.drop(keep)
-    |> Enum.map(& &1.path)
-    |> Enum.reduce(0, fn path, gone ->
-      case File.rm(path) do
-        :ok -> gone + 1
-        {:error, _} -> gone
-      end
-    end)
+    case list(opts) do
+      [] ->
+        0
+
+      [_newest | older] ->
+        older
+        |> Enum.filter(&(DateTime.compare(&1.created_at, cutoff) != :gt))
+        |> Enum.reduce(0, fn backup, gone ->
+          case File.rm(backup.path) do
+            :ok -> gone + 1
+            {:error, _} -> gone
+          end
+        end)
+    end
+  end
+
+  @doc """
+  How old the newest backup is, in milliseconds, or `nil` when there is none.
+  Never negative: a backup stamped in the future (a clock that stepped back)
+  counts as just written.
+  """
+  @spec newest_age_ms(keyword()) :: non_neg_integer() | nil
+  def newest_age_ms(opts \\ []) do
+    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+
+    case list(opts) do
+      [] -> nil
+      [newest | _] -> max(DateTime.diff(now, newest.created_at, :millisecond), 0)
+    end
   end
 
   @doc """
@@ -330,9 +368,16 @@ defmodule PairingsEngine.Backup do
       Path.join(Path.dirname(database_path()), "backups")
   end
 
-  @doc "How many are kept."
+  @doc "How many days a backup is kept - never fewer than one, see `prune/1`."
   @spec retention() :: pos_integer()
-  def retention, do: Application.get_env(:pairings_engine, :backup_retention, 30)
+  def retention do
+    case Application.get_env(:pairings_engine, :backup_retention, 30) do
+      n when is_integer(n) -> at_least_one(n)
+      _not_a_number -> 30
+    end
+  end
+
+  defp at_least_one(n) when is_integer(n), do: max(n, 1)
 
   @doc "Whether backups are written encrypted."
   @spec encrypted?() :: boolean()
@@ -568,20 +613,35 @@ defmodule PairingsEngine.Backup do
        "the file is corrupt or has been tampered with"}
   end
 
+  # The first lines only, and the size from the file system: listing used to
+  # read every backup whole to find a header of a few hundred bytes, and the
+  # scheduler now lists at boot to decide whether one is due.
+  @head_bytes 16_384
+
   defp summarise(path) do
-    with {:ok, raw} <- File.read(path),
-         [@magic, header, _] <- String.split(raw, "\n", parts: 3),
+    with {:ok, %{size: size}} <- File.stat(path),
+         {:ok, head} <- read_head(path),
+         [@magic, header, _] <- String.split(head, "\n", parts: 3),
          {:ok, decoded} <- Jason.decode(header),
          {:ok, created_at, _} <- DateTime.from_iso8601(decoded["created_at"] || "") do
       %{
         path: path,
-        size: byte_size(raw),
+        size: size,
         created_at: created_at,
         encrypted: decoded["encrypted"] == true
       }
     else
       _ -> nil
     end
+  end
+
+  defp read_head(path) do
+    File.open(path, [:read, :binary], fn device ->
+      case IO.binread(device, @head_bytes) do
+        data when is_binary(data) -> data
+        _eof_or_error -> ""
+      end
+    end)
   end
 
   ## ---------- plumbing ----------

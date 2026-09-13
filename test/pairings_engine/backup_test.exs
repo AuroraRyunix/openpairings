@@ -410,32 +410,153 @@ defmodule PairingsEngine.BackupTest do
   end
 
   describe "retention" do
-    test "keeps the newest and removes the rest", %{dir: dir} do
+    # Retention is days since 2026-09-13 (restore drill, finding 10): it was a
+    # count of files, every boot spent one, and "30" was a month only on a box
+    # nobody restarted.
+    test "keeps what is younger than the window and removes what is older", %{dir: dir} do
       src = source(dir)
 
       for day <- 1..5 do
-        stamp = DateTime.new!(Date.new!(2026, 8, day), ~T[00:00:00])
+        stamp = DateTime.new!(Date.new!(2026, 8, day), ~T[12:00:00])
         {:ok, _} = Backup.create(dir: dir, source: src, stamp: stamp)
       end
 
-      assert length(Backup.list(dir: dir)) == 5
-      assert Backup.prune(dir: dir, keep: 2) == 3
+      # Three a day on the 5th - three deploys - count once each, not against
+      # a number of files.
+      for hour <- [13, 14] do
+        stamp = DateTime.new!(~D[2026-08-05], Time.new!(hour, 0, 0))
+        {:ok, _} = Backup.create(dir: dir, source: src, stamp: stamp)
+      end
 
-      remaining = Backup.list(dir: dir)
-      assert length(remaining) == 2
+      assert length(Backup.list(dir: dir)) == 7
 
-      # The newest two, not any two.
-      assert hd(remaining).created_at.day == 5
+      # Two days, seen from the 5th at 18:00: the 4th at noon is 30 hours old
+      # and stays, the 3rd at noon is 54 hours old and goes.
+      assert Backup.prune(dir: dir, days: 2, now: ~U[2026-08-05 18:00:00Z]) == 3
+
+      assert Backup.list(dir: dir) |> Enum.map(&{&1.created_at.day, &1.created_at.hour}) ==
+               [{5, 14}, {5, 13}, {5, 12}, {4, 12}]
     end
 
-    test "counting rather than ageing, so a machine that was off keeps its last one", %{dir: dir} do
+    test "the newest is kept however old, so a machine that was off keeps its last one", %{
+      dir: dir
+    } do
       src = source(dir)
       {:ok, _} = Backup.create(dir: dir, source: src, stamp: ~U[2020-01-01 00:00:00Z])
+      {:ok, _} = Backup.create(dir: dir, source: src, stamp: ~U[2020-01-02 00:00:00Z])
 
-      # Years old, and the only one there. An age rule would have thrown away
-      # the last backup of a laptop that spent a season in a cupboard.
-      assert Backup.prune(dir: dir, keep: 30) == 0
-      assert length(Backup.list(dir: dir)) == 1
+      # Years old, both of them. An age rule alone would have thrown away the
+      # last backup of a laptop that spent a season in a cupboard.
+      assert Backup.prune(dir: dir, days: 30, now: ~U[2026-09-13 00:00:00Z]) == 1
+      assert [%{created_at: ~U[2020-01-02 00:00:00Z]}] = Backup.list(dir: dir)
+    end
+
+    for days <- [0, -1, -3] do
+      test "a window of #{days} days still never removes the newest", %{dir: dir} do
+        src = source(dir)
+
+        for day <- 1..4 do
+          stamp = DateTime.new!(Date.new!(2026, 9, day), ~T[02:00:00])
+          {:ok, _} = Backup.create(dir: dir, source: src, stamp: stamp)
+        end
+
+        # `Enum.drop(list, 0)` deleted every backup, the one just written
+        # included, and a negative count dropped from the other end - keeping
+        # the OLDEST and deleting the newest (drill finding 9). Below one is
+        # one day now.
+        Backup.prune(dir: dir, days: unquote(days), now: ~U[2026-09-04 12:00:00Z])
+
+        assert [%{created_at: newest}] = Backup.list(dir: dir)
+        assert newest.day == 4
+      end
+    end
+
+    test "a configured retention below one day reads as one" do
+      previous = Application.get_env(:pairings_engine, :backup_retention)
+
+      try do
+        for {set, read} <- [{0, 1}, {-5, 1}, {14, 14}, {"thirty", 30}] do
+          Application.put_env(:pairings_engine, :backup_retention, set)
+          assert Backup.retention() == read
+        end
+      after
+        if previous,
+          do: Application.put_env(:pairings_engine, :backup_retention, previous),
+          else: Application.delete_env(:pairings_engine, :backup_retention)
+      end
+    end
+
+    test "BACKUP_RETENTION that is not a whole number of days, at least one, stops the boot" do
+      runtime = Path.expand("../../config/runtime.exs", __DIR__)
+
+      data_dir =
+        Path.join(System.tmp_dir!(), "opbak-runtime-#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf(data_dir) end)
+
+      read = fn value ->
+        with_env(
+          %{
+            "OPENPAIRINGS_LOCAL" => "1",
+            "OPENPAIRINGS_DATA_DIR" => data_dir,
+            "BACKUP_RETENTION" => value
+          },
+          fn -> Config.Reader.read!(runtime, env: :prod) end
+        )
+      end
+
+      assert read.("14")[:pairings_engine][:backup_retention] == 14
+
+      # Not "": on Windows setting a variable to nothing deletes it.
+      for bad <- ["0", "-1", "30d", "1.5"] do
+        assert_raise RuntimeError, ~r/BACKUP_RETENTION/, fn -> read.(bad) end
+      end
+    end
+  end
+
+  describe "the scheduler's first run" do
+    @interval :timer.hours(24)
+
+    test "is a few minutes after boot when there is no backup, or the newest is a day old" do
+      assert Backup.Scheduler.first_delay(nil, @interval) == :timer.minutes(5)
+      assert Backup.Scheduler.first_delay(:timer.hours(25), @interval) == :timer.minutes(5)
+      assert Backup.Scheduler.first_delay(@interval, @interval) == :timer.minutes(5)
+    end
+
+    test "waits for the newest to come due, so a restart does not spend a backup" do
+      # Written two hours ago: the next is due in twenty-two.
+      assert Backup.Scheduler.first_delay(:timer.hours(2), @interval) == :timer.hours(22)
+      # Just written: a full interval, and never more.
+      assert Backup.Scheduler.first_delay(0, @interval) == @interval
+      # Due in a minute: the few minutes after boot still come first.
+      assert Backup.Scheduler.first_delay(@interval - :timer.minutes(1), @interval) ==
+               :timer.minutes(5)
+    end
+
+    test "reads the newest backup's age from its header, never below zero", %{dir: dir} do
+      src = source(dir)
+      assert Backup.newest_age_ms(dir: dir) == nil
+
+      {:ok, _} = Backup.create(dir: dir, source: src, stamp: ~U[2026-09-13 10:00:00Z])
+      {:ok, _} = Backup.create(dir: dir, source: src, stamp: ~U[2026-09-12 10:00:00Z])
+
+      assert Backup.newest_age_ms(dir: dir, now: ~U[2026-09-13 12:00:00Z]) == :timer.hours(2)
+      # A clock that stepped back makes the newest look written in the future.
+      assert Backup.newest_age_ms(dir: dir, now: ~U[2026-09-13 09:00:00Z]) == 0
+    end
+  end
+
+  defp with_env(vars, fun) do
+    previous = Map.new(vars, fn {k, _} -> {k, System.get_env(k)} end)
+    Enum.each(vars, fn {k, v} -> System.put_env(k, v) end)
+
+    try do
+      fun.()
+    after
+      Enum.each(previous, fn
+        {k, nil} -> System.delete_env(k)
+        {k, v} -> System.put_env(k, v)
+      end)
     end
   end
 end

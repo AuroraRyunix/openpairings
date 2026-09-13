@@ -13,13 +13,21 @@ defmodule PairingsEngine.Backup.Scheduler do
   the last run works the same on both, and the machine that is on the most
   gets the most backups, which is the machine with the most to lose.
 
-  ## The first one is soon, not in a day
+  ## The first one is soon, not in a day - unless there is a recent one
 
   A fresh install, or one that has just been restarted after a crash, is
   exactly when there is most likely to be nothing on disk. Waiting a full
   interval to find that out is the wrong way round, so the first run is a few
   minutes after boot - late enough not to compete with start-up, early enough
   that a machine switched on for one tournament still gets one.
+
+  But only when the newest backup on disk is at least an interval old. Until
+  2026-09-13 every boot wrote one, and retention counted files, so a day of
+  deploys spent a day of retention per deploy (restore drill, finding 10).
+  Retention is now an age (`PairingsEngine.Backup.prune/1`), and a boot that
+  finds a backup younger than the interval schedules the next one for when
+  that backup comes due instead - one a day, however often the machine
+  restarts, and a disk the backups cannot fill by being rebooted.
 
   ## Failures are logged, never raised
 
@@ -61,9 +69,17 @@ defmodule PairingsEngine.Backup.Scheduler do
   def handle_continue(:schedule, %{interval: :disabled} = state), do: {:noreply, state}
 
   def handle_continue(:schedule, state) do
-    Process.send_after(self(), :run, @first_run)
+    Process.send_after(self(), :run, first_delay(Backup.newest_age_ms(), state.interval))
     {:noreply, state}
   end
+
+  @doc false
+  # How long after boot the first run is: a few minutes when there is no
+  # backup or the newest is at least an interval old, otherwise when the
+  # newest comes due - never sooner than the few minutes, never later than an
+  # interval. Public for the test, which has no clock to wait on.
+  def first_delay(nil, _interval), do: @first_run
+  def first_delay(age_ms, interval), do: min(max(interval - age_ms, @first_run), interval)
 
   @impl true
   def handle_info(:run, state) do
