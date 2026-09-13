@@ -9,8 +9,8 @@ defmodule PairingsEngine.Publishing.Failure do
   tuple has no room for, and what OpenResults' contract ("Error bodies")
   sends beside a code:
 
-    * `retry_after` - seconds, from `rate_limited`'s body or its
-      `Retry-After` header. The queue backs off at least this long.
+    * `retry_after` - seconds, from `rate_limited`'s or `storage_low`'s body
+      or their `Retry-After` header. The queue backs off at least this long.
     * `limit` - `tournament_limit`'s `limit` or `snapshot_too_large`'s
       `limit_bytes`. The arbiter is told the number.
     * `stop` - what the contract's desktop table says the queue does:
@@ -51,8 +51,11 @@ defmodule PairingsEngine.Publishing.Failure do
   # Codes that describe this installation or the whole server rather than
   # one tournament. Remembered installation-wide so the top bar can say them
   # without asking again (`Installation.put_state/1`).
+  # `storage_low` is here with `publishing_paused`: the whole server has no
+  # room, so every queued tournament would hear the same answer.
   @installation_wide ~w(installation_suspended installation_revoked unauthorized
-                        address_blocked publishing_paused registration_closed)
+                        address_blocked publishing_paused registration_closed
+                        storage_low)
 
   @doc "A failure that is not an answer from the server."
   @spec new(Publishing.check_failure()) :: t()

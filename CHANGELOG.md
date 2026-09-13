@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A results site low on storage is a wait, not a failure.** The
+  results site now refuses public-mode publishes and new tournaments with
+  `storage_low` while its disk is nearly full. OpenPairings keeps everything
+  queued, backs off at least as long as the site asks (five minutes), asks
+  once for the whole queue rather than once per tournament, and says so in
+  amber on the Connections panel, the top bar ("Waiting") and each
+  tournament's Results site settings: "Results site low on storage - The
+  results site is low on storage. Everything waiting is sent when it has room
+  again." The first send that succeeds clears it. In Dutch too.
+
 - [Fix] **After a restore, a refused publish says what probably happened
   instead of blaming "a different machine".** A tournament first published
   after a backup comes back from the restore with no key; publishing it again

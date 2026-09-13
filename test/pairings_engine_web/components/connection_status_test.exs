@@ -118,6 +118,14 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
     Publishing.status()
   end
 
+  defp arrange(:storage_low) do
+    stub(fn conn ->
+      Plug.Conn.send_resp(conn, 503, ~s({"error":"storage_low","retry_after":300}))
+    end)
+
+    Publishing.status()
+  end
+
   defp arrange(:rate_limited) do
     stub(fn conn -> Plug.Conn.send_resp(conn, 429, ~s({"error":"rate_limited"})) end)
     Publishing.status()
@@ -201,6 +209,12 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
             "The results site asked this computer to wait a moment. It will try again shortly."},
            {"Even wachten",
             "De uitslagensite vroeg deze computer om even te wachten. Er wordt straks opnieuw geprobeerd."}},
+          # Amber, not red: nothing is lost, the queue waits for room.
+          {:storage_low, "refused",
+           {"Results site low on storage",
+            "The results site is low on storage. Everything waiting is sent when it has room again."},
+           {"Weinig opslagruimte op de uitslagensite",
+            "De uitslagensite heeft bijna geen opslagruimte meer. Alles wat wacht, wordt verzonden zodra er weer ruimte is."}},
           {:key_not_recognised_bare, "down",
            {"Key not recognised",
             "The results site does not recognise this computer&#39;s key. Publishing has stopped until you register again."},
@@ -332,5 +346,19 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
     assert {"refused", "Refused by the results site",
             "Could not confirm the connection (:something_new)."} =
              card(status, "en")
+  end
+
+  test "the top-bar pill says a results site low on storage is waiting, in amber" do
+    status = arrange(:storage_low)
+
+    for {locale, word} <- [{"en", "Waiting"}, {"nl", "Wacht"}] do
+      html =
+        Gettext.with_locale(PairingsEngineWeb.Gettext, locale, fn ->
+          render_component(&ConnectionStatus.publish_pill/1, status: status)
+        end)
+
+      assert html =~ ~r/class="pub-pill is-refused"/
+      assert html =~ ~r{<span class="pub-word">\s*#{word}\s*</span>}
+    end
   end
 end

@@ -1050,7 +1050,8 @@ defmodule PairingsEngine.Publishing do
   # in `GET /api/server`, so their end is noticed here - forgotten, and
   # everything waiting made due - rather than an hour later when the backoff
   # next lets a send find out. A suspension is not described there, so only
-  # a send finds out it is over.
+  # a send finds out it is over - and neither is low storage (`storage_low`):
+  # the next send after its `retry_after` finds out, and clears it.
   defp recheck_remembered({:rejected, _, "publishing_paused", _}, :ok), do: resume()
   defp recheck_remembered({:rejected, _, "publishing_paused", _}, other), do: other
 

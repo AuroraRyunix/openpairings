@@ -346,7 +346,8 @@ defmodule PairingsEngineWeb.PublicConsent do
       <% end %>
 
       <%!-- A remembered refusal that does not stop anything - a pause, a
-            suspension, registration closed - applies to every step. --%>
+            suspension, registration closed, a results site low on storage - applies
+            to every step. --%>
       <p
         :if={@state.step != :blocked and @state.installation}
         style={line_style(red?(@state.installation))}
