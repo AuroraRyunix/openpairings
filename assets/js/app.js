@@ -280,8 +280,33 @@ const PlayerGrid = {
 
     document.body.appendChild(popup)
     this.cellPopup = popup
+    this.keepCellMenuOnScreen(popup, x, y)
 
     if (takeFocus) { popup.querySelector("button")?.focus() }
+  },
+
+  // Measured once it is in the page rather than assumed, because its size
+  // depends on what it holds - a category menu grows with the tournament's
+  // categories. Opened near the right or bottom edge it opens leftward or
+  // upward from the pointer instead of spilling past the window, and a menu
+  // taller than the window scrolls inside itself. PairingMenu can use fixed
+  // numbers only because its menu is always the same size.
+  keepCellMenuOnScreen(popup, x, y) {
+    const margin = 8
+    const maxHeight = window.innerHeight - 2 * margin
+    if (popup.getBoundingClientRect().height > maxHeight) {
+      popup.style.maxHeight = `${maxHeight}px`
+      popup.style.overflowY = "auto"
+    }
+
+    const {width, height} = popup.getBoundingClientRect()
+    let left = x + width + margin > window.innerWidth ? x - width : x
+    let top = y + height + margin > window.innerHeight ? y - height : y
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin))
+    top = Math.max(margin, Math.min(top, window.innerHeight - height - margin))
+
+    popup.style.left = `${left}px`
+    popup.style.top = `${top}px`
   },
 
   // The tournament's own category names, and (for a row menu) that one

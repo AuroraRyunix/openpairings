@@ -16,6 +16,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The Players grid's right-click menu no longer opens off the edge of the
+  window.** Right-clicking a cell or column header near the right or bottom edge
+  put part of the menu out of reach. The menu now measures itself once it is on
+  the page and opens leftward or upward from the pointer when it would not fit,
+  and a menu taller than the window (a long category list) scrolls inside itself.
 - [Change] **A desktop copy that has not published anything yet says it is ready, not
   that it is "Not publishing".** The Connections card and the top bar used to
   greet a fresh install with "Not publishing" and a sentence about nothing being
