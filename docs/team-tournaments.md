@@ -203,6 +203,29 @@ team's number); board numbers run on through the round as in a round robin.
 If no legal pairing exists (C.04.6 3.3.3: "the Chief Arbiter shall decide"),
 *Pair* says so and pairs nothing.
 
+### The round's account
+
+Each team Swiss round stores what the team engine reported on
+`rounds.explanation` (`TeamSwiss.explanation/5`, `"kind": "team_swiss"`),
+and the round's *Pairing rationale* page shows it
+(`PairingsEngine.TeamRoundExplanation`) in place of the individual analysis,
+which would explain boards the engine never decided on:
+
+| Section | What it shows | Where it comes from |
+|---|---|---|
+| The teams going into the round | match points, game points, colours, colour preference (Type A), had the bye, won a match by forfeit, floated last round | the `%Team{}` structs the engine was given |
+| Pairing-allocated bye (3.4) | the bye team; teams [C2] ruled out and why; the eligible teams in 3.4.2-3.4.4's order up to the bye, those before it "passed over" for 3.4.1 | the engine's `bye`, and its documented rule: it takes the first team in that order that leaves the rest pairable |
+| Brackets (3.5, 3.6) | score, residents, upfloaters, pairs, [C8]/[C9]/[C10] of the pairing chosen, candidates examined, whether the search was complete | the engine's `brackets` |
+| Colours (Article 4) | White and Black on board 1, the first team (4.2), the score difference | the engine's `pairs` |
+
+Not shown, because `Ainalrami.TeamPairing.pair_round/2` does not return
+them: how the candidate upfloater sets compared on [C5]-[C7], and which rule
+of Article 4.3 decided each match's colours. When the round's matches no
+longer match the recorded pairs (edited afterwards), the page says so. A
+round paired before accounts were stored, rebuilt from a TRF import, or
+restored from a backup (the column is not exported: it names teams by
+pairing number and database id) has none, and the page says that.
+
 ### Old team Swiss events stay player by player
 
 Before phase 2 every team Swiss was paired player by player on the individual

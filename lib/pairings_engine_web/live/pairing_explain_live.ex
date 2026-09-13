@@ -20,6 +20,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.RoundExplanation
+  alias PairingsEngine.TeamRoundExplanation
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.AuditLive
@@ -31,6 +32,36 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   def mount(%{"id" => id, "round" => round}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
     round_number = String.to_integer(round)
+
+    # A team Swiss was paired team against team (C.04.6): the individual
+    # analysis below would explain boards the engine never decided on. Its
+    # page is the team engine's own account.
+    if Tournament.team_swiss?(tournament) do
+      {:ok, mount_team(socket, tournament, round_number)}
+    else
+      mount_individual(socket, tournament, round_number)
+    end
+  end
+
+  defp mount_team(socket, tournament, round_number) do
+    round = Tournaments.get_round(tournament.id, round_number)
+    teams = Tournaments.list_teams(tournament.id)
+    matches = if round, do: Tournaments.list_matches(round.id), else: []
+
+    assign(socket,
+      tournament: tournament,
+      round_number: round_number,
+      paired_rounds: Engine.paired_rounds_count(tournament.id),
+      team_mode: true,
+      round: round,
+      team_account: round && TeamRoundExplanation.for_round(round, teams),
+      team_divergence:
+        if(round, do: TeamRoundExplanation.divergence(round, matches), else: :no_record),
+      page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
+    )
+  end
+
+  defp mount_individual(socket, tournament, round_number) do
     rationale = PairingRationale.for_round(tournament, round_number)
     paired_rounds = Engine.paired_rounds_count(tournament.id)
 
@@ -1797,7 +1828,251 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     """
   end
 
+  ## ---------- a team Swiss round: the team engine's account ----------
+
+  defp team_label(%{name: name}), do: name
+  defp team_label(_), do: "-"
+
+  defp team_labels([]), do: "-"
+  defp team_labels(teams), do: Enum.map_join(teams, ", ", &team_label/1)
+
+  defp points(nil), do: "-"
+  defp points(n) when is_float(n), do: if(n == Float.round(n), do: trunc(n), else: n)
+  defp points(n), do: n
+
+  defp colour_history([]), do: "-"
+
+  defp colour_history(colours),
+    do: Enum.map_join(colours, " ", &if(&1 == "white", do: gettext("W"), else: gettext("B")))
+
+  defp preference_text(nil), do: gettext("none")
+  defp preference_text("white strong"), do: gettext("White (strong)")
+  defp preference_text("black strong"), do: gettext("Black (strong)")
+  defp preference_text("white mild"), do: gettext("White (mild)")
+  defp preference_text("black mild"), do: gettext("Black (mild)")
+  defp preference_text(other), do: other
+
+  defp yes_no(true), do: gettext("yes")
+  defp yes_no(_), do: gettext("no")
+
   @impl true
+  def render(%{team_mode: true} = assigns) do
+    ~H"""
+    <Layouts.app
+      publish_status={assigns[:publish_status]}
+      update_notice={assigns[:update_notice]}
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="audit"
+    >
+      <div class="page-header">
+        <div>
+          <h1>{@tournament.name}</h1>
+          <p class="subtitle" style="margin: 0">
+            {gettext("Pairing rationale for round %{n} - Swiss (teams), FIDE C.04.6",
+              n: @round_number
+            )}
+          </p>
+        </div>
+      </div>
+
+      <AuditLive.subnav tournament={@tournament} active={:explain} />
+      <.round_selector
+        tournament={@tournament}
+        paired_rounds={@paired_rounds}
+        round_number={@round_number}
+      />
+
+      <div :if={is_nil(@round)} class="card error-note" style="display: block; margin: 12px 0">
+        {gettext("Round %{n} has not been paired yet, so there is nothing to explain.",
+          n: @round_number
+        )}
+      </div>
+
+      <div
+        :if={@round && is_nil(@team_account)}
+        id="team-account-missing"
+        class="card"
+        style="display: block; margin: 12px 0"
+      >
+        {gettext(
+          "No account was recorded for this round. The team engine's account is stored when a round is paired; a round paired before that, rebuilt from a TRF import, or brought back from a backup has none."
+        )}
+      </div>
+
+      <div :if={@team_account} id="team-account">
+        <p class="hint" style="margin: 4px 0 12px">
+          {gettext(
+            "What Ainalrami's team engine reported when it paired this round: the bye, the brackets it built and the upfloaters it took, and the colour criteria of the pairing it chose. Teams are named with their pairing numbers."
+          )}
+        </p>
+
+        <p :if={match?({:changed, _}, @team_divergence)} class="pe-modal-warn" role="status">
+          {gettext(
+            "The matches on the Pairings page no longer match this account: it describes the round as the engine paired it, before it was changed."
+          )}
+        </p>
+
+        <section class="card table-card" aria-labelledby="team-account-teams">
+          <table class="pe-table">
+            <caption id="team-account-teams">{gettext("The teams going into the round")}</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="num">{gettext("No.")}</th>
+                <th scope="col">{gettext("Team")}</th>
+                <th scope="col" class="num">{gettext("Match points")}</th>
+                <th scope="col" class="num">{gettext("Game points")}</th>
+                <th scope="col">{gettext("Colours")}</th>
+                <th scope="col">{gettext("Colour preference")}</th>
+                <th scope="col">{gettext("Had the bye")}</th>
+                <th scope="col">{gettext("Won a match by forfeit")}</th>
+                <th scope="col">{gettext("Floated last round")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={t <- @team_account.teams}>
+                <td class="num">{t.tpn}</td>
+                <th scope="row">{team_label(t.team)}</th>
+                <td class="num">{points(t.match_points)}</td>
+                <td class="num">{points(t.game_points)}</td>
+                <td>{colour_history(t.colours)}</td>
+                <td>{preference_text(t.preference)}</td>
+                <td>{yes_no(t.had_bye?)}</td>
+                <td>{yes_no(t.won_by_forfeit?)}</td>
+                <td>{yes_no(t.floated_last_round?)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p :if={@team_account.absent != []} class="hint">
+            {gettext("Not in this round's field, but numbered for Article 4.3.1: %{teams}",
+              teams: team_labels(@team_account.absent)
+            )}
+          </p>
+        </section>
+
+        <section id="team-account-bye" class="card" aria-labelledby="team-account-bye-title">
+          <h2 id="team-account-bye-title">{gettext("Pairing-allocated bye (Article 3.4)")}</h2>
+          <p :if={is_nil(@team_account.bye)}>
+            {gettext("No bye: an even number of teams was paired.")}
+          </p>
+          <div :if={@team_account.bye}>
+            <p>
+              {gettext("%{team} had the bye.", team: team_label(@team_account.bye.team))}
+            </p>
+            <ul :if={@team_account.bye.ineligible != []}>
+              <li :for={i <- @team_account.bye.ineligible}>
+                <%= if i.reason == :had_bye do %>
+                  {gettext("%{team}: not eligible, has already had the bye ([C2]).",
+                    team: team_label(i.team)
+                  )}
+                <% else %>
+                  {gettext("%{team}: not eligible, has won a match by forfeit ([C2]).",
+                    team: team_label(i.team)
+                  )}
+                <% end %>
+              </li>
+            </ul>
+            <p>
+              {gettext(
+                "Eligible teams in the order of Articles 3.4.2-3.4.4 (lowest score, most matches played, highest number), up to the one that got it:"
+              )}
+            </p>
+            <ol>
+              <li :for={c <- @team_account.bye.candidates}>
+                <%= if c.outcome == :chosen do %>
+                  {gettext("%{team} (%{mp} match points, %{played} played): got the bye.",
+                    team: team_label(c.team),
+                    mp: points(c.match_points),
+                    played: c.matches_played
+                  )}
+                <% else %>
+                  {gettext(
+                    "%{team} (%{mp} match points, %{played} played): passed over - the other teams could not then all be paired without a repeat meeting (3.4.1).",
+                    team: team_label(c.team),
+                    mp: points(c.match_points),
+                    played: c.matches_played
+                  )}
+                <% end %>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <section
+          :for={{b, i} <- Enum.with_index(@team_account.brackets, 1)}
+          id={"team-account-bracket-#{i}"}
+          class="card"
+          aria-labelledby={"team-account-bracket-#{i}-title"}
+        >
+          <h2 id={"team-account-bracket-#{i}-title"}>
+            {gettext("Bracket %{n}: %{score} match points", n: i, score: points(b.score))}
+          </h2>
+          <dl>
+            <dt>{gettext("Teams on this score")}</dt>
+            <dd>{team_labels(b.residents)}</dd>
+            <dt>{gettext("Upfloaters (Article 3.5)")}</dt>
+            <dd>{team_labels(b.upfloaters)}</dd>
+            <dt>{gettext("Pairs")}</dt>
+            <dd>
+              {Enum.map_join(b.pairs, "; ", fn {x, y} -> "#{team_label(x)} - #{team_label(y)}" end)}
+            </dd>
+            <dt>{gettext("Quality of the pairing chosen (Article 3.6)")}</dt>
+            <dd>
+              {gettext(
+                "[C8] colour preferences not met: %{c8}. [C9] strong colour preferences not met: %{c9}. [C10] upfloaters' opponents who floated last round: %{c10}.",
+                c8: b.c8,
+                c9: b.c9,
+                c10: b.c10
+              )}
+              <%= if b.exhaustive? do %>
+                {gettext(
+                  "The first of %{count} candidate pairings in identifier order with the least of these was taken; the search was complete.",
+                  count: b.candidates
+                )}
+              <% else %>
+                {gettext(
+                  "The best of %{count} candidate pairings was taken; the search stopped at its budget, so a better one may exist.",
+                  count: b.candidates
+                )}
+              <% end %>
+            </dd>
+          </dl>
+        </section>
+
+        <section class="card table-card" aria-labelledby="team-account-colours">
+          <table class="pe-table">
+            <caption id="team-account-colours">{gettext("Colours (Article 4)")}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{gettext("White on board 1")}</th>
+                <th scope="col">{gettext("Black on board 1")}</th>
+                <th scope="col">{gettext("First team (4.2)")}</th>
+                <th scope="col" class="num">{gettext("Score difference")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={p <- @team_account.pairs}>
+                <td>{team_label(p.white)}</td>
+                <td>{team_label(p.black)}</td>
+                <td>{team_label(p.first_team)}</td>
+                <td class="num">{points(p.score_difference)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <p class="hint">
+          {gettext(
+            "Not recorded, because the engine does not report it: why one set of upfloaters was preferred to another ([C5]-[C7]), and which rule of Article 4.3 gave each match its colours."
+          )}
+        </p>
+      </div>
+    </Layouts.app>
+    """
+  end
+
   def render(%{rationale: nil} = assigns) do
     ~H"""
     <Layouts.app

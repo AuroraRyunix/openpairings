@@ -147,6 +147,15 @@ defmodule PairingsEngine.TeamSwiss do
             store_mode(tournament, "teams")
           end
 
+          # What the engine reported, kept as the round's account for the
+          # rationale page (`PairingsEngine.TeamRoundExplanation`).
+          round =
+            round
+            |> Ecto.Changeset.change(
+              explanation: explanation(result, engine_teams, teams, absent, opts)
+            )
+            |> Repo.update!()
+
           Tournaments.broadcast_tournament_change(tournament.id, :rounds)
           {:ok, round}
         end
@@ -187,6 +196,125 @@ defmodule PairingsEngine.TeamSwiss do
     Enum.sort_by(pairs, fn p ->
       {-score.(p.first_team), -(score.(p.white) + score.(p.black)), p.first_team}
     end)
+  end
+
+  ## ---------- the round's account ----------
+
+  @doc """
+  The account of a paired round, as stored on `rounds.explanation`: what
+  `Ainalrami.TeamPairing.pair_round/2` returned, plus what the engine was
+  told, in JSON-safe form with string keys. Teams are named by their pairing
+  numbers, with `"team_ids"` to resolve them.
+
+    * `"teams"` - each team's state going into the round: match and game
+      points, colours, colour preference (Art. 1.7, Type A), bye, forfeit
+      win and float flags, opponents.
+    * `"bye"` - the pairing-allocated bye (Art. 3.4): the teams [C2] barred
+      and why, and the eligible teams in 3.4.2-3.4.4's order up to the one
+      that got it. The engine takes the first in that order that leaves the
+      rest pairable (3.4.1), so every team before it was passed over for
+      3.4.1 - read from the engine's own rule, not re-searched.
+    * `"brackets"` - per bracket (Art. 3.5/3.6): its score, residents,
+      upfloaters, pairs, the [C8]/[C9]/[C10] values of the pairing chosen,
+      how many candidates 3.6 examined and whether the search was exhaustive.
+    * `"pairs"` - colours as allocated (Art. 4): White, Black, the first
+      team (4.2) and the score difference.
+
+  Not in it, because the engine does not return them: why one upfloater set
+  beat another ([C5]-[C7] values per set) and which Article 4.3 rule gave
+  each pair its colours.
+  """
+  def explanation(result, engine_teams, teams, absent, opts) do
+    round = Keyword.get(opts, :round)
+    expected = Keyword.get(opts, :expected_rounds)
+    last_round? = not is_nil(round) and not is_nil(expected) and round >= expected
+    last_two? = not is_nil(round) and not is_nil(expected) and round >= expected - 1
+
+    %{
+      "kind" => "team_swiss",
+      "version" => 1,
+      "round" => round,
+      "last_round" => last_round?,
+      "last_two_rounds" => last_two?,
+      "team_ids" => Map.new(teams, &{Integer.to_string(&1.pairing_number), &1.id}),
+      "absent" => absent,
+      "teams" =>
+        engine_teams
+        |> Enum.sort_by(& &1.tpn)
+        |> Enum.map(fn team ->
+          %{
+            "tpn" => team.tpn,
+            "match_points" => team.match_points,
+            "game_points" => team.game_points,
+            "colours" => Enum.map(team.colours, &Atom.to_string/1),
+            "preference" => preference_json(TeamPairing.Team.preference(team, :a, last_round?)),
+            "had_bye" => team.had_pab?,
+            "won_by_forfeit" => team.won_by_forfeit?,
+            "floated_last_round" => team.floated_last_round?,
+            "opponents" => team.opponents
+          }
+        end),
+      "bye" => bye_json(result.bye, engine_teams),
+      "brackets" =>
+        Enum.map(result.brackets, fn b ->
+          {c8, c9, c10} = b.criteria
+
+          %{
+            "score" => b.score,
+            "residents" => b.residents,
+            "upfloaters" => b.upfloaters,
+            "pairs" => Enum.map(b.pairs, fn {x, y} -> [x, y] end),
+            "c8" => c8,
+            "c9" => c9,
+            "c10" => c10,
+            "candidates" => b.candidates,
+            "exhaustive" => b.exhaustive?
+          }
+        end),
+      "pairs" =>
+        Enum.map(result.pairs, fn p ->
+          %{
+            "white" => p.white,
+            "black" => p.black,
+            "first_team" => p.first_team,
+            "score_difference" => p.score_difference
+          }
+        end)
+    }
+  end
+
+  defp preference_json(:none), do: nil
+  defp preference_json({colour, strength}), do: "#{colour} #{strength}"
+
+  defp bye_json(nil, _teams), do: nil
+
+  defp bye_json(bye, teams) do
+    {ineligible, eligible} = Enum.split_with(teams, &TeamPairing.Team.pab_ineligible?/1)
+
+    ordered =
+      Enum.sort_by(eligible, fn t ->
+        {t.match_points, -TeamPairing.Team.matches_played(t), -t.tpn}
+      end)
+
+    {before, rest} = Enum.split_while(ordered, &(&1.tpn != bye))
+    candidates = if rest == [], do: ordered, else: before ++ [hd(rest)]
+
+    %{
+      "tpn" => bye,
+      "ineligible" =>
+        Enum.map(ineligible, fn t ->
+          %{"tpn" => t.tpn, "reason" => if(t.had_pab?, do: "had_bye", else: "won_by_forfeit")}
+        end),
+      "candidates" =>
+        Enum.map(candidates, fn t ->
+          %{
+            "tpn" => t.tpn,
+            "match_points" => t.match_points,
+            "matches_played" => TeamPairing.Team.matches_played(t),
+            "outcome" => if(t.tpn == bye, do: "chosen", else: "passed_over")
+          }
+        end)
+    }
   end
 
   defp refusal(:no_legal_bye),

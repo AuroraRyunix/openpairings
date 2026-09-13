@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A team Swiss round's pairing rationale.** Pairing a team Swiss
+  round now stores what the team engine reported, and the round's *Pairing
+  rationale* page (Audit - Pairing rationale) shows it instead of the
+  individual analysis: every team's match points, game points, colours,
+  colour preference, bye, forfeit-win and float flags going into the round;
+  who had the pairing-allocated bye, which teams [C2] ruled out and which
+  were passed over under Article 3.4.1; each bracket's teams, upfloaters and
+  pairs with the [C8]-[C10] values of the pairing chosen and whether the
+  search was complete; and the colours with each match's first team. A round
+  whose matches were changed afterwards says so. Rounds paired before this
+  have no account, and the page says that too.
 - [Feature] **A team tournament imported from TRF gets its matches back.**
   TRF files record teams and games but not which boards formed which match;
   the import now works the matches out from the boards - the same two teams

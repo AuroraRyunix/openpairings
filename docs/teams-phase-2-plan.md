@@ -25,7 +25,10 @@
 > - **Article 16** follows the C.07 text for the forfeit cap (16.4.1) and for
 >   trailing forfeit losses, where the individual `Standings` it was to be
 >   modelled on differs slightly; see `team-tournaments.md`.
-> - **B7, the explanation**, is not stored yet.
+> - **B7, the explanation**, was stored in a follow-up (2026-09-14): see
+>   "The round's account" in `team-tournaments.md`. The same pass rebuilt
+>   matches on TRF import, attached hand-added boards to matches, and added
+>   the match forfeited by decision.
 
 Phase 1 (the team round robin, [`team-tournaments.md`](team-tournaments.md))
 is built. This is the plan for phase 2: pairing a **team Swiss** team against

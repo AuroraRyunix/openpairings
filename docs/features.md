@@ -51,6 +51,9 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **Team match actions** (both team systems) - forfeit a match to one team by
   decision, and withdraw the decision; a board added by hand joins its teams'
   match when it fits, and is marked as counting for no team when it does not.
+- **Team Swiss pairing rationale** - each round stores the team engine's
+  account (bye, brackets, upfloaters, [C8]-[C10], colours) and the rationale
+  page shows it.
 - **Team TRF import rebuilds matches** - the `013` teams and board orders,
   and each round's matches worked out from the boards where they are
   unambiguous; an unclear round is named, not guessed.
@@ -270,8 +273,6 @@ Near-term, in rough order:
 
 Later / larger:
 
-- **Team Swiss explanations** - the engine returns the brackets it formed;
-  storing them for the rationale page, as the individual engine's are.
 - **Team pages on OpenResults** - additive snapshot fields for teams,
   matches and team standings, so a team event can be published.
 
