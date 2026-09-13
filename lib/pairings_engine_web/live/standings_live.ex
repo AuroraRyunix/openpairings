@@ -134,47 +134,71 @@ defmodule PairingsEngineWeb.StandingsLive do
   # `publish_controls/1` section below for K's own meaning and the two
   # handlers' shared reasoning with `PairingsEngineWeb.PairingsLive`'s
   # identical pair (same `Tournaments` functions, same rules 2/3).
+  # `round` is the "Standings after round N" control's own value - a plain
+  # event payload, writable with anything by whoever holds the socket. A
+  # non-numeric or negative value used to crash on `String.to_integer/1`
+  # (or, since `publish_standings_through/2`'s own guard requires a
+  # non-negative integer, a `FunctionClauseError` even once parsed); it is
+  # now a silent no-op, the same treatment a bad hook payload gets - this
+  # is the sender's own LiveView down over nothing anyone typed, not a
+  # refusal `Tournaments` has a reason for. A round number that IS valid
+  # but fails a real business rule (not paired, not public, not complete)
+  # still reaches the existing `{:error, reason}` flash below.
   @impl true
   def handle_event("publish_standings", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
+    case parse_round(round) do
+      nil ->
+        {:noreply, socket}
 
-    case Tournaments.publish_standings_through(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "standings.published", %{
-          through_round: round_number
-        })
+      round_number ->
+        tournament = socket.assigns.tournament
 
-        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+        case Tournaments.publish_standings_through(tournament, round_number) do
+          {:ok, tournament} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "standings.published", %{
+              through_round: round_number
+            })
 
-      {:error, :archived} ->
-        {:noreply, archived_refusal(socket)}
+            {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+          {:error, :archived} ->
+            {:noreply, archived_refusal(socket)}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+        end
     end
   end
+
+  def handle_event("publish_standings", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("unpublish_standings", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
+    case parse_round(round) do
+      nil ->
+        {:noreply, socket}
 
-    case Tournaments.unpublish_standings_through(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "standings.unpublished", %{
-          from_round: round_number
-        })
+      round_number ->
+        tournament = socket.assigns.tournament
 
-        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+        case Tournaments.unpublish_standings_through(tournament, round_number) do
+          {:ok, tournament} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "standings.unpublished", %{
+              from_round: round_number
+            })
 
-      {:error, :archived} ->
-        {:noreply, archived_refusal(socket)}
+            {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+          {:error, :archived} ->
+            {:noreply, archived_refusal(socket)}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+        end
     end
   end
+
+  def handle_event("unpublish_standings", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket)
@@ -332,6 +356,20 @@ defmodule PairingsEngineWeb.StandingsLive do
         "Round %{n} isn't finished yet - every result must be entered first.",
         n: round_number
       )
+
+  # A non-negative whole number - what `publish_standings_through/2` and
+  # `unpublish_standings_through/2` both guard on - or nil for anything
+  # else (missing, non-numeric, negative, a float, a map, a list).
+  defp parse_round(round) when is_integer(round) and round >= 0, do: round
+
+  defp parse_round(round) when is_binary(round) do
+    case Integer.parse(round) do
+      {n, ""} when n >= 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_round(_round), do: nil
 
   # An archived tournament refuses every write (Tournaments.ensure_writable/1).
   # These controls are hidden while archived, so reaching one of these clauses

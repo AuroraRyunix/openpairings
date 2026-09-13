@@ -536,17 +536,33 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   def handle_event("columns_loaded", _params, socket), do: {:noreply, socket}
 
-  def handle_event("toggle_column", %{"key" => key}, socket) do
-    visible = socket.assigns.visible
+  # The Display panel's checkboxes each send one of `all_columns/1`'s own
+  # keys for this tournament - a `phx-value-key` is a plain event payload
+  # though, writable with any value by whoever holds the socket. A missing
+  # `key` used to crash with no matching clause (it was the crash used to
+  # force the rejoin in the audit's browser check); a key from outside
+  # `all_columns/1` never crashed - `@visible` is only ever checked with
+  # `key in @visible`, never iterated - but is refused too, for the same
+  # reason `filter_category` refuses an unknown category name: consistent
+  # no-op behaviour for a stale or crafted value rather than storing
+  # something that only weakly does nothing.
+  def handle_event("toggle_column", %{"key" => key}, socket) when is_binary(key) do
+    if toggleable_column?(socket.assigns.tournament, key) do
+      visible = socket.assigns.visible
 
-    visible =
-      if key in visible, do: List.delete(visible, key), else: visible ++ [key]
+      visible =
+        if key in visible, do: List.delete(visible, key), else: visible ++ [key]
 
-    {:noreply,
-     socket
-     |> assign(visible: visible)
-     |> push_event("store_columns", %{columns: visible})}
+      {:noreply,
+       socket
+       |> assign(visible: visible)
+       |> push_event("store_columns", %{columns: visible})}
+    else
+      {:noreply, socket}
+    end
   end
+
+  def handle_event("toggle_column", _params, socket), do: {:noreply, socket}
 
   # Clicking a header sorts by that column, ascending first; clicking the
   # same header again flips direction; clicking a different header resets to
@@ -566,30 +582,42 @@ defmodule PairingsEngineWeb.PlayersLive do
     {:noreply, assign(socket, query: q, results: Fide.search(q))}
   end
 
+  # `fide-id` is a search-result row's id, echoed back in a `phx-value-*` -
+  # so it is parsed rather than trusted. Anything that isn't a whole number
+  # used to crash on `String.to_integer/1`; now it just matches no result,
+  # same as a stale id `Enum.find/2` doesn't find.
   def handle_event("pick", %{"fide-id" => fide_id}, socket) do
-    case Enum.find(socket.assigns.results, &(&1.fide_id == String.to_integer(fide_id))) do
+    case parse_id(fide_id) do
       nil ->
         {:noreply, socket}
 
-      fp ->
-        base = %{
-          "name" => fp.name,
-          "title" => fp.title,
-          "fide_id" => fp.fide_id,
-          "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-          "federation" => fp.federation,
-          "birth_year" => fp.birth_year,
-          "sex" => normalize_fide_sex(fp.sex)
-        }
+      id ->
+        case Enum.find(socket.assigns.results, &(&1.fide_id == id)) do
+          nil ->
+            {:noreply, socket}
 
-        {:noreply,
-         assign(socket,
-           query: "",
-           results: [],
-           form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
-         )}
+          fp ->
+            base = %{
+              "name" => fp.name,
+              "title" => fp.title,
+              "fide_id" => fp.fide_id,
+              "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
+              "federation" => fp.federation,
+              "birth_year" => fp.birth_year,
+              "sex" => normalize_fide_sex(fp.sex)
+            }
+
+            {:noreply,
+             assign(socket,
+               query: "",
+               results: [],
+               form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
+             )}
+        end
     end
   end
+
+  def handle_event("pick", _params, socket), do: {:noreply, socket}
 
   # Mirrors the FIDE add-form's "pick" autofill, but triggered by typing/
   # leaving the National ID field instead of picking from a search list -
@@ -1431,6 +1459,13 @@ defmodule PairingsEngineWeb.PlayersLive do
   # after the configured ones, in `@tiebreak_columns`'s fixed order.
   defp all_columns(tournament) do
     @columns_before_tiebreaks ++ tiebreak_columns(tournament) ++ @columns_after_tiebreaks
+  end
+
+  # Whether `key` is one `toggle_column` may actually act on - `all_columns/1`'s
+  # own keys for this tournament, which is exactly what the Display panel's
+  # checkboxes send. "name" is never among them; that column has no toggle.
+  defp toggleable_column?(tournament, key) do
+    key in Enum.map(all_columns(tournament), &elem(&1, 0))
   end
 
   defp tiebreak_columns(tournament) do

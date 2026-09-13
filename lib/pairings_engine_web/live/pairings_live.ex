@@ -416,17 +416,25 @@ defmodule PairingsEngineWeb.PairingsLive do
   # Arming says so out loud as well as in the banner: a screen reader has no
   # other way to learn that the next seat it presses Enter on is the swap.
   def handle_event("arm_swap", %{"player-id" => id}, socket) do
-    player_id = String.to_integer(id)
+    case parse_id(id) do
+      nil ->
+        {:noreply, socket}
 
-    {:noreply,
-     socket
-     |> assign(
-       menu: nil,
-       confirm: nil,
-       swap_first: %{id: player_id, name: display_name(socket, player_id)}
-     )
-     |> announce(gettext("Swap armed: choose the second seat and press Enter; Escape to cancel."))}
+      player_id ->
+        {:noreply,
+         socket
+         |> assign(
+           menu: nil,
+           confirm: nil,
+           swap_first: %{id: player_id, name: display_name(socket, player_id)}
+         )
+         |> announce(
+           gettext("Swap armed: choose the second seat and press Enter; Escape to cancel.")
+         )}
+    end
   end
+
+  def handle_event("arm_swap", _params, socket), do: {:noreply, socket}
 
   def handle_event("cancel_swap", _params, socket) do
     socket =
@@ -440,26 +448,49 @@ defmodule PairingsEngineWeb.PairingsLive do
   # The second half of a swap: a plain LEFT-click, on either a seated
   # player or someone in the round's pool.
   def handle_event("pick_swap_target", %{"player-id" => id}, socket) do
-    target_id = String.to_integer(id)
+    case parse_id(id) do
+      nil ->
+        {:noreply, socket}
 
-    case socket.assigns.swap_first do
-      nil -> {:noreply, socket}
-      %{id: ^target_id} -> {:noreply, socket}
-      first -> {:noreply, stage(socket, {:swap, first.id, target_id})}
+      target_id ->
+        case socket.assigns.swap_first do
+          nil -> {:noreply, socket}
+          %{id: ^target_id} -> {:noreply, socket}
+          first -> {:noreply, stage(socket, {:swap, first.id, target_id})}
+        end
     end
   end
 
+  def handle_event("pick_swap_target", _params, socket), do: {:noreply, socket}
+
   def handle_event("stage_vacate", %{"player-id" => id}, socket) do
-    {:noreply, stage(socket, {:vacate, String.to_integer(id)})}
+    case parse_id(id) do
+      nil -> {:noreply, socket}
+      player_id -> {:noreply, stage(socket, {:vacate, player_id})}
+    end
   end
+
+  def handle_event("stage_vacate", _params, socket), do: {:noreply, socket}
 
   def handle_event("stage_bye", %{"pairing-id" => id}, socket) do
-    {:noreply, stage(socket, {:bye, String.to_integer(id)})}
+    case parse_id(id) do
+      nil -> {:noreply, socket}
+      pairing_id -> {:noreply, stage(socket, {:bye, pairing_id})}
+    end
   end
 
+  def handle_event("stage_bye", _params, socket), do: {:noreply, socket}
+
   def handle_event("stage_fill", %{"pairing-id" => pid, "player-id" => plid}, socket) do
-    {:noreply, stage(socket, {:fill, String.to_integer(pid), String.to_integer(plid)})}
+    with pairing_id when not is_nil(pairing_id) <- parse_id(pid),
+         player_id when not is_nil(player_id) <- parse_id(plid) do
+      {:noreply, stage(socket, {:fill, pairing_id, player_id})}
+    else
+      _ -> {:noreply, socket}
+    end
   end
+
+  def handle_event("stage_fill", _params, socket), do: {:noreply, socket}
 
   # Hide/unhide is a plain, immediate toggle - not staged behind `@confirm`
   # the way the other hand-edit gestures are. It's display-only and fully
@@ -793,6 +824,29 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   defp menu_id(_value), do: :error
+
+  # A whole number from an `arm_swap`/`pick_swap_target`/`stage_vacate`/
+  # `stage_bye`/`stage_fill` payload's `player-id`/`pairing-id`, or nil for
+  # anything else (missing, non-numeric, a float, a map, a list) - each of
+  # those five used to crash on `String.to_integer/1`. An id that parses
+  # fine but names a player or pairing from another tournament is not a
+  # write: `stage/2` -> `confirm_for/2` (and `arm_swap`'s own
+  # `display_name/2`) look it up only inside `socket.assigns.round` and
+  # `socket.assigns.round_pool`, both scoped to this tournament by
+  # `mount/3`, so a foreign id just matches nothing (`{:error,
+  # :not_in_round}` or a blank name) - and `Tournaments.fill_seat/3`
+  # additionally refuses a foreign player id with `{:error, :invalid_player}`
+  # even if it somehow reached that far.
+  defp parse_id(id) when is_integer(id), do: id
+
+  defp parse_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_id(_id), do: nil
 
   # Builds the confirm state for an action and closes every transient bit
   # of UI around it, so the modal is always the only thing on screen
