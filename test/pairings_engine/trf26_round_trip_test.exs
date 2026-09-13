@@ -303,14 +303,21 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     board(round, 2, players["Carol"], players["Dave"], "1-0")
     board(round, 3, players["Eve"], players["Frank"], "1-0")
 
+    # Round 3: the round nobody has paired yet. (This used to grant the bye
+    # for round 2, which this test has just played - not a future bye at
+    # all, so the refute below held whatever the export did.)
     Repo.insert_all("byes", [
       %{
         tournament_id: tournament.id,
         player_id: players["Eve"].id,
-        round: 2,
+        round: 3,
         type: "requested-half"
       }
     ])
+
+    # The whole tournament carries it, which is what gives the refute meaning.
+    assert {:ok, full} = TrfExport.export(tournament)
+    assert full =~ "\r\n240 H 003    5\r\n"
 
     assert {:ok, text} = TrfExport.export(tournament, "1")
     refute text =~ "240"

@@ -285,6 +285,20 @@ defmodule PairingsEngine.SnapshotTest do
       assert Enum.map(snapshot["rounds"], & &1["number"]) == [1, 2]
     end
 
+    test "the rows are the standings after that round, not the latest results under its label" do
+      # `after_round` alone is only a heading. Round 2 is complete and its
+      # sheet is public, but standings after round 2 are not: the rows must
+      # still be the table after round 1. Computed over every result, they
+      # would publish round 2's outcome under "after round 1".
+      {tournament, a, b} = floor_fixture()
+
+      snapshot = Snapshot.build(tournament)
+      points = Map.new(snapshot["standings"]["rows"], &{&1["player"], &1["points"]})
+
+      assert snapshot["standings"]["after_round"] == 1
+      assert points == %{a.pairing_number => 1.0, b.pairing_number => 0.0}
+    end
+
     test "rule 2: an explicit publish_standings_through/2 call reaches the snapshot exactly" do
       {tournament, _a, _b} = floor_fixture()
 

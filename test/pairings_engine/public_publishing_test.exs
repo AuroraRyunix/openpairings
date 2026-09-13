@@ -137,6 +137,12 @@ defmodule PairingsEngine.PublicPublishingTest do
       Publishing.put_token("operators-token")
       assert Publishing.mode() == :operator
       refute Publishing.public_mode?()
+
+      # "Or not": this setup runs local, so without this half the hosted case
+      # the name promises - the original deployment - was never asserted.
+      local_mode(false)
+      assert Publishing.mode() == :operator
+      refute Publishing.public_mode?()
     end
   end
 

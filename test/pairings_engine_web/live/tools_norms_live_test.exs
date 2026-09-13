@@ -1094,7 +1094,11 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     end
   end
 
-  test "player surnames are capitalised in the downloaded IT4", %{conn: conn} do
+  test "a player named SURNAME, Given still downloads an IT3", %{conn: conn} do
+    # Called "player surnames are capitalised in the downloaded IT4" until
+    # 2026-09-13. This page serves no IT4, and the IT3 it downloads has no
+    # player rows, so all it ever checked was the status below. The IT4 row
+    # casing it named is asserted in Norms.FormsTest ("it4_fills/2").
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     upload_files(lv, [

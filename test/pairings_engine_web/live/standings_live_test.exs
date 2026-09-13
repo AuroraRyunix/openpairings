@@ -314,8 +314,9 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      assert html =~ "We"
-      assert html =~ "W-We"
+      # As header cells: a bare "We" matched any word containing it.
+      assert html =~ ~r/>\s*We\s*<\/th>/
+      assert html =~ ~r/>\s*W-We\s*<\/th>/
       assert html =~ ~r/>\s*BH\s*</
       assert html =~ ~r/>\s*SB\s*</
     end
@@ -337,8 +338,11 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       html = render_hook(lv, "columns_loaded", %{"columns" => columns})
 
-      refute html =~ "We</th>"
-      refute html =~ "W-We</th>"
+      # Whitespace-tolerant. The template renders the label on its own line
+      # inside the <th>, so the literal "We</th>" this used to refute never
+      # appeared, and the columns could stay visible with the test green.
+      refute html =~ ~r/>\s*We\s*<\/th>/
+      refute html =~ ~r/>\s*W-We\s*<\/th>/
       # Tiebreak columns aren't in that list either, so they hide too.
       refute html =~ ~r/>\s*BH\s*</
       refute html =~ ~r/>\s*SB\s*</

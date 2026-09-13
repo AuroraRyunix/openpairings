@@ -1261,6 +1261,28 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.list_collaborators(tournament) == []
     end
 
+    test "remove_collaborator/3 refuses a collaborator id that belongs to another tournament" do
+      # Owning A tournament is not owning the row. The id arrives from a page
+      # event, so it is attacker-controlled: an owner of `mine` who sends the
+      # id of somebody's collaborator on `theirs` must remove nothing.
+      owner = user_scope()
+      other_owner = user_scope()
+
+      {:ok, mine} = Tournaments.create_tournament(owner, %{"name" => "Mine", "type" => "swiss"})
+
+      {:ok, theirs} =
+        Tournaments.create_tournament(other_owner, %{"name" => "Theirs", "type" => "swiss"})
+
+      {:ok, their_collaborator} =
+        Tournaments.add_collaborator(other_owner, theirs, "friend@example.com")
+
+      assert {:error, :not_found} =
+               Tournaments.remove_collaborator(owner, mine, their_collaborator.id)
+
+      assert [%{id: still_there}] = Tournaments.list_collaborators(theirs)
+      assert still_there == their_collaborator.id
+    end
+
     test "a pending invite grants no access - only the owner can reach the tournament until it's accepted" do
       owner = user_scope()
       invited = user_scope()
