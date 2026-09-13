@@ -471,9 +471,10 @@ defmodule PairingsEngine.Publishing do
       arbiter can answer (`installation`, the refusal, says which)
     * `:consent` - waiting for the arbiter to agree to registering
     * `:register` - agreed; this computer has no key yet
-    * `:mint` - registered; the server has not created the address yet, so
-      there is no link
-    * `:send` - the address exists and a publish is queued
+    * `:first_copy` - registered; no copy has arrived on the results site
+      yet (not minted, minted on another server, or minted and never
+      published), so there is no link
+    * `:send` - a copy is on the site and a publish is queued
     * `:done` - nothing outstanding
 
   `failure` is the queue row's last `Failure`, `stopped?` whether that row
@@ -489,7 +490,7 @@ defmodule PairingsEngine.Publishing do
         Installation.stopping_state?() -> :blocked
         not registered? and not Installation.consented?() -> :consent
         not registered? -> :register
-        not has_address?(tournament) -> :mint
+        not on_site?(tournament) -> :first_copy
         entry -> :send
         true -> :done
       end
@@ -745,8 +746,7 @@ defmodule PairingsEngine.Publishing do
     result =
       with :ok <- ensure_installation(),
            {:ok, tournament} <- ensure_minted(tournament) do
-        tournament = ensure_key(tournament)
-        tournament |> Snapshot.build() |> post_public(tournament.openresults_key)
+        send_public(tournament, :may_remint)
       end
 
     case result do
@@ -781,30 +781,134 @@ defmodule PairingsEngine.Publishing do
   end
 
   defp ensure_minted(%Tournament{} = tournament) do
-    if has_address?(tournament), do: {:ok, tournament}, else: Installation.mint(tournament)
+    if public_slug_state(tournament) in [:placeholder, :elsewhere],
+      do: Installation.mint(tournament),
+      else: {:ok, tournament}
+  end
+
+  # The key is minted after the slug and kept through a re-mint: it was never
+  # accepted under a slug that never had a publish, so the new slug is the
+  # first thing it claims.
+  defp send_public(%Tournament{} = tournament, remint) do
+    tournament = ensure_key(tournament)
+
+    case tournament |> Snapshot.build() |> post_public(tournament.openresults_key) do
+      {:ok, _body} = ok ->
+        mark_first_publish(tournament)
+        ok
+
+      {:error, %Failure{reason: {:refused, rejection}}} = refused ->
+        if remint == :may_remint and Failure.effective_code(rejection) == "not_owner" and
+             public_slug_state(tournament) == :minted,
+           do: remint(tournament),
+           else: refused
+
+      {:error, %Failure{}} = error ->
+        error
+    end
+  end
+
+  # The contract's silent re-mint (settled in the desktop build). A minted
+  # slug that has never had a publish and is now `not_owner` is one the
+  # server released after 30 days - or one minted for a key this computer has
+  # since replaced by registering again. No link to it was ever shown (that
+  # waits for the first publish), so a new one is minted and the send carries
+  # on without a word to the arbiter. Once: if the new slug is refused too,
+  # that refusal is the answer.
+  defp remint(%Tournament{} = tournament) do
+    Logger.info(
+      "OpenResults: tournament #{tournament.id}'s address never received a publish and is " <>
+        "no longer this computer's; asking the results site for a new one"
+    )
+
+    with {:ok, reminted} <- Installation.mint(tournament) do
+      send_public(reminted, :no_remint)
+    end
+  end
+
+  # The link's gate - see `public_slug_state/1`. Guarded on the slug, so a
+  # publish that lands while the tournament is being moved does not mark
+  # the new address as published. PubSub rather than
+  # `Tournaments.broadcast_tournament_change/2`, which would enqueue the
+  # publish that just finished; the pages need to hear that a link exists.
+  defp mark_first_publish(%Tournament{public_slug_minted_at: %DateTime{}} = tournament)
+       when is_nil(tournament.public_slug_published_at) do
+    {marked, _} =
+      Repo.update_all(
+        from(t in Tournament,
+          where:
+            t.id == ^tournament.id and t.public_slug == ^tournament.public_slug and
+              is_nil(t.public_slug_published_at)
+        ),
+        set: [public_slug_published_at: DateTime.utc_now() |> DateTime.truncate(:second)]
+      )
+
+    if marked > 0 do
+      Phoenix.PubSub.broadcast(
+        PairingsEngine.PubSub,
+        Tournaments.tournament_topic(tournament.id),
+        {:tournament_changed, tournament.id, :settings}
+      )
+    end
+
+    :ok
+  end
+
+  defp mark_first_publish(%Tournament{}), do: :ok
+
+  @doc """
+  What `tournament.public_slug` is, as far as public mode is concerned - the
+  one reading of it for every decision that turns on it:
+
+    * `:placeholder` - the slug every tournament is born with. Nothing on the
+      results site; a publish mints first.
+    * `:keyed` - not minted here, but a copy was published to it under a
+      tournament key: with an operator token before this computer went
+      without one, or a key taken over from a backup. A real address, and
+      never minted over - minting instead would MOVE the tournament, leaving
+      the old copy public under a slug this machine had forgotten. If the
+      site does not bind it to this installation it says `not_owner`, and
+      the arbiter is sent to the operator for a transfer.
+    * `:elsewhere` - minted on a different server than the one this machine
+      points at now. A slug belongs to the server that created it, so here
+      it is as good as a placeholder: no link, and a publish mints anew.
+    * `:minted` - minted on this server, and no publish under it has
+      succeeded yet. The server answers such a slug exactly like an unknown
+      one, so there is no link; and a `not_owner` means it was released, and
+      it is minted again silently.
+    * `:published` - minted on this server, and published. The link shows;
+      a `not_owner` now is a real ownership question for the operator.
+
+  A minted slug with no server recorded counts as this server's: it is the
+  shape a row has only if it was minted before the server was recorded, and
+  re-minting on a guess could strand a published copy.
+  """
+  @spec public_slug_state(Tournament.t()) ::
+          :placeholder | :keyed | :elsewhere | :minted | :published
+  def public_slug_state(%Tournament{public_slug_minted_at: nil} = tournament),
+    do: if(published?(tournament), do: :keyed, else: :placeholder)
+
+  def public_slug_state(%Tournament{} = tournament) do
+    cond do
+      tournament.public_slug_server not in [nil, endpoint()] -> :elsewhere
+      is_nil(tournament.public_slug_published_at) -> :minted
+      true -> :published
+    end
   end
 
   @doc """
-  Whether `tournament.public_slug` names something on the results site
-  rather than a local placeholder: the site created it
-  (`public_slug_minted_at`), or a copy was published to it under a
-  tournament key - with an operator token before this computer went without
-  one, or a key taken over from a backup.
+  Whether a copy of `tournament` can be read on the results site, as far as
+  this machine knows - what a link, a pull or a takedown needs.
 
-  The one reading of that question, for every public-mode decision that
-  turns on it: whether a link may be shown (`PairingsEngineWeb.PublicLink`),
-  whether a publish must mint first, and whether there is anything to pull.
-
-  A tournament key counts because minting instead would MOVE the tournament:
-  the old copy would stay public under a slug this machine had just
-  forgotten, with nothing here able to take it down. Publishing to it under
-  the installation key is refused `not_owner` if the site does not bind it
-  to this installation, and that refusal tells the arbiter to ask the
-  operator for a transfer - the one-step fix the contract describes.
+  In public mode: `:keyed` or `:published` (see `public_slug_state/1`). In
+  operator mode it is `published?/1`, exactly as before.
   """
-  @spec has_address?(Tournament.t()) :: boolean()
-  def has_address?(%Tournament{public_slug_minted_at: %DateTime{}}), do: true
-  def has_address?(%Tournament{} = tournament), do: published?(tournament)
+  @spec on_site?(Tournament.t()) :: boolean()
+  def on_site?(%Tournament{} = tournament) do
+    if public_mode?(),
+      do: public_slug_state(tournament) in [:keyed, :published],
+      else: published?(tournament)
+  end
 
   # A stopping state read back from storage is not news, and writing it again
   # would broadcast a change that did not happen.
@@ -1489,9 +1593,27 @@ defmodule PairingsEngine.Publishing do
         {:ok, "Removed from the results site. Publishing is now off for this tournament."}
 
       # Every failure leaves the tournament alone - see `take_down_words/2`
-      # for why a 404 is one of them.
+      # for why a 404 is one of them - with one exception, and it is the
+      # re-mint's reasoning applied to a delete: a minted slug that never had
+      # a publish and is `not_owner` was released. Nothing of this tournament
+      # was ever readable there, so there is nothing left to withdraw, and
+      # refusing would keep a tournament out of the bin's "Delete
+      # permanently" forever over a page that never existed.
       {:ok, %Req.Response{} = response} ->
-        {:error, response |> rejection() |> take_down_words(url)}
+        case rejection(response) do
+          {:rejected, 403, "not_owner", _detail} = rejection ->
+            if public_mode?() and public_slug_state(tournament) == :minted do
+              forget_published(tournament)
+
+              {:ok,
+               "Nothing of this tournament was on the results site. Publishing is now off for this tournament."}
+            else
+              {:error, take_down_words(rejection, url)}
+            end
+
+          rejection ->
+            {:error, take_down_words(rejection, url)}
+        end
 
       {:error, error} ->
         {:error, take_down_words({:unreachable, transport_reason(error)}, url)}
@@ -1510,17 +1632,20 @@ defmodule PairingsEngine.Publishing do
   # regenerated behind the arbiter's back" still holds: the only thing that
   # ever retires a key is the arbiter deleting the thing it was for.
   #
-  # `public_slug_minted_at` goes too. The server purged the slug with the
-  # tournament, so it is no longer an address anybody can be sent to, and in
-  # public mode publishing again must mint a new one rather than publish to a
-  # slug the server no longer binds to this installation.
+  # What the results site said about the slug goes too (minted, where, first
+  # published). The server purged the slug with the tournament, so it is no
+  # longer an address anybody can be sent to, and in public mode publishing
+  # again must mint a new one rather than publish to a slug the server no
+  # longer binds to this installation.
   defp forget_published(%Tournament{} = tournament) do
     {:ok, updated} =
       tournament
       |> Ecto.Changeset.change(
         publish_to_openresults: false,
         openresults_key: nil,
-        public_slug_minted_at: nil
+        public_slug_minted_at: nil,
+        public_slug_server: nil,
+        public_slug_published_at: nil
       )
       |> Repo.update()
 
@@ -1905,11 +2030,16 @@ defmodule PairingsEngine.Publishing do
         openresults_key: key,
         public_slug: slug,
         openresults_claim: nil,
-        # The claimed slug is an address that exists on the results site, not
-        # a placeholder: in public mode it must be published to rather than
-        # replaced by a fresh mint, and if another installation owns it the
-        # server says `not_owner` and the arbiter is sent to the operator.
-        public_slug_minted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        # The claimed slug is not this installation's creation, so nothing
+        # the site said about the one it replaces applies. With the key it is
+        # `:keyed` (`public_slug_state/1`): a real address that is published
+        # to rather than minted over - and never re-minted silently, which
+        # would abandon the very copy being taken over. If another
+        # installation owns it, the server says `not_owner` and the arbiter
+        # is sent to the operator.
+        public_slug_minted_at: nil,
+        public_slug_server: nil,
+        public_slug_published_at: nil
       )
       |> Ecto.Changeset.unique_constraint(:public_slug)
       |> Repo.update()

@@ -30,18 +30,28 @@ Each entry is tagged so a version can be skimmed:
   unchanged and never does this: it still needs a token from its operator,
   and a token you enter on the desktop takes over from the computer's own
   key the moment it is saved.
-- [Feature] **No link or QR code until the results site has created the
-  address.** In this mode the results site picks each tournament's address,
-  so the share link, the "Public page" buttons on Pairings and Standings,
-  the entry-form link and the spectator QR code on the local view all stay
-  hidden until it has - a link printed before then would have been dead.
-  The Results site settings page says what the tournament is waiting for
-  instead: your go-ahead, registering this computer, the address being
-  created, or changes being sent. "Move to a new address" asks the results
-  site for a new address and removes the copy at the old one. A tournament
-  already published with a token keeps its address and its link if the
-  token is later removed, rather than being moved and leaving the old copy
-  up with nothing here able to take it down.
+- [Feature] **No link or QR code until the first copy has arrived on the
+  results site.** In this mode the results site picks each tournament's
+  address, and until a publish under it has succeeded the site answers that
+  address like one that does not exist. So the share link, the "Public
+  page" buttons on Pairings and Standings, the entry-form link and the
+  spectator QR code on the local view all stay hidden until the first copy
+  has arrived - not merely until the address is created, because a first
+  publish refused in between (too large, paused, the connection dropping)
+  would have left a dead link on screen or on paper. An open page shows the
+  link the moment it arrives. The Results site settings page says what the
+  tournament is waiting for instead: your go-ahead, registering this
+  computer, the first copy, or changes being sent. "Move to a new address"
+  asks the results site for a new address and removes the copy at the old
+  one. An address that never received a copy and that the results site has
+  since let go (it does after 30 days) is replaced with a new one without
+  interrupting you - nobody was ever given a link to it. An address belongs
+  to the results site that created it: pointing this computer at a
+  different one gives a tournament a new address there, after you agree to
+  publish on that site, with no link in the meantime. A tournament already
+  published with a token keeps its address and its link if the token is
+  later removed, rather than being moved and leaving the old copy up with
+  nothing here able to take it down.
 - [Feature] **The results site's refusals are explained, in English and
   Dutch.** Paused publishing (amber), a suspended or revoked key, a blocked
   network address, the limit on tournaments (with the number), a tournament
@@ -70,9 +80,9 @@ Each entry is tagged so a version can be skimmed:
   stored, and never reaches a log line or the audit trail. It is also only
   ever sent to the results site that issued it: pointing the app at another
   address stops using it. Tournament keys are still carried in backups as
-  before, so a rebuilt laptop can still manage what it published; restoring
-  a backup means registering this computer again, and the site's operator
-  can move its tournaments to the new key.
+  before, so a rebuilt laptop can still manage what it published; after any
+  restore - onto the same computer too - this computer registers again, and
+  the site's operator moves all its tournaments across in one step.
 
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status

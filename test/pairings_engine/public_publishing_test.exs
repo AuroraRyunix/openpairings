@@ -258,7 +258,7 @@ defmodule PairingsEngine.PublicPublishingTest do
       waiting = Tournaments.get_tournament!(t.id)
       refute PublicLink.public?(waiting)
       assert PublicLink.pending?(waiting)
-      assert %{step: :mint} = Publishing.public_state(waiting)
+      assert %{step: :first_copy} = Publishing.public_state(waiting)
 
       Server.install(self())
       make_due(t.id)
@@ -650,12 +650,26 @@ defmodule PairingsEngine.PublicPublishingTest do
       Tournaments.get_tournament!(t.id)
     end
 
-    test "nothing is pulled before the results site has created the address" do
+    test "nothing is pulled before the first copy has arrived - minted or not" do
       t = tournament()
       register!()
 
       assert {:error, message} = PairingsEngine.Registrations.pull(t)
-      assert message =~ "not created this tournament's address"
+      assert message =~ "has reached the results site yet"
+
+      # Minted, and the first publish refused: the entry form was never
+      # reachable, so there is still nothing to collect.
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => Server.error(503, "publishing_paused")
+      })
+
+      Publishing.enqueue(t)
+      capture_log(fn -> Publishing.drain() end)
+      minted = Tournaments.get_tournament!(t.id)
+      assert Publishing.public_slug_state(minted) == :minted
+      Server.requests()
+
+      assert {:error, _} = PairingsEngine.Registrations.pull(minted)
       assert Server.requests() == []
     end
 
@@ -864,6 +878,225 @@ defmodule PairingsEngine.PublicPublishingTest do
     end
   end
 
+  describe "the link waits for the first copy, not the mint" do
+    test "minted and refused: no link anywhere this module decides; the first success shows it" do
+      t = tournament()
+      register!()
+
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => Server.error(503, "publishing_paused")
+      })
+
+      Publishing.enqueue(t)
+      capture_log(fn -> assert {0, 1} = Publishing.drain() end)
+
+      minted = Tournaments.get_tournament!(t.id)
+      assert minted.public_slug_minted_at
+      refute minted.public_slug_published_at
+      assert Publishing.public_slug_state(minted) == :minted
+
+      # The server answers this slug like an unknown one, so a link now would
+      # be dead.
+      refute PublicLink.public?(minted)
+      assert PublicLink.url(minted) == nil
+      assert PublicLink.pending?(minted)
+      refute Publishing.on_site?(minted)
+      assert %{step: :first_copy} = Publishing.public_state(minted)
+
+      Server.install(self())
+      make_due(t.id)
+      assert {1, 0} = Publishing.drain()
+
+      published = Tournaments.get_tournament!(t.id)
+      assert published.public_slug == minted.public_slug
+      assert published.public_slug_published_at
+      assert Publishing.public_slug_state(published) == :published
+      assert PublicLink.url(published) =~ published.public_slug
+    end
+  end
+
+  describe "a minted slug the server released" do
+    # Minted, and the first publish lost to a dead connection: the shape a
+    # tournament is in when the server releases its slug 30 days later.
+    defp minted_never_published! do
+      t = tournament()
+      register!()
+
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => &Req.Test.transport_error(&1, :econnrefused)
+      })
+
+      Publishing.enqueue(t)
+      capture_log(fn -> assert {0, 1} = Publishing.drain() end)
+      Server.requests()
+
+      minted = Tournaments.get_tournament!(t.id)
+      assert Publishing.public_slug_state(minted) == :minted
+      make_due(t.id)
+      minted
+    end
+
+    test "never published and not_owner: a new slug is minted and the publish carries on, silently" do
+      minted = minted_never_published!()
+      released = minted.public_slug
+
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => fn conn ->
+          if Jason.decode!(conn.assigns.raw_body)["tournament"]["slug"] == released,
+            do: Server.error(403, "not_owner").(conn),
+            else: Server.json(conn, 200, %{"ok" => true})
+        end
+      })
+
+      log = capture_log(fn -> assert {1, 0} = Publishing.drain() end)
+
+      assert Server.calls() == [
+               {"POST", "/api/snapshots"},
+               {"POST", "/api/tournaments"},
+               {"POST", "/api/snapshots"}
+             ]
+
+      carried_on = Tournaments.get_tournament!(minted.id)
+      refute carried_on.public_slug == released
+      assert Publishing.public_slug_state(carried_on) == :published
+      # The tournament key is kept: it was never accepted under the old slug.
+      assert carried_on.openresults_key == minted.openresults_key
+      assert PublicLink.url(carried_on) =~ carried_on.public_slug
+
+      # Nothing for the arbiter: no queue row, no stop, no state to show.
+      refute Publishing.queued(minted.id)
+      refute Installation.state()
+      refute log =~ "publish failed"
+    end
+
+    test "re-minted once: if the new slug is refused too, that refusal is the answer" do
+      minted = minted_never_published!()
+
+      Server.install(self(), %{{"POST", "/api/snapshots"} => Server.error(403, "not_owner")})
+      capture_log(fn -> assert {0, 1} = Publishing.drain() end)
+
+      calls = Server.calls()
+      assert Enum.count(calls, &(&1 == {"POST", "/api/tournaments"})) == 1
+      assert Publishing.queued(minted.id).stopped_at
+    end
+
+    test "published, then not_owner: never re-minted - the arbiter is sent to the operator" do
+      t = tournament()
+      register!()
+      Server.install(self())
+      Publishing.enqueue(t)
+      assert {1, 0} = Publishing.drain()
+      published = Tournaments.get_tournament!(t.id)
+      assert Publishing.public_slug_state(published) == :published
+      Server.requests()
+
+      Server.install(self(), %{{"POST", "/api/snapshots"} => Server.error(403, "not_owner")})
+      Publishing.enqueue(published)
+
+      # Several rounds of it - a first refusal, then the arbiter's Try again -
+      # and not one mint among them.
+      capture_log(fn -> assert {0, 1} = Publishing.drain() end)
+      assert Publishing.retry(t.id)
+      capture_log(fn -> assert {0, 1} = Publishing.drain() end)
+
+      refute {"POST", "/api/tournaments"} in Server.calls()
+
+      after_refusals = Tournaments.get_tournament!(t.id)
+      assert after_refusals.public_slug == published.public_slug
+      assert Publishing.queued(t.id).stopped_at
+
+      state = Publishing.public_state(after_refusals)
+      assert {:refused, {:rejected, 403, "not_owner", _}} = state.failure.reason
+      # Its link stays: the copy is real, only its ownership is in question.
+      assert PublicLink.public?(after_refusals)
+    end
+
+    test "a takedown of a released, never-published slug has nothing to withdraw, and says so" do
+      minted = minted_never_published!()
+
+      Server.install(self(), %{{"DELETE", :any} => Server.error(403, "not_owner")})
+      assert {:ok, message} = Publishing.take_down(minted)
+      assert message =~ "Nothing of this tournament was on the results site"
+
+      down = Tournaments.get_tournament!(minted.id)
+      refute down.openresults_key
+      refute down.public_slug_minted_at
+      refute down.publish_to_openresults
+
+      # And the bin's "Delete permanently" is no longer stuck behind it.
+      assert :ok = Publishing.retract(down)
+    end
+
+    test "a published slug's takedown refused not_owner is still an error" do
+      t = tournament()
+      register!()
+      Server.install(self())
+      Publishing.enqueue(t)
+      assert {1, 0} = Publishing.drain()
+
+      Server.install(self(), %{{"DELETE", :any} => Server.error(403, "not_owner")})
+      assert {:error, message} = Publishing.take_down(Tournaments.get_tournament!(t.id))
+      assert message =~ "ask the operator"
+      assert Tournaments.get_tournament!(t.id).openresults_key
+    end
+  end
+
+  describe "a slug belongs to the server that minted it" do
+    test "pointed elsewhere: no link, and a new slug there once the arbiter agrees" do
+      t = tournament()
+      register!()
+      Server.install(self())
+      Publishing.enqueue(t)
+      assert {1, 0} = Publishing.drain()
+      on_first = Tournaments.get_tournament!(t.id)
+      assert on_first.public_slug_server == "https://openresults.zerotwo.cloud"
+      Server.requests()
+
+      Publishing.put_endpoint("https://results.club.example")
+      assert Publishing.public_slug_state(on_first) == :elsewhere
+      refute PublicLink.public?(on_first)
+      assert PublicLink.pending?(on_first)
+
+      # No key and no consent for this server: nothing is sent.
+      Publishing.enqueue(on_first)
+      assert {0, 0} = Publishing.drain()
+      assert %{step: :consent} = Publishing.public_state(on_first)
+      assert Server.requests() == []
+
+      consent!()
+      Server.requests()
+      assert {1, 0} = Publishing.drain()
+
+      assert Server.calls() == [
+               {"POST", "/api/installations"},
+               {"POST", "/api/tournaments"},
+               {"POST", "/api/snapshots"}
+             ]
+
+      on_second = Tournaments.get_tournament!(t.id)
+      refute on_second.public_slug == on_first.public_slug
+      assert on_second.public_slug_server == "https://results.club.example"
+      assert Publishing.public_slug_state(on_second) == :published
+
+      assert PublicLink.url(on_second) ==
+               "https://results.club.example/t/#{on_second.public_slug}"
+    end
+
+    test "a tournament published with an operator token is not bound to a server" do
+      t = tournament()
+      Publishing.put_token("operators-token")
+      Server.install(self())
+      assert {:ok, _} = Publishing.publish(t)
+      Publishing.put_token(nil)
+
+      keyed = Tournaments.get_tournament!(t.id)
+      Publishing.put_endpoint("https://results.club.example")
+
+      assert Publishing.public_slug_state(keyed) == :keyed
+      assert PublicLink.url(keyed) == "https://results.club.example/t/#{keyed.public_slug}"
+    end
+  end
+
   describe "moving to a new address" do
     test "mints a new slug and deletes the copy under the old one" do
       t = tournament()
@@ -948,8 +1181,11 @@ defmodule PairingsEngine.PublicPublishingTest do
         |> Repo.update!()
 
       assert {:ok, adopted} = Publishing.adopt_claim(adopted)
-      # A claimed slug is a real address, not a placeholder to replace.
-      assert adopted.public_slug_minted_at
+      # A claimed slug is a real address, not a placeholder to replace - and
+      # not this installation's minting, so it is never re-minted silently:
+      # that would abandon the very copy being taken over.
+      refute adopted.public_slug_minted_at
+      assert Publishing.public_slug_state(adopted) == :keyed
 
       Server.install(self(), %{{"POST", "/api/snapshots"} => Server.error(403, "not_owner")})
       Publishing.enqueue(adopted)

@@ -37,8 +37,9 @@ defmodule PairingsEngine.Backup do
   is made precisely so it can leave. The contract
   (`docs/public-publishing.md` in OpenResults) says a restore never carries
   it. The price is that restoring onto the same machine does not bring it
-  back either: that machine registers again, and the operator transfers its
-  tournaments - the same one-step transfer a dead laptop needs.
+  back either: that machine registers again, and the operator moves all of
+  its tournaments across in one step (`Moderation.transfer_all/3` there) -
+  the same move a dead laptop needs.
 
   ## Why the file is a database rather than a dump
 

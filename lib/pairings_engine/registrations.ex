@@ -421,12 +421,12 @@ defmodule PairingsEngine.Registrations do
       not Publishing.can_send?() ->
         {:error, "this computer has no working key for the results site yet - see Connections"}
 
-      # Public mode, and the results site has not created this tournament's
-      # address yet: the slug on the row is a placeholder the server has
-      # never heard of, so there is nothing there to collect, and asking
-      # would only be answered `not_owner`.
-      Publishing.public_mode?() and not Publishing.has_address?(tournament) ->
-        {:error, "the results site has not created this tournament's address yet"}
+      # Public mode, and no copy has reached the results site yet: the slug
+      # is a placeholder, a slug minted on another server, or one minted and
+      # never published - so the entry form was never reachable, there is
+      # nothing to collect, and asking would at best be answered `not_owner`.
+      Publishing.public_mode?() and not Publishing.on_site?(tournament) ->
+        {:error, "nothing of this tournament has reached the results site yet"}
 
       # Deliberately NOT `publish_to_openresults`. That switch says whether
       # more will be SENT; this asks whether there is a queue to collect.

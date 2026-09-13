@@ -32,10 +32,15 @@ defmodule PairingsEngine.Publishing.Installation do
     3. `register/0` - `POST /api/installations`, from the drain, only with
        consent on record for THIS server. The key is stored here.
     4. `mint/1` - `POST /api/tournaments`; the slug it returns becomes the
-       tournament's `public_slug`, and only then is a link shown anywhere.
-    5. The publish, exactly as in operator mode.
+       tournament's `public_slug`, recorded with the server that minted it.
+    5. The publish, exactly as in operator mode. Only once the first one
+       under the minted slug has succeeded is a link shown anywhere: until
+       then the server answers that slug exactly like an unknown one.
 
-  A step that fails leaves the queue row where it was; the drain retries.
+  A step that fails leaves the queue row where it was; the drain retries. A
+  minted slug that never had a successful publish and is then refused
+  `not_owner` - released by the server after 30 days - is minted again,
+  silently: no link to it was ever shown, so nobody can notice.
 
   ## Custody
 
@@ -48,15 +53,17 @@ defmodule PairingsEngine.Publishing.Installation do
   credential), and never written to the audit trail.
 
   **Stricter than a tournament's `openresults_key`**, which is carried in
-  backups on purpose so a rebuilt laptop can manage what it published. The
-  equivalent for an installation is a transfer by the operator (the contract's
-  `Moderation.transfer/3`), which is why the installation id - not the key -
-  is shown to the arbiter.
+  backups on purpose so a rebuilt laptop can manage what it published. After
+  any restore - onto the same machine too - this installation registers
+  again, and the operator moves its tournaments across in one step (the
+  contract's `Moderation.transfer_all/3`), which is why the installation id -
+  not the key - is shown to the arbiter.
 
   A key is also bound to the server that issued it (`openresults_
   installation_server`). Pointing this machine at another address makes the
   key disappear from `key/0` rather than be sent somewhere it was not meant
   for, and the consent recorded for one server is not consent for another.
+  Minted slugs are bound the same way (`tournaments.public_slug_server`).
 
   ## Never re-registered silently
 
@@ -345,11 +352,12 @@ defmodule PairingsEngine.Publishing.Installation do
   @doc """
   `POST /api/tournaments`: the server mints this tournament's slug.
 
-  The slug replaces `public_slug` and `public_slug_minted_at` is set in the
-  same write. Broadcast straight on the tournament's topic rather than
-  through `Tournaments.broadcast_tournament_change/2`, which would enqueue a
-  publish from inside the publish that is minting - the pages need to hear
-  that a link now exists, the queue does not.
+  The slug replaces `public_slug` in the same write that records when and on
+  which server it was minted, and forgets any earlier first publish - that
+  was under the slug this one replaces. Broadcast straight on the
+  tournament's topic rather than through
+  `Tournaments.broadcast_tournament_change/2`, which would enqueue a publish
+  from inside the publish that is minting.
   """
   @spec mint(Tournament.t()) :: {:ok, Tournament.t()} | {:error, Failure.t()}
   def mint(%Tournament{} = tournament) do
@@ -402,12 +410,14 @@ defmodule PairingsEngine.Publishing.Installation do
   end
 
   defp store_slug(%Tournament{} = tournament, slug) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    changes = [
+      public_slug: slug,
+      public_slug_minted_at: DateTime.utc_now() |> DateTime.truncate(:second),
+      public_slug_server: server(),
+      public_slug_published_at: nil
+    ]
 
-    Repo.update_all(
-      from(t in Tournament, where: t.id == ^tournament.id),
-      set: [public_slug: slug, public_slug_minted_at: now]
-    )
+    Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id), set: changes)
 
     Phoenix.PubSub.broadcast(
       PairingsEngine.PubSub,
@@ -415,7 +425,7 @@ defmodule PairingsEngine.Publishing.Installation do
       {:tournament_changed, tournament.id, :settings}
     )
 
-    {:ok, %{tournament | public_slug: slug, public_slug_minted_at: now}}
+    {:ok, struct(tournament, changes)}
   rescue
     # The unique index on `public_slug`. The server's slugs are unique on
     # the server; one colliding with a local placeholder is a 72-bit

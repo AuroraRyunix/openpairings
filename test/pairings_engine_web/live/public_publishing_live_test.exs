@@ -2,8 +2,8 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
   @moduledoc """
   Public publishing as an arbiter meets it: the consent dialog, what a
   tournament waits on, "Register again", and - on every surface that can
-  show one - no public link or QR code before the results site has created
-  the address.
+  show one - no public link or QR code before the first copy has arrived on
+  the results site.
 
   The server is `PairingsEngine.PublicServerStub`, shared with the LiveView
   process (`set_req_test_to_shared`), so every request the page makes is
@@ -228,7 +228,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
     end
   end
 
-  describe "no public link or QR code before the address exists" do
+  describe "no public link or QR code before the first copy has arrived" do
     setup %{scope: scope} do
       register!()
       tournament = scope |> create_tournament() |> paired()
@@ -237,43 +237,85 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       {:ok, tournament: tournament}
     end
 
-    defp no_link!(html, tournament) do
-      refute html =~ "/t/#{tournament.public_slug}"
+    defp no_link!(html, slugs) do
+      for slug <- slugs, do: refute(html =~ "/t/#{slug}")
       refute html =~ "openresults.zerotwo.cloud/t/"
     end
 
-    test "on every surface, until the mint - then on every surface", %{conn: conn, tournament: t} do
+    defp surfaces(conn, t) do
       {:ok, _lv, results} = results_page(conn, t)
       {:ok, _lv, pairings} = live(conn, ~p"/t/#{t.id}/pairings")
       {:ok, _lv, standings} = live(conn, ~p"/t/#{t.id}/standings")
       {:ok, _lv, live_view} = live(conn, ~p"/t/#{t.id}/live")
+      %{results: results, pairings: pairings, standings: standings, live: live_view}
+    end
 
-      for html <- [results, pairings, standings, live_view], do: no_link!(html, t)
+    defp no_link_anywhere!(pages, slugs) do
+      for html <- Map.values(pages), do: no_link!(html, slugs)
 
-      refute results =~ "Share link"
-      assert results =~ "Waiting for the results site to create this tournament&#39;s address"
-      assert results =~ "The form opens on the results site once it has created"
-      refute pairings =~ "Public page"
-      refute standings =~ "Public page"
-      refute live_view =~ "enroll-qr-inner"
-      assert live_view =~ "the results site has not created its address yet"
+      refute pages.results =~ "Share link"
 
-      # The mint, through the queue.
-      assert {1, 0} = Publishing.drain()
+      assert pages.results =~
+               "Waiting for the first copy of this tournament to reach the results site"
+
+      assert pages.results =~ "The form opens on the results site once the first copy"
+      refute pages.pairings =~ "Public page"
+      refute pages.standings =~ "Public page"
+      refute pages.live =~ "enroll-qr-inner"
+      assert pages.live =~ "no copy of this tournament has reached the results site yet"
+    end
+
+    test "on every surface: not before the mint, not after a mint whose publish was refused - then everywhere",
+         %{conn: conn, tournament: t} do
+      no_link_anywhere!(surfaces(conn, t), [t.public_slug])
+
+      # The mint succeeds and the first publish is refused: the server now
+      # answers the minted slug like an unknown one, so still no link.
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => Server.error(503, "publishing_paused")
+      })
+
+      capture_log(fn -> assert {0, 1} = Publishing.drain() end)
       minted = Tournaments.get_tournament!(t.id)
-      link = "https://openresults.zerotwo.cloud/t/#{minted.public_slug}"
+      assert minted.public_slug_minted_at
+      refute minted.public_slug == t.public_slug
 
-      {:ok, _lv, results} = results_page(conn, minted)
-      {:ok, _lv, pairings} = live(conn, ~p"/t/#{t.id}/pairings")
-      {:ok, _lv, standings} = live(conn, ~p"/t/#{t.id}/standings")
-      {:ok, _lv, live_view} = live(conn, ~p"/t/#{t.id}/live")
+      no_link_anywhere!(surfaces(conn, minted), [t.public_slug, minted.public_slug])
 
-      assert results =~ "Share link"
-      assert results =~ link
-      assert pairings =~ link
-      assert standings =~ link
-      assert live_view =~ "enroll-qr-inner"
-      assert live_view =~ link
+      # The first copy arrives.
+      Server.install(self())
+      Publishing.retry(t.id)
+      assert {1, 0} = Publishing.drain()
+      published = Tournaments.get_tournament!(t.id)
+      link = "https://openresults.zerotwo.cloud/t/#{published.public_slug}"
+
+      pages = surfaces(conn, published)
+      assert pages.results =~ "Share link"
+      assert pages.results =~ link
+      assert pages.pairings =~ link
+      assert pages.standings =~ link
+      assert pages.live =~ "enroll-qr-inner"
+      assert pages.live =~ link
+    end
+
+    test "an open page shows the link when the first copy arrives, without a reload", %{
+      conn: conn,
+      tournament: t
+    } do
+      Server.install(self(), %{
+        {"POST", "/api/snapshots"} => Server.error(503, "publishing_paused")
+      })
+
+      capture_log(fn -> Publishing.drain() end)
+
+      {:ok, lv, html} = results_page(conn, Tournaments.get_tournament!(t.id))
+      refute html =~ "Share link"
+
+      Server.install(self())
+      Publishing.retry(t.id)
+      assert {1, 0} = Publishing.drain()
+
+      assert render(lv) =~ "Share link"
     end
 
     test "the placeholder slug never reaches the snapshot either", %{tournament: t} do

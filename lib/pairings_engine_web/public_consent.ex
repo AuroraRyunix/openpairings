@@ -315,10 +315,10 @@ defmodule PairingsEngineWeb.PublicConsent do
           <p class="hint" style="margin: 0">
             {gettext("Waiting to register this computer with the results site. There is no link yet.")}
           </p>
-        <% :mint -> %>
+        <% :first_copy -> %>
           <p class="hint" style="margin: 0">
             {gettext(
-              "Waiting for the results site to create this tournament's address. Its link and QR code appear here once it has."
+              "Waiting for the first copy of this tournament to reach the results site. Its link and QR code appear here once it has arrived."
             )}
           </p>
         <% :send -> %>

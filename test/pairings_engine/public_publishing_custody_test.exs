@@ -197,9 +197,14 @@ defmodule PairingsEngine.PublicPublishingCustodyTest do
       clean!(TournamentExport.export_all(scope))
 
       # The tournament's own key is carried, deliberately; the installation's
-      # is not, and neither is the marker that the slug was minted.
+      # is not, and neither is anything the results site said about the slug.
       assert export =~ t.openresults_key
-      refute export =~ "public_slug_minted_at"
+      assert t.public_slug_published_at
+
+      # (The address itself does travel, in the `openresults` block beside the
+      # key, as it always has: it is what a takeover of the claim names.)
+      for field <- ~w(public_slug_minted_at public_slug_server public_slug_published_at),
+          do: refute(export =~ field)
     end
 
     test "a hand-off file", %{scope: scope, tournament: t} do

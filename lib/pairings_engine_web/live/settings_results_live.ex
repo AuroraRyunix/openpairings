@@ -876,7 +876,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
         <p :if={PublicLink.pending?(@tournament)} class="hint">
           {gettext(
-            "The form opens on the results site once it has created this tournament's address."
+            "The form opens on the results site once the first copy of this tournament has arrived there."
           )}
         </p>
 
@@ -915,7 +915,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         </div>
       </div>
 
-      <div :if={PublicLink.public?(@tournament) or Publishing.published?(@tournament)} class="card">
+      <div :if={PublicLink.public?(@tournament) or Publishing.on_site?(@tournament)} class="card">
         <h2>{gettext("The address")}</h2>
 
         <div :if={PublicLink.public?(@tournament)} class="set-field solo">
@@ -959,8 +959,12 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               more will be sent; the key is what says something IS out there
               and that this machine is the one that can withdraw it. A
               tournament that opted in and never published has nothing to take
-              down, and one switched off still does. --%>
-        <div :if={Publishing.published?(@tournament)} style="margin-top: 14px">
+              down, and one switched off still does. In public mode a key
+              alone is not enough: the site mints the address and the key
+              together, and until a copy has arrived there is nothing there
+              to withdraw (`Publishing.on_site?/1`; identical to the key in
+              operator mode). --%>
+        <div :if={Publishing.on_site?(@tournament)} style="margin-top: 14px">
           <p class="hint" style="margin: 0">
             {gettext(
               "A copy of this tournament is on the results site. Turning publishing off stops sending updates; it does not take that copy down."

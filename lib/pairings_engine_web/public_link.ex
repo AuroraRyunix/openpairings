@@ -56,15 +56,15 @@ defmodule PairingsEngineWeb.PublicLink do
   has not been told an address yet - and offering a link built from a blank
   address is worse than offering none.
 
-  In public mode there is a third: the results site has created this
-  tournament's address (`public_slug_minted_at`). See `base/1`.
+  In public mode there is a third: a copy has actually arrived at that
+  address (`Publishing.on_site?/1`). See `base/1`.
   """
   @spec public?(Tournament.t()) :: boolean()
   def public?(%Tournament{} = tournament), do: not is_nil(base(tournament))
 
   @doc """
-  Whether this tournament is switched on and waiting for the results site to
-  create its address - public mode only (`Publishing.public_mode?/0`).
+  Whether this tournament is switched on and waiting for its first copy to
+  reach the results site - public mode only (`Publishing.public_mode?/0`).
 
   For the surfaces that would otherwise say "not published" about a
   tournament the arbiter has just published: it is, and the link is simply
@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.PublicLink do
   """
   @spec pending?(Tournament.t()) :: boolean()
   def pending?(%Tournament{publish_to_openresults: true} = tournament),
-    do: Publishing.public_mode?() and not Publishing.has_address?(tournament)
+    do: Publishing.public_mode?() and not Publishing.on_site?(tournament)
 
   def pending?(%Tournament{}), do: false
 
@@ -112,14 +112,15 @@ defmodule PairingsEngineWeb.PublicLink do
   # prevent. When no public address is set the two are the same value, so
   # nothing changes for an installation that never configures one.
   #
-  # In public mode the slug is the results site's to create, and until it has
-  # (`Publishing.has_address?/1`), the one on the row is a placeholder: a link
-  # built from it - on a screen, a QR code, a printed sheet - would be dead
-  # the moment somebody followed it. So there is no base at all, and every
-  # surface that gates on `public?/1` shows nothing, without any of them
-  # having to know why.
+  # In public mode the slug is the results site's to create, and a link waits
+  # for more than that: until the first publish under it has succeeded
+  # (`Publishing.on_site?/1`), the server answers the slug exactly as it
+  # answers an unknown one. A link built before then - on a screen, a QR
+  # code, a printed sheet - would be dead the moment somebody followed it.
+  # So there is no base at all, and every surface that gates on `public?/1`
+  # shows nothing, without any of them having to know why.
   defp base(%Tournament{publish_to_openresults: true} = tournament) do
-    if Publishing.public_mode?() and not Publishing.has_address?(tournament),
+    if Publishing.public_mode?() and not Publishing.on_site?(tournament),
       do: nil,
       else: base_address()
   end

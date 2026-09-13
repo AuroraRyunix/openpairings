@@ -438,23 +438,35 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # (which adopts or discards it). Not cast, for the same reason as the key.
     field :openresults_claim, :map
 
-    # When the results site created `public_slug` for this tournament, or nil.
+    # The three facts about a slug the results site created, all nil for a
+    # slug it did not. Only consulted in public mode (a desktop copy with no
+    # operator token, see `PairingsEngine.Publishing.public_mode?/0`). There
+    # the SERVER picks the slug (`POST /api/tournaments`), so the one every
+    # tournament is born with is a placeholder.
     #
-    # Only consulted in public mode (a desktop copy with no operator token,
-    # see `PairingsEngine.Publishing.public_mode?/0`). There the SERVER picks
-    # the slug (`POST /api/tournaments`), so the one every tournament is born
-    # with is a placeholder, and a link or QR code printed from it would be
-    # dead. `PairingsEngineWeb.PublicLink` therefore offers no address at all
-    # until this is set - which is what makes "no link before minting" true
-    # on every surface at once rather than at each call site.
+    #   public_slug_minted_at     when the site created `public_slug`
+    #   public_slug_server        the address it was created on - a slug
+    #                             belongs to that server, and on any other
+    #                             one this tournament is unminted
+    #   public_slug_published_at  when the first publish under it succeeded
     #
-    # Written only by `PairingsEngine.Publishing.Installation.mint/1` (set),
-    # `Publishing.adopt_claim/1` (set: the claimed slug is a real address) and
-    # `Tournaments.rotate_public_slug/1` and `Publishing`'s takedown (cleared:
-    # the slug it described is gone). Not cast, for the same reason as the
-    # key above, and not exported: an imported copy gets a fresh slug of its
-    # own, and this describes the slug, not the tournament.
+    # The link waits for the third, not the first: the server answers a
+    # minted slug with no snapshot exactly like an unknown one, so a link or
+    # QR code shown in between would be dead. `Publishing.public_slug_state/1`
+    # is the one reading of the three, and `PairingsEngineWeb.PublicLink`
+    # offers no address until it says so - which makes that true on every
+    # surface at once rather than at each call site.
+    #
+    # Written only by `Publishing.Installation.mint/1` (all three: set, set,
+    # cleared), `Publishing`'s first successful publish (the third), and
+    # cleared together by `Tournaments.rotate_public_slug/1`, the takedown and
+    # `Publishing.adopt_claim/1` - after each of those the slug they described
+    # is gone or is not this installation's creation. Not cast, for the same
+    # reason as the key above, and not exported: an imported copy gets a fresh
+    # slug of its own, and these describe the slug, not the tournament.
     field :public_slug_minted_at, :utc_datetime
+    field :public_slug_server, :string
+    field :public_slug_published_at, :utc_datetime
 
     # How long a newly-paired round takes to reach the public pairings
     # page - see `@publish_modes`'s own comment above, and
