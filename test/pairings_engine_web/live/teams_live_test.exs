@@ -274,16 +274,16 @@ defmodule PairingsEngineWeb.TeamsLiveTest do
       assert conn |> get(~p"/t/#{t.id}/print/team-pairings?round=9") |> response(404)
     end
 
-    test "the OpenResults settings page says team tournaments are not published", %{
+    test "the OpenResults settings page explains what publishing a team event sends", %{
       conn: conn,
       tournament: t
     } do
       {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/settings/results")
-      assert html =~ "Team tournaments are not published yet"
+      assert html =~ "Team tournament"
+      assert html =~ "OpenPairings computed"
 
-      html = render_click(lv, "toggle_publish_to_openresults", %{})
-      assert html =~ "The results site has no team pages yet"
-      refute Repo.reload!(t).publish_to_openresults
+      render_click(lv, "toggle_publish_to_openresults", %{})
+      assert Repo.reload!(t).publish_to_openresults
     end
 
     test "the Scoring page sets match points", %{conn: conn, tournament: t} do

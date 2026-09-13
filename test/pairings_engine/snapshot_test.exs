@@ -1,6 +1,8 @@
 defmodule PairingsEngine.SnapshotTest do
   use PairingsEngine.DataCase, async: true
 
+  import PairingsEngine.TeamFixtures
+
   alias PairingsEngine.{Repo, Snapshot, Tournaments}
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
@@ -1127,18 +1129,168 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "team tournaments" do
+    test "team_event, teams, matches and team_standings travel; individual snapshot fields are untouched" do
+      {t, _teams} = team_snapshot_fixture()
+
+      snapshot = Snapshot.build(t)
+
+      assert snapshot["tournament"]["team_event"] == true
+
+      teams = snapshot["teams"]
+      assert length(teams) == 4
+      antwerp = Enum.find(teams, &(&1["name"] == "Antwerp Knights"))
+      assert antwerp["short_name"] == nil
+      assert antwerp["captain"] == "Jan Peeters"
+      assert is_integer(antwerp["no"])
+      # Only the 2 players who ever sat at a board (team_boards: 2) have a
+      # pairing number to publish; the 3rd is a reserve who never played.
+      assert length(antwerp["players"]) == 2
+
+      round1 = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
+      assert is_list(round1["matches"]) and round1["matches"] != []
+
+      match = hd(round1["matches"])
+      assert Map.has_key?(match, "team_a")
+      assert Map.has_key?(match, "team_b")
+      assert Map.has_key?(match, "board1_white_team")
+      assert is_list(match["boards"])
+      assert Map.has_key?(match, "game_points")
+      assert Map.has_key?(match, "match_points")
+
+      ts = snapshot["team_standings"]
+      # Same setting-driven gate as individual standings: nobody has
+      # published a standings cut-off yet, so it reads 0 even though round 1
+      # is complete.
+      assert ts["after_round"] == 0
+      row = hd(ts["rows"])
+      assert Map.keys(row) |> Enum.sort() == ~w(gp mp rank team tiebreaks working)
+      assert snapshot["board_stats"] == []
+
+      # Once the arbiter publishes standings through round 1, both team
+      # standings and board statistics start counting it - the same setting,
+      # the same cut-off, for the same reason.
+      {:ok, t} = Tournaments.publish_standings_through(t, 1)
+      snapshot = Snapshot.build(Tournaments.get_tournament!(t.id))
+
+      assert snapshot["team_standings"]["after_round"] == 1
+      board_stats = snapshot["board_stats"]
+      assert board_stats != []
+      stat = hd(board_stats)
+
+      assert Map.keys(stat) |> Enum.sort() ==
+               ~w(board games percentage performance player points team)
+    end
+
+    test "an individual tournament's snapshot carries none of the team keys" do
+      {tournament, _} = swiss_fixture()
+      snapshot = Snapshot.build(tournament)
+
+      refute Map.has_key?(snapshot["tournament"], "team_event")
+      refute Map.has_key?(snapshot, "teams")
+      refute Map.has_key?(snapshot, "team_standings")
+      refute Map.has_key?(snapshot, "board_stats")
+      refute Enum.any?(snapshot["rounds"], &Map.has_key?(&1, "matches"))
+    end
+
+    test "a match's points are withheld exactly like a board's result" do
+      {t, _teams} = team_snapshot_fixture()
+
+      # Round 1 is published but its results switch has never been turned on.
+      snapshot = Snapshot.build(t)
+      round1 = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
+      assert round1["results_public"] == false
+
+      for match <- round1["matches"] do
+        assert match["game_points"] == nil
+        assert match["match_points"] == nil
+        # The teams themselves are on the pairing sheet, not a result - they
+        # still travel, same as `boards/3` keeps both players.
+        refute is_nil(match["team_a"])
+      end
+
+      {:ok, t} = Tournaments.publish_results(t, 1)
+      snapshot = Snapshot.build(Tournaments.get_tournament!(t.id))
+      round1 = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
+      assert round1["results_public"] == true
+
+      match = hd(round1["matches"])
+      refute is_nil(match["game_points"])
+      refute is_nil(match["match_points"])
+    end
+
+    test "an unpaired round leaves no trace of its matches" do
+      {t, _teams} = team_snapshot_fixture()
+
+      # Round 2 exists (paired) but was never published - not even the shell
+      # of a round with no matches, exactly like an unpublished individual
+      # round leaves no numbered entry in `rounds` at all.
+      refute Enum.any?(Snapshot.build(t)["rounds"], &(&1["number"] == 2))
+    end
+  end
+
   describe "the cross-repo contract fixtures" do
     @tag :snapshot_fixtures
     test "a real snapshot is written to the OpenResults fixture directory" do
       {swiss, _} = swiss_fixture()
       {keizer, _} = keizer_fixture()
+      team_rr = team_snapshot_fixture_published()
 
       write_fixture!("snapshot_swiss.json", Snapshot.build(swiss))
       write_fixture!("snapshot_keizer.json", Snapshot.build(keizer))
+      write_fixture!("snapshot_team_roundrobin.json", Snapshot.build(team_rr))
     end
   end
 
   ## ---------- fixtures ----------
+
+  # A team round robin, four teams of 2-3 boards, round 1 played and
+  # published (results switch still off - the withholding test turns it on),
+  # round 2 paired but never published (so it must leave no trace at all).
+  defp team_snapshot_fixture do
+    {t, teams} =
+      team_round_robin(
+        [
+          {"Antwerp Knights", [2210, 2105, 1990]},
+          {"Brugse SK", [2150, 2000]},
+          {"Charleroi", [1900, 1850]},
+          {"Deurne", [1800, 1750]}
+        ],
+        boards: 2,
+        tiebreaks: ~w(MP GP DE BB SB),
+        start_date: "2026-09-01",
+        city: "Gent",
+        federation: "BEL"
+      )
+
+    Enum.each(teams, fn team ->
+      if team.name == "Antwerp Knights" do
+        {:ok, _} = Tournaments.update_team(team, %{"captain" => "Jan Peeters"})
+      end
+    end)
+
+    t = pair_all!(t)
+    enter!(t, 1, "Antwerp Knights", "Deurne", ["1-0", "1/2-1/2"])
+    enter!(t, 1, "Brugse SK", "Charleroi", ["0-1", "1-0"])
+
+    t = Tournaments.get_tournament!(t.id)
+    round1 = Tournaments.get_round(t.id, 1)
+    {:ok, _} = Tournaments.publish_round_now(round1)
+
+    {Tournaments.get_tournament!(t.id), teams}
+  end
+
+  # `team_snapshot_fixture/0`, with round 1's results switched on and
+  # standings published through it - for the OpenResults fixture, where a
+  # page rendering real match points and board statistics is more useful
+  # than the withheld state the OpenPairings-side tests above already cover
+  # directly.
+  defp team_snapshot_fixture_published do
+    {t, _teams} = team_snapshot_fixture()
+    {:ok, t} = Tournaments.publish_results(t, 1)
+    {:ok, t} = Tournaments.publish_standings_through(t, 1)
+    Tournaments.get_tournament!(t.id)
+  end
 
   # Nine rounds' worth of awkwardness in five: byes of three kinds, both
   # legacy forfeit spellings, an unrated result, an unreported game, an

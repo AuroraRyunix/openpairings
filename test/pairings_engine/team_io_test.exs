@@ -207,28 +207,34 @@ defmodule PairingsEngine.TeamIoTest do
   end
 
   describe "publishing" do
-    test "a team tournament cannot be switched on" do
+    test "a team tournament can be switched on and queues like any other" do
       t = played_example(user_scope())
-      assert {:error, :team_tournament} = Tournaments.set_publish_to_openresults(t, true)
-      refute Repo.reload!(t).publish_to_openresults
+      assert {:ok, updated} = Tournaments.set_publish_to_openresults(t, true)
+      assert updated.publish_to_openresults
+
+      :ok = Publishing.enqueue(updated)
+      assert Repo.exists?(from q in QueueEntry, where: q.tournament_id == ^updated.id)
+
+      # It can still be switched off.
+      assert {:ok, _} = Tournaments.set_publish_to_openresults(updated, false)
     end
 
-    test "one already switched on is never queued, and a send is refused" do
+    test "a team tournament publishes its snapshot" do
       t = played_example(user_scope())
       t = t |> Ecto.Changeset.change(publish_to_openresults: true) |> Repo.update!()
-
-      :ok = Publishing.enqueue(t)
-      :ok = Publishing.enqueue_id(t.id)
-      refute Repo.exists?(from q in QueueEntry, where: q.tournament_id == ^t.id)
 
       Publishing.put_endpoint("https://results.example.test")
       Publishing.put_token("test-token")
 
-      assert {:error, message} = Publishing.publish(t)
-      assert message == Publishing.team_refusal()
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        payload = Jason.decode!(body)
+        assert payload["tournament"]["team_event"] == true
+        assert payload["teams"] != []
+        Req.Test.json(conn, %{"ok" => true})
+      end)
 
-      # It can still be switched off.
-      assert {:ok, _} = Tournaments.set_publish_to_openresults(t, false)
+      assert {:ok, _} = Publishing.publish(t)
     end
 
     test "an individual tournament still queues as before" do

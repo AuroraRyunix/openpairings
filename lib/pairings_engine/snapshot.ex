@@ -94,6 +94,7 @@ defmodule PairingsEngine.Snapshot do
     PairingDisplay,
     PublicDisplay,
     Standings,
+    TeamStandings,
     Tiebreaks,
     Tournaments
   }
@@ -146,16 +147,44 @@ defmodule PairingsEngine.Snapshot do
     after_round = Tournaments.effective_standings_through(tournament)
     results_public = &Tournaments.results_public?(tournament, &1, after_round)
 
-    %{
+    team_nos = if Tournament.team?(tournament), do: team_numbers(tournament), else: %{}
+
+    matches_by_round =
+      if Tournament.team?(tournament) do
+        tournament |> TeamStandings.matches() |> Enum.group_by(& &1.round)
+      else
+        %{}
+      end
+
+    base = %{
       "schema" => @schema,
       "version" => @version,
       "published_at" => now_iso8601(),
       "source" => %{"app" => "openpairings", "version" => app_version()},
       "tournament" => tournament_row(tournament),
       "players" => Enum.map(players, &player_row(tournament, &1)),
-      "rounds" => Enum.map(rounds, &round_row(&1, tournament, nos, results_public.(&1))),
+      "rounds" =>
+        Enum.map(rounds, fn round ->
+          round_row(
+            round,
+            tournament,
+            nos,
+            results_public.(round),
+            Map.get(matches_by_round, round.number, []),
+            team_nos
+          )
+        end),
       "standings" => standings(tournament, nos, after_round)
     }
+
+    if Tournament.team?(tournament) do
+      base
+      |> Map.put("teams", teams_row(tournament, nos, team_nos))
+      |> Map.put("team_standings", team_standings_row(tournament, team_nos, after_round))
+      |> Map.put("board_stats", board_stats_row(tournament, nos, team_nos, after_round))
+    else
+      base
+    end
   end
 
   ## ---------- tournament ----------
@@ -230,6 +259,15 @@ defmodule PairingsEngine.Snapshot do
       "display" => PublicDisplay.resolve(t.public_display)
     }
     |> put_tournament_categories(t)
+    |> put_team_event(t)
+  end
+
+  # Added with team pages. Absent means an individual tournament, which is
+  # exactly how every already-published snapshot read before this field
+  # existed - so it is added only for a team event rather than sent as
+  # `false` on every other one.
+  defp put_team_event(row, %Tournament{} = t) do
+    if Tournament.team?(t), do: Map.put(row, "team_event", true), else: row
   end
 
   # Added 2026-09-13. The tournament's own category vocabulary, in its own
@@ -383,10 +421,10 @@ defmodule PairingsEngine.Snapshot do
   # round's pairings are withheld for being unpublished, never for being
   # incomplete.
 
-  defp round_row(%Round{} = round, %Tournament{} = t, nos, results_public?) do
+  defp round_row(%Round{} = round, %Tournament{} = t, nos, results_public?, matches, team_nos) do
     visible = Enum.reject(round.pairings, & &1.hidden)
 
-    %{
+    row = %{
       "number" => round.number,
       "date" => round_date(round, t),
       # Added 2026-09-13 with the "Results round N" switch. `false` means the
@@ -397,6 +435,151 @@ defmodule PairingsEngine.Snapshot do
       "boards" => boards(visible, nos, results_public?),
       "byes" => byes(round, visible, t, nos, results_public?)
     }
+
+    if Tournament.team?(t) do
+      Map.put(row, "matches", Enum.map(matches, &match_row(&1, team_nos, results_public?)))
+    else
+      row
+    end
+  end
+
+  ## ---------- team events ----------
+
+  # Frozen `pairing_number`s once round 1 exists (see `PairingsEngine.TeamRoundRobin`).
+  # Before that every team is numbered provisionally, in the same seeding
+  # order the Teams page shows and the first pairing will freeze - the same
+  # reasoning `publishable_players/1` applies to players before round 1.
+  defp team_numbers(%Tournament{} = t) do
+    teams = Tournaments.list_teams(t.id)
+
+    case Enum.reject(teams, &is_nil(&1.pairing_number)) do
+      [] -> teams |> Enum.with_index(1) |> Map.new(fn {team, n} -> {team.id, n} end)
+      frozen -> Map.new(frozen, &{&1.id, &1.pairing_number})
+    end
+  end
+
+  defp teams_row(%Tournament{} = t, nos, team_nos) do
+    t.id
+    |> Tournaments.list_teams()
+    |> Enum.filter(&Map.has_key?(team_nos, &1.id))
+    |> Enum.map(fn team ->
+      roster =
+        t.id
+        |> Tournaments.team_roster(team.id)
+        |> Enum.filter(&Map.has_key?(nos, &1.id))
+        |> Enum.map(&Map.fetch!(nos, &1.id))
+
+      %{
+        "no" => Map.fetch!(team_nos, team.id),
+        "name" => team.name,
+        "short_name" => blank_to_nil(team.short_name),
+        # A captain's name is typed by the arbiter, like a tournament's own
+        # `arbiter`/`deputy` fields above - not a player record, so the
+        # player-data allowlist in `player_row/2` does not apply to it.
+        "captain" => blank_to_nil(team.captain),
+        "players" => roster
+      }
+    end)
+    |> Enum.sort_by(& &1["no"])
+  end
+
+  # One match, board 1's colour, its board numbers and the points OpenPairings
+  # computed - never recomputed by a reader. Withheld the same way a board's
+  # own result is: `results_public?` nulls the points, never the teams
+  # themselves, exactly as `boards/3` nulls a game's result but keeps the two
+  # players. A hidden board is left out of the board-number list (display
+  # only - see the moduledoc's note on `hidden`), which does not change the
+  # points: those are the arithmetic the round's own standings already ran.
+  defp match_row(m, team_nos, results_public?) do
+    boards =
+      m.boards
+      |> Enum.reject(& &1.pairing.hidden)
+      |> Enum.map(& &1.pairing.board)
+      |> Enum.sort()
+
+    %{
+      "number" => m.number,
+      "team_a" => Map.get(team_nos, m.team_a_id),
+      "team_b" => m.team_b_id && Map.get(team_nos, m.team_b_id),
+      "bye" => m.bye?,
+      # `team_a` has White on board 1 (`PairingsEngine.TeamRoundRobin`); named
+      # explicitly rather than left implicit, so a reader never has to know
+      # that convention to draw "Team A (White) 2-2 Team B".
+      "board1_white_team" => not m.bye? && Map.get(team_nos, m.team_a_id),
+      "boards" => boards,
+      "game_points" => if(results_public?, do: %{"a" => m.gp_a, "b" => m.gp_b}),
+      "match_points" => if(results_public? and m.complete?, do: %{"a" => m.mp_a, "b" => m.mp_b})
+    }
+  end
+
+  defp team_standings_row(%Tournament{} = t, team_nos, after_round) do
+    codes = TeamStandings.effective_tiebreaks(t)
+    hidden = t.public_hidden_tiebreaks || []
+
+    shown =
+      if PublicDisplay.show?(t.public_display, "tiebreaks"),
+        do: Enum.reject(codes, &(&1 in hidden)),
+        else: []
+
+    entries =
+      t
+      |> TeamStandings.standings(through_round: after_round)
+      |> Enum.filter(&Map.has_key?(team_nos, &1.team.id))
+
+    rows =
+      Enum.map(entries, fn e ->
+        %{
+          "rank" => e.rank,
+          "team" => Map.fetch!(team_nos, e.team.id),
+          "mp" => e.mp,
+          "gp" => e.gp,
+          "tiebreaks" => Enum.map(shown, &Map.get(e.tiebreaks, &1, 0.0)),
+          "working" => team_working_json(e.working, shown, team_nos)
+        }
+      end)
+
+    %{
+      "after_round" => after_round,
+      "tiebreaks" => Enum.map(shown, &%{"code" => &1, "label" => tiebreak_label(&1)}),
+      "rows" => rows
+    }
+  end
+
+  # Same shape and same withholding rule as `working_json/2` for individual
+  # tie-breaks: an opponent that never publishes becomes `null` and a hidden
+  # code simply is not a key.
+  defp team_working_json(by_code, shown, team_nos) do
+    by_code
+    |> Map.take(shown)
+    |> Map.new(fn {code, parts} ->
+      {code,
+       Enum.map(parts, fn part ->
+         %{"round" => part.round, "value" => part.value}
+         |> put_unless(
+           :nil_opponent,
+           "opponent",
+           part.opponent_id && Map.get(team_nos, part.opponent_id)
+         )
+         |> put_unless(:played, "kind", part.kind)
+       end)}
+    end)
+  end
+
+  defp board_stats_row(%Tournament{} = t, nos, team_nos, after_round) do
+    t
+    |> TeamStandings.board_stats(through_round: after_round)
+    |> Enum.filter(&Map.has_key?(nos, &1.player.id))
+    |> Enum.map(fn r ->
+      %{
+        "player" => Map.fetch!(nos, r.player.id),
+        "team" => Map.get(team_nos, r.team_id),
+        "board" => r.main_board,
+        "games" => r.games,
+        "points" => r.points,
+        "percentage" => r.percentage,
+        "performance" => r.performance
+      }
+    end)
   end
 
   defp round_date(%Round{} = round, %Tournament{} = t) do

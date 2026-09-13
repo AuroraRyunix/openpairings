@@ -1038,13 +1038,10 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
-  # Team tournaments do not publish yet - `PairingsEngine.Publishing.team_refusal/0`
-  # says why. Turning publishing OFF is always allowed, so a team tournament
-  # that was switched on before this refusal existed can still be switched off.
-  defp ensure_publishable(%Tournament{} = tournament, true) do
-    if Tournament.team?(tournament), do: {:error, :team_tournament}, else: :ok
-  end
-
+  # Team tournaments publish like any other, now that OpenResults has team
+  # pages (docs/team-tournaments.md, "Publishing"). Kept as its own function
+  # in case a future phase needs to refuse a specific team shape again.
+  defp ensure_publishable(%Tournament{}, true), do: :ok
   defp ensure_publishable(_tournament, false), do: :ok
 
   @doc """

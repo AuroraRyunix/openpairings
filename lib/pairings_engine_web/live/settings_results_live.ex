@@ -229,9 +229,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
-      {:error, :team_tournament} ->
-        {:noreply, put_flash(socket, :error, team_publish_refusal())}
-
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not change publishing")}
     end
@@ -568,12 +565,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
-  defp team_publish_refusal,
-    do:
-      gettext(
-        "The results site has no team pages yet, so a team tournament is not sent there: an individual standings table would misstate how a team event is ranked. Print the team pairings and team standings instead."
-      )
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -604,11 +595,15 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
       <div
         :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)}
-        id="team-publish-refusal"
+        id="team-publish-note"
         class="card"
       >
-        <h2>{gettext("Team tournaments are not published yet")}</h2>
-        <p class="hint" style="margin-top: 0">{team_publish_refusal()}</p>
+        <h2>{gettext("Team tournament")}</h2>
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Publishing sends the team standings, matches and board statistics OpenPairings computed - OpenResults never works out a team result on its own."
+          )}
+        </p>
       </div>
 
       <div class="card">

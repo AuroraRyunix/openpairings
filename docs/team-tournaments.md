@@ -16,7 +16,7 @@ What exists today (phase 1):
 | Team tie-breaks, board statistics | yes | no |
 | TRF team section (`013`) | yes | yes |
 | Team pairing sheet and team standings print | yes | no |
-| Published to OpenResults | **no** (see below) | **no** |
+| Published to OpenResults | yes | yes |
 
 Team Swiss (FIDE C.04.6) is phase 2; see
 [`teams-phase-2-plan.md`](teams-phase-2-plan.md).
@@ -186,18 +186,25 @@ For a team round robin the Print page offers, above the individual documents:
 
 ## Publishing
 
-**Phase 1 does not publish team tournaments to OpenResults.** The results
-site has no team pages; its snapshot is players, games and an individual
-standings table. Sent as that, a team round robin would show the public an
-individual ranking for an event decided by match points, and a team Swiss that
-still pairs player by player would look like an ordinary open. Both mislead.
+Team tournaments publish to OpenResults like any other. `PairingsEngine.Snapshot`
+adds `tournament.team_event`, `teams`, each round's `matches`, `team_standings`
+and `board_stats` for a team event - additive fields, documented in
+OpenResults' `docs/snapshot-schema.md`, that an individual tournament's
+snapshot never carries. OpenResults never computes a team result: every team
+number, match score and board statistic in those fields is exactly what
+OpenPairings worked out.
 
-So the publish switch cannot be turned on for a team tournament
-(`Tournaments.set_publish_to_openresults/2` answers `{:error,
-:team_tournament}`), a team tournament is never queued, and a send is refused
-with the reason (`Publishing.team_refusal/0`) - including one that was
-switched on before this existed, which can still be switched off. The
-Settings - OpenResults page says so at the top.
+Every existing withholding rule still applies: an unpublished round's matches
+never leave with it; a match in a round whose results are not public shows
+its two teams with `game_points`/`match_points` both `null`, the same as a
+board's own result; and `team_standings`/`board_stats` stop at whatever round
+the arbiter has published standings through, exactly like the individual
+table. Settings - OpenResults explains, for a team event, that publishing
+sends the team standings, matches and board statistics OpenPairings
+computed.
 
-Team pages on OpenResults - additive snapshot fields for teams, matches and
-team standings - are a later phase.
+A team Swiss (still paired player by player in phase 1, see the table above)
+publishes the same additive fields; `teams` and the roster travel, but
+`matches` is empty every round and `team_standings`/`board_stats` have
+nothing to show, because no match is ever scheduled until team pairing
+itself is phase 2.

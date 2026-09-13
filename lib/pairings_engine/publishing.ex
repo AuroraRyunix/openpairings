@@ -152,9 +152,6 @@ defmodule PairingsEngine.Publishing do
   """
   def key_header, do: @key_header
 
-  # See `team_refusal/0`.
-  @unpublishable_types ~w(team-swiss team-roundrobin)
-
   # 256 bits. `public_slug` next door is 72, which is right for a link that
   # only has to resist enumeration; this one authorises deleting a published
   # tournament and every snapshot behind it, so it is sized against guessing
@@ -349,10 +346,8 @@ defmodule PairingsEngine.Publishing do
         publish_to_openresults: true,
         handed_off_at: nil,
         deleted_at: nil,
-        type: type,
         id: id
-      })
-      when type not in @unpublishable_types do
+      }) do
     now = DateTime.utc_now()
 
     Repo.insert!(
@@ -375,23 +370,6 @@ defmodule PairingsEngine.Publishing do
   def enqueue(%Tournament{}), do: :ok
 
   @doc """
-  Why a team tournament does not publish - the one sentence the Settings page
-  and a refused send both show.
-
-  **Phase 1 of team tournaments does not publish them, on purpose.** The
-  results site has no team pages: its snapshot carries players, games and an
-  individual standings table. A team round robin sent as that would put an
-  individual ranking in front of the public for an event that is decided by
-  match points, and a team Swiss that still pairs player by player would look
-  like an ordinary open. Both are misleading, so neither leaves; see
-  docs/team-tournaments.md, "Publishing".
-  """
-  def team_refusal,
-    do:
-      "team tournaments are not published to the results site yet - it has no team pages, " <>
-        "and an individual table would misstate how a team event is ranked"
-
-  @doc """
   Same as `enqueue/1`, from an id.
 
   This is what `Tournaments.broadcast_tournament_change/2` calls, so every
@@ -409,10 +387,10 @@ defmodule PairingsEngine.Publishing do
       Repo.one(
         from t in Tournament,
           where: t.id == ^tournament_id,
-          select: {t.publish_to_openresults, t.handed_off_at, t.deleted_at, t.type}
+          select: {t.publish_to_openresults, t.handed_off_at, t.deleted_at}
       )
 
-    if match?({true, nil, nil, type} when type not in @unpublishable_types, row) do
+    if match?({true, nil, nil}, row) do
       Repo.insert!(
         %QueueEntry{tournament_id: tournament_id, next_attempt_at: DateTime.utc_now()},
         # See `enqueue/1` for why the counter moves and nothing else does.
@@ -744,9 +722,6 @@ defmodule PairingsEngine.Publishing do
 
       not is_nil(tournament.deleted_at) ->
         {:error, "this tournament is in the recycle bin"}
-
-      tournament.type in @unpublishable_types ->
-        {:error, team_refusal()}
 
       public_mode?() ->
         publish_public(tournament)

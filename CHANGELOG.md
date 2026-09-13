@@ -57,12 +57,22 @@ Each entry is tagged so a version can be skimmed:
   tournament's file is byte for byte what it was. Importing a TRF with teams
   now creates the teams and their board orders (its games still come back as
   individual games: TRF does not record which boards formed which match).
-- [Change] **Team tournaments are not published to OpenResults.** The results
-  site has no team pages, and an individual table would misstate how a team
-  event is ranked, so the publish switch cannot be turned on for one, and a
-  team tournament that was already switched on is no longer sent (it can
-  still be switched off). Settings - OpenResults says so. A team Swiss is
-  affected too.
+- [Feature] **Team tournaments publish to OpenResults.** The refusal that
+  blocked the publish switch for a team tournament is lifted, now that the
+  results site has team pages: the snapshot carries `tournament.team_event`,
+  `teams` (name, short name, captain, roster in board order), each round's
+  `matches` (the two teams, board 1's colour, its board numbers, and the
+  game and match points OpenPairings computed), `team_standings` (rank,
+  match points, game points, each tie-break with its *Working* parts) and
+  `board_stats` (per board, each player's games, points, percentage and
+  performance). Every field is additive and gated by the same withholding
+  rules as the rest of the snapshot: an unpublished round's matches never
+  leave, a match whose round has not switched results on shows its two teams
+  with no points, and the team standings and board statistics stop at
+  whatever round the arbiter has published standings through, exactly like
+  the individual table. An individual tournament's snapshot is unchanged.
+  Settings - OpenResults now explains what a team event sends instead of
+  refusing it. See `docs/snapshot-schema.md` on the OpenResults side.
 - [Change] **Backups and restore points carry team matches**, the teams'
   seeding order and pairing numbers, and boards per match and match points,
   so a restored team tournament has the same standings.
