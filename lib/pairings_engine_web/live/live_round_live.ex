@@ -907,6 +907,16 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             this.report();
           },
 
+          // A reconnect - a deploy's restart, a dropped network, a laptop
+          // waking - mounts the LiveView afresh, back on its default page
+          // size, while this hook stays mounted and still remembers the
+          // number it last sent. Forget it, so the screen is measured and
+          // told again rather than left paging twelve boards at a time.
+          reconnected() {
+            this.lastRows = null;
+            this.report();
+          },
+
           destroyed() {
             window.removeEventListener("resize", this.onResize);
           }

@@ -35,16 +35,26 @@ import {isMenuKey, gridKeyAction, movePosition, restorePosition, fillTemplate} f
 // Unguarded, that throw would happen inside `mounted()` and take the whole
 // hook down with it - on the Players grid and the Standings page, whichever
 // mounts this - rather than just silently skipping the remembered columns.
+//
+// Sent again on `reconnected`: a reconnect (a deploy's restart, a dropped
+// network, a laptop waking from sleep) mounts the LiveView afresh with the
+// default columns, but LiveView patches this element in place and does not
+// call `mounted` a second time - so without it the grid quietly went back to
+// the defaults until the next page change.
 const ColumnPrefs = {
   mounted() {
+    this.sendStored()
+    this.handleEvent("store_columns", ({columns}) => {
+      try { localStorage.setItem("pairingsengine.playerColumns", JSON.stringify(columns)) } catch (_) {}
+    })
+  },
+  reconnected() { this.sendStored() },
+  sendStored() {
     let stored = null
     try { stored = localStorage.getItem("pairingsengine.playerColumns") } catch (_) {}
     if (stored) {
       try { this.pushEvent("columns_loaded", {columns: JSON.parse(stored)}) } catch {}
     }
-    this.handleEvent("store_columns", ({columns}) => {
-      try { localStorage.setItem("pairingsengine.playerColumns", JSON.stringify(columns)) } catch (_) {}
-    })
   },
 }
 
@@ -964,12 +974,21 @@ const deployBanner = {
     }
   },
 
+  // The deadline on show, so the same one pushed again is recognised.
+  shownFor: null,
+
   show(iso) {
     const el = document.getElementById("deploy-banner")
     if (!el) { return }
     clearInterval(this.timer)
     clearInterval(this.watchdog)
-    this.announcedTier = null
+
+    // Every LiveView that mounts pushes the current deadline, so a live
+    // navigation to another page during a countdown sends the one already
+    // on screen. That is not the banner appearing: keep the tier already
+    // said, or a screen reader hears the whole sentence again on every page.
+    if (!(iso && iso === this.shownFor && !el.hidden)) { this.announcedTier = null }
+    this.shownFor = iso || null
 
     if (!iso) { el.hidden = true; return }
 
