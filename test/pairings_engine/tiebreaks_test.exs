@@ -15,29 +15,32 @@ defmodule PairingsEngine.TiebreaksTest do
       end
     end
 
-    test "the three team-only breaks are the ones nothing here can calculate" do
-      # Not a restatement of the table: this is the assertion to update when
-      # team standings arrive, and it fails until the flag is flipped with
-      # the implementation.
-      assert Enum.sort(Tiebreaks.unavailable_codes()) == ~w(BB GP MP)
+    test "every catalogued code can now be calculated somewhere" do
+      # This used to pin MP/GP/BB as uncalculable, and said it was the
+      # assertion to update when team standings arrived. They have
+      # (`PairingsEngine.TeamStandings`); the flag flipped with them.
+      assert Tiebreaks.unavailable_codes() == []
     end
 
-    test "everything unavailable is team-scoped, since that is the reason" do
-      for %{code: code, scope: scope} <- Tiebreaks.catalogue(),
-          code in Tiebreaks.unavailable_codes() do
-        assert scope == :team, "#{code} is unavailable but not team-scoped"
+    test "the team-only breaks are exactly the ones individual standings cannot calculate" do
+      team_only = for %{code: code, scope: :team} <- Tiebreaks.catalogue(), do: code
+      assert Enum.sort(team_only) == ~w(BB EMGSB GP MP)
+
+      for %{code: code} <- Tiebreaks.catalogue() do
+        assert Tiebreaks.individual_calculable?(code) == code not in team_only
       end
     end
 
-    test "selectable/0 is the catalogue minus what cannot be calculated" do
+    test "selectable/0 is the catalogue minus what individual standings cannot calculate" do
       assert Enum.map(Tiebreaks.selectable(), & &1.code) ==
-               Enum.map(Tiebreaks.catalogue(), & &1.code) -- Tiebreaks.unavailable_codes()
+               for(
+                 %{code: code} <- Tiebreaks.catalogue(),
+                 Tiebreaks.individual_calculable?(code),
+                 do: code
+               )
     end
 
-    test "an unavailable code still resolves to a name, because tournaments store it" do
-      # SWAR files map tie-breaks by number and the FIDE team defaults name
-      # all three, so a stored tournament can carry one; the picker hides it,
-      # the catalogue must still know it.
+    test "a team-only code still resolves to a name, because tournaments store it" do
       assert %{name: "Match points"} = Tiebreaks.get("MP")
     end
   end
@@ -60,8 +63,9 @@ defmodule PairingsEngine.TiebreaksTest do
       end
     end
 
-    test "every unavailable code is dropped, with a reason a page can print", %{tournament: t} do
-      for code <- Tiebreaks.unavailable_codes() do
+    test "every team-only code is dropped from individual standings, with a reason a page can print",
+         %{tournament: t} do
+      for %{code: code, scope: :team} <- Tiebreaks.catalogue() do
         t = %{t | tiebreaks: [code]}
 
         assert Standings.dropped_tiebreaks(t) == [code]
@@ -71,8 +75,8 @@ defmodule PairingsEngine.TiebreaksTest do
     end
 
     test "a code dropped for both reasons is reported once, as not calculable", %{tournament: t} do
-      # An unrated entrant puts ARO under Article 10; MP is uncalculable
-      # regardless. Neither may be listed twice, and MP's reason is the one
+      # An unrated entrant puts ARO under Article 10; MP is uncalculable in
+      # individual standings regardless. Neither may be listed twice, and MP's reason is the one
       # the arbiter can act on.
       Repo.insert!(%Player{tournament_id: t.id, name: "Unrated", pairing_number: 3})
       t = %{t | tiebreaks: ["ARO", "MP"]}

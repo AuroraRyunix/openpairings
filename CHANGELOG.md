@@ -16,6 +16,57 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Team round robin: teams play teams.** A tournament created as a
+  round robin with *Team tournament* ticked now pairs team against team. A new
+  **Teams** tab next to Players (team tournaments only) adds, renames and
+  deletes teams, with a short name and a captain; puts players on a team;
+  sets the board order with up and down buttons that work from the keyboard
+  and say what they do to a screen reader; sets boards per match (4 by
+  default, locked once round 1 is paired); and orders the teams, by hand or
+  by the average rating of their first boards - that order becomes the
+  teams' pairing numbers when round 1 is paired. *Pair* builds the whole
+  Berger schedule over the teams (odd counts give each team one bye; a double
+  round robin reverses colours in the second cycle). Each pairing is a match
+  played board against board in board order: the team the Berger table names
+  first has White on board 1 and on every odd board. An absent or withdrawn
+  player's reserve moves up; a board one team cannot fill is a forfeit win
+  for the player who is there, and board numbers run on across the round's
+  matches, so result entry, slips and score sheets are unchanged. The
+  Pairings page lists the round's matches above the boards with the score.
+  English and Dutch. See `docs/team-tournaments.md`.
+- [Feature] **Team standings, team tie-breaks and board statistics.** Game
+  points are the board results added up; match points - 2 for a win and 1
+  for a draw by default, set under Settings - Scoring - go to the team with
+  more game points once every board in the match has a result. The Standings
+  page of a team round robin ranks the teams by match points and then the
+  tie-breaks in order: game points, direct encounter (among teams still tied
+  on everything listed before it), Buchholz, Sonneborn-Berger on match
+  points, EMGSB (opponent's match points times game points scored) and board
+  points weighted by board, with a *Working* disclosure showing what
+  Buchholz and Sonneborn-Berger were added up from. Below it, every player's
+  boards, games, points, percentage and performance, grouped by board for
+  board prizes. A team tournament's tie-break picker now offers these, and
+  FIDE's team default set (MP GP DE BB SB) is calculated instead of being
+  dropped.
+- [Feature] **Team pairing sheet and team standings print**, on the Print
+  page of a team round robin: one table per match with its boards, and the
+  team table after any round.
+- [Feature] **The TRF file carries the team section.** A team tournament's
+  export writes a `013` record per team with its players in board order; the
+  individual games on the `001` lines are unchanged, and an individual
+  tournament's file is byte for byte what it was. Importing a TRF with teams
+  now creates the teams and their board orders (its games still come back as
+  individual games: TRF does not record which boards formed which match).
+- [Change] **Team tournaments are not published to OpenResults.** The results
+  site has no team pages, and an individual table would misstate how a team
+  event is ranked, so the publish switch cannot be turned on for one, and a
+  team tournament that was already switched on is no longer sent (it can
+  still be switched off). Settings - OpenResults says so. A team Swiss is
+  affected too.
+- [Change] **Backups and restore points carry team matches**, the teams'
+  seeding order and pairing numbers, and boards per match and match points,
+  so a restored team tournament has the same standings.
+
 ## [0.61.0] - 2026-09-13
 
 - [Change] **Dutch says "FIDE-rated" and "unrated", not "gerateerd" and

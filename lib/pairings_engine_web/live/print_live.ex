@@ -14,6 +14,36 @@ defmodule PairingsEngineWeb.PrintLive do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     latest = max(rounds_paired, 1)
 
+    team_documents(tournament, rounds_paired, latest) ++
+      individual_documents(tournament, rounds_paired, latest)
+  end
+
+  # A team round robin's own sheets lead the list: the matches with their
+  # boards, and the team table. The individual documents stay below - result
+  # slips, score sheets and the player list are still per board and per player.
+  defp team_documents(tournament, rounds_paired, latest) do
+    if PairingsEngine.Tournaments.Tournament.team_round_robin?(tournament) do
+      [
+        %{
+          name: gettext("Team pairings (latest round)"),
+          desc: gettext("Each match, team against team, with its board lines."),
+          href:
+            if(rounds_paired > 0,
+              do: ~p"/t/#{tournament.id}/print/team-pairings?round=#{latest}"
+            )
+        },
+        %{
+          name: gettext("Team standings"),
+          desc: gettext("Teams ranked by match points, with the team tie-breaks."),
+          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-standings")
+        }
+      ]
+    else
+      []
+    end
+  end
+
+  defp individual_documents(tournament, rounds_paired, latest) do
     [
       %{
         name: "Player list",

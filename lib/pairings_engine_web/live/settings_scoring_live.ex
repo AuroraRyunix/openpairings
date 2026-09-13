@@ -137,7 +137,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     params =
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur))
+        absent_counts_as_vur team_match_points_win team_match_points_draw team_match_points_loss))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_nbfois", socket.assigns.abs_scoring_locked?)
@@ -243,6 +243,48 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 step="0.5"
                 name="tournament[bye_value]"
                 value={@tournament.bye_value}
+              />
+            </.setting_field>
+          </.setting_group>
+        </div>
+
+        <div :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)} class="card">
+          <h2>{gettext("Match points")}</h2>
+
+          <p class="subtitle" style="margin: 0 0 8px">
+            {gettext(
+              "A team match is won by the team with more game points - the board results above, added up. FIDE team events give 2 match points for a win and 1 for a draw; change these if your league scores matches differently."
+            )}
+          </p>
+
+          <.setting_group>
+            <.setting_field label={gettext("Match points for a won match")}>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                name="tournament[team_match_points_win]"
+                value={@tournament.team_match_points_win}
+              />
+            </.setting_field>
+
+            <.setting_field label={gettext("Match points for a drawn match")}>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                name="tournament[team_match_points_draw]"
+                value={@tournament.team_match_points_draw}
+              />
+            </.setting_field>
+
+            <.setting_field label={gettext("Match points for a lost match")}>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                name="tournament[team_match_points_loss]"
+                value={@tournament.team_match_points_loss}
               />
             </.setting_field>
           </.setting_group>

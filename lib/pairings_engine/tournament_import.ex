@@ -245,7 +245,7 @@ defmodule PairingsEngine.TournamentImport do
 
     team_map = import_teams!(tournament, list(entry, "teams"))
     player_map = import_players!(tournament, list(entry, "players"), team_map)
-    import_rounds!(tournament, list(entry, "rounds"), player_map)
+    import_rounds!(tournament, list(entry, "rounds"), player_map, team_map)
     import_byes!(tournament, list(entry, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(entry, "forbidden_pairings"), player_map)
 
@@ -298,7 +298,7 @@ defmodule PairingsEngine.TournamentImport do
 
     team_map = import_teams!(tournament, list(t_data, "teams"))
     player_map = import_players!(tournament, list(t_data, "players"), team_map)
-    import_rounds!(tournament, list(t_data, "rounds"), player_map)
+    import_rounds!(tournament, list(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, list(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
 
@@ -380,7 +380,18 @@ defmodule PairingsEngine.TournamentImport do
 
   defp import_teams!(tournament, teams) do
     Map.new(teams, fn t ->
-      new_team = %Team{tournament_id: tournament.id} |> Team.changeset(t) |> insert!()
+      new_team =
+        %Team{tournament_id: tournament.id}
+        |> Team.changeset(t)
+        # Not cast, like a player's `manual_rank`: the seeding order and the
+        # frozen team number have controlled writers. A payload from before
+        # they were exported has neither, and a nil seed sorts by name.
+        |> Ecto.Changeset.change(
+          seed: coerce_int(Map.get(t, "seed")),
+          pairing_number: coerce_int(Map.get(t, "pairing_number"))
+        )
+        |> insert!()
+
       {Map.get(t, "id"), new_team.id}
     end)
   end
@@ -417,7 +428,7 @@ defmodule PairingsEngine.TournamentImport do
     end)
   end
 
-  defp import_rounds!(tournament, rounds, player_map) do
+  defp import_rounds!(tournament, rounds, player_map, team_map) do
     Enum.each(rounds, fn r ->
       new_round =
         %Round{tournament_id: tournament.id}
@@ -427,11 +438,25 @@ defmodule PairingsEngine.TournamentImport do
 
       pairings = list(r, "pairings")
 
+      # A team round's matches first, so the boards can point at the new
+      # rows. A match whose id a pairing names but the payload does not carry
+      # leaves that pairing without a match rather than dangling.
+      match_map =
+        Map.new(list(r, "matches"), fn m ->
+          new_match =
+            insert!(%PairingsEngine.Tournaments.Match{
+              round_id: new_round.id,
+              board: coerce_int(Map.get(m, "board")) || 1,
+              team_a_id: Map.get(team_map, Map.get(m, "team_a_id")),
+              team_b_id: Map.get(team_map, Map.get(m, "team_b_id"))
+            })
+
+          {Map.get(m, "id"), new_match.id}
+        end)
+
       Enum.each(pairings, fn pr ->
-        # `match_id` is deliberately not carried across - it's a foreign key
-        # into the unexported `matches` table, so a raw value would dangle.
-        # See PairingsEngine.TournamentExport.pairing_map/1.
         attrs = %{
+          "match_id" => Map.get(match_map, Map.get(pr, "match_id")),
           "board" => Map.get(pr, "board"),
           "result" => Map.get(pr, "result"),
           "white_player_id" => Map.get(player_map, Map.get(pr, "white_player_id")),

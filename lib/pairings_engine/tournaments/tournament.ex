@@ -24,6 +24,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # the two sources that refute it.
   @pairing_engines ~w(javafo ainalrami)
   @rr_cycles_values [1, 2]
+  # The Olympiad plays four boards and the largest national leagues ten; 20
+  # is a sanity bound on a form field, not a regulation.
+  @max_team_boards 20
+  @team_types ~w(team-swiss team-roundrobin)
   # How a newly-paired round becomes visible on the public pairings page
   # (`PairingsEngineWeb.PublicPairingsLive`) - see
   # `PairingsEngine.Tournaments.compute_published_at/2` for what each one
@@ -590,6 +594,23 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # first round, same as `pairing_system`/`rr_match_format`.
     field :swiss_match_format, :boolean, default: false
 
+    # Team tournaments only (`type` "team-roundrobin"/"team-swiss") - inert
+    # for every individual tournament, same tolerance as `acceleration`.
+    # See docs/team-tournaments.md.
+    #
+    # `team_boards` is how many boards one match is played on. Locked once
+    # round 1 is paired (`Tournaments.locked_fields/1`): a match's boards are
+    # numbered from it, and `PairingsEngine.TeamStandings` reads it back to
+    # tell which side of a board belongs to which team.
+    field :team_boards, :integer, default: 4
+    # C.07 Art. 11.1.1: match points for a team win, draw and loss. 2/1/0 is
+    # FIDE's own team scoring and the default; a league scoring 3/1/0 changes
+    # them. Game points (Art. 11.1.2) need no setting - they are the board
+    # results, scored with `points_win`/`points_draw`/`points_loss`.
+    field :team_match_points_win, :float, default: 2.0
+    field :team_match_points_draw, :float, default: 1.0
+    field :team_match_points_loss, :float, default: 0.0
+
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:
@@ -853,6 +874,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :rr_match_format,
       :keizer_top_value,
       :swiss_match_format,
+      :team_boards,
+      :team_match_points_win,
+      :team_match_points_draw,
+      :team_match_points_loss,
       :pair_by_category,
       :club_exclusion,
       :club_exclusion_list,
@@ -882,6 +907,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_inclusion(:soft_position, @soft_positions)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
+    |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)
+    |> validate_number(:team_match_points_win, greater_than_or_equal_to: 0)
+    |> validate_number(:team_match_points_draw, greater_than_or_equal_to: 0)
+    |> validate_number(:team_match_points_loss, greater_than_or_equal_to: 0)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
     |> validate_length(:swar_guid, max: 200)
     |> validate_format(:swar_guid, @safe_swar_guid,
@@ -1586,6 +1615,28 @@ defmodule PairingsEngine.Tournaments.Tournament do
   defp present?(_), do: true
 
   def types, do: @types
+
+  @doc """
+  Whether this is a team tournament - `type` "team-roundrobin" or
+  "team-swiss". The one question every team-aware screen asks, so it is
+  asked one way.
+  """
+  def team?(%{type: type}), do: type in @team_types
+  def team?(_), do: false
+
+  @doc """
+  Whether teams are actually PAIRED as teams - a team round robin. A team
+  Swiss is still classified as a team event but, until C.04.6 is wired in,
+  pairs its players one by one; see docs/team-tournaments.md.
+
+  Both fields, because they are set independently: the TRF importer
+  classifies a file's `092` into `type` and always pairs the result as a
+  Swiss, so "team-roundrobin" alone does not mean a Berger table runs.
+  """
+  def team_round_robin?(%{type: "team-roundrobin", pairing_system: "round_robin"}), do: true
+  def team_round_robin?(_), do: false
+
+  def max_team_boards, do: @max_team_boards
 
   def type_label("swiss"), do: "Swiss (individual)"
   def type_label("roundrobin"), do: "Round robin (individual)"

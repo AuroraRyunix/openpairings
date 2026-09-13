@@ -351,12 +351,13 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end)
   end
 
-  # `selectable/0`, not `catalogue/0`: the catalogue still carries the three
-  # team-only breaks so a stored tournament's code resolves to a name, but
-  # nothing here can calculate them, so offering them was offering a column
-  # of noughts that decides nothing. See PairingsEngine.Tiebreaks.
-  defp available_tiebreaks(selected) do
-    Enum.reject(Tiebreaks.selectable(), &(&1.code in selected))
+  # `selectable/1`, not `catalogue/0`: an individual tournament is offered
+  # exactly what it was before team standings existed, and a team tournament
+  # the breaks `PairingsEngine.TeamStandings` calculates. Offering anything
+  # else is offering a column of noughts that decides nothing. See
+  # PairingsEngine.Tiebreaks.
+  defp available_tiebreaks(selected, type) do
+    Enum.reject(Tiebreaks.selectable(type), &(&1.code in selected))
   end
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name
@@ -562,7 +563,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             >
               <option value="">{gettext("Add a tiebreak…")}</option>
 
-              <option :for={tb <- available_tiebreaks(@tiebreaks)} value={tb.code}>{tb.name}</option>
+              <option :for={tb <- available_tiebreaks(@tiebreaks, @tournament.type)} value={tb.code}>
+                {tb.name}
+              </option>
             </select>
             <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
               "Reset to FIDE default"

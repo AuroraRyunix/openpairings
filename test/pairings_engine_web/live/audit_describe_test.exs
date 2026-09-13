@@ -50,6 +50,23 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"player_name" => "Anna Peeters", "changed_fields" => %{}}
     ],
     "player.deleted" => [%{"player_name" => "Anna Peeters"}],
+    "team.created" => [%{"team_name" => "Brugse SK"}],
+    "team.updated" => [
+      %{"team_name" => "Brugse SK 1", "previous_name" => "Brugse SK"},
+      %{"team_name" => "Brugse SK", "previous_name" => "Brugse SK"}
+    ],
+    "team.deleted" => [%{"team_name" => "Brugse SK"}],
+    "team.player_assigned" => [%{"player_name" => "Anna Peeters", "team_name" => "Brugse SK"}],
+    "team.player_removed" => [%{"player_name" => "Anna Peeters", "team_name" => "Brugse SK"}],
+    "team.board_order_changed" => [
+      %{"player_name" => "Anna Peeters", "direction" => "up"},
+      %{"player_name" => "Anna Peeters", "direction" => "down"}
+    ],
+    "team.seeding_changed" => [
+      %{"by_rating" => true},
+      %{"team_name" => "Brugse SK", "direction" => "up"},
+      %{"team_name" => "Brugse SK", "direction" => "down"}
+    ],
     "registration.accepted" => [%{"player_name" => "Bram Claes"}],
     "registration.discarded" => [%{"player_name" => "Bram Claes"}],
     "player.ratings_refreshed" => [%{"players_updated" => 12}, %{"players_updated" => 1}],

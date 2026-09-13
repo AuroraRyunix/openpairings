@@ -3,7 +3,17 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   alias PairingsEngineWeb.PublicLink
 
-  alias PairingsEngine.{Audit, Categories, Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
+  alias PairingsEngine.{
+    Audit,
+    Categories,
+    Tournaments,
+    Tiebreaks,
+    Standings,
+    Keizer,
+    PlayerStats,
+    TeamStandings
+  }
+
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
   @impl true
@@ -402,6 +412,8 @@ defmodule PairingsEngineWeb.StandingsLive do
     selected_category = Map.get(socket.assigns, :selected_category)
     latest_complete_round = Tournaments.latest_complete_round(tournament)
 
+    socket = assign_team_standings(socket, tournament)
+
     assign(socket,
       keizer?: keizer?,
       entries: entries,
@@ -423,6 +435,62 @@ defmodule PairingsEngineWeb.StandingsLive do
       manual_incomplete?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_incomplete?(entries)
     )
+  end
+
+  # A team round robin ranks TEAMS (`PairingsEngine.TeamStandings`) and the
+  # board statistics under them replace the individual FIDE-tiebreak table,
+  # whose tie-breaks (MP, GP, ...) are team breaks it cannot calculate. A team
+  # Swiss still pairs player by player, so it keeps the individual page.
+  defp assign_team_standings(socket, tournament) do
+    if Tournament.team_round_robin?(tournament) do
+      teams = Tournaments.list_teams(tournament.id)
+
+      assign(socket,
+        team?: true,
+        team_entries: TeamStandings.standings(tournament),
+        team_tiebreaks: TeamStandings.effective_tiebreaks(tournament),
+        team_dropped: TeamStandings.dropped_tiebreaks_with_reasons(tournament),
+        teams_by_id: Map.new(teams, &{&1.id, &1}),
+        board_stats: TeamStandings.board_stats(tournament)
+      )
+    else
+      assign(socket,
+        team?: false,
+        team_entries: [],
+        team_tiebreaks: [],
+        team_dropped: [],
+        teams_by_id: %{},
+        board_stats: []
+      )
+    end
+  end
+
+  defp team_name(teams_by_id, id) do
+    case Map.get(teams_by_id, id) do
+      nil -> "-"
+      team -> team.name
+    end
+  end
+
+  defp team_label(teams_by_id, id) do
+    case Map.get(teams_by_id, id) do
+      nil -> "?"
+      team -> PairingsEngine.Tournaments.Team.label(team)
+    end
+  end
+
+  defp stats_by_board(stats), do: stats |> Enum.group_by(& &1.main_board) |> Enum.sort()
+
+  # One line of working per part: "R3 Team B: 4" - what the arbiter checks
+  # a disputed Sonneborn-Berger against.
+  defp working_text(parts, teams_by_id) do
+    Enum.map_join(parts, " + ", fn part ->
+      gettext("R%{round} %{team}: %{value}",
+        round: part.round,
+        team: team_label(teams_by_id, part.opponent_id),
+        value: format_tb(part.value)
+      )
+    end)
   end
 
   # The category selector's filtered view - `entries`, cut down to one
@@ -572,7 +640,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   defp dropped_reason_text(:not_calculable) do
     gettext(
-      "OpenPairings cannot calculate this yet: it needs team standings, which are not built. It would score zero for every player and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
+      "OpenPairings cannot calculate this tie-break for this kind of tournament - a team tie-break in an individual event, or one team standings do not calculate. It would score zero for everybody and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
     )
   end
 
@@ -673,7 +741,17 @@ defmodule PairingsEngineWeb.StandingsLive do
         </form>
       </div>
 
-      <div :if={!@keizer?} class="card manual-ranking-card" style="margin-bottom: 12px">
+      <.team_standings_section
+        :if={@team?}
+        tournament={@tournament}
+        entries={@team_entries}
+        tiebreaks={@team_tiebreaks}
+        dropped={@team_dropped}
+        teams_by_id={@teams_by_id}
+        board_stats={@board_stats}
+      />
+
+      <div :if={!@keizer? and !@team?} class="card manual-ranking-card" style="margin-bottom: 12px">
         <div
           :if={@tournament.manual_ranking}
           class="manual-ranking-banner"
@@ -727,7 +805,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         </div>
       </div>
 
-      <div :if={@entries == []} class="card empty">
+      <div :if={@entries == [] and !@team?} class="card empty">
         <p><strong>{gettext("No players registered yet.")}</strong></p>
       </div>
 
@@ -736,7 +814,7 @@ defmodule PairingsEngineWeb.StandingsLive do
             different reasons must not be explained by whichever reason
             happened to be written into the markup. --%>
       <p
-        :for={{reason, codes} <- dropped_by_reason(@dropped_tiebreaks)}
+        :for={{reason, codes} <- dropped_by_reason(if(@team?, do: [], else: @dropped_tiebreaks))}
         class="hint"
         style="margin-bottom: 10px"
       >
@@ -752,7 +830,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       </p>
 
       <div
-        :if={@entries != [] and !@keizer?}
+        :if={@entries != [] and !@keizer? and !@team?}
         id="standings-table"
         class="card table-card"
         phx-hook="ColumnPrefs"
@@ -905,7 +983,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         </table>
       </div>
 
-      <p :if={@rounds_paired == 0 and !@keizer?} class="hint">
+      <p :if={@rounds_paired == 0 and !@keizer? and !@team?} class="hint">
         {gettext(
           "Tiebreak columns fill in as results are entered, following the FIDE Tie-Break Regulations in the order set under Settings."
         )}
@@ -992,4 +1070,125 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name
+
+  attr :tournament, :map, required: true
+  attr :entries, :list, required: true
+  attr :tiebreaks, :list, required: true
+  attr :dropped, :list, required: true
+  attr :teams_by_id, :map, required: true
+  attr :board_stats, :list, required: true
+
+  defp team_standings_section(assigns) do
+    ~H"""
+    <div :if={@entries == []} class="card empty">
+      <p>
+        <strong>{gettext("No teams yet.")}</strong>
+        <.link navigate={~p"/t/#{@tournament.id}/teams"}>{gettext("Add teams")}</.link>
+      </p>
+    </div>
+
+    <p
+      :for={{reason, codes} <- dropped_by_reason(@dropped)}
+      class="hint"
+      style="margin-bottom: 10px"
+    >
+      <strong>
+        {ngettext(
+          "%{codes} is not being used.",
+          "%{codes} are not being used.",
+          length(codes),
+          codes: Enum.join(codes, ", ")
+        )}
+      </strong>
+      {dropped_reason_text(reason)}
+    </p>
+
+    <div :if={@entries != []} id="team-standings" class="card table-card">
+      <table class="pe-table">
+        <caption class="sr-only">{gettext("Team standings")}</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="num">{gettext("Rank")}</th>
+            <th scope="col">{gettext("Team")}</th>
+            <th scope="col" class="num" title={gettext("Matches played")}>{gettext("Played")}</th>
+            <th scope="col" class="num" title={gettext("Won - drawn - lost")}>
+              {gettext("W-D-L")}
+            </th>
+            <th scope="col" class="num" title={tb_name("MP")}>MP</th>
+            <th
+              :for={code <- Enum.reject(@tiebreaks, &(&1 == "MP"))}
+              scope="col"
+              class="num"
+              title={tb_name(code)}
+            >
+              {code}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={entry <- @entries}>
+            <td class="num">{entry.rank}</td>
+            <td>
+              <strong>{entry.team.name}</strong>
+              <details :if={entry.working != %{}} class="team-working">
+                <summary>
+                  {gettext("Working")}<span class="sr-only">{gettext(" for %{team}",
+                    team: entry.team.name
+                  )}</span>
+                </summary>
+                <p :for={{code, parts} <- entry.working} class="hint" style="margin: 2px 0">
+                  <strong>{code}</strong>
+                  = {if parts == [], do: "0", else: working_text(parts, @teams_by_id)}
+                </p>
+              </details>
+            </td>
+            <td class="num">{entry.played}</td>
+            <td class="num">{entry.won}-{entry.drawn}-{entry.lost}</td>
+            <td class="num"><strong>{format_tb(entry.mp)}</strong></td>
+            <td :for={code <- Enum.reject(@tiebreaks, &(&1 == "MP"))} class="num">
+              {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="hint">
+      {gettext(
+        "Match points decide the ranking, then the tie-breaks in the order set under Settings. A match scores match points once every board in it has a result; game points count each board as its result comes in."
+      )}
+    </p>
+
+    <div :if={@board_stats != []} id="board-stats" class="card table-card">
+      <h2 style="margin: 12px 12px 0">{gettext("Board statistics")}</h2>
+      <table :for={{board, stats} <- stats_by_board(@board_stats)} class="pe-table">
+        <caption>{gettext("Board %{n}", n: board)}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{gettext("Name")}</th>
+            <th scope="col">{gettext("Team")}</th>
+            <th scope="col" class="num">{gettext("Boards")}</th>
+            <th scope="col" class="num">{gettext("Games")}</th>
+            <th scope="col" class="num">Pts</th>
+            <th scope="col" class="num">%</th>
+            <th scope="col" class="num" title={gettext("Performance rating over games played")}>
+              {gettext("Perf")}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={s <- stats}>
+            <td><strong>{s.player.name}</strong></td>
+            <td>{team_name(@teams_by_id, s.team_id)}</td>
+            <td class="num">{Enum.join(s.boards, ", ")}</td>
+            <td class="num">{s.games}</td>
+            <td class="num">{format_tb(s.points)}</td>
+            <td class="num">{if s.percentage, do: format_tb(s.percentage), else: "-"}</td>
+            <td class="num">{s.performance || "-"}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    """
+  end
 end

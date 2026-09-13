@@ -31,6 +31,15 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **Round robin (Berger tables)** - single or double cycle, match format
   (immediate colour-reversed rematches), automatic forfeit results for
   absent/forfeited players, odd-field structural byes.
+- **Team round robin** - the Berger table over teams, each pairing a match of
+  N boards played board against board in board order, the first-named team
+  White on the odd boards. Teams page for teams, rosters, board order and
+  seeding; reserves move up for an absent player; an unfilled board is a
+  forfeit. Match points (2/1/0, configurable) and game points, team standings
+  with the team tie-breaks (GP, DE, BH, SB, EMGSB, BB) and their working,
+  individual board statistics, a team pairing sheet and team standings print,
+  and the TRF16 team section. Not published to OpenResults yet. See
+  [`team-tournaments.md`](team-tournaments.md).
 - **Keizer system** - classic ladder values with retroactive recalculation and
   a dedicated Keizer standings table.
 - **Forbidden pairings** - arbiter-managed never-pair list, plus rule-based
@@ -243,13 +252,14 @@ Near-term, in rough order:
 
 Later / larger:
 
-- **Team tournaments** (team Swiss, team round robin, match cards) - the
-  biggest remaining item, deliberately deferred until the individual
-  tournament feature set is fully solid. The C.04.6 reading is written up
-  ahead of any code, and its Article 4.3.1 colour rule is the same TPN
-  parity as the individual Article 5.2.5 - which the FIDE Systems of
-  Pairings and Programs Commission settled on 2026-08-28, so that half is no
-  longer an open question.
+- **Team Swiss (C.04.6)** - team round robin is built (above); team Swiss
+  still pairs player by player. Ainalrami already carries a first cut of the
+  C.04.6 engine with brute-force proofs of Article 3.6's lexicographic head;
+  what is left is its open reading questions, Article 16 for team
+  tie-breaks, and wiring it in. See
+  [`teams-phase-2-plan.md`](teams-phase-2-plan.md).
+- **Team pages on OpenResults** - additive snapshot fields for teams,
+  matches and team standings, so a team event can be published.
 
 Explicitly out of scope (decided, not planned):
 

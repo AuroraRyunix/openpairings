@@ -99,6 +99,14 @@ defmodule PairingsEngine.RoundRobin do
   """
   @spec pair_next_round(Tournament.t()) :: {:ok, Round.t()} | {:error, term()}
   def pair_next_round(%Tournament{} = tournament) do
+    if Tournament.team_round_robin?(tournament) do
+      PairingsEngine.TeamRoundRobin.pair_next_round(tournament)
+    else
+      pair_individual_next_round(tournament)
+    end
+  end
+
+  defp pair_individual_next_round(tournament) do
     ensure_frozen(tournament)
     frozen = frozen_players(tournament.id)
 
@@ -149,8 +157,16 @@ defmodule PairingsEngine.RoundRobin do
   # tournament from a live one.
   def pair_all_rounds(%Tournament{} = tournament) do
     case Tournaments.ensure_writable(tournament) do
-      :ok -> do_pair_all_rounds(tournament)
-      {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
+      :ok ->
+        # A team round robin runs the same Berger table over teams - see
+        # `PairingsEngine.TeamRoundRobin`. Branched after the gate, so the
+        # gate covers both.
+        if Tournament.team_round_robin?(tournament),
+          do: PairingsEngine.TeamRoundRobin.pair_all_rounds(tournament),
+          else: do_pair_all_rounds(tournament)
+
+      {:error, reason} ->
+        {:error, Tournaments.refusal_message(reason, "pairing")}
     end
   end
 
