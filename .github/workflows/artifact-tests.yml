@@ -1,0 +1,154 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: SWAR and JaVaFo tests
+
+# A SEPARATE workflow from elixir.yml on purpose: this repo is PUBLIC, and
+# this job runs on a self-hosted runner - the maintainer's own PC, or a VM
+# they control - because that is the only place the proprietary .swar
+# fixtures and javafo.jar legitimately exist (see test/test_helper.exs and
+# docs/test-quality-2026-09-13.md's "Proposal: a self-hosted runner that
+# already holds the files"). A self-hosted runner executes whatever code the
+# triggering event checks out, on that real machine. `pull_request` (and
+# `pull_request_target`, which is worse - it runs with the base ref's
+# workflow file but can still be told to check out a fork's head) would hand
+# anyone who opens a PR against this repo arbitrary code execution on the
+# maintainer's own computer. So this workflow NEVER runs on pull_request or
+# pull_request_target - only on a push to main (which only people with write
+# access can do) and on a manual, human-triggered workflow_dispatch. Do not
+# add pull_request here, ever, even "just for docs changes" or "paths
+# filtered" - a paths filter is evaluated after checkout, too late.
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Read-only by default - this job never needs to write to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: artifact-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  artifact-tests:
+    name: SWAR and JaVaFo tests
+    if: github.repository == 'AuroraRyunix/openpairings'
+    runs-on: [self-hosted, windows, openpairings-artifacts]
+    permissions:
+      contents: read
+    timeout-minutes: 30
+
+    steps:
+      # Actions are pinned to a commit, not to a tag - see elixir.yml and
+      # binaries.yml for the same reasoning. .github/dependabot.yml keeps the
+      # pair (SHA + version comment) current.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Fails loudly and by name if the runner has not been set up per
+      # docs/self-hosted-runner.md, instead of test_helper.exs quietly
+      # excluding the very tests this job exists to run.
+      - name: Place the artifacts
+        shell: pwsh
+        run: |
+          $artifactsDir = $env:OPENPAIRINGS_ARTIFACTS
+          if ([string]::IsNullOrWhiteSpace($artifactsDir)) {
+            Write-Error "OPENPAIRINGS_ARTIFACTS is not set on this runner. See docs/self-hosted-runner.md."
+            exit 1
+          }
+          if (-not (Test-Path $artifactsDir)) {
+            Write-Error "OPENPAIRINGS_ARTIFACTS ('$artifactsDir') does not exist. See docs/self-hosted-runner.md."
+            exit 1
+          }
+
+          # Exactly the files test/test_helper.exs looks for - see its
+          # swar_fixtures list and PairingsEngine.Pairing.javafo_jar/0.
+          $required = @(
+            @{ Name = "c-reeks.swar";   Dest = "test\fixtures\c-reeks.swar" },
+            @{ Name = "problemski.swar"; Dest = "test\fixtures\problemski.swar" },
+            @{ Name = "test3-321.swar"; Dest = "test\fixtures\test3-321.swar" },
+            @{ Name = "javafo.jar";     Dest = "priv\javafo\javafo.jar" }
+          )
+
+          New-Item -ItemType Directory -Force -Path "test\fixtures" | Out-Null
+          New-Item -ItemType Directory -Force -Path "priv\javafo" | Out-Null
+
+          foreach ($file in $required) {
+            $src = Join-Path $artifactsDir $file.Name
+            if (-not (Test-Path $src)) {
+              Write-Error "Missing artifact: $src (expected in OPENPAIRINGS_ARTIFACTS). See docs/self-hosted-runner.md."
+              exit 1
+            }
+            Copy-Item -Path $src -Destination $file.Dest -Force
+            Write-Host "Placed $($file.Dest)"
+          }
+
+      # The runner's own Elixir/Erlang install, not a toolchain fetched by
+      # this workflow - see docs/self-hosted-runner.md's Prerequisites. Only
+      # verified here, so a version drift fails clearly instead of compiling
+      # against the wrong OTP/Elixir and failing somewhere confusing later.
+      - name: Verify Elixir/Erlang toolchain
+        shell: pwsh
+        run: |
+          $elixirVersion = elixir --version
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "elixir is not on PATH for this runner. See docs/self-hosted-runner.md."
+            exit 1
+          }
+          Write-Host $elixirVersion
+
+          # mix.exs requires elixir: "~> 1.17" - i.e. 1.17.x or later 1.x.
+          $match = [regex]::Match($elixirVersion, "Elixir (\d+)\.(\d+)\.(\d+)")
+          if (-not $match.Success) {
+            Write-Error "Could not parse an Elixir version out of: $elixirVersion"
+            exit 1
+          }
+          $major = [int]$match.Groups[1].Value
+          $minor = [int]$match.Groups[2].Value
+          if ($major -ne 1 -or $minor -lt 17) {
+            Write-Error "Elixir $major.$minor does not satisfy mix.exs's `"~> 1.17`" requirement. See docs/self-hosted-runner.md."
+            exit 1
+          }
+
+      - name: Install dependencies
+        shell: pwsh
+        run: mix deps.get --check-locked
+        env:
+          MIX_ENV: test
+
+      - name: Compile
+        shell: pwsh
+        run: mix compile --warnings-as-errors
+        env:
+          MIX_ENV: test
+
+      # SKIP_MISSING_ARTIFACTS: none - unlike elixir.yml, no artifact here is
+      # allowed to be missing: if one disappeared after the placement step
+      # above somehow succeeded, test_helper.exs must fail the build, not
+      # silently exclude the very tests this job exists to run.
+      - name: Run SWAR and JaVaFo tests
+        shell: pwsh
+        run: mix test --only swar_fixture --only javafo
+        env:
+          MIX_ENV: test
+          SKIP_MISSING_ARTIFACTS: none
+
+      # Always, even on failure or cancellation: the .swar files are real
+      # personal data and javafo.jar is a third-party binary not ours to
+      # redistribute - see .gitignore and test/test_helper.exs. Neither
+      # should linger in the runner's checkout after the job ends. _build and
+      # deps are also removed so nothing about this proprietary run persists
+      # into the next job's cache.
+      - name: Remove copied artifacts and build output
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-Item -Path "test\fixtures\c-reeks.swar" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "test\fixtures\problemski.swar" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "test\fixtures\test3-321.swar" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "priv\javafo\javafo.jar" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "_build" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "deps" -Recurse -Force -ErrorAction SilentlyContinue
