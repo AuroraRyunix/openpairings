@@ -16,6 +16,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Pulling entry-form registrations words a refusal by the server's
+  own error code, like publishing already does.** `PairingsEngine.
+  Registrations` still dispatched on the HTTP status alone - a 403 with
+  `installation_suspended`, `installation_revoked` or `not_owner` all fell
+  back to a bare "the server answered 403: `<code>`" - even though
+  `PairingsEngine.Publishing` was refactored two days ago to read the JSON
+  `error` code the same way `PairingsEngineWeb.Components.ConnectionStatus`
+  does. Now reuses `Publishing.rejection_of/1` and `Failure.effective_code/1`
+  to decode the body rather than re-parsing it, and gets its own sentence
+  for each: `not_owner` names the other installation (the same words
+  `Publishing.take_down_words/2` already uses for it), `installation_
+  suspended`/`installation_revoked` say the key was suspended or is no
+  longer accepted, and `key_mismatch`/`key_required`/a bare 403 keep the
+  "a different machine published it" sentence they already had. Pulled in
+  public mode too (a per-installation key rather than a token), which gets
+  its own "does not recognise this computer's key" wording for a rejected
+  credential, same as publishing's.
 - [Fix] **The Connections panel's headline no longer contradicts the
   sentence under it.** `headline/1` picked "Token refused" for almost every
   refusal (only "Publishing paused" had its own wording), whatever the

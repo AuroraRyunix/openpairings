@@ -70,6 +70,7 @@ defmodule PairingsEngine.Registrations do
   import Ecto.Query
 
   alias PairingsEngine.{Publishing, Repo, Tournaments}
+  alias PairingsEngine.Publishing.Failure
   alias PairingsEngine.Registrations.Registration
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
@@ -517,41 +518,91 @@ defmodule PairingsEngine.Registrations do
       {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
         parse(body)
 
-      # Public mode: there is no token to reject, and the installation key's
-      # own refusals say which one it is.
-      {:ok, %Req.Response{status: 401}} ->
-        if Publishing.public_mode?(),
-          do: {:error, "the results site does not recognise this computer's key (401)"},
-          else: {:error, "the server rejected the token (401)"}
-
-      # Dispatched on the server's code, which OpenResults' contract says a
-      # client must do: `installation_suspended`, `installation_revoked` and
-      # `not_owner` are 403s too, and none of them is "a different machine
-      # published it". The key codes, and an older server with no code, keep
-      # the sentence they always had; anything else says its code.
-      {:ok, %Req.Response{status: 403} = response} ->
-        case Publishing.rejection_of(response) do
-          {:rejected, 403, code, _detail} when code in [nil, "key_mismatch", "key_required"] ->
-            {:error,
-             "the server refused this tournament's entries (403) - a different " <>
-               "machine published it, so its key is not this one"}
-
-          {:rejected, 403, code, _detail} ->
-            {:error, "the server answered 403: #{code}"}
-        end
-
-      {:ok, %Req.Response{status: 404}} ->
-        {:error,
-         "the server has no entry list for this tournament (404) - " <>
-           "publish it first, or the server may be older than this feature"}
-
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error, "the server answered #{status}: #{Publishing.describe_body(body)}"}
+      # Every other answer is decoded exactly the way `Publishing` decodes
+      # its own - `rejection_of/1` is the one place a response body is read
+      # for its `error` code, so this and every OpenResults call agree on
+      # where the code lives - and worded from that code, not from the
+      # status alone. This is pulled in public mode too (a per-installation
+      # key rather than a token), which `rejection_words/1` accounts for.
+      {:ok, %Req.Response{} = response} ->
+        {:error, response |> Publishing.rejection_of() |> rejection_words()}
 
       {:error, reason} ->
         {:error, Publishing.describe_transport(reason)}
     end
   end
+
+  # One clause per code, same rule `PairingsEngineWeb.Components.
+  # ConnectionStatus.reason_sentence/1` follows and the same reason: two
+  # different 403s mean two different things to an arbiter, and the status
+  # alone cannot tell them apart. `Failure.effective_code/1` is what reads a
+  # bare 401 as `"unauthorized"` - the one normalisation every OpenResults
+  # caller shares - so that shape only has to be matched once, here.
+  defp rejection_words(rejection) do
+    case Failure.effective_code(rejection) do
+      "unauthorized" -> unauthorized_words()
+      code when code in ["key_mismatch", "key_required"] -> different_machine_words()
+      "not_owner" -> not_owner_words()
+      "installation_suspended" -> installation_suspended_words()
+      "installation_revoked" -> installation_revoked_words()
+      _other_or_none -> status_words(rejection)
+    end
+  end
+
+  # What is left once the codes above have had their turn: a bare 403 (an
+  # older server, or a body Jason could not read as one) is the same
+  # "different machine" case as `key_mismatch`/`key_required` above; a bare
+  # 404 (or `"not_found"`) keeps its own sentence; anything else says its
+  # status and whatever the body carried - the code and detail `rejection_
+  # of/1` already extracted, so this never re-reads the response body.
+  defp status_words({:rejected, 403, nil, _detail}), do: different_machine_words()
+
+  defp status_words({:rejected, 404, code, _detail}) when code in [nil, "not_found"],
+    do: not_found_words()
+
+  defp status_words({:rejected, status, nil, nil}), do: "the server answered #{status}"
+
+  defp status_words({:rejected, status, nil, detail}),
+    do: "the server answered #{status}: #{detail}"
+
+  defp status_words({:rejected, status, code, _detail}),
+    do: "the server answered #{status}: #{code}"
+
+  # Public mode: there is no token to reject, and the installation key's own
+  # refusals say which one it is.
+  defp unauthorized_words do
+    if Publishing.public_mode?(),
+      do: "the results site does not recognise this computer's key (401)",
+      else: "the server rejected the token (401)"
+  end
+
+  defp different_machine_words,
+    do:
+      "the server refused this tournament's entries (403) - a different " <>
+        "machine published it, so its key is not this one"
+
+  # Same words `Publishing.take_down_words/2` already uses for this code in
+  # public mode - an arbiter reading either page about the same tournament
+  # should not meet two different sentences for the same fact.
+  defp not_owner_words,
+    do:
+      "a different installation owns this tournament on the results site - ask " <>
+        "the operator of the results site to transfer it to this computer"
+
+  defp installation_suspended_words,
+    do:
+      "the results site has suspended this computer's key (403) - contact the " <>
+        "operator of the results site"
+
+  defp installation_revoked_words,
+    do:
+      "the results site no longer accepts this computer's key (403) - register " <>
+        "again before pulling entries"
+
+  defp not_found_words,
+    do:
+      "the server has no entry list for this tournament (404) - " <>
+        "publish it first, or the server may be older than this feature"
 
   # A slug is a generated token today, but it lands in a URL path, so it is
   # escaped rather than trusted to stay one.
