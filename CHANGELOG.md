@@ -16,6 +16,25 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The Connections panel's headline no longer contradicts the
+  sentence under it.** `headline/1` picked "Token refused" for almost every
+  refusal (only "Publishing paused" had its own wording), whatever the
+  server actually said - so a 200 from some other website read "Token
+  refused" above "which is not an OpenResults server", and a suspended key,
+  a hidden tournament, a blocked address or a different installation owning
+  the tournament all read "Token refused" too, in operator mode, or a
+  blanket "Refused by the results site" in public mode. Every code
+  `reason_sentence/1` already has a sentence for now gets its own matching
+  headline instead ("Owned by another installation", "Key suspended", "Key
+  revoked", "Tournament limit reached", "Tournament too large", "Tournament
+  hidden", "Registration closed", "Address blocked", "Waiting a moment", and
+  "Key not recognised" for public mode's own unrecognised-key wording); "Not
+  an OpenResults server" for a server that answered with no error code at
+  all, which was the reported case. New Dutch msgstrs throughout. Found by
+  checking every `{state, reason}` pairing, as asked - one more of the same
+  bug was already pinned as expected behaviour in
+  `public_publishing_live_test.exs` (an installation-revoked key), fixed
+  alongside it.
 - [Security] **The public `/tools/norms` page no longer re-serialises every
   uploaded file on every officials-form keystroke.** `update_fields` and its
   siblings (picking an arbiter from search results, adding or removing one,
