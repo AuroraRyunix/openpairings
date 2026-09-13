@@ -287,7 +287,8 @@ Still open, and each needs a decision rather than typing:
   and team Swiss; `snapshot.ex` gates team fields on
   `Tournament.paired_as_teams?/1`. Still open: the three readings (questions 5-7) are
   research, not SPP rulings; the large-field fuzz on the fuzz server. (The
-  brackets are stored as the round's explanation since 2026-09-14.) See
+  brackets are stored as the round's explanation since 2026-09-14, with the
+  engine's own reasons since the `team-explain` follow-up.) See
   `docs/team-tournaments.md`.
 
   **No longer blocked on the SPP.** C.04.6 Article 4.3.1 is the same
@@ -720,11 +721,15 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   Still open:
   * **Ainalrami tag and pin** - the team Swiss code needs Ainalrami's
     `team-swiss` branch tagged and `mix.exs` bumped to it.
-  * **The round's explanation** - stored and shown since 2026-09-14
-    (`TeamSwiss.explanation/5`, `TeamRoundExplanation`). Still missing
-    because Ainalrami does not return it: per-set [C5]-[C7] values for the
-    upfloater choice, and which Article 4.3 rule decided each match's
-    colours. An Ainalrami change, if wanted.
+  * ~~**The round's explanation**~~ - stored and shown since 2026-09-14
+    (`TeamSwiss.explanation/5`, `TeamRoundExplanation`). **The engine's
+    reasons are in it** since the follow-up of 2026-09-14 (account version
+    2): the bye's 3.4.1 passes and tie-break, each bracket's upfloater sets
+    with [C4]-[C7] and the criterion that decided, each match's 4.2 and 4.3
+    rule - from Ainalrami's `explain: true` (branch `team-explain`, to be
+    tagged v0.28.0; **the `mix.exs` pin still needs bumping to it**, the code
+    here reads version 1 if the engine sends no reasons). Rounds paired
+    before keep version 1 and the "not recorded" note.
   * **Not published to OpenResults** - refused on purpose until the results
     site has team pages (additive snapshot fields in OpenResults'
     `docs/snapshot-schema.md`, plus the pages).

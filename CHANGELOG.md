@@ -16,6 +16,19 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The team Swiss rationale page gives the engine's reasons.**
+  For a round paired from now on, the *Pairing rationale* page says why each
+  bracket took the upfloaters it did - the criterion that decided against
+  the next best set ([C4] fewest upfloaters, [C5] their scores, [C6] the next
+  score group, [C7] floaters last round, or the order of pairing numbers) -
+  lists the sets that could not be paired and why, and tables the sets that
+  could with their [C4]-[C7] values. The bye shows the teams passed over
+  because the rest could not then be paired, as the team engine found it,
+  and the tie-break that put the bye team ahead of the next one. The colours
+  table names the rule of Article 4.2 that picked each first team and the
+  rule of Article 4.3 that gave the colours. Long lists stop at ten with a
+  count of the rest. Rounds paired before this keep what they showed, with
+  the note that the rest was not recorded.
 - [Feature] **A team Swiss round's pairing rationale.** Pairing a team Swiss
   round now stores what the team engine reported, and the round's *Pairing
   rationale* page (Audit - Pairing rationale) shows it instead of the

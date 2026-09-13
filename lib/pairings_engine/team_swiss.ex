@@ -135,7 +135,10 @@ defmodule PairingsEngine.TeamSwiss do
       round: number,
       expected_rounds: tournament.rounds_count,
       initial_colour: initial_colour(tournament),
-      absent: absent
+      absent: absent,
+      # The engine's reasons for the rationale page. Changes no pairing:
+      # Ainalrami returns the same round with or without it.
+      explain: true
     ]
 
     case TeamPairing.pair_round(engine_teams, opts) do
@@ -202,37 +205,47 @@ defmodule PairingsEngine.TeamSwiss do
 
   @doc """
   The account of a paired round, as stored on `rounds.explanation`: what
-  `Ainalrami.TeamPairing.pair_round/2` returned, plus what the engine was
-  told, in JSON-safe form with string keys. Teams are named by their pairing
-  numbers, with `"team_ids"` to resolve them.
+  `Ainalrami.TeamPairing.pair_round/2` returned with `explain: true`, plus
+  what the engine was told, in JSON-safe form with string keys. Teams are
+  named by their pairing numbers, with `"team_ids"` to resolve them.
+  `"version"` 2; version 1 accounts (rounds paired before the engine reported
+  its reasons) have no `"selection"` or rules and an older `"bye"`, and
+  `PairingsEngine.TeamRoundExplanation` reads both.
 
     * `"teams"` - each team's state going into the round: match and game
       points, colours, colour preference (Art. 1.7, Type A), bye, forfeit
       win and float flags, opponents.
-    * `"bye"` - the pairing-allocated bye (Art. 3.4): the teams [C2] barred
-      and why, and the eligible teams in 3.4.2-3.4.4's order up to the one
-      that got it. The engine takes the first in that order that leaves the
-      rest pairable (3.4.1), so every team before it was passed over for
-      3.4.1 - read from the engine's own rule, not re-searched.
+    * `"bye"` - the pairing-allocated bye (Art. 3.4), as the engine
+      reported it: the teams [C2] barred and which clause, the teams it
+      tried first and found would leave the rest unpairable (3.4.1), and
+      the tie-break (3.4.2-3.4.4) that put the bye ahead of the next team.
     * `"brackets"` - per bracket (Art. 3.5/3.6): its score, residents,
       upfloaters, pairs, the [C8]/[C9]/[C10] values of the pairing chosen,
-      how many candidates 3.6 examined and whether the search was exhaustive.
+      how many candidates 3.6 examined, whether the search was exhaustive,
+      and `"selection"`: the upfloater sets considered with their
+      [C4]-[C7] values, the sets rejected for having no legal pairing, the
+      chosen set, the runner-up and the criterion that decided.
     * `"pairs"` - colours as allocated (Art. 4): White, Black, the first
-      team (4.2) and the score difference.
+      team and the 4.2 clause that named it, the 4.3 clause that gave the
+      colours, and the score difference.
 
-  Not in it, because the engine does not return them: why one upfloater set
-  beat another ([C5]-[C7] values per set) and which Article 4.3 rule gave
-  each pair its colours.
+  The recorded lists are bounded by the engine (ten entries each, the rest
+  counted in the `*_omitted` fields); see `Ainalrami.TeamPairing.Explanation`.
   """
   def explanation(result, engine_teams, teams, absent, opts) do
     round = Keyword.get(opts, :round)
     expected = Keyword.get(opts, :expected_rounds)
     last_round? = not is_nil(round) and not is_nil(expected) and round >= expected
     last_two? = not is_nil(round) and not is_nil(expected) and round >= expected - 1
+    reasons = Map.get(result, :explanation)
+    selections = if reasons, do: Enum.map(reasons.brackets, & &1.selection), else: []
+    rules = if reasons, do: Map.new(reasons.pairs, &{{&1.white, &1.black}, &1}), else: %{}
 
     %{
       "kind" => "team_swiss",
-      "version" => 1,
+      # 1 when the engine reported no reasons (an Ainalrami without
+      # `explain: true`): the page then shows what it has, with the note.
+      "version" => if(reasons, do: 2, else: 1),
       "round" => round,
       "last_round" => last_round?,
       "last_two_rounds" => last_two?,
@@ -254,9 +267,11 @@ defmodule PairingsEngine.TeamSwiss do
             "opponents" => team.opponents
           }
         end),
-      "bye" => bye_json(result.bye, engine_teams),
+      "bye" => result.bye && bye_json(reasons && reasons.bye, result.bye),
       "brackets" =>
-        Enum.map(result.brackets, fn b ->
+        result.brackets
+        |> Enum.with_index()
+        |> Enum.map(fn {b, i} ->
           {c8, c9, c10} = b.criteria
 
           %{
@@ -268,15 +283,20 @@ defmodule PairingsEngine.TeamSwiss do
             "c9" => c9,
             "c10" => c10,
             "candidates" => b.candidates,
-            "exhaustive" => b.exhaustive?
+            "exhaustive" => b.exhaustive?,
+            "selection" => selection_json(Enum.at(selections, i))
           }
         end),
       "pairs" =>
         Enum.map(result.pairs, fn p ->
+          rule = Map.get(rules, {p.white, p.black}, %{})
+
           %{
             "white" => p.white,
             "black" => p.black,
             "first_team" => p.first_team,
+            "first_team_rule" => Map.get(rule, :first_team_rule),
+            "colour_rule" => Map.get(rule, :colour_rule),
             "score_difference" => p.score_difference
           }
         end)
@@ -286,34 +306,60 @@ defmodule PairingsEngine.TeamSwiss do
   defp preference_json(:none), do: nil
   defp preference_json({colour, strength}), do: "#{colour} #{strength}"
 
-  defp bye_json(nil, _teams), do: nil
+  # The engine's own account of the bye, in JSON. Nothing here is worked out
+  # by OpenPairings: which teams were passed over for 3.4.1, and why the bye
+  # ranks ahead of the next team, are what Ainalrami's 3.4 walk recorded.
+  defp bye_json(nil, tpn), do: %{"tpn" => tpn}
 
-  defp bye_json(bye, teams) do
-    {ineligible, eligible} = Enum.split_with(teams, &TeamPairing.Team.pab_ineligible?/1)
-
-    ordered =
-      Enum.sort_by(eligible, fn t ->
-        {t.match_points, -TeamPairing.Team.matches_played(t), -t.tpn}
-      end)
-
-    {before, rest} = Enum.split_while(ordered, &(&1.tpn != bye))
-    candidates = if rest == [], do: ordered, else: before ++ [hd(rest)]
-
+  defp bye_json(bye, _tpn) do
     %{
-      "tpn" => bye,
+      "tpn" => bye.tpn,
+      "match_points" => bye.score,
+      "matches_played" => bye.matches_played,
       "ineligible" =>
-        Enum.map(ineligible, fn t ->
-          %{"tpn" => t.tpn, "reason" => if(t.had_pab?, do: "had_bye", else: "won_by_forfeit")}
+        Enum.map(bye.ineligible, fn i ->
+          %{"tpn" => i.tpn, "reasons" => Enum.map(i.reasons, &reason_json/1)}
         end),
-      "candidates" =>
-        Enum.map(candidates, fn t ->
-          %{
-            "tpn" => t.tpn,
-            "match_points" => t.match_points,
-            "matches_played" => TeamPairing.Team.matches_played(t),
-            "outcome" => if(t.tpn == bye, do: "chosen", else: "passed_over")
-          }
-        end)
+      "ineligible_omitted" => bye.ineligible_omitted,
+      "passed_over" => Enum.map(bye.passed_over, &bye_team_json/1),
+      "passed_over_omitted" => bye.passed_over_omitted,
+      "next" => bye.next && bye_team_json(bye.next),
+      "decided_by" => bye.decided_by
+    }
+  end
+
+  defp bye_team_json(t),
+    do: %{"tpn" => t.tpn, "match_points" => t.score, "matches_played" => t.matches_played}
+
+  defp reason_json(:had_pab), do: "had_bye"
+  defp reason_json(:won_by_forfeit), do: "won_by_forfeit"
+
+  defp selection_json(nil), do: nil
+
+  defp selection_json(s) do
+    %{
+      "c4" => s.c4,
+      "sizes_without_legal_set" => s.sizes_without_legal_set,
+      "chosen" => set_json(s.chosen),
+      "runner_up" => s.runner_up && set_json(s.runner_up),
+      "decided_by" => s.decided_by,
+      "considered" => Enum.map(s.considered, &set_json/1),
+      "considered_omitted" => s.considered_omitted,
+      "rejected" =>
+        Enum.map(s.rejected, fn r ->
+          %{"upfloaters" => r.upfloaters, "c4" => r.c4, "c5" => r.c5, "failed" => r.failed}
+        end),
+      "rejected_omitted" => s.rejected_omitted
+    }
+  end
+
+  defp set_json(set) do
+    %{
+      "upfloaters" => set.upfloaters,
+      "c4" => set.c4,
+      "c5" => set.c5,
+      "c6" => set.c6,
+      "c7" => set.c7
     }
   end
 

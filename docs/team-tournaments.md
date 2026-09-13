@@ -214,17 +214,27 @@ which would explain boards the engine never decided on:
 | Section | What it shows | Where it comes from |
 |---|---|---|
 | The teams going into the round | match points, game points, colours, colour preference (Type A), had the bye, won a match by forfeit, floated last round | the `%Team{}` structs the engine was given |
-| Pairing-allocated bye (3.4) | the bye team; teams [C2] ruled out and why; the eligible teams in 3.4.2-3.4.4's order up to the bye, those before it "passed over" for 3.4.1 | the engine's `bye`, and its documented rule: it takes the first team in that order that leaves the rest pairable |
-| Brackets (3.5, 3.6) | score, residents, upfloaters, pairs, [C8]/[C9]/[C10] of the pairing chosen, candidates examined, whether the search was complete | the engine's `brackets` |
-| Colours (Article 4) | White and Black on board 1, the first team (4.2), the score difference | the engine's `pairs` |
+| Pairing-allocated bye (3.4) | the bye team; teams [C2] ruled out and which clause (a previous bye, a forfeit win, or both); the teams passed over because the rest could not then be paired (3.4.1); the tie-break (3.4.2 lower score, 3.4.3 more matches played, 3.4.4 higher number) that put the bye ahead of the next team | the engine's own 3.4 walk (`explanation.bye`) - OpenPairings no longer works out who was passed over |
+| Brackets (3.5, 3.6) | score, residents, upfloaters, pairs, [C8]/[C9]/[C10] of the pairing chosen, candidates examined, whether the search was complete; **why these upfloaters** - the criterion that decided against the next best set ([C4], [C5], [C6], [C7], or 3.5.4's order); the sets that could not be paired ([C1] in the bracket, [C3] below it); a table of the sets that could, with [C4]-[C7] each | the engine's `brackets` and `explanation.brackets[].selection` |
+| Colours (Article 4) | White and Black on board 1, the first team and the 4.2 clause that named it, the 4.3 clause that gave the colours, the score difference | the engine's `pairs` and `explanation.pairs` |
 
-Not shown, because `Ainalrami.TeamPairing.pair_round/2` does not return
-them: how the candidate upfloater sets compared on [C5]-[C7], and which rule
-of Article 4.3 decided each match's colours. When the round's matches no
-longer match the recorded pairs (edited afterwards), the page says so. A
-round paired before accounts were stored, rebuilt from a TRF import, or
-restored from a backup (the column is not exported: it names teams by
-pairing number and database id) has none, and the page says that.
+The account is stored with `"version": 2` since the engine reports its
+reasons (`Ainalrami.TeamPairing.pair_round/2` with `explain: true`, which
+changes no pairing). The engine bounds what it records: ten entries per list
+(sets considered, sets rejected, teams ruled out or passed over for the bye),
+the rest counted and shown as "n more not listed"; the chosen set and the
+next best are always kept. When the engine's search for the next best set
+reaches its own limit (fifty sets past its choice), the page says it names no
+deciding criterion rather than guessing one.
+
+A round paired before this (`"version": 1`) keeps what it has - the bye with
+the passed-over teams as they were stored then, the brackets without the
+choice between sets, no Article 4 rules - and the page notes that the rest
+was not recorded. When the round's matches no longer match the recorded
+pairs (edited afterwards), the page says so. A round paired before accounts
+were stored, rebuilt from a TRF import, or restored from a backup (the
+column is not exported: it names teams by pairing number and database id)
+has none, and the page says that.
 
 ### Old team Swiss events stay player by player
 

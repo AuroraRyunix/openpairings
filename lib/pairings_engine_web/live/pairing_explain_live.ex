@@ -1855,6 +1855,133 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp yes_no(true), do: gettext("yes")
   defp yes_no(_), do: gettext("no")
 
+  ## ---------- the team engine's reasons (version 2 accounts) ----------
+
+  # A set of upfloaters as the engine lists it, in 3.5.3's order.
+  defp set_label(%{upfloaters: []}), do: gettext("no upfloaters")
+  defp set_label(%{upfloaters: ups}), do: "{" <> team_labels(ups) <> "}"
+
+  defp profile_text([]), do: "-"
+  defp profile_text(scores), do: Enum.map_join(scores, ", ", &to_string(points(&1)))
+
+  defp ineligible_text(team, reasons) do
+    case Enum.sort(reasons) do
+      [:had_bye, :won_by_forfeit] ->
+        gettext(
+          "%{team}: not eligible, has already had the bye and has won a match by forfeit ([C2]).",
+          team: team_label(team)
+        )
+
+      [:had_bye] ->
+        gettext("%{team}: not eligible, has already had the bye ([C2]).", team: team_label(team))
+
+      _ ->
+        gettext("%{team}: not eligible, has won a match by forfeit ([C2]).",
+          team: team_label(team)
+        )
+    end
+  end
+
+  defp bye_decided_text(%{next: nil}), do: nil
+
+  defp bye_decided_text(%{next: next, decided_by: "3.4.2"}),
+    do:
+      gettext("Ahead of %{team} in that order on the lower score (3.4.2).",
+        team: team_label(next.team)
+      )
+
+  defp bye_decided_text(%{next: next, decided_by: "3.4.3"}),
+    do:
+      gettext("Ahead of %{team} in that order on more matches played (3.4.3).",
+        team: team_label(next.team)
+      )
+
+  defp bye_decided_text(%{next: next, decided_by: "3.4.4"}),
+    do:
+      gettext("Ahead of %{team} in that order on the higher pairing number (3.4.4).",
+        team: team_label(next.team)
+      )
+
+  defp bye_decided_text(_), do: nil
+
+  defp decided_text(%{decided_by: "C4", c4: 0}),
+    do:
+      gettext("No upfloaters were needed: the teams on this score pair among themselves ([C4]).")
+
+  defp decided_text(%{decided_by: "C4"} = s),
+    do:
+      gettext(
+        "No other set of %{count} upfloaters could be paired, and any other set would need more upfloaters ([C4]).",
+        count: s.c4
+      )
+
+  defp decided_text(%{decided_by: "C5"} = s),
+    do:
+      gettext("Chosen over %{set}: its upfloaters have higher scores ([C5]).",
+        set: set_label(s.runner_up)
+      )
+
+  defp decided_text(%{decided_by: "C6"} = s),
+    do:
+      gettext(
+        "Chosen over %{set}: the next score group then needs fewer extra upfloaters ([C6]).",
+        set: set_label(s.runner_up)
+      )
+
+  defp decided_text(%{decided_by: "C7"} = s),
+    do:
+      gettext("Chosen over %{set}: fewer of its upfloaters floated last round ([C7]).",
+        set: set_label(s.runner_up)
+      )
+
+  defp decided_text(%{decided_by: "3.5.4"} = s),
+    do:
+      gettext(
+        "Chosen over %{set}: equal on [C4] to [C7], and first in the order of pairing numbers (3.5.4).",
+        set: set_label(s.runner_up)
+      )
+
+  defp decided_text(_),
+    do:
+      gettext(
+        "The engine stopped looking for the next best set before it found one, so it names no deciding criterion."
+      )
+
+  defp rejected_text(%{failed: "C1"} = r),
+    do:
+      gettext("%{set}: the bracket could not be paired without a repeat meeting ([C1]).",
+        set: set_label(r)
+      )
+
+  defp rejected_text(r),
+    do:
+      gettext(
+        "%{set}: the bracket could be paired, but the teams below it could not then all be paired ([C3]).",
+        set: set_label(r)
+      )
+
+  defp first_team_rule_text("4.2.1"), do: gettext("4.2.1: higher match points")
+  defp first_team_rule_text("4.2.2"), do: gettext("4.2.2: higher game points")
+  defp first_team_rule_text("4.2.3"), do: gettext("4.2.3: smaller pairing number")
+  defp first_team_rule_text(_), do: "-"
+
+  defp colour_rule_text("4.3.1"),
+    do: gettext("4.3.1: neither team has played, so the initial colour by pairing number")
+
+  defp colour_rule_text("4.3.2"), do: gettext("4.3.2: only one team had a colour preference")
+  defp colour_rule_text("4.3.3"), do: gettext("4.3.3: opposite colour preferences")
+  defp colour_rule_text("4.3.4"), do: gettext("4.3.4: only one strong colour preference")
+  defp colour_rule_text("4.3.5"), do: gettext("4.3.5: White to the lower colour difference")
+
+  defp colour_rule_text("4.3.6"),
+    do: gettext("4.3.6: alternating from the last time their colours differed")
+
+  defp colour_rule_text("4.3.7"), do: gettext("4.3.7: the first team's colour preference")
+  defp colour_rule_text("4.3.8"), do: gettext("4.3.8: alternating the first team's last colour")
+  defp colour_rule_text("4.3.9"), do: gettext("4.3.9: alternating the other team's last colour")
+  defp colour_rule_text("initial"), do: gettext("the initial colour")
+  defp colour_rule_text(_), do: "-"
+
   @impl true
   def render(%{team_mode: true} = assigns) do
     ~H"""
@@ -1961,17 +2088,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <p>
               {gettext("%{team} had the bye.", team: team_label(@team_account.bye.team))}
             </p>
-            <ul :if={@team_account.bye.ineligible != []}>
-              <li :for={i <- @team_account.bye.ineligible}>
-                <%= if i.reason == :had_bye do %>
-                  {gettext("%{team}: not eligible, has already had the bye ([C2]).",
-                    team: team_label(i.team)
-                  )}
-                <% else %>
-                  {gettext("%{team}: not eligible, has won a match by forfeit ([C2]).",
-                    team: team_label(i.team)
-                  )}
-                <% end %>
+            <ul :if={@team_account.bye.ineligible != []} id="team-account-bye-ineligible">
+              <li :for={i <- @team_account.bye.ineligible}>{ineligible_text(i.team, i.reasons)}</li>
+              <li :if={@team_account.bye.ineligible_omitted > 0}>
+                {gettext("%{count} more not listed.", count: @team_account.bye.ineligible_omitted)}
               </li>
             </ul>
             <p>
@@ -1979,24 +2099,31 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 "Eligible teams in the order of Articles 3.4.2-3.4.4 (lowest score, most matches played, highest number), up to the one that got it:"
               )}
             </p>
-            <ol>
-              <li :for={c <- @team_account.bye.candidates}>
-                <%= if c.outcome == :chosen do %>
-                  {gettext("%{team} (%{mp} match points, %{played} played): got the bye.",
-                    team: team_label(c.team),
-                    mp: points(c.match_points),
-                    played: c.matches_played
-                  )}
-                <% else %>
-                  {gettext(
-                    "%{team} (%{mp} match points, %{played} played): passed over - the other teams could not then all be paired without a repeat meeting (3.4.1).",
-                    team: team_label(c.team),
-                    mp: points(c.match_points),
-                    played: c.matches_played
-                  )}
-                <% end %>
+            <ol id="team-account-bye-order">
+              <li :for={c <- @team_account.bye.passed_over}>
+                {gettext(
+                  "%{team} (%{mp} match points, %{played} played): passed over - the other teams could not then all be paired without a repeat meeting (3.4.1).",
+                  team: team_label(c.team),
+                  mp: points(c.match_points),
+                  played: c.matches_played
+                )}
+              </li>
+              <li :if={@team_account.bye.passed_over_omitted > 0}>
+                {gettext("%{count} more passed over for the same reason (3.4.1).",
+                  count: @team_account.bye.passed_over_omitted
+                )}
+              </li>
+              <li>
+                {gettext("%{team} (%{mp} match points, %{played} played): got the bye.",
+                  team: team_label(@team_account.bye.team),
+                  mp: points(@team_account.bye.match_points),
+                  played: @team_account.bye.matches_played || "-"
+                )}
               </li>
             </ol>
+            <p :if={bye_decided_text(@team_account.bye)} id="team-account-bye-decided">
+              {bye_decided_text(@team_account.bye)}
+            </p>
           </div>
         </section>
 
@@ -2014,6 +2141,24 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <dd>{team_labels(b.residents)}</dd>
             <dt>{gettext("Upfloaters (Article 3.5)")}</dt>
             <dd>{team_labels(b.upfloaters)}</dd>
+            <%= if b.selection do %>
+              <dt>{gettext("Why these upfloaters")}</dt>
+              <dd id={"team-account-bracket-#{i}-decided"}>{decided_text(b.selection)}</dd>
+              <dt :if={b.selection.sizes_without_legal_set != [] or b.selection.rejected != []}>
+                {gettext("Sets that could not be paired")}
+              </dt>
+              <dd :if={b.selection.sizes_without_legal_set != [] or b.selection.rejected != []}>
+                <p :for={n <- b.selection.sizes_without_legal_set} style="margin: 0">
+                  {gettext("No set of %{count} upfloaters could be paired.", count: n)}
+                </p>
+                <ul id={"team-account-bracket-#{i}-rejected"} style="margin: 0">
+                  <li :for={r <- b.selection.rejected}>{rejected_text(r)}</li>
+                  <li :if={b.selection.rejected_omitted > 0}>
+                    {gettext("%{count} more not listed.", count: b.selection.rejected_omitted)}
+                  </li>
+                </ul>
+              </dd>
+            <% end %>
             <dt>{gettext("Pairs")}</dt>
             <dd>
               {Enum.map_join(b.pairs, "; ", fn {x, y} -> "#{team_label(x)} - #{team_label(y)}" end)}
@@ -2039,6 +2184,47 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               <% end %>
             </dd>
           </dl>
+          <div :if={b.selection && b.selection.considered != []} class="card-table-wrap">
+            <table class="pe-table" id={"team-account-bracket-#{i}-sets"}>
+              <caption>
+                {gettext(
+                  "Upfloater sets that could be paired, in the order considered ([C4] number of upfloaters, [C5] their scores from lowest, [C6] extra upfloaters the next score group would need, [C7] upfloaters who floated last round)"
+                )}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">{gettext("Set")}</th>
+                  <th scope="col" class="num">[C4]</th>
+                  <th scope="col">[C5]</th>
+                  <th scope="col" class="num">[C6]</th>
+                  <th scope="col" class="num">[C7]</th>
+                  <th scope="col">{gettext("Outcome")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={set <- b.selection.considered}>
+                  <th scope="row">{set_label(set)}</th>
+                  <td class="num">{set.c4}</td>
+                  <td>{profile_text(set.c5)}</td>
+                  <td class="num">{set.c6 || "-"}</td>
+                  <td class="num">{set.c7 || "-"}</td>
+                  <td>
+                    <%= cond do %>
+                      <% set.upfloaters == b.selection.chosen.upfloaters -> %>
+                        {gettext("chosen")}
+                      <% b.selection.runner_up && set.upfloaters == b.selection.runner_up.upfloaters -> %>
+                        {gettext("next best")}
+                      <% true -> %>
+                        {gettext("not chosen")}
+                    <% end %>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p :if={b.selection.considered_omitted > 0} class="hint">
+              {gettext("%{count} more not listed.", count: b.selection.considered_omitted)}
+            </p>
+          </div>
         </section>
 
         <section class="card table-card" aria-labelledby="team-account-colours">
@@ -2049,6 +2235,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 <th scope="col">{gettext("White on board 1")}</th>
                 <th scope="col">{gettext("Black on board 1")}</th>
                 <th scope="col">{gettext("First team (4.2)")}</th>
+                <th :if={@team_account.reasons?} scope="col">
+                  {gettext("Colours decided by (4.3)")}
+                </th>
                 <th scope="col" class="num">{gettext("Score difference")}</th>
               </tr>
             </thead>
@@ -2056,16 +2245,22 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               <tr :for={p <- @team_account.pairs}>
                 <td>{team_label(p.white)}</td>
                 <td>{team_label(p.black)}</td>
-                <td>{team_label(p.first_team)}</td>
+                <td>
+                  {team_label(p.first_team)}
+                  <span :if={p.first_team_rule} class="hint">
+                    ({first_team_rule_text(p.first_team_rule)})
+                  </span>
+                </td>
+                <td :if={@team_account.reasons?}>{colour_rule_text(p.colour_rule)}</td>
                 <td class="num">{points(p.score_difference)}</td>
               </tr>
             </tbody>
           </table>
         </section>
 
-        <p class="hint">
+        <p :if={not @team_account.reasons?} id="team-account-not-recorded" class="hint">
           {gettext(
-            "Not recorded, because the engine does not report it: why one set of upfloaters was preferred to another ([C5]-[C7]), and which rule of Article 4.3 gave each match its colours."
+            "Not recorded, because the engine did not report it when this round was paired: why one set of upfloaters was preferred to another ([C5]-[C7]), and which rule of Article 4.3 gave each match its colours."
           )}
         </p>
       </div>
