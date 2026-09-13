@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The Belgian rating list now syncs from KBSB's own public
+  monthly file** (`players_YYYYMM.zip` at frbe-kbsb.be), instead of the
+  KBSB data-platform API or the OpenResults relay - both removed. No API
+  key is used any more; hosted and desktop installs work identically. Club
+  names, when KBSB doesn't bundle them, can come from a second optional
+  "Belgian club names URL". The manual file upload still works, and now
+  also accepts the zip or the `players.sqlite` inside it. See
+  docs/kbsb-sync.md.
+
 - [Feature] **A match forfeited by decision is published as one.** The
   OpenResults snapshot names the team the arbiter awarded a match to
   (`matches[].forfeit_decision`), so the results site can say so rather than

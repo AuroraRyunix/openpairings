@@ -177,4 +177,26 @@ defmodule PairingsEngine.Federations.BEL.Members do
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
     )
   end
+
+  @doc """
+  Which month's file the local copy came from (e.g. "August 2026"), set by
+  `PairingsEngine.Federations.BEL.Sync.run_http_import/1` after a
+  successful HTTP sync. `nil` for a copy that has never synced from KBSB's
+  website (a fresh install, or one that has only ever used the manual file
+  upload).
+  """
+  def source_month do
+    case Repo.query!("SELECT value FROM meta WHERE key = 'kbsb_source_month'").rows do
+      [[value]] -> value
+      _ -> nil
+    end
+  end
+
+  def put_source_month(month_label) when is_binary(month_label) do
+    Repo.query!(
+      "INSERT INTO meta (key, value) VALUES ('kbsb_source_month', ?) " <>
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      [month_label]
+    )
+  end
 end

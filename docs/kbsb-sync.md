@@ -8,193 +8,281 @@ them for a tournament. Mirrors the existing FIDE rating sync
 arrives.
 
 The code lives in `lib/pairings_engine/federations/bel/` -
-`PairingsEngine.Federations.BEL.{Members, Member, Api, Parser, Sync}` - with
-the rest of the Belgium-specific code. The table it fills is still called
-`kbsb_players`, and stays called that; see `Member`'s moduledoc for why.
+`PairingsEngine.Federations.BEL.{Members, Member, Http, SqliteFile, Clubs,
+Club, Settings, Parser, Sync}` - with the rest of the Belgium-specific
+code. The table it fills is still called `kbsb_players`, and stays called
+that; see `Member`'s moduledoc for why.
+
+**2026-09-13: the KBSB data-platform API source
+(`PairingsEngine.Federations.BEL.Api`, `KBSB_API_URL`/`KBSB_API_KEY`) and
+the OpenResults relay source (`PairingsEngine.Federations.BEL.
+ResultsSource`) were both removed.** KBSB's IT admin confirmed the
+federation publishes the full player list publicly every month (below),
+which both of those sources existed to work around before it did.
 
 ## Switched on per account
 
 All of this is optional and off by default. Three of the five switches on
 `/users/features` cover it (see `PairingsEngine.Features` and
-docs/architecture.md): `bel_ratings_sync` puts the panel on the Connections
-page and lets the sync be started; `bel_player_lookup` and `bel_club_sync`
-turn on the two things that READ the table it fills. They are independent -
-with the sync off, the lookup and the club update search whatever was last
-downloaded, which is a legitimate way to work.
+docs/architecture.md): `bel_ratings_sync` puts the panel on the
+Connections page and lets the sync be started; `bel_player_lookup` and
+`bel_club_sync` turn on the two things that READ the table it fills. They
+are independent - with the sync off, the lookup and the club update
+search whatever was last downloaded, which is a legitimate way to work.
 
-Nothing here is ever gated on the DOMAIN side. Switching the pack off hides
-buttons; it does not touch a row already in `kbsb_players`, nor any
+Nothing here is ever gated on the DOMAIN side. Switching the pack off
+hides buttons; it does not touch a row already in `kbsb_players`, nor any
 `national_id`, `national_rating`, `club` or `club_number` already on a
 player.
 
-## Three sources, in order
+## Data source: KBSB's public monthly file
 
-As of 2026-09-13 there are three ways to fill `kbsb_players`, tried in this
-order (`PairingsEngine.Federations.BEL.source/0`):
+KBSB publishes the full player list publicly every month, at:
 
-1. **The data-platform API directly** (`KBSB_API_URL`/`KBSB_API_KEY`) -
-   below. What the hosted server always uses.
-2. **Via the connected results site** (`PairingsEngine.Federations.BEL.
-   ResultsSource`) - what a desktop install uses instead, since the
-   data-platform key can never ship inside a desktop release. OpenResults
-   holds its OWN copy of that key and relays a reduced roster
-   (`GET /api/federations/bel/players`) over the credential this
-   installation already publishes with - an installation key it obtained
-   for itself, or an operator token if one is configured
-   (`PairingsEngine.Publishing`). See OpenResults' docs/federations-bel.md
-   for what the relay does and does not send (never a birth date, an email,
-   an address or a phone number - only what KBSB already shows on its own
-   public rating lists). One request, not a page walk: OpenResults already
-   did the walking. The response's ETag is remembered and sent back as
-   `If-None-Match`, so a roster that has not changed since the last pull is
-   not re-imported.
-3. **The uploaded file** (below) - the original fallback, still the only
-   option with no network path to either of the above.
+```
+https://www.frbe-kbsb.be/sites/manager/ELO/players_{YYYYMM}.zip
+```
 
-Available only means offered on the rating-lists/Connections page: a
-hosted server with `KBSB_API_URL` set always uses source 1 regardless of
-whether OpenResults is also reachable, and turning source 2 off (no
-OpenResults connection) never touches a row already imported through it -
-same rule as the feature switches below.
+(e.g. `players_202608.zip` for August 2026) - a zip of about 1.8 MB
+containing `players.sqlite` (about 4 MB), with one table, `players`, of
+about 36,000 rows, indexed on club and name (`IdxClub`, `IdxName`). Both
+hosted and desktop installs sync from this URL directly, identically -
+there is no distinction between them any more (the old split existed only
+because the removed data-platform key could never ship inside a desktop
+release).
 
-## Data source: the data-platform API, with the file upload as fallback
+### The setting
 
-**Preferred: `PairingsEngine.Federations.BEL.Api`.** The KBSB data platform
-(`kbsb-dataplatform`) exposes the Odoo-synced live roster at
-`GET /api/v1/players_national/export`, and since August 2026 that export
-carries each member's **club name** as well as their club number - which is
-what made it usable here at all, and which the section below was written
-before. Set `KBSB_API_URL` and `KBSB_API_KEY` and the rating-lists page
-grows a "Sync from data platform" button; leave them unset and the page
-behaves exactly as it always did.
+**"Belgian rating list URL"**, under the Connections page's Belgian
+panel (`PairingsEngine.Federations.BEL.Settings.players_url/0`, stored in
+`meta` - see `PairingsEngine.Meta` - not an env var, so it is identical to
+edit on hosted and desktop). Defaults to the template above; `{YYYYMM}` is
+expanded to the current year and month (`PairingsEngine.Federations.BEL.
+Http.fetch_players/1`). A value with **no** `{YYYYMM}` placeholder is used
+exactly as configured, unchanged from month to month - a fixed mirror, or
+a pinned single-month file.
 
-The key travels in the `x-api-key` header. The walk is cursor-paginated
-(`next_cursor` until null, ~36 pages of 1000) and is a **full** walk every
-time: the import it feeds is a full replace, so re-walking cannot drift out
-of step with the source. The API's `?since=` incremental mode is
-deliberately unused for that reason.
+### Month fallback
 
-The export is unfiltered - archived, deceased and non-affiliated members
-included - because filtering it would make `?since=` unsound on the
-platform's side. That decision therefore lands here: `kbsb_players` stores
-`died` and `affiliated`, exact id lookups still resolve a deceased member
-(an arbiter typing a matricule wants an answer), and `Members.name_index/0`
-excludes them so a living player cannot inherit a dead namesake's club.
+KBSB answers a request for a month not yet published with an HTTP **301**
+(not 404). Trying the current month first, `Http.fetch_players/1` steps
+back one month at a time - also on a 404 or 403, defensively - up to 3
+months before giving up.
 
-This does **not** change where clubs are read from at use time. The local
-mirror stays, and `Federations.BEL.ClubRefresh` still reads it locally:
-rounds get paired in playing halls where the internet cannot be assumed. The
-API replaces how the mirror gets filled, not how it gets used.
+### Conditional GET
 
-**Fallback: the uploaded file.** Everything below still applies, and the
-upload is still the only option when the API isn't configured.
+The `ETag` (falling back to `Last-Modified`) from the last successful
+fetch of each RESOLVED url is remembered (one `meta` entry per URL) and
+sent back as `If-None-Match` / `If-Modified-Since`. A 304 means the file
+hasn't changed since last time, and the sync reports `:unchanged` rather
+than re-downloading and re-importing an identical file.
 
-## Why there was no HTTP sync originally
+### Caps
 
-The FIDE sync downloads `players_list.zip` from a stable, public,
-unauthenticated URL on `ratings.fide.com`. There is no equivalent for the
-KBSB list. Before writing any code, the following was checked (all fetched
-2026-07-13):
+The zip is capped at 20 MB compressed (the real file is ~1.8 MB); what
+`players.sqlite` may declare it inflates to is capped at 100 MB,
+checked via `:zip.list_dir/1` **before** anything is inflated - the same
+zip-bomb defence `PairingsEngine.Fide.Sync` uses. A 15s connect / 60s
+receive timeout bounds the request itself.
 
-- `https://blog.frbe-kbsb-ksb.be/elo/`, `/elo-treatment/`, `/checklist-elo/`
-  and `/software/` (the federation's current site) - no PDF/CSV/TXT/ZIP/
-  SQLite download link anywhere on any of these pages. Every link was
-  either navigation or one of the two authenticated tools below.
-- **The national ELO system itself is retired.** Per
-  `https://blog.frbe-kbsb-ksb.be/elo-treatment/`: the General Assembly of
-  2025-12-06 approved migrating from national ELO to FIDE ELO, target date
-  2026-07-01. As of today the page states the national ELO system "has been
-  archived since July, 2026, and is available as a read-only system" - the
-  July 2026 list is the *final* one. Building a live sync against a source
-  that will never publish another update is far less valuable than it would
-  have been a year ago, which reinforces going with the simpler
-  file-based fallback rather than over-investing in an HTTP integration.
-- **"Player Manager"** (`https://www.frbe-kbsb.be/sites/manager/GestionCOMMON/GestionLogin.php`)
-  and its announced replacement (`https://frbe-kbsb.odoo.com/`) are the
-  federation's actual bulk player databases, but both sit behind a login -
-  not a stable anonymous machine-readable endpoint we can hit from a
-  background job.
-- The legacy per-club "Fiche" pages (e.g.
-  `https://www.frbe-kbsb.be/sites/manager/GestionFICHES/FRBE_Club.php?club=130`)
-  render an HTML table with no export link, are one-club-at-a-time (no bulk
-  list), and are explicitly marked stale ("Data updates ceased on July 15,
-  2023").
-- SWAR/PairTwo (the federation's own pairing software) load ratings from
-  local KBSB/FIDE SQLite files the organizer places on disk by hand
-  (`blog.frbe-kbsb-ksb.be/software/`, per Bernard Malfliet's comment: *"The
-  ELO's are loaded automatically from the sqlite files of KBSB and FIDE. You
-  must place them on your hard drive..."*) - i.e. even the federation's own
-  reference software doesn't sync this over HTTP; the file arrives by hand.
+### Reading the file
 
-No stable, machine-readable, unauthenticated bulk download exists. Per the
-task's explicit fallback rule, this feature is a **file-upload import**
-instead of an HTTP sync: the tournament director downloads the official
-KBSB rating-list export themselves (from the Player Manager, or whatever
-the federation supplies) and uploads it on the Rating lists page. If the
-federation later opens a stable bulk endpoint, only
-`lib/pairings_engine/federations/bel/sync.ex`'s trigger needs to change -
-the parser and storage are already format-driven, not transport-driven.
+The zip is unpacked to a temp file; `players.sqlite` is opened
+**read-only** with exqlite (`PairingsEngine.Federations.BEL.SqliteFile`).
+Its `players` table and every required column (`IdNumber`, `Name`, `Sex`,
+`Birthday`, `Fed`, `Club`, `Affiliated`, `Elo`, `EloPrevious`, `Gain`,
+`Games`, `GamesPrevious`, `Performance`, `Opponents`, `LastGames`,
+`Border`, `Arbiter`, `NatPlayer`, `NatFideSign`, `G`, `Died`, `FideId`)
+are validated before anything is read; a missing table or column is a
+clear error, not a silent partial import. `LoginModif` and `DateModif`
+are **not** in that list - they are never read at all. The temp file is
+always removed in an `after`, import or not.
 
-## File format
+The rows are then imported through the existing count-guard, full-replace
+path into `kbsb_players` (`Sync.import_rows/3` - unchanged), and the
+resolved month is recorded and shown ("August 2026 list" -
+`Members.source_month/0`).
+
+## Club names
+
+`players.sqlite` carries no club NAMES - only `Club`, a bare club number.
+Three sources, in this precedence, decided fresh on every sync
+(`PairingsEngine.Federations.BEL.Clubs.resolve/2`):
+
+1. **A `clubs` table inside the same `players.sqlite`.** Confirmed against
+   the real file (`players_202608.zip`, republished 2026-09-13):
+
+   ```sql
+   CREATE TABLE clubs
+   (
+       Club       INT NOT NULL
+           PRIMARY KEY,
+       Name       VARCHAR(100),
+       Federation VARCHAR(20)
+   );
+   ```
+
+   131 rows in the real file. `Name` is nullable in the schema (though no
+   row had a blank one on 2026-09-13) - a NULL or blank `Name` is treated
+   the same as no row at all for that club. `Federation` (`VSF`/`FEFB`/
+   `SVDB` - the Flemish, francophone and German-speaking wings) is
+   **ignored**: only `Club` and `Name` are read, so an extra column here
+   is harmless and nothing here depends on it being present.
+
+   Not every club number in `players.Club` has to have a row - KBSB's
+   real file has 6 that don't (all clubs with `Affiliated = 0` players
+   only, i.e. defunct clubs). Those show by their bare number, same as
+   any other unmatched club - never a reason to fail the import.
+
+   Matched case-SENSITIVELY as `Club`/`Name` first; a wider
+   case-insensitive alias list (`IdClub`/`ClubNumber` for the number,
+   `ClubName` for the name) is a **lenient fallback only**, in case a real
+   export ever differs from this shape. Detected automatically - no
+   setting. Older monthly files with no `clubs` table fall through to
+   source 2.
+
+2. **The "Belgian club names URL" setting**
+   (`PairingsEngine.Federations.BEL.Settings.clubs_url/0`) - a second,
+   independent, optional file, fetched the same way as the players list
+   (conditional GET, size cap, timeout). Either:
+     - CSV with a header naming `number` and `name` columns (order and
+       any other columns don't matter), or
+     - JSON, as either `[{"number": 417, "name": "..."}]` or
+       `{"417": "..."}`.
+
+   Format is auto-detected (a `.json` URL, or a body starting with `{`
+   or `[`, is parsed as JSON; anything else as CSV).
+
+3. **Whatever `kbsb_clubs` already has on file.** This is a SEPARATE,
+   durable table (`PairingsEngine.Federations.BEL.Club`/`Clubs`) that
+   survives a full player-roster replace - a name learned once is kept
+   even if a later month's zip omits its `clubs` table, or the clubs URL
+   goes offline for a while. A name from source 1 or 2 is upserted into
+   it (source 1 wins on overlap with source 2), so it only ever grows
+   more current, never loses a name to an absent source.
+
+A club with no name known from ANY of the three is shown by its **number**
+in the UI (`Member.club_label/1`, e.g. `"#417"`) rather than hidden or
+guessed at. This is what `bel_club_sync`
+(`PairingsEngine.Federations.BEL.ClubRefresh`) and the Players page both
+read - `club_name` is still resolved and stored denormalized onto each
+`kbsb_players` row at import time (unchanged from before), so neither of
+those readers needed to change.
+
+## Fields stored - only what a feature reads
+
+`Member`'s schema, and what's dropped from the source file:
+
+| Stored | Source column | Notes |
+| --- | --- | --- |
+| `national_id` | `IdNumber` | primary key, kept as a string |
+| `last_name` / `first_name` | `Name` | split on the first comma ("Last, First") |
+| `national_rating` | `Elo` | |
+| `fide_id` | `FideId` | |
+| `club_number` | `Club` | |
+| `club_name` | (resolved) | see "Club names" above |
+| `federation` | `Fed` | |
+| `birth_year` | `Birthday` | **year only** - the leading 4 digits. The full birth date is never stored: no feature reads a day of birth, only the year (`ClubRefresh.year_agrees?/2`) |
+| `died` | `Died` | boolean (`1`/`0` -> `true`/`false`) |
+| `affiliated` | `Affiliated` | boolean, same conversion |
+
+Never stored, from anywhere: `Sex`, `EloPrevious`, `Gain`, `Games`,
+`GamesPrevious`, `Performance`, `Opponents`, `LastGames`, `Border`,
+`Arbiter`, `NatPlayer`, `NatFideSign`, `G`, and - deliberately, always -
+`LoginModif`/`DateModif`, which are not even read off disk.
+
+### `Affiliated` and `Died`
+
+The file is unfiltered - archived, deceased and non-affiliated members
+included, same as the removed data-platform API mirrored. That decision
+carries over unchanged: `kbsb_players` stores `died` and `affiliated`,
+exact id lookups (`Members.find_by_national_id/1`,
+`Members.find_by_fide_id/1`) still resolve a deceased or unaffiliated
+member (an arbiter typing a matricule wants an answer), and
+`Members.name_index/0` excludes the deceased so a living player cannot
+inherit a dead namesake's club. Neither flag ever filters what gets
+IMPORTED - only what a lookup is willing to match a live player onto.
+
+## The uploaded file (manual fallback)
+
+Still available, unconditionally - the original fallback, and the only
+option with no network path at all. It now accepts, auto-detected by
+content (`PairingsEngine.Federations.BEL.SqliteFile.zip?/1`/`sqlite?/1`):
+
+- **The same monthly zip** KBSB publishes, or
+- **A bare `players.sqlite`** (the file the zip contains), or
+- **The older delimited-text format** (unchanged - see "File format"
+  below), for whatever a director already had on hand from before.
+
+A zip or sqlite upload goes through the exact same `SqliteFile.read/1` +
+`Clubs.resolve/2` path as the HTTP sync (minus the clubs-URL round trip,
+since an upload has no network expectation - only a bundled `clubs`
+table, or names already on file, apply). A delimited-text upload goes
+through the unchanged `Parser`, below.
+
+## File format (the older delimited-text upload)
 
 There's no verified real sample of this export in this codebase. The
 parser (`lib/pairings_engine/federations/bel/parser.ex`) resolves columns
 **by header name** rather than by fixed byte offsets (unlike the FIDE
 parser), against a small set of recognised French/Dutch/English aliases
-(e.g. `MATRICULE`/
-`STAMNUMMER`/`ID` for the national ID column). This is deliberately more
-forgiving than FIDE's fixed-width format: it tolerates column reordering
-and doesn't need to know the delimiter or locale up front (`;` or `,` is
-auto-detected from the header line; UTF-8 or Windows-1252 encoding is
-auto-detected the same way `PairingsEngine.Federations.BEL.SwarImport` does
-for `.swar` files).
+(e.g. `MATRICULE`/`STAMNUMMER`/`ID` for the national ID column). This is
+deliberately more forgiving than FIDE's fixed-width format: it tolerates
+column reordering and doesn't need to know the delimiter or locale up
+front (`;` or `,` is auto-detected from the header line; UTF-8 or
+Windows-1252 encoding is auto-detected the same way
+`PairingsEngine.Federations.BEL.SwarImport` does for `.swar` files).
 
 Only `national_id` (matricule) and `last_name` are required columns -
-everything else (`first_name`, `national_rating`, `fide_id`, `club_number`,
-`club_name`, `federation`, `birth_year`) is optional and defaults to
-nil/blank if the column is absent. **If a real export's headers don't match
-`@field_headers` in `parser.ex`, add the real header string to the relevant
-alias list** - no other code needs to change.
+everything else (`first_name`, `national_rating`, `fide_id`,
+`club_number`, `club_name`, `federation`, `birth_year`) is optional and
+defaults to nil/blank if the column is absent.
 
 ## Architecture
 
-- `PairingsEngine.Federations.BEL.Member` - Ecto schema for `kbsb_players`,
-  keyed by `national_id` (string, to preserve any leading zeros).
-- `PairingsEngine.Federations.BEL.Parser` - pure parser,
-  `binary -> {:ok, rows} | {:error, reason}`.
+- `PairingsEngine.Federations.BEL.Member` - Ecto schema for
+  `kbsb_players`, keyed by `national_id` (string, to preserve any leading
+  zeros). `club_label/1` is what to show for a player's club: the name if
+  known, else the bare number, else nil.
+- `PairingsEngine.Federations.BEL.Club`/`Clubs` - the durable
+  `kbsb_clubs` club-number -> name mirror and its precedence logic; see
+  "Club names" above.
+- `PairingsEngine.Federations.BEL.Settings` - the two `meta`-backed
+  settings: the players list URL/template, and the optional club names
+  URL.
+- `PairingsEngine.Federations.BEL.Http` - resolves the URL (month
+  walk-back, `{YYYYMM}` expansion), does the conditional-GET download
+  with its caps, and fetches the optional club names URL the same way.
+- `PairingsEngine.Federations.BEL.SqliteFile` - reads a `players.sqlite`
+  (bare, or unzipped from either the download or a manual upload):
+  schema validation, row reading, the optional `clubs` table, and
+  `to_member_row/2`, which applies the field allowlist above.
+- `PairingsEngine.Federations.BEL.Parser` - pure parser for the older
+  delimited-text upload, `binary -> {:ok, rows} | {:error, reason}`.
 - `PairingsEngine.Federations.BEL.Sync` - GenServer, mirrors
   `PairingsEngine.Fide.Sync`'s hardening: watchdog (3 min of no progress
   fails the job), `cancel_import/0`, PubSub progress on the `"kbsb_sync"`
   topic, full-table `insert_all` with `on_conflict: :replace_all`, and a
-  manual-only trigger (`start_import/1`, taking the uploaded file's raw
-  bytes - never started at boot). It does *not* have FIDE's
-  connect/receive-timeout or retry/backoff logic, because there's no
-  network download step to protect against - the bytes are already in
-  memory by the time `start_import/1` is called. `start_api_import/0` and
-  `start_results_site_import/0` are the other two triggers, one per source
-  above; all three feed the same `import_rows/3` count-guard and
-  full-replace.
-- `PairingsEngine.Federations.BEL.ResultsSource` - source 2 above:
-  `fetch_all/0` pulls OpenResults' relay through `Publishing.request/2`,
-  returning `{:ok, rows}`, `:unchanged` (ETag matched, nothing to import) or
-  `{:error, message}`. `available?/0` is what `source/0` checks.
-- `PairingsEngine.Federations.BEL.source/0` - the precedence itself: which
-  of the three sources the rating-lists page should offer right now.
+  manual-only trigger (`start_import/1`, taking an uploaded file's raw
+  bytes - never started at boot). `start_http_import/0` is the other
+  trigger, for KBSB's public file; both feed the same `import_rows/3`
+  count-guard and full-replace.
 - `PairingsEngine.Federations.BEL.Members` - context module: `search/1`
-  (national ID exact match, or every typed token against either name in any
-  order, accents folded - see its own docstring; this line used to say
-  "last-name prefix", which it has not been for a long time),
-  `find_by_national_id/1`, `find_by_fide_id/1`, `player_count/0`,
-  `last_sync/0`.
+  (national ID exact match, or every typed token against either name in
+  any order, accents folded), `find_by_national_id/1`,
+  `find_by_fide_id/1`, `player_count/0`, `last_sync/0`, `source_month/0`
+  (which month's file the local copy came from, if it ever synced from
+  KBSB's site).
 
 ## UI
 
 The existing FIDE database page (`lib/pairings_engine_web/live/fide_live.ex`,
-route `/fide`) now has a second section for the KBSB list: a file picker
-(`live_file_input`) instead of a sync button, the same progress bar/PubSub
-pattern, and its own search box. The nav label changed from "FIDE database"
-to "Rating lists" (`lib/pairings_engine_web/components/layouts.ex`) since
-the page now covers both lists; the route and module name are unchanged.
+route `/fide`) has a section for the KBSB list: a "Sync from KBSB" button,
+a collapsible settings panel for the two URLs above, a file picker
+(`live_file_input`) for the manual fallback, the same progress bar/PubSub
+pattern as FIDE, and its own search box. The nav label is "Rating lists"
+(`lib/pairings_engine_web/components/layouts.ex`) since the page covers
+both lists; the route and module name are unchanged.
 
 ## Player autofill
 
@@ -214,8 +302,7 @@ the page now covers both lists; the route and module name are unchanged.
 
 ## Not implemented (out of scope for this wave)
 
-- No automatic re-import - the source list is frozen since July 2026, and
-  even before that, updates only happen when a director explicitly obtains
-  and uploads a new export.
 - No historical/point-in-time ratings - only the latest imported snapshot
   is kept (`DELETE FROM kbsb_players` before each import, same as FIDE).
+  `kbsb_clubs` is the one exception, kept deliberately durable - see
+  "Club names" above.

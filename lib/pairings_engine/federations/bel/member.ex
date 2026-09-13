@@ -39,4 +39,15 @@ defmodule PairingsEngine.Federations.BEL.Member do
   @doc "Combined \"Lastname, Firstname\" display name, matching the FIDE list convention."
   def full_name(%__MODULE__{last_name: last, first_name: ""}), do: last
   def full_name(%__MODULE__{last_name: last, first_name: first}), do: "#{last}, #{first}"
+
+  @doc """
+  What to show for a player's club: the name if one is known
+  (`club_name`, resolved at import time - see
+  `PairingsEngine.Federations.BEL.Clubs`), otherwise the bare club number
+  so the arbiter still sees SOMETHING rather than a blank, or `nil` if
+  there is no club at all on file for this player.
+  """
+  def club_label(%__MODULE__{club_name: name}) when is_binary(name) and name != "", do: name
+  def club_label(%__MODULE__{club_number: nil}), do: nil
+  def club_label(%__MODULE__{club_number: number}), do: "##{number}"
 end

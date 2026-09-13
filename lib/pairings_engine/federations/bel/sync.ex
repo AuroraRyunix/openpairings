@@ -27,7 +27,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   use GenServer
   require Logger
   alias PairingsEngine.Repo
-  alias PairingsEngine.Federations.BEL.{Api, Member, Members, Parser, ResultsSource}
+  alias PairingsEngine.Federations.BEL.{Clubs, Http, Member, Members, Parser, SqliteFile}
 
   @topic "kbsb_sync"
 
@@ -51,26 +51,25 @@ defmodule PairingsEngine.Federations.BEL.Sync do
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, %__MODULE__{}, name: __MODULE__)
 
-  @doc "Kicks off an import from the raw contents of an uploaded rating-list file."
+  @doc """
+  Kicks off an import from the raw contents of an uploaded rating-list
+  file - the older delimited-text format
+  (`PairingsEngine.Federations.BEL.Parser`), a bare `players.sqlite`, or
+  the whole monthly zip KBSB publishes (both handled by
+  `PairingsEngine.Federations.BEL.SqliteFile`), auto-detected by content.
+  """
   def start_import(binary) when is_binary(binary),
     do: GenServer.cast(__MODULE__, {:start_import, binary})
 
   @doc """
-  Kicks off an import from the KBSB data platform's roster API instead of an
-  uploaded file (see `PairingsEngine.Federations.BEL.Api`). Same GenServer, same
-  status, same progress topic, same count guards and same full-replace
-  import - only the source of the rows differs, so the two can never
-  disagree about what a valid import is.
+  Kicks off an import from KBSB's public monthly rating-list URL (see
+  `PairingsEngine.Federations.BEL.Http` and
+  `PairingsEngine.Federations.BEL.Settings`) instead of an uploaded file.
+  Same GenServer, same status, same progress topic, same count guards and
+  same full-replace import - only the source of the rows differs, so the
+  two can never disagree about what a valid import is.
   """
-  def start_api_import, do: GenServer.cast(__MODULE__, :start_api_import)
-
-  @doc """
-  Kicks off an import from OpenResults' relay instead of either the KBSB
-  data platform directly or an uploaded file - see
-  `PairingsEngine.Federations.BEL.ResultsSource`. Same GenServer, same
-  status, same progress topic, same guards, same full-replace import.
-  """
-  def start_results_site_import, do: GenServer.cast(__MODULE__, :start_results_site_import)
+  def start_http_import, do: GenServer.cast(__MODULE__, :start_http_import)
 
   def cancel_import, do: GenServer.cast(__MODULE__, :cancel_import)
 
@@ -113,34 +112,15 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   end
 
   @impl true
-  def handle_cast(:start_api_import, %{status: :importing} = state), do: {:noreply, state}
+  def handle_cast(:start_http_import, %{status: :importing} = state), do: {:noreply, state}
 
-  def handle_cast(:start_api_import, _state) do
+  def handle_cast(:start_http_import, _state) do
     server = self()
-    {pid, ref} = spawn_monitor(fn -> run_api_import(server) end)
+    {pid, ref} = spawn_monitor(fn -> run_http_import(server) end)
 
     state = %__MODULE__{
       status: :importing,
-      progress: "Contacting the KBSB data platform…",
-      task_pid: pid,
-      task_ref: ref,
-      watchdog_timer: schedule_watchdog()
-    }
-
-    {:noreply, broadcast(state)}
-  end
-
-  @impl true
-  def handle_cast(:start_results_site_import, %{status: :importing} = state),
-    do: {:noreply, state}
-
-  def handle_cast(:start_results_site_import, _state) do
-    server = self()
-    {pid, ref} = spawn_monitor(fn -> run_results_site_import(server) end)
-
-    state = %__MODULE__{
-      status: :importing,
-      progress: "Contacting the results site…",
+      progress: "Contacting the KBSB website…",
       task_pid: pid,
       task_ref: ref,
       watchdog_timer: schedule_watchdog()
@@ -234,7 +214,23 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   defp run_import(server, binary) do
     state = update(server, %__MODULE__{status: :importing, progress: "Parsing file…"})
 
-    with {:ok, rows} <- Parser.parse(binary),
+    result =
+      cond do
+        SqliteFile.zip?(binary) or SqliteFile.sqlite?(binary) ->
+          with {:ok, %{rows: raw_rows, clubs: zip_clubs}} <- SqliteFile.read(binary) do
+            # An upload has no network expectation at all (see the
+            # moduledoc), so the separate "club names URL" is not fetched
+            # here - only the zip's own `clubs` table (if any) and whatever
+            # names are already on file from a previous HTTP sync.
+            club_names = Clubs.resolve(zip_clubs, nil)
+            {:ok, Enum.map(raw_rows, &SqliteFile.to_member_row(&1, club_names))}
+          end
+
+        true ->
+          Parser.parse(binary)
+      end
+
+    with {:ok, rows} <- result,
          {:ok, state} <- import_rows(server, rows, state) do
       Members.put_last_sync()
       update(server, %{state | status: :done, progress: ""})
@@ -249,57 +245,34 @@ defmodule PairingsEngine.Federations.BEL.Sync do
       update(server, %__MODULE__{status: :error, error: Exception.message(e)})
   end
 
-  # Mirrors run_import/2 exactly, differing only in where the rows come
-  # from. Each page reports progress, which also resets the watchdog - a
-  # slow network stays alive as long as it is still moving, and only a
-  # genuinely wedged walk trips it.
-  defp run_api_import(server) do
+  # Mirrors run_import/2, differing in where the rows (and any bundled club
+  # names) come from: KBSB's public monthly zip instead of an uploaded file
+  # or the removed API/relay sources. `:unchanged` (an unmodified players
+  # file - see `Http.fetch_players/1`) leaves the existing table exactly as
+  # it was and only bumps `last_sync`, matching the removed results-site
+  # source's handling of its own ETag.
+  defp run_http_import(server) do
     state =
       update(server, %__MODULE__{
         status: :importing,
-        progress: "Contacting the KBSB data platform…"
+        progress: "Contacting the KBSB website…"
       })
 
-    on_progress = fn count ->
-      update(server, %{state | progress: "Downloading players… #{count}"})
-    end
+    on_progress = fn message -> update(server, %{state | progress: message}) end
 
-    with {:ok, rows} <- Api.fetch_all(on_progress),
-         {:ok, state} <- import_rows(server, rows, state) do
-      Members.put_last_sync()
-      update(server, %{state | status: :done, progress: ""})
-    else
-      {:error, reason} ->
-        Logger.error("KBSB API import failed: #{inspect(reason)}")
-        update(server, %__MODULE__{status: :error, error: format_error(reason)})
-    end
-  rescue
-    e ->
-      Logger.error("KBSB API import crashed: #{Exception.message(e)}")
-      update(server, %__MODULE__{status: :error, error: Exception.message(e)})
-  end
+    case Http.fetch_players(on_progress) do
+      {:ok, %{rows: raw_rows, clubs: zip_clubs, month_label: month_label}} ->
+        club_names = resolve_club_names(zip_clubs, on_progress)
+        rows = Enum.map(raw_rows, &SqliteFile.to_member_row(&1, club_names))
 
-  # Mirrors run_api_import/2, differing in where the rows come from and in
-  # handling `:unchanged` - the results site's ETag said nothing changed
-  # since the last successful import, so there is nothing to replace and the
-  # existing table is left exactly as it was, `last_sync` bumped so the page
-  # reflects that a pull was made.
-  defp run_results_site_import(server) do
-    state =
-      update(server, %__MODULE__{
-        status: :importing,
-        progress: "Contacting the results site…"
-      })
-
-    case ResultsSource.fetch_all() do
-      {:ok, rows} ->
         case import_rows(server, rows, state) do
           {:ok, state} ->
             Members.put_last_sync()
+            Members.put_source_month(month_label)
             update(server, %{state | status: :done, progress: ""})
 
           {:error, reason} ->
-            Logger.error("KBSB results-site import failed: #{inspect(reason)}")
+            Logger.error("KBSB HTTP import failed: #{inspect(reason)}")
             update(server, %__MODULE__{status: :error, error: format_error(reason)})
         end
 
@@ -314,13 +287,29 @@ defmodule PairingsEngine.Federations.BEL.Sync do
         })
 
       {:error, reason} ->
-        Logger.error("KBSB results-site import failed: #{inspect(reason)}")
+        Logger.error("KBSB HTTP import failed: #{inspect(reason)}")
         update(server, %__MODULE__{status: :error, error: format_error(reason)})
     end
   rescue
     e ->
-      Logger.error("KBSB results-site import crashed: #{Exception.message(e)}")
+      Logger.error("KBSB HTTP import crashed: #{Exception.message(e)}")
       update(server, %__MODULE__{status: :error, error: Exception.message(e)})
+  end
+
+  # The club-names URL is a second, independent, optional file - see
+  # `PairingsEngine.Federations.BEL.Clubs`'s moduledoc for the full
+  # precedence. A failure to reach IT specifically is not a reason to fail
+  # the whole players import: the players list is the one thing this sync
+  # exists for, and a club-names hiccup degrades to "show the number"
+  # rather than aborting an otherwise-good import.
+  defp resolve_club_names(zip_clubs, on_progress) do
+    url_clubs =
+      case Http.fetch_clubs_file(on_progress) do
+        {:ok, map} -> map
+        _not_configured_unchanged_or_error -> nil
+      end
+
+    Clubs.resolve(zip_clubs, url_clubs)
   end
 
   defp format_error(reason) when is_binary(reason), do: reason

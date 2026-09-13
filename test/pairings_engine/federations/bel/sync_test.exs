@@ -243,4 +243,69 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       assert fts_row_count() == Repo.aggregate(Member, :count)
     end
   end
+
+  # `start_import/1` end-to-end: the whole content-detection ->
+  # SqliteFile.read -> Clubs.resolve -> to_member_row -> import_rows chain,
+  # driven through the real singleton the way an uploaded file would be -
+  # not just `import_rows/3` with hand-built rows, above.
+  describe "start_import/1 with a zip or bare sqlite upload" do
+    setup do
+      pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: true)
+      on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+      :ok
+    end
+
+    defp await_done do
+      assert_receive {:kbsb_sync, %Sync{status: status} = state} when status in [:done, :error],
+                     2000
+
+      state
+    end
+
+    test "imports a zip containing players.sqlite and a clubs table" do
+      sqlite =
+        PairingsEngine.Support.KbsbSqliteFixture.build_sqlite(
+          [PairingsEngine.Support.KbsbSqliteFixture.default_row(%{IdNumber: 555_001, Club: 42})],
+          [%{Club: 42, Name: "KGSRL"}]
+        )
+
+      zip = PairingsEngine.Support.KbsbSqliteFixture.zip(sqlite)
+
+      Sync.start_import(zip)
+      final = await_done()
+
+      assert final.status == :done
+      member = Repo.get(Member, "555001")
+      assert member.club_name == "KGSRL"
+      assert member.club_number == 42
+    end
+
+    test "imports a bare players.sqlite (no zip wrapper)" do
+      sqlite =
+        PairingsEngine.Support.KbsbSqliteFixture.build_sqlite([
+          PairingsEngine.Support.KbsbSqliteFixture.default_row(%{IdNumber: 555_002})
+        ])
+
+      Sync.start_import(sqlite)
+      final = await_done()
+
+      assert final.status == :done
+      assert Repo.get(Member, "555002")
+    end
+
+    test "still accepts the older delimited-text upload" do
+      Sync.start_import("Matricule;Nom\n555003;Delimited\n")
+      final = await_done()
+
+      assert final.status == :done
+      assert Repo.get(Member, "555003").last_name == "Delimited"
+    end
+
+    test "a corrupt zip fails cleanly rather than crashing the sync" do
+      Sync.start_import(<<0x50, 0x4B, 0x03, 0x04, 0, 0, 0, 0>>)
+      final = await_done()
+
+      assert final.status == :error
+    end
+  end
 end

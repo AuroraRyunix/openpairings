@@ -212,19 +212,6 @@ end
 # control. See `PairingsEngine.Fide.Sync.list_url/0`.
 config :pairings_engine, :fide, list_url: System.get_env("FIDE_LIST_URL")
 
-# The KBSB data platform's roster API (the Odoo-synced live database), used
-# by `PairingsEngine.Federations.BEL.Api` to refresh the local `kbsb_players` mirror
-# without anyone having to upload a file. Both unset is a supported state:
-# `Kbsb.Api.configured?/0` is then false and the UI offers only the file
-# upload, exactly as before this existed.
-#
-# `KBSB_API_URL` is the base host with no path, e.g.
-# "https://kbsb-api.zerotwo.cloud". `KBSB_API_KEY` is a scoped read key,
-# sent as the `x-api-key` header.
-config :pairings_engine, :kbsb,
-  api_url: System.get_env("KBSB_API_URL"),
-  api_key: System.get_env("KBSB_API_KEY")
-
 # The email domain self-serve registration/email-change is blocked on -
 # accounts on it must come from 02cloud SSO instead (see
 # `PairingsEngine.Accounts.User.blocked_registration_domain/0`). Defaults to
