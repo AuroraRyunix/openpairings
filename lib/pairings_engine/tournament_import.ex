@@ -360,6 +360,24 @@ defmodule PairingsEngine.TournamentImport do
     if MapSet.member?(set, n + 1), do: contiguous_from(set, n + 1), else: n
   end
 
+  # The "Results round N" switch is not cast (see `Round.results_public`'s
+  # own field doc), so it is carried explicitly. A modern export always has
+  # the key. A backup written before the switch existed does not, and the
+  # conversion is the one `AddRoundsResultsPublic` applied to every round
+  # already in this database: a round that is published keeps its results
+  # public, because they were public when the backup was taken. Frozen for
+  # the same reason as `apply_standings_through!/2`'s fallback - an old file
+  # must come back meaning what it meant.
+  defp results_public(%Tournament{} = tournament, %Ecto.Changeset{} = changeset, r) do
+    case Map.fetch(r, "results_public") do
+      {:ok, value} ->
+        truthy(value)
+
+      :error ->
+        Tournaments.round_published?(tournament, Ecto.Changeset.apply_changes(changeset))
+    end
+  end
+
   defp import_teams!(tournament, teams) do
     Map.new(teams, fn t ->
       new_team = %Team{tournament_id: tournament.id} |> Team.changeset(t) |> insert!()
@@ -401,7 +419,11 @@ defmodule PairingsEngine.TournamentImport do
 
   defp import_rounds!(tournament, rounds, player_map) do
     Enum.each(rounds, fn r ->
-      new_round = %Round{tournament_id: tournament.id} |> Round.changeset(r) |> insert!()
+      new_round =
+        %Round{tournament_id: tournament.id}
+        |> Round.changeset(r)
+        |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
+        |> insert!()
 
       pairings = list(r, "pairings")
 

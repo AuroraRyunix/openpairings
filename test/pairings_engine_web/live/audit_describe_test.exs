@@ -189,6 +189,8 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "pairing.unhidden" => [%{"pairing_id" => 41, "round" => 3, "board" => 12}],
     "pairing.pairings_published" => [%{"through_round" => 4}, %{"through_round" => 1}],
     "pairing.pairings_unpublished" => [%{"from_round" => 4}, %{"from_round" => 1}, %{}],
+    "pairing.results_published" => [%{"round" => 3}],
+    "pairing.results_unpublished" => [%{"round" => 3}],
     "pairing.account_recomputed" => [
       %{"recomputed" => 6, "skipped" => %{":current" => 2, ":hand_edited" => 1}},
       %{"recomputed" => 1, "skipped" => %{":current" => 1}},
@@ -623,6 +625,22 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
                "Public standings now go no further than after round 2."
 
     refute nl("standings.unpublished", %{"from_round" => 3}) =~ "gepubliceerd"
+  end
+
+  test "the results switch names one round, and taking results down keeps the pairings" do
+    assert en("pairing.results_published", %{"round" => 3}) ==
+             "Published the results of round 3; they now travel with its pairings."
+
+    assert nl("pairing.results_published", %{"round" => 3}) ==
+             "Uitslagen van ronde 3 gepubliceerd; ze gaan nu mee met de paringen."
+
+    assert en("pairing.results_unpublished", %{"round" => 3}) ==
+             "Took the results of round 3 off the public page; its pairings stay public without them."
+
+    assert nl("pairing.results_unpublished", %{"round" => 3}) ==
+             "Uitslagen van ronde 3 van de publieke pagina gehaald; de paringen blijven publiek, zonder uitslagen."
+
+    refute nl("pairing.results_unpublished", %{"round" => 3}) =~ "gepubliceerd"
   end
 
   test "round 0 is the initial standings, never \"after round 0\"" do

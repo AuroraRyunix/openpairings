@@ -2983,6 +2983,180 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "the results switch - publish_results/2, unpublish_results/2, results_public?/3" do
+    defp results_on?(t, n), do: Tournaments.get_round(t.id, n).results_public
+
+    defp results_public_now?(t, n) do
+      t = Tournaments.get_tournament!(t.id)
+      Tournaments.results_public?(t, Tournaments.get_round(t.id, n))
+    end
+
+    test "a new round's results are not public, even with its pairings public" do
+      t = gated_tournament("manual")
+      round = round_with(t, 1, nil)
+      seat_board(t, round, "")
+
+      {:ok, t} = Tournaments.publish_pairings_through(t, 1)
+
+      assert Tournaments.round_published?(t, Tournaments.get_round(t.id, 1))
+      refute results_on?(t, 1)
+      refute results_public_now?(t, 1)
+      assert Tournaments.results_locked_reason(t, Tournaments.get_round(t.id, 1)) == nil
+    end
+
+    test "the rounds the pairing engine inserts default to off" do
+      assert %Round{}.results_public == false
+    end
+
+    test "publish_results/2 turns it on, broadcasts :settings; unpublish_results/2 turns it off" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = round_with(t, 1, now)
+      seat_board(t, round, "")
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+      tid = t.id
+
+      assert {:ok, _} = Tournaments.publish_results(t, 1)
+      assert results_on?(t, 1)
+      assert results_public_now?(t, 1)
+      assert_receive {:tournament_changed, ^tid, :settings}
+
+      assert {:ok, _} = Tournaments.unpublish_results(t, 1)
+      refute results_on?(t, 1)
+      refute results_public_now?(t, 1)
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "not cast by the ordinary round changeset" do
+      round = Round.changeset(%Round{}, %{number: 1, results_public: true})
+      refute Ecto.Changeset.changed?(round, :results_public)
+    end
+
+    test "refuses a round that has not been paired" do
+      t = gated_tournament("manual")
+      assert {:error, :not_paired} = Tournaments.publish_results(t, 3)
+      assert {:error, :not_paired} = Tournaments.unpublish_results(t, 3)
+    end
+
+    test "refuses on an archived tournament" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+      {:ok, archived} = Tournaments.archive_tournament(t)
+
+      assert {:error, :archived} = Tournaments.publish_results(archived, 1)
+      assert {:error, :archived} = Tournaments.unpublish_results(archived, 1)
+    end
+
+    test "locked public while standings after the round are public; unpublishing them unlocks without switching off" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = round_with(t, 1, now)
+      seat_board(t, round, "1-0")
+      {:ok, t} = Tournaments.publish_standings_through(t, 1)
+
+      refute results_on?(t, 1)
+      assert results_public_now?(t, 1)
+
+      assert Tournaments.results_locked_reason(t, Tournaments.get_round(t.id, 1)) ==
+               :standings_public
+
+      assert {:error, :results_locked} = Tournaments.unpublish_results(t, 1)
+
+      # Switched on while locked, then the standings come down: the switch
+      # keeps its own value, and the lock simply lifts.
+      assert {:ok, _} = Tournaments.publish_results(t, 1)
+      {:ok, t} = Tournaments.unpublish_standings_through(t, 1)
+
+      assert Tournaments.results_locked_reason(t, Tournaments.get_round(t.id, 1)) == nil
+      assert results_on?(t, 1)
+      assert results_public_now?(t, 1)
+    end
+
+    test "publishing the next round's pairings implies the standings, and locks the round's results" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      r1 = round_with(t, 1, now)
+      seat_board(t, r1, "1-0")
+      r2 = round_with(t, 2, nil)
+      seat_board(t, r2, "")
+
+      refute results_public_now?(t, 1)
+      {:ok, _} = Tournaments.publish_pairings_through(t, 2)
+      assert results_public_now?(t, 1)
+      refute results_public_now?(t, 2)
+    end
+
+    test "immediate mode: always public and locked" do
+      t = gated_tournament("immediate")
+      round_with(t, 1, nil)
+
+      assert results_public_now?(t, 1)
+      assert Tournaments.results_locked_reason(t, Tournaments.get_round(t.id, 1)) == :immediate
+      assert {:error, :results_locked} = Tournaments.unpublish_results(t, 1)
+    end
+
+    for mode <- ~w(timed scheduled) do
+      test "#{mode} mode follows the switch, and it can be armed before the pairings go public" do
+        t = gated_tournament(unquote(mode))
+        future = DateTime.add(DateTime.utc_now(), 3600, :second) |> DateTime.truncate(:second)
+        round = round_with(t, 1, future)
+        seat_board(t, round, "1-0")
+
+        refute Tournaments.round_published?(t, Tournaments.get_round(t.id, 1))
+        refute results_public_now?(t, 1)
+
+        assert {:ok, _} = Tournaments.publish_results(t, 1)
+        assert results_public_now?(t, 1)
+      end
+    end
+
+    test "unpublishing a round's pairings turns its results off, and every later round's" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      for n <- 1..3, do: round_with(t, n, now)
+      for n <- 1..3, do: {:ok, _} = Tournaments.publish_results(t, n)
+
+      assert {:ok, _} = Tournaments.unpublish_pairings_through(t, 2)
+
+      assert results_on?(t, 1)
+      refute results_on?(t, 2)
+      refute results_on?(t, 3)
+
+      # And publishing the pairings again does not bring the results back.
+      {:ok, _} = Tournaments.publish_pairings_through(t, 3)
+      refute results_on?(t, 2)
+    end
+
+    test "unpublish_round/1 turns the round's results off" do
+      t = gated_tournament("manual")
+      round = round_with(t, 1, DateTime.utc_now() |> DateTime.truncate(:second))
+      {:ok, _} = Tournaments.publish_results(t, 1)
+
+      assert {:ok, updated} =
+               Tournaments.unpublish_round(Tournaments.get_round(t.id, round.number))
+
+      refute updated.results_public
+    end
+
+    test "unpublishing standings after N leaves N's switch, and turns off the rounds whose pairings it hides" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      for n <- 1..3 do
+        round = round_with(t, n, now)
+        seat_board(t, round, "1-0")
+        {:ok, _} = Tournaments.publish_results(t, n)
+      end
+
+      {:ok, t} = Tournaments.publish_standings_through(t, 2)
+      assert {:ok, _} = Tournaments.unpublish_standings_through(t, 2)
+
+      assert results_on?(t, 1)
+      assert results_on?(t, 2)
+      refute results_on?(t, 3)
+    end
+  end
+
   describe "effective_standings_through/1 - the formula" do
     test "round 0 default: a fresh tournament with no rounds reads 0" do
       t = gated_tournament("manual")

@@ -17,6 +17,21 @@ defmodule PairingsEngine.Tournaments.Round do
     # visibility is just "is this timestamp in the past", checked live.
     field :published_at, :utc_datetime
 
+    # The "Results round N" switch: whether the results typed into this
+    # round may travel with its published pairings. `false` for every new
+    # round - the pairings still publish, the boards go out without results
+    # (`PairingsEngine.Snapshot` withholds them). Read through
+    # `Tournaments.results_public?/2`, never directly: public standings after
+    # this round, and "immediate" publish mode, make the results public
+    # whatever this says.
+    #
+    # Written only by `Tournaments.publish_results/2`,
+    # `unpublish_results/2` and the pairings-unpublish cascades, and NOT cast
+    # by `changeset/2` - same reasoning as `Tournament.standings_through`.
+    # The migration that added it backfilled `true` on every round already
+    # published, because those results were public at the time.
+    field :results_public, :boolean, default: false
+
     # What the pairing engine reported about its own decision, captured when
     # the round was paired - see `PairingsEngine.Pairing.explanation/3`. Only
     # Ainalrami produces one; a JaVaFo round, and every round paired before

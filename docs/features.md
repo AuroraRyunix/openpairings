@@ -151,6 +151,16 @@ carry a logo (stored in the database, shown on printed documents).
   one is withheld when the document is built rather than sent and hidden at
   the other end.
 
+  What reaches the site is decided per round by three switches on the
+  Pairings page: **Pairings round N**, **Standings after round N** and
+  **Results round N**. The last is off for every new round: the pairings
+  publish, the boards travel without results, and nothing computed from a
+  result goes with them, so live results are a deliberate choice rather than
+  the default. It locks on once the standings after that round are public
+  (they contain every result in it) and in "immediate" publish mode, and
+  unpublishing a round's pairings turns it off. Rounds already public when
+  the switch arrived kept their results public.
+
   The read-only pages used to be served by this app itself; they moved to
   OpenResults on 2026-08-29 so a busy public page and a live pairing session
   cannot take each other down.

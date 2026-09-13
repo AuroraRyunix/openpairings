@@ -2948,12 +2948,17 @@ defmodule PairingsEngine.Tournaments do
   which is intentional, not a bug to work around - "immediate" means
   "always public", full stop; hiding a round is only meaningful once
   you've opted into one of the other three modes.
+
+  Turns the round's results switch off too (`publish_results/2`), like
+  every other pairings unpublish.
   """
   @spec unpublish_round(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
   def unpublish_round(%Round{} = round) do
     with :ok <- ensure_writable(round.tournament_id) do
       round
-      |> set_round_published_at(nil)
+      |> Round.changeset(%{published_at: nil})
+      |> Ecto.Changeset.change(results_public: false)
+      |> Repo.update()
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
     end
   end
@@ -3047,9 +3052,11 @@ defmodule PairingsEngine.Tournaments do
   than a hidden round with a still-public one above it (which would leak
   the very thing being withdrawn, one round late, on the sheet above it).
   Also lowers `standings_through` to at most `round_number - 1` -
-  see `maybe_lower_standings_through/2`. A click of the "Pairings round N"
-  control while it reads public; the caller is expected to confirm first
-  and name what else gets hidden, same as the standings cascade below.
+  see `maybe_lower_standings_through/2` - and turns the results switch
+  (`publish_results/2`) off on round `round_number` and every round above
+  it. A click of the "Pairings round N" control while it reads public; the
+  caller is expected to confirm first and name what else gets hidden, same
+  as the standings cascade below.
   """
   @spec unpublish_pairings_through(Tournament.t(), pos_integer()) ::
           {:ok, Tournament.t()} | {:error, term()}
@@ -3058,7 +3065,9 @@ defmodule PairingsEngine.Tournaments do
     with :ok <- ensure_writable(tournament) do
       tournament.id
       |> list_rounds()
-      |> Enum.filter(&(&1.number >= round_number and round_published?(tournament, &1)))
+      |> Enum.filter(&(&1.number >= round_number))
+      |> tap(&clear_results_public/1)
+      |> Enum.filter(&round_published?(tournament, &1))
       |> set_rounds_published_at(nil)
       |> case do
         :ok ->
@@ -3187,7 +3196,10 @@ defmodule PairingsEngine.Tournaments do
   sheet would leak it right back" reasoning as
   `unpublish_pairings_through/2`'s own doc. A click of the "Standings
   after round N" control while it reads public; the caller is expected to
-  confirm first and name what else gets hidden.
+  confirm first and name what else gets hidden. The rounds whose pairings
+  this hides lose their results switch too, as in
+  `unpublish_pairings_through/2`; round `round_number`'s own switch is left
+  as it was - its results simply stop being forced public.
   """
   @spec unpublish_standings_through(Tournament.t(), non_neg_integer()) ::
           {:ok, Tournament.t()} | {:error, term()}
@@ -3200,6 +3212,7 @@ defmodule PairingsEngine.Tournaments do
       tournament.id
       |> list_rounds()
       |> Enum.filter(&(&1.number > round_number and round_published?(tournament, &1)))
+      |> tap(&clear_results_public/1)
       |> set_rounds_published_at(nil)
       |> case do
         :ok ->
@@ -3345,6 +3358,138 @@ defmodule PairingsEngine.Tournaments do
       |> MapSet.new(& &1.number)
 
     contiguous_from(complete, 0)
+  end
+
+  ## ---------- Publishing a round's results (2026-09-13) ----------
+  #
+  # The third switch, "Results round N". A round's pairings can be public
+  # while the results typed into it are not: the boards travel, each with a
+  # `null` result, and nothing derived from a result travels either (see
+  # `PairingsEngine.Snapshot`'s moduledoc, "Withholding happens HERE").
+  #
+  # Stored per round (`Round.results_public`, `false` for every new round),
+  # but READ through `results_public?/3`, because two things make a round's
+  # results public whatever the switch says:
+  #
+  #   * public standings after that round - they already contain every
+  #     result in it, so withholding the boards would contradict the table
+  #     beside them. Unpublishing those standings does not turn the switch
+  #     off; it only stops overriding it.
+  #   * "immediate" publish mode, where everything is public the instant it
+  #     exists, like the other two switches.
+  #
+  # "timed" and "scheduled" follow the stored switch exactly like "manual":
+  # those modes decide WHEN a round's pairings go public, not whether its
+  # results go with them. The switch can be turned on before the pairings'
+  # own instant arrives, so an arbiter can arm live results for a round
+  # that publishes itself later.
+
+  @doc """
+  Whether round `round`'s results are public right now - what
+  `PairingsEngine.Snapshot` gates every board result, and every other
+  result-derived value, on, and what the "Results round N" control shows.
+
+  True when the tournament is in "immediate" mode, when the round's own
+  switch is on, or when public standings go through this round (see the
+  section comment above). `standings_through` is
+  `effective_standings_through/1`, taken as an argument so a caller asking
+  about every round (the snapshot) computes it once; omitted, it is looked
+  up.
+  """
+  @spec results_public?(Tournament.t(), Round.t(), non_neg_integer() | :lookup) :: boolean()
+  def results_public?(tournament, round, standings_through \\ :lookup)
+
+  def results_public?(%Tournament{publish_mode: "immediate"}, %Round{}, _through), do: true
+  def results_public?(%Tournament{}, %Round{results_public: true}, _through), do: true
+
+  def results_public?(%Tournament{} = tournament, %Round{} = round, :lookup),
+    do: results_public?(tournament, round, effective_standings_through(tournament))
+
+  def results_public?(%Tournament{}, %Round{number: number}, through) when is_integer(through),
+    do: number <= through
+
+  @doc """
+  Why the "Results round N" control cannot be switched, or `nil` when it
+  can: `:immediate` in "immediate" publish mode, `:standings_public` while
+  public standings go through round N. In both states the results are
+  public and the control shows locked green.
+  """
+  @spec results_locked_reason(Tournament.t(), Round.t(), non_neg_integer() | :lookup) ::
+          nil | :immediate | :standings_public
+  def results_locked_reason(tournament, round, standings_through \\ :lookup)
+
+  def results_locked_reason(%Tournament{publish_mode: "immediate"}, %Round{}, _through),
+    do: :immediate
+
+  def results_locked_reason(%Tournament{} = tournament, %Round{} = round, :lookup),
+    do: results_locked_reason(tournament, round, effective_standings_through(tournament))
+
+  def results_locked_reason(%Tournament{}, %Round{number: number}, through)
+      when is_integer(through) and number <= through,
+      do: :standings_public
+
+  def results_locked_reason(%Tournament{}, %Round{}, _through), do: nil
+
+  @doc """
+  Turns round `round_number`'s results switch on, so its results travel with
+  its pairings from the next publish. Broadcasts `:settings`, which enqueues
+  that publish.
+
+  `{:error, :not_paired}` when there is no such round.
+  """
+  @spec publish_results(Tournament.t(), pos_integer()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def publish_results(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) and round_number > 0 do
+    with :ok <- ensure_writable(tournament),
+         %Round{} = round <- get_round(tournament.id, round_number) || {:error, :not_paired} do
+      put_results_public!(round, true)
+      broadcast_tournament_change(tournament.id, :settings)
+      {:ok, tournament}
+    end
+  end
+
+  @doc """
+  Turns round `round_number`'s results switch off, so the next publish
+  sends its boards without results - withdrawing any already on the public
+  site. Broadcasts `:settings`, which enqueues that publish.
+
+  Refuses with `{:error, :results_locked}` while `results_locked_reason/3`
+  says the results are public regardless (the switch would read off and
+  change nothing), and `{:error, :not_paired}` when there is no such round.
+  """
+  @spec unpublish_results(Tournament.t(), pos_integer()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def unpublish_results(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) and round_number > 0 do
+    with :ok <- ensure_writable(tournament),
+         %Round{} = round <- get_round(tournament.id, round_number) || {:error, :not_paired},
+         :ok <- ensure_results_unlocked(tournament, round) do
+      put_results_public!(round, false)
+      broadcast_tournament_change(tournament.id, :settings)
+      {:ok, tournament}
+    end
+  end
+
+  defp ensure_results_unlocked(%Tournament{} = tournament, %Round{} = round) do
+    if results_locked_reason(tournament, round), do: {:error, :results_locked}, else: :ok
+  end
+
+  defp put_results_public!(%Round{} = round, value) do
+    round |> Ecto.Changeset.change(results_public: value) |> Repo.update!()
+  end
+
+  # The cascade half of the pairings unpublish rules: a round whose pairings
+  # leave the public page takes its results switch with it, so publishing
+  # those pairings again later does not silently bring live results back.
+  defp clear_results_public(rounds) do
+    ids = Enum.map(rounds, & &1.id)
+
+    if ids != [] do
+      Repo.update_all(from(r in Round, where: r.id in ^ids), set: [results_public: false])
+    end
+
+    :ok
   end
 
   @doc """

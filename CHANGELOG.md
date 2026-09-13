@@ -16,6 +16,30 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Live results are now a choice per round, and off by default.** The
+  Pairings page has a third switch next to "Pairings round N" and "Standings
+  after round N": **Results round N**. Red, which is what every new round
+  starts as, means the round's pairings still go to the results site but its
+  results do not - every board shows no result there, and nothing worked out
+  from a result travels either. Green sends the results as you enter them,
+  which is what happened for every round until now. So a typo, or a result on
+  the wrong board, no longer goes public the moment it is typed, and players
+  cannot follow their rivals' games on the site mid-round unless you switch it
+  on. Rounds that are already public when you update keep their results
+  public; so does a published round in a backup made before this version. The
+  switch is locked green once the standings after that round are public
+  (they already contain every result in it), and always in the "immediate"
+  publish mode. Taking a round's pairings off the public page turns its
+  results off too, and the confirmation says so; taking standings down only
+  unlocks the switch. In the timed and scheduled modes the switch can be
+  turned on before the round's pairings publish themselves. Requested,
+  absent and pairing-allocated byes still show with their points; a forfeit
+  recorded against an emptied seat is a result and waits with the rest. The
+  Live page follows the same switch, since what is on the wall in the hall is
+  public too: while a round's results are held back its boards show no
+  results, a line says so, and the standings below stop at the round before.
+  Switching results on or off is recorded in the audit trail. English and
+  Dutch.
 - [Feature] **The Players grid works from the keyboard.** The grid is one stop
   in the Tab order: the arrow keys move between cells, Home and End go to the
   ends of a row, Ctrl+Home and Ctrl+End to the ends of the grid, Page Up and

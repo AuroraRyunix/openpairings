@@ -310,6 +310,43 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The third switch, "Results round N" - see the "Publishing a round's
+  # results" section of `PairingsEngine.Tournaments`. Per round, not
+  # cumulative: switching round 3's results on says nothing about round 2's.
+  def handle_event("publish_results", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.publish_results(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_published", %{
+          round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, results_error_text(reason))}
+    end
+  end
+
+  def handle_event("unpublish_results", %{"round" => round}, socket) do
+    tournament = socket.assigns.tournament
+    round_number = String.to_integer(round)
+
+    case Tournaments.unpublish_results(tournament, round_number) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_unpublished", %{
+          round: round_number
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, results_error_text(reason))}
+    end
+  end
+
   ## ---------- Editing a paired round by hand ----------
   #
   # Three gestures, all starting from a right-click:
@@ -1513,8 +1550,47 @@ defmodule PairingsEngineWeb.PairingsLive do
         phx-value-round={@round.number}
       />
     <% end %>
+
+    <% results_locked = Tournaments.results_locked_reason(@tournament, @round) %>
+    <.publish_toggle
+      :if={results_locked}
+      id={"#{@id_prefix}results-toggle-#{@round.number}"}
+      label={gettext("Results round %{n}", n: @round.number)}
+      state={:public}
+      locked
+      reason={results_lock_reason(results_locked, @round.number)}
+    />
+    <.publish_toggle
+      :if={is_nil(results_locked)}
+      id={"#{@id_prefix}results-toggle-#{@round.number}"}
+      label={gettext("Results round %{n}", n: @round.number)}
+      state={if @round.results_public, do: :public, else: :not_public}
+      confirm={
+        gettext(
+          "Take round %{n}'s results off the public page? Its pairings stay public, without results.",
+          n: @round.number
+        )
+      }
+      phx-click={if @round.results_public, do: "unpublish_results", else: "publish_results"}
+      phx-value-round={@round.number}
+    />
     """
   end
+
+  defp results_lock_reason(:immediate, _round_number), do: immediate_lock_reason()
+
+  defp results_lock_reason(:standings_public, round_number),
+    do:
+      gettext(
+        "Standings after round %{n} are public, and they already contain every result of the round - so its results are public too.",
+        n: round_number
+      )
+
+  defp results_error_text(:results_locked),
+    do: gettext("These results are public because the standings after this round are.")
+
+  defp results_error_text(:not_paired), do: gettext("That round hasn't been paired yet.")
+  defp results_error_text(reason), do: error_text(reason)
 
   defp immediate_lock_reason do
     gettext(
@@ -1535,7 +1611,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     hide =
       gettext(
-        "Hide round %{n} - and every round after it - from the public pairings page?",
+        "Hide round %{n} - and every round after it - from the public pairings page? Their results stop being public too.",
         n: round.number
       )
 
@@ -1559,7 +1635,11 @@ defmodule PairingsEngineWeb.PairingsLive do
           "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
           n: round_number,
           prev: round_number - 1
-        )
+        ) <>
+          " " <>
+          gettext("Round %{n}'s results stay public only if its Results switch is on.",
+            n: round_number
+          )
       end
 
     case lowest_published_round_above(tournament, round_number) do
@@ -1570,7 +1650,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         base <>
           " " <>
           gettext(
-            "This also hides round %{n}'s pairings, and every round after it.",
+            "This also hides round %{n}'s pairings and results, and every round after it.",
             n: hidden_from
           )
     end

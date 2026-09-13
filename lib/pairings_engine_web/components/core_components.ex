@@ -135,7 +135,11 @@ defmodule PairingsEngineWeb.CoreComponents do
   (`PairingsEngineWeb.PairingsLive`/`StandingsLive`), each backed by one of
   `PairingsEngine.Tournaments`' `publish_pairings_through/2`,
   `unpublish_pairings_through/2`, `publish_standings_through/2` or
-  `unpublish_standings_through/2`.
+  `unpublish_standings_through/2`, and "Results round N" on the Pairings
+  page, backed by `publish_results/2` / `unpublish_results/2` - which shows
+  `locked` green, with its own reason, whenever
+  `Tournaments.results_locked_reason/3` says the results are public
+  regardless of the switch.
 
   Green (`state={:public}`) means public; clicking it unpublishes, and
   `confirm` (shown only in that state) is the `data-confirm` text naming

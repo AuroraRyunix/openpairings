@@ -64,7 +64,9 @@ defmodule PairingsEngine.PublishingTest do
   defp publish_rounds!(t) do
     Repo.update_all(
       from(r in Round, where: r.tournament_id == ^t.id),
-      set: [published_at: DateTime.utc_now() |> DateTime.truncate(:second)]
+      # Results too: the tests using this ask which version of a result
+      # travelled, and a round's results are withheld until switched on.
+      set: [published_at: DateTime.utc_now() |> DateTime.truncate(:second), results_public: true]
     )
   end
 

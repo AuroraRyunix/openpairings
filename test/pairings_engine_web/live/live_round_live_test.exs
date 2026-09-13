@@ -22,9 +22,55 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
   defp publish_paired_rounds(tournament) do
     for n <- 1..PairingsEngine.Pairing.paired_rounds_count(tournament.id)//1 do
       {:ok, _} = Tournaments.publish_round_now(Tournaments.get_round(tournament.id, n))
+      # And its results - the tests using this are about rendering results.
+      {:ok, _} = Tournaments.publish_results(tournament, n)
     end
 
     tournament
+  end
+
+  test "a round whose results are not public shows its boards without results, and the standings stop before it",
+       %{conn: conn, scope: scope} do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Withheld Live",
+        "type" => "swiss",
+        "rounds_count" => "2"
+      })
+
+    [a, b] =
+      for {name, rating} <- [{"Ana Withheld", 2000}, {"Bo Withheld", 1800}] do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: name,
+          fide_rating: rating,
+          pairing_number: if(rating == 2000, do: 1, else: 2)
+        })
+      end
+
+    round1 =
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: published_now()})
+
+    Repo.insert!(%Pairing{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "0-1U"
+    })
+
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    assert html =~ "Ana Withheld"
+    assert has_element?(lv, "#results-not-public")
+    assert html =~ "Results for round 1 are not published yet."
+    refute html =~ "0-1U"
+
+    {:ok, _} = Tournaments.publish_results(tournament, 1)
+
+    html = render(lv)
+    refute has_element?(lv, "#results-not-public")
+    assert html =~ "0-1U"
   end
 
   test "renders a 'no rounds paired yet' placeholder before any round is paired", %{

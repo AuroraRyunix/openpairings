@@ -642,6 +642,73 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.standings_through == nil
     end
 
+    test "the results switch round-trips per round" do
+      owner = user_scope()
+      importer = user_scope()
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Results Switch",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual",
+          user_id: owner.user.id
+        })
+
+      Repo.insert!(%Round{
+        tournament_id: original.id,
+        number: 1,
+        published_at: now,
+        results_public: true
+      })
+
+      Repo.insert!(%Round{
+        tournament_id: original.id,
+        number: 2,
+        published_at: now,
+        results_public: false
+      })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert Tournaments.get_round(imported.id, 1).results_public
+      refute Tournaments.get_round(imported.id, 2).results_public
+    end
+
+    test "a backup written before the results switch existed keeps a published round's results public" do
+      owner = user_scope()
+      importer = user_scope()
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Pre-switch Backup",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual",
+          user_id: owner.user.id
+        })
+
+      # Published, and switched off here - the file will not say so.
+      Repo.insert!(%Round{tournament_id: original.id, number: 1, published_at: now})
+      # Paired, never published.
+      Repo.insert!(%Round{tournament_id: original.id, number: 2, published_at: nil})
+
+      envelope =
+        update_in(
+          TournamentExport.export_tournament(original),
+          ["tournaments", Access.at(0), "rounds"],
+          fn rounds -> Enum.map(rounds, &Map.delete(&1, "results_public")) end
+        )
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert Tournaments.get_round(imported.id, 1).results_public
+      refute Tournaments.get_round(imported.id, 2).results_public
+    end
+
     test "manual ranking round-trips with its actual order, not just the flag" do
       owner = user_scope()
       importer = user_scope()

@@ -56,6 +56,19 @@ defmodule PairingsEngine.Snapshot do
       players, so it travels regardless of that setting from then on (see
       `withhold_starting_rank/3` below).
     * A `Pairing` with `hidden` set never reaches `boards`.
+    * A published round whose results are not public
+      (`Tournaments.results_public?/3` - the "Results round N" switch, forced
+      on by public standings through that round and by "immediate" mode)
+      travels with every board's `result` set to `null` and
+      `"results_public": false`. Nothing else derived from a result can
+      carry that round: `standings` (and with it `working`) stop at
+      `after_round`, which is at most the highest round whose standings are
+      public, and a round at or below that bound has its results forced
+      public by definition. A `vacated-seat` row in `byes` is a result typed
+      against an emptied seat, so it is withheld whole. Every other bye -
+      requested, absent, pairing-allocated - is part of the pairing sheet,
+      decided before a game starts and printed with its points in the hall,
+      so it still travels with its points.
 
   One consequence of the last point, stated rather than left to be discovered:
   a hidden board's result still counts in `standings`, because it counts in the
@@ -131,6 +144,7 @@ defmodule PairingsEngine.Snapshot do
     nos = Map.new(players, &{&1.id, &1.pairing_number})
 
     after_round = Tournaments.effective_standings_through(tournament)
+    results_public = &Tournaments.results_public?(tournament, &1, after_round)
 
     %{
       "schema" => @schema,
@@ -139,7 +153,7 @@ defmodule PairingsEngine.Snapshot do
       "source" => %{"app" => "openpairings", "version" => app_version()},
       "tournament" => tournament_row(tournament),
       "players" => Enum.map(players, &player_row(tournament, &1)),
-      "rounds" => Enum.map(rounds, &round_row(&1, tournament, nos)),
+      "rounds" => Enum.map(rounds, &round_row(&1, tournament, nos, results_public.(&1))),
       "standings" => standings(tournament, nos, after_round)
     }
   end
@@ -331,14 +345,19 @@ defmodule PairingsEngine.Snapshot do
   # round's pairings are withheld for being unpublished, never for being
   # incomplete.
 
-  defp round_row(%Round{} = round, %Tournament{} = t, nos) do
+  defp round_row(%Round{} = round, %Tournament{} = t, nos, results_public?) do
     visible = Enum.reject(round.pairings, & &1.hidden)
 
     %{
       "number" => round.number,
       "date" => round_date(round, t),
-      "boards" => boards(visible, nos),
-      "byes" => byes(round, visible, t, nos)
+      # Added 2026-09-13 with the "Results round N" switch. `false` means the
+      # boards below carry no results because the arbiter has not published
+      # them, not because none were entered. Absent means true: an older
+      # publisher sent every result it had.
+      "results_public" => results_public?,
+      "boards" => boards(visible, nos, results_public?),
+      "byes" => byes(round, visible, t, nos, results_public?)
     }
   end
 
@@ -367,7 +386,7 @@ defmodule PairingsEngine.Snapshot do
   #
   # So the label travels too, and the rows travel in the order the arbiter
   # sees them, because the order is half of the disagreement.
-  defp boards(pairings, nos) do
+  defp boards(pairings, nos, results_public?) do
     pairings
     |> Enum.filter(&(&1.white_player_id && &1.black_player_id))
     # Both seats must resolve to a published `no`. `publishable_players/1`
@@ -390,7 +409,8 @@ defmodule PairingsEngine.Snapshot do
         "label" => to_string(label),
         "white" => Map.fetch!(nos, p.white_player_id),
         "black" => Map.fetch!(nos, p.black_player_id),
-        "result" => result_token(p.result)
+        # Withheld here, at build time - see the moduledoc.
+        "result" => if(results_public?, do: result_token(p.result))
       }
     end)
   end
@@ -403,15 +423,18 @@ defmodule PairingsEngine.Snapshot do
   # Two sources, one list. A pairing-allocated bye is a real `Pairing` row with
   # one empty seat; every other kind is a `byes`-table row, which never appears
   # in `round.pairings` at all (see `Tournaments.list_byes_for_round/2`).
-  defp byes(%Round{} = round, visible_pairings, %Tournament{} = t, nos) do
+  defp byes(%Round{} = round, visible_pairings, %Tournament{} = t, nos, results_public?) do
     allocated =
       for p <- visible_pairings,
           is_nil(p.white_player_id) or is_nil(p.black_player_id),
           seated = p.white_player_id || p.black_player_id,
           not is_nil(seated),
-          # Same rule as `boards/2`: an unnumbered player cannot be referenced,
+          # Same rule as `boards/3`: an unnumbered player cannot be referenced,
           # so their bye is withheld rather than emitted against a null.
-          Map.has_key?(nos, seated) do
+          Map.has_key?(nos, seated),
+          # A result recorded against a vacated seat is a result, and goes
+          # where the round's other results go - see the moduledoc.
+          results_public? or not recorded_result?(p) do
         one_seat_row(p, seated, round.number, t, nos)
       end
 
@@ -435,6 +458,8 @@ defmodule PairingsEngine.Snapshot do
 
     Enum.sort_by(allocated ++ recorded, & &1["player"])
   end
+
+  defp recorded_result?(%{result: r}), do: r not in [nil, "", "bye"]
 
   # One seat empty, and nothing recorded on the board: a genuine
   # pairing-allocated bye, worth the tournament's bye value.
@@ -472,7 +497,7 @@ defmodule PairingsEngine.Snapshot do
   # `@bye_kinds` note above for the same reasoning applied to bye types). The
   # result token travels alongside so the page can say WHY the score is what
   # it is; an unknown key is ignored by an older server, which is why this is
-  # additive rather than a change to `boards/2`'s shape - `boards[].white` and
+  # additive rather than a change to `boards/3`'s shape - `boards[].white` and
   # `boards[].black` are contractually non-null, and a snapshot is sent to
   # whatever version of OpenResults is deployed, not to this checkout's.
   defp one_seat_row(p, seated, round_number, %Tournament{} = t, nos) do

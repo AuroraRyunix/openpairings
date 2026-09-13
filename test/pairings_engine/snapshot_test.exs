@@ -919,6 +919,161 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "build/1 - the \"Results round N\" switch" do
+    # Result tokens used on no board outside round 2, so their absence from
+    # the JSON is a direct check that no round-2 result travelled.
+    @withheld_tokens ["1/2-0", "0-1U", "0-1FF"]
+
+    # Round 1: published, complete, standings after it published. Round 2:
+    # published, every result entered (so it is COMPLETE, the case a cap on
+    # "complete rounds" alone would let through), results switch off. It
+    # also carries a result recorded against a vacated seat and a requested
+    # half-point bye.
+    defp withheld_fixture do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Withheld",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          tiebreaks: ~w(BH SB),
+          publish_mode: "manual",
+          public_slug: "withheld-#{System.unique_integer([:positive])}"
+        })
+
+      players =
+        for no <- 1..7, into: %{} do
+          {no,
+           Repo.insert!(%Player{
+             tournament_id: tournament.id,
+             pairing_number: no,
+             name: "Player #{no}",
+             fide_rating: 2100 - no
+           })}
+        end
+
+      published = ~U[2026-03-01 14:00:00Z]
+      r1 = insert_round(tournament, 1, published, true)
+      r2 = insert_round(tournament, 2, published, false)
+
+      boards(r1, [
+        {1, players[1], players[2], "1-0"},
+        {2, players[3], players[4], "1/2-1/2"},
+        {3, players[5], players[6], "0-1"}
+      ])
+
+      boards(r2, [
+        {1, players[2], players[3], "1/2-0"},
+        {2, players[4], players[1], "0-1U"}
+      ])
+
+      # A forfeit recorded against a vacated seat: a result, typed mid-round.
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 3,
+        white_player_id: players[6].id,
+        black_player_id: nil,
+        result: "0-1FF"
+      })
+
+      Repo.insert_all("byes", [
+        %{
+          tournament_id: tournament.id,
+          player_id: players[5].id,
+          round: 2,
+          type: "requested-half"
+        },
+        %{tournament_id: tournament.id, player_id: players[7].id, round: 1, type: "absent"}
+      ])
+
+      {:ok, tournament} = Tournaments.publish_standings_through(tournament, 1)
+
+      {tournament, players}
+    end
+
+    test "no result, and nothing derived from a result, travels for a withheld round" do
+      {tournament, players} = withheld_fixture()
+
+      snapshot = Snapshot.build(tournament)
+      json = Jason.encode!(snapshot)
+
+      round1 = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
+      round2 = Enum.find(snapshot["rounds"], &(&1["number"] == 2))
+
+      # The pairings still travel - the switch withholds results, not boards.
+      assert round1["results_public"] == true
+      assert round2["results_public"] == false
+      assert Enum.map(round2["boards"], & &1["board"]) == [1, 2]
+      assert Enum.all?(round2["boards"], &is_nil(&1["result"]))
+
+      # The vacated-seat row is a result, so it is withheld whole; the
+      # requested bye is on the pairing sheet and stays.
+      refute Enum.any?(round2["byes"], &(&1["kind"] == "vacated-seat"))
+      refute json =~ "vacated-seat"
+
+      assert round2["byes"] == [
+               %{"player" => players[5].pairing_number, "kind" => "half-point", "points" => 0.5}
+             ]
+
+      for token <- @withheld_tokens, do: refute(json =~ token)
+
+      # Standings stop at round 1 - complete rounds alone would have allowed 2.
+      assert snapshot["standings"]["after_round"] == 1
+
+      # And every row, and every piece of tie-break working, is round 1 only.
+      points = Map.new(snapshot["standings"]["rows"], &{&1["player"], &1["points"]})
+      assert points[1] == 1.0
+      assert points[2] == 0.0
+      assert points[3] == 0.5
+
+      for row <- snapshot["standings"]["rows"],
+          {_code, %{"parts" => parts}} <- row["working"],
+          part <- parts do
+        assert part["round"] <= 1
+      end
+    end
+
+    test "switching the results on sends them as entered" do
+      {tournament, _players} = withheld_fixture()
+
+      {:ok, tournament} = Tournaments.publish_results(tournament, 2)
+      snapshot = Snapshot.build(tournament)
+      json = Jason.encode!(snapshot)
+
+      round2 = Enum.find(snapshot["rounds"], &(&1["number"] == 2))
+
+      assert round2["results_public"] == true
+      assert result_at(snapshot, 2, 1) == "1/2-0"
+      assert result_at(snapshot, 2, 2) == "0-1U"
+      assert json =~ "vacated-seat"
+      # Standings are a separate switch and stay where they were.
+      assert snapshot["standings"]["after_round"] == 1
+    end
+
+    test "public standings after the round force its results public, whatever the switch says" do
+      {tournament, _players} = withheld_fixture()
+
+      {:ok, tournament} = Tournaments.publish_standings_through(tournament, 2)
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["standings"]["after_round"] == 2
+      assert Enum.find(snapshot["rounds"], &(&1["number"] == 2))["results_public"] == true
+      assert result_at(snapshot, 2, 1) == "1/2-0"
+    end
+
+    test "immediate mode sends every round's results" do
+      {tournament, _players} = withheld_fixture()
+
+      tournament =
+        tournament |> Ecto.Changeset.change(publish_mode: "immediate") |> Repo.update!()
+
+      snapshot = Snapshot.build(tournament)
+
+      assert Enum.all?(snapshot["rounds"], & &1["results_public"])
+      assert result_at(snapshot, 2, 2) == "0-1U"
+    end
+  end
+
   describe "the cross-repo contract fixtures" do
     @tag :snapshot_fixtures
     test "a real snapshot is written to the OpenResults fixture directory" do
@@ -1185,12 +1340,18 @@ defmodule PairingsEngine.SnapshotTest do
     {tournament, players}
   end
 
-  defp insert_round(tournament, number, published_at) do
+  # A published round's results switch is ON unless a test says otherwise:
+  # these fixtures describe results that are public, which is what every
+  # published round's switch was set to when the switch arrived. The
+  # withheld case has its own tests and fixture.
+  defp insert_round(tournament, number, published_at, results_public \\ nil) do
     Repo.insert!(%Round{
       tournament_id: tournament.id,
       number: number,
       status: "finished",
-      published_at: published_at
+      published_at: published_at,
+      results_public:
+        if(is_nil(results_public), do: not is_nil(published_at), else: results_public)
     })
   end
 

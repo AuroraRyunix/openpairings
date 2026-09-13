@@ -286,7 +286,11 @@ defmodule PairingsEngineWeb.StandingsLive do
           "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
           n: round_number,
           prev: round_number - 1
-        )
+        ) <>
+          " " <>
+          gettext("Round %{n}'s results stay public only if its Results switch is on.",
+            n: round_number
+          )
       end
 
     case lowest_published_round_above(tournament, round_number) do
@@ -297,7 +301,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         base <>
           " " <>
           gettext(
-            "This also hides round %{n}'s pairings, and every round after it.",
+            "This also hides round %{n}'s pairings and results, and every round after it.",
             n: hidden_from
           )
     end

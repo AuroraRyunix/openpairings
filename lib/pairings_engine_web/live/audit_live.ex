@@ -103,7 +103,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
-        pairing.pairings_unpublished pairing.account_recomputed pairing.account_deepened)},
+        pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
+        pairing.account_recomputed pairing.account_deepened)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -528,6 +529,21 @@ defmodule PairingsEngineWeb.AuditLive do
         pairings_taken_down(value(d, "from_round"))
     end
   end
+
+  # The "Results round N" switch. Per round, not "up to and including": each
+  # round has its own switch, so the sentence names one round.
+  def describe("pairing.results_published", d),
+    do:
+      gettext("Published the results of round %{round}; they now travel with its pairings.",
+        round: value(d, "round")
+      )
+
+  def describe("pairing.results_unpublished", d),
+    do:
+      gettext(
+        "Took the results of round %{round} off the public page; its pairings stay public without them.",
+        round: value(d, "round")
+      )
 
   # How far the rationale page has worked out a round's account. Neither ever
   # touches a board - `Pairing.reexplain_round/2` and `deepen_round/2` write

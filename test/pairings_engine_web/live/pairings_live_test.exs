@@ -1922,6 +1922,101 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     end
   end
 
+  describe "the \"Results round N\" switch" do
+    test "red by default, with the pairings published", %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, _tournament} = Tournaments.publish_pairings_through(tournament, 2)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert html =~ "Results round 2"
+      assert has_element?(lv, "#results-toggle-2:not(.is-public):not([disabled])")
+      assert has_element?(lv, "[phx-click='publish_results'][phx-value-round='2']")
+    end
+
+    test "clicking it while red publishes the results and audits it; clicking again withdraws them",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, _tournament} = Tournaments.publish_pairings_through(tournament, 2)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = lv |> element("#results-toggle-2") |> render_click()
+      assert html =~ ~s(id="results-toggle-2" role="switch" aria-checked="true")
+      assert Tournaments.get_round(tournament.id, 2).results_public
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "pairing.results_published")
+      assert log.details["round"] == 2
+
+      assert has_element?(
+               lv,
+               "#results-toggle-2[data-confirm*='Its pairings stay public, without results']"
+             )
+
+      html = lv |> element("#results-toggle-2") |> render_click()
+      assert html =~ ~s(id="results-toggle-2" role="switch" aria-checked="false")
+      refute Tournaments.get_round(tournament.id, 2).results_public
+
+      assert [log] =
+               Audit.list_for_tournament(tournament.id, action: "pairing.results_unpublished")
+
+      assert log.details["round"] == 2
+    end
+
+    test "locked green, with the reason, once standings after the round are public", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.publish_pairings_through(tournament, 2)
+      {:ok, _tournament} = Tournaments.publish_standings_through(tournament, 2)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "#results-toggle-2.is-public.is-locked[disabled]")
+      assert html =~ "Standings after round 2 are public"
+      refute has_element?(lv, "[phx-click='unpublish_results']")
+    end
+
+    test "locked green in immediate mode", %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "#results-toggle-2.is-public.is-locked[disabled]")
+      refute has_element?(lv, "[phx-click='publish_results']")
+    end
+
+    test "the pairings unpublish confirm says the results go too, and the click turns them off",
+         %{
+           conn: conn,
+           scope: scope
+         } do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.publish_pairings_through(tournament, 2)
+      {:ok, _tournament} = Tournaments.publish_results(tournament, 2)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(
+               lv,
+               "#pairings-toggle-2[data-confirm*='Their results stop being public too.']"
+             )
+
+      lv |> element("#pairings-toggle-2") |> render_click()
+      refute Tournaments.get_round(tournament.id, 2).results_public
+    end
+
+    test "the round menu carries the same switch", %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+
+      assert has_element?(lv, "#menu-results-toggle-2:not(.is-public)")
+    end
+  end
+
   describe "the same controls in the round-level right-click menu" do
     # The menu opens with `scope: "round"` rather than a player/pairing id -
     # right-clicking anywhere on the board that isn't already a more

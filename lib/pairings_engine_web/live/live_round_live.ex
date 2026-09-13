@@ -369,6 +369,24 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     # intended default - see the note on the field itself.
     paired = Engine.paired_rounds_count(tournament.id)
     shown = Tournaments.latest_published_round_number(tournament)
+    round = if(shown > 0, do: Tournaments.get_round(tournament.id, shown))
+
+    # The same rule for the round's RESULTS ("Results round N" on the
+    # pairings page): while they are held back from the results site they
+    # are held back from the wall too, and so is every standing that counts
+    # them - the table below then stops before the first round, counting up
+    # from 1, whose results are held back.
+    effective = Tournaments.effective_standings_through(tournament)
+    results_public? = is_nil(round) or Tournaments.results_public?(tournament, round, effective)
+
+    standings_through =
+      tournament.id
+      |> Tournaments.list_rounds()
+      |> Enum.sort_by(& &1.number)
+      |> Enum.take_while(
+        &(&1.number <= shown and Tournaments.results_public?(tournament, &1, effective))
+      )
+      |> Enum.reduce(0, fn r, acc -> if r.number == acc + 1, do: r.number, else: acc end)
 
     assign(socket,
       round_number: shown,
@@ -384,7 +402,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       # the moment its round stopped being published; and the "no round has
       # been paired yet" card, guarded on `@round == nil`, could not render
       # at all, so a brand-new tournament's Live page explained nothing.
-      round: if(shown > 0, do: Tournaments.get_round(tournament.id, shown)),
+      round: round,
+      results_public?: results_public?,
       scores:
         if(shown > 0, do: Standings.player_scores_before_round(tournament, shown), else: %{}),
       round_byes:
@@ -396,11 +415,11 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       keizer?: keizer?,
       entries:
         if(keizer?,
-          do: Keizer.standings(tournament),
+          do: Keizer.standings(tournament, through_round: standings_through),
           # Through the published round only. Showing the boards of round 4
           # above a table that already counts round 5's results would give
           # away the round being withheld just as surely as showing it.
-          else: Standings.standings(tournament, through_round: shown)
+          else: Standings.standings(tournament, through_round: standings_through)
         )
     )
   end
@@ -765,6 +784,12 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         </div>
       </div>
 
+      <div :if={@round && not @results_public?} class="card note" id="results-not-public">
+        <p style="margin: 0">
+          {gettext("Results for round %{n} are not published yet.", n: @round_number)}
+        </p>
+      </div>
+
       <%!-- `data-theme` is a bare attribute selector in app.css, so putting it
             here hands this subtree the contrast palette without a single new
             colour: the projector gets the theme built for exactly this, and
@@ -804,6 +829,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
                     <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
+                  <% not @results_public? -> %>
+                    <span class="sr-only">{gettext("not published")}</span>
                   <% pairing.result == "" -> %>
                     <span class="badge muted">{gettext("in progress")}</span>
                   <% true -> %>
