@@ -20,9 +20,13 @@ name: SWAR and JaVaFo tests
 # access can do) and on a manual, human-triggered workflow_dispatch. Do not
 # add pull_request here, ever, even "just for docs changes" or "paths
 # filtered" - a paths filter is evaluated after checkout, too late.
+# PARKED 2026-09-13: no runner is registered yet, so a push trigger would leave
+# a job queued on every commit to main until GitHub cancels it after 24 hours.
+# Manual runs only for now. Once a runner with the `openpairings-artifacts`
+# label is registered (docs/self-hosted-runner.md), add back:
+#   push:
+#     branches: ["main"]
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 # Read-only by default - this job never needs to write to the repository.

@@ -1,5 +1,10 @@
 # Self-hosted runner: SWAR and JaVaFo tests
 
+> **Parked (2026-09-13):** no runner is registered, so the workflow runs on
+> manual trigger only. After registering one, restore the `push: branches: ["main"]`
+> trigger at the top of `.github/workflows/artifact-tests.yml`.
+
+
 `.github/workflows/artifact-tests.yml` runs the ~111 tests that CI otherwise
 skips: 51 tagged `:swar_fixture` (need the real `.swar` fixture files, which
 can never be committed - see `.gitignore` and `test/test_helper.exs`) and 61
