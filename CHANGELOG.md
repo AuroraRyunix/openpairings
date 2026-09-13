@@ -16,6 +16,12 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-09-13
+
+- [Change] **Dutch says "FIDE-rated" and "unrated", not "gerateerd" and
+  "ongerateerd".** The FIDE settings, the IT3 report description and the
+  bonus points help use the words Dutch-speaking arbiters actually say;
+  "lower-rated players" reads "spelers met een lagere rating".
 - [Change] **Live results are now a choice per round, and off by default.** The
   Pairings page has a third switch next to "Pairings round N" and "Standings
   after round N": **Results round N**. Red, which is what every new round

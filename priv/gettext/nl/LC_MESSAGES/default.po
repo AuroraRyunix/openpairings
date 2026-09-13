@@ -1772,7 +1772,7 @@ msgstr "Deze ronde, met bordnummers"
 #: lib/pairings_engine_web/live/settings_fide_live.ex:180
 #, elixir-autogen, elixir-format
 msgid "This tournament is FIDE-homologated (rated/reportable)"
-msgstr "Dit toernooi is FIDE-gehomologeerd (gerateerd/rapporteerbaar)"
+msgstr "Dit toernooi is FIDE-gehomologeerd (FIDE-rated/rapporteerbaar)"
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:1027
 #, elixir-autogen, elixir-format
@@ -2350,7 +2350,7 @@ msgstr "Voor een arbiter die op dit toernooi een norm behaalt. De kandidaat hoef
 #: lib/pairings_engine_web/live/settings_fide_live.ex:203
 #, elixir-autogen, elixir-format
 msgid "For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds fall entirely inside one range below, that range's ID is used instead of the tournament-wide default above. Ranges may not overlap."
-msgstr "Om het FIDE-rapport van één evenement over meerdere gerateerde secties te splitsen - bv. FIDE-ID 89495 voor rondes 1-3 en een ander ID voor rondes 4-9. Bij het exporteren van een TRF waarvan de gekozen rondes volledig binnen één bereik hieronder vallen, wordt het ID van dat bereik gebruikt in plaats van de standaard voor het hele toernooi hierboven. Bereiken mogen elkaar niet overlappen."
+msgstr "Om het FIDE-rapport van één evenement over meerdere FIDE-rated secties te splitsen - bv. FIDE-ID 89495 voor rondes 1-3 en een ander ID voor rondes 4-9. Bij het exporteren van een TRF waarvan de gekozen rondes volledig binnen één bereik hieronder vallen, wordt het ID van dat bereik gebruikt in plaats van de standaard voor het hele toernooi hierboven. Bereiken mogen elkaar niet overlappen."
 
 #: lib/pairings_engine_web/live/pairings_live.ex:2771
 #, elixir-autogen, elixir-format
@@ -2530,7 +2530,7 @@ msgstr "De rijen hierboven zijn de FIDE C.04.3-criteria die effectief punten opl
 #: lib/pairings_engine_web/live/norms_live.ex:1007
 #, elixir-autogen, elixir-format
 msgid "The whole-tournament report: identity, officials, pairing system, and rated/titled player counts by federation. Always available."
-msgstr "Het rapport over het hele toernooi: identiteit, officials, paringssysteem en het aantal gerateerde en getitelde spelers per federatie. Altijd beschikbaar."
+msgstr "Het rapport over het hele toernooi: identiteit, officials, paringssysteem en het aantal FIDE-rated en getitelde spelers per federatie. Altijd beschikbaar."
 
 #: lib/pairings_engine_web/live/history_live.ex:621
 #, elixir-autogen, elixir-format
@@ -2815,7 +2815,7 @@ msgstr "Bijkomende arbiters"
 #: lib/pairings_engine_web/live/extra_points_live.ex:144
 #, elixir-autogen, elixir-format
 msgid "Administrative bonus points (SWAR \"XtPts\") - e.g. a handicap head start for lower-rated players. Off by default: pairing and TRF export always use game points only, and standings only add extra points to the ranking once you turn this on. See %[players] to edit a single player's value, or auto-assign everyone from Elo bands below."
-msgstr "Administratieve bonuspunten (SWAR \"XtPts\") - bv. een handicapvoorsprong voor lager gerateerde spelers. Staat standaard uit: paring en TRF-export gebruiken altijd enkel partijpunten, en de stand telt extra punten pas mee zodra je dit inschakelt. Zie %[players] om de waarde van één speler te bewerken, of ken ze hieronder automatisch toe op basis van Elo-banden."
+msgstr "Administratieve bonuspunten (SWAR \"XtPts\") - bv. een handicapvoorsprong voor spelers met een lagere rating. Staat standaard uit: paring en TRF-export gebruiken altijd enkel partijpunten, en de stand telt extra punten pas mee zodra je dit inschakelt. Zie %[players] om de waarde van één speler te bewerken, of ken ze hieronder automatisch toe op basis van Elo-banden."
 
 #: lib/pairings_engine_web/components/layouts.ex:130
 #, elixir-autogen, elixir-format
@@ -3888,7 +3888,7 @@ msgstr "De kolom \"computed\" toetst de partijen van elke speler automatisch aan
 #: lib/pairings_engine_web/live/settings_fide_live.ex:194
 #, elixir-autogen, elixir-format
 msgid "The FIDE tournament ID above is used whenever no per-round range below unambiguously covers the exported rounds (no ranges configured, the export spans more than one range, or matches none) - see the ranges below for splitting one event's report across differently-rated sections. It's a different thing from the event code: the ID is this report's own numeric identifier at FIDE (IT3's \"ID of Tournament\"), the event code is your federation's rating-homologation code (e.g. BEL2026001)."
-msgstr "Het FIDE-toernooi-ID hierboven wordt gebruikt telkens wanneer geen enkel bereik per ronde hieronder de geëxporteerde rondes eenduidig dekt (geen bereiken ingesteld, de export beslaat meer dan één bereik, of komt met geen enkel overeen) - zie de bereiken hieronder om het rapport van één evenement over verschillend gerateerde afdelingen te splitsen. Het is iets anders dan de evenementcode: het ID is het eigen numerieke kenmerk van dit rapport bij FIDE (\"ID of Tournament\" op IT3), de evenementcode is de rating-homologatiecode van je federatie (bv. BEL2026001)."
+msgstr "Het FIDE-toernooi-ID hierboven wordt gebruikt telkens wanneer geen enkel bereik per ronde hieronder de geëxporteerde rondes eenduidig dekt (geen bereiken ingesteld, de export beslaat meer dan één bereik, of komt met geen enkel overeen) - zie de bereiken hieronder om het rapport van één evenement over afdelingen die elk apart FIDE-rated zijn te splitsen. Het is iets anders dan de evenementcode: het ID is het eigen numerieke kenmerk van dit rapport bij FIDE (\"ID of Tournament\" op IT3), de evenementcode is de rating-homologatiecode van je federatie (bv. BEL2026001)."
 
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:440
 #, elixir-autogen, elixir-format
@@ -4265,7 +4265,7 @@ msgstr "onbekend"
 #: lib/pairings_engine_web/live/players_live.ex:2458
 #, elixir-autogen, elixir-format
 msgid "unrated"
-msgstr "ongerateerd"
+msgstr "unrated"
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2149
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2261
@@ -6259,7 +6259,7 @@ msgstr "FIDE-behandeling"
 #: lib/pairings_engine_web/live/settings_fide_live.ex:155
 #, elixir-autogen, elixir-format
 msgid "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
-msgstr "Dit is niet dezelfde vraag als het vinkje hieronder. Deze gaat over hoe de software het evenement behandeld heeft; dat vinkje gaat over de vraag of je het naar de FIDE stuurt om te laten rateren. Een clubavond kan tot op de letter behandeld worden en nooit gerapporteerd, en een gerateerd evenement mag de arbiter draaien zoals die verkiest."
+msgstr "Dit is niet dezelfde vraag als het vinkje hieronder. Deze gaat over hoe de software het evenement behandeld heeft; dat vinkje gaat over de vraag of je het voor rating naar de FIDE stuurt. Een clubavond kan tot op de letter behandeld worden en nooit gerapporteerd, en een FIDE-rated evenement mag de arbiter draaien zoals die verkiest."
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2655
 #, elixir-autogen, elixir-format
