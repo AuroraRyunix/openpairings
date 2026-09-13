@@ -16,6 +16,29 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **`mix pairings.backup --restore` prints a swap that moves the WAL
+  with the database, `--verify` reads every page, and neither leaves a
+  decrypted copy of the database behind.** What the restore drill found in
+  the backup code itself, fixed the way OpenResults fixed its copy:
+  - the printed swap renames `pairings_engine.db`, its `-wal` and its `-shm`
+    together to `...before-restore-<time>`, restores ownership and migrates
+    before the start. The two `mv`s it printed before moved the database
+    alone, and after a crash or a kill SQLite read the old WAL into the
+    restored file: `test/pairings_engine/backup_swap_test.exs` runs the
+    printed commands against a killed database's files, and against the old
+    two `mv`s SQLite served the post-backup tournament under the restored
+    file's name.
+  - `--verify` (and so `--restore`) runs `PRAGMA integrity_check` and refuses
+    a backup whose database has a damaged table, which it used to pass, and
+    says what SQLite said in words rather than `<<109, 97, ...>>`.
+  - verifying no longer leaves its staging copy - the whole database,
+    decrypted for an encrypted backup - in the temp directory. On Windows it
+    did after every verify (977 copies, 303 MB, on the drill's workstation),
+    and on every system after a refusal.
+  - the recovered file comes back already in WAL mode, so the first boot on
+    it no longer logs `database is locked`.
+  - `--verify` and `--restore` take a backup's name exactly as `--list`
+    prints it.
 - [Verified] **A backup has now been restored, end to end - and restoring one
   has a written procedure, which it never had.** The first restore drill
   (`docs/restore-drill-2026-09-13.md`) rebuilt a working installation from a
@@ -26,7 +49,7 @@ Each entry is tagged so a version can be skimmed:
   `mix pairings.backup --restore`'s own printed commands could put the OLD
   database back live without a word: they move the database without its
   `-wal` file, which after a crash or a kill holds the newest writes and gets
-  read into the restored file. **Do not use those four commands.**
+  read into the restored file (fixed, above).
   `docs/deployment.md` now has "Backups", "Restoring a backup" (tested step by
   step: move the WAL with the database, restore ownership, migrate - a backup
   one migration old boots and fails every tournament page otherwise), "What a

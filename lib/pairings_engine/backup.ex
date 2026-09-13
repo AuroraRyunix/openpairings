@@ -53,8 +53,27 @@ defmodule PairingsEngine.Backup do
   Because a SQLite file cannot be replaced underneath an open connection pool
   without risking corruption of the thing you are trying to save.
   `restore/1` writes the recovered database *beside* the live one and returns
-  the path. Stopping the service, swapping and starting again is three
-  commands and cannot go wrong halfway.
+  the path. The swap is the operator's, and it is more than the three
+  commands this once claimed - `docs/deployment.md`, "Restoring a backup", is
+  the procedure, and the 2026-09-13 drill (`docs/restore-drill-2026-09-13.md`)
+  is why each step is there:
+
+    * the live database's `-wal` and `-shm` files move WITH it. SQLite pairs a
+      database with whatever `-wal` sits beside it and has no way to tell that
+      one belongs to a different file: the drill put a restored database next
+      to the old one's WAL and SQLite read the OLD database back under the
+      restored file's name, with the integrity check saying "ok".
+    * `mix ecto.migrate` runs before the start. `mix phx.server` does not
+      migrate, and a backup older than the code boots, answers HTTP, and
+      fails every tournament page.
+
+  ## What verify/1 checks
+
+  That the file is ours, that it decrypts and decompresses, that the tables no
+  version of this app has run without are there, and that every page of the
+  database reads back - `PRAGMA integrity_check`. The last one was missing
+  until the drill: a backup of a database with one damaged table verified,
+  restored, and failed its first query against that table.
 
   ## Encryption
 
@@ -219,6 +238,15 @@ defmodule PairingsEngine.Backup do
 
   Returns the tables it found, so a caller can say what is in the file rather
   than only whether it opened.
+
+  The check runs on a staging copy in the temp directory, and that copy is the
+  whole database - decrypted, for an encrypted backup - so it is deleted on
+  every path out, refusals included. It used to survive both: a refusal after
+  the file opened never closed its connection, and on Windows even an
+  accepted file stayed behind, because the connection was closed with its
+  prepared statements still alive and SQLite kept the file open until the
+  garbage collector finalised them. The 2026-09-13 drill counted 977 of them,
+  303 MB, in one workstation's temp directory.
   """
   @spec verify(Path.t()) ::
           {:ok, %{tables: [String.t()], tournaments: non_neg_integer()}} | {:error, String.t()}
@@ -227,13 +255,8 @@ defmodule PairingsEngine.Backup do
       tmp = Path.join(System.tmp_dir!(), "opbak-verify-#{System.unique_integer([:positive])}.db")
 
       try do
-        with :ok <- File.write(tmp, bytes) |> normalise("could not stage the file"),
-             {:ok, conn} <- open(tmp),
-             {:ok, tables} <- tables(conn),
-             :ok <- require_tables(tables),
-             {:ok, count} <- scalar(conn, "SELECT COUNT(*) FROM tournaments") do
-          Exqlite.Sqlite3.close(conn)
-          {:ok, %{tables: tables, tournaments: count}}
+        with :ok <- File.write(tmp, bytes) |> normalise("could not stage the file") do
+          inspect_database(tmp)
         end
       after
         File.rm(tmp)
@@ -241,21 +264,61 @@ defmodule PairingsEngine.Backup do
     end
   end
 
+  defp inspect_database(path) do
+    with {:ok, conn} <- open(path) do
+      try do
+        with {:ok, tables} <- tables(conn),
+             :ok <- require_tables(tables),
+             :ok <- integrity(conn),
+             {:ok, count} <- scalar(conn, "SELECT COUNT(*) FROM tournaments") do
+          {:ok, %{tables: tables, tournaments: count}}
+        end
+      after
+        Exqlite.Sqlite3.close(conn)
+      end
+    end
+  end
+
   @doc """
   Recovers `path` to a file beside the live database and returns where.
 
-  Deliberately does not swap it in - see the moduledoc. The caller is told the
-  path and the three commands.
+  Deliberately does not swap it in - see the moduledoc. `mix pairings.backup
+  --restore` prints the rest of the procedure with this machine's paths.
+
+  The recovered file is switched to WAL before it is handed over, on one
+  connection. `VACUUM INTO` writes a rollback-journal database, and the first
+  boot on one had every pooled connection trying to make that switch at once:
+  the losers logged "database is locked", on exactly the boot an operator is
+  watching most closely.
+
+  `opts` exists for tests: `:database` is the live database the copy goes
+  beside, which is otherwise the configured one.
   """
-  @spec restore(Path.t()) :: {:ok, Path.t()} | {:error, String.t()}
-  def restore(path) do
+  @spec restore(Path.t(), keyword()) :: {:ok, Path.t()} | {:error, String.t()}
+  def restore(path, opts \\ []) do
     with {:ok, _info} <- verify(path),
          {:ok, bytes} <- unpack(path) do
-      target = database_path() <> ".restored"
+      target = Keyword.get_lazy(opts, :database, &database_path/0) <> ".restored"
 
-      case File.write(target, bytes) do
-        :ok -> {:ok, target}
-        {:error, reason} -> {:error, "could not write #{target}: #{:file.format_error(reason)}"}
+      # A `-wal` left beside an earlier `.restored` - somebody opened it to
+      # look - would be read into the fresh copy the moment it is opened.
+      Enum.each(["-wal", "-shm"], &File.rm(target <> &1))
+
+      with :ok <- File.write(target, bytes) |> normalise("could not write #{target}"),
+           :ok <- to_wal(target) do
+        {:ok, target}
+      end
+    end
+  end
+
+  defp to_wal(path) do
+    with {:ok, conn} <- open(path) do
+      result = Exqlite.Sqlite3.execute(conn, "PRAGMA journal_mode = WAL")
+      Exqlite.Sqlite3.close(conn)
+
+      case result do
+        :ok -> :ok
+        {:error, reason} -> {:error, "could not switch #{path} to WAL: #{reason_text(reason)}"}
       end
     end
   end
@@ -526,44 +589,84 @@ defmodule PairingsEngine.Backup do
   defp open(path) do
     case Exqlite.Sqlite3.open(path) do
       {:ok, conn} -> {:ok, conn}
-      {:error, reason} -> {:error, "could not open the database: #{inspect(reason)}"}
+      {:error, reason} -> {:error, "could not open the database: #{reason_text(reason)}"}
+    end
+  end
+
+  # Every statement is released before its rows are returned. A connection
+  # closed with a statement still prepared is not closed: SQLite defers it
+  # until the statement is finalised, which here meant until the garbage
+  # collector got round to it - and until then the file stayed open, so on
+  # Windows neither `verify/1`'s staging copy nor `create/1`'s could be
+  # deleted.
+  defp rows(conn, sql) do
+    case Exqlite.Sqlite3.prepare(conn, sql) do
+      {:ok, statement} ->
+        try do
+          Exqlite.Sqlite3.fetch_all(conn, statement)
+        after
+          Exqlite.Sqlite3.release(conn, statement)
+        end
+
+      {:error, _} = error ->
+        error
     end
   end
 
   defp tables(conn) do
-    with {:ok, statement} <-
-           Exqlite.Sqlite3.prepare(
-             conn,
-             "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
-           ),
-         {:ok, rows} <- Exqlite.Sqlite3.fetch_all(conn, statement) do
-      {:ok, Enum.map(rows, fn [name] -> name end)}
-    else
-      {:error, reason} -> {:error, "could not read the file's tables: #{inspect(reason)}"}
+    case rows(conn, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name") do
+      {:ok, rows} -> {:ok, Enum.map(rows, fn [name] -> name end)}
+      {:error, reason} -> {:error, "could not read the file's tables: #{reason_text(reason)}"}
     end
   end
 
   defp trigger_sql(conn) do
-    with {:ok, statement} <-
-           Exqlite.Sqlite3.prepare(
-             conn,
-             "SELECT name, sql FROM sqlite_master WHERE type = 'trigger'"
-           ),
-         {:ok, rows} <- Exqlite.Sqlite3.fetch_all(conn, statement) do
-      {:ok, Enum.map(rows, fn [name, sql] -> {name, sql} end)}
-    else
+    case rows(conn, "SELECT name, sql FROM sqlite_master WHERE type = 'trigger'") do
+      {:ok, rows} -> {:ok, Enum.map(rows, fn [name, sql] -> {name, sql} end)}
       _ -> {:ok, []}
     end
   end
 
   defp scalar(conn, sql) do
-    with {:ok, statement} <- Exqlite.Sqlite3.prepare(conn, sql),
-         {:ok, [[value]]} <- Exqlite.Sqlite3.fetch_all(conn, statement) do
-      {:ok, value}
-    else
+    case rows(conn, sql) do
+      {:ok, [[value]]} -> {:ok, value}
       _ -> {:error, "the file opened but did not answer a simple query"}
     end
   end
+
+  # Every page, not the handful the checks around it touch: the drill's
+  # damaged `pairings` and `audit_logs` tables passed them all.
+  # `integrity_check` is the thorough form - it also cross-checks every index
+  # - and it only ever runs from the command line or a download's check, on a
+  # file somebody is about to trust.
+  defp integrity(conn) do
+    case rows(conn, "PRAGMA integrity_check") do
+      {:ok, [["ok"]]} ->
+        :ok
+
+      {:ok, problems} ->
+        first = problems |> List.flatten() |> Enum.take(3) |> Enum.join("; ")
+
+        {:error,
+         "the database inside fails its integrity check (#{first}) - restoring it would " <>
+           "put a damaged database live; try an older backup"}
+
+      {:error, reason} ->
+        {:error,
+         "the database inside could not be read through (#{reason_text(reason)}) - restoring " <>
+           "it would put a damaged database live; try an older backup"}
+    end
+  end
+
+  # SQLite's messages arrive as binaries that are not always printable - the
+  # drill's damaged file produced `<<109, 97, 108, 102, ...>>` where
+  # "malformed" was meant.
+  defp reason_text(reason) when is_binary(reason) do
+    text = String.replace(reason, <<0>>, "")
+    if String.printable?(text), do: text, else: inspect(reason)
+  end
+
+  defp reason_text(reason), do: inspect(reason)
 
   # The tables whose absence means this is not a database this app could run
   # on. Not the full list on purpose - a backup from a slightly older schema

@@ -29,11 +29,10 @@ defmodule PairingsEngine.BackupRestoreTest do
     dir = Path.join(System.tmp_dir!(), "opbak-drill-#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
 
-    # verify/1 stages its copy in the temp directory and, on Windows, cannot
-    # always delete it again (the drill found hundreds of them - see the drill
-    # document, finding "verify leaves a decrypted copy"). Point the temp
-    # directory at this test's own, which is removed below, so these tests do
-    # not add to the pile while that is open.
+    # verify/1 stages its copy in the temp directory. It used to leave it
+    # there on Windows every time (drill finding 8, now fixed and tested
+    # below); the temp directory still points at this test's own, which is
+    # removed below, so a regression cannot pile copies up in the real one.
     previous_tmp = System.get_env("TMPDIR")
     System.put_env("TMPDIR", dir)
 
@@ -193,6 +192,71 @@ defmodule PairingsEngine.BackupRestoreTest do
     end
   end
 
+  test "it comes back in WAL mode with no sidecar files, so the first boot does not race its pool into it",
+       %{dir: dir} do
+    {:ok, path} = Backup.create(dir: dir, source: source(dir))
+    {:ok, restored} = Backup.restore(path)
+
+    # `VACUUM INTO` writes a rollback-journal database. Handed over like that,
+    # every pooled connection of the next boot tried to switch it to WAL at
+    # once and the losers logged "database is locked" (drill finding 11).
+    assert [["wal"]] = query(restored, "PRAGMA journal_mode")
+
+    # And nothing beside it: moving the file must move the whole database.
+    refute File.exists?(restored <> "-wal")
+    refute File.exists?(restored <> "-shm")
+  end
+
+  test "a stale -wal beside an earlier .restored is not read into the new one", %{dir: dir} do
+    {:ok, path} = Backup.create(dir: dir, source: source(dir))
+    target = live_database() <> ".restored"
+    File.write!(target <> "-wal", :crypto.strong_rand_bytes(4096))
+
+    {:ok, ^target} = Backup.restore(path)
+
+    refute File.exists?(target <> "-wal")
+    assert [["ok"]] = query(target, "PRAGMA integrity_check")
+  end
+
+  describe "verify/1 refuses what the drill showed it accepting" do
+    test "a correct envelope around a database that fails its integrity check", %{dir: dir} do
+      {:ok, good} = Backup.create(dir: dir, source: source(dir))
+      bad = damage_one_table(good, "pairings", dir)
+
+      # The schema is intact and `tournaments` counts - the checks verify/1
+      # used to stop at - so only reading every page finds it (finding 7).
+      assert {:error, message} = Backup.verify(bad)
+      assert message =~ "integrity"
+      refute message =~ "<<"
+
+      File.rm(live_database() <> ".restored")
+      assert {:error, _} = Backup.restore(bad)
+      refute File.exists?(live_database() <> ".restored")
+    end
+
+    test "and leaves no staging copy behind, accepted or refused", %{dir: dir} do
+      # The staging copy is the whole database, decrypted. On Windows it used
+      # to stay in the temp directory after EVERY verify - the connection was
+      # closed with its statements still prepared, so SQLite kept the file -
+      # and after every refusal on any system, because a refusal never closed
+      # it (finding 8). The setup points the temp directory at `dir`.
+      private = Path.join(dir, "tmp")
+      File.mkdir_p!(private)
+      System.put_env("TMPDIR", private)
+
+      {:ok, good} = Backup.create(dir: dir, source: source(dir))
+      damaged = damage_one_table(good, "pairings", dir)
+      garbage = not_a_database(good, dir)
+
+      assert {:ok, _} = Backup.verify(good)
+      assert File.ls!(private) == [], "an accepted verify left its copy behind"
+
+      Backup.verify(damaged)
+      Backup.verify(garbage)
+      assert File.ls!(private) == [], "a refused verify left its copy behind"
+    end
+  end
+
   describe "a refused file writes nothing beside the live database" do
     test "truncated, damaged, foreign or empty", %{dir: dir} do
       {:ok, good} = Backup.create(dir: dir, source: source(dir))
@@ -227,5 +291,52 @@ defmodule PairingsEngine.BackupRestoreTest do
     at = div(byte_size(raw), 2)
     <<head::binary-size(^at), byte, tail::binary>> = raw
     head <> <<Bitwise.bxor(byte, 0x10)>> <> tail
+  end
+
+  # The root page of `table` with every cell pointer aimed at the page header:
+  # the page still parses, the table still exists, every row read from it is
+  # garbage. Wrapped back into a perfectly valid envelope.
+  defp damage_one_table(backup_path, table, dir) do
+    [magic, header, payload] = String.split(File.read!(backup_path), "\n", parts: 3)
+    plain = :zlib.gunzip(payload)
+    work = Path.join(dir, "damage-#{System.unique_integer([:positive])}.db")
+    File.write!(work, plain)
+    [[root]] = query(work, "SELECT rootpage FROM sqlite_master WHERE name = '#{table}'")
+    [[page_size]] = query(work, "PRAGMA page_size")
+    File.rm!(work)
+
+    offset = (root - 1) * page_size
+    <<before::binary-size(^offset), page::binary-size(^page_size), rest::binary>> = plain
+    <<kind, _::binary-size(2), cells::16, _::binary>> = page
+    pointers_at = if kind in [0x0D, 0x0A], do: 8, else: 12
+
+    scrambled =
+      for i <- 0..(cells - 1)//1, reduce: page do
+        acc ->
+          at = pointers_at + 2 * i
+          <<head::binary-size(^at), _::16, tail::binary>> = acc
+          head <> <<13::16>> <> tail
+      end
+
+    damaged = Path.join(dir, "damaged-#{table}.opbak")
+
+    File.write!(
+      damaged,
+      magic <> "\n" <> header <> "\n" <> :zlib.gzip(before <> scrambled <> rest)
+    )
+
+    damaged
+  end
+
+  defp not_a_database(backup_path, dir) do
+    [magic, header, _payload] = String.split(File.read!(backup_path), "\n", parts: 3)
+    path = Path.join(dir, "not-a-database.opbak")
+
+    File.write!(
+      path,
+      magic <> "\n" <> header <> "\n" <> :zlib.gzip(:crypto.strong_rand_bytes(8192))
+    )
+
+    path
   end
 end
