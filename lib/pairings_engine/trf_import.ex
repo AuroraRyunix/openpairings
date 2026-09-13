@@ -431,6 +431,13 @@ defmodule PairingsEngine.TrfImport do
 
       {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
 
+      tournament =
+        tournament
+        |> import_initial_colour(data)
+        # A team Swiss whose file carries games was paired player by player -
+        # TRF16 has no matches - so it carries on that way.
+        |> PairingsEngine.TeamSwiss.settle_mode()
+
       warnings =
         points_warnings(tournament, data.players, players_by_rank) ++
           unknown_result_warnings(data) ++
@@ -441,6 +448,21 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp note(text), do: %{kind: :note, text: text}
+
+  # `152` (or JaVaFo's `XXC white1`/`black1`) is the colour drawn by lot
+  # before round 1. Stored as the draw, so the imported tournament pairs its
+  # next round with it and shows "Drawn by lot: ..." rather than drawing
+  # again.
+  defp import_initial_colour(tournament, data) do
+    case data.tournament[:initial_colour] do
+      "w" -> store_drawn(tournament, "white")
+      "b" -> store_drawn(tournament, "black")
+      _ -> tournament
+    end
+  end
+
+  defp store_drawn(tournament, colour),
+    do: tournament |> Ecto.Changeset.change(initial_colour_drawn: colour) |> Repo.update!()
 
   ## ---------- tournament ----------
 

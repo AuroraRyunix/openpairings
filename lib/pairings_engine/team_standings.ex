@@ -54,10 +54,18 @@ defmodule PairingsEngine.TeamStandings do
       12.1's Board Count (lower is better), since the two add up to
       (B + 1) x GP.
 
-  A match against no opponent (the bye of an odd-sized round robin) scores
-  nothing and contributes nothing: every team has exactly one per cycle, and
-  C.07 Art. 16's unplayed-round rules are for Swiss events only (Art. 15.3).
-  Team Swiss will need them; see `docs/teams-phase-2-plan.md`.
+  A match against no opponent in a round robin (the bye of an odd-sized
+  field) scores nothing and contributes nothing: every team has exactly one
+  per cycle, and C.07 Art. 16's unplayed-round rules are for Swiss events only
+  (Art. 15.3).
+
+  ## Team Swiss
+
+  In a team Swiss (`Tournament.team_swiss?/1`) the pairing-allocated bye
+  scores a drawn match (C.04.6 Art. 1.4), and BH, SB and EMGSB apply C.07
+  Art. 16 to every unplayed round - the bye, a match with no game played, a
+  round the team was not paired in. See `add_unplayed_rounds/3` and
+  `docs/team-tournaments.md`.
 
   When every configured tie-break is exhausted the teams stay in pairing
   number order. C.07 Art. 4.2 prescribes drawing of lots there, which is the
@@ -128,7 +136,16 @@ defmodule PairingsEngine.TeamStandings do
     end
   end
 
-  defp score_match(%Match{team_b_id: nil} = m, round, _t, _boards) do
+  defp score_match(%Match{team_b_id: nil} = m, round, t, boards) do
+    # A team Swiss's pairing-allocated bye pays "as many match points and
+    # game points as are rewarded for a draw" (C.04.6 Art. 1.4): the draw's
+    # match points, and a draw on every board. A round robin's bye pays
+    # nothing - every team has one per cycle.
+    {mp, gp} =
+      if Tournament.team_swiss?(t),
+        do: {t.team_match_points_draw, round1(boards * t.points_draw)},
+        else: {nil, 0.0}
+
     %{
       round: round.number,
       match_id: m.id,
@@ -137,9 +154,9 @@ defmodule PairingsEngine.TeamStandings do
       team_b_id: nil,
       bye?: true,
       complete?: true,
-      gp_a: 0.0,
+      gp_a: gp,
       gp_b: 0.0,
-      mp_a: nil,
+      mp_a: mp,
       mp_b: nil,
       boards: []
     }
@@ -247,7 +264,14 @@ defmodule PairingsEngine.TeamStandings do
         %{
           team: team,
           records: records,
-          mp: done |> Enum.map(& &1.mp) |> Enum.sum() |> round1(),
+          # Every finished match's match points, and a team Swiss bye's
+          # (a round robin's bye carries none).
+          mp:
+            records
+            |> Enum.filter(&(&1.complete? and &1.mp != nil))
+            |> Enum.map(& &1.mp)
+            |> Enum.sum()
+            |> round1(),
           gp: records |> Enum.map(& &1.gp) |> Enum.sum() |> round1(),
           played: length(done),
           won: Enum.count(done, &(&1.gp > &1.opp_gp)),
@@ -255,6 +279,11 @@ defmodule PairingsEngine.TeamStandings do
           lost: Enum.count(done, &(&1.gp < &1.opp_gp))
         }
       end)
+
+    entries =
+      if Tournament.team_swiss?(t),
+        do: add_unplayed_rounds(entries, matches, t),
+        else: entries
 
     by_id = Map.new(entries, &{&1.team.id, &1})
 
@@ -311,6 +340,7 @@ defmodule PairingsEngine.TeamStandings do
       match_id: m.match_id,
       opponent_id: opp,
       bye?: m.bye?,
+      played?: not m.bye? and match_played?(m),
       complete?: m.complete?,
       mp: mp,
       gp: gp,
@@ -321,8 +351,24 @@ defmodule PairingsEngine.TeamStandings do
 
   defp played_records(entry), do: Enum.filter(entry.records, &(&1.complete? and not &1.bye?))
 
+  @doc """
+  Whether a scored match (`matches/2`) was PLAYED: at least one of its games
+  was contested over the board. A match whose every board was a forfeit or
+  an empty seat was not (C.04.2 Art. 3.5, C.07 Art. 15.1).
+  """
+  def match_played?(%{boards: boards}) do
+    Enum.any?(boards, fn b -> b.pairing.result != "" and Results.played?(b.pairing.result) end)
+  end
+
   defp tiebreak("MP", e, _by_id, _t), do: {e.mp, nil}
   defp tiebreak("GP", e, _by_id, _t), do: {e.gp, nil}
+
+  # A team Swiss: C.07 Art. 16 for BH, SB (EMMSB) and EMGSB. See
+  # `add_unplayed_rounds/3`.
+  defp tiebreak(code, %{slots: slots} = e, by_id, t) when code in ~w(BH SB EMGSB) do
+    parts = Enum.flat_map(slots, &art16_part(code, &1, e, by_id, t))
+    {sum_parts(parts), parts}
+  end
 
   defp tiebreak("BH", e, by_id, _t) do
     parts =
@@ -371,6 +417,128 @@ defmodule PairingsEngine.TeamStandings do
       |> Enum.sum()
 
     {round2(value), nil}
+  end
+
+  ## ---------- C.07 Art. 16, team Swiss ----------
+
+  # Each round of the event, for each team, sorted into Art. 16.2's
+  # categories (C.07 effective 1 March 2026, read from the local text):
+  #
+  #   * `:played`       - a match with at least one game played
+  #   * `:pab`          - the pairing-allocated bye (16.2.1)
+  #   * `:forfeit_win`  - a match with no game played, won on game points
+  #                       (16.2.2)
+  #   * `:forfeit_loss` - a match with no game played, not won (16.2.4)
+  #   * `:bye`          - not paired at all (sat out, withdrawn, not yet
+  #                       entered): a zero-point requested bye (16.1.1)
+  #                       followed by a round that is not voluntary unplayed
+  #                       (16.2.3)
+  #   * `:trailing_bye` - the same, followed only by voluntary unplayed
+  #                       rounds, or in the last round (16.2.5)
+  #   * `:pending`      - a match still missing results; it contributes
+  #                       nothing until it is finished
+  #
+  # and the team's ADJUSTED match points (16.3), which is what an opponent's
+  # BH/SB/EMGSB reads: every round as awarded, except 16.2.5's, which count
+  # as a draw. "For teams, match points and game points" (16.3.1) - these
+  # tie-breaks all multiply by the opponent's match points, so the match
+  # points are what is adjusted.
+  defp add_unplayed_rounds(entries, matches, t) do
+    last_round = matches |> Enum.map(& &1.round) |> Enum.max(fn -> 0 end)
+
+    Enum.map(entries, fn e ->
+      by_round = Map.new(e.records, &{&1.round, &1})
+
+      kinds =
+        for r <- 1..last_round//1 do
+          record = Map.get(by_round, r)
+          {slot_kind(record), record, r}
+        end
+
+      slots =
+        kinds
+        |> Enum.with_index()
+        |> Enum.map(fn {{kind, record, r}, i} ->
+          kind =
+            if kind == :bye and trailing?(Enum.drop(kinds, i + 1)), do: :trailing_bye, else: kind
+
+          %{round: r, kind: kind, record: record}
+        end)
+
+      adjusted =
+        slots
+        |> Enum.map(fn
+          %{kind: :trailing_bye} -> t.team_match_points_draw
+          %{kind: :pending} -> 0.0
+          %{record: nil} -> 0.0
+          %{record: record} -> record.mp || 0.0
+        end)
+        |> Enum.sum()
+        |> round1()
+
+      Map.merge(e, %{slots: slots, adjusted_mp: adjusted})
+    end)
+  end
+
+  defp slot_kind(nil), do: :bye
+  defp slot_kind(%{bye?: true}), do: :pab
+  defp slot_kind(%{complete?: false}), do: :pending
+  defp slot_kind(%{played?: true}), do: :played
+  defp slot_kind(%{gp: gp, opp_gp: opp_gp}) when gp > opp_gp, do: :forfeit_win
+  defp slot_kind(_record), do: :forfeit_loss
+
+  # 16.2.5: a requested bye "followed only by VURs or in the last round".
+  # A voluntary unplayed round is a requested bye or a forfeit loss (16.1.2).
+  defp trailing?(later),
+    do: Enum.all?(later, fn {kind, _, _} -> kind in [:bye, :forfeit_loss] end)
+
+  # One part of BH / SB / EMGSB for one round.
+  #
+  # A played match contributes the opponent's adjusted match points (16.3),
+  # times what was scored against them for SB and EMGSB. An unplayed round
+  # is a game against a dummy (16.4) whose score is the team's own match
+  # points, capped by the scheduled opponent's adjusted match points for a
+  # forfeit (16.4.1) and by a draw's match points times the rounds of the
+  # tournament otherwise (16.4.2), times what the round awarded. "For team
+  # competitions, 'points' means 'match points and game points'": the dummy
+  # takes the place of the opponent's MATCH points - the factor these three
+  # tie-breaks read - and the round's award is match points for SB and game
+  # points for EMGSB.
+  defp art16_part(_code, %{kind: :pending}, _e, _by_id, _t), do: []
+
+  defp art16_part(code, %{kind: :played, record: r} = slot, _e, by_id, _t) do
+    opp = adjusted_opp_mp(by_id, r.opponent_id)
+    [part(code, slot, r.opponent_id, opp, r.mp, r.gp, :played)]
+  end
+
+  defp art16_part(code, %{kind: kind, record: r} = slot, e, by_id, _t)
+       when kind in [:forfeit_win, :forfeit_loss] do
+    dummy = min(e.mp, adjusted_opp_mp(by_id, r.opponent_id))
+    [part(code, slot, r.opponent_id, dummy, r.mp || 0.0, r.gp, kind)]
+  end
+
+  defp art16_part(code, %{kind: kind, record: r} = slot, e, _by_id, t) do
+    dummy = min(e.mp, t.team_match_points_draw * t.rounds_count)
+    {mp, gp} = if r, do: {r.mp || 0.0, r.gp}, else: {0.0, 0.0}
+    [part(code, slot, nil, dummy, mp, gp, kind)]
+  end
+
+  defp part(code, slot, opponent_id, opponent_mp, mp, gp, kind) do
+    value =
+      case code do
+        "BH" -> opponent_mp
+        "SB" -> opponent_mp * mp
+        "EMGSB" -> opponent_mp * gp
+      end
+
+    %{round: slot.round, opponent_id: opponent_id, value: round2(value), kind: kind}
+  end
+
+  defp adjusted_opp_mp(by_id, opponent_id) do
+    case Map.get(by_id, opponent_id) do
+      nil -> 0.0
+      opp -> opp.adjusted_mp
+    end
   end
 
   defp opp_mp(by_id, record) do

@@ -475,12 +475,13 @@ defmodule PairingsEngineWeb.StandingsLive do
     )
   end
 
-  # A team round robin ranks TEAMS (`PairingsEngine.TeamStandings`) and the
-  # board statistics under them replace the individual FIDE-tiebreak table,
-  # whose tie-breaks (MP, GP, ...) are team breaks it cannot calculate. A team
-  # Swiss still pairs player by player, so it keeps the individual page.
+  # A tournament paired as teams - a team round robin, or a team Swiss paired
+  # under C.04.6 - ranks TEAMS (`PairingsEngine.TeamStandings`) and the board
+  # statistics under them replace the individual FIDE-tiebreak table, whose
+  # tie-breaks (MP, GP, ...) are team breaks it cannot calculate. A team Swiss
+  # that was paired player by player keeps the individual page.
   defp assign_team_standings(socket, tournament) do
-    if Tournament.team_round_robin?(tournament) do
+    if Tournament.paired_as_teams?(tournament) do
       teams = Tournaments.list_teams(tournament.id)
 
       assign(socket,
@@ -525,11 +526,29 @@ defmodule PairingsEngineWeb.StandingsLive do
     Enum.map_join(parts, " + ", fn part ->
       gettext("R%{round} %{team}: %{value}",
         round: part.round,
-        team: team_label(teams_by_id, part.opponent_id),
+        team: working_opponent(part, teams_by_id),
         value: format_tb(part.value)
       )
     end)
   end
+
+  # A team Swiss's unplayed rounds count against a dummy opponent (C.07 Art.
+  # 16.4), so the working names what the round was rather than a team.
+  defp working_opponent(%{kind: :played} = part, teams_by_id),
+    do: team_label(teams_by_id, part.opponent_id)
+
+  defp working_opponent(%{kind: :pab}, _teams), do: gettext("bye")
+
+  defp working_opponent(%{kind: :forfeit_win} = part, teams_by_id),
+    do: gettext("%{team} (forfeit win)", team: team_label(teams_by_id, part.opponent_id))
+
+  defp working_opponent(%{kind: :forfeit_loss} = part, teams_by_id),
+    do: gettext("%{team} (forfeit loss)", team: team_label(teams_by_id, part.opponent_id))
+
+  defp working_opponent(%{kind: kind}, _teams) when kind in [:bye, :trailing_bye],
+    do: gettext("not paired")
+
+  defp working_opponent(part, teams_by_id), do: team_label(teams_by_id, part.opponent_id)
 
   # The category selector's filtered view - `entries`, cut down to one
   # category and renumbered 1..n by `Categories.category_places/2`. `nil`

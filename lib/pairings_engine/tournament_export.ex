@@ -91,6 +91,7 @@ defmodule PairingsEngine.TournamentExport do
     pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category
     team_boards team_match_points_win team_match_points_draw team_match_points_loss
+    team_pairing_mode initial_colour initial_colour_drawn
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
     count_extra_points extra_points_bands

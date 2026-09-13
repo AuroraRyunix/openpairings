@@ -6,20 +6,26 @@ match is a set of individual games, board against board. The individual games
 are ordinary games everywhere else in the app - result entry, player cards,
 the FIDE rating report - and the team layer is built on top of them.
 
-What exists today (phase 1):
+What exists today (phases 1 and 2):
 
 | | Team round robin | Team Swiss |
 |---|---|---|
 | Teams page (teams, rosters, board order, seeding) | yes | yes |
-| Paired team against team | yes (Berger tables) | **no** - still paired player by player |
-| Match points, game points, team standings | yes | no |
-| Team tie-breaks, board statistics | yes | no |
+| Paired team against team | yes (Berger tables) | yes (FIDE C.04.6, Ainalrami) - except an event already paired player by player, below |
+| Match points, game points, team standings | yes | yes, the bye scoring a draw |
+| Team tie-breaks, board statistics | yes | yes, with C.07 Art. 16 |
 | TRF team section (`013`) | yes | yes |
-| Team pairing sheet and team standings print | yes | no |
+| Team pairing sheet and team standings print | yes | yes |
 | Published to OpenResults | yes | yes |
 
-Team Swiss (FIDE C.04.6) is phase 2; see
-[`teams-phase-2-plan.md`](teams-phase-2-plan.md).
+`Tournament.paired_as_teams?/1` is the one question for "does this event
+have matches and team standings": true for a team round robin and for a team
+Swiss paired by teams (or not yet paired), false for an individual event and
+for a team Swiss paired player by player. `Tournament.team?/1` only says the
+event is classified as a team event.
+
+Phase 2's design was [`teams-phase-2-plan.md`](teams-phase-2-plan.md); where
+the build departed from it is recorded there.
 
 ## Where the FIDE rules came from
 
@@ -105,6 +111,97 @@ The Pairings page shows the round's matches above the board list: match
 number, boards, the two teams, the game-point score so far, and the match
 points once every board has a result.
 
+## Pairing a team Swiss
+
+*Pair* on the Pairings page pairs one round at a time, once every board of
+the previous round has a result. `PairingsEngine.TeamSwiss` builds, for each
+team, what C.04.6 needs from the stored matches and hands it to
+`Ainalrami.TeamPairing.pair_round/2`, then writes the round with the same
+match writer as the round robin (`PairingsEngine.TeamRounds`): the team the
+colour rules give White is team A, White on board 1 and every odd board.
+
+| Rule | Source |
+|---|---|
+| The procedure, criteria [C1]-[C10], the bye (3.4), upfloaters (3.5), brackets (3.6), colours (Art. 4) | local PDF, *C.04.6 Swiss Team Pairing System (effective 1 February 2026)*; Ainalrami's `docs/conformance-c0406-teams.md` |
+| The bye pays a draw's match points and game points (1.4) | same |
+| A team's colour is its board-1 colour in a match actually played (1.6.1) | same |
+| A match not played is not a meeting (a forfeited match can be paired again) | local PDF, *C.04.2 General handling rules* Art. 3.5 |
+| Late entries get a number when they arrive; 4.3.1's parity is on the arrival numbering | C.04.2 Art. 2.4; the SPP ruling of 2026-08-27 |
+
+What each team is, per round:
+
+- **Match points and game points** - including a previous bye's draw.
+- **Opponents** - the teams it has played. A match in which no game was
+  played (every board a forfeit or an empty seat) is not a meeting.
+- **Colours** - White as team A, Black as team B, in played matches only.
+- **Had the bye** - a previous pairing-allocated bye.
+- **Won a match by forfeit** (bars the bye, [C2]) - a match in which no game
+  was played and the team scored more game points: the opponent did not turn
+  up. One game played makes it a played match. This is open question 6 of
+  the plan, answered by research rather than by the SPP; the reading is in
+  `TeamSwiss.won_match_by_forfeit?/1`.
+- **Floated last round** - paired in the previous round against a team on a
+  different match-point score (the pairing, whether or not the match was then
+  played; a bye is not a float).
+
+**Who plays.** A team with at least one player available for the round is in
+the field; a team that cannot field anyone (every player withdrawn, absent or
+not yet started) sits the round out, with no match written. If it has played
+before, it keeps its place in 4.3.1's numbering (Ainalrami's `:absent`).
+
+**Team numbers** are the Teams page's seeding order, frozen when round 1 is
+paired. A team added later is numbered after the highest number when it is
+first paired; nobody is renumbered.
+
+**The options are FIDE's defaults and not settable**: match points primary,
+game points breaking a first-team tie for colours, Type A colour preferences.
+
+**Match order** on the Pairings page follows C.04.2 Art. 3.6's recommended
+sort (the pair's first team's score, the sum of both scores, the first
+team's number); board numbers run on through the round as in a round robin.
+
+If no legal pairing exists (C.04.6 3.3.3: "the Chief Arbiter shall decide"),
+*Pair* says so and pairs nothing.
+
+### Old team Swiss events stay player by player
+
+Before phase 2 every team Swiss was paired player by player on the individual
+Swiss path. Such an event is not converted part-way: C.04.6 pairs from a team
+history those rounds do not have. `tournaments.team_pairing_mode` tells the
+two apart:
+
+| value | meaning | set by |
+|---|---|---|
+| nil | nothing paired yet - the next pairing is by teams | default; unpairing every round resets it |
+| `"teams"` | paired team against team | `TeamSwiss` at its first round |
+| `"players"` | paired player by player; stays on the individual path | the migration, for every team Swiss that had a round; a TRF import with games; `TeamSwiss.settle_mode/1` for data without the flag whose rounds have no matches |
+
+The Teams page of such an event says it carries on player by player, and its
+Standings page keeps the individual table. Unpairing every round makes it a
+new team Swiss.
+
+## The initial colour
+
+C.04.3 Art. 5.1 and C.04.6 Art. 4.1: the initial colour is "determined by
+drawing of lots before the pairing of the first round". Settings - Options -
+*Initial colour* (individual and team Swiss):
+
+- **Drawn by lot** (default) - drawn when round 1 is paired
+  (`Tournaments.ensure_initial_colour/2`), stored in
+  `initial_colour_drawn`, and shown on the Pairings page and in Settings
+  ("Initial colour: drawn by lot: White"). Unpairing and re-pairing round 1
+  keeps the draw.
+- **White** / **Black** - the arbiter's choice; nothing is drawn.
+
+It locks when round 1 is paired. Both engines are told it: the engine TRF
+carries `XXC white1` / `XXC black1` (JaVaFo does not read `152`, and without
+`XXC` it draws its own lot on every run), Ainalrami takes it as
+`:initial_colour`, and the team engine as `:initial_colour`. A tournament that
+paired round 1 before the setting existed has no draw on record and is left
+exactly as it was: no line is written and each engine works the colour out as
+it always did. Backups, restore points and TRF imports (`152` or `XXC`) carry
+the draw.
+
 ## Scores and standings
 
 `PairingsEngine.TeamStandings`, from the matches and their boards:
@@ -115,8 +212,11 @@ points once every board has a result.
   the match. A match scores match points only once every board in it has a
   result; game points count board by board.
 - The bye of an odd round robin scores nothing and counts as no match.
+- A team Swiss's pairing-allocated bye scores a drawn match (C.04.6 1.4):
+  the draw's match points, and the draw's points on every board as game
+  points.
 
-The Standings page of a team round robin shows the team table - rank, team,
+The Standings page of a tournament paired as teams shows the team table - rank, team,
 matches played, won-drawn-lost, MP and the tie-breaks - and board statistics
 below it. The individual FIDE table is not shown: its tie-breaks are team
 breaks it cannot calculate.
@@ -140,9 +240,36 @@ The Standings page has a *Working* disclosure per team that lists the parts
 BH, SB and EMGSB were added up from ("R2 BSK: 4"), in the same shape
 `PairingsEngine.TiebreakWorking` publishes for individuals.
 
-Art. 16's unplayed-rounds adjustments are not applied: C.07 Art. 15.3 and 16
-confine them to Swiss events, and a round robin's bye is the same for every
-team. Team Swiss will need them.
+**Art. 16 (unplayed rounds) applies to a team Swiss only** - C.07 Art. 15.3
+and 16 confine it to Swiss events, and a round robin's bye is the same for
+every team. For a team Swiss, `TeamStandings` sorts every round of every team
+into Art. 16.2's categories (read from the local C.07 text):
+
+| round | category |
+|---|---|
+| a match with at least one game played | played |
+| the pairing-allocated bye | 16.2.1 |
+| a match with no game played, won on game points | 16.2.2 forfeit win |
+| a match with no game played, not won | 16.2.4 forfeit loss |
+| not paired (sat out, withdrew, not yet entered), followed by a round that is not a bye or a forfeit loss | 16.2.3 |
+| the same, followed only by byes and forfeit losses, or in the last round | 16.2.5 |
+
+- **Adjusted match points** (16.3), which an opponent's BH, SB and EMGSB
+  read: every round as awarded, except 16.2.5's, which count as a draw.
+- **A team's own unplayed round** (16.4) counts against a dummy whose match
+  points are the team's own, capped by the scheduled opponent's adjusted
+  match points for a forfeit (16.4.1) and by a draw's match points times the
+  rounds of the tournament otherwise (16.4.2); times the match points (SB) or
+  game points (EMGSB) the round awarded. "For team competitions, points means
+  match points and game points": the dummy stands in for the opponent's
+  match points, the factor all three tie-breaks read.
+- The *Working* line names such rounds: "R2 bye: 3", "R1 T3 (forfeit win):
+  2", "R3 not paired: 0".
+
+This follows the text where the individual standings do something slightly
+different: `Standings` gives a forfeited round the scheduled opponent's
+adjusted score rather than the capped dummy, and counts trailing forfeit
+losses as draws for opponents. Cut-1 (16.5) is not offered for teams.
 
 ### Board statistics
 
@@ -176,7 +303,7 @@ same team standings.
 
 ## Printing
 
-For a team round robin the Print page offers, above the individual documents:
+For a tournament paired as teams (a team round robin, or a team Swiss paired\nby teams) the Print page offers, above the individual documents:
 
 - **Team pairings** (`/t/:id/print/team-pairings?round=n`) - one table per
   match, headed "Match n: Team A - Team B (score)", with a line per board:
@@ -203,8 +330,9 @@ table. Settings - OpenResults explains, for a team event, that publishing
 sends the team standings, matches and board statistics OpenPairings
 computed.
 
-A team Swiss (still paired player by player in phase 1, see the table above)
-publishes the same additive fields; `teams` and the roster travel, but
-`matches` is empty every round and `team_standings`/`board_stats` have
-nothing to show, because no match is ever scheduled until team pairing
-itself is phase 2.
+A team Swiss paired by teams publishes the same fields as a team round robin.
+A team Swiss that was already paired player by player before team pairing
+arrived (`team_pairing_mode` "players") publishes as an individual event,
+with no team fields at all: `Snapshot` gates every team field on
+`Tournament.paired_as_teams?/1`, so the results site shows its real
+individual standings rather than empty team ones.

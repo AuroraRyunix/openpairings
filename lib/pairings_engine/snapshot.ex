@@ -267,11 +267,11 @@ defmodule PairingsEngine.Snapshot do
   # existed - so it is added only for a team event rather than sent as
   # `false` on every other one.
   # Team data travels only for a tournament whose teams are actually PAIRED
-  # as teams. A team Swiss still pairs player by player, so it publishes as an
-  # individual event: flagged as a team event, it would show empty team
-  # standings on the results site in place of its real ones. Replace this
-  # with the team-Swiss-aware predicate once C.04.6 pairing is wired in.
-  defp paired_as_teams?(t), do: Tournament.team_round_robin?(t)
+  # as teams: a team round robin, or a team Swiss paired by teams (or not yet
+  # paired). A team Swiss already paired player by player publishes as an
+  # individual event - flagged as a team event, it would show empty team
+  # standings on the results site in place of its real ones.
+  defp paired_as_teams?(t), do: Tournament.paired_as_teams?(t)
 
   defp put_team_event(row, %Tournament{} = t) do
     if paired_as_teams?(t), do: Map.put(row, "team_event", true), else: row

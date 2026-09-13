@@ -105,3 +105,9 @@ config :phoenix,
   sort_verified_routes_query_params: true
 
 config :pairings_engine, :connection_poll_interval, :disabled
+
+# The initial colour's drawing of lots (`Tournaments.draw_lot/0`), fixed to
+# White - the colour every engine assumed before the draw existed - so no
+# test depends on a coin. Tests of the draw itself pass their own lot to
+# `Tournaments.ensure_initial_colour/2`.
+config :pairings_engine, :initial_colour_lot, {PairingsEngine.Tournaments, :fixed_lot, ["white"]}

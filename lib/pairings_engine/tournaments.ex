@@ -850,9 +850,68 @@ defmodule PairingsEngine.Tournaments do
       # list stays exactly what it was.
       base = if Tournament.team?(tournament), do: base ++ [:team_boards], else: base
 
+      # The initial colour decided round 1's boards (C.04.3 5.2.5, C.04.6
+      # 4.3.1) and every later "both have yet to play" board after it, so it
+      # freezes with round 1 like the rest of the pairing shape.
+      base = base ++ [:initial_colour]
+
       if paired >= rr_implied_limit, do: [:rr_cycles | base], else: base
     end
   end
+
+  @doc """
+  Draws the initial colour by lot if this tournament's setting asks for it
+  and nothing has been drawn yet, stores it, and returns the tournament.
+  Returns the tournament unchanged when the arbiter set the colour, or when
+  a draw is already on record.
+
+  Called by the Swiss pairing paths immediately before round 1 is paired
+  (C.04.3 Art. 5.1, C.04.6 Art. 4.1: "determined by drawing of lots before
+  the pairing of the first round") - not on creation, so a tournament that
+  never pairs never draws, and not again afterwards: the stored draw is what
+  every later round is paired with, and what the Pairings and Settings pages
+  show. A round 1 that is unpaired and paired again keeps the same draw.
+
+  `draw` is the lot itself, a function returning "white" or "black" -
+  injectable so tests decide the outcome. The default is `draw_lot/0`.
+  """
+  def ensure_initial_colour(%Tournament{} = tournament, draw \\ &draw_lot/0) do
+    cond do
+      tournament.initial_colour != "lot" ->
+        tournament
+
+      tournament.initial_colour_drawn in ~w(white black) ->
+        tournament
+
+      true ->
+        colour = draw.()
+
+        unless colour in ~w(white black) do
+          raise ArgumentError,
+                "the initial-colour lot must give \"white\" or \"black\", got #{inspect(colour)}"
+        end
+
+        tournament |> Ecto.Changeset.change(initial_colour_drawn: colour) |> Repo.update!()
+    end
+  end
+
+  @doc """
+  The drawing of lots for the initial colour: "white" or "black" at random.
+
+  `config :pairings_engine, :initial_colour_lot, {module, function, args}`
+  replaces it - the test suite fixes it to "white", the colour every engine
+  assumed before the draw existed, so no test depends on a coin.
+  """
+  def draw_lot do
+    case Application.get_env(:pairings_engine, :initial_colour_lot) do
+      {module, function, args} -> apply(module, function, args)
+      nil -> Enum.random(~w(white black))
+    end
+  end
+
+  @doc false
+  # The fixed "lot" the test configuration names. Public only for that.
+  def fixed_lot(colour), do: colour
 
   @doc """
   `:ok` unless `attrs` would actually *change* one of `locked_fields/1` that

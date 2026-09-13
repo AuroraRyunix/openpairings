@@ -1,5 +1,32 @@
 # Team Swiss (C.04.6) - phase 2 plan
 
+> **Built 2026-09-13.** What was built is described in
+> [`team-tournaments.md`](team-tournaments.md); this plan is kept as the
+> design it came from. Where the build departed from it:
+>
+> - **The initial colour** is not "default White": the maintainer decided it
+>   is drawn by lot by default (and settable), for individual Swiss too.
+>   JaVaFo turned out not to read `152`, so the engine TRF carries `XXC`.
+> - **Old events are told apart by a stored flag**, `team_pairing_mode`, set
+>   by a migration and at first pairing, rather than by refusing team pairing
+>   when round 1 exists without matches (B1): such an event is simply routed
+>   to the individual path, which is what "keep pairing them as before" asks.
+> - **The engine had more to fix than A1-A4.** [C4] was below [C5], [C3] was
+>   never judged outside the bracket, [C6] and [C7] had no effect, an even
+>   scoregroup could never take upfloaters, and [C10] counted per pair.
+> - **Questions 5-7** were answered by a research note (Ainalrami's
+>   `docs/conformance-c0406-teams.md`, "Research findings"), not the SPP.
+>   Q5: [C5]'s profile is judged among legal sets. Q6: a match won by forfeit
+>   is one in which no game was played. Q7: [C7] is minimised before 3.5.4's
+>   order.
+> - **"Floated last round"** reads the pairing (a forfeited match still
+>   floated its teams); **a team with no available player** sits the round
+>   out and is passed as `:absent`.
+> - **Article 16** follows the C.07 text for the forfeit cap (16.4.1) and for
+>   trailing forfeit losses, where the individual `Standings` it was to be
+>   modelled on differs slightly; see `team-tournaments.md`.
+> - **B7, the explanation**, is not stored yet.
+
 Phase 1 (the team round robin, [`team-tournaments.md`](team-tournaments.md))
 is built. This is the plan for phase 2: pairing a **team Swiss** team against
 team under FIDE C.04.6, with board-by-board matches exactly as phase 1 builds

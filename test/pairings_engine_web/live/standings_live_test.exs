@@ -378,16 +378,23 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       scope: scope
     } do
       # The FIDE team-event default set names MP, GP and BB. A team Swiss
-      # still pairs, and so ranks, player by player, and individual
-      # standings cannot calculate a team break: `tiebreak/4`'s catch-all
-      # would answer 0.0 for every player and show a column of noughts that
-      # separated nobody and said nothing about why.
+      # paired player by player - one from before team pairing existed -
+      # ranks player by player, and individual standings cannot calculate a
+      # team break: `tiebreak/4`'s catch-all would answer 0.0 for every
+      # player and show a column of noughts that separated nobody and said
+      # nothing about why. (A team Swiss paired by teams ranks teams, and
+      # never reaches this table.)
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{
           "name" => "Team Swiss",
           "type" => "team-swiss",
           "tiebreaks" => ["MP", "BH"]
         })
+
+      tournament =
+        tournament
+        |> Ecto.Changeset.change(team_pairing_mode: "players")
+        |> PairingsEngine.Repo.update!()
 
       {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
 

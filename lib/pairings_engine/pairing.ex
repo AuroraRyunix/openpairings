@@ -120,7 +120,21 @@ defmodule PairingsEngine.Pairing do
     dispatch_stub(tournament, PairingsEngine.Keizer)
   end
 
-  defp dispatch_pair_next_round(%Tournament{} = tournament) do
+  # A Swiss (teams) is paired team against team (C.04.6) unless its rounds
+  # were already paired player by player, which it then carries on doing -
+  # see `PairingsEngine.TeamSwiss.settle_mode/1` for how the two are told
+  # apart.
+  defp dispatch_pair_next_round(%Tournament{type: "team-swiss", pairing_system: "swiss"} = t) do
+    t = PairingsEngine.TeamSwiss.settle_mode(t)
+
+    if Tournament.team_swiss?(t),
+      do: dispatch_stub(t, PairingsEngine.TeamSwiss),
+      else: dispatch_swiss(t)
+  end
+
+  defp dispatch_pair_next_round(%Tournament{} = tournament), do: dispatch_swiss(tournament)
+
+  defp dispatch_swiss(%Tournament{} = tournament) do
     paired = paired_rounds_count(tournament.id)
     next_number = paired + 1
     # One read of the active roster for the whole run. This used to be
@@ -149,6 +163,7 @@ defmodule PairingsEngine.Pairing do
 
         true ->
           tournament
+          |> draw_initial_colour_before_round_one(next_number)
           |> ensure_pairing_numbers(active)
           |> do_pair(next_number, active)
       end
@@ -177,6 +192,15 @@ defmodule PairingsEngine.Pairing do
   # always odd the next time `pair_next_round/1` runs - every match-format
   # pairing run always starts a fresh match at its first leg, never lands
   # mid-match.
+  # C.04.3 Art. 5.1: the initial colour is drawn "before the pairing of the
+  # first round". Only then - a later round reads the stored draw, and a
+  # tournament that paired round 1 before the draw was recorded is left to
+  # its engine's reading of the boards, exactly as before.
+  defp draw_initial_colour_before_round_one(tournament, 1),
+    do: Tournaments.ensure_initial_colour(tournament)
+
+  defp draw_initial_colour_before_round_one(tournament, _next_number), do: tournament
+
   defp max_pairable_round(%Tournament{swiss_match_format: true, rounds_count: n}), do: n - 1
   defp max_pairable_round(%Tournament{rounds_count: n}), do: n
 
@@ -270,6 +294,14 @@ defmodule PairingsEngine.Pairing do
                 where: t.tournament_id == ^tournament_id
               ),
               set: [pairing_number: nil]
+            )
+
+            # Nothing paired any more, so how a team Swiss is paired is open
+            # again: an event that went player by player and is unpaired back
+            # to nothing pairs by teams from its new round 1.
+            Repo.update_all(
+              from(t in Tournament, where: t.id == ^tournament_id),
+              set: [team_pairing_mode: nil]
             )
           end
 
@@ -867,6 +899,15 @@ defmodule PairingsEngine.Pairing do
           # the FILE by `run_ainalrami/4` so both engines are told the same
           # thing.
           number_of_rounds: tournament.rounds_count,
+          # The drawing of lots (or the arbiter's choice), written as JaVaFo's
+          # `XXC white1` / `XXC black1` - see `xxc: true` below - and handed
+          # to Ainalrami as its `:initial_colour` option by
+          # `ainalrami_opts/3`, which reads it back off the file. nil - no
+          # draw on record, for a tournament that paired round 1 before the
+          # draw was stored - writes no line, and both engines work the
+          # colour out as they always did (Ainalrami from the boards,
+          # JaVaFo from its own lot).
+          initial_colour: engine_initial_colour(tournament),
           # One group per forbidden pairing, plus the club/federation
           # exclusion rules, deduplicated against them.
           # Both halves read the SAME forbidden-pairing list, handed in by
@@ -880,8 +921,21 @@ defmodule PairingsEngine.Pairing do
         players: attach_accelerations(trf_rows, accelerations)
       },
       # JaVaFo reads `XXR` and not `142`. See `Ainalrami.Trf.serialize/2`.
-      xxr: true
+      xxr: true,
+      # And `XXC` and not `152`. Measured 2026-09-13 on a six-player round
+      # one: with `152 B`, `152 W` or no line at all, JaVaFo put the top seed
+      # on White in some runs and on Black in others - it draws the colour
+      # itself when not told - while `XXC black1` gave Black every run.
+      xxc: true
     )
+  end
+
+  defp engine_initial_colour(tournament) do
+    case Tournament.effective_initial_colour(tournament) do
+      "white" -> "w"
+      "black" -> "b"
+      nil -> nil
+    end
   end
 
   # Baku virtual points ride on the row they belong to rather than being
@@ -1247,7 +1301,14 @@ defmodule PairingsEngine.Pairing do
       # apart where the criteria allow it (`soft_pairs/5`), and how hard to
       # try. An empty list leaves the engine's ladder untouched.
       soft_pairs: soft,
-      soft_position: soft_position(tournament)
+      soft_position: soft_position(tournament),
+      # C.04.3 5.1's drawing of lots, read back off the file's `XXC` line
+      # like the round count above, so the two engines are told the same
+      # thing. Without it Ainalrami parsed the line and then inferred the
+      # colour from the boards instead, which before round 1 means White
+      # whatever was drawn. nil (no line) leaves that inference in place for
+      # a tournament with no draw on record.
+      initial_colour: parsed.tournament[:initial_colour]
     ]
   end
 
@@ -1379,7 +1440,10 @@ defmodule PairingsEngine.Pairing do
   # JaVaFo round, which records no reasoning of its own, is exactly where an
   # after-the-fact analysis is worth the most. The record carries
   # `"paired_by"` so the page says "analysed by", never "paired by".
-  defp reexplainable?(t), do: t.pairing_system == "swiss" and not t.pair_by_category
+  # A team Swiss paired by teams is not: its rounds were decided team against
+  # team by C.04.6, which the individual engine's account cannot describe.
+  defp reexplainable?(t),
+    do: t.pairing_system == "swiss" and not t.pair_by_category and not Tournament.team_swiss?(t)
 
   defp current_account?(%{explanation: %{"version" => v}}) when is_integer(v) and v >= 3,
     do: true
@@ -1659,22 +1723,27 @@ defmodule PairingsEngine.Pairing do
   #     `Tournament.engine_point_system/1`, which is the same tournament
   #     record the line would have been written from, so the file and the
   #     option cannot disagree.
+  #   * `XXC`, `152` - the initial colour drawn by lot, in JaVaFo's spelling
+  #     (what `engine_trf/6` writes, `xxc: true`) and TRF16's. `parse/1`
+  #     reads either into `tournament[:initial_colour]`, and
+  #     `ainalrami_opts/3` passes that as `:initial_colour` - the OPTION
+  #     `pair_next_round/2` actually acts on.
   #
-  # `152` is deliberately NOT here, and it is the reason this guard is still
-  # doing work now that one module writes and reads the file. `serialize/2`
-  # emits it from `tournament[:initial_colour]`, `parse/1` reads it back -
-  # and `pair_next_round/2` takes the initial colour as an OPTION only,
-  # which `run_ainalrami/4` does not pass, so it would infer round one's
-  # colours instead of honouring the drawing of lots the file states. Adding
-  # that key to `engine_trf/5`'s map without also passing the option would
-  # fail here rather than pair every board of round one the wrong way round.
+  # Both were deliberately kept OFF this list until 2026-09-13, and why is
+  # the guard's whole point: Ainalrami takes the initial colour as an option
+  # only, `run_ainalrami/5` did not pass it, and the engine would have
+  # inferred round one's colours instead of honouring the draw the file
+  # states. The line went into `engine_trf/6` and the option into
+  # `ainalrami_opts/3` in the same change that added them here; one without
+  # the other would pair every board of round one the wrong way round after a
+  # Black draw, silently.
   #
   # `XXP`/`XXA` were added upstream precisely because this integration
   # surfaced their absence. Before that, Ainalrami's parser discarded them as
   # unknown header codes - measured on its own fuzz corpus, a 20% forbidden
   # rate meant 27.72% of rounds seated a pair the arbiter had excluded, and
   # that figure was its ENTIRE disagreement with bbpPairings on that axis.
-  @ainalrami_supported_extensions ~w(XXR XXP XXA 250 260 162 BBW BBD BBL BBZ BBF BBU)
+  @ainalrami_supported_extensions ~w(XXR XXP XXA XXC 250 260 162 152 BBW BBD BBL BBZ BBF BBU)
 
   # The extension codes in `trf` that Ainalrami would parse and then not act
   # on. Checked against the generated TRF itself rather than against the
