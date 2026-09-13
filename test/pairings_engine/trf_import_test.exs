@@ -995,6 +995,61 @@ defmodule PairingsEngine.TrfImportTest do
     refute Repo.exists?(Ecto.Query.from(t in Tournament, where: t.name == "Duplicate Ranks"))
   end
 
+  defp round_one_pairings(tournament) do
+    Repo.one!(
+      Ecto.Query.from(r in Round,
+        where: r.tournament_id == ^tournament.id and r.number == 1,
+        preload: [pairings: [:white_player, :black_player]]
+      )
+    ).pairings
+  end
+
+  test "a game is a game only when both entries name each other" do
+    # Alpha's entry says it beat Bravo, but Bravo's entry for the same round
+    # names Charlie, and Charlie's names Bravo. The parser lets a one-sided
+    # reference through (it may be reading a partial roster), so the import
+    # is where it has to be caught: Bravo-Charlie is the game, and Alpha's
+    # entry cannot seat Bravo a second time.
+    trf =
+      verification_trf(%{
+        1 => [game(2, "w", "1")],
+        2 => [game(3, "b", "0")],
+        3 => [game(2, "w", "1")]
+      })
+
+    assert {:ok, tournament, _warnings} = TrfImport.import_text(trf, user_scope())
+
+    pairings = round_one_pairings(tournament)
+    seats = Enum.flat_map(pairings, &[&1.white_player, &1.black_player]) |> Enum.reject(&is_nil/1)
+
+    assert Enum.frequencies_by(seats, & &1.name) |> Map.values() |> Enum.all?(&(&1 == 1)),
+           "a player sits twice in round 1: #{inspect(Enum.map(seats, & &1.name))}"
+
+    games = for p <- pairings, p.black_player, do: {p.white_player.name, p.black_player.name}
+    assert games == [{"Charlie, Player", "Bravo, Player"}]
+  end
+
+  test "an imported round numbers its real boards first and the pairing-allocated bye last" do
+    # Rank 1 comes first in the file and holds the bye, so discovery order
+    # would put the bye on board 1. The convention - the same one SwarImport
+    # follows - is that the boards people sit at come first.
+    trf =
+      verification_trf(%{
+        1 => [pairing_bye()],
+        2 => [game(3, "w", "=")],
+        3 => [game(2, "b", "=")]
+      })
+
+    assert {:ok, tournament, _warnings} = TrfImport.import_text(trf, user_scope())
+
+    boards =
+      tournament
+      |> round_one_pairings()
+      |> Map.new(&{if(&1.black_player_id, do: :game, else: :bye), &1.board})
+
+    assert boards == %{game: 1, bye: 2}
+  end
+
   ## ---------- build_structs/1 (pure, no Repo) ----------
 
   test "build_structs/1 builds the same field values import_text/2 persists, without touching the database" do

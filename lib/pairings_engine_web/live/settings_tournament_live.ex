@@ -506,11 +506,15 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 <div class="tb-desc">{tb_desc(code)}</div>
               </div>
 
+              <%!-- Three glyphs, each named for the tiebreak it acts on: a
+                    screen reader tabbing down this list otherwise hears "up
+                    arrow" eleven times with nothing to say which row it is. --%>
               <div class="tb-buttons">
                 <button
                   type="button"
                   class="pe-btn"
                   title={gettext("Move up")}
+                  aria-label={gettext("Move %{tiebreak} up", tiebreak: tb_name(code))}
                   disabled={i == 0}
                   phx-click="tb_up"
                   phx-value-index={i}
@@ -522,6 +526,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   type="button"
                   class="pe-btn"
                   title={gettext("Move down")}
+                  aria-label={gettext("Move %{tiebreak} down", tiebreak: tb_name(code))}
                   disabled={i == length(@tiebreaks) - 1}
                   phx-click="tb_down"
                   phx-value-index={i}
@@ -533,6 +538,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   type="button"
                   class="pe-btn"
                   title={gettext("Remove")}
+                  aria-label={gettext("Remove %{tiebreak}", tiebreak: tb_name(code))}
                   phx-click="tb_remove"
                   phx-value-code={code}
                 >
@@ -547,7 +553,13 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </p>
 
           <div class="actions" style="flex-wrap: wrap">
-            <select phx-change="tb_add" name="code" style="width: auto" class="pe-select">
+            <select
+              phx-change="tb_add"
+              name="code"
+              style="width: auto"
+              class="pe-select"
+              aria-label={gettext("Add a tiebreak…")}
+            >
               <option value="">{gettext("Add a tiebreak…")}</option>
 
               <option :for={tb <- available_tiebreaks(@tiebreaks)} value={tb.code}>{tb.name}</option>
@@ -608,7 +620,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
                 <th>{gettext("Status")}</th>
 
-                <th></th>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
 
@@ -672,8 +684,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
         <form id="logo-upload-form" phx-submit="upload_logo" phx-change="validate_logo">
           <div class={["dropzone", @uploads.logo.entries != [] && "has-file"]}>
-            <.live_file_input upload={@uploads.logo} class="dropzone-input" />
-            <div class="dropzone-label">
+            <.live_file_input
+              upload={@uploads.logo}
+              class="dropzone-input"
+              aria-labelledby={"#{@uploads.logo.ref}-label"}
+            />
+            <div class="dropzone-label" id={"#{@uploads.logo.ref}-label"}>
               <%= if @uploads.logo.entries == [] do %>
                 <strong>{gettext("Choose a PNG, JPEG, GIF or WebP image")}</strong>
                 <span class="hint">{gettext("or drag and drop it here")}</span>

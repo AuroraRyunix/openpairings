@@ -1300,7 +1300,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
               <th>{gettext("Claimed title")}</th>
 
-              <th></th>
+              <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
 
@@ -1350,8 +1350,14 @@ defmodule PairingsEngineWeb.NormsLive do
         class="modal-card"
         phx-submit="save_norm"
         phx-click-away="close_norm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="norm-edit-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
       >
-        <h2>{gettext("Title-norm judgment - %{name}", name: @player.name)}</h2>
+        <h2 id="norm-edit-title">{gettext("Title-norm judgment - %{name}", name: @player.name)}</h2>
 
         <div class="form-grid">
           <label class="field">

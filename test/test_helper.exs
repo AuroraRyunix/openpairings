@@ -66,8 +66,14 @@
 # SILENTLY unless it's built to hard-fail the instant the download isn't a
 # real jar - and there is no way to prove that reliably against a site this
 # repo doesn't control. Loud-but-not-fatal exclusion is the honest answer.
-swar_fixtures_present? =
-  File.exists?("test/fixtures/c-reeks.swar") and File.exists?("test/fixtures/problemski.swar")
+# All three, because swar_import_test.exs reads all three: with only the first
+# two present (the state of any checkout made before test3-321.swar existed)
+# its test3-321 tests failed on a missing file instead of being excluded.
+swar_fixtures =
+  ~w(test/fixtures/c-reeks.swar test/fixtures/problemski.swar test/fixtures/test3-321.swar)
+
+missing_swar_fixtures = Enum.reject(swar_fixtures, &File.exists?/1)
+swar_fixtures_present? = missing_swar_fixtures == []
 
 javafo_present? = File.exists?(PairingsEngine.Pairing.javafo_jar())
 
@@ -82,13 +88,23 @@ bbppairings_present? = PairingsEngine.Test.BbpPairings.available?()
 # the way the "see docs/README.md" pointer above it did (that pointer was
 # wrong from the day it was written): a file carrying `@moduletag :TAG`
 # gates every `test` in that whole module (ExUnit moduletags can't be
-# partially revoked), everything else is a straight count of `@tag :TAG`
-# lines, each of which precedes exactly one test.
+# partially revoked), a `describe` block carrying `@describetag :TAG` gates
+# every `test` inside it, and everything else is a straight count of
+# `@tag :TAG` lines, each of which precedes exactly one test.
+#
+# The `@describetag` case was missing until 2026-09-13, so the line below
+# said "Skipping 41 test(s) tagged :swar_fixture" for 51: the ten in
+# tournaments_live_test.exs's three tagged describe blocks went uncounted.
+# `mix test --dry-run --only swar_fixture` is the check.
 tagged_test_count = fn tag ->
   escaped = tag |> Atom.to_string() |> Regex.escape()
   moduletag_regex = ~r/^\s*@moduletag :#{escaped}\b/m
+  describetag_regex = ~r/^\s*@describetag :#{escaped}\b/m
   own_tag_regex = ~r/^\s*@tag :#{escaped}\b/m
   test_def_regex = ~r/^\s*test\s+("|@|[a-z])/m
+  # A describe block runs to the first `end` at its own indentation; ExUnit
+  # does not nest them.
+  describe_block_regex = ~r/^([ \t]*)describe\b[^\n]*\bdo[ \t]*\r?\n(.*?)^\1end\b/ms
 
   "test/**/*.exs"
   |> Path.wildcard()
@@ -97,7 +113,17 @@ tagged_test_count = fn tag ->
     if Regex.match?(moduletag_regex, source) do
       total + length(Regex.scan(test_def_regex, source))
     else
-      total + length(Regex.scan(own_tag_regex, source))
+      in_tagged_describes =
+        describe_block_regex
+        |> Regex.scan(source, capture: :all_but_first)
+        |> Enum.filter(fn [_indent, body] -> Regex.match?(describetag_regex, body) end)
+        |> Enum.map(fn [_indent, body] ->
+          # A test that also carries its own @tag is already in the count below.
+          length(Regex.scan(test_def_regex, body)) - length(Regex.scan(own_tag_regex, body))
+        end)
+        |> Enum.sum()
+
+      total + length(Regex.scan(own_tag_regex, source)) + in_tagged_describes
     end
   end)
 end
@@ -115,7 +141,8 @@ lenient_tags =
 lenient? = fn tag -> lenient_tags == :all or MapSet.member?(lenient_tags, Atom.to_string(tag)) end
 
 candidates = [
-  {swar_fixtures_present?, :swar_fixture, "test/fixtures/c-reeks.swar not present"},
+  {swar_fixtures_present?, :swar_fixture,
+   "#{Enum.join(missing_swar_fixtures, ", ")} not present"},
   {javafo_present?, :javafo, "#{PairingsEngine.Pairing.javafo_jar()} not present"},
   {bbppairings_present?, :bbppairings, "no vendored bbpPairings binary for this OS"}
 ]
@@ -177,4 +204,21 @@ end
 exclude_tags = for {tag, _reason, _count} <- missing, do: tag
 
 ExUnit.start(max_cases: 1, exclude: exclude_tags)
+
+# While the Sandbox is still in its default automatic mode, so the deletes
+# commit: rows an earlier process committed to this database outside the
+# Sandbox are removed, and no test inherits them. They were the flaky test of
+# 2026-09-10/11 - see PairingsEngine.Test.LeftoverRows.
+case PairingsEngine.Test.LeftoverRows.clear!() do
+  [] ->
+    :ok
+
+  found ->
+    IO.puts(
+      "Cleared rows committed to the test database outside the SQL Sandbox: " <>
+        Enum.map_join(found, ", ", fn {table, count} -> "#{table} (#{count})" end) <>
+        ". See PairingsEngine.Test.LeftoverRows."
+    )
+end
+
 Ecto.Adapters.SQL.Sandbox.mode(PairingsEngine.Repo, :manual)

@@ -84,7 +84,7 @@ defmodule PairingsEngineWeb.PrintLive do
             <tr>
               <th>{gettext("Document")}</th>
               <th>{gettext("Description")}</th>
-              <th></th>
+              <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
           <tbody>

@@ -135,7 +135,25 @@ const PlayerGrid = {
       if (!tr) return
       this.pushEvent("edit_player", {id: tr.dataset.playerId})
     })
+    // The keyboard's double-click: Enter or Space on a player's name, which
+    // is focusable for exactly this (see the grid in players_live.ex).
+    this.el.addEventListener("keydown", (e) => {
+      const name = e.target.closest("[data-edit-player]")
+      if (!name || (e.key !== "Enter" && e.key !== " ")) return
+      e.preventDefault()
+      this.pushEvent("edit_player", {id: name.dataset.editPlayer})
+    })
     this.el.addEventListener("contextmenu", (e) => {
+      // A menu opened from the keyboard - the context-menu key or Shift+F10
+      // on a focused header button - has no pointer to open at, and has to
+      // take focus, or nobody without a mouse can use it.
+      const fromKeyboard = e.pointerType === "" || (e.clientX === 0 && e.clientY === 0)
+      const at = (el) => {
+        if (!fromKeyboard) return [e.clientX, e.clientY]
+        const box = el.getBoundingClientRect()
+        return [box.left, box.bottom]
+      }
+
       // A COLUMN HEADER in CELL_MENUS gets the bulk version - every player
       // in the tournament at once; left click on the same header still
       // sorts. Checked before the row lookup below, since a header cell
@@ -143,7 +161,8 @@ const PlayerGrid = {
       const header = e.target.closest(cellMenuSelector("th"))
       if (header) {
         e.preventDefault()
-        this.openCellMenu(e.clientX, e.clientY, header.dataset.col, null)
+        const [x, y] = at(header)
+        this.openCellMenu(x, y, header.dataset.col, null, fromKeyboard)
         return
       }
 
@@ -156,7 +175,8 @@ const PlayerGrid = {
       // Players Card behaviour.
       const cell = e.target.closest(cellMenuSelector("td"))
       if (cell) {
-        this.openCellMenu(e.clientX, e.clientY, cell.dataset.col, tr.dataset.playerId)
+        const [x, y] = at(cell)
+        this.openCellMenu(x, y, cell.dataset.col, tr.dataset.playerId, fromKeyboard)
         return
       }
 
@@ -179,7 +199,25 @@ const PlayerGrid = {
       if (this.cellPopup && !this.cellPopup.contains(e.target)) this.closeCellMenu()
     }
     this.onCellMenuDocKeydown = (e) => {
-      if (e.key === "Escape") this.closeCellMenu()
+      if (!this.cellPopup) return
+
+      if (e.key === "Escape") {
+        this.closeCellMenu(true)
+        return
+      }
+
+      // Up and Down walk the items, Tab leaves the menu the way it came.
+      const items = Array.from(this.cellPopup.querySelectorAll("button"))
+      const index = items.indexOf(document.activeElement)
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!items.length) return
+        e.preventDefault()
+        const step = e.key === "ArrowDown" ? 1 : -1
+        items[(index + step + items.length) % items.length].focus()
+      } else if (e.key === "Tab" && index >= 0) {
+        e.preventDefault()
+        this.closeCellMenu(true)
+      }
     }
     document.addEventListener("mousedown", this.onCellMenuDocMousedown)
     document.addEventListener("keydown", this.onCellMenuDocKeydown)
@@ -194,15 +232,19 @@ const PlayerGrid = {
   // everyone. The per-row menu is about the one player whose cell was
   // clicked, so the plain wording reads right there instead of implying it
   // touches every player too.
-  openCellMenu(x, y, col, playerId) {
+  openCellMenu(x, y, col, playerId, takeFocus = false) {
     this.closeCellMenu()
 
     const menu = CELL_MENUS[col]
     if (!menu) return
 
+    // Where focus goes back to when the menu closes from the keyboard.
+    this.cellMenuOpener = document.activeElement
+
     const bulk = playerId === null
     const popup = document.createElement("div")
     popup.className = "print-menu-popup"
+    popup.setAttribute("role", "menu")
     popup.style.left = `${x}px`
     popup.style.top = `${y}px`
 
@@ -216,6 +258,7 @@ const PlayerGrid = {
       const btn = document.createElement("button")
       btn.type = "button"
       btn.className = "print-menu-item"
+      btn.setAttribute("role", "menuitem")
       btn.textContent = label
       btn.addEventListener("click", () => {
         // A dynamic entry's value is already the whole payload (it names
@@ -237,6 +280,8 @@ const PlayerGrid = {
 
     document.body.appendChild(popup)
     this.cellPopup = popup
+
+    if (takeFocus) { popup.querySelector("button")?.focus() }
   },
 
   // The tournament's own category names, and (for a row menu) that one
@@ -254,10 +299,14 @@ const PlayerGrid = {
     return menu.items(categories, readJsonAttr(cell, "tags"))
   },
 
-  closeCellMenu() {
+  // `refocus` when the keyboard closed it: back to the header that opened it,
+  // rather than onto the page itself.
+  closeCellMenu(refocus = false) {
     if (this.cellPopup) {
+      const hadFocus = this.cellPopup.contains(document.activeElement)
       this.cellPopup.remove()
       this.cellPopup = null
+      if ((refocus || hadFocus) && this.cellMenuOpener?.isConnected) { this.cellMenuOpener.focus() }
     }
   },
 
@@ -336,6 +385,11 @@ function blurBracketWrap(wrap) {
   if (wrap.contains(document.activeElement)) document.activeElement.blur()
 }
 
+// Programmatic scrolls glide, unless the viewer asked the system for less
+// motion - then they jump, like every other scroll the page does.
+const scrollMotion = () =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+
 // Pairing-rationale bracket map: clicking a dot directly on the graph
 // toggles its pin (ring + popover stay open until clicked again); with a
 // dot pinned, clicking that player's EXACT opponent opens the board's
@@ -380,7 +434,7 @@ document.addEventListener("click", (e) => {
         duo.classList.add("is-open")
         wrap.classList.add("is-duo")
         pinned.classList.add("is-duo")
-        duo.scrollIntoView({behavior: "smooth", block: "nearest"})
+        duo.scrollIntoView({behavior: scrollMotion(), block: "nearest"})
       }
       blurBracketWrap(wrap)
       return
@@ -408,7 +462,7 @@ document.addEventListener("click", (e) => {
   closeBracketDuo()
   document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => el.classList.remove("is-pinned"))
   target.classList.add("is-pinned")
-  target.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"})
+  target.scrollIntoView({behavior: scrollMotion(), block: "nearest", inline: "center"})
 })
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
@@ -476,9 +530,187 @@ const DOWNTIME_HINT = "about 30 seconds"
 // for exactly that reason. If sessions start dropping again, suspect that
 // first, and fix it rather than softening this line.
 
+// ---- saying things to a screen reader ----
+//
+// One persistent polite region (#announcer, in the root layout) for every
+// script on the page. Cleared and then filled a beat later, so the same
+// sentence twice in a row is spoken twice rather than swallowed as no change.
+const announce = (text) => {
+  const region = document.getElementById("announcer")
+  if (!region || !text) { return }
+  region.textContent = ""
+  setTimeout(() => { region.textContent = text }, 100)
+}
+
+// A flash, said once when it appears and again only if its words change.
+// Its title and message, not the close button's label.
+const flashText = (el) =>
+  Array.from(el.querySelectorAll("p")).map((p) => p.textContent.trim()).filter(Boolean).join(". ")
+
+const Flash = {
+  mounted() {
+    this.said = null
+    this.say()
+  },
+  updated() { this.say() },
+  say() {
+    if (this.el.hidden) { return }
+    const text = flashText(this.el)
+    if (text && text !== this.said) {
+      this.said = text
+      announce(text)
+    }
+  },
+}
+
+// The connection flashes are shown by a JS command, not rendered, so they
+// dispatch this as they appear (see `flash_group/1`).
+window.addEventListener("pe:announce", (e) => announce(flashText(e.target)))
+
+// ---- the "Saved." and "could not save" notes ----
+//
+// Every settings page confirms a save, and refuses a bad one, with an
+// `.ok-note` or `.error-note` that the server renders beside the button - some
+// sixty of them, none a live region, so a screen reader heard nothing after
+// pressing Save. Rather than wrap each, this watches for one to appear (or its
+// words to change) and says it. Not while a page is loading: a note that is
+// simply part of the page arriving - "finish the tournament setup first" - is
+// read in the ordinary way, not announced over the top of it.
+let pageLoading = true
+window.addEventListener("phx:page-loading-start", () => { pageLoading = true })
+window.addEventListener("phx:page-loading-stop", () => { setTimeout(() => { pageLoading = false }, 0) })
+
+let lastNote = {text: null, at: 0}
+const sayNote = (el) => {
+  const text = el.textContent.replace(/\s+/g, " ").trim()
+  if (!text || (text === lastNote.text && Date.now() - lastNote.at < 1500)) { return }
+  lastNote = {text, at: Date.now()}
+  announce(text)
+}
+
+new MutationObserver((mutations) => {
+  if (pageLoading) { return }
+
+  for (const m of mutations) {
+    if (m.type === "characterData") {
+      const note = m.target.parentElement?.closest(".ok-note, .error-note")
+      if (note) { sayNote(note) }
+      continue
+    }
+
+    for (const node of m.addedNodes) {
+      if (!(node instanceof HTMLElement)) { continue }
+      if (node.matches(".ok-note, .error-note")) { sayNote(node) }
+      node.querySelectorAll(".ok-note, .error-note").forEach(sayNote)
+    }
+  }
+}).observe(document.body, {childList: true, subtree: true, characterData: true})
+
+// ---- modal dialogs: focus goes in, stays in, and comes back out ----
+//
+// Every modal here is rendered by the server behind an `:if`, and closed by
+// the server too (Escape via phx-window-keydown, a Cancel button, a click
+// outside). None of that moved focus: a dialog opened with focus still on the
+// button behind it, Tab walked out into the page `aria-modal` hides from a
+// screen reader, and closing it left the keyboard at the top of the page.
+//
+// The hook sits on the dialog element itself (`role="dialog"`, `data-dialog`).
+// It remembers where focus was when it mounted - the button that opened it,
+// or, when that button was inside a menu that closed in the same render, the
+// last thing focused outside any dialog - moves focus in (to a field the
+// dialog focuses itself with phx-mounted, else its first control, else the
+// dialog), keeps Tab inside, and on the way out puts focus back on that
+// element, or on whatever carries its id after the re-render.
+let lastFocusedOutsideDialog = null
+
+document.addEventListener("focusin", (e) => {
+  if (!e.target.closest("[data-dialog]")) { lastFocusedOutsideDialog = e.target }
+})
+
+const TABBABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
+  'select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+
+const DialogFocus = {
+  mounted() {
+    const at = document.activeElement
+    const opener = at && at !== document.body && !this.el.contains(at) ? at : lastFocusedOutsideDialog
+    this.returnTo = opener
+    this.returnId = opener && opener.id
+
+    this.onKeydown = (e) => { if (e.key === "Tab") { this.trap(e) } }
+    this.el.addEventListener("keydown", this.onKeydown)
+
+    // A frame later, so a field the dialog focuses itself (phx-mounted
+    // JS.focus()) has had its turn and is left alone.
+    requestAnimationFrame(() => this.enter())
+  },
+
+  // The consent dialog changes its content in place (loading, then the
+  // question): focus that was parked on the dialog itself moves in.
+  updated() {
+    if (document.activeElement === this.el) { this.enter() }
+  },
+
+  // Into the first field to fill in, when the dialog is a form. Otherwise
+  // onto the dialog itself - read out as its title - rather than onto its
+  // first button, which in a confirmation is as often "Apply" as "Cancel".
+  enter() {
+    if (this.el.contains(document.activeElement) && document.activeElement !== this.el) { return }
+    const field = this.tabbable().find((el) =>
+      el.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea'))
+    ;(field || this.el).focus()
+  },
+
+  tabbable() {
+    return Array.from(this.el.querySelectorAll(TABBABLE))
+      .filter((el) => !el.closest("[hidden]") && el.getClientRects().length > 0)
+  },
+
+  trap(e) {
+    const items = this.tabbable()
+    if (!items.length) { e.preventDefault(); return }
+
+    const first = items[0]
+    const last = items[items.length - 1]
+    const at = document.activeElement
+
+    if (e.shiftKey && (at === first || at === this.el || !this.el.contains(at))) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && (at === last || !this.el.contains(at))) {
+      e.preventDefault()
+      first.focus()
+    }
+  },
+
+  destroyed() {
+    this.el.removeEventListener("keydown", this.onKeydown)
+
+    const back =
+      (this.returnTo && this.returnTo.isConnected && this.returnTo) ||
+      (this.returnId && document.getElementById(this.returnId))
+
+    if (back) { requestAnimationFrame(() => back.focus({preventScroll: true})) }
+  },
+}
+
+// The lead word ("Server update", "Notice") and the sentence, as one
+// announcement - read from the banner itself, so it is whatever the eye sees.
+const bannerSentence = (el, textSelector) => {
+  const lead = el.querySelector("strong")?.textContent?.trim()
+  const text = el.querySelector(textSelector)?.textContent?.trim()
+  return [lead, text].filter(Boolean).join(": ")
+}
+
 const deployBanner = {
   timer: null,
   watchdog: null,
+  // The tier last announced. The countdown rewrites the sentence every
+  // second, which is fine to look at and unbearable to listen to, so a
+  // screen reader hears it when the banner appears and each time it
+  // escalates - at two minutes and at thirty seconds - and not in between.
+  announcedTier: null,
 
   // How long after the deadline the banner gives up and hides itself. Longer
   // than the watchdog's reload window, so a page that CAN recover reloads
@@ -527,6 +759,11 @@ const deployBanner = {
 
     if (text) { text.textContent = message }
     el.dataset.tier = tier
+
+    if (tier !== this.announcedTier) {
+      this.announcedTier = tier
+      announce(bannerSentence(el, ".deploy-banner-text"))
+    }
   },
 
   show(iso) {
@@ -534,6 +771,7 @@ const deployBanner = {
     if (!el) { return }
     clearInterval(this.timer)
     clearInterval(this.watchdog)
+    this.announcedTier = null
 
     if (!iso) { el.hidden = true; return }
 
@@ -627,9 +865,11 @@ const siteNotice = {
     }
 
     const text = el.querySelector(".site-notice-text")
+    const news = el.hidden || (text && text.textContent !== message)
     if (text) { text.textContent = message }
     el.dataset.level = level === "urgent" ? "urgent" : "info"
     el.hidden = false
+    if (news) { announce(bannerSentence(el, ".site-notice-text")) }
 
     if (until) {
       const deadline = new Date(until).getTime()
@@ -683,6 +923,7 @@ window.addEventListener("phx:app-version", (e) => {
   const text = el.querySelector(".version-toast-text")
   if (text) { text.textContent = `Updated to v${now}` }
   el.hidden = false
+  announce(text?.textContent)
 
   const hide = () => { el.hidden = true }
   el.querySelector(".version-toast-close")?.addEventListener("click", hide, {once: true})
@@ -693,7 +934,17 @@ const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   reconnectAfterMs: (tries) => [250, 500, 1000, 2000, 3000][tries - 1] || 5000,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut},
+  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut, Flash, DialogFocus},
+  dom: {
+    // The pickers' `aria-pressed` is set here in the browser (`markPickers`
+    // below - the server never knows the theme), so a patch that re-renders
+    // the top bar must carry it over rather than strip it.
+    onBeforeElUpdated(from, to) {
+      if ((from.dataset.themeOpt || from.dataset.accentOpt) && from.hasAttribute("aria-pressed")) {
+        to.setAttribute("aria-pressed", from.getAttribute("aria-pressed"))
+      }
+    },
+  },
 })
 
 // Show progress bar on live navigation and form submits
@@ -766,6 +1017,30 @@ document.addEventListener("click", (e) => {
     if (!menu.contains(e.target)) { menu.open = false }
   })
 })
+
+// ---- which theme and accent are on ----
+//
+// The pickers highlight the current option from CSS alone, keyed off the
+// attributes the root layout's inline script keeps on <html>. That says it
+// to the eye only; `aria-pressed` says it to a screen reader, worked out from
+// the same attributes so the two cannot disagree. Re-applied after every live
+// navigation, which renders the top bar afresh.
+const markPickers = () => {
+  const root = document.documentElement
+  const source = root.getAttribute("data-theme-source")
+  const theme = source === "system" ? "system" : root.getAttribute("data-theme")
+  const accent = root.getAttribute("data-accent") || "green"
+
+  document.querySelectorAll("[data-theme-opt]").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.themeOpt === theme)))
+  document.querySelectorAll("[data-accent-opt]").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.accentOpt === accent)))
+}
+
+markPickers()
+window.addEventListener("phx:page-loading-stop", markPickers)
+window.addEventListener("phx:set-theme", markPickers)
+window.addEventListener("phx:set-accent", markPickers)
 
 // Escape closes the open one, which is what every other dismissible thing
 // on the web does and what a keyboard user will try first.

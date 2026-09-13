@@ -175,11 +175,10 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
 
     ~H"""
     <details class="topbar-menu pub-menu" name="topbar-popover">
-      <summary
-        class={["pub-pill", "is-#{@tone}"]}
-        title={pill_title(@status)}
-        aria-label={pill_title(@status)}
-      >
+      <%!-- Named by its visible word, with the sentence as the `title`. An
+            `aria-label` of the sentence replaced the word for a screen reader
+            and left speech input - "click Offline" - nothing to match. --%>
+      <summary class={["pub-pill", "is-#{@tone}"]} title={pill_title(@status)}>
         <span class="pub-dot" aria-hidden="true"></span>
         <span class="pub-word">{pill_word(@status)}</span>
         <span :if={@status.latency_ms && @status.state == :connected} class="pub-ms">

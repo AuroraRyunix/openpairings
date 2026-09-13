@@ -29,6 +29,9 @@ everything the app does and what is planned next.
   fuzz-testing harness plan. Read its own opening note first: the document
   is built on a "JaVaFo wrapper" framing that it now says out loud has
   expired, because the shipped default is our own engine.
+- [Accessibility pass, 2026-09-13](accessibility-2026-09-13.md) - the first
+  WCAG 2.2 AA pass: findings, every contrast change with its ratios, what is
+  recommended rather than built, and the keyboard and NVDA checklist.
 
 ## Feature guides
 

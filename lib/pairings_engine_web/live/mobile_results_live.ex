@@ -93,6 +93,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        # Boards entered within the last `@settle_ms`, kept visible so the
        # helper can confirm what landed before the list closes over it.
        just_saved: MapSet.new(),
+       saved_notice: "",
        # Which board's "More…" panel is open, if any - one at a time, so
        # the page doesn't grow tall with several boards expanded at once.
        # Cleared on round switch (below) since the boards it referred to no
@@ -241,10 +242,24 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                     # it. Only entering settles; clearing puts the board back
                     # among the unfinished, which is its own confirmation.
                     if result == "" do
-                      socket
+                      assign(socket,
+                        saved_notice:
+                          gettext("Board %{board}: result cleared", board: pairing.board)
+                      )
                     else
                       Process.send_after(self(), {:settle_board, pairing.id}, @settle_ms)
-                      update(socket, :just_saved, &MapSet.put(&1, pairing.id))
+
+                      socket
+                      |> update(:just_saved, &MapSet.put(&1, pairing.id))
+                      # The green flash on the board is the eye's confirmation;
+                      # this is a screen reader's, through the page's status line.
+                      |> assign(
+                        saved_notice:
+                          gettext("Board %{board}: %{result} saved",
+                            board: pairing.board,
+                            result: result
+                          )
+                      )
                     end
 
                   {:error, :archived} ->
@@ -444,7 +459,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
       <header class="mobile-header">
         <div>
           <div class="mobile-brand">Open<strong>Pairings</strong></div>
-          <div class="mobile-tname">{@tournament.name}</div>
+          <%!-- The page's one heading: which tournament this phone is entering
+                results for. --%>
+          <h1 class="mobile-tname">{@tournament.name}</h1>
         </div>
         <div class="mobile-header-actions">
           <button
@@ -470,137 +487,205 @@ defmodule PairingsEngineWeb.MobileResultsLive do
             here too. --%>
       <Layouts.flash_group flash={@flash} />
 
-      <%!-- A helper is pinned to the latest paired round (`Mobile.permit_round/3`)
+      <%!-- `<main>` for the root layout's skip link, which this bare shell had
+            nowhere to send; and the status line a screen reader hears each
+            save through - always on the page, so a change to its text is
+            announced. --%>
+      <main id="main-content" tabindex="-1">
+        <p class="sr-only" role="status">{@saved_notice}</p>
+
+        <%!-- A helper is pinned to the latest paired round (`Mobile.permit_round/3`)
             and has no other round to switch to - showing a switcher with
             every earlier round disabled/hidden but one lone "current round"
             button in it would just be a button that does nothing, so the
             whole strip is left off rather than hidden-but-half-there. --%>
-      <div :if={@paired > 1 and not helper?(@mobile_enrollment)} class="mobile-rounds">
-        <button
-          :for={n <- 1..@paired}
-          type="button"
-          class={["mobile-round-btn", n == @round_number && "active"]}
-          phx-click="select_round"
-          phx-value-number={n}
-        >
-          R{n}
-        </button>
-      </div>
+        <div :if={@paired > 1 and not helper?(@mobile_enrollment)} class="mobile-rounds">
+          <button
+            :for={n <- 1..@paired}
+            type="button"
+            class={["mobile-round-btn", n == @round_number && "active"]}
+            aria-pressed={to_string(n == @round_number)}
+            phx-click="select_round"
+            phx-value-number={n}
+          >
+            R{n}
+          </button>
+        </div>
 
-      <p class="mobile-hint">
-        Round {@round_number} ·
-        <%= if @locked do %>
-          🔒 locked - tap the lock to enter results
-        <% else %>
-          tap a result for each board
-        <% end %>
-      </p>
+        <p class="mobile-hint">
+          Round {@round_number} ·
+          <%= if @locked do %>
+            🔒 locked - tap the lock to enter results
+          <% else %>
+            tap a result for each board
+          <% end %>
+        </p>
 
-      <div :if={@boards == []} class="mobile-empty">No boards paired for this round yet.</div>
+        <div :if={@boards == []} class="mobile-empty">No boards paired for this round yet.</div>
 
-      <%!-- Finished boards drop out of the list as they are entered, so what
+        <%!-- Finished boards drop out of the list as they are entered, so what
             is left on screen is what is left to do. The count is the honest
             version of that: a helper wants to know how many are outstanding,
             not how many exist. --%>
-      <div :if={@boards != []} class="mobile-filter">
-        <span class="mobile-filter-count">
-          <%= case remaining_count(@boards) do %>
-            <% 0 -> %>
-              All results in
-            <% 1 -> %>
-              1 board left
-            <% n -> %>
-              {n} boards left
-          <% end %>
-        </span>
+        <div :if={@boards != []} class="mobile-filter">
+          <span class="mobile-filter-count">
+            <%= case remaining_count(@boards) do %>
+              <% 0 -> %>
+                All results in
+              <% 1 -> %>
+                1 board left
+              <% n -> %>
+                {n} boards left
+            <% end %>
+          </span>
 
-        <button type="button" class="mobile-filter-btn" phx-click="toggle_show_all">
-          {if @show_all, do: "Hide finished", else: "Show all"}
-        </button>
-      </div>
-
-      <div
-        :if={@boards != [] and visible_boards(@boards, @just_saved, @show_all) == []}
-        class="mobile-empty"
-      >
-        Every board in this round has a result. Tap "Show all" to look them over.
-      </div>
-
-      <div
-        :for={p <- visible_boards(@boards, @just_saved, @show_all)}
-        class={["mobile-board", MapSet.member?(@just_saved, p.id) && "just-saved"]}
-      >
-        <div class="mobile-board-head">
-          <span class="mobile-board-no">Board {p.board}</span>
+          <button type="button" class="mobile-filter-btn" phx-click="toggle_show_all">
+            {if @show_all, do: "Hide finished", else: "Show all"}
+          </button>
         </div>
-        <div class="mobile-players">
-          <div class="mobile-side">
-            <span class="mobile-white">{p.white_player && p.white_player.name}</span>
-            <span class="mobile-meta">{player_meta(p.white_player, @scores)}</span>
+
+        <div
+          :if={@boards != [] and visible_boards(@boards, @just_saved, @show_all) == []}
+          class="mobile-empty"
+        >
+          Every board in this round has a result. Tap "Show all" to look them over.
+        </div>
+
+        <%!-- Keyed by id, so LiveView keeps each board's own elements when a
+            finished board drops out of the list: matched by position, the
+            buttons of the board below were being reused for the board that
+            left, focus included. Each row of result buttons is a group named
+            for its board and players, and the recorded result is
+            `aria-pressed` - it was a colour. --%>
+        <div
+          :for={p <- visible_boards(@boards, @just_saved, @show_all)}
+          id={"mobile-board-#{p.id}"}
+          class={["mobile-board", MapSet.member?(@just_saved, p.id) && "just-saved"]}
+          phx-hook=".KeepFocus"
+        >
+          <div class="mobile-board-head">
+            <span class="mobile-board-no" id={"mobile-board-#{p.id}-no"}>Board {p.board}</span>
           </div>
-          <span class="mobile-vs">vs</span>
-          <div class="mobile-side mobile-side--black">
-            <span class="mobile-black">{p.black_player && p.black_player.name}</span>
-            <span class="mobile-meta">{player_meta(p.black_player, @scores)}</span>
+          <div class="mobile-players">
+            <div class="mobile-side">
+              <span class="mobile-white" id={"mobile-board-#{p.id}-white"}>
+                {p.white_player && p.white_player.name}
+              </span>
+              <span class="mobile-meta">{player_meta(p.white_player, @scores)}</span>
+            </div>
+            <span class="mobile-vs">vs</span>
+            <div class="mobile-side mobile-side--black">
+              <span class="mobile-black" id={"mobile-board-#{p.id}-black"}>
+                {p.black_player && p.black_player.name}
+              </span>
+              <span class="mobile-meta">{player_meta(p.black_player, @scores)}</span>
+            </div>
           </div>
-        </div>
-        <div class="mobile-results">
-          <button
-            :for={{value, label} <- @results}
-            type="button"
-            disabled={@locked || @read_only?}
-            class={["mobile-result-btn", p.result == value && "chosen"]}
-            phx-click="set_result"
-            phx-value-id={p.id}
-            phx-value-result={value}
+          <div
+            class="mobile-results"
+            role="group"
+            aria-labelledby={"mobile-board-#{p.id}-no mobile-board-#{p.id}-white mobile-board-#{p.id}-black"}
           >
-            {label}
-          </button>
-          <button
-            :if={p.result != ""}
-            type="button"
-            disabled={@locked || @read_only?}
-            class="mobile-result-btn mobile-clear"
-            phx-click="set_result"
-            phx-value-id={p.id}
-            phx-value-result=""
-            title="Clear the result"
-          >
-            ⟲
-          </button>
-          <button
-            type="button"
-            disabled={@locked || @read_only?}
-            class={["mobile-result-btn", "mobile-more", @expanded_id == p.id && "chosen"]}
-            phx-click="toggle_extra"
-            phx-value-id={p.id}
-          >
-            {if @expanded_id == p.id, do: "▲ Less", else: "▼ More"}
-          </button>
-        </div>
+            <button
+              :for={{value, label} <- @results}
+              type="button"
+              disabled={@locked || @read_only?}
+              class={["mobile-result-btn", p.result == value && "chosen"]}
+              aria-pressed={to_string(p.result == value)}
+              phx-click="set_result"
+              phx-value-id={p.id}
+              phx-value-result={value}
+            >
+              {label}
+            </button>
+            <button
+              :if={p.result != ""}
+              type="button"
+              disabled={@locked || @read_only?}
+              class="mobile-result-btn mobile-clear"
+              phx-click="set_result"
+              phx-value-id={p.id}
+              phx-value-result=""
+              title={gettext("Clear the result")}
+              aria-label={gettext("Clear the result")}
+            >
+              ⟲
+            </button>
+            <button
+              type="button"
+              disabled={@locked || @read_only?}
+              class={["mobile-result-btn", "mobile-more", @expanded_id == p.id && "chosen"]}
+              phx-click="toggle_extra"
+              phx-value-id={p.id}
+            >
+              {if @expanded_id == p.id, do: "▲ Less", else: "▼ More"}
+            </button>
+          </div>
 
-        <%!-- Forfeits and the asymmetric disciplinary codes - rare, so
+          <%!-- Forfeits and the asymmetric disciplinary codes - rare, so
               tucked here instead of cluttering every board's default three
               buttons. Stays open if that's already this board's own
               recorded result, so "what's currently set" is never hidden
               behind a tap the arbiter has no reason to make. --%>
-        <div
-          :if={@expanded_id == p.id or (p.result != "" and p.result not in ~w(1-0 1/2-1/2 0-1))}
-          class="mobile-results mobile-results--extra"
-        >
-          <button
-            :for={{value, label} <- @extra_results}
-            type="button"
-            disabled={@locked || @read_only?}
-            class={["mobile-result-btn", p.result == value && "chosen"]}
-            phx-click="set_result"
-            phx-value-id={p.id}
-            phx-value-result={value}
+          <div
+            :if={@expanded_id == p.id or (p.result != "" and p.result not in ~w(1-0 1/2-1/2 0-1))}
+            class="mobile-results mobile-results--extra"
           >
-            {label}
-          </button>
+            <button
+              :for={{value, label} <- @extra_results}
+              type="button"
+              disabled={@locked || @read_only?}
+              class={["mobile-result-btn", p.result == value && "chosen"]}
+              aria-pressed={to_string(p.result == value)}
+              phx-click="set_result"
+              phx-value-id={p.id}
+              phx-value-result={value}
+            >
+              {label}
+            </button>
+          </div>
         </div>
-      </div>
+      </main>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".KeepFocus">
+        // A board leaves the list a moment after its result is entered, and
+        // takes with it the button that entered it - the one with focus. Left
+        // there, focus falls to the page itself and a screen reader or a
+        // keyboard starts again from the top. So the board that had focus
+        // hands it on as it goes: to the board that moves up into its place,
+        // the last one if it was last, or the page's main region if none are
+        // left ("All results in").
+        export default {
+          mounted() {
+            this.onFocus = () => {
+              const boards = Array.from(document.querySelectorAll(".mobile-board"));
+              window.peBoardFocus = { id: this.el.id, index: boards.indexOf(this.el) };
+            };
+            this.el.addEventListener("focusin", this.onFocus);
+          },
+
+          destroyed() {
+            const last = window.peBoardFocus;
+            if (!last || last.id !== this.el.id) return;
+            window.peBoardFocus = null;
+
+            requestAnimationFrame(() => {
+              const active = document.activeElement;
+              if (active && active !== document.body) return;
+              // Gone with the whole page (a navigation), not just this board.
+              if (!document.querySelector(".mobile-shell")) return;
+
+              const boards = Array.from(document.querySelectorAll(".mobile-board"));
+              const board = boards[Math.min(last.index, boards.length - 1)];
+              const target =
+                (board && board.querySelector("button:not([disabled])")) ||
+                document.getElementById("main-content");
+
+              if (target) target.focus();
+            });
+          }
+        };
+      </script>
     </div>
     """
   end

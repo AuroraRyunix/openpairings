@@ -156,11 +156,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <span class={["pe-seat-badge", "is-#{@colour}"]}>{String.upcase(@colour)}</span>
       <span class="pe-seat-name">{@player.name}</span>
       <span class="pe-seat-history" title={gettext("Colours in the last rounds, oldest first")}>
+        <%!-- The squares are colour alone; a screen reader gets each one's
+        round and colour as words, and the strip is named once. --%>
+        <span :if={seat_history(@trails, @player.id) != []} class="sr-only">
+          {gettext("Colours in the last rounds, oldest first")}:
+        </span>
         <span
           :for={{number, mark} <- seat_history(@trails, @player.id)}
           class={["pe-seat-chip", "is-#{mark}"]}
           title={chip_title(number, mark)}
-        ></span>
+        ><span class="sr-only">{chip_title(number, mark)}</span></span>
       </span>
     </div>
 
@@ -1963,7 +1968,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       </p>
 
       <div :if={@anomalies != []} class="card" style="margin: 8px 0">
-        <h3 style="margin-top: 0">{gettext("Worth a look")}</h3>
+        <h2 class="pe-card-subhead" style="margin-top: 0">{gettext("Worth a look")}</h2>
         <p :for={item <- @anomalies} class="pe-warning" style="margin-top: 6px">
           <.link
             href={"#pe-board-#{item.board}"}
@@ -2030,7 +2035,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       </details>
 
       <div :if={@rationale.berger} class="card" style="margin: 8px 0">
-        <h3 style="margin-top: 0">{gettext("Berger schedule")}</h3>
+        <h2 class="pe-card-subhead" style="margin-top: 0">{gettext("Berger schedule")}</h2>
         <p :if={@rationale.berger.match_format} style="margin: 0">
           {gettext(
             "This is match %{match}, leg %{leg}. The whole schedule is fully determined by the number of players - there is no choice to explain.",
@@ -2054,7 +2059,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         data-active-filter=""
         style="margin: 8px 0"
       >
-        <h3 style="margin-top: 0">{gettext("Pre-round score brackets")}</h3>
+        <h2 class="pe-card-subhead" style="margin-top: 0">{gettext("Pre-round score brackets")}</h2>
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Players grouped by their standing going into this round (highest at the top). Each line is one board; a connector that slopes across bands is a floater - an odd bracket can't pair entirely within itself, so it floats a player to the neighbouring bracket. Hover (or tap) a pairing for its full detail. Click a legend item or a score-band label to highlight just that slice of the map."
@@ -2357,7 +2362,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               const rect = this.el.getBoundingClientRect();
               const frac = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
               const target = frac * this.strip.scrollWidth - this.strip.clientWidth / 2;
-              this.strip.scrollTo({left: Math.max(0, target), behavior: instant ? "instant" : "smooth"});
+              const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              this.strip.scrollTo({left: Math.max(0, target), behavior: instant || calm ? "instant" : "smooth"});
             },
 
             destroyed() {
@@ -2467,7 +2473,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             bracket map was scrolling past a hundred of them. --%>
       <details id="boards" class="pe-boards">
         <summary>
-          <h3>{gettext("Board by board")}</h3>
+          <h2 class="pe-card-subhead">{gettext("Board by board")}</h2>
           <span class="hint">
             {ngettext("%{count} board", "%{count} boards", length(@rationale.boards))}
           </span>
@@ -2579,9 +2585,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               same pattern as the norms page's table-card headings. Without
               it this title sat flush against the card edge, visibly
               misaligned with the padded table cells below. --%>
-        <h3 style="margin: 0; padding: 16px 16px 8px">
+        <h2 class="pe-card-subhead" style="margin: 0; padding: 16px 16px 8px">
           {gettext("Requested / absence byes this round")}
-        </h3>
+        </h2>
         <table class="pe-table">
           <thead>
             <tr>
@@ -2803,8 +2809,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           <table class="pe-cascade">
             <caption>{gettext("Float cascade - how the brackets fed each other")}</caption>
             <tbody>
+              <%!-- The bracket's score heads its row, so a screen reader moving
+                    along it says which bracket the names belong to. --%>
               <tr :for={bracket <- section.brackets}>
-                <td class="num">{score_str(bracket.group)}</td>
+                <th scope="row" class="num">{score_str(bracket.group)}</th>
                 <td>
                   {names(bracket.residents)}
                   <span
@@ -2963,9 +2971,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               <summary>{gettext("Full criteria ladder for this bracket")}</summary>
 
               <table class="pe-account-rungs">
+                <caption class="sr-only">{score_str(bracket.group)}</caption>
                 <tbody>
                   <tr :for={{label, value} <- bracket.rungs}>
-                    <td>{label}</td>
+                    <th scope="row">{label}</th>
                     <td class="pe-account-rung-value">{value}</td>
                   </tr>
                 </tbody>

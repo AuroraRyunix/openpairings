@@ -8,7 +8,9 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
       <div class="mobile-header-actions mobile-header-actions--standalone">
         <Layouts.theme_switch />
       </div>
-      <div class="mobile-card">
+      <%!-- `<main>` for the root layout's skip link. The error is tied to the
+            code box, so a screen reader hears it on the field it is about. --%>
+      <main class="mobile-card" id="main-content" tabindex="-1">
         <div class="mobile-brand">Open<strong>Pairings</strong></div>
         <h1>Enter results</h1>
         <p class="mobile-sub">
@@ -16,7 +18,7 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
           No account needed.
         </p>
 
-        <p :if={@error} class="mobile-error">{@error}</p>
+        <p :if={@error} class="mobile-error" id="enroll-code-error" role="alert">{@error}</p>
 
         <form method="post" action={~p"/m"} class="mobile-form">
           <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
@@ -32,10 +34,12 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
             placeholder="12345678"
             autofocus
             class="mobile-code-input"
+            aria-invalid={@error && "true"}
+            aria-describedby={@error && "enroll-code-error"}
           />
           <button type="submit" class="mobile-btn">Continue</button>
         </form>
-      </div>
+      </main>
     </div>
     """
   end

@@ -460,7 +460,10 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/json")
 
-      assert conn.status == 200
+      # The export itself, not merely a 200: an empty document downloads too.
+      body = conn |> response(200) |> Jason.decode!()
+      assert [%{"tournament" => %{"name" => name}}] = body["tournaments"]
+      assert name == tournament.name
     end
   end
 end

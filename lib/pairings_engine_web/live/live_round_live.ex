@@ -136,6 +136,22 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   defp enroll_expiry(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
 
+  # A QR code as one image with a name, rather than a raw SVG of a few hundred
+  # unnamed squares. The address it encodes is printed beside it in both
+  # places this is used, so the name says what it is for, not the address.
+  attr :url, :string, required: true
+  attr :label, :string, required: true
+
+  defp qr_code(assigns) do
+    ~H"""
+    <div class="enroll-qr-inner" role="img" aria-label={@label}>
+      {Phoenix.HTML.raw(
+        String.replace(Mobile.qr_svg(@url), "<svg", ~s(<svg aria-hidden="true"), global: false)
+      )}
+    </div>
+    """
+  end
+
   defp enrollment_level_label("deputy"), do: gettext("Deputy")
   defp enrollment_level_label(_helper), do: gettext("Helper")
 
@@ -492,6 +508,19 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               do: gettext("Use my theme"),
               else: gettext("High contrast")}
           </button>
+
+          <%!-- The cycling screen could only be paused by tapping the boards,
+                which is a mouse or a finger. A button is the keyboard's way,
+                and it says which state the screen is in. --%>
+          <button
+            :if={@display? and page_count_for(assigns) > 1}
+            type="button"
+            class="pe-btn"
+            phx-click="toggle_pause"
+            aria-pressed={to_string(@paused?)}
+          >
+            {if @paused?, do: gettext("Resume cycling"), else: gettext("Pause cycling")}
+          </button>
         </div>
       </div>
 
@@ -598,9 +627,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
         <div :if={@new_enrollment} class="enroll-panel" style="margin-top: 16px">
           <div class="enroll-qr">
-            <div class="enroll-qr-inner">
-              {Phoenix.HTML.raw(Mobile.qr_svg(url(~p"/m/e/#{@new_enrollment.token}")))}
-            </div>
+            <.qr_code
+              url={url(~p"/m/e/#{@new_enrollment.token}")}
+              label={gettext("QR code for entering results on a phone")}
+            />
           </div>
           <div>
             <%!-- Named FIRST here too, above the code itself - this panel is
@@ -633,7 +663,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
         <div :if={@enrollments != []} style="margin-top: 18px">
           <h3 style="margin: 0 0 8px; font-size: 14px">{gettext("Active phones")}</h3>
-          <table class="pe-table">
+          <%!-- A list laid out in columns, not a table of data: every cell
+                already says what it is ("Code 12345678", "expires ..."), and
+                there is no header row to associate them with. --%>
+          <table class="pe-table" role="presentation">
             <tbody>
               <tr :for={e <- @enrollments}>
                 <td><strong>{enrollment_name_label(e)}</strong></td>
@@ -665,9 +698,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           </p>
           <div class="enroll-panel" style="margin-top: 16px">
             <div class="enroll-qr">
-              <div class="enroll-qr-inner">
-                {Phoenix.HTML.raw(Mobile.qr_svg(PublicLink.url(@tournament, :standings)))}
-              </div>
+              <.qr_code
+                url={PublicLink.url(@tournament, :standings)}
+                label={gettext("QR code for the live standings")}
+              />
             </div>
             <div>
               <p class="enroll-url">

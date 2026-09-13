@@ -123,6 +123,19 @@
     </script>
   </head>
   <body>
+    <%!-- First on the page, so the first Tab reaches it: past the brand, a
+          dozen tabs and the pickers, straight to the page itself. Out of
+          sight until focused - see `.skip-link`. Its target is the layout's
+          `<main>`, or the phone page's own. --%>
+    <a class="skip-link" href="#main-content">{gettext("Skip to content")}</a>
+    <%!-- Where the scripts speak to a screen reader - see `announce` in
+          assets/js/app.js. The three banners below used to be live regions
+          themselves, rendered `hidden`, which is a region that is not in the
+          accessibility tree when its text arrives and so says nothing; and
+          the deploy banner rewrote its countdown every second, which a live
+          region would have read out every second. Now the banners are only
+          seen, and this says each one once, when it appears or escalates. --%>
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <%!-- Pending-restart warning, announced by the deploy script shortly
           before it restarts the service.
 
@@ -138,7 +151,7 @@
           The countdown and the escalation both run in the browser (see
           assets/js/app.js), so the server never sends a per-second message
           to every open socket. --%>
-    <div id="deploy-banner" class="deploy-banner" role="status" aria-live="polite" hidden>
+    <div id="deploy-banner" class="deploy-banner" hidden>
       <strong class="deploy-banner-lead">Server update</strong>
       <span class="deploy-banner-text"></span>
     </div>
@@ -147,7 +160,7 @@
           means something different: nothing is about to restart, nobody
           needs to save anything, and it does not count down. Sharing that
           element would have meant sharing its escalation and its wording. --%>
-    <div id="site-notice" class="site-notice" role="status" aria-live="polite" hidden>
+    <div id="site-notice" class="site-notice" hidden>
       <strong class="site-notice-lead">Notice</strong>
       <span class="site-notice-text"></span>
     </div>
@@ -155,7 +168,7 @@
           is not the version now running. The comparison is client-side
           because only the browser remembers what it saw BEFORE the restart -
           the server that knew has been replaced. --%>
-    <div id="version-toast" class="version-toast" role="status" aria-live="polite" hidden>
+    <div id="version-toast" class="version-toast" hidden>
       <span class="version-toast-text"></span>
       <button type="button" class="version-toast-close" aria-label={gettext("Dismiss")}>&times;</button>
     </div>

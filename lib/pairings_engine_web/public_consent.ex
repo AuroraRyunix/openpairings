@@ -129,10 +129,19 @@ defmodule PairingsEngineWeb.PublicConsent do
 
   def consent_dialog(%{consent: {:loading, _purpose}} = assigns) do
     ~H"""
-    <div class="pe-modal" id="public-consent" role="dialog" aria-modal="true">
+    <div
+      class="pe-modal"
+      id="public-consent"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="public-consent-title"
+      tabindex="-1"
+      phx-hook="DialogFocus"
+      data-dialog
+    >
       <div class="pe-modal-card">
         <div class="pe-modal-head">
-          <h2>{gettext("Publishing on the results site")}</h2>
+          <h2 id="public-consent-title">{gettext("Publishing on the results site")}</h2>
           <p>{gettext("Asking the results site who runs it...")}</p>
         </div>
       </div>
@@ -149,12 +158,16 @@ defmodule PairingsEngineWeb.PublicConsent do
       id="public-consent"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="public-consent-title"
+      tabindex="-1"
+      phx-hook="DialogFocus"
+      data-dialog
       phx-window-keydown="public_consent_decline"
       phx-key="escape"
     >
       <div class="pe-modal-card">
         <div class="pe-modal-head">
-          <h2>{gettext("Publishing on the results site")}</h2>
+          <h2 id="public-consent-title">{gettext("Publishing on the results site")}</h2>
           <p>{ConnectionStatus.describe_public(@reason)}</p>
         </div>
         <div class="pe-modal-body">
@@ -196,12 +209,16 @@ defmodule PairingsEngineWeb.PublicConsent do
       id="public-consent"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="public-consent-title"
+      tabindex="-1"
+      phx-hook="DialogFocus"
+      data-dialog
       phx-window-keydown="public_consent_decline"
       phx-key="escape"
     >
       <div class="pe-modal-card">
         <div class="pe-modal-head">
-          <h2>{gettext("Publish on %{host}?", host: @info.host)}</h2>
+          <h2 id="public-consent-title">{gettext("Publish on %{host}?", host: @info.host)}</h2>
           <%!-- The contract: name the operator, or the host name when the
                 server does not say who runs it. The host is in the title
                 either way, so a null operator simply leaves this out. --%>

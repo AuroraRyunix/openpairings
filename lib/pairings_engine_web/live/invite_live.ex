@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.InviteLive do
         <div class="card">
           <%= cond do %>
             <% is_nil(@invitation) -> %>
-              <h2>{gettext("Invitation not found")}</h2>
+              <h1>{gettext("Invitation not found")}</h1>
               <p class="hint">
                 {gettext("This invitation link is invalid, has already been used, or was declined.")}
               </p>
@@ -123,7 +123,7 @@ defmodule PairingsEngineWeb.InviteLive do
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
               </div>
             <% @mismatch? -> %>
-              <h2>{gettext("Wrong account")}</h2>
+              <h1>{gettext("Wrong account")}</h1>
               <p class="hint">
                 <.rich_text text={
                   gettext(
@@ -138,7 +138,7 @@ defmodule PairingsEngineWeb.InviteLive do
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
               </div>
             <% true -> %>
-              <h2>{gettext("You've been invited")}</h2>
+              <h1>{gettext("You've been invited")}</h1>
               <p class="hint" style="margin-top: 0">
                 <.rich_text text={
                   gettext(

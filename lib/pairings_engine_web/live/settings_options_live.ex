@@ -826,7 +826,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <tr>
                 <th>{gettext("Pair")}</th>
 
-                <th></th>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
 
@@ -982,8 +982,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         phx-window-keydown="cancel_engine"
         phx-key="escape"
       >
-        <div class="modal-card" phx-click-away="cancel_engine" style="max-width: 640px">
-          <h2>{gettext("Switch to JaVaFo?")}</h2>
+        <div
+          class="modal-card"
+          phx-click-away="cancel_engine"
+          style="max-width: 640px"
+          id="engine-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="engine-confirm-title"
+          tabindex="-1"
+          phx-hook="DialogFocus"
+          data-dialog
+        >
+          <h2 id="engine-confirm-title">{gettext("Switch to JaVaFo?")}</h2>
 
           <p class="hint">
             <strong>{gettext("This pairs the tournament by superseded rules.")}</strong>

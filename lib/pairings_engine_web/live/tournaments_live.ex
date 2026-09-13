@@ -1453,7 +1453,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
                 <th>{gettext("Invited by")}</th>
 
-                <th></th>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
 
@@ -1693,8 +1693,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           class={["dropzone", @uploads.swar.entries != [] && "has-file"]}
           phx-drop-target={@uploads.swar.ref}
         >
-          <.live_file_input upload={@uploads.swar} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.swar}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.swar.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.swar.ref}-label"}>
             <%= if @uploads.swar.entries == [] do %>
               <strong>{gettext("Choose a .swar file")}</strong>
               <span class="hint">{gettext("or drag and drop it here")}</span>
@@ -1823,8 +1827,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           class={["dropzone", @uploads.trf.entries != [] && "has-file"]}
           phx-drop-target={@uploads.trf.ref}
         >
-          <.live_file_input upload={@uploads.trf} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.trf}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.trf.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.trf.ref}-label"}>
             <%= if @uploads.trf.entries == [] do %>
               <strong>{gettext("Choose a .trf file")}</strong>
               <span class="hint">{gettext("or drag and drop it here")}</span>
@@ -1873,8 +1881,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           class={["dropzone", @uploads.backup.entries != [] && "has-file"]}
           phx-drop-target={@uploads.backup.ref}
         >
-          <.live_file_input upload={@uploads.backup} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.backup}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.backup.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.backup.ref}-label"}>
             <%= if @uploads.backup.entries == [] do %>
               <strong>{gettext("Choose a .json backup file")}</strong>
               <span class="hint">{gettext("or drag and drop it here")}</span>
@@ -1929,8 +1941,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           class={["dropzone", @uploads.handoff.entries != [] && "has-file"]}
           phx-drop-target={@uploads.handoff.ref}
         >
-          <.live_file_input upload={@uploads.handoff} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.handoff}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.handoff.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.handoff.ref}-label"}>
             <%= if @uploads.handoff.entries == [] do %>
               <strong>{gettext("Choose the hand-off file")}</strong>
               <span class="hint">{gettext("or drag and drop it here")}</span>
@@ -1985,8 +2001,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           class={["dropzone", @uploads.handoff_return.entries != [] && "has-file"]}
           phx-drop-target={@uploads.handoff_return.ref}
         >
-          <.live_file_input upload={@uploads.handoff_return} class="dropzone-input" />
-          <div class="dropzone-label">
+          <.live_file_input
+            upload={@uploads.handoff_return}
+            class="dropzone-input"
+            aria-labelledby={"#{@uploads.handoff_return.ref}-label"}
+          />
+          <div class="dropzone-label" id={"#{@uploads.handoff_return.ref}-label"}>
             <%= if @uploads.handoff_return.entries == [] do %>
               <strong>{gettext("Choose the returning file")}</strong>
               <span class="hint">{gettext("or drag and drop it here")}</span>
@@ -2062,7 +2082,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
               <th>{gettext("Status")}</th>
 
-              <th></th>
+              <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
 
@@ -2188,8 +2208,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <tr>
                 <th>{gettext("Name")}</th>
                 <th>{gettext("Archived")}</th>
-                <th></th>
-                <th></th>
+                <th>{gettext("Status")}</th>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
 
@@ -2261,7 +2281,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
                 <th>{gettext("Deleted")}</th>
 
-                <th></th>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
 
@@ -2321,8 +2341,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp handoff_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="handoff_cancel" phx-key="escape">
-      <div class="modal-card" phx-click-away="handoff_cancel" style="max-width: 560px">
-        <h2>
+      <div
+        class="modal-card"
+        phx-click-away="handoff_cancel"
+        style="max-width: 560px"
+        id="handoff-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="handoff-dialog-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="handoff-dialog-title">
           {if Handoff.received?(@tournament),
             do: gettext("Give this tournament back"),
             else: gettext("Hand this tournament over")}
@@ -2439,8 +2470,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp delete_tournament_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="delete_cancel" phx-key="escape">
-      <div class="modal-card" phx-click-away="delete_cancel" style="max-width: 440px">
-        <h2>{gettext("Delete tournament")}</h2>
+      <div
+        class="modal-card"
+        phx-click-away="delete_cancel"
+        style="max-width: 440px"
+        id="delete-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-dialog-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="delete-dialog-title">{gettext("Delete tournament")}</h2>
 
         <p>
           <.rich_text text={
@@ -2481,8 +2523,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp purge_tournament_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="purge_cancel" phx-key="escape">
-      <div class="modal-card" phx-click-away="purge_cancel" style="max-width: 440px">
-        <h2>{gettext("Delete permanently")}</h2>
+      <div
+        class="modal-card"
+        phx-click-away="purge_cancel"
+        style="max-width: 440px"
+        id="purge-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="purge-dialog-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="purge-dialog-title">{gettext("Delete permanently")}</h2>
 
         <p>
           <.rich_text text={

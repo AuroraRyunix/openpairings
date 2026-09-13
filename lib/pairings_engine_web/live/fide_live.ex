@@ -800,7 +800,7 @@ defmodule PairingsEngineWeb.FideLive do
               <tr>
                 <th>{gettext("Taken")}</th>
                 <th class="num">{gettext("Size")}</th>
-                <th></th>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
             <tbody>

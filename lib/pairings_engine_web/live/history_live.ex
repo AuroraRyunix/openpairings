@@ -803,8 +803,19 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp restore_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="restore_cancel" phx-key="escape">
-      <div class="modal-card" phx-click-away="restore_cancel" style="max-width: 500px">
-        <h2>{gettext("Go back to this point")}</h2>
+      <div
+        class="modal-card"
+        phx-click-away="restore_cancel"
+        style="max-width: 500px"
+        id="restore-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="restore-dialog-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="restore-dialog-title">{gettext("Go back to this point")}</h2>
 
         <p>
           <.rich_text text={
@@ -847,6 +858,7 @@ defmodule PairingsEngineWeb.HistoryLive do
             value={@confirm}
             autocomplete="off"
             placeholder="RESTORE"
+            aria-label={gettext("Type RESTORE to confirm")}
           />
           <div class="actions">
             <button type="submit" class="pe-btn danger" disabled={@confirm != "RESTORE"}>

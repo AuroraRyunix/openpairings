@@ -173,7 +173,7 @@ defmodule PairingsEngineWeb.AdminLive do
             <tr>
               <th>{gettext("Account")}</th>
               <th>{gettext("Role")}</th>
-              <th></th>
+              <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
           <tbody>

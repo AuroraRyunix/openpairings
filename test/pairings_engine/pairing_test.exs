@@ -97,6 +97,25 @@ defmodule PairingsEngine.PairingTest do
     refute latecomer.id in byes
   end
 
+  test "pair_next_round/1 refuses the next round while the last one still has a missing result" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}],
+        do: insert_player(tournament, name, fide_rating: rating)
+
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    [open_board, reported] = round1 |> Repo.preload(:pairings) |> Map.fetch!(:pairings)
+    {:ok, _} = Tournaments.update_pairing_result(reported, "1-0")
+
+    # One board still open: pairing round 2 now would pair it on scores that
+    # are not final yet.
+    assert {:error, "Round 1 still has missing results"} = Pairing.pair_next_round(tournament)
+    assert Pairing.paired_rounds_count(tournament.id) == 1
+
+    {:ok, _} = Tournaments.update_pairing_result(open_board, "1/2-1/2")
+    assert {:ok, %{number: 2}} = Pairing.pair_next_round(tournament)
+  end
+
   test "not_yet_started?/2 is a pure check against start_round" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
     player = insert_player(tournament, "P", start_round: 3)

@@ -212,7 +212,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                   <th>{gettext("FIDE tournament ID")}</th>
                   <th>{gettext("From round")}</th>
                   <th>{gettext("To round")}</th>
-                  <th></th>
+                  <th><span class="sr-only">{gettext("Actions")}</span></th>
                 </tr>
               </thead>
               <tbody>

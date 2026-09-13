@@ -548,6 +548,63 @@ Each entry is tagged so a version can be skimmed:
   nor the KBSB one (already sub-second) asks for confirmation before
   starting any more.
 
+- [Fix] **Entering results with the arrow keys no longer records the results
+  you pass on the way.** On Windows a closed result dropdown changed - and
+  saved - on every arrow press, so going from 1-0 to 0-1 recorded ½-½ in
+  between, with an audit row, and passing the empty option opened "clear this
+  result?" under the keyboard. The choice is now sent once, on Enter or when
+  you move on; Escape puts the recorded result back. The 1/2/3 keys and the
+  mouse are unchanged. Clearing a result puts focus on Cancel, and closing the
+  question either way puts focus back on that board, where it used to drop to
+  the top of the page. Each result box is named for its board and players for
+  a screen reader. First accessibility pass, 2026-09-13
+  (`docs/accessibility-2026-09-13.md`).
+- [Fix] **Every dialog takes focus, keeps it, and gives it back.** The Players
+  Card, player registration, rating refresh, club update, hand-edit
+  confirmation, category preview, JaVaFo switch, norm judgment, restore point,
+  hand-off, delete and publishing consent now move the keyboard into
+  themselves, keep Tab inside, and return focus to what opened them when they
+  close. A screen reader hears each as a named dialog.
+- [Fix] **A screen reader hears what the page says.** Flash messages -
+  including the one that arrives with a new page, like "You now have access
+  to ..." - the "Saved." and "could not save" notes on every settings page,
+  the server-update banner (when it appears and when it escalates, not every
+  second), the site notice and "Updated to" are announced, politely. On the
+  phone, "Board 3: 1-0 saved" is.
+- [Feature] **The right-click menus have a keyboard way in.** On the Players
+  page the column headers are buttons (Enter sorts) and the context-menu key or
+  Shift+F10 on Pr., Paid or Cat. opens that column's menu with focus in it; Enter
+  or Space on a player's name opens their registration, the context-menu key
+  their Players Card. On the Pairings page the context-menu key on a print
+  link opens its variants. The per-player cell menus and the hand-edit menu
+  still need a mouse (see the report's recommendations).
+- [Feature] **"Skip to content"**, the first thing a Tab reaches on every page,
+  and a visible focus ring on everything the keyboard reaches, in every theme.
+  The current tab, round, theme, accent and language say so to a screen reader,
+  not only by colour.
+- [Fix] **Legible in every theme.** Secondary text in Slate was 2-3:1 and is
+  4.5:1 now; Mocha's secondary text and six of its accents, the warning colour
+  in Light, Paper and Board, Board's success and secondary text, the blue and
+  teal accents on light themes, the account pages' button and flash colours, the
+  version number, and two lines on the sign-in page were all short of 4.5:1.
+  Each colour moved only as far as needed, hue kept - every change is listed
+  with its ratios in the report. Text boxes and dropdowns have a visible edge
+  (they had a near-invisible hairline), and a field with an error is edged in
+  red.
+- [Fix] **Colour is no longer the only signal.** Below 860px the publishing
+  indicator keeps a shape per state and its word for a screen reader; prize
+  places, the rationale page's colour-history squares and a locked publish
+  switch's reason are also in words.
+- [Fix] **The phone keeps your place.** When an entered board leaves the list,
+  focus moves to the board that takes its place instead of the top of the
+  page, and the chosen result says "pressed".
+- [Feature] **The projector view has a Pause button.** The boards paged on
+  their own and only a tap stopped them; "Pause cycling" does it from the
+  keyboard.
+- [Change] **Theme and accent names are translated**, and the scrolls the page
+  makes for you - on the bracket map, to the next board after a result - jump
+  instead of gliding when the system asks for less motion.
+
 ## [0.60.0] - 2026-09-12
 
 - [Change] **The installer file names now carry the version.** A download

@@ -824,7 +824,9 @@ defmodule PairingsEngineWeb.StandingsLive do
               <% place = Map.get(entry, :category_place) || entry.rank %>
               <% prize? =
                 @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
-              <td class={["num", prize? && "pe-cat-place is-prize"]}>{place}</td>
+              <td class={["num", prize? && "pe-cat-place is-prize"]}>
+                {place}<span :if={prize?} class="sr-only">{gettext(", prize place")}</span>
+              </td>
 
               <td>
                 <strong>
@@ -863,7 +865,9 @@ defmodule PairingsEngineWeb.StandingsLive do
                   :for={{name, chip_place, chip_prize?} <- chips}
                   class={["pe-cat-chip", chip_prize? && "is-prize"]}
                 >
-                  {name}{if chip_place, do: " · #{chip_place}"}
+                  {name}{if chip_place, do: " · #{chip_place}"}<span :if={chip_prize?} class="sr-only">{gettext(
+                    ", prize place"
+                  )}</span>
                 </span>
               </td>
 
@@ -935,7 +939,9 @@ defmodule PairingsEngineWeb.StandingsLive do
               <% place = Map.get(entry, :category_place) || entry.rank %>
               <% prize? =
                 @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
-              <td class={["num", prize? && "pe-cat-place is-prize"]}>{place}</td>
+              <td class={["num", prize? && "pe-cat-place is-prize"]}>
+                {place}<span :if={prize?} class="sr-only">{gettext(", prize place")}</span>
+              </td>
 
               <td>
                 <strong>
@@ -962,7 +968,9 @@ defmodule PairingsEngineWeb.StandingsLive do
                   :for={{name, chip_place, chip_prize?} <- chips}
                   class={["pe-cat-chip", chip_prize? && "is-prize"]}
                 >
-                  {name}{if chip_place, do: " · #{chip_place}"}
+                  {name}{if chip_place, do: " · #{chip_place}"}<span :if={chip_prize?} class="sr-only">{gettext(
+                    ", prize place"
+                  )}</span>
                 </span>
               </td>
             </tr>
