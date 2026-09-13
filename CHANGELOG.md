@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Security] **A restore signs everybody out.** A backup holds the sign-in
+  sessions that existed when it was written, including ones that were ended
+  since - signed out, or cut off by a password change - and the restore drill
+  found such a session valid again in the restored database, for any browser
+  still holding its cookie. Restoring a backup now empties every session,
+  unused sign-in link and email-change link in the recovered copy before it
+  can go live, so everyone signs in again. **Passwords and roles are still
+  the backup's**: a password changed or a role removed after the backup is
+  back as it was, and has to be applied again by hand - "What a restore
+  undoes" in `docs/deployment.md` says how to find them. The recovered copy
+  is also marked with when its backup was written and when it was restored.
 - [Security] **Backups no longer carry the OpenResults operator token - and a
   restore now ends by setting it again.** The token is the results site's
   master key: it publishes to, overwrites and deletes any tournament there,

@@ -337,28 +337,128 @@ defmodule PairingsEngine.Backup do
   Deliberately does not swap it in - see the moduledoc. `mix pairings.backup
   --restore` prints the rest of the procedure with this machine's paths.
 
-  The recovered file is switched to WAL before it is handed over, on one
-  connection. `VACUUM INTO` writes a rollback-journal database, and the first
-  boot on one had every pooled connection trying to make that switch at once:
-  the losers logged "database is locked", on exactly the boot an operator is
-  watching most closely.
+  Two things are changed in the copy before it is handed over:
+
+    * **every sign-in is ended** - `users_tokens` is emptied: sessions,
+      unused sign-in links, email-change links. A restore brings back the
+      rows as they were at the backup, and that includes sessions somebody
+      had signed out of, or that a password change had ended since - the
+      drill found one valid again, for any browser still holding its cookie.
+      Nobody can be signed in by a session the restore resurrected; everyone
+      signs in again. Passwords and roles are NOT journalled anywhere, so
+      those come back as the backup had them - the procedure says to
+      re-apply them.
+    * **a marker** in `meta` (`restored_from_backup`): when the backup was
+      written and when it was restored, so the app can tell a restored
+      database from one that never was (`restored_from/0`).
+
+  And it is switched to WAL, on one connection. `VACUUM INTO` writes a
+  rollback-journal database, and the first boot on one had every pooled
+  connection trying to make that switch at once: the losers logged "database
+  is locked", on exactly the boot an operator is watching most closely.
 
   `opts` exists for tests: `:database` is the live database the copy goes
-  beside, which is otherwise the configured one.
+  beside, which is otherwise the configured one; `:now`, the restore's time.
   """
   @spec restore(Path.t(), keyword()) :: {:ok, Path.t()} | {:error, String.t()}
   def restore(path, opts \\ []) do
     with {:ok, _info} <- verify(path),
-         {:ok, bytes} <- unpack(path) do
+         {:ok, bytes, header} <- unpack_with_header(path) do
       target = Keyword.get_lazy(opts, :database, &database_path/0) <> ".restored"
+      now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
 
       # A `-wal` left beside an earlier `.restored` - somebody opened it to
       # look - would be read into the fresh copy the moment it is opened.
       Enum.each(["-wal", "-shm"], &File.rm(target <> &1))
 
       with :ok <- File.write(target, bytes) |> normalise("could not write #{target}"),
+           :ok <- prepare_restored(target, header, now),
            :ok <- to_wal(target) do
         {:ok, target}
+      end
+    end
+  end
+
+  @restored_marker "restored_from_backup"
+
+  @doc "The `meta` key `restore/1` marks a restored database with."
+  def restored_marker, do: @restored_marker
+
+  @doc """
+  Whether the running database came out of `restore/1`, and from when:
+  `%{backup_created_at: DateTime.t() | nil, restored_at: DateTime.t() | nil}`,
+  or `nil` for a database that was never restored. Read through the Repo, so
+  it is the live database's answer, not a file's.
+  """
+  @spec restored_from() ::
+          %{backup_created_at: DateTime.t() | nil, restored_at: DateTime.t() | nil} | nil
+  def restored_from do
+    with value when is_binary(value) <- PairingsEngine.Meta.get(@restored_marker),
+         {:ok, %{} = marker} <- Jason.decode(value) do
+      %{
+        backup_created_at: parse_time(marker["backup_created_at"]),
+        restored_at: parse_time(marker["restored_at"])
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  defp parse_time(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, at, _offset} -> at
+      _ -> nil
+    end
+  end
+
+  defp parse_time(_), do: nil
+
+  defp prepare_restored(path, header, now) do
+    marker =
+      Jason.encode!(%{
+        "backup_created_at" => header["created_at"],
+        "restored_at" => now |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      })
+
+    with {:ok, conn} <- open(path) do
+      try do
+        with {:ok, tables} <- tables(conn),
+             :ok <-
+               if("users_tokens" in tables, do: run(conn, "DELETE FROM users_tokens"), else: :ok) do
+          if "meta" in tables, do: put_meta(conn, @restored_marker, marker), else: :ok
+        end
+      after
+        Exqlite.Sqlite3.close(conn)
+      end
+    end
+  end
+
+  defp run(conn, sql) do
+    case Exqlite.Sqlite3.execute(conn, sql) do
+      :ok -> :ok
+      {:error, reason} -> {:error, "could not prepare the restored copy: #{reason_text(reason)}"}
+    end
+  end
+
+  defp put_meta(conn, key, value) do
+    sql =
+      "INSERT INTO meta (key, value) VALUES (?1, ?2) " <>
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+
+    with {:ok, statement} <- Exqlite.Sqlite3.prepare(conn, sql) do
+      try do
+        with :ok <- Exqlite.Sqlite3.bind(statement, [key, value]),
+             :done <- Exqlite.Sqlite3.step(conn, statement) do
+          :ok
+        else
+          {:error, reason} ->
+            {:error, "could not mark the restored copy: #{reason_text(reason)}"}
+
+          other ->
+            {:error, "could not mark the restored copy: #{inspect(other)}"}
+        end
+      after
+        Exqlite.Sqlite3.release(conn, statement)
       end
     end
   end
@@ -545,17 +645,21 @@ defmodule PairingsEngine.Backup do
   ## ---------- reading one ----------
 
   defp unpack(path) do
+    with {:ok, bytes, _header} <- unpack_with_header(path), do: {:ok, bytes}
+  end
+
+  defp unpack_with_header(path) do
     with {:ok, raw} <- File.read(path) |> normalise("could not read #{path}"),
          {:ok, header, payload} <- split(raw),
          {:ok, compressed} <- decrypt(header, payload) do
       if header["compressed"] do
         try do
-          {:ok, :zlib.gunzip(compressed)}
+          {:ok, :zlib.gunzip(compressed), header}
         rescue
           _ -> {:error, "the backup is corrupt - it did not decompress"}
         end
       else
-        {:ok, compressed}
+        {:ok, compressed, header}
       end
     end
   end

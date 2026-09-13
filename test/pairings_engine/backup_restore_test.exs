@@ -104,6 +104,14 @@ defmodule PairingsEngine.BackupRestoreTest do
           INSERT INTO audit_logs (tournament_id, user_id, action, details, inserted_at)
           VALUES (1, 1, 'pairing.result_entered', '{}', '#{stamp}')
           """,
+          # A live session, an unused sign-in link and an email-change link:
+          # every kind of row a restore must not bring back into use.
+          """
+          INSERT INTO users_tokens (user_id, token, context, sent_to, authenticated_at, inserted_at)
+          VALUES (1, randomblob(32), 'session', NULL, '#{stamp}', '#{stamp}'),
+                 (1, randomblob(32), 'login', 'arbiter@example.org', NULL, '#{stamp}'),
+                 (1, randomblob(32), 'change:arbiter@example.org', 'new@example.org', NULL, '#{stamp}')
+          """,
           "INSERT INTO meta (key, value) VALUES ('site_notice', 'restore drill')",
           "INSERT INTO fide_players (fide_id, name) VALUES (1503014, 'Carlsen, Magnus')",
           "INSERT INTO kbsb_players (national_id, last_name) VALUES ('50001', 'De Vos')"
@@ -149,8 +157,40 @@ defmodule PairingsEngine.BackupRestoreTest do
       assert after_restore[table] == 0
     end
 
-    assert Map.drop(after_restore, @rating_tables) == Map.drop(before, @rating_tables)
+    # The two tables restore/1 changes on purpose - tested below.
+    changed = @rating_tables ++ ["users_tokens", "meta"]
+
+    assert Map.drop(after_restore, changed) == Map.drop(before, changed)
     assert before["tournaments"] == 1 and before["pairings"] == 1 and before["audit_logs"] == 1
+  end
+
+  test "a restore ends every sign-in, keeps the accounts, and marks the copy as restored", %{
+    dir: dir
+  } do
+    src = source(dir)
+    {:ok, path} = Backup.create(dir: dir, source: src, stamp: ~U[2026-09-12 23:00:00Z])
+    {:ok, restored} = Backup.restore(path, now: ~U[2026-09-13 09:30:00Z])
+
+    # The drill found a session a password change had ended valid again in
+    # the restored database (finding 12). Nothing the backup held can sign
+    # anybody in: sessions, sign-in links, email-change links - all gone.
+    assert [[3]] = query(src, "SELECT COUNT(*) FROM users_tokens")
+    assert [[0]] = query(restored, "SELECT COUNT(*) FROM users_tokens")
+
+    # The accounts themselves are the backup's, passwords and roles included:
+    # nothing journals those, and the procedure says to re-apply them.
+    assert [["arbiter@example.org", "admin"]] = query(restored, "SELECT email, role FROM users")
+
+    # Everything else in `meta` as it was, plus the marker.
+    assert [["site_notice", "restore drill"]] =
+             query(restored, "SELECT key, value FROM meta WHERE key <> 'restored_from_backup'")
+
+    [[marker]] = query(restored, "SELECT value FROM meta WHERE key = 'restored_from_backup'")
+
+    assert Jason.decode!(marker) == %{
+             "backup_created_at" => "2026-09-12T23:00:00Z",
+             "restored_at" => "2026-09-13T09:30:00Z"
+           }
   end
 
   test "the app's own Repo opens it: every migration up, the key and the results readable", %{
@@ -190,6 +230,23 @@ defmodule PairingsEngine.BackupRestoreTest do
     after
       PairingsEngine.Repo.put_dynamic_repo(previous)
     end
+  end
+
+  test "the running app can tell a restored database from one that never was" do
+    assert Backup.restored_from() == nil
+
+    PairingsEngine.Meta.put(
+      Backup.restored_marker(),
+      ~s({"backup_created_at":"2026-09-12T23:00:00Z","restored_at":"2026-09-13T09:30:00Z"})
+    )
+
+    assert Backup.restored_from() == %{
+             backup_created_at: ~U[2026-09-12 23:00:00Z],
+             restored_at: ~U[2026-09-13 09:30:00Z]
+           }
+
+    PairingsEngine.Meta.put(Backup.restored_marker(), "not json")
+    assert Backup.restored_from() == nil
   end
 
   test "a backup one migration older than the code is refused at boot, not served", %{dir: dir} do

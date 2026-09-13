@@ -138,8 +138,10 @@ defmodule Mix.Tasks.Pairings.Backup do
     name = Path.basename(live)
 
     """
-    The live database has NOT been touched. The rest, as root. Read "What a
-    restore undoes" in docs/deployment.md before you start the service again.
+    The live database has NOT been touched. In the recovered copy every
+    sign-in has been ended, so everyone signs in again; passwords and roles are
+    the backup's. The rest, as root. Read "What a restore undoes" in
+    docs/deployment.md before you start the service again.
 
       systemctl stop pairingsengine
       systemctl is-active pairingsengine               # must print: inactive
