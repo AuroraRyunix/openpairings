@@ -357,6 +357,15 @@ Rejected, or at least not decided here:
   be filled by a job that has the file. Hosting the jar somewhere CI can read
   is redistribution, which depends on JaVaFo's terms.
 
+**Implemented 2026-09-13.** The proposal above is now
+`.github/workflows/artifact-tests.yml`, a separate workflow (not a second job
+in `elixir.yml`, so a runner that is offline never blocks normal CI or
+releases) triggered only by `push` to `main` and manual `workflow_dispatch` -
+never `pull_request`, for the reason spelled out in its own top comment.
+Setting up the runner itself - registration, the artifacts folder,
+`OPENPAIRINGS_ARTIFACTS`, and the security notes on why pull requests are
+excluded - is `docs/self-hosted-runner.md`.
+
 ### Weak assertions, fixed (worst first)
 
 Each was confirmed by breaking the code under it and watching it stay green.
