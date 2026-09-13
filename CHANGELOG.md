@@ -16,6 +16,24 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Verified] **The one 2026-09-05 audit finding that was never judged
+  ("the public officials form re-serialises the whole session on every
+  keystroke") turned out to be two pages.** The signed-in Norms page's
+  officials form was already fixed three days before the audit ran -
+  `632d77a` and `319b0e8` (2026-09-02) memoised the roster sort/IT3 counts
+  out of the template and debounced the form, so `officials_change` is now
+  `assign(socket, dirty: true)` on an assign the template never reads.
+  Re-verified directly: a 200-player tournament costs the same 397 VM
+  reductions per keystroke as a 5-player one, touches no database query,
+  and broadcasts nothing - no code change, one more test pinning it. The
+  actual public, no-login `/tools/norms` page has its own, still-open
+  version of the same shape: its officials card carries no debounce at all,
+  and every keystroke re-syncs the *entire* upload session (every parsed
+  file, not just the changed field) into `PairingsEngine.Tools.Session`,
+  measured to cost linearly in the total uploaded data (10 µs empty, 5.9 ms
+  at 4.6 MB uploaded). Real, and out of scope for this pass - see
+  `docs/audit-2026-09-05.md`'s "One finding was never judged" for the
+  numbers and a follow-up flagged separately.
 - [Fix] **The audit trail is in Dutch for a Dutch arbiter - the rows, not
   just the page around them.** Every line on the Audit page ("Registered
   player…", "Entered result 1-0 on board 4 (round 2)…", every settings
