@@ -110,7 +110,6 @@ assets/                    hand-written CSS + JS (esbuild), no Node deps
 test/                      ExUnit; test/fixtures/ holds real anonymized
                             .swar/.csv sample files
 docs/                      per-feature guides + this project's deep docs
-  ├── AGENTS.md             deep technical context for AI coding agents
   ├── architecture.md       system design, data flow, module boundaries
   ├── deployment.md         where/how this app is actually deployed
   ├── setup-guide.md        environment setup & dev workflow
@@ -126,8 +125,6 @@ docs/                      per-feature guides + this project's deep docs
 - **[Architecture](docs/architecture.md)** - system design and module map.
 - **[Setup guide](docs/setup-guide.md)** - environment setup, dev workflow.
 - **[Deployment](docs/deployment.md)** - how the live instance is actually run.
-- **[AGENTS.md](docs/AGENTS.md)** - deep technical context for AI agents
-  working on this codebase (invariants, non-obvious patterns, gotchas).
 - **[TODO](TODO.md)** - current roadmap, tech debt, and backlog.
 
 ## History

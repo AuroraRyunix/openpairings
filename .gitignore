@@ -71,3 +71,12 @@ graphify-out/
 __pycache__/
 *.pyc
 backups/
+
+# AI assistant files (Claude Code and other coding agents): kept locally, never committed
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+agents.md
+.claude/
+.mcp.json
+graphify-out/

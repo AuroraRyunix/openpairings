@@ -20,9 +20,6 @@ everything the app does and what is planned next.
 - [Restore drill, 2026-09-13](restore-drill-2026-09-13.md) - the first
   restore drill of both apps: what a restore gives back, what it undoes,
   and why each step of the procedure is there.
-- [AGENTS.md](AGENTS.md) - deep technical context for AI coding agents
-  (invariants, non-obvious patterns, gotchas) - read this before making a
-  change to the pairing engine, norms/`.xlsx` filling, or standings.
 - [Standalone binaries](binaries.md) - Burrito single-file executables.
 - [FIDE endorsement readiness](fide-endorsement.md) - the Verification Check
   List mapped against OpenPairings, current gaps, and the RTG/FPC

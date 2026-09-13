@@ -141,7 +141,5 @@ See [`docs/binaries.md`](binaries.md) for the full Burrito workflow
 ## Where to look next
 
 - [`docs/architecture.md`](architecture.md) - how the pieces fit together.
-- [`docs/AGENTS.md`](AGENTS.md) - the non-obvious gotchas, invariants, and
-  patterns worth knowing before making a change.
 - [`docs/README.md`](README.md) - per-feature guides (pairing systems, TRF/
   SWAR import, norms, printing, sharing, mobile, ...).
