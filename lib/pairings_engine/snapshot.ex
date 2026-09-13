@@ -215,6 +215,29 @@ defmodule PairingsEngine.Snapshot do
       # make the contract depend on a list only this side has.
       "display" => PublicDisplay.resolve(t.public_display)
     }
+    |> put_tournament_categories(t)
+  end
+
+  # Added 2026-09-13. The tournament's own category vocabulary, in its own
+  # order - what `players[].categories` entries are drawn from and the order
+  # a filter bar should offer them in, rather than each reader re-deriving
+  # "the order categories appear across the roster" and disagreeing with the
+  # arbiter's Categories page.
+  #
+  # Gated on the same "category" display key as `players[].categories` (see
+  # `player_row/2`) and OMITTED rather than sent empty when hidden: an
+  # arbiter who has switched categories off has said players should not be
+  # sorted into "Women" or "U14" in public, and a bare `[]` here would still
+  # let a reader show an (empty) category filter and invite the question of
+  # why it never fills in. Absence reads the same as an arbiter's app that
+  # predates this field, which is exactly the fallback OpenResults already
+  # needs for `players[].categories`.
+  defp put_tournament_categories(row, %Tournament{} = t) do
+    if PublicDisplay.show?(t.public_display, "category") do
+      Map.put(row, "categories", t.categories || [])
+    else
+      row
+    end
   end
 
   # Manual ranking is never offered for Keizer - see docs/manual-standings.md
@@ -296,14 +319,29 @@ defmodule PairingsEngine.Snapshot do
       # additive only and every already-published tournament reads it. Under
       # several categories per player the single one is the pairing category
       # (`PairingsEngine.Categories`), which for a tournament that never puts
-      # a player in two is the same string it always was.
-      "category" => blank_to_nil(Categories.pairing_category(t, p)),
-      # Added 0.53.0. Every category, in the tournament's own order.
-      # Optional by the schema's own convention: an older publisher omits it
-      # and a reader that does not know it ignores it, exactly as `fide_id`
-      # and `rating` already work.
-      "categories" => Categories.listed_categories(t, p)
+      # a player in two is the same string it always was. Unlike `categories`
+      # below, `category` is NOT gated on the "category" display key here -
+      # it never has been, and narrowing an existing published field's
+      # behaviour is not this change's job.
+      "category" => blank_to_nil(Categories.pairing_category(t, p))
     }
+    |> put_player_categories(t, p)
+  end
+
+  # Added 0.53.0, gated 2026-09-13. Every category, in the tournament's own
+  # order. OMITTED - not sent as `[]` - while the arbiter has the "category"
+  # display key off, for the same reason `tournament.categories` is omitted
+  # (see `put_tournament_categories/2`): the field exists to let a public
+  # page group and filter players by category, which is precisely what
+  # switching the setting off says not to do. Optional by the schema's own
+  # convention otherwise: an older publisher omits it and a reader that does
+  # not know it ignores it, exactly as `fide_id` and `rating` already work.
+  defp put_player_categories(row, %Tournament{} = t, %Player{} = p) do
+    if PublicDisplay.show?(t.public_display, "category") do
+      Map.put(row, "categories", Categories.listed_categories(t, p))
+    else
+      row
+    end
   end
 
   ## ---------- rounds ----------

@@ -16,6 +16,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The snapshot carries the tournament's category vocabulary, for a
+  results-site filter bar.** `tournament.categories` (the tournament's
+  category names, in its own order) and `players[].categories` (gated the
+  same way, but already added in 0.53.0) let OpenResults build "Best U1800"
+  or "all Belgian players" style filters without guessing at an order or
+  re-deriving the vocabulary from the roster. Both are additive and both are
+  OMITTED - not sent empty - while the arbiter has the "Categories" display
+  setting off, the same setting that already gates the columns on the
+  arbiter's own public-display page: a tournament that does not group
+  players by category in public should not hand a results site the means to
+  do it anyway. `players[].category`, the single pairing category, is
+  unchanged and still travels regardless of the setting.
 - [Feature] **The Players grid works from the keyboard.** The grid is one stop
   in the Tab order: the arrow keys move between cells, Home and End go to the
   ends of a row, Ctrl+Home and Ctrl+End to the ends of the grid, Page Up and
