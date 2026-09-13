@@ -87,6 +87,30 @@ defmodule PairingsEngine.Publishing do
   matters: an imported copy that is never adopted publishes to a new slug
   under a new key, i.e. it is a different tournament.
 
+  ## Public mode: a desktop copy with no token
+
+  OpenResults' `docs/public-publishing.md` ("OpenPairings desktop") is the
+  contract. A local run (`PairingsEngine.Authz.local_mode?/0`) with no
+  operator token defaults its address to `https://openresults.zerotwo.cloud`
+  and publishes under an installation key of its own rather than a token -
+  see `PairingsEngine.Publishing.Installation` for how that key is obtained
+  and kept. `mode/0` is the one answer to which of the two applies.
+
+  Everything else in this module is shared between the modes: the queue, the
+  snapshot, the tournament key, the takedown. What differs is the credential
+  (`request/2` picks it) and the steps before a publish - registration once
+  per installation, a server-minted slug once per tournament - which
+  `publish/1` runs in public mode and which fail into the same queue.
+
+  Hosted OpenPairings never enters public mode, with or without a token: a
+  server registering itself would put all of its users' tournaments under one
+  installation key. An operator token entered later takes precedence the
+  moment it is saved, and the installation key is simply no longer used.
+
+  Nothing is sent to the public server before an arbiter turns publishing on
+  for a tournament - no probe, no `GET /api/server`. `check/0` enforces that
+  for the Monitor and every settings page, and `drain/0` for the queue.
+
   ## The other direction
 
   `PairingsEngine.Registrations` pulls entries back from the same server.
@@ -100,8 +124,8 @@ defmodule PairingsEngine.Publishing do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Meta, Repo, Snapshot, Tournaments}
-  alias PairingsEngine.Publishing.{Drain, QueueEntry}
+  alias PairingsEngine.{Authz, Meta, Repo, Snapshot, Tournaments}
+  alias PairingsEngine.Publishing.{Drain, Failure, Installation, QueueEntry}
   alias PairingsEngine.Tournaments.Tournament
 
   require Logger
@@ -134,12 +158,57 @@ defmodule PairingsEngine.Publishing do
   # rather than against scraping.
   @key_bytes 32
 
+  # Where a desktop copy publishes when nobody has configured anything. See
+  # "Public mode" in the moduledoc.
+  @public_server "https://openresults.zerotwo.cloud"
+
   @doc """
   Where this machine SENDS to, or nil.
 
-  Not necessarily where spectators go - see `public_base/0`.
+  Not necessarily where spectators go - see `public_base/0`. On a local run
+  with nothing stored this is `default_endpoint/0`; a hosted installation
+  has no default and keeps needing an address from its operator.
   """
-  def endpoint, do: meta_get("openresults_endpoint")
+  def endpoint, do: stored_endpoint() || default_endpoint()
+
+  @doc """
+  The address as actually STORED, without the local-mode default - nil when
+  none is set. For the settings form, for the same reason as
+  `stored_public_base/0`: a box showing the default as though somebody had
+  typed it would make it permanent on the next save.
+  """
+  def stored_endpoint do
+    case meta_get("openresults_endpoint") do
+      value when is_binary(value) and value != "" -> value
+      _unset -> nil
+    end
+  end
+
+  @doc "The address a local run publishes to when none is stored, or nil when hosted."
+  def default_endpoint, do: if(Authz.local_mode?(), do: @public_server)
+
+  @doc """
+  Which credential this machine publishes with.
+
+    * `:operator` - an operator token is configured. Today's behaviour,
+      hosted or local, exactly.
+    * `:public` - a local run with no token: an installation key of its own,
+      obtained after the arbiter's consent. See
+      `PairingsEngine.Publishing.Installation`.
+    * `:unconfigured` - hosted with no token. Hosted never registers, so it
+      keeps needing a token from its operator.
+  """
+  @spec mode() :: :operator | :public | :unconfigured
+  def mode do
+    cond do
+      not blank?(token()) -> :operator
+      Authz.local_mode?() -> :public
+      true -> :unconfigured
+    end
+  end
+
+  @doc "Whether `mode/0` is `:public`."
+  def public_mode?, do: Authz.local_mode?() and blank?(token())
 
   @doc """
   The address spectators are given, falling back to `endpoint/0`.
@@ -218,9 +287,37 @@ defmodule PairingsEngine.Publishing do
 
   Both halves are required. A configured endpoint with no token would fail
   every send with a 401, which is a worse experience than saying so up front.
+
+  In public mode the token's half is the installation key, which this
+  machine obtains for itself when publishing is first turned on - so an
+  address is enough to say yes. Whether a request may actually go out RIGHT
+  NOW is `can_send?/0`.
   """
   def configured? do
-    is_binary(endpoint()) and endpoint() != "" and is_binary(token()) and token() != ""
+    is_binary(endpoint()) and endpoint() != "" and
+      ((is_binary(token()) and token() != "") or public_mode?())
+  end
+
+  @doc """
+  Whether this machine holds a credential it may send right now.
+
+  The gate for anything that is not a publish - pulling registrations, the
+  registration poll. Operator mode: `configured?/0`. Public mode: an
+  installation key for this server that the server has not said is dead. A
+  request with no credential would only be refused, and in public mode it
+  would also be a request sent before the arbiter agreed to anything.
+
+  Narrower than the drain's stop on purpose. A blocked address may still
+  read history and registrations (the contract lists `address_blocked` for
+  registration, mint and publish only), so only a key the server no longer
+  recognises (`unauthorized`) or has revoked stops a pull.
+  """
+  def can_send? do
+    case mode() do
+      :operator -> configured?()
+      :public -> Installation.registered?() and not Installation.key_dead?()
+      :unconfigured -> false
+    end
   end
 
   @doc """
@@ -349,6 +446,9 @@ defmodule PairingsEngine.Publishing do
         join: t in assoc(q, :tournament),
         where: is_nil(q.next_attempt_at) or q.next_attempt_at <= ^now,
         where: is_nil(t.handed_off_at) and is_nil(t.deleted_at),
+        # A stopped row heard a refusal that repeats until the arbiter
+        # changes something - see `QueueEntry`'s `stopped_at`.
+        where: is_nil(q.stopped_at),
         order_by: [asc: q.next_attempt_at, asc: q.id],
         preload: [:tournament]
     )
@@ -359,6 +459,52 @@ defmodule PairingsEngine.Publishing do
     Repo.one(from q in QueueEntry, where: q.tournament_id == ^tournament_id)
   end
 
+  @doc """
+  Where `tournament` is in public mode's steps - what its Results site
+  settings page shows as pending, so "publishing is on" never looks the same
+  as "published" while nothing has left.
+
+  `step` is the first thing still outstanding:
+
+    * `:off` - publishing is not on
+    * `:blocked` - the server refused this installation in a way only the
+      arbiter can answer (`installation`, the refusal, says which)
+    * `:consent` - waiting for the arbiter to agree to registering
+    * `:register` - agreed; this computer has no key yet
+    * `:first_copy` - registered; no copy has arrived on the results site
+      yet (not minted, minted on another server, or minted and never
+      published), so there is no link
+    * `:send` - a copy is on the site and a publish is queued
+    * `:done` - nothing outstanding
+
+  `failure` is the queue row's last `Failure`, `stopped?` whether that row
+  is stopped, `installation` the remembered installation-wide refusal.
+  """
+  def public_state(%Tournament{} = tournament) do
+    entry = queued(tournament.id)
+    registered? = Installation.registered?()
+
+    step =
+      cond do
+        not tournament.publish_to_openresults -> :off
+        Installation.stopping_state?() -> :blocked
+        not registered? and not Installation.consented?() -> :consent
+        not registered? -> :register
+        not on_site?(tournament) -> :first_copy
+        entry -> :send
+        true -> :done
+      end
+
+    %{
+      step: step,
+      installation: Installation.state(),
+      installation_id: Installation.id(),
+      failure: entry && Failure.decode(entry.last_reason),
+      attempts: (entry && entry.attempts) || 0,
+      stopped?: not is_nil(entry && entry.stopped_at)
+    }
+  end
+
   @doc "How many publishes are waiting."
   def pending_count, do: Repo.aggregate(QueueEntry, :count, :id)
 
@@ -367,20 +513,58 @@ defmodule PairingsEngine.Publishing do
 
   Returns `{sent, failed}`. Never raises: this runs from a timer, and a
   publish failing is an ordinary event rather than an exceptional one.
+
+  In public mode, a halted installation (`Installation.halted?/0`) drains
+  nothing and touches no row: with no key and no consent to get one there is
+  nothing this machine may send, and after a revocation there is nothing it
+  may send until the arbiter registers again. The rows stay due, so the
+  first drain after the arbiter acts sends them.
   """
   def drain do
-    Enum.reduce(due(), {0, 0}, fn entry, {sent, failed} ->
-      case publish(entry.tournament) do
-        {:ok, _} ->
-          settle(entry)
-          {sent + 1, failed}
-
-        {:error, reason} ->
-          record_failure(entry, reason)
-          {sent, failed + 1}
-      end
-    end)
+    if public_mode?() and Installation.halted?() do
+      {0, 0}
+    else
+      drain_due()
+    end
   end
+
+  # `halt` is a public-mode failure that would be the answer for every row
+  # left in this pass. Once one is heard, the rest are recorded with it
+  # rather than sent: registration is budgeted at ten a day per address, and
+  # five queued tournaments asking five times in one pass - or each timing
+  # out against a dead connection, or each hearing "paused" - is the same
+  # answer bought five times. They keep their own backoff, so nothing waits
+  # longer than it would have after failing for real.
+  defp drain_due do
+    {sent, failed, _halt} =
+      Enum.reduce(due(), {0, 0, nil}, fn entry, {sent, failed, halt} ->
+        case if(halt, do: {:error, halt}, else: publish(entry.tournament)) do
+          {:ok, _} ->
+            settle(entry)
+            {sent + 1, failed, halt}
+
+          {:error, reason} ->
+            record_failure(entry, reason)
+            {sent, failed + 1, halt || halts_pass(reason)}
+        end
+      end)
+
+    {sent, failed}
+  end
+
+  defp halts_pass(%Failure{reason: {:unreachable, _}} = failure), do: failure
+
+  defp halts_pass(%Failure{reason: {:unconfigured, detail}} = failure)
+       when detail in [:consent_required, :token_required],
+       do: failure
+
+  defp halts_pass(%Failure{reason: {:refused, rejection}} = failure) do
+    if Failure.installation_wide?(failure) or Failure.effective_code(rejection) == "rate_limited",
+      do: failure
+  end
+
+  # Operator mode's failures are sentences, and its drain is unchanged.
+  defp halts_pass(_reason), do: nil
 
   # Clears a queue row that has been sent - but only if it is still the row
   # that was sent.
@@ -418,12 +602,79 @@ defmodule PairingsEngine.Publishing do
     if deleted == 0 do
       Repo.update_all(
         from(q in QueueEntry, where: q.id == ^entry.id),
-        set: [attempts: 0, last_error: nil, next_attempt_at: DateTime.utc_now()]
+        set: [
+          attempts: 0,
+          last_error: nil,
+          last_reason: nil,
+          stopped_at: nil,
+          next_attempt_at: DateTime.utc_now()
+        ]
       )
 
       Drain.nudge()
     end
 
+    broadcast_queue(entry.tournament_id)
+    :ok
+  end
+
+  @doc "Topic a tournament's queue state is broadcast on, for its Results site settings page."
+  def queue_topic(tournament_id), do: "publishing:queue:#{tournament_id}"
+
+  # PubSub only - never `Tournaments.broadcast_tournament_change/2`, which
+  # would enqueue the publish this is reporting on.
+  defp broadcast_queue(tournament_id) do
+    Phoenix.PubSub.broadcast(
+      PairingsEngine.PubSub,
+      queue_topic(tournament_id),
+      {:publish_queue_changed, tournament_id}
+    )
+  end
+
+  @doc """
+  The arbiter's "Try again": makes `tournament_id`'s queued publish due now,
+  clearing a stop, and forgets a remembered `address_blocked` - the one
+  installation-wide stop that a retry, rather than registering again, is the
+  answer to. Returns whether a row was there.
+  """
+  def retry(tournament_id) do
+    if match?({:rejected, _, "address_blocked", _}, Installation.state()),
+      do: Installation.clear_state()
+
+    {count, _} =
+      Repo.update_all(
+        from(q in QueueEntry, where: q.tournament_id == ^tournament_id),
+        set: [stopped_at: nil, next_attempt_at: DateTime.utc_now()]
+      )
+
+    Drain.nudge()
+    broadcast_queue(tournament_id)
+    count > 0
+  end
+
+  @doc """
+  Makes every queued publish that is not stopped due now - after consent is
+  given, or a key is registered again, so the arbiter does not wait out a
+  backoff that was earned while nothing could be sent.
+  """
+  def retry_pending do
+    Repo.update_all(
+      from(q in QueueEntry, where: is_nil(q.stopped_at)),
+      set: [next_attempt_at: DateTime.utc_now()]
+    )
+
+    Drain.nudge()
+    :ok
+  end
+
+  @doc """
+  Drops `tournament_id`'s queued publish, if any. For the consent dialog's
+  "no": publishing goes back off, and a row left behind would only be the
+  record of something the arbiter just declined.
+  """
+  def dequeue(tournament_id) do
+    Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^tournament_id)
+    broadcast_queue(tournament_id)
     :ok
   end
 
@@ -472,12 +723,225 @@ defmodule PairingsEngine.Publishing do
       not is_nil(tournament.deleted_at) ->
         {:error, "this tournament is in the recycle bin"}
 
+      public_mode?() ->
+        publish_public(tournament)
+
       true ->
         # The key is minted here rather than at the call site so that every
         # path into a publish - the button, the drain, a future one - gets it
         # without having to know it exists.
         tournament = ensure_key(tournament)
         tournament |> Snapshot.build() |> post(tournament.openresults_key)
+    end
+  end
+
+  # Public mode's publish: the contract's steps 3-5, each only when it has
+  # not happened yet, each failing into a `Failure` rather than a sentence.
+  # The refusals above have already run - they are the same in both modes.
+  #
+  # The tournament key is minted AFTER the slug, not before as in operator
+  # mode: it is a claim on a slug, and in public mode the slug does not exist
+  # until the server has created it.
+  defp publish_public(%Tournament{} = tournament) do
+    result =
+      with :ok <- ensure_installation(),
+           {:ok, tournament} <- ensure_minted(tournament) do
+        send_public(tournament, :may_remint)
+      end
+
+    case result do
+      {:ok, _body} ->
+        Installation.clear_state()
+        result
+
+      {:error, %Failure{} = failure} ->
+        remember_installation_wide(failure)
+        result
+    end
+  end
+
+  defp ensure_installation do
+    cond do
+      # A refusal only the arbiter can act on. Nothing is sent: the server
+      # has said this key may not publish, and asking again would be the
+      # hot loop the stop exists to prevent.
+      Installation.stopping_state?() ->
+        {:error, Failure.from_rejection(Installation.state())}
+
+      Installation.registered?() ->
+        :ok
+
+      true ->
+        # `register/0` refuses without consent on its own, sending nothing.
+        case Installation.register() do
+          {:ok, _id} -> :ok
+          {:error, %Failure{}} = error -> error
+        end
+    end
+  end
+
+  defp ensure_minted(%Tournament{} = tournament) do
+    if public_slug_state(tournament) in [:placeholder, :elsewhere],
+      do: Installation.mint(tournament),
+      else: {:ok, tournament}
+  end
+
+  # The key is minted after the slug and kept through a re-mint: it was never
+  # accepted under a slug that never had a publish, so the new slug is the
+  # first thing it claims.
+  defp send_public(%Tournament{} = tournament, remint) do
+    tournament = ensure_key(tournament)
+
+    case tournament |> Snapshot.build() |> post_public(tournament.openresults_key) do
+      {:ok, _body} = ok ->
+        mark_first_publish(tournament)
+        ok
+
+      {:error, %Failure{reason: {:refused, rejection}}} = refused ->
+        if remint == :may_remint and Failure.effective_code(rejection) == "not_owner" and
+             public_slug_state(tournament) == :minted,
+           do: remint(tournament),
+           else: refused
+
+      {:error, %Failure{}} = error ->
+        error
+    end
+  end
+
+  # The contract's silent re-mint (settled in the desktop build). A minted
+  # slug that has never had a publish and is now `not_owner` is one the
+  # server released after 30 days - or one minted for a key this computer has
+  # since replaced by registering again. No link to it was ever shown (that
+  # waits for the first publish), so a new one is minted and the send carries
+  # on without a word to the arbiter. Once: if the new slug is refused too,
+  # that refusal is the answer.
+  defp remint(%Tournament{} = tournament) do
+    Logger.info(
+      "OpenResults: tournament #{tournament.id}'s address never received a publish and is " <>
+        "no longer this computer's; asking the results site for a new one"
+    )
+
+    with {:ok, reminted} <- Installation.mint(tournament) do
+      send_public(reminted, :no_remint)
+    end
+  end
+
+  # The link's gate - see `public_slug_state/1`. Guarded on the slug, so a
+  # publish that lands while the tournament is being moved does not mark
+  # the new address as published. PubSub rather than
+  # `Tournaments.broadcast_tournament_change/2`, which would enqueue the
+  # publish that just finished; the pages need to hear that a link exists.
+  defp mark_first_publish(%Tournament{public_slug_minted_at: %DateTime{}} = tournament)
+       when is_nil(tournament.public_slug_published_at) do
+    {marked, _} =
+      Repo.update_all(
+        from(t in Tournament,
+          where:
+            t.id == ^tournament.id and t.public_slug == ^tournament.public_slug and
+              is_nil(t.public_slug_published_at)
+        ),
+        set: [public_slug_published_at: DateTime.utc_now() |> DateTime.truncate(:second)]
+      )
+
+    if marked > 0 do
+      Phoenix.PubSub.broadcast(
+        PairingsEngine.PubSub,
+        Tournaments.tournament_topic(tournament.id),
+        {:tournament_changed, tournament.id, :settings}
+      )
+    end
+
+    :ok
+  end
+
+  defp mark_first_publish(%Tournament{}), do: :ok
+
+  @doc """
+  What `tournament.public_slug` is, as far as public mode is concerned - the
+  one reading of it for every decision that turns on it:
+
+    * `:placeholder` - the slug every tournament is born with. Nothing on the
+      results site; a publish mints first.
+    * `:keyed` - not minted here, but a copy was published to it under a
+      tournament key: with an operator token before this computer went
+      without one, or a key taken over from a backup. A real address, and
+      never minted over - minting instead would MOVE the tournament, leaving
+      the old copy public under a slug this machine had forgotten. If the
+      site does not bind it to this installation it says `not_owner`, and
+      the arbiter is sent to the operator for a transfer.
+    * `:elsewhere` - minted on a different server than the one this machine
+      points at now. A slug belongs to the server that created it, so here
+      it is as good as a placeholder: no link, and a publish mints anew.
+    * `:minted` - minted on this server, and no publish under it has
+      succeeded yet. The server answers such a slug exactly like an unknown
+      one, so there is no link; and a `not_owner` means it was released, and
+      it is minted again silently.
+    * `:published` - minted on this server, and published. The link shows;
+      a `not_owner` now is a real ownership question for the operator.
+
+  A minted slug with no server recorded counts as this server's: it is the
+  shape a row has only if it was minted before the server was recorded, and
+  re-minting on a guess could strand a published copy.
+  """
+  @spec public_slug_state(Tournament.t()) ::
+          :placeholder | :keyed | :elsewhere | :minted | :published
+  def public_slug_state(%Tournament{public_slug_minted_at: nil} = tournament),
+    do: if(published?(tournament), do: :keyed, else: :placeholder)
+
+  def public_slug_state(%Tournament{} = tournament) do
+    cond do
+      tournament.public_slug_server not in [nil, endpoint()] -> :elsewhere
+      is_nil(tournament.public_slug_published_at) -> :minted
+      true -> :published
+    end
+  end
+
+  @doc """
+  Whether a copy of `tournament` can be read on the results site, as far as
+  this machine knows - what a link, a pull or a takedown needs.
+
+  In public mode: `:keyed` or `:published` (see `public_slug_state/1`). In
+  operator mode it is `published?/1`, exactly as before.
+  """
+  @spec on_site?(Tournament.t()) :: boolean()
+  def on_site?(%Tournament{} = tournament) do
+    if public_mode?(),
+      do: public_slug_state(tournament) in [:keyed, :published],
+      else: published?(tournament)
+  end
+
+  # A stopping state read back from storage is not news, and writing it again
+  # would broadcast a change that did not happen.
+  defp remember_installation_wide(%Failure{reason: {:refused, rejection}} = failure) do
+    if Failure.installation_wide?(failure) and Installation.state() != rejection_key(rejection),
+      do: Installation.put_state(rejection)
+
+    :ok
+  end
+
+  defp remember_installation_wide(%Failure{}), do: :ok
+
+  defp rejection_key({:rejected, status, _code, _detail} = rejection),
+    do: {:rejected, status, Failure.effective_code(rejection), nil}
+
+  # `post/2`'s public-mode twin: the same request under the installation key,
+  # and the failure kept as data. Separate rather than a flag on `post/2`
+  # because the two return different things - a sentence there, a `Failure`
+  # here - and a function that returns either depending on a flag is two
+  # functions pretending to be one.
+  defp post_public(payload, key) do
+    request = request("/api/snapshots", json: payload, headers: [{@key_header, key}])
+
+    case Req.post(request) do
+      {:ok, %Req.Response{status: status} = resp} when status in 200..299 ->
+        record_publish(payload_bytes(payload))
+        {:ok, resp.body}
+
+      {:ok, %Req.Response{} = response} ->
+        {:error, failure_of(response)}
+
+      {:error, error} ->
+        {:error, Failure.new({:unreachable, transport_reason(error)})}
     end
   end
 
@@ -540,9 +1004,105 @@ defmodule PairingsEngine.Publishing do
   def check do
     cond do
       blank?(endpoint()) -> {:error, {:unconfigured, :no_address}}
+      public_mode?() -> check_public()
       blank?(token()) -> {:error, {:unconfigured, :no_token}}
       true -> do_check()
     end
+  end
+
+  # Public mode's check, and the place "nothing is sent before publishing is
+  # turned on" is enforced for the Monitor and every settings page that
+  # polls: each question that can be answered from this machine is answered
+  # here first, and only an installation that is actually publishing asks
+  # the server anything.
+  #
+  # The probe is `GET /api/server`, not `do_check/0`'s history request. An
+  # installation key may only read slugs minted for it, so the operator-mode
+  # probe - a slug that cannot exist - would answer `not_owner` to a key that
+  # works perfectly well.
+  defp check_public, do: check_public_asking() |> elem(0)
+
+  # The same, with whether the server was actually asked - `status/0` shows a
+  # round trip only for a request that was made. A refusal remembered from
+  # the last send is not a measurement, and "1 ms" beside it would read as
+  # one.
+  defp check_public_asking do
+    cond do
+      not publishing_in_use?() ->
+        {{:error, {:unconfigured, :public_idle}}, false}
+
+      Installation.stopping_state?() ->
+        {{:error, {:refused, Installation.state()}}, false}
+
+      not (Installation.registered?() or Installation.consented?()) ->
+        {{:error, {:unconfigured, :consent_required}}, false}
+
+      state = Installation.state() ->
+        {recheck_remembered(state, probe_public()), true}
+
+      true ->
+        {probe_public(), true}
+    end
+  end
+
+  # A remembered refusal that does not stop the queue, against what the
+  # server now says about itself. A pause and closed registration are both
+  # in `GET /api/server`, so their end is noticed here - forgotten, and
+  # everything waiting made due - rather than an hour later when the backoff
+  # next lets a send find out. A suspension is not described there, so only
+  # a send finds out it is over.
+  defp recheck_remembered({:rejected, _, "publishing_paused", _}, :ok), do: resume()
+  defp recheck_remembered({:rejected, _, "publishing_paused", _}, other), do: other
+
+  defp recheck_remembered({:rejected, _, "registration_closed", _} = state, answer) do
+    case answer do
+      :ok -> resume()
+      {:error, {:unreachable, _}} = unreachable -> unreachable
+      _still_closed -> {:error, {:refused, state}}
+    end
+  end
+
+  defp recheck_remembered(_state, {:error, {:unreachable, _}} = unreachable), do: unreachable
+  defp recheck_remembered(state, _answered), do: {:error, {:refused, state}}
+
+  defp resume do
+    Installation.clear_state()
+    retry_pending()
+    :ok
+  end
+
+  defp probe_public do
+    case Installation.server_info() do
+      {:ok, %{public_publishing: "paused"}} ->
+        {:error, {:refused, {:rejected, 503, "publishing_paused", nil}}}
+
+      {:ok, %{public_publishing: "unavailable"}} ->
+        {:error, {:unconfigured, :token_required}}
+
+      {:ok, %{public_registration: "unavailable"}} ->
+        if Installation.registered?(), do: :ok, else: {:error, {:unconfigured, :token_required}}
+
+      {:ok, %{public_registration: "closed"}} ->
+        if Installation.registered?(),
+          do: :ok,
+          else: {:error, {:refused, {:rejected, 503, "registration_closed", nil}}}
+
+      {:ok, _info} ->
+        :ok
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  # Whether an arbiter has turned publishing on for anything on this machine
+  # that is still this machine's to publish.
+  defp publishing_in_use? do
+    Repo.exists?(
+      from t in Tournament,
+        where:
+          t.publish_to_openresults == true and is_nil(t.deleted_at) and is_nil(t.handed_off_at)
+    )
   end
 
   @typedoc """
@@ -560,11 +1120,23 @@ defmodule PairingsEngine.Publishing do
   wrong token into a red "cannot reach" light in Dutch, silently.
 
     * `{:unconfigured, :no_address | :no_token}` - nothing was sent
+    * public mode only, also nothing sent: `{:unconfigured, :public_idle}` -
+      no tournament is being published, so nothing may be asked;
+      `{:unconfigured, :consent_required}` - publishing is on, and waits for
+      the arbiter to agree to registering; `{:unconfigured, :token_required}`
+      - the server does not offer public publishing (`GET /api/server` says
+      `unavailable`, or has no such route), so it needs a token from its
+      operator after all
     * `{:refused, rejection}` - something answered, and not with the 404 that
       means yes. See `t:rejection/0`: the server's own error code travels in
       it, and that code - not the status - is what the words are chosen by.
       Amber rather than red because something DID answer, which is what the
-      latency beside it says.
+      latency beside it says. In public mode a state the server described
+      rather than refused - `public_publishing: "paused"`, registration
+      `closed` - is carried as the rejection a send would have got
+      (`{:rejected, 503, "publishing_paused", nil}`), so it is worded by the
+      same clause either way; and a remembered installation-wide refusal
+      (`Installation.state/0`) is carried without asking again.
     * `{:unreachable, reason}` - nothing answered. `reason` is the
       `Req.TransportError`'s own reason (`:timeout`, `:econnrefused`, ...)
       when there is one, and the error term itself otherwise.
@@ -574,7 +1146,8 @@ defmodule PairingsEngine.Publishing do
   until it has a sentence it is shown by its code rather than mis-worded.
   """
   @type check_failure ::
-          {:unconfigured, :no_address | :no_token}
+          {:unconfigured,
+           :no_address | :no_token | :public_idle | :consent_required | :token_required}
           | {:refused, rejection()}
           | {:unreachable, term()}
 
@@ -642,6 +1215,36 @@ defmodule PairingsEngine.Publishing do
     {:rejected, status, error_code(body), error_detail(body)}
   end
 
+  @doc false
+  # For `PairingsEngine.Publishing.Installation`, so its requests read an
+  # answer in exactly the one way this module does.
+  def rejection_of(%Req.Response{} = response), do: rejection(response)
+
+  @doc false
+  def transport_reason_of(error), do: transport_reason(error)
+
+  @doc """
+  A non-success answer, classified by the contract's desktop table - with the
+  extra fields its error bodies carry (`retry_after`, `limit`,
+  `limit_bytes`) and a `Retry-After` header when the body has none.
+  """
+  @spec failure_of(Req.Response.t()) :: Failure.t()
+  def failure_of(%Req.Response{body: body} = response) do
+    extras =
+      case decode_error_body(body) do
+        %{} = map -> Map.take(map, ["retry_after", "limit", "limit_bytes"])
+        _ -> %{}
+      end
+
+    extras =
+      case {extras["retry_after"], Req.Response.get_header(response, "retry-after")} do
+        {nil, [seconds | _]} -> Map.put(extras, "retry_after", seconds)
+        _ -> extras
+      end
+
+    Failure.from_rejection(rejection(response), extras)
+  end
+
   # Req decodes JSON when the server says it is JSON. A body that arrives as
   # a string - a proxy in front of the server, a test stub - is tried once
   # more, and left alone if it is not an error document.
@@ -707,6 +1310,18 @@ defmodule PairingsEngine.Publishing do
   defp take_down_words({:rejected, 404, code, _detail}, url) when code in [nil, "not_found"],
     do: "nothing is published at #{url}, or this results site is too old to remove one (404)"
 
+  # Public mode's `not_owner`: the slug was minted for another installation -
+  # a hand-off, a rebuilt laptop, a key registered again. Only the operator
+  # can move it, and saying so is the one useful thing to say.
+  defp take_down_words({:rejected, 403, "not_owner", _detail}, _url) do
+    if public_mode?() do
+      "a different installation owns this tournament on the results site - ask the operator " <>
+        "of the results site to transfer it to this computer"
+    else
+      failure_words({:rejected, 403, "not_owner", nil})
+    end
+  end
+
   defp take_down_words(failure, _url), do: failure_words(failure)
 
   defp different_machine_take_down_words,
@@ -743,13 +1358,19 @@ defmodule PairingsEngine.Publishing do
   and never has to think about trailing slashes or schemes.
 
   `opts` are merged last and may override anything here - a POST passes
-  `json:`, a longer read passes its own `receive_timeout`.
+  `json:`, a longer read passes its own `receive_timeout`, an open route
+  passes `auth: nil`.
+
+  The credential is the operator token when there is one, and in public mode
+  the installation key - never both, and never the key to a server other
+  than the one that issued it (`Installation.key/0`). With neither there is
+  no `authorization` header at all.
   """
   @spec request(String.t(), keyword()) :: Req.Request.t()
   def request(path, opts \\ []) when is_binary(path) do
     Req.new(
       url: endpoint() |> String.trim_trailing("/") |> Kernel.<>(path),
-      auth: {:bearer, token()},
+      auth: credential(),
       # Nothing in the hall waits on a call to OpenResults, and an arbiter
       # who pressed a button would rather be told it did not work than watch
       # a spinner while the venue's wifi decides.
@@ -762,6 +1383,27 @@ defmodule PairingsEngine.Publishing do
     )
     |> Req.merge(opts)
     |> maybe_put_test_plug()
+  end
+
+  # `docs/public-publishing.md` does not spell out which header an
+  # installation key travels in. It is sent exactly as the operator token is,
+  # `Authorization: Bearer`, which is where OpenResults' `IngestAuth` plug
+  # reads both (an `orik_` value is the installation's). One place, so a
+  # different answer is one line.
+  defp credential do
+    cond do
+      not blank?(token()) ->
+        {:bearer, token()}
+
+      public_mode?() ->
+        case Installation.key() do
+          nil -> nil
+          key -> {:bearer, key}
+        end
+
+      true ->
+        nil
+    end
   end
 
   # Built through `request/2` rather than its own `Req.new`, which it used to
@@ -848,8 +1490,24 @@ defmodule PairingsEngine.Publishing do
         # published is the hole this whole feature closes.
         {:error, "nothing has been published from this machine for this tournament"}
 
+      refusal = public_credential_refusal() ->
+        refusal
+
       true ->
         do_take_down(tournament)
+    end
+  end
+
+  # Public mode with no installation key: a delete would go out with no
+  # credential and only be refused - and before this machine has registered,
+  # it would be a request sent before the arbiter agreed to anything. A
+  # revoked or suspended key is still sent: deleting your own tournament is
+  # always allowed (the contract, "Existing routes").
+  defp public_credential_refusal do
+    if public_mode?() and not Installation.registered?() do
+      {:error,
+       "this computer has no key for the results site, so it cannot remove this tournament " <>
+         "- it was published without one, or from another machine"}
     end
   end
 
@@ -908,6 +1566,9 @@ defmodule PairingsEngine.Publishing do
       not is_nil(tournament.handed_off_at) ->
         {:error, refusal_words(:handed_off)}
 
+      refusal = public_credential_refusal() ->
+        refusal
+
       true ->
         case do_take_down(tournament) do
           {:ok, _message} -> :ok
@@ -932,9 +1593,27 @@ defmodule PairingsEngine.Publishing do
         {:ok, "Removed from the results site. Publishing is now off for this tournament."}
 
       # Every failure leaves the tournament alone - see `take_down_words/2`
-      # for why a 404 is one of them.
+      # for why a 404 is one of them - with one exception, and it is the
+      # re-mint's reasoning applied to a delete: a minted slug that never had
+      # a publish and is `not_owner` was released. Nothing of this tournament
+      # was ever readable there, so there is nothing left to withdraw, and
+      # refusing would keep a tournament out of the bin's "Delete
+      # permanently" forever over a page that never existed.
       {:ok, %Req.Response{} = response} ->
-        {:error, response |> rejection() |> take_down_words(url)}
+        case rejection(response) do
+          {:rejected, 403, "not_owner", _detail} = rejection ->
+            if public_mode?() and public_slug_state(tournament) == :minted do
+              forget_published(tournament)
+
+              {:ok,
+               "Nothing of this tournament was on the results site. Publishing is now off for this tournament."}
+            else
+              {:error, take_down_words(rejection, url)}
+            end
+
+          rejection ->
+            {:error, take_down_words(rejection, url)}
+        end
 
       {:error, error} ->
         {:error, take_down_words({:unreachable, transport_reason(error)}, url)}
@@ -952,10 +1631,22 @@ defmodule PairingsEngine.Publishing do
   # which is a fresh claim on a slug the server has forgotten - so "never
   # regenerated behind the arbiter's back" still holds: the only thing that
   # ever retires a key is the arbiter deleting the thing it was for.
+  #
+  # What the results site said about the slug goes too (minted, where, first
+  # published). The server purged the slug with the tournament, so it is no
+  # longer an address anybody can be sent to, and in public mode publishing
+  # again must mint a new one rather than publish to a slug the server no
+  # longer binds to this installation.
   defp forget_published(%Tournament{} = tournament) do
     {:ok, updated} =
       tournament
-      |> Ecto.Changeset.change(publish_to_openresults: false, openresults_key: nil)
+      |> Ecto.Changeset.change(
+        publish_to_openresults: false,
+        openresults_key: nil,
+        public_slug_minted_at: nil,
+        public_slug_server: nil,
+        public_slug_published_at: nil
+      )
       |> Repo.update()
 
     Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^tournament.id)
@@ -1000,6 +1691,7 @@ defmodule PairingsEngine.Publishing do
   @spec status() :: %{
           state: :unconfigured | :connected | :refused | :unreachable,
           reason: check_failure() | nil,
+          mode: :operator | :public | :unconfigured,
           latency_ms: non_neg_integer() | nil,
           endpoint: String.t() | nil,
           pending: non_neg_integer(),
@@ -1008,8 +1700,15 @@ defmodule PairingsEngine.Publishing do
         }
   def status do
     started = System.monotonic_time(:millisecond)
-    result = check()
-    elapsed = System.monotonic_time(:millisecond) - started
+
+    # In public mode a refusal can be remembered rather than asked for - see
+    # `check_public_asking/0` - and then there is no round trip to show.
+    {result, asked?} =
+      if not blank?(endpoint()) and public_mode?(),
+        do: check_public_asking(),
+        else: {check(), true}
+
+    elapsed = if asked?, do: System.monotonic_time(:millisecond) - started
 
     # The state is the reason's own first element - see `t:check_failure/0`.
     # The only decision left here is whether the round trip means anything.
@@ -1032,6 +1731,9 @@ defmodule PairingsEngine.Publishing do
     %{
       state: state,
       reason: reason,
+      # Which credential the state is about - the words for a connected or
+      # refused installation key are not the words for a token.
+      mode: mode(),
       latency_ms: latency,
       endpoint: endpoint(),
       pending: pending_count(),
@@ -1327,7 +2029,17 @@ defmodule PairingsEngine.Publishing do
       |> Ecto.Changeset.change(
         openresults_key: key,
         public_slug: slug,
-        openresults_claim: nil
+        openresults_claim: nil,
+        # The claimed slug is not this installation's creation, so nothing
+        # the site said about the one it replaces applies. With the key it is
+        # `:keyed` (`public_slug_state/1`): a real address that is published
+        # to rather than minted over - and never re-minted silently, which
+        # would abandon the very copy being taken over. If another
+        # installation owns it, the server says `not_owner` and the arbiter
+        # is sent to the operator.
+        public_slug_minted_at: nil,
+        public_slug_server: nil,
+        public_slug_published_at: nil
       )
       |> Ecto.Changeset.unique_constraint(:public_slug)
       |> Repo.update()
@@ -1476,6 +2188,30 @@ defmodule PairingsEngine.Publishing do
     do: "could not connect (#{inspect(reason)})"
 
   def describe_transport(reason), do: inspect(reason)
+
+  # A public-mode failure. The ordinary backoff, stretched to at least what
+  # the server asked for (`rate_limited`'s `retry_after`); and a row the
+  # contract says to stop for is stopped rather than scheduled.
+  defp record_failure(entry, %Failure{} = failure) do
+    attempts = entry.attempts + 1
+    now = DateTime.utc_now()
+    wait = max(backoff_for(attempts), failure.retry_after || 0)
+
+    Logger.warning("OpenResults publish failed for tournament #{entry.tournament_id}: #{failure}")
+
+    entry
+    |> Ecto.Changeset.change(%{
+      attempts: attempts,
+      last_error: to_string(failure),
+      last_reason: Failure.encode(failure),
+      last_attempt_at: now,
+      next_attempt_at: DateTime.add(now, wait, :second),
+      stopped_at: if(failure.stop == :tournament, do: now)
+    })
+    |> Repo.update!()
+
+    broadcast_queue(entry.tournament_id)
+  end
 
   defp record_failure(entry, reason) do
     attempts = entry.attempts + 1

@@ -90,7 +90,12 @@ defmodule PairingsEngine.Registrations.Poll do
     # Checked here rather than inside `poll/0` so the common case - a laptop
     # that has never been told about a results site - costs nothing at all,
     # not even the query that would find no tournaments.
-    if Publishing.configured?() do
+    #
+    # `can_send?/0` rather than `configured?/0`: a desktop copy with no token
+    # is "configured" from the moment it starts (it has a default address),
+    # and it must not send anything - not even a pull - before it holds a key
+    # an arbiter agreed to it getting.
+    if Publishing.can_send?() do
       {pulled, new} = Registrations.poll()
 
       if new > 0 do

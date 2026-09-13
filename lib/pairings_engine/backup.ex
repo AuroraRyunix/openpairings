@@ -25,6 +25,22 @@ defmodule PairingsEngine.Backup do
   registrations, keys, audit log, settings - is about 12 MB, which is small
   enough to keep a month of.
 
+  ## The one key that is deliberately left out
+
+  A desktop copy publishing without a token holds an installation key of its
+  own (`PairingsEngine.Publishing.Installation`), and every `meta` row
+  belonging to it is deleted from the copy before it is written. Tournament
+  keys stay in, on purpose: a rebuilt laptop has to be able to manage what
+  it published. An installation key is the opposite case - it IS the
+  machine, as far as the results site is concerned, so a backup restored on
+  another computer would make that computer this installation, and a backup
+  is made precisely so it can leave. The contract
+  (`docs/public-publishing.md` in OpenResults) says a restore never carries
+  it. The price is that restoring onto the same machine does not bring it
+  back either: that machine registers again, and the operator moves all of
+  its tournaments across in one step (`Moderation.transfer_all/3` there) -
+  the same move a dead laptop needs.
+
   ## Why the file is a database rather than a dump
 
   A backup is only worth what its restore is worth. This produces a real SQLite
@@ -319,7 +335,11 @@ defmodule PairingsEngine.Backup do
     empty = Enum.map(@reproducible, &"DELETE FROM #{&1}")
     recreate = for {_name, sql} <- triggers, is_binary(sql), do: sql
 
-    statements = drops ++ empty_fts ++ empty ++ recreate ++ ["VACUUM"]
+    # Before the VACUUM, which is what makes the deleted rows actually gone
+    # from the file rather than sitting in a free page. See the moduledoc.
+    custody = [installation_strip_sql()]
+
+    statements = drops ++ empty_fts ++ empty ++ recreate ++ custody ++ ["VACUUM"]
 
     # Every failure is reported, none ignored. The first version of this ran
     # `Enum.each` over the statements and threw the return values away, so an
@@ -336,6 +356,15 @@ defmodule PairingsEngine.Backup do
     end)
   rescue
     error -> {:error, "could not strip the rating lists: #{Exception.message(error)}"}
+  end
+
+  # Every `meta` row belonging to this installation's own results-site key -
+  # by prefix, so a record added to `Publishing.Installation` later is
+  # stripped without anybody remembering to list it here. `_` is a LIKE
+  # wildcard, hence the escape.
+  defp installation_strip_sql do
+    prefix = PairingsEngine.Publishing.Installation.meta_prefix() |> String.replace("_", "\\_")
+    "DELETE FROM meta WHERE key LIKE '#{prefix}%' ESCAPE '\\'"
   end
 
   # Enough of the statement to identify which one failed, without putting a

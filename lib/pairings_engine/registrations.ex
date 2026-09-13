@@ -415,6 +415,19 @@ defmodule PairingsEngine.Registrations do
       not Publishing.configured?() ->
         {:error, "no OpenResults server is configured"}
 
+      # Public mode with no usable installation key: a pull would go out with
+      # no credential - before registration, a request the arbiter never
+      # agreed to; after a revocation, one the server already refused.
+      not Publishing.can_send?() ->
+        {:error, "this computer has no working key for the results site yet - see Connections"}
+
+      # Public mode, and no copy has reached the results site yet: the slug
+      # is a placeholder, a slug minted on another server, or one minted and
+      # never published - so the entry form was never reachable, there is
+      # nothing to collect, and asking would at best be answered `not_owner`.
+      Publishing.public_mode?() and not Publishing.on_site?(tournament) ->
+        {:error, "nothing of this tournament has reached the results site yet"}
+
       # Deliberately NOT `publish_to_openresults`. That switch says whether
       # more will be SENT; this asks whether there is a queue to collect.
       #
@@ -504,13 +517,28 @@ defmodule PairingsEngine.Registrations do
       {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
         parse(body)
 
+      # Public mode: there is no token to reject, and the installation key's
+      # own refusals say which one it is.
       {:ok, %Req.Response{status: 401}} ->
-        {:error, "the server rejected the token (401)"}
+        if Publishing.public_mode?(),
+          do: {:error, "the results site does not recognise this computer's key (401)"},
+          else: {:error, "the server rejected the token (401)"}
 
-      {:ok, %Req.Response{status: 403}} ->
-        {:error,
-         "the server refused this tournament's entries (403) - a different " <>
-           "machine published it, so its key is not this one"}
+      # Dispatched on the server's code, which OpenResults' contract says a
+      # client must do: `installation_suspended`, `installation_revoked` and
+      # `not_owner` are 403s too, and none of them is "a different machine
+      # published it". The key codes, and an older server with no code, keep
+      # the sentence they always had; anything else says its code.
+      {:ok, %Req.Response{status: 403} = response} ->
+        case Publishing.rejection_of(response) do
+          {:rejected, 403, code, _detail} when code in [nil, "key_mismatch", "key_required"] ->
+            {:error,
+             "the server refused this tournament's entries (403) - a different " <>
+               "machine published it, so its key is not this one"}
+
+          {:rejected, 403, code, _detail} ->
+            {:error, "the server answered 403: #{code}"}
+        end
 
       {:ok, %Req.Response{status: 404}} ->
         {:error,

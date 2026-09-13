@@ -182,8 +182,18 @@ defmodule PairingsEngine.TournamentExport do
   #     unadopted claim down a chain of backups, so that a file three copies
   #     removed still carried an offer to take over a tournament nobody in the
   #     chain ever owned.
+  #   public_slug_minted_at, public_slug_server, public_slug_published_at
+  #     Describe `public_slug`, which is excluded above: the imported copy
+  #     gets a fresh placeholder slug, and carrying "the results site created
+  #     this slug, and it has been published" onto it would make every surface
+  #     hand out a link to an address that does not exist.
+  #
+  #     The installation key that minted it is not a tournament field at all
+  #     and is in no export, backup or snapshot - see
+  #     `PairingsEngine.Publishing.Installation`.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
+    public_slug_minted_at public_slug_server public_slug_published_at
     registration_open publish_to_openresults deleted_at archived_at swar_guid
     swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id

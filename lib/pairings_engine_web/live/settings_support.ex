@@ -41,7 +41,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
   # it, and it has its own audit action (`log_compliance_departures/3`)
   # saying which setting did it. In the bulk diff it would read as an
   # eleventh changed field with no cause attached.
-  @settings_diff_ignore ~w(id status public_slug deleted_at
+  @settings_diff_ignore ~w(id status public_slug public_slug_minted_at public_slug_server
+    public_slug_published_at deleted_at
     manual_ranking_stale fide_compliance_lost_round
     logo_data logo_content_type inserted_at updated_at user_id)a
 

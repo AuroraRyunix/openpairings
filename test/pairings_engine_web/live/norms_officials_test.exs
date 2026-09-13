@@ -85,6 +85,58 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     refute_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}, 50
   end
 
+  # Closes the "re-serialises the whole session on every keystroke" audit
+  # finding (docs/audit-2026-09-05.md) for THIS page: 200 players is enough
+  # that any O(players) work per keystroke would show up plainly in VM
+  # reductions (Erlang's own CPU-work counter - immune to wall-clock jitter).
+  # `officials_change` touches no DB row, appends nothing to the audit log,
+  # and broadcasts nothing - only the always-open in-scope Norms page is
+  # covered here; the genuinely public, no-login `/tools/norms` page has its
+  # own, still-open version of this same shape and is out of scope for this
+  # test (see the audit doc).
+  test "officials_change costs the same regardless of roster size, touches no DB, and broadcasts nothing",
+       %{conn: conn, scope: scope} do
+    tournament = create_tournament(scope)
+
+    for i <- 1..200 do
+      {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Player #{i}"})
+    end
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+    counter = :counters.new(1, [])
+    handler_id = "norms-officials-change-query-count-#{System.unique_integer([:positive])}"
+
+    :telemetry.attach(
+      handler_id,
+      [:pairings_engine, :repo, :query],
+      fn _event, _measurements, _meta, _config -> :counters.add(counter, 1, 1) end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    change = %{"tournament" => %{"officials" => %{"chief_arbiter_email" => "a@example.com"}}}
+
+    # Prime once so the reduction count below reflects steady-state cost, not
+    # whatever one-time bookkeeping the very first event on a socket does.
+    render_change(lv, "officials_change", change)
+
+    {:reductions, before_r} = :erlang.process_info(lv.pid, :reductions)
+    render_change(lv, "officials_change", change)
+    {:reductions, after_r} = :erlang.process_info(lv.pid, :reductions)
+
+    # A trivial, constant amount of work either way - bounded generously so
+    # this pins "still O(1)", not "still exactly this many reductions".
+    assert after_r - before_r < 2_000
+
+    assert :counters.get(counter, 1) == 0, "officials_change must not touch the database"
+
+    refute_receive {:tournament_changed, _, _}, 100
+  end
+
   test "arbiters 1 and 2 (beyond the 2 ranked deputies) save and reach the officials map",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)

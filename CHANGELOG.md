@@ -49,6 +49,92 @@ Each entry is tagged so a version can be skimmed:
   it said nothing for a second account on the same machine, an invited
   collaborator, or a password reset. It now names the terminal instead.
 
+- [Feature] **The desktop app publishes to openresults.zerotwo.cloud without a
+  token.** On your own computer, with no token configured, the results site's
+  address now defaults to `https://openresults.zerotwo.cloud`, and turning
+  publishing on for a tournament is all it takes. The first time, the app
+  asks the results site who runs it and shows you once: who operates the
+  site, a link to its terms when it has them, and what will be published.
+  Say no and nothing is sent and publishing stays off; say yes and this
+  computer gets a key of its own from the results site, which creates the
+  tournament's address, and the tournament is published as before. Nothing
+  at all is sent to the results site - no connection check, no question -
+  until you turn publishing on for a tournament. The hosted service is
+  unchanged and never does this: it still needs a token from its operator,
+  and a token you enter on the desktop takes over from the computer's own
+  key the moment it is saved.
+- [Feature] **No link or QR code until the first copy has arrived on the
+  results site.** In this mode the results site picks each tournament's
+  address, and until a publish under it has succeeded the site answers that
+  address like one that does not exist. So the share link, the "Public
+  page" buttons on Pairings and Standings, the entry-form link and the
+  spectator QR code on the local view all stay hidden until the first copy
+  has arrived - not merely until the address is created, because a first
+  publish refused in between (too large, paused, the connection dropping)
+  would have left a dead link on screen or on paper. An open page shows the
+  link the moment it arrives. The Results site settings page says what the
+  tournament is waiting for instead: your go-ahead, registering this
+  computer, the first copy, or changes being sent. "Move to a new address"
+  asks the results site for a new address and removes the copy at the old
+  one. An address that never received a copy and that the results site has
+  since let go (it does after 30 days) is replaced with a new one without
+  interrupting you - nobody was ever given a link to it. An address belongs
+  to the results site that created it: pointing this computer at a
+  different one gives a tournament a new address there, after you agree to
+  publish on that site, with no link in the meantime. A tournament already
+  published with a token keeps its address and its link if the token is
+  later removed, rather than being moved and leaving the old copy up with
+  nothing here able to take it down.
+- [Feature] **The results site's refusals are explained, in English and
+  Dutch.** Paused publishing (amber), a suspended or revoked key, a blocked
+  network address, the limit on tournaments (with the number), a tournament
+  too large to accept (with the size), a tournament owned by another
+  installation or hidden by the site's operator (red) each get their own
+  sentence on Connections, in the top-bar indicator and on the tournament's
+  Results site settings page. A rate limit is honoured quietly, waiting at
+  least as long as the site asks, and a refusal that applies to every
+  tournament - offline, paused, rate limited, not registering - is asked
+  once per round of sending rather than once per waiting tournament. When a
+  pause ends or registration reopens, what was waiting goes out without
+  waiting for its next retry. What only the arbiter can resolve stops
+  instead of retrying: "Try again" sends it again, and a key the site no
+  longer accepts offers "Register again", which asks you again first - the
+  app never registers again on its own. A tournament owned by another
+  installation (after a hand-off, or a rebuilt laptop) names its address and
+  this computer's installation, which is what the site's operator needs to
+  move it. Fetching entries from the results site is refused in the same
+  terms: a 403 now says which refusal it was instead of always blaming
+  "a different machine", and a blocked network address can still fetch.
+- [Security] **This computer's publishing key never leaves it.** The key the
+  results site gives a desktop copy is left out of every backup - deleted
+  from the copy before it is written, so a backup restored on another
+  computer does not make that computer this installation - and it is in no
+  export, hand-off file, restore point or TRF, is never shown after it is
+  stored, and never reaches a log line or the audit trail. It is also only
+  ever sent to the results site that issued it: pointing the app at another
+  address stops using it. Tournament keys are still carried in backups as
+  before, so a rebuilt laptop can still manage what it published; after any
+  restore - onto the same computer too - this computer registers again, and
+  the site's operator moves all its tournaments across in one step.
+
+- [Verified] **The one 2026-09-05 audit finding that was never judged
+  ("the public officials form re-serialises the whole session on every
+  keystroke") turned out to be two pages.** The signed-in Norms page's
+  officials form was already fixed three days before the audit ran -
+  `632d77a` and `319b0e8` (2026-09-02) memoised the roster sort/IT3 counts
+  out of the template and debounced the form, so `officials_change` is now
+  `assign(socket, dirty: true)` on an assign the template never reads.
+  Re-verified directly: a 200-player tournament costs the same 397 VM
+  reductions per keystroke as a 5-player one, touches no database query,
+  and broadcasts nothing - no code change, one more test pinning it. The
+  actual public, no-login `/tools/norms` page has its own, still-open
+  version of the same shape: its officials card carries no debounce at all,
+  and every keystroke re-syncs the *entire* upload session (every parsed
+  file, not just the changed field) into `PairingsEngine.Tools.Session`,
+  measured to cost linearly in the total uploaded data (10 µs empty, 5.9 ms
+  at 4.6 MB uploaded). Real, and out of scope for this pass - see
+  `docs/audit-2026-09-05.md`'s "One finding was never judged" for the
+  numbers and a follow-up flagged separately.
 - [Fix] **The audit trail is in Dutch for a Dutch arbiter - the rows, not
   just the page around them.** Every line on the Audit page ("Registered
   player…", "Entered result 1-0 on board 4 (round 2)…", every settings
