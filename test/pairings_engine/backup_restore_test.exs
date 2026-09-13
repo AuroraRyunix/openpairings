@@ -192,6 +192,41 @@ defmodule PairingsEngine.BackupRestoreTest do
     end
   end
 
+  test "a backup one migration older than the code is refused at boot, not served", %{dir: dir} do
+    src = source(dir)
+
+    # The newest migration never ran on this one: the drill's backup was
+    # exactly this, and `mix phx.server` served it with every tournament page
+    # failing.
+    [[newest]] = query(src, "SELECT max(version) FROM schema_migrations")
+    {:ok, conn} = Exqlite.Sqlite3.open(src)
+    :ok = Exqlite.Sqlite3.execute(conn, "DELETE FROM schema_migrations WHERE version = #{newest}")
+    :ok = Exqlite.Sqlite3.close(conn)
+
+    {:ok, path} = Backup.create(dir: dir, source: src)
+    {:ok, restored} = Backup.restore(path)
+
+    repo =
+      start_supervised!(%{
+        id: :behind_repo,
+        start:
+          {PairingsEngine.Repo, :start_link,
+           [[name: nil, database: restored, pool: DBConnection.ConnectionPool, pool_size: 1]]}
+      })
+
+    previous = PairingsEngine.Repo.put_dynamic_repo(repo)
+
+    try do
+      # The question a non-release boot now asks, of the restored file.
+      migrations = Ecto.Migrator.migrations(PairingsEngine.Repo)
+      assert {:error, message} = PairingsEngine.Application.migration_refusal(migrations)
+      assert message =~ "1 migration(s) behind"
+      assert message =~ to_string(newest)
+    after
+      PairingsEngine.Repo.put_dynamic_repo(previous)
+    end
+  end
+
   test "it comes back in WAL mode with no sidecar files, so the first boot does not race its pool into it",
        %{dir: dir} do
     {:ok, path} = Backup.create(dir: dir, source: source(dir))

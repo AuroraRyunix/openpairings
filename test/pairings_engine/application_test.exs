@@ -99,6 +99,54 @@ defmodule PairingsEngine.ApplicationTest do
     end
   end
 
+  describe "a database behind the code, where nothing migrates at boot" do
+    # The restore drill's backup one migration old booted under
+    # `mix phx.server`, answered HTTP, and failed every tournament page.
+    # `PairingsEngine.BackupRestoreTest` asks this of a real restored file;
+    # these pin the decision itself.
+    test "every migration up: start" do
+      assert :ok =
+               App.migration_refusal([
+                 {:up, 20_260_709_231_215, "create_users_auth_tables"},
+                 {:up, 20_260_913_000_000, "add_standings_through"}
+               ])
+    end
+
+    test "one pending: refuse, saying how many, which, and what to run" do
+      assert {:error, message} =
+               App.migration_refusal([
+                 {:up, 20_260_709_231_215, "create_users_auth_tables"},
+                 {:down, 20_260_913_000_000, "add_standings_through"}
+               ])
+
+      assert message =~ "1 migration(s) behind"
+      assert message =~ "20260913000000_add_standings_through"
+      assert message =~ "mix ecto.migrate"
+    end
+
+    test "migrations this code has no file for are logged, not refused" do
+      # A backup newer than the code, or code rolled back: refusing would
+      # block the deploy an operator reaches for when a release goes wrong.
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert :ok =
+                   App.migration_refusal([
+                     {:up, 20_260_709_231_215, "create_users_auth_tables"},
+                     {:up, 20_270_101_000_000, "** FILE NOT FOUND **"}
+                   ])
+        end)
+
+      assert log =~ "20270101000000"
+    end
+
+    test "production asks, so `mix phx.server` refuses; dev and test do not" do
+      assert Config.Reader.read!("config/prod.exs")[:pairings_engine][:refuse_pending_migrations] ==
+               true
+
+      refute Application.get_env(:pairings_engine, :refuse_pending_migrations, false)
+    end
+  end
+
   describe "the queue_target/queue_interval config the fix relies on" do
     # `mix test` runs under `config_env() == :test`, so neither of these
     # files' Repo config is what `Application.get_env/2` would return here

@@ -64,8 +64,9 @@ defmodule PairingsEngine.Backup do
       to the old one's WAL and SQLite read the OLD database back under the
       restored file's name, with the integrity check saying "ok".
     * `mix ecto.migrate` runs before the start. `mix phx.server` does not
-      migrate, and a backup older than the code boots, answers HTTP, and
-      fails every tournament page.
+      migrate, and a backup older than the code used to boot, answer HTTP
+      and fail every tournament page; a production run now refuses to start
+      on it instead (`PairingsEngine.Application`).
 
   ## What verify/1 checks
 

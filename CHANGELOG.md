@@ -16,6 +16,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A server run refuses to start on a database that is behind the
+  code, instead of serving pages that fail.** The restore drill restored a
+  backup one migration old, and the app booted, answered `/` with a 302 and
+  the login page with a 200 - a health check would have passed - while every
+  tournament page failed with `no such column`. The reason: migrations run at
+  boot only in a release (the desktop and portable builds), and the hosted
+  service is `mix phx.server`, where migrating is the deploy's own step. A
+  production run that does not migrate now checks first, and when migrations
+  are pending it logs how many and which, says to run `mix ecto.migrate`, and
+  stops. A release still migrates at boot, so a restored backup there simply
+  migrates. A database NEWER than the code (a rollback) is logged, not
+  refused.
 - [Change] **`BACKUP_RETENTION` is now a number of DAYS, not a number of
   files - and a restart no longer spends a backup.** It was a count, every
   boot wrote a backup five minutes in, and every "take one now" another, so

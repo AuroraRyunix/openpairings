@@ -24,7 +24,15 @@ defmodule PairingsEngine.Application do
     # connection pool - not as an entry in that list, where they ran until
     # this comment was written. See `run_migrations/0`'s comment for why
     # moving them out was the fix and not just a rearrangement.
-    unless skip_migrations?(), do: run_migrations()
+    #
+    # A run that does not migrate (`mix phx.server`, which is how the hosted
+    # service runs) refuses to start on a database that is behind the code
+    # instead - see `refuse_pending_migrations!/0`.
+    cond do
+      not skip_migrations?() -> run_migrations()
+      refuse_pending_migrations?() -> refuse_pending_migrations!()
+      true -> :ok
+    end
 
     children = [
       PairingsEngineWeb.Telemetry,
@@ -279,5 +287,95 @@ defmodule PairingsEngine.Application do
 
   defp release? do
     System.get_env("RELEASE_NAME") != nil or System.get_env("RELEASE_ROOT") != nil
+  end
+
+  # ## A database behind the code, under `mix phx.server` (2026-09-13)
+  #
+  # The hosted service is not a release. It runs `mix phx.server` with
+  # `MIX_ENV=prod`, so `skip_migrations?/0` is true there and nothing above
+  # migrates: the deploy runs `mix ecto.migrate` itself, as a deliberate step
+  # timed against the countdown banner (docs/deployment.md, step 5b).
+  #
+  # That is why the restore drill's backup one migration old booted, answered
+  # `/` with a 302 and the login page with a 200 - a health check would have
+  # passed - and failed every tournament page with `no such column:
+  # t0.standings_through`. Nothing migrated it, and nothing noticed it was
+  # behind.
+  #
+  # So a run that does not migrate asks before it serves. Refusing rather than
+  # migrating, because on the hosted box migrations are the deploy's step and
+  # not the boot's: a boot that migrated by itself would also do it when
+  # systemd restarts a crashed service in the middle of a deploy - after the
+  # new code is built and before the banner has gone out - which is the
+  # ordering step 5b exists to prevent. A release (desktop, portable) still
+  # migrates at boot as above, so a restored backup there simply migrates.
+  #
+  # Only where configured (`config/prod.exs`): `mix phx.server` in dev has
+  # Phoenix's own pending-migrations page, and tests migrate in their alias.
+  #
+  # Migrations recorded in the database that this code has no file for - a
+  # backup newer than the code, or code rolled back - are logged and not
+  # refused: refusing would block the one deploy an operator reaches for when
+  # a release goes wrong.
+  defp refuse_pending_migrations? do
+    Application.get_env(:pairings_engine, :refuse_pending_migrations, false)
+  end
+
+  defp refuse_pending_migrations! do
+    for repo <- Application.fetch_env!(:pairings_engine, :ecto_repos) do
+      read = fn ->
+        Ecto.Migrator.with_repo(repo, &Ecto.Migrator.migrations/1, pool_size: 1)
+      end
+
+      {:ok, migrations, _apps} = with_migration_retry(read, repo, @migration_connection_attempts)
+
+      case migration_refusal(migrations) do
+        :ok ->
+          :ok
+
+        {:error, message} ->
+          Logger.error(message)
+          raise message
+      end
+    end
+  end
+
+  @doc false
+  # The decision, apart from the database it is asked of, for
+  # `PairingsEngine.ApplicationTest`. `migrations` is what
+  # `Ecto.Migrator.migrations/1` returns: `{:up | :down, version, name}`.
+  def migration_refusal(migrations) do
+    unknown = for {:up, version, "** FILE NOT FOUND **"} <- migrations, do: version
+
+    if unknown != [] do
+      Logger.warning(
+        "The database records #{length(unknown)} migration(s) this code has no file for " <>
+          "(#{Enum.join(unknown, ", ")}): it is newer than the code."
+      )
+    end
+
+    case for({:down, version, name} <- migrations, do: "#{version}_#{name}") do
+      [] ->
+        :ok
+
+      pending ->
+        {:error,
+         """
+         The database is #{length(pending)} migration(s) behind this code, and OpenPairings \
+         will not start on it.
+
+         This run does not migrate at boot (it is `mix phx.server`, not a release), and \
+         serving a database that is behind the code answers HTTP and fails every page that \
+         reads a newer column - which is what a backup older than the code did in the \
+         2026-09-13 restore drill.
+
+         Migrate it first, as the service account and with the service's environment \
+         (docs/deployment.md, "Restoring a backup"):
+
+             mix ecto.migrate
+
+         then start again. Pending: #{Enum.join(pending, ", ")}
+         """}
+    end
   end
 end
