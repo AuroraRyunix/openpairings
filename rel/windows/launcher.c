@@ -109,10 +109,12 @@
  * double-click.
  *
  * The install directory (`%LOCALAPPDATA%\OpenPairingsApp`) and the data
- * directory (`%LOCALAPPDATA%\OpenPairings`, where `openpairings.db` lives)
- * are different folders on purpose - see `rel/windows/build_installer.ps1`'s
- * `.NOTES` - so nothing about applying an update ever touches the database
- * directly; closing it cleanly before the swap is the app's job, above.
+ * directory (`%LOCALAPPDATA%\OpenPairingsData` after 0.61.0, where
+ * `openpairings.db` lives) are different folders on purpose - see
+ * `rel/windows/build_installer.ps1`'s `.NOTES` and "Protecting the data
+ * directory" below - so nothing about applying an update ever touches the
+ * database directly; closing it cleanly before the swap is the app's job,
+ * above.
  */
 
 /* UNICODE so the MAKEINTRESOURCE-style constants (IDC_ARROW and friends)
@@ -139,6 +141,8 @@
  * this file needed either. */
 #include <stdint.h>
 #include <stdbool.h>
+/* _wtoi, for --protect-data's --ui-level. */
+#include <stdlib.h>
 
 /* Control and message ids. WM_APP+n is the documented private range for a
  * window to talk to itself; the waiter thread uses it to report across to the
@@ -334,9 +338,218 @@ static int read_port(void)
     return value > 0 ? value : 4000;
 }
 
+/* -----------------------------------------------------------------------
+ * Protecting the data directory (the first release after 0.61.0)
+ *
+ * Through 0.61.0 the data lived in %LOCALAPPDATA%\OpenPairings, and two installers
+ * could delete that directory whole: Setup.exe packed under the old pack id
+ * `OpenPairings` (0.53.x), whose install directory it was, and every .msi from
+ * 0.58.1 to 0.61.0, whose uninstall - and the removal of the old product a
+ * major upgrade performs - deletes %LOCALAPPDATA%\<pack title>. See
+ * PairingsEngine.Desktop.DataHome for both in full, and
+ * rel/windows/build_installer.ps1 for the .msi side.
+ *
+ * The data now lives in %LOCALAPPDATA%\OpenPairingsData, and `protect_data`
+ * moves it there with ONE directory rename (MoveFileExW with no flags: same
+ * parent, so same volume, no copy, never over an existing directory). On NTFS
+ * a rename is a single journaled operation - after any crash the directory has
+ * the old name or the new one, never a mixture - and nothing is rewritten or
+ * deleted. If anything inside holds a file open (a running OpenPairings: SQLite
+ * opens without FILE_SHARE_DELETE, and the Elixir test suite checks that this
+ * blocks the rename), the rename fails and nothing has changed.
+ *
+ * It runs in three places, and they agree because each is only "rename if the
+ * new name is free":
+ *
+ *   1. here, at every start, before this launcher opens its log (an open
+ *      launcher.log inside the old directory would block the move for the
+ *      whole session);
+ *   2. `--protect-data`, run by the .msi before it removes an older product;
+ *   3. PairingsEngine.Desktop.Housekeeping, at boot, for the .bat and the
+ *      single-file binary, which have no launcher.
+ * ---------------------------------------------------------------------- */
+
+#define PD_ALREADY 0 /* OpenPairingsData already existed */
+#define PD_RENAMED 1 /* moved by this call */
+#define PD_NOTHING 2 /* no data anywhere; OpenPairingsData not created here */
+#define PD_BLOCKED 3 /* data in the old directory that could not be moved */
+
+static BOOL path_exists(const WCHAR *path)
+{
+    return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
+}
+
+static BOOL is_directory(const WCHAR *path)
+{
+    DWORD attrs = GetFileAttributesW(path);
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+/* The same three markers as DataHome.has_data?/1: a directory holding only a
+ * launcher.log, or only an old install's program files, has nothing of the
+ * arbiter's in it and is not worth moving. */
+static BOOL has_data(const WCHAR *dir)
+{
+    static const WCHAR *markers[] = {L"\\openpairings.db", L"\\secret_key_base", L"\\backups"};
+    WCHAR path[PATH_MAX_W];
+    int i;
+
+    for (i = 0; i < 3; i++) {
+        join(path, dir, markers[i]);
+        if (path_exists(path))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/* `local_app_data` without trailing separators or a trailing "\." - the .msi
+ * passes "[LocalAppDataFolder]." precisely so its trailing backslash does not
+ * escape the closing quote on the command line. */
+static void trim_dir(WCHAR *dir)
+{
+    int len = lstrlenW(dir);
+
+    for (;;) {
+        if (len >= 2 && dir[len - 1] == L'.' && dir[len - 2] == L'\\') {
+            len -= 2;
+        } else if (len > 3 && (dir[len - 1] == L'\\' || dir[len - 1] == L'/')) {
+            len -= 1;
+        } else {
+            break;
+        }
+        dir[len] = 0;
+    }
+}
+
+/* Writes the directory to use into `home` (PATH_MAX_W) and returns PD_*. */
+static int protect_data(const WCHAR *local_app_data, WCHAR *home)
+{
+    WCHAR lad[PATH_MAX_W], legacy[PATH_MAX_W];
+
+    lstrcpynW(lad, local_app_data, PATH_MAX_W);
+    trim_dir(lad);
+    join(legacy, lad, L"\\OpenPairings");
+    join(home, lad, L"\\OpenPairingsData");
+
+    if (is_directory(home))
+        return PD_ALREADY;
+
+    if (!has_data(legacy))
+        return PD_NOTHING;
+
+    /* No MOVEFILE_REPLACE_EXISTING: never over something already there. No
+     * MOVEFILE_COPY_ALLOWED: a rename or nothing - a copy-and-delete that
+     * stopped half-way is exactly what this must never become. */
+    if (MoveFileExW(legacy, home, 0))
+        return PD_RENAMED;
+
+    lstrcpynW(home, legacy, PATH_MAX_W);
+    return PD_BLOCKED;
+}
+
+/* An existing Setup.exe install at the .msi's install folder: Velopack's own
+ * `current` tree, which the .msi is about to install over. Windows Installer
+ * does not overwrite a file it considers modified since it was created, which
+ * can leave a mixture of two versions in one tree - so the old tree is renamed
+ * aside first and the .msi writes a clean one. Renamed, never deleted: the
+ * whole install folder is Velopack's to remove, and OpenPairings itself
+ * clears `current.before-msi*` once it is running from the .msi's copy (see
+ * PairingsEngine.Desktop.Housekeeping). Best effort - if it cannot be renamed
+ * the installation continues exactly as it would have without this. */
+static void set_aside_setup_exe_tree(const WCHAR *install_folder)
+{
+    WCHAR root[PATH_MAX_W], marker[PATH_MAX_W], update[PATH_MAX_W], current[PATH_MAX_W],
+          aside[PATH_MAX_W];
+
+    lstrcpynW(root, install_folder, PATH_MAX_W);
+    trim_dir(root);
+    join(marker, root, L"\\.msi-installed");
+    join(update, root, L"\\Update.exe");
+    join(current, root, L"\\current");
+
+    if (path_exists(marker) || !path_exists(update) || !is_directory(current))
+        return;
+
+    wsprintfW(aside, L"%s\\current.before-msi-%u", root, GetTickCount());
+    MoveFileExW(current, aside, 0);
+}
+
+/* `OpenPairings.exe --protect-data "<LocalAppData>." [--install-folder
+ * "<dir>."] [--ui-level N]`, run by the .msi as an immediate custom action
+ * after InstallValidate (so Restart Manager has already asked the arbiter to
+ * close OpenPairings) and before RemoveExistingProducts (so before any older
+ * product's clean-up can run). Exit 0 lets the installation continue; any
+ * other exit code stops it, before anything has been removed.
+ *
+ * Returns -1 when the command line is not this mode. */
+static int protect_data_mode(void)
+{
+    int argc = 0, i, ui_level = 5, result = PD_NOTHING;
+    LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    const WCHAR *lad = NULL, *install_folder = NULL;
+    WCHAR home[PATH_MAX_W];
+
+    if (!argv)
+        return -1;
+
+    for (i = 1; i < argc; i++) {
+        if (lstrcmpiW(argv[i], L"--protect-data") == 0 && i + 1 < argc)
+            lad = argv[++i];
+        else if (lstrcmpiW(argv[i], L"--install-folder") == 0 && i + 1 < argc)
+            install_folder = argv[++i];
+        else if (lstrcmpiW(argv[i], L"--ui-level") == 0 && i + 1 < argc)
+            ui_level = _wtoi(argv[++i]);
+    }
+
+    if (!lad) {
+        LocalFree(argv);
+        return -1;
+    }
+
+    for (;;) {
+        result = protect_data(lad, home);
+        if (result != PD_BLOCKED)
+            break;
+
+        /* UILevel 2 is a silent install: nobody to ask, so stop rather than
+         * hang on a dialog nobody can see. */
+        if (ui_level <= 2) {
+            LocalFree(argv);
+            return 3;
+        }
+
+        {
+            WCHAR message[PATH_MAX_W + 768];
+            wsprintfW(message,
+                      L"Before it continues, this installer moves your tournaments out of the "
+                      L"folder an older OpenPairings installer would delete:\n\n%s\n\n"
+                      L"Something is using a file in that folder - most likely OpenPairings "
+                      L"itself, still running. Close it, then click Retry.\n\n"
+                      L"Cancel stops the installation. Nothing has been changed.",
+                      home);
+            if (MessageBoxW(NULL, message, L"OpenPairings",
+                            MB_RETRYCANCEL | MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST) !=
+                IDRETRY) {
+                LocalFree(argv);
+                return 3;
+            }
+        }
+    }
+
+    if (install_folder)
+        set_aside_setup_exe_tree(install_folder);
+
+    LocalFree(argv);
+    return 0;
+}
+
 /* Where the child's stdout and stderr go. Next to the database, because that
  * is where an arbiter has already been told their OpenPairings files live, and
- * because the release directory itself may be read-only. */
+ * because the release directory itself may be read-only.
+ *
+ * Resolving that directory is also where the data gets moved - see
+ * "Protecting the data directory" above - so it has to happen before the log
+ * is opened, and it does: this runs before start_server(). */
 static void resolve_log_path(void)
 {
     WCHAR dir[PATH_MAX_W], local[PATH_MAX_W];
@@ -351,7 +564,9 @@ static void resolve_log_path(void)
         n = GetEnvironmentVariableW(L"LOCALAPPDATA", local, PATH_MAX_W);
 
         if (n > 0 && n < PATH_MAX_W)
-            join(dir, local, L"\\OpenPairings");
+            /* PD_BLOCKED leaves `dir` at the old directory: the log goes
+             * where the data still is, and the app reads it there too. */
+            protect_data(local, dir);
         else if (GetTempPathW(PATH_MAX_W, dir) == 0)
             lstrcpynW(dir, g_root, PATH_MAX_W);
     }
@@ -1215,8 +1430,24 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     g_inst = inst;
 
-    if (velopack_hook())
+    /* Before everything, including the Velopack hooks: the .msi's guard. */
+    {
+        int guard = protect_data_mode();
+        if (guard >= 0)
+            return guard;
+    }
+
+    if (velopack_hook()) {
+        /* Setup.exe runs `--veloapp-install` right after extracting and
+         * before it writes its uninstall entry, and `--veloapp-updated` after
+         * an update: both are a moment to move the data that costs nothing.
+         * Silent, and never a reason for a hook to fail. */
+        WCHAR local[PATH_MAX_W], ignored[PATH_MAX_W];
+        DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", local, PATH_MAX_W);
+        if (n > 0 && n < PATH_MAX_W && GetEnvironmentVariableW(L"OPENPAIRINGS_DATA_DIR", NULL, 0) == 0)
+            protect_data(local, ignored);
         return 0;
+    }
 
     icc.dwSize = sizeof icc;
     icc.dwICC = ICC_STANDARD_CLASSES;

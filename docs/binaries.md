@@ -329,17 +329,17 @@ one `%LOCALAPPDATA%\OpenPairingsApp` already uses per-user. See
 `rel/windows/build_installer.ps1`'s `.NOTES` for the full derivation.
 
 Either way, this does not produce a shared tournament database: the data
-directory (`%LOCALAPPDATA%\OpenPairings`, see below) is resolved per Windows
-account by both `config/runtime.exs` and `OpenPairings.exe` itself, and
-neither reads anything about where the program was installed. Two arbiters
-sharing one machine-wide install would each get their own empty database on
-first run, not one shared between them - worth knowing before recommending a
-shared install as a way to get a shared database. Uninstalling likewise
-never touches that directory, on either install path: Velopack's uninstaller
-(both artifacts use the same underlying mechanism) deletes its own install
-directory whole, not just the files it tracked, which is exactly why the
-install directory's name is the pack id and not the product's name - see
-`WHY THE PACK ID IS NOT "OpenPairings"` in the script's `.NOTES`.
+directory (`%LOCALAPPDATA%\OpenPairingsData`, see "Windows: where the data
+lives" below) is resolved per Windows account by both `config/runtime.exs`
+and `OpenPairings.exe` itself, and neither reads anything about where the
+program was installed. Two arbiters sharing one machine-wide install would
+each get their own empty database on first run, not one shared between them -
+worth knowing before recommending a shared install as a way to get a shared
+database. Velopack's uninstaller (both artifacts use the same underlying
+mechanism) deletes its own install directory whole, not just the files it
+tracked, which is why the install directory's name is the pack id and not the
+product's name - and why, since 2026-09-13, the data is in neither of those
+names either: see "Windows: where the data lives".
 
 **Per-machine installs cannot update without an admin prompt.** This was
 checked before shipping the `.msi`, per the maintainer's own condition for
@@ -366,6 +366,169 @@ elevation prompt, and because the binary is unsigned that prompt reads
 "Unknown publisher" rather than naming OpenPairings - unsettling to see on a
 club laptop, and worth saying so before someone clicks through it for an
 arbiter who is watching.
+
+## Windows: where the data lives, and installing, upgrading, uninstalling
+
+| what | where |
+|---|---|
+| tournaments (`openpairings.db`), `secret_key_base`, `launcher.log` | `%LOCALAPPDATA%\OpenPairingsData` |
+| local backups | `%LOCALAPPDATA%\OpenPairingsBackups` |
+| the program, per-user (Setup.exe or the `.msi`) | `%LOCALAPPDATA%\OpenPairingsApp` |
+| the program, per-machine (the `.msi`) | `Program Files\OpenPairingsApp` |
+| before 2026-09-13: tournaments and backups | `%LOCALAPPDATA%\OpenPairings` |
+
+`OPENPAIRINGS_DATA_DIR` and `BACKUP_DIR` still override both; with
+`OPENPAIRINGS_DATA_DIR` set nothing below happens.
+
+### Why the data moved (2026-09-13)
+
+Two installers could delete `%LOCALAPPDATA%\OpenPairings` whole, with every
+tournament and every local backup in it:
+
+- **A Setup.exe packed with the old pack id `OpenPairings`** (0.53.0-0.53.2;
+  never attached to a release, but locally built ones were installed).
+  Velopack installs to `%LOCALAPPDATA%\<packId>`, so that install *was* the
+  data directory, and its uninstall empties its install directory. This is
+  what deleted the maintainer's data.
+- **Every `.msi` from 0.58.1 to 0.61.0.** vpk 1.2.0 sets the MSI property
+  `RustAppId` to the pack *title*, and its clean-up deletes
+  `%LOCALAPPDATA%\<RustAppId>` - on uninstall, and on the removal of the old
+  product during an upgrade from one of those `.msi` files to a newer one.
+  See "THE .msi CLEAN-UP BUG" in `rel/windows/build_installer.ps1`'s `.NOTES`.
+
+A copy already installed carries its uninstaller with it, so the only
+protection that reaches it is for the data not to be there. So:
+
+- **The data directory is renamed**, `OpenPairings` -> `OpenPairingsData`, and
+  the backups inside it moved to `OpenPairingsBackups`. One directory rename,
+  atomic on NTFS: after a crash it has one name or the other, and nothing is
+  rewritten or deleted. It is attempted by whichever runs first - the new
+  `.msi` (before it removes any older product), the launcher (before it opens
+  its log), or the app at boot (for the portable `.bat` and the single-file
+  binary) - and each only renames if `OpenPairingsData` does not exist yet.
+  If OpenPairings is running, or anything else holds a file open in the old
+  directory, the rename is refused by Windows, nothing changes, the old
+  directory keeps being used, and the next start tries again. Only when the
+  program runs from inside the old directory (an old-id install updated in
+  place) is the data *copied* instead - through SQLite, `integrity_check`ed
+  and row-counted against the original, committed by renaming the finished
+  copy into place - and the original is left where it was.
+  `PairingsEngine.Desktop.DataHome` has the details.
+- **Old installs' "Installed apps" entries are made safe** on every start:
+  an entry whose uninstall would delete the data or the backups is removed
+  from the list (its values kept under
+  `HKCU\Software\OpenPairings\RemovedUninstallEntries`), and so are a
+  duplicate entry for the same install folder and an entry whose folder no
+  longer exists. OpenPairings never runs an uninstaller and never deletes a
+  file to do this. `PairingsEngine.Desktop.UninstallEntries`.
+- **New `.msi` files** have `RustAppId` corrected to the pack id at build
+  time, and the build refuses a pack id or `RustAppId` naming any of the data
+  folders.
+
+### Installing over, upgrading, uninstalling
+
+| you do | result |
+|---|---|
+| new `.msi` over an older `.msi`, same scope | an ordinary upgrade; the data is moved out of the old clean-up's way first |
+| `.msi` over Setup.exe (per-user) | the `.msi` installs into the same folder over a clean tree; on its first start OpenPairings removes Setup.exe's entry and the old tree. One entry. |
+| Setup.exe over an `.msi` (per-user) | Setup.exe asks to overwrite and replaces the folder; on its first start OpenPairings removes the `.msi`'s entry. One entry. The `.msi`'s hidden Windows Installer registration stays until a later `.msi` upgrades it away. |
+| `.msi` "for everyone" while a per-user copy exists, or "just me" while a per-machine copy exists | the `.msi` refuses before changing anything, and says which choice updates the copy you have |
+| Setup.exe while a per-machine copy exists | a second, per-user copy (Setup.exe has no wizard to refuse in); OpenPairings logs the second install at start |
+| in-app "Install and restart" | Velopack's `Update.exe` updates the version on its own entry; OpenPairings sets it again at start |
+| uninstall, any entry | removes the program; `OpenPairingsData` and `OpenPairingsBackups` stay |
+
+Not covered, and worth knowing: a silent `msiexec /i ... /qn` with no
+`VELOPACK_INSTALLDIR` installs to `C:\OpenPairings` (vpk's template default
+for a non-UI install), and the scope refusal does not apply to it. And an
+`.msi` install that updated itself in-app is still registered with Windows
+Installer at the version it was installed at, so an older `.msi` run over it
+counts as an upgrade.
+
+### Manual test plan (Windows Sandbox)
+
+None of this can be exercised on a machine with a real install: every path
+installs and uninstalls software. Windows Sandbox (Windows Pro/Enterprise,
+*Turn Windows features on or off* -> *Windows Sandbox*) is disposable, starts
+clean, and forgets everything when closed - run each numbered scenario in a
+fresh Sandbox. Copy the installers in (the host's Downloads is not mapped by
+default; drag the files into the Sandbox window). Before each check, note what
+is in `%LOCALAPPDATA%` and in *Settings -> Apps -> Installed apps*
+(`appwiz.cpl` shows the same list). To have "data" to lose, start
+OpenPairings once, create a tournament with two players and pair a round, and
+let it write a backup (Connections -> Backups -> *Back up now*).
+
+To inspect the registrations from PowerShell:
+
+```powershell
+Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall |
+  Where-Object PSChildName -like '*OpenPairings*' |
+  ForEach-Object { $_.PSChildName; Get-ItemProperty $_.PSPath | Select-Object DisplayVersion, InstallLocation, UninstallString }
+```
+
+**1. The 0.53.x old-id install is neutralised.** Build 0.53.1's installer
+from its tag (`git worktree add ../op-0531 v0.53.1`, then the portable release
+and `rel/windows/build_installer.ps1` from there - it packs `--packId
+OpenPairings`). In the Sandbox: install it, start it, create data. Check
+`%LOCALAPPDATA%\OpenPairings` holds `current\`, `Update.exe` *and*
+`openpairings.db`, and the list has an `OpenPairings` entry. Install the new
+Setup.exe, start OpenPairings. Expect: `%LOCALAPPDATA%\OpenPairings` gone;
+`%LOCALAPPDATA%\OpenPairingsData\openpairings.db` present with the tournament
+visible in the app; the old program files in
+`OpenPairingsData\old-program-files`; backups in `OpenPairingsBackups`; the
+`OpenPairings` entry gone from the list and present under
+`HKCU:\Software\OpenPairings\RemovedUninstallEntries`. Then uninstall
+everything left in the list: the tournament and backups survive.
+
+**2. An old `.msi` upgraded by the new `.msi`, never started in between.**
+Install 0.61.0's `.msi`, per-user; start it, create data (it lands in
+`%LOCALAPPDATA%\OpenPairings`); **close OpenPairings**. Run the new `.msi`,
+per-user. Expect: the installation completes; `OpenPairingsData` holds the
+database *before you start the new version* (the `.msi` moved it); after
+starting, the tournament is there; one `OpenPairings` entry, at the new
+version. Repeat with OpenPairings left running: expect Windows' "close the
+application" prompt, or the guard's *Retry/Cancel* dialog; *Cancel* leaves
+0.61.0 installed and the data untouched in `%LOCALAPPDATA%\OpenPairings`.
+
+**3. Uninstalling an old `.msi` after the move.** Install 0.61.0's `.msi`,
+create data, install the new Setup.exe over it and start it (the data moves,
+the `MSI:` entry is removed). Then remove the old product anyway, as a
+determined user could: `Get-Package OpenPairings | Uninstall-Package`, or
+`msiexec /x` with the ProductCode from 0.61.0's `.msi`. Expect: the data in
+`OpenPairingsData` and `OpenPairingsBackups` survives. (The Setup.exe program
+folder does not - that is Velopack's clean-up deleting its install folder,
+which the two share; reinstall to recover it. This is the case the removed
+entry exists to stop anyone reaching from the list.)
+
+**4. Setup.exe -> `.msi`.** Install the new Setup.exe, start, create data,
+close. Run the new `.msi` with a higher version (pack a second build with
+`-Version` one patch up), per-user. Expect: one entry after starting it, at
+the `.msi`'s version; `current.before-msi-*` present right after installing
+and gone after the first start; data intact.
+
+**5. `.msi` -> Setup.exe.** Install the new `.msi` per-user, start, create
+data, close. Run a higher-versioned Setup.exe, accept its overwrite prompt.
+Expect: one entry after it starts, at the Setup.exe's version; data intact.
+
+**6. Per-user `.msi` -> per-machine `.msi`.** Install the new `.msi` "just
+me". Run it (or a higher version) again and choose "for everyone". Expect:
+the refusal message naming the per-user folder; nothing changed. Then the
+reverse: install "for everyone" in a fresh Sandbox, run again as "just me":
+refused. And Setup.exe with a per-machine copy present: a second entry, and
+`launcher.log`/the app log naming the second install.
+
+**7. In-app update.** Install version N (either installer, per-user), publish
+or serve N+1, use *Install and restart*. Expect: one entry, showing N+1, in
+the list.
+
+**8. Uninstall keeps the data.** For each of Setup.exe, per-user `.msi` and
+per-machine `.msi` (new version): install, start, create data, uninstall from
+the list. Expect: `OpenPairingsData` and `OpenPairingsBackups` untouched.
+
+**9. What an old `.msi`'s clean-up does as LocalSystem.** Install 0.61.0's
+`.msi` *for everyone*, create data as the signed-in user, uninstall it.
+Record whether `%LOCALAPPDATA%\OpenPairings` survived: it decides whether
+per-machine 0.58.1-0.61.0 installs were ever affected (the CHANGELOG entry
+assumes they may have been).
 
 ## Running it locally (the default)
 
@@ -399,7 +562,8 @@ Local mode:
 - **generates `SECRET_KEY_BASE` once** and keeps it, so a restart does not
   log you out.
 - **puts the database** in the OS's own per-user data directory
-  (`%LOCALAPPDATA%\OpenPairings` on Windows,
+  (`%LOCALAPPDATA%\OpenPairingsData` on Windows, with backups in
+  `%LOCALAPPDATA%\OpenPairingsBackups` - see "Windows: where the data lives";
   `~/Library/Application Support/OpenPairings` on macOS,
   `~/.local/share/OpenPairings` on Linux). Override with
   `OPENPAIRINGS_DATA_DIR`, or point `DATABASE_PATH` somewhere specific.

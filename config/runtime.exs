@@ -79,15 +79,76 @@ local_mode? =
 # `OPENPAIRINGS_DATA_DIR` overrides it - for a run off a USB stick, a
 # machine where the profile is not writable, and for the test that asserts
 # what this file does without writing into the developer's real profile.
-local_dir =
-  if local_mode? do
-    dir =
-      System.get_env("OPENPAIRINGS_DATA_DIR") ||
-        :filename.basedir(:user_data, ~c"OpenPairings") |> to_string()
+#
+# ## Windows: `%LOCALAPPDATA%\OpenPairingsData`, not `...\OpenPairings`
+#
+# Two installers could delete `%LOCALAPPDATA%\OpenPairings` whole: Setup.exe
+# packed under the old pack id, and every .msi from 0.58.1 to 0.61.0, whose
+# uninstall and upgrade clean-up deletes `%LOCALAPPDATA%\<pack title>`. See
+# `PairingsEngine.Desktop.DataHome` for both, and for the move.
+#
+# This block only CHOOSES, the same way `DataHome.choose/1` does (an
+# application module cannot be called from here - see the note at the bottom
+# of this file), and `DataHomeTest` holds the two together: the new directory
+# if it exists; else the old one if it has data in it (the launcher or
+# `PairingsEngine.Desktop.Housekeeping` moves it before the database opens);
+# else the new one, created. The move itself is never done here.
+windows_data_layout =
+  if local_mode? and match?({:win32, _}, :os.type()) and
+       System.get_env("OPENPAIRINGS_DATA_DIR") in [nil, ""] do
+    legacy = :filename.basedir(:user_data, ~c"OpenPairings") |> to_string() |> Path.expand()
+    parent = Path.dirname(legacy)
 
-    File.mkdir_p!(dir)
-    dir
+    %{
+      parent: parent,
+      legacy: legacy,
+      home: Path.join(parent, "OpenPairingsData"),
+      backups: Path.join(parent, "OpenPairingsBackups")
+    }
   end
+
+local_dir =
+  cond do
+    not local_mode? ->
+      nil
+
+    windows_data_layout ->
+      %{legacy: legacy, home: home} = windows_data_layout
+
+      legacy_has_data? =
+        Enum.any?(["openpairings.db", "secret_key_base", "backups"], fn marker ->
+          File.exists?(Path.join(legacy, marker))
+        end)
+
+      cond do
+        File.dir?(home) ->
+          home
+
+        legacy_has_data? ->
+          legacy
+
+        true ->
+          File.mkdir_p!(home)
+          home
+      end
+
+    true ->
+      dir =
+        case System.get_env("OPENPAIRINGS_DATA_DIR") do
+          value when value in [nil, ""] ->
+            :filename.basedir(:user_data, ~c"OpenPairings") |> to_string()
+
+          value ->
+            value
+        end
+
+      File.mkdir_p!(dir)
+      dir
+  end
+
+if windows_data_layout do
+  config :pairings_engine, :windows_data_layout, windows_data_layout
+end
 
 # Generated once and kept. Regenerating it every boot would silently
 # invalidate every session and every unexpired login link on restart.
@@ -321,8 +382,21 @@ if config_env() == :prod do
   # PAIRINGS_BACKUP_PASSPHRASE encrypts them. Worth setting: an unencrypted
   # backup carries the email addresses people gave the entry form. Without it the
   # files are plain, and whoever holds them holds those addresses.
-  if backup_dir = System.get_env("BACKUP_DIR") do
-    config :pairings_engine, :backup_dir, backup_dir
+  #
+  # On a Windows desktop install the default is not beside the database but
+  # `%LOCALAPPDATA%\OpenPairingsBackups`, a directory of its own: a backup
+  # that lives inside the data directory goes wherever the data directory goes,
+  # including into an uninstaller's delete - which is what happened to every
+  # local backup on 2026-09-13. See `PairingsEngine.Desktop.DataHome`.
+  cond do
+    backup_dir = System.get_env("BACKUP_DIR") ->
+      config :pairings_engine, :backup_dir, backup_dir
+
+    windows_data_layout ->
+      config :pairings_engine, :backup_dir, windows_data_layout.backups
+
+    true ->
+      :ok
   end
 
   if passphrase = System.get_env("PAIRINGS_BACKUP_PASSPHRASE") do

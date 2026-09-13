@@ -20,6 +20,13 @@ defmodule PairingsEngine.Application do
 
   @impl true
   def start(_type, _args) do
+    # First of all, before anything can open the database: on a Windows
+    # desktop install, move the data out of every installer's reach and make
+    # the "Installed apps" entries safe. A no-op everywhere else. See
+    # `PairingsEngine.Desktop.Housekeeping` for why it has to come before the
+    # migrations below, which open the database.
+    PairingsEngine.Desktop.Housekeeping.run()
+
     # Migrations run here - before `children` below ever builds a
     # connection pool - not as an entry in that list, where they ran until
     # this comment was written. See `run_migrations/0`'s comment for why

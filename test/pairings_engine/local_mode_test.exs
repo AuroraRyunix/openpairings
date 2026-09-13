@@ -238,7 +238,7 @@ defmodule PairingsEngine.LocalModeTest do
       end
     end
 
-    test "local mode ignores it" do
+    test "local mode ignores it", %{dir: dir} do
       # The local-mode pin is a property of the mode, not a default to be
       # overridden: the mode prints login links to a terminal and signs in
       # whoever reaches it from loopback.
@@ -246,6 +246,10 @@ defmodule PairingsEngine.LocalModeTest do
         with_env(
           %{
             "OPENPAIRINGS_LOCAL" => "1",
+            # Without it this read the developer's real data directory - and
+            # on Windows could create %LOCALAPPDATA%\OpenPairingsData there,
+            # which is the directory a real install then treats as its data.
+            "OPENPAIRINGS_DATA_DIR" => dir,
             "OPENPAIRINGS_LISTEN_IP" => "0.0.0.0"
           },
           fn -> read_prod(:prod) end
