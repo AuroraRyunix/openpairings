@@ -297,8 +297,9 @@ next works on the page's translations.
 
 ## Outside this area, noticed on the way
 
-Not hook events, so not changed here, but the same class as F4 - a
-`phx-click`/`phx-value` payload is just as writable:
+Not hook events, so not changed with F4's own fix, but the same class of
+problem and the same treatment - a `phx-click`/`phx-value` payload is just as
+writable as a `pushEvent` one:
 `players_live.ex` `toggle_column` with no `key` (no clause - it was the crash
 used to force the rejoin in the browser check), `pick` with a non-numeric
 `fide-id` when search results are showing (`String.to_integer/1`);
@@ -306,3 +307,20 @@ used to force the rejoin in the browser check), `pick` with a non-numeric
 `stage_bye`, `stage_fill` (`String.to_integer/1`); `standings_live.ex`
 `publish_standings` and `unpublish_standings` (`String.to_integer/1`). Each is
 a crash of the sender's own LiveView, not a write.
+
+Fixed in `e60b64e`: every id is parsed rather than trusted, falling back
+to a no-op (a second `handle_event/3` clause on the bare event name, or a
+`case`/`with` inline) rather than `String.to_integer/1`; `toggle_column` also
+checks the key against `all_columns/1`'s own list for the tournament, not just
+that it's present. Checked for the same authorization gap the JS hooks audit
+kept finding elsewhere - an id that parses fine but names a row from another
+tournament - and found none here: `pairings_live.ex`'s five handlers only
+ever look an id up inside `socket.assigns.round`/`round_pool`, both already
+scoped to this tournament by `mount/3` (`confirm_for/2`, `display_name/2`),
+and `Tournaments.fill_seat/3` independently refuses a foreign player id
+(`player_belongs_to_tournament?/2`) even if one reached that far;
+`standings_live.ex`'s `round` is validated against this tournament's own
+rounds by `Tournaments.publish_standings_through/2`'s own guard and
+`get_round/2`, never another tournament's. Tests:
+`test/pairings_engine_web/live/click_payload_test.exs` - proven against the
+unguarded code first (9 of its 13 tests failed there).
