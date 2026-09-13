@@ -937,7 +937,7 @@ msgstr "Live toernooiplaats - klik om te sorteren op de huidige plaats in de sta
 msgid "Log in"
 msgstr "Aanmelden"
 
-#: lib/pairings_engine_web/live/user_live/login.ex:206
+#: lib/pairings_engine_web/live/user_live/login.ex:209
 #, elixir-autogen, elixir-format
 msgid "Log in only this time"
 msgstr "Enkel deze keer aanmelden"
@@ -1644,12 +1644,12 @@ msgstr "Met jou gedeeld door de eigenaar"
 msgid "Sign in only this time"
 msgstr "Enkel deze keer aanmelden"
 
-#: lib/pairings_engine_web/live/user_live/login.ex:224
+#: lib/pairings_engine_web/live/user_live/login.ex:227
 #, elixir-autogen, elixir-format
 msgid "Sign in with 02cloud SSO"
 msgstr "Aanmelden met 02cloud SSO"
 
-#: lib/pairings_engine_web/live/user_live/login.ex:226
+#: lib/pairings_engine_web/live/user_live/login.ex:229
 #, elixir-autogen, elixir-format
 msgid "Sign in with SSO"
 msgstr "Aanmelden met SSO"
@@ -1837,7 +1837,7 @@ msgstr "Logo uploaden"
 msgid "Uploaded files"
 msgstr "Geüploade bestanden"
 
-#: lib/pairings_engine_web/live/user_live/login.ex:170
+#: lib/pairings_engine_web/live/user_live/login.ex:173
 #, elixir-autogen, elixir-format
 msgid "Use a password instead"
 msgstr "Gebruik in plaats daarvan een wachtwoord"
@@ -2273,7 +2273,7 @@ msgstr "Dubbelklik op een rij om de speler te bewerken, of rechtsklik voor hun s
 msgid "Elo used (pairing/standings):"
 msgstr "Gebruikte Elo (paring/stand):"
 
-#: lib/pairings_engine_web/live/user_live/login.ex:159
+#: lib/pairings_engine_web/live/user_live/login.ex:162
 #, elixir-autogen, elixir-format
 msgid "Email me a magic link"
 msgstr "Stuur me een magic link"
@@ -2378,7 +2378,7 @@ msgstr "Laat helpers resultaten invoeren via hun telefoon, zonder account. Toon 
 msgid "Lists every player with a claimed title norm (set below). Up to 40 candidates per file - a tournament with more needs a second IT4 download for the rest."
 msgstr "Lijst elke speler met een geclaimde titelnorm (hieronder in te stellen). Tot 40 kandidaten per bestand - een toernooi met meer heeft een tweede IT4-download nodig voor de rest."
 
-#: lib/pairings_engine_web/live/user_live/login.ex:203
+#: lib/pairings_engine_web/live/user_live/login.ex:206
 #, elixir-autogen, elixir-format
 msgid "Log in and stay signed in"
 msgstr "Aanmelden en aangemeld blijven"
@@ -3111,8 +3111,8 @@ msgid "Download rating list"
 msgstr "Ratinglijst downloaden"
 
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:607
-#: lib/pairings_engine_web/live/user_live/login.ex:152
-#: lib/pairings_engine_web/live/user_live/login.ex:185
+#: lib/pairings_engine_web/live/user_live/login.ex:155
+#: lib/pairings_engine_web/live/user_live/login.ex:188
 #: lib/pairings_engine_web/live/user_live/registration.ex:127
 #: lib/pairings_engine_web/live/user_live/settings.ex:29
 #, elixir-autogen, elixir-format
@@ -3472,7 +3472,7 @@ msgstr "Paringen"
 msgid "Pairings - round %{n}"
 msgstr "Paringen - ronde %{n}"
 
-#: lib/pairings_engine_web/live/user_live/login.ex:193
+#: lib/pairings_engine_web/live/user_live/login.ex:196
 #, elixir-autogen, elixir-format
 msgid "Password"
 msgstr "Wachtwoord"
@@ -8131,3 +8131,85 @@ msgstr "Via de telefoon \"%{label}\" (%{level})."
 #, elixir-autogen, elixir-format
 msgid "Via the phone \"%{label}\"."
 msgstr "Via de telefoon \"%{label}\"."
+
+#: lib/pairings_engine/accounts/user_notifier.ex:137
+#, elixir-autogen, elixir-format
+msgid "%{owner} invited you to work on the tournament \"%{tournament}\" on OpenPairings."
+msgstr "%{owner} heeft je uitgenodigd om mee te werken aan het toernooi \"%{tournament}\" op OpenPairings."
+
+#: lib/pairings_engine/accounts/user_notifier.ex:98
+#, elixir-autogen, elixir-format
+msgid "Confirmation instructions"
+msgstr "Instructies ter bevestiging"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:58
+#: lib/pairings_engine/accounts/user_notifier.ex:85
+#: lib/pairings_engine/accounts/user_notifier.ex:102
+#, elixir-autogen, elixir-format
+msgid "Hi %{email},"
+msgstr "Hallo %{email},"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:135
+#, elixir-autogen, elixir-format
+msgid "Hi,"
+msgstr "Hallo,"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:108
+#, elixir-autogen, elixir-format
+msgid "If you didn't create an account with us, please ignore this."
+msgstr "Als je bij ons geen account hebt aangemaakt, kun je deze e-mail negeren."
+
+#: lib/pairings_engine/accounts/user_notifier.ex:64
+#, elixir-autogen, elixir-format
+msgid "If you didn't request this change, please ignore this."
+msgstr "Als je dit niet hebt aangevraagd, kun je deze e-mail negeren."
+
+#: lib/pairings_engine/accounts/user_notifier.ex:91
+#, elixir-autogen, elixir-format
+msgid "If you didn't request this email, please ignore this."
+msgstr "Als je deze e-mail niet hebt aangevraagd, kun je hem negeren."
+
+#: lib/pairings_engine/accounts/user_notifier.ex:146
+#, elixir-autogen, elixir-format
+msgid "If you weren't expecting this, you can safely ignore this email."
+msgstr "Als je dit niet verwachtte, kun je deze e-mail gerust negeren."
+
+#: lib/pairings_engine_web/live/user_live/login.ex:139
+#, elixir-autogen, elixir-format
+msgid "Local mode - sent emails are printed in this computer's terminal, not delivered."
+msgstr "Lokale modus - verzonden e-mails worden afgedrukt in de terminal van deze computer, niet echt verstuurd."
+
+#: lib/pairings_engine/accounts/user_notifier.ex:81
+#, elixir-autogen, elixir-format
+msgid "Log in instructions"
+msgstr "Instructies om in te loggen"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:142
+#, elixir-autogen, elixir-format
+msgid "Open the link below to accept (or decline) the invitation:"
+msgstr "Open onderstaande link om de uitnodiging te accepteren (of te weigeren):"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:54
+#, elixir-autogen, elixir-format
+msgid "Update email instructions"
+msgstr "Instructies voor het wijzigen van je e-mailadres"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:60
+#, elixir-autogen, elixir-format
+msgid "You can change your email by visiting the URL below:"
+msgstr "Je kunt je e-mailadres wijzigen via onderstaande link:"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:104
+#, elixir-autogen, elixir-format
+msgid "You can confirm your account by visiting the URL below:"
+msgstr "Je kunt je account bevestigen via onderstaande link:"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:87
+#, elixir-autogen, elixir-format
+msgid "You can log into your account by visiting the URL below:"
+msgstr "Je kunt inloggen op je account via onderstaande link:"
+
+#: lib/pairings_engine/accounts/user_notifier.ex:130
+#, elixir-autogen, elixir-format
+msgid "You've been invited to %{tournament}"
+msgstr "Je bent uitgenodigd voor %{tournament}"

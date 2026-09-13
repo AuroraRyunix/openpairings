@@ -945,7 +945,7 @@ msgstr ""
 msgid "Log in"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:206
+#: lib/pairings_engine_web/live/user_live/login.ex:209
 #, elixir-autogen, elixir-format
 msgid "Log in only this time"
 msgstr ""
@@ -1652,12 +1652,12 @@ msgstr ""
 msgid "Sign in only this time"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:224
+#: lib/pairings_engine_web/live/user_live/login.ex:227
 #, elixir-autogen, elixir-format
 msgid "Sign in with 02cloud SSO"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:226
+#: lib/pairings_engine_web/live/user_live/login.ex:229
 #, elixir-autogen, elixir-format
 msgid "Sign in with SSO"
 msgstr ""
@@ -1845,7 +1845,7 @@ msgstr ""
 msgid "Uploaded files"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:170
+#: lib/pairings_engine_web/live/user_live/login.ex:173
 #, elixir-autogen, elixir-format
 msgid "Use a password instead"
 msgstr ""
@@ -2281,7 +2281,7 @@ msgstr ""
 msgid "Elo used (pairing/standings):"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:159
+#: lib/pairings_engine_web/live/user_live/login.ex:162
 #, elixir-autogen, elixir-format
 msgid "Email me a magic link"
 msgstr ""
@@ -2386,7 +2386,7 @@ msgstr ""
 msgid "Lists every player with a claimed title norm (set below). Up to 40 candidates per file - a tournament with more needs a second IT4 download for the rest."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:203
+#: lib/pairings_engine_web/live/user_live/login.ex:206
 #, elixir-autogen, elixir-format
 msgid "Log in and stay signed in"
 msgstr ""
@@ -3119,8 +3119,8 @@ msgid "Download rating list"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:607
-#: lib/pairings_engine_web/live/user_live/login.ex:152
-#: lib/pairings_engine_web/live/user_live/login.ex:185
+#: lib/pairings_engine_web/live/user_live/login.ex:155
+#: lib/pairings_engine_web/live/user_live/login.ex:188
 #: lib/pairings_engine_web/live/user_live/registration.ex:127
 #: lib/pairings_engine_web/live/user_live/settings.ex:29
 #, elixir-autogen, elixir-format
@@ -3480,7 +3480,7 @@ msgstr ""
 msgid "Pairings - round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/login.ex:193
+#: lib/pairings_engine_web/live/user_live/login.ex:196
 #, elixir-autogen, elixir-format
 msgid "Password"
 msgstr ""
@@ -8138,4 +8138,86 @@ msgstr ""
 #: lib/pairings_engine_web/live/audit_live.ex:760
 #, elixir-autogen, elixir-format
 msgid "Via the phone \"%{label}\"."
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:137
+#, elixir-autogen, elixir-format
+msgid "%{owner} invited you to work on the tournament \"%{tournament}\" on OpenPairings."
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:98
+#, elixir-autogen, elixir-format
+msgid "Confirmation instructions"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:58
+#: lib/pairings_engine/accounts/user_notifier.ex:85
+#: lib/pairings_engine/accounts/user_notifier.ex:102
+#, elixir-autogen, elixir-format
+msgid "Hi %{email},"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:135
+#, elixir-autogen, elixir-format
+msgid "Hi,"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:108
+#, elixir-autogen, elixir-format
+msgid "If you didn't create an account with us, please ignore this."
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:64
+#, elixir-autogen, elixir-format
+msgid "If you didn't request this change, please ignore this."
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:91
+#, elixir-autogen, elixir-format
+msgid "If you didn't request this email, please ignore this."
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:146
+#, elixir-autogen, elixir-format
+msgid "If you weren't expecting this, you can safely ignore this email."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/login.ex:139
+#, elixir-autogen, elixir-format
+msgid "Local mode - sent emails are printed in this computer's terminal, not delivered."
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:81
+#, elixir-autogen, elixir-format
+msgid "Log in instructions"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:142
+#, elixir-autogen, elixir-format
+msgid "Open the link below to accept (or decline) the invitation:"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:54
+#, elixir-autogen, elixir-format
+msgid "Update email instructions"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:60
+#, elixir-autogen, elixir-format
+msgid "You can change your email by visiting the URL below:"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:104
+#, elixir-autogen, elixir-format
+msgid "You can confirm your account by visiting the URL below:"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:87
+#, elixir-autogen, elixir-format
+msgid "You can log into your account by visiting the URL below:"
+msgstr ""
+
+#: lib/pairings_engine/accounts/user_notifier.ex:130
+#, elixir-autogen, elixir-format
+msgid "You've been invited to %{tournament}"
 msgstr ""
