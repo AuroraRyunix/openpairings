@@ -42,6 +42,8 @@ defmodule PairingsEngine.Test.LeftoverRows do
   but the first one after something committed.
   """
   def clear! do
+    refuse_unless_test_database!()
+
     case Enum.flat_map(data_tables(), &rows_in/1) do
       [] ->
         []
@@ -58,6 +60,20 @@ defmodule PairingsEngine.Test.LeftoverRows do
           end)
 
         found
+    end
+  end
+
+  # This deletes every row of every table it can see, so it checks what it can
+  # see first. `config/test.exs` pins the Repo to `pairings_engine_test*.db`
+  # today and nothing in the test environment reads DATABASE_PATH - but a
+  # function this destructive should not rest on a config file staying as it
+  # is. Anything else, and the suite stops before a single row is touched.
+  defp refuse_unless_test_database! do
+    database = Repo.config() |> Keyword.get(:database) |> to_string() |> Path.basename()
+
+    unless String.starts_with?(database, "pairings_engine_test") do
+      raise "LeftoverRows only ever empties the test database, and the Repo points at " <>
+              inspect(database) <> ". Nothing was deleted."
     end
   end
 
