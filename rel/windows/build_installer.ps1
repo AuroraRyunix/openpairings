@@ -66,6 +66,17 @@
     precisely because the id is awkward to change once a release exists, and
     none does yet.
 
+    CORRECTION (2026-09-13): "none does yet" was wrong, and the pack id alone
+    was not enough. 0.53.0 and 0.53.1 (and 0.53.2) had been packed with
+    `--packId OpenPairings` (commit 736a73a). No Setup.exe was attached to
+    those releases, but locally built ones were installed, and such an install
+    keeps its id: on the maintainer's own PC one sat in the data directory,
+    and uninstalling it deleted every tournament and every local backup. And
+    the .msi has its own, separate way to delete that directory - see "THE
+    .msi CLEAN-UP BUG" below. The answer in the end was both of the two ways
+    out above: the install root moved then, and the data directory moved too
+    - see "THE DATA DIRECTORY MOVED".
+
     The installer is renamed to OpenPairings-<version>-win-Setup.exe
     afterwards, so a copy sitting in somebody's Downloads folder says which
     version it is. That filename appears nowhere in the update feed - the
@@ -144,7 +155,7 @@
     installs, and now it is verified rather than assumed.)
 
     Program Files\OpenPairingsApp is a different filesystem root from
-    %LOCALAPPDATA%\OpenPairings entirely, so - like the per-user pack id - it
+    %LOCALAPPDATA%\OpenPairings(Data) entirely, so - like the per-user pack id - it
     cannot collide with the data directory: there is no install root under
     Program Files that :filename.basedir(:user_data, ...) would ever resolve
     to. Assert-DataDirectorySafe below asserts this anyway, rather than
@@ -161,6 +172,70 @@
     hand and watching uninstall take them with it). The pack-id-not-product-
     name guard above is what stops that whole-directory delete from ever
     being able to reach the data directory, on either install path.
+
+    THAT LAST SENTENCE WAS WRONG FOR THE .msi - THE .msi CLEAN-UP BUG
+    (2026-09-13): `RustCleanup` (CleanupDeferred in vpk 1.2.0's
+    src/wix-dll/src/lib.rs, read at tag 1.2.0) is given
+    `[INSTALLFOLDER]"[RustAppId]"[TempFolder]` and deletes three things
+    whole: INSTALLFOLDER, `%LOCALAPPDATA%\<RustAppId>`, and
+    `%TEMP%\velopack_<RustAppId>`. vpk's MsiTemplate.hbs sets RustAppId to
+    `{{AppTitle}}` - the pack TITLE, "OpenPairings" - not the pack id. So every
+    .msi from 0.58.1 (the first one published) to 0.61.0 deletes
+    %LOCALAPPDATA%\OpenPairings, the data directory, whenever it runs with
+    REMOVE=ALL: an uninstall, and ALSO the removal of the older product that
+    every major upgrade performs (RemoveExistingProducts runs the old
+    package's own uninstall, from Windows' cached copy of it). Read out of the
+    0.58.1 and 0.61.0 .msi files' Property and CustomAction tables. The
+    action is Impersonate="no": in a per-user, unelevated install it runs as
+    the user and reaches the user's %LOCALAPPDATA%; in an elevated
+    per-machine install it most likely runs as LocalSystem and deletes that
+    account's folder instead (to be confirmed in the Sandbox test plan in
+    docs/binaries.md).
+
+    What this script does about it, after packing (see the table-edit block
+    near the bottom, and "ONE INSTALL, ONE ENTRY" below for the rest of it):
+
+      * RustAppId is rewritten to the pack id, which is what Velopack's own
+        Setup.exe uninstaller uses for the same purpose, and read back.
+      * An installed older .msi still carries the bug in its cached package,
+        where nothing shipped here can reach it - so this .msi moves the data
+        out of the way before RemoveExistingProducts: it embeds this payload's
+        own OpenPairings.exe and runs `--protect-data` (see "Protecting the
+        data directory" in rel/windows/launcher.c) between InstallValidate and
+        RemoveExistingProducts. If the move cannot happen, the installation
+        stops there, before anything has been removed.
+
+    THE DATA DIRECTORY MOVED (2026-09-13): to %LOCALAPPDATA%\OpenPairingsData,
+    and backups to %LOCALAPPDATA%\OpenPairingsBackups - a directory of their
+    own, so that nothing that takes the data directory takes the backups with
+    it. Moved by one directory rename, which is atomic on NTFS; see
+    PairingsEngine.Desktop.DataHome. Assert-DataDirectorySafe refuses any pack
+    id - and, after the table edit, any RustAppId - naming one of those
+    folders or the old one.
+
+    ONE INSTALL, ONE ENTRY (2026-09-13): the .msi and Setup.exe register
+    different "Installed apps" entries (`MSI:<packId>` and `<packId>`) and
+    neither sees the other, and per-user and per-machine .msi installs do not
+    see each other either. What was done, and where:
+
+      * .msi over Setup.exe (same folder): the guard renames Setup.exe's
+        `current` tree aside so the .msi writes a clean one (Windows Installer
+        will not overwrite files it thinks were modified); OpenPairings deletes
+        the set-aside tree and Setup.exe's entry on its next start.
+      * Setup.exe over an .msi: Velopack's Setup.exe replaces the folder
+        itself; OpenPairings removes the .msi's entry on its first start. The
+        hidden Windows Installer product stays registered - Windows offers no
+        way to remove one without running its uninstall - and a later .msi
+        removes it as an ordinary upgrade, after moving the data.
+      * per-user vs per-machine: the .msi reads both registrations (AppSearch
+        over RegLocator) and refuses, with instructions and before changing
+        anything, to install a second copy in the other scope. Setup.exe has
+        no wizard to refuse in; OpenPairings reports the second copy instead.
+      * stale versions: Velopack's Update.exe refreshes the entry it belongs to
+        on every in-app update; OpenPairings also sets it at start. The
+        entries it removes are copied to
+        HKCU\Software\OpenPairings\RemovedUninstallEntries first. See
+        PairingsEngine.Desktop.UninstallEntries.
 
     The data directory itself does not move with the install root, in either
     case. config/runtime.exs and rel/windows/launcher.c both resolve it from
@@ -328,44 +403,45 @@ $packId = 'OpenPairingsApp'
 $packAuthors = 'OpenPairings'
 $packTitle = 'OpenPairings'
 
+# The folder names under %LOCALAPPDATA% that hold, or held, an arbiter's data.
+# `OpenPairingsData` and `OpenPairingsBackups` are where config/runtime.exs,
+# rel/windows/launcher.c and PairingsEngine.Desktop.DataHome keep the data and
+# the backups since the first release after 0.61.0; `OpenPairings` is where
+# they were before, and on a machine that has not started one yet, still are. See "THE DATA DIRECTORY
+# MOVED" in .NOTES.
+$dataFolderNames = @('OpenPairings', 'OpenPairingsData', 'OpenPairingsBackups')
+
 function Assert-DataDirectorySafe {
-    param([hashtable]$InstallRoots)
+    param(
+        # Name -> the single %LOCALAPPDATA% folder name an installer would
+        # delete whole.
+        [hashtable]$DeletedFolders
+    )
 
-    # The app's own data directory, resolved the same way config/runtime.exs
-    # and rel/windows/launcher.c both resolve it: Erlang's
-    # :filename.basedir(:user_data, "OpenPairings"), which on Windows is
-    # %LOCALAPPDATA%\OpenPairings. Neither of those reads anything about
-    # where the program itself is installed - a machine-wide install does
-    # not change this path, it only changes who is running the process that
-    # resolves it. See .NOTES.
-    $dataDir = Join-Path $env:LOCALAPPDATA 'OpenPairings'
-
-    foreach ($label in $InstallRoots.Keys) {
-        $installDir = $InstallRoots[$label]
-        if ($installDir -eq $dataDir) {
+    foreach ($label in $DeletedFolders.Keys) {
+        $name = $DeletedFolders[$label]
+        if ($dataFolderNames -contains $name) {
             throw @"
-Refusing to pack: the $label install directory would be the data directory.
+Refusing to pack: $label would delete %LOCALAPPDATA%\$name.
 
-  install root ($label): $installDir
-  database at           : $dataDir
-
-Velopack's uninstaller deletes its install directory whole. Packing this
-would produce an installer whose uninstall silently destroys every
-tournament on the machine. See .NOTES in this script.
+That folder holds, or held, the arbiter's tournaments and backups
+($($dataFolderNames -join ', ')). Velopack deletes its install folder whole
+on uninstall, and the .msi's clean-up deletes %LOCALAPPDATA%\<RustAppId>
+too. Packing this would produce an installer that silently destroys data.
+See "WHY THE PACK ID IS NOT OpenPairings" and "THE DATA DIRECTORY MOVED" in
+.NOTES.
 "@
         }
     }
 }
 
-# Two roots, both real: the per-user root Setup.exe and a per-user .msi both
-# use, and the per-machine root a per-machine .msi uses. Both are a single
-# <packId> segment under a different base folder - confirmed by querying the
-# Property and ControlEvent tables of a .msi this script actually built, not
-# assumed from Velopack's docs, which describe a different (nested) path for
-# PerMachine - see "PER-MACHINE AND THE DATA DIRECTORY" in .NOTES.
-Assert-DataDirectorySafe -InstallRoots @{
-    'per-user (Setup.exe or the .msi)' = Join-Path $env:LOCALAPPDATA $packId
-    'per-machine (the .msi)'           = Join-Path $env:ProgramFiles $packId
+# Before packing: the pack id is Setup.exe's per-user install folder, and the
+# .msi's RustAppId once the table edit below has set it (vpk writes the pack
+# TITLE there, which is the bug that edit fixes). The per-machine root is under
+# Program Files and can never be one of these names' %LOCALAPPDATA% folders.
+Assert-DataDirectorySafe -DeletedFolders @{
+    'Setup.exe''s uninstall (the pack id)' = $packId
+    'the .msi''s clean-up (RustAppId, after the table edit)' = $packId
 }
 
 Write-Host "Packing OpenPairings $Version from $PayloadDir" -ForegroundColor Cyan
@@ -513,6 +589,163 @@ if (Test-Path $msi) {
         }
     }
     Write-Host "MSI wizard images: each in its own slot (Banner $($slots['WixUI_Bmp_Banner']) B, Dialog $($slots['WixUI_Bmp_Dialog']) B)" -ForegroundColor Cyan
+}
+
+# ---------------------------------------------------------------------------
+# The .msi's data safety and scope checks - see "THE .msi CLEAN-UP BUG" and
+# "ONE INSTALL, ONE ENTRY" in .NOTES for why each of these exists. All of it is
+# table edits through the same Windows Installer COM API as above, and every
+# edit is read back afterwards: a build that did not take them fails.
+# ---------------------------------------------------------------------------
+
+function Invoke-MsiSql {
+    param($Installer, $Database, [string]$Sql, [object[]]$Params = @(), [switch]$Fetch)
+
+    $view = $Database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $Database, @($Sql))
+    try {
+        if ($Params.Count -gt 0) {
+            $record = $Installer.GetType().InvokeMember('CreateRecord', 'InvokeMethod', $null, $Installer, @($Params.Count))
+            for ($i = 0; $i -lt $Params.Count; $i++) {
+                $p = $Params[$i]
+                if ($p -is [System.IO.FileInfo]) {
+                    $record.GetType().InvokeMember('SetStream', 'InvokeMethod', $null, $record, @(($i + 1), [string]$p.FullName)) | Out-Null
+                } elseif ($p -is [int]) {
+                    $record.GetType().InvokeMember('IntegerData', 'SetProperty', $null, $record, @(($i + 1), $p)) | Out-Null
+                } else {
+                    $record.GetType().InvokeMember('StringData', 'SetProperty', $null, $record, @(($i + 1), [string]$p)) | Out-Null
+                }
+            }
+            $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, @($record)) | Out-Null
+        } else {
+            $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+        }
+
+        if ($Fetch) {
+            $rows = @()
+            while ($row = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)) {
+                $count = $row.GetType().InvokeMember('FieldCount', 'GetProperty', $null, $row, $null)
+                $rows += , @(1..$count | ForEach-Object { $row.GetType().InvokeMember('StringData', 'GetProperty', $null, $row, $_) })
+            }
+            return , $rows
+        }
+    } finally {
+        $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null) | Out-Null
+        [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($view)
+    }
+}
+
+function Test-MsiTable {
+    param($Installer, $Database, [string]$Name)
+    $rows = Invoke-MsiSql $Installer $Database 'SELECT `Name` FROM `_Tables` WHERE `Name`=?' @($Name) -Fetch
+    return $rows.Count -gt 0
+}
+
+$uninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall'
+
+# What the two refusals say. Formatted text (Type 19 custom actions), so
+# [PROPERTY] is replaced by its value when shown.
+$refusePerMachine = 'OpenPairings is already installed for your Windows account only, in [OPPERUSERMSI][OPPERUSERSETUPEXE]. Installing it for everyone as well would put a second copy on this computer, with a second entry in Installed apps. Run this installer again and choose to install it just for you: that updates the copy you already have. Nothing has been changed, and your tournaments are not affected.'
+$refusePerUser = 'OpenPairings is already installed for everyone on this computer, in [OPPERMACHINEMSI]. Installing it for your account only as well would put a second copy on this computer. To update it, an administrator runs this installer and chooses to install it for everyone. Nothing has been changed, and your tournaments are not affected.'
+
+if (Test-Path $msi) {
+    # The record objects the Binary-table check above fetched are COM objects
+    # too, and until they are finalised they keep that read-only open of the
+    # .msi alive - so opening it for writing here failed with a bare
+    # "OpenDatabase,DatabasePath,OpenMode" (reproduced). Collect them first.
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+
+    $guardExe = Get-Item (Join-Path $PayloadDir 'OpenPairings.exe')
+    $wi = New-Object -ComObject WindowsInstaller.Installer
+    $db = $wi.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $wi, @($msi, 1))
+
+    # 1. RustAppId: the pack id, not the title. See "THE .msi CLEAN-UP BUG".
+    Invoke-MsiSql $wi $db 'UPDATE `Property` SET `Value`=? WHERE `Property`=''RustAppId''' @($packId)
+
+    # 2. Detection of the other installs, for the refusals below. Raw registry
+    #    values (Type 2) from the 64-bit view (+16), which is where the .msi's
+    #    own ARP component (Attributes 260 = 64-bit) writes them.
+    if (-not (Test-MsiTable $wi $db 'RegLocator')) {
+        Invoke-MsiSql $wi $db 'CREATE TABLE `RegLocator` (`Signature_` CHAR(72) NOT NULL, `Root` SHORT NOT NULL, `Key` CHAR(255) NOT NULL LOCALIZABLE, `Name` CHAR(255) LOCALIZABLE, `Type` SHORT PRIMARY KEY `Signature_`)'
+    }
+    if (-not (Test-MsiTable $wi $db 'AppSearch')) {
+        Invoke-MsiSql $wi $db 'CREATE TABLE `AppSearch` (`Property` CHAR(72) NOT NULL, `Signature_` CHAR(72) NOT NULL PRIMARY KEY `Property`, `Signature_`)'
+    }
+    $searches = @(
+        @('OPPERUSERSETUPEXE', 'OpSearchPerUserSetupExe', 1, "$uninstallKey\$packId"),
+        @('OPPERUSERMSI', 'OpSearchPerUserMsi', 1, "$uninstallKey\MSI:$packId"),
+        @('OPPERMACHINEMSI', 'OpSearchPerMachineMsi', 2, "$uninstallKey\MSI:$packId")
+    )
+    foreach ($s in $searches) {
+        Invoke-MsiSql $wi $db 'INSERT INTO `RegLocator` (`Signature_`, `Root`, `Key`, `Name`, `Type`) VALUES (?, ?, ?, ?, ?)' @($s[1], [int]$s[2], $s[3], 'InstallLocation', [int]18)
+        Invoke-MsiSql $wi $db 'INSERT INTO `AppSearch` (`Property`, `Signature_`) VALUES (?, ?)' @($s[0], $s[1])
+    }
+    foreach ($table in @('InstallUISequence', 'InstallExecuteSequence')) {
+        $have = Invoke-MsiSql $wi $db "SELECT ``Action`` FROM ``$table`` WHERE ``Action``='AppSearch'" -Fetch
+        if ($have.Count -eq 0) {
+            Invoke-MsiSql $wi $db "INSERT INTO ``$table`` (``Action``, ``Condition``, ``Sequence``) VALUES ('AppSearch', '', 50)"
+        }
+    }
+    $secure = (Invoke-MsiSql $wi $db 'SELECT `Value` FROM `Property` WHERE `Property`=''SecureCustomProperties''' -Fetch)[0][0]
+    Invoke-MsiSql $wi $db 'UPDATE `Property` SET `Value`=? WHERE `Property`=''SecureCustomProperties''' @("$secure;OPPERUSERSETUPEXE;OPPERUSERMSI;OPPERMACHINEMSI")
+
+    # 3. The guard: this payload's own OpenPairings.exe, embedded, run with
+    #    --protect-data. Type 2 = an executable stored in the Binary table,
+    #    synchronous, exit code checked - any non-zero exit stops the
+    #    installation. "[Folder]." rather than "[Folder]": a directory property
+    #    ends in a backslash, which would escape the closing quote.
+    Invoke-MsiSql $wi $db 'INSERT INTO `Binary` (`Name`, `Data`) VALUES (?, ?)' @('OpenPairingsGuard', $guardExe)
+    Invoke-MsiSql $wi $db 'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (?, ?, ?, ?)' @(
+        'OpenPairingsProtectData', [int]2, 'OpenPairingsGuard',
+        '--protect-data "[LocalAppDataFolder]." --install-folder "[INSTALLFOLDER]." --ui-level [UILevel]')
+
+    # 4. The refusals, Type 19 (show the text, fail the installation).
+    Invoke-MsiSql $wi $db 'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (?, ?, ?, ?)' @('OpenPairingsRefusePerMachine', [int]19, '', $refusePerMachine)
+    Invoke-MsiSql $wi $db 'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (?, ?, ?, ?)' @('OpenPairingsRefusePerUser', [int]19, '', $refusePerUser)
+
+    # 5. The order. InstallValidate (1400) is where Restart Manager asks for
+    #    OpenPairings to be closed; RemoveExistingProducts (1401 as vpk builds
+    #    it) is where an older product's clean-up runs. Everything goes between
+    #    them: refuse first - a refused installation must not have changed
+    #    anything - then move the data, then remove the older product.
+    $rep = Invoke-MsiSql $wi $db 'SELECT `Sequence` FROM `InstallExecuteSequence` WHERE `Action`=''RemoveExistingProducts''' -Fetch
+    $validate = Invoke-MsiSql $wi $db 'SELECT `Sequence` FROM `InstallExecuteSequence` WHERE `Action`=''InstallValidate''' -Fetch
+    $init = Invoke-MsiSql $wi $db 'SELECT `Sequence` FROM `InstallExecuteSequence` WHERE `Action`=''InstallInitialize''' -Fetch
+    if ($rep.Count -ne 1 -or [int]$validate[0][0] -ne 1400 -or [int]$rep[0][0] -ne 1401 -or [int]$init[0][0] -le 1405) {
+        throw "The .msi's InstallValidate/RemoveExistingProducts/InstallInitialize are no longer at 1400/1401/1500 as vpk 1.2.0 builds them. Re-check the order in step 5 before shipping."
+    }
+    Invoke-MsiSql $wi $db 'UPDATE `InstallExecuteSequence` SET `Sequence`=1404 WHERE `Action`=''RemoveExistingProducts'''
+    $perMachine = 'NOT REMOVE AND (OPPERUSERMSI OR OPPERUSERSETUPEXE) AND (INSTALLFOLDER ~<< ProgramFiles64Folder OR INSTALLFOLDER ~<< ProgramFilesFolder)'
+    $perUser = 'NOT REMOVE AND OPPERMACHINEMSI AND INSTALLFOLDER ~<< LocalAppDataFolder'
+    Invoke-MsiSql $wi $db 'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (?, ?, ?)' @('OpenPairingsRefusePerMachine', $perMachine, [int]1401)
+    Invoke-MsiSql $wi $db 'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (?, ?, ?)' @('OpenPairingsRefusePerUser', $perUser, [int]1402)
+    Invoke-MsiSql $wi $db 'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (?, ?, ?)' @('OpenPairingsProtectData', 'NOT REMOVE', [int]1403)
+
+    $db.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $db, $null) | Out-Null
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($db)
+
+    # Read back, from a fresh read-only open (after the same collection, for
+    # the same reason as above).
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+    $db =$wi.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $wi, @($msi, 0))
+    $appId = (Invoke-MsiSql $wi $db 'SELECT `Value` FROM `Property` WHERE `Property`=''RustAppId''' -Fetch)[0][0]
+    $order = Invoke-MsiSql $wi $db 'SELECT `Action`, `Sequence` FROM `InstallExecuteSequence` WHERE `Sequence` >= 1400 AND `Sequence` < 1500' -Fetch
+    $binary = Invoke-MsiSql $wi $db 'SELECT `Name` FROM `Binary` WHERE `Name`=''OpenPairingsGuard''' -Fetch
+    $cleanup = (Invoke-MsiSql $wi $db 'SELECT `Target` FROM `CustomAction` WHERE `Action`=''SetRustCleanupData''' -Fetch)[0][0]
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($db)
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($wi)
+
+    Assert-DataDirectorySafe -DeletedFolders @{ 'the built .msi''s clean-up (RustAppId as read back)' = $appId }
+    if ($appId -ne $packId) { throw "RustAppId is '$appId', not '$packId', in the built .msi." }
+    if ($cleanup -notmatch '\[RustAppId\]') {
+        throw "SetRustCleanupData no longer uses [RustAppId] ('$cleanup'): vpk's clean-up has changed. Re-read src/wix-dll/src/lib.rs for the new vpk and redo 'THE .msi CLEAN-UP BUG' before shipping."
+    }
+    if ($binary.Count -ne 1) { throw "The guard executable is not in the built .msi's Binary table." }
+    $sequence = ($order | Sort-Object { [int]$_[1] } | ForEach-Object { $_[0] }) -join ' > '
+    $expectedOrder = 'InstallValidate > OpenPairingsRefusePerMachine > OpenPairingsRefusePerUser > OpenPairingsProtectData > RemoveExistingProducts'
+    if ($sequence -ne $expectedOrder) { throw "The .msi's execute order is '$sequence', expected '$expectedOrder'." }
+    Write-Host "MSI data safety: RustAppId = $appId; $sequence" -ForegroundColor Cyan
 }
 
 # assets.win.json is vpk's own manifest of what it just built, written

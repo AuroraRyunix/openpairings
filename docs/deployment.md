@@ -600,8 +600,10 @@ tournaments to the new installation.
 
 ## Restoring on a desktop install
 
-A desktop copy writes the same backups, to `backups\` beside its database
-(`%LOCALAPPDATA%\OpenPairings` on Windows), and has no `mix` to restore them
+A desktop copy writes the same backups - to `backups\` beside its database on
+macOS and Linux, and to `%LOCALAPPDATA%\OpenPairingsBackups` on Windows (the
+database is in `%LOCALAPPDATA%\OpenPairingsData`; see `docs/binaries.md`,
+"Windows: where the data lives") - and has no `mix` to restore them
 with. The portable release's own `eval` can - tested in the drill with a
 0.56.0 portable build:
 

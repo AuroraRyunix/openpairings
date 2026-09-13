@@ -16,6 +16,43 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Windows: uninstalling or upgrading OpenPairings could delete every
+  tournament and every local backup. Your data now lives where no installer
+  can reach it, and existing installs are protected on their next start.**
+  Until now the tournaments and backups were in
+  `%LOCALAPPDATA%\OpenPairings`, and two installers could delete that folder
+  whole:
+  - a Setup.exe from **0.53.0-0.53.2**, which installed itself *into* that
+    folder, deleted it on uninstall. These were never offered on the release
+    page, so only a copy built from the source and installed is affected - but
+    that is how one arbiter lost everything;
+  - every **`.msi` from 0.58.1 to 0.61.0** has a clean-up step, from the
+    Velopack installer toolkit, that deletes that folder when the `.msi` is
+    uninstalled, and when a newer `.msi` replaces it. Anyone who installed one
+    of these "just for me" and later uninstalled it, or installed a newer
+    `.msi` over it, may have lost their data; installs "for everyone" most
+    likely were not affected, which is still being confirmed.
+
+  What changes: the data moves to `%LOCALAPPDATA%\OpenPairingsData` and the
+  backups to their own folder, `%LOCALAPPDATA%\OpenPairingsBackups`, so
+  nothing that removes one removes the other. The move is a single rename,
+  done before the database is opened, and it waits if anything is using the
+  files; nothing is deleted. It happens on the first start of this version -
+  or earlier, when this version's `.msi` is installed over an old one, before
+  that old one's clean-up can run. On every start, entries in *Installed
+  apps* whose uninstall would delete your data, duplicates for the same
+  install, and entries for installs that no longer exist are removed from the
+  list (their settings are kept in the registry, and no uninstaller is run).
+  If you have an old OpenPairings still installed, **start this version once
+  before you uninstall anything**. See `docs/binaries.md`, "Windows: where the
+  data lives".
+- [Fix] **Windows: the `.msi` and Setup.exe no longer leave two entries in
+  *Installed apps*.** Installing one over the other now ends with one entry,
+  at the new version, from the first start. The `.msi` refuses, before
+  changing anything, to install a second copy "for everyone" beside one
+  installed "just for me" (and the other way round), and says which choice
+  updates the copy you have. The remaining entry's version is kept current
+  after an in-app update.
 - [Feature] **A team Swiss round's pairing rationale.** Pairing a team Swiss
   round now stores what the team engine reported, and the round's *Pairing
   rationale* page (Audit - Pairing rationale) shows it instead of the
