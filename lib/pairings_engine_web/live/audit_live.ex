@@ -97,7 +97,9 @@ defmodule PairingsEngineWeb.AuditLive do
     {"all", :all},
     {"players", ~w(player.created player.updated player.deleted player.ratings_refreshed
         player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
-        player.bulk_category_set registration.accepted registration.discarded)},
+        player.bulk_category_set registration.accepted registration.discarded
+        team.created team.updated team.deleted team.player_assigned team.player_removed
+        team.board_order_changed team.seeding_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.results_imported pairing.players_swapped pairing.player_substituted
@@ -253,6 +255,52 @@ defmodule PairingsEngineWeb.AuditLive do
         )
     end
   end
+
+  def describe("team.created", d),
+    do: gettext("Added team %{team}.", team: name(d, "team_name"))
+
+  def describe("team.updated", d) do
+    if d["previous_name"] not in [nil, d["team_name"]] do
+      gettext("Renamed team %{previous} to %{team}.",
+        previous: name(d, "previous_name"),
+        team: name(d, "team_name")
+      )
+    else
+      gettext("Updated team %{team}.", team: name(d, "team_name"))
+    end
+  end
+
+  def describe("team.deleted", d),
+    do: gettext("Deleted team %{team}.", team: name(d, "team_name"))
+
+  def describe("team.player_assigned", d),
+    do:
+      gettext("Put %{player} on team %{team}.",
+        player: name(d, "player_name"),
+        team: name(d, "team_name")
+      )
+
+  def describe("team.player_removed", d),
+    do:
+      gettext("Took %{player} off team %{team}.",
+        player: name(d, "player_name"),
+        team: name(d, "team_name")
+      )
+
+  def describe("team.board_order_changed", %{"direction" => "up"} = d),
+    do: gettext("Moved %{player} to a higher board.", player: name(d, "player_name"))
+
+  def describe("team.board_order_changed", d),
+    do: gettext("Moved %{player} to a lower board.", player: name(d, "player_name"))
+
+  def describe("team.seeding_changed", %{"by_rating" => true}),
+    do: gettext("Ordered the teams by rating.")
+
+  def describe("team.seeding_changed", %{"direction" => "up"} = d),
+    do: gettext("Moved team %{team} up the order.", team: name(d, "team_name"))
+
+  def describe("team.seeding_changed", d),
+    do: gettext("Moved team %{team} down the order.", team: name(d, "team_name"))
 
   def describe("player.deleted", d),
     do: gettext("Deleted player %{name}.", name: name(d, "player_name"))

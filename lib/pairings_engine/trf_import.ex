@@ -426,7 +426,8 @@ defmodule PairingsEngine.TrfImport do
       notes =
         import_forbidden_pairings(tournament, data, players_by_rank) ++
           import_future_byes(tournament, data, players_by_rank, paired) ++
-          import_extra_points(tournament, data, players_by_rank)
+          import_extra_points(tournament, data, players_by_rank) ++
+          import_teams(tournament, data, players_by_rank)
 
       {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
 
@@ -1184,6 +1185,41 @@ defmodule PairingsEngine.TrfImport do
       ]
     end
   end
+
+  # The TRF16 team section (`013`): each team becomes a team here, and its
+  # listed starting ranks its roster in that order. Before this nothing read
+  # it, and a team event came back as a field of individuals with no teams.
+  #
+  # The rounds still import as individual games: TRF16 records who played
+  # for whom, not which boards made up which match, so the matches of a team
+  # round robin are not rebuilt. The note says so.
+  defp import_teams(_tournament, %{teams: []}, _players_by_rank), do: []
+
+  defp import_teams(tournament, %{teams: teams}, players_by_rank) do
+    Enum.each(teams, fn team ->
+      {:ok, created} =
+        Tournaments.create_team(tournament, %{"name" => blank_to_default(team.name, "Team")})
+
+      team.player_ranks
+      |> Enum.map(&players_by_rank[&1])
+      |> Enum.reject(&is_nil/1)
+      |> Enum.with_index(1)
+      |> Enum.each(fn {player, board} ->
+        player
+        |> Ecto.Changeset.change(team_id: created.id, board_order: board)
+        |> Repo.update!()
+      end)
+    end)
+
+    [
+      note(
+        "The file's teams and their board orders were imported. Its games were imported as " <>
+          "individual games: a TRF file does not say which boards formed which team match."
+      )
+    ]
+  end
+
+  defp import_teams(_tournament, _data, _players_by_rank), do: []
 
   # `250`/`XXA` virtual points are DATA - the numbers each player was
   # actually given - where `192`'s `_BAKU` suffix is only a declaration.

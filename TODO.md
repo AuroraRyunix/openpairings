@@ -280,16 +280,16 @@ Still open, and each needs a decision rather than typing:
   spine. Detailed in the next section. Q208 came off this list on
   2026-08-29 when ARO was fixed, because it was never only an acceptance
   item.
-- **Team tournaments** - deferred. Ainalrami has the C.04.6 reading written
-  up before any code (`deps/ainalrami/docs/conformance-c0406-teams.md`);
-  OpenPairings has partial scaffolding wired to nothing.
+- **Team Swiss (C.04.6)** - phase 2 of team tournaments. Phase 1, the team
+  round robin, is built (2026-09-13, unreleased; `docs/team-tournaments.md`).
+  Ainalrami already carries a first cut of the C.04.6 engine with
+  brute-force proofs of Article 3.6's head; the plan for the rest - its open
+  reading questions, Article 16 for team tie-breaks, the wiring - is
+  `docs/teams-phase-2-plan.md`.
 
   **No longer blocked on the SPP.** C.04.6 Article 4.3.1 is the same
-  TPN-parity rule as the individual 5.2.5, so team colour allocation was
-  waiting on that question rather than merely being large. The SPP answered
-  on 2026-08-28 (against us) and Ainalrami v0.14.0 conforms, which is what
-  this app pins - so the reading the team work needs is settled. Size is now
-  the only thing in the way.
+  TPN-parity rule as the individual 5.2.5, and the SPP answered it on
+  2026-08-28.
 - **American accelerated pairing** - dropped, maintainer's own call.
 - **Auditing OpenPairings against SWAR's C++ source, file by file** -
   **costed 2026-09-09; all three passes are done, tier A is closed**:
@@ -421,12 +421,15 @@ Still open, and each needs a decision rather than typing:
 - **Three upstream reports written and unsent** - the bbpPairings C2
   report, `docs/finding-gacrux-5-2-4.md`, and now
   `docs/finding-gacrux-5-2-5.md`. The maintainer sends those.
-- **Team tournaments** - the reading is done, the code is not. C.04.6 is not
-  the Dutch engine applied to teams: it has its own C1-C10 criteria, and
-  Article 3.6 defines the answer as the head of a lexicographic order rather
-  than an optimum, so weighted matching does not choose at all. No reference
-  implementation pairs teams - not bbpPairings, JaVaFo, Gacrux or SWAR - so
-  there is nothing to differential-test against.
+- **Team Swiss** - the reading is done and Ainalrami has a first cut; the
+  OpenPairings wiring is not. C.04.6 is not the Dutch engine applied to
+  teams: it has its own C1-C10 criteria, and Article 3.6 defines the answer
+  as the head of a lexicographic order rather than an optimum, so weighted
+  matching does not choose at all. No reference implementation pairs teams -
+  not bbpPairings, JaVaFo, Gacrux or SWAR - so there is nothing to
+  differential-test against. See `docs/teams-phase-2-plan.md`.
+- **Team pages on OpenResults** - team tournaments are refused publishing
+  until the results site can show teams, matches and team standings.
 
 ### OpenResults
 
@@ -697,16 +700,27 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   What both pages do have is the silent live refresh: a broadcast reloads
   the round, so nobody is looking at stale boards. The gap is only that
   nothing SAYS a colleague did it.
-- **Team tournaments** - explicitly deferred by the maintainer as a "future
-  thing." More scaffolding already exists than this note used to claim:
-  `Tournaments.Team` schema, `Player.team_id`/`board_order`, TRF16 team-block
-  read/write (`Trf.team_line/1`/`parse_team_line/3`), and "Swiss (teams)"/
-  "Round robin (teams)" are already selectable as a tournament format. None
-  of it is wired end-to-end though - no team CRUD UI, `Pairing.pair_next_round/1`
-  doesn't branch on team type at all (teams pair as plain individuals today),
-  no team standings/tiebreaks, and the team TRF block is never actually sent
-  to JaVaFo. Still a real, substantial feature gap - just not a from-scratch
-  one.
+- **Team tournaments** - **phase 1 built 2026-09-13** (unreleased):
+  the Teams page, the team round robin (`PairingsEngine.TeamRoundRobin`,
+  Berger tables over teams, board-by-board matches, colours alternating from
+  the first team's White on board 1), match and game points, team standings
+  and tie-breaks (`PairingsEngine.TeamStandings`: MP, GP, DE, BH, SB, EMGSB,
+  BB, with working), board statistics, the TRF16 `013` team section written
+  and read, matches in backups, the team pairing sheet and team standings
+  print. See `docs/team-tournaments.md`.
+
+  Still open:
+  * **Team Swiss** still pairs player by player - phase 2,
+    `docs/teams-phase-2-plan.md`.
+  * **Not published to OpenResults** - refused on purpose until the results
+    site has team pages (additive snapshot fields in OpenResults'
+    `docs/snapshot-schema.md`, plus the pages).
+  * **A TRF import rebuilds teams, not matches** - TRF16 does not record
+    which boards formed which match; a team round robin imported from TRF
+    comes back with its teams and individual games only.
+  * **A board added by hand from the pool** (Pairings page) carries no
+    match and counts for neither team. Arbiters substitute by filling a
+    vacated seat instead, which keeps the match.
 - **American (accelerated pairing) system** - explicitly dropped, not planned
   ("no one cares" - maintainer's own call).
 - **SWAR categories: value1 / value2 are merged on import** - the

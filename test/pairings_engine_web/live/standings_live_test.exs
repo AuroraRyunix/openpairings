@@ -377,14 +377,15 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       conn: conn,
       scope: scope
     } do
-      # The FIDE team-event default set names MP, GP and BB. Team standings
-      # are not built, so `tiebreak/4`'s catch-all answered 0.0 for every
-      # player and the page showed three columns of noughts that separated
-      # nobody and said nothing about why.
+      # The FIDE team-event default set names MP, GP and BB. A team Swiss
+      # still pairs, and so ranks, player by player, and individual
+      # standings cannot calculate a team break: `tiebreak/4`'s catch-all
+      # would answer 0.0 for every player and show a column of noughts that
+      # separated nobody and said nothing about why.
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{
-          "name" => "Team RR",
-          "type" => "team-roundrobin",
+          "name" => "Team Swiss",
+          "type" => "team-swiss",
           "tiebreaks" => ["MP", "BH"]
         })
 
@@ -394,7 +395,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       refute html =~ ~r/>\s*MP\s*</
       assert html =~ "MP is not being used."
-      assert html =~ "needs team standings"
+      assert html =~ "a team tie-break in an individual event"
       # The calculable one beside it is untouched.
       assert html =~ ~r/>\s*BH\s*</
     end

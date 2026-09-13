@@ -820,7 +820,16 @@ defmodule PairingsEngine.Tournaments do
       # paired) reads as needing 5 rounds the moment a 5th, never-scheduled
       # player registers, reporting `rr_cycles` open again although nothing
       # about the 4-player schedule on the board changed.
-      frozen_count = tournament.id |> PairingsEngine.Pairing.full_roster_players() |> length()
+      #
+      # A team round robin's Berger table is over TEAMS, so its schedule size
+      # is the frozen team count (`PairingsEngine.TeamRoundRobin`).
+      frozen_count =
+        if Tournament.team_round_robin?(tournament) do
+          tournament.id |> list_teams() |> Enum.count(&(&1.pairing_number != nil))
+        else
+          tournament.id |> PairingsEngine.Pairing.full_roster_players() |> length()
+        end
+
       rr_implied_limit = RoundRobin.total_rounds(max(frozen_count, 2), 1) * tournament.rr_cycles
 
       # `pairing_engine` belongs here for the same reason `pairing_system`
@@ -833,6 +842,13 @@ defmodule PairingsEngine.Tournaments do
       # rounds that already exist" failure this whole list guards.
       base = ~w(pairing_system pairing_engine rr_match_format swiss_match_format
                 pair_by_category abs_value abs_jusque abs_nbfois)a
+
+      # A team event's match size is how its boards are numbered and how
+      # `TeamStandings` tells the two teams' seats apart, so it freezes with
+      # the first round like the pairing shape does. Only for team events:
+      # the field is inert everywhere else, and an individual tournament's
+      # list stays exactly what it was.
+      base = if Tournament.team?(tournament), do: base ++ [:team_boards], else: base
 
       if paired >= rr_implied_limit, do: [:rr_cycles | base], else: base
     end
@@ -1010,7 +1026,8 @@ defmodule PairingsEngine.Tournaments do
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()} | {:error, atom()}
   def set_publish_to_openresults(%Tournament{} = tournament, enabled?)
       when is_boolean(enabled?) do
-    with :ok <- ensure_writable(tournament) do
+    with :ok <- ensure_writable(tournament),
+         :ok <- ensure_publishable(tournament, enabled?) do
       tournament
       |> Ecto.Changeset.change(publish_to_openresults: enabled?)
       |> Repo.update()
@@ -1020,6 +1037,15 @@ defmodule PairingsEngine.Tournaments do
       end)
     end
   end
+
+  # Team tournaments do not publish yet - `PairingsEngine.Publishing.team_refusal/0`
+  # says why. Turning publishing OFF is always allowed, so a team tournament
+  # that was switched on before this refusal existed can still be switched off.
+  defp ensure_publishable(%Tournament{} = tournament, true) do
+    if Tournament.team?(tournament), do: {:error, :team_tournament}, else: :ok
+  end
+
+  defp ensure_publishable(_tournament, false), do: :ok
 
   @doc """
   Opens or closes public self-registration.
@@ -2658,9 +2684,296 @@ defmodule PairingsEngine.Tournaments do
   end
 
   ## Teams
+  ##
+  ## Team tournaments (docs/team-tournaments.md). A team's roster is the
+  ## players carrying its `team_id`, in `board_order`; `seed` is the arbiter's
+  ## order of the teams until round 1 freezes it into `pairing_number`.
 
+  @doc """
+  The tournament's teams, in draw order: by frozen `pairing_number` once the
+  schedule exists, by `seed` before that, and by name as the last word. The
+  ordering is done here rather than in SQL so a NULL seed or number sorts
+  last on every SQLite version.
+  """
   def list_teams(tournament_id) do
-    Repo.all(from t in Team, where: t.tournament_id == ^tournament_id, order_by: t.name)
+    from(t in Team, where: t.tournament_id == ^tournament_id)
+    |> Repo.all()
+    |> Enum.sort_by(&{nil_last(&1.pairing_number), nil_last(&1.seed), &1.name, &1.id})
+  end
+
+  defp nil_last(nil), do: {1, 0}
+  defp nil_last(n), do: {0, n}
+
+  @doc """
+  Fetches a team within `tournament_id`, or nil - tolerant of a non-integer id
+  from an event payload, like `get_player/2`.
+  """
+  def get_team(tournament_id, id) do
+    case normalize_id(id) do
+      nil -> nil
+      int_id -> Repo.get_by(Team, id: int_id, tournament_id: tournament_id)
+    end
+  end
+
+  @doc """
+  A team's roster in board order: `board_order` ascending (unset last), then
+  rating, then name - the order boards are filled in when a match is paired.
+  """
+  def team_roster(tournament_id, team_id) do
+    from(p in Player, where: p.tournament_id == ^tournament_id and p.team_id == ^team_id)
+    |> Repo.all()
+    |> sort_roster()
+  end
+
+  @doc "Sorts players into board order; see `team_roster/2`."
+  def sort_roster(players) do
+    Enum.sort_by(players, &{nil_last(&1.board_order), -Player.rating(&1), &1.name, &1.id})
+  end
+
+  @doc """
+  Creates a team at the end of the seeding order.
+  """
+  def create_team(%Tournament{} = tournament, attrs) do
+    with :ok <- ensure_writable(tournament.id) do
+      next_seed =
+        (Repo.one(from t in Team, where: t.tournament_id == ^tournament.id, select: max(t.seed)) ||
+           0) + 1
+
+      %Team{tournament_id: tournament.id, seed: next_seed}
+      |> Team.changeset(attrs)
+      |> Repo.insert()
+      |> tap_ok(fn _ -> broadcast_tournament_change(tournament.id, :players) end)
+    end
+  end
+
+  @doc "Renames a team or changes its short name or captain."
+  def update_team(%Team{} = team, attrs) do
+    with :ok <- ensure_writable(team.tournament_id) do
+      team
+      |> Team.changeset(attrs)
+      |> Repo.update()
+      |> tap_ok(fn _ -> broadcast_tournament_change(team.tournament_id, :players) end)
+    end
+  end
+
+  @doc """
+  Deletes a team; its players stay in the tournament without a team.
+
+  Refused with `{:error, :team_scheduled}` once the team has a pairing
+  number: its matches are on the board, and deleting it would leave them
+  pointing at nobody. Unpair the rounds first.
+  """
+  def delete_team(%Team{} = team) do
+    cond do
+      refusal = write_refused(team.tournament_id) ->
+        refusal
+
+      not is_nil(team.pairing_number) ->
+        {:error, :team_scheduled}
+
+      true ->
+        Repo.transaction(fn ->
+          from(p in Player, where: p.team_id == ^team.id)
+          |> Repo.update_all(set: [team_id: nil, board_order: nil])
+
+          Repo.delete!(team)
+        end)
+        |> tap_ok(fn _ -> broadcast_tournament_change(team.tournament_id, :players) end)
+    end
+  end
+
+  @doc """
+  Puts `player` on `team` (a `%Team{}`, or nil to take them off their team),
+  at the bottom of the new roster. The old roster closes the gap, so board
+  order stays 1..n on both.
+  """
+  def set_player_team(%Tournament{} = tournament, %Player{} = player, team) do
+    new_team_id = team && team.id
+
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      player.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      team && team.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      player.team_id == new_team_id ->
+        {:ok, player}
+
+      true ->
+        result =
+          Repo.transaction(fn ->
+            board_order =
+              if new_team_id, do: length(team_roster(tournament.id, new_team_id)) + 1
+
+            updated =
+              player
+              |> Ecto.Changeset.change(team_id: new_team_id, board_order: board_order)
+              |> Repo.update!()
+
+            if player.team_id, do: renumber_roster(tournament.id, player.team_id)
+            updated
+          end)
+
+        tap_ok(result, fn _ -> broadcast_tournament_change(tournament.id, :players) end)
+    end
+  end
+
+  @doc """
+  Moves a player one board up (`:up`, towards board 1) or down in their
+  team's order. A no-op at either end. The roster is renumbered 1..n on the
+  way, so a roster with gaps or unset orders comes out tidy.
+  """
+  def move_player_board(%Tournament{} = tournament, %Player{} = player, direction)
+      when direction in [:up, :down] do
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      is_nil(player.team_id) or player.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      true ->
+        roster = team_roster(tournament.id, player.team_id)
+        index = Enum.find_index(roster, &(&1.id == player.id))
+        target = if direction == :up, do: index - 1, else: index + 1
+
+        if index == nil or target < 0 or target >= length(roster) do
+          {:ok, player}
+        else
+          reordered =
+            roster
+            |> List.replace_at(index, Enum.at(roster, target))
+            |> List.replace_at(target, Enum.at(roster, index))
+
+          Repo.transaction(fn -> write_board_orders(reordered) end)
+          |> tap_ok(fn _ -> broadcast_tournament_change(tournament.id, :players) end)
+        end
+    end
+  end
+
+  defp renumber_roster(tournament_id, team_id),
+    do: tournament_id |> team_roster(team_id) |> write_board_orders()
+
+  defp write_board_orders(roster) do
+    roster
+    |> Enum.with_index(1)
+    |> Enum.each(fn {p, n} ->
+      if p.board_order != n do
+        p |> Ecto.Changeset.change(board_order: n) |> Repo.update!()
+      end
+    end)
+
+    :ok
+  end
+
+  @doc """
+  Moves a team one place up or down the seeding order. Refused with
+  `{:error, :teams_frozen}` once round 1 has been paired: the order has
+  become the teams' pairing numbers, and the Berger table was built from it.
+  """
+  def move_team(%Tournament{} = tournament, %Team{} = team, direction)
+      when direction in [:up, :down] do
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      team.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      teams_frozen?(tournament.id) ->
+        {:error, :teams_frozen}
+
+      true ->
+        teams = list_teams(tournament.id)
+        index = Enum.find_index(teams, &(&1.id == team.id))
+        target = if direction == :up, do: index - 1, else: index + 1
+
+        if index == nil or target < 0 or target >= length(teams) do
+          {:ok, team}
+        else
+          teams
+          |> List.replace_at(index, Enum.at(teams, target))
+          |> List.replace_at(target, Enum.at(teams, index))
+          |> write_seeds(tournament.id)
+        end
+    end
+  end
+
+  @doc """
+  Re-seeds every team by strength: the average rating of the players who
+  would sit on its `team_boards` boards, highest first, name breaking a tie.
+  An unrated player counts as 0, so a team missing ratings sorts lower rather
+  than being averaged over fewer boards. Same refusal as `move_team/3`.
+
+  C.04.6 Art. 1.1.2 leaves the initial order of teams to the competition's
+  rules or the Chief Arbiter, so this is an offer, never applied on its own.
+  """
+  def seed_teams_by_rating(%Tournament{} = tournament) do
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      teams_frozen?(tournament.id) ->
+        {:error, :teams_frozen}
+
+      true ->
+        tournament.id
+        |> list_teams()
+        |> Enum.sort_by(&{-team_rating(tournament, &1), &1.name, &1.id})
+        |> write_seeds(tournament.id)
+    end
+  end
+
+  @doc """
+  The team's strength for seeding: the mean rating over its first
+  `team_boards` roster places, a missing board counting as 0. A float.
+  """
+  def team_rating(%Tournament{} = tournament, %Team{} = team) do
+    boards = max(tournament.team_boards || 1, 1)
+
+    tournament.id
+    |> team_roster(team.id)
+    |> Enum.take(boards)
+    |> Enum.map(&Player.rating/1)
+    |> Enum.sum()
+    |> Kernel./(boards)
+  end
+
+  defp write_seeds(ordered, tournament_id) do
+    Repo.transaction(fn ->
+      ordered
+      |> Enum.with_index(1)
+      |> Enum.each(fn {t, n} ->
+        if t.seed != n, do: t |> Ecto.Changeset.change(seed: n) |> Repo.update!()
+      end)
+
+      :ok
+    end)
+    |> tap_ok(fn _ -> broadcast_tournament_change(tournament_id, :players) end)
+  end
+
+  @doc "Whether the teams' pairing numbers have been frozen by the first pairing."
+  def teams_frozen?(tournament_id) do
+    Repo.exists?(
+      from t in Team,
+        where: t.tournament_id == ^tournament_id and not is_nil(t.pairing_number)
+    )
+  end
+
+  @doc """
+  The matches of a round, team_a/team_b preloaded, in match order.
+  """
+  def list_matches(round_id) do
+    Repo.all(
+      from m in PairingsEngine.Tournaments.Match,
+        where: m.round_id == ^round_id,
+        order_by: m.board,
+        preload: [:team_a, :team_b]
+    )
   end
 
   ## Forbidden pairings (arbiter-configured "never pair these two" - see

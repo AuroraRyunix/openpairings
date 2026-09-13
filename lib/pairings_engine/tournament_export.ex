@@ -90,6 +90,7 @@ defmodule PairingsEngine.TournamentExport do
     fide_tournament_id fide_homologated fide_id_ranges officials
     pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category
+    team_boards team_match_points_win team_match_points_draw team_match_points_loss
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
     count_extra_points extra_points_bands
@@ -207,9 +208,14 @@ defmodule PairingsEngine.TournamentExport do
   @doc false
   def excluded_tournament_fields, do: @excluded_tournament_fields
 
-  @team_fields ~w(name captain)a
+  @team_fields ~w(name captain short_name seed pairing_number)a
 
-  # A team's whole content is its name and its captain. `id` is carried
+  # A team's content: its names, its captain, where it stands in the seeding
+  # order and, once the draw is frozen, its pairing number - the last two
+  # matter as much as a player's `pairing_number` does, because a team round
+  # robin's matches were built from them. `seed` and `pairing_number` are not
+  # cast by `Team.changeset/2`, so `import_teams!/2` carries them explicitly.
+  # `id` is carried
   # outside the field list (`team_map/1` merges it in, because
   # `import_teams!/3` needs it to re-attach players to the right team), and
   # `tournament_id` is implied by the envelope's nesting - the same two
@@ -278,10 +284,7 @@ defmodule PairingsEngine.TournamentExport do
     # Same as the round's: the id is not needed (nothing references a
     # pairing) and `round_id` is implied by the nesting.
     :id,
-    :round_id,
-    # A foreign key into the unexported `matches` table - see
-    # `pairing_map/1`.
-    :match_id
+    :round_id
   ]
 
   # ---------- the audit trail (hand-off only) ----------
@@ -409,15 +412,11 @@ defmodule PairingsEngine.TournamentExport do
   #     Entries are collected by a form on a server the importer does not
   #     necessarily reach, and queued publishes are in-flight work for that
   #     same server - neither is content of the event.
-  #   matches
-  #     Team-tournament scaffolding that nothing currently writes; see
-  #     `pairing_map/1`'s note on `match_id` and TODO.md.
   @excluded_tables [
     :mobile_enrollments,
     :tournament_snapshots,
     :openresults_registrations,
-    :publish_queue,
-    :matches
+    :publish_queue
   ]
 
   @doc false
@@ -550,18 +549,27 @@ defmodule PairingsEngine.TournamentExport do
   defp round_map(round) do
     round
     |> struct_fields(@round_fields)
-    |> Map.merge(%{"id" => round.id, "pairings" => Enum.map(round.pairings, &pairing_map/1)})
+    |> Map.merge(%{
+      "id" => round.id,
+      "pairings" => Enum.map(round.pairings, &pairing_map/1),
+      "matches" => Enum.map(round.matches, &match_map/1)
+    })
   end
 
-  # `pairings.match_id` is deliberately NOT exported. The Pairing schema
-  # declares it as a plain `field :match_id, :integer`, but the migration
-  # makes it a real foreign key into the `matches` table - team-tournament
-  # scaffolding that is not exported (and that nothing currently writes;
-  # see TODO.md's team-tournaments entry). Carrying the raw integer across
-  # would point the imported pairing at another tournament's match row, or
-  # at nothing. Revisit together with team-tournament export.
+  # A team match: which two teams, and its number in the round. `id` travels
+  # so the round's pairings can name it (`"match_id"` below) and the import
+  # can re-attach them to the new row, the same way players' ids do for
+  # `white_player_id`. The team ids are remapped through the import's team
+  # map. Empty for every individual tournament.
+  defp match_map(m) do
+    %{"id" => m.id, "board" => m.board, "team_a_id" => m.team_a_id, "team_b_id" => m.team_b_id}
+  end
+
+  # `match_id` names a match in the same round's `"matches"` list, by the id
+  # that list carries; the import remaps it. nil for every individual board.
   defp pairing_map(p) do
     %{
+      "match_id" => p.match_id,
       "board" => p.board,
       "result" => p.result,
       # The per-pairing hide, which an arbiter sets to keep one board off
@@ -640,7 +648,10 @@ defmodule PairingsEngine.TournamentExport do
       from r in Round,
         where: r.tournament_id == ^tournament_id,
         order_by: r.number,
-        preload: [:pairings]
+        preload: [
+          :pairings,
+          matches: ^from(m in PairingsEngine.Tournaments.Match, order_by: m.board)
+        ]
     )
   end
 

@@ -106,6 +106,14 @@ defmodule PairingsEngineWeb.Layouts do
             {gettext("Players")}
           </.link>
           <.link
+            :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)}
+            navigate={~p"/t/#{@tournament.id}/teams"}
+            class={tab_class(@active == "teams")}
+            aria-current={@active == "teams" && "page"}
+          >
+            {gettext("Teams")}
+          </.link>
+          <.link
             navigate={~p"/t/#{@tournament.id}/pairings"}
             class={tab_class(@active == "pairings")}
             aria-current={@active == "pairings" && "page"}

@@ -4,7 +4,7 @@ defmodule PairingsEngine.Standings do
   in force from 1 March 2026).
 
   Individual tiebreaks implemented: BH, BHC1, BHC2, MBH, SB, DE, WIN, WON,
-  BPG, PS, KS, ARO, AROC1. Team tiebreaks (MP/GP/BB) arrive with team events.
+  BPG, PS, KS, ARO, AROC1. Team tiebreaks live in `PairingsEngine.TeamStandings`.
 
   Unplayed rounds follow Article 16: an opponent's score is adjusted (trailing
   voluntarily-unplayed rounds count as draws), and the participant's own
@@ -109,11 +109,11 @@ defmodule PairingsEngine.Standings do
   @doc """
   The same list as `dropped_tiebreaks/2`, paired with why each one went:
 
-    * `:not_calculable` - nothing here can compute it. The three team-only
-      breaks (MP, GP, BB) are in the catalogue and in FIDE's own team-event
-      default set, but team standings are not built, so `tiebreak/4`'s
-      catch-all answered 0.0 for every player. A permanent tie at zero is
-      not a tiebreak, and silence about it is worse than the missing column.
+    * `:not_calculable` - individual standings cannot compute it. The
+      team-only breaks (MP, GP, EMGSB, BB) belong to
+      `PairingsEngine.TeamStandings`; here `tiebreak/4`'s catch-all would
+      answer 0.0 for every player. A permanent tie at zero is not a
+      tiebreak, and silence about it is worse than the missing column.
     * `:unrated_present` - C.07 Article 10 forbids a rating-based break when
       an unrated player is in the field. See `effective_tiebreaks/2`.
 
@@ -127,7 +127,7 @@ defmodule PairingsEngine.Standings do
   def dropped_tiebreaks_with_reasons(tournament, players) do
     configured = tournament.tiebreaks || []
 
-    not_calculable = Enum.reject(configured, &Tiebreaks.available?/1)
+    not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
     unrated =
       if unrated_present?(players) do

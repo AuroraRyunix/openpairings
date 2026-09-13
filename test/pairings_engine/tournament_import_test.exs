@@ -770,7 +770,7 @@ defmodule PairingsEngine.TournamentImportTest do
       assert %Round{published_at: ^published} = Tournaments.get_round(imported.id, 1)
     end
 
-    test "the match-format flag round-trips, and match_id is deliberately left behind" do
+    test "the match-format flag round-trips, and an individual board carries no match" do
       owner = user_scope()
       importer = user_scope()
 
@@ -796,18 +796,16 @@ defmodule PairingsEngine.TournamentImportTest do
 
       envelope = TournamentExport.export_tournament(original)
 
-      # `pairings.match_id` looks like a plain integer on the schema but is a
-      # real FK into the unexported `matches` table (team scaffolding), so
-      # exporting it would produce a dangling cross-tournament reference.
-      exported_pairing =
-        envelope
-        |> get_in(["tournaments", Access.at(0), "rounds", Access.at(0), "pairings", Access.at(0)])
-
-      refute Map.has_key?(exported_pairing, "match_id")
+      # `match_id` travels since team matches do (it names a match in the same
+      # round's `"matches"` list and is remapped on import); an individual
+      # board has none, and must come back with none.
+      exported_round = get_in(envelope, ["tournaments", Access.at(0), "rounds", Access.at(0)])
+      assert exported_round["matches"] == []
+      assert hd(exported_round["pairings"])["match_id"] == nil
 
       assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
       assert Repo.reload!(imported).swiss_match_format
-      assert %Round{pairings: [_]} = Tournaments.get_round(imported.id, 1)
+      assert %Round{pairings: [%{match_id: nil}]} = Tournaments.get_round(imported.id, 1)
     end
 
     test "a hand-edited backup can't smuggle junk into the uncast fields" do

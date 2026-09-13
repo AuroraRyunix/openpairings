@@ -27,6 +27,12 @@ defmodule PairingsEngineWeb.PrintController do
       404s if round `n` hasn't been paired. Also accepts `?limit=L` (test
       print - only the first `L` cards) and `?order=stack` (stack-cut
       imposition - see `stack_cut_cards/3`), independently or combined.
+    * `GET /t/:id/print/team-pairings?round=n` - a team round robin's
+      pairing sheet for round `n`: one block per match, team against team,
+      with its board lines. Defaults to round 1; 404s if that round is not
+      paired or the tournament has no team matches.
+    * `GET /t/:id/print/team-standings?round=n` - team standings (match
+      points and the team tie-breaks) after round `n`, or current.
     * `GET /t/:id/print/crosstable` - for Swiss and Keizer tournaments, the
       full Swiss cross table: one row per player (current standings order),
       one column per played round. For round-robin tournaments, instead the
@@ -37,7 +43,16 @@ defmodule PairingsEngineWeb.PrintController do
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{Tournaments, Categories, Keizer, PairingDisplay, PlayerCard, Standings}
+  alias PairingsEngine.{
+    Tournaments,
+    Categories,
+    Keizer,
+    PairingDisplay,
+    PlayerCard,
+    Standings,
+    TeamStandings
+  }
+
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
   import Phoenix.HTML, only: [html_escape: 1, safe_to_string: 1]
@@ -1059,6 +1074,151 @@ defmodule PairingsEngineWeb.PrintController do
   # only reading that is the same from one printout to the next.
   defp categories_text(tournament, player),
     do: tournament |> Categories.listed_categories(player) |> Enum.join(", ")
+
+  @doc """
+  GET /t/:id/print/team-pairings?round=N - the team pairing sheet: one table
+  per match, headed "Team A - Team B" with the match score once results are
+  in, and a line per board with both players, the board's colours and its
+  result. Board numbers are the round's own (the same the Pairings page and
+  result slips use), so a sheet on the wall and a slip on the table agree.
+  """
+  def team_pairings(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    number = parse_round(params["round"]) || 1
+    round = Tournaments.get_round(tournament.id, number)
+
+    matches =
+      if round,
+        do:
+          tournament
+          |> TeamStandings.matches(through_round: number)
+          |> Enum.filter(&(&1.round == number)),
+        else: []
+
+    if round == nil or matches == [] do
+      send_resp(conn, 404, gettext("Round %{n} has no team matches", n: number))
+    else
+      teams = tournament.id |> Tournaments.list_teams() |> Map.new(&{&1.id, &1})
+      pairings = Map.new(round.pairings, &{&1.id, &1})
+
+      body =
+        tournament_info_html(tournament) <>
+          Enum.map_join(matches, "", &team_match_table(&1, teams, pairings))
+
+      print_page(
+        conn,
+        tournament,
+        tournament.name,
+        gettext("Team pairings - round %{n}", n: number),
+        body
+      )
+    end
+  end
+
+  defp team_match_table(%{bye?: true} = m, teams, _pairings) do
+    "<p class=\"sub\" style=\"margin-top:18px\"><strong>#{esc(team_print_name(teams, m.team_a_id))}</strong> - " <>
+      "#{gettext("does not play this round")}</p>"
+  end
+
+  defp team_match_table(m, teams, pairings) do
+    score =
+      if Enum.any?(m.boards, &(&1.pairing.result != "")),
+        do: " (#{format_num(m.gp_a)} - #{format_num(m.gp_b)})",
+        else: ""
+
+    heading =
+      gettext("Match %{n}", n: m.number) <>
+        ": " <>
+        esc(team_print_name(teams, m.team_a_id)) <>
+        " - " <> esc(team_print_name(teams, m.team_b_id)) <> score
+
+    rows =
+      Enum.map_join(m.boards, "", fn b ->
+        p = Map.fetch!(pairings, b.pairing.id)
+
+        {a_player, b_player} =
+          if b.a_player_id == p.white_player_id,
+            do: {p.white_player, p.black_player},
+            else: {p.black_player, p.white_player}
+
+        a_colour =
+          if b.a_player_id == p.white_player_id, do: gettext("White"), else: gettext("Black")
+
+        "<tr><td class=\"num\">#{p.board}</td>" <>
+          "<td>#{esc(a_colour)}</td>" <>
+          "<td><strong>#{esc(team_seat_name(a_player))}</strong></td>" <>
+          "<td class=\"num\">#{a_player && blank_zero(player_rating(a_player))}</td>" <>
+          "<td style=\"text-align:center\">#{esc(display_result(p.result))}</td>" <>
+          "<td><strong>#{esc(team_seat_name(b_player))}</strong></td>" <>
+          "<td class=\"num\">#{b_player && blank_zero(player_rating(b_player))}</td></tr>"
+      end)
+
+    "<h2 style=\"font-size:15px;margin:18px 0 6px\">#{heading}</h2>" <>
+      "<table><thead><tr><th class=\"num\">#{gettext("Board")}</th>" <>
+      "<th>#{gettext("Colour")}</th>" <>
+      "<th>#{esc(team_print_name(teams, m.team_a_id))}</th><th class=\"num\">Elo</th>" <>
+      "<th style=\"text-align:center\">#{gettext("Result")}</th>" <>
+      "<th>#{esc(team_print_name(teams, m.team_b_id))}</th><th class=\"num\">Elo</th></tr></thead>" <>
+      "<tbody>#{rows}</tbody></table>"
+  end
+
+  defp team_print_name(teams, id) do
+    case Map.get(teams, id) do
+      nil -> "-"
+      team -> team.name
+    end
+  end
+
+  defp team_seat_name(nil), do: gettext("- no player -")
+  defp team_seat_name(player), do: player.name
+
+  @doc """
+  GET /t/:id/print/team-standings?round=N - team standings as they stood
+  after round `N` (current when omitted): rank, team, matches played,
+  won-drawn-lost, match points and the tournament's team tie-breaks, in the
+  configured order. Same numbers as the Standings page, from
+  `PairingsEngine.TeamStandings`.
+  """
+  def team_standings(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    requested = parse_round(params["round"])
+
+    if requested != nil and Tournaments.get_round(tournament.id, requested) == nil do
+      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested))
+    else
+      opts = if requested, do: [through_round: requested], else: []
+      entries = TeamStandings.standings(tournament, opts)
+      codes = tournament |> TeamStandings.effective_tiebreaks() |> Enum.reject(&(&1 == "MP"))
+
+      head =
+        "<th class=\"num\">#{gettext("Rank")}</th><th>#{gettext("Team")}</th>" <>
+          "<th class=\"num\">#{gettext("Played")}</th><th class=\"num\">#{gettext("W-D-L")}</th>" <>
+          "<th class=\"num\">MP</th>" <>
+          Enum.map_join(codes, "", &"<th class=\"num\">#{esc(&1)}</th>")
+
+      rows =
+        Enum.map_join(entries, "", fn e ->
+          "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.team.name)}</strong></td>" <>
+            "<td class=\"num\">#{e.played}</td>" <>
+            "<td class=\"num\">#{e.won}-#{e.drawn}-#{e.lost}</td>" <>
+            "<td class=\"num\"><strong>#{format_num(e.mp)}</strong></td>" <>
+            Enum.map_join(codes, "", fn code ->
+              "<td class=\"num\">#{format_num(Map.get(e.tiebreaks, code, 0.0))}</td>"
+            end) <> "</tr>"
+        end)
+
+      label = requested || PairingsEngine.Standings.rounds_paired(tournament.id)
+
+      print_page(
+        conn,
+        tournament,
+        tournament.name,
+        gettext("Team standings after round %{n}", n: label),
+        tournament_info_html(tournament) <>
+          "<table><thead><tr>#{head}</tr></thead><tbody>#{rows}</tbody></table>"
+      )
+    end
+  end
 
   def result_cards(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)

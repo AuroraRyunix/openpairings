@@ -174,7 +174,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         missing_setup: missing_setup,
         recommended_missing: Tournament.missing_recommended_fields(t),
         can_pair:
-          setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
+          setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
+        team_matches: team_matches(t, round),
+        teams_by_id: teams_by_id(t)
       )
 
     if Keyword.get(opts, :keep_gesture, false) do
@@ -188,6 +190,44 @@ defmodule PairingsEngineWeb.PairingsLive do
       assign(socket, menu: nil, swap_first: nil, pool_first: nil, seat_pick: nil, confirm: nil)
     end
   end
+
+  # A team round robin's matches for the round on screen - the summary card
+  # above the board list. Empty for every other tournament, so nothing about
+  # an individual event's page changes.
+  defp team_matches(t, round) do
+    if round && Tournament.team_round_robin?(t) do
+      t
+      |> PairingsEngine.TeamStandings.matches(through_round: round.number)
+      |> Enum.filter(&(&1.round == round.number))
+    else
+      []
+    end
+  end
+
+  defp teams_by_id(t) do
+    if Tournament.team?(t),
+      do: t.id |> Tournaments.list_teams() |> Map.new(&{&1.id, &1}),
+      else: %{}
+  end
+
+  defp match_team_name(teams_by_id, id) do
+    case Map.get(teams_by_id, id) do
+      nil -> "-"
+      team -> team.name
+    end
+  end
+
+  defp match_board_range([]), do: "-"
+
+  defp match_board_range(boards) do
+    numbers = Enum.map(boards, & &1.pairing.board)
+    "#{Enum.min(numbers)}-#{Enum.max(numbers)}"
+  end
+
+  defp format_match_score(n) when is_float(n),
+    do: if(n == Float.round(n, 0), do: trunc(n), else: n)
+
+  defp format_match_score(n), do: n
 
   @impl true
   def handle_event("select_round", %{"number" => number}, socket) do
@@ -2662,6 +2702,42 @@ defmodule PairingsEngineWeb.PairingsLive do
             </button>
           </footer>
         </div>
+      </div>
+
+      <div :if={@team_matches != []} id="team-matches" class="card table-card">
+        <table class="pe-table">
+          <caption>{gettext("Matches - round %{n}", n: @round_number)}</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="num">{gettext("Match")}</th>
+              <th scope="col" class="num">{gettext("Boards")}</th>
+              <th scope="col">{gettext("Team (White on board 1)")}</th>
+              <th scope="col" class="num">{gettext("Game points")}</th>
+              <th scope="col">{gettext("Team")}</th>
+              <th scope="col" class="num">{gettext("Match points")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={m <- @team_matches}>
+              <td class="num">{m.number}</td>
+              <td class="num">{match_board_range(m.boards)}</td>
+              <td><strong>{match_team_name(@teams_by_id, m.team_a_id)}</strong></td>
+              <td :if={m.bye?} class="num">-</td>
+              <td :if={!m.bye?} class="num">
+                {format_match_score(m.gp_a)} - {format_match_score(m.gp_b)}
+              </td>
+              <td :if={m.bye?}><em>{gettext("does not play this round")}</em></td>
+              <td :if={!m.bye?}><strong>{match_team_name(@teams_by_id, m.team_b_id)}</strong></td>
+              <td :if={m.bye?} class="num">-</td>
+              <td :if={!m.bye? and m.complete?} class="num">
+                {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
+              </td>
+              <td :if={!m.bye? and !m.complete?} class="num">
+                <span class="hint">{gettext("in progress")}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="card table-card">

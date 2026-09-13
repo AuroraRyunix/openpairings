@@ -79,6 +79,7 @@ defmodule PairingsEngineWeb.Router do
       ] do
       live "/", TournamentsLive
       live "/t/:id/players", PlayersLive
+      live "/t/:id/teams", TeamsLive
       live "/t/:id/registrations", RegistrationsLive
       live "/t/:id/pairings", PairingsLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
@@ -113,6 +114,8 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/print/results", PrintController, :result_cards
     get "/t/:id/print/scoresheets", PrintController, :score_sheets
     get "/t/:id/print/crosstable", PrintController, :crosstable
+    get "/t/:id/print/team-pairings", PrintController, :team_pairings
+    get "/t/:id/print/team-standings", PrintController, :team_standings
 
     get "/t/:id/norms/it3", NormsController, :it3
     get "/t/:id/norms/fa1", NormsController, :fa1

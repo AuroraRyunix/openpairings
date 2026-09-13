@@ -46,6 +46,9 @@ defmodule PairingsEngine.Tournaments.Round do
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     has_many :pairings, PairingsEngine.Tournaments.Pairing
+    # A team round's matches (`PairingsEngine.TeamRoundRobin`); none for an
+    # individual round.
+    has_many :matches, PairingsEngine.Tournaments.Match
   end
 
   def changeset(round, attrs) do

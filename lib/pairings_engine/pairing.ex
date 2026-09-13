@@ -259,6 +259,20 @@ defmodule PairingsEngine.Pairing do
               where: b.tournament_id == ^tournament_id and b.round in ^numbers
           )
 
+          # A team event's draw order is only frozen while a round exists.
+          # Unpairing the last one gives the teams back to the Teams page, so
+          # a team can still be added, removed or re-seeded before the event
+          # starts again. Players' own numbers are left alone, exactly as an
+          # individual round robin leaves them.
+          unless Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id) do
+            Repo.update_all(
+              from(t in PairingsEngine.Tournaments.Team,
+                where: t.tournament_id == ^tournament_id
+              ),
+              set: [pairing_number: nil]
+            )
+          end
+
           :ok
         end)
 

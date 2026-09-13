@@ -182,9 +182,11 @@ player (a pairing's `white_player_id`, a bye's `player_id`, ...). The owning
 user is never included: who exported a tournament has no bearing on who can
 import it.
 
-`matches` (team-match boards) isn't included: nothing in the app writes to
-that table yet (team tournaments don't have a matches UI), so there's
-nothing to round-trip there today.
+A team tournament's matches travel too: each round carries a `"matches"`
+list (`id`, match number, the two team ids) and each pairing a `"match_id"`
+naming one of them, both remapped on import like player ids. Teams carry
+their seeding order and frozen pairing number. See
+[`team-tournaments.md`](team-tournaments.md).
 
 ### What does not travel
 

@@ -233,7 +233,8 @@ defmodule PairingsEngine.TrfExport do
             Pairing.forbidden_pairs(tournament.id, players) ++
               Pairing.exclusion_pairs(tournament, players)
         },
-        players: trf_players
+        players: trf_players,
+        teams: team_records(tournament, players, trf_players)
       },
       # `:trf26` for the file an arbiter uploads; `:engine` on request, for
       # a pairing program that reads the older `XX*`/`BB*` spelling.
@@ -244,6 +245,37 @@ defmodule PairingsEngine.TrfExport do
       # `Trf.serialize/2`'s `:ascii` option.
       ascii: true
     )
+  end
+
+  # The TRF16 team section: one `013` record per team, its name and the
+  # starting ranks of its players in board order - which, in this app, are
+  # their pairing numbers, the same values every game's opponent column
+  # carries. Only players the file actually contains are listed, so a record
+  # never names a rank with no `001` line behind it.
+  #
+  # Empty for an individual tournament, so its file is byte-for-byte what it
+  # was: the `082` header was already written as 0, and no `013` line appears.
+  # The individual games stay on the `001` lines exactly as before; the team
+  # section only says who played for whom.
+  defp team_records(tournament, players, trf_players) do
+    if PairingsEngine.Tournaments.Tournament.team?(tournament) do
+      exported = MapSet.new(trf_players, & &1.rank)
+
+      tournament.id
+      |> Tournaments.list_teams()
+      |> Enum.map(fn team ->
+        ranks =
+          players
+          |> Enum.filter(&(&1.team_id == team.id))
+          |> Tournaments.sort_roster()
+          |> Enum.map(& &1.pairing_number)
+          |> Enum.filter(&MapSet.member?(exported, &1))
+
+        %{name: team.name, player_ranks: ranks}
+      end)
+    else
+      []
+    end
   end
 
   # `PairingsEngine.Build` is the one place that knows. This used to mirror

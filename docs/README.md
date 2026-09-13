@@ -32,6 +32,10 @@ everything the app does and what is planned next.
 
 ## Feature guides
 
+- [Team tournaments](team-tournaments.md) - teams, board order, the team
+  round robin, match and game points, team tie-breaks, board statistics, the
+  TRF team section, and why team events are not published yet. Team Swiss is
+  [phase 2](teams-phase-2-plan.md).
 - [Pairing systems](pairing-systems.md) - Swiss (FIDE Dutch, on Ainalrami
   by default or JaVaFo by choice), round robin (Berger tables,
   single/double), and the Keizer system (ladder
