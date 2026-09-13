@@ -488,6 +488,14 @@ defmodule PairingsEngine.Norms.FormsTest do
       refute Map.has_key?(fills, "C12")
     end
 
+    test "a candidate's name follows the FIDE house style too: SURNAME, Given" do
+      # "Norm Candidate" above has no comma, so it reads the same either way.
+      candidate = player(%{name: "Burssens, Jorian", norm_data: %{"title_claimed" => "IM"}})
+      fills = Forms.it4_fills(tournament(), [entry(candidate)])["IT 4"]
+
+      assert fills["C11"] == "BURSSENS, Jorian"
+    end
+
     test "caps candidates at 40 rows" do
       candidates =
         for i <- 1..45 do

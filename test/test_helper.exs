@@ -82,13 +82,23 @@ bbppairings_present? = PairingsEngine.Test.BbpPairings.available?()
 # the way the "see docs/README.md" pointer above it did (that pointer was
 # wrong from the day it was written): a file carrying `@moduletag :TAG`
 # gates every `test` in that whole module (ExUnit moduletags can't be
-# partially revoked), everything else is a straight count of `@tag :TAG`
-# lines, each of which precedes exactly one test.
+# partially revoked), a `describe` block carrying `@describetag :TAG` gates
+# every `test` inside it, and everything else is a straight count of
+# `@tag :TAG` lines, each of which precedes exactly one test.
+#
+# The `@describetag` case was missing until 2026-09-13, so the line below
+# said "Skipping 41 test(s) tagged :swar_fixture" for 51: the ten in
+# tournaments_live_test.exs's three tagged describe blocks went uncounted.
+# `mix test --dry-run --only swar_fixture` is the check.
 tagged_test_count = fn tag ->
   escaped = tag |> Atom.to_string() |> Regex.escape()
   moduletag_regex = ~r/^\s*@moduletag :#{escaped}\b/m
+  describetag_regex = ~r/^\s*@describetag :#{escaped}\b/m
   own_tag_regex = ~r/^\s*@tag :#{escaped}\b/m
   test_def_regex = ~r/^\s*test\s+("|@|[a-z])/m
+  # A describe block runs to the first `end` at its own indentation; ExUnit
+  # does not nest them.
+  describe_block_regex = ~r/^([ \t]*)describe\b[^\n]*\bdo[ \t]*\r?\n(.*?)^\1end\b/ms
 
   "test/**/*.exs"
   |> Path.wildcard()
@@ -97,7 +107,17 @@ tagged_test_count = fn tag ->
     if Regex.match?(moduletag_regex, source) do
       total + length(Regex.scan(test_def_regex, source))
     else
-      total + length(Regex.scan(own_tag_regex, source))
+      in_tagged_describes =
+        describe_block_regex
+        |> Regex.scan(source, capture: :all_but_first)
+        |> Enum.filter(fn [_indent, body] -> Regex.match?(describetag_regex, body) end)
+        |> Enum.map(fn [_indent, body] ->
+          # A test that also carries its own @tag is already in the count below.
+          length(Regex.scan(test_def_regex, body)) - length(Regex.scan(own_tag_regex, body))
+        end)
+        |> Enum.sum()
+
+      total + length(Regex.scan(own_tag_regex, source)) + in_tagged_describes
     end
   end)
 end
