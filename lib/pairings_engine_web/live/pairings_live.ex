@@ -2904,6 +2904,13 @@ defmodule PairingsEngineWeb.PairingsLive do
                 return;
               }
 
+              // Ctrl, Alt or Cmd with a digit is somebody else's shortcut -
+              // Ctrl+1..3 switches browser tabs, AltGr (Ctrl+Alt) types ~ and #
+              // on AZERTY - not a result. Matched by physical key, these used
+              // to record one on the focused board and swallow the shortcut.
+              // Shift stays allowed: AZERTY needs it for the digits.
+              if (e.ctrlKey || e.altKey || e.metaKey) return;
+
               const value = CODE_TO_VALUE[e.code] || KEY_TO_VALUE[e.key];
               if (!value) return; // let every other key behave natively
 
@@ -3292,13 +3299,21 @@ defmodule PairingsEngineWeb.PairingsLive do
         // the menu takes focus.
 
         // What a keydown on a seat asks for: "menu-key" (a contextmenu event
-        // follows), "complete", "menu", or null. Pure, so it can be checked
-        // on its own.
+        // follows), "complete", "menu" (Enter: open it now), "menu-keyup"
+        // (Space: open it when the key comes back up), or null. Pure, so it
+        // can be checked on its own.
+        //
+        // Space waits for its keyup, as it does on the Players grid: the menu
+        // takes focus on its first item as soon as the server has drawn it,
+        // which on a local copy is well inside one key press, and the keyup
+        // then landed on that item - in a browser that activates a button on
+        // Space's keyup, choosing "Swap with..." or "Hide this board" unasked.
         export const seatKeyAction = (e, armed) => {
           if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) return "menu-key";
           if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return null;
           if (e.key !== "Enter" && e.key !== " ") return null;
-          return armed ? "complete" : "menu";
+          if (armed) return "complete";
+          return e.key === " " ? "menu-keyup" : "menu";
         };
 
         // Where a menu opens: at the pointer, or under the seat from the
@@ -3354,14 +3369,28 @@ defmodule PairingsEngineWeb.PairingsLive do
 
               if (action === "complete") {
                 seat.click();
+              } else if (action === "menu-keyup") {
+                this.spaceOn = seat;
               } else {
-                const box = seat.getBoundingClientRect();
-                this.openMenu(seat.closest("[data-scope]"), box.left, box.bottom, true);
+                this.openFromKeys(seat);
               }
+            };
+
+            this.onKeyup = (e) => {
+              if (e.key !== " " || !this.spaceOn) return;
+              const seat = this.spaceOn;
+              this.spaceOn = null;
+              if (e.target.closest("[data-seat]") === seat) this.openFromKeys(seat);
+            };
+
+            this.openFromKeys = (seat) => {
+              const box = seat.getBoundingClientRect();
+              this.openMenu(seat.closest("[data-scope]"), box.left, box.bottom, true);
             };
 
             this.el.addEventListener("contextmenu", this.onContextMenu);
             this.el.addEventListener("keydown", this.onKeydown);
+            this.el.addEventListener("keyup", this.onKeyup);
 
             // After an applied hand edit the confirmation closes and
             // `DialogFocus` puts focus back where the edit started - a frame
@@ -3386,6 +3415,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           destroyed() {
             this.el.removeEventListener("contextmenu", this.onContextMenu);
             this.el.removeEventListener("keydown", this.onKeydown);
+            this.el.removeEventListener("keyup", this.onKeyup);
           }
         }
       </script>

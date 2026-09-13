@@ -38,6 +38,25 @@ Each entry is tagged so a version can be skimmed:
   way. A confirmation you cancel returns focus to the seat you started from; one
   you apply leaves focus on the board you edited. What each edit does is
   unchanged. English and Dutch.
+- [Fix] **Ctrl+1, Ctrl+2 and Ctrl+3 no longer enter a result.** With a board's
+  result box focused on the Pairings page, the quick-entry keys 1, 2 and 3
+  also answered to Ctrl, Alt or Cmd held down: pressing Ctrl+2 to switch browser
+  tabs recorded a draw on that board and kept the tab from switching. The keys
+  now only count on their own (or with Shift, which AZERTY keyboards need).
+- [Fix] **The Players grid and the standings keep your chosen columns after a
+  reconnect.** When the connection dropped and came back - a server update, a
+  network hiccup, a laptop waking from sleep - the Players grid went back to
+  the default columns and the standings to all of them, until you moved to
+  another page. The columns you picked in the Display panel now come back with
+  the connection.
+- [Fix] **The projector view keeps fitting the screen after a reconnect.** A
+  hall screen that lost its connection and got it back went back to twelve
+  boards a page until the window was resized. It now measures itself again when
+  it reconnects.
+- [Fix] **A screen reader hears a pending server update once, not on every
+  page.** During the countdown before an update, moving to another page read
+  the whole "Server update" sentence out again. It is said when it appears and
+  when it gets closer, as intended.
 
 ## [0.60.2] - 2026-09-13
 
