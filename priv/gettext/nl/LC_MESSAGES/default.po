@@ -4368,17 +4368,17 @@ msgstr "ingediend voor rating"
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr "%[count] toernooi(en) wachten om verzonden te worden. Ze vertrekken vanzelf; een toernooi blijft in de wachtrij tot de server het bevestigt."
 
-#: lib/pairings_engine_web/components/connection_status.ex:657
+#: lib/pairings_engine_web/components/connection_status.ex:660
 #, elixir-autogen, elixir-format
 msgid "%{n} days ago"
 msgstr "%{n} dagen geleden"
 
-#: lib/pairings_engine_web/components/connection_status.ex:656
+#: lib/pairings_engine_web/components/connection_status.ex:659
 #, elixir-autogen, elixir-format
 msgid "%{n} h ago"
 msgstr "%{n} u geleden"
 
-#: lib/pairings_engine_web/components/connection_status.ex:655
+#: lib/pairings_engine_web/components/connection_status.ex:658
 #, elixir-autogen, elixir-format
 msgid "%{n} min ago"
 msgstr "%{n} min geleden"
@@ -4465,7 +4465,7 @@ msgstr "Back-up geschreven: %{name}"
 msgid "Backups"
 msgstr "Back-ups"
 
-#: lib/pairings_engine_web/components/connection_status.ex:396
+#: lib/pairings_engine_web/components/connection_status.ex:399
 #, elixir-autogen, elixir-format
 msgid "Cannot reach the results site"
 msgstr "Kan de uitslagensite niet bereiken"
@@ -4480,7 +4480,7 @@ msgstr "Controleer op nieuwe inschrijvingen"
 msgid "Checking the connection..."
 msgstr "Verbinding controleren..."
 
-#: lib/pairings_engine_web/components/connection_status.ex:327
+#: lib/pairings_engine_web/components/connection_status.ex:330
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr "Verbonden"
@@ -4577,7 +4577,7 @@ msgstr "Op deze machine is nog geen uitslagensite ingesteld - zie Verbindingen."
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr "Nog geen - de eerste wordt enkele minuten na het opstarten geschreven."
 
-#: lib/pairings_engine_web/components/connection_status.ex:410
+#: lib/pairings_engine_web/components/connection_status.ex:413
 #, elixir-autogen, elixir-format
 msgid "Not set up"
 msgstr "Niet ingesteld"
@@ -4702,7 +4702,7 @@ msgid "Saved. Nothing is published until both an address and a token are set."
 msgstr "Opgeslagen. Er wordt niets gepubliceerd tot zowel een adres als een token ingesteld zijn."
 
 #: lib/pairings_engine_web/components/connection_status.ex:264
-#: lib/pairings_engine_web/components/connection_status.ex:326
+#: lib/pairings_engine_web/components/connection_status.ex:329
 #, elixir-autogen, elixir-format
 msgid "Sending"
 msgstr "Bezig met verzenden"
@@ -4822,8 +4822,8 @@ msgstr "Dit toernooi is niet gepubliceerd, dus er is geen pagina die toeschouwer
 msgid "Token"
 msgstr "Token"
 
-#: lib/pairings_engine_web/components/connection_status.ex:360
 #: lib/pairings_engine_web/components/connection_status.ex:363
+#: lib/pairings_engine_web/components/connection_status.ex:366
 #, elixir-autogen, elixir-format
 msgid "Token refused"
 msgstr "Token geweigerd"
@@ -4888,12 +4888,12 @@ msgstr "aanvaard"
 msgid "discarded"
 msgstr "verworpen"
 
-#: lib/pairings_engine_web/components/connection_status.ex:654
+#: lib/pairings_engine_web/components/connection_status.ex:657
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr "zonet"
 
-#: lib/pairings_engine_web/components/connection_status.ex:418
+#: lib/pairings_engine_web/components/connection_status.ex:421
 #, elixir-autogen, elixir-format
 msgid "last sent %{ago}"
 msgstr "laatst verzonden %{ago}"
@@ -4933,7 +4933,7 @@ msgstr "De volledige FIDE-ratinglijst downloaden kan alleen een beheerder."
 msgid "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
 msgstr "De volledige lijst downloaden kan alleen een beheerder, zodat niet zomaar iedereen met een account hier dit kan starten."
 
-#: lib/pairings_engine_web/components/connection_status.ex:284
+#: lib/pairings_engine_web/components/connection_status.ex:287
 #, elixir-autogen, elixir-format
 msgid "1 tournament waiting to send to %{host}"
 msgid_plural "%{count} tournaments waiting to send to %{host}"
@@ -4955,8 +4955,7 @@ msgstr "Controleren..."
 msgid "Live"
 msgstr "Live"
 
-#: lib/pairings_engine_web/components/connection_status.ex:279
-#: lib/pairings_engine_web/components/connection_status.ex:401
+#: lib/pairings_engine_web/components/connection_status.ex:282
 #, elixir-autogen, elixir-format
 msgid "Not publishing"
 msgstr "Publiceert niet"
@@ -4966,7 +4965,7 @@ msgstr "Publiceert niet"
 msgid "Offline"
 msgstr "Offline"
 
-#: lib/pairings_engine_web/components/connection_status.ex:293
+#: lib/pairings_engine_web/components/connection_status.ex:296
 #, elixir-autogen, elixir-format
 msgid "Publishing to %{host} is working"
 msgstr "Publiceren naar %{host} werkt"
@@ -5188,7 +5187,7 @@ msgstr "Welke tiebreaks"
 msgid "The parity is taken on a numbering of the players who are in this round's pairing or have played in an earlier one - not on the tournament pairing number, which would also count somebody registered but never paired. FIDE settled that reading on 28 August 2026. A program that predates the ruling may seat this board the other way round; the pairing is the same either way, only who holds White differs."
 msgstr "De pariteit wordt genomen op een nummering van de spelers die in de paring van deze ronde zitten of in een eerdere ronde gespeeld hebben - niet op het toernooiparingsnummer, dat ook iemand zou meetellen die wel ingeschreven is maar nooit gepaard werd. De FIDE heeft die lezing op 28 augustus 2026 vastgelegd. Een programma van voor die uitspraak kan dit bord omgekeerd zetten; de paring is hoe dan ook dezelfde, alleen wie wit heeft verschilt."
 
-#: lib/pairings_engine_web/components/connection_status.ex:419
+#: lib/pairings_engine_web/components/connection_status.ex:422
 #, elixir-autogen, elixir-format
 msgid "%{size} sent %{ago}"
 msgstr "%{size} verzonden %{ago}"
@@ -7555,59 +7554,59 @@ msgstr "De beginstand opnieuw verbergen van de publieke pagina?"
 msgid "Initial standings"
 msgstr "Beginstand"
 
-#: lib/pairings_engine_web/components/connection_status.ex:430
-#: lib/pairings_engine_web/components/connection_status.ex:454
+#: lib/pairings_engine_web/components/connection_status.ex:433
+#: lib/pairings_engine_web/components/connection_status.ex:457
 #, elixir-autogen, elixir-format
 msgid "Connected. The address and token are both accepted."
 msgstr "Verbonden. Het adres en de token worden allebei aanvaard."
 
-#: lib/pairings_engine_web/components/connection_status.ex:634
+#: lib/pairings_engine_web/components/connection_status.ex:637
 #, elixir-autogen, elixir-format
 msgid "Could not confirm the connection (%{reason})."
 msgstr "Kon de verbinding niet bevestigen (%{reason})."
 
-#: lib/pairings_engine_web/components/connection_status.ex:627
+#: lib/pairings_engine_web/components/connection_status.ex:630
 #, elixir-autogen, elixir-format
 msgid "Could not connect (%{reason})."
 msgstr "Kon geen verbinding maken (%{reason})."
 
-#: lib/pairings_engine_web/components/connection_status.ex:518
+#: lib/pairings_engine_web/components/connection_status.ex:521
 #, elixir-autogen, elixir-format
 msgid "No address is set."
 msgstr "Er is geen adres ingesteld."
 
-#: lib/pairings_engine_web/components/connection_status.ex:519
+#: lib/pairings_engine_web/components/connection_status.ex:522
 #, elixir-autogen, elixir-format
 msgid "No token is set."
 msgstr "Er is geen token ingesteld."
 
-#: lib/pairings_engine_web/components/connection_status.ex:522
 #: lib/pairings_engine_web/components/connection_status.ex:525
+#: lib/pairings_engine_web/components/connection_status.ex:528
 #, elixir-autogen, elixir-format
 msgid "Reached the server, but it rejected the token."
 msgstr "De server antwoordde, maar weigerde de token."
 
-#: lib/pairings_engine_web/components/connection_status.ex:456
+#: lib/pairings_engine_web/components/connection_status.ex:459
 #, elixir-autogen, elixir-format
 msgid "The address and token are both accepted."
 msgstr "Het adres en de token worden allebei aanvaard."
 
-#: lib/pairings_engine_web/components/connection_status.ex:621
+#: lib/pairings_engine_web/components/connection_status.ex:624
 #, elixir-autogen, elixir-format
 msgid "The address did not resolve."
 msgstr "Het adres werd niet gevonden."
 
-#: lib/pairings_engine_web/components/connection_status.ex:619
+#: lib/pairings_engine_web/components/connection_status.ex:622
 #, elixir-autogen, elixir-format
 msgid "The connection timed out."
 msgstr "De verbinding kreeg een time-out."
 
-#: lib/pairings_engine_web/components/connection_status.ex:620
+#: lib/pairings_engine_web/components/connection_status.ex:623
 #, elixir-autogen, elixir-format
 msgid "The connection was closed."
 msgstr "De verbinding werd verbroken."
 
-#: lib/pairings_engine_web/components/connection_status.ex:624
+#: lib/pairings_engine_web/components/connection_status.ex:627
 #, elixir-autogen, elixir-format
 msgid "The connection was refused - is the server running?"
 msgstr "De verbinding werd geweigerd - draait de server wel?"
@@ -7619,12 +7618,12 @@ msgid_plural "All %{count} rounds have already been paired"
 msgstr[0] "De enige ronde is al gepaard"
 msgstr[1] "Alle %{count} rondes zijn al gepaard"
 
-#: lib/pairings_engine_web/components/connection_status.ex:615
+#: lib/pairings_engine_web/components/connection_status.ex:618
 #, elixir-autogen, elixir-format
 msgid "Reached the server and it answered %{status}, which is not an OpenResults server."
 msgstr "Er antwoordde iets met %{status}, maar dat is geen OpenResults-server."
 
-#: lib/pairings_engine_web/components/connection_status.ex:588
+#: lib/pairings_engine_web/components/connection_status.ex:591
 #, elixir-autogen, elixir-format
 msgid "A different installation owns this tournament on the results site. Ask the operator of the results site to transfer it to this computer."
 msgstr "Een andere installatie is eigenaar van dit toernooi op de uitslagensite. Vraag de beheerder van de uitslagensite om het naar deze computer over te dragen."
@@ -7644,7 +7643,7 @@ msgstr "Navragen wie de uitslagensite beheert..."
 msgid "Close"
 msgstr "Sluiten"
 
-#: lib/pairings_engine_web/components/connection_status.ex:448
+#: lib/pairings_engine_web/components/connection_status.ex:451
 #, elixir-autogen, elixir-format
 msgid "Connected. This computer publishes with a key of its own, no token needed."
 msgstr "Verbonden. Deze computer publiceert met een eigen sleutel, zonder token."
@@ -7664,15 +7663,10 @@ msgstr "Niet publiceren"
 msgid "Give the operator this tournament's address, %{slug}, and this computer's installation, %{installation}."
 msgstr "Geef de beheerder het adres van dit toernooi, %{slug}, en de installatie van deze computer, %{installation}."
 
-#: lib/pairings_engine_web/components/connection_status.ex:402
+#: lib/pairings_engine_web/components/connection_status.ex:405
 #, elixir-autogen, elixir-format
 msgid "Needs a token"
 msgstr "Token nodig"
-
-#: lib/pairings_engine_web/components/connection_status.ex:530
-#, elixir-autogen, elixir-format
-msgid "No tournament on this computer is being published, so nothing is sent to the results site."
-msgstr "Geen enkel toernooi op deze computer wordt gepubliceerd, dus er wordt niets naar de uitslagensite verzonden."
 
 #: lib/pairings_engine_web/public_consent.ex:178
 #, elixir-autogen, elixir-format
@@ -7709,7 +7703,7 @@ msgstr "Gepauzeerd"
 msgid "Publish on %{host}?"
 msgstr "Publiceren op %{host}?"
 
-#: lib/pairings_engine_web/components/connection_status.ex:536
+#: lib/pairings_engine_web/components/connection_status.ex:539
 #, elixir-autogen, elixir-format
 msgid "Publishing is waiting for your go-ahead to register this computer with the results site. Nothing has been sent yet."
 msgstr "Publiceren wacht op je toestemming om deze computer bij de uitslagensite te registreren. Er is nog niets verzonden."
@@ -7720,7 +7714,7 @@ msgstr "Publiceren wacht op je toestemming om deze computer bij de uitslagensite
 msgid "Publishing on the results site"
 msgstr "Publiceren op de uitslagensite"
 
-#: lib/pairings_engine_web/components/connection_status.ex:330
+#: lib/pairings_engine_web/components/connection_status.ex:333
 #, elixir-autogen, elixir-format
 msgid "Publishing paused"
 msgstr "Publiceren gepauzeerd"
@@ -7730,7 +7724,7 @@ msgstr "Publiceren gepauzeerd"
 msgid "Read the %[terms] before you agree."
 msgstr "Lees de %[terms] voor je akkoord gaat."
 
-#: lib/pairings_engine_web/components/connection_status.ex:409
+#: lib/pairings_engine_web/components/connection_status.ex:412
 #, elixir-autogen, elixir-format
 msgid "Refused by the results site"
 msgstr "Geweigerd door de uitslagensite"
@@ -7752,7 +7746,7 @@ msgstr "Bedankt. Deze computer registreert zich bij %{host} en publiceert zodra 
 msgid "Thank you. This computer registers with %{host} the next time a tournament is sent."
 msgstr "Bedankt. Deze computer registreert zich bij %{host} de volgende keer dat een toernooi wordt verzonden."
 
-#: lib/pairings_engine_web/components/connection_status.ex:551
+#: lib/pairings_engine_web/components/connection_status.ex:554
 #, elixir-autogen, elixir-format
 msgid "The results site asked this computer to wait a moment. It will try again shortly."
 msgstr "De uitslagensite vroeg deze computer om even te wachten. Er wordt straks opnieuw geprobeerd."
@@ -7762,32 +7756,32 @@ msgstr "De uitslagensite vroeg deze computer om even te wachten. Er wordt straks
 msgid "The results site at %{host} is run by %{operator}."
 msgstr "De uitslagensite op %{host} wordt beheerd door %{operator}."
 
-#: lib/pairings_engine_web/components/connection_status.ex:505
+#: lib/pairings_engine_web/components/connection_status.ex:508
 #, elixir-autogen, elixir-format
 msgid "The results site does not recognise this computer's key. Publishing has stopped until you register again."
 msgstr "De uitslagensite herkent de sleutel van deze computer niet. Publiceren is gestopt tot je opnieuw registreert."
 
-#: lib/pairings_engine_web/components/connection_status.ex:609
+#: lib/pairings_engine_web/components/connection_status.ex:612
 #, elixir-autogen, elixir-format
 msgid "The results site has blocked this computer's network address. Contact the operator of the results site."
 msgstr "De uitslagensite heeft het netwerkadres van deze computer geblokkeerd. Neem contact op met de beheerder van de uitslagensite."
 
-#: lib/pairings_engine_web/components/connection_status.ex:555
+#: lib/pairings_engine_web/components/connection_status.ex:558
 #, elixir-autogen, elixir-format
 msgid "The results site has paused publishing. Everything waiting is sent when it resumes."
 msgstr "De uitslagensite heeft publiceren gepauzeerd. Alles wat wacht, wordt verzonden zodra het weer kan."
 
-#: lib/pairings_engine_web/components/connection_status.ex:567
+#: lib/pairings_engine_web/components/connection_status.ex:570
 #, elixir-autogen, elixir-format
 msgid "The results site has suspended this computer's key. Contact the operator of the results site."
 msgstr "De uitslagensite heeft de sleutel van deze computer geschorst. Neem contact op met de beheerder van de uitslagensite."
 
-#: lib/pairings_engine_web/components/connection_status.ex:603
+#: lib/pairings_engine_web/components/connection_status.ex:606
 #, elixir-autogen, elixir-format
 msgid "The results site is not accepting new installations right now. Nothing has been sent, and it will be tried again later."
 msgstr "De uitslagensite aanvaardt op dit moment geen nieuwe installaties. Er is niets verzonden, en het wordt later opnieuw geprobeerd."
 
-#: lib/pairings_engine_web/components/connection_status.ex:572
+#: lib/pairings_engine_web/components/connection_status.ex:575
 #, elixir-autogen, elixir-format
 msgid "The results site no longer accepts this computer's key. Publishing has stopped."
 msgstr "De uitslagensite aanvaardt de sleutel van deze computer niet meer. Publiceren is gestopt."
@@ -7797,7 +7791,7 @@ msgstr "De uitslagensite aanvaardt de sleutel van deze computer niet meer. Publi
 msgid "The results site then shows this tournament to anyone with its link - names, ratings, clubs, federations and results - under that operator's rules."
 msgstr "De uitslagensite toont dit toernooi dan aan iedereen met de link - namen, ratings, clubs, federaties en uitslagen - volgens de regels van die beheerder."
 
-#: lib/pairings_engine_web/components/connection_status.ex:480
+#: lib/pairings_engine_web/components/connection_status.ex:483
 #, elixir-autogen, elixir-format
 msgid "This computer already has %{limit} tournaments on the results site, which is its limit. Publishing has stopped for this tournament."
 msgstr "Deze computer heeft al %{limit} toernooien op de uitslagensite, en dat is de limiet. Publiceren is gestopt voor dit toernooi."
@@ -7807,7 +7801,7 @@ msgstr "Deze computer heeft al %{limit} toernooien op de uitslagensite, en dat i
 msgid "This computer has not published there before. Without a token from the operator, it asks the results site once for a key of its own, and every tournament you publish from this computer uses that key."
 msgstr "Deze computer heeft daar nog nooit gepubliceerd. Zonder token van de beheerder vraagt hij de uitslagensite één keer om een eigen sleutel, en elk toernooi dat je vanaf deze computer publiceert, gebruikt die sleutel."
 
-#: lib/pairings_engine_web/components/connection_status.ex:576
+#: lib/pairings_engine_web/components/connection_status.ex:579
 #, elixir-autogen, elixir-format
 msgid "This computer has reached the results site's limit on tournaments. Publishing has stopped for this tournament."
 msgstr "Deze computer heeft de limiet van de uitslagensite voor het aantal toernooien bereikt. Publiceren is gestopt voor dit toernooi."
@@ -7817,7 +7811,7 @@ msgstr "Deze computer heeft de limiet van de uitslagensite voor het aantal toern
 msgid "This computer is registered with the results site as installation %{id}. If a tournament ever has to be moved to this computer, that is the name to give its operator."
 msgstr "Deze computer is bij de uitslagensite geregistreerd als installatie %{id}. Moet er ooit een toernooi naar deze computer worden verplaatst, dan is dat de naam die je aan de beheerder geeft."
 
-#: lib/pairings_engine_web/components/connection_status.ex:451
+#: lib/pairings_engine_web/components/connection_status.ex:454
 #, elixir-autogen, elixir-format
 msgid "This computer publishes with a key of its own, no token needed."
 msgstr "Deze computer publiceert met een eigen sleutel, zonder token."
@@ -7827,17 +7821,17 @@ msgstr "Deze computer publiceert met een eigen sleutel, zonder token."
 msgid "This computer's old key is no longer accepted. Registering again asks the results site for a new one. Tournaments published under the old key stay where they are; the operator can move them to this computer."
 msgstr "De oude sleutel van deze computer wordt niet meer aanvaard. Opnieuw registreren vraagt de uitslagensite om een nieuwe. Toernooien die met de oude sleutel gepubliceerd zijn, blijven waar ze staan; de beheerder kan ze naar deze computer verplaatsen."
 
-#: lib/pairings_engine_web/components/connection_status.ex:544
+#: lib/pairings_engine_web/components/connection_status.ex:547
 #, elixir-autogen, elixir-format
 msgid "This results site only publishes tournaments sent with a token from its operator."
 msgstr "Deze uitslagensite publiceert alleen toernooien die met een token van de beheerder worden verzonden."
 
-#: lib/pairings_engine_web/components/connection_status.ex:490
+#: lib/pairings_engine_web/components/connection_status.ex:493
 #, elixir-autogen, elixir-format
 msgid "This tournament is too large for the results site, which accepts at most %{size}. Publishing has stopped for this tournament."
 msgstr "Dit toernooi is te groot voor de uitslagensite, die hoogstens %{size} aanvaardt. Publiceren is gestopt voor dit toernooi."
 
-#: lib/pairings_engine_web/components/connection_status.ex:582
+#: lib/pairings_engine_web/components/connection_status.ex:585
 #, elixir-autogen, elixir-format
 msgid "This tournament is too large for the results site. Publishing has stopped for this tournament."
 msgstr "Dit toernooi is te groot voor de uitslagensite. Publiceren is gestopt voor dit toernooi."
@@ -7862,7 +7856,7 @@ msgstr "Er wordt opnieuw geprobeerd."
 msgid "Waiting"
 msgstr "Wacht"
 
-#: lib/pairings_engine_web/components/connection_status.ex:399
+#: lib/pairings_engine_web/components/connection_status.ex:402
 #, elixir-autogen, elixir-format
 msgid "Waiting for your go-ahead"
 msgstr "Wacht op je toestemming"
@@ -7897,7 +7891,7 @@ msgstr "Wacht op je toestemming. Er is nog niets naar de uitslagensite verzonden
 msgid "Waiting to register this computer with the results site. There is no link yet."
 msgstr "Wachten om deze computer bij de uitslagensite te registreren. Er is nog geen link."
 
-#: lib/pairings_engine_web/components/connection_status.ex:597
+#: lib/pairings_engine_web/components/connection_status.ex:600
 #, elixir-autogen, elixir-format
 msgid "The operator of the results site has hidden this tournament. Publishing has stopped for this tournament."
 msgstr "De beheerder van de uitslagensite heeft dit toernooi verborgen. Publiceren is gestopt voor dit toernooi."
@@ -8870,58 +8864,58 @@ msgstr "Je kunt inloggen op je account via onderstaande link:"
 msgid "You've been invited to %{tournament}"
 msgstr "Je bent uitgenodigd voor %{tournament}"
 
-#: lib/pairings_engine_web/components/connection_status.ex:387
+#: lib/pairings_engine_web/components/connection_status.ex:390
 #, elixir-autogen, elixir-format
 msgid "Address blocked"
 msgstr "Adres geblokkeerd"
 
-#: lib/pairings_engine_web/components/connection_status.ex:351
-#: lib/pairings_engine_web/components/connection_status.ex:357
+#: lib/pairings_engine_web/components/connection_status.ex:354
+#: lib/pairings_engine_web/components/connection_status.ex:360
 #, elixir-autogen, elixir-format
 msgid "Key not recognised"
 msgstr "Sleutel niet herkend"
 
-#: lib/pairings_engine_web/components/connection_status.ex:372
+#: lib/pairings_engine_web/components/connection_status.ex:375
 #, elixir-autogen, elixir-format
 msgid "Key revoked"
 msgstr "Sleutel niet meer aanvaard"
 
-#: lib/pairings_engine_web/components/connection_status.ex:369
+#: lib/pairings_engine_web/components/connection_status.ex:372
 #, elixir-autogen, elixir-format
 msgid "Key suspended"
 msgstr "Sleutel geschorst"
 
-#: lib/pairings_engine_web/components/connection_status.ex:394
+#: lib/pairings_engine_web/components/connection_status.ex:397
 #, elixir-autogen, elixir-format
 msgid "Not an OpenResults server"
 msgstr "Geen OpenResults-server"
 
-#: lib/pairings_engine_web/components/connection_status.ex:366
+#: lib/pairings_engine_web/components/connection_status.ex:369
 #, elixir-autogen, elixir-format
 msgid "Owned by another installation"
 msgstr "Eigendom van een andere installatie"
 
-#: lib/pairings_engine_web/components/connection_status.ex:384
+#: lib/pairings_engine_web/components/connection_status.ex:387
 #, elixir-autogen, elixir-format
 msgid "Registration closed"
 msgstr "Registratie gesloten"
 
-#: lib/pairings_engine_web/components/connection_status.ex:381
+#: lib/pairings_engine_web/components/connection_status.ex:384
 #, elixir-autogen, elixir-format
 msgid "Tournament hidden"
 msgstr "Toernooi verborgen"
 
-#: lib/pairings_engine_web/components/connection_status.ex:375
+#: lib/pairings_engine_web/components/connection_status.ex:378
 #, elixir-autogen, elixir-format
 msgid "Tournament limit reached"
 msgstr "Toernooilimiet bereikt"
 
-#: lib/pairings_engine_web/components/connection_status.ex:378
+#: lib/pairings_engine_web/components/connection_status.ex:381
 #, elixir-autogen, elixir-format
 msgid "Tournament too large"
 msgstr "Toernooi te groot"
 
-#: lib/pairings_engine_web/components/connection_status.ex:345
+#: lib/pairings_engine_web/components/connection_status.ex:348
 #, elixir-autogen, elixir-format
 msgid "Waiting a moment"
 msgstr "Even wachten"
@@ -9106,12 +9100,27 @@ msgstr "Typ RESTORE om te bevestigen"
 msgid "Violet"
 msgstr "Violet"
 
-#: lib/pairings_engine_web/components/connection_status.ex:334
+#: lib/pairings_engine_web/components/connection_status.ex:337
 #, elixir-autogen, elixir-format
 msgid "Results site low on storage"
 msgstr "Weinig opslagruimte op de uitslagensite"
 
-#: lib/pairings_engine_web/components/connection_status.ex:561
+#: lib/pairings_engine_web/components/connection_status.ex:564
 #, elixir-autogen, elixir-format
 msgid "The results site is low on storage. Everything waiting is sent when it has room again."
 msgstr "De uitslagensite heeft bijna geen opslagruimte meer. Alles wat wacht, wordt verzonden zodra er weer ruimte is."
+
+#: lib/pairings_engine_web/components/connection_status.ex:281
+#, elixir-autogen, elixir-format
+msgid "Ready"
+msgstr "Klaar"
+
+#: lib/pairings_engine_web/components/connection_status.ex:404
+#, elixir-autogen, elixir-format
+msgid "Ready to publish"
+msgstr "Klaar om te publiceren"
+
+#: lib/pairings_engine_web/components/connection_status.ex:533
+#, elixir-autogen, elixir-format
+msgid "To publish a tournament, open its Settings, go to OpenResults and turn publishing on. The first time, you are asked once, and nothing is sent before you agree."
+msgstr "Om een toernooi te publiceren: open de Instellingen, ga naar OpenResults en zet publiceren aan. De eerste keer wordt het je één keer gevraagd, en er wordt niets verzonden voor je akkoord gaat."

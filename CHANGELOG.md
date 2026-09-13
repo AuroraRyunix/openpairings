@@ -16,6 +16,12 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **A desktop copy that has not published anything yet says it is ready, not
+  that it is "Not publishing".** The Connections card and the top bar used to
+  greet a fresh install with "Not publishing" and a sentence about nothing being
+  sent, which read as "not set up". They now say "Ready to publish" and tell the
+  arbiter where to start: a tournament's Settings, then OpenResults. Other
+  not-configured states keep their wording.
 - [Fix] **Changing the backup passphrase no longer strands the backups
   written under the old one.** Verify and restore tried only the current
   `PAIRINGS_BACKUP_PASSPHRASE`, so a rotation made every existing backup

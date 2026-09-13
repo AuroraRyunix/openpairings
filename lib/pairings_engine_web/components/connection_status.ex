@@ -276,6 +276,9 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp pill_word(%{state: :refused}), do: gettext("Refused")
   defp pill_word(%{state: :unreachable}), do: gettext("Offline")
   defp pill_word(%{reason: {:unconfigured, :consent_required}}), do: gettext("Waiting")
+  # Public mode with nothing switched on yet is the normal first state of a
+  # desktop copy, not a fault - "Not publishing" read as "not set up".
+  defp pill_word(%{reason: {:unconfigured, :public_idle}}), do: gettext("Ready")
   defp pill_word(%{state: :unconfigured}), do: gettext("Not publishing")
 
   # The full sentence goes in the tooltip, so the short word above never has
@@ -398,7 +401,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp headline(%{reason: {:unconfigured, :consent_required}}),
     do: gettext("Waiting for your go-ahead")
 
-  defp headline(%{reason: {:unconfigured, :public_idle}}), do: gettext("Not publishing")
+  defp headline(%{reason: {:unconfigured, :public_idle}}), do: gettext("Ready to publish")
   defp headline(%{reason: {:unconfigured, :token_required}}), do: gettext("Needs a token")
 
   # Last resort, for a `:refused` shape none of the clauses above name - a
@@ -528,7 +531,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp reason_sentence({:unconfigured, :public_idle}),
     do:
       gettext(
-        "No tournament on this computer is being published, so nothing is sent to the results site."
+        "To publish a tournament, open its Settings, go to OpenResults and turn publishing on. The first time, you are asked once, and nothing is sent before you agree."
       )
 
   defp reason_sentence({:unconfigured, :consent_required}),

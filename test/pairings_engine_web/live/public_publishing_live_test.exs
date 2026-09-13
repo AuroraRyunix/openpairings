@@ -457,12 +457,12 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
     test "idle, waiting, connected, paused and revoked", %{scope: scope} do
       assert card(Publishing.status(), "en") ==
-               {"off", "Not publishing",
-                "No tournament on this computer is being published, so nothing is sent to the results site."}
+               {"off", "Ready to publish",
+                "To publish a tournament, open its Settings, go to OpenResults and turn publishing on. The first time, you are asked once, and nothing is sent before you agree."}
 
       assert card(Publishing.status(), "nl") ==
-               {"off", "Publiceert niet",
-                "Geen enkel toernooi op deze computer wordt gepubliceerd, dus er wordt niets naar de uitslagensite verzonden."}
+               {"off", "Klaar om te publiceren",
+                "Om een toernooi te publiceren: open de Instellingen, ga naar OpenResults en zet publiceren aan. De eerste keer wordt het je één keer gevraagd, en er wordt niets verzonden voor je akkoord gaat."}
 
       tournament = create_tournament(scope)
       {:ok, _} = Tournaments.set_publish_to_openresults(tournament, true)
