@@ -27,6 +27,36 @@ buttons; it does not touch a row already in `kbsb_players`, nor any
 `national_id`, `national_rating`, `club` or `club_number` already on a
 player.
 
+## Three sources, in order
+
+As of 2026-09-13 there are three ways to fill `kbsb_players`, tried in this
+order (`PairingsEngine.Federations.BEL.source/0`):
+
+1. **The data-platform API directly** (`KBSB_API_URL`/`KBSB_API_KEY`) -
+   below. What the hosted server always uses.
+2. **Via the connected results site** (`PairingsEngine.Federations.BEL.
+   ResultsSource`) - what a desktop install uses instead, since the
+   data-platform key can never ship inside a desktop release. OpenResults
+   holds its OWN copy of that key and relays a reduced roster
+   (`GET /api/federations/bel/players`) over the credential this
+   installation already publishes with - an installation key it obtained
+   for itself, or an operator token if one is configured
+   (`PairingsEngine.Publishing`). See OpenResults' docs/federations-bel.md
+   for what the relay does and does not send (never a birth date, an email,
+   an address or a phone number - only what KBSB already shows on its own
+   public rating lists). One request, not a page walk: OpenResults already
+   did the walking. The response's ETag is remembered and sent back as
+   `If-None-Match`, so a roster that has not changed since the last pull is
+   not re-imported.
+3. **The uploaded file** (below) - the original fallback, still the only
+   option with no network path to either of the above.
+
+Available only means offered on the rating-lists/Connections page: a
+hosted server with `KBSB_API_URL` set always uses source 1 regardless of
+whether OpenResults is also reachable, and turning source 2 off (no
+OpenResults connection) never touches a row already imported through it -
+same rule as the feature switches below.
+
 ## Data source: the data-platform API, with the file upload as fallback
 
 **Preferred: `PairingsEngine.Federations.BEL.Api`.** The KBSB data platform
@@ -140,7 +170,16 @@ alias list** - no other code needs to change.
   bytes - never started at boot). It does *not* have FIDE's
   connect/receive-timeout or retry/backoff logic, because there's no
   network download step to protect against - the bytes are already in
-  memory by the time `start_import/1` is called.
+  memory by the time `start_import/1` is called. `start_api_import/0` and
+  `start_results_site_import/0` are the other two triggers, one per source
+  above; all three feed the same `import_rows/3` count-guard and
+  full-replace.
+- `PairingsEngine.Federations.BEL.ResultsSource` - source 2 above:
+  `fetch_all/0` pulls OpenResults' relay through `Publishing.request/2`,
+  returning `{:ok, rows}`, `:unchanged` (ETag matched, nothing to import) or
+  `{:error, message}`. `available?/0` is what `source/0` checks.
+- `PairingsEngine.Federations.BEL.source/0` - the precedence itself: which
+  of the three sources the rating-lists page should offer right now.
 - `PairingsEngine.Federations.BEL.Members` - context module: `search/1`
   (national ID exact match, or every typed token against either name in any
   order, accents folded - see its own docstring; this line used to say

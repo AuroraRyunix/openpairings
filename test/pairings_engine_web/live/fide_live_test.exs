@@ -551,15 +551,42 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
     # Offering a button whose only possible outcome is an error message is
     # worse than not offering it: the arbiter cannot fix server config from
-    # here, so the page tells them what to set instead.
-    test "is hidden when it is not configured, with the setting named", %{conn: conn} do
+    # here. With no results-site connection either, the page says what to
+    # do next (connect, or upload a file) rather than naming an env var - a
+    # desktop arbiter reading this page has no server environment to set.
+    test "is hidden when it is not configured, with no env var named", %{conn: conn} do
       Application.delete_env(:pairings_engine, :kbsb)
 
       {:ok, _lv, html} = live(conn, ~p"/fide")
 
       refute html =~ "Sync from data platform"
-      assert html =~ "KBSB_API_URL"
-      assert html =~ "no source is configured"
+      refute html =~ "Sync from the results site"
+      refute html =~ "KBSB_API_URL"
+      assert html =~ "Connect to OpenResults"
+      assert html =~ "upload a rating-list file to get started"
+    end
+
+    # The results-site source takes over from the same "unset" starting
+    # point the moment this installation can reach one - see
+    # `PairingsEngine.Federations.BEL.source/0`'s precedence.
+    test "the results site is offered instead when it is available", %{conn: conn} do
+      Application.delete_env(:pairings_engine, :kbsb)
+
+      PairingsEngine.Publishing.put_endpoint("https://results.example")
+      PairingsEngine.Publishing.put_token("op-token")
+
+      on_exit(fn ->
+        PairingsEngine.Publishing.put_endpoint(nil)
+        PairingsEngine.Publishing.put_token(nil)
+      end)
+
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      refute html =~ "Sync from data platform"
+      assert html =~ "Sync from the results site"
+      assert html =~ "phx-click=\"sync_kbsb_results_site\""
+      assert html =~ "sync it from the results site to get started"
+      refute html =~ "KBSB_API_URL"
     end
   end
 

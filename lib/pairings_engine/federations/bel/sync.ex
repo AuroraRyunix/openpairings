@@ -27,7 +27,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   use GenServer
   require Logger
   alias PairingsEngine.Repo
-  alias PairingsEngine.Federations.BEL.{Api, Member, Members, Parser}
+  alias PairingsEngine.Federations.BEL.{Api, Member, Members, Parser, ResultsSource}
 
   @topic "kbsb_sync"
 
@@ -63,6 +63,14 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   disagree about what a valid import is.
   """
   def start_api_import, do: GenServer.cast(__MODULE__, :start_api_import)
+
+  @doc """
+  Kicks off an import from OpenResults' relay instead of either the KBSB
+  data platform directly or an uploaded file - see
+  `PairingsEngine.Federations.BEL.ResultsSource`. Same GenServer, same
+  status, same progress topic, same guards, same full-replace import.
+  """
+  def start_results_site_import, do: GenServer.cast(__MODULE__, :start_results_site_import)
 
   def cancel_import, do: GenServer.cast(__MODULE__, :cancel_import)
 
@@ -114,6 +122,25 @@ defmodule PairingsEngine.Federations.BEL.Sync do
     state = %__MODULE__{
       status: :importing,
       progress: "Contacting the KBSB data platform…",
+      task_pid: pid,
+      task_ref: ref,
+      watchdog_timer: schedule_watchdog()
+    }
+
+    {:noreply, broadcast(state)}
+  end
+
+  @impl true
+  def handle_cast(:start_results_site_import, %{status: :importing} = state),
+    do: {:noreply, state}
+
+  def handle_cast(:start_results_site_import, _state) do
+    server = self()
+    {pid, ref} = spawn_monitor(fn -> run_results_site_import(server) end)
+
+    state = %__MODULE__{
+      status: :importing,
+      progress: "Contacting the results site…",
       task_pid: pid,
       task_ref: ref,
       watchdog_timer: schedule_watchdog()
@@ -249,6 +276,50 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   rescue
     e ->
       Logger.error("KBSB API import crashed: #{Exception.message(e)}")
+      update(server, %__MODULE__{status: :error, error: Exception.message(e)})
+  end
+
+  # Mirrors run_api_import/2, differing in where the rows come from and in
+  # handling `:unchanged` - the results site's ETag said nothing changed
+  # since the last successful import, so there is nothing to replace and the
+  # existing table is left exactly as it was, `last_sync` bumped so the page
+  # reflects that a pull was made.
+  defp run_results_site_import(server) do
+    state =
+      update(server, %__MODULE__{
+        status: :importing,
+        progress: "Contacting the results site…"
+      })
+
+    case ResultsSource.fetch_all() do
+      {:ok, rows} ->
+        case import_rows(server, rows, state) do
+          {:ok, state} ->
+            Members.put_last_sync()
+            update(server, %{state | status: :done, progress: ""})
+
+          {:error, reason} ->
+            Logger.error("KBSB results-site import failed: #{inspect(reason)}")
+            update(server, %__MODULE__{status: :error, error: format_error(reason)})
+        end
+
+      :unchanged ->
+        Members.put_last_sync()
+
+        update(server, %{
+          state
+          | status: :done,
+            progress: "",
+            imported_rows: Members.player_count()
+        })
+
+      {:error, reason} ->
+        Logger.error("KBSB results-site import failed: #{inspect(reason)}")
+        update(server, %__MODULE__{status: :error, error: format_error(reason)})
+    end
+  rescue
+    e ->
+      Logger.error("KBSB results-site import crashed: #{Exception.message(e)}")
       update(server, %__MODULE__{status: :error, error: Exception.message(e)})
   end
 

@@ -7,10 +7,10 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Authz
   alias PairingsEngine.Backup
   alias PairingsEngine.Features
+  alias PairingsEngine.Federations.BEL
   alias PairingsEngine.Federations.BEL.Members
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
-  alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
   alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Publishing
   alias PairingsEngine.Publishing.Installation
@@ -50,10 +50,13 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
        kbsb_results: [],
-       # Read once at mount: this comes from the server's environment, so it
-       # cannot change while the page is open. False hides the sync button
-       # entirely rather than offering an action that can only fail.
-       kbsb_api_configured: kbsb? && KbsbApi.configured?(),
+       # Which of the three ways to fill the local roster to offer right now
+       # - see `PairingsEngine.Federations.BEL.source/0`. Read once at mount:
+       # it can change (an arbiter connects to OpenResults mid-session under
+       # Settings → OpenResults, or an env var changes and the app
+       # restarts), but a stale read here only means the page needs a
+       # reload to notice.
+       kbsb_source: kbsb? && BEL.source(),
        bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish"),
        swar_version: SwarPublish.version(),
        # Everything on this page is machine-wide rather than about one
@@ -365,6 +368,19 @@ defmodule PairingsEngineWeb.FideLive do
     end
   end
 
+  def handle_event("sync_kbsb_results_site", _params, socket) do
+    cond do
+      not socket.assigns.kbsb? ->
+        {:noreply, put_flash(socket, :error, kbsb_off())}
+
+      not socket.assigns.may_admin? ->
+        {:noreply, put_flash(socket, :error, sync_restricted())}
+
+      true ->
+        {:noreply, start_kbsb_results_site_import(socket)}
+    end
+  end
+
   def handle_event("cancel_kbsb", _params, socket) do
     if socket.assigns.kbsb? do
       if socket.assigns.may_admin?, do: KbsbSync.cancel_import()
@@ -414,6 +430,11 @@ defmodule PairingsEngineWeb.FideLive do
 
   defp start_kbsb_api_import(socket) do
     KbsbSync.start_api_import()
+    assign(socket, kbsb_status: KbsbSync.status())
+  end
+
+  defp start_kbsb_results_site_import(socket) do
+    KbsbSync.start_results_site_import()
     assign(socket, kbsb_status: KbsbSync.status())
   end
 
@@ -647,19 +668,32 @@ defmodule PairingsEngineWeb.FideLive do
               <:part name="when"><strong>{@kbsb_status.last_sync}</strong></:part>
             </.rich_text>
           <% else %>
-            {if @kbsb_api_configured,
-              do: gettext("The database is empty - sync it from the data platform to get started."),
-              else: gettext("The database is empty - no source is configured.")}
+            {case @kbsb_source do
+              :data_platform ->
+                gettext("The database is empty - sync it from the data platform to get started.")
+
+              :results_site ->
+                gettext("The database is empty - sync it from the results site to get started.")
+
+              :file_upload ->
+                gettext("The database is empty - upload a rating-list file to get started.")
+            end}
           <% end %>
         </p>
 
-        <p :if={!@kbsb_api_configured} class="hint">
+        <%!-- Never a mention of an env var here: this page is read by a
+              desktop arbiter as often as by a hosted operator, and
+              "KBSB_API_URL" means nothing to the former. The two configured
+              sources get their own sync button below; the third, no source
+              at all, gets wording that says what to do next instead of what
+              is missing. --%>
+        <p :if={@kbsb_source == :file_upload} class="hint">
           {gettext(
-            "No roster source is configured. Set KBSB_API_URL and KBSB_API_KEY on the server to sync the Belgian roster from the KBSB data platform - see docs/kbsb-sync.md."
+            "No roster source is configured. Connect to OpenResults under Settings → OpenResults to sync the Belgian roster from there, or import an uploaded rating-list file."
           )}
         </p>
 
-        <div :if={@kbsb_api_configured}>
+        <div :if={@kbsb_source == :data_platform}>
           <p class="hint">
             {gettext(
               "Pulls the current roster from the Odoo-synced database, including each player's club name and number. Replaces the local copy entirely, and can be re-run any time."
@@ -691,6 +725,45 @@ defmodule PairingsEngineWeb.FideLive do
               {if busy?(@kbsb_status),
                 do: gettext("Syncing…"),
                 else: gettext("Sync from data platform")}
+            </button>
+            <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </div>
+
+        <div :if={@kbsb_source == :results_site}>
+          <p class="hint">
+            {gettext(
+              "Pulls the current roster through the connected results site, which holds its own copy of the KBSB data platform's key. Replaces the local copy entirely, and can be re-run any time."
+            )}
+          </p>
+
+          <div :if={busy?(@kbsb_status)} class="progress-block">
+            <div class="progress-track">
+              <div
+                class={["progress-fill", percent(@kbsb_status) == nil && "indeterminate"]}
+                style={percent(@kbsb_status) && "width: #{percent(@kbsb_status)}%"}
+              />
+            </div>
+            <p class="ok-note">
+              {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: gettext("Working…")}
+            </p>
+          </div>
+          <p :if={@kbsb_status.status == :error} class="error-note">
+            {gettext("Sync failed:")} {@kbsb_status.error}
+          </p>
+
+          <div class="actions">
+            <button
+              type="button"
+              class="pe-btn primary"
+              phx-click="sync_kbsb_results_site"
+              disabled={busy?(@kbsb_status) or not @may_admin?}
+            >
+              {if busy?(@kbsb_status),
+                do: gettext("Syncing…"),
+                else: gettext("Sync from the results site")}
             </button>
             <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
               {gettext("Cancel")}
