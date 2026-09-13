@@ -229,6 +229,19 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  defp no_team?(unattached, pairing), do: Enum.any?(unattached, &(&1.pairing.id == pairing.id))
+
+  # The marker beside the board number of a board that belongs to no match.
+  # Rendered only for such a board, so every other board's cell stays exactly
+  # `<td class="num">N</td>`.
+  defp no_team(assigns) do
+    ~H"""
+    <span class="badge" title={gettext("Not part of a match: counts for no team")}>
+      {gettext("no team")}<span class="sr-only">{gettext(": not part of a match, counts for no team")}</span>
+    </span>
+    """
+  end
+
   # The initial colour, where a Swiss has one to show (C.04.3 Art. 5.1,
   # C.04.6 Art. 4.1): what the lot gave, or what the arbiter set. Nothing
   # before a draw, for round robin and Keizer, or for an event paired before
@@ -3152,18 +3165,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               }
               id={"pairing-row-#{pairing.id}"}
             >
-              <td class="num">
-                {display_board}
-                <span
-                  :if={Enum.any?(@unattached_boards, &(&1.pairing.id == pairing.id))}
-                  class="badge"
-                  title={gettext("Not part of a match: counts for no team")}
-                >
-                  {gettext("no team")}<span class="sr-only">{gettext(
-                    ": not part of a match, counts for no team"
-                  )}</span>
-                </span>
-              </td>
+              <td class="num" phx-no-format>{display_board}<.no_team :if={no_team?(@unattached_boards, pairing)} /></td>
 
               <td class="pairing-white">
                 <.seat_cell
