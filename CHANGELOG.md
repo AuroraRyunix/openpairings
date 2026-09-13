@@ -32,9 +32,6 @@ Each entry is tagged so a version can be skimmed:
   Tournaments with no end date, or one still to come, are left alone.
   `docs/privacy-retention.md` lists what personal data is kept and for how
   long.
-
-## [0.60.1] - 2026-09-13
-
 - [Feature] **A results site low on storage is a wait, not a failure.** The
   results site now refuses public-mode publishes and new tournaments with
   `storage_low` while its disk is nearly full. OpenPairings keeps everything
@@ -44,6 +41,8 @@ Each entry is tagged so a version can be skimmed:
   tournament's Results site settings: "Results site low on storage - The
   results site is low on storage. Everything waiting is sent when it has room
   again." The first send that succeeds clears it. In Dutch too.
+
+## [0.60.1] - 2026-09-13
 
 - [Fix] **After a restore, a refused publish says what probably happened
   instead of blaming "a different machine".** A tournament first published
