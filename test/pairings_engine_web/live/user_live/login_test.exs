@@ -61,6 +61,41 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       assert html =~ "If your email is in our system"
     end
 
+    test "logs a failed send but shows the SAME generic message - a failure must not be a second, quieter way to leak whether the address exists",
+         %{conn: conn} do
+      # Before this, the send's result was discarded outright: nothing
+      # raised, nothing was logged, and the person who asked for a link had
+      # no way to ever learn it was not coming. The flash text is
+      # deliberately unchanged on failure (see `deliver_magic_link/2`) -
+      # this only adds the log line `registration.ex`'s `do_register/2`
+      # already had for the same underlying call.
+      # Built BEFORE the adapter is swapped: `user_fixture/1` sends (and
+      # reads back) a login email of its own to confirm the account.
+      user = user_fixture()
+
+      previous = Application.get_env(:pairings_engine, PairingsEngine.Mailer)
+
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer,
+        adapter: PairingsEngine.FailingMailer
+      )
+
+      on_exit(fn -> Application.put_env(:pairings_engine, PairingsEngine.Mailer, previous) end)
+
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          {:ok, _lv, html} =
+            form(lv, "#login_form_magic", user: %{email: user.email})
+            |> render_submit()
+            |> follow_redirect(conn, ~p"/users/log-in")
+
+          assert html =~ "If your email is in our system"
+        end)
+
+      assert log =~ "Failed to send login instructions to #{user.email}"
+    end
+
     test "refuses an @zerotwo.cloud address instead of sending a link - even for a real, SSO-coupled account",
          %{conn: conn} do
       {:ok, user} =
@@ -215,6 +250,58 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
 
       assert html =~
                ~s(<input type="email" name="user[email]" id="login_form_magic_email" value="#{user.email}")
+    end
+  end
+
+  describe "mail-adapter notice" do
+    # Neither branch shows under the suite's normal config (Swoosh.Adapters.Test,
+    # config/test.exs), same as before this existed - so each test swaps in
+    # the adapter it means to exercise.
+    setup do
+      previous = Application.get_env(:pairings_engine, PairingsEngine.Mailer)
+      on_exit(fn -> Application.put_env(:pairings_engine, PairingsEngine.Mailer, previous) end)
+      :ok
+    end
+
+    test "Swoosh.Adapters.Local (dev preview) links to the /dev/mailbox page", %{conn: conn} do
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Local)
+
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+
+      assert html =~ "Local mail adapter"
+      assert html =~ "/dev/mailbox"
+      refute html =~ "printed in this computer's terminal"
+    end
+
+    test "PairingsEngine.ConsoleMailer (OPENPAIRINGS_LOCAL / Burrito) points at the terminal, not the dev mailbox route that build doesn't have",
+         %{conn: conn} do
+      # Regression test: `local_mail_adapter?/0` used to match only
+      # `Swoosh.Adapters.Local`, so a local/desktop build - which uses
+      # ConsoleMailer, never Local - showed NO notice at all here. Someone
+      # clicking "Email me a magic link" on a second account, an invited
+      # collaborator, or a password reset (the paths ConsoleMailer's own
+      # moduledoc says still send mail in that build) saw nothing telling
+      # them the link had gone to a terminal instead of an inbox.
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer,
+        adapter: PairingsEngine.ConsoleMailer
+      )
+
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+
+      assert html =~ "printed in this computer&#39;s terminal"
+      refute html =~ "/dev/mailbox"
+    end
+
+    test "neither notice shows for a real SMTP adapter", %{conn: conn} do
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer,
+        adapter: Swoosh.Adapters.SMTP,
+        relay: "smtp.gmail.com"
+      )
+
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+
+      refute html =~ "Local mail adapter"
+      refute html =~ "printed in this computer"
     end
   end
 end
