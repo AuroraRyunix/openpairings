@@ -73,10 +73,14 @@ defmodule Mix.Tasks.Pairings.Publishing do
     end
   end
 
+  # `log: false`: run by hand, this task logged every query at debug level,
+  # and the `INSERT INTO meta` that stores the token carries it as a
+  # parameter - in clear, on the terminal of whoever typed the command (restore
+  # drill, aside). A restore now ends with exactly that command.
   defp start_repo do
     {:ok, _} = Application.ensure_all_started(:ecto_sql)
 
-    case PairingsEngine.Repo.start_link(pool_size: 1) do
+    case PairingsEngine.Repo.start_link(pool_size: 1, log: false) do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
       {:error, reason} -> Mix.raise("could not reach the database: #{inspect(reason)}")

@@ -16,6 +16,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Security] **Backups no longer carry the OpenResults operator token - and a
+  restore now ends by setting it again.** The token is the results site's
+  master key: it publishes to, overwrites and deletes any tournament there,
+  break-glass included. The restore drill found it in plain text in every
+  production backup (the deploy sets no backup passphrase), and Connections
+  hands a backup to any administrator who asks. It is now stripped from the
+  copy before it is written, as a desktop installation's own results-site
+  key already was; the publishing address stays in. **This changes the
+  restore procedure**: until the token is set again a restored server
+  publishes nothing. `mix pairings.backup --restore` prints the step - read
+  `OPENRESULTS_INGEST_TOKEN` from the results site's unit into
+  `DEPLOY_PUBLISH_TOKEN` and run `mix pairings.publishing --ensure`, as the
+  deploy does - and a desktop copy that published with a token has it typed
+  in again on Connections. `mix pairings.publishing` also stops logging its
+  SQL, which showed that token in clear on the terminal of whoever ran it by
+  hand.
 - [Fix] **A server run refuses to start on a database that is behind the
   code, instead of serving pages that fail.** The restore drill restored a
   backup one migration old, and the app booted, answered `/` with a 302 and

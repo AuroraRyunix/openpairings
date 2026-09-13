@@ -25,7 +25,7 @@ defmodule PairingsEngine.Backup do
   registrations, keys, audit log, settings - is about 12 MB, which is small
   enough to keep a month of: `prune/1` keeps 30 days by default.
 
-  ## The one key that is deliberately left out
+  ## The two keys that are deliberately left out
 
   A desktop copy publishing without a token holds an installation key of its
   own (`PairingsEngine.Publishing.Installation`), and every `meta` row
@@ -40,6 +40,19 @@ defmodule PairingsEngine.Backup do
   back either: that machine registers again, and the operator moves all of
   its tournaments across in one step (`Moderation.transfer_all/3` there) -
   the same move a dead laptop needs.
+
+  **The OpenResults operator token** (`meta`, `openresults_token`) goes too,
+  since 2026-09-13. It is the results site's master key - it publishes to,
+  overwrites and deletes ANY tournament there, break-glass included - and the
+  restore drill found it in plain text in every production backup, which
+  Connections hands to any administrator who asks and the deploy never
+  encrypts. A backup needs no copy of it: the operator holds it in the
+  results site's own environment, the deploy writes it again on every run
+  (`mix pairings.publishing --ensure`), and a restore now ends by setting it
+  again (`docs/deployment.md`, "Restoring a backup"). Until then a restored
+  hosted copy publishes nothing, and says so on Connections. The address it
+  publishes to stays in: it is not a secret, and it is half of what the
+  token has to be re-entered beside.
 
   ## Why the file is a database rather than a dump
 
@@ -446,7 +459,7 @@ defmodule PairingsEngine.Backup do
 
     # Before the VACUUM, which is what makes the deleted rows actually gone
     # from the file rather than sitting in a free page. See the moduledoc.
-    custody = [installation_strip_sql()]
+    custody = [installation_strip_sql(), "DELETE FROM meta WHERE key = 'openresults_token'"]
 
     statements = drops ++ empty_fts ++ empty ++ recreate ++ custody ++ ["VACUUM"]
 

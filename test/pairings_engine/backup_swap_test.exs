@@ -151,6 +151,13 @@ defmodule PairingsEngine.BackupSwapTest do
     [before_start, _] = String.split(text, "systemctl start pairingsengine", parts: 2)
     [before_migrate, _] = String.split(before_start, "mix ecto.migrate", parts: 2)
     assert before_migrate =~ "mv pairings_engine.db.restored pairings_engine.db"
+
+    # A backup no longer carries the operator token, so the restore sets it
+    # again before the service starts - read from the results site's unit,
+    # handed over in the environment the deploy uses, never on a command line.
+    assert before_start =~ "OPENRESULTS_INGEST_TOKEN"
+    assert before_start =~ "mix pairings.publishing --ensure"
+    refute text =~ "--token"
   end
 
   test "--verify and --restore take a name exactly as --list prints it", %{dir: dir} do

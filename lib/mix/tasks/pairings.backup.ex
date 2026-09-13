@@ -164,6 +164,13 @@ defmodule Mix.Tasks.Pairings.Backup do
       done
       (cd "#{app_dir}" && runuser --preserve-environment -u "$(stat -c %U "#{dir}")" -- mix ecto.migrate)
 
+      # Backups do not carry the OpenResults operator token. Set it again from
+      # the results site's own unit, as the deploy does; if OpenResults runs on
+      # another machine, take it from that machine's environment instead.
+      export DEPLOY_PUBLISH_TOKEN="$(sed -n 's|^Environment="OPENRESULTS_INGEST_TOKEN=\\(.*\\)"$|\\1|p' /etc/systemd/system/openresults.service /etc/systemd/system/openresults.service.d/*.conf 2>/dev/null | tail -1)"
+      (cd "#{app_dir}" && runuser --preserve-environment -u "$(stat -c %U "#{dir}")" -- mix pairings.publishing --ensure)
+      unset DEPLOY_PUBLISH_TOKEN
+
       systemctl start pairingsengine
       curl -s -o /dev/null -w '%{http_code}\\n' "http://127.0.0.1:${PORT:-4001}/"   # expect 302
 

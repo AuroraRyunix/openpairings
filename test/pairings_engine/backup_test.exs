@@ -189,6 +189,39 @@ defmodule PairingsEngine.BackupTest do
       assert index_rows(restored, "kbsb_players_fts") == 0
     end
 
+    # The results site's master key - it overwrites and deletes any tournament
+    # there, break-glass included - was in plain text in every production
+    # backup (restore drill, finding 6). A restore sets it again instead.
+    test "the OpenResults operator token is not in the file; the address is", %{dir: dir} do
+      token = "operator-token-#{System.unique_integer([:positive])}-that-must-not-travel"
+
+      src =
+        source(dir, [
+          "DELETE FROM meta",
+          "INSERT INTO meta (key, value) VALUES ('openresults_token', '#{token}')",
+          "INSERT INTO meta (key, value) VALUES ('openresults_endpoint', 'http://localhost:4004')"
+        ])
+
+      assert File.read!(src) =~ token
+
+      {:ok, path} = Backup.create(dir: dir, source: src)
+
+      # Not a byte of it in the database the file carries - the VACUUM after
+      # the delete is what keeps it out of a free page.
+      [_magic, _header, payload] = path |> File.read!() |> String.split("\n", parts: 3)
+      refute :zlib.gunzip(payload) =~ token
+
+      {:ok, restored} = Backup.restore(path)
+      {:ok, conn} = Exqlite.Sqlite3.open(restored)
+      {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, "SELECT key, value FROM meta ORDER BY key")
+      {:ok, rows} = Exqlite.Sqlite3.fetch_all(conn, stmt)
+      :ok = Exqlite.Sqlite3.release(conn, stmt)
+      :ok = Exqlite.Sqlite3.close(conn)
+
+      assert ["openresults_endpoint", "http://localhost:4004"] in rows
+      refute Enum.any?(rows, fn [key, _] -> key == "openresults_token" end)
+    end
+
     test "a second backup does not overwrite the first", %{dir: dir} do
       src = source(dir)
 
