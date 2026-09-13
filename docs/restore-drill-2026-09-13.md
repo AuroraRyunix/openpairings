@@ -35,7 +35,7 @@ procedure as it stands after them.
 | 2 a restore undid takedowns | fixed: a takedown journal beside the database, replayed at every boot before anything publishes | `1f4294f` | `takedown_journal_test.exs`, including a real backup taken before the takedown, restored and read through the app's Repo; also a prod-mode boot on a restored copy |
 | 3 published after the backup | the refusal now says the tournament was probably published after the backup and the operator can move or remove it; a tournament created after the backup still needs the operator's token | `83f9dc0` | `publishing_after_restore_test.exs` |
 | 4 backup older than the code | a production `mix phx.server` start refuses a database with pending migrations, saying which and to run `mix ecto.migrate`; a release migrates | `954067c` | `application_test.exs`, a restored file one migration behind in `backup_restore_test.exs`, and a prod-mode boot that refused and then started after migrating |
-| 5 no procedure | rewritten again for the fixes | docs commit | |
+| 5 no procedure | rewritten again for the fixes | `2f83595` | |
 | 6 the token in every backup | the operator token is stripped from backups; a restore sets it again from the results site's unit. Passphrase: recommended, not set | `0790e3a` | `backup_test.exs` - not a byte of the token in the file |
 | 7 verify did not read the pages | `PRAGMA integrity_check` | `1f65112` | `backup_restore_test.exs`, fails on the old code |
 | 8 decrypted copy left in `%TEMP%` | statements released, connection closed on every path | `1f65112` | `backup_restore_test.exs`, fails on the old code |
@@ -44,9 +44,10 @@ procedure as it stands after them.
 | 11 `database is locked` at first boot | `restore/1` hands the file back in WAL mode | `1f65112` | `backup_restore_test.exs`; no such line in the prod-mode boot |
 | 12 passwords, roles, sessions | every session, sign-in link and email-change link is ended in the recovered copy; passwords and roles are documented as the backup's | `dc3ed40` | `backup_restore_test.exs` |
 | 13 machine-bound values | the token no longer travels; the rest is as reported | `0790e3a` | |
-| 14 desktop restore needs `eval` | unchanged; the steps are updated for the swap, the journal and the token | docs commit | |
+| 14 desktop restore needs `eval` | unchanged; the steps are updated for the swap, the journal and the token | `2f83595` | |
 | 15 listed names not found | resolved from the backup directory | `1f65112` | `backup_swap_test.exs` |
 | aside: token in debug SQL | `mix pairings.publishing` starts its Repo with `log: false` | `0790e3a` | |
+
 ## How it was run
 
 Local only, on a Windows 11 workstation (16 threads). No SSH, no deploy, no
