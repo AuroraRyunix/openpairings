@@ -12,6 +12,8 @@ defmodule PairingsEngine.RegistrationsTest do
   use PairingsEngine.DataCase, async: false
 
   alias PairingsEngine.{Publishing, Registrations, Repo, Snapshot, Tournaments}
+  alias PairingsEngine.PublicServerStub, as: Server
+  alias PairingsEngine.Publishing.Installation
   alias PairingsEngine.Registrations.Registration
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
@@ -281,6 +283,69 @@ defmodule PairingsEngine.RegistrationsTest do
       assert message =~ "rejected the token"
     end
 
+    test "a bare 401 with no code reads as a rejected token too" do
+      # `Failure.effective_code/1`'s own normalisation - reused here rather
+      # than a second status-based check for the same shape.
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 401, "Unauthorized") end)
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "rejected the token"
+    end
+  end
+
+  # Dispatched on the server's code - OpenResults' contract says a client
+  # must, and the refactor two days ago that made `Publishing` do this left
+  # this module reading the status alone. Two 403s mean two different
+  # things to an arbiter, same as on Connections.
+  describe "403s that are not each other" do
+    test "key_mismatch reads as a different machine's key, not a generic refusal" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"key_mismatch"})) end)
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "different"
+      assert message =~ "machine"
+    end
+
+    test "a bare 403 with no code reads the same way as key_mismatch" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, "Forbidden") end)
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "different"
+      assert message =~ "machine"
+    end
+
+    test "not_owner names the other installation, not a different machine" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"not_owner"})) end)
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "a different installation owns this tournament"
+      refute message =~ "machine"
+    end
+
+    test "installation_suspended says the key was suspended, not refused generically" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"installation_suspended"})) end)
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "suspended"
+      refute message =~ "different machine"
+    end
+
+    test "installation_revoked says the key is no longer accepted, not refused generically" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 403, ~s({"error":"installation_revoked"})) end)
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "no longer accepts"
+      refute message =~ "different machine"
+    end
+  end
+
+  describe "other errors an arbiter has to act on" do
     test "a server with no such list says so rather than reporting no entries" do
       t = tournament()
       stub(fn conn -> Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"})) end)
@@ -307,6 +372,86 @@ defmodule PairingsEngine.RegistrationsTest do
 
       assert {:error, message} = Registrations.pull(t)
       assert message =~ "not a list of entries"
+    end
+  end
+
+  describe "pulled in public mode too (a per-installation key rather than a token)" do
+    setup do
+      previous = Application.get_env(:pairings_engine, :local_mode)
+      Application.put_env(:pairings_engine, :local_mode, true)
+
+      on_exit(fn ->
+        case previous do
+          nil -> Application.delete_env(:pairings_engine, :local_mode)
+          value -> Application.put_env(:pairings_engine, :local_mode, value)
+        end
+      end)
+
+      Publishing.put_endpoint(nil)
+      Publishing.put_public_base(nil)
+      Publishing.put_token(nil)
+      :ok
+    end
+
+    # A registered installation, through the real requests - same shape
+    # `PairingsEngine.PublicPublishingTest` uses.
+    defp register! do
+      Server.install(self())
+      {:ok, info} = Installation.server_info()
+      :ok = Installation.give_consent(info)
+      {:ok, _id} = Installation.register()
+      Server.requests()
+      :ok
+    end
+
+    # A tournament this machine already published under its installation key,
+    # without a real mint round trip - `Publishing.public_slug_state/1` reads
+    # a key with no `public_slug_minted_at` as `:keyed`, which is enough for
+    # `on_site?/1` to let a pull proceed.
+    defp keyed_tournament do
+      tournament()
+      |> Ecto.Changeset.change(openresults_key: "an-already-published-key")
+      |> Repo.update!()
+    end
+
+    test "a rejected key reads as public mode's own wording, not the token's" do
+      register!()
+      t = keyed_tournament()
+
+      Server.install(self(), %{
+        {"GET", "/api/tournaments/#{t.public_slug}/registrations"} =>
+          Server.error(401, "unauthorized")
+      })
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "does not recognise this computer's key"
+      refute message =~ "token"
+    end
+
+    test "not_owner reads the same as it does in operator mode" do
+      register!()
+      t = keyed_tournament()
+
+      Server.install(self(), %{
+        {"GET", "/api/tournaments/#{t.public_slug}/registrations"} =>
+          Server.error(403, "not_owner")
+      })
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "a different installation owns this tournament"
+    end
+
+    test "installation_revoked reads the same as it does in operator mode" do
+      register!()
+      t = keyed_tournament()
+
+      Server.install(self(), %{
+        {"GET", "/api/tournaments/#{t.public_slug}/registrations"} =>
+          Server.error(403, "installation_revoked")
+      })
+
+      assert {:error, message} = Registrations.pull(t)
+      assert message =~ "no longer accepts"
     end
   end
 

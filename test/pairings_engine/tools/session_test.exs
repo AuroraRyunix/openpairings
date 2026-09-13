@@ -60,6 +60,114 @@ defmodule PairingsEngine.Tools.SessionTest do
     assert Session.get(token) == :error
   end
 
+  describe "put_patch/2,3 and clear_patch/1" do
+    test "get/1 shallow-merges a live patch onto the main entry" do
+      token = Session.put(%{files: [:big], overlay: %{a: 1}})
+
+      assert ^token = Session.put_patch(token, %{overlay: %{a: 2}})
+
+      # `files` (untouched by the patch) survives; `overlay` (in the patch)
+      # is the patch's value, not the original.
+      assert {:ok, %{files: [:big], overlay: %{a: 2}}} = Session.get(token)
+    end
+
+    test "a patch is invisible until it exists" do
+      token = Session.put(%{overlay: %{a: 1}})
+      assert {:ok, %{overlay: %{a: 1}}} = Session.get(token)
+    end
+
+    test "put_patch/2 does not touch the main entry's own stored data" do
+      token = Session.put(%{files: [:big]})
+      [{^token, data_before, _exp, bytes_before}] = :ets.lookup(Session, token)
+
+      Session.put_patch(token, %{overlay: %{a: 1}})
+
+      [{^token, data_after, _exp, bytes_after}] = :ets.lookup(Session, token)
+
+      # Same term, same recorded size - the main row was never rewritten.
+      assert data_after == data_before
+      assert bytes_after == bytes_before
+    end
+
+    test "clear_patch/1 removes the patch, so get/1 falls back to the main entry" do
+      token = Session.put(%{overlay: %{a: 1}})
+      Session.put_patch(token, %{overlay: %{a: 2}})
+
+      assert Session.clear_patch(token) == :ok
+      assert {:ok, %{overlay: %{a: 1}}} = Session.get(token)
+    end
+
+    test "clear_patch/1 on a token with no patch is a harmless no-op" do
+      token = Session.put(%{overlay: %{a: 1}})
+      assert Session.clear_patch(token) == :ok
+      assert {:ok, %{overlay: %{a: 1}}} = Session.get(token)
+    end
+
+    test "a later put/2 (full write) is not shadowed by an older patch" do
+      # Mirrors what PairingsEngineWeb.ToolsNormsLive does: a bulk-changing
+      # event (a new upload) writes the FULL, current overlay too, so any
+      # earlier patch is now redundant - and must not go on masking the
+      # fresher value the full write just carried.
+      token = Session.put(%{files: [], overlay: %{a: 1}})
+      Session.put_patch(token, %{overlay: %{a: 2}})
+
+      Session.put(token, %{files: [:one], overlay: %{a: 2, b: "new"}})
+      Session.clear_patch(token)
+
+      assert {:ok, %{files: [:one], overlay: %{a: 2, b: "new"}}} = Session.get(token)
+    end
+
+    test "an expired patch is ignored, not merged" do
+      # `put_patch/3`'s own `ttl_ms` also touches the main entry (see its
+      # doc), so an expiry of 0 cannot be used to age out the patch alone
+      # without also expiring the row it is supposed to be merged onto. This
+      # ages out only the patch row directly, to test `get/1`'s lazy-expiry
+      # check on it in isolation - a state normal callers do not produce
+      # (both rows are always touched together) but `get/1` still guards.
+      token = Session.put(%{overlay: %{a: 1}})
+      Session.put_patch(token, %{overlay: %{a: 2}})
+      :ets.update_element(Session, {token, :patch}, {3, System.monotonic_time(:millisecond) - 1})
+
+      assert {:ok, %{overlay: %{a: 1}}} = Session.get(token)
+    end
+
+    test "put_patch/3 refreshes the main entry's expiry (a patch counts as touching the session)" do
+      token = Session.put(Session.token(), %{overlay: %{}}, 50)
+      Session.put_patch(token, %{overlay: %{a: 1}}, :timer.hours(1))
+
+      Process.sleep(80)
+
+      # Would have expired at the original 50ms TTL; the patch's own put
+      # pushed the main entry's expiry out too.
+      assert {:ok, %{overlay: %{a: 1}}} = Session.get(token)
+    end
+
+    test "delete/1 also removes a token's patch" do
+      token = Session.put(%{overlay: %{a: 1}})
+      Session.put_patch(token, %{overlay: %{a: 2}})
+
+      Session.delete(token)
+
+      assert :ets.lookup(Session, token) == []
+      assert :ets.lookup(Session, {token, :patch}) == []
+    end
+  end
+
+  describe "touch/1,2" do
+    test "refreshes expiry without changing the stored data" do
+      token = Session.put(Session.token(), %{v: 1}, 50)
+
+      assert Session.touch(token, :timer.hours(1)) == :ok
+      Process.sleep(80)
+
+      assert {:ok, %{v: 1}} = Session.get(token)
+    end
+
+    test "on an unknown token is a harmless no-op" do
+      assert Session.touch("no-such-token") == :ok
+    end
+  end
+
   describe "memory budget" do
     # This store backs an unauthenticated upload page, so the cap has to be in
     # bytes, not just in rows: 500 entries of ten 5 MB uploads each would

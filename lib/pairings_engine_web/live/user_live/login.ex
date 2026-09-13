@@ -126,14 +126,19 @@ defmodule PairingsEngineWeb.UserLive.Login do
               <% end %>
             </p>
 
-            <div :if={local_mail_adapter?()} class="auth-notice">
+            <div :if={local_mail_preview_adapter?() or console_mail_adapter?()} class="auth-notice">
               <.icon name="hero-information-circle" class="size-5 shrink-0" />
-              <span>
+              <span :if={local_mail_preview_adapter?()}>
                 <.rich_text text={gettext("Local mail adapter - sent emails appear in %[mailbox].")}>
                   <:part name="mailbox">
                     <.link href="/dev/mailbox" class="auth-link">{gettext("the mailbox")}</.link>
                   </:part>
                 </.rich_text>
+              </span>
+              <span :if={console_mail_adapter?()}>
+                {gettext(
+                  "Local mode - sent emails are printed in this computer's terminal, not delivered."
+                )}
               </span>
             </div>
 
@@ -287,10 +292,24 @@ defmodule PairingsEngineWeb.UserLive.Login do
       Enum.each(limits, fn {bucket, key} -> RateLimit.record(bucket, key) end)
 
       if user = Accounts.get_user_by_email(email) do
-        Accounts.deliver_login_instructions(
-          user,
-          &url(~p"/users/log-in/#{&1}")
-        )
+        # The flash below is deliberately identical whether this succeeds,
+        # fails, or the address doesn't exist at all (see the comment on
+        # `info`), so a failed send has to be logged here or it is invisible
+        # everywhere: nothing raises, nothing is shown, and the person who
+        # asked for a link just never gets one. `registration.ex`'s
+        # `do_register/2` already logs the same underlying failure; this was
+        # the one caller of `deliver_login_instructions/2` that didn't.
+        case Accounts.deliver_login_instructions(
+               user,
+               &url(~p"/users/log-in/#{&1}")
+             ) do
+          {:ok, _email} ->
+            :ok
+
+          {:error, reason} ->
+            require Logger
+            Logger.error("Failed to send login instructions to #{user.email}: #{inspect(reason)}")
+        end
       end
 
       info =
@@ -324,8 +343,21 @@ defmodule PairingsEngineWeb.UserLive.Login do
     end
   end
 
-  defp local_mail_adapter? do
-    Application.get_env(:pairings_engine, PairingsEngine.Mailer)[:adapter] ==
-      Swoosh.Adapters.Local
-  end
+  # `Swoosh.Adapters.Local` is dev's preview mailbox (routed at /dev/mailbox,
+  # only mounted when `dev_routes` is compiled in - see router.ex). That is a
+  # DIFFERENT non-delivery mode from `PairingsEngine.ConsoleMailer`, which is
+  # what `OPENPAIRINGS_LOCAL=1` / a Burrito build actually uses (see
+  # config/runtime.exs and ConsoleMailer's moduledoc) - there is no
+  # `/dev/mailbox` route at all in that build (`dev_routes` is compile-time
+  # false there), so the two need different notices: one links to the
+  # mailbox, the other says to look at the terminal. Before this,
+  # `local_mail_adapter?/0` matched only the Local adapter, so a local/
+  # desktop build showed NO notice at all on the paths ConsoleMailer's own
+  # moduledoc says still send mail - a second account on the same machine,
+  # an invited collaborator, a password reset - leaving someone who clicked
+  # "email me a magic link" with no sign that anything happened.
+  defp local_mail_preview_adapter?, do: mail_adapter() == Swoosh.Adapters.Local
+  defp console_mail_adapter?, do: mail_adapter() == PairingsEngine.ConsoleMailer
+
+  defp mail_adapter, do: Application.get_env(:pairings_engine, PairingsEngine.Mailer)[:adapter]
 end

@@ -113,10 +113,13 @@ defmodule Mix.Tasks.Pairings.Publishing do
   defp apply_settings(opts) do
     force? = opts[:force] == true
 
+    # `stored_endpoint/0` for the same reason as the public address below: a
+    # local run falls back to the public results site, and that fallback is
+    # not a value anybody set.
     settle(
       force?,
       "address to send to",
-      Publishing.endpoint(),
+      Publishing.stored_endpoint(),
       opts[:endpoint],
       &Publishing.put_endpoint/1
     )

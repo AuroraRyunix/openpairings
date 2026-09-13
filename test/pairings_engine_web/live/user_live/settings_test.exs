@@ -59,6 +59,39 @@ defmodule PairingsEngineWeb.UserLive.SettingsTest do
       assert Accounts.get_user_by_email(user.email)
     end
 
+    test "shows an error and logs it, rather than claiming success, when the confirmation email fails to send",
+         %{conn: conn} do
+      # Regression test: this handler used to call
+      # `Accounts.deliver_user_update_email_instructions/3` and discard the
+      # result, so "A link ... has been sent" showed even when the send
+      # failed. Unlike the log-in form's resend, there is no enumeration
+      # concern here - the user is already logged into their own account -
+      # so this can and should say so.
+      previous = Application.get_env(:pairings_engine, PairingsEngine.Mailer)
+
+      Application.put_env(:pairings_engine, PairingsEngine.Mailer,
+        adapter: PairingsEngine.FailingMailer
+      )
+
+      on_exit(fn -> Application.put_env(:pairings_engine, PairingsEngine.Mailer, previous) end)
+
+      new_email = unique_user_email()
+      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          result =
+            lv
+            |> form("#email_form", %{"user" => %{"email" => new_email}})
+            |> render_submit()
+
+          assert result =~ "We could not send the confirmation email"
+          refute result =~ "A link to confirm your email"
+        end)
+
+      assert log =~ "Failed to send update-email instructions to #{new_email}"
+    end
+
     test "renders errors with invalid data (phx-change)", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/settings")
 

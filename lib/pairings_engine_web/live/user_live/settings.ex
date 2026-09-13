@@ -124,14 +124,33 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
     case Accounts.change_user_email(user, user_params) do
       %{valid?: true} = changeset ->
-        Accounts.deliver_user_update_email_instructions(
-          Ecto.Changeset.apply_action!(changeset, :insert),
-          user.email,
-          &url(~p"/users/settings/confirm-email/#{&1}")
-        )
+        applied_user = Ecto.Changeset.apply_action!(changeset, :insert)
 
-        info = "A link to confirm your email change has been sent to the new address."
-        {:noreply, socket |> put_flash(:info, info)}
+        # The send result used to be discarded here, so a failed send (an
+        # SMTP hiccup, same as the collaborator-invite mailer) still showed
+        # "A link ... has been sent" - the one flash in this LiveView that
+        # could not actually be wrong, since the user is already logged in
+        # under their OWN account (unlike the log-in form's resend, there is
+        # no enumeration concern in telling them a send failed).
+        case Accounts.deliver_user_update_email_instructions(
+               applied_user,
+               user.email,
+               &url(~p"/users/settings/confirm-email/#{&1}")
+             ) do
+          {:ok, _email} ->
+            info = "A link to confirm your email change has been sent to the new address."
+            {:noreply, put_flash(socket, :info, info)}
+
+          {:error, reason} ->
+            require Logger
+
+            Logger.error(
+              "Failed to send update-email instructions to #{applied_user.email}: #{inspect(reason)}"
+            )
+
+            error = "We could not send the confirmation email. Please try again shortly."
+            {:noreply, put_flash(socket, :error, error)}
+        end
 
       changeset ->
         {:noreply, assign(socket, :email_form, to_form(changeset, action: :insert))}

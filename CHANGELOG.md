@@ -41,6 +41,189 @@ Each entry is tagged so a version can be skimmed:
   everything else to re-apply. Also written down: an unencrypted backup - which
   is what the deploy produces - holds the OpenResults operator token, not just
   player emails and tournament keys.
+
+- [Fix] **Pulling entry-form registrations words a refusal by the server's
+  own error code, like publishing already does.** `PairingsEngine.
+  Registrations` still dispatched on the HTTP status alone - a 403 with
+  `installation_suspended`, `installation_revoked` or `not_owner` all fell
+  back to a bare "the server answered 403: `<code>`" - even though
+  `PairingsEngine.Publishing` was refactored two days ago to read the JSON
+  `error` code the same way `PairingsEngineWeb.Components.ConnectionStatus`
+  does. Now reuses `Publishing.rejection_of/1` and `Failure.effective_code/1`
+  to decode the body rather than re-parsing it, and gets its own sentence
+  for each: `not_owner` names the other installation (the same words
+  `Publishing.take_down_words/2` already uses for it), `installation_
+  suspended`/`installation_revoked` say the key was suspended or is no
+  longer accepted, and `key_mismatch`/`key_required`/a bare 403 keep the
+  "a different machine published it" sentence they already had. Pulled in
+  public mode too (a per-installation key rather than a token), which gets
+  its own "does not recognise this computer's key" wording for a rejected
+  credential, same as publishing's.
+- [Fix] **The Connections panel's headline no longer contradicts the
+  sentence under it.** `headline/1` picked "Token refused" for almost every
+  refusal (only "Publishing paused" had its own wording), whatever the
+  server actually said - so a 200 from some other website read "Token
+  refused" above "which is not an OpenResults server", and a suspended key,
+  a hidden tournament, a blocked address or a different installation owning
+  the tournament all read "Token refused" too, in operator mode, or a
+  blanket "Refused by the results site" in public mode. Every code
+  `reason_sentence/1` already has a sentence for now gets its own matching
+  headline instead ("Owned by another installation", "Key suspended", "Key
+  revoked", "Tournament limit reached", "Tournament too large", "Tournament
+  hidden", "Registration closed", "Address blocked", "Waiting a moment", and
+  "Key not recognised" for public mode's own unrecognised-key wording); "Not
+  an OpenResults server" for a server that answered with no error code at
+  all, which was the reported case. New Dutch msgstrs throughout. Found by
+  checking every `{state, reason}` pairing, as asked - one more of the same
+  bug was already pinned as expected behaviour in
+  `public_publishing_live_test.exs` (an installation-revoked key), fixed
+  alongside it.
+- [Security] **The public `/tools/norms` page no longer re-serialises every
+  uploaded file on every officials-form keystroke.** `update_fields` and its
+  siblings (picking an arbiter from search results, adding or removing one,
+  choosing an FA1/IA1 candidate) synced the *entire* session into
+  `PairingsEngine.Tools.Session` on each call - every uploaded file's parsed
+  tournament and full player list included, not just the small
+  overlay/candidate map that actually changed - on a page with no login and
+  no rate limit on this path. `Session.put/3` runs `:erlang.external_size/1`
+  over the whole term and deep-copies it into a shared ETS table, so the cost
+  scaled with everything uploaded so far, on every keystroke. Measured on a
+  real 5,000-player upload (5.48 MB session payload), averaged over 200
+  calls: re-syncing the whole session this way cost **~7.5 ms**; the fields
+  that actually change now sync through a new small "patch" entry
+  (`Session.put_patch/2`) that `Session.get/1` merges back on for the reader
+  (the download route included), costing **~8.5 µs** - about **880x less**,
+  and no longer proportional to what has been uploaded. The officials form
+  also gained the same 300ms `phx-debounce` the signed-in Norms page's
+  already has, so a keystroke does not even reach the LiveView until typing
+  pauses. A reload or reconnect still restores exactly what it restored
+  before - the merge is covered by its own test, alongside one pinning that
+  N field edits never rewrite the stored file payload.
+
+- [Fix] **A production server without `PHX_HOST` now refuses to start** instead
+  of quietly using `example.com` for every emailed link - login, invitations,
+  email changes - and the Keycloak callback. Guarded like the SMTP check: only
+  the running server (`PHX_SERVER`) enforces it, so `mix ecto.migrate` and other
+  build tasks still run without it, and the desktop app keeps `localhost`.
+- [Fix] **A collaborator invite that failed to send was still reported to
+  the tournament owner as sent.** `add_collaborator/3` called the mailer and
+  discarded what it returned, always setting `mail_status: :sent` - so the
+  Team panel's own "share this link manually" fallback for a failed send
+  could never actually show, because an SMTP failure comes back from Swoosh
+  as `{:error, reason}`, not an exception, and nothing looked at it. It now
+  does, so a real send failure shows the manual-share notice instead of a
+  silent, false "sent".
+- [Fix] **Account emails were always sent in English, regardless of the
+  arbiter's chosen language.** The magic-link, account-confirmation,
+  email-change, and collaborator-invitation emails had no translation in
+  them at all. They now render in whichever locale the person taking the
+  action - logging in, registering, changing their email, or inviting a
+  collaborator - already has selected for their own screen. An invitation
+  is worded in the INVITING arbiter's language, since the invitee may not
+  have an OpenPairings account yet to have a language of their own.
+- [Fix] **A failed magic-link resend or email-change confirmation vanished
+  without a trace.** Both call sites sent the mail and ignored what came
+  back, so an SMTP hiccup left the person waiting for an email that was
+  never coming, with no log line and no different flash to say so
+  (registration's own equivalent already logged this correctly). Both now
+  log the failure; the email-change confirmation, which is already the
+  logged-in user's own account, now tells them too. The log-in form's resend
+  keeps its one message either way on purpose - it must not become a second,
+  quieter way to learn whether an address exists.
+- [Fix] **A local/desktop build (`OPENPAIRINGS_LOCAL=1`, or the Burrito app)
+  gave no sign that a login or invite email had gone anywhere.** That build
+  prints the email to its own terminal instead of sending it - there is no
+  mail server on a single-user machine - but the log-in page's notice about
+  local mail only recognised the dev preview mailbox, not this adapter, so
+  it said nothing for a second account on the same machine, an invited
+  collaborator, or a password reset. It now names the terminal instead.
+
+- [Feature] **The desktop app publishes to openresults.zerotwo.cloud without a
+  token.** On your own computer, with no token configured, the results site's
+  address now defaults to `https://openresults.zerotwo.cloud`, and turning
+  publishing on for a tournament is all it takes. The first time, the app
+  asks the results site who runs it and shows you once: who operates the
+  site, a link to its terms when it has them, and what will be published.
+  Say no and nothing is sent and publishing stays off; say yes and this
+  computer gets a key of its own from the results site, which creates the
+  tournament's address, and the tournament is published as before. Nothing
+  at all is sent to the results site - no connection check, no question -
+  until you turn publishing on for a tournament. The hosted service is
+  unchanged and never does this: it still needs a token from its operator,
+  and a token you enter on the desktop takes over from the computer's own
+  key the moment it is saved.
+- [Feature] **No link or QR code until the first copy has arrived on the
+  results site.** In this mode the results site picks each tournament's
+  address, and until a publish under it has succeeded the site answers that
+  address like one that does not exist. So the share link, the "Public
+  page" buttons on Pairings and Standings, the entry-form link and the
+  spectator QR code on the local view all stay hidden until the first copy
+  has arrived - not merely until the address is created, because a first
+  publish refused in between (too large, paused, the connection dropping)
+  would have left a dead link on screen or on paper. An open page shows the
+  link the moment it arrives. The Results site settings page says what the
+  tournament is waiting for instead: your go-ahead, registering this
+  computer, the first copy, or changes being sent. "Move to a new address"
+  asks the results site for a new address and removes the copy at the old
+  one. An address that never received a copy and that the results site has
+  since let go (it does after 30 days) is replaced with a new one without
+  interrupting you - nobody was ever given a link to it. An address belongs
+  to the results site that created it: pointing this computer at a
+  different one gives a tournament a new address there, after you agree to
+  publish on that site, with no link in the meantime. A tournament already
+  published with a token keeps its address and its link if the token is
+  later removed, rather than being moved and leaving the old copy up with
+  nothing here able to take it down.
+- [Feature] **The results site's refusals are explained, in English and
+  Dutch.** Paused publishing (amber), a suspended or revoked key, a blocked
+  network address, the limit on tournaments (with the number), a tournament
+  too large to accept (with the size), a tournament owned by another
+  installation or hidden by the site's operator (red) each get their own
+  sentence on Connections, in the top-bar indicator and on the tournament's
+  Results site settings page. A rate limit is honoured quietly, waiting at
+  least as long as the site asks, and a refusal that applies to every
+  tournament - offline, paused, rate limited, not registering - is asked
+  once per round of sending rather than once per waiting tournament. When a
+  pause ends or registration reopens, what was waiting goes out without
+  waiting for its next retry. What only the arbiter can resolve stops
+  instead of retrying: "Try again" sends it again, and a key the site no
+  longer accepts offers "Register again", which asks you again first - the
+  app never registers again on its own. A tournament owned by another
+  installation (after a hand-off, or a rebuilt laptop) names its address and
+  this computer's installation, which is what the site's operator needs to
+  move it. Fetching entries from the results site is refused in the same
+  terms: a 403 now says which refusal it was instead of always blaming
+  "a different machine", and a blocked network address can still fetch.
+- [Security] **This computer's publishing key never leaves it.** The key the
+  results site gives a desktop copy is left out of every backup - deleted
+  from the copy before it is written, so a backup restored on another
+  computer does not make that computer this installation - and it is in no
+  export, hand-off file, restore point or TRF, is never shown after it is
+  stored, and never reaches a log line or the audit trail. It is also only
+  ever sent to the results site that issued it: pointing the app at another
+  address stops using it. Tournament keys are still carried in backups as
+  before, so a rebuilt laptop can still manage what it published; after any
+  restore - onto the same computer too - this computer registers again, and
+  the site's operator moves all its tournaments across in one step.
+
+- [Verified] **The one 2026-09-05 audit finding that was never judged
+  ("the public officials form re-serialises the whole session on every
+  keystroke") turned out to be two pages.** The signed-in Norms page's
+  officials form was already fixed three days before the audit ran -
+  `632d77a` and `319b0e8` (2026-09-02) memoised the roster sort/IT3 counts
+  out of the template and debounced the form, so `officials_change` is now
+  `assign(socket, dirty: true)` on an assign the template never reads.
+  Re-verified directly: a 200-player tournament costs the same 397 VM
+  reductions per keystroke as a 5-player one, touches no database query,
+  and broadcasts nothing - no code change, one more test pinning it. The
+  actual public, no-login `/tools/norms` page has its own, still-open
+  version of the same shape: its officials card carries no debounce at all,
+  and every keystroke re-syncs the *entire* upload session (every parsed
+  file, not just the changed field) into `PairingsEngine.Tools.Session`,
+  measured to cost linearly in the total uploaded data (10 µs empty, 5.9 ms
+  at 4.6 MB uploaded). Real, and out of scope for this pass - see
+  `docs/audit-2026-09-05.md`'s "One finding was never judged" for the
+  numbers and a follow-up flagged separately.
 - [Fix] **The audit trail is in Dutch for a Dutch arbiter - the rows, not
   just the page around them.** Every line on the Audit page ("Registered
   player…", "Entered result 1-0 on board 4 (round 2)…", every settings
@@ -66,6 +249,23 @@ Each entry is tagged so a version can be skimmed:
   shapes read better too: a result blanked before 2026-08-03 said "changed
   from 1-0 to" and now reads as a cleared result, and a role change names
   the roles as the Admin page does ("from Account owner to Administrator").
+- [Fix] **Thirty-four kinds of audit row said what they were instead of
+  what happened.** Hand edits to a paired round, publishing and taking
+  down pairings and standings, hiding an empty board, all four hand-off
+  steps, the results site settings, the bulk edits on the Players grid, the
+  club refresh, category rules and assignment, and recomputing the pairing
+  rationale all showed an internal code - `pairing.players_swapped`,
+  `handoff.returned` - on the Audit page, the History page and the Admin
+  page's activity list, in English and Dutch alike. Each now reads as a
+  sentence in the arbiter's language, rows written by earlier versions
+  included, and says what an incident needs: "Took the pairings of round 4
+  and every later round off the public page. Public standings now go no
+  further than after round 3." Round 0 reads as the initial standings. A
+  hand edit names its round, but those rows never stored which players
+  moved - only the confirmation's own English line - so that line follows
+  the sentence in quotes: `Recorded as "Chris Maes takes Bram Claes's
+  place".` The rows 0.59.0 wrote for its "Publish the starting rank before
+  round 1" switch read as a sentence too.
 
 - [Fix] **The publishing connection panel no longer prints an English
   sentence under a Dutch heading.** The panel on Connections, the status

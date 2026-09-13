@@ -1230,4 +1230,94 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       assert PairingsEngine.RateLimit.count(:tools_upload, ip) == 2
     end
   end
+
+  ## ---------- session sync cost (docs/audit-2026-09-05.md, "the second page") ----------
+  #
+  # `update_fields` used to call `sync_session/1`, which re-`Session.put/2`'d
+  # the ENTIRE session payload - every uploaded file's parsed contents
+  # included - on every keystroke. These pin the fix: editing overlay/
+  # candidate fields costs the small patch alone, and a download straight
+  # after still sees everything, exactly as it did before the fix.
+  describe "field edits do not re-store the uploaded files" do
+    test "N field edits leave the stored file payload untouched", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+      upload_files(lv, [
+        {"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}
+      ])
+
+      token = download_token_from_session(lv)
+      [{^token, data_before, _expires_before, bytes_before}] = :ets.lookup(Session, token)
+
+      # `data_before` really does carry the uploaded file - otherwise "the
+      # main row is untouched" would be true for a trivial reason.
+      assert %{files: [%{filename: "alpha.trf"}]} = data_before
+
+      for n <- 1..5 do
+        render_change(lv, "update_fields", %{
+          "overlay" => %{"organizer_name" => "Edit number #{n}"}
+        })
+      end
+
+      [{^token, data_after, _expires_after, bytes_after}] = :ets.lookup(Session, token)
+
+      # The main entry - the one holding the uploaded file - was never
+      # rewritten: same term, same recorded `:erlang.external_size/1`. Not a
+      # timing assertion; either `Session.put/2` ran again on this row or it
+      # did not.
+      assert data_after == data_before
+      assert bytes_after == bytes_before
+
+      # The edits were not silently dropped either - they live in the patch,
+      # which `Session.get/1` (used below, and by the download route) merges
+      # back on.
+      assert [{_key, %{overlay: %{"organizer_name" => "Edit number 5"}}, _exp, _bytes}] =
+               :ets.lookup(Session, {token, :patch})
+
+      assert {:ok, %{overlay: %{"organizer_name" => "Edit number 5"}}} = Session.get(token)
+    end
+
+    test "a download right after several field edits still sees the files, the latest overlay and the latest candidate - a reload or reconnect restores exactly what it restores today",
+         %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+      upload_files(lv, [
+        {"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}
+      ])
+
+      lv
+      |> form("#tools-fields-form", %{
+        "overlay" => %{"organizer_name" => "Someone"},
+        "candidate" => %{"last_name" => "Candidate", "first_name" => "Norma"}
+      })
+      |> render_change()
+
+      lv |> element(~s(button[phx-click="add_arbiter"])) |> render_click()
+
+      html =
+        lv
+        |> form("#tools-fields-form", %{"candidate" => %{"fide_id" => "300600"}})
+        |> render_change()
+
+      # The count these edits drove lives in overlay too, via add_arbiter.
+      assert html =~ "Arbiter 1"
+
+      token = download_token_from_session(lv)
+      assert {:ok, session} = Session.get(token)
+
+      # Everything a download needs, all still there, all current - the same
+      # single `Session.get/1` call `PairingsEngineWeb.ToolsController` makes.
+      assert %{filename: "alpha.trf"} = hd(session.files)
+      assert session.overlay["organizer_name"] == "Someone"
+      assert session.overlay["extra_arbiters_count"] == 1
+      assert session.candidate["last_name"] == "Candidate"
+      assert session.candidate["first_name"] == "Norma"
+      assert session.candidate["fide_id"] == "300600"
+
+      # And the download itself still works end to end.
+      fill_required_emails(lv)
+      conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+      assert conn.status == 200
+    end
+  end
 end

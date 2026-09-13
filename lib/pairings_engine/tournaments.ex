@@ -398,18 +398,28 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
-  # Never lets a mailer exception (e.g. an SMTP hiccup) crash the caller -
-  # the collaborator row above is already committed, so a failed send just
-  # means the owner has to share the invite link manually.
+  # Never lets a mailer failure crash the caller - the collaborator row
+  # above is already committed, so a failed send just means the owner has
+  # to share the invite link manually.
+  #
+  # This used to call `deliver_invitation/4` and discard its result,
+  # unconditionally returning `:sent` - so an SMTP hiccup (the normal case
+  # this comment already described) was reported to the owner as a
+  # successful send instead of the `:failed` that `settings_tournament_live.ex`
+  # already knew how to show. `Mailer.deliver/1` (Swoosh) returns
+  # `{:error, reason}` for that; it does not raise, so the `rescue` below
+  # never actually caught it. The `case` is the real fix; `rescue` stays as
+  # a backstop for anything that genuinely raises (a nil field, say).
   defp deliver_invitation_email(owner, tournament, collaborator) do
-    PairingsEngine.Accounts.UserNotifier.deliver_invitation(
-      collaborator.email,
-      owner.email,
-      tournament.name,
-      invite_url(collaborator.invite_token)
-    )
-
-    :sent
+    case PairingsEngine.Accounts.UserNotifier.deliver_invitation(
+           collaborator.email,
+           owner.email,
+           tournament.name,
+           invite_url(collaborator.invite_token)
+         ) do
+      {:ok, _email} -> :sent
+      {:error, _reason} -> :failed
+    end
   rescue
     _ -> :failed
   end
@@ -1138,13 +1148,23 @@ defmodule PairingsEngine.Tournaments do
   copy alongside it. `PairingsEngine.Publishing.rotate_address/1` is the
   operation an arbiter actually wants, and it calls this in the middle.
   Broadcasts `:settings`.
+
+  Clears what the results site said about the old slug (minted, where, first
+  published): the new slug is a local placeholder, and in public mode the
+  site mints the real one, and the first copy has to arrive, before any link
+  is shown.
   """
   @spec rotate_public_slug(Tournament.t()) ::
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
   def rotate_public_slug(%Tournament{} = tournament) do
     with :ok <- ensure_writable(tournament) do
       tournament
-      |> Ecto.Changeset.change(public_slug: Tournament.generate_public_slug())
+      |> Ecto.Changeset.change(
+        public_slug: Tournament.generate_public_slug(),
+        public_slug_minted_at: nil,
+        public_slug_server: nil,
+        public_slug_published_at: nil
+      )
       |> Repo.update()
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
     end

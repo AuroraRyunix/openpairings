@@ -265,8 +265,13 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     do: gettext("Sending")
 
   defp pill_word(%{state: :connected}), do: gettext("Live")
+
+  defp pill_word(%{reason: {:refused, {:rejected, _status, "publishing_paused", _detail}}}),
+    do: gettext("Paused")
+
   defp pill_word(%{state: :refused}), do: gettext("Refused")
   defp pill_word(%{state: :unreachable}), do: gettext("Offline")
+  defp pill_word(%{reason: {:unconfigured, :consent_required}}), do: gettext("Waiting")
   defp pill_word(%{state: :unconfigured}), do: gettext("Not publishing")
 
   # The full sentence goes in the tooltip, so the short word above never has
@@ -284,20 +289,116 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     gettext("Publishing to %{host} is working", host: host(status.endpoint || ""))
   end
 
-  defp pill_title(%{reason: reason}), do: reason_sentence(reason)
+  defp pill_title(%{reason: _reason} = status), do: sentence(status)
+
+  # The refusals OpenResults' contract says to show in red ("OpenPairings
+  # desktop", the error table): each stops something until a person acts.
+  # Everything else a server answers stays amber - it answered.
+  @red_codes ~w(installation_suspended installation_revoked tournament_limit
+                snapshot_too_large not_owner tournament_hidden address_blocked)
 
   # Amber while work is in flight, whatever the connection says: "connected,
   # and eight tournaments are still waiting" is not a green situation.
   defp tone(%{state: :connected, pending: pending}) when pending > 0, do: "busy"
   defp tone(%{state: :connected}), do: "ok"
+
+  defp tone(%{state: :refused, reason: {:refused, rejection}} = status),
+    do: if(red?(rejection, status[:mode]), do: "down", else: "refused")
+
   defp tone(%{state: :refused}), do: "refused"
   defp tone(%{state: :unreachable}), do: "down"
+  # Waiting on the arbiter is not "off": something is switched on and has
+  # not gone anywhere.
+  defp tone(%{reason: {:unconfigured, :consent_required}}), do: "refused"
   defp tone(%{state: :unconfigured}), do: "off"
+
+  defp red?({:rejected, _status, code, _detail}, _mode) when code in @red_codes, do: true
+  # A token the server does not know is a wrong secret, amber, as it always
+  # was. An installation key it does not know has stopped publishing.
+  defp red?({:rejected, 401, nil, _detail}, :public), do: true
+  defp red?({:rejected, _status, "unauthorized", _detail}, :public), do: true
+  defp red?(_rejection, _mode), do: false
 
   defp headline(%{state: :connected, pending: pending}) when pending > 0, do: gettext("Sending")
   defp headline(%{state: :connected}), do: gettext("Connected")
-  defp headline(%{state: :refused}), do: gettext("Token refused")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "publishing_paused", _detail}}}),
+    do: gettext("Publishing paused")
+
+  # One clause per code below, same rule `reason_sentence/1` follows and for
+  # the same reason: a headline chosen from the STATE alone ("Token
+  # refused" for any `:refused`, whatever the code) told an arbiter the
+  # token was the problem when the server had said something else entirely -
+  # a different installation owning the tournament, a suspended key, this
+  # computer's address being blocked. Each of these pairs with the sentence
+  # `reason_sentence/1` gives the same code, so the two halves of the card
+  # never point at different causes.
+  defp headline(%{reason: {:refused, {:rejected, _status, "rate_limited", _detail}}}),
+    do: gettext("Waiting a moment")
+
+  # Public mode's credential is a key, not a token - matches
+  # `describe_public/2`'s `unrecognised_key_sentence/0` below, the one
+  # sentence in this whole table that reads differently by mode.
+  defp headline(%{mode: :public, reason: {:refused, {:rejected, 401, nil, _detail}}}),
+    do: gettext("Key not recognised")
+
+  defp headline(%{
+         mode: :public,
+         reason: {:refused, {:rejected, _status, "unauthorized", _detail}}
+       }),
+       do: gettext("Key not recognised")
+
+  defp headline(%{reason: {:refused, {:rejected, 401, nil, _detail}}}),
+    do: gettext("Token refused")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "unauthorized", _detail}}}),
+    do: gettext("Token refused")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "not_owner", _detail}}}),
+    do: gettext("Owned by another installation")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "installation_suspended", _detail}}}),
+    do: gettext("Key suspended")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "installation_revoked", _detail}}}),
+    do: gettext("Key revoked")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "tournament_limit", _detail}}}),
+    do: gettext("Tournament limit reached")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "snapshot_too_large", _detail}}}),
+    do: gettext("Tournament too large")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "tournament_hidden", _detail}}}),
+    do: gettext("Tournament hidden")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "registration_closed", _detail}}}),
+    do: gettext("Registration closed")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "address_blocked", _detail}}}),
+    do: gettext("Address blocked")
+
+  # A status with no code at all is some other website answering, not a
+  # rejected token - see `reason_sentence/1`'s matching clause. The 401 case
+  # is handled above, before this one, precisely because a BARE 401 reads as
+  # a rejected token/key; every other status with no code lands here.
+  defp headline(%{reason: {:refused, {:rejected, _status, nil, _detail}}}),
+    do: gettext("Not an OpenResults server")
+
   defp headline(%{state: :unreachable}), do: gettext("Cannot reach the results site")
+
+  defp headline(%{reason: {:unconfigured, :consent_required}}),
+    do: gettext("Waiting for your go-ahead")
+
+  defp headline(%{reason: {:unconfigured, :public_idle}}), do: gettext("Not publishing")
+  defp headline(%{reason: {:unconfigured, :token_required}}), do: gettext("Needs a token")
+
+  # Last resort, for a `:refused` shape none of the clauses above name - a
+  # server code with no clause yet (see `reason_sentence/1`'s own last
+  # resort, which the sentence falls to at the same time) or a reason with
+  # no rejection tuple at all. Never "Token refused": that would go back to
+  # naming a cause the sentence beneath it does not make.
+  defp headline(%{state: :refused}), do: gettext("Refused by the results site")
   defp headline(%{state: :unconfigured}), do: gettext("Not set up")
 
   # "82 KB sent just now" rather than "last sent just now" beside "82.0 KB
@@ -335,11 +436,67 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   # "Sending" keeps the whole sentence, because there it is not a repeat:
   # the headline says the queue is moving, the sentence says the connection
   # under it is fine.
+  defp detail(%{state: :connected, mode: :public, pending: pending}) when pending > 0,
+    do: gettext("Connected. This computer publishes with a key of its own, no token needed.")
+
+  defp detail(%{state: :connected, mode: :public}),
+    do: gettext("This computer publishes with a key of its own, no token needed.")
+
   defp detail(%{state: :connected, pending: pending}) when pending > 0,
     do: gettext("Connected. The address and token are both accepted.")
 
   defp detail(%{state: :connected}), do: gettext("The address and token are both accepted.")
-  defp detail(%{reason: reason}), do: reason_sentence(reason)
+  defp detail(%{reason: _reason} = status), do: sentence(status)
+
+  # The sentence for a status that is not "connected", in its mode's words.
+  defp sentence(%{mode: :public, reason: reason}), do: describe_public(reason)
+  defp sentence(%{reason: reason}), do: reason_sentence(reason)
+
+  @doc """
+  A public-mode reason as the sentence an arbiter reads - the Connections
+  panel, the pill, and a tournament's Results site settings page, which
+  passes the `limit` the server named (`PairingsEngine.Publishing.Failure`)
+  so "the limit" can be a number.
+
+  Differs from `describe_check/1` only where a token and an installation key
+  mean different things; every server code shared by both modes is worded
+  once, in `reason_sentence/1`.
+  """
+  def describe_public(reason, extras \\ %{})
+
+  def describe_public({:refused, {:rejected, _status, "tournament_limit", _detail}}, %{
+        limit: limit
+      })
+      when is_integer(limit),
+      do:
+        gettext(
+          "This computer already has %{limit} tournaments on the results site, which is its limit. Publishing has stopped for this tournament.",
+          limit: limit
+        )
+
+  def describe_public({:refused, {:rejected, _status, "snapshot_too_large", _detail}}, %{
+        limit: limit
+      })
+      when is_integer(limit),
+      do:
+        gettext(
+          "This tournament is too large for the results site, which accepts at most %{size}. Publishing has stopped for this tournament.",
+          size: bytes(limit)
+        )
+
+  def describe_public({:refused, {:rejected, 401, nil, _detail}}, _extras),
+    do: unrecognised_key_sentence()
+
+  def describe_public({:refused, {:rejected, _status, "unauthorized", _detail}}, _extras),
+    do: unrecognised_key_sentence()
+
+  def describe_public(reason, _extras), do: reason_sentence(reason)
+
+  defp unrecognised_key_sentence,
+    do:
+      gettext(
+        "The results site does not recognise this computer's key. Publishing has stopped until you register again."
+      )
 
   # One clause per `t:PairingsEngine.Publishing.check_failure/0`, each a whole
   # sentence that reads on its own and does not repeat the headline above it.
@@ -358,6 +515,86 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
 
   defp reason_sentence({:refused, {:rejected, 401, nil, _detail}}),
     do: gettext("Reached the server, but it rejected the token.")
+
+  # Public mode, nothing sent - see `t:PairingsEngine.Publishing.check_failure/0`.
+  defp reason_sentence({:unconfigured, :public_idle}),
+    do:
+      gettext(
+        "No tournament on this computer is being published, so nothing is sent to the results site."
+      )
+
+  defp reason_sentence({:unconfigured, :consent_required}),
+    do:
+      gettext(
+        "Publishing is waiting for your go-ahead to register this computer with the results site. Nothing has been sent yet."
+      )
+
+  # The contract's "today's message" for a server that does not offer public
+  # publishing: it needs a token from its operator.
+  defp reason_sentence({:unconfigured, :token_required}),
+    do:
+      gettext("This results site only publishes tournaments sent with a token from its operator.")
+
+  # OpenResults' public-publishing codes, one clause each - the contract's
+  # desktop table. The limits are worded with their numbers in
+  # `describe_public/2`, where the caller has them.
+  defp reason_sentence({:refused, {:rejected, _status, "rate_limited", _detail}}),
+    do:
+      gettext("The results site asked this computer to wait a moment. It will try again shortly.")
+
+  defp reason_sentence({:refused, {:rejected, _status, "publishing_paused", _detail}}),
+    do:
+      gettext(
+        "The results site has paused publishing. Everything waiting is sent when it resumes."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "installation_suspended", _detail}}),
+    do:
+      gettext(
+        "The results site has suspended this computer's key. Contact the operator of the results site."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "installation_revoked", _detail}}),
+    do: gettext("The results site no longer accepts this computer's key. Publishing has stopped.")
+
+  defp reason_sentence({:refused, {:rejected, _status, "tournament_limit", _detail}}),
+    do:
+      gettext(
+        "This computer has reached the results site's limit on tournaments. Publishing has stopped for this tournament."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "snapshot_too_large", _detail}}),
+    do:
+      gettext(
+        "This tournament is too large for the results site. Publishing has stopped for this tournament."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "not_owner", _detail}}),
+    do:
+      gettext(
+        "A different installation owns this tournament on the results site. Ask the operator of the results site to transfer it to this computer."
+      )
+
+  # Not `not_owner`'s words: this installation does own it, and a moderator
+  # of the results site took the page down (the contract, settled in the
+  # build). Only the operator can undo that.
+  defp reason_sentence({:refused, {:rejected, _status, "tournament_hidden", _detail}}),
+    do:
+      gettext(
+        "The operator of the results site has hidden this tournament. Publishing has stopped for this tournament."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "registration_closed", _detail}}),
+    do:
+      gettext(
+        "The results site is not accepting new installations right now. Nothing has been sent, and it will be tried again later."
+      )
+
+  defp reason_sentence({:refused, {:rejected, _status, "address_blocked", _detail}}),
+    do:
+      gettext(
+        "The results site has blocked this computer's network address. Contact the operator of the results site."
+      )
 
   defp reason_sentence({:refused, {:rejected, status, nil, _detail}}),
     do:

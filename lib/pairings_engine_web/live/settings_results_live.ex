@@ -29,8 +29,9 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   import PairingsEngineWeb.Components.ConnectionStatus
 
   alias PairingsEngine.{Audit, PublicDisplay, Publishing, Standings, Tiebreaks, Tournaments}
+  alias PairingsEngine.Publishing.Installation
   alias PairingsEngine.Tournaments.Tournament
-  alias PairingsEngineWeb.PublicLink
+  alias PairingsEngineWeb.{PublicConsent, PublicLink}
 
   # Polled rather than pushed. The question is "can this machine publish right
   # now", and only asking produces an answer - there is no event to subscribe
@@ -45,6 +46,9 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      # Public mode's steps move in the drain, not in this process.
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Publishing.queue_topic(tournament.id))
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Installation.topic())
       if connection_polling?(), do: send(self(), :poll_connection)
     end
 
@@ -59,9 +63,21 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        # without waiting for a round trip through `@tournament`.
        publish_mode: tournament.publish_mode,
        connection: nil,
-       stale: false
+       stale: false,
+       consent: nil
      )
+     |> assign_public_state()
      |> assign_ranking_tiebreaks()}
+  end
+
+  # Where this tournament is in public mode's steps, re-read whenever
+  # anything that could move it is heard. Nil outside public mode, where
+  # there are no steps.
+  defp assign_public_state(socket) do
+    public_state =
+      if Publishing.public_mode?(), do: Publishing.public_state(socket.assigns.tournament)
+
+    assign(socket, public_state: public_state)
   end
 
   @impl true
@@ -80,9 +96,15 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         {:noreply,
          socket
          |> assign(tournament: tournament, publish_mode: tournament.publish_mode)
+         |> assign_public_state()
          |> assign_ranking_tiebreaks()}
     end
   end
+
+  def handle_info({:publish_queue_changed, _id}, socket),
+    do: {:noreply, assign_public_state(socket)}
+
+  def handle_info(:installation_changed, socket), do: {:noreply, assign_public_state(socket)}
 
   # In a task, never in this process. `Publishing.status/0` is a network round
   # trip with a fifteen-second timeout, and running it here would freeze the
@@ -119,6 +141,59 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   # the first time the poll was added below it.
   def handle_info(_message, socket), do: {:noreply, socket}
 
+  # The consent dialog's question, fetched in a task - see
+  # `PairingsEngineWeb.PublicConsent`. A server that does not offer public
+  # publishing puts publishing back off at once: the dialog says so, and a
+  # tournament left "on" that can never go anywhere would be a promise
+  # nothing keeps.
+  @impl true
+  def handle_async(:public_server_info, result, socket) do
+    socket = PublicConsent.received(socket, result)
+
+    case socket.assigns.consent do
+      {:failed, {:unconfigured, :token_required}, :first} ->
+        {:noreply, switch_off_unconsented(socket)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  # Public mode, before any consent: publishing goes back off and the queued
+  # row goes with it. Only while nothing has been agreed - a computer that
+  # already holds a key or a consent never reaches the dialog.
+  defp switch_off_unconsented(socket) do
+    tournament = socket.assigns.tournament
+
+    if tournament.publish_to_openresults and needs_consent?() do
+      case Tournaments.set_publish_to_openresults(tournament, false) do
+        {:ok, updated} ->
+          Publishing.dequeue(updated.id)
+          socket |> assign(tournament: updated) |> assign_public_state()
+
+        {:error, _reason} ->
+          socket
+      end
+    else
+      socket
+    end
+  end
+
+  defp toggled_note(socket, enabled?) do
+    note =
+      if enabled?,
+        do: "This tournament will be published. The first copy is on its way.",
+        else:
+          "This tournament will not be published again. Anything already sent stays where it is."
+
+    {:noreply, put_flash(socket, :info, note)}
+  end
+
+  defp needs_consent? do
+    Publishing.public_mode?() and not Installation.registered?() and
+      not Installation.consented?() and not Installation.stopping_state?()
+  end
+
   ## ---------- publishing ----------
 
   @impl true
@@ -131,13 +206,25 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           enabled: enabled?
         })
 
-        note =
-          if enabled?,
-            do: "This tournament will be published. The first copy is on its way.",
-            else:
-              "This tournament will not be published again. Anything already sent stays where it is."
+        socket = socket |> assign(tournament: tournament) |> assign_public_state()
 
-        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
+        cond do
+          enabled? and needs_consent?() ->
+            # Publishing is requested - the row is queued and the page says
+            # what it waits on - but nothing leaves until the arbiter has
+            # answered the question this opens. See
+            # `PairingsEngineWeb.PublicConsent`.
+            {:noreply, PublicConsent.open(socket, :first)}
+
+          # "The first copy is on its way" would not be true: the server has
+          # stopped this installation, and the steps under the switch say so
+          # with the button that answers it.
+          enabled? and Publishing.public_mode?() and Installation.stopping_state?() ->
+            {:noreply, socket}
+
+          true ->
+            toggled_note(socket, enabled?)
+        end
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
@@ -169,6 +256,83 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not change the listing")}
     end
+  end
+
+  ## ---------- public mode: consent, registering again, trying again ----------
+
+  def handle_event("public_consent_open", _params, socket) do
+    {:noreply, PublicConsent.open(socket, :first)}
+  end
+
+  # Never silent: the arbiter pressed a button that says what it does, and
+  # the same dialog asks again before anything is sent.
+  def handle_event("public_register_again", _params, socket) do
+    {:noreply, PublicConsent.open(socket, :again)}
+  end
+
+  def handle_event("public_consent_accept", _params, socket) do
+    case PublicConsent.accept(socket) do
+      {socket, %{} = info, purpose} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "openresults.public_consent_given",
+          # Who runs the site and which site. Never the key: there is none
+          # yet, and there never will be one in the audit trail.
+          %{host: info.host, operator: info.operator, register_again: purpose == :again}
+        )
+
+        {:noreply,
+         socket
+         |> assign_public_state()
+         |> put_flash(
+           :info,
+           gettext(
+             "Thank you. This computer registers with %{host} and publishes as soon as it can - this page shows each step.",
+             host: info.host
+           )
+         )}
+
+      {socket, nil, nil} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("public_consent_decline", _params, socket) do
+    consent = socket.assigns.consent
+    {socket, _purpose} = PublicConsent.dismiss(socket)
+
+    case consent do
+      # "Declining sends nothing and leaves publishing off."
+      {:ask, info, :first} ->
+        socket = switch_off_unconsented(socket)
+
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "openresults.public_consent_declined",
+          %{host: info.host}
+        )
+
+        {:noreply,
+         put_flash(
+           socket,
+           :info,
+           gettext("Nothing was sent. Publishing is off for this tournament.")
+         )}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("public_retry", _params, socket) do
+    Publishing.retry(socket.assigns.tournament.id)
+
+    {:noreply,
+     socket
+     |> assign_public_state()
+     |> put_flash(:info, gettext("Trying again."))}
   end
 
   ## ---------- when each paired round reaches the results site ----------
@@ -470,6 +634,15 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             </div>
           </div>
 
+          <%!-- Public mode only: what "on" is still waiting for. Without it,
+                a tournament switched on with no consent, no key or no
+                address yet would read exactly like one that is live. --%>
+          <PublicConsent.public_steps
+            :if={@public_state}
+            tournament={@tournament}
+            state={@public_state}
+          />
+
           <div class="set-field solo" style="margin-top: 18px">
             <span class="set-label">{gettext("Listed on the front page")}</span>
             <p class="hint" style="margin: 4px 0 0">
@@ -691,9 +864,19 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           </.rich_text>
         </p>
 
-        <p :if={not PublicLink.public?(@tournament)} class="hint" style="color: var(--danger)">
+        <p
+          :if={not PublicLink.public?(@tournament) and not PublicLink.pending?(@tournament)}
+          class="hint"
+          style="color: var(--danger)"
+        >
           {gettext(
             "This tournament is not published, and the form lives there - so opening it here has no effect until you publish."
+          )}
+        </p>
+
+        <p :if={PublicLink.pending?(@tournament)} class="hint">
+          {gettext(
+            "The form opens on the results site once the first copy of this tournament has arrived there."
           )}
         </p>
 
@@ -732,7 +915,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         </div>
       </div>
 
-      <div :if={PublicLink.public?(@tournament) or Publishing.published?(@tournament)} class="card">
+      <div :if={PublicLink.public?(@tournament) or Publishing.on_site?(@tournament)} class="card">
         <h2>{gettext("The address")}</h2>
 
         <div :if={PublicLink.public?(@tournament)} class="set-field solo">
@@ -776,8 +959,12 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               more will be sent; the key is what says something IS out there
               and that this machine is the one that can withdraw it. A
               tournament that opted in and never published has nothing to take
-              down, and one switched off still does. --%>
-        <div :if={Publishing.published?(@tournament)} style="margin-top: 14px">
+              down, and one switched off still does. In public mode a key
+              alone is not enough: the site mints the address and the key
+              together, and until a copy has arrived there is nothing there
+              to withdraw (`Publishing.on_site?/1`; identical to the key in
+              operator mode). --%>
+        <div :if={Publishing.on_site?(@tournament)} style="margin-top: 14px">
           <p class="hint" style="margin: 0">
             {gettext(
               "A copy of this tournament is on the results site. Turning publishing off stops sending updates; it does not take that copy down."
@@ -852,6 +1039,8 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           </button>
         </div>
       </div>
+
+      <PublicConsent.consent_dialog consent={@consent} />
     </Layouts.app>
     """
   end
