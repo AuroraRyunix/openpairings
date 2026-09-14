@@ -301,6 +301,47 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       assert Repo.get(Member, "555003").last_name == "Delimited"
     end
 
+    test "a sync from the default fixed URL imports, with no month in the answer" do
+      # The default URL has no {YYYYMM}, so Http returns no :month_label. The
+      # sync required one and every real sync from 0.62.0 failed with a
+      # CaseClauseError that printed the downloaded roster.
+      Req.Test.set_req_test_to_shared()
+      on_exit(fn -> Req.Test.set_req_test_to_private() end)
+
+      sqlite =
+        PairingsEngine.Support.KbsbSqliteFixture.build_sqlite(
+          [PairingsEngine.Support.KbsbSqliteFixture.default_row(%{IdNumber: 555_010, Club: 42})],
+          [%{Club: 42, Name: "KGSRL"}]
+        )
+
+      Req.Test.stub(PairingsEngine.Federations.BEL.HttpTest, fn conn ->
+        Plug.Conn.send_resp(conn, 200, PairingsEngine.Support.KbsbSqliteFixture.zip(sqlite))
+      end)
+
+      refute PairingsEngine.Federations.BEL.Settings.players_url() =~ "{YYYYMM}"
+
+      Sync.start_http_import()
+      final = await_done()
+
+      assert final.status == :done, inspect(final.error)
+      assert Repo.get(Member, "555010").club_name == "KGSRL"
+    end
+
+    test "a crash shows the exception's type, never the data it failed on" do
+      Req.Test.set_req_test_to_shared()
+      on_exit(fn -> Req.Test.set_req_test_to_private() end)
+
+      Req.Test.stub(PairingsEngine.Federations.BEL.HttpTest, fn _conn ->
+        raise CaseClauseError, term: %{rows: [%{"Name" => "Peeters, Secret"}]}
+      end)
+
+      Sync.start_http_import()
+      final = await_done()
+
+      assert final.status == :error
+      refute final.error =~ "Secret"
+    end
+
     test "a corrupt zip fails cleanly rather than crashing the sync" do
       Sync.start_import(<<0x50, 0x4B, 0x03, 0x04, 0, 0, 0, 0>>)
       final = await_done()

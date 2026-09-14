@@ -167,11 +167,13 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state)
       when reason != :normal do
     cancel_watchdog(state.watchdog_timer)
-    Logger.error("KBSB import task crashed: #{inspect(reason)}")
+    # Only the exit's shape, never its terms - see crashed/4.
+    summary = if is_atom(reason), do: inspect(reason), else: "abnormal exit"
+    Logger.error("KBSB import task crashed: #{summary}")
 
     new_state = %__MODULE__{
       status: :error,
-      error: "Import crashed unexpectedly (#{inspect(reason)}). Please try again."
+      error: "Import crashed unexpectedly (#{summary}). Please try again."
     }
 
     {:noreply, broadcast(new_state)}
@@ -241,9 +243,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
         update(server, %__MODULE__{status: :error, error: format_error(reason)})
     end
   rescue
-    e ->
-      Logger.error("KBSB import crashed: #{Exception.message(e)}")
-      update(server, %__MODULE__{status: :error, error: Exception.message(e)})
+    e -> crashed(server, "KBSB import", e, __STACKTRACE__)
   end
 
   # Mirrors run_import/2, differing in where the rows (and any bundled club
@@ -262,14 +262,20 @@ defmodule PairingsEngine.Federations.BEL.Sync do
     on_progress = fn message -> update(server, %{state | progress: message}) end
 
     case Http.fetch_players(on_progress) do
-      {:ok, %{rows: raw_rows, clubs: zip_clubs, month_label: month_label}} ->
+      # `month_label` only comes back from a {YYYYMM} template; the default
+      # fixed URL has no month to name. Matching it as required made every
+      # sync from the fixed URL fall through to a CaseClauseError.
+      {:ok, %{rows: raw_rows, clubs: zip_clubs} = fetched} ->
         club_names = resolve_club_names(zip_clubs, on_progress)
         rows = Enum.map(raw_rows, &SqliteFile.to_member_row(&1, club_names))
 
         case import_rows(server, rows, state) do
           {:ok, state} ->
             Members.put_last_sync()
-            Members.put_source_month(month_label)
+
+            if month_label = Map.get(fetched, :month_label),
+              do: Members.put_source_month(month_label)
+
             update(server, %{state | status: :done, progress: ""})
 
           {:error, reason} ->
@@ -292,9 +298,23 @@ defmodule PairingsEngine.Federations.BEL.Sync do
         update(server, %__MODULE__{status: :error, error: format_error(reason)})
     end
   rescue
-    e ->
-      Logger.error("KBSB HTTP import crashed: #{Exception.message(e)}")
-      update(server, %__MODULE__{status: :error, error: Exception.message(e)})
+    e -> crashed(server, "KBSB HTTP import", e, __STACKTRACE__)
+  end
+
+  # An exception's message can quote whatever term it failed on - here that
+  # was the whole downloaded roster, names and birth years, printed on the
+  # page and in the log. Only the exception's type and where it was raised
+  # are kept.
+  defp crashed(server, what, exception, stacktrace) do
+    kind = inspect(exception.__struct__)
+
+    Logger.error("#{what} crashed: #{kind}
+" <> Exception.format_stacktrace(Enum.take(stacktrace, 5)))
+
+    update(server, %__MODULE__{
+      status: :error,
+      error: "The import failed unexpectedly (#{kind}). Please try again, or report it."
+    })
   end
 
   # The club-names URL is a second, independent, optional file - see

@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.2] - 2026-09-14
+
+- [Fix] **Syncing the Belgian rating list from the default address failed every
+  time** with "no case clause matching". Only an address with a month
+  placeholder named the month it found, and the sync expected one. It now
+  imports from the fixed address too.
+- [Security] **A failed Belgian list sync no longer prints player data.** The
+  error shown on the page, and written to the log, quoted whatever the import
+  failed on - in this case the downloaded roster, names and birth years. It
+  now names only the kind of failure.
+
 ## [0.62.1] - 2026-09-14
 
 - [Fix] **The Belgian rating list sync failed with `:not_sqlite`.** It asked
