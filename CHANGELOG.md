@@ -84,6 +84,26 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.62.0] - 2026-09-14
 
+- [Fix] **Windows: uninstalling or upgrading OpenPairings could delete every
+  tournament and every local backup.** Two installers could wipe
+  `%LOCALAPPDATA%\OpenPairings` whole: a source-built Setup.exe for
+  0.53.0-0.53.2 (never offered on the release page, but how one arbiter lost
+  everything), and every `.msi` from 0.58.1 to 0.61.0, whose Velopack
+  clean-up step deletes that folder on uninstall or when a newer `.msi`
+  replaces it - "just for me" installs are the ones known to be affected.
+  Your data now lives at `%LOCALAPPDATA%\OpenPairingsData`, backups at their
+  own `%LOCALAPPDATA%\OpenPairingsBackups`, so removing one cannot remove the
+  other; existing installs move automatically on first start of this
+  version, before any old clean-up step can run. **If you still have an old
+  OpenPairings installed, start this version once before you uninstall
+  anything.** *Installed apps* is also cleaned up: duplicate and stale
+  entries for the same install are removed. See `docs/binaries.md`,
+  "Windows: where the data lives".
+- [Fix] **Windows: the `.msi` and Setup.exe no longer leave two entries in
+  *Installed apps*.** Installing one over the other now ends with one entry
+  at the new version. The `.msi` refuses to install a second copy "for
+  everyone" beside one installed "just for me" (and the other way round),
+  and says which choice updates the copy you have.
 - [Change] **The Belgian rating list now syncs from KBSB's own public
   monthly file** (`players_YYYYMM.zip` at frbe-kbsb.be), instead of the
   KBSB data-platform API or the OpenResults relay - both removed. No API
@@ -94,74 +114,53 @@ Each entry is tagged so a version can be skimmed:
   national rating on any row - KBSB's July and August 2026 files - keeps
   each player's stored rating instead of wiping every rating. See
   docs/kbsb-sync.md.
-
-- [Feature] **A match forfeited by decision is published as one.** The
-  OpenResults snapshot names the team the arbiter awarded a match to
-  (`matches[].forfeit_decision`), so the results site can say so rather than
-  show only a row of forfeit results. It is withheld exactly like the
-  match's points: not sent while the round's results are private or the
-  match is incomplete.
-- [Feature] **The team Swiss rationale page gives the engine's reasons.**
-  For a round paired from now on, the *Pairing rationale* page says why each
-  bracket took the upfloaters it did - the criterion that decided against
-  the next best set ([C4] fewest upfloaters, [C5] their scores, [C6] the next
-  score group, [C7] floaters last round, or the order of pairing numbers) -
-  lists the sets that could not be paired and why, and tables the sets that
-  could with their [C4]-[C7] values. The bye shows the teams passed over
-  because the rest could not then be paired, as the team engine found it,
-  and the tie-break that put the bye team ahead of the next one. The colours
-  table names the rule of Article 4.2 that picked each first team and the
-  rule of Article 4.3 that gave the colours. Long lists stop at ten with a
-  count of the rest. Rounds paired before this keep what they showed, with
-  the note that the rest was not recorded.
-- [Fix] **Windows: uninstalling or upgrading OpenPairings could delete every
-  tournament and every local backup. Your data now lives where no installer
-  can reach it, and existing installs are protected on their next start.**
-  Until now the tournaments and backups were in
-  `%LOCALAPPDATA%\OpenPairings`, and two installers could delete that folder
-  whole:
-  - a Setup.exe from **0.53.0-0.53.2**, which installed itself *into* that
-    folder, deleted it on uninstall. These were never offered on the release
-    page, so only a copy built from the source and installed is affected - but
-    that is how one arbiter lost everything;
-  - every **`.msi` from 0.58.1 to 0.61.0** has a clean-up step, from the
-    Velopack installer toolkit, that deletes that folder when the `.msi` is
-    uninstalled, and when a newer `.msi` replaces it. Anyone who installed one
-    of these "just for me" and later uninstalled it, or installed a newer
-    `.msi` over it, may have lost their data; installs "for everyone" most
-    likely were not affected, which is still being confirmed.
-
-  What changes: the data moves to `%LOCALAPPDATA%\OpenPairingsData` and the
-  backups to their own folder, `%LOCALAPPDATA%\OpenPairingsBackups`, so
-  nothing that removes one removes the other. The move is a single rename,
-  done before the database is opened, and it waits if anything is using the
-  files; nothing is deleted. It happens on the first start of this version -
-  or earlier, when this version's `.msi` is installed over an old one, before
-  that old one's clean-up can run. On every start, entries in *Installed
-  apps* whose uninstall would delete your data, duplicates for the same
-  install, and entries for installs that no longer exist are removed from the
-  list (their settings are kept in the registry, and no uninstaller is run).
-  If you have an old OpenPairings still installed, **start this version once
-  before you uninstall anything**. See `docs/binaries.md`, "Windows: where the
-  data lives".
-- [Fix] **Windows: the `.msi` and Setup.exe no longer leave two entries in
-  *Installed apps*.** Installing one over the other now ends with one entry,
-  at the new version, from the first start. The `.msi` refuses, before
-  changing anything, to install a second copy "for everyone" beside one
-  installed "just for me" (and the other way round), and says which choice
-  updates the copy you have. The remaining entry's version is kept current
-  after an in-app update.
-- [Feature] **A team Swiss round's pairing rationale.** Pairing a team Swiss
-  round now stores what the team engine reported, and the round's *Pairing
-  rationale* page (Audit - Pairing rationale) shows it instead of the
-  individual analysis: every team's match points, game points, colours,
-  colour preference, bye, forfeit-win and float flags going into the round;
-  who had the pairing-allocated bye, which teams [C2] ruled out and which
-  were passed over under Article 3.4.1; each bracket's teams, upfloaters and
-  pairs with the [C8]-[C10] values of the pairing chosen and whether the
-  search was complete; and the colours with each match's first team. A round
-  whose matches were changed afterwards says so. Rounds paired before this
-  have no account, and the page says that too.
+- [Feature] **Team Swiss: teams play teams.** A Swiss created with *Team
+  tournament* ticked now pairs team against team under FIDE's Swiss Team
+  Pairing System (C.04.6, February 2026), with Ainalrami's team engine:
+  matches seated board by board as a team round robin's, White on board 1
+  and every odd board for the team the colour rules give White, match
+  points from the score and game points as the colour tie-break, FIDE's
+  Type A colour preferences. The pairing-allocated bye scores a drawn
+  match. An event already paired player by player before this stays on
+  that path unless every round is unpaired. See `docs/team-tournaments.md`.
+- [Feature] **Team round robin: teams play teams.** A round robin created
+  with *Team tournament* ticked pairs team against team over the whole
+  Berger schedule. A new **Teams** tab (team tournaments only) adds teams,
+  sets their board order and boards per match, and orders them by hand or
+  by rating for pairing numbers. Each pairing is a match played board by
+  board; an absent player's reserve moves up, an unfillable board is a
+  forfeit win, and board numbers run on across the round so result entry,
+  slips and score sheets are unchanged. English and Dutch. See
+  `docs/team-tournaments.md`.
+- [Feature] **Team standings, team tie-breaks and board statistics.** The
+  Standings page of a team round robin ranks teams by match points, then
+  game points, direct encounter, Buchholz, Sonneborn-Berger and weighted
+  board points, with a *Working* disclosure; below it, every player's
+  boards, games and performance grouped by board for board prizes. FIDE's
+  team default tie-break set (MP GP DE BB SB) is now calculated instead of
+  dropped.
+- [Feature] **Team tie-breaks follow C.07 Article 16 in a team Swiss.**
+  Buchholz, Sonneborn-Berger and EMGSB count a bye, a forfeited match or an
+  unplayed round against a dummy opponent correctly, and a withdrawn team's
+  remaining rounds count as draws for its opponents. A team round robin is
+  unchanged.
+- [Feature] **Initial colour: drawn by lot, or set by the arbiter.** FIDE
+  draws the colour that decides round 1's boards by lot (C.04.3 5.1, C.04.6
+  4.1). Settings - Options now has *Initial colour*: *Drawn by lot* (the
+  default), *White* or *Black*, for individual and team Swiss. It locks once
+  round 1 is paired; tournaments that paired round 1 before this keep what
+  they had.
+- [Fix] **Round 1's colours were never really drawn.** Ainalrami gave the
+  first board White in every tournament, and JaVaFo drew its own lot on
+  every run, so the same round paired twice with JaVaFo could come out with
+  every colour reversed, and nothing recorded which it had been. Both
+  engines are now told the stored colour.
+- [Feature] **A team Swiss round's pairing rationale.** The *Pairing
+  rationale* page now shows the team engine's account instead of the
+  individual analysis: why each bracket took the upfloaters it did, which
+  sets could not be paired and why, the bye's reasoning and tie-break, and
+  the Article 4.2/4.3 rule behind each match's colours. Rounds paired
+  before this have no account, and the page says so.
 - [Feature] **A team tournament imported from TRF gets its matches back.**
   TRF files record teams and games but not which boards formed which match;
   the import now works the matches out from the boards - the same two teams
@@ -191,77 +190,12 @@ Each entry is tagged so a version can be skimmed:
   listed with the reason it counts for no team, and offered *Make it board n
   of match m* once it does fit. Before this such a board silently counted
   for neither team.
-- [Feature] **Team Swiss: teams play teams.** A Swiss created with *Team
-  tournament* ticked now pairs team against team under FIDE's Swiss Team
-  Pairing System (C.04.6, February 2026), with Ainalrami's team engine. Each
-  pairing is a match seated exactly as a team round robin's: board order,
-  reserves moving up, a forfeit for a board one team cannot fill, White on
-  board 1 and every odd board for the team the colour rules give White. A
-  team with no player available sits the round out. Match points are the
-  score, game points decide colours between teams level on match points, and
-  colour preferences are FIDE's Type A - the regulation's defaults, and the
-  only ones offered. The pairing-allocated bye scores a drawn match: the
-  draw's match points and a draw on every board. The Pairings page lists the
-  matches, and the Standings, Print and Teams pages treat the event as a team
-  event. See `docs/team-tournaments.md`.
 - [Change] **A team Swiss already paired player by player stays that way.**
-  Before this, every team Swiss was paired player by player, and an event
-  part-way through is not converted: its rounds carry on on the individual
-  path, and the Teams page says so. Unpair every round and it pairs team
-  against team from round 1. A team Swiss imported from a TRF file whose
-  rounds cannot all be rebuilt as matches counts as paired player by player
-  too.
-- [Feature] **Team tie-breaks follow C.07 Article 16 in a team Swiss.**
-  Buchholz, Sonneborn-Berger and EMGSB count a bye, a forfeited match or a
-  round a team did not play against a dummy opponent (its own match points,
-  capped as Article 16.4 says), and a team that withdrew counts its remaining
-  rounds as draws for its opponents. The *Working* line names such rounds
-  ("bye", "forfeit win", "not paired"). A team round robin is unchanged.
-- [Feature] **Initial colour: drawn by lot, or set by the arbiter.** FIDE
-  draws the colour that decides round 1's boards by lot (C.04.3 5.1, C.04.6
-  4.1). Settings - Options now has *Initial colour*: *Drawn by lot* (the
-  default), *White* or *Black*, for individual and team Swiss. Drawn by lot,
-  it is drawn when round 1 is paired, stored, and shown on the Pairings page
-  and in Settings ("Initial colour: drawn by lot: White"); it locks once
-  round 1 is paired, and backups, restore points and TRF imports carry it.
-  Tournaments that paired round 1 before this keep what they had.
-- [Fix] **Round 1's colours were never really drawn.** Ainalrami gave the
-  first board White in every tournament, and JaVaFo drew its own lot on
-  every run - so the same round, paired twice with JaVaFo, could come out
-  with every colour reversed, and nothing recorded which it had been. Both
-  engines are now told the stored colour (JaVaFo reads it as `XXC`).
-- [Feature] **Team round robin: teams play teams.** A tournament created as a
-  round robin with *Team tournament* ticked now pairs team against team. A new
-  **Teams** tab next to Players (team tournaments only) adds, renames and
-  deletes teams, with a short name and a captain; puts players on a team;
-  sets the board order with up and down buttons that work from the keyboard
-  and say what they do to a screen reader; sets boards per match (4 by
-  default, locked once round 1 is paired); and orders the teams, by hand or
-  by the average rating of their first boards - that order becomes the
-  teams' pairing numbers when round 1 is paired. *Pair* builds the whole
-  Berger schedule over the teams (odd counts give each team one bye; a double
-  round robin reverses colours in the second cycle). Each pairing is a match
-  played board against board in board order: the team the Berger table names
-  first has White on board 1 and on every odd board. An absent or withdrawn
-  player's reserve moves up; a board one team cannot fill is a forfeit win
-  for the player who is there, and board numbers run on across the round's
-  matches, so result entry, slips and score sheets are unchanged. The
-  Pairings page lists the round's matches above the boards with the score.
-  English and Dutch. See `docs/team-tournaments.md`.
-- [Feature] **Team standings, team tie-breaks and board statistics.** Game
-  points are the board results added up; match points - 2 for a win and 1
-  for a draw by default, set under Settings - Scoring - go to the team with
-  more game points once every board in the match has a result. The Standings
-  page of a team round robin ranks the teams by match points and then the
-  tie-breaks in order: game points, direct encounter (among teams still tied
-  on everything listed before it), Buchholz, Sonneborn-Berger on match
-  points, EMGSB (opponent's match points times game points scored) and board
-  points weighted by board, with a *Working* disclosure showing what
-  Buchholz and Sonneborn-Berger were added up from. Below it, every player's
-  boards, games, points, percentage and performance, grouped by board for
-  board prizes. A team tournament's tie-break picker now offers these, and
-  FIDE's team default set (MP GP DE BB SB) is calculated instead of being
-  dropped.
+  An event part-way through is not converted when this version arrives: its
+  rounds carry on on the individual path, and the Teams page says so. Unpair
+  every round and it pairs team against team from round 1. A team Swiss
+  imported from a TRF file whose rounds cannot all be rebuilt as matches
+  counts as paired player by player too.
 - [Feature] **Team pairing sheet and team standings print**, on the Print
   page of a team round robin: one table per match with its boards, and the
   team table after any round.
@@ -290,12 +224,25 @@ Each entry is tagged so a version can be skimmed:
   version publishes as an individual event, with its individual standings.
   Settings - OpenResults now explains what a team event sends instead of
   refusing it. See `docs/snapshot-schema.md` on the OpenResults side.
+- [Feature] **A match forfeited by decision is published as one.** The
+  OpenResults snapshot names the team the arbiter awarded a match to
+  (`matches[].forfeit_decision`), so the results site can say so rather than
+  show only a row of forfeit results. Withheld exactly like the match's
+  points: not sent while the round's results are private or the match is
+  incomplete.
 - [Change] **Backups and restore points carry team matches**, the teams'
   seeding order and pairing numbers, and boards per match and match points,
   so a restored team tournament has the same standings.
 
 ## [0.61.0] - 2026-09-13
 
+- [Security] **A crafted hook payload could crash the Pairings or Players
+  page for everyone connected.** The Players grid's sort, category, card and
+  cell-menu events, and the hand-edit menu's `open_menu`, are pushed by
+  page scripts, so anyone holding the socket could send an unexpected value
+  - an unknown sort key, a non-numeric id, a scope the menu has no branch
+  for - and crash the LiveView. They are now no-ops instead. Found in a full
+  audit of the browser-side JavaScript and LiveView hooks.
 - [Change] **Dutch says "FIDE-rated" and "unrated", not "gerateerd" and
   "ongerateerd".** The FIDE settings, the IT3 report description and the
   bonus points help use the words Dutch-speaking arbiters actually say;
