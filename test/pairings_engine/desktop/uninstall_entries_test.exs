@@ -179,9 +179,17 @@ defmodule PairingsEngine.Desktop.UninstallEntriesTest do
     end
 
     test "the other scope is reported, not touched", %{layout: layout, app: app, lad: lad} do
-      program_files = Path.join(lad, "ProgramFiles\\OpenPairingsApp")
+      # Path.join and no trailing backslash: on Linux (CI) a backslash is part
+      # of a file name, so the Windows-style path named a directory that never
+      # existed and the entry read as "install location missing".
+      program_files = Path.join([lad, "ProgramFiles", "OpenPairingsApp"])
       File.mkdir_p!(program_files)
-      machine = entry(:hklm, "MSI:OpenPairingsApp", msi_entry(program_files))
+
+      machine =
+        entry(:hklm, "MSI:OpenPairingsApp", %{
+          msi_entry(program_files)
+          | "InstallLocation" => program_files
+        })
 
       assert [{:report, :installed_twice, ^machine}] =
                UninstallEntries.plan(
