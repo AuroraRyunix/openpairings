@@ -32,6 +32,14 @@ Each entry is tagged so a version can be skimmed:
   an explicit click, never for the silent background check. Rate-limited to
   once per 30 seconds machine-wide, well inside GitHub's 60/hour
   unauthenticated budget.
+- [Change] **The background check now runs a few seconds after the app
+  opens (was 10 seconds) and every 30 minutes after that (was every 6
+  hours)**, so an update shows up the same time an arbiter opens the app,
+  not up to half a working day later. It also sends GitHub's `ETag` as
+  `If-None-Match` on every request now and treats a `304` as "nothing
+  changed" rather than a fresh check - free against the 60/hour
+  unauthenticated budget, so the shorter interval costs the same request
+  budget a single uncached check every few hours used to.
 
 ## [0.62.2] - 2026-09-14
 

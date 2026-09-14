@@ -207,14 +207,14 @@ defmodule PairingsEngine.Updates.CheckerTest do
     # A dedicated instance, not the singleton the whole test run already
     # shares - `first_check` and `interval` are given directly rather than
     # through config, which is what makes this an injectable delay rather
-    # than a real sleep: milliseconds, not `:timer.seconds(10)`.
+    # than a real sleep: milliseconds, not `:timer.seconds(5)`.
     defp start_checker(opts) do
       name = :"checker_boot_test_#{System.unique_integer([:positive])}"
 
       pid =
         start_supervised!(
           {Checker,
-           Keyword.merge([interval: :timer.hours(6), first_check: 20, name: name], opts)},
+           Keyword.merge([interval: :timer.minutes(30), first_check: 20, name: name], opts)},
           id: name
         )
 
@@ -229,13 +229,13 @@ defmodule PairingsEngine.Updates.CheckerTest do
       pid
     end
 
-    test "schedules soon after boot on a desktop install, not six hours out" do
+    test "schedules soon after boot on a desktop install, not 30 minutes out" do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Checker.topic())
       stub(fn conn -> Req.Test.json(conn, [release("v99.0.0")]) end)
 
       start_checker([])
 
-      # Well under six hours, and well under a real "wait and see" test
+      # Well under 30 minutes, and well under a real "wait and see" test
       # would need - the 20ms first_check above is what makes this fast.
       assert_receive {:update_notice, %{version: "99.0.0"}}, 1000
     end
@@ -247,6 +247,64 @@ defmodule PairingsEngine.Updates.CheckerTest do
       start_checker([])
 
       refute_receive {:update_notice, _}, 200
+    end
+  end
+
+  describe "conditional requests (ETag)" do
+    setup do
+      :ets.delete_all_objects(:update_notice)
+      :ok
+    end
+
+    test "the etag from a 200 is cached and sent on the next check_now/0" do
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:if_none_match, Plug.Conn.get_req_header(conn, "if-none-match")})
+
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("v1"))
+        |> Req.Test.json([release("v0.0.1")])
+      end)
+
+      Checker.check_now()
+      assert_receive {:if_none_match, []}
+
+      Checker.check_now()
+      assert_receive {:if_none_match, [~s("v1")]}
+    end
+
+    test "a 304 leaves the cached notice and the cached etag exactly as they were" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("v1"))
+        |> Req.Test.json([release("v99.0.0")])
+      end)
+
+      Checker.check_now()
+      cached = Checker.current()
+      assert cached != nil
+
+      stub(fn conn -> Plug.Conn.send_resp(conn, 304, "") end)
+      Checker.check_now()
+
+      assert Checker.current() == cached
+    end
+
+    test "a 304 does not broadcast - nothing changed" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("v1"))
+        |> Req.Test.json([release("v99.0.0")])
+      end)
+
+      Checker.check_now()
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Checker.topic())
+      stub(fn conn -> Plug.Conn.send_resp(conn, 304, "") end)
+      Checker.check_now()
+
+      refute_receive {:update_notice, _}, 50
     end
   end
 end

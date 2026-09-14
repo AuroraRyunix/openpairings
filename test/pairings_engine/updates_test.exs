@@ -147,6 +147,66 @@ defmodule PairingsEngine.UpdatesTest do
     end
   end
 
+  describe "check/1 (conditional, ETag)" do
+    test "an unconditional call (nil) returns the etag GitHub sent" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("abc123"))
+        |> Req.Test.json([release(tag: "v0.0.1")])
+      end)
+
+      assert {:no_update, ~s("abc123")} = Updates.check(nil)
+    end
+
+    test "sends If-None-Match when given a previous etag" do
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:if_none_match, Plug.Conn.get_req_header(conn, "if-none-match")})
+
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("v2"))
+        |> Req.Test.json([release(tag: "v0.0.1")])
+      end)
+
+      Updates.check(~s("v1"))
+
+      assert_receive {:if_none_match, [~s("v1")]}
+    end
+
+    test "a 304 is :not_modified, with no new info to recompute from" do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 304, "") end)
+
+      assert Updates.check(~s("abc123")) == :not_modified
+    end
+
+    test "{:ok, info, etag} carries the new etag forward on a newer release" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("new"))
+        |> Req.Test.json([release(tag: "v99.0.0")])
+      end)
+
+      assert {:ok, %{version: "99.0.0"}, ~s("new")} = Updates.check(nil)
+    end
+
+    test "no etag header at all is not an error - nil travels through" do
+      stub(fn conn -> Req.Test.json(conn, [release(tag: "v0.0.1")]) end)
+
+      assert {:no_update, nil} = Updates.check(nil)
+    end
+
+    test "check/0 flattens check/1's result back to the old shape" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("etag"))
+        |> Req.Test.json([release(tag: "v99.0.0")])
+      end)
+
+      assert {:ok, %{version: "99.0.0"}} = Updates.check()
+    end
+  end
+
   describe "enabled?/0 and put_enabled/1" do
     test "on by default" do
       assert Updates.enabled?()
