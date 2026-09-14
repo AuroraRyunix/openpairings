@@ -26,6 +26,53 @@ defmodule PairingsEngine.Federations.BEL.HttpTest do
   end
 
   describe "month fallback" do
+    # The default is now KBSB's single fixed file, so these set the month
+    # template a per-month mirror would use.
+    setup do
+      Settings.put_players_url("https://www.frbe-kbsb.be/sites/manager/ELO/players_{YYYYMM}.zip")
+      :ok
+    end
+
+    test "the unpublished month's real answer - a 301 to KBSB's blog - still falls back" do
+      current =
+        Date.utc_today() |> Date.to_string() |> String.slice(0, 7) |> String.replace("-", "")
+
+      stub(fn conn ->
+        cond do
+          String.contains?(conn.request_path, current) ->
+            conn
+            |> Plug.Conn.put_resp_header("location", "https://blog.frbe-kbsb-ksb.be/")
+            |> Plug.Conn.send_resp(301, "moved")
+
+          conn.request_path == "/" ->
+            Plug.Conn.send_resp(conn, 200, "<html>blog</html>")
+
+          true ->
+            zip_response(conn, Fixture.build_sqlite([Fixture.default_row()]))
+        end
+      end)
+
+      assert {:ok, %{rows: [_row]}} = Http.fetch_players()
+    end
+
+    test "a redirect to another zip is followed once" do
+      Settings.put_players_url("https://example.test/old/players.zip")
+
+      stub(fn conn ->
+        case conn.request_path do
+          "/old/players.zip" ->
+            conn
+            |> Plug.Conn.put_resp_header("location", "/new/players.zip")
+            |> Plug.Conn.send_resp(302, "")
+
+          "/new/players.zip" ->
+            zip_response(conn, Fixture.build_sqlite([Fixture.default_row()]))
+        end
+      end)
+
+      assert {:ok, %{rows: [_row]}} = Http.fetch_players()
+    end
+
     test "the current month answers 301 (not yet published), falls back to the previous one" do
       current =
         Date.utc_today() |> Date.to_string() |> String.slice(0, 7) |> String.replace("-", "")

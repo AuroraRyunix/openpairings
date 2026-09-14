@@ -3,9 +3,10 @@ defmodule PairingsEngine.Federations.BEL.SettingsTest do
 
   alias PairingsEngine.Federations.BEL.Settings
 
-  test "players_url/0 defaults to KBSB's public template" do
+  test "players_url/0 defaults to the fixed file KBSB keeps current" do
     assert Settings.players_url() == Settings.default_players_url()
-    assert Settings.players_url() =~ "{YYYYMM}"
+    assert Settings.players_url() =~ "players_202608.zip"
+    refute Settings.players_url() =~ "{YYYYMM}"
   end
 
   test "put_players_url/1 stores a template or a fixed URL, put_players_url(nil) resets to default" do

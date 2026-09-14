@@ -77,7 +77,7 @@ defmodule PairingsEngine.Federations.BEL.Http do
     url = expand_url(template, month)
 
     case fetch_one(url, on_progress) do
-      {:error, {:http_status, status}} when status in [301, 404, 403] ->
+      {:error, {:http_status, status}} when status in [301, 302, 303, 307, 308, 404, 403] ->
         try_months(template, today, offset + 1, on_progress)
 
       other ->
@@ -121,6 +121,38 @@ defmodule PairingsEngine.Federations.BEL.Http do
 
   defp check_compressed_size(_body), do: :ok
 
+  # Follows a redirect only when it points at another data file (a moved
+  # .zip, .sqlite, .csv or .json) and only once; any other redirect - KBSB's
+  # "month not published" 301 to its blog - is reported as that status, so
+  # the month fallback can step back.
+  defp follow_file_redirect(url, resp, status, on_progress) do
+    location =
+      case Req.Response.get_header(resp, "location") do
+        [loc | _] -> loc
+        _ -> nil
+      end
+
+    target = location && URI.merge(url, location) |> URI.to_string()
+
+    if target != nil and target != url and data_file_url?(target) and
+         not Process.get(:bel_http_followed_redirect, false) do
+      Process.put(:bel_http_followed_redirect, true)
+
+      try do
+        conditional_get(target, on_progress)
+      after
+        Process.delete(:bel_http_followed_redirect)
+      end
+    else
+      {:error, {:http_status, status}}
+    end
+  end
+
+  defp data_file_url?(url) do
+    path = URI.parse(url).path || ""
+    String.downcase(Path.extname(path)) in [".zip", ".sqlite", ".csv", ".json"]
+  end
+
   defp etag_key(url), do: "bel_http_etag:" <> url
 
   defp conditional_get(url, on_progress) do
@@ -138,7 +170,13 @@ defmodule PairingsEngine.Federations.BEL.Http do
         # Req's automatic JSON/CSV decoding would hand `body` back as an
         # already-decoded term instead of the binary every check here
         # (size cap included) assumes.
-        decode_body: false
+        decode_body: false,
+        # Never follow a redirect blindly. KBSB answers a month it has not
+        # published yet with a 301 to its blog, and following it turned "not
+        # published yet" into a 200 HTML page that failed as :not_sqlite
+        # instead of falling back to the previous month. A redirect to
+        # another .zip/.sqlite file is followed once, by hand, below.
+        redirect: false
       ]
       |> maybe_put_test_plug()
 
@@ -147,6 +185,9 @@ defmodule PairingsEngine.Federations.BEL.Http do
     case Req.get(url, req_opts) do
       {:ok, %{status: 304}} ->
         {:ok, :not_modified}
+
+      {:ok, %{status: status} = resp} when status in [301, 302, 303, 307, 308] ->
+        follow_file_redirect(url, resp, status, on_progress)
 
       {:ok, %{status: 200, body: body} = resp} ->
         store_conditional(url, resp)

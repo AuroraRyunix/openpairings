@@ -6,10 +6,12 @@ defmodule PairingsEngine.Federations.BEL.Settings do
 
   ## Belgian rating list URL
 
-  Defaults to KBSB's own public template,
-  `https://www.frbe-kbsb.be/sites/manager/ELO/players_{YYYYMM}.zip` - the
-  federation publishes the full roster there every month (e.g.
-  `players_202608.zip` for August 2026). `{YYYYMM}` is expanded by
+  Defaults to the fixed file KBSB keeps up to date,
+  `https://www.frbe-kbsb.be/sites/manager/ELO/players_202608.zip`. Despite
+  the month in its name, KBSB re-publishes the current roster into that same
+  file (confirmed by the KBSB IT admin, 2026-09-14); later month names are not
+  created and answer with a 301 to KBSB's blog. A template with `{YYYYMM}`
+  is still accepted, for a mirror that does publish per month; it is expanded by
   `PairingsEngine.Federations.BEL.Http.resolve_url/2`; a value with no
   `{YYYYMM}` placeholder is used exactly as given, unchanged from month to
   month (a fixed mirror, or a pinned single-month file).
@@ -28,7 +30,7 @@ defmodule PairingsEngine.Federations.BEL.Settings do
   @players_url_key "bel_players_url"
   @clubs_url_key "bel_clubs_url"
 
-  @default_players_url "https://www.frbe-kbsb.be/sites/manager/ELO/players_{YYYYMM}.zip"
+  @default_players_url "https://www.frbe-kbsb.be/sites/manager/ELO/players_202608.zip"
 
   @doc "The configured (or default) Belgian rating list URL/template."
   def players_url, do: Meta.get(@players_url_key) || @default_players_url

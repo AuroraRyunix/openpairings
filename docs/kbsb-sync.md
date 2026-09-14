@@ -37,13 +37,15 @@ player.
 
 ## Data source: KBSB's public monthly file
 
-KBSB publishes the full player list publicly every month, at:
+KBSB publishes the full player list publicly, and keeps it current, at:
 
 ```
-https://www.frbe-kbsb.be/sites/manager/ELO/players_{YYYYMM}.zip
+https://www.frbe-kbsb.be/sites/manager/ELO/players_202608.zip
 ```
 
-(e.g. `players_202608.zip` for August 2026) - a zip of about 1.8 MB
+Despite the month in the name, this one file is re-published with the
+current roster (confirmed by the KBSB IT admin, 2026-09-14); later month
+names are not created, and answer with a 301 to KBSB's blog. It is a zip of about 1.8 MB
 containing `players.sqlite` (about 4 MB), with one table, `players`, of
 about 36,000 rows, indexed on club and name (`IdxClub`, `IdxName`). Both
 hosted and desktop installs sync from this URL directly, identically -
@@ -56,8 +58,9 @@ release).
 **"Belgian rating list URL"**, under the Connections page's Belgian
 panel (`PairingsEngine.Federations.BEL.Settings.players_url/0`, stored in
 `meta` - see `PairingsEngine.Meta` - not an env var, so it is identical to
-edit on hosted and desktop). Defaults to the template above; `{YYYYMM}` is
-expanded to the current year and month (`PairingsEngine.Federations.BEL.
+edit on hosted and desktop). Defaults to the fixed URL above. A template
+containing `{YYYYMM}` is also accepted, for a mirror that publishes one file
+per month; `{YYYYMM}` is expanded to the current year and month (`PairingsEngine.Federations.BEL.
 Http.fetch_players/1`). A value with **no** `{YYYYMM}` placeholder is used
 exactly as configured, unchanged from month to month - a fixed mirror, or
 a pinned single-month file.

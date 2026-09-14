@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The Belgian rating list sync failed with `:not_sqlite`.** It asked
+  for the current month's file (`players_202609.zip`), which KBSB never
+  creates: that address answers with a redirect to KBSB's blog, the sync
+  followed it and tried to read a web page as the rating list, instead of
+  falling back to an earlier month. KBSB keeps one file current,
+  `players_202608.zip`, so that is now the default address. Redirects are no
+  longer followed blindly: one to another data file is followed once, and any
+  other redirect counts as "not published", so a month template still falls
+  back as intended.
+
 ## [0.62.0] - 2026-09-14
 
 - [Change] **The Belgian rating list now syncs from KBSB's own public
