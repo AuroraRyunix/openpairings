@@ -29,19 +29,19 @@ defmodule PairingsEngine.CrossProgramTest do
   not just round 1's rating order. One tournament in three is Baku-
   accelerated, so `XXA` lines are part of the compared input.
 
-  ## A known disagreement, unrelated to acceleration
+  ## A disagreement that no longer reproduces
 
-  `PAIRING_FUZZ_COUNT=40 ... --seed 0` and up will fail on a 5-player
-  round-2 position where rank 2 took a pairing-allocated bye in round 1 and
-  ranks 3-4 have already met: JaVaFo and bbpPairings hand the bye to
-  different players. It reproduces on commits predating both the Ainalrami
-  merge and this acceleration axis, and JaVaFo implements the 2017 Dutch
-  rules against bbpPairings' 2026 edition, so a legitimate difference is
-  plausible - but it has not been adjudicated against the Handbook, and
-  until it is, this file's `disagreements == []` is known to be false above
-  the default count. The default 8 is deterministic (each tournament
-  reseeds `:rand` from its own fuzz seed, so ExUnit's `--seed` only
-  reorders tests) and does not include it.
+  Until 2026-09-13, `PAIRING_FUZZ_COUNT=40 ... --seed 0` and up failed on a
+  5-player round-2 position where rank 2 took a pairing-allocated bye in
+  round 1 and ranks 3-4 had already met: JaVaFo and bbpPairings handed the
+  bye to different players. On 2026-09-13 - after the initial colour began
+  reaching every engine explicitly (JaVaFo through an `XXC` line; before,
+  JaVaFo drew its own colour on every run) - runs of 39 and 200 tournaments
+  both passed. The old failure was never adjudicated against the Handbook,
+  so if it returns, treat it as unexplained rather than as a known
+  2017-versus-2026 rules difference. The default 8 is deterministic (each
+  tournament reseeds `:rand` from its own fuzz seed, so ExUnit's `--seed`
+  only reorders tests).
   """
 
   use PairingsEngine.DataCase, async: true

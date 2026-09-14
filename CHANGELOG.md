@@ -16,6 +16,14 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.4] - 2026-09-14
+
+- [Verified] **No change to what the app does.** A release to test updating
+  from 0.62.3: the update banner, "Check for updates now" and the in-app
+  update itself. The builds behind it now reuse compiled dependencies, and a
+  test's note about a JaVaFo/bbpPairings disagreement is corrected - it no
+  longer reproduces.
+
 ## [0.62.3] - 2026-09-14
 
 - [Fix] **A second "Sync from KBSB" press no longer seems to do nothing.** When
