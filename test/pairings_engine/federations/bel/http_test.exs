@@ -5,10 +5,12 @@ defmodule PairingsEngine.Federations.BEL.HttpTest do
   alias PairingsEngine.Support.KbsbSqliteFixture, as: Fixture
 
   setup do
+    previous = Application.get_env(:pairings_engine, :bel_http_req_plug)
     Application.put_env(:pairings_engine, :bel_http_req_plug, __MODULE__)
 
     on_exit(fn ->
-      Application.delete_env(:pairings_engine, :bel_http_req_plug)
+      # Restored, not deleted: config/test.exs sets it for the whole suite.
+      Application.put_env(:pairings_engine, :bel_http_req_plug, previous)
       Settings.put_players_url(nil)
       Settings.put_clubs_url(nil)
     end)

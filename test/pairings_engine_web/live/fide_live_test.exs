@@ -730,17 +730,18 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
     test "a KBSB sync starts on the first press, even right after a result", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, KbsbSync.topic())
 
       html = render_click(lv, "sync_kbsb_http", %{})
 
       refute html =~ "just had a result entered"
       assert KbsbSync.status().status != :idle, "a recent result is no longer a reason to ask"
 
-      # However it landed (started importing, or already failed fast because
-      # there is no real network in this test env), reset the shared
-      # singleton before the next test touches it - same reasoning as
-      # `PairingsEngine.Fide.Sync.cancel_sync()` above, but `cancel_import/0`
-      # only resets from `:importing`, not the `:error` this can also reach.
+      # Wait for the started sync to END before resetting the shared
+      # singleton. Resetting while its task still ran let the task finish a
+      # moment later and set :error under whichever test ran next. (No stub is
+      # registered for this test, so the download fails fast.)
+      assert_receive {:kbsb_sync, %{status: status}} when status in [:done, :error], 5000
       :sys.replace_state(KbsbSync, fn s -> %{s | status: :idle} end)
     end
   end

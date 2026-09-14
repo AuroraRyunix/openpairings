@@ -69,6 +69,12 @@ config :pairings_engine, :bel_swar_upload_req_plug, PairingsEngine.Federations.B
 # The GitHub update check (PairingsEngine.Updates) - same convention again.
 config :pairings_engine, :updates_req_plug, PairingsEngine.UpdatesTest
 
+# KBSB's public rating-list download (PairingsEngine.Federations.BEL.Http).
+# Without this a test that presses "Sync" reached frbe-kbsb.be for real; in CI
+# that failed a moment later and left the shared Sync process in :error
+# while other tests were asserting on it.
+config :pairings_engine, :bel_http_req_plug, PairingsEngine.Federations.BEL.HttpTest
+
 # The publish drain is the only worker that schedules work from `init`, and a
 # timer firing mid-test would query the database from a process that does not
 # own the sandbox connection. Tests call `Publishing.drain/0` directly.
