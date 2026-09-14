@@ -422,9 +422,9 @@ Still open, and each needs a decision rather than typing:
   reading was wrong - a reading predicts what an implementation does, it
   does not observe it. The measurement was temporarily out of reach and the
   argument was allowed to stand in its place.
-- **Three upstream reports written and unsent** - the bbpPairings C2
-  report, `docs/finding-gacrux-5-2-4.md`, and now
-  `docs/finding-gacrux-5-2-5.md`. The maintainer sends those.
+- ~~**Three upstream reports written and unsent**~~ - **sent by the
+  maintainer on 2026-09-14**: the bbpPairings C2 report,
+  `docs/finding-gacrux-5-2-4.md` and `docs/finding-gacrux-5-2-5.md`.
 - **Team Swiss** - wired in 2026-09-13 (see above). No reference
   implementation pairs teams - not bbpPairings, JaVaFo, Gacrux or SWAR - so
   the engine's validation is a brute-force whole-round reference written
