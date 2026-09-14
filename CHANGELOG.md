@@ -16,6 +16,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The update banner can now be dismissed per version, and a dismissal
+  never hides a later release.** Investigating a report of never seeing the
+  banner found the auto-check itself, its placement on every arbiter page,
+  and desktop detection all already correct - but there was no way to
+  dismiss the banner at all, and the actual GitHub release for the latest
+  tag on the day of the report had not been published, so "no update" was
+  the honest answer regardless of the code. The dismiss control this adds
+  closes the gap that would have made a real update look silently
+  suppressed once an arbiter learned to ignore it.
+- [Feature] **"Check for updates now"**, on the Admin page's "This
+  installation" card, desktop only. Reports "You're on the latest version",
+  the newer version (with the existing banner's install/release-page actions
+  appearing alongside it), or "Couldn't reach GitHub" - only ever shown after
+  an explicit click, never for the silent background check. Rate-limited to
+  once per 30 seconds machine-wide, well inside GitHub's 60/hour
+  unauthenticated budget.
+
 ## [0.62.2] - 2026-09-14
 
 - [Fix] **Syncing the Belgian rating list from the default address failed every

@@ -120,6 +120,31 @@ defmodule PairingsEngine.UpdatesTest do
 
       assert Updates.check() == :error
     end
+
+    # Version.compare/2 is semantic, not a string compare - a naive string
+    # compare puts "0.62.10" BEFORE "0.62.9" (`'1' < '9'`), which would make
+    # a real two-digit-patch release look older than this build. Built off
+    # the actual current version (whatever mix.exs says today) rather than a
+    # hardcoded pair, so this keeps meaning the same thing as the project's
+    # own patch number grows past single digits.
+    test "a higher patch number is newer even when it has more digits" do
+      {:ok, current} = Version.parse(PairingsEngine.Build.version())
+      higher_patch = "#{current.major}.#{current.minor}.#{current.patch + 10}"
+
+      stub(fn conn -> Req.Test.json(conn, [release(tag: "v#{higher_patch}")]) end)
+
+      assert {:ok, %{version: ^higher_patch}} = Updates.check()
+    end
+
+    test "a lower patch number, even with more digits some other way, is not newer" do
+      {:ok, current} = Version.parse(PairingsEngine.Build.version())
+      # Guaranteed non-negative and strictly below current.
+      lower_patch = "#{current.major}.#{max(current.minor - 1, 0)}.99"
+
+      stub(fn conn -> Req.Test.json(conn, [release(tag: "v#{lower_patch}")]) end)
+
+      assert Updates.check() == :no_update
+    end
   end
 
   describe "enabled?/0 and put_enabled/1" do
@@ -133,6 +158,39 @@ defmodule PairingsEngine.UpdatesTest do
 
       Updates.put_enabled(true)
       assert Updates.enabled?()
+    end
+  end
+
+  describe "dismissed_version/0 and dismiss/1" do
+    test "nil by default" do
+      refute Updates.dismissed_version()
+    end
+
+    test "round-trips a dismissed version" do
+      Updates.dismiss("0.62.1")
+      assert Updates.dismissed_version() == "0.62.1"
+    end
+
+    test "notice_for_render/0 suppresses the notice for the dismissed version" do
+      Application.put_env(:pairings_engine, :local_mode, true)
+      on_exit(fn -> Application.delete_env(:pairings_engine, :local_mode) end)
+      on_exit(fn -> :ets.insert(:update_notice, {:notice, nil}) end)
+
+      :ets.insert(:update_notice, {:notice, %{version: "0.62.1", url: "https://example.test"}})
+      Updates.dismiss("0.62.1")
+
+      refute Updates.notice_for_render()
+    end
+
+    test "notice_for_render/0 still shows a NEWER version than the dismissed one" do
+      Application.put_env(:pairings_engine, :local_mode, true)
+      on_exit(fn -> Application.delete_env(:pairings_engine, :local_mode) end)
+      on_exit(fn -> :ets.insert(:update_notice, {:notice, nil}) end)
+
+      Updates.dismiss("0.62.1")
+      :ets.insert(:update_notice, {:notice, %{version: "0.62.2", url: "https://example.test"}})
+
+      assert %{version: "0.62.2"} = Updates.notice_for_render()
     end
   end
 

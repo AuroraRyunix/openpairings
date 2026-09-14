@@ -51,13 +51,15 @@ defmodule PairingsEngineWeb.AdminLive do
   alias PairingsEngine.Accounts.User
   alias PairingsEngine.Audit
   alias PairingsEngine.Authz
+  alias PairingsEngine.Build
+  alias PairingsEngine.Updates.Checker
   alias PairingsEngineWeb.AuditLive
 
   require Logger
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "Admin") |> load()}
+    {:ok, socket |> assign(page_title: "Admin", update_check: nil) |> load()}
   end
 
   @recent_activity_limit 20
@@ -118,6 +120,19 @@ defmodule PairingsEngineWeb.AdminLive do
 
   def handle_event("confirm", _params, socket), do: {:noreply, socket}
 
+  # Desktop only - guarded here even though the button that fires this is
+  # itself only rendered on a local install (see the template), for the same
+  # "checked more than once" reason `PairingsEngine.Updates`'s moduledoc
+  # gives for its own three guards: a hosted server must never make this
+  # request no matter what a crafted client message claims.
+  def handle_event("check_updates_now", _params, socket) do
+    if Authz.local_mode?() do
+      {:noreply, assign(socket, update_check: Checker.check_now_manual())}
+    else
+      {:noreply, socket}
+    end
+  end
+
   defp editable?(assigns, user) do
     user.id != assigns.current_scope.user.id and not declared?(assigns, user)
   end
@@ -131,6 +146,34 @@ defmodule PairingsEngineWeb.AdminLive do
     User.role(user) == :admin and new_role != "admin" and
       Enum.count(assigns.users, &(User.role(&1) == :admin)) <= 1
   end
+
+  # The three outcomes the brief asks for, plus the two housekeeping ones
+  # (`:rate_limited`, `:ineligible`) `Checker.check_now_manual/0` can also
+  # return - each still gets a sentence rather than silence, because this
+  # button was clicked on purpose and an arbiter who clicked it deserves an
+  # answer, unlike the background timer this shares its code with (see
+  # `PairingsEngine.Updates`'s moduledoc on why THAT stays silent).
+  #
+  # `{:ok, info}` deliberately does not repeat the install/release-page
+  # actions here - a successful manual check writes through
+  # `Checker.put/1` exactly like the timer does, so the top banner (already
+  # subscribed on this page, see `PairingsEngineWeb.UpdateNotice`) picks up
+  # the same result and shows them once, not twice.
+  defp update_check_result({:ok, %{version: version}}) do
+    gettext("%{version} is available - see the banner above.", version: version)
+  end
+
+  defp update_check_result(:no_update) do
+    gettext("You're on the latest version (v%{version}).", version: Build.version())
+  end
+
+  defp update_check_result(:error), do: gettext("Couldn't reach GitHub.")
+
+  defp update_check_result(:rate_limited) do
+    gettext("Checked too recently - try again in a little while.")
+  end
+
+  defp update_check_result(:ineligible), do: nil
 
   defp refusal(assigns, user) do
     cond do
@@ -246,6 +289,15 @@ defmodule PairingsEngineWeb.AdminLive do
         </dl>
         <p class="hint">
           {gettext("Backups, publishing and the rating lists are on the Connections page.")}
+        </p>
+
+        <div :if={Authz.local_mode?()} class="actions" style="margin-top: 12px">
+          <button type="button" class="pe-btn" phx-click="check_updates_now">
+            {gettext("Check for updates now")}
+          </button>
+        </div>
+        <p :if={Authz.local_mode?() and @update_check} class="hint" role="status">
+          {update_check_result(@update_check)}
         </p>
       </div>
 

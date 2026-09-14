@@ -37,7 +37,14 @@ defmodule PairingsEngine.Updates.Checker do
   @interval :timer.hours(6)
   @first_check :timer.seconds(10)
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  # `name:` defaults to the singleton every real caller wants, but a test
+  # proving the boot-timing behavior starts its OWN instance (see
+  # `PairingsEngine.Updates.CheckerTest`) rather than reconfiguring the one
+  # already supervising the whole test run.
+  def start_link(opts) do
+    {name, opts} = Keyword.pop(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: name)
+  end
 
   @doc "PubSub topic carrying `{:update_notice, %{version:, tag:, url:} | nil}`."
   def topic, do: @topic
@@ -76,6 +83,76 @@ defmodule PairingsEngine.Updates.Checker do
   """
   def check_now, do: run()
 
+  # Machine-wide, not per-arbiter: this is a single-user desktop install, and
+  # GitHub's unauthenticated rate limit (60/hour/IP) is per machine too, not
+  # per browser tab.
+  @manual_key :manual_last_at
+  @manual_min_gap :timer.seconds(30)
+
+  @doc """
+  What the "Check for updates now" button calls - same process-owned
+  arrangement as `check_now/0` and for the same reason (a `Req.Test` stub
+  and the `meta` table's Sandbox connection belong to the calling process).
+
+  Rate-limited to once per #{@manual_min_gap |> div(1000)} seconds,
+  machine-wide, so a double click (or several open tabs each with their own
+  button) cannot spend the whole hourly GitHub budget by itself. Returns:
+
+    * `{:ok, info}` - a newer release than this build exists.
+    * `:no_update` - reached GitHub; nothing newer.
+    * `:error` - offline, a timeout, or GitHub declined the request.
+    * `:rate_limited` - asked again too soon; the caller shows nothing new,
+      not an error (see `PairingsEngineWeb.AdminLive`).
+    * `:ineligible` - not a desktop install. Same guard as everywhere else
+      in this feature - see `PairingsEngine.Updates`'s moduledoc.
+
+  Always writes through `put/1` on a real answer, exactly like the
+  scheduled check, so the banner and this button never disagree.
+  """
+  def check_now_manual do
+    cond do
+      not Updates.eligible?() ->
+        :ineligible
+
+      not manual_allowed?() ->
+        :rate_limited
+
+      true ->
+        ensure_table()
+        mark_manual!()
+
+        case Updates.check() do
+          {:ok, info} ->
+            put(info)
+            {:ok, info}
+
+          :no_update ->
+            put(nil)
+            :no_update
+
+          :error ->
+            :error
+        end
+    end
+  end
+
+  defp manual_allowed? do
+    ensure_table()
+
+    case :ets.lookup(@table, @manual_key) do
+      [{@manual_key, last}] -> System.monotonic_time(:millisecond) - last >= manual_min_gap()
+      [] -> true
+    end
+  end
+
+  defp mark_manual! do
+    :ets.insert(@table, {@manual_key, System.monotonic_time(:millisecond)})
+  end
+
+  defp manual_min_gap do
+    Application.get_env(:pairings_engine, :updates_manual_min_gap, @manual_min_gap)
+  end
+
   @impl true
   def init(opts) do
     ensure_table()
@@ -85,7 +162,16 @@ defmodule PairingsEngine.Updates.Checker do
         Application.get_env(:pairings_engine, :updates_check_interval, @interval)
       end)
 
-    {:ok, %{interval: interval}, {:continue, :schedule}}
+    # Same override shape as `interval` above, and for the same reason: a
+    # test proving "shortly after boot, not six hours" needs to observe the
+    # scheduled message without a real 10-second sleep - see
+    # `PairingsEngine.Updates.CheckerTest`'s boot-timing tests.
+    first_check =
+      Keyword.get_lazy(opts, :first_check, fn ->
+        Application.get_env(:pairings_engine, :updates_first_check, @first_check)
+      end)
+
+    {:ok, %{interval: interval, first_check: first_check}, {:continue, :schedule}}
   end
 
   defp ensure_table do
@@ -111,7 +197,7 @@ defmodule PairingsEngine.Updates.Checker do
   # doing anything - see its comment.
   def handle_continue(:schedule, state) do
     if Updates.eligible?() do
-      Process.send_after(self(), :check, @first_check)
+      Process.send_after(self(), :check, state.first_check)
     end
 
     {:noreply, state}

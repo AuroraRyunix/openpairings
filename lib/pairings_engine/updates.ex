@@ -73,6 +73,15 @@ defmodule PairingsEngine.Updates do
 
   @enabled_key "update_check_enabled"
 
+  # Which version an arbiter has already dismissed the banner for - a plain
+  # version string, machine-wide like `enabled?/0` (this is a single-user
+  # desktop install; there is no per-user anything to key it to). Dismissing
+  # 0.62.1 must not hide 0.62.2: `notice_for_render/0` compares this against
+  # the CURRENT notice's version every time, so a newer release simply does
+  # not match what was dismissed and the banner comes back on its own,
+  # rather than needing anyone to un-dismiss anything.
+  @dismissed_key "update_dismissed_version"
+
   @doc """
   Whether the automatic check is switched on. Default **on** - see the
   moduledoc for why that is safe: it never applies anything, and it never
@@ -85,6 +94,21 @@ defmodule PairingsEngine.Updates do
   @doc "Flips the setting. An arbiter can always turn off a thing that contacts a third party."
   def put_enabled(enabled?) when is_boolean(enabled?) do
     Meta.put(@enabled_key, if(enabled?, do: "1", else: "0"))
+    :ok
+  end
+
+  @doc "The version, if any, an arbiter has dismissed the banner for. `nil` if never dismissed."
+  def dismissed_version, do: Meta.get(@dismissed_key)
+
+  @doc """
+  Dismisses the banner for one specific version. Called with the version the
+  banner is currently showing - see `PairingsEngineWeb.UpdateNotice`. Does
+  NOT dismiss anything newer: `notice_for_render/0` compares this against
+  whatever `Checker` finds on its next tick, so a subsequent release makes
+  the banner reappear without anyone having to act.
+  """
+  def dismiss(version) when is_binary(version) do
+    Meta.put(@dismissed_key, version)
     :ok
   end
 
@@ -143,12 +167,16 @@ defmodule PairingsEngine.Updates do
           nil
 
         %{version: version, url: url} ->
-          %{
-            version: version,
-            url: url,
-            install_kind: InstallKind.detect(),
-            running: Tournaments.running_tournament_names()
-          }
+          if version == dismissed_version() do
+            nil
+          else
+            %{
+              version: version,
+              url: url,
+              install_kind: InstallKind.detect(),
+              running: Tournaments.running_tournament_names()
+            }
+          end
       end
     end
   end
