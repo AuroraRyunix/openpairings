@@ -211,14 +211,14 @@ defmodule PairingsEngine.Federations.BEL.SqliteFile do
   `club_name` worked before (denormalized onto the Member row).
   """
   def to_member_row(row, club_names \\ %{}) do
-    club_number = int(row["Club"])
+    club_number = positive(row["Club"])
 
     %{
       national_id: to_string(row["IdNumber"]),
       last_name: last_name(row["Name"]),
       first_name: first_name(row["Name"]),
       national_rating: int(row["Elo"]),
-      fide_id: int(row["FideId"]),
+      fide_id: positive(row["FideId"]),
       club_number: club_number,
       club_name: Map.get(club_names, club_number, ""),
       federation: row["Fed"] || "",
@@ -284,4 +284,14 @@ defmodule PairingsEngine.Federations.BEL.SqliteFile do
   end
 
   defp int(_other), do: nil
+
+  # KBSB's file writes 0, not NULL, for "no club" (about 5,900 rows in the
+  # August 2026 list) and for "no FIDE ID" (about 21,000). Stored as 0, club
+  # 0 would read as a club with no known name and FIDE ID 0 as an ID.
+  defp positive(value) do
+    case int(value) do
+      n when is_integer(n) and n > 0 -> n
+      _ -> nil
+    end
+  end
 end

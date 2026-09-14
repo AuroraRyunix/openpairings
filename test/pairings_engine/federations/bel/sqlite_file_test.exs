@@ -183,6 +183,18 @@ defmodule PairingsEngine.Federations.BEL.SqliteFileTest do
       assert row.birth_year == nil
     end
 
+    test "club 0 and FIDE ID 0 mean none, not a club or an ID numbered 0" do
+      row =
+        SqliteFile.to_member_row(
+          %{"IdNumber" => 4, "Name" => "Janssens, Els", "Club" => 0, "FideId" => 0},
+          %{0 => "should never be used"}
+        )
+
+      assert row.club_number == nil
+      assert row.club_name == ""
+      assert row.fide_id == nil
+    end
+
     test "a name with no first name (single field) yields an empty first_name" do
       row = SqliteFile.to_member_row(%{"IdNumber" => 3, "Name" => "Someone"})
       assert row.last_name == "Someone"
