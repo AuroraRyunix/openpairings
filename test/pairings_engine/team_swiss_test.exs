@@ -414,4 +414,86 @@ defmodule PairingsEngine.TeamSwissTest do
     boards = round.pairings |> Enum.filter(&(&1.match_id == match.id)) |> Enum.sort_by(& &1.board)
     {match, boards}
   end
+
+  ## ---------- what the arbiter sees when the search gives up ----------
+  ##
+  ## Forces `:budget_exhausted`, `:no_legal_pairing`, `:no_legal_bye` and a
+  ## crash without a 300-500 team event, by swapping in a stub for
+  ## `Ainalrami.TeamPairing` through the `:team_pairing_module` seam
+  ## (`PairingsEngine.TeamSwiss.team_pairing_module/0`). Also the
+  ## no-partial-state guarantee: a refusal or a crash must leave the round
+  ## unpaired and the tournament otherwise unchanged.
+
+  defmodule RefusingStub do
+    @moduledoc "Always refuses with whatever reason the test put in the process dictionary."
+    def pair_round(_teams, _opts), do: {:error, Process.get(:team_swiss_stub_reason)}
+  end
+
+  defmodule CrashingStub do
+    @moduledoc "Always raises, to force the crash guard."
+    def pair_round(_teams, _opts), do: raise("stub engine crash")
+  end
+
+  defp with_stub(module, fun) do
+    previous = Application.get_env(:pairings_engine, :team_pairing_module)
+    Application.put_env(:pairings_engine, :team_pairing_module, module)
+
+    try do
+      fun.()
+    after
+      if previous,
+        do: Application.put_env(:pairings_engine, :team_pairing_module, previous),
+        else: Application.delete_env(:pairings_engine, :team_pairing_module)
+    end
+  end
+
+  describe "pair_next_round/1 when the engine refuses or crashes" do
+    for reason <- [:budget_exhausted, :no_legal_pairing, :no_legal_bye] do
+      test "#{reason}: the round stays unpaired and the tournament unchanged" do
+        reason = unquote(reason)
+        {t, _} = team_swiss(teams(4), rounds: 3)
+        Process.put(:team_swiss_stub_reason, reason)
+
+        result =
+          with_stub(RefusingStub, fn ->
+            TeamSwiss.pair_next_round(Repo.reload!(t))
+          end)
+
+        assert result == {:error, {:team_pairing, reason, 1}}
+        # No round was created - not partial, not silently different.
+        assert Tournaments.list_rounds(t.id) == []
+        assert Tournament.paired_as_teams?(Repo.reload!(t))
+        assert Repo.reload!(t).team_pairing_mode == nil
+      end
+    end
+
+    test "an unexpected crash is caught, logged without team data, and leaves nothing changed" do
+      {t, _} = team_swiss(teams(4), rounds: 3)
+
+      {result, log} =
+        ExUnit.CaptureLog.with_log(fn ->
+          with_stub(CrashingStub, fn -> TeamSwiss.pair_next_round(Repo.reload!(t)) end)
+        end)
+
+      assert result == {:error, {:team_pairing, :pairing_crashed, 1}}
+      assert Tournaments.list_rounds(t.id) == []
+
+      # Logged - but never a team or player name (the stub raises before any
+      # are touched; this also guards against a future stub leaking them).
+      assert log =~ "Team pairing crashed for tournament #{t.id} round 1"
+      assert log =~ "RuntimeError"
+      refute log =~ "T1"
+      refute log =~ "T2"
+    end
+
+    test "a crash never leaves a half-written round: pairing again afterwards succeeds cleanly" do
+      {t, _} = team_swiss(teams(4), rounds: 3)
+
+      with_stub(CrashingStub, fn -> TeamSwiss.pair_next_round(Repo.reload!(t)) end)
+
+      {:ok, round} = TeamSwiss.pair_next_round(Repo.reload!(t))
+      assert round.number == 1
+      assert length(Tournaments.list_matches(round.id)) == 2
+    end
+  end
 end

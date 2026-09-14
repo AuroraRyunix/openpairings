@@ -771,6 +771,68 @@ defmodule PairingsEngineWeb.SettingsSupport do
         rounds
       )
 
+  # The team Swiss engine's own refusals (`PairingsEngine.TeamSwiss`,
+  # `Ainalrami.TeamPairing.pair_round/2`) and its crash guard. Every one of
+  # these leaves the round unpaired and the tournament unchanged - the
+  # wording says so, and what the arbiter can do next: try again, pair by
+  # hand, or (for the search limit) contact support on a very large event.
+  def error_text({:team_pairing, :budget_exhausted, round}),
+    do:
+      gettext(
+        "Ainalrami couldn't finish the pairing for round %{round} within its search limit. The round was not paired and nothing changed. You can try again, pair this round manually (hand edits), or, for a very large event, contact support.",
+        round: round
+      )
+
+  def error_text({:team_pairing, :no_legal_pairing, round}),
+    do:
+      gettext(
+        "Round %{round} can't be paired under FIDE's rules: every possible pairing breaks an absolute criterion, for example teams meeting twice. This usually means the event has more rounds than the teams allow. Check the number of rounds, or pair the round manually.",
+        round: round
+      )
+
+  def error_text({:team_pairing, :no_legal_bye, round}),
+    do:
+      gettext(
+        "Round %{round} can't be paired: every team that could take the bye has already had one or won a match by forfeit, or giving it to them would leave the rest unpairable. This usually means the event has more rounds than the teams allow. Check the number of rounds, or pair the round manually.",
+        round: round
+      )
+
+  def error_text({:team_pairing, :pairing_crashed, _round}),
+    do:
+      gettext(
+        "Pairing failed unexpectedly. Nothing was changed. Try again; if it keeps happening, report it."
+      )
+
+  def error_text({:team_pairing, {:invalid_option, _, _} = reason, round}),
+    do:
+      gettext("The team pairing for round %{round} failed: %{reason}",
+        round: round,
+        reason: inspect(reason)
+      )
+
+  def error_text({:team_pairing, other, round}),
+    do:
+      gettext("The team pairing for round %{round} failed: %{reason}",
+        round: round,
+        reason: inspect(other)
+      )
+
+  # The individual (JaVaFo/Ainalrami) path's own crash guard
+  # (`PairingsEngine.Pairing.run_ainalrami/5`) - same discipline as the team
+  # path above: the round is left unpaired, nothing else changed.
+  def error_text({:pairing_crashed, _round, nil}),
+    do:
+      gettext(
+        "Pairing failed unexpectedly. Nothing was changed. Try again; if it keeps happening, report it."
+      )
+
+  def error_text({:pairing_crashed, _round, category_name}),
+    do:
+      gettext(
+        "Pairing failed unexpectedly for category \"%{category}\". Nothing was changed. Try again; if it keeps happening, report it.",
+        category: category_name
+      )
+
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
 

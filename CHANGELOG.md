@@ -16,6 +16,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] When team Swiss pairing gives up or breaks, the arbiter now sees a
+  clear, translated notice instead of a raw refusal string or a crashed
+  page: the search hit its limit, no legal pairing/bye exists under FIDE's
+  rules, or an unexpected crash - each says what happened, that nothing
+  changed, and what to do next (try again, pair by hand, or for a very
+  large event contact support). Every refusal or crash is caught before
+  anything is written, so the round is left unpaired and the tournament
+  otherwise untouched; a crash is logged for the admin without any player
+  or team data. A team Swiss round now pairs in a supervised background
+  task instead of the LiveView process itself - large events (300-500
+  teams) can take 10-50 seconds, and the Pairings page now shows "Pairing
+  round N… this can take up to a minute for large events" with the button
+  disabled, rather than looking frozen; a second click while it runs is
+  refused rather than starting a second search. The individual
+  (JaVaFo/Ainalrami) path's own pairing crash is now caught the same way,
+  with the same generic message.
 - [Feature] A snapshot published from a hosted instance now names its
   publisher: the tournament owner's account email and this instance's public
   host, in a new `publisher` field. OpenResults uses it to show which hosted

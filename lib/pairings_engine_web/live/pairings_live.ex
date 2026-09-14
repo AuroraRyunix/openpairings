@@ -74,6 +74,13 @@ defmodule PairingsEngineWeb.PairingsLive do
        # select's markup guarantees a patch fires on every refusal, so the
        # hook's existing data-result resync actually runs.
        write_refused_nonce: 0,
+       # Set while a team Swiss round is pairing in a supervised task (see
+       # `do_pair_team_swiss_async/1`) - 300-500 teams can take 10-50
+       # seconds, run IN THIS BEAM with no subprocess timeout of its own.
+       # Kept out of the LiveView process while it runs so a slow search
+       # can't be mistaken for a frozen page, and the "pair" handler uses it
+       # to refuse a second click instead of starting a second search.
+       pairing_in_progress: false,
        importing_results: false,
        import_errors: nil,
        # The pairing (if any) awaiting explicit confirmation to have its
@@ -139,6 +146,20 @@ defmodule PairingsEngineWeb.PairingsLive do
         # site, still defaulting to reset) clears it - that's the point
         # where the gesture is genuinely done, not a bystander update.
         {:noreply, socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)}
+    end
+  end
+
+  # The team Swiss pairing task's reply - see `do_pair_team_swiss_async/1`.
+  # `tournament.id` is checked against the CURRENT tournament - if the
+  # arbiter has since navigated to a different tournament's Pairings page in
+  # the same LiveView (impossible today, this LiveView is mounted per `:id`,
+  # but cheap insurance against a future navigate_to that reuses the
+  # process) a stray reply is dropped rather than misapplied.
+  def handle_info({:team_pairing_result, tournament_id, result}, socket) do
+    if socket.assigns.tournament.id == tournament_id do
+      apply_pair_result(assign(socket, pairing_in_progress: false), result)
+    else
+      {:noreply, socket}
     end
   end
 
@@ -286,16 +307,25 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("pair", _params, socket) do
-    if not Tournament.setup_complete?(socket.assigns.tournament) do
-      {:noreply,
-       put_flash(
-         socket,
-         :error,
-         "Finish the tournament setup before pairing - missing: " <>
-           missing_setup_summary(socket.assigns.missing_setup)
-       )}
-    else
-      do_pair(socket)
+    cond do
+      # Belt and braces beside the button's own `disabled` - a second "pair"
+      # event that reached the mailbox before the first one's task replied
+      # (e.g. a double-click landing faster than the DOM patch that disables
+      # the button) must not start a second search for the same round.
+      socket.assigns.pairing_in_progress ->
+        {:noreply, socket}
+
+      not Tournament.setup_complete?(socket.assigns.tournament) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Finish the tournament setup before pairing - missing: " <>
+             missing_setup_summary(socket.assigns.missing_setup)
+         )}
+
+      true ->
+        do_pair(socket)
     end
   end
 
@@ -1631,27 +1661,62 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp blank_dash(name), do: name
 
   defp do_pair(socket) do
-    if socket.assigns.tournament.pairing_system == "round_robin" do
-      do_pair_all_rounds(socket)
-    else
-      Snapshots.capture(
-        socket.assigns.tournament,
-        "pairing.round_paired",
-        socket.assigns.current_scope,
-        summary: "Before pairing round #{socket.assigns.round_number}"
-      )
+    cond do
+      socket.assigns.tournament.pairing_system == "round_robin" ->
+        do_pair_all_rounds(socket)
 
-      case Engine.pair_next_round(socket.assigns.tournament) do
-        {:ok, round} ->
-          log_round_paired(socket, round.number)
-          {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
+      Tournament.team_swiss?(socket.assigns.tournament) ->
+        do_pair_team_swiss_async(socket)
 
-        {:error, %Ecto.Changeset{}} ->
-          {:noreply, assign(socket, error: "Could not save the round")}
+      true ->
+        Snapshots.capture(
+          socket.assigns.tournament,
+          "pairing.round_paired",
+          socket.assigns.current_scope,
+          summary: "Before pairing round #{socket.assigns.round_number}"
+        )
 
-        {:error, reason} ->
-          {:noreply, assign(socket, error: error_text(reason))}
-      end
+        apply_pair_result(socket, Engine.pair_next_round(socket.assigns.tournament))
+    end
+  end
+
+  # Team Swiss (`PairingsEngine.TeamSwiss`) is the one path that can
+  # genuinely take a while: 10-50 seconds at 300-500 teams, running IN THIS
+  # BEAM with no subprocess timeout of its own (unlike JaVaFo/Ainalrami's
+  # individual path, which already has `Engine.run_with_timeout/2`). Run in
+  # a supervised task so the LiveView process - and so the socket - stays
+  # responsive while it works, the same pattern `FideLive`'s connection poll
+  # uses: `send/2` a plain message back to this process rather than
+  # blocking on `Task.await/2` here, which would put us right back to
+  # freezing on the calling process either way.
+  defp do_pair_team_swiss_async(socket) do
+    tournament = socket.assigns.tournament
+    round_number = socket.assigns.round_number
+    parent = self()
+
+    Snapshots.capture(tournament, "pairing.round_paired", socket.assigns.current_scope,
+      summary: "Before pairing round #{round_number}"
+    )
+
+    Task.Supervisor.start_child(PairingsEngine.TaskSupervisor, fn ->
+      result = Engine.pair_next_round(tournament)
+      send(parent, {:team_pairing_result, tournament.id, result})
+    end)
+
+    {:noreply, assign(socket, pairing_in_progress: true, error: nil)}
+  end
+
+  defp apply_pair_result(socket, result) do
+    case result do
+      {:ok, round} ->
+        log_round_paired(socket, round.number)
+        {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
+
+      {:error, %Ecto.Changeset{}} ->
+        {:noreply, assign(socket, error: "Could not save the round")}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: error_text(reason))}
     end
   end
 
@@ -2530,7 +2595,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
             phx-click="pair"
-            disabled={!@can_pair}
+            disabled={!@can_pair || @pairing_in_progress}
             data-confirm={
               @tournament.pairing_system == "round_robin" &&
                 "This generates the whole round-robin schedule at once (every round, not just " <>
@@ -2551,9 +2616,18 @@ defmodule PairingsEngineWeb.PairingsLive do
               end
             }
           >
-            {if @tournament.pairing_system == "round_robin",
-              do: "Pair the whole tournament (Berger)",
-              else: "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"}
+            {cond do
+              @pairing_in_progress ->
+                gettext("Pairing round %{n}… this can take up to a minute for large events",
+                  n: @round_number
+                )
+
+              @tournament.pairing_system == "round_robin" ->
+                "Pair the whole tournament (Berger)"
+
+              true ->
+                "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"
+            end}
           </button>
 
           <div

@@ -1692,6 +1692,23 @@ defmodule PairingsEngine.Pairing do
          "Ainalrami could not read the generated pairing file: #{Exception.message(e)}",
          category_name
        )}
+
+    # Any other crash. Unlike the two clauses above (proven, well-understood
+    # refusals) this is unexpected - but it must still leave the round
+    # unpaired and the arbiter with a message, not take the LiveView down.
+    # Nothing has been written to the database at this point (`create_round`
+    # is only reached from the `{:ok, ...}` branch above), so the tournament
+    # is unchanged. Logged WITHOUT player data - only the exception's type
+    # and where it was raised - same discipline as
+    # `PairingsEngine.Federations.BEL.Sync.crashed/4`.
+    e ->
+      Logger.error(
+        "Ainalrami pairing crashed for #{engine_log_scope(tournament, round_number, category_name)}: " <>
+          "#{inspect(e.__struct__)}\n" <>
+          Exception.format_stacktrace(Enum.take(__STACKTRACE__, 5))
+      )
+
+      {:error, {:pairing_crashed, round_number, category_name}}
   end
 
   defp ainalrami_bye_to_zero({white, nil}), do: {white, 0}

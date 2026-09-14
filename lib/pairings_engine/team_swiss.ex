@@ -65,11 +65,20 @@ defmodule PairingsEngine.TeamSwiss do
   """
 
   import Ecto.Query
+  require Logger
 
   alias Ainalrami.TeamPairing
   alias PairingsEngine.{Repo, TeamRounds, TeamStandings, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Match, Round, Team, Tournament}
+
+  # The engine module actually called - overridable in tests
+  # (`Application.put_env(:pairings_engine, :team_pairing_module, Stub)`) so
+  # every refusal (`:budget_exhausted`, `:no_legal_pairing`, `:no_legal_bye`)
+  # and a crash can be forced without a 300-500 team event. Same idiom as
+  # `PairingsEngine.Fide.Sync.list_url/0` and friends.
+  defp team_pairing_module,
+    do: Application.get_env(:pairings_engine, :team_pairing_module, Ainalrami.TeamPairing)
 
   @doc """
   Fills in `team_pairing_mode` when it is nil and the database already
@@ -141,7 +150,7 @@ defmodule PairingsEngine.TeamSwiss do
       explain: true
     ]
 
-    case TeamPairing.pair_round(engine_teams, opts) do
+    case team_pairing_module().pair_round(engine_teams, opts) do
       {:ok, result} ->
         entries = entries(result, Map.new(engine_teams, &{&1.tpn, &1}))
 
@@ -163,9 +172,35 @@ defmodule PairingsEngine.TeamSwiss do
           {:ok, round}
         end
 
+      # `:budget_exhausted`, `:no_legal_pairing`, `:no_legal_bye`, and any
+      # `{:invalid_option, ...}` - a REFUSAL, not a crash: nothing was
+      # written above (`TeamRounds.create_round/4` never ran), so the round
+      # stays unpaired and the tournament unchanged. The atom (with the
+      # round number, for the message) travels up to
+      # `PairingsEngineWeb.SettingsSupport.error_text/1`, which is where the
+      # English/Dutch wording lives - never rendered here.
       {:error, reason} ->
-        {:error, refusal(reason)}
+        {:error, {:team_pairing, reason, number}}
     end
+  rescue
+    # The engine ran IN THIS BEAM - no subprocess, no timeout of its own.
+    # An unhandled raise here would otherwise take the whole LiveView down
+    # instead of leaving the round unpaired with a message. Nothing above
+    # this point writes to the database (`TeamRounds.create_round/4` is
+    # only reached from the `{:ok, result}` branch), so a crash here always
+    # leaves the tournament exactly as it was.
+    #
+    # Logged WITHOUT player or team data - only the exception's type, the
+    # tournament id and the round number - same discipline as
+    # `PairingsEngine.Federations.BEL.Sync.crashed/4`.
+    e ->
+      Logger.error(
+        "Team pairing crashed for tournament #{tournament.id} round #{number}: " <>
+          "#{inspect(e.__struct__)}\n" <>
+          Exception.format_stacktrace(Enum.take(__STACKTRACE__, 5))
+      )
+
+      {:error, {:team_pairing, :pairing_crashed, number}}
   end
 
   defp initial_colour(tournament) do
@@ -362,19 +397,6 @@ defmodule PairingsEngine.TeamSwiss do
       "c7" => set.c7
     }
   end
-
-  defp refusal(:no_legal_bye),
-    do:
-      "No team can take the bye this round without breaking the pairing rules: every team that could has already had one or won a match by forfeit, or the rest could not then be paired (C.04.6 3.3.3 leaves this to the Chief Arbiter)."
-
-  defp refusal(:no_legal_pairing),
-    do:
-      "The teams cannot all be paired this round without a repeat meeting (C.04.6 3.3.3 leaves this to the Chief Arbiter)."
-
-  defp refusal(:budget_exhausted),
-    do: "The team pairing search gave up before finding a pairing. Nothing was paired."
-
-  defp refusal(other), do: "The team pairing failed: #{inspect(other)}"
 
   ## ---------- the field ----------
 
