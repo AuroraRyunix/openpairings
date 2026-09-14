@@ -65,10 +65,16 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
       {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
+      # Sync is one named process shared by the whole suite, so another test
+      # may have left it in :error. What this proves is that the refused click
+      # started nothing: the status is exactly what it was before.
+      before = PairingsEngine.Federations.BEL.Sync.status().status
       html = render_click(lv, "sync_kbsb_http", %{})
 
       assert html =~ "switched off for your account"
-      assert PairingsEngine.Federations.BEL.Sync.status().status == :idle
+      after_click = PairingsEngine.Federations.BEL.Sync.status().status
+      assert after_click == before
+      refute after_click in [:downloading, :running, :importing]
     end
 
     test "the search event refuses and returns nobody", %{conn: conn, user: user} do
