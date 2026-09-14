@@ -19,6 +19,7 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
 
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngine.Updates
 
   setup :register_and_log_in_user
 
@@ -137,6 +138,56 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
       {:ok, _lv, html} = live(conn, ~p"/")
 
       refute html =~ "is paired but not finished"
+    end
+  end
+
+  describe "dismissing the banner" do
+    setup do
+      local_mode(true)
+      :ok
+    end
+
+    test "hides the banner for the version that was dismissed", %{conn: conn} do
+      seed_notice()
+
+      {:ok, lv, html} = live(conn, ~p"/")
+      assert html =~ "Update available"
+
+      html = lv |> element("[phx-click='dismiss_update']") |> render_click()
+
+      refute html =~ "Update available"
+      assert Updates.dismissed_version() == "99.0.0"
+    end
+
+    test "a newer version is NOT hidden by dismissing an older one", %{conn: conn} do
+      Updates.dismiss("50.0.0")
+      seed_notice()
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ "Update available"
+      assert html =~ "v99.0.0"
+    end
+
+    test "reloading the page after a dismissal still shows nothing for that version", %{
+      conn: conn
+    } do
+      seed_notice()
+      Updates.dismiss("99.0.0")
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      refute html =~ "Update available"
+    end
+
+    test "on a hosted server, the click is a no-op even if sent", %{conn: conn} do
+      local_mode(false)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      render_click(lv, "dismiss_update", %{})
+
+      refute Updates.dismissed_version()
     end
   end
 

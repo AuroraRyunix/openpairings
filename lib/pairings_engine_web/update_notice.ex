@@ -50,6 +50,7 @@ defmodule PairingsEngineWeb.UpdateNotice do
       |> assign(update_notice: Updates.notice_for_render())
       |> attach_hook(:update_notice, :handle_info, &receive_update/2)
       |> attach_hook(:update_install, :handle_event, &receive_install_click/3)
+      |> attach_hook(:update_dismiss, :handle_event, &receive_dismiss_click/3)
 
     {:cont, socket}
   end
@@ -99,4 +100,22 @@ defmodule PairingsEngineWeb.UpdateNotice do
   end
 
   defp receive_install_click(_event, _params, socket), do: {:cont, socket}
+
+  # Same guard shape as `receive_install_click/3`: dismissing is only ever
+  # possible for the version the socket's OWN assign is currently showing,
+  # never from anything a crafted client message names, and it always halts
+  # so a stale double-click cannot fall through to a LiveView that has no
+  # matching `handle_event/3` clause.
+  defp receive_dismiss_click("dismiss_update", _params, socket) do
+    case socket.assigns[:update_notice] do
+      %{version: version} ->
+        Updates.dismiss(version)
+        {:halt, assign(socket, update_notice: nil)}
+
+      _ ->
+        {:halt, socket}
+    end
+  end
+
+  defp receive_dismiss_click(_event, _params, socket), do: {:cont, socket}
 end

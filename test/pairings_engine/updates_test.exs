@@ -120,6 +120,91 @@ defmodule PairingsEngine.UpdatesTest do
 
       assert Updates.check() == :error
     end
+
+    # Version.compare/2 is semantic, not a string compare - a naive string
+    # compare puts "0.62.10" BEFORE "0.62.9" (`'1' < '9'`), which would make
+    # a real two-digit-patch release look older than this build. Built off
+    # the actual current version (whatever mix.exs says today) rather than a
+    # hardcoded pair, so this keeps meaning the same thing as the project's
+    # own patch number grows past single digits.
+    test "a higher patch number is newer even when it has more digits" do
+      {:ok, current} = Version.parse(PairingsEngine.Build.version())
+      higher_patch = "#{current.major}.#{current.minor}.#{current.patch + 10}"
+
+      stub(fn conn -> Req.Test.json(conn, [release(tag: "v#{higher_patch}")]) end)
+
+      assert {:ok, %{version: ^higher_patch}} = Updates.check()
+    end
+
+    test "a lower patch number, even with more digits some other way, is not newer" do
+      {:ok, current} = Version.parse(PairingsEngine.Build.version())
+      # Guaranteed non-negative and strictly below current.
+      lower_patch = "#{current.major}.#{max(current.minor - 1, 0)}.99"
+
+      stub(fn conn -> Req.Test.json(conn, [release(tag: "v#{lower_patch}")]) end)
+
+      assert Updates.check() == :no_update
+    end
+  end
+
+  describe "check/1 (conditional, ETag)" do
+    test "an unconditional call (nil) returns the etag GitHub sent" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("abc123"))
+        |> Req.Test.json([release(tag: "v0.0.1")])
+      end)
+
+      assert {:no_update, ~s("abc123")} = Updates.check(nil)
+    end
+
+    test "sends If-None-Match when given a previous etag" do
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:if_none_match, Plug.Conn.get_req_header(conn, "if-none-match")})
+
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("v2"))
+        |> Req.Test.json([release(tag: "v0.0.1")])
+      end)
+
+      Updates.check(~s("v1"))
+
+      assert_receive {:if_none_match, [~s("v1")]}
+    end
+
+    test "a 304 is :not_modified, with no new info to recompute from" do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 304, "") end)
+
+      assert Updates.check(~s("abc123")) == :not_modified
+    end
+
+    test "{:ok, info, etag} carries the new etag forward on a newer release" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("new"))
+        |> Req.Test.json([release(tag: "v99.0.0")])
+      end)
+
+      assert {:ok, %{version: "99.0.0"}, ~s("new")} = Updates.check(nil)
+    end
+
+    test "no etag header at all is not an error - nil travels through" do
+      stub(fn conn -> Req.Test.json(conn, [release(tag: "v0.0.1")]) end)
+
+      assert {:no_update, nil} = Updates.check(nil)
+    end
+
+    test "check/0 flattens check/1's result back to the old shape" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("etag", ~s("etag"))
+        |> Req.Test.json([release(tag: "v99.0.0")])
+      end)
+
+      assert {:ok, %{version: "99.0.0"}} = Updates.check()
+    end
   end
 
   describe "enabled?/0 and put_enabled/1" do
@@ -133,6 +218,39 @@ defmodule PairingsEngine.UpdatesTest do
 
       Updates.put_enabled(true)
       assert Updates.enabled?()
+    end
+  end
+
+  describe "dismissed_version/0 and dismiss/1" do
+    test "nil by default" do
+      refute Updates.dismissed_version()
+    end
+
+    test "round-trips a dismissed version" do
+      Updates.dismiss("0.62.1")
+      assert Updates.dismissed_version() == "0.62.1"
+    end
+
+    test "notice_for_render/0 suppresses the notice for the dismissed version" do
+      Application.put_env(:pairings_engine, :local_mode, true)
+      on_exit(fn -> Application.delete_env(:pairings_engine, :local_mode) end)
+      on_exit(fn -> :ets.insert(:update_notice, {:notice, nil}) end)
+
+      :ets.insert(:update_notice, {:notice, %{version: "0.62.1", url: "https://example.test"}})
+      Updates.dismiss("0.62.1")
+
+      refute Updates.notice_for_render()
+    end
+
+    test "notice_for_render/0 still shows a NEWER version than the dismissed one" do
+      Application.put_env(:pairings_engine, :local_mode, true)
+      on_exit(fn -> Application.delete_env(:pairings_engine, :local_mode) end)
+      on_exit(fn -> :ets.insert(:update_notice, {:notice, nil}) end)
+
+      Updates.dismiss("0.62.1")
+      :ets.insert(:update_notice, {:notice, %{version: "0.62.2", url: "https://example.test"}})
+
+      assert %{version: "0.62.2"} = Updates.notice_for_render()
     end
   end
 

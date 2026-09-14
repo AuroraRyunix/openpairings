@@ -20,12 +20,30 @@ defmodule PairingsEngine.Updates.Checker do
   hosted server therefore never sends itself so much as a `:check` message,
   which is a stronger guarantee than "the check function happens to no-op".
 
-  ## Why the first check is soon, not in six hours
+  ## Why the first check is soon, and why every 30 minutes after that
 
   An arbiter who has had this installed for months should not have to wait
-  six hours after their next boot to hear about a release that shipped
-  yesterday. A short delay rather than immediately, so it does not compete
-  with the rest of application start.
+  half an hour after their next boot to hear about a release that shipped
+  yesterday, so the first check is a few seconds in - just enough not to
+  compete with the rest of application start - rather than immediately.
+
+  Every 30 minutes after that, not every 6 hours: a desktop install that is
+  open all day should learn about a release soon after it goes out, not up
+  to half a working day later. Two to three requests an hour stays far
+  below GitHub's 60/hour unauthenticated budget on its own, and the
+  conditional request below (`If-None-Match`) means most of those cost
+  nothing against that budget at all - a `304` is free.
+
+  ## Conditional requests - a 304 doesn't count
+
+  GitHub's release list answers `ETag`, and a `304 Not Modified` for a
+  matching `If-None-Match` does not count against the unauthenticated rate
+  limit the same 200 would. The `ETag` from the last successful `200` is
+  cached here (`@table`, alongside the notice itself) and sent on every
+  later request; a `304` means the release list has not changed since, so
+  whatever this already concluded from it - a pending notice or none -
+  still holds, and nothing is recomputed or rebroadcast. See
+  `PairingsEngine.Updates.check/1`.
   """
   use GenServer
 
@@ -33,11 +51,19 @@ defmodule PairingsEngine.Updates.Checker do
 
   @topic "system:updates"
   @table :update_notice
+  @etag_key :etag
 
-  @interval :timer.hours(6)
-  @first_check :timer.seconds(10)
+  @interval :timer.minutes(30)
+  @first_check :timer.seconds(5)
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  # `name:` defaults to the singleton every real caller wants, but a test
+  # proving the boot-timing behavior starts its OWN instance (see
+  # `PairingsEngine.Updates.CheckerTest`) rather than reconfiguring the one
+  # already supervising the whole test run.
+  def start_link(opts) do
+    {name, opts} = Keyword.pop(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: name)
+  end
 
   @doc "PubSub topic carrying `{:update_notice, %{version:, tag:, url:} | nil}`."
   def topic, do: @topic
@@ -76,6 +102,76 @@ defmodule PairingsEngine.Updates.Checker do
   """
   def check_now, do: run()
 
+  # Machine-wide, not per-arbiter: this is a single-user desktop install, and
+  # GitHub's unauthenticated rate limit (60/hour/IP) is per machine too, not
+  # per browser tab.
+  @manual_key :manual_last_at
+  @manual_min_gap :timer.seconds(30)
+
+  @doc """
+  What the "Check for updates now" button calls - same process-owned
+  arrangement as `check_now/0` and for the same reason (a `Req.Test` stub
+  and the `meta` table's Sandbox connection belong to the calling process).
+
+  Rate-limited to once per #{@manual_min_gap |> div(1000)} seconds,
+  machine-wide, so a double click (or several open tabs each with their own
+  button) cannot spend the whole hourly GitHub budget by itself. Returns:
+
+    * `{:ok, info}` - a newer release than this build exists.
+    * `:no_update` - reached GitHub; nothing newer.
+    * `:error` - offline, a timeout, or GitHub declined the request.
+    * `:rate_limited` - asked again too soon; the caller shows nothing new,
+      not an error (see `PairingsEngineWeb.AdminLive`).
+    * `:ineligible` - not a desktop install. Same guard as everywhere else
+      in this feature - see `PairingsEngine.Updates`'s moduledoc.
+
+  Always writes through `put/1` on a real answer, exactly like the
+  scheduled check, so the banner and this button never disagree.
+  """
+  def check_now_manual do
+    cond do
+      not Updates.eligible?() ->
+        :ineligible
+
+      not manual_allowed?() ->
+        :rate_limited
+
+      true ->
+        ensure_table()
+        mark_manual!()
+
+        case Updates.check() do
+          {:ok, info} ->
+            put(info)
+            {:ok, info}
+
+          :no_update ->
+            put(nil)
+            :no_update
+
+          :error ->
+            :error
+        end
+    end
+  end
+
+  defp manual_allowed? do
+    ensure_table()
+
+    case :ets.lookup(@table, @manual_key) do
+      [{@manual_key, last}] -> System.monotonic_time(:millisecond) - last >= manual_min_gap()
+      [] -> true
+    end
+  end
+
+  defp mark_manual! do
+    :ets.insert(@table, {@manual_key, System.monotonic_time(:millisecond)})
+  end
+
+  defp manual_min_gap do
+    Application.get_env(:pairings_engine, :updates_manual_min_gap, @manual_min_gap)
+  end
+
   @impl true
   def init(opts) do
     ensure_table()
@@ -85,7 +181,16 @@ defmodule PairingsEngine.Updates.Checker do
         Application.get_env(:pairings_engine, :updates_check_interval, @interval)
       end)
 
-    {:ok, %{interval: interval}, {:continue, :schedule}}
+    # Same override shape as `interval` above, and for the same reason: a
+    # test proving "shortly after boot, not six hours" needs to observe the
+    # scheduled message without a real 10-second sleep - see
+    # `PairingsEngine.Updates.CheckerTest`'s boot-timing tests.
+    first_check =
+      Keyword.get_lazy(opts, :first_check, fn ->
+        Application.get_env(:pairings_engine, :updates_first_check, @first_check)
+      end)
+
+    {:ok, %{interval: interval, first_check: first_check}, {:continue, :schedule}}
   end
 
   defp ensure_table do
@@ -111,7 +216,7 @@ defmodule PairingsEngine.Updates.Checker do
   # doing anything - see its comment.
   def handle_continue(:schedule, state) do
     if Updates.eligible?() do
-      Process.send_after(self(), :check, @first_check)
+      Process.send_after(self(), :check, state.first_check)
     end
 
     {:noreply, state}
@@ -128,16 +233,40 @@ defmodule PairingsEngine.Updates.Checker do
   # already implied by this process ever having scheduled a `:check` at all -
   # belt and braces on the property that matters most in this whole feature
   # (a hosted server must never contact GitHub), and the setting can flip
-  # between two ticks six hours apart, which `handle_continue/2` cannot see.
+  # between two ticks half an hour apart, which `handle_continue/2` cannot
+  # see.
   defp run do
     if Updates.eligible?() and Updates.enabled?() do
-      case Updates.check() do
-        {:ok, info} -> put(info)
-        :no_update -> put(nil)
-        :error -> :ok
+      case Updates.check(current_etag()) do
+        {:ok, info, etag} ->
+          put(info)
+          put_etag(etag)
+
+        {:no_update, etag} ->
+          put(nil)
+          put_etag(etag)
+
+        # 304: the release list has not changed since the cached ETag, so
+        # whatever was already cached - a notice or none - still holds.
+        # Nothing to recompute, nothing to broadcast.
+        :not_modified ->
+          :ok
+
+        :error ->
+          :ok
       end
     end
   end
+
+  defp current_etag do
+    case :ets.lookup(@table, @etag_key) do
+      [{@etag_key, etag}] -> etag
+      [] -> nil
+    end
+  end
+
+  defp put_etag(nil), do: :ok
+  defp put_etag(etag), do: :ets.insert(@table, {@etag_key, etag})
 
   # Written every successful check, broadcast only when the answer actually
   # changed - so a page that has been open for a week is not re-rendered

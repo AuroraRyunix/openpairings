@@ -342,6 +342,14 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("View the release")}
           </.link>
+          <button
+            type="button"
+            class="pe-btn update-notice-dismiss"
+            phx-click="dismiss_update"
+            aria-label={gettext("Dismiss the update notice for this version")}
+          >
+            {gettext("Dismiss")}
+          </button>
         <% end %>
       </div>
 

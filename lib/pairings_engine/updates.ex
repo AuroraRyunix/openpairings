@@ -73,6 +73,15 @@ defmodule PairingsEngine.Updates do
 
   @enabled_key "update_check_enabled"
 
+  # Which version an arbiter has already dismissed the banner for - a plain
+  # version string, machine-wide like `enabled?/0` (this is a single-user
+  # desktop install; there is no per-user anything to key it to). Dismissing
+  # 0.62.1 must not hide 0.62.2: `notice_for_render/0` compares this against
+  # the CURRENT notice's version every time, so a newer release simply does
+  # not match what was dismissed and the banner comes back on its own,
+  # rather than needing anyone to un-dismiss anything.
+  @dismissed_key "update_dismissed_version"
+
   @doc """
   Whether the automatic check is switched on. Default **on** - see the
   moduledoc for why that is safe: it never applies anything, and it never
@@ -85,6 +94,21 @@ defmodule PairingsEngine.Updates do
   @doc "Flips the setting. An arbiter can always turn off a thing that contacts a third party."
   def put_enabled(enabled?) when is_boolean(enabled?) do
     Meta.put(@enabled_key, if(enabled?, do: "1", else: "0"))
+    :ok
+  end
+
+  @doc "The version, if any, an arbiter has dismissed the banner for. `nil` if never dismissed."
+  def dismissed_version, do: Meta.get(@dismissed_key)
+
+  @doc """
+  Dismisses the banner for one specific version. Called with the version the
+  banner is currently showing - see `PairingsEngineWeb.UpdateNotice`. Does
+  NOT dismiss anything newer: `notice_for_render/0` compares this against
+  whatever `Checker` finds on its next tick, so a subsequent release makes
+  the banner reappear without anyone having to act.
+  """
+  def dismiss(version) when is_binary(version) do
+    Meta.put(@dismissed_key, version)
     :ok
   end
 
@@ -112,12 +136,52 @@ defmodule PairingsEngine.Updates do
   "check now") can call it directly without faking desktop mode.
   """
   def check do
-    with {:ok, release} <- fetch_latest_release(),
-         {:ok, version} <- parse_tag(release["tag_name"]) do
+    case check(nil) do
+      {:ok, info, _etag} -> {:ok, info}
+      {:no_update, _etag} -> :no_update
+      # Cannot actually happen with no If-None-Match sent, but a fallback
+      # that means the same thing as :no_update is safer than a crash.
+      :not_modified -> :no_update
+      :error -> :error
+    end
+  end
+
+  @doc """
+  Same check, conditional on `etag` - the value GitHub returned on a
+  previous `200` for this same request, or `nil` for a plain unconditional
+  one. Sent as `If-None-Match`; see `PairingsEngine.Updates.Checker`'s
+  moduledoc for why this exists (a `304` reply is free against GitHub's
+  unauthenticated rate limit, a `200` is not).
+
+  Returns:
+
+    * `{:ok, info, etag}` - a newer release exists; `etag` is what to pass
+      in next time.
+    * `{:no_update, etag}` - reached GitHub; nothing newer. `etag` again for
+      next time.
+    * `:not_modified` - GitHub answered `304`: the release list has not
+      changed since `etag` was issued, so whatever was concluded from it
+      last time still holds. There is nothing new to derive `info` from, so
+      there is no third element here - the caller keeps its own cached
+      answer AND `etag`, unchanged.
+    * `:error` - same as `check/0`.
+
+  `check/0` is this called with `etag: nil` and its result flattened back
+  down - existing callers (including every test written before this
+  existed) keep working unmodified.
+  """
+  def check(etag) do
+    with {:ok, release} <- fetch_latest_release(etag),
+         {:ok, version} <- parse_tag(release.body["tag_name"]) do
       if newer_than_current?(version) do
-        {:ok, %{version: to_string(version), tag: release["tag_name"], url: release["html_url"]}}
+        {:ok,
+         %{
+           version: to_string(version),
+           tag: release.body["tag_name"],
+           url: release.body["html_url"]
+         }, release.etag}
       else
-        :no_update
+        {:no_update, release.etag}
       end
     end
   end
@@ -127,7 +191,7 @@ defmodule PairingsEngine.Updates do
 
   Composes the checker's last known result (an `:ets` read - see
   `PairingsEngine.Updates.Checker.current/0`) with two things that are NOT
-  cached because they can change between two checks six hours apart: which
+  cached because they can change between two checks 30 minutes apart: which
   install this is (`PairingsEngine.Updates.InstallKind`) and whether a
   tournament currently has a round paired but unfinished
   (`PairingsEngine.Tournaments.running_tournament_names/0`). Called once per
@@ -143,12 +207,16 @@ defmodule PairingsEngine.Updates do
           nil
 
         %{version: version, url: url} ->
-          %{
-            version: version,
-            url: url,
-            install_kind: InstallKind.detect(),
-            running: Tournaments.running_tournament_names()
-          }
+          if version == dismissed_version() do
+            nil
+          else
+            %{
+              version: version,
+              url: url,
+              install_kind: InstallKind.detect(),
+              running: Tournaments.running_tournament_names()
+            }
+          end
       end
     end
   end
@@ -233,17 +301,20 @@ defmodule PairingsEngine.Updates do
   # calling request_install_and_restart/0 does not halt the test VM.
   defp stop_fun, do: Application.get_env(:pairings_engine, @stop_fun_key, &System.stop/1)
 
-  defp fetch_latest_release do
+  defp fetch_latest_release(etag) do
+    headers =
+      [
+        {"accept", "application/vnd.github+json"},
+        {"user-agent", @user_agent}
+      ] ++ if(etag, do: [{"if-none-match", etag}], else: [])
+
     request =
       [
         url: @releases_url,
-        headers: [
-          {"accept", "application/vnd.github+json"},
-          {"user-agent", @user_agent}
-        ],
+        headers: headers,
         # Short and not retried: this runs in the background on a timer, and
         # a slow or flaky GitHub should never be worth waiting on or trying
-        # twice - the next scheduled check is a few hours away either way.
+        # twice - the next scheduled check is half an hour away either way.
         receive_timeout: 10_000,
         retry: false
       ]
@@ -251,15 +322,21 @@ defmodule PairingsEngine.Updates do
       |> maybe_put_test_plug()
 
     case Req.get(request) do
-      {:ok, %Req.Response{status: 200, body: releases}} when is_list(releases) ->
+      {:ok, %Req.Response{status: 200, body: releases} = response} when is_list(releases) ->
         case Enum.find(releases, &usable?/1) do
           nil ->
             Logger.debug("Update check: no non-draft, non-prerelease release found on #{@repo}")
             :error
 
           release ->
-            {:ok, release}
+            {:ok, %{body: release, etag: response_etag(response)}}
         end
+
+      # The release list has not changed since `etag` was issued - free
+      # against the unauthenticated rate limit, unlike every other status
+      # here. See PairingsEngine.Updates.Checker's moduledoc.
+      {:ok, %Req.Response{status: 304}} ->
+        :not_modified
 
       {:ok, %Req.Response{status: status}} ->
         # 403/429 is the unauthenticated rate limit (60/hour/IP) - the same
@@ -272,6 +349,13 @@ defmodule PairingsEngine.Updates do
       {:error, reason} ->
         Logger.debug("Update check: #{inspect(reason)}")
         :error
+    end
+  end
+
+  defp response_etag(%Req.Response{} = response) do
+    case Req.Response.get_header(response, "etag") do
+      [etag | _] -> etag
+      [] -> nil
     end
   end
 

@@ -24,6 +24,30 @@ Each entry is tagged so a version can be skimmed:
 - [Removed] **Releases no longer include macOS downloads.** Only Windows and
   Linux are built; the macOS builds took the longest by far and nobody used
   them. They can still be built from source.
+- [Fix] **The update banner can now be dismissed per version, and a dismissal
+  never hides a later release.** Investigating a report of never seeing the
+  banner found the auto-check itself, its placement on every arbiter page,
+  and desktop detection all already correct - but there was no way to
+  dismiss the banner at all, and the actual GitHub release for the latest
+  tag on the day of the report had not been published, so "no update" was
+  the honest answer regardless of the code. The dismiss control this adds
+  closes the gap that would have made a real update look silently
+  suppressed once an arbiter learned to ignore it.
+- [Feature] **"Check for updates now"**, on the Admin page's "This
+  installation" card, desktop only. Reports "You're on the latest version",
+  the newer version (with the existing banner's install/release-page actions
+  appearing alongside it), or "Couldn't reach GitHub" - only ever shown after
+  an explicit click, never for the silent background check. Rate-limited to
+  once per 30 seconds machine-wide, well inside GitHub's 60/hour
+  unauthenticated budget.
+- [Change] **The background check now runs a few seconds after the app
+  opens (was 10 seconds) and every 30 minutes after that (was every 6
+  hours)**, so an update shows up the same time an arbiter opens the app,
+  not up to half a working day later. It also sends GitHub's `ETag` as
+  `If-None-Match` on every request now and treats a `304` as "nothing
+  changed" rather than a fresh check - free against the 60/hour
+  unauthenticated budget, so the shorter interval costs the same request
+  budget a single uncached check every few hours used to.
 
 ## [0.62.2] - 2026-09-14
 
