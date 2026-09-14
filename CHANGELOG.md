@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.1] - 2026-09-14
+
 - [Fix] **The Belgian rating list sync failed with `:not_sqlite`.** It asked
   for the current month's file (`players_202609.zip`), which KBSB never
   creates: that address answers with a redirect to KBSB's blog, the sync
