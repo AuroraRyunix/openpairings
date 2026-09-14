@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-09-14
+
 - [Change] **The Belgian rating list now syncs from KBSB's own public
   monthly file** (`players_YYYYMM.zip` at frbe-kbsb.be), instead of the
   KBSB data-platform API or the OpenResults relay - both removed. No API
