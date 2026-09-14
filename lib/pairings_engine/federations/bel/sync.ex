@@ -26,6 +26,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
 
   use GenServer
   require Logger
+  import Ecto.Query, only: [from: 2]
   alias PairingsEngine.Repo
   alias PairingsEngine.Federations.BEL.{Clubs, Http, Member, Members, Parser, SqliteFile}
 
@@ -322,6 +323,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   # API.
   @doc false
   def import_rows(server, rows, state) do
+    rows = keep_ratings_when_list_has_none(rows)
     total = length(rows)
     current_count = Repo.aggregate(Member, :count)
 
@@ -340,6 +342,35 @@ defmodule PairingsEngine.Federations.BEL.Sync do
 
       true ->
         do_import_rows(server, rows, total, state)
+    end
+  end
+
+  # KBSB's monthly file carried no national ratings at all in July and August
+  # 2026 (every `Elo` NULL; the April file had about 19,000). A full replace
+  # from such a file would wipe every stored rating. When a list has no rating
+  # on ANY row, each player keeps the rating already stored for their
+  # national ID; everything else - names, clubs, membership - still comes from
+  # the new list. A list with even one rating is taken as authoritative.
+  @doc false
+  def keep_ratings_when_list_has_none(rows) do
+    if rows != [] and Enum.all?(rows, &is_nil(Map.get(&1, :national_rating))) do
+      stored =
+        from(m in Member,
+          where: not is_nil(m.national_rating),
+          select: {m.national_id, m.national_rating}
+        )
+        |> Repo.all()
+        |> Map.new()
+
+      if map_size(stored) > 0 do
+        Logger.warning(
+          "KBSB list has no national ratings on any row; kept #{map_size(stored)} stored ratings"
+        )
+      end
+
+      Enum.map(rows, &Map.put(&1, :national_rating, Map.get(stored, &1.national_id)))
+    else
+      rows
     end
   end
 
