@@ -7,8 +7,8 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Authz
   alias PairingsEngine.Backup
   alias PairingsEngine.Features
-  alias PairingsEngine.Federations.BEL
   alias PairingsEngine.Federations.BEL.Members
+  alias PairingsEngine.Federations.BEL.Settings, as: BelSettings
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
   alias PairingsEngine.Federations.BEL.SwarPublish
@@ -50,13 +50,9 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
        kbsb_results: [],
-       # Which of the three ways to fill the local roster to offer right now
-       # - see `PairingsEngine.Federations.BEL.source/0`. Read once at mount:
-       # it can change (an arbiter connects to OpenResults mid-session under
-       # Settings → OpenResults, or an env var changes and the app
-       # restarts), but a stale read here only means the page needs a
-       # reload to notice.
-       kbsb_source: kbsb? && BEL.source(),
+       kbsb_players_url: kbsb? && BelSettings.players_url(),
+       kbsb_players_url_default: BelSettings.default_players_url(),
+       kbsb_clubs_url: (kbsb? && BelSettings.clubs_url()) || "",
        bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish"),
        swar_version: SwarPublish.version(),
        # Everything on this page is machine-wide rather than about one
@@ -355,7 +351,7 @@ defmodule PairingsEngineWeb.FideLive do
   # SHOWN; a `phx-click`/`phx-change` payload is written by whoever is on the
   # other end of the socket, so a control that is not on the page is still an
   # event anybody can send. Same shape as the `may_admin?` checks around them.
-  def handle_event("sync_kbsb_api", _params, socket) do
+  def handle_event("sync_kbsb_http", _params, socket) do
     cond do
       not socket.assigns.kbsb? ->
         {:noreply, put_flash(socket, :error, kbsb_off())}
@@ -364,11 +360,11 @@ defmodule PairingsEngineWeb.FideLive do
         {:noreply, put_flash(socket, :error, sync_restricted())}
 
       true ->
-        {:noreply, start_kbsb_api_import(socket)}
+        {:noreply, start_kbsb_http_import(socket)}
     end
   end
 
-  def handle_event("sync_kbsb_results_site", _params, socket) do
+  def handle_event("save_kbsb_urls", params, socket) do
     cond do
       not socket.assigns.kbsb? ->
         {:noreply, put_flash(socket, :error, kbsb_off())}
@@ -377,7 +373,16 @@ defmodule PairingsEngineWeb.FideLive do
         {:noreply, put_flash(socket, :error, sync_restricted())}
 
       true ->
-        {:noreply, start_kbsb_results_site_import(socket)}
+        BelSettings.put_players_url(blank_to_nil(params["players_url"]))
+        BelSettings.put_clubs_url(blank_to_nil(params["clubs_url"]))
+
+        {:noreply,
+         socket
+         |> assign(
+           kbsb_players_url: BelSettings.players_url(),
+           kbsb_clubs_url: BelSettings.clubs_url() || ""
+         )
+         |> put_flash(:info, gettext("Saved."))}
     end
   end
 
@@ -428,13 +433,8 @@ defmodule PairingsEngineWeb.FideLive do
     assign(socket, status: FideSync.status())
   end
 
-  defp start_kbsb_api_import(socket) do
-    KbsbSync.start_api_import()
-    assign(socket, kbsb_status: KbsbSync.status())
-  end
-
-  defp start_kbsb_results_site_import(socket) do
-    KbsbSync.start_results_site_import()
+  defp start_kbsb_http_import(socket) do
+    KbsbSync.start_http_import()
     assign(socket, kbsb_status: KbsbSync.status())
   end
 
@@ -668,108 +668,85 @@ defmodule PairingsEngineWeb.FideLive do
               <:part name="when"><strong>{@kbsb_status.last_sync}</strong></:part>
             </.rich_text>
           <% else %>
-            {case @kbsb_source do
-              :data_platform ->
-                gettext("The database is empty - sync it from the data platform to get started.")
-
-              :results_site ->
-                gettext("The database is empty - sync it from the results site to get started.")
-
-              :file_upload ->
-                gettext("The database is empty - upload a rating-list file to get started.")
-            end}
+            {gettext("Sync the Belgian rating list from the KBSB website")}
           <% end %>
         </p>
 
-        <%!-- Never a mention of an env var here: this page is read by a
-              desktop arbiter as often as by a hosted operator, and
-              "KBSB_API_URL" means nothing to the former. The two configured
-              sources get their own sync button below; the third, no source
-              at all, gets wording that says what to do next instead of what
-              is missing. --%>
-        <p :if={@kbsb_source == :file_upload} class="hint">
+        <p class="hint">
           {gettext(
-            "No roster source is configured. Connect to OpenResults under Settings → OpenResults to sync the Belgian roster from there, or import an uploaded rating-list file."
+            "Pulls the current roster from KBSB's own public monthly file. Replaces the local copy entirely, and can be re-run any time - works the same whether this is a hosted server or a desktop install."
           )}
         </p>
 
-        <div :if={@kbsb_source == :data_platform}>
-          <p class="hint">
-            {gettext(
-              "Pulls the current roster from the Odoo-synced database, including each player's club name and number. Replaces the local copy entirely, and can be re-run any time."
-            )}
-          </p>
-
-          <div :if={busy?(@kbsb_status)} class="progress-block">
-            <div class="progress-track">
-              <div
-                class={["progress-fill", percent(@kbsb_status) == nil && "indeterminate"]}
-                style={percent(@kbsb_status) && "width: #{percent(@kbsb_status)}%"}
-              />
-            </div>
-            <p class="ok-note">
-              {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: gettext("Working…")}
-            </p>
+        <div :if={busy?(@kbsb_status)} class="progress-block">
+          <div class="progress-track">
+            <div
+              class={["progress-fill", percent(@kbsb_status) == nil && "indeterminate"]}
+              style={percent(@kbsb_status) && "width: #{percent(@kbsb_status)}%"}
+            />
           </div>
-          <p :if={@kbsb_status.status == :error} class="error-note">
-            {gettext("Sync failed:")} {@kbsb_status.error}
+          <p class="ok-note">
+            {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: gettext("Working…")}
           </p>
+        </div>
+        <p :if={@kbsb_status.status == :error} class="error-note">
+          {gettext("Sync failed:")} {@kbsb_status.error}
+        </p>
 
-          <div class="actions">
-            <button
-              type="button"
-              class="pe-btn primary"
-              phx-click="sync_kbsb_api"
-              disabled={busy?(@kbsb_status) or not @may_admin?}
-            >
-              {if busy?(@kbsb_status),
-                do: gettext("Syncing…"),
-                else: gettext("Sync from data platform")}
-            </button>
-            <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
-              {gettext("Cancel")}
-            </button>
-          </div>
+        <div class="actions">
+          <button
+            type="button"
+            class="pe-btn primary"
+            phx-click="sync_kbsb_http"
+            disabled={busy?(@kbsb_status) or not @may_admin?}
+          >
+            {if busy?(@kbsb_status),
+              do: gettext("Syncing…"),
+              else: gettext("Sync from KBSB")}
+          </button>
+          <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
+            {gettext("Cancel")}
+          </button>
         </div>
 
-        <div :if={@kbsb_source == :results_site}>
-          <p class="hint">
-            {gettext(
-              "Pulls the current roster through the connected results site, which holds its own copy of the KBSB data platform's key. Replaces the local copy entirely, and can be re-run any time."
-            )}
-          </p>
-
-          <div :if={busy?(@kbsb_status)} class="progress-block">
-            <div class="progress-track">
-              <div
-                class={["progress-fill", percent(@kbsb_status) == nil && "indeterminate"]}
-                style={percent(@kbsb_status) && "width: #{percent(@kbsb_status)}%"}
+        <details :if={@may_admin?} style="margin-top: 12px">
+          <summary>{gettext("Belgian rating list settings")}</summary>
+          <form phx-submit="save_kbsb_urls" style="margin-top: 8px">
+            <div class="field">
+              <label for="kbsb-players-url">{gettext("Belgian rating list URL")}</label>
+              <input
+                type="text"
+                id="kbsb-players-url"
+                name="players_url"
+                value={@kbsb_players_url}
+                placeholder={@kbsb_players_url_default}
               />
+              <p class="hint">
+                {gettext(
+                  "{YYYYMM} is replaced with the current year and month, e.g. 202608. A URL with no placeholder is used exactly as given every time."
+                )}
+              </p>
             </div>
-            <p class="ok-note">
-              {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: gettext("Working…")}
-            </p>
-          </div>
-          <p :if={@kbsb_status.status == :error} class="error-note">
-            {gettext("Sync failed:")} {@kbsb_status.error}
-          </p>
-
-          <div class="actions">
-            <button
-              type="button"
-              class="pe-btn primary"
-              phx-click="sync_kbsb_results_site"
-              disabled={busy?(@kbsb_status) or not @may_admin?}
-            >
-              {if busy?(@kbsb_status),
-                do: gettext("Syncing…"),
-                else: gettext("Sync from the results site")}
-            </button>
-            <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
-              {gettext("Cancel")}
-            </button>
-          </div>
-        </div>
+            <div class="field" style="margin-top: 8px">
+              <label for="kbsb-clubs-url">{gettext("Belgian club names URL (optional)")}</label>
+              <input
+                type="text"
+                id="kbsb-clubs-url"
+                name="clubs_url"
+                value={@kbsb_clubs_url}
+                placeholder="https://example.org/kbsb-clubs.csv"
+              />
+              <p class="hint">
+                {gettext(
+                  "A CSV file with \"number,name\" columns, or JSON. Only needed if the monthly file doesn't already include club names."
+                )}
+              </p>
+            </div>
+            <div class="actions" style="margin-top: 8px">
+              <button type="submit" class="pe-btn">{gettext("Save")}</button>
+            </div>
+          </form>
+        </details>
 
         <form
           id="kbsb-search-form"

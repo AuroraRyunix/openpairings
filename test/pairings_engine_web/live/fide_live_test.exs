@@ -26,6 +26,21 @@ defmodule PairingsEngineWeb.FideLiveTest do
   # describe at the bottom, which overrides this by clearing it again.
   setup :enable_federation_features
 
+  # Pressing the KBSB sync button for real would dial the actual KBSB
+  # website - slow, network-dependent, and liable to import real player
+  # data into a test database. Pointed at a closed local port instead: the
+  # connection is refused immediately, same as every other "the button was
+  # pressed" test below cares about (the click itself, and the guard around
+  # it) rather than a real download completing.
+  setup do
+    PairingsEngine.Federations.BEL.Settings.put_players_url(
+      "http://127.0.0.1:1/players_{YYYYMM}.zip"
+    )
+
+    on_exit(fn -> PairingsEngine.Federations.BEL.Settings.put_players_url(nil) end)
+    :ok
+  end
+
   test "renders every outbound connection under the 'Connections' heading", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
@@ -525,68 +540,39 @@ defmodule PairingsEngineWeb.FideLiveTest do
     end
   end
 
-  describe "KBSB data-platform sync button" do
-    setup do
-      original = Application.get_env(:pairings_engine, :kbsb)
-
-      on_exit(fn ->
-        if original,
-          do: Application.put_env(:pairings_engine, :kbsb, original),
-          else: Application.delete_env(:pairings_engine, :kbsb)
-      end)
-
-      :ok
-    end
-
-    test "is offered when the API is configured", %{conn: conn} do
-      Application.put_env(:pairings_engine, :kbsb, api_url: "https://kbsb.test", api_key: "k")
-
+  describe "KBSB rating-list sync button" do
+    # There is now only one source (KBSB's own public monthly file), offered
+    # identically on hosted and desktop - no env var, no results-site
+    # connection to check, and never a mention of either removed source.
+    test "is always offered, with no env var and no results-site mention", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/fide")
 
-      assert html =~ "Sync from data platform"
-      assert html =~ "phx-click=\"sync_kbsb_api\""
-      # The empty-state copy should point at the button, not at a file.
-      assert html =~ "sync it from the data platform to get started"
-    end
-
-    # Offering a button whose only possible outcome is an error message is
-    # worse than not offering it: the arbiter cannot fix server config from
-    # here. With no results-site connection either, the page says what to
-    # do next (connect, or upload a file) rather than naming an env var - a
-    # desktop arbiter reading this page has no server environment to set.
-    test "is hidden when it is not configured, with no env var named", %{conn: conn} do
-      Application.delete_env(:pairings_engine, :kbsb)
-
-      {:ok, _lv, html} = live(conn, ~p"/fide")
-
-      refute html =~ "Sync from data platform"
+      assert html =~ "Sync from KBSB"
+      assert html =~ "phx-click=\"sync_kbsb_http\""
+      assert html =~ "Sync the Belgian rating list from the KBSB website"
+      refute html =~ "KBSB_API_URL"
       refute html =~ "Sync from the results site"
-      refute html =~ "KBSB_API_URL"
-      assert html =~ "Connect to OpenResults"
-      assert html =~ "upload a rating-list file to get started"
+      refute html =~ "data platform"
     end
 
-    # The results-site source takes over from the same "unset" starting
-    # point the moment this installation can reach one - see
-    # `PairingsEngine.Federations.BEL.source/0`'s precedence.
-    test "the results site is offered instead when it is available", %{conn: conn} do
-      Application.delete_env(:pairings_engine, :kbsb)
+    test "an administrator can edit the rating list URL and the club names URL", %{conn: conn} do
+      {:ok, lv, html} = live(admin_conn(conn), ~p"/fide")
 
-      PairingsEngine.Publishing.put_endpoint("https://results.example")
-      PairingsEngine.Publishing.put_token("op-token")
+      assert html =~ "Belgian rating list URL"
+      assert html =~ "Belgian club names URL"
 
-      on_exit(fn ->
-        PairingsEngine.Publishing.put_endpoint(nil)
-        PairingsEngine.Publishing.put_token(nil)
-      end)
+      lv
+      |> form("form[phx-submit=save_kbsb_urls]", %{
+        "players_url" => "https://mirror.example/players_{YYYYMM}.zip",
+        "clubs_url" => "https://mirror.example/clubs.csv"
+      })
+      |> render_submit()
 
-      {:ok, _lv, html} = live(conn, ~p"/fide")
+      assert PairingsEngine.Federations.BEL.Settings.players_url() ==
+               "https://mirror.example/players_{YYYYMM}.zip"
 
-      refute html =~ "Sync from data platform"
-      assert html =~ "Sync from the results site"
-      assert html =~ "phx-click=\"sync_kbsb_results_site\""
-      assert html =~ "sync it from the results site to get started"
-      refute html =~ "KBSB_API_URL"
+      assert PairingsEngine.Federations.BEL.Settings.clubs_url() ==
+               "https://mirror.example/clubs.csv"
     end
   end
 
@@ -652,36 +638,19 @@ defmodule PairingsEngineWeb.FideLiveTest do
   end
 
   describe "the KBSB import is an act, not a look" do
-    # The button is HIDDEN, not disabled, when no API is configured - the
-    # page refuses to offer an action that could only fail. So a test about
-    # who may press it has to configure one first, or it asserts against a
-    # control that was never rendered for an unrelated reason.
-    setup do
-      original = Application.get_env(:pairings_engine, :kbsb)
-      Application.put_env(:pairings_engine, :kbsb, api_url: "https://kbsb.test", api_key: "k")
-
-      on_exit(fn ->
-        if original,
-          do: Application.put_env(:pairings_engine, :kbsb, original),
-          else: Application.delete_env(:pairings_engine, :kbsb)
-      end)
-
-      :ok
-    end
-
     test "support cannot start it, and is not offered the button", %{conn: conn} do
-      # It pulls the whole Belgian roster over somebody else's API and
-      # rewrites the local rating table. Every sibling handler on this page
-      # checked the role; this one did not until 2026-08-29, and the page
-      # became readable by support the same day.
+      # It pulls the whole Belgian roster over the internet and rewrites the
+      # local rating table. Every sibling handler on this page checked the
+      # role; this one did not until 2026-08-29, and the page became
+      # readable by support the same day.
       {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
 
       # Both halves, because they fail differently: a disabled button is what
       # an honest page looks like, and the handler guard is what survives a
       # crafted event aimed at it anyway.
-      assert lv |> element("button[phx-click='sync_kbsb_api'][disabled]") |> has_element?()
+      assert lv |> element("button[phx-click='sync_kbsb_http'][disabled]") |> has_element?()
 
-      html = render_click(lv, "sync_kbsb_api", %{})
+      html = render_click(lv, "sync_kbsb_http", %{})
       assert html =~ "needs an administrator"
     end
 
@@ -709,7 +678,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
       # protecting it.
       {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
-      refute lv |> element("button[phx-click='sync_kbsb_api'][disabled]") |> has_element?()
+      refute lv |> element("button[phx-click='sync_kbsb_http'][disabled]") |> has_element?()
     end
   end
 
@@ -762,14 +731,14 @@ defmodule PairingsEngineWeb.FideLiveTest do
     test "a KBSB sync starts on the first press, even right after a result", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
-      html = render_click(lv, "sync_kbsb_api", %{})
+      html = render_click(lv, "sync_kbsb_http", %{})
 
       refute html =~ "just had a result entered"
       assert KbsbSync.status().status != :idle, "a recent result is no longer a reason to ask"
 
       # However it landed (started importing, or already failed fast because
-      # the data-platform API is not configured in this test env), reset the
-      # shared singleton before the next test touches it - same reasoning as
+      # there is no real network in this test env), reset the shared
+      # singleton before the next test touches it - same reasoning as
       # `PairingsEngine.Fide.Sync.cancel_sync()` above, but `cancel_import/0`
       # only resets from `:importing`, not the `:error` this can also reach.
       :sys.replace_state(KbsbSync, fn s -> %{s | status: :idle} end)

@@ -53,7 +53,7 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
       {:ok, lv, html} = live(conn, ~p"/fide")
 
       refute html =~ "Belgian national rating list"
-      refute has_element?(lv, "button[phx-click='sync_kbsb_api']")
+      refute has_element?(lv, "button[phx-click='sync_kbsb_http']")
       refute has_element?(lv, "#kbsb-search-form")
 
       # The FIDE half of the same page is untouched - this hides a pack, not
@@ -65,7 +65,7 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
       {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
-      html = render_click(lv, "sync_kbsb_api", %{})
+      html = render_click(lv, "sync_kbsb_http", %{})
 
       assert html =~ "switched off for your account"
       assert PairingsEngine.Federations.BEL.Sync.status().status == :idle
@@ -82,17 +82,17 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
       refute html =~ "Hidden"
     end
 
-    test "the results-site sync event refuses too, same as the data-platform one", %{
+    test "the save-settings event refuses too, same as the sync one", %{
       conn: conn,
       user: user
     } do
       {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
-      html = render_click(lv, "sync_kbsb_results_site", %{})
+      html =
+        render_submit(lv, "save_kbsb_urls", %{"players_url" => "https://mirror.example/x.zip"})
 
       assert html =~ "switched off for your account"
-      assert PairingsEngine.Federations.BEL.Sync.status().status == :idle
     end
   end
 

@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The Belgian rating list now syncs from KBSB's own public
+  monthly file** (`players_YYYYMM.zip` at frbe-kbsb.be), instead of the
+  KBSB data-platform API or the OpenResults relay - both removed. No API
+  key is used any more; hosted and desktop installs work identically. Club
+  names, when KBSB doesn't bundle them, can come from a second optional
+  "Belgian club names URL". The manual file upload still works, and now
+  also accepts the zip or the `players.sqlite` inside it. A list with no
+  national rating on any row - KBSB's July and August 2026 files - keeps
+  each player's stored rating instead of wiping every rating. See
+  docs/kbsb-sync.md.
+
 - [Feature] **A match forfeited by decision is published as one.** The
   OpenResults snapshot names the team the arbiter awarded a match to
   (`matches[].forfeit_decision`), so the results site can say so rather than
@@ -35,22 +46,6 @@ Each entry is tagged so a version can be skimmed:
   rule of Article 4.3 that gave the colours. Long lists stop at ten with a
   count of the rest. Rounds paired before this keep what they showed, with
   the note that the rest was not recorded.
-- [Feature] **The Belgian (KBSB/FRBE) roster can sync through the connected
-  results site**, for installations with no `KBSB_API_URL`/`KBSB_API_KEY` of
-  their own - a desktop copy, chiefly. Precedence:
-  the direct data-platform key (hosted) first, then this new "via the
-  results site" source when the app has a working OpenResults connection
-  (an installation key, or an operator token), then the manual file upload
-  fallback, unchanged. `PairingsEngine.Federations.BEL.ResultsSource` pulls
-  `GET /api/federations/bel/players` through
-  `PairingsEngine.Publishing.request/2` (so it carries whichever credential
-  this installation already publishes with), reuses the response's ETag,
-  and imports through the same `Sync.import_rows/3` path the other two
-  sources use - lookups and club sync are unaffected either way. The
-  rating-lists/Connections page wording no longer mentions
-  `KBSB_API_URL`/`KBSB_API_KEY` on a desktop install: "Sync from the results
-  site" when available, otherwise a pointer at Settings → OpenResults and
-  the file upload. See docs/kbsb-sync.md.
 - [Fix] **Windows: uninstalling or upgrading OpenPairings could delete every
   tournament and every local backup. Your data now lives where no installer
   can reach it, and existing installs are protected on their next start.**

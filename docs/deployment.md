@@ -982,7 +982,6 @@ Anything absent is prompted for, or falls back to the default shown.
 | `DEPLOY_ADMIN_EMAILS` | OpenPairings | comma-separated; who administers this installation. Unset means it has **no administrators** until `mix pairings.role` is run on the box &mdash; see "Granting the first administrator" |
 | `DEPLOY_OPENRESULTS_PHX_HOST` / `DEPLOY_OPENRESULTS_PORT` / `DEPLOY_OPENRESULTS_INGEST_TOKEN` | both | also used to wire OpenPairings publishing on deploy - see "Publishing to OpenResults" |
 | `DEPLOY_FIDE_LIST_URL` | OpenPairings | see above |
-| `DEPLOY_KBSB_API_URL` / `DEPLOY_KBSB_API_KEY` | OpenPairings | see above |
 | `DEPLOY_SSO_BLOCKED_REGISTRATION_DOMAIN` | OpenPairings | see above |
 | `DEPLOY_NOTICE_TOKEN` / `DEPLOY_NOTICE_MINUTES` | OpenPairings | the pre-restart countdown |
 | `DEPLOY_OPENRESULTS_PORT` | OpenResults | default 4004 |
