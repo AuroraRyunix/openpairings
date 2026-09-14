@@ -16,6 +16,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Removed] **Releases no longer include macOS downloads.** Only Windows and
+  Linux are built; the macOS builds took the longest by far and nobody used
+  them. They can still be built from source.
+
 ## [0.62.2] - 2026-09-14
 
 - [Fix] **Syncing the Belgian rating list from the default address failed every

@@ -44,10 +44,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macos-15-intel is the Intel runner (macos-13 was retired); plain
-          # macos-15 is Apple silicon.
-          - { runner: macos-15-intel, target: macos_x86_64 }
-          - { runner: macos-15, target: macos_aarch64 }
+          # macOS is not built (maintainer's call, 2026-09-14): nobody uses it,
+          # and the Intel runner alone took 13 minutes a push. The macOS steps
+          # below are left in place, gated on runner.os, so re-adding these two
+          # lines brings it back:
+          #   - { runner: macos-15-intel, target: macos_x86_64 }
+          #   - { runner: macos-15, target: macos_aarch64 }
           - { runner: ubuntu-latest, target: linux_x86_64 }
           - { runner: ubuntu-24.04-arm, target: linux_aarch64 }
           - { runner: windows-latest, target: windows_x86_64 }
@@ -70,6 +72,21 @@ jobs:
         with:
           otp-version: "29.0.5"
           elixir-version: "1.20"
+
+      # Compiled dependencies, per target. Without this every push downloaded
+      # and compiled every dependency from scratch on every runner. Keyed on
+      # the lock file and the toolchain, so a dependency or OTP/Elixir change
+      # starts clean; `_build/prod/lib` only - never `rel`, which is this
+      # run's output and must not come from an earlier commit.
+      - name: Cache deps and compiled dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            deps
+            _build/prod/lib
+          key: binaries-${{ matrix.target }}-otp29.0.5-ex1.20-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            binaries-${{ matrix.target }}-otp29.0.5-ex1.20-
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:

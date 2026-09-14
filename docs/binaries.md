@@ -13,6 +13,11 @@ Targets built:
 | Linux   | `linux_x86_64`    | `linux_aarch64`    |
 | Windows | `windows_x86_64`  | (see below)        |
 
+**CI does not build macOS since 2026-09-14** - releases carry Windows and
+Linux only. The targets still build locally with `BURRITO_TARGET`, and the
+macOS steps in `binaries.yml` are kept: restoring the two commented matrix
+lines brings the builds back.
+
 There is no Windows/ARM target: Erlang/OTP publishes no Windows/ARM runtime for
 Burrito to bundle. Windows on ARM runs `windows_x86_64` under its built-in
 x86_64 emulation.
