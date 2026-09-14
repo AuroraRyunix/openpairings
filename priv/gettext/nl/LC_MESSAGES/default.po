@@ -6,7 +6,7 @@ msgstr ""
 #: lib/pairings_engine_web/components/core_components.ex:480
 #: lib/pairings_engine_web/live/admin_live.ex:176
 #: lib/pairings_engine_web/live/categories_live.ex:767
-#: lib/pairings_engine_web/live/fide_live.ex:853
+#: lib/pairings_engine_web/live/fide_live.ex:871
 #: lib/pairings_engine_web/live/norms_live.ex:1303
 #: lib/pairings_engine_web/live/print_live.ex:117
 #: lib/pairings_engine_web/live/settings_fide_live.ex:215
@@ -1583,7 +1583,7 @@ msgstr "Scoregroepenkaart van de paringen van deze ronde"
 msgid "Search the FIDE database (name or FIDE ID)"
 msgstr "Doorzoek de FIDE-databank (naam of FIDE-ID)"
 
-#: lib/pairings_engine_web/live/fide_live.ex:758
+#: lib/pairings_engine_web/live/fide_live.ex:776
 #, elixir-autogen, elixir-format
 msgid "Search the local KBSB database (national ID or last name)"
 msgstr "Doorzoek de lokale KBSB-databank (stamnummer of achternaam)"
@@ -1680,7 +1680,7 @@ msgstr "Bijzondere opmerkingen (IT3)"
 msgid "Stack-cut order"
 msgstr "Stapelsnijvolgorde"
 
-#: lib/pairings_engine_web/live/fide_live.ex:766
+#: lib/pairings_engine_web/live/fide_live.ex:784
 #, elixir-autogen, elixir-format
 msgid "Start typing a last name or matricule…"
 msgstr "Begin een achternaam of stamnummer te typen…"
@@ -2898,7 +2898,7 @@ msgstr "Bye"
 #: lib/pairings_engine_web/live/admin_live.ex:229
 #: lib/pairings_engine_web/live/categories_live.ex:931
 #: lib/pairings_engine_web/live/fide_live.ex:651
-#: lib/pairings_engine_web/live/fide_live.ex:708
+#: lib/pairings_engine_web/live/fide_live.ex:726
 #: lib/pairings_engine_web/live/history_live.ex:867
 #: lib/pairings_engine_web/live/norms_live.ex:1429
 #: lib/pairings_engine_web/live/pairings_live.ex:2775
@@ -3116,7 +3116,7 @@ msgstr "Document"
 msgid "Done"
 msgstr "Klaar"
 
-#: lib/pairings_engine_web/live/fide_live.ex:867
+#: lib/pairings_engine_web/live/fide_live.ex:885
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1187
 #, elixir-autogen, elixir-format
 msgid "Download"
@@ -3747,9 +3747,9 @@ msgstr[1] "SWAR heeft voor %{count} spelers geen FIDE-id. Kies hieronder een mat
 msgid "Same grouping the report itself uses (see %{fills} and %{titled} - CM/WCM don't count as titled). The feds count is the number of distinct federations in that group; the host count is how many of them are %{host}. Groups with no players in them aren't shown."
 msgstr "Dezelfde groepering die het rapport zelf gebruikt (zie %{fills} en %{titled} - CM/WCM tellen niet als getiteld). De feds-teller is het aantal verschillende federaties in die groep; de host-teller is hoeveel daarvan %{host} zijn. Groepen zonder spelers worden niet getoond."
 
-#: lib/pairings_engine_web/live/fide_live.ex:746
-#: lib/pairings_engine_web/live/fide_live.ex:806
-#: lib/pairings_engine_web/live/fide_live.ex:1049
+#: lib/pairings_engine_web/live/fide_live.ex:764
+#: lib/pairings_engine_web/live/fide_live.ex:824
+#: lib/pairings_engine_web/live/fide_live.ex:1067
 #: lib/pairings_engine_web/live/norms_live.ex:1428
 #: lib/pairings_engine_web/live/players_live.ex:2747
 #: lib/pairings_engine_web/live/settings_options_live.ex:446
@@ -3855,7 +3855,7 @@ msgid "Standings after round %{n}"
 msgstr "Stand na ronde %{n}"
 
 #: lib/pairings_engine_web/live/categories_live.ex:647
-#: lib/pairings_engine_web/live/fide_live.ex:898
+#: lib/pairings_engine_web/live/fide_live.ex:916
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:624
 #: lib/pairings_engine_web/live/tournaments_live.ex:2092
 #: lib/pairings_engine_web/live/tournaments_live.ex:2220
@@ -3873,7 +3873,7 @@ msgstr "%[name] wisselen - klik nu op wie er van plaats moet ruilen, aan een bor
 msgid "Switch to manual ranking? The current computed order will be used as the starting point."
 msgstr "Overschakelen naar handmatige rangschikking? De huidige berekende volgorde wordt het vertrekpunt."
 
-#: lib/pairings_engine_web/live/fide_live.ex:704
+#: lib/pairings_engine_web/live/fide_live.ex:722
 #, elixir-autogen, elixir-format
 msgid "Syncing…"
 msgstr "Bezig met synchroniseren…"
@@ -4255,7 +4255,7 @@ msgstr "deze speler heeft nu meer dan één door de paring toegekende (door de e
 msgid "unknown"
 msgstr "onbekend"
 
-#: lib/pairings_engine_web/live/fide_live.ex:773
+#: lib/pairings_engine_web/live/fide_live.ex:791
 #: lib/pairings_engine_web/live/players_live.ex:2556
 #, elixir-autogen, elixir-format
 msgid "unrated"
@@ -4358,7 +4358,7 @@ msgstr "overeenkomende"
 msgid "submitted for rating"
 msgstr "ingediend voor rating"
 
-#: lib/pairings_engine_web/live/fide_live.ex:1088
+#: lib/pairings_engine_web/live/fide_live.ex:1106
 #, elixir-autogen, elixir-format
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr "%[count] toernooi(en) wachten om verzonden te worden. Ze vertrekken vanzelf; een toernooi blijft in de wachtrij tot de server het bevestigt."
@@ -4383,7 +4383,7 @@ msgstr "%{n} min geleden"
 msgid "%{n} of %{total} hidden."
 msgstr "%{n} van %{total} verborgen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:876
+#: lib/pairings_engine_web/live/fide_live.ex:894
 #, elixir-autogen, elixir-format
 msgid "%{n} older ones are on the machine, in %{dir}."
 msgstr "%{n} oudere staan op deze machine, in %{dir}."
@@ -4425,7 +4425,7 @@ msgstr "Aanvaarden voegt de speler toe als nog niet aangekomen, net zoals het fo
 msgid "Accepting entries"
 msgstr "Inschrijvingen open"
 
-#: lib/pairings_engine_web/live/fide_live.ex:996
+#: lib/pairings_engine_web/live/fide_live.ex:1014
 #, elixir-autogen, elixir-format
 msgid "Address"
 msgstr "Adres"
@@ -4445,7 +4445,7 @@ msgstr "Een niet-vermeld toernooi blijft leesbaar voor iedereen die het adres he
 msgid "Asked to sit out round"
 msgstr "Vroeg om ronde over te slaan"
 
-#: lib/pairings_engine_web/live/fide_live.ex:839
+#: lib/pairings_engine_web/live/fide_live.ex:857
 #, elixir-autogen, elixir-format
 msgid "Back up now"
 msgstr "Nu back-up maken"
@@ -4455,7 +4455,7 @@ msgstr "Nu back-up maken"
 msgid "Backup written: %{name}"
 msgstr "Back-up geschreven: %{name}"
 
-#: lib/pairings_engine_web/live/fide_live.ex:813
+#: lib/pairings_engine_web/live/fide_live.ex:831
 #, elixir-autogen, elixir-format
 msgid "Backups"
 msgstr "Back-ups"
@@ -4557,7 +4557,7 @@ msgstr "Naar een nieuw adres verplaatsen"
 msgid "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. To hide those, switch the whole page off above, or do not publish."
 msgstr "Namen, borden, uitslagen en plaatsen worden altijd getoond op een pagina die überhaupt getoond wordt - dat ís het toernooi. Wil je die verbergen, zet dan hierboven de hele pagina uit, of publiceer niet."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1039
+#: lib/pairings_engine_web/live/fide_live.ex:1057
 #, elixir-autogen, elixir-format
 msgid "Never shown once saved. Leave this empty to keep the one already stored."
 msgstr "Wordt na het opslaan nooit meer getoond. Laat dit leeg om de reeds bewaarde te behouden."
@@ -4567,7 +4567,7 @@ msgstr "Wordt na het opslaan nooit meer getoond. Laat dit leeg om de reeds bewaa
 msgid "No results site is set up on this machine yet - see Connections."
 msgstr "Op deze machine is nog geen uitslagensite ingesteld - zie Verbindingen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:844
+#: lib/pairings_engine_web/live/fide_live.ex:862
 #, elixir-autogen, elixir-format
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr "Nog geen - de eerste wordt enkele minuten na het opstarten geschreven."
@@ -4577,7 +4577,7 @@ msgstr "Nog geen - de eerste wordt enkele minuten na het opstarten geschreven."
 msgid "Not set up"
 msgstr "Niet ingesteld"
 
-#: lib/pairings_engine_web/live/fide_live.ex:1083
+#: lib/pairings_engine_web/live/fide_live.ex:1101
 #, elixir-autogen, elixir-format
 msgid "Nothing is published until both an address and a token are set."
 msgstr "Er wordt niets gepubliceerd tot zowel een adres als een token ingesteld zijn."
@@ -4597,7 +4597,7 @@ msgstr "Op de inschrijvingslijst als"
 msgid "On the results site (%{host}), not on this machine. Share it, print it, put it on a QR code."
 msgstr "Op de uitslagensite (%{host}), niet op deze machine. Deel hem, druk hem af, zet hem op een QR-code."
 
-#: lib/pairings_engine_web/live/fide_live.ex:816
+#: lib/pairings_engine_web/live/fide_live.ex:834
 #, elixir-autogen, elixir-format
 msgid "One is written a day. They hold everything that cannot be rebuilt - tournaments, results, entries and publishing keys - and leave out the rating lists, which a sync restores."
 msgstr "Er wordt er één per dag geschreven. Ze bevatten alles wat niet opnieuw op te bouwen is - toernooien, uitslagen, inschrijvingen en publicatiesleutels - en laten de ratinglijsten weg, die een synchronisatie herstelt."
@@ -4636,7 +4636,7 @@ msgstr "Opent de uitslagensite - geen login nodig, deel deze link"
 msgid "Public page"
 msgstr "Publieke pagina"
 
-#: lib/pairings_engine_web/live/fide_live.ex:914
+#: lib/pairings_engine_web/live/fide_live.ex:932
 #, elixir-autogen, elixir-format
 msgid "Public results site (OpenResults)"
 msgstr "Publieke uitslagensite (OpenResults)"
@@ -4671,7 +4671,7 @@ msgstr "Van de uitslagensite verwijderen"
 msgid "Remove this tournament from the results site? Its public page, every earlier snapshot in its history, and any entries collected for it are deleted there permanently. Nothing on this machine is touched - the tournament, its players and its results stay exactly as they are - but this cannot be undone from here."
 msgstr "Dit toernooi van de uitslagensite verwijderen? De publieke pagina, elke eerdere momentopname in de geschiedenis en alle daar verzamelde inschrijvingen worden er definitief verwijderd. Op deze machine wordt niets aangeraakt - het toernooi, de spelers en de uitslagen blijven precies zoals ze zijn - maar dit kan van hieruit niet ongedaan gemaakt worden."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1068
+#: lib/pairings_engine_web/live/fide_live.ex:1086
 #, elixir-autogen, elixir-format
 msgid "Remove token"
 msgstr "Token verwijderen"
@@ -4702,12 +4702,12 @@ msgstr "Opgeslagen. Er wordt niets gepubliceerd tot zowel een adres als een toke
 msgid "Sending"
 msgstr "Bezig met verzenden"
 
-#: lib/pairings_engine_web/live/fide_live.ex:928
+#: lib/pairings_engine_web/live/fide_live.ex:946
 #, elixir-autogen, elixir-format
 msgid "Set this once for the machine. Each tournament then has its own switch in its Settings, off until you turn it on."
 msgstr "Stel dit één keer in voor de machine. Elk toernooi heeft daarna zijn eigen schakelaar in de Instellingen, uit tot jij hem aanzet."
 
-#: lib/pairings_engine_web/live/fide_live.ex:852
+#: lib/pairings_engine_web/live/fide_live.ex:870
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Grootte"
@@ -4737,12 +4737,12 @@ msgstr "De publicatie overnemen"
 msgid "Take over publishing that tournament? This copy starts publishing to that address and can delete it, and this copy's own public link changes to match. Anyone still publishing it from another machine will be overwriting you, and you them."
 msgstr "De publicatie van dat toernooi overnemen? Deze kopie begint naar dat adres te publiceren en kan het verwijderen, en de eigen publieke link van deze kopie verandert mee. Wie het nog vanaf een andere machine publiceert, overschrijft jou, en jij hen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:851
+#: lib/pairings_engine_web/live/fide_live.ex:869
 #, elixir-autogen, elixir-format
 msgid "Taken"
 msgstr "Genomen"
 
-#: lib/pairings_engine_web/live/fide_live.ex:1060
+#: lib/pairings_engine_web/live/fide_live.ex:1078
 #, elixir-autogen, elixir-format
 msgid "Test connection"
 msgstr "Verbinding testen"
@@ -4767,12 +4767,12 @@ msgstr "Het publieke inschrijvingsformulier staat op die site, dus er valt niets
 msgid "The results site holds what its public form collected. It cannot add anyone to this tournament - it only keeps the requests until you fetch them. Nobody below is a player yet."
 msgstr "De uitslagensite bewaart wat het publieke formulier verzameld heeft. Ze kan niemand aan dit toernooi toevoegen - ze houdt de aanvragen enkel bij tot jij ze ophaalt. Niemand hieronder is al speler."
 
-#: lib/pairings_engine_web/live/fide_live.ex:829
+#: lib/pairings_engine_web/live/fide_live.ex:847
 #, elixir-autogen, elixir-format
 msgid "These are unencrypted and carry the email addresses people gave the entry form."
 msgstr "Deze zijn niet versleuteld en bevatten de e-mailadressen die mensen op het inschrijvingsformulier opgaven."
 
-#: lib/pairings_engine_web/live/fide_live.ex:825
+#: lib/pairings_engine_web/live/fide_live.ex:843
 #, elixir-autogen, elixir-format
 msgid "They are written to this machine. Download one and keep it somewhere else - a backup stored only on the thing it protects is half a backup."
 msgstr "Ze worden op deze machine geschreven. Download er een en bewaar hem elders - een back-up die enkel staat op wat hij beschermt, is een halve back-up."
@@ -4812,7 +4812,7 @@ msgstr "Dit toernooi is niet gepubliceerd, en het formulier staat daar - dus het
 msgid "This tournament is not published, so there is no page for spectators to open. %[settings] to publish it to the results site and get a link and QR code."
 msgstr "Dit toernooi is niet gepubliceerd, dus er is geen pagina die toeschouwers kunnen openen. %[settings] om het naar de uitslagensite te publiceren en een link en QR-code te krijgen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1025
+#: lib/pairings_engine_web/live/fide_live.ex:1043
 #, elixir-autogen, elixir-format
 msgid "Token"
 msgstr "Token"
@@ -4858,7 +4858,7 @@ msgstr "Wat vertrekt is wat op een uithangbord zou staan - namen, ratings, clubs
 msgid "What the public page shows"
 msgstr "Wat de publieke pagina toont"
 
-#: lib/pairings_engine_web/live/fide_live.ex:923
+#: lib/pairings_engine_web/live/fide_live.ex:941
 #, elixir-autogen, elixir-format
 msgid "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
 msgstr "Waarheen gepubliceerde toernooien gestuurd worden zodat toeschouwers ze kunnen volgen. Deze machine blijft de bron van waarheid: ze stuurt een kopie, en er wordt nooit iets teruggestuurd."
@@ -4868,7 +4868,7 @@ msgstr "Waarheen gepubliceerde toernooien gestuurd worden zodat toeschouwers ze 
 msgid "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
 msgstr "Of dit toernooi verschijnt in de lijst met gepubliceerde toernooien op de uitslagensite. Standaard uit: publiceren geeft dit toernooi een adres, en het op de voorpagina zetten is een aparte keuze."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1032
+#: lib/pairings_engine_web/live/fide_live.ex:1050
 #, elixir-autogen, elixir-format
 msgid "a token is set - type a new one to replace it"
 msgstr "er is een token ingesteld - typ een nieuwe om hem te vervangen"
@@ -4898,7 +4898,7 @@ msgstr "laatst verzonden %{ago}"
 msgid "nothing sent from this machine yet"
 msgstr "nog niets verzonden vanaf deze machine"
 
-#: lib/pairings_engine_web/live/fide_live.ex:1033
+#: lib/pairings_engine_web/live/fide_live.ex:1051
 #, elixir-autogen, elixir-format
 msgid "paste the server's token"
 msgstr "plak de token van de server"
@@ -5075,7 +5075,7 @@ msgid "This is the last administrator, so the role cannot be taken away."
 msgstr "Dit is de laatste beheerder, dus de rol kan niet worden afgenomen."
 
 #: lib/pairings_engine_web/live/admin_live.ex:236
-#: lib/pairings_engine_web/live/fide_live.ex:795
+#: lib/pairings_engine_web/live/fide_live.ex:813
 #, elixir-autogen, elixir-format
 msgid "Version"
 msgstr "Versie"
@@ -5120,7 +5120,7 @@ msgstr "de pagina van dit toernooi op de uitslagensite"
 msgid "No installation-wide activity recorded yet."
 msgstr "Nog geen installatiebrede activiteit geregistreerd."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1008
+#: lib/pairings_engine_web/live/fide_live.ex:1026
 #, elixir-autogen, elixir-format
 msgid "Public address (optional)"
 msgstr "Publiek adres (optioneel)"
@@ -5135,7 +5135,7 @@ msgstr "Recente activiteit"
 msgid "The most recent machine-wide actions: role changes, backup downloads, publishing changes and rating-list syncs."
 msgstr "De meest recente machinebrede acties: rolwijzigingen, back-updownloads, publicatiewijzigingen en synchronisaties van ratinglijsten."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1018
+#: lib/pairings_engine_web/live/fide_live.ex:1036
 #, elixir-autogen, elixir-format
 msgid "Where spectators go - share links, QR codes and printed addresses. Leave blank to use the address above. Set it only when this machine reaches the results site by a different address than the public one, which is the case when both run on the same server: send to http://localhost:4004 and put the public name here."
 msgstr "Waar toeschouwers terechtkomen - deellinks, QR-codes en gedrukte adressen. Laat leeg om het adres hierboven te gebruiken. Vul dit alleen in wanneer deze machine de uitslagensite via een ander adres bereikt dan het publieke, wat het geval is wanneer beide op dezelfde server draaien: verzend naar http://localhost:4004 en zet hier de publieke naam."
@@ -6065,7 +6065,7 @@ msgstr[0] "Ronde"
 msgstr[1] "Rondes"
 
 #: lib/pairings_engine/features.ex:148
-#: lib/pairings_engine_web/live/fide_live.ex:788
+#: lib/pairings_engine_web/live/fide_live.ex:806
 #, elixir-autogen, elixir-format
 msgid "SWAR results page"
 msgstr "SWAR-resultatenpagina"
@@ -6087,7 +6087,7 @@ msgstr "Scheidingssystemen"
 msgid "Speeltempo"
 msgstr "Speeltempo"
 
-#: lib/pairings_engine_web/live/fide_live.ex:790
+#: lib/pairings_engine_web/live/fide_live.ex:808
 #, elixir-autogen, elixir-format
 msgid "The \"Version\" tag every SWAR-compatible results page carries. The federation's public tournament list shows a \"Vers\" column built by extracting the vX.YY out of this exact string."
 msgstr "De \"Version\"-tag die elke SWAR-compatibele resultatenpagina draagt. De publieke toernooilijst van de federatie toont een kolom \"Vers\" die wordt opgebouwd door de vX.YY uit precies deze tekst te halen."
@@ -7197,19 +7197,19 @@ msgstr "Dat houdt je niet tegen, maar het verhoogt de inzet van de alinea hierbo
 msgid "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2017 one it was last built for. Neither is a settled paperwork position - it is yours to make."
 msgstr "Dit toernooi is aangeduid als %[flag] (Instellingen → FIDE). Beide engines zijn toegestaan; de keuze bepaalt welke editie van de regels de borden volgen: Ainalrami paart volgens die welke geldt sinds 1 februari 2026, JaVaFo volgens die van 2017 waarvoor ze het laatst is gebouwd. Geen van beide is administratief een uitgemaakte zaak - de keuze is aan jou."
 
-#: lib/pairings_engine_web/live/fide_live.ex:892
+#: lib/pairings_engine_web/live/fide_live.ex:910
 #, elixir-autogen, elixir-format
 msgid "Checks GitHub for a newer OpenPairings release every few hours, and shows a banner at the top of every page when one is out. It only ever notifies - nothing is downloaded or installed automatically, because an update can change the pairing engine's version, and this decides when that happens, not a background timer."
 msgstr "Controleert elke paar uur op GitHub of er een nieuwere versie van OpenPairings is, en toont dan een banner bovenaan elke pagina. Er wordt alleen gemeld - niets wordt automatisch gedownload of geïnstalleerd, want een update kan de versie van de partij-engine wijzigen, en dat is een beslissing voor jou, niet voor een achtergrondtimer."
 
 #: lib/pairings_engine_web/live/audit_live.ex:1553
-#: lib/pairings_engine_web/live/fide_live.ex:900
+#: lib/pairings_engine_web/live/fide_live.ex:918
 #, elixir-autogen, elixir-format
 msgid "Off"
 msgstr "Uit"
 
 #: lib/pairings_engine_web/live/audit_live.ex:1552
-#: lib/pairings_engine_web/live/fide_live.ex:900
+#: lib/pairings_engine_web/live/fide_live.ex:918
 #, elixir-autogen, elixir-format
 msgid "On"
 msgstr "Aan"
@@ -7224,12 +7224,12 @@ msgstr "OpenPairings v%{version} is uit."
 msgid "This is a shared, per-machine install - updating needs an administrator."
 msgstr "Dit is een gedeelde installatie voor de hele machine - bijwerken vereist een beheerder."
 
-#: lib/pairings_engine_web/live/fide_live.ex:907
+#: lib/pairings_engine_web/live/fide_live.ex:925
 #, elixir-autogen, elixir-format
 msgid "Turn off"
 msgstr "Uitzetten"
 
-#: lib/pairings_engine_web/live/fide_live.ex:907
+#: lib/pairings_engine_web/live/fide_live.ex:925
 #, elixir-autogen, elixir-format
 msgid "Turn on"
 msgstr "Aanzetten"
@@ -7239,7 +7239,7 @@ msgstr "Aanzetten"
 msgid "Update available"
 msgstr "Update beschikbaar"
 
-#: lib/pairings_engine_web/live/fide_live.ex:890
+#: lib/pairings_engine_web/live/fide_live.ex:908
 #, elixir-autogen, elixir-format
 msgid "Updates"
 msgstr "Updates"
@@ -7670,7 +7670,7 @@ msgstr "Er is niets verzonden, en publiceren staat weer uit voor dit toernooi."
 msgid "Nothing was sent. Publishing is off for this tournament."
 msgstr "Er is niets verzonden. Publiceren staat uit voor dit toernooi."
 
-#: lib/pairings_engine_web/live/fide_live.ex:1042
+#: lib/pairings_engine_web/live/fide_live.ex:1060
 #, elixir-autogen, elixir-format
 msgid "Optional on this computer. A token from the operator of a results site takes over from this computer's own key as soon as it is saved."
 msgstr "Optioneel op deze computer. Een token van de beheerder van een uitslagensite neemt het over van de eigen sleutel van deze computer zodra je die opslaat."
@@ -7711,7 +7711,7 @@ msgstr "Lees de %[terms] voor je akkoord gaat."
 msgid "Refused by the results site"
 msgstr "Geweigerd door de uitslagensite"
 
-#: lib/pairings_engine_web/live/fide_live.ex:980
+#: lib/pairings_engine_web/live/fide_live.ex:998
 #: lib/pairings_engine_web/public_consent.ex:270
 #: lib/pairings_engine_web/public_consent.ex:320
 #, elixir-autogen, elixir-format
@@ -7788,7 +7788,7 @@ msgstr "Deze computer heeft daar nog nooit gepubliceerd. Zonder token van de beh
 msgid "This computer has reached the results site's limit on tournaments. Publishing has stopped for this tournament."
 msgstr "Deze computer heeft de limiet van de uitslagensite voor het aantal toernooien bereikt. Publiceren is gestopt voor dit toernooi."
 
-#: lib/pairings_engine_web/live/fide_live.ex:954
+#: lib/pairings_engine_web/live/fide_live.ex:972
 #, elixir-autogen, elixir-format
 msgid "This computer is registered with the results site as installation %{id}. If a tournament ever has to be moved to this computer, that is the name to give its operator."
 msgstr "Deze computer is bij de uitslagensite geregistreerd als installatie %{id}. Moet er ooit een toernooi naar deze computer worden verplaatst, dan is dat de naam die je aan de beheerder geeft."
@@ -7818,7 +7818,7 @@ msgstr "Dit toernooi is te groot voor de uitslagensite, die hoogstens %{size} aa
 msgid "This tournament is too large for the results site. Publishing has stopped for this tournament."
 msgstr "Dit toernooi is te groot voor de uitslagensite. Publiceren is gestopt voor dit toernooi."
 
-#: lib/pairings_engine_web/live/fide_live.ex:989
+#: lib/pairings_engine_web/live/fide_live.ex:1007
 #: lib/pairings_engine_web/public_consent.ex:195
 #: lib/pairings_engine_web/public_consent.ex:328
 #: lib/pairings_engine_web/public_consent.ex:384
@@ -7848,12 +7848,12 @@ msgstr "Wacht op je toestemming"
 msgid "Waiting to send the latest changes to the results site."
 msgstr "Wachten om de laatste wijzigingen naar de uitslagensite te sturen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:939
+#: lib/pairings_engine_web/live/fide_live.ex:957
 #, elixir-autogen, elixir-format
 msgid "Without a token, this computer publishes to %{host} with a key of its own. The first time you turn publishing on for a tournament, you are asked once, and nothing is sent before you agree."
 msgstr "Zonder token publiceert deze computer naar %{host} met een eigen sleutel. De eerste keer dat je publiceren voor een toernooi aanzet, wordt het je één keer gevraagd, en er wordt niets verzonden voor je akkoord gaat."
 
-#: lib/pairings_engine_web/live/fide_live.ex:965
+#: lib/pairings_engine_web/live/fide_live.ex:983
 #, elixir-autogen, elixir-format
 msgid "You agreed to publish on the results site. This computer registers the next time a tournament is sent."
 msgstr "Je ging akkoord met publiceren op de uitslagensite. Deze computer registreert zich de volgende keer dat een toernooi wordt verzonden."
@@ -10453,22 +10453,22 @@ msgstr "niet gekozen"
 msgid "the initial colour"
 msgstr "de beginkleur"
 
-#: lib/pairings_engine_web/live/fide_live.ex:740
+#: lib/pairings_engine_web/live/fide_live.ex:758
 #, elixir-autogen, elixir-format
 msgid "A CSV file with \"number,name\" columns, or JSON. Only needed if the monthly file doesn't already include club names."
 msgstr "Een CSV-bestand met de kolommen \"number,name\", of JSON. Alleen nodig als het maandelijkse bestand nog geen clubnamen bevat."
 
-#: lib/pairings_engine_web/live/fide_live.ex:731
+#: lib/pairings_engine_web/live/fide_live.ex:749
 #, elixir-autogen, elixir-format
 msgid "Belgian club names URL (optional)"
 msgstr "URL voor Belgische clubnamen (optioneel)"
 
-#: lib/pairings_engine_web/live/fide_live.ex:716
+#: lib/pairings_engine_web/live/fide_live.ex:734
 #, elixir-autogen, elixir-format
 msgid "Belgian rating list URL"
 msgstr "URL van de Belgische ratinglijst"
 
-#: lib/pairings_engine_web/live/fide_live.ex:713
+#: lib/pairings_engine_web/live/fide_live.ex:731
 #, elixir-autogen, elixir-format
 msgid "Belgian rating list settings"
 msgstr "Instellingen voor de Belgische ratinglijst"
@@ -10478,7 +10478,7 @@ msgstr "Instellingen voor de Belgische ratinglijst"
 msgid "Pulls the current roster from KBSB's own public monthly file. Replaces the local copy entirely, and can be re-run any time - works the same whether this is a hosted server or a desktop install."
 msgstr "Haalt de huidige spelerslijst op via het maandelijkse openbare bestand van de KBSB. Vervangt de lokale kopie volledig, en kan op elk moment opnieuw worden uitgevoerd - werkt hetzelfde op een gehoste server als op een desktopinstallatie."
 
-#: lib/pairings_engine_web/live/fide_live.ex:705
+#: lib/pairings_engine_web/live/fide_live.ex:723
 #, elixir-autogen, elixir-format
 msgid "Sync from KBSB"
 msgstr "Synchroniseren vanaf de KBSB"
@@ -10488,7 +10488,17 @@ msgstr "Synchroniseren vanaf de KBSB"
 msgid "Sync the Belgian rating list from the KBSB website"
 msgstr "Synchroniseer de Belgische ratinglijst vanaf de website van de KBSB"
 
-#: lib/pairings_engine_web/live/fide_live.ex:725
+#: lib/pairings_engine_web/live/fide_live.ex:743
 #, elixir-autogen, elixir-format
 msgid "{YYYYMM} is replaced with the current year and month, e.g. 202608. A URL with no placeholder is used exactly as given every time."
 msgstr "{YYYYMM} wordt vervangen door het huidige jaar en de huidige maand, bijvoorbeeld 202608. Een URL zonder plaatshouder wordt telkens exact zo gebruikt als opgegeven."
+
+#: lib/pairings_engine_web/live/fide_live.ex:701
+#, elixir-autogen, elixir-format
+msgid "Already up to date: KBSB's list has not changed since the last sync."
+msgstr "Al up-to-date: de lijst van de KBSB is niet gewijzigd sinds de vorige synchronisatie."
+
+#: lib/pairings_engine_web/live/fide_live.ex:709
+#, elixir-autogen, elixir-format
+msgid "Imported %{count} players from KBSB's list."
+msgstr "%{count} spelers geïmporteerd uit de lijst van de KBSB."

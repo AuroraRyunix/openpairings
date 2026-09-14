@@ -16,6 +16,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A second "Sync from KBSB" press no longer seems to do nothing.** When
+  KBSB's file has not changed since the last sync, nothing is downloaded -
+  correctly - but the page said nothing, so the button looked broken. It now
+  says "Already up to date", and a sync that did import says how many players
+  it imported. English and Dutch.
 - [Removed] **Releases no longer include macOS downloads.** Only Windows and
   Linux are built; the macOS builds took the longest by far and nobody used
   them. They can still be built from source.

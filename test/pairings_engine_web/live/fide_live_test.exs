@@ -728,6 +728,25 @@ defmodule PairingsEngineWeb.FideLiveTest do
       PairingsEngine.Fide.Sync.cancel_sync()
     end
 
+    test "a finished KBSB sync says whether it imported or found nothing new", %{conn: conn} do
+      on_exit(fn ->
+        :sys.replace_state(KbsbSync, fn s -> %{s | status: :idle, outcome: nil} end)
+      end)
+
+      :sys.replace_state(KbsbSync, fn s -> %{s | status: :done, outcome: :unchanged} end)
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+      assert has_element?(lv, "#kbsb-unchanged", "Already up to date")
+      refute has_element?(lv, "#kbsb-imported")
+
+      :sys.replace_state(KbsbSync, fn s ->
+        %{s | status: :done, outcome: :imported, imported_rows: 36_049}
+      end)
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+      assert has_element?(lv, "#kbsb-imported", "Imported")
+      refute has_element?(lv, "#kbsb-unchanged")
+    end
+
     test "a KBSB sync starts on the first press, even right after a result", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, KbsbSync.topic())

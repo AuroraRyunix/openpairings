@@ -692,6 +692,24 @@ defmodule PairingsEngineWeb.FideLive do
         <p :if={@kbsb_status.status == :error} class="error-note">
           {gettext("Sync failed:")} {@kbsb_status.error}
         </p>
+        <p
+          :if={@kbsb_status.status == :done and @kbsb_status.outcome == :unchanged}
+          class="ok-note"
+          id="kbsb-unchanged"
+          role="status"
+        >
+          {gettext("Already up to date: KBSB's list has not changed since the last sync.")}
+        </p>
+        <p
+          :if={@kbsb_status.status == :done and @kbsb_status.outcome == :imported}
+          class="ok-note"
+          id="kbsb-imported"
+          role="status"
+        >
+          {gettext("Imported %{count} players from KBSB's list.",
+            count: format_count(@kbsb_status.imported_rows)
+          )}
+        </p>
 
         <div class="actions">
           <button

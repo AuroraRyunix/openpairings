@@ -324,7 +324,19 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       final = await_done()
 
       assert final.status == :done, inspect(final.error)
+      assert final.outcome == :imported
       assert Repo.get(Member, "555010").club_name == "KGSRL"
+
+      # The same file again: KBSB answers 304 to the stored ETag, and the sync
+      # says it found nothing new rather than finishing silently.
+      Req.Test.stub(PairingsEngine.Federations.BEL.HttpTest, fn conn ->
+        Plug.Conn.send_resp(conn, 304, "")
+      end)
+
+      Sync.start_http_import()
+      again = await_done()
+      assert again.status == :done
+      assert again.outcome == :unchanged
     end
 
     test "a crash shows the exception's type, never the data it failed on" do

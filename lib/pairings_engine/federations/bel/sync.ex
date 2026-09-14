@@ -39,7 +39,11 @@ defmodule PairingsEngine.Federations.BEL.Sync do
 
   @insert_chunk_size 500
 
+  # `outcome` says what a :done sync actually did - `:imported`, or
+  # `:unchanged` when KBSB's file had not changed and nothing was downloaded.
+  # Without it the page showed nothing after a second press and looked broken.
   defstruct status: :idle,
+            outcome: nil,
             progress: "",
             error: nil,
             imported_rows: 0,
@@ -236,7 +240,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
     with {:ok, rows} <- result,
          {:ok, state} <- import_rows(server, rows, state) do
       Members.put_last_sync()
-      update(server, %{state | status: :done, progress: ""})
+      update(server, %{state | status: :done, progress: "", outcome: :imported})
     else
       {:error, reason} ->
         Logger.error("KBSB import failed: #{inspect(reason)}")
@@ -276,7 +280,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
             if month_label = Map.get(fetched, :month_label),
               do: Members.put_source_month(month_label)
 
-            update(server, %{state | status: :done, progress: ""})
+            update(server, %{state | status: :done, progress: "", outcome: :imported})
 
           {:error, reason} ->
             Logger.error("KBSB HTTP import failed: #{inspect(reason)}")
@@ -289,6 +293,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
         update(server, %{
           state
           | status: :done,
+            outcome: :unchanged,
             progress: "",
             imported_rows: Members.player_count()
         })
