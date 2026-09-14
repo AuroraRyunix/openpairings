@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.3] - 2026-09-14
+
 - [Fix] **A second "Sync from KBSB" press no longer seems to do nothing.** When
   KBSB's file has not changed since the last sync, nothing is downloaded -
   correctly - but the page said nothing, so the button looked broken. It now
