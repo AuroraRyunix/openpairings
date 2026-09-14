@@ -101,6 +101,8 @@ defmodule PairingsEngine.Snapshot do
 
   alias PairingsEngine.TiebreakWorking
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
+  alias PairingsEngine.{Authz, Repo}
+  alias PairingsEngine.Accounts.User
 
   @schema "openresults/snapshot"
   # The envelope is versioned, not the fields - this changes only for a break
@@ -177,6 +179,8 @@ defmodule PairingsEngine.Snapshot do
       "standings" => standings(tournament, nos, after_round)
     }
 
+    base = maybe_put_publisher(base, tournament)
+
     if paired_as_teams?(tournament) do
       base
       |> Map.put("teams", teams_row(tournament, nos, team_nos))
@@ -185,6 +189,42 @@ defmodule PairingsEngine.Snapshot do
     else
       base
     end
+  end
+
+  # Added 2026-09-14. Who published, for the hosted server's admin panel
+  # only - see docs/snapshot-schema.md ("publisher") in the OpenResults repo
+  # for the full contract. Present only on a HOSTED publish
+  # (`not Authz.local_mode?/0`; a desktop install has no accounts to name and
+  # already identifies itself with its installation key) and only when the
+  # tournament's owner is still known. `email` is the account's only identity
+  # today - there is no separate display name field on `Accounts.User` - so
+  # `name` is omitted rather than invented; OpenResults falls back to the
+  # email alone when `name` is absent, exactly like every other optional
+  # field in this document. `host` is this instance's own public host, so
+  # OpenResults can show which hosted deployment a tournament came from
+  # without hard-coding one.
+  defp maybe_put_publisher(base, %Tournament{} = tournament) do
+    if Authz.local_mode?() do
+      base
+    else
+      case owner_email(tournament) do
+        nil -> base
+        email -> Map.put(base, "publisher", %{"email" => email, "host" => public_host()})
+      end
+    end
+  end
+
+  defp owner_email(%Tournament{user_id: nil}), do: nil
+
+  defp owner_email(%Tournament{user_id: user_id}) do
+    case Repo.get(User, user_id) do
+      %User{email: email} when is_binary(email) -> email
+      _ -> nil
+    end
+  end
+
+  defp public_host do
+    PairingsEngineWeb.Endpoint.host()
   end
 
   ## ---------- tournament ----------

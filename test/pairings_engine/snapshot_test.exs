@@ -435,6 +435,53 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "build/1 - the publisher field (2026-09-14)" do
+    test "absent when the tournament has no owner" do
+      {tournament, _} = swiss_fixture()
+      refute Map.has_key?(Snapshot.build(tournament), "publisher")
+    end
+
+    test "carries the owner's email and this instance's host when hosted and the owner is known" do
+      {tournament, _} = swiss_fixture()
+
+      user =
+        Repo.insert!(%PairingsEngine.Accounts.User{
+          email: "jan.peeters@example.invalid",
+          hashed_password: "x"
+        })
+
+      tournament = Repo.update!(Ecto.Changeset.change(tournament, user_id: user.id))
+
+      snapshot = Snapshot.build(tournament)
+
+      assert snapshot["publisher"] == %{
+               "email" => "jan.peeters@example.invalid",
+               "host" => PairingsEngineWeb.Endpoint.host()
+             }
+    end
+
+    test "omitted in local mode, even when the owner is known" do
+      {tournament, _} = swiss_fixture()
+
+      user =
+        Repo.insert!(%PairingsEngine.Accounts.User{
+          email: "jan.peeters@example.invalid",
+          hashed_password: "x"
+        })
+
+      tournament = Repo.update!(Ecto.Changeset.change(tournament, user_id: user.id))
+
+      previous = Application.get_env(:pairings_engine, :local_mode, false)
+      Application.put_env(:pairings_engine, :local_mode, true)
+
+      try do
+        refute Map.has_key?(Snapshot.build(tournament), "publisher")
+      after
+        Application.put_env(:pairings_engine, :local_mode, previous)
+      end
+    end
+  end
+
   describe "build/1 - the document" do
     test "the envelope and tournament section follow the contract" do
       {tournament, _} = swiss_fixture()

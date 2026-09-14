@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] A snapshot published from a hosted instance now names its
+  publisher: the tournament owner's account email and this instance's public
+  host, in a new `publisher` field. OpenResults uses it to show which hosted
+  account published a tournament in its admin panel only - it never appears
+  on a public page. Additive and hosted-only: absent on a local or desktop
+  install (there are no accounts to name), and absent whenever the
+  tournament's owner is not known. See `docs/snapshot-schema.md` in the
+  OpenResults repo.
+
 ## [0.62.4] - 2026-09-14
 
 - [Verified] **No change to what the app does.** A release to test updating
