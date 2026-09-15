@@ -202,4 +202,21 @@ defmodule PairingsEngineWeb.HookEventsTest do
       assert html =~ "hand-edit-menu"
     end
   end
+
+  describe "the print menus (.PrintMenu)" do
+    # F8 of docs/js-hooks-audit-2026-09-13.md: each menu's trigger says it has
+    # a menu and starts collapsed; the hook keeps `aria-expanded` in step.
+    test "every trigger is a menu button, collapsed", %{conn: conn, tournament: t} do
+      {:ok, _round} = Pairing.pair_next_round(Tournaments.get_tournament!(t.id))
+      {:ok, view, _} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      document = view |> render() |> LazyHTML.from_fragment()
+      wraps = LazyHTML.query(document, "[phx-hook$='.PrintMenu']")
+      triggers = LazyHTML.query(document, "[phx-hook$='.PrintMenu'] > a[aria-haspopup='menu']")
+
+      assert Enum.count(wraps) == 3
+      assert Enum.count(triggers) == 3
+      assert triggers |> LazyHTML.attribute("aria-expanded") |> Enum.uniq() == ["false"]
+    end
+  end
 end

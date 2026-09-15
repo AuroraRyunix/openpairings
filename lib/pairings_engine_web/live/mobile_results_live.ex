@@ -662,6 +662,23 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               window.peBoardFocus = { id: this.el.id, index: boards.indexOf(this.el) };
             };
             this.el.addEventListener("focusin", this.onFocus);
+
+            // Focus that LEFT the board - to another board, the header, or the
+            // page itself after a tap on empty space - is no longer this
+            // board's to hand on. Checked a tick later, because a board being
+            // removed can report focus leaving too: then it is no longer in the
+            // page, the record stays, and `destroyed` hands focus on as meant.
+            // Without this, a board entered by another phone could pull focus
+            // back from wherever the arbiter had since put it.
+            this.onBlur = () => {
+              setTimeout(() => {
+                if (!this.el.isConnected || this.el.contains(document.activeElement)) return;
+                if (window.peBoardFocus && window.peBoardFocus.id === this.el.id) {
+                  window.peBoardFocus = null;
+                }
+              }, 0);
+            };
+            this.el.addEventListener("focusout", this.onBlur);
           },
 
           destroyed() {

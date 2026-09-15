@@ -16,6 +16,14 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The print and PGN menus on the Pairings page open into the
+  menu from the keyboard in every browser.** The context-menu key or Shift+F10
+  on a print link now always moves focus to the first option, the link says
+  whether its menu is open, and closing the menu puts focus back on the link.
+- [Fix] **The phone results page no longer moves focus by itself
+  after another phone enters a result.** It only hands focus on when the board
+  you were on leaves the list, not when you had already moved elsewhere.
+
 - [Change] **The login and sign-up pages describe what OpenPairings does now.**
   TRF-2026 is no longer listed as coming soon (it shipped in 0.47.0), team
   tournaments, the pairing explanation and publishing to OpenResults are

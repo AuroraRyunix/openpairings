@@ -2640,6 +2640,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
               target="_blank"
+              aria-haspopup="menu"
+              aria-expanded="false"
               title={gettext("Right-click for more print options")}
             >
               {gettext("Print pairings")} <span class="print-menu-affordance">⋯</span>
@@ -2683,6 +2685,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
               target="_blank"
+              aria-haspopup="menu"
+              aria-expanded="false"
               title={gettext("Right-click for more print options")}
             >
               {gettext("Print result cards")} <span class="print-menu-affordance">⋯</span>
@@ -2725,6 +2729,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
               target="_blank"
+              aria-haspopup="menu"
+              aria-expanded="false"
               title={
                 gettext(
                   "Metadata-only PGN - no moves are recorded in OpenPairings. Right-click for more options"
@@ -4138,14 +4144,34 @@ defmodule PairingsEngineWeb.PairingsLive do
         export default {
           mounted() {
             this.menu = this.el.querySelector(".print-menu-items");
+            this.trigger = this.el.querySelector("a[aria-haspopup]");
             this.popup = null;
+            this.keyMenuAt = 0;
+
+            // The key itself, recorded first - the same way `.PairingMenu`
+            // and the Players grid tell a keyboard menu from a mouse one. The
+            // event's own shape (no pointer type, a (0, 0) position) is only
+            // the fallback: not every browser sends either from the keyboard,
+            // and there the menu opened with focus left on the link.
+            this.onKeydown = (e) => {
+              if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+                this.keyMenuAt = Date.now();
+              }
+            };
+            this.el.addEventListener("keydown", this.onKeydown);
 
             this.onContextMenu = (e) => {
               e.preventDefault();
-              const fromKeyboard = e.pointerType === "" || (e.clientX === 0 && e.clientY === 0);
+              const fromKeyboard =
+                Date.now() - this.keyMenuAt < 1000 ||
+                e.pointerType === "" ||
+                (e.clientX === 0 && e.clientY === 0);
+              this.keyMenuAt = 0;
               if (fromKeyboard) {
                 const box = (e.target.closest("a, button") || this.el).getBoundingClientRect();
-                this.opener = document.activeElement;
+                this.opener = this.el.contains(document.activeElement)
+                  ? document.activeElement
+                  : this.trigger;
                 this.openAt(box.left, box.bottom, true);
               } else {
                 this.openAt(e.clientX, e.clientY, false);
@@ -4192,8 +4218,19 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             document.body.appendChild(popup);
             this.popup = popup;
+            if (this.trigger) this.trigger.setAttribute("aria-expanded", "true");
 
-            if (takeFocus) popup.querySelector("a")?.focus();
+            if (takeFocus) {
+              const first = () => popup.querySelector("a");
+              first()?.focus();
+              // And once more after the event has finished: a browser can put
+              // focus back on the element the context-menu key was pressed on
+              // once the (cancelled) menu event is done, and a LiveView patch
+              // landing in between can do the same.
+              setTimeout(() => {
+                if (this.popup === popup && !popup.contains(document.activeElement)) first()?.focus();
+              }, 0);
+            }
           },
 
           // `refocus` when the keyboard closed it: back onto the print link.
@@ -4201,12 +4238,21 @@ defmodule PairingsEngineWeb.PairingsLive do
             if (this.popup) {
               this.popup.remove();
               this.popup = null;
-              if (refocus && this.opener?.isConnected) this.opener.focus();
+              if (this.trigger) this.trigger.setAttribute("aria-expanded", "false");
+              const back = (this.opener?.isConnected && this.opener) || this.trigger;
+              if (refocus && back) back.focus();
             }
+          },
+
+          // A patch re-renders the link with `aria-expanded="false"`; an open
+          // menu must keep saying it is open.
+          updated() {
+            if (this.trigger) this.trigger.setAttribute("aria-expanded", this.popup ? "true" : "false");
           },
 
           destroyed() {
             this.close();
+            this.el.removeEventListener("keydown", this.onKeydown);
             this.el.removeEventListener("contextmenu", this.onContextMenu);
             document.removeEventListener("mousedown", this.onDocMousedown);
             document.removeEventListener("keydown", this.onDocKeydown);
