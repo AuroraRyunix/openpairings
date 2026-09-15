@@ -32,9 +32,7 @@ defmodule PairingsEngine.TrfImport do
   is checked, what is deliberately not, and which files are judged at all.
   """
 
-  require Logger
-
-  alias PairingsEngine.{Encoding, Repo, Tiebreaks, Tournaments}
+  alias PairingsEngine.{Encoding, Repo, SafeError, Tiebreaks, Tournaments}
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
 
@@ -153,7 +151,10 @@ defmodule PairingsEngine.TrfImport do
 
   def error_message({:parse_failed, message}), do: "Could not read this TRF file: #{message}"
   def error_message(reason) when is_binary(reason), do: reason
-  def error_message(reason), do: "Could not import this TRF file: #{inspect(reason)}"
+  # Not a shape any current caller produces - see the moduledoc's list of the
+  # three. Kept generic rather than `inspect/1`, which would print an
+  # unrecognised term (and any data it carries) straight onto the page.
+  def error_message(_reason), do: "Could not import this TRF file."
 
   ## ---------- input bounds ----------
 
@@ -320,8 +321,15 @@ defmodule PairingsEngine.TrfImport do
       data -> validate_unique_ranks(data)
     end
   rescue
-    e in ValidationError -> {:error, e}
-    e -> {:error, {:parse_failed, Exception.message(e)}}
+    e in ValidationError ->
+      {:error, e}
+
+    # Any other exception's own message can quote whatever it failed on -
+    # here, a raw TRF line, which carries a player's name in every "001"
+    # record. Only the exception's type is kept - see PairingsEngine.SafeError.
+    e ->
+      kind = SafeError.log_crash("TRF import", e, __STACKTRACE__)
+      {:error, {:parse_failed, "the file could not be read (#{kind})"}}
   end
 
   # Every downstream step keys players by their TRF starting rank
@@ -1433,11 +1441,11 @@ defmodule PairingsEngine.TrfImport do
   defp verification_warnings(data, paired) do
     if dutch_swiss?(data), do: illegal_round_warnings(data, paired), else: []
   rescue
+    # Same reasoning as `build_structs_with_data/1`'s rescue above: this runs
+    # over the imported players/rounds, so an exception's own message can
+    # quote a player's name or other row data. Only the type is logged.
     e ->
-      Logger.warning(
-        "TRF import could not verify the rounds it imported: #{Exception.message(e)}"
-      )
-
+      SafeError.log_crash("TRF import verification", e, __STACKTRACE__)
       []
   end
 

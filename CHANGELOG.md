@@ -16,6 +16,19 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Security] Following the 0.62.5 KBSB roster leak (a `rescue` that quoted
+  the whole downloaded roster - names and birth years - in the page's
+  error text and the server log), the same class of bug is now closed
+  everywhere else it could reach personal data: the FIDE rating-list sync's
+  own crash handler and its `:DOWN` task-crash handler, the SWAR importer's
+  parse-failure handler, and the TRF importer's parse and post-import
+  verification handlers. A new shared `PairingsEngine.SafeError` module
+  (reused by the KBSB sync too, so there is one fix instead of four) turns
+  any unexpected exception or crash reason into the exception's TYPE only -
+  never the term it failed on - both on the page and in the log; the SWAR
+  import panel's flash text is built the same safe way instead of
+  `inspect/1`-ing the raw parse-error reason.
+
 ## [0.62.5] - 2026-09-15
 
 - [Fix] When team Swiss pairing gives up or breaks, the arbiter now sees a

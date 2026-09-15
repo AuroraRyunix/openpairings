@@ -29,7 +29,7 @@ defmodule PairingsEngine.Fide.Sync do
 
   use GenServer
   require Logger
-  alias PairingsEngine.{Repo, Fide}
+  alias PairingsEngine.{Repo, Fide, SafeError}
   alias PairingsEngine.Fide.FidePlayer
 
   @default_list_url "https://ratings.fide.com/download/players_list.zip"
@@ -242,11 +242,13 @@ defmodule PairingsEngine.Fide.Sync do
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state)
       when reason != :normal do
     cancel_watchdog(state.watchdog_timer)
-    Logger.error("FIDE sync task crashed: #{inspect(reason)}")
+    # Only the exit's shape, never its terms - see PairingsEngine.SafeError.
+    summary = SafeError.exit_summary(reason)
+    Logger.error("FIDE sync task crashed: #{summary}")
 
     new_state = %__MODULE__{
       status: :error,
-      error: "Sync crashed unexpectedly (#{inspect(reason)}). Please try again."
+      error: "Sync crashed unexpectedly (#{summary}). Please try again."
     }
 
     {:noreply, broadcast(new_state)}
@@ -303,9 +305,13 @@ defmodule PairingsEngine.Fide.Sync do
         update(server, %__MODULE__{status: :error, error: format_error(reason)})
     end
   rescue
+    # An exception's message can quote whatever term it failed on - here
+    # that could be a line of the downloaded list, names and birth years
+    # included. Only the exception's type and where it was raised are
+    # kept - see PairingsEngine.SafeError.
     e ->
-      Logger.error("FIDE sync crashed: #{Exception.message(e)}")
-      update(server, %__MODULE__{status: :error, error: Exception.message(e)})
+      error = SafeError.crash_message("FIDE sync", e, __STACKTRACE__)
+      update(server, %__MODULE__{status: :error, error: error})
   end
 
   defp format_error(%Req.TransportError{} = reason),

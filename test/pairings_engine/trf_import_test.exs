@@ -101,6 +101,20 @@ defmodule PairingsEngine.TrfImportTest do
     {tournament, %{alice: alice, bob: bob, carol: carol}}
   end
 
+  describe "error_message/1" do
+    test "an unrecognised reason shape is never inspected onto the page" do
+      # Not a shape `import_text/2`/`build_structs/1` actually return (see
+      # the moduledoc's list of the three) - this is the safety net for a
+      # reason nobody anticipated, which `inspect/1` would print verbatim,
+      # data and all.
+      reason = {:unexpected, %{name: "Peeters, SecretFakeName"}}
+
+      message = TrfImport.error_message(reason)
+      refute message =~ "SecretFakeName"
+      assert message == "Could not import this TRF file."
+    end
+  end
+
   test "round-trip: export then re-import preserves players, rounds, results and points" do
     {tournament, _} = seeded_tournament()
     assert {:ok, text} = TrfExport.export(tournament)
