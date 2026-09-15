@@ -76,31 +76,31 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Invite co-arbiters · run one tournament together, live")}
+                {gettext("Swiss (Dutch), round robin, Keizer & team tournaments")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Swiss (Dutch), round-robin & Keizer")}
+                {gettext(
+                  "Ainalrami · our own FIDE 2026 Swiss engine, validated against 2.5 billion pairings"
+                )}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Ainalrami · our own Swiss engine, built in Elixir")}
+                {gettext("FIDE C.07 tie-breaks, title norms & a pairing explanation for every round")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("FIDE C.07 tie-breaks & automatic title-norm judgment")}
+                {gettext(
+                  "Publish to OpenResults · live results, standings & team pages, only what you choose"
+                )}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Live standings, printing & public share links")}
+                {gettext("Invite co-arbiters · run a tournament together, with a full audit trail")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("TRF, SWAR & PGN import / export")}
-              </li>
-              <li class="auth-feature-soon">
-                <.icon name="hero-clock-mini" class="size-5" />
-                <span class="auth-feature-soon-tag">{gettext("Coming soon")}</span> TRF26
+                {gettext("TRF-2026, TRF, SWAR & PGN import / export, plus FIDE & KBSB rating lists")}
               </li>
             </ul>
 

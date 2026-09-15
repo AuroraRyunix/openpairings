@@ -22,7 +22,7 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       {:ok, _lv, html} = live(conn, ~p"/users/log-in")
 
       assert html =~ "Ainalrami"
-      assert html =~ "built in Elixir"
+      assert html =~ "our own FIDE 2026 Swiss engine"
       refute html =~ "JaVaFo"
     end
 

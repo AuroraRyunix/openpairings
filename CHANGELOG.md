@@ -16,6 +16,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The login and sign-up pages describe what OpenPairings does now.**
+  TRF-2026 is no longer listed as coming soon (it shipped in 0.47.0), team
+  tournaments, the pairing explanation and publishing to OpenResults are
+  listed, and the Ainalrami line says what it was validated against.
+
 ## [0.62.7] - 2026-09-15
 
 - [Change] **The hosted server has its own logo.** The web version shows a new

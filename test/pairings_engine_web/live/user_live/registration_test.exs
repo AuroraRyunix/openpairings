@@ -21,7 +21,7 @@ defmodule PairingsEngineWeb.UserLive.RegistrationTest do
       {:ok, _lv, html} = live(conn, ~p"/users/register")
 
       assert html =~ "Ainalrami"
-      assert html =~ "built in Elixir"
+      assert html =~ "our own FIDE 2026 Swiss engine"
       refute html =~ "JaVaFo"
     end
 
