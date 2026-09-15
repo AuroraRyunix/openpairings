@@ -720,7 +720,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_toggle
               name="tournament[rr_match_format]"
-              label={gettext("Match format (immediate 2-game rematch, reversed colours)")}
+              label={
+                gettext(
+                  "Round robin match format (each pairing played twice in a row, colours reversed)"
+                )
+              }
+              hint={gettext("Round robin only - Swiss has its own match format setting below")}
               checked={@tournament.rr_match_format}
               disabled={@rr_match_format_locked?}
               field={:rr_match_format}
@@ -728,7 +733,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               locked_hint={@locked_hint}
               warning={rr_match_format_warning()}
             />
-            <.setting_field label={gettext("Keizer top value (blank = automatic)")}>
+            <.setting_field
+              label={gettext("Keizer top value (blank = automatic)")}
+              hint={gettext("Keizer only")}
+            >
               <input
                 type="number"
                 name="tournament[keizer_top_value]"
@@ -754,7 +762,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_toggle
               name="tournament[swiss_match_format]"
-              label={gettext("Match format (immediate 2-game rematch, reversed colours)")}
+              label={
+                gettext("Swiss match format (each pairing played twice in a row, colours reversed)")
+              }
               hint={
                 gettext("Swiss only - requires an even number of rounds (each match is 2 rounds)")
               }

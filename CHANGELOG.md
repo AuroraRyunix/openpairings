@@ -16,6 +16,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The Options page no longer shows "Match format" twice with the same
+  name.** One setting is for round robin and one for Swiss; they are now labelled
+  "Round robin match format" and "Swiss match format", each says which system it
+  applies to, and the Keizer top value says it is for Keizer only.
+
 ## [0.62.6] - 2026-09-15
 
 - [Feature] SWAR files whose `[CATEGORIES]` block defines a two-axis
