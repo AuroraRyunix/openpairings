@@ -381,18 +381,25 @@ Each was confirmed by breaking the code under it and watching it stay green.
 
 ### Weak or odd, listed and not changed
 
-- `SnapshotTest` "a real snapshot is written to the OpenResults fixture
+- ~~`SnapshotTest` "a real snapshot is written to the OpenResults fixture
   directory" (`@tag :snapshot_fixtures`) asserts nothing. It generates
   OpenResults' contract fixtures, and in the main checkout it **writes into the
   sibling `../openresults/test/fixtures/` on every `mix test`**. Intentional,
   but a generator running as a test: it cannot fail on contract drift, and it
   edits another repository's working tree as a side effect. A mix task, or
-  asserting the written file round-trips, would say what it is. **Still not
-  changed (2026-09-13, second pass)**: two other agents are changing the
-  snapshot format and its fixtures at the same time this pass ran. Recorded
-  again rather than touched: turn it into a mix task, or at least assert the
-  written file round-trips, next time nobody else is mid-edit on
-  `snapshot.ex`.
+  asserting the written file round-trips, would say what it is.~~ **Fixed
+  (2026-09-15)**: the writer moved to `mix pairings.snapshot_fixtures`
+  (`test/support/mix/tasks/pairings.snapshot_fixtures.ex`), which regenerates
+  the fixtures from the same builders (now shared, in
+  `test/support/fixtures/snapshot_fixtures.ex`) and prints which files
+  changed. `SnapshotTest` "the cross-repo contract fixtures" is now a real
+  drift check: it builds each fixture in memory and compares it with the
+  committed file, writing nothing, and is excluded (not failed) when the
+  sibling `../openresults` checkout is absent - see `test/test_helper.exs`.
+  The team round-robin fixture's random `public_slug` (a second bug this
+  surfaced: it rewrote `snapshot_team_roundrobin.json` on every run whether
+  or not the contract had changed) is now pinned to a fixed slug at the
+  source.
 
 ### Weak or odd, fixed in a second pass (2026-09-13)
 

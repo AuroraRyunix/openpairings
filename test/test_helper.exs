@@ -83,6 +83,14 @@ javafo_present? = File.exists?(PairingsEngine.Pairing.javafo_jar())
 # in the vendored binary itself.
 bbppairings_present? = PairingsEngine.Test.BbpPairings.available?()
 
+# `PairingsEngine.SnapshotTest`'s "the cross-repo contract fixtures" describe
+# block compares in-memory output against files committed in a sibling
+# `../openresults` checkout - see PairingsEngine.SnapshotFixtures.fixture_dir/0.
+# Present on a developer's machine with both repos cloned side by side;
+# absent in CI and in most worktrees, where there is nothing to compare
+# against rather than a contract violation.
+openresults_fixtures_present? = not is_nil(PairingsEngine.SnapshotFixtures.fixture_dir())
+
 # How many tests each tag actually gates, for the diagnostics below.
 # Computed from the source rather than hand-maintained, so it can't go stale
 # the way the "see docs/README.md" pointer above it did (that pointer was
@@ -144,7 +152,9 @@ candidates = [
   {swar_fixtures_present?, :swar_fixture,
    "#{Enum.join(missing_swar_fixtures, ", ")} not present"},
   {javafo_present?, :javafo, "#{PairingsEngine.Pairing.javafo_jar()} not present"},
-  {bbppairings_present?, :bbppairings, "no vendored bbpPairings binary for this OS"}
+  {bbppairings_present?, :bbppairings, "no vendored bbpPairings binary for this OS"},
+  {openresults_fixtures_present?, :snapshot_fixtures,
+   "no ../openresults checkout beside this one (and OPENRESULTS_FIXTURES is unset)"}
 ]
 
 missing =

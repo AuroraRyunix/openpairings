@@ -64,4 +64,4 @@ jobs:
       # fails the build instead, because that would be a real regression.
       run: mix test
       env:
-        SKIP_MISSING_ARTIFACTS: swar_fixture,javafo
+        SKIP_MISSING_ARTIFACTS: swar_fixture,javafo,snapshot_fixtures
