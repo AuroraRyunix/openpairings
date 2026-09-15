@@ -16,6 +16,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The hosted server has its own logo.** The web version shows a new
+  "aurora" mark in the header and the browser tab; a desktop install keeps the
+  green one, so it is easy to tell which copy you have open.
+
 - [Fix] **The Options page no longer shows "Match format" twice with the same
   name.** One setting is for round robin and one for Swiss; they are now labelled
   "Round robin match format" and "Swiss match format", each says which system it

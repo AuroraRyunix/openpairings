@@ -407,7 +407,56 @@ defmodule PairingsEngineWeb.Layouts do
   end
 
   @doc false
+  # The hosted server's mark (the "nebula aurora" orb); a desktop install keeps
+  # the original green one below, so the two copies are easy to tell apart.
   def brand_mark(assigns) do
+    if PairingsEngine.Authz.local_mode?(),
+      do: desktop_brand_mark(assigns),
+      else: hosted_brand_mark(assigns)
+  end
+
+  defp hosted_brand_mark(assigns) do
+    ~H"""
+    <svg class="brand-mark" viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="bm-aurora-orb" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#c084fc" />
+          <stop offset="42%" stop-color="#818cf8" />
+          <stop offset="100%" stop-color="#0284c7" />
+        </linearGradient>
+        <radialGradient id="bm-aurora-specular" cx="35%" cy="25%" r="65%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
+          <stop offset="50%" stop-color="#c084fc" stop-opacity="0.1" />
+          <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <path
+        d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
+        fill="#f8fafc"
+        stroke="#0f172a"
+        stroke-width="2.2"
+      />
+      <path
+        d="M42,18 Q54,10 63,14 Q56,22 54,30 Q48,32 42,30 Q38,26 42,18 Z"
+        fill="#f8fafc"
+        stroke="#0f172a"
+        stroke-width="2.2"
+      />
+      <circle cx="32" cy="24" r="14" fill="url(#bm-aurora-orb)" stroke="#0f172a" stroke-width="2.5" />
+      <circle cx="32" cy="24" r="13.2" fill="url(#bm-aurora-specular)" />
+      <path
+        d="M25,18 A10,10 0 0,1 39,18"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        opacity="0.65"
+      />
+    </svg>
+    """
+  end
+
+  defp desktop_brand_mark(assigns) do
     ~H"""
     <svg class="brand-mark" viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
