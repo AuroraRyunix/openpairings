@@ -27,7 +27,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   use GenServer
   require Logger
   import Ecto.Query, only: [from: 2]
-  alias PairingsEngine.Repo
+  alias PairingsEngine.{Repo, SafeError}
   alias PairingsEngine.Federations.BEL.{Clubs, Http, Member, Members, Parser, SqliteFile}
 
   @topic "kbsb_sync"
@@ -171,8 +171,8 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state)
       when reason != :normal do
     cancel_watchdog(state.watchdog_timer)
-    # Only the exit's shape, never its terms - see crashed/4.
-    summary = if is_atom(reason), do: inspect(reason), else: "abnormal exit"
+    # Only the exit's shape, never its terms - see PairingsEngine.SafeError.
+    summary = SafeError.exit_summary(reason)
     Logger.error("KBSB import task crashed: #{summary}")
 
     new_state = %__MODULE__{
@@ -309,16 +309,11 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   # An exception's message can quote whatever term it failed on - here that
   # was the whole downloaded roster, names and birth years, printed on the
   # page and in the log. Only the exception's type and where it was raised
-  # are kept.
+  # are kept - see PairingsEngine.SafeError.
   defp crashed(server, what, exception, stacktrace) do
-    kind = inspect(exception.__struct__)
-
-    Logger.error("#{what} crashed: #{kind}
-" <> Exception.format_stacktrace(Enum.take(stacktrace, 5)))
-
     update(server, %__MODULE__{
       status: :error,
-      error: "The import failed unexpectedly (#{kind}). Please try again, or report it."
+      error: SafeError.crash_message(what, exception, stacktrace)
     })
   end
 

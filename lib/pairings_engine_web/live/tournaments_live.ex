@@ -1045,7 +1045,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         continue_or_warn_swar(socket, scope, prepared)
 
       [{:swar, {:error, reason}}] ->
-        {:noreply, assign(socket, error: "Could not read this SWAR file: #{inspect(reason)}")}
+        {:noreply, assign(socket, error: SwarImport.error_message(reason))}
 
       [{:trf, {:ok, tournament, warnings}}] ->
         Audit.log(tournament.id, scope, "import.trf", %{name: tournament.name})

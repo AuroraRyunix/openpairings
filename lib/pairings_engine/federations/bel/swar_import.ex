@@ -18,7 +18,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   import Ecto.Query
 
   alias PairingsEngine.Repo
-  alias PairingsEngine.{Encoding, Federation, Tournaments, Standings}
+  alias PairingsEngine.{Encoding, Federation, SafeError, Tournaments, Standings}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
 
@@ -100,9 +100,21 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
        }}
     end
   rescue
-    e in MatchError -> {:error, {:parse_failed, Exception.message(e)}}
-    e in ArgumentError -> {:error, {:parse_failed, Exception.message(e)}}
-    e -> {:error, {:parse_failed, Exception.message(e)}}
+    # The one deliberate `raise` in this module (`parse_tournoi_section/2`,
+    # on no [TOURNOI] layout matching) - its message is static text plus
+    # the file's declared version string, never row data, so it is safe to
+    # show as written.
+    e in RuntimeError ->
+      {:error, {:parse_failed, Exception.message(e)}}
+
+    # Every other exception's own `Exception.message/1` quotes the value
+    # that failed to match - here, a slice of the file itself, which can
+    # hold a player's name or other row data straight out of the binary
+    # being parsed. Only the exception's type is kept - see
+    # PairingsEngine.SafeError.
+    e ->
+      kind = SafeError.log_crash("SWAR import", e, __STACKTRACE__)
+      {:error, {:parse_failed, "the file could not be read (#{kind})"}}
   catch
     :swiss321_unsupported ->
       {:error,
@@ -579,6 +591,18 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  @doc """
+  Formats any error `parse/2`, `prepare_import/1` or `commit_import/3` can
+  return as a single flash-ready string - never `inspect/1` of an
+  arbitrary reason, which for a `File.read/1` failure is a safe POSIX
+  atom but for anything upstream of it is not a shape this function
+  should assume.
+  """
+  def error_message({:parse_failed, message}), do: "Could not read this SWAR file: #{message}"
+  def error_message(reason) when is_binary(reason), do: reason
+  def error_message(reason) when is_atom(reason), do: "Could not read this SWAR file: #{reason}"
+  def error_message(_reason), do: "Could not import this SWAR file."
 
   @doc """
   Reads and parses `path` (no database writes) and, for every player SWAR

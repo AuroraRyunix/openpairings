@@ -70,6 +70,32 @@ defmodule PairingsEngine.Fide.SyncTest do
       refute_receive {:fide_sync, _}, 100
       assert raw_state().status == :downloading
     end
+
+    # A non-atom `:DOWN` reason - the shape a crash mid-computation actually
+    # takes (e.g. `{%SomeError{}, [stack]}`, or a bare term the crashing
+    # process was last holding) rather than the plain OTP atoms
+    # (`:killed`, `:noconnection`) this handler is safe to show as-is. Same
+    # bug class as the 2026-09-14 KBSB roster leak, reproduced here as a
+    # crash reason instead of an exception.
+    test "a non-atom :DOWN reason never reaches the page or the log, on the FIDE sync" do
+      import ExUnit.CaptureLog
+
+      pid = alive_dummy()
+      ref = make_ref()
+      put_busy(:downloading, %{task_pid: pid, task_ref: ref})
+
+      reason = {:shutdown, %{rows: [%{"Name" => "Peeters, SecretFakeName"}]}}
+
+      log =
+        capture_log(fn ->
+          send(Sync, {:DOWN, ref, :process, pid, reason})
+          assert_receive {:fide_sync, %Sync{status: :error} = state}
+          refute state.error =~ "SecretFakeName"
+          assert state.error =~ "abnormal exit"
+        end)
+
+      refute log =~ "SecretFakeName"
+    end
   end
 
   describe "watchdog" do
