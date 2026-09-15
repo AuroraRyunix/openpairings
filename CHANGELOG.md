@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.6] - 2026-09-15
+
 - [Feature] SWAR files whose `[CATEGORIES]` block defines a two-axis
   category (age-then-rating or rating-then-age) now import both axes: a
   player gets tagged with their age band and their rating band, the same
