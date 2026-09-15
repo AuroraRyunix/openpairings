@@ -84,8 +84,8 @@ Not hooks, but in scope and read the same way:
 | F5 | Low | `pairings_live.ex:723`, `coord/1` | `2dab1da` |
 | F6 | Low | `pairings_live.ex:3267,3316`, `.PairingMenu` | `714143a` |
 | F7 | Low | `app.js:967-972`, `deployBanner.show` | `714143a` |
-| F8 | Low | `pairings_live.ex:3447-3457`, `.PrintMenu` | not fixed |
-| F9 | Low | `mobile_results_live.ex:667-686`, `.KeepFocus` | not fixed |
+| F8 | Low | `pairings_live.ex:3447-3457`, `.PrintMenu` | `513a2fe` |
+| F9 | Low | `mobile_results_live.ex:667-686`, `.KeepFocus` | `513a2fe` |
 | F10 | Info | `app.js` `CELL_MENUS`, deploy banner, version toast | not fixed |
 
 ### F1 - Ctrl+1/2/3 enters a result (Medium)
@@ -209,7 +209,7 @@ Fix: the same deadline arriving while the banner is up keeps the tier already
 said; a new deadline or a banner that was hidden is said again. Reproduction:
 three `show()`s of one deadline announce once, a new deadline announces.
 
-### F8 - The print menu may not take focus from the keyboard in every browser (Low, not fixed)
+### F8 - The print menu may not take focus from the keyboard in every browser (Low, fixed 2026-09-15)
 
 `.PrintMenu` decides "opened from the keyboard" from the `contextmenu` event's
 own shape (`pointerType === ""` or a (0, 0) position), without the keydown
@@ -219,7 +219,19 @@ link. It is still reachable - the document keydown handler moves into the menu
 on Down - so this was left alone rather than changed without a browser to see
 the difference in. Worth aligning with the other two if a person confirms it.
 
-### F9 - `.KeepFocus` can move focus after a remote result (Low, not fixed)
+Fixed in `513a2fe`: the hook records the context-menu key and Shift+F10 on
+keydown first, as the other two do, with the event shape as the fallback; it
+focuses the first item on open and again after the event if focus was put back
+on the link; the trigger carries `aria-haspopup="menu"` and `aria-expanded`
+(kept in step on `updated`); closing from the keyboard returns focus to the
+opener, or the trigger. Test: `hook_events_test.exs` checks the three triggers'
+attributes. Node reproduction against the colocated hook: a keyboard
+`contextmenu` carrying a pointer type and position left focus on the link
+before (and focus pushed back after the event stayed there), moves into the
+menu after; a mouse right-click still does not take focus. Not seen in a real
+browser's keyboard `contextmenu`.
+
+### F9 - `.KeepFocus` can move focus after a remote result (Low, fixed 2026-09-15)
 
 The phone page remembers the last board that held focus. If focus later falls
 to `<body>` (a tap on empty space) and that board then leaves the list because
@@ -228,6 +240,16 @@ first button, which scrolls it into view. A narrow case; telling "focus fell to
 body because this board left" from "focus was already on body" needs state the
 hook cannot see after the board is gone, and a wrong guess loses the handoff
 the hook exists for.
+
+Fixed in `513a2fe` by recording the moment focus leaves instead of guessing
+afterwards: on `focusout` the board checks a tick later, and if it is still in
+the page and no longer holds focus, it drops its record. A board that is being
+removed is out of the page by then, so its record survives and `destroyed`
+hands focus on as before. Node reproduction: focus on a board, then on the page
+body, then that board removed by a remote result - focus moved to the next
+board before, stays on the page after; the handoff when the focused board
+itself leaves, and no move when focus went to another board, pass both before
+and after.
 
 ### F10 - Script-built text is English only (Info, not fixed)
 
