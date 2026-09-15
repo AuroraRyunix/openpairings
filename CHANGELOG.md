@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.7] - 2026-09-15
+
 - [Change] **The hosted server has its own logo.** The web version shows a new
   "aurora" mark in the header and the browser tab; a desktop install keeps the
   green one, so it is easy to tell which copy you have open.
