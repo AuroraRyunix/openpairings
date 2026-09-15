@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.5] - 2026-09-15
+
 - [Fix] When team Swiss pairing gives up or breaks, the arbiter now sees a
   clear, translated notice instead of a raw refusal string or a crashed
   page: the search hit its limit, no legal pairing/bye exists under FIDE's
