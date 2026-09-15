@@ -1,34 +1,30 @@
 defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
   @moduledoc """
-  SWAR's `[CATEGORIES]` block carries two value lists and this import can
-  read one of them.
+  SWAR's `[CATEGORIES]` block carries two value lists, `value1`/`value2`.
+  Settled 2026-09-09 from SWAR's own source
+  (`docs/swar-source-audit-2026-09-09.md`): for `Categorie` type 3
+  (age-then-rating) and 4 (rating-then-age) both lists are real, independent
+  axes of numeric bounds; for every other type (0 = none, 1 = rating alone,
+  2 = age alone, 5 = free text) `value2` is blank padding.
 
-  `map_categories/1` flattens `value1 ++ value2` into the tournament's
-  category list; `category_name/2` resolves a player's `CatIndex` against
-  `value1` alone, because the manual (§10.2) defines the index as a slot in
-  that list. A file with a non-empty `value2` therefore imports categories no
-  player can be in, at positions that match no index.
+  A player carries a SET of category tags
+  (`PairingsEngine.Categories` moduledoc), so a two-axis import tags a
+  player with BOTH axes' names - `category_axes/2` decodes a `CatIndex`
+  into `{axis1, axis2}`, and `map_categories/1`/`player_attrs/2` (exercised
+  indirectly here through the same seam) use both. This app can now
+  represent everything SWAR's category block carries, so
+  `category_warnings/1` only fires on a genuinely unrecognised type - it no
+  longer warns about a populated `value2`.
 
-  `value2` was settled on 2026-09-09 from SWAR's own source: it is the second
-  axis, and for all four category types both lists hold numeric bounds rather
-  than names. The warning stays anyway, because knowing what it is does not
-  make this app able to hold it - SWAR renders the two axes as one label and
-  a player here carries a name. So the arbiter is still told, rather than
-  left to notice that a category has nobody in it.
-
-  `category_name/2` is tested here too, for the same reason and through the
-  same seam: the index it resolves is one-based in SWAR and was read as
-  zero-based here.
-
-  Tested against `category_warnings/1` directly, because the alternative is a
-  binary fixture nobody has: the parse is not what is under test, the
-  decision about what to warn is.
+  Tested against `category_warnings/1` and `category_axes/2` directly,
+  because the alternative is a binary fixture nobody has: the parse is not
+  what is under test, the decode is.
   """
   use ExUnit.Case, async: true
 
   # The parser pads both lists to `max_categ + 1` blank strings, so a real
-  # block is mostly empty - the warning has to survive that rather than fire
-  # on the padding.
+  # block is mostly empty - the tests have to survive that rather than
+  # accidentally exercise the padding.
   defp block(type, value1, value2) do
     pad = fn list -> list ++ List.duplicate("", 17 - length(list)) end
     %{type: type, value1: pad.(value1), value2: pad.(value2)}
@@ -37,6 +33,12 @@ defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
   defp warnings(categories),
     do: PairingsEngine.Federations.BEL.SwarImport.category_warnings(categories)
 
+  defp axes(index, categories),
+    do: PairingsEngine.Federations.BEL.SwarImport.category_axes(index, categories)
+
+  defp name(index, value1),
+    do: PairingsEngine.Federations.BEL.SwarImport.category_name(index, block(1, value1, []))
+
   describe "a file that defines no categories" do
     test "says nothing, whatever padding it carries" do
       assert warnings(block(0, [], [])) == []
@@ -44,29 +46,26 @@ defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
     end
   end
 
-  describe "a file whose second value list is empty" do
-    test "says nothing - the whole block is readable" do
+  describe "a single-axis file (types 1, 2, 5)" do
+    test "says nothing, value2 stays unread padding" do
       assert warnings(block(1, ["A", "B"], [])) == []
+      assert warnings(block(1, ["A", "B"], ["1800", "1600"])) == []
+      assert warnings(block(2, ["Junior"], ["U16"])) == []
+      assert warnings(block(5, ["Open"], [])) == []
     end
   end
 
-  describe "a file that carries a second list" do
-    test "warns, naming both sets so the arbiter can see the mismatch" do
-      assert [message] = warnings(block(1, ["A", "B"], ["1800", "1600"]))
-
-      assert message =~ "second set of values"
-      assert message =~ "1800, 1600"
-      assert message =~ "A, B"
+  describe "a two-axis file (types 3, 4)" do
+    test "says nothing - both axes are read" do
+      assert warnings(block(3, ["-14", "-18"], ["-1800", "-2000"])) == []
+      assert warnings(block(4, ["-1800", "-2000"], ["-14", "-18"])) == []
     end
+  end
 
-    test "says what happened to them rather than only that something did" do
-      [message] = warnings(block(2, ["Junior"], ["U16"]))
-
-      # The two facts an arbiter needs: they are in the list, and nobody is
-      # in them.
-      assert message =~ "added to the tournament's category list"
-      assert message =~ "no player is assigned to them"
-      assert message =~ "Settings"
+  describe "an unrecognised type" do
+    test "warns, and still doesn't raise" do
+      assert [message] = warnings(block(9, ["A"], ["B"]))
+      assert message =~ "unrecognised type"
     end
   end
 
@@ -77,14 +76,12 @@ defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
     end
   end
 
-  describe "resolving a player's CatIndex" do
+  describe "resolving a player's CatIndex - single axis" do
     # SWAR stores the first-axis slot as `(slot + 1) * 100` - `Categories.cpp`
     # line 737, over a zero-based `i`. So slot 0 arrives as 100. This read it
     # as `div(index, 100)`, which is `slot + 1`: every player came in one
-    # category too strong and the last category never got anybody.
-    defp name(index, value1),
-      do: PairingsEngine.Federations.BEL.SwarImport.category_name(index, block(1, value1, []))
-
+    # category too strong and the last category never got anybody. Fixed in
+    # 0.53.0.
     test "the first category is the one stored as 100" do
       assert name(100, ["Senior", "Junior", "Cadet"]) == "Senior"
     end
@@ -106,35 +103,62 @@ defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
       assert name(900, ["Senior"]) == ""
     end
 
-    test "a second-axis component on its own resolves to nothing, here" do
-      # The units place is the OTHER axis (`i + 1`, no hundreds). It indexes
-      # `value2`, which this app does not model, so there is no first-axis
-      # answer to give - and answering with `value1`'s first entry would be
-      # inventing one. This still comes back blank only because slot 2 of
-      # `value1` happens to be padding in THIS fixture - see the legacy
-      # normalisation test below for the case where it is not, which is the
-      # same ambiguity SWAR's own file format carries and this import now
-      # mirrors rather than resolves.
+    test "a second-axis-only component resolves axis 1 to nothing" do
+      # The units place is axis 2. A single-axis file's `value2` is blank
+      # padding, so slot 2 of it resolves to "" - and so does axis 1, since
+      # there is no hundreds component here at all.
       assert name(3, ["Senior", "Junior"]) == ""
     end
 
     # `TournoiReadWrite.cpp:623-624` normalises any stored `CatIndex` under
     # 100 by multiplying it by 100, unconditionally - not only for files old
-    # enough to still use the un-scaled encoding. That collides with the
-    # second-axis-only reading directly above: SWAR itself cannot tell "an
-    # old file's first-axis slot 1" (raw `2`) from "a two-axis file's
-    # second-axis-only slot 1, no first axis" (also raw `2`) apart, and
-    # neither can this import once it mirrors the normalisation. See
-    # docs/swar-source-audit-pass2-2026-09-09.md §5.2.
+    # enough to still use the un-scaled encoding.
     test "a legacy file's un-scaled index still resolves, once value1 has enough slots" do
       list = ["Senior", "Junior", "Cadet"]
 
-      # Raw `2` used to divide to `div(2, 100) - 1 = -1` (the second-axis-only
-      # branch above) and return "". Normalised to `200` first, it is
-      # `div(200, 100) - 1 = 1` - the same slot the modern, already-scaled
-      # `name(200, list)` case above resolves to.
       assert name(2, list) == "Junior"
       assert name(2, list) == name(200, list)
+    end
+  end
+
+  describe "resolving a player's CatIndex - two axes" do
+    # `Categories.cpp:737`: `CatIndex += (value == 1 ? (i + 1) * 100 : i + 1)`
+    # - axis 1 in the hundreds, axis 2 in the units, each one-based over a
+    # zero-based slot `i`. Age-then-rating (type 3): axis 1 is age, axis 2
+    # is rating. Rating-then-age (type 4): the reverse. `category_axes/2`
+    # doesn't need the type to decode - `value1` is always axis 1,
+    # `value2` always axis 2.
+    setup do
+      categories = block(3, ["-14", "-18", "+18"], ["-1600", "-2000", "+2000"])
+      %{categories: categories}
+    end
+
+    test "both axes resolve from one packed index", %{categories: categories} do
+      # Age slot 0 ("-14"), rating slot 1 ("-2000"): (0+1)*100 + (1+1) = 102.
+      assert axes(102, categories) == {"-14", "-2000"}
+    end
+
+    test "the last slot of each axis, together", %{categories: categories} do
+      # (2+1)*100 + (2+1) = 303.
+      assert axes(303, categories) == {"+18", "+2000"}
+    end
+
+    test "axis 1 alone when the units are 0 (no axis-2 slot)", %{categories: categories} do
+      assert axes(200, categories) == {"-18", ""}
+    end
+
+    test "zero is no category on either axis", %{categories: categories} do
+      assert axes(0, categories) == {"", ""}
+    end
+
+    test "category_name/2 still answers axis 1 alone", %{categories: categories} do
+      assert PairingsEngine.Federations.BEL.SwarImport.category_name(102, categories) == "-14"
+    end
+
+    test "an edge bound at either end of each axis resolves cleanly" do
+      categories = block(4, ["-2000"], ["-14"])
+      # Rating-then-age, one bound each: (0+1)*100 + (0+1) = 101.
+      assert axes(101, categories) == {"-2000", "-14"}
     end
   end
 end

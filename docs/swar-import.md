@@ -769,7 +769,7 @@ SWAR's own choice). Manual acceleration itself is not implemented, and
 this warning is not a step toward it - it exists so the arbiter knows to
 expect a different result, not to reproduce SWAR's own.
 
-## Categories: two value lists, one of them unread
+## Categories: two axes, two tag sets
 
 `[CATEGORIES]` carries `Categorie type` plus **two** parallel lists,
 `value1` and `value2`, each padded to 13 or 17 blank strings depending on
@@ -778,43 +778,103 @@ file version.
 Type 0 (`NO_CATEGO`, manual §5.18) means the tournament defines no
 categories and both lists are padding.
 
-For any other type, the import reads them unevenly, and deliberately:
+`Categories.cpp` defines five types (`Categories.cpp:191-224`,
+`CategorieExplain`): 1 rating alone, 2 age alone, 5 free-text names -
+single-axis, `value1` only, `value2` blank - and two TWO-axis types, 3
+age-then-rating and 4 rating-then-age, where `value1` holds one dimension's
+numeric bounds and `value2` the other's. SWAR renders a two-axis category as
+one joined label, `"-2000 # -14"`, and packs BOTH axis indexes into one
+per-player integer, `CatIndex` (`Categories.cpp:719-726`): the axis-1 slot
+times 100, the axis-2 slot added raw - `idx / 100` and `idx % 100` recover
+them, both **one-based** (slot 0 is stored as 100/1, not 0/0).
 
-- the tournament's category list is `value1 ++ value2`, de-duplicated;
-- a **player's** category comes from `value1` alone, at a ONE-BASED slot
-  (`Categories.cpp` stores the first as 100, not 0 - this import read it as
-  zero-based until 0.53.0 and put every player one category too strong),
-  because §10.2 defines
-  `CatIndex` as a slot in that list (stored pre-multiplied by 100 for
-  indexes under 100).
+**Settled 2026-09-09**, not by a club file (which is what this section spent
+weeks waiting for) but by reading SWAR's own source. See
+[swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md).
 
-So a file with a non-empty `value2` imports categories that no player can be
-assigned to, sitting at list positions that correspond to no index.
+### The model: one set of tags per axis, not one combined name
 
-**`value2` is the SECOND AXIS. Settled 2026-09-09** - not by a club file,
-which is what this section spent weeks waiting for, but by reading SWAR's
-own source. See [swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md).
+SWAR itself has exactly one category per player, always - the joined string
+is a display, not two independent memberships. OpenPairings has no such
+"one name, two axes" concept, but a player already carries a SET of category
+tags (`PairingsEngine.Categories` moduledoc: "a player who is both a junior
+and a woman is correctly in both"). Reusing that set is a better fit than
+inventing a combined name:
 
-`Categories.cpp` defines four category types: rating alone, age alone,
-rating-then-age, and age-then-rating. For the two-axis types `value1` holds
-one dimension's boundaries and `value2` the other's, and **for all four both
-lists hold numeric bounds rather than names**. SWAR renders the pair as a
-single label - `"-2000 # -14"` - and a player is in exactly one such
-category.
+- **Vocabulary.** Both axes become their own named categories -
+  `map_categories/1` reads axis 1 and axis 2 the same way a single-axis
+  import always has (reject blanks, de-duplicate), axis 1 first. A prize
+  ("U16"), a filter (OpenResults' filter bar), and a per-category standings
+  table all already work on one name at a time; a combined "-16 / U1800"
+  name would need every one of those to learn a new compound vocabulary for
+  no gain, since nothing about SWAR's own `CatIndex` requires the combined
+  form - see below.
+- **Per player.** `SwarImport.category_axes/2` decodes `CatIndex` into
+  `{axis1, axis2}`; `player_attrs/2` tags the player with both (blanks
+  dropped), so a player imported from a two-axis file is simultaneously in
+  their age band and their rating band, exactly like any other
+  multi-category player. `category` (the single-valued override field) is
+  always axis 1 - see pairing, next.
+- **Why not the combined-cell option.** The only thing that would force a
+  single joined category is `CatIndex` itself, if it indexed a cross-product
+  list rather than two independent axes - it does not. `Categories.cpp:1142-
+  1156`'s `AssignCatToPlayer` makes two separate `SetCat*` calls, one per
+  axis, and SWAR's own JSON export (`Json.cpp:725-729`) writes
+  `CategoryValue_1`/`CategoryValue_2` as two fields, not one. Nothing about
+  the per-player slot needs a combined cell, so the option that fits this
+  app's existing tag-set model wins.
 
-None of the three meanings this section previously weighed was right. The
-closest, "a second dimension", had the shape but assumed the lists held
-names; the entry that guessed "boundaries of the first list" had the content
-but not the structure. Worth recording, because the reason the question
-survived so long is that all three readings were plausible and none could be
-falsified without either a real file or the source.
+### Per-player assignment
 
-**The warning stays**, and its text has been corrected rather than removed.
-Knowing what `value2` is does not make this app able to hold it: a player
-here carries a category NAME, and SWAR's two-axis label is a pair of numeric
-bounds. So a two-axis file still imports its first axis only, and
-`SwarImport.category_warnings/1` still tells the arbiter that the second set
-has nobody in it.
+`category_axes/2` mirrors `Categories.cpp:737`'s
+`CatIndex += (value == 1 ? (i + 1) * 100 : i + 1)`: axis 1 is
+`div(normalized, 100) - 1` into `value1`, axis 2 is `rem(normalized, 100) - 1`
+into `value2`, both 0-based array positions. `normalized` first re-scales a
+legacy un-multiplied index the same way single-axis import always has (see
+the "Also settled" note below on the 0.53.0 off-by-one fix, which applies
+equally to axis 2). A slot past either list, or an all-zero `CatIndex`,
+resolves to `""` for that axis rather than guessing.
+
+### Pairing category: axis 1, deterministically
+
+`PairingsEngine.Categories.pairing_category/2` stays single-valued - it has
+to, `pair_by_category` runs one independent pool per category. It needs no
+special two-axis case: `tournament.categories` lists axis 1 before axis 2
+(`map_categories/1`'s order), and the imported player's `category` override
+is always set to axis 1, so `pairing_category/2`'s own rule - honour the
+override while it is still a tag of the player's and a category of the
+tournament's, otherwise fall back to the first of the player's tags in
+`tournament.categories` order - lands on axis 1 either way. **The rule, in
+one line: a two-axis import always pairs by axis 1** (age, for
+age-then-rating; rating, for rating-then-age). If a tournament's use case
+ever needs the other axis to drive pairing instead, that is a manual swap
+on the Categories page (move the axis-2 category earlier, or set the
+player's own override) - nothing here prevents it, but nothing does it
+automatically.
+
+### Export round-trips both axes
+
+`Tournament.swar_category_type` (3 or 4) and `swar_category_axis2` (the
+subset and order of `categories` that is axis 2) are set only by a two-axis
+import; `SwarExport.reverse_categories/3` uses them to split `categories`
+back across `value1`/`value2` with the original type integer, and
+`reverse_cat_index/4` re-packs each player's `CatIndex` from their pairing
+category (axis 1) and whichever of their tags is in axis 2. A plain
+single-axis list (`swar_category_type` nil) exports exactly as before, into
+`value1` alone with type 1. `SwarTwoAxisCategoriesTest` pins the whole
+loop down: import a two-axis export, export it again, import that - same
+categories, same per-player tag sets, both times.
+
+**Also fixed alongside this:** the previous exporter wrote `value1` with a
+leading blank slot (`["" | categories]`), meant to mimic SWAR's own implicit
+slot-0 "+bound" bucket. It never actually agreed with how this module's own
+`reverse_cat_index/2` encodes a `CatIndex` - encoding `categories[0]` as
+`100` and then decoding `100` against `["", categories[0], ...]` resolves to
+the blank, not `categories[0]`, so an export/reimport round trip silently
+lost every player's category. No test reimported an export and resolved the
+name (only the raw `value1` shape was checked), which is how it survived.
+`value1`/`value2` are now written with no leading blank on either axis, 0-
+based, matching the decode exactly.
 
 **Also settled, and this one needed no change:** `SW321_PreBye` is a plain
 0/1 checkbox adding `SW321_Pre` on top of the bye's own value, which is

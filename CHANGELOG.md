@@ -16,6 +16,20 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] SWAR files whose `[CATEGORIES]` block defines a two-axis
+  category (age-then-rating or rating-then-age) now import both axes: a
+  player gets tagged with their age band and their rating band, the same
+  way any player already carries a set of categories. Pairing settles on
+  the first axis deterministically. Exporting a two-axis-imported
+  tournament writes the same two-column `[CATEGORIES]` shape back out, and
+  a re-import gives back identical categories and player assignments. See
+  "Categories: two axes, two tag sets" in `docs/swar-import.md`.
+- [Fix] `SwarExport`'s own category round trip silently lost every
+  player's category on export-then-reimport: `value1` was written with a
+  leading blank slot that no longer lined up with how the per-player index
+  is decoded. Fixed alongside the two-axis work above; a plain
+  single-axis category list now round-trips correctly too.
+
 ## [0.62.5] - 2026-09-15
 
 - [Fix] When team Swiss pairing gives up or breaks, the arbiter now sees a

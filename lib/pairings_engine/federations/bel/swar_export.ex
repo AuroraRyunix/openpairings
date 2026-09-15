@@ -138,7 +138,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       end)
 
     round_records = build_round_records(players, rounds, ni_by_player_id)
-    categories = tournament.categories |> Enum.take(16)
+    {axis1, axis2, cat_type} = category_axes_for_export(tournament)
 
     # Resolved here, where the tournament is still in scope, and threaded
     # down as a ready-made map rather than as the category list plus a
@@ -147,7 +147,9 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     # in `PairingsEngine.Categories`, not in the writer.
     cat_index_by_player_id =
       Map.new(players, fn p ->
-        {p.id, reverse_cat_index(Categories.pairing_category(tournament, p), categories)}
+        pairing_cat = Categories.pairing_category(tournament, p)
+        axis2_cat = if cat_type, do: Enum.find(p.categories || [], &(&1 in axis2)), else: nil
+        {p.id, reverse_cat_index(pairing_cat, axis1, axis2_cat, axis2)}
       end)
 
     w_str("v7.00") <>
@@ -157,9 +159,31 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       reverse_dates(tournament) <>
       reverse_tie_break(tournament) <>
       reverse_exclusion() <>
-      reverse_categories(categories) <>
+      reverse_categories(axis1, axis2, cat_type) <>
       reverse_xtra_points() <>
       reverse_joueurs(players, cat_index_by_player_id, ni_by_player_id, round_records)
+  end
+
+  # Splits `tournament.categories` back into the two axes SWAR reads it as,
+  # when it can: `swar_category_type` (3 or 4) is set only when the
+  # tournament's categories came from a two-axis SWAR import
+  # (`SwarImport.map_categories/1`), and `swar_category_axis2` names which
+  # of `categories` is axis 2 - `categories -- swar_category_axis2`, in
+  # order, is axis 1. Anything else (a plain OpenPairings-authored list, or
+  # a single-axis import) exports as a single axis, exactly as before.
+  defp category_axes_for_export(%{
+         categories: categories,
+         swar_category_type: t,
+         swar_category_axis2: axis2
+       })
+       when t in [3, 4] and axis2 != [] do
+    axis2 = axis2 |> Enum.filter(&(&1 in categories)) |> Enum.take(16)
+    axis1 = (categories -- axis2) |> Enum.take(16)
+    {axis1, axis2, t}
+  end
+
+  defp category_axes_for_export(tournament) do
+    {tournament.categories |> Enum.take(16), [], nil}
   end
 
   ## ---------- Write primitives - the exact inverse of SwarImport's read_* ----------
@@ -388,12 +412,26 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
 
   ## ---------- [CATEGORIES] ----------
 
-  defp reverse_categories(categories) do
-    value1 = ["" | categories] |> pad_strings(17)
-    value2 = List.duplicate("", 17)
+  # `axis1`/`axis2` line up 0-based against `reverse_cat_index/4`'s
+  # `(idx + 1) * 100` (axis 1) and `idx + 1` (axis 2) encoding, and against
+  # `SwarImport.category_axes/2`'s decode of the same - no leading blank
+  # slot on either list. An earlier version prepended `""` to `value1` to
+  # mimic SWAR's own implicit slot-0 "+bound" bucket, which looked plausible
+  # on its own but never agreed with how a `CatIndex` this module writes
+  # actually decodes: encoding `categories[0]` as `100` and then decoding
+  # `100` against `["", categories[0], ...]` resolves to the blank, not
+  # `categories[0]` - an export/reimport round trip silently lost every
+  # player's category. There was no test that reimported an export and
+  # resolved the name, only one that checked the raw `value1` shape, which
+  # is how it survived. Fixed alongside two-axis import/export; see
+  # docs/swar-import.md.
+  defp reverse_categories(axis1, axis2, cat_type) do
+    value1 = axis1 |> pad_strings(17)
+    value2 = axis2 |> pad_strings(17)
+    type = cat_type || if(axis1 == [], do: 0, else: 1)
 
     w_str("[CATEGORIES]") <>
-      w_i32(if categories == [], do: 0, else: 1) <>
+      w_i32(type) <>
       w_n(value1, &w_str/1) <>
       w_n(value2, &w_str/1)
   end
@@ -647,6 +685,29 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     case Enum.find_index(categories, &(&1 == category)) do
       nil -> 0
       index -> (index + 1) * 100
+    end
+  end
+
+  # Two-axis form, called only when the tournament's categories came from a
+  # two-axis SWAR import (`category_axes_for_export/1` above). Mirrors
+  # `SwarImport.category_axes/2`'s decode exactly: axis 1 packed
+  # `(idx + 1) * 100`, axis 2 packed `idx + 1`, both a 0-based index into
+  # their own list, no leading blank slot on either (see `reverse_categories/3`).
+  # `axis1_category` is always the pairing category
+  # (`Categories.pairing_category/2`, axis 1 by convention - docs/swar-import.md);
+  # `axis2_category` is whichever of the player's tags is in `axis2`, or
+  # `nil` if none is - same "not found" -> 0 convention as `reverse_cat_index/2`.
+  def reverse_cat_index(axis1_category, axis1, axis2_category, axis2) do
+    reverse_cat_index(axis1_category, axis1) + axis2_component(axis2_category, axis2)
+  end
+
+  defp axis2_component(nil, _axis2), do: 0
+  defp axis2_component("", _axis2), do: 0
+
+  defp axis2_component(category, axis2) do
+    case Enum.find_index(axis2, &(&1 == category)) do
+      nil -> 0
+      index -> index + 1
     end
   end
 

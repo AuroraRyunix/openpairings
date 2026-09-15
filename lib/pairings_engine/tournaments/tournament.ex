@@ -200,6 +200,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # tournament-defined category names (SWAR CATEGORIES)
     field :categories, {:array, :string}, default: []
 
+    # Set only by a two-axis SWAR import (Categorie type 3/4 - age-then-
+    # rating or rating-then-age); nil for a plain single-axis or
+    # OpenPairings-authored category list. Lets `SwarExport` write the same
+    # two `[CATEGORIES]` columns back out. See
+    # `PairingsEngine.Federations.BEL.SwarImport`'s category section and
+    # `docs/swar-import.md`.
+    field :swar_category_type, :integer
+    # The subset (and order) of `categories` that came from the SWAR file's
+    # `value2` column; `categories -- swar_category_axis2`, in order, is
+    # axis 1. Empty for anything that isn't a two-axis SWAR import.
+    field :swar_category_axis2, {:array, :string}, default: []
+
     # Optional CONDITION SET behind a category name, keyed by that name -
     # e.g. `%{"1600-1799" => %{"rating_from" => 1600, "rating_below" =>
     # 1800}, "45+ women" => %{"age_from" => 45, "women" => true}}`. Each
@@ -884,6 +896,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :swar_guid,
       :round_dates,
       :categories,
+      :swar_category_type,
+      :swar_category_axis2,
       :category_rules,
       :category_prizes,
       :event_code,

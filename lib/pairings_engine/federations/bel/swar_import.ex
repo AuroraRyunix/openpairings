@@ -1267,6 +1267,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       organizer_club_number: t.club_or_logo,
       round_dates: Enum.map(data.dates, &normalize_date/1),
       categories: map_categories(data.categories),
+      swar_category_type: two_axis_type(data.categories),
+      swar_category_axis2: axis2_names(data.categories),
       # `AbsValue` (manual §4.2 field 92, general [TOURNOI] header, fields
       # 91/96 group alongside `ByeValue`/`FF_Value`) - the points paid for a
       # plain absence (`byes` row `type: "absent"`). Unlike `presence_value`
@@ -1635,120 +1637,130 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
 
   def cadence_label(_tournoi_std, _cadence), do: nil
 
-  # SWAR's [CATEGORIES] block carries TWO value lists and this import can
-  # only interpret one of them.
+  # SWAR's [CATEGORIES] block carries TWO value lists. Settled 2026-09-09
+  # from SWAR's own source (`docs/swar-source-audit-2026-09-09.md`): for
+  # `Categorie` type 3/4 (age-then-rating / rating-then-age) they are the
+  # bounds of the SECOND axis and the first, and a player's `CatIndex` packs
+  # ONE index per axis into one integer - `idx / 100` for axis 1, `idx % 100`
+  # for axis 2 (`Categories.cpp:737`, both one-based). Types 1/2/5 (rating
+  # alone, age alone, free text) use `value1` only; `value2` is blank
+  # padding.
   #
-  # `map_categories/1` flattens `value1 ++ value2` into the tournament's
-  # category list, but `category_name/2` resolves a player's CatIndex against
-  # `value1` ALONE (manual §10.2: the index is a slot in that list). So when
-  # a file carries a non-empty `value2`, the tournament ends up with
-  # categories no player can be in, at list positions that do not correspond
-  # to any index.
+  # This app has no single "two-axis category" concept, but a player already
+  # carries a SET of category tags (see `PairingsEngine.Categories`
+  # moduledoc), so both axes import as their own named categories and a
+  # two-axis player is tagged with both - see `category_axes/2` and
+  # `player_attrs/2` below, and "Categories: two axes, two tag sets" in
+  # docs/swar-import.md for the full reasoning, including why pairing still
+  # settles on one category (axis 1) deterministically.
   #
-  # `value2` is SETTLED as of 2026-09-09, from SWAR's own source rather than
-  # from a club file: it is the SECOND AXIS. `Categories.cpp:1177-1188` shows
-  # the four category types - rating alone, age alone, rating-then-age,
-  # age-then-rating - and for the two-axis types `value1` holds one
-  # dimension's bounds and `value2` the other's. For all four, both lists hold
-  # numeric BOUNDS, not names, which none of the three candidates previously
-  # guessed at got right.
-  #
-  # The warning stays, because knowing what `value2` is does not make this
-  # app able to represent it: SWAR renders the two axes as one label
-  # ("-2000 # -14") and a player here carries names, not a pair of bounds. So
-  # a two-axis file still imports its first axis only, and the arbiter is
-  # still told rather than left to find it. See docs/swar-import.md.
   # Public (`@doc false`) for the same reason `cadence_label/2` above is: the
   # only file that could exercise this through `import_file/2` is a real club
-  # export nobody has, and the parse is not what is under test - the decision
-  # about what to warn is.
+  # export nobody has, and the parse is not what is under test.
   @doc false
-  def category_warnings(%{type: 0}), do: []
+  def category_warnings(%{type: t}) when t in 0..5, do: []
 
-  def category_warnings(%{value2: v2} = categories) do
-    case Enum.reject(v2, &(&1 == "")) do
-      [] ->
-        []
-
-      extra ->
-        [
-          "This file's category block carries a second set of values " <>
-            "(#{Enum.join(extra, ", ")}) whose meaning SWAR does not document. " <>
-            "They have been added to the tournament's category list, but no player " <>
-            "is assigned to them - player categories are read from the first set " <>
-            "(#{Enum.join(Enum.reject(categories.value1, &(&1 == "")), ", ")}). " <>
-            "Check the categories on the Settings page before pairing by category."
-        ]
-    end
+  def category_warnings(%{type: t}) do
+    [
+      "This file's category block has an unrecognised type (#{t}); its " <>
+        "categories were not imported. Check the categories on the Settings " <>
+        "page before pairing by category."
+    ]
   end
 
   def category_warnings(_no_category_block), do: []
 
   # [CATEGORIES]: Categorie type 0 (NO_CATEGO, manual §5.18) means the
   # tournament defines no categories at all - value1/value2 are all blank
-  # padding in that case. Otherwise collect the non-blank names/boundaries
-  # from both value sets (order preserved, de-duplicated).
+  # padding in that case.
+  #
+  # Types 3/4 (age-then-rating, rating-then-age) are two-axis: both `value1`
+  # and `value2` hold a real, independent axis, so both become named
+  # categories - axis 1 first (it is also the pairing category, see
+  # `PairingsEngine.Categories.pairing_category/2` and docs/swar-import.md),
+  # then axis 2, each list's own blanks rejected and de-duplicated.
+  #
+  # Every other type (1, 2, 5) is single-axis: `value1` alone, same as
+  # before.
   defp map_categories(%{type: 0}), do: []
 
-  defp map_categories(%{value1: v1, value2: v2}) do
-    (v1 ++ v2) |> Enum.reject(&(&1 == "")) |> Enum.uniq()
+  defp map_categories(%{type: t, value1: v1, value2: v2}) when t in [3, 4] do
+    (reject_blank(v1) ++ reject_blank(v2)) |> Enum.uniq()
   end
 
-  # Per-player CatIndex resolves into the [CATEGORIES] value1 list.
+  defp map_categories(%{value1: v1}) do
+    v1 |> reject_blank() |> Enum.uniq()
+  end
+
+  # The SWAR `Categorie` type when it names a two-axis file, for
+  # `Tournament.swar_category_type` - lets `SwarExport` know to split
+  # `categories` back across `value1`/`value2` rather than writing
+  # everything into `value1`.
+  defp two_axis_type(%{type: t}) when t in [3, 4], do: t
+  defp two_axis_type(_categories), do: nil
+
+  # The axis-2 names alone, in file order, for `Tournament.swar_category_axis2`.
+  defp axis2_names(%{type: t, value2: v2}) when t in [3, 4],
+    do: v2 |> reject_blank() |> Enum.uniq()
+
+  defp axis2_names(_categories), do: []
+
+  defp reject_blank(list), do: Enum.reject(list, &(&1 == ""))
+
+  # Per-player CatIndex resolves into BOTH `[CATEGORIES]` value lists.
   #
-  # SWAR encodes BOTH axes in this one integer, and it is one-based:
+  # SWAR encodes both axes in this one integer, and it is one-based:
   # `Categories.cpp:737` is `CatIndex += (value == 1 ? (i + 1) * 100 : i + 1)`
-  # over a zero-based `i`, so the first-axis slot lands in the hundreds as
-  # `(slot + 1) * 100` and the second-axis slot in the units as `slot + 1`.
-  # Slot 0 is therefore stored as 100, not 0.
+  # over a zero-based `i`, so the axis-1 slot lands in the hundreds as
+  # `(slot + 1) * 100` and the axis-2 slot in the units as `slot + 1`. Slot 0
+  # is therefore stored as 100 (axis 1) or 1 (axis 2), not 0.
   #
-  # This divided by 100 and stopped, which is `slot + 1` - one too high. Every
-  # player came in one category stronger than the file said, and the last
-  # category in the list never received anybody. It survived because all three
-  # `.swar` fixtures carry `type = 0` (no categories at all) and because this
-  # app's own exporter writes a leading blank, which makes an export-import
-  # round trip agree with itself while both halves are wrong. With
-  # `pair_by_category` on it is not a label at all - it is which pool a player
-  # is paired in.
+  # This used to divide by 100 and stop, which is `slot + 1` - one too high.
+  # Every player came in one category stronger than the file said, and the
+  # last category in the list never received anybody. Fixed in 0.53.0 (see
+  # `docs/swar-source-audit-2026-09-09.md` §F1); the same off-by-one applies
+  # equally to axis 2, decoded the same way.
   #
-  # The second axis is still not read. `value2` holds the other dimension's
-  # bounds (age beside rating, or the reverse - `Categories.cpp:1177-1188`),
-  # and SWAR renders the pair as one label. This app models a single name, so
-  # a two-axis file still imports only the first axis; `category_warnings/1`
-  # is what tells the arbiter.
-  #
-  # Public (`@doc false`) for the same reason `category_warnings/1` below is:
-  # exercising it through `import_file/2` needs a categorised club export
-  # nobody has, and the parse is not what is under test.
   # Legacy normalisation: old SWAR files stored `CatIndex` as a small
-  # ordinal (the slot itself, `1..16`); current ones store it pre-multiplied
-  # by 100 (`(slot + 1) * 100`, see above). SWAR normalises on the way in,
-  # unconditionally, for any file - `TournoiReadStream` (`TournoiReadWrite.
-  # cpp:623-624`) multiplies whenever the stored value is under 100:
+  # ordinal (the axis-1 slot itself, `1..16`, no axis 2 possible); current
+  # ones store it pre-multiplied by 100. SWAR normalises on the way in,
+  # unconditionally, for any file - `TournoiReadStream`
+  # (`TournoiReadWrite.cpp:623-624`) multiplies whenever the stored value is
+  # under 100:
   #
   #   if (CatIndex < 100)
   #       CatIndex *= 100
   #
-  # Without mirroring this, a legacy file's `cat_index: 2` divides to
-  # `div(2, 100) - 1 = -1` and falls into the second-axis-only branch below,
-  # returning "" - the player loses their category entirely, where SWAR
-  # shows `Value1[1]`. Reachability is bounded (`TournoiReadStream` itself
-  # refuses a file older than SWAR can still open) but not dated from the
-  # source, and such files are exactly why SWAR still carries the step. See
+  # Without mirroring this, a legacy file's `cat_index: 2` decodes as
+  # "axis 2 slot 1 only", losing axis 1 entirely, where SWAR shows
+  # `Value1[1]`. Reachability is bounded (`TournoiReadStream` itself refuses
+  # a file older than SWAR can still open) but not dated from the source,
+  # and such files are exactly why SWAR still carries the step. See
   # docs/swar-source-audit-pass2-2026-09-09.md §5.2.
   @doc false
-  def category_name(0, _categories), do: ""
+  def category_axes(0, _categories), do: {"", ""}
 
-  def category_name(cat_index, categories) do
+  def category_axes(cat_index, categories) do
     normalized = if cat_index < 100, do: cat_index * 100, else: cat_index
+    slot1 = div(normalized, 100) - 1
+    slot2 = rem(normalized, 100) - 1
 
-    case div(normalized, 100) - 1 do
-      slot when slot >= 0 ->
-        categories.value1 |> Enum.at(slot, "") |> to_string()
+    axis1 =
+      if slot1 >= 0, do: categories.value1 |> Enum.at(slot1, "") |> to_string(), else: ""
 
-      _only_a_second_axis_component ->
-        ""
-    end
+    axis2 =
+      if slot2 >= 0, do: categories.value2 |> Enum.at(slot2, "") |> to_string(), else: ""
+
+    {axis1, axis2}
+  end
+
+  # Axis 1 alone - the pairing category (see docs/swar-import.md). Kept
+  # because it is the direct `category_name/2` seam the older tests and the
+  # module's public API used; `category_axes/2` above is the full answer.
+  @doc false
+  def category_name(cat_index, categories) do
+    {axis1, _axis2} = category_axes(cat_index, categories)
+    axis1
   end
 
   # Paye: 0=Not paid, 1=Paid, 2=Free (manual §5.20).
@@ -1836,7 +1848,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # (pure, no Repo) - the one place a parsed SWAR [JOUEURS] record maps onto
   # `Player.changeset/2` attrs.
   defp player_attrs(p, categories) do
-    category = category_name(p.cat_index, categories)
+    {category, axis2} = category_axes(p.cat_index, categories)
+    tags = [category, axis2] |> reject_blank() |> Enum.uniq()
 
     %{
       # SWAR's own spelling is canonical - a FIDE database match (see
@@ -1878,17 +1891,21 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       fixed_board: fixed_board(p.handy_table),
       absent_rounds: p.absent_rondes,
       extra_points: p.extra_pts / 4.0,
-      # Both category fields, written together. A SWAR file carries exactly
-      # one category index per player and has no room for a second, so the
-      # imported player's tag SET is that one name - which keeps the round
-      # trip exact for a SWAR-sourced tournament, and keeps the pairing-pool
-      # override (`category`) inside the set, where
-      # `PairingsEngine.Categories.pairing_category/2` needs it to honour it.
-      # `Player.changeset/2` would fold the one into the other anyway; saying
-      # it here means the attrs map on its own is already right, rather than
-      # correct only because something downstream repairs it.
+      # Both category fields, written together. A SWAR file's `CatIndex`
+      # packs one axis-1 slot and (for a two-axis file) one axis-2 slot into
+      # one integer; `category_axes/2` above decodes both. `category` is
+      # always axis 1 alone - it is the pairing-pool override
+      # `PairingsEngine.Categories.pairing_category/2` needs, and axis 1 is
+      # also the pairing category by convention (see docs/swar-import.md) -
+      # while `categories` is the full tag SET, both axes when there are
+      # two, so the Players grid, prize lists and per-category standings all
+      # see a two-axis player under both their age band and their rating
+      # band. `Player.changeset/2` would fold `category` into `categories`
+      # anyway; saying it here means the attrs map on its own is already
+      # right, rather than correct only because something downstream repairs
+      # it.
       category: category,
-      categories: if(category == "", do: [], else: [category]),
+      categories: tags,
       club_number: zero_to_nil(p.club_nr)
     }
   end

@@ -384,12 +384,12 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     end
   end
 
-  test "categories round-trip into value1, with the leading blank slot", %{tournament: t} do
+  test "categories round-trip into value1, no leading blank slot", %{tournament: t} do
     binary = SwarExport.export(t.id)
     {:ok, parsed} = SwarImport.parse(binary)
 
     assert parsed.categories.type == 1
-    assert Enum.take(parsed.categories.value1, 4) == ["", "-1100", "-1800", "Women"]
+    assert Enum.take(parsed.categories.value1, 3) == ["-1100", "-1800", "Women"]
     assert Enum.all?(parsed.categories.value2, &(&1 == ""))
   end
 

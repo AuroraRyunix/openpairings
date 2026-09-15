@@ -259,11 +259,24 @@ Still open, and each needs a decision rather than typing:
   already models correctly; the ÷4 scale of the 3-2-1 values is now proven
   rather than inferred.
 
-  What is NOT closed by that: this app holds a category name, and SWAR's
+  ~~What is NOT closed by that: this app holds a category name, and SWAR's
   two-axis label is a pair of bounds, so a two-axis file still imports its
-  first axis only and still warns. Reading the source also turned up a real
-  bug - the per-player slot is one-based and this read it as zero-based, so
-  every imported player came in one category too strong. Fixed in 0.53.0.
+  first axis only and still warns.~~ **Closed 2026-09-15**: both axes now
+  import as their own named categories, and a two-axis player is tagged
+  with both (a player already carries a SET of categories - see
+  `PairingsEngine.Categories` moduledoc). `SwarExport` writes the same
+  two-axis `[CATEGORIES]` shape back out when the tournament's categories
+  came from a two-axis import (`Tournament.swar_category_type`/
+  `swar_category_axis2`), and pairing settles on axis 1 deterministically.
+  See "Categories: two axes, two tag sets" in
+  [docs/swar-import.md](docs/swar-import.md). Along the way, fixed a
+  second, previously untested bug: `SwarExport`'s own `value1` round trip
+  had a leading-blank/no-leading-blank mismatch against the decoder that
+  silently lost every player's category on export-then-reimport.
+
+  Reading the source also turned up a real bug - the per-player slot is
+  one-based and this read it as zero-based, so every imported player came
+  in one category too strong. Fixed in 0.53.0.
 
   **The lesson is about the shape of the block, not the answer.** This sat
   behind "we need a file from a club" for weeks while the program's own

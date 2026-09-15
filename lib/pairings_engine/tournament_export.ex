@@ -193,11 +193,19 @@ defmodule PairingsEngine.TournamentExport do
   #     The installation key that minted it is not a tournament field at all
   #     and is in no export, backup or snapshot - see
   #     `PairingsEngine.Publishing.Installation`.
+  #   swar_category_type, swar_category_axis2
+  #     SWAR-provenance bookkeeping for `categories`, not tournament content
+  #     of its own - they tell `SwarExport` how to split `categories` back
+  #     across `[CATEGORIES]`' two columns for a tournament that came from a
+  #     two-axis SWAR import (see docs/swar-import.md's "Categories: two
+  #     axes, two tag sets"). `categories` itself, the actual vocabulary, is
+  #     exported normally; excluded the same way `swar_guid` and its
+  #     siblings just above are.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
     public_slug_minted_at public_slug_server public_slug_published_at
     registration_open publish_to_openresults deleted_at archived_at swar_guid
-    swar_uploaded_at swar_published_at
+    swar_uploaded_at swar_published_at swar_category_type swar_category_axis2
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
     handed_off_at handed_off_to handoff_token handoff_origin
