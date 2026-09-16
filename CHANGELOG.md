@@ -16,6 +16,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Large team Swiss events pair reliably and quickly.** With Ainalrami
+  0.29.0, events of 200-500 teams no longer hit "couldn't finish within the
+  search limit", and the slowest round measured went from over a minute to
+  about 5 seconds. Every pairing is the same as before.
+
 ## [0.62.8] - 2026-09-16
 
 - [Fix] **The print and PGN menus on the Pairings page open into the
