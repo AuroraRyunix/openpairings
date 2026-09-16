@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.8] - 2026-09-16
+
 - [Fix] **The print and PGN menus on the Pairings page open into the
   menu from the keyboard in every browser.** The context-menu key or Shift+F10
   on a print link now always moves focus to the first option, the link says
