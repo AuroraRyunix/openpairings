@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.10] - 2026-09-18
+
+- [Fix] **Players who register after the first pairing now reach the results
+  site.** A player added once start numbers had been issued had no number yet,
+  and the published roster kept only numbered players - so a 21-player event
+  with 3 absences showed 16 instead of 18 on OpenResults. Such a player is now
+  published with the number the next pairing will give them, the same way the
+  whole field is numbered before round 1. Team reserves who have not played yet
+  appear in their squad for the same reason.
+
 ## [0.62.9] - 2026-09-18
 
 - [Fix] **Large team Swiss events pair reliably and quickly.** With Ainalrami

@@ -251,6 +251,52 @@ defmodule PairingsEngine.SnapshotTest do
 
       assert Snapshot.build(tournament)["players"] == []
     end
+
+    # Reported 2026-09-18 on a live tournament: 21 on the roster, 3 absent, so
+    # 18 belong on the public page - and it showed 16. The two missing were
+    # registered AFTER round 1 was numbered, so they had no number yet, and a
+    # roster with any numbers at all took only the numbered rows. A late entrant
+    # is part of the field from the moment they are on it; they are numbered
+    # provisionally here, exactly as the whole field is before round 1.
+    test "a player registered after numbering is published with the number pairing will issue" do
+      tournament = unnumbered_tournament(%{})
+
+      PairingsEngine.Pairing.ensure_pairing_numbers(
+        tournament,
+        PairingsEngine.Pairing.active_players(tournament.id)
+      )
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Dora",
+        fide_rating: 2200,
+        status: "active"
+      })
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Eve",
+        fide_rating: 1000,
+        status: "active",
+        absent: true
+      })
+
+      snapshot = Snapshot.build(tournament)
+
+      # The three numbered players keep their frozen numbers; Dora - the only
+      # active newcomer - continues after the highest number ever issued, and
+      # the absent one is not part of the field at all.
+      assert Enum.map(snapshot["players"], &{&1["no"], &1["name"]}) ==
+               [{1, "Alice"}, {2, "Bob"}, {3, "Carol"}, {4, "Dora"}]
+
+      # And the same number is the one pairing then issues for real.
+      PairingsEngine.Pairing.ensure_pairing_numbers(
+        tournament,
+        PairingsEngine.Pairing.active_players(tournament.id)
+      )
+
+      assert Repo.get_by!(Player, tournament_id: tournament.id, name: "Dora").pairing_number == 4
+    end
   end
 
   describe "effective standings through the snapshot (2026-09-11 publish model)" do
@@ -1229,9 +1275,10 @@ defmodule PairingsEngine.SnapshotTest do
       assert antwerp["short_name"] == nil
       assert antwerp["captain"] == "Jan Peeters"
       assert is_integer(antwerp["no"])
-      # Only the 2 players who ever sat at a board (team_boards: 2) have a
-      # pairing number to publish; the 3rd is a reserve who never played.
-      assert length(antwerp["players"]) == 2
+      # The whole squad: the 2 who sat at a board keep their issued numbers and
+      # the reserve who never played is numbered provisionally, like any player
+      # on the roster who has not been paired yet.
+      assert length(antwerp["players"]) == 3
 
       round1 = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
       assert is_list(round1["matches"]) and round1["matches"] != []

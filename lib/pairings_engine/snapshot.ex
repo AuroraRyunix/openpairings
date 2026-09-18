@@ -372,17 +372,38 @@ defmodule PairingsEngine.Snapshot do
   defp publishable_players(%Tournament{} = t) do
     players = Tournaments.list_players(t.id)
 
-    if Enum.any?(players, &is_integer(&1.pairing_number)) do
-      players
-      |> Enum.filter(&is_integer(&1.pairing_number))
-      |> Enum.sort_by(& &1.pairing_number)
-    else
-      t.id
-      |> PairingsEngine.Pairing.active_players()
-      |> PairingsEngine.Pairing.initial_order()
-      |> Enum.with_index(1)
-      |> Enum.map(fn {player, number} -> %{player | pairing_number: number} end)
+    numbered =
+      players |> Enum.filter(&is_integer(&1.pairing_number)) |> Enum.sort_by(& &1.pairing_number)
+
+    case numbered do
+      [] ->
+        t.id
+        |> PairingsEngine.Pairing.active_players()
+        |> PairingsEngine.Pairing.initial_order()
+        |> number_provisionally(0)
+
+      numbered ->
+        highest = numbered |> Enum.map(& &1.pairing_number) |> Enum.max()
+
+        late =
+          t.id
+          |> PairingsEngine.Pairing.active_players()
+          |> Enum.filter(&is_nil(&1.pairing_number))
+          |> PairingsEngine.Pairing.initial_order()
+          |> number_provisionally(highest)
+
+        numbered ++ late
     end
+  end
+
+  # The same numbers `Pairing.ensure_pairing_numbers/2` will issue at the next
+  # pairing: `initial_order/1`, continuing after the highest number ever issued
+  # on this roster. Nothing is written back - the real numbers are still issued,
+  # and frozen, only by pairing.
+  defp number_provisionally(players, highest) do
+    players
+    |> Enum.with_index(highest + 1)
+    |> Enum.map(fn {player, number} -> %{player | pairing_number: number} end)
   end
 
   # The one withholding rule that reads a tournament SETTING
