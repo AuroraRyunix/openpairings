@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.62.11] - 2026-09-18
+
+- [Fix] **An upgrade now refreshes what is already published.** What a
+  published copy contains is decided by this application's code, so a fix to
+  the snapshot used to reach spectators only for tournaments that happened to
+  be edited again afterwards - 0.62.10's fix left a live event showing the old
+  document. The first start on a new version re-sends every published
+  tournament once. Tournaments taken down or binned stay down.
+
 ## [0.62.10] - 2026-09-18
 
 - [Fix] **Players who register after the first pairing now reach the results

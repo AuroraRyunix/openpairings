@@ -130,6 +130,10 @@ defmodule PairingsEngine.Publishing do
 
   require Logger
 
+  # The application version whose snapshots the results site last received -
+  # see `republish_after_upgrade/0`.
+  @publish_version_key "openresults_published_version"
+
   # Backoff, in seconds, indexed by the number of failures so far. A venue's
   # wifi comes back in minutes, not milliseconds, so the early steps are not
   # aggressive; the tail is capped so a publish left overnight still goes out
@@ -1903,9 +1907,49 @@ defmodule PairingsEngine.Publishing do
         Logger.info("OpenResults: queued #{length(ids)} tournament(s) that had never published")
       end
 
-      length(ids)
+      length(ids) + republish_after_upgrade()
     else
       0
+    end
+  end
+
+  # What a published copy CONTAINS is decided entirely by this application's
+  # code: `PairingsEngine.Snapshot` builds the whole document, and an upgrade
+  # that fixes what travels leaves every copy already out there built by the
+  # old code. Nothing re-sends them - the queue only holds what a write put
+  # there - so a fix reaches spectators only for tournaments that happen to be
+  # edited again afterwards. On 2026-09-18 that was a live event still showing
+  # 16 of its 18 players hours after the fix was deployed.
+  #
+  # So a boot that is the first on a new version re-sends every published
+  # tournament, once. The version is recorded only after the enqueue, so a
+  # crash in between repeats the enqueue rather than skipping it, and a publish
+  # is idempotent: the results site takes the whole document every time.
+  defp republish_after_upgrade do
+    version = Application.spec(:pairings_engine, :vsn) |> to_string()
+
+    if meta_get(@publish_version_key) == version do
+      0
+    else
+      ids =
+        Repo.all(
+          from t in Tournament,
+            where:
+              t.publish_to_openresults == true and not is_nil(t.openresults_key) and
+                is_nil(t.deleted_at) and is_nil(t.handed_off_at),
+            select: t.id
+        )
+
+      Enum.each(ids, &enqueue_id/1)
+      meta_put(@publish_version_key, version)
+
+      if ids != [] do
+        Logger.info(
+          "OpenResults: version #{version} is new here, queued #{length(ids)} published tournament(s) to re-send"
+        )
+      end
+
+      length(ids)
     end
   end
 

@@ -766,6 +766,38 @@ defmodule PairingsEngine.PublishingTest do
       # is nothing to reconcile and re-queueing would send a document nobody
       # asked for on every restart.
       Repo.delete_all(QueueEntry)
+      # ... on every restart, that is, on a version this installation has
+      # already published from - see the upgrade tests below.
+      Publishing.backfill()
+      Repo.delete_all(QueueEntry)
+
+      assert Publishing.backfill() == 0
+    end
+
+    # 2026-09-18: a fix to what the snapshot CONTAINS shipped, and the live
+    # tournament it fixed went on showing the old document, because nothing
+    # re-sends a copy that no one edited afterwards.
+    test "the first boot on a new version re-sends every published tournament" do
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(t)
+      Repo.delete_all(QueueEntry)
+
+      assert Publishing.backfill() == 1
+      assert Publishing.queued(t.id)
+
+      # And only the first boot: a restart on the same version sends nothing.
+      Repo.delete_all(QueueEntry)
+      assert Publishing.backfill() == 0
+    end
+
+    test "an upgrade does not resurrect a tournament that was taken down or binned" do
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(t)
+      assert {:ok, _} = Publishing.take_down(Tournaments.get_tournament!(t.id))
+      Repo.delete_all(QueueEntry)
+
       assert Publishing.backfill() == 0
     end
 
