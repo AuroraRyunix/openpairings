@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.3] - 2026-09-19
+
+- [Change] **Publishing the "Rds" column is opt-in.** 0.63.2 sent it for every
+  published tournament, which put a new number on public pages - some of them
+  mid-event - that nobody had asked for. It is now off until you tick
+  "Rounds-present column" under Settings - Results site: the only public
+  display tick that starts off, and deliberately the exception (see
+  `PairingsEngine.PublicDisplay`). Your own screens and printouts are
+  unaffected - those follow the "Rds" column tick, as before.
+
 ## [0.63.2] - 2026-09-19
 
 - [Change] **"Rds" is now an ordinary column tick**, in the Players page's

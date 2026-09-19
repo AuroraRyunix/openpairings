@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.63.2**. One page: everything the app does today, and where
+Current version: **0.63.3**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -90,9 +90,9 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   forfeit losses do not count. For club championships that award a prize for
   attending every round. An ordinary column tick ("Rds", in the Players page's
   Display panel, beside Cl/Nr/Rnk/Ga), so it shows on the players grid and the
-  standings table and prints with them. The results site carries it unless the
-  arbiter unticks it under Settings - Results site, and readers there can sort
-  by it.
+  standings table and prints with them. Publishing it is opt-in and separate:
+  tick "Rounds-present column" under Settings - Results site, the only public
+  display tick that starts off. Readers there can then sort by it.
 - **Manual standings order** - an explicit arbiter override with a visible
   banner everywhere and a staleness flag raised the moment any result changes.
   Display-only; never touches points, tiebreaks, or the TRF.

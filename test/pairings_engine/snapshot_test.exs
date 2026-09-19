@@ -300,31 +300,24 @@ defmodule PairingsEngine.SnapshotTest do
   end
 
   describe "the optional rounds_played field on standings rows" do
-    test "travels for every row by default" do
+    test "does not travel until the arbiter asks for it" do
       tournament = unnumbered_tournament(%{standings_through: 0})
-
-      rows = Snapshot.build(tournament)["standings"]["rows"]
-      assert rows != []
-      # Nothing has been played yet, so everybody is on nought - the point
-      # being that the field travels at all, for every row.
-      assert Enum.all?(rows, &(Map.get(&1, "rounds_played") == 0))
-    end
-
-    test "withheld entirely when the arbiter unticks it" do
-      tournament = unnumbered_tournament(%{standings_through: 0})
-
-      # `cast/1` reads ticked boxes, so "everything else on, this one off" is
-      # every key but this one.
-      ticks =
-        PairingsEngine.PublicDisplay.keys()
-        |> Map.new(&{&1, "true"})
-        |> Map.delete("rounds_played")
-
-      {:ok, tournament} = Tournaments.set_public_display(tournament, ticks)
 
       rows = Snapshot.build(tournament)["standings"]["rows"]
       assert rows != []
       refute Enum.any?(rows, &Map.has_key?(&1, "rounds_played"))
+    end
+
+    test "travels for every row once the display tick is on" do
+      tournament = unnumbered_tournament(%{standings_through: 0})
+
+      ticks = Map.new(PairingsEngine.PublicDisplay.keys(), &{&1, "true"})
+      {:ok, tournament} = Tournaments.set_public_display(tournament, ticks)
+
+      rows = Snapshot.build(tournament)["standings"]["rows"]
+      # Nothing has been played yet, so everybody is on nought - the point
+      # being that the field travels at all, for every row.
+      assert Enum.all?(rows, &(Map.get(&1, "rounds_played") == 0))
     end
   end
 
@@ -728,8 +721,7 @@ defmodule PairingsEngine.SnapshotTest do
       assert snapshot["standings"]["after_round"] == 1
 
       for row <- snapshot["standings"]["rows"] do
-        assert Map.keys(row) |> Enum.sort() ==
-                 ~w(category player points rank rounds_played score value)
+        assert Map.keys(row) |> Enum.sort() == ~w(category player points rank score value)
 
         assert is_number(row["value"])
         assert is_number(row["score"])

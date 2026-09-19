@@ -36,6 +36,19 @@ defmodule PairingsEngine.PublicDisplay do
 
   That is the line: this decides which pages exist and which columns they
   carry, never whether a shown page tells the truth.
+
+  ## One key defaults to OFF
+
+  `rounds_played` - the attendance column - is opt-in, and it is the only key
+  that is. The asymmetry above is about information an arbiter ALREADY
+  publishes and expects to see: hiding that silently is the invisible failure.
+  A column nobody had until it was built is the other way round - switching it
+  on for every published tournament in the world puts a number on their public
+  page that they never asked for, on an event that may already be running.
+
+  So `default:` is part of a field, and `show?/2` reads it. Everything else
+  stays exactly as it was, defaults to shown, and must: this is an exception
+  for a NEW column, not a licence to make the next one quiet too.
   """
 
   @typedoc "Which part of the public page a key controls."
@@ -48,7 +61,15 @@ defmodule PairingsEngine.PublicDisplay do
   contract's own rule about additive-only changes. Everything else is what the
   arbiter reads.
   """
-  @spec fields() :: [%{key: String.t(), label: String.t(), hint: String.t(), group: group()}]
+  @spec fields() :: [
+          %{
+            key: String.t(),
+            label: String.t(),
+            hint: String.t(),
+            group: group(),
+            default: boolean()
+          }
+        ]
   def fields do
     [
       # ---- whole pages ----
@@ -173,11 +194,14 @@ defmodule PairingsEngine.PublicDisplay do
       %{
         key: "rounds_played",
         group: :columns,
+        # The one opt-in key - see the moduledoc.
+        default: false,
         label: "Rounds-present column",
         hint:
-          "How many rounds each player was there for, where the standings show it at all - " <>
-            "the \"Rounds present\" switch on the Standings page. Off keeps it on your own " <>
-            "screen and the printed sheet without publishing it."
+          "How many rounds each player was there for: games played, a bye given because the " <>
+            "field was odd, and a win by forfeit. For a prize for attending every round. Off " <>
+            "unless you ask for it, and independent of the \"Rds\" column tick on your own " <>
+            "screens."
       },
       %{
         key: "pairing_scores",
@@ -220,16 +244,32 @@ defmodule PairingsEngine.PublicDisplay do
   database can outlive the code that wrote it.
   """
   @spec show?(map() | nil, String.t()) :: boolean()
-  def show?(nil, _key), do: true
+  def show?(nil, key), do: default(key)
 
   def show?(display, key) when is_map(display) do
     case Map.get(display, key) do
+      true -> true
       false -> false
-      _shown_or_unstated -> true
+      _unstated -> default(key)
     end
   end
 
-  def show?(_not_a_map, _key), do: true
+  def show?(_not_a_map, key), do: default(key)
+
+  @doc """
+  Whether `key` is shown when the tournament has said nothing about it.
+
+  True for every key but `rounds_played` - see the moduledoc. An unknown key
+  (a database outliving the code that wrote it) answers true, which is the
+  same direction the rest of this module leans.
+  """
+  @spec default(String.t()) :: boolean()
+  def default(key) do
+    case Enum.find(fields(), &(&1.key == key)) do
+      nil -> true
+      field -> Map.get(field, :default, true)
+    end
+  end
 
   @doc """
   The complete map to publish: every key, resolved to a real boolean.
@@ -247,14 +287,22 @@ defmodule PairingsEngine.PublicDisplay do
   Normalises submitted params into the sparse map to store.
 
   Checkbox params arrive as `%{"club" => "true"}` with unticked boxes simply
-  absent, so anything not present is off. Only `false` values are kept: the
-  stored map is the record of what an arbiter turned OFF, which keeps a future
-  key from being silently pinned to today's default on every tournament that
-  has ever visited this page.
+  absent, so anything not present is off. Only values that DIFFER from the
+  key's own default are kept: the stored map is the record of what an arbiter
+  changed, which keeps a future key from being silently pinned to today's
+  default on every tournament that has ever visited this page. For every key
+  but `rounds_played` that is the same thing it has always been - a map of
+  what was turned off.
   """
   @spec cast(map()) :: map()
   def cast(params) when is_map(params) do
-    for key <- keys(), not truthy?(Map.get(params, key)), into: %{}, do: {key, false}
+    # Not a comprehension with `ticked? = ...` in it: an assignment in a
+    # comprehension is also a FILTER on its own truthiness, so every unticked
+    # box silently dropped out of the result and nothing was recorded as off.
+    keys()
+    |> Enum.map(&{&1, truthy?(Map.get(params, &1))})
+    |> Enum.reject(fn {key, ticked?} -> ticked? == default(key) end)
+    |> Map.new()
   end
 
   @doc "How many keys this tournament has turned off."

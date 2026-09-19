@@ -12,8 +12,16 @@ defmodule PairingsEngine.PublicDisplayTest do
   alias PairingsEngine.PublicDisplay
 
   describe "show?/2" do
-    test "a tournament that predates the feature shows everything" do
-      for key <- PublicDisplay.keys(), do: assert(PublicDisplay.show?(nil, key))
+    test "a tournament that predates the feature shows everything it used to" do
+      # Every key but the one opt-in column - see the moduledoc on why
+      # `rounds_played` is the exception and why it is the only one.
+      for key <- PublicDisplay.keys() -- ["rounds_played"] do
+        assert PublicDisplay.show?(nil, key)
+      end
+
+      refute PublicDisplay.show?(nil, "rounds_played")
+      refute PublicDisplay.show?(%{}, "rounds_played")
+      assert PublicDisplay.show?(%{"rounds_played" => true}, "rounds_played")
     end
 
     test "only an explicit false hides a column" do
@@ -44,12 +52,17 @@ defmodule PairingsEngine.PublicDisplayTest do
 
       assert cast["club"] == false
       refute Map.has_key?(cast, "rating")
+      # Already off by default, so leaving it unticked records nothing.
+      refute Map.has_key?(cast, "rounds_played")
     end
 
-    test "records only the negatives" do
+    test "records only what differs from each key's own default" do
       cast = PublicDisplay.cast(Map.new(PublicDisplay.keys(), &{&1, "true"}))
 
-      assert cast == %{}
+      # Every ordinary key defaults to shown, so ticking them all records
+      # nothing; the one opt-in key is recorded precisely because it was
+      # asked for.
+      assert cast == %{"rounds_played" => true}
     end
 
     test "accepts every shape a checkbox actually arrives in" do
@@ -77,7 +90,9 @@ defmodule PairingsEngine.PublicDisplayTest do
 
       assert Enum.sort(Map.keys(resolved)) == Enum.sort(PublicDisplay.keys())
       assert resolved["club"] == false
-      assert Enum.all?(Map.delete(resolved, "club"), fn {_k, v} -> v == true end)
+      assert resolved["rounds_played"] == false
+
+      assert Enum.all?(Map.drop(resolved, ["club", "rounds_played"]), fn {_k, v} -> v == true end)
     end
   end
 

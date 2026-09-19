@@ -310,7 +310,14 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
 
       display = Snapshot.build(tournament)["tournament"]["display"]
       assert Enum.sort(Map.keys(display)) == Enum.sort(PublicDisplay.keys())
-      assert Enum.all?(Map.values(display))
+
+      # ...with one exception, and the resolved map states it rather than
+      # leaving the reader to infer it: the attendance column is opt-in, so a
+      # tournament that has said nothing is not publishing it. See
+      # `PairingsEngine.PublicDisplay`'s moduledoc for why it is the only key
+      # that leans this way.
+      assert display["rounds_played"] == false
+      assert Enum.all?(Map.values(Map.delete(display, "rounds_played")))
     end
 
     test "unticking a box hides that column and nothing else", %{conn: conn, scope: scope} do
