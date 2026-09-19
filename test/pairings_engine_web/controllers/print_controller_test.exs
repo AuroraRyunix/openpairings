@@ -416,14 +416,12 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ ~r/A.*?<strong>2\.0<\/strong>/s
     end
 
-    test "the Rds column prints only when the tournament asks for it", %{conn: conn, scope: scope} do
+    test "the Rds column prints only when the link asks for it", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
 
       refute html_response(get(conn, ~p"/t/#{tournament.id}/print/standings"), 200) =~ ">Rds<"
 
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
-
-      html = html_response(get(conn, ~p"/t/#{tournament.id}/print/standings"), 200)
+      html = html_response(get(conn, ~p"/t/#{tournament.id}/print/standings?rds=1"), 200)
       assert html =~ ">Rds<"
       # Two rounds, both played over the board: everyone was there twice.
       assert html =~ ~r/A<\/strong><\/td>.*?<td class="num">2<\/td>/s

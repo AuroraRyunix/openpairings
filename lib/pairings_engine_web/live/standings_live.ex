@@ -210,28 +210,6 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   def handle_event("unpublish_standings", _params, socket), do: {:noreply, socket}
 
-  # The "Rounds present" switch beside the Print button. A display setting,
-  # stored on the tournament rather than in this browser, because it also
-  # decides what the printed standings and (behind its own public tick) the
-  # results site carry - see `PairingsEngine.Standings.rounds_played/1`.
-  @impl true
-  def handle_event("toggle_rounds_played", _params, socket) do
-    tournament = socket.assigns.tournament
-
-    case Tournaments.update_tournament(tournament, %{
-           "show_rounds_played" => not tournament.show_rounds_played
-         }) do
-      {:ok, updated} ->
-        {:noreply, socket |> assign(tournament: updated) |> reload_standings()}
-
-      {:error, :archived} ->
-        {:noreply, archived_refusal(socket)}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
-    end
-  end
-
   @impl true
   def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket)
       when direction in ["up", "down"] do
@@ -780,25 +758,11 @@ defmodule PairingsEngineWeb.StandingsLive do
             round={@latest_complete_round_struct}
           />
 
-          <%!-- The attendance column, switched where it is READ rather than
-                two pages away under Settings: it is a property of this table,
-                and the arbiter deciding to show it is looking at the table.
-                Unlike its neighbour it is not about publishing - it changes
-                this screen and the printed sheet as well - so it says On/Off
-                and never "Public". Whether the published page also carries it
-                is a separate tick, with the other public ticks, under
-                Settings → Results site. --%>
-          <.publish_toggle
-            :if={not @team?}
-            id="rounds-played-toggle"
-            label={gettext("Rounds present")}
-            state={if @tournament.show_rounds_played, do: :public, else: :not_public}
-            on_text={gettext("On")}
-            off_text={gettext("Off")}
-            phx-click="toggle_rounds_played"
-          />
-
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
+          <a
+            class="pe-btn"
+            href={print_path(@tournament, @visible)}
+            target="_blank"
+          >
             {gettext("Print")}
           </a>
         </div>
@@ -949,7 +913,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th class="num">Pts</th>
 
               <th
-                :if={@tournament.show_rounds_played}
+                :if={rds_col?(@visible)}
                 class="num"
                 title={
                   gettext(
@@ -1033,7 +997,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <td class="num"><strong>{entry.points}</strong></td>
 
-              <td :if={@tournament.show_rounds_played} class="num">{entry.rounds_played}</td>
+              <td :if={rds_col?(@visible)} class="num">{entry.rounds_played}</td>
 
               <td :if={@tournament.count_extra_points and show_col?(@visible, "xtpts")} class="num">
                 {entry.extra_points}
@@ -1116,7 +1080,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th class="num">Elo</th>
 
               <th
-                :if={@tournament.show_rounds_played}
+                :if={rds_col?(@visible)}
                 class="num"
                 title={
                   gettext(
@@ -1160,7 +1124,7 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
               </td>
 
-              <td :if={@tournament.show_rounds_played} class="num">{entry.rounds_played}</td>
+              <td :if={rds_col?(@visible)} class="num">{entry.rounds_played}</td>
 
               <td class="num">{entry.value}</td>
 
@@ -1192,6 +1156,24 @@ defmodule PairingsEngineWeb.StandingsLive do
       </p>
     </Layouts.app>
     """
+  end
+
+  # Deliberately NOT `show_col?/2`, which answers "shown" for a preference set
+  # it has not received yet - every other column is on by default, so that is
+  # the right answer for them and the wrong one here: a column nobody has
+  # asked for must not appear for a moment on first paint, nor put `?rds=1` on
+  # the Print link of an arbiter who never ticked it.
+  defp rds_col?(visible), do: is_list(visible) and "rds" in visible
+
+  # A printed sheet cannot read this browser's column preferences, so the
+  # Print link carries this one column in the query string. Without it the
+  # link is exactly the one it has always been.
+  defp print_path(tournament, visible) do
+    if rds_col?(visible) do
+      ~p"/t/#{tournament.id}/print/standings?rds=1"
+    else
+      ~p"/t/#{tournament.id}/print/standings"
+    end
   end
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name

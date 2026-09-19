@@ -2183,4 +2183,40 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert free.paid == "gratis"
     end
   end
+
+  # The attendance column a club asked for on 2026-09-19 - an ordinary column
+  # tick beside Cl/Nr/Rnk/Ga, on this page's Display panel, whose preferences
+  # the Standings table shares. See `PairingsEngine.Standings.rounds_played/1`.
+  describe "the Rds column" do
+    test "is off until ticked, then counts the rounds the player was there for", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Rds grid", "type" => "swiss"})
+
+      {:ok, _alice} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      {:ok, _bob} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+      {:ok, _carol} = Tournaments.create_player(tournament.id, %{"name" => "Carol"})
+      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(tournament)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+      refute html =~ "Rounds the player was there for"
+
+      html = render_click(lv, "toggle_column", %{"key" => "rds"})
+
+      assert html =~ "Rounds the player was there for"
+
+      # Odd field: whoever got the bye was there for round 1 all the same,
+      # while the two still to report a result have nothing counted yet.
+      assert Enum.sort(
+               Enum.map(Tournaments.list_players(tournament.id), fn player ->
+                 tournament
+                 |> PairingsEngine.Standings.standings()
+                 |> Enum.find(&(&1.player.id == player.id))
+                 |> Map.fetch!(:rounds_played)
+               end)
+             ) == [0, 0, 1]
+    end
+  end
 end

@@ -16,6 +16,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.2] - 2026-09-19
+
+- [Change] **"Rds" is now an ordinary column tick**, in the Players page's
+  Display panel beside Cl, Nr, Rnk and Ga - not a setting and not a switch.
+  Tick it and it shows on the players grid and on the standings table, and the
+  Print button takes it with it. The tournament setting it briefly had is
+  gone; nothing you can enter was stored in it.
+- [Change] **The results site gets the column by default.** Publishing it is
+  the ordinary display tick under Settings - Results site, which is on unless
+  you turn it off - so a published tournament simply lists it, the way it
+  lists ratings and clubs.
+
 ## [0.63.1] - 2026-09-19
 
 - [Change] **The "Rounds present" switch moved to the Standings page**, beside

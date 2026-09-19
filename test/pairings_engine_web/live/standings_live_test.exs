@@ -709,9 +709,10 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
   end
 
   # The attendance column a club asked for on 2026-09-19 - see
-  # `PairingsEngine.Standings.rounds_played/1`. The switch lives on this page,
-  # beside Print, because this is the table it changes.
-  describe "the Rounds present switch" do
+  # `PairingsEngine.Standings.rounds_played/1`. It is an ordinary column tick
+  # (the Players page's Display panel, shared with this table), not a setting,
+  # so these drive it the way the hook does.
+  describe "the Rds column" do
     setup %{scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => "Attendance", "type" => "swiss"})
@@ -720,45 +721,34 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       %{tournament: tournament}
     end
 
-    test "starts off, with no column", %{conn: conn, tournament: tournament} do
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+    test "is not in the table when the column is not ticked", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/standings")
 
-      assert has_element?(lv, "#rounds-played-toggle[aria-checked='false']")
+      html = render_hook(lv, "columns_loaded", %{"columns" => ["cl", "pts"]})
+
       refute html =~ "Rounds this player was there for"
     end
 
-    test "pressing it shows the column and stores the choice", %{
-      conn: conn,
-      scope: scope,
-      tournament: tournament
-    } do
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+    test "shows once it is ticked", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/standings")
 
-      html = lv |> element("#rounds-played-toggle") |> render_click()
+      html = render_hook(lv, "columns_loaded", %{"columns" => ["cl", "pts", "rds"]})
 
       assert html =~ "Rounds this player was there for"
-      assert has_element?(lv, "#rounds-played-toggle[aria-checked='true']")
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).show_rounds_played
+      assert html =~ "Alice"
     end
 
-    test "pressing it again puts it away", %{conn: conn, scope: scope, tournament: tournament} do
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
+    # A printed sheet cannot read this browser's preferences, so the Print
+    # link carries the choice; without it the sheet is the one it always was.
+    test "the Print link asks for the column only while it is ticked", %{
+      conn: conn,
+      tournament: t
+    } do
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/standings")
+      refute html =~ "print/standings?rds=1"
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
-      html = lv |> element("#rounds-played-toggle") |> render_click()
-
-      refute html =~ "Rounds this player was there for"
-      refute Tournaments.get_authorized_tournament!(scope, tournament.id).show_rounds_played
-    end
-
-    # It is not a publishing control, and saying "Not public" on a switch that
-    # also changes the printed sheet would misstate what it does.
-    test "reads On/Off, never Public", %{conn: conn, tournament: tournament} do
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
-
-      [switch] = Regex.run(~r|<button[^>]*id="rounds-played-toggle".*?</button>|s, html)
-      assert switch =~ "Off"
-      refute switch =~ "Not public"
+      html = render_hook(lv, "columns_loaded", %{"columns" => ["rds"]})
+      assert html =~ "print/standings?rds=1"
     end
   end
 end

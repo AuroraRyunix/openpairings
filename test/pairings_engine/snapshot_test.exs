@@ -300,27 +300,18 @@ defmodule PairingsEngine.SnapshotTest do
   end
 
   describe "the optional rounds_played field on standings rows" do
-    test "absent unless the arbiter turned the column on, then present per row" do
+    test "travels for every row by default" do
       tournament = unnumbered_tournament(%{standings_through: 0})
 
-      [row | _] = Snapshot.build(tournament)["standings"]["rows"]
-      refute Map.has_key?(row, "rounds_played")
-
-      {:ok, tournament} =
-        Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
-
       rows = Snapshot.build(tournament)["standings"]["rows"]
+      assert rows != []
       # Nothing has been played yet, so everybody is on nought - the point
       # being that the field travels at all, for every row.
       assert Enum.all?(rows, &(Map.get(&1, "rounds_played") == 0))
     end
 
-    # Two decisions, two gates: showing the column at all, and publishing it.
-    test "withheld when the arbiter publishes everything else but not this column" do
+    test "withheld entirely when the arbiter unticks it" do
       tournament = unnumbered_tournament(%{standings_through: 0})
-
-      {:ok, tournament} =
-        Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
 
       # `cast/1` reads ticked boxes, so "everything else on, this one off" is
       # every key but this one.
@@ -737,7 +728,9 @@ defmodule PairingsEngine.SnapshotTest do
       assert snapshot["standings"]["after_round"] == 1
 
       for row <- snapshot["standings"]["rows"] do
-        assert Map.keys(row) |> Enum.sort() == ~w(category player points rank score value)
+        assert Map.keys(row) |> Enum.sort() ==
+                 ~w(category player points rank rounds_played score value)
+
         assert is_number(row["value"])
         assert is_number(row["score"])
       end

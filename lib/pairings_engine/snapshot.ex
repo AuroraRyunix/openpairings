@@ -813,23 +813,23 @@ defmodule PairingsEngine.Snapshot do
 
   ## ---------- standings ----------
 
-  # The attendance count. Two gates, because they are two decisions: the
-  # column has to be ON at all (`Tournament.show_rounds_played`, the switch on
-  # the Standings page), and the arbiter has to be publishing it (the
-  # `rounds_played` display tick, with the other public ticks). Either one off
-  # and the field is simply absent - an additive field, which is how the
+  # The attendance count, behind the `rounds_played` display tick like every
+  # other optional column. Whether the ARBITER shows it on their own screen is
+  # a preference of their browser (the Standings page's column ticks) and has
+  # nothing to do with this: a per-user view choice must not decide what the
+  # public page carries, in either direction.
+  #
+  # Withheld means absent, not null - an additive field, which is how the
   # contract says an optional column travels, so a results site that has never
   # heard of it and a tournament that withholds it look the same from there.
   # See docs/snapshot-schema.md.
-  defp maybe_put_rounds_played(row, %Tournament{show_rounds_played: true} = t, entry) do
+  defp maybe_put_rounds_played(row, %Tournament{} = t, entry) do
     if PublicDisplay.show?(t.public_display, "rounds_played") do
       Map.put(row, "rounds_played", Map.get(entry, :rounds_played, 0))
     else
       row
     end
   end
-
-  defp maybe_put_rounds_played(row, %Tournament{}, _entry), do: row
 
   # Computed here, ordered here, tiebroken here. OpenResults never calculates a
   # placing - the arbiter's screen and the public page have to agree, and the

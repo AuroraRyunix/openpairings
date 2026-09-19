@@ -183,7 +183,8 @@ defmodule PairingsEngine.Standings do
 
   @doc """
   How many rounds a player was there for - the count behind the optional
-  "Rds" column (`Tournament.show_rounds_played`).
+  "Rds" column - a column tick on the Players/Standings tables, and the
+  `rounds_played` display tick for the results site.
 
   Not "games played". The club championship this was built for gives a prize
   to whoever turns up for every round, and the round you came to and were

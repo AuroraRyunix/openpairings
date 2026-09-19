@@ -76,6 +76,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
     {"club", "Club", false, "Chess club"},
     {"games", "Ga", true, "Games played"},
+    # Attendance, not games: the two differ by the byes and forfeits a club
+    # prize for "here every round" turns on. See
+    # `PairingsEngine.Standings.rounds_played/1` for exactly what counts.
+    # Ticking it here also puts it on the Standings table and the printed
+    # standings - the column preferences are shared.
+    {"rds", "Rds", true,
+     "Rounds the player was there for: games played (any result), a bye given because " <>
+       "the field was odd, and a win by forfeit. A bye they asked for in advance, an " <>
+       "absence and a loss by forfeit do not count"},
     {"pts", "Pts", true, "Points (game score, excluding extra points)"},
     {"status", "Status", false, "Player status (active, withdrawn, etc.)"},
     {"fixed_board", "Table", true,
@@ -338,6 +347,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     do: {0, if(name in entry.grid["cat"], do: 0, else: 1)}
 
   defp sort_value(entry, "games"), do: numeric_sort_value(entry.grid["games"])
+  defp sort_value(entry, "rds"), do: numeric_sort_value(entry.grid["rds"])
   defp sort_value(entry, "pts"), do: numeric_sort_value(entry.grid["pts"])
   defp sort_value(entry, "perf"), do: numeric_sort_value(entry.grid["perf"])
   defp sort_value(entry, "we"), do: numeric_sort_value(entry.grid["we"])
@@ -493,6 +503,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         "cat_rank" =>
           category_rank(tournament, Categories.pairing_category(tournament, entry.player)),
         "games" => length(played_games),
+        "rds" => Standings.rounds_played(entry.games),
         "pts" => entry.points,
         "perf" => PlayerStats.performance(opponent_ratings, wins, losses),
         "we" => we,
@@ -1553,7 +1564,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  defp cell(entry, key) when key in ~w(cl games pts buch bc1 sb prog) do
+  defp cell(entry, key) when key in ~w(cl games rds pts buch bc1 sb prog) do
     format_num(entry.grid[key])
   end
 
