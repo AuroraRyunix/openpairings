@@ -2167,4 +2167,99 @@ defmodule PairingsEngine.StandingsTest do
       assert entry_for(t, d).tiebreaks["KS"] == 0.0
     end
   end
+
+  # A club championship that pays a prize for turning up to every round
+  # asked for this count (2026-09-19). See `Standings.rounds_played/1`.
+  describe "rounds_played - the attendance count behind the optional Rds column" do
+    test "counts every played game, whatever the result" do
+      {tournament, %{a: a, c: c}} = fixture()
+
+      entries = Standings.standings(tournament)
+      assert row_for(entries, a).rounds_played == 2
+      # C lost one and drew one: two rounds in the hall either way.
+      assert row_for(entries, c).rounds_played == 2
+    end
+
+    test "a bye for an odd field counts; a requested or absent bye does not" do
+      tournament =
+        Repo.insert!(%Tournament{name: "Byes", type: "swiss", rounds_count: 4, tiebreaks: []})
+
+      player = Repo.insert!(%Player{tournament_id: tournament.id, name: "P", pairing_number: 1})
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      # The pairing-allocated shape that is a real Pairing row: the player
+      # came, the field was odd.
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: player.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      for {round, type} <- [{2, "requested-half"}, {3, "requested-zero"}, {4, "absent"}] do
+        Repo.insert!(%Round{tournament_id: tournament.id, number: round, status: "finished"})
+
+        Repo.insert_all("byes", [
+          %{tournament_id: tournament.id, player_id: player.id, round: round, type: type}
+        ])
+      end
+
+      [entry] = Standings.standings(tournament)
+      assert entry.rounds_played == 1
+    end
+
+    test "a win by forfeit counts for the player who came, the loss does not" do
+      tournament =
+        Repo.insert!(%Tournament{name: "Forfeit", type: "swiss", rounds_count: 1, tiebreaks: []})
+
+      [present, missing] =
+        for {name, no} <- [{"Present", 1}, {"Missing", 2}] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, pairing_number: no})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: present.id,
+        black_player_id: missing.id,
+        result: "1-0FF"
+      })
+
+      entries = Standings.standings(tournament)
+      assert row_for(entries, present).rounds_played == 1
+      assert row_for(entries, missing).rounds_played == 0
+    end
+
+    test "counts the player's own rounds, so a late entrant has fewer" do
+      {tournament, _} = fixture()
+
+      late =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Late",
+          pairing_number: 5,
+          start_round: 2
+        })
+
+      r2 = Tournaments.get_round(tournament.id, 2)
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 3,
+        white_player_id: late.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      assert row_for(Standings.standings(tournament), late).rounds_played == 1
+    end
+  end
+
+  # `entry_for/2` above is a different question (it computes standings for a
+  # tournament); this just picks a player's row out of a list already in hand.
+  defp row_for(entries, player), do: Enum.find(entries, &(&1.player.id == player.id))
 end

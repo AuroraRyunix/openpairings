@@ -909,6 +909,18 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th class="num">Pts</th>
 
               <th
+                :if={@tournament.show_rounds_played}
+                class="num"
+                title={
+                  gettext(
+                    "Rounds this player was there for - byes for an odd field count, arranged absences do not"
+                  )
+                }
+              >
+                {gettext("Rds")}
+              </th>
+
+              <th
                 :if={@tournament.count_extra_points and show_col?(@visible, "xtpts")}
                 class="num"
                 title={gettext("Administrative bonus points (SWAR XtPts)")}
@@ -980,6 +992,8 @@ defmodule PairingsEngineWeb.StandingsLive do
               </td>
 
               <td class="num"><strong>{entry.points}</strong></td>
+
+              <td :if={@tournament.show_rounds_played} class="num">{entry.rounds_played}</td>
 
               <td :if={@tournament.count_extra_points and show_col?(@visible, "xtpts")} class="num">
                 {entry.extra_points}
@@ -1061,6 +1075,18 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <th class="num">Elo</th>
 
+              <th
+                :if={@tournament.show_rounds_played}
+                class="num"
+                title={
+                  gettext(
+                    "Rounds this player was there for - byes for an odd field count, arranged absences do not"
+                  )
+                }
+              >
+                {gettext("Rds")}
+              </th>
+
               <th class="num">{gettext("Value")}</th>
 
               <th class="num">{gettext("Keizer pts")}</th>
@@ -1093,6 +1119,8 @@ defmodule PairingsEngineWeb.StandingsLive do
               <td class="num">
                 {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
               </td>
+
+              <td :if={@tournament.show_rounds_played} class="num">{entry.rounds_played}</td>
 
               <td class="num">{entry.value}</td>
 

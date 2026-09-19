@@ -94,7 +94,7 @@ defmodule PairingsEngine.TournamentExport do
     team_pairing_mode initial_colour initial_colour_drawn
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
-    count_extra_points extra_points_bands
+    count_extra_points extra_points_bands show_rounds_played
     publish_mode publish_delay_minutes standings_through
     manual_ranking manual_ranking_stale
     fide_compliance_lost_round

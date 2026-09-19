@@ -246,6 +246,11 @@ defmodule PairingsEngine.Keizer do
         value: Map.fetch!(values, player.id),
         points: round_f(entry.points, 1),
         played: stats.played,
+        # Rounds the player was there for, byes included - the same count
+        # `PairingsEngine.Standings.rounds_played/1` makes for a Swiss, from
+        # the ladder's own per-round classes. See that function for why a
+        # bye counts and a forfeit loss does not.
+        rounds_played: stats.rounds_played,
         wins: stats.wins,
         draws: stats.draws,
         losses: stats.losses,
@@ -255,117 +260,137 @@ defmodule PairingsEngine.Keizer do
   end
 
   defp round_stats(entries, t) do
-    Enum.reduce(entries, %{played: 0, wins: 0, draws: 0, losses: 0, raw_points: 0.0}, fn e, acc ->
-      case e.class do
-        :win ->
-          %{
-            acc
-            | played: acc.played + 1,
-              wins: acc.wins + 1,
-              raw_points: acc.raw_points + t.points_win
-          }
-
-        :draw ->
-          %{
-            acc
-            | played: acc.played + 1,
-              draws: acc.draws + 1,
-              raw_points: acc.raw_points + t.points_draw
-          }
-
-        :loss ->
-          %{
-            acc
-            | played: acc.played + 1,
-              losses: acc.losses + 1,
-              raw_points: acc.raw_points + t.points_loss
-          }
-
-        :zero ->
-          %{
-            acc
-            | played: acc.played + 1,
-              losses: acc.losses + 1,
-              raw_points: acc.raw_points + t.points_loss
-          }
-
-        :forfeit_win ->
-          %{acc | wins: acc.wins + 1, raw_points: acc.raw_points + t.points_win}
-
-        :forfeit_loss ->
-          %{acc | losses: acc.losses + 1, raw_points: acc.raw_points + t.points_loss}
-
-        :unpaired_bye ->
-          %{acc | raw_points: acc.raw_points + t.bye_value}
-
-        # The VCL.13 asymmetric results. `classify_result/2` has emitted
-        # these since they were added; this case did not learn them, and
-        # with no catch-all below it raised CaseClauseError - so entering a
-        # "1/2-0" took the whole standings page down.
-        #
-        # The values match `PairingsEngine.Standings`, which maps "1/2-0" to
-        # `{points_draw, points_loss, played}` (standings.ex:435): the side
-        # on the half scores a draw's points and is tallied as a draw, the
-        # side on zero scores a loss's and is tallied as a loss, and both
-        # played. `class_points/4` already pays them that way for the ladder
-        # value; this is the same reading for the stat line.
-        :half_win ->
-          %{
-            acc
-            | played: acc.played + 1,
-              draws: acc.draws + 1,
-              raw_points: acc.raw_points + t.points_draw
-          }
-
-        :half_loss ->
-          %{
-            acc
-            | played: acc.played + 1,
-              losses: acc.losses + 1,
-              raw_points: acc.raw_points + t.points_loss
-          }
-
-        :excused ->
-          acc
-
-        :not_joined ->
-          acc
-
-        # An empty seat is not a played game, not a loss and not a bye - see
-        # `score_game/3`. It increments nothing, exactly as
-        # `Standings.pairing_records/4` produces no record at all for the
-        # same board. Deliberately NOT folded into `:zero`: that bucket
-        # counts a played loss, which is the one thing a board nobody sat at
-        # is not.
-        :vacated_seat ->
-          acc
-
-        # A paired board with no result yet - not a played game, so not a
-        # loss either. Mirrors `Standings.pairing_records/4`, which returns
-        # `[]` for the same `result: ""` state rather than treating it as a
-        # played "0-0". Until this class existed, `classify_result/2` had
-        # no clause for a blank result, so it fell through to `:zero` -
-        # which meant every round between being paired and its first result
-        # counted as a played loss for every player still to report,
-        # inflating `raw_points` by one `points_loss` apiece. `points_loss`
-        # defaults to 0.0, which is the only reason nothing looked wrong.
-        :not_played ->
-          acc
-
-        # Deliberately a raise rather than a silent `acc`. This case and
-        # `class_points/4` are two consumers of one vocabulary that
-        # `classify_result/2` owns, and they have already drifted once. A
-        # catch-all that quietly ignored an unknown class would turn the next
-        # drift into wrong standings instead of a loud one, which is worse.
-        # `keizer_test.exs` asserts every class the classifier can emit
-        # reaches both consumers, so this should be unreachable.
-        other ->
-          raise "PairingsEngine.Keizer.round_stats/2 has no clause for #{inspect(other)} - " <>
-                  "classify_result/2 emits it and this function was not updated. " <>
-                  "See class_points/4, which is the other consumer of the same vocabulary."
+    entries
+    |> Enum.reduce(
+      %{played: 0, wins: 0, draws: 0, losses: 0, raw_points: 0.0, rounds_played: 0},
+      fn e, acc ->
+        acc = if present?(e), do: %{acc | rounds_played: acc.rounds_played + 1}, else: acc
+        round_stat(e, t, acc)
       end
-    end)
+    )
     |> Map.update!(:raw_points, &round_f(&1, 1))
+  end
+
+  # Was the player in the hall for this round? The ladder's own classes,
+  # read the way `PairingsEngine.Standings.rounds_played/1` reads a Swiss
+  # player's card - see that function for the rule and why a requested bye
+  # is not attendance. `:unpaired_bye` covers both bye kinds, so this asks
+  # the bye's type where there is one.
+  defp present?(%{class: :unpaired_bye} = e),
+    do: Map.get(e, :bye_type, "pairing-allocated") == "pairing-allocated"
+
+  defp present?(%{class: class}),
+    do: class in [:win, :draw, :loss, :zero, :half_win, :half_loss, :forfeit_win]
+
+  defp round_stat(e, t, acc) do
+    case e.class do
+      :win ->
+        %{
+          acc
+          | played: acc.played + 1,
+            wins: acc.wins + 1,
+            raw_points: acc.raw_points + t.points_win
+        }
+
+      :draw ->
+        %{
+          acc
+          | played: acc.played + 1,
+            draws: acc.draws + 1,
+            raw_points: acc.raw_points + t.points_draw
+        }
+
+      :loss ->
+        %{
+          acc
+          | played: acc.played + 1,
+            losses: acc.losses + 1,
+            raw_points: acc.raw_points + t.points_loss
+        }
+
+      :zero ->
+        %{
+          acc
+          | played: acc.played + 1,
+            losses: acc.losses + 1,
+            raw_points: acc.raw_points + t.points_loss
+        }
+
+      :forfeit_win ->
+        %{acc | wins: acc.wins + 1, raw_points: acc.raw_points + t.points_win}
+
+      :forfeit_loss ->
+        %{acc | losses: acc.losses + 1, raw_points: acc.raw_points + t.points_loss}
+
+      :unpaired_bye ->
+        %{acc | raw_points: acc.raw_points + t.bye_value}
+
+      # The VCL.13 asymmetric results. `classify_result/2` has emitted
+      # these since they were added; this case did not learn them, and
+      # with no catch-all below it raised CaseClauseError - so entering a
+      # "1/2-0" took the whole standings page down.
+      #
+      # The values match `PairingsEngine.Standings`, which maps "1/2-0" to
+      # `{points_draw, points_loss, played}` (standings.ex:435): the side
+      # on the half scores a draw's points and is tallied as a draw, the
+      # side on zero scores a loss's and is tallied as a loss, and both
+      # played. `class_points/4` already pays them that way for the ladder
+      # value; this is the same reading for the stat line.
+      :half_win ->
+        %{
+          acc
+          | played: acc.played + 1,
+            draws: acc.draws + 1,
+            raw_points: acc.raw_points + t.points_draw
+        }
+
+      :half_loss ->
+        %{
+          acc
+          | played: acc.played + 1,
+            losses: acc.losses + 1,
+            raw_points: acc.raw_points + t.points_loss
+        }
+
+      :excused ->
+        acc
+
+      :not_joined ->
+        acc
+
+      # An empty seat is not a played game, not a loss and not a bye - see
+      # `score_game/3`. It increments nothing, exactly as
+      # `Standings.pairing_records/4` produces no record at all for the
+      # same board. Deliberately NOT folded into `:zero`: that bucket
+      # counts a played loss, which is the one thing a board nobody sat at
+      # is not.
+      :vacated_seat ->
+        acc
+
+      # A paired board with no result yet - not a played game, so not a
+      # loss either. Mirrors `Standings.pairing_records/4`, which returns
+      # `[]` for the same `result: ""` state rather than treating it as a
+      # played "0-0". Until this class existed, `classify_result/2` had
+      # no clause for a blank result, so it fell through to `:zero` -
+      # which meant every round between being paired and its first result
+      # counted as a played loss for every player still to report,
+      # inflating `raw_points` by one `points_loss` apiece. `points_loss`
+      # defaults to 0.0, which is the only reason nothing looked wrong.
+      :not_played ->
+        acc
+
+      # Deliberately a raise rather than a silent `acc`. This case and
+      # `class_points/4` are two consumers of one vocabulary that
+      # `classify_result/2` owns, and they have already drifted once. A
+      # catch-all that quietly ignored an unknown class would turn the next
+      # drift into wrong standings instead of a loud one, which is worse.
+      # `keizer_test.exs` asserts every class the classifier can emit
+      # reaches both consumers, so this should be unreachable.
+      other ->
+        raise "PairingsEngine.Keizer.round_stats/2 has no clause for #{inspect(other)} - " <>
+                "classify_result/2 emits it and this function was not updated. " <>
+                "See class_points/4, which is the other consumer of the same vocabulary."
+    end
   end
 
   ## ---------- DB edge: data extraction ----------
@@ -619,7 +644,13 @@ defmodule PairingsEngine.Keizer do
           round: round_number,
           class: class,
           points: own(values, player) * fraction,
-          opponent_id: nil
+          opponent_id: nil,
+          # The bye's own KIND, which `class` folds away: a pairing-allocated
+          # bye and a requested half-point bye are worth the same on the
+          # ladder and are the same `:unpaired_bye`, but only the first one
+          # means the player was in the hall. `round_stats/2`'s attendance
+          # count is the one reader that needs them apart.
+          bye_type: bye.type
         }
 
       excused_absence?(player, round_number) ->

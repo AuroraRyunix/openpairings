@@ -945,7 +945,7 @@ defmodule PairingsEngineWeb.PrintController do
     rows = Enum.map_join(entries, "", &keizer_standings_row(&1, tournament, has_categories))
 
     main_table =
-      "<table><thead><tr>#{standings_head_cells()}" <>
+      "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(tournament)}" <>
         "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">#{gettext("Keizer pts")}</th>" <>
         "<th class=\"num\">#{gettext("Score")}</th>" <>
         "#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
@@ -974,7 +974,7 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     main_table =
-      "<table><thead><tr>#{standings_head_cells()}" <>
+      "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(tournament)}" <>
         "<th class=\"num\">Pts</th>#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
     if has_categories do
@@ -1006,7 +1006,7 @@ defmodule PairingsEngineWeb.PrintController do
         |> Enum.map_join("", &standings_row(&1, tournament, "", &1.category_place))
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
-        "<table><thead><tr>#{standings_head_cells()}" <>
+        "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(tournament)}" <>
         "<th class=\"num\">Pts</th>#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
     end)
   end
@@ -1016,10 +1016,10 @@ defmodule PairingsEngineWeb.PrintController do
       rows =
         entries
         |> Categories.category_places(category)
-        |> Enum.map_join("", &keizer_standings_row(&1, nil, false, &1.category_place))
+        |> Enum.map_join("", &keizer_standings_row(&1, tournament, false, &1.category_place))
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
-        "<table><thead><tr>#{standings_head_cells()}" <>
+        "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(tournament)}" <>
         "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">#{gettext("Keizer pts")}</th>" <>
         "<th class=\"num\">#{gettext("Score")}</th>" <>
         "</tr></thead><tbody>#{rows}</tbody></table>"
@@ -1038,12 +1038,14 @@ defmodule PairingsEngineWeb.PrintController do
     "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
+      rounds_played_cell(tournament, e) <>
       "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}#{cat_cell}</tr>"
   end
 
-  # `tournament` is nil for the per-category tables below, which never show
-  # the column - they are already titled with the category, so repeating it
-  # in every row would be noise. `rank_override` is the in-category place
+  # `has_categories` is false for the per-category tables below, which never
+  # show the category column - they are already titled with the category, so
+  # repeating it in every row would be noise. They still get the tournament,
+  # because the optional "Rds" column is not a category question. `rank_override` is the in-category place
   # for those same tables, same reasoning as `standings_row/4`'s own.
   defp keizer_standings_row(e, tournament, has_categories, rank_override \\ nil) do
     cat_cell =
@@ -1054,6 +1056,7 @@ defmodule PairingsEngineWeb.PrintController do
     "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
+      rounds_played_cell(tournament, e) <>
       "<td class=\"num\">#{e.value}</td><td class=\"num\"><strong>#{e.points}</strong></td>" <>
       "<td class=\"num\">#{e.raw_points}</td>#{cat_cell}</tr>"
   end
@@ -1064,6 +1067,20 @@ defmodule PairingsEngineWeb.PrintController do
     "<th class=\"num\">#{gettext("Rank")}</th><th>#{gettext("Name")}</th>" <>
       "<th>#{gettext("Sex")}</th><th class=\"num\">Elo</th>"
   end
+
+  # The optional attendance column (`Tournament.show_rounds_played`). It sits
+  # right after Elo on every standings table this module prints - main,
+  # per-category, Keizer or not - because the arbiter reading it is checking
+  # a prize list, not a score.
+  defp rounds_played_header(%{show_rounds_played: true}),
+    do: "<th class=\"num\">#{gettext("Rds")}</th>"
+
+  defp rounds_played_header(_tournament), do: ""
+
+  defp rounds_played_cell(%{show_rounds_played: true}, entry),
+    do: "<td class=\"num\">#{Map.get(entry, :rounds_played, 0)}</td>"
+
+  defp rounds_played_cell(_tournament, _entry), do: ""
 
   defp category_or_dash(nil), do: "-"
   defp category_or_dash(""), do: "-"

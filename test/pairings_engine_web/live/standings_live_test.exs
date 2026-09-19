@@ -707,4 +707,29 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       refute has_element?(lv, "[phx-click='unpublish_standings']")
     end
   end
+
+  # The attendance column a club asked for on 2026-09-19 - see
+  # `PairingsEngine.Standings.rounds_played/1`.
+  describe "the optional Rds column" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Attendance", "type" => "swiss"})
+
+      {:ok, _alice} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      %{tournament: tournament}
+    end
+
+    test "is not there until the arbiter turns it on", %{conn: conn, tournament: tournament} do
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      refute html =~ "Rounds this player was there for"
+    end
+
+    test "shows with the count once it is on", %{conn: conn, tournament: tournament} do
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+    end
+  end
 end

@@ -813,6 +813,20 @@ defmodule PairingsEngine.Snapshot do
 
   ## ---------- standings ----------
 
+  # The attendance count, and ONLY when the arbiter has turned the column on
+  # (`Tournament.show_rounds_played`): an additive field, absent for every
+  # other tournament, which is how the contract says an optional column
+  # travels. A results site that has not learned it yet simply does not show
+  # it - see docs/snapshot-schema.md.
+  #
+  # Published for the same reason the column exists: the prize list the club
+  # reads off the standings is usually the one on the public page, not the
+  # arbiter's screen.
+  defp maybe_put_rounds_played(row, %Tournament{show_rounds_played: true}, entry),
+    do: Map.put(row, "rounds_played", Map.get(entry, :rounds_played, 0))
+
+  defp maybe_put_rounds_played(row, %Tournament{}, _entry), do: row
+
   # Computed here, ordered here, tiebroken here. OpenResults never calculates a
   # placing - the arbiter's screen and the public page have to agree, and the
   # printed crosstable is the document of record.
@@ -833,6 +847,7 @@ defmodule PairingsEngine.Snapshot do
           "score" => e.raw_points,
           "category" => blank_to_nil(Categories.pairing_category(t, e.player))
         }
+        |> maybe_put_rounds_played(t, e)
       end)
 
     %{
@@ -908,6 +923,7 @@ defmodule PairingsEngine.Snapshot do
           "working" => working_json(Map.get(working, e.player.id, %{}), nos),
           "category" => blank_to_nil(Categories.pairing_category(t, e.player))
         }
+        |> maybe_put_rounds_played(t, e)
       end)
 
     %{

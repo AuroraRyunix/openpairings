@@ -16,6 +16,19 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-09-19
+
+- [Feature] **A "Rds" column: how many rounds each player was there for.**
+  Asked for by a club whose championship gives a prize to everyone who turns
+  up for every round - they were counting it off the crosstable by hand. Turn
+  it on under Settings - Scoring, and it appears on the standings page, the
+  printed standings (main and per-category tables, Swiss, round robin and
+  Keizer) and the public results page. It counts games played, whatever the
+  result, plus a bye given because the field was odd and a win by forfeit; it
+  does not count a half-point or zero bye the player arranged in advance, an
+  absence, or a loss by forfeit. Off by default, and it changes no scoring,
+  no ranking and no tiebreak.
+
 ## [0.62.11] - 2026-09-18
 
 - [Fix] **An upgrade now refreshes what is already published.** What a

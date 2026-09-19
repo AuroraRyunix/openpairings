@@ -137,7 +137,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     params =
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur team_match_points_win team_match_points_draw team_match_points_loss))
+        absent_counts_as_vur show_rounds_played team_match_points_win team_match_points_draw
+        team_match_points_loss))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_nbfois", socket.assigns.abs_scoring_locked?)
@@ -395,6 +396,28 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 <span class="hint">
                   {gettext(
                     "On (the default) = a trailing one is downgraded to a draw for opponents' Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off = it always counts at its award value above, same as a forfeit loss."
+                  )}
+                </span>
+              </span>
+            </label>
+
+            <%!-- A display option, not a scoring rule, but it lives here
+                  because what it counts is decided by the byes and absences
+                  this page governs. Nothing recomputes when it is saved:
+                  the number was always there, it is now printed. --%>
+            <label class="set-toggle">
+              <input type="hidden" name="tournament[show_rounds_played]" value="false" />
+              <input
+                type="checkbox"
+                name="tournament[show_rounds_played]"
+                value="true"
+                checked={@tournament.show_rounds_played}
+              />
+              <span class="set-toggle-text">
+                {gettext("Show a \"Rds\" column on the standings: rounds each player was there for")}
+                <span class="hint">
+                  {gettext(
+                    "For a prize for attending every round. Counts games played (any result) plus a bye given because the field was odd, and a win by forfeit. It does not count a half-point or zero bye the player asked for in advance, an absence, or a loss by forfeit. Shows on the standings page, the printed standings and the public results page."
                   )}
                 </span>
               </span>

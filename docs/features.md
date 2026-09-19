@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.62.11**. One page: everything the app does today, and where
+Current version: **0.63.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -84,6 +84,12 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   scoring configurations exactly).
 - **Extra points** - Elo-band bonus points with an opt-in toggle for counting
   them in the ranking.
+- **Rounds-present column ("Rds")** - an optional standings column counting the
+  rounds each player turned up for: games played (any result), a bye given
+  because the field was odd, and a win by forfeit. Arranged byes, absences and
+  forfeit losses do not count. For club championships that award a prize for
+  attending every round. Off by default; shows on the standings page, the
+  printed standings and the public results page.
 - **Manual standings order** - an explicit arbiter override with a visible
   banner everywhere and a staleness flag raised the moment any result changes.
   Display-only; never touches points, tiebreaks, or the TRF.

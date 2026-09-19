@@ -181,6 +181,45 @@ defmodule PairingsEngine.Standings do
   def rank_score(e, tournament),
     do: if(tournament.count_extra_points, do: e.total, else: e.points)
 
+  @doc """
+  How many rounds a player was there for - the count behind the optional
+  "Rds" column (`Tournament.show_rounds_played`).
+
+  Not "games played". The club championship this was built for gives a prize
+  to whoever turns up for every round, and the round you came to and were
+  given a bye for - because the field was odd and there was nobody to pair
+  you with - is a round you turned up for. So it counts:
+
+    * every game contested over the board, whatever its result, `0-0`
+      included;
+    * a pairing-allocated bye, which is the tournament's doing, not the
+      player's;
+    * a forfeit WIN - that player came and their opponent did not.
+
+  And it does not count the rounds that say the player was not in the hall:
+  a requested half-point or zero bye (arranged in advance precisely BECAUSE
+  they would not be there), an `absent` bye, or a forfeit loss - the game
+  was on the board and nobody sat at it. A double forfeit counts for
+  neither side.
+
+  This is a count of the player's own rounds, never of the tournament's:
+  somebody who joined at round 3 has fewer, which is the point of printing
+  it beside a prize for attending all of them.
+  """
+  @spec rounds_played([map()]) :: non_neg_integer()
+  def rounds_played(games) do
+    Enum.count(games, fn g ->
+      cond do
+        g.bye_type == "pairing-allocated" -> true
+        g.bye_type != nil -> false
+        g.played -> true
+        # Not played and not a bye: a forfeit. Only the side awarded the
+        # win was there.
+        true -> g.outcome == :win
+      end
+    end)
+  end
+
   defp build_standings(tournament, tiebreak_codes, opts) do
     players = Tournaments.list_players(tournament.id)
     through_round = Keyword.get(opts, :through_round)
@@ -206,7 +245,8 @@ defmodule PairingsEngine.Standings do
           # Carried on the entry rather than threaded through `tiebreak/4`,
           # which has some twenty clauses. Both readers already hold an
           # entry: Article 16.3 reads the OPPONENT's, Article 9.2 its own.
-          completed_rounds: completed_rounds
+          completed_rounds: completed_rounds,
+          rounds_played: rounds_played(games)
         }
       end)
       # Article 16.3's adjusted score, computed ONCE per player and carried

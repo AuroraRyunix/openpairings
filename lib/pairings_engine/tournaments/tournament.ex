@@ -697,6 +697,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `PairingsEngine.Tournaments.apply_extra_points_bands/1`, triggered
     # explicitly from Settings, writes it into players' `extra_points`.
     field :count_extra_points, :boolean, default: false
+
+    # A "Rds" column on the standings, counting the rounds each player was
+    # present for, byes included (`PairingsEngine.Standings.rounds_played/1`
+    # defines exactly what counts). Asked for by a club whose championship
+    # gives a prize to everyone who turns up for every round: they were
+    # counting it off the crosstable by hand. Off by default - it is a club
+    # prize rule, not a FIDE column, and it means nothing to most events.
+    field :show_rounds_played, :boolean, default: false
     field :extra_points_bands, :string, default: ""
 
     # Whether categories are actually in use. The Categories tab itself is
@@ -924,6 +932,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :soft_club_rounds,
       :soft_position,
       :count_extra_points,
+      :show_rounds_played,
       :extra_points_bands,
       :categories_enabled,
       :manual_ranking,

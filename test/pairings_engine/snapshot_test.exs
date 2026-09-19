@@ -299,6 +299,23 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "the optional rounds_played field on standings rows" do
+    test "absent unless the arbiter turned the column on, then present per row" do
+      tournament = unnumbered_tournament(%{standings_through: 0})
+
+      [row | _] = Snapshot.build(tournament)["standings"]["rows"]
+      refute Map.has_key?(row, "rounds_played")
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
+
+      rows = Snapshot.build(tournament)["standings"]["rows"]
+      # Nothing has been played yet, so everybody is on nought - the point
+      # being that the field travels at all, for every row.
+      assert Enum.all?(rows, &(Map.get(&1, "rounds_played") == 0))
+    end
+  end
+
   describe "effective standings through the snapshot (2026-09-11 publish model)" do
     defp floor_fixture(publish_mode \\ "manual") do
       tournament =
