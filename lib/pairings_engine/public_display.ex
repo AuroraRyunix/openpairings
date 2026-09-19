@@ -171,6 +171,15 @@ defmodule PairingsEngine.PublicDisplay do
             "the numbers and publishing where they came from are separate decisions."
       },
       %{
+        key: "rounds_played",
+        group: :columns,
+        label: "Rounds-present column",
+        hint:
+          "How many rounds each player was there for, where the standings show it at all - " <>
+            "the \"Rounds present\" switch on the Standings page. Off keeps it on your own " <>
+            "screen and the printed sheet without publishing it."
+      },
+      %{
         key: "pairing_scores",
         group: :columns,
         label: "Scores on the pairings",

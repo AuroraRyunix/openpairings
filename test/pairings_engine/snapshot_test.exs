@@ -314,6 +314,27 @@ defmodule PairingsEngine.SnapshotTest do
       # being that the field travels at all, for every row.
       assert Enum.all?(rows, &(Map.get(&1, "rounds_played") == 0))
     end
+
+    # Two decisions, two gates: showing the column at all, and publishing it.
+    test "withheld when the arbiter publishes everything else but not this column" do
+      tournament = unnumbered_tournament(%{standings_through: 0})
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
+
+      # `cast/1` reads ticked boxes, so "everything else on, this one off" is
+      # every key but this one.
+      ticks =
+        PairingsEngine.PublicDisplay.keys()
+        |> Map.new(&{&1, "true"})
+        |> Map.delete("rounds_played")
+
+      {:ok, tournament} = Tournaments.set_public_display(tournament, ticks)
+
+      rows = Snapshot.build(tournament)["standings"]["rows"]
+      assert rows != []
+      refute Enum.any?(rows, &Map.has_key?(&1, "rounds_played"))
+    end
   end
 
   describe "effective standings through the snapshot (2026-09-11 publish model)" do

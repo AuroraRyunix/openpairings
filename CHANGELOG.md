@@ -16,14 +16,27 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.1] - 2026-09-19
+
+- [Change] **The "Rounds present" switch moved to the Standings page**, beside
+  Print, where the table it changes actually is - it was under Settings -
+  Scoring, a page about what a round is worth. It reads On/Off rather than
+  Public/Not public, because it also changes your own screen and the printed
+  sheet.
+- [Feature] **Publishing that column is now its own tick**, with the other
+  public ticks under Settings - Results site. Off keeps the column on your
+  screen and your printout without sending it to the results site.
+
 ## [0.63.0] - 2026-09-19
 
 - [Feature] **A "Rds" column: how many rounds each player was there for.**
   Asked for by a club whose championship gives a prize to everyone who turns
-  up for every round - they were counting it off the crosstable by hand. Turn
-  it on under Settings - Scoring, and it appears on the standings page, the
-  printed standings (main and per-category tables, Swiss, round robin and
-  Keizer) and the public results page. It counts games played, whatever the
+  up for every round - they were counting it off the crosstable by hand. The
+  switch sits on the Standings page itself, beside Print ("Rounds present",
+  On/Off); it then shows there and on the printed standings (main and
+  per-category tables, Swiss, round robin and Keizer). Whether the results
+  site carries it too is its own tick, with the other public ticks under
+  Settings - Results site, and readers there can sort by it. It counts games played, whatever the
   result, plus a bye given because the field was odd and a win by forfeit; it
   does not count a half-point or zero bye the player arranged in advance, an
   absence, or a loss by forfeit. Off by default, and it changes no scoring,

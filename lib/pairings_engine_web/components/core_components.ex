@@ -166,6 +166,13 @@ defmodule PairingsEngineWeb.CoreComponents do
   attr :id, :string, required: true
   attr :label, :string, required: true
   attr :state, :atom, values: [:public, :not_public], required: true
+
+  # The two words under the label. They default to the publishing pair this
+  # switch was built for; a switch that turns a COLUMN on says "On"/"Off",
+  # because "Not public" on a control that also changes the arbiter's own
+  # screen and the printed sheet would be a lie about its reach.
+  attr :on_text, :string, default: nil
+  attr :off_text, :string, default: nil
   attr :locked, :boolean, default: false
   attr :disabled, :boolean, default: false
   attr :reason, :string, default: nil, doc: "tooltip shown while locked or disabled"
@@ -189,7 +196,9 @@ defmodule PairingsEngineWeb.CoreComponents do
       <span class="pe-toggle-text">
         <span class="pe-toggle-label">{@label}</span>
         <span class="pe-toggle-state">
-          {if @state == :public, do: gettext("Public"), else: gettext("Not public")}
+          {if @state == :public,
+            do: @on_text || gettext("Public"),
+            else: @off_text || gettext("Not public")}
         </span>
         <%!-- Why it cannot be pressed. The `title` is a hover tooltip, and a
               disabled button can neither be focused nor hovered by a keyboard,

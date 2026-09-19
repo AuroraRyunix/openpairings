@@ -813,17 +813,21 @@ defmodule PairingsEngine.Snapshot do
 
   ## ---------- standings ----------
 
-  # The attendance count, and ONLY when the arbiter has turned the column on
-  # (`Tournament.show_rounds_played`): an additive field, absent for every
-  # other tournament, which is how the contract says an optional column
-  # travels. A results site that has not learned it yet simply does not show
-  # it - see docs/snapshot-schema.md.
-  #
-  # Published for the same reason the column exists: the prize list the club
-  # reads off the standings is usually the one on the public page, not the
-  # arbiter's screen.
-  defp maybe_put_rounds_played(row, %Tournament{show_rounds_played: true}, entry),
-    do: Map.put(row, "rounds_played", Map.get(entry, :rounds_played, 0))
+  # The attendance count. Two gates, because they are two decisions: the
+  # column has to be ON at all (`Tournament.show_rounds_played`, the switch on
+  # the Standings page), and the arbiter has to be publishing it (the
+  # `rounds_played` display tick, with the other public ticks). Either one off
+  # and the field is simply absent - an additive field, which is how the
+  # contract says an optional column travels, so a results site that has never
+  # heard of it and a tournament that withholds it look the same from there.
+  # See docs/snapshot-schema.md.
+  defp maybe_put_rounds_played(row, %Tournament{show_rounds_played: true} = t, entry) do
+    if PublicDisplay.show?(t.public_display, "rounds_played") do
+      Map.put(row, "rounds_played", Map.get(entry, :rounds_played, 0))
+    else
+      row
+    end
+  end
 
   defp maybe_put_rounds_played(row, %Tournament{}, _entry), do: row
 

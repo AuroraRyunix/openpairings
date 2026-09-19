@@ -53,34 +53,6 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
     end
   end
 
-  describe "the Rds (rounds present) column" do
-    test "is off for a new tournament and saves from the checkbox", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-      refute tournament.show_rounds_played
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
-
-      lv
-      |> form("form[phx-submit=save]", %{"tournament" => %{"show_rounds_played" => "true"}})
-      |> render_submit()
-
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).show_rounds_played
-    end
-
-    test "unticking it saves false, not 'unchanged'", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-      {:ok, _} = Tournaments.update_tournament(tournament, %{"show_rounds_played" => true})
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
-
-      lv
-      |> form("form[phx-submit=save]", %{"tournament" => %{"show_rounds_played" => "false"}})
-      |> render_submit()
-
-      refute Tournaments.get_authorized_tournament!(scope, tournament.id).show_rounds_played
-    end
-  end
-
   describe "abs_value/abs_jusque/abs_nbfois (SWAR's \"Pt ABSENT\") - settable, locked once round 1 has been paired" do
     test "settable on a brand-new (non-SWAR) tournament before any round is paired", %{
       conn: conn,

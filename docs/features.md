@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.63.0**. One page: everything the app does today, and where
+Current version: **0.63.1**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -88,8 +88,10 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   rounds each player turned up for: games played (any result), a bye given
   because the field was odd, and a win by forfeit. Arranged byes, absences and
   forfeit losses do not count. For club championships that award a prize for
-  attending every round. Off by default; shows on the standings page, the
-  printed standings and the public results page.
+  attending every round. Switched on the Standings page itself, beside Print;
+  it then shows there and on the printed standings. Publishing it is a
+  separate tick under Settings - Results site, and the results page lets
+  readers sort by it.
 - **Manual standings order** - an explicit arbiter override with a visible
   banner everywhere and a staleness flag raised the moment any result changes.
   Display-only; never touches points, tiebreaks, or the TRF.

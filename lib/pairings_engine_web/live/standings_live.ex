@@ -210,6 +210,28 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   def handle_event("unpublish_standings", _params, socket), do: {:noreply, socket}
 
+  # The "Rounds present" switch beside the Print button. A display setting,
+  # stored on the tournament rather than in this browser, because it also
+  # decides what the printed standings and (behind its own public tick) the
+  # results site carry - see `PairingsEngine.Standings.rounds_played/1`.
+  @impl true
+  def handle_event("toggle_rounds_played", _params, socket) do
+    tournament = socket.assigns.tournament
+
+    case Tournaments.update_tournament(tournament, %{
+           "show_rounds_played" => not tournament.show_rounds_played
+         }) do
+      {:ok, updated} ->
+        {:noreply, socket |> assign(tournament: updated) |> reload_standings()}
+
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+    end
+  end
+
   @impl true
   def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket)
       when direction in ["up", "down"] do
@@ -756,6 +778,24 @@ defmodule PairingsEngineWeb.StandingsLive do
             tournament={@tournament}
             round_number={@latest_complete_round}
             round={@latest_complete_round_struct}
+          />
+
+          <%!-- The attendance column, switched where it is READ rather than
+                two pages away under Settings: it is a property of this table,
+                and the arbiter deciding to show it is looking at the table.
+                Unlike its neighbour it is not about publishing - it changes
+                this screen and the printed sheet as well - so it says On/Off
+                and never "Public". Whether the published page also carries it
+                is a separate tick, with the other public ticks, under
+                Settings → Results site. --%>
+          <.publish_toggle
+            :if={not @team?}
+            id="rounds-played-toggle"
+            label={gettext("Rounds present")}
+            state={if @tournament.show_rounds_played, do: :public, else: :not_public}
+            on_text={gettext("On")}
+            off_text={gettext("Off")}
+            phx-click="toggle_rounds_played"
           />
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
