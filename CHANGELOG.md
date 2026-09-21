@@ -16,6 +16,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.5] - 2026-09-21
+
+- [Fix] **The edit dialog stopped growing nameless "(not in list)" category
+  boxes.** Ticking or unticking a category added one more empty checkbox each
+  time. The checkbox group posts a hidden empty value on every change - that
+  is what makes unticking the *last* category reach the server at all - and
+  the row that shows categories the tournament no longer lists was drawing a
+  ticked box for that blank, which then posted its own blank back. Blanks are
+  now dropped where the dialog reads the list, by the same rule the database
+  stores by, so the row shows only real names. Nothing was ever saved wrong:
+  the schema already discarded the blanks.
+
 ## [0.63.4] - 2026-09-21
 
 - [Fix] **The Cl./Pr./Paid/Cat. cell menus stopped flickering.** Clicking the

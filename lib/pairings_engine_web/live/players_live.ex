@@ -1043,6 +1043,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   # button look like it "sometimes doesn't work" and skipped the name-
   # correction confirmation it should have shown.
   def handle_event("edit_form_change", %{"player" => params}, socket) do
+    params =
+      if Map.has_key?(params, "categories"),
+        do: Map.put(params, "categories", form_categories(params)),
+        else: params
+
     {:noreply, assign(socket, edit_form: params, edit_fide_conflicts: nil)}
   end
 
@@ -1374,6 +1379,25 @@ defmodule PairingsEngineWeb.PlayersLive do
       nil -> current_id
       idx -> Enum.at(ids, rem(idx + delta + length(ids), length(ids)))
     end
+  end
+
+  # The categories the edit dialog should show as ticked, cleaned to the same
+  # rule the schema stores by (`Player.normalize_category_list/1`).
+  #
+  # It has to be cleaned, because the checkbox group's hidden sentinel posts
+  # an empty string on every change (that is what makes UNTICKING the last
+  # category reach the server at all). A blank left in this list renders a
+  # ticked "%{name} (not in list)" box with no name - and since that box
+  # posts its own empty value back, every tick added another one. Growing
+  # rows of nameless "(not in list)" boxes, reported 2026-09-21.
+  defp form_categories(form) do
+    form
+    |> Map.get("categories")
+    |> List.wrap()
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
   end
 
   defp player_to_form(p) do
@@ -2606,7 +2630,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   type="checkbox"
                   name="player[categories][]"
                   value={c}
-                  checked={c in (@form["categories"] || [])}
+                  checked={c in form_categories(@form)}
                 />
                 {c}
               </label>
@@ -2619,7 +2643,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                     same guarantee the old single-value select made with its
                     own "(not in list)" option. --%>
               <label
-                :for={c <- (@form["categories"] || []) -- @tournament.categories}
+                :for={c <- form_categories(@form) -- @tournament.categories}
                 class="check"
               >
                 <input type="checkbox" name="player[categories][]" value={c} checked />
@@ -2647,7 +2671,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               </option>
 
               <option
-                :for={c <- @form["categories"] || []}
+                :for={c <- form_categories(@form)}
                 value={c}
                 selected={@form["category"] == c}
               >

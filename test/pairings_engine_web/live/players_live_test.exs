@@ -428,6 +428,39 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       # `Categories.listed_categories/2` - one place, not every writer.
       assert Tournaments.get_player!(tournament.id, none.id).categories == ["-1800", "Women"]
     end
+
+    # Reported 2026-09-21: ticking and unticking a box in the edit dialog
+    # grew a row of nameless "(not in list)" checkboxes, one more each time.
+    # The checkbox group's hidden sentinel posts an empty string on every
+    # change; the "not in list" row rendered a ticked box for it, and that
+    # box posted its own empty value back on the next change, so each tick
+    # added one.
+    test "a change never grows a nameless \"(not in list)\" box", %{
+      conn: conn,
+      tournament: tournament,
+      none: none
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(none.id)})
+
+      form = form(lv, "#player-edit-form")
+
+      # What the browser actually posts when one box is ticked: the hidden
+      # sentinel first, then the ticked name.
+      html = render_change(form, player: %{"categories" => ["", "Women"]})
+      refute html =~ "(not in list)"
+
+      # And again, now with the empty value the old code would have echoed
+      # back into the form on top of the sentinel.
+      html = render_change(form, player: %{"categories" => ["", "", "Women"]})
+      refute html =~ "(not in list)"
+
+      # A real category the tournament no longer lists is still shown - that
+      # row exists so saving cannot silently drop it.
+      html = render_change(form, player: %{"categories" => ["", "Imported"]})
+      assert html =~ "Imported (not in list)"
+    end
   end
 
   describe "players card modal (right-click)" do
