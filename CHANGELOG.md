@@ -16,6 +16,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.4] - 2026-09-21
+
+- [Fix] **The Cl./Pr./Paid/Cat. cell menus stopped flickering.** Clicking the
+  cell a menu came from closed it on the way down and re-opened it on the way
+  up, so the little box blinked instead of going away; a double-click (the
+  gesture for the edit dialog) left it floating over the dialog; and on a
+  tournament with no categories defined yet, the Cat. cell opened an empty box.
+  A second click now puts the menu away, a double-click opens the editor with
+  nothing left behind, and a menu with nothing to offer does not open at all.
+- [Change] **The Cat. menu stays open while you pick.** A player is usually in
+  more than one category, and the menu closed after every single toggle, so
+  three categories meant opening it three times. It now stays up and re-labels
+  itself ("Add Junior" becomes "Remove Junior") as the row is patched. The
+  single-valued menus - Pr. and Paid - still close on the one pick that
+  finishes them.
+
 ## [0.63.3] - 2026-09-19
 
 - [Change] **Publishing the "Rds" column is opt-in.** 0.63.2 sent it for every

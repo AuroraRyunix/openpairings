@@ -101,6 +101,9 @@ const CELL_MENUS = {
     event: "toggle_category",
     bulkEvent: "set_all_category",
     dynamic: true,
+    // Several names per player, so the menu survives a pick - see the item
+    // click handler in openCellMenu.
+    multi: true,
     items: (categories, tags) =>
       categories.map((c) =>
         tags.includes(c)
@@ -119,6 +122,12 @@ const CELL_MENUS = {
     ],
   },
 }
+
+// A dynamic menu entry that only changes what the page SHOWS - a sort or a
+// filter - rather than writing to the player. Those close the menu like any
+// other one-shot pick; only the writes on a multi-valued column keep it open.
+const isViewChange = (value) =>
+  typeof value === "object" && value !== null && ("sort" in value || "filter" in value)
 
 function readJsonAttr(el, name) {
   if (!el) return []
@@ -200,6 +209,9 @@ const PlayerGrid = {
     this.el.addEventListener("dblclick", (e) => {
       const tr = e.target.closest("tr[data-player-id]")
       if (!tr) return
+      // On a cell that has one, the first of the two clicks opened its
+      // menu; leaving it up would float it over the edit dialog.
+      this.closeCellMenu()
       this.pushEvent("edit_player", {id: tr.dataset.playerId})
     })
     // The keyboard's double-click: Enter or Space on a player's name, which
@@ -259,15 +271,42 @@ const PlayerGrid = {
     // at all on touch), so a plain click gets it too. Left-click elsewhere
     // on the row is unclaimed today, so this can't collide with anything.
     this.el.addEventListener("click", (e) => {
+      const skip = this.skipOpenFor
+      this.skipOpenFor = null
+
       const cell = e.target.closest(cellMenuSelector("td"))
       if (!cell) return
       const tr = e.target.closest("tr[data-player-id]")
       if (!tr) return
+
+      // The second click of a double-click, which is the gesture for
+      // opening the edit dialog - not a request for this menu.
+      if (e.detail > 1) return
+
+      // This click already closed the menu on its way down (see
+      // onCellMenuDocMousedown). Clicking the cell a menu came from means
+      // "put it away", so re-opening here would make it blink instead.
+      if (skip && skip.col === cell.dataset.col && skip.playerId === tr.dataset.playerId) return
+
       this.openCellMenu(e.clientX, e.clientY, cell.dataset.col, tr.dataset.playerId)
     })
 
     this.onCellMenuDocMousedown = (e) => {
-      if (this.cellPopup && !this.cellPopup.contains(e.target)) this.closeCellMenu()
+      if (!this.cellPopup || this.cellPopup.contains(e.target)) return
+
+      // Remember whether this press landed on the very cell the menu came
+      // from, so the `click` that follows can tell "close it" apart from
+      // "open a different one".
+      const el = e.target instanceof Element ? e.target : null
+      const cell = el?.closest(cellMenuSelector("td"))
+      const tr = el?.closest("tr[data-player-id]")
+      this.skipOpenFor =
+        cell && tr && this.cellMenuAt && this.cellMenuAt.playerId === tr.dataset.playerId &&
+          this.cellMenuAt.col === cell.dataset.col
+          ? {col: cell.dataset.col, playerId: tr.dataset.playerId}
+          : null
+
+      this.closeCellMenu()
     }
     this.onCellMenuDocKeydown = (e) => {
       if (!this.cellPopup) return
@@ -371,6 +410,13 @@ const PlayerGrid = {
   },
 
   updated() {
+    // A menu left open over the row that just changed (a category toggle)
+    // is re-drawn from the patched cell, so its labels are never stale.
+    if (this.cellMenuRedraw) {
+      this.cellMenuRedraw = false
+      this.redrawCellMenu()
+    }
+
     if (!this.active) {
       return
     }
@@ -406,27 +452,52 @@ const PlayerGrid = {
   // everyone. The per-row menu is about the one player whose cell was
   // clicked, so the plain wording reads right there instead of implying it
   // touches every player too.
-  openCellMenu(x, y, col, playerId, takeFocus = false) {
-    this.closeCellMenu()
-
+  //
+  // `refresh` re-draws a menu that is already open, in place, after the
+  // server has patched the row under it - see the `multi` note on the item
+  // click below. It keeps the opener and the highlighted item, so a refresh
+  // is not a close followed by an open.
+  openCellMenu(x, y, col, playerId, takeFocus = false, refresh = false) {
     const menu = CELL_MENUS[col]
     if (!menu) return
 
-    // Where focus goes back to when the menu closes from the keyboard.
-    this.cellMenuOpener = document.activeElement
-
     const bulk = playerId === null
-    const popup = document.createElement("div")
-    popup.className = "print-menu-popup"
-    popup.setAttribute("role", "menu")
-    popup.style.left = `${x}px`
-    popup.style.top = `${y}px`
-
     const items = menu.dynamic
       ? this.dynamicCellMenuItems(menu, col, bulk, playerId)
       : bulk
         ? menu.bulkItems
         : menu.items
+
+    // Nothing to offer - a tournament with no categories defined yet. An
+    // empty popup is a bare box that appears and goes again on the next
+    // click, which reads as a glitch rather than as "there is nothing here".
+    if (!items.length) {
+      this.closeCellMenu()
+      return
+    }
+
+    const opener = refresh ? this.cellMenuOpener : null
+    const keptIndex =
+      refresh && this.cellPopup?.contains(document.activeElement)
+        ? Array.from(this.cellPopup.querySelectorAll("button")).indexOf(document.activeElement)
+        : -1
+
+    this.refreshingCellMenu = refresh
+    this.closeCellMenu()
+    this.refreshingCellMenu = false
+
+    // Where focus goes back to when the menu closes from the keyboard.
+    this.cellMenuOpener = refresh ? opener : document.activeElement
+
+    // Which cell this menu belongs to, so a second click on that same cell
+    // closes it instead of re-opening it, and so a patch can redraw it.
+    this.cellMenuAt = {x, y, col, playerId}
+
+    const popup = document.createElement("div")
+    popup.className = "print-menu-popup"
+    popup.setAttribute("role", "menu")
+    popup.style.left = `${x}px`
+    popup.style.top = `${y}px`
 
     for (const [label, value] of items) {
       const btn = document.createElement("button")
@@ -447,7 +518,15 @@ const PlayerGrid = {
         } else {
           this.pushEvent(menu.event, {id: playerId, value})
         }
-        this.closeCellMenu()
+
+        // A single-valued column is done in one pick, so its menu closes.
+        // A `multi` one (categories) is not: a player is usually in more
+        // than one, and closing after every single toggle means re-opening
+        // the menu for each name. It stays open and `updated()` re-draws it
+        // from the patched row, so "Add Junior" becomes "Remove Junior"
+        // where it stands.
+        if (menu.multi && !bulk && !isViewChange(value)) this.cellMenuRedraw = true
+        else this.closeCellMenu()
       })
       popup.appendChild(btn)
     }
@@ -456,7 +535,18 @@ const PlayerGrid = {
     this.cellPopup = popup
     this.keepCellMenuOnScreen(popup, x, y)
 
-    if (takeFocus) { popup.querySelector("button")?.focus() }
+    if (keptIndex >= 0) {
+      popup.querySelectorAll("button")[Math.min(keptIndex, items.length - 1)]?.focus()
+    } else if (takeFocus) {
+      popup.querySelector("button")?.focus()
+    }
+  },
+
+  // Re-draw an open row menu after the server patched the grid under it.
+  redrawCellMenu() {
+    if (!this.cellPopup || !this.cellMenuAt) return
+    const {x, y, col, playerId} = this.cellMenuAt
+    this.openCellMenu(x, y, col, playerId, false, true)
   },
 
   // Measured once it is in the page rather than assumed, because its size
@@ -505,7 +595,15 @@ const PlayerGrid = {
       const hadFocus = this.cellPopup.contains(document.activeElement)
       this.cellPopup.remove()
       this.cellPopup = null
-      if ((refocus || hadFocus) && this.cellMenuOpener?.isConnected) { this.cellMenuOpener.focus() }
+      // A redraw puts focus back inside the new popup itself, so it must not
+      // bounce out to the opener on the way through here.
+      if (!this.refreshingCellMenu && (refocus || hadFocus) && this.cellMenuOpener?.isConnected) {
+        this.cellMenuOpener.focus()
+      }
+    }
+    if (!this.refreshingCellMenu) {
+      this.cellMenuAt = null
+      this.cellMenuRedraw = false
     }
   },
 
