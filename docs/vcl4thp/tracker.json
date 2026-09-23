@@ -1,0 +1,3729 @@
+{
+ "checklist": "VCL4THP",
+ "version": "13 (FIDE TEC draft, 2026-08-25)",
+ "reviewed": "2026-09-23",
+ "questions": [
+  {
+   "q": 1,
+   "section": "Deployment",
+   "asks": "TAPC for a Windows program?",
+   "yes": {
+    "outcome": "ok",
+    "next": 7
+   },
+   "no": {
+    "outcome": "next",
+    "next": 2
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Windows portable and installer releases (docs/binaries.md)."
+  },
+  {
+   "q": 2,
+   "section": "Deployment",
+   "asks": "TAPC for a Linux program?",
+   "yes": {
+    "outcome": "ok",
+    "next": 7
+   },
+   "no": {
+    "outcome": "next",
+    "next": 3
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Linux release exists; only Q1 is on the path."
+  },
+  {
+   "q": 3,
+   "section": "Deployment",
+   "asks": "TAPC for a macOS program?",
+   "yes": {
+    "outcome": "ok",
+    "next": 7
+   },
+   "no": {
+    "outcome": "next",
+    "next": 4
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "macOS release exists; only Q1 is on the path."
+  },
+  {
+   "q": 4,
+   "section": "Deployment",
+   "asks": "Another commercial OS?",
+   "yes": {
+    "outcome": "ok",
+    "next": 7
+   },
+   "no": {
+    "outcome": "next",
+    "next": 5
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 5,
+   "section": "Deployment",
+   "asks": "A non-commercial OS?",
+   "yes": {
+    "outcome": "ok",
+    "next": 7
+   },
+   "no": {
+    "outcome": "next",
+    "next": 6
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 6,
+   "section": "Deployment",
+   "asks": "Offered through an online platform?",
+   "yes": {
+    "outcome": "ok",
+    "next": 7
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "pairings.zerotwo.cloud; only Q1 is on the path."
+  },
+  {
+   "q": 7,
+   "section": "English interface and manual",
+   "asks": "English interface?",
+   "yes": {
+    "outcome": "next",
+    "next": 8
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "English is the base locale (gettext)."
+  },
+  {
+   "q": 8,
+   "section": "English interface and manual",
+   "asks": "English available straight after installation?",
+   "yes": {
+    "outcome": "ok",
+    "next": 10
+   },
+   "no": {
+    "outcome": "next",
+    "next": 9
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Confirm the Windows build opens in English, not the OS/browser language."
+  },
+  {
+   "q": 9,
+   "section": "English interface and manual",
+   "asks": "English selectable at run time?",
+   "yes": {
+    "outcome": "ok",
+    "next": 10
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Language menu in the header."
+  },
+  {
+   "q": 10,
+   "section": "English interface and manual",
+   "asks": "Non-English text inside the English interface?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 11,
+    "penalty": 10
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 11
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Needs a sweep: SWAR terms, federation names, any untranslated help text. YES costs 10%."
+  },
+  {
+   "q": 11,
+   "section": "English interface and manual",
+   "asks": "Complete English manual or online help?",
+   "yes": {
+    "outcome": "ok",
+    "next": 12
+   },
+   "no": {
+    "outcome": "next",
+    "next": 14
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "No manual exists. Planned: in-app help + PDF from one source, with a coverage check."
+  },
+  {
+   "q": 12,
+   "section": "English interface and manual",
+   "asks": "Manual reachable from inside the program (e.g. F1)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 16
+   },
+   "no": {
+    "outcome": "next",
+    "next": 13
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Comes with the manual: a ? link on every page."
+  },
+  {
+   "q": 13,
+   "section": "English interface and manual",
+   "asks": "Manual available separately (PDF / web link)?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 16,
+    "penalty": 2
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Comes with the manual: PDF per release."
+  },
+  {
+   "q": 14,
+   "section": "English interface and manual",
+   "asks": "At least an essential-functions English manual?",
+   "yes": {
+    "outcome": "next",
+    "next": 15
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL today - verification would stop here. Minimum: ratings, setup incl. tie-breaks, byes, pairings, printouts."
+  },
+  {
+   "q": 15,
+   "section": "English interface and manual",
+   "asks": "Commit to completing a partial manual within a year?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 16,
+    "penalty": 5
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Only reached with a partial manual; costs 5%. Aim for complete instead."
+  },
+  {
+   "q": 16,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Own pairing and tie-break engine?",
+   "yes": {
+    "outcome": "next",
+    "next": 19
+   },
+   "no": {
+    "outcome": "next",
+    "next": 17
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Ainalrami (pairing) + PairingsEngine.Standings (tie-breaks), both ours."
+  },
+  {
+   "q": 17,
+   "section": "Engine verification (checker, generator)",
+   "asks": "External engine?",
+   "yes": {
+    "outcome": "ok",
+    "next": 18
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 18,
+   "section": "Engine verification (checker, generator)",
+   "asks": "External engine already inside a TAPC'd program?",
+   "yes": {
+    "outcome": "ok",
+    "next": 40
+   },
+   "no": {
+    "outcome": "next",
+    "next": 19
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 19,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Checker (PTC) and generator (RTG) available?",
+   "yes": {
+    "outcome": "next",
+    "next": 20
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "ainalrami -c and -g exist. Needs public download + written instructions for FIDE (the form has a box for them)."
+  },
+  {
+   "q": 20,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Checker has a free CLI?",
+   "yes": {
+    "outcome": "next",
+    "next": 21
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "ainalrami -c (Apache-2.0). Same distribution point as Q19."
+  },
+  {
+   "q": 21,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Checker reads TRF26 and reports wrong pairings per round AND standings that break the tie-breaks?",
+   "yes": {
+    "outcome": "ok",
+    "next": 22
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. -c checks pairings only; Ainalrami has no tie-breaks. The checker must also verify standings."
+  },
+  {
+   "q": 22,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator has a free CLI?",
+   "yes": {
+    "outcome": "ok",
+    "next": 24
+   },
+   "no": {
+    "outcome": "next",
+    "next": 23
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "ainalrami -g."
+  },
+  {
+   "q": 23,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator has a free non-CLI interface?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 24,
+    "penalty": 3
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "Not needed: Q22 is YES."
+  },
+  {
+   "q": 24,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator configures players, rounds, each bye type, forfeit wins/losses, odd results, BAM, tie-break list?",
+   "yes": {
+    "outcome": "next",
+    "next": 25
+   },
+   "no": {
+    "outcome": "next",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Has players, rounds, forfeit %, half/zero bye %, BAM. Missing: full-point byes, separate forfeit win/loss, odd results (1/2-0, 0-0), tie-break list."
+  },
+  {
+   "q": 25,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Unset generator parameters get sensible random values?",
+   "yes": {
+    "outcome": "ok",
+    "next": 26
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Random players 10-60, rounds 5-11 (generator.ex)."
+  },
+  {
+   "q": 26,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator has at least one way to set ratings?",
+   "yes": {
+    "outcome": "next",
+    "next": 27
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 30,
+    "penalty": 25
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Random ratings."
+  },
+  {
+   "q": 27,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator ratings user-specified?",
+   "yes": {
+    "outcome": "ok",
+    "next": 28
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 28,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 10%."
+  },
+  {
+   "q": 28,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator ratings parametrised (min/max, gaps)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 29
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 29,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 3%."
+  },
+  {
+   "q": 29,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generator ratings random?",
+   "yes": {
+    "outcome": "ok",
+    "next": 30
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 30,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "1400-2700 uniform."
+  },
+  {
+   "q": 30,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Same parameters always give the same TRF?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 31
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "Fresh random seed each run unless --seed is given."
+  },
+  {
+   "q": 31,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generated tournaments follow the pairing rules AND the tie-break list in the file?",
+   "yes": {
+    "outcome": "ok",
+    "next": 32
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. Pairings yes; the generated file carries no tie-break list or standings by it."
+  },
+  {
+   "q": 32,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Generated results follow FIDE rating-table probabilities?",
+   "yes": {
+    "outcome": "ok",
+    "next": 33
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 33,
+    "penalty": 5
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Results are uniform 1/3 each; costs 5%. Use the FIDE expected-score table."
+  },
+  {
+   "q": 33,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Tested against another public engine, 50,000+ tournaments each way, pairings AND tie-breaks?",
+   "yes": {
+    "outcome": "ok",
+    "next": 34
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. Pairings: ~488M vs bbpPairings (confirm both directions). Tie-breaks: never cross-checked - TieBreakServer (public, on disk) can be the other engine."
+  },
+  {
+   "q": 34,
+   "section": "Engine verification (checker, generator)",
+   "asks": "More than 10 discrepancies either way?",
+   "yes": {
+    "outcome": "next",
+    "next": 35
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 40
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Pairings: 0 in the corpus. Tie-breaks: unknown until Q33 is done."
+  },
+  {
+   "q": 35,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Discrepancies caused by our engine?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "next",
+    "next": 36
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Only reached if Q34 is YES."
+  },
+  {
+   "q": 36,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Discrepancies caused by the other engine?",
+   "yes": {
+    "outcome": "next",
+    "next": 37
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 40
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 37,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Other-engine faults reported?",
+   "yes": {
+    "outcome": "ok",
+    "next": 40
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 38,
+    "penalty": 25
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Gacrux 5.2.5 reported to TEC (2026-09-08 letter)."
+  },
+  {
+   "q": 38,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Discrepancies from different readings of the rules?",
+   "yes": {
+    "outcome": "next",
+    "next": 39
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 40
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 39,
+   "section": "Engine verification (checker, generator)",
+   "asks": "Reading differences reported to TEC?",
+   "yes": {
+    "outcome": "ok",
+    "next": 40
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 40,
+    "penalty": 50
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "TEC letter 2026-09-08."
+  },
+  {
+   "q": 40,
+   "section": "FIDE mode",
+   "asks": "FIDE mode is the default?",
+   "yes": {
+    "outcome": "ok",
+    "next": 42
+   },
+   "no": {
+    "outcome": "next",
+    "next": 41
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Derived, default, no switch (PairingsEngine.Compliance)."
+  },
+  {
+   "q": 41,
+   "section": "FIDE mode",
+   "asks": "A way to enter FIDE mode?",
+   "yes": {
+    "outcome": "ok",
+    "next": 42
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Not needed: default."
+  },
+  {
+   "q": 42,
+   "section": "FIDE mode",
+   "asks": "Can the program leave FIDE mode?",
+   "yes": {
+    "outcome": "next",
+    "next": 43
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 47
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Changing a departing setting leaves it."
+  },
+  {
+   "q": 43,
+   "section": "FIDE mode",
+   "asks": "Level-4 warning when leaving FIDE mode?",
+   "yes": {
+    "outcome": "ok",
+    "next": 44
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. The save goes through and a notice appears afterwards; no two-step confirmation spelling out the consequence."
+  },
+  {
+   "q": 44,
+   "section": "FIDE mode",
+   "asks": "### comment in the TRF when leaving FIDE mode?",
+   "yes": {
+    "outcome": "ok",
+    "next": 45
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 45,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 30%. Round is stored (fide_compliance_lost_round) but no ### is written (design doc Phase 3)."
+  },
+  {
+   "q": 45,
+   "section": "FIDE mode",
+   "asks": "Can FIDE mode be re-entered?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 46
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "The recorded round is never cleared."
+  },
+  {
+   "q": 46,
+   "section": "FIDE mode",
+   "asks": "Permanent indication when not in FIDE mode?",
+   "yes": {
+    "outcome": "ok",
+    "next": 47
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 47,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Notice on three settings pages only; Q46 wants it always visible. Costs 3%."
+  },
+  {
+   "q": 47,
+   "section": "TRF import",
+   "asks": "Imports TRF06?",
+   "yes": {
+    "outcome": "next",
+    "next": 48
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 49,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "TRF16 parser tolerates TRF06-vintage files (Ainalrami trf.ex)."
+  },
+  {
+   "q": 48,
+   "section": "TRF import",
+   "asks": "Reports every adjustment TRF06 -> TRF26?",
+   "yes": {
+    "outcome": "ok",
+    "next": 49
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 49,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 3%. Verify what the import warnings say for a TRF06 file."
+  },
+  {
+   "q": 49,
+   "section": "TRF import",
+   "asks": "Imports TRF16?",
+   "yes": {
+    "outcome": "next",
+    "next": 50
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 51,
+    "penalty": 15
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "TrfImport."
+  },
+  {
+   "q": 50,
+   "section": "TRF import",
+   "asks": "Reports every adjustment TRF16 -> TRF26?",
+   "yes": {
+    "outcome": "ok",
+    "next": 51
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 51,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%. Same check."
+  },
+  {
+   "q": 51,
+   "section": "TRF import",
+   "asks": "Imports a defective TRF anyway?",
+   "yes": {
+    "outcome": "next",
+    "next": 52
+   },
+   "no": {
+    "outcome": "next",
+    "next": 53
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Findings are warnings, not refusals (trf_import.ex)."
+  },
+  {
+   "q": 52,
+   "section": "TRF import",
+   "asks": "Tells the user every adjustment made?",
+   "yes": {
+    "outcome": "ok",
+    "next": 54
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 54,
+    "penalty": 70
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Warnings channel exists; confirm it covers every adjustment. NO costs 70%."
+  },
+  {
+   "q": 53,
+   "section": "TRF import",
+   "asks": "Shows the issues when a TRF26 cannot be imported?",
+   "yes": {
+    "outcome": "ok",
+    "next": 54
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 54,
+    "penalty": 10
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Refusal messages with line detail."
+  },
+  {
+   "q": 54,
+   "section": "TRF import",
+   "asks": "Checks imported rounds against the pairing rules?",
+   "yes": {
+    "outcome": "next",
+    "next": 55
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "verification_warnings/2 re-pairs and compares (trf_import_test.exs)."
+  },
+  {
+   "q": 55,
+   "section": "TRF import",
+   "asks": "Level-3 warning AND ### when imported rounds broke the rules?",
+   "yes": {
+    "outcome": "ok",
+    "next": 56
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 56,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Warning yes, ### no. Costs 30%."
+  },
+  {
+   "q": 56,
+   "section": "TRF import",
+   "asks": "In FIDE mode automatically after import?",
+   "yes": {
+    "outcome": "ok",
+    "next": 57
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Likely (derived from settings); confirm an imported file's settings never start outside it."
+  },
+  {
+   "q": 57,
+   "section": "Number of rounds",
+   "asks": "Round count changeable after the start?",
+   "yes": {
+    "outcome": "next",
+    "next": 58
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 62
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "Not locked. Easiest fix: lock it in FIDE mode (then NO) - or Level-4 + ### + re-check."
+  },
+  {
+   "q": 58,
+   "section": "Number of rounds",
+   "asks": "Level-4 warning on that change?",
+   "yes": {
+    "outcome": "next",
+    "next": 59
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL on the current path."
+  },
+  {
+   "q": 59,
+   "section": "Number of rounds",
+   "asks": "### for the change?",
+   "yes": {
+    "outcome": "next",
+    "next": 60
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 60,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 60,
+   "section": "Number of rounds",
+   "asks": "Re-checks the last round when its final/non-final status flips?",
+   "yes": {
+    "outcome": "next",
+    "next": 61
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL on the current path."
+  },
+  {
+   "q": 61,
+   "section": "Number of rounds",
+   "asks": "Level-3 + ### if that makes pairings wrong?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 62,
+    "penalty": 7
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 62,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 62,
+   "section": "Number of rounds",
+   "asks": "Warns before start if the setup cannot finish within the rules?",
+   "yes": {
+    "outcome": "ok",
+    "next": 63
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 63,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "e.g. fewer players than rounds. Costs 3%."
+  },
+  {
+   "q": 63,
+   "section": "Number of rounds",
+   "asks": "Manual/semi-automatic pairing to finish such a tournament?",
+   "yes": {
+    "outcome": "ok",
+    "next": 64
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Swap and pool-pairing tools exist; confirm they cover a whole round."
+  },
+  {
+   "q": 64,
+   "section": "Manual pairing",
+   "asks": "Pairings can be created or edited by hand?",
+   "yes": {
+    "outcome": "next",
+    "next": 65
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "swap_players_in_round, swap_seated_with_pool_player, pool pairing."
+  },
+  {
+   "q": 65,
+   "section": "Manual pairing",
+   "asks": "Clear start and end of a manual-alteration session?",
+   "yes": {
+    "outcome": "ok",
+    "next": 66
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. Edits are individual; no defined session (publishing could serve as the implicit end)."
+  },
+  {
+   "q": 66,
+   "section": "Manual pairing",
+   "asks": "Level-3 on rematch / prohibited / ineligible PAB / triple colour during MPA?",
+   "yes": {
+    "outcome": "ok",
+    "next": 67
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 67,
+    "penalty": 25
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 25%."
+  },
+  {
+   "q": 67,
+   "section": "Manual pairing",
+   "asks": "Warning when both players get the wrong colour?",
+   "yes": {
+    "outcome": "ok",
+    "next": 68
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 68,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 10%."
+  },
+  {
+   "q": 68,
+   "section": "Manual pairing",
+   "asks": "Check at the end of the session against the correct pairings?",
+   "yes": {
+    "outcome": "ok",
+    "next": 69
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL."
+  },
+  {
+   "q": 69,
+   "section": "Manual pairing",
+   "asks": "Level-3 + ### when they differ?",
+   "yes": {
+    "outcome": "ok",
+    "next": 70
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 70,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 30%."
+  },
+  {
+   "q": 70,
+   "section": "Scoring",
+   "asks": "Standard 1/0.5/0 scoring by default?",
+   "yes": {
+    "outcome": "next",
+    "next": 71
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Tournament defaults."
+  },
+  {
+   "q": 71,
+   "section": "Scoring",
+   "asks": "Other scoring systems definable?",
+   "yes": {
+    "outcome": "next",
+    "next": 72
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 75,
+    "penalty": 10
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "points_win/draw/loss."
+  },
+  {
+   "q": 72,
+   "section": "Scoring",
+   "asks": "3-1-0 definable?",
+   "yes": {
+    "outcome": "ok",
+    "next": null
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 75,
+    "penalty": 10
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 73,
+   "section": "Scoring",
+   "asks": "Custom scoring definable?",
+   "yes": {
+    "outcome": "next",
+    "next": 74
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 75
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 74,
+   "section": "Scoring",
+   "asks": "Can two draws be worth more than a win plus a loss?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 75
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. No validation. Fix: make it a departure from FIDE mode in Compliance (then NO in FIDE mode)."
+  },
+  {
+   "q": 75,
+   "section": "Scoring",
+   "asks": "Scoring changeable during the tournament?",
+   "yes": {
+    "outcome": "next",
+    "next": 76
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 79
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "Not locked. Fix: lock in FIDE mode (then NO -> skip to Q79)."
+  },
+  {
+   "q": 76,
+   "section": "Scoring",
+   "asks": "Re-checks already-paired rounds after a scoring change?",
+   "yes": {
+    "outcome": "next",
+    "next": 77
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL on the current path."
+  },
+  {
+   "q": 77,
+   "section": "Scoring",
+   "asks": "Level-3 + ### if that makes pairings wrong?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 78,
+    "penalty": 7
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 78,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 78,
+   "section": "Scoring",
+   "asks": "Points already played follow the new scoring?",
+   "yes": {
+    "outcome": "ok",
+    "next": 79
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Standings are always recomputed from results."
+  },
+  {
+   "q": 79,
+   "section": "Scoring",
+   "asks": "PAB can be worth a win?",
+   "yes": {
+    "outcome": "ok",
+    "next": 80
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "bye_value default = win."
+  },
+  {
+   "q": 80,
+   "section": "Scoring",
+   "asks": "PAB can differ from a win?",
+   "yes": {
+    "outcome": "next",
+    "next": 81
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 89,
+    "penalty": 35
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 81,
+   "section": "Scoring",
+   "asks": "PAB can be worth MORE than a win?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "next",
+    "next": 82
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. No validation. Fix: departure or validation."
+  },
+  {
+   "q": 82,
+   "section": "Scoring",
+   "asks": "PAB can differ from both win and draw?",
+   "yes": {
+    "outcome": "next",
+    "next": 83
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 85,
+    "penalty": 3
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 83,
+   "section": "Scoring",
+   "asks": "Standard scoring with a PAB other than 1, 0.5, 0?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 84
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. Fix: departure or validation."
+  },
+  {
+   "q": 84,
+   "section": "Scoring",
+   "asks": "Non-standard scoring: PAB values reachable by standard results?",
+   "yes": {
+    "outcome": "ok",
+    "next": 85
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 85,
+    "penalty": 3
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Free value."
+  },
+  {
+   "q": 85,
+   "section": "Scoring",
+   "asks": "PAB value changeable during the tournament?",
+   "yes": {
+    "outcome": "next",
+    "next": 86
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 89
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "Not locked. Fix: lock in FIDE mode."
+  },
+  {
+   "q": 86,
+   "section": "Scoring",
+   "asks": "Re-checks paired rounds after a PAB change?",
+   "yes": {
+    "outcome": "next",
+    "next": null
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL on the current path."
+  },
+  {
+   "q": 87,
+   "section": "Scoring",
+   "asks": "Level-3 + ### if that makes pairings wrong?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 88,
+    "penalty": 7
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 88,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 88,
+   "section": "Scoring",
+   "asks": "Earlier PABs re-scored to the new value?",
+   "yes": {
+    "outcome": "ok",
+    "next": 89
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Recomputed from results."
+  },
+  {
+   "q": 89,
+   "section": "Round robins and other systems",
+   "asks": "Pairing systems besides the Dutch?",
+   "yes": {
+    "outcome": "next",
+    "next": 90
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 106,
+    "penalty": 50
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Round robin, Keizer, team Swiss."
+  },
+  {
+   "q": 90,
+   "section": "Round robins and other systems",
+   "asks": "Other Swiss systems?",
+   "yes": {
+    "outcome": "next",
+    "next": 91
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 94,
+    "penalty": 1
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Team Swiss C.04.6."
+  },
+  {
+   "q": 91,
+   "section": "Round robins and other systems",
+   "asks": "Swiss system without a TAPC selectable?",
+   "yes": {
+    "outcome": "next",
+    "next": 92
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 93
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "No program has a C.04.6 TAPC yet; confirm how FIDE reads this."
+  },
+  {
+   "q": 92,
+   "section": "Round robins and other systems",
+   "asks": "Rules printable/obtainable for a non-Handbook Swiss system?",
+   "yes": {
+    "outcome": "ok",
+    "next": 93
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "C.04.6 is in the Handbook; Keizer is not Swiss."
+  },
+  {
+   "q": 93,
+   "section": "Round robins and other systems",
+   "asks": "Pairing system changeable once underway?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 94
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. Locked after round 1 but unlockable. Fix: no unlock in FIDE mode."
+  },
+  {
+   "q": 94,
+   "section": "Round robins and other systems",
+   "asks": "Round robin selectable?",
+   "yes": {
+    "outcome": "next",
+    "next": 95
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 106,
+    "penalty": 50
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 95,
+   "section": "Round robins and other systems",
+   "asks": "Round-robin TPNs assignable by hand?",
+   "yes": {
+    "outcome": "ok",
+    "next": 96
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 96,
+   "section": "Round robins and other systems",
+   "asks": "Berger tables?",
+   "yes": {
+    "outcome": "next",
+    "next": 98
+   },
+   "no": {
+    "outcome": "next",
+    "next": 97
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "RoundRobin module."
+  },
+  {
+   "q": 97,
+   "section": "Round robins and other systems",
+   "asks": "Manual round-robin pairing (no Berger)?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 103,
+    "penalty": 32
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 103,
+    "penalty": 50
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "Not reached: Q96 YES."
+  },
+  {
+   "q": 98,
+   "section": "Round robins and other systems",
+   "asks": "Double RR: choose whether to reverse the last two rounds of cycle 1?",
+   "yes": {
+    "outcome": "ok",
+    "next": 100
+   },
+   "no": {
+    "outcome": "next",
+    "next": 99
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "If NO -> Q99 costs 3-10%."
+  },
+  {
+   "q": 99,
+   "section": "Round robins and other systems",
+   "asks": "Always reverses those two rounds?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 100,
+    "penalty": 3
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 100,
+    "penalty": 10
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Costs 3% (10% if NO)."
+  },
+  {
+   "q": 100,
+   "section": "Round robins and other systems",
+   "asks": "Manual round-robin pairing possible?",
+   "yes": {
+    "outcome": "next",
+    "next": 101
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 102,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "NO costs 7%."
+  },
+  {
+   "q": 101,
+   "section": "Round robins and other systems",
+   "asks": "Checks each pair meets once/twice?",
+   "yes": {
+    "outcome": "ok",
+    "next": 102
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 102,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Only if Q100 YES."
+  },
+  {
+   "q": 102,
+   "section": "Round robins and other systems",
+   "asks": "Non-Berger double RR: no three same colours?",
+   "yes": {
+    "outcome": "ok",
+    "next": 103
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 103,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 103,
+   "section": "Round robins and other systems",
+   "asks": "RR standings exclude results of players under 50% of games?",
+   "yes": {
+    "outcome": "ok",
+    "next": 104
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "FAIL if NO. Needs checking."
+  },
+  {
+   "q": 104,
+   "section": "Round robins and other systems",
+   "asks": "RR tie-breaks (DE, BPG, BWG, REP, STD, SB, SB/C1-2, RTNG, WIN, TPN, KS variants) correct?",
+   "yes": {
+    "outcome": "next",
+    "next": 105
+   },
+   "no": {
+    "outcome": "next",
+    "next": null
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Several listed codes (BWG, REP, KS/L*) may be missing."
+  },
+  {
+   "q": 105,
+   "section": "Round robins and other systems",
+   "asks": "Buchholz-type tie-breaks usable in RR?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 106
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "FAIL if YES. Needs checking."
+  },
+  {
+   "q": 106,
+   "section": "Acceleration",
+   "asks": "Baku acceleration correct?",
+   "yes": {
+    "outcome": "ok",
+    "next": 107
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Ainalrami C.04.7."
+  },
+  {
+   "q": 107,
+   "section": "Acceleration",
+   "asks": "Other acceleration methods?",
+   "yes": {
+    "outcome": "next",
+    "next": 108
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 109
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 108,
+   "section": "Acceleration",
+   "asks": "Rules for other methods printable?",
+   "yes": {
+    "outcome": "ok",
+    "next": 109
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Only if Q107 YES."
+  },
+  {
+   "q": 109,
+   "section": "Acceleration",
+   "asks": "Acceleration removable after round 1?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 110
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "FAIL if YES. Not in locked_fields. Fix: lock in FIDE mode."
+  },
+  {
+   "q": 110,
+   "section": "Acceleration",
+   "asks": "Acceleration changeable after round 1?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 111
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "FAIL if YES. Same fix."
+  },
+  {
+   "q": 111,
+   "section": "Acceleration",
+   "asks": "Percentage groups respect round-1 byes having no TPN?",
+   "yes": {
+    "outcome": "ok",
+    "next": null
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": null,
+    "penalty": 35
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "NO costs 35%."
+  },
+  {
+   "q": 112,
+   "section": "Pairing-integrity events (PIBEs)",
+   "asks": "All pairing-integrity events logged?",
+   "yes": {
+    "outcome": "next",
+    "next": 113
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 114,
+    "penalty": 15
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Audit log covers most; map it to the seven PIBE types."
+  },
+  {
+   "q": 113,
+   "section": "Pairing-integrity events (PIBEs)",
+   "asks": "PIBEs written to the TRF as ###?",
+   "yes": {
+    "outcome": "ok",
+    "next": 114
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 114,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 114,
+   "section": "Pairing-integrity events (PIBEs)",
+   "asks": "A PIBE can be undone automatically?",
+   "yes": {
+    "outcome": "ok",
+    "next": 115
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 115,
+    "penalty": 3
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Snapshots/restore."
+  },
+  {
+   "q": 115,
+   "section": "Pairing-integrity events (PIBEs)",
+   "asks": "Level-3 before finalising a PIBE?",
+   "yes": {
+    "outcome": "ok",
+    "next": 116
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 116,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 10%."
+  },
+  {
+   "q": 116,
+   "section": "Rating lists",
+   "asks": "Separate official vs tournament rating?",
+   "yes": {
+    "outcome": "ok",
+    "next": 117
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 117,
+    "penalty": 12
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 117,
+   "section": "Rating lists",
+   "asks": "Custom rating lists?",
+   "yes": {
+    "outcome": "ok",
+    "next": 118
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 118,
+    "penalty": 18
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 18%."
+  },
+  {
+   "q": 118,
+   "section": "Rating lists",
+   "asks": "Effective Rapid/Blitz lists?",
+   "yes": {
+    "outcome": "ok",
+    "next": 119
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 119,
+    "penalty": 12
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 12%."
+  },
+  {
+   "q": 119,
+   "section": "Rating lists",
+   "asks": "Type-A lists (known source)?",
+   "yes": {
+    "outcome": "next",
+    "next": 121
+   },
+   "no": {
+    "outcome": "next",
+    "next": 120
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "FIDE and KBSB lists synced (Fide.Sync, KBSB roster)."
+  },
+  {
+   "q": 120,
+   "section": "Rating lists",
+   "asks": "Type-B lists (unknown source)?",
+   "yes": {
+    "outcome": "next",
+    "next": 122
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Only if Q119 NO or Q121 NO."
+  },
+  {
+   "q": 121,
+   "section": "Rating lists",
+   "asks": "All official FIDE lists as Type-A?",
+   "yes": {
+    "outcome": "ok",
+    "next": 123
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 120,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Standard/rapid/blitz: confirm all three are synced."
+  },
+  {
+   "q": 122,
+   "section": "Rating lists",
+   "asks": "All official FIDE lists importable as Type-B?",
+   "yes": {
+    "outcome": "ok",
+    "next": 124
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 123,
+   "section": "Rating lists",
+   "asks": "Default rating-list sequence per tournament type?",
+   "yes": {
+    "outcome": "next",
+    "next": 126
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 124,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 124,
+   "section": "Rating lists",
+   "asks": "User can define/modify the sequence?",
+   "yes": {
+    "outcome": "next",
+    "next": 127
+   },
+   "no": {
+    "outcome": "next",
+    "next": 125
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 125,
+   "section": "Rating lists",
+   "asks": "Only one list at a time?",
+   "yes": {
+    "outcome": "next",
+    "next": 127
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 126,
+   "section": "Rating lists",
+   "asks": "Sequence editable (exclude, add, reorder)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 127
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 127,
+    "penalty": 12
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 12%."
+  },
+  {
+   "q": 127,
+   "section": "Rating lists",
+   "asks": "Rating auto-assigned from the main list?",
+   "yes": {
+    "outcome": "ok",
+    "next": 128
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 128,
+    "penalty": 18
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Autofill on player entry."
+  },
+  {
+   "q": 128,
+   "section": "Rating lists",
+   "asks": "Shows ratings in other lists when not in the main one?",
+   "yes": {
+    "outcome": "next",
+    "next": 129
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 130,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 129,
+   "section": "Rating lists",
+   "asks": "User can pick one of those?",
+   "yes": {
+    "outcome": "ok",
+    "next": 130
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 130,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 130,
+   "section": "Rating lists",
+   "asks": "Minimum rating entered automatically when none found?",
+   "yes": {
+    "outcome": "next",
+    "next": 132
+   },
+   "no": {
+    "outcome": "next",
+    "next": 131
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 131,
+   "section": "Rating lists",
+   "asks": "Rating enterable by hand?",
+   "yes": {
+    "outcome": "ok",
+    "next": 132
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 132,
+    "penalty": 10
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 132,
+   "section": "Rating lists",
+   "asks": "Assigned rating editable?",
+   "yes": {
+    "outcome": "ok",
+    "next": 133
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 133,
+    "penalty": 18
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 133,
+   "section": "Rating lists",
+   "asks": "Consistency checks (are ratings still current)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 134
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 145,
+    "penalty": 50
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Rating refresh (docs/rating-refresh.md). NO costs 50%."
+  },
+  {
+   "q": 134,
+   "section": "Rating lists",
+   "asks": "Source list kept per rating, and manual entry marked?",
+   "yes": {
+    "outcome": "ok",
+    "next": 135
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 135,
+    "penalty": 18
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 18%."
+  },
+  {
+   "q": 135,
+   "section": "Rating lists",
+   "asks": "Local FIDE lists never more than a day old while running?",
+   "yes": {
+    "outcome": "ok",
+    "next": 136
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 136,
+    "penalty": 18
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 18%."
+  },
+  {
+   "q": 136,
+   "section": "Rating lists",
+   "asks": "One-click update of all local lists?",
+   "yes": {
+    "outcome": "ok",
+    "next": 137
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 137,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 137,
+   "section": "Rating lists",
+   "asks": "Consistency check uses the list valid at start (or check date if >30 days)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 138
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 139,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 138,
+   "section": "Rating lists",
+   "asks": "Consistency checks can be switched on/off?",
+   "yes": {
+    "outcome": "ok",
+    "next": 139
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 139,
+    "penalty": 1
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 1%."
+  },
+  {
+   "q": 139,
+   "section": "Rating lists",
+   "asks": "Automatic consistency check after a list update?",
+   "yes": {
+    "outcome": "ok",
+    "next": 141
+   },
+   "no": {
+    "outcome": "next",
+    "next": 140
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 140,
+   "section": "Rating lists",
+   "asks": "Consistency check only on request?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 141,
+    "penalty": 25
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 141
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Costs 25%."
+  },
+  {
+   "q": 141,
+   "section": "Rating lists",
+   "asks": "Checks the lists are current before a requested check?",
+   "yes": {
+    "outcome": "ok",
+    "next": 142
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 142,
+    "penalty": 18
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 18%."
+  },
+  {
+   "q": 142,
+   "section": "Rating lists",
+   "asks": "Affected players reported?",
+   "yes": {
+    "outcome": "ok",
+    "next": 143
+   },
+   "no": {
+    "outcome": "next",
+    "next": 143
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 143,
+   "section": "Rating lists",
+   "asks": "Ratings updated automatically?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 145,
+    "penalty": 18
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 144
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "YES costs 18%."
+  },
+  {
+   "q": 144,
+   "section": "Rating lists",
+   "asks": "User can update a chosen subset?",
+   "yes": {
+    "outcome": "ok",
+    "next": 145
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 145,
+    "penalty": 12
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 12%."
+  },
+  {
+   "q": 145,
+   "section": "Tournament events",
+   "asks": "Tournament-rating methods FIDE/NRO/FIDON/NIDOF/HBFN/OTHER?",
+   "yes": {
+    "outcome": "next",
+    "next": 146
+   },
+   "no": {
+    "outcome": "next",
+    "next": 146
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 146,
+   "section": "Tournament events",
+   "asks": "Tie order beyond alphabetical for equal rating/title?",
+   "yes": {
+    "outcome": "next",
+    "next": 147
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 147,
+    "penalty": 15
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Costs 15% if NO."
+  },
+  {
+   "q": 147,
+   "section": "Tournament events",
+   "asks": "TPNs changeable without editing ratings?",
+   "yes": {
+    "outcome": "next",
+    "next": 148
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 155,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 148,
+   "section": "Tournament events",
+   "asks": "TPN exchange only among equal tournament ratings?",
+   "yes": {
+    "outcome": "ok",
+    "next": 150
+   },
+   "no": {
+    "outcome": "next",
+    "next": 149
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 149,
+   "section": "Tournament events",
+   "asks": "Level-3 when an exchange breaks the seeding rules?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 150,
+    "penalty": 10
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 150,
+    "penalty": 35
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 35%."
+  },
+  {
+   "q": 150,
+   "section": "Tournament events",
+   "asks": "Level-3 on any TPN exchange?",
+   "yes": {
+    "outcome": "ok",
+    "next": 151
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 151,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 15%."
+  },
+  {
+   "q": 151,
+   "section": "Tournament events",
+   "asks": "TPN exchange/regeneration after round 4 paired?",
+   "yes": {
+    "outcome": "next",
+    "next": 152
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 153
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "Refused after 4 rounds (guard_pairing_number_freeze)."
+  },
+  {
+   "q": 152,
+   "section": "Tournament events",
+   "asks": "Level-4 if so?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 153,
+    "penalty": 25
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "Not reached."
+  },
+  {
+   "q": 153,
+   "section": "Tournament events",
+   "asks": "TPN regeneration before round 4?",
+   "yes": {
+    "outcome": "ok",
+    "next": 154
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 156,
+    "penalty": 60
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "NO costs 60%."
+  },
+  {
+   "q": 154,
+   "section": "Tournament events",
+   "asks": "Level-3 when regeneration moves two or more TPNs?",
+   "yes": {
+    "outcome": "ok",
+    "next": 155
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 155,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 15%."
+  },
+  {
+   "q": 155,
+   "section": "Tournament events",
+   "asks": "Regeneration keeps the tie-order chosen at first?",
+   "yes": {
+    "outcome": "ok",
+    "next": 156
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 156,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 156,
+   "section": "Tournament events",
+   "asks": "Late entry after round 4 gets a correct TPN?",
+   "yes": {
+    "outcome": "ok",
+    "next": 157
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 157,
+    "penalty": 18
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "First-ever assignment always allowed (C.04.2.B.3)."
+  },
+  {
+   "q": 157,
+   "section": "Adjourned games",
+   "asks": "A game can be recorded as adjourned?",
+   "yes": {
+    "outcome": "ok",
+    "next": 158
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. No adjournment support at all (design doc Phase 5)."
+  },
+  {
+   "q": 158,
+   "section": "Adjourned games",
+   "asks": "Can it pair with results missing?",
+   "yes": {
+    "outcome": "next",
+    "next": 159
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 161
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "If it refuses, Q159-160 are skipped."
+  },
+  {
+   "q": 159,
+   "section": "Adjourned games",
+   "asks": "Missing results auto-recorded as adjourned?",
+   "yes": {
+    "outcome": "ok",
+    "next": 160
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 160,
+   "section": "Adjourned games",
+   "asks": "Level-2 warning for that?",
+   "yes": {
+    "outcome": "ok",
+    "next": 161
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 161,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 161,
+   "section": "Adjourned games",
+   "asks": "Final standings with results missing?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 162
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "FAIL if YES. Needs checking."
+  },
+  {
+   "q": 162,
+   "section": "Adjourned games",
+   "asks": "Results for adjourned games enterable any time?",
+   "yes": {
+    "outcome": "ok",
+    "next": 163
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL once reached."
+  },
+  {
+   "q": 163,
+   "section": "Adjourned games",
+   "asks": "Level-3 when an adjourned result is not a draw?",
+   "yes": {
+    "outcome": "ok",
+    "next": 164
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 164,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 164,
+   "section": "Adjourned games",
+   "asks": "Adjourned game marked in the ITDX file?",
+   "yes": {
+    "outcome": "next",
+    "next": 165
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 166,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 165,
+   "section": "Adjourned games",
+   "asks": "Marked with ??",
+   "yes": {
+    "outcome": "ok",
+    "next": 166
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 166,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 166,
+   "section": "Adjourned games",
+   "asks": "Unknown result symbols imported as unknown?",
+   "yes": {
+    "outcome": "ok",
+    "next": 167
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 167,
+    "penalty": 10
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Ainalrami reads ? on purpose."
+  },
+  {
+   "q": 167,
+   "section": "Adjourned games",
+   "asks": "Provisional score other than a draw allowed?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 168
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 168,
+   "section": "Adjourned games",
+   "asks": "Level-2 when pairing with an older adjourned game open?",
+   "yes": {
+    "outcome": "ok",
+    "next": 169
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 169,
+    "penalty": 20
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 169,
+   "section": "Adjourned games",
+   "asks": "Final standings/TRF with an adjourned game open?",
+   "yes": {
+    "outcome": "fail",
+    "next": 170
+   },
+   "no": {
+    "outcome": "ok",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 170,
+   "section": "Tournament events",
+   "asks": "Withdrawal shown in the standings?",
+   "yes": {
+    "outcome": "ok",
+    "next": 171
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 171,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 171,
+   "section": "Tournament events",
+   "asks": "Non-zero score for an unpaired player?",
+   "yes": {
+    "outcome": "next",
+    "next": 172
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Byes."
+  },
+  {
+   "q": 172,
+   "section": "Tournament events",
+   "asks": "Half-point bye?",
+   "yes": {
+    "outcome": "next",
+    "next": 173
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 173,
+   "section": "Tournament events",
+   "asks": "Two or more half-point byes?",
+   "yes": {
+    "outcome": "next",
+    "next": 174
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 175
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 174,
+   "section": "Tournament events",
+   "asks": "Level-3 on the second and later half-point bye?",
+   "yes": {
+    "outcome": "ok",
+    "next": 175
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 175,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 15%."
+  },
+  {
+   "q": 175,
+   "section": "Tournament events",
+   "asks": "Players can be marked ineligible for half-point byes?",
+   "yes": {
+    "outcome": "ok",
+    "next": 176
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 177,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 176,
+   "section": "Tournament events",
+   "asks": "HPB assignable to an ineligible player?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 177,
+    "penalty": 15
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 177
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 177,
+   "section": "Tournament events",
+   "asks": "Full-point bye assignable?",
+   "yes": {
+    "outcome": "next",
+    "next": 178
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 180,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 178,
+   "section": "Tournament events",
+   "asks": "Level-2 saying full-point byes are deprecated?",
+   "yes": {
+    "outcome": "next",
+    "next": 179
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 179,
+    "penalty": 7
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 7%."
+  },
+  {
+   "q": 179,
+   "section": "Tournament events",
+   "asks": "### for a full-point bye?",
+   "yes": {
+    "outcome": "ok",
+    "next": 180
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 180,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 3%."
+  },
+  {
+   "q": 180,
+   "section": "Tournament events",
+   "asks": "Odd over-the-board results (1/2-0, 0-1/2, 0-0)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 181
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Results table."
+  },
+  {
+   "q": 181,
+   "section": "Tournament events",
+   "asks": "Inconsistent results (1-1/2, 1-1)?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 182
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 182,
+   "section": "Tournament events",
+   "asks": "Invalid forfeits (1/2F-0F ...)?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 183
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 183,
+   "section": "Tournament events",
+   "asks": "Only 1F-0F, 0F-1F, 0F-0F as forfeits?",
+   "yes": {
+    "outcome": "ok",
+    "next": 184
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 184,
+   "section": "Tournament events",
+   "asks": "Mixed standard/forfeit results?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 185
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 185,
+   "section": "Tournament events",
+   "asks": "Unrated results (game under one move)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 186
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 186,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "1-0U, 0-1U, 1/2-1/2U."
+  },
+  {
+   "q": 186,
+   "section": "Tournament events",
+   "asks": "All enterable results handled correctly?",
+   "yes": {
+    "outcome": "ok",
+    "next": 187
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 187,
+   "section": "Tournament events",
+   "asks": "Boards ordered by the published rules?",
+   "yes": {
+    "outcome": "next",
+    "next": 188
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 189,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 188,
+   "section": "Tournament events",
+   "asks": "With acceleration, ordered by real + fictitious points?",
+   "yes": {
+    "outcome": "ok",
+    "next": 189
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 189,
+    "penalty": 3
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Costs 3% if NO."
+  },
+  {
+   "q": 189,
+   "section": "Changing past results",
+   "asks": "Can results/pairings/colours of ANY earlier round be changed?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "next",
+    "next": 190
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. update_pairing_result only checks writability. Fix: only the last and second-to-last round in FIDE mode."
+  },
+  {
+   "q": 190,
+   "section": "Changing past results",
+   "asks": "Of the round before the last one played?",
+   "yes": {
+    "outcome": "next",
+    "next": 191
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Must stay possible."
+  },
+  {
+   "q": 191,
+   "section": "Changing past results",
+   "asks": "Of rounds before the second-to-last?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 192
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. Same fix."
+  },
+  {
+   "q": 192,
+   "section": "Changing past results",
+   "asks": "Corrections recorded for the rating report only (C.04.2:4.3)?",
+   "yes": {
+    "outcome": "next",
+    "next": 193
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 194,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 15%."
+  },
+  {
+   "q": 193,
+   "section": "Changing past results",
+   "asks": "### noting results used differ from 001 records?",
+   "yes": {
+    "outcome": "ok",
+    "next": 194
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 194,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": ""
+  },
+  {
+   "q": 194,
+   "section": "Prohibited pairings",
+   "asks": "Prohibited pairings supported?",
+   "yes": {
+    "outcome": "next",
+    "next": 195
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 197,
+    "penalty": 5
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "add_forbidden_pairing/4."
+  },
+  {
+   "q": 195,
+   "section": "Prohibited pairings",
+   "asks": "Only before round 1 is paired?",
+   "yes": {
+    "outcome": "next",
+    "next": 196
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. Allowed any time. Disputed with TEC (2026-09-08 letter, B.6) - needs their answer or a lock."
+  },
+  {
+   "q": 196,
+   "section": "Prohibited pairings",
+   "asks": "Addable after a round has been played?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 197
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL. Same."
+  },
+  {
+   "q": 197,
+   "section": "Tie-breaks and standings",
+   "asks": "Expelled player can be flagged?",
+   "yes": {
+    "outcome": "next",
+    "next": 198
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 198,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 3%."
+  },
+  {
+   "q": 198,
+   "section": "Tie-breaks and standings",
+   "asks": "Expelled player excluded from standings?",
+   "yes": {
+    "outcome": "ok",
+    "next": 199
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 199,
+    "penalty": 2
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 2%."
+  },
+  {
+   "q": 199,
+   "section": "Tie-breaks and standings",
+   "asks": "All Swiss tie-breaks in C.07 usable (AOB, APPO, APRO, ARO cuts/medians, BH/FB cuts/medians, BPG, BWG, DE, DE/P, PS cuts, PTP, REP, RTNG, SB cuts, STD, TPN, TPR, WIN, WON)?",
+   "yes": {
+    "outcome": "next",
+    "next": 200
+   },
+   "no": {
+    "outcome": "next",
+    "next": null
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "We have BH, cuts, MBH, SB, DE, WIN/WON, BPG, PS, KS, ARO, AROC1; several listed codes likely missing."
+  },
+  {
+   "q": 200,
+   "section": "Tie-breaks and standings",
+   "asks": "Tie-break list changeable during the tournament?",
+   "yes": {
+    "outcome": "next",
+    "next": 201
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 203
+   },
+   "answer": "Y",
+   "status": "gap",
+   "note": "Not locked."
+  },
+  {
+   "q": 201,
+   "section": "Tie-breaks and standings",
+   "asks": "Level-4 on that change?",
+   "yes": {
+    "outcome": "next",
+    "next": 202
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL. Fix: lock in FIDE mode, or Level-4 + ###."
+  },
+  {
+   "q": 202,
+   "section": "Tie-breaks and standings",
+   "asks": "### with round and previous list?",
+   "yes": {
+    "outcome": "ok",
+    "next": 203
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 203,
+    "penalty": 5
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 5%."
+  },
+  {
+   "q": 203,
+   "section": "Tie-breaks and standings",
+   "asks": "Ties allowed at the end?",
+   "yes": {
+    "outcome": "next",
+    "next": 204
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 207,
+    "penalty": 15
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Shared places."
+  },
+  {
+   "q": 204,
+   "section": "Tie-breaks and standings",
+   "asks": "Simulated drawing of lots for ties?",
+   "yes": {
+    "outcome": "next",
+    "next": 205
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 207,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 3%."
+  },
+  {
+   "q": 205,
+   "section": "Tie-breaks and standings",
+   "asks": "Tied players rankable by hand?",
+   "yes": {
+    "outcome": "next",
+    "next": 206
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 206,
+    "penalty": 7
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Manual standings order."
+  },
+  {
+   "q": 206,
+   "section": "Tie-breaks and standings",
+   "asks": "Repeated drawing of lots gives different results?",
+   "yes": {
+    "outcome": "fail",
+    "next": 207
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 207
+   },
+   "answer": "N",
+   "status": "met",
+   "note": "Not reached."
+  },
+  {
+   "q": 207,
+   "section": "Tie-breaks and standings",
+   "asks": "Externally calculated tie-break values enterable?",
+   "yes": {
+    "outcome": "ok",
+    "next": 208
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 208,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 10%."
+  },
+  {
+   "q": 208,
+   "section": "Tie-breaks and standings",
+   "asks": "At least one method for unrated players in rating tie-breaks?",
+   "yes": {
+    "outcome": "next",
+    "next": 209
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 210,
+    "penalty": 32
+   },
+   "answer": "Y",
+   "status": "check",
+   "note": "Referenced in the code; confirm."
+  },
+  {
+   "q": 209,
+   "section": "Tie-breaks and standings",
+   "asks": "More than one such method?",
+   "yes": {
+    "outcome": "ok",
+    "next": 210
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 210,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 10%."
+  },
+  {
+   "q": 210,
+   "section": "Tie-breaks and standings",
+   "asks": "Flag for tournaments over 30 days?",
+   "yes": {
+    "outcome": "ok",
+    "next": 211
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 217,
+    "penalty": 40
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 40%."
+  },
+  {
+   "q": 211,
+   "section": "Tie-breaks and standings",
+   "asks": "Advises against rating tie-breaks for those (C.07:10)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 212
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 213,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 212,
+   "section": "Tie-breaks and standings",
+   "asks": "Several ratings per player for long events?",
+   "yes": {
+    "outcome": "ok",
+    "next": 213
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 217,
+    "penalty": 35
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 35%."
+  },
+  {
+   "q": 213,
+   "section": "Tie-breaks and standings",
+   "asks": "Ratings linked to rounds?",
+   "yes": {
+    "outcome": "next",
+    "next": 214
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 215,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 214,
+   "section": "Tie-breaks and standings",
+   "asks": "Rating tie-breaks per round's rating?",
+   "yes": {
+    "outcome": "ok",
+    "next": 215
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 215,
+    "penalty": 3
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 215,
+   "section": "Tie-breaks and standings",
+   "asks": "Default first rating (C.07:10)?",
+   "yes": {
+    "outcome": "ok",
+    "next": 216
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 216,
+    "penalty": 18
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 216,
+   "section": "Tie-breaks and standings",
+   "asks": "User chooses which rating?",
+   "yes": {
+    "outcome": "ok",
+    "next": 217
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 217,
+    "penalty": 10
+   },
+   "answer": "N",
+   "status": "check",
+   "note": ""
+  },
+  {
+   "q": 217,
+   "section": "Miscellaneous",
+   "asks": "Final TRF reflects everything that happened, no TRF-defined event left out?",
+   "yes": {
+    "outcome": "ok",
+    "next": 218
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 218,
+    "penalty": 30
+   },
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 30% while the ### comments are missing."
+  },
+  {
+   "q": 218,
+   "section": "Miscellaneous",
+   "asks": "Level-2 warnings can be switched off?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 219,
+    "penalty": 7
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 219
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 219,
+   "section": "Miscellaneous",
+   "asks": "Level-2 and 3 warnings can be switched off?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 220,
+    "penalty": 7
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 220
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 220,
+   "section": "Miscellaneous",
+   "asks": "Level-4 warnings can be switched off?",
+   "yes": {
+    "outcome": "fail",
+    "next": null
+   },
+   "no": {
+    "outcome": "next",
+    "next": 221
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 221,
+   "section": "Miscellaneous",
+   "asks": "Level-4 can be relaxed to Level-3?",
+   "yes": {
+    "outcome": "penalty",
+    "next": 222,
+    "penalty": 7
+   },
+   "no": {
+    "outcome": "ok",
+    "next": 222
+   },
+   "answer": "N",
+   "status": "met",
+   "note": ""
+  },
+  {
+   "q": 222,
+   "section": "Miscellaneous",
+   "asks": "Chess960 supported?",
+   "yes": {
+    "outcome": "ok",
+    "next": 223
+   },
+   "no": {
+    "outcome": "penalty",
+    "next": 223,
+    "penalty": 15
+   },
+   "answer": "N",
+   "status": "check",
+   "note": "Costs 15%."
+  },
+  {
+   "q": 223,
+   "section": "Offline use",
+   "asks": "Usable without an internet connection?",
+   "yes": {
+    "outcome": "ok",
+    "next": "end"
+   },
+   "no": {
+    "outcome": "next",
+    "next": 224
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Desktop releases run locally. Verification ends here."
+  },
+  {
+   "q": 224,
+   "section": "Offline use",
+   "asks": "Controlled offline test environment offered?",
+   "yes": {
+    "outcome": "next",
+    "next": 225
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Not reached."
+  },
+  {
+   "q": 225,
+   "section": "Offline use",
+   "asks": "All checks possible in that environment?",
+   "yes": {
+    "outcome": "ok",
+    "next": "end"
+   },
+   "no": {
+    "outcome": "fail",
+    "next": null
+   },
+   "answer": "Y",
+   "status": "met",
+   "note": "Not reached."
+  }
+ ]
+}

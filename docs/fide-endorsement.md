@@ -1,5 +1,12 @@
 # FIDE pairing-program endorsement: readiness checklist
 
+> **Current checklist: [vcl4thp-tracker.md](vcl4thp-tracker.md).** FIDE's
+> acceptance is now measured against VCL4THP v13 (225 questions), and that
+> tracker holds our answer to every one of them - run `mix pairings.vcl` for
+> where we stand. This document predates it: it is written against the 2017
+> checklist (the `VCL.nn` numbers below) and is kept for its reasoning and
+> history, not as the measure.
+
 Source documents (FIDE C.04, Systems of Pairings and Programs Commission):
 
 - [Annex 4 - Verification Check List (VCL)](https://spp.fide.com/wp-content/uploads/2020/04/C04Annex4_VCL19.pdf)
