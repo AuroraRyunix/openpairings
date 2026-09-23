@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.63.6] - 2026-09-23
+
+- [Fix] **Ticking a box in the player dialog no longer jumps back to the
+  top.** In Safari (and Firefox on a Mac) clicking a checkbox does not focus
+  the checkbox, so focus lands on the dialog itself. When the tick
+  re-rendered the dialog, the code that moves focus into a freshly opened
+  dialog read that as "nobody has started yet" and moved focus to the Name
+  field - scrolling a long form back to the top mid-edit. Once you have
+  clicked or typed in a dialog, it now leaves your focus alone.
+
 ## [0.63.5] - 2026-09-21
 
 - [Fix] **The edit dialog stopped growing nameless "(not in list)" category
@@ -30,7 +40,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.63.4] - 2026-09-21
 
-- [Fix] **The Cl./Pr./Paid/Cat. cell menus stopped flickering.** Clicking the
+- [Fix] **The Pr./Paid/Cat. cell menus stopped flickering.** Clicking the
   cell a menu came from closed it on the way down and re-opened it on the way
   up, so the little box blinked instead of going away; a double-click (the
   gesture for the edit dialog) left it floating over the dialog; and on a

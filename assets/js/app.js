@@ -944,8 +944,16 @@ const DialogFocus = {
     this.returnTo = opener
     this.returnId = opener && opener.id
 
-    this.onKeydown = (e) => { if (e.key === "Tab") { this.trap(e) } }
+    this.onKeydown = (e) => {
+      this.touched = true
+      if (e.key === "Tab") { this.trap(e) }
+    }
     this.el.addEventListener("keydown", this.onKeydown)
+
+    // Once the user has clicked or typed inside, focus sitting on the dialog
+    // itself is theirs, not a default nobody has moved yet - see updated().
+    this.onPointerdown = () => { this.touched = true }
+    this.el.addEventListener("pointerdown", this.onPointerdown)
 
     // A frame later, so a field the dialog focuses itself (phx-mounted
     // JS.focus()) has had its turn and is left alone.
@@ -954,8 +962,15 @@ const DialogFocus = {
 
   // The consent dialog changes its content in place (loading, then the
   // question): focus that was parked on the dialog itself moves in.
+  //
+  // Only while it is still parked - before the user has touched the dialog.
+  // Safari (and Firefox on macOS) do not focus a checkbox or radio when it
+  // is clicked, so focus lands on the nearest focusable ancestor: this
+  // `tabindex="-1"` dialog. Ticking a category in the player dialog then
+  // re-rendered it, this saw "focus on the dialog", and moved focus to the
+  // first text field - scrolling a long form back to the top mid-edit.
   updated() {
-    if (document.activeElement === this.el) { this.enter() }
+    if (!this.touched && document.activeElement === this.el) { this.enter() }
   },
 
   // Into the first field to fill in, when the dialog is a form. Otherwise
@@ -992,6 +1007,7 @@ const DialogFocus = {
 
   destroyed() {
     this.el.removeEventListener("keydown", this.onKeydown)
+    this.el.removeEventListener("pointerdown", this.onPointerdown)
 
     const back =
       (this.returnTo && this.returnTo.isConnected && this.returnTo) ||
