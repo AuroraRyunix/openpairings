@@ -536,9 +536,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Pairings: ~488M vs bbpPairings (confirm both directions). Tie-breaks vs TieBreakServer (Ainalrami branch `tiebreaks`): Ainalrami-generated -> TieBreakServer 12,060 tournaments, ~7M values, 0 unexplained; TieBreakServer-generated -> Ainalrami (tools/tiebreak_direction2.py) run of 50,000 in progress on 2026-09-24. Still short: 50,000 in the Ainalrami-generated direction. Team tie-breaks: tools/team_tiebreak_compare.exs."
+   "answer": "Y",
+   "status": "check",
+   "note": "Tie-breaks: done both ways against TieBreakServer (Ainalrami branch `tiebreaks`, docs/validation.md): Ainalrami-generated 50,060 tournaments ~29M values and TieBreakServer-generated 50,000 tournaments ~50M values, 0 unexplained; team events 2,200. Still to confirm: that the ~488M-pairing bbpPairings comparison ran in both directions."
   },
   {
    "q": 34,

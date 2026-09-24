@@ -19,10 +19,10 @@ FIDE mode (`PairingsEngine.Compliance`).
 VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-24
   Questions on our path:  183 of 225
   First failure:          Q14 - FIDE's verification would stop here
-  Failures on the path:   24 (Q14, Q33, Q43, Q58, Q60, Q65, Q68, Q74, Q76, Q81, Q83, Q86, Q93, Q103, Q109, Q110, Q157, Q161, Q162, Q189, Q191, Q195, Q196, Q201)
+  Failures on the path:   23 (Q14, Q43, Q58, Q60, Q65, Q68, Q74, Q76, Q81, Q83, Q86, Q93, Q103, Q109, Q110, Q157, Q161, Q162, Q189, Q191, Q195, Q196, Q201)
   Penalties on the path:  687% (over 100% fails)
-  Answers:                75 met, 49 gaps, 101 still to check
-  On the path:            56 met, 43 gaps, 84 still to check
+  Answers:                75 met, 48 gaps, 102 still to check
+  On the path:            56 met, 42 gaps, 85 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -78,7 +78,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-24
 | 30 | Same parameters always give the same TRF? | N | met | ok | Fresh random seed each run unless --seed is given. |
 | 31 | Generated tournaments follow the pairing rules AND the tie-break list in the file? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. With --tie-breaks the file carries the list (202) and each player's final rank by it; pairings as before. |
 | 32 | Generated results follow FIDE rating-table probabilities? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --results=fide [--draw-rate] draws each result from the FIDE rating table's expected score; uniform stays the default, so the answer depends on the reading of 'follow'. |
-| 33 | Tested against another public engine, 50,000+ tournaments each way, pairings AND tie-breaks? | N | gap | **FAIL** | Pairings: ~488M vs bbpPairings (confirm both directions). Tie-breaks vs TieBreakServer (Ainalrami branch `tiebreaks`): Ainalrami-generated -> TieBreakServer 12,060 tournaments, ~7M values, 0 unexplained; TieBreakServer-generated -> Ainalrami (tools/tiebreak_direction2.py) run of 50,000 in progress on 2026-09-24. Still short: 50,000 in the Ainalrami-generated direction. Team tie-breaks: tools/team_tiebreak_compare.exs. |
+| 33 | Tested against another public engine, 50,000+ tournaments each way, pairings AND tie-breaks? | Y | check | ok | Tie-breaks: done both ways against TieBreakServer (Ainalrami branch `tiebreaks`, docs/validation.md): Ainalrami-generated 50,060 tournaments ~29M values and TieBreakServer-generated 50,000 tournaments ~50M values, 0 unexplained; team events 2,200. Still to confirm: that the ~488M-pairing bbpPairings comparison ran in both directions. |
 | 34 | More than 10 discrepancies either way? | N | check | ok | Pairings: 0 in the corpus. Tie-breaks: unknown until Q33 is done. |
 | 35 | Discrepancies caused by our engine? | N | check | - | Only reached if Q34 is YES. |
 | 36 | Discrepancies caused by the other engine? | N | check | - |  |
