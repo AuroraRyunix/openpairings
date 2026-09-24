@@ -30,6 +30,27 @@ defmodule PairingsEngine.Tournaments.Pairing do
     # update from arbitrary attrs.
     field :hidden, :boolean, default: false
 
+    # Postponed games (`PairingsEngine.PostponedGames`). Kept out of
+    # changeset/2's cast list like the display fields:
+    # `Tournaments.update_pairing_result/3` writes the first three and the
+    # TRF export's finalise step the last three.
+    #
+    #   * `provisional_white`/`provisional_black` - the outcome each side
+    #     counts as while the game is postponed, frozen from the
+    #     tournament's setting at the moment it was postponed.
+    #   * `played_on` - when a postponed game was actually played.
+    #   * `finalised_at` - the board went into a TRF marked as sent;
+    #     `finalised_open` - it was an open postponed game then, written as
+    #     `?`; `postponed_reported_at` - its later result was sent in the
+    #     postponed-games file.
+    field :provisional_white, :string
+    field :postponed_by, :string
+    field :provisional_black, :string
+    field :played_on, :date
+    field :finalised_at, :utc_datetime
+    field :finalised_open, :boolean, default: false
+    field :postponed_reported_at, :utc_datetime
+
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player

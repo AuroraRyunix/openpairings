@@ -151,8 +151,7 @@ defmodule PairingsEngine.PgnExport do
   defp result_tag("--+"), do: "0-1"
   # A postponed game: PGN's `*` is "game still in progress, or result
   # unknown", which is exactly what it is - the code is spelled after it.
-  defp result_tag("*"), do: "*"
-  defp result_tag(_), do: "*"
+  defp result_tag(_postponed_or_unknown), do: "*"
 
   defp optional_tags(pairing) do
     elo_tags(pairing.white_player, "White") ++ elo_tags(pairing.black_player, "Black")

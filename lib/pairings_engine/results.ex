@@ -48,8 +48,11 @@ defmodule PairingsEngine.Results do
 
   ## The postponed game
 
-  `"*"` is a game that was paired and has not been played yet: postponed by
-  agreement, or adjourned (VCL4THP Q157-169). The result is unknown and the
+  `"*W"`, `"*B"` and `"*"` are a game that was paired and has not been
+  played yet: postponed at White's or Black's request, or with nobody named
+  (recorded at pairing time, or read from a TRF's `?`) - VCL4THP Q157-169.
+  They are offered only when the tournament allows postponed games, and the
+  unnamed `"*"` is never offered at all. The result is unknown and the
   game is still to be played, so it is not a blank - a blank is a board
   nobody has reported on, and pairing the next round refuses it. `"*"` is
   the arbiter saying "this one is known to be open, carry on".
@@ -100,8 +103,14 @@ defmodule PairingsEngine.Results do
     {"+--", :win, :loss, false, true},
     {"--+", :loss, :win, false, true},
     # Postponed or adjourned, still to be played: a draw until its result is
-    # entered. See the moduledoc's "The postponed game".
-    {"*", :draw, :draw, true, false}
+    # entered, unless the tournament counts it otherwise (the board's own
+    # `provisional_white`/`provisional_black`, frozen when it was postponed).
+    # See the moduledoc's "The postponed game". `*W`/`*B` name who asked for
+    # it; `*` names nobody - a game recorded as postponed at pairing time, or
+    # a TRF's `?`.
+    {"*", :draw, :draw, true, false},
+    {"*W", :draw, :draw, true, false},
+    {"*B", :draw, :draw, true, false}
   ]
 
   # A pairing-allocated bye is stored as a pairing with no black player. It
@@ -114,8 +123,10 @@ defmodule PairingsEngine.Results do
   # score. Not a played "0-0" - no record is built for it at all.
   @blank ""
 
-  # A game postponed or adjourned - see the moduledoc.
+  # A game postponed or adjourned - see the moduledoc. The unnamed code, and
+  # the two that say who asked for it.
   @postponed "*"
+  @postponed_codes ["*", "*W", "*B"]
 
   @codes [@blank] ++ Enum.map(@table, &elem(&1, 0)) ++ [@bye]
 
@@ -138,7 +149,7 @@ defmodule PairingsEngine.Results do
   mirrored the Pairings page, and it had been missing the three unrated
   codes since the day they shipped.
   """
-  def entry_codes, do: @codes -- [@bye, "+--", "--+"]
+  def entry_codes, do: @codes -- [@bye, "+--", "--+", @postponed]
 
   @doc """
   The code for a postponed or adjourned game: result unknown, game still to
@@ -146,8 +157,19 @@ defmodule PairingsEngine.Results do
   """
   def postponed, do: @postponed
 
-  @doc "Is this the postponed-game code? True for `\"*\"` and nothing else."
-  def postponed?(code), do: code == @postponed
+  @doc "Is this a postponed-game code - `*`, `*W` or `*B`?"
+  def postponed?(code), do: code in @postponed_codes
+
+  @doc "The three postponed-game codes."
+  def postponed_codes, do: @postponed_codes
+
+  @doc """
+  Who asked for a postponed game: `:white` for `*W`, `:black` for `*B`, nil
+  for the unnamed `*` and for anything that is not postponed.
+  """
+  def postponed_by("*W"), do: :white
+  def postponed_by("*B"), do: :black
+  def postponed_by(_code), do: nil
 
   @doc """
   Is this a result that is a draw for BOTH players - what a postponed game
@@ -241,7 +263,8 @@ defmodule PairingsEngine.Results do
     "1/2-1/2U" => "1/2-1/2U",
     "½-½U" => "1/2-1/2U",
     "0.5-0.5U" => "1/2-1/2U",
-    "*" => "*"
+    "*W" => "*W",
+    "*B" => "*B"
   }
 
   @doc """

@@ -36,8 +36,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     {"0-1U", "0-1 (played, not rated)"},
     {"1/2-1/2U", "½-½ (played, not rated)"},
     # Labelled at render time (`button_label/2`) so the words go through
-    # gettext; the list only holds what a module attribute can.
-    {"*", :postponed}
+    # gettext, and shown only where the tournament allows postponed games.
+    {"*W", :postponed_white},
+    {"*B", :postponed_black}
   ]
 
   # Every code an arbiter may write, from the one table
@@ -293,7 +294,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                       socket,
                       :error,
                       gettext(
-                        "Board %{board} was postponed and counted as a draw for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page.",
+                        "Board %{board} was postponed and counted provisionally for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page.",
                         board: pairing.board
                       )
                     )
@@ -350,7 +351,8 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     gettext("Helpers can only enter results for the current round.")
   end
 
-  defp button_label("*", :postponed), do: gettext("* postponed")
+  defp button_label("*W", :postponed_white), do: gettext("* postponed by White")
+  defp button_label("*B", :postponed_black), do: gettext("* postponed by Black")
   defp button_label(_value, label), do: label
 
   defp helper?(%Mobile.Enrollment{level: "helper"}), do: true
@@ -653,6 +655,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           >
             <button
               :for={{value, label} <- @extra_results}
+              :if={value not in ~w(*W *B) or @tournament.postponed_games}
               type="button"
               disabled={@locked || @read_only?}
               class={["mobile-result-btn", p.result == value && "chosen"]}

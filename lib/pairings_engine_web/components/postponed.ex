@@ -23,8 +23,8 @@ defmodule PairingsEngineWeb.Postponed do
   """
   def pairing_warning_text(%{id: :missing_results_recorded_as_adjourned} = w, _next_round) do
     ngettext(
-      "Round %{round} has a board without a result. It will be recorded as a postponed game, counted as a draw for pairing until its result is entered.",
-      "Round %{round} has %{count} boards without a result. They will be recorded as postponed games, each counted as a draw for pairing until its result is entered.",
+      "Round %{round} has a board without a result. It will be recorded as a postponed game, which counts provisionally for pairing until its result is entered.",
+      "Round %{round} has %{count} boards without a result. They will be recorded as postponed games, which count provisionally for pairing until their results are entered.",
       w.count,
       round: w.round
     )
@@ -32,8 +32,8 @@ defmodule PairingsEngineWeb.Postponed do
 
   def pairing_warning_text(%{id: :adjourned_older_round_open} = w, next_round) do
     ngettext(
-      "A postponed game from round %{rounds} is still to be played. It counts as a draw for pairing round %{next}.",
-      "%{count} postponed games from rounds %{rounds} are still to be played. Each counts as a draw for pairing round %{next}.",
+      "A postponed game from round %{rounds} is still to be played. It counts provisionally for pairing round %{next}.",
+      "%{count} postponed games from rounds %{rounds} are still to be played. They count provisionally for pairing round %{next}.",
       w.count,
       rounds: Enum.join(w.rounds, ", "),
       next: next_round
@@ -42,8 +42,8 @@ defmodule PairingsEngineWeb.Postponed do
 
   def pairing_warning_text(%{id: :adjourned_counted_as_draw} = w, next_round) do
     ngettext(
-      "Round %{round} has a postponed game. It counts as a draw for pairing round %{next}.",
-      "Round %{round} has %{count} postponed games. Each counts as a draw for pairing round %{next}.",
+      "Round %{round} has a postponed game. It counts provisionally for pairing round %{next}.",
+      "Round %{round} has %{count} postponed games. They count provisionally for pairing round %{next}.",
       w.count,
       round: w.round,
       next: next_round
@@ -66,7 +66,21 @@ defmodule PairingsEngineWeb.Postponed do
   The confirmation for giving a postponed game a result that is not a draw
   (`:adjourned_non_draw_result`, VCL4THP Q163).
   """
-  def non_draw_text(round_number, board, result) do
+  def non_draw_text(round_number, board, result, pairing \\ nil)
+
+  def non_draw_text(round_number, board, result, %{provisional_white: w, provisional_black: b})
+      when w != b or (w not in [nil, "draw"] and b not in [nil, "draw"]) do
+    gettext(
+      "Board %{board} of round %{round} was postponed and has counted as %{white} for White and %{black} for Black. %{result} is not a draw: the scores that later rounds were paired with change, and those pairings stay as they are.",
+      board: board,
+      round: round_number,
+      result: result,
+      white: outcome_words(w),
+      black: outcome_words(b)
+    )
+  end
+
+  def non_draw_text(round_number, board, result, _pairing) do
     gettext(
       "Board %{board} of round %{round} was postponed and has counted as a draw for pairing. %{result} is not a draw: the scores that later rounds were paired with change, and those pairings stay as they are.",
       board: board,
@@ -75,11 +89,15 @@ defmodule PairingsEngineWeb.Postponed do
     )
   end
 
+  defp outcome_words("win"), do: gettext("a win")
+  defp outcome_words("loss"), do: gettext("a loss")
+  defp outcome_words(_draw), do: gettext("a draw")
+
   @doc "The sentence for anything that is not final while `count` games are open."
   def not_final_text(count) do
     ngettext(
-      "Not final: a postponed game is still to be played. It counts as a draw until its result is entered.",
-      "Not final: %{count} postponed games are still to be played. Each counts as a draw until its result is entered.",
+      "Not final: a postponed game is still to be played. It counts provisionally until its result is entered.",
+      "Not final: %{count} postponed games are still to be played. They count provisionally until their results are entered.",
       count
     )
   end
@@ -105,7 +123,7 @@ defmodule PairingsEngineWeb.Postponed do
 
   defp acknowledgement_reason(:adjourned_non_draw_result),
     do:
-      gettext("The game was postponed and counted as a draw; enter its result again to confirm.")
+      gettext("The game was postponed and counted provisionally; enter its result again to confirm.")
 
   defp acknowledgement_reason(:missing_results_recorded_as_adjourned),
     do: gettext("The last round has boards without a result.")

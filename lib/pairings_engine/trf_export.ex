@@ -176,6 +176,7 @@ defmodule PairingsEngine.TrfExport do
     trf_players =
       tournament
       |> Pairing.trf_player_rows(players)
+      |> Enum.map(&report_unknown(&1, dialect))
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
       # Baku virtual points for the rounds in the file. The report had
       # left them out altogether; TRF26 wants them (`250`) for pairing.
@@ -280,6 +281,184 @@ defmodule PairingsEngine.TrfExport do
   # When Ainalrami's writer accepts `?` (an `allow_unknown_result` switch on
   # `serialize/2`, which today only `parse/1` passes), this becomes a
   # `result: "?"` on the game and `mark_unknown/2` goes away.
+  # In a TRF26 report every game that is `?` - an open postponed game, and
+  # one that was sent as `?` in a report marked as sent (`finalised_open`),
+  # whose real result goes in the postponed-games file and never here - is
+  # written as the draw `mark_unknown/2` turns into `?`, and scores what the
+  # file's own `X` says: a draw. So the points column adds up from the file
+  # itself, whatever the club counts a postponed game as in its standings.
+  # A file for sending that disagreed with itself would be wrong data.
+  defp report_unknown(row, :trf26) do
+    games =
+      Enum.map(row.games, fn game ->
+        if Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true do
+          %{game | result: "="} |> Map.put(:postponed, true) |> Map.put(:provisional_points, nil)
+        else
+          game
+        end
+      end)
+
+    %{row | games: games}
+  end
+
+  defp report_unknown(row, _dialect), do: row
+
+  ## ---------- the postponed-games file ----------
+
+  @doc """
+  The TRF26 file for postponed games that were sent as `?` in a report
+  marked as sent and have been played since (`PostponedGames.sendable_late_games/1`),
+  packed into as few extra rounds as possible with nobody twice in a round
+  (`PostponedGames.pack/1`). Each round is dated by the latest date one of
+  its games was played on. Only the players in those games are in the file,
+  under their own starting ranks, so every opponent reference is the same
+  number it is in the main report.
+
+  Returns `{:ok, text, games}` - the games it carries, for the caller to
+  mark as sent - or `{:error, :nothing_to_send}` /
+  `{:error, %ValidationError{}}`. Before it returns a file it reads it back
+  and checks it says exactly what was meant: every game once, nobody twice
+  in a round, the result each board holds. A file that fails that is not
+  returned at all.
+  """
+  def postponed_export(tournament) do
+    case PairingsEngine.PostponedGames.sendable_late_games(tournament) do
+      [] ->
+        {:error, :nothing_to_send}
+
+      games ->
+        rounds = games |> Enum.map(& &1.pairing) |> PairingsEngine.PostponedGames.pack()
+        text = build_postponed(tournament, rounds)
+        :ok = verify_postponed!(text, rounds)
+        {:ok, text, games}
+    end
+  rescue
+    e in ValidationError -> {:error, e}
+  end
+
+  defp build_postponed(tournament, rounds) do
+    roster = Pairing.full_roster_players(tournament.id) |> Map.new(&{&1.id, &1})
+
+    ids =
+      rounds
+      |> List.flatten()
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.uniq()
+
+    blank = %{opponent_rank: nil, colour: nil, result: nil}
+
+    rows =
+      ids
+      |> Enum.map(&Map.fetch!(roster, &1))
+      |> Enum.sort_by(& &1.pairing_number)
+      |> Enum.map(fn p ->
+        games =
+          Enum.map(rounds, fn games ->
+            case Enum.find(games, &(p.id in [&1.white_player_id, &1.black_player_id])) do
+              nil -> blank
+              pairing -> Pairing.trf_game(pairing, p.id, roster, tournament)
+            end
+          end)
+
+        %{
+          rank: p.pairing_number,
+          sex: p.sex,
+          title: p.title,
+          name: p.name,
+          fide_rating: p.fide_rating,
+          federation: p.federation,
+          fide_number: p.fide_id,
+          points: Pairing.player_points(games, tournament),
+          games: games
+        }
+      end)
+
+    dates =
+      Enum.map(rounds, fn games ->
+        games
+        |> Enum.map(& &1.played_on)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.max(Date, fn -> nil end)
+      end)
+
+    Trf.serialize(
+      %{
+        tournament: %{
+          name: tournament.name,
+          city: tournament.city,
+          federation: Federation.normalize(tournament.federation),
+          start_date: tournament.start_date,
+          end_date: tournament.end_date,
+          number_of_rated_players: Enum.count(rows, &((&1.fide_rating || 0) > 0)),
+          type: tournament.type,
+          chief_arbiter: chief_arbiter_line(tournament),
+          deputy_arbiters: deputy_arbiter_lines(tournament),
+          time_control: blank_to_nil(tournament.rate_of_play),
+          number_of_rounds: length(rounds),
+          round_dates: Enum.map(dates, &(&1 && Date.to_iso8601(&1))),
+          generator: "OpenPairings v#{app_version()}",
+          type_code: tournament_type_code(tournament),
+          time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
+          point_system: Tournament.engine_point_system(tournament)
+        },
+        players: rows
+      },
+      dialect: :trf26,
+      column_legend: true,
+      ascii: true
+    )
+  end
+
+  # Reads the file back and checks it against what was meant to be in it.
+  # Nothing here trusts the builder above: a file for sending is checked the
+  # way the federation will read it.
+  defp verify_postponed!(text, rounds) do
+    parsed = Trf.parse(text)
+    by_rank = Map.new(parsed.players, &{&1.rank, &1})
+
+    rounds
+    |> Enum.with_index()
+    |> Enum.each(fn {games, index} ->
+      in_round =
+        parsed.players
+        |> Enum.filter(&(Enum.at(&1.games, index, %{})[:opponent_rank] != nil))
+        |> length()
+
+      if in_round != 2 * length(games) do
+        raise ValidationError,
+          message:
+            "postponed-games file, round #{index + 1}: #{in_round} players with a game, " <>
+              "#{2 * length(games)} expected"
+      end
+
+      # Each game where it was meant to be: White against Black, in this
+      # round, with the colours the board had.
+      for pairing <- games do
+        white = pairing.white_player.pairing_number
+        black = pairing.black_player.pairing_number
+        w = by_rank |> Map.fetch!(white) |> Map.fetch!(:games) |> Enum.at(index)
+        b = by_rank |> Map.fetch!(black) |> Map.fetch!(:games) |> Enum.at(index)
+
+        unless w[:opponent_rank] == black and b[:opponent_rank] == white and
+                 w[:colour] == "w" and b[:colour] == "b" do
+          raise ValidationError,
+            message:
+              "postponed-games file, round #{index + 1}: the game #{white}-#{black} " <>
+                "is not written as it was played"
+        end
+      end
+    end)
+
+    total =
+      parsed.players |> Enum.flat_map(& &1.games) |> Enum.count(&(&1[:opponent_rank] != nil))
+
+    if total != 2 * length(List.flatten(rounds)) or map_size(by_rank) != length(parsed.players) do
+      raise ValidationError, message: "postponed-games file does not carry each game exactly once"
+    end
+
+    :ok
+  end
+
   defp postponed_columns(trf_players) do
     for player <- trf_players,
         {game, column} <- Enum.with_index(player.games, 1),

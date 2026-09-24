@@ -440,6 +440,7 @@ defmodule PairingsEngine.TrfImport do
       {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
 
       tournament = import_initial_colour(tournament, data)
+      tournament = allow_postponed_if_any(tournament, data)
 
       # TRF16 has teams but no matches: rebuild them from the boards where
       # the boards say it unambiguously (`TeamMatchInference`). A team Swiss
@@ -463,6 +464,17 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp note(text), do: %{kind: :note, text: text}
+
+  # A file carrying `?` came in with postponed games in it, so the tournament
+  # allows them - otherwise the boards holding one could not be given their
+  # result, nor shown on the Postponed games page.
+  defp allow_postponed_if_any(tournament, data) do
+    if unknown_result_warnings(data) == [] do
+      tournament
+    else
+      tournament |> Ecto.Changeset.change(postponed_games: true) |> Repo.update!()
+    end
+  end
 
   # `152` (or JaVaFo's `XXC white1`/`black1`) is the colour drawn by lot
   # before round 1. Stored as the draw, so the imported tournament pairs its
@@ -846,7 +858,12 @@ defmodule PairingsEngine.TrfImport do
         board: p.board,
         white_player_id: Map.fetch!(players_by_rank, p.white_rank).id,
         black_player_id: p.black_rank && Map.fetch!(players_by_rank, p.black_rank).id,
-        result: p.result
+        result: p.result,
+        # A `?` came in as a postponed game (see `result_string/2`): it counts
+        # as a draw for both, the value the file's `X` is written with and
+        # the FIDE rule, whatever the new tournament's own setting says.
+        provisional_white: if(p.result == PairingsEngine.Results.postponed(), do: "draw"),
+        provisional_black: if(p.result == PairingsEngine.Results.postponed(), do: "draw")
       })
     end)
 

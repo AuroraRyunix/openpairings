@@ -22,7 +22,8 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
         "start_date" => "2026-09-01",
         "rounds_count" => "3",
         "round_dates" => ["2026-09-01", "2026-09-08", "2026-09-15"],
-        "tiebreaks" => ["BH", "SB"]
+        "tiebreaks" => ["BH", "SB"],
+        "postponed_games" => "true"
       })
 
     for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
@@ -56,12 +57,12 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
 
-      assert has_element?(lv, "#result-select-#{board.id} option[value='*']")
+      assert has_element?(lv, "#result-select-#{board.id} option[value='*W']")
       refute has_element?(lv, "#postponed-games")
 
-      change_result(lv, board, "*")
+      change_result(lv, board, "*W")
 
-      assert Repo.reload!(board).result == "*"
+      assert Repo.reload!(board).result == "*W"
       assert has_element?(lv, "#postponed-games #postponed-game-#{board.id}")
       assert has_element?(lv, "#postponed-trf-not-final")
     end

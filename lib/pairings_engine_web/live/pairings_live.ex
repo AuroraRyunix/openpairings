@@ -36,9 +36,10 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"1-0U", "1-0 (played, not rated)"},
     {"0-1U", "0-1 (played, not rated)"},
     {"1/2-1/2U", "½-½ (played, not rated)"},
-    # Labelled at render time by `results/0`, so the words go through
-    # gettext; a module attribute cannot.
-    {"*", :postponed}
+    # Labelled at render time by `results/2`, so the words go through
+    # gettext, and offered only where the tournament allows postponed games.
+    {"*W", :postponed_white},
+    {"*B", :postponed_black}
   ]
 
   # The labels above belong to this page; the CODES do not. They must be
@@ -1934,11 +1935,34 @@ defmodule PairingsEngineWeb.PairingsLive do
     )
   end
 
-  defp results do
-    Enum.map(@results, fn
-      {"*", :postponed} -> {"*", gettext("* postponed - counts as a draw until played")}
-      other -> other
-    end)
+  # The result select's options for `pairing`. The two postponed codes only
+  # when the tournament allows postponed games; the unnamed `*` - recorded at
+  # pairing time or read from a TRF, never offered - only on the board that
+  # holds it, so the select shows what is stored rather than its first option.
+  defp results(tournament, pairing) do
+    offered =
+      Enum.flat_map(@results, fn
+        {"*W", :postponed_white} ->
+          if tournament.postponed_games,
+            do: [{"*W", gettext("* postponed by White")}],
+            else: []
+
+        {"*B", :postponed_black} ->
+          if tournament.postponed_games,
+            do: [{"*B", gettext("* postponed by Black")}],
+            else: []
+
+        other ->
+          [other]
+      end)
+
+    held =
+      if pairing.result == "*" or
+           (PairingsEngine.Results.postponed?(pairing.result) and not tournament.postponed_games),
+         do: [{pairing.result, gettext("* postponed")}],
+         else: []
+
+    offered ++ held
   end
 
   # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
@@ -1986,7 +2010,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp import_error_text({:postponed_non_draw, board}),
     do:
       gettext(
-        "board %{board}: the game was postponed and counted as a draw for pairing - enter a result that is not a draw on this page, where it is confirmed",
+        "board %{board}: the game was postponed and counted provisionally for pairing - enter a result that is not a draw on this page, where it is confirmed",
         board: board
       )
 
@@ -2712,6 +2736,43 @@ defmodule PairingsEngineWeb.PairingsLive do
               {gettext("Export rounds…")}
             </button>
           </form>
+
+          <%!-- The TRF an arbiter SENDS - to the federation's rating office.
+                POST, because with its box ticked it marks every exported
+                result as sent (`PostponedGames.finalise/2`), and a GET that
+                could do that would be fired by a link prefetch. --%>
+          <.form
+            for={%{}}
+            id="trf-send-form"
+            action={~p"/t/#{@tournament.id}/export/trf"}
+            method="post"
+            target="_blank"
+            style="display: flex; gap: 6px; align-items: center; margin: 0"
+          >
+            <input
+              type="text"
+              name="rounds"
+              placeholder={gettext("all rounds")}
+              aria-label={gettext("Rounds to send")}
+              class="pe-select"
+              style="width: 110px"
+            />
+            <label class="field-check" style="margin: 0">
+              <input type="hidden" name="finalise" value="false" />
+              <input type="checkbox" name="finalise" value="true" id="trf-send-finalise" />
+              {gettext("Finalise results for TRF sending")}
+            </label>
+            <button type="submit" class="pe-btn">{gettext("Export TRF for sending")}</button>
+          </.form>
+
+          <.link
+            :if={@tournament.postponed_games}
+            id="postponed-page-link"
+            class="pe-btn"
+            navigate={~p"/t/#{@tournament.id}/postponed"}
+          >
+            {gettext("Postponed games")}
+          </.link>
         </div>
       </div>
 
@@ -3583,7 +3644,8 @@ defmodule PairingsEngineWeb.PairingsLive do
                         {Postponed.non_draw_text(
                           @round_number,
                           display_board,
-                          @confirm_postponed.result
+                          @confirm_postponed.result,
+                          pairing
                         )}
                       </span>
 
@@ -3668,7 +3730,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         disabled={!is_nil(@tournament.archived_at)}
                       >
                         <option
-                          :for={{value, label} <- results()}
+                          :for={{value, label} <- results(@tournament, pairing)}
                           value={value}
                           selected={pairing.result == value}
                         >

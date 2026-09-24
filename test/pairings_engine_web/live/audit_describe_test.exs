@@ -180,6 +180,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
         "confirmed" => "adjourned_non_draw_result"
       }
     ],
+    "trf.finalised" => [
+      %{"rounds" => [1, 2], "marked" => 1},
+      %{"rounds" => [1, 2], "marked" => 12}
+    ],
+    "trf.postponed_sent" => [%{"games" => 1}, %{"games" => 3}],
     "pairing.missing_recorded_postponed" => [
       %{"round" => 3, "count" => 1},
       %{"round" => 3, "count" => 2}

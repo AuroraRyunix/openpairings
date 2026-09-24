@@ -124,7 +124,7 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.manual_ranking_disabled standings.manual_reseeded
         standings.extra_points_applied standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf import.json)},
+    {"imports", ~w(import.swar import.trf import.json trf.finalised trf.postponed_sent)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
     {"tournament",
@@ -761,6 +761,26 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("import.trf", d),
     do: gettext("Imported tournament %{name} from a TRF file.", name: name(d, "name"))
+
+  # A TRF downloaded "for sending" with its results marked as sent
+  # (`PostponedGames.finalise/2`), and a postponed-games file sent the same
+  # way. Both are records that something left for the federation.
+  def describe("trf.finalised", d),
+    do:
+      ngettext(
+        "Exported a TRF for sending (rounds %{rounds}) and marked %{count} result as sent.",
+        "Exported a TRF for sending (rounds %{rounds}) and marked %{count} results as sent.",
+        count(d, "marked"),
+        rounds: shown(d["rounds"])
+      )
+
+  def describe("trf.postponed_sent", d),
+    do:
+      ngettext(
+        "Sent %{count} postponed game in a postponed-games TRF.",
+        "Sent %{count} postponed games in a postponed-games TRF.",
+        count(d, "games")
+      )
 
   def describe("import.json", d),
     do: gettext("Imported tournament %{name} from a JSON backup.", name: name(d, "name"))
@@ -1461,7 +1481,7 @@ defmodule PairingsEngineWeb.AuditLive do
   defp confirmed_sentence(%{"confirmed" => "adjourned_non_draw_result"}),
     do:
       gettext(
-        "Confirmed over the warning that the game was postponed and had counted as a draw for pairing."
+        "Confirmed over the warning that the game was postponed and had counted provisionally for pairing."
       )
 
   defp confirmed_sentence(_d), do: nil

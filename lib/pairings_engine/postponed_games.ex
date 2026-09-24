@@ -56,7 +56,12 @@ defmodule PairingsEngine.PostponedGames do
     %{id: :adjourned_older_round_open, vcl: [168], acknowledge?: true},
     %{id: :adjourned_counted_as_draw, vcl: [158, 167], acknowledge?: false},
     %{id: :adjourned_standings_not_final, vcl: [161, 169], acknowledge?: false},
-    %{id: :adjourned_trf_not_final, vcl: [164, 165, 169], acknowledge?: false}
+    %{id: :adjourned_trf_not_final, vcl: [164, 165, 169], acknowledge?: false},
+    # Not a VCL question: a result that already went to the federation in a
+    # TRF marked as sent (see `finalise/2`). The rule above every other one
+    # here is that no wrong TRF data is ever sent, so changing a sent
+    # result is possible - "semi-frozen" - but never silent.
+    %{id: :finalised_result_changed, vcl: [], acknowledge?: true}
   ]
 
   @doc "Every warning this feature can raise, with the VCL question it answers."
@@ -74,13 +79,13 @@ defmodule PairingsEngine.PostponedGames do
   def open_games(%Tournament{id: id}), do: open_games(id)
 
   def open_games(tournament_id) when is_integer(tournament_id) do
-    postponed = Results.postponed()
+    postponed = Results.postponed_codes()
 
     Repo.all(
       from p in Pairing,
         join: r in Round,
         on: p.round_id == r.id,
-        where: r.tournament_id == ^tournament_id and p.result == ^postponed,
+        where: r.tournament_id == ^tournament_id and p.result in ^postponed,
         order_by: [r.number, p.board],
         preload: [:white_player, :black_player],
         select: %{round: r.number, pairing: p}
@@ -91,13 +96,13 @@ defmodule PairingsEngine.PostponedGames do
   def open_count(%Tournament{id: id}), do: open_count(id)
 
   def open_count(tournament_id) when is_integer(tournament_id) do
-    postponed = Results.postponed()
+    postponed = Results.postponed_codes()
 
     Repo.aggregate(
       from(p in Pairing,
         join: r in Round,
         on: p.round_id == r.id,
-        where: r.tournament_id == ^tournament_id and p.result == ^postponed
+        where: r.tournament_id == ^tournament_id and p.result in ^postponed
       ),
       :count
     )
@@ -135,11 +140,18 @@ defmodule PairingsEngine.PostponedGames do
   def pairing_warnings(%Tournament{} = tournament, open) do
     last = last_paired_round(tournament.id)
 
-    if last == 0 do
-      []
-    else
-      missing_warning(tournament.id, last) ++
+    cond do
+      last == 0 ->
+        []
+
+      # Recording a board as postponed is only offered where postponed games
+      # are allowed at all; elsewhere a blank still simply blocks pairing.
+      not tournament.postponed_games ->
         open_warnings(open || open_games(tournament.id), last)
+
+      true ->
+        missing_warning(tournament.id, last) ++
+          open_warnings(open || open_games(tournament.id), last)
     end
   end
 
@@ -192,21 +204,30 @@ defmodule PairingsEngine.PostponedGames do
   STORED now - read fresh, because the struct a page holds can be older
   than the database, and a stale blank must not hide a postponed game.
 
-  One today: `:adjourned_non_draw_result` (Q163), when a postponed game gets
-  a result that is not a draw for both players. Every round paired since
-  counted it as a draw, and those pairings stand; the arbiter confirms that
-  they know. A draw, clearing the board and re-postponing it need no
-  confirmation - none of them changes a score any pairing was made with.
+  `:adjourned_non_draw_result` (Q163), when a postponed game gets a result
+  that is not a draw for both players. Every round paired since counted it
+  as its provisional score, and those pairings stand; the arbiter confirms
+  that they know. A draw, clearing the board and re-postponing it need no
+  confirmation.
+
+  `:finalised_result_changed`, when the board was already sent in a TRF
+  marked as sent and the result would change: possible, never silent.
   """
   def result_warnings(%Pairing{id: id}, result) do
-    stored = Repo.one(from p in Pairing, where: p.id == ^id, select: p.result)
+    stored = Repo.get!(Pairing, id)
 
-    if Results.postponed?(stored) and result not in ["", nil] and not Results.postponed?(result) and
-         not Results.draw_for_both?(result) do
-      [:adjourned_non_draw_result]
-    else
-      []
-    end
+    non_draw? =
+      Results.postponed?(stored.result) and result not in ["", nil] and
+        not Results.postponed?(result) and not Results.draw_for_both?(result)
+
+    # A board already sent in a finalised TRF, with the result it was sent
+    # with. An open postponed game sent as `?` is the exception: its real
+    # result is still to come, and goes in the postponed-games file.
+    sent_changed? =
+      not is_nil(stored.finalised_at) and not stored.finalised_open and result != stored.result
+
+    if(non_draw?, do: [:adjourned_non_draw_result], else: []) ++
+      if sent_changed?, do: [:finalised_result_changed], else: []
   end
 
   @doc """
@@ -272,13 +293,219 @@ defmodule PairingsEngine.PostponedGames do
   refused round leaves the tournament exactly as it found it.
   """
   def clear(pairing_ids) do
-    postponed = Results.postponed()
-
     for pairing <- Repo.all(from p in Pairing, where: p.id in ^pairing_ids),
-        pairing.result == postponed do
+        Results.postponed?(pairing.result),
+        is_nil(pairing.finalised_at) do
       PairingsEngine.Tournaments.update_pairing_result(pairing, "")
     end
 
     :ok
+  end
+
+  ## ---------- sending results: finalise, and the postponed-games file ----------
+  #
+  # The rule above every other one here: no wrong TRF data is ever sent, and
+  # no game is sent twice. Two records make that checkable rather than a
+  # matter of care:
+  #
+  #   * `finalised_at` - the board went into a TRF the arbiter downloaded "for
+  #     sending". Its result is then semi-frozen: changing it asks first
+  #     (`:finalised_result_changed`).
+  #   * `finalised_open` - it was an open postponed game at that moment, so
+  #     it went out as `?`. Every later main report writes it as `?` again,
+  #     so a file already sent never changes; its real result, once played,
+  #     goes in the postponed-games file (`sendable_late_games/1`), and
+  #     `postponed_reported_at` records that it has been sent there - once.
+
+  @doc """
+  Marks every board of `rounds` as sent (see the section above). Refuses,
+  writing nothing, while any of those boards has no result at all: a file
+  for sending must not carry a gap nobody decided about.
+
+  Returns `{:ok, newly_marked}` or `{:error, {:blank_results, rounds}}`.
+  """
+  def finalise(%Tournament{} = tournament, rounds) when is_list(rounds) do
+    blank_rounds =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where: r.tournament_id == ^tournament.id and r.number in ^rounds and p.result == "",
+          distinct: true,
+          select: r.number
+      )
+
+    if blank_rounds != [] do
+      {:error, {:blank_results, Enum.sort(blank_rounds)}}
+    else
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      ids =
+        Repo.all(
+          from p in Pairing,
+            join: r in Round,
+            on: p.round_id == r.id,
+            where:
+              r.tournament_id == ^tournament.id and r.number in ^rounds and
+                is_nil(p.finalised_at),
+            select: {p.id, p.result}
+        )
+
+      # Compared here, not in SQL: SQLite hands a boolean back as 0 or 1.
+      {open, known} = Enum.split_with(ids, &Results.postponed?(elem(&1, 1)))
+      mark(Enum.map(open, &elem(&1, 0)), finalised_at: now, finalised_open: true)
+      mark(Enum.map(known, &elem(&1, 0)), finalised_at: now, finalised_open: false)
+      {:ok, length(ids)}
+    end
+  end
+
+  defp mark([], _set), do: :ok
+
+  defp mark(ids, set) do
+    Repo.update_all(from(p in Pairing, where: p.id in ^ids), set: set)
+    :ok
+  end
+
+  @doc """
+  Every postponed game ever recorded in `tournament` - open, played in time
+  for its round's report, or played later - as `%{round:, pairing:}`, oldest
+  round first. A board counts as postponed once it has carried a
+  provisional outcome, which is stamped when it is postponed and kept.
+  """
+  def all_games(%Tournament{id: id}) do
+    Repo.all(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^id and not is_nil(p.provisional_white),
+        order_by: [r.number, p.board],
+        preload: [:white_player, :black_player],
+        select: %{round: r.number, pairing: p}
+    )
+  end
+
+  @doc """
+  The games the postponed-games TRF carries: sent as `?` in a finalised main
+  report (`finalised_open`), played since (a real result, not `*`), and not
+  yet sent in a postponed-games file.
+  """
+  def sendable_late_games(%Tournament{id: id}) do
+    unplayed = ["", "bye" | Results.postponed_codes()]
+
+    Repo.all(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where:
+          r.tournament_id == ^id and p.finalised_open == true and
+            p.result not in ^unplayed and is_nil(p.postponed_reported_at) and
+            not is_nil(p.white_player_id) and not is_nil(p.black_player_id),
+        order_by: [p.played_on, r.number, p.board],
+        preload: [:white_player, :black_player],
+        select: %{round: r.number, pairing: p}
+    )
+  end
+
+  @doc "Records that `games` (from `sendable_late_games/1`) were sent."
+  def mark_late_games_sent(games) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    mark(Enum.map(games, & &1.pairing.id), postponed_reported_at: now)
+  end
+
+  # Past this many placements the exact search gives up and first-fit
+  # stands. A club's postponed games number in the tens, where the search
+  # finishes instantly; the cap only keeps a pathological input from
+  # hanging a download.
+  @pack_budget 200_000
+
+  @doc """
+  Packs `games` (anything with `white_player_id` and `black_player_id`, in
+  the order they should come - by date played) into as few rounds as
+  possible with nobody playing twice in one round. Returns a list of rounds,
+  each a list of games in input order.
+
+  The fewest rounds possible is at least the most games any one player has.
+  That many is tried first, then one more at a time, by exhaustive search
+  within a budget; if the budget runs out, first-fit in date order is used,
+  which is never wrong - only possibly one round longer than it had to be.
+  """
+  def pack([]), do: []
+
+  def pack(games) do
+    lower =
+      games
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.frequencies()
+      |> Map.values()
+      |> Enum.max()
+
+    Enum.find_value(lower..length(games), fn k -> exact_pack(games, k) end) ||
+      first_fit(games)
+  end
+
+  defp exact_pack(games, k) do
+    Process.put(:pack_budget, @pack_budget)
+    slots = List.duplicate(MapSet.new(), k)
+
+    case place(games, slots, []) do
+      {:ok, assignment} -> to_rounds(games, Enum.reverse(assignment), k)
+      :none -> nil
+    end
+  end
+
+  defp place([], _slots, acc), do: {:ok, acc}
+
+  defp place([game | rest], slots, acc) do
+    budget = Process.get(:pack_budget) - 1
+    Process.put(:pack_budget, budget)
+
+    if budget < 0 do
+      :none
+    else
+      slots
+      |> Enum.with_index()
+      |> Enum.find_value(:none, fn {used, i} ->
+        if MapSet.member?(used, game.white_player_id) or
+             MapSet.member?(used, game.black_player_id) do
+          nil
+        else
+          used = used |> MapSet.put(game.white_player_id) |> MapSet.put(game.black_player_id)
+
+          case place(rest, List.replace_at(slots, i, used), [i | acc]) do
+            {:ok, _} = ok -> ok
+            :none -> nil
+          end
+        end
+      end)
+    end
+  end
+
+  defp first_fit(games) do
+    {rounds, _used} =
+      Enum.reduce(games, {[], []}, fn game, {rounds, used} ->
+        free =
+          Enum.find_index(used, fn set ->
+            not MapSet.member?(set, game.white_player_id) and
+              not MapSet.member?(set, game.black_player_id)
+          end)
+
+        pair = MapSet.new([game.white_player_id, game.black_player_id])
+
+        case free do
+          nil ->
+            {rounds ++ [[game]], used ++ [pair]}
+
+          i ->
+            {List.update_at(rounds, i, &(&1 ++ [game])),
+             List.update_at(used, i, &MapSet.union(&1, pair))}
+        end
+      end)
+
+    rounds
+  end
+
+  defp to_rounds(games, assignment, k) do
+    by_round = games |> Enum.zip(assignment) |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
+    for i <- 0..(k - 1), games = Map.get(by_round, i, []), games != [], do: games
   end
 end

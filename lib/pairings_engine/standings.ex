@@ -900,6 +900,15 @@ defmodule PairingsEngine.Standings do
     # All of that is now stated once, in the table there.
     {w_outcome, b_outcome, played, forfeit} = Results.classify(pairing.result)
 
+    # A postponed game counts as what the board was given when it was
+    # postponed - a draw unless the tournament counts it otherwise for the
+    # player who asked for it. `provisional_outcome/2` is the one reading of
+    # that, and everything below scores it like any other outcome.
+    {w_outcome, b_outcome} =
+      if Results.postponed?(pairing.result),
+        do: {provisional_outcome(pairing, true), provisional_outcome(pairing, false)},
+        else: {w_outcome, b_outcome}
+
     {wp, bp} =
       if pairing.result == "bye" do
         # A pairing-allocated bye scores via bye_points/2 - the single
@@ -966,6 +975,35 @@ defmodule PairingsEngine.Standings do
         }
       ]
     end
+  end
+
+  @doc """
+  What one side of a postponed game counts as until it is played: the
+  outcome frozen on the board when it was postponed (`provisional_white` /
+  `provisional_black`), a draw when none was - the FIDE rule, and the
+  reading of every board postponed before the setting existed.
+  """
+  def provisional_outcome(%Pairing{} = pairing, white?) do
+    case if(white?, do: pairing.provisional_white, else: pairing.provisional_black) do
+      "win" -> :win
+      "loss" -> :loss
+      _draw_or_unset -> :draw
+    end
+  end
+
+  @doc """
+  The points one side of a postponed game is credited with while it waits,
+  presence point included - read off the same records `standings/2` adds up,
+  so the pairing engine's score column (`Pairing.player_points/2`) is the
+  crosstable's number and not a second opinion of it.
+  """
+  def provisional_points(%Pairing{} = pairing, white?, tournament) do
+    colour = if white?, do: :w, else: :b
+
+    pairing
+    |> pairing_records(0, tournament, true)
+    |> Enum.find(%{points: 0.0}, &(&1.colour == colour))
+    |> Map.fetch!(:points)
   end
 
   # What an outcome is worth. The one thing about a result that depends on
@@ -1125,7 +1163,9 @@ defmodule PairingsEngine.Standings do
               "1-0U",
               "0-1U",
               "1/2-1/2U",
-              "*"
+              "*",
+              "*W",
+              "*B"
             ],
        do: {true, true}
 

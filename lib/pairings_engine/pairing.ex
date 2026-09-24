@@ -30,7 +30,6 @@ defmodule PairingsEngine.Pairing do
 
   alias PairingsEngine.{
     Repo,
-    Results,
     PostponedGames,
     Standings,
     Tournaments,
@@ -330,54 +329,74 @@ defmodule PairingsEngine.Pairing do
 
       numbers = if match_format? and number > 1, do: [number - 1, number], else: [number]
 
-      # One transaction, because the two deletes are one act. A crash
-      # between them used to leave orphan `byes` rows behind, and every bye
-      # insert in the module uses `on_conflict: :nothing` - so on
-      # re-pairing the orphan wins and the player is scored for a bye they
-      # are not taking. Every round-CREATING path here wraps Round +
-      # Pairings + byes the same way; see `keizer.ex:474-478`.
-      {:ok, :ok} =
-        Repo.transaction(fn ->
-          Repo.delete_all(
-            from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
-          )
-
-          Repo.delete_all(
-            from b in "byes",
-              where: b.tournament_id == ^tournament_id and b.round in ^numbers
-          )
-
-          # A team event's draw order is only frozen while a round exists.
-          # Unpairing the last one gives the teams back to the Teams page, so
-          # a team can still be added, removed or re-seeded before the event
-          # starts again. Players' own numbers are left alone, exactly as an
-          # individual round robin leaves them.
-          unless Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id) do
-            Repo.update_all(
-              from(t in PairingsEngine.Tournaments.Team,
-                where: t.tournament_id == ^tournament_id
-              ),
-              set: [pairing_number: nil]
-            )
-
-            # Nothing paired any more, so how a team Swiss is paired is open
-            # again: an event that went player by player and is unpaired back
-            # to nothing pairs by teams from its new round 1.
-            Repo.update_all(
-              from(t in Tournament, where: t.id == ^tournament_id),
-              set: [team_pairing_mode: nil]
-            )
-          end
-
-          :ok
-        end)
-
-      Tournaments.broadcast_tournament_change(tournament_id, :rounds)
-      Tournaments.refresh_status!(tournament_id)
-      :ok
+      if round_sent?(tournament_id, numbers),
+        do: {:error, :round_sent_in_trf},
+        else: really_delete_rounds(tournament_id, numbers)
     else
       {:error, "Only the latest round can be unpaired"}
     end
+  end
+
+  # A round whose results went out in a TRF finalised for sending stays:
+  # unpairing and re-pairing it would leave the games that were sent with
+  # nothing behind them, and put new ones in the next file.
+  defp round_sent?(tournament_id, numbers) do
+    Repo.exists?(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where:
+          r.tournament_id == ^tournament_id and r.number in ^numbers and
+            not is_nil(p.finalised_at)
+    )
+  end
+
+  defp really_delete_rounds(tournament_id, numbers) do
+    # One transaction, because the two deletes are one act. A crash
+    # between them used to leave orphan `byes` rows behind, and every bye
+    # insert in the module uses `on_conflict: :nothing` - so on
+    # re-pairing the orphan wins and the player is scored for a bye they
+    # are not taking. Every round-CREATING path here wraps Round +
+    # Pairings + byes the same way; see `keizer.ex:474-478`.
+    {:ok, :ok} =
+      Repo.transaction(fn ->
+        Repo.delete_all(
+          from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
+        )
+
+        Repo.delete_all(
+          from b in "byes",
+            where: b.tournament_id == ^tournament_id and b.round in ^numbers
+        )
+
+        # A team event's draw order is only frozen while a round exists.
+        # Unpairing the last one gives the teams back to the Teams page, so
+        # a team can still be added, removed or re-seeded before the event
+        # starts again. Players' own numbers are left alone, exactly as an
+        # individual round robin leaves them.
+        unless Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id) do
+          Repo.update_all(
+            from(t in PairingsEngine.Tournaments.Team,
+              where: t.tournament_id == ^tournament_id
+            ),
+            set: [pairing_number: nil]
+          )
+
+          # Nothing paired any more, so how a team Swiss is paired is open
+          # again: an event that went player by player and is unpaired back
+          # to nothing pairs by teams from its new round 1.
+          Repo.update_all(
+            from(t in Tournament, where: t.id == ^tournament_id),
+            set: [team_pairing_mode: nil]
+          )
+        end
+
+        :ok
+      end)
+
+    Tournaments.broadcast_tournament_change(tournament_id, :rounds)
+    Tournaments.refresh_status!(tournament_id)
+    :ok
   end
 
   def paired_rounds_count(tournament_id) do
@@ -2736,6 +2755,11 @@ defmodule PairingsEngine.Pairing do
   defp game_points(%{points_kind: kind} = g, t, absences) when kind in @bye_kinds,
     do: Standings.bye_points(kind, t, Map.get(g, :round), absences)
 
+  # A postponed game: its provisional points, which the standings computed -
+  # presence point included - rather than what its `=` would pay.
+  defp game_points(%{provisional_points: points}, _t, _absences) when is_number(points),
+    do: points
+
   # Anything else is a game with a result code. `W`/`D`/`L` are TRF16's
   # letter spellings of `1`/`=`/`0` for a played but unrated game and belong
   # with their twins, not in the catch-all.
@@ -2981,15 +3005,15 @@ defmodule PairingsEngine.Pairing do
 
         case Map.drop(by_id, Map.keys(cached)) do
           empty when map_size(empty) == 0 -> cached
-          rest -> Map.merge(cached, walk_games(history, rest))
+          rest -> Map.merge(cached, walk_games(tournament, history, rest))
         end
 
       _not_precomputed ->
-        walk_games(history, by_id)
+        walk_games(tournament, history, by_id)
     end
   end
 
-  defp walk_games(history, by_id) do
+  defp walk_games(tournament, history, by_id) do
     %{rounds: rounds, bye_map: bye_map, full_roster: full_roster} = history
 
     for {player_id, _player} <- by_id, into: %{} do
@@ -3002,7 +3026,7 @@ defmodule PairingsEngine.Pairing do
 
           cond do
             pairing != nil ->
-              trf_game(pairing, player_id, full_roster)
+              trf_game(pairing, player_id, full_roster, tournament)
 
             bye_type = bye_map[{player_id, round.number}] ->
               %{
@@ -3098,9 +3122,14 @@ defmodule PairingsEngine.Pairing do
     tournament.id |> build_shared_history() |> then(&precompute_games(tournament, &1))
   end
 
-  @postponed PairingsEngine.Results.postponed()
+  @postponed_codes PairingsEngine.Results.postponed_codes()
 
-  defp trf_game(pairing, player_id, full_roster) do
+  @doc false
+  # One player's TRF game map for one stored pairing. Public only so the
+  # postponed-games TRF (`TrfExport.postponed_export/2`) writes a game with
+  # exactly the character the main file would - see `trf_player_rows/3` for
+  # everything else.
+  def trf_game(pairing, player_id, full_roster, tournament) do
     white? = pairing.white_player_id == player_id
 
     opponent_id = if white?, do: pairing.black_player_id, else: pairing.white_player_id
@@ -3151,13 +3180,16 @@ defmodule PairingsEngine.Pairing do
         {"+--", false} -> "-"
         {"--+", true} -> "-"
         {"--+", false} -> "+"
-        # Postponed, still to be played: the character of whatever
-        # `PairingsEngine.Results` classifies it as - a draw - rather than a
-        # second statement here of what it is worth. That is what the engine
-        # pairs the next round with (VCL4THP Q167), and the colours count
-        # the way any game's do: the two have met and the seats are fixed.
+        # Postponed, still to be played: written as a played draw, so the
+        # colours count the way any game's do (the two have met and the
+        # seats are fixed) and the pair is legal to every engine. What it is
+        # WORTH is not the character's to say: the tournament may count it
+        # as something else for the player who postponed it, so the game
+        # carries `provisional_points` below - from the standings' own
+        # function - and `player_points/2` scores it by that. That is the
+        # score the engine brackets by (VCL4THP Q167 when it is a draw).
         # `TrfExport` writes TRF26's `?` in its place for a report.
-        {code, _} when code == @postponed -> outcome_code(Results.outcome(code, white?))
+        {code, _} when code in @postponed_codes -> "="
         {"", _} -> nil
         _ -> nil
       end
@@ -3181,13 +3213,25 @@ defmodule PairingsEngine.Pairing do
       points_kind: "game",
       # Read by `PairingsEngine.TrfExport`, which marks these games TRF26's
       # unknown `?`. `Ainalrami.Trf.serialize/2` ignores the key.
-      postponed: pairing.result == @postponed
+      postponed: pairing.result in @postponed_codes,
+      # Sent in a TRF marked as sent while it was an open postponed game, so
+      # written as `?` there: every later report keeps it that way, and its
+      # real result goes in the postponed-games file instead.
+      finalised_open: pairing.finalised_open == true,
+      # What the game counts as for this player while it is postponed - the
+      # score the engine brackets by. See the `@postponed_codes` clause above.
+      provisional_points: provisional_points(pairing, white?, tournament)
     }
   end
 
-  defp outcome_code(:win), do: "1"
-  defp outcome_code(:draw), do: "="
-  defp outcome_code(:loss), do: "0"
+  # A postponed game's provisional points for one side, from the same
+  # function the standings score it with, so the engine's score column and
+  # the crosstable cannot disagree. nil for every other game.
+  defp provisional_points(%{result: result} = pairing, white?, tournament)
+       when result in @postponed_codes,
+       do: Standings.provisional_points(pairing, white?, tournament)
+
+  defp provisional_points(_pairing, _white?, _tournament), do: nil
 
   # JaVaFo/TRF16 rule: opponent 0000 may only ever carry a bye/unplayed code
   # (F/H/Z/U) - never a played-game code (1/=/0/+/-). Reported bug: a

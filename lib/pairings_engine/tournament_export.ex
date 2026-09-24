@@ -99,6 +99,7 @@ defmodule PairingsEngine.TournamentExport do
     manual_ranking manual_ranking_stale
     fide_compliance_lost_round
     public_listed public_display public_hidden_tiebreaks
+    postponed_games postponed_requester_outcome postponed_opponent_outcome
   )a
 
   # Deliberately NOT in the tournament map, with the reason for each -
@@ -608,6 +609,18 @@ defmodule PairingsEngine.TournamentExport do
       # back to the recompute only for a payload written before they were.
       "display_board" => p.display_board,
       "display_special" => p.display_special,
+      # Postponed games: what each side counts as while it waits, when it was
+      # played, and whether it already went to the federation in a TRF marked
+      # as sent. The last three are the record that keeps a game from being
+      # sent twice, so a restore must not lose them.
+      "provisional_white" => p.provisional_white,
+      "provisional_black" => p.provisional_black,
+      "postponed_by" => p.postponed_by,
+      "played_on" => p.played_on && Date.to_iso8601(p.played_on),
+      "finalised_at" => p.finalised_at && DateTime.to_iso8601(p.finalised_at),
+      "finalised_open" => p.finalised_open,
+      "postponed_reported_at" =>
+        p.postponed_reported_at && DateTime.to_iso8601(p.postponed_reported_at),
       "white_player_id" => p.white_player_id,
       "black_player_id" => p.black_player_id
     }

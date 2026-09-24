@@ -29,7 +29,9 @@ defmodule PairingsEngineWeb.ExportController do
   use PairingsEngineWeb, :controller
 
   alias PairingsEngine.{
+    Audit,
     Handoff,
+    PostponedGames,
     PgnExport,
     PlayerExport,
     TournamentExport,
@@ -71,6 +73,110 @@ defmodule PairingsEngineWeb.ExportController do
         conn
         |> put_flash(:error, "Could not export TRF: #{message}")
         |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+    end
+  end
+
+  @doc """
+  POST /t/:id/export/trf - the TRF26 export "for sending". With
+  `finalise=true` (the "Finalise results for TRF sending" box) every board
+  of the exported rounds is marked as sent once the file is built
+  (`PostponedGames.finalise/2`): its result is semi-frozen from then on, and
+  an open postponed game in it went out as `?` for good - its real result
+  goes in the postponed-games file. Refused, with nothing marked and no file,
+  while a round in it has a board with no result.
+  """
+  def trf_send(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    finalise? = params["finalise"] == "true"
+
+    with {:ok, text} <- TrfExport.export(tournament, params["rounds"]),
+         meta = TrfExport.export_meta(tournament, params["rounds"]),
+         {:ok, marked} <- maybe_finalise(tournament, meta.rounds, finalise?) do
+      if finalise? do
+        Audit.log(tournament.id, conn.assigns.current_scope, "trf.finalised", %{
+          rounds: meta.rounds,
+          marked: marked
+        })
+      end
+
+      conn
+      |> put_resp_content_type("text/plain")
+      |> put_resp_header(
+        "content-disposition",
+        "attachment; filename=\"#{trf_filename(tournament, meta)}\""
+      )
+      |> send_resp(200, text)
+    else
+      {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
+        conn
+        |> put_flash(:error, "Could not export TRF: #{message}")
+        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+
+      {:error, {:blank_results, rounds}} ->
+        conn
+        |> put_flash(
+          :error,
+          gettext(
+            "Not finalised, and no file: round %{rounds} still has boards without a result. Enter them (or record them as postponed) first.",
+            rounds: Enum.join(rounds, ", ")
+          )
+        )
+        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+    end
+  end
+
+  defp maybe_finalise(_tournament, _rounds, false), do: {:ok, 0}
+  defp maybe_finalise(tournament, rounds, true), do: PostponedGames.finalise(tournament, rounds)
+
+  @doc """
+  GET /t/:id/export/postponed-trf - the postponed-games TRF: games sent as
+  `?` in a finalised report and played since, packed into extra rounds
+  (`TrfExport.postponed_export/1`). A preview: nothing is marked.
+
+  POST with `finalise=true` marks the games in the file as sent, so no later
+  file carries them again.
+  """
+  def postponed_trf(conn, %{"id" => id}) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    send_postponed_trf(conn, tournament, false)
+  end
+
+  def postponed_trf_send(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    send_postponed_trf(conn, tournament, params["finalise"] == "true")
+  end
+
+  defp send_postponed_trf(conn, tournament, finalise?) do
+    case TrfExport.postponed_export(tournament) do
+      {:ok, text, games} ->
+        if finalise? do
+          PostponedGames.mark_late_games_sent(games)
+
+          Audit.log(tournament.id, conn.assigns.current_scope, "trf.postponed_sent", %{
+            games: length(games)
+          })
+        end
+
+        conn
+        |> put_resp_content_type("text/plain")
+        |> put_resp_header(
+          "content-disposition",
+          "attachment; filename=\"#{tournament_slug(tournament)}-postponed.trf\""
+        )
+        |> send_resp(200, text)
+
+      {:error, :nothing_to_send} ->
+        conn
+        |> put_flash(
+          :error,
+          gettext("There is no postponed game to send: none was played after its round was sent.")
+        )
+        |> redirect(to: ~p"/t/#{tournament.id}/postponed")
+
+      {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
+        conn
+        |> put_flash(:error, "Could not export TRF: #{message}")
+        |> redirect(to: ~p"/t/#{tournament.id}/postponed")
     end
   end
 

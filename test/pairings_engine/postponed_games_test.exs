@@ -56,6 +56,7 @@ defmodule PairingsEngine.PostponedGamesTest do
               type: "swiss",
               rounds_count: 3,
               tiebreaks: ~w(BH SB),
+              postponed_games: true,
               round_dates: ["2026-09-01", "2026-09-08", "2026-09-15"]
             },
             Map.new(attrs)
@@ -405,7 +406,8 @@ defmodule PairingsEngine.PostponedGamesTest do
             {"Gamma", [1800, 1700]},
             {"Delta", [1600, 1500]}
           ],
-          rounds: 3
+          rounds: 3,
+          postponed_games: true
         )
 
       pair_next!(t)

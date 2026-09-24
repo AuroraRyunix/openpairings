@@ -753,8 +753,9 @@ defmodule PairingsEngine.Snapshot do
   # forfeit spellings. A game with no result yet is `null`, not `""`.
   defp result_token(result) when result in [nil, "", "bye"], do: nil
   # A postponed game's result is not known yet - see `maybe_put_postponed/3`.
-  defp result_token("*"), do: nil
-  defp result_token(result), do: Map.get(@legacy_results, result, result)
+  defp result_token(result) do
+    if Results.postponed?(result), do: nil, else: Map.get(@legacy_results, result, result)
+  end
 
   # Two sources, one list. A pairing-allocated bye is a real `Pairing` row with
   # one empty seat; every other kind is a `byes`-table row, which never appears
