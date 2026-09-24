@@ -147,7 +147,12 @@ defmodule PairingsEngineWeb.BadgeCard do
           </div>
 
           <div class="flex items-center justify-end flex-1" style="height: 64px; max-height: 64px;">
-            <.footer_logo src={@badge.custom_logo_right} height="62px" max_width="136px" fallback={:kbsb} />
+            <.footer_logo
+              src={@badge.custom_logo_right}
+              height="62px"
+              max_width="136px"
+              fallback={:kbsb}
+            />
           </div>
         </div>
       </div>

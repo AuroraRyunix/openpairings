@@ -273,6 +273,15 @@ end
 # control. See `PairingsEngine.Fide.Sync.list_url/0`.
 config :pairings_engine, :fide, list_url: System.get_env("FIDE_LIST_URL")
 
+# The badge maker's "Fetch from FIDE" through a relay, for the same reason:
+# a Cloudflare Worker (the deploy repo's cloudflare/fide-photo-proxy) that
+# fetches only FIDE profile pages and fide.com photos, behind a shared token.
+# Both or neither; unset, the photo is fetched from FIDE directly, which is
+# right for the desktop app. See `PairingsEngine.Badges.FideProfile`.
+config :pairings_engine, :fide_photo_proxy,
+  url: System.get_env("FIDE_PHOTO_PROXY_URL"),
+  token: System.get_env("FIDE_PHOTO_PROXY_TOKEN")
+
 # The email domain self-serve registration/email-change is blocked on -
 # accounts on it must come from 02cloud SSO instead (see
 # `PairingsEngine.Accounts.User.blocked_registration_domain/0`). Defaults to

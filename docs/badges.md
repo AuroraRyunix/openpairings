@@ -179,6 +179,25 @@ has changed and the photo could not be found on it. Please upload the photo by
 hand." Unknown IDs, a profile without a photo, FIDE being down and a photo
 that is not a usable image each get their own message; none of them raise.
 
+### On a server FIDE does not answer
+
+ratings.fide.com drops connections from many datacenter ranges, the hosted
+installation's VPS among them (the same reason `FIDE_LIST_URL` exists for
+the rating list). Two ways around it:
+
+- **A relay.** With `FIDE_PHOTO_PROXY_URL` and `FIDE_PHOTO_PROXY_TOKEN` set,
+  both requests go through a Cloudflare Worker that fetches only a profile
+  page by id and a photo on a `fide.com` host, and only for callers with the
+  token (`x-proxy-token` header). The page still comes back as FIDE's HTML
+  and is parsed here. The Worker's source and setup live in the private
+  deploy repo (`cloudflare/fide-photo-proxy`). Unset, the app goes to FIDE
+  directly, which is right for the desktop app on a home connection.
+- **By hand, always available.** "Open FIDE profile" opens the player's page
+  in the arbiter's own browser. Copy the photo there and press Ctrl+V on the
+  badge page (a colocated hook hands the pasted image to the same upload,
+  with the same checks), or save it and upload it. When a fetch fails
+  because FIDE did not answer, the message says exactly this.
+
 Tests stub every request with `Req.Test`
 (`config :pairings_engine, :fide_profile_req_plug`), so the suite never
 reaches ratings.fide.com.

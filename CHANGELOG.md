@@ -24,7 +24,9 @@ Each entry is tagged so a version can be skimmed:
   reach FIDE.** ratings.fide.com does not answer requests from a datacenter,
   so on the server "Fetch from FIDE" can fail. "Open FIDE profile" opens the
   player's page in your browser; copy the photo there and paste it into the
-  badge with Ctrl+V, or save it and upload it.
+  badge with Ctrl+V, or save it and upload it. An installation can also send
+  "Fetch from FIDE" through a relay it controls (`FIDE_PHOTO_PROXY_URL` and
+  `FIDE_PHOTO_PROXY_TOKEN`), which makes the button work on such a server.
 - [Change] **Tools: the badge maker is listed after the FIDE report forms**,
   instead of between the page's introduction and the upload it describes.
 

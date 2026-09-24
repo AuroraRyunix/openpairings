@@ -192,10 +192,12 @@ defmodule PairingsEngine.Badges.FideProfile do
   end
 
   defp request(url) do
+    {url, proxy_headers} = via_proxy(url)
+
     opts =
       [
         url: url,
-        headers: [{"user-agent", @user_agent}],
+        headers: [{"user-agent", @user_agent} | proxy_headers],
         retry: false,
         redirect: true,
         max_redirects: 3,
@@ -208,6 +210,31 @@ defmodule PairingsEngine.Badges.FideProfile do
     Req.get(opts)
   rescue
     _ -> {:error, :unreachable}
+  end
+
+  # ratings.fide.com does not answer many datacenter ranges, the VPS's among
+  # them. With `FIDE_PHOTO_PROXY_URL` and `FIDE_PHOTO_PROXY_TOKEN` set
+  # (config/runtime.exs), both requests go through a Cloudflare Worker that
+  # fetches exactly these two things: the profile page by id, and a photo on
+  # a fide.com host (the deploy repo's cloudflare/fide-photo-proxy). The page
+  # still comes back as FIDE's HTML and is parsed here.
+  @doc false
+  def via_proxy(url) do
+    with config when is_list(config) <- Application.get_env(:pairings_engine, :fide_photo_proxy),
+         base when is_binary(base) and base != "" <- config[:url],
+         token when is_binary(token) and token != "" <- config[:token] do
+      base = String.trim_trailing(base, "/")
+
+      proxied =
+        case Regex.run(~r"\Ahttps://ratings\.fide\.com/profile/(\d{1,10})\z", url) do
+          [_, id] -> "#{base}/profile/#{id}"
+          nil -> "#{base}/photo?" <> URI.encode_query(%{"url" => url})
+        end
+
+      {proxied, [{"x-proxy-token", token}]}
+    else
+      _ -> {url, []}
+    end
   end
 
   defp maybe_put_test_plug(opts) do
