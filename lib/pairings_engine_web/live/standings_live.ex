@@ -685,7 +685,7 @@ defmodule PairingsEngineWeb.StandingsLive do
   # Groups `[{code, reason}]` into `[{reason, [code, ...]}]`, keeping the
   # reasons in a fixed order so the paragraphs do not reshuffle between
   # renders.
-  @drop_reason_order [:not_calculable, :unrated_present]
+  @drop_reason_order [:not_calculable, :unrated_present, :round_robin]
 
   defp dropped_by_reason(dropped) do
     grouped = Enum.group_by(dropped, &elem(&1, 1), &elem(&1, 0))
@@ -698,6 +698,12 @@ defmodule PairingsEngineWeb.StandingsLive do
   defp dropped_reason_text(:not_calculable) do
     gettext(
       "OpenPairings cannot calculate this tie-break for this kind of tournament - a team tie-break in an individual event, or one team standings do not calculate. It would score zero for everybody and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
+    )
+  end
+
+  defp dropped_reason_text(:round_robin) do
+    gettext(
+      "C.07 Article 8: Buchholz and the tie-breaks built on it must not be used in round robins - everybody plays everybody, so the opponents' scores add up to much the same for all. It is left out of the ranking. Sonneborn-Berger, Koya or direct encounter are the round-robin tie-breaks; pick one of those here."
     )
   end
 
