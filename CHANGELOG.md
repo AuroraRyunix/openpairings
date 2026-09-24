@@ -93,6 +93,18 @@ Each entry is tagged so a version can be skimmed:
   pairing from the pool in a round already sent to FIDE shows a large
   warning and needs its own tick before it goes through. The round stays
   marked as sent. The audit trail says the warning was confirmed.
+- [Feature] **Absences in a sent round are protected too.** Changing a
+  player's "Absent at the rounds" in the player dialog on the Players page
+  so that it adds or removes a round already sent shows the same large
+  warning, and Save waits for its own tick. The round stays marked as sent,
+  and the audit trail says the warning was confirmed.
+- [Feature] **A warning when the sent-games record cannot tell two players
+  apart.** The record names a player with no FIDE ID by name, so two such
+  players with the same name (ignoring case and spaces) are one player to
+  it. The Pairings page says so beside the TRF for sending, naming them;
+  sending still works, and the audit trail notes the warning. A restore or
+  a hand-off return that puts the sent marks back says so too when one of
+  those players has a sent game.
 - [Feature] **A postponed-games TRF.** A game still open when its round was
   sent goes in that report as `?`, and every later report writes it as `?`
   again, so a file that was sent never changes. A game played before its
@@ -128,7 +140,9 @@ Each entry is tagged so a version can be skimmed:
   older spelling writes the draw and scores it as one too. The Pairings
   page says the export is not final while one is open, and, when a
   postponed game counts as something other than a draw, that the file's
-  points can differ from the standings until it is played. Only the file
+  points can differ from the standings until it is played, and that an
+  outside pairing program or checker (JaVaFo, a FIDE pairing checker)
+  cannot reproduce the rounds paired since from either download. Only the file
   the app hands its own pairing engine, which is never sent anywhere,
   carries the value the tournament counts the game as.
 - [Feature] **The KBSB upload says "Voorlopige stand"** instead of

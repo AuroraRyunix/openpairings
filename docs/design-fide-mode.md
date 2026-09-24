@@ -1036,6 +1036,17 @@ second mapping. What landed, against those touch points:
   the marks back after a restore, a hand-off return or a backup import,
   and `Snapshots.restore/4` waits for `:sent_games_changed` when the
   restore point lacks a sent game or holds it with another result.
+  `Tournaments.update_player/3` (the player dialog) waits for
+  `:sent_round_changed` too when `absent_rounds` gains or loses a sent
+  round. Because a player with no FIDE ID is keyed by name, two such
+  players with one name share a key: `PostponedGames.ambiguous_players/1`
+  finds them, and `:sent_games_ambiguous_players` - a notice, never a
+  refusal - is shown beside sending, logged with `trf.finalised`, and shown
+  and logged after a restore or hand-off return when one of them has a sent
+  game (`ambiguous_sent_players/1`). The matching itself is unchanged.
+  With a postponed game counting as other than a draw, neither TRF download
+  lets an outside checker reproduce the pairing (TRF26's `X` is a draw
+  too); the Pairings page note says so.
   Every later TRF26 report writes a `finalised_open` game as `?` at the
   file's own `X` value, so a sent report never changes; the older spelling
   scores the `=` it writes as a draw too, so every downloaded file adds up

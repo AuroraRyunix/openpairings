@@ -153,6 +153,41 @@ defmodule PairingsEngineWeb.Postponed do
   end
 
   @doc """
+  The warning beside sending while players share a name and have no FIDE ID
+  (`:sent_games_ambiguous_players`, from
+  `PairingsEngine.PostponedGames.ambiguous_players/1`). It blocks nothing.
+  """
+  def ambiguous_players_text(ambiguous) do
+    gettext(
+      "The record of sent games cannot tell apart players who have no FIDE ID and the same name: %{names}. A restore or a hand-off return may put their sent games on the wrong board. Give them a FIDE ID or names that differ before sending.",
+      names: ambiguous_names(ambiguous)
+    )
+  end
+
+  @doc """
+  The same warning after a restore or a hand-off return re-applied the sent
+  marks, for the ambiguous players who have a sent game
+  (`PairingsEngine.PostponedGames.ambiguous_sent_players/1`).
+  """
+  def ambiguous_sent_text(ambiguous) do
+    gettext(
+      "The sent marks were put back, but the record of sent games cannot tell apart players who have no FIDE ID and the same name: %{names}. Check their games in the rounds already sent.",
+      names: ambiguous_names(ambiguous)
+    )
+  end
+
+  @doc "The names in an ambiguity warning, as the audit trail stores them too."
+  def ambiguous_names(ambiguous) do
+    Enum.map_join(ambiguous, ", ", fn
+      %{names: [name | _], count: count} ->
+        gettext("%{name} (%{count} players)", name: name, count: count)
+
+      name when is_binary(name) ->
+        name
+    end)
+  end
+
+  @doc """
   The banner a standings view carries while `count` postponed games are open
   (`:adjourned_standings_not_final`, VCL4THP Q161 and Q169). Renders nothing
   at zero.

@@ -2199,12 +2199,70 @@ defmodule PairingsEngine.Tournaments do
 
   def update_player(%Player{} = player, attrs) do
     with :ok <- ensure_writable(player.tournament_id) do
-      player
-      |> Player.changeset(attrs)
-      |> guard_pairing_number_freeze(player)
-      |> Repo.update()
-      |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
+      do_update_player(player, attrs)
     end
+  end
+
+  @doc """
+  `update_player/2` for the player dialog, where the arbiter edits absences
+  by hand: a change to `absent_rounds` that adds or removes a round already
+  sent in a TRF finalised for sending waits for
+  `acknowledged: [:sent_round_changed]` in `opts`, as every other hand edit
+  of a sent round does (`sent_round_gate/2`). The round stays marked as
+  sent either way.
+  """
+  def update_player(%Player{} = player, attrs, opts) do
+    with :ok <- ensure_writable(player.tournament_id),
+         :ok <- sent_absence_gate(player, attrs, opts) do
+      do_update_player(player, attrs)
+    end
+  end
+
+  @doc """
+  The rounds already sent whose absence `attrs` would change for `player`:
+  rounds added to or removed from `absent_rounds`. Empty when `attrs` leaves
+  it alone, or does not parse (the changeset reports that instead).
+  """
+  def sent_absence_rounds(%Player{} = player, attrs) do
+    case fetch_attr(attrs, :absent_rounds) do
+      {:ok, value} ->
+        case Player.parse_absent_rounds_input(to_string(value || "")) do
+          {:ok, canonical} ->
+            before = MapSet.new(Player.parse_absent_rounds(player.absent_rounds))
+            later = MapSet.new(Player.parse_absent_rounds(canonical))
+
+            changed =
+              MapSet.union(MapSet.difference(before, later), MapSet.difference(later, before))
+
+            if MapSet.size(changed) == 0 do
+              []
+            else
+              sent = PostponedGames.sent_rounds(%Tournament{id: player.tournament_id})
+              changed |> Enum.filter(&(&1 in sent)) |> Enum.sort()
+            end
+
+          :error ->
+            []
+        end
+
+      :error ->
+        []
+    end
+  end
+
+  defp sent_absence_gate(player, attrs, opts) do
+    if :sent_round_changed not in Keyword.get(opts, :acknowledged, []) and
+         sent_absence_rounds(player, attrs) != [],
+       do: {:error, {:needs_acknowledgement, [:sent_round_changed]}},
+       else: :ok
+  end
+
+  defp do_update_player(player, attrs) do
+    player
+    |> Player.changeset(attrs)
+    |> guard_pairing_number_freeze(player)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
   end
 
   # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while

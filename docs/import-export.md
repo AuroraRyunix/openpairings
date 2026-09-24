@@ -136,8 +136,12 @@ export writes them in FIDE's own spelling:
     The older spelling below keeps the draw, and scores it as one: it is
     read by pairing programs, which pair a postponed game as one and cannot
     read `?`. (Where a tournament counts a postponed game as something other
-    than a draw, such a program will not reproduce its pairing from the
-    file; the app's own engine is handed the provisional points directly.)
+    than a draw, an outside pairing program or checker - JaVaFo, a FIDE
+    pairing checker - cannot reproduce the rounds paired since from either
+    download: the TRF26 file marks the game `?` but values it at a draw
+    through `X`, and this one writes the draw itself. Only the app's own
+    engine is handed the provisional points. The Pairings page says so in
+    its note beside the export buttons.)
     On import, a `?` comes back as a postponed game.
 
 `?dialect=javafo` on the download URL asks for the older spelling instead -

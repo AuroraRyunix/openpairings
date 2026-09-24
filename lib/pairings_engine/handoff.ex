@@ -692,10 +692,23 @@ defmodule PairingsEngine.Handoff do
 
           case Tournaments.take_back(restored, token) do
             {:ok, unlocked} ->
-              Audit.log(unlocked.id, actor, "handoff.released", %{
-                "from" => from_label,
-                "name" => unlocked.name
-              })
+              # The marks just re-applied cannot tell apart two players
+              # with no FIDE ID and one name (`:sent_games_ambiguous_players`):
+              # the trail says so, naming them.
+              ambiguous =
+                tournament.id
+                |> PairingsEngine.PostponedGames.ambiguous_sent_players()
+                |> Enum.map(&hd(&1.names))
+
+              Audit.log(
+                unlocked.id,
+                actor,
+                "handoff.released",
+                Map.merge(
+                  %{"from" => from_label, "name" => unlocked.name},
+                  if(ambiguous == [], do: %{}, else: %{"ambiguous_players" => ambiguous})
+                )
+              )
 
               unlocked
 

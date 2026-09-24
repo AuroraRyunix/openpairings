@@ -631,10 +631,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
       end)
 
     case results do
-      [{:ok, _unlocked}] ->
+      [{:ok, unlocked}] ->
         {:noreply,
          socket
          |> put_flash(:info, release_flash())
+         |> put_ambiguous_flash(PairingsEngine.PostponedGames.ambiguous_sent_players(unlocked.id))
          |> assign(return_target: nil, error: nil)
          |> assign_tournaments()}
 
@@ -920,6 +921,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
       "This copy is live again, and now holds what was played on the other machine. What was here before the return is kept as a restore point under History, if you need to look at it or go back."
     )
   end
+
+  # `:sent_games_ambiguous_players` after the return re-applied the sent
+  # marks: an error flash, so it is not lost under the success one.
+  defp put_ambiguous_flash(socket, []), do: socket
+
+  defp put_ambiguous_flash(socket, ambiguous),
+    do: put_flash(socket, :error, PairingsEngineWeb.Postponed.ambiguous_sent_text(ambiguous))
 
   # `PairingsEngine.Handoff` answers in atoms; the wording lives here, where
   # the screen is. `ExportController` carries the same mapping for the two

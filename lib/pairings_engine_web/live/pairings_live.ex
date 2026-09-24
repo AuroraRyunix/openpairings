@@ -218,6 +218,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         # warnings pairing the next round comes with.
         postponed_open: postponed_open,
         sent_rounds: PostponedGames.sent_rounds(t),
+        ambiguous_players: PostponedGames.ambiguous_players(t.id),
         pairing_warnings: PostponedGames.pairing_warnings(t, postponed_open),
         team_matches: team_matches(t, round),
         teams_by_id: teams_by_id(t),
@@ -2834,6 +2835,19 @@ defmodule PairingsEngineWeb.PairingsLive do
         )}
       </p>
 
+      <%!-- Beside sending (`:sent_games_ambiguous_players`): the record of
+            sent games names a player with no FIDE ID by name, so two with
+            one name are one player to it. It warns; sending still works. --%>
+      <div
+        :if={@ambiguous_players != []}
+        id="sent-games-ambiguous-players"
+        class="card"
+        role="status"
+        style="display: block; margin: 0 0 12px; border-left: 3px solid var(--warn)"
+      >
+        {Postponed.ambiguous_players_text(@ambiguous_players)}
+      </div>
+
       <p
         :if={@postponed_open != []}
         id="postponed-trf-not-final"
@@ -2851,6 +2865,15 @@ defmodule PairingsEngineWeb.PairingsLive do
           {gettext(
             "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
           )}
+          <%!-- Checked against `TrfExport`: the TRF26 download writes `?`
+                but values it at a draw (`X` in 162), and the older spelling
+                writes the draw itself, so neither carries the provisional
+                points the rounds were paired with. --%>
+          <span id="postponed-trf-outside-checkers">
+            {gettext(
+              "So an outside pairing program or checker (JaVaFo, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
+            )}
+          </span>
         </span>
       </p>
 

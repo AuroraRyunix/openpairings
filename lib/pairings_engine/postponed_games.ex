@@ -63,7 +63,11 @@ defmodule PairingsEngine.PostponedGames do
     # result is possible - "semi-frozen" - but never silent.
     %{id: :finalised_result_changed, vcl: [], acknowledge?: true},
     %{id: :sent_round_changed, vcl: [], acknowledge?: true},
-    %{id: :sent_games_changed, vcl: [], acknowledge?: true}
+    %{id: :sent_games_changed, vcl: [], acknowledge?: true},
+    # Two players with no FIDE ID and the same name are one key in the
+    # sent-games record (`player_key/1`), so it cannot tell their games
+    # apart. Shown beside sending and after a restore; it blocks nothing.
+    %{id: :sent_games_ambiguous_players, vcl: [], acknowledge?: false}
   ]
 
   @doc "Every warning this feature can raise, with the VCL question it answers."
@@ -344,6 +348,60 @@ defmodule PairingsEngine.PostponedGames do
 
   def player_key(%{name: name}),
     do: "name:" <> (name |> to_string() |> String.trim() |> String.downcase())
+
+  @doc """
+  The players of tournament `tournament_id` the sent-games record cannot
+  tell apart (`:sent_games_ambiguous_players`): two or more with no FIDE ID
+  whose names are the same once `player_key/1` has trimmed and lower-cased
+  them. One `%{key:, names:, count:}` per such name, `names` the spellings
+  as entered (trimmed, sorted). Empty when every player has a key of their
+  own.
+  """
+  def ambiguous_players(tournament_id) when is_integer(tournament_id) do
+    Repo.all(
+      from p in PairingsEngine.Tournaments.Player,
+        where: p.tournament_id == ^tournament_id,
+        select: %{fide_id: p.fide_id, name: p.name}
+    )
+    |> Enum.group_by(&player_key/1)
+    |> Enum.filter(fn {key, players} ->
+      String.starts_with?(key, "name:") and length(players) > 1
+    end)
+    |> Enum.map(fn {key, players} ->
+      names =
+        players
+        |> Enum.map(&(&1.name |> to_string() |> String.trim()))
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      %{key: key, names: names, count: length(players)}
+    end)
+    |> Enum.sort_by(& &1.key)
+  end
+
+  @doc """
+  The ambiguous players (`ambiguous_players/1`) who have a game in the
+  sent-games record - the ones whose sent games a restore or a hand-off
+  return may put back on the wrong board.
+  """
+  def ambiguous_sent_players(tournament_id) when is_integer(tournament_id) do
+    case ambiguous_players(tournament_id) do
+      [] ->
+        []
+
+      ambiguous ->
+        keys =
+          Repo.all(
+            from s in TrfSentGame,
+              where: s.tournament_id == ^tournament_id,
+              select: [s.white_key, s.black_key]
+          )
+          |> List.flatten()
+          |> MapSet.new()
+
+        Enum.filter(ambiguous, &MapSet.member?(keys, &1.key))
+    end
+  end
 
   @doc """
   Marks every board of `rounds` as sent (see the section above) and records

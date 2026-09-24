@@ -251,10 +251,14 @@ defmodule PairingsEngineWeb.AuditLive do
         )
 
       changes ->
-        gettext("Updated player %{name}: %{changes}.",
-          name: name(d, "player_name"),
-          changes: changes
-        )
+        sentences([
+          gettext("Updated player %{name}: %{changes}.",
+            name: name(d, "player_name"),
+            changes: changes
+          ),
+          # Absences in a round already sent (`:sent_round_changed`).
+          confirmed_sentence(d)
+        ])
     end
   end
 
@@ -765,6 +769,20 @@ defmodule PairingsEngineWeb.AuditLive do
   # A TRF downloaded "for sending" with its results marked as sent
   # (`PostponedGames.finalise/2`), and a postponed-games file sent the same
   # way. Both are records that something left for the federation.
+  # Sending, a restore or a hand-off return while the sent-games record
+  # could not tell some players apart (`:sent_games_ambiguous_players`): the
+  # row's own sentence, then the warning, naming them.
+  def describe(action, %{"ambiguous_players" => [_ | _] = names} = d)
+      when action in ["trf.finalised", "snapshot.restored", "handoff.released"] do
+    sentences([
+      describe(action, Map.delete(d, "ambiguous_players")),
+      gettext(
+        "Warned that the record of sent games cannot tell apart players who have no FIDE ID and the same name: %{names}.",
+        names: Enum.join(names, ", ")
+      )
+    ])
+  end
+
   def describe("trf.finalised", d),
     do:
       ngettext(

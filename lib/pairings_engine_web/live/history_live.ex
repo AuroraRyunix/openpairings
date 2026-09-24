@@ -35,8 +35,8 @@ defmodule PairingsEngineWeb.HistoryLive do
   """
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Audit, Snapshots, Tournaments}
-  alias PairingsEngineWeb.{AuditLive, SettingsSupport}
+  alias PairingsEngine.{Audit, PostponedGames, Snapshots, Tournaments}
+  alias PairingsEngineWeb.{AuditLive, Postponed, SettingsSupport}
 
   # How many audit rows to pull. The stream is merged with snapshots and
   # rendered in full (no pagination) - this is the "recent narrative" view,
@@ -277,6 +277,10 @@ defmodule PairingsEngineWeb.HistoryLive do
            acknowledged: acknowledged
          ) do
       {:ok, restored} ->
+        # The marks the restore re-applied cannot tell these players apart
+        # (`:sent_games_ambiguous_players`); said on screen and in the trail.
+        ambiguous = PostponedGames.ambiguous_sent_players(restored.id)
+
         Audit.log(
           restored.id,
           socket.assigns.current_scope,
@@ -287,15 +291,27 @@ defmodule PairingsEngineWeb.HistoryLive do
               restored_to: snapshot.summary || "",
               taken_at: DateTime.to_iso8601(snapshot.inserted_at)
             },
-            if(acknowledged == [], do: %{}, else: %{sent_games_changed: sent_changed})
+            Map.merge(
+              if(acknowledged == [], do: %{}, else: %{sent_games_changed: sent_changed}),
+              if(ambiguous == [],
+                do: %{},
+                else: %{ambiguous_players: Enum.map(ambiguous, &hd(&1.names))}
+              )
+            )
           )
         )
 
-        {:noreply,
-         socket
-         |> assign(tournament: restored, restore_target: nil, restore_confirm: "")
-         |> put_flash(:info, "Restored. The state you left is saved as a new restore point.")
-         |> load_stream()}
+        socket =
+          socket
+          |> assign(tournament: restored, restore_target: nil, restore_confirm: "")
+          |> put_flash(:info, "Restored. The state you left is saved as a new restore point.")
+
+        socket =
+          if ambiguous == [],
+            do: socket,
+            else: put_flash(socket, :error, Postponed.ambiguous_sent_text(ambiguous))
+
+        {:noreply, load_stream(socket)}
 
       {:error, :archived} ->
         {:noreply,

@@ -97,10 +97,14 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   "Finalise results for TRF sending" box: ticked, the download marks every
   result of the exported rounds as sent. A sent result changes only after a
   confirmation; a sent round cannot be finalised again or unpaired, and a
-  hand edit to who played whom in it needs a warning ticked, so no game is
+  hand edit to who played whom in it - or to a player's absence in it, on
+  the Players page - needs a warning ticked, so no game is
   sent twice. What was sent is also kept in a record a restore or a
   hand-off return does not replace: the marks come back afterwards, and a
-  restore that would take a sent game away warns first. A game still open when its round is sent goes out as
+  restore that would take a sent game away warns first. The record names a
+  player with no FIDE ID by name, so two such players with the same name
+  cannot be told apart in it: the Pairings page warns beside sending, and a
+  restore or return warns when one of them has a sent game. A game still open when its round is sent goes out as
   `?` and stays `?` in every later report; once played it goes in the
   **postponed-games TRF** on the Postponed games page instead - extra
   rounds, packed so nobody plays twice in a round, only the players of those

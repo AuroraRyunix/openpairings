@@ -408,6 +408,160 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
                Tournaments.pair_from_pool(round, first.white_player_id, second.white_player_id, 9)
     end
 
+    test "an absence edited on the Players page in a sent round needs its own tick", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      player = Enum.find(Tournaments.list_players(t.id), &(&1.name == "Alice"))
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      refute has_element?(lv, "#player-sent-absence")
+
+      lv
+      |> element("#player-edit-form")
+      |> render_change(%{"player" => %{"absent_rounds" => "1"}})
+
+      assert has_element?(lv, "#player-sent-absence")
+      assert has_element?(lv, "#player-edit-save[disabled]")
+
+      # Refused server-side without the tick.
+      lv
+      |> element("#player-edit-form")
+      |> render_submit(%{"player" => %{"absent_rounds" => "1"}})
+
+      assert Repo.reload!(player).absent_rounds == ""
+      assert has_element?(lv, "#player-sent-absence")
+
+      lv
+      |> element("#player-edit-form")
+      |> render_submit(%{"player" => %{"absent_rounds" => "1", "sent_ack" => "true"}})
+
+      assert Repo.reload!(player).absent_rounds == "1"
+      [entry | _] = Audit.list_for_tournament(t.id)
+      assert entry.action == "player.updated"
+      assert entry.details["confirmed"] == "sent_round_changed"
+
+      # Still sent: it is never sent a second time.
+      assert {:error, {:already_sent, [1]}} =
+               PairingsEngine.PostponedGames.finalise(Tournaments.get_tournament!(t.id), [1])
+    end
+
+    test "an absence in a round not sent needs no tick", %{scope: scope} do
+      t = tournament(scope)
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      {:ok, _} = PairingsEngine.PostponedGames.finalise(t, [1])
+      player = hd(Tournaments.list_players(t.id))
+
+      assert [] = Tournaments.sent_absence_rounds(player, %{"absent_rounds" => "2-3"})
+
+      assert {:ok, %{absent_rounds: "2,3"}} =
+               Tournaments.update_player(player, %{"absent_rounds" => "2-3"}, [])
+
+      assert {:error, {:needs_acknowledgement, [:sent_round_changed]}} =
+               Tournaments.update_player(Repo.reload!(player), %{"absent_rounds" => "1-3"}, [])
+
+      assert {:ok, %{absent_rounds: "1,2,3"}} =
+               Tournaments.update_player(Repo.reload!(player), %{"absent_rounds" => "1-3"},
+                 acknowledged: [:sent_round_changed]
+               )
+    end
+  end
+
+  describe "players the sent-games record cannot tell apart" do
+    # Two "Jan Peeters" with no FIDE ID, told apart only by case and spaces.
+    defp with_namesakes(scope) do
+      t = tournament(scope)
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => "Jan Peeters"})
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => " jan peeters"})
+      t
+    end
+
+    test "are found the way the record compares names, FIDE IDs aside", %{scope: scope} do
+      t = with_namesakes(scope)
+
+      {:ok, _} =
+        Tournaments.create_player(t.id, %{"name" => "Eve", "fide_id" => "1000001"})
+
+      {:ok, _} =
+        Tournaments.create_player(t.id, %{"name" => "Eve", "fide_id" => "1000002"})
+
+      assert [%{key: "name:jan peeters", count: 2}] =
+               PairingsEngine.PostponedGames.ambiguous_players(t.id)
+
+      # Nobody of them has a sent game yet.
+      assert [] = PairingsEngine.PostponedGames.ambiguous_sent_players(t.id)
+    end
+
+    test "warn beside sending, and sending notes it in the audit trail", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      refute has_element?(lv, "#sent-games-ambiguous-players")
+
+      t = with_namesakes(scope) |> then(&Tournaments.get_tournament!(&1.id))
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      assert has_element?(lv, "#sent-games-ambiguous-players", "Jan Peeters")
+
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      file = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      assert response(file, 200) =~ "001"
+
+      [entry | _] = Audit.list_for_tournament(t.id)
+      assert entry.action == "trf.finalised"
+      assert entry.details["ambiguous_players"] == ["Jan Peeters"]
+    end
+
+    test "warn after a restore re-applies marks to their sent games", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = with_namesakes(scope)
+      # Pair round 1 again so the namesakes are in it.
+      :ok = Engine.delete_round(t.id, 1)
+      {:ok, _} = Engine.pair_next_round(Tournaments.get_tournament!(t.id))
+      t = Tournaments.get_tournament!(t.id)
+      {:ok, point} = PairingsEngine.Snapshots.capture(t, "manual", scope)
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      {:ok, _} = PairingsEngine.PostponedGames.finalise(t, [1])
+
+      assert [%{key: "name:jan peeters"}] =
+               PairingsEngine.PostponedGames.ambiguous_sent_players(t.id)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(point.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE", "sent_ack" => "true"})
+
+      html =
+        render_submit(lv, "restore_confirmed", %{"confirm" => "RESTORE", "sent_ack" => "true"})
+
+      [entry | _] = Audit.list_for_tournament(t.id)
+      assert entry.action == "snapshot.restored"
+      assert entry.details["ambiguous_players"] == ["Jan Peeters"]
+      assert html =~ "Jan Peeters"
+    end
+  end
+
+  describe "the outside-checker note" do
+    test "says a downloaded TRF cannot reproduce the pairing when a postponed game is not a draw",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+
+      {:ok, t} =
+        Tournaments.update_tournament(t, %{"postponed_requester_outcome" => "win"})
+
+      [board | _] = boards(t, 1)
+      set!(board, "*W")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      assert has_element?(lv, "#postponed-trf-outside-checkers")
+    end
+
     test "with postponed games off, no postponed result is offered", %{conn: conn, scope: scope} do
       t = tournament(scope)
       {:ok, _} = Tournaments.update_tournament(t, %{"postponed_games" => "false"})

@@ -93,10 +93,19 @@ defmodule PairingsEngineWeb.ExportController do
          meta = TrfExport.export_meta(tournament, params["rounds"]),
          {:ok, marked} <- maybe_finalise(tournament, meta.rounds, finalise?) do
       if finalise? do
-        Audit.log(tournament.id, conn.assigns.current_scope, "trf.finalised", %{
-          rounds: meta.rounds,
-          marked: marked
-        })
+        # Sent anyway - the warning blocks nothing - but the trail says the
+        # record could not tell these players apart when it went out.
+        ambiguous = PostponedGames.ambiguous_players(tournament.id)
+
+        Audit.log(
+          tournament.id,
+          conn.assigns.current_scope,
+          "trf.finalised",
+          Map.merge(
+            %{rounds: meta.rounds, marked: marked},
+            ambiguous_details(ambiguous)
+          )
+        )
       end
 
       conn
@@ -135,6 +144,11 @@ defmodule PairingsEngineWeb.ExportController do
         |> redirect(to: ~p"/t/#{tournament.id}/pairings")
     end
   end
+
+  defp ambiguous_details([]), do: %{}
+
+  defp ambiguous_details(ambiguous),
+    do: %{ambiguous_players: Enum.map(ambiguous, &hd(&1.names))}
 
   defp maybe_finalise(_tournament, _rounds, false), do: {:ok, 0}
   defp maybe_finalise(tournament, rounds, true), do: PostponedGames.finalise(tournament, rounds)
