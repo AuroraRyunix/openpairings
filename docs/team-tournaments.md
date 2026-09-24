@@ -299,50 +299,45 @@ breaks it cannot calculate.
 Ranking is by match points, then the configured tie-breaks in order, then
 pairing number (C.07 Art. 4.2 says drawing of lots; that is the arbiter's).
 
+BH, SB, EMGSB and the order within a tied group come from Ainalrami
+(`Ainalrami.Tiebreaks`, C.07 as of 1 March 2026), the code its `-c` checker
+verifies standings with. Its team tie-breaks were compared with FIDE's
+TieBreakServer on generated team events, game by game (Ainalrami's
+`tools/team_tiebreak_compare.exs`, and its
+`docs/finding-tiebreakserver-2026-09.md` for where TieBreakServer is wrong).
+The tie-breaks count the rounds whose every match is finished; the match
+points the table ranks by first count every finished match.
+
 | Code | What | Rule |
 |---|---|---|
 | `MP` | match points | C.07 11.1.1 |
 | `GP` | game points | C.07 11.1.2, 13.1 |
-| `DE` | direct encounter on match points, among teams still tied on MP **and on every tie-break listed before DE**; decided only when all of them have met; repeated meetings averaged | C.07 6, 6.1.2, 4.2 |
-| `BH` | Buchholz: the sum of each opponent's final match points | C.07 8.1 + 13 |
-| `SB` | Sonneborn-Berger on the primary score: opponent's final MP x MP scored against them | C.07 9.1 + 13 (= EMMSB, 13.2.1) |
-| `EMGSB` | opponent's final MP x game points scored against them | C.07 13.2.2 |
-| `BB` | board points weighted by board: on B boards, a point on board k is worth B+1-k | ranks as C.07 12.1 Board Count for teams level on GP |
+| `DE` | direct encounter on match points, among teams still tied on MP and every tie-break listed before it: 6.2's reapplication to a subset, 6.3's Swiss rule, repeated meetings averaged | C.07 6, 6.1.2, 4.2 |
+| `BH` | Buchholz: the sum of each opponent's match points. Not used in a round robin, where it is dropped with the reason | C.07 8.1 + 13, 8 |
+| `SB` | Sonneborn-Berger on the primary score: opponent's MP x MP scored against them | C.07 9.1 + 13 (= EMMSB, 13.2.1) |
+| `EMGSB` | opponent's MP x game points scored against them | C.07 13.2.2 |
+| `BB` | board points weighted by board: on B boards, a point on board k is worth B+1-k. Ranks as Board Count, which it equals for teams level on GP, and which 12.1 does not apply to teams that are not | C.07 12.1 |
 
 The Standings page has a *Working* disclosure per team that lists the parts
 BH, SB and EMGSB were added up from ("R2 BSK: 4"), in the same shape
 `PairingsEngine.TiebreakWorking` publishes for individuals.
 
 **Art. 16 (unplayed rounds) applies to a team Swiss only** - C.07 Art. 15.3
-and 16 confine it to Swiss events, and a round robin's bye is the same for
-every team. For a team Swiss, `TeamStandings` sorts every round of every team
-into Art. 16.2's categories (read from the local C.07 text):
+and 16 confine it to Swiss events, and a round robin's bye is no round for a
+tie-break. In a team Swiss every round of every team is one of:
 
 | round | category |
 |---|---|
 | a match with at least one game played | played |
-| the pairing-allocated bye | 16.2.1 |
+| the pairing-allocated bye (a drawn match's points, C.04.6 1.4) | 16.2.1 |
 | a match with no game played, won on game points | 16.2.2 forfeit win |
 | a match with no game played, not won | 16.2.4 forfeit loss |
-| not paired (sat out, withdrew, not yet entered), followed by a round that is not a bye or a forfeit loss | 16.2.3 |
-| the same, followed only by byes and forfeit losses, or in the last round | 16.2.5 |
+| not paired (sat out, withdrew, not yet entered) | a zero-point bye: 16.2.3, or 16.2.5 when only such rounds and forfeit losses follow |
 
-- **Adjusted match points** (16.3), which an opponent's BH, SB and EMGSB
-  read: every round as awarded, except 16.2.5's, which count as a draw.
-- **A team's own unplayed round** (16.4) counts against a dummy whose match
-  points are the team's own, capped by the scheduled opponent's adjusted
-  match points for a forfeit (16.4.1) and by a draw's match points times the
-  rounds of the tournament otherwise (16.4.2); times the match points (SB) or
-  game points (EMGSB) the round awarded. "For team competitions, points means
-  match points and game points": the dummy stands in for the opponent's
-  match points, the factor all three tie-breaks read.
-- The *Working* line names such rounds: "R2 bye: 3", "R1 T3 (forfeit win):
-  2", "R3 not paired: 0".
-
-This follows the text where the individual standings do something slightly
-different: `Standings` gives a forfeited round the scheduled opponent's
-adjusted score rather than the capped dummy, and counts trailing forfeit
-losses as draws for opponents. Cut-1 (16.5) is not offered for teams.
+and Ainalrami applies Article 16 to them: an opponent's adjusted score
+(16.3), and a game against a dummy for a team's own unplayed round (16.4).
+The *Working* line names such rounds: "R2 bye: 3", "R1 T3 (forfeit win):
+2", "R3 not paired: 0".
 
 ### Board statistics
 

@@ -545,7 +545,7 @@ defmodule PairingsEngineWeb.StandingsLive do
   defp working_opponent(%{kind: :forfeit_loss} = part, teams_by_id),
     do: gettext("%{team} (forfeit loss)", team: team_label(teams_by_id, part.opponent_id))
 
-  defp working_opponent(%{kind: kind}, _teams) when kind in [:bye, :trailing_bye],
+  defp working_opponent(%{kind: :bye}, _teams),
     do: gettext("not paired")
 
   defp working_opponent(part, teams_by_id), do: team_label(teams_by_id, part.opponent_id)

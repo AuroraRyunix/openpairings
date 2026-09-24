@@ -37,7 +37,19 @@ Each entry is tagged so a version can be skimmed:
   dummy at the player's own score, as Article 16.4 says. It used to add
   nothing.
 - [Change] **Buchholz is not used in round robins.** C.07 Article 8 forbids
-  it. The standings page drops it and says why.
+  it. The standings page drops it and says why. This applies to team round
+  robins too.
+- [Change] **Team tie-breaks come from Ainalrami as well.** Team Buchholz,
+  Sonneborn-Berger, EMGSB and the order among tied teams are now Ainalrami's
+  C.07 tie-breaks. Ainalrami's team tie-breaks were compared game by game
+  with FIDE's TieBreakServer. The values OpenPairings already gave are
+  unchanged.
+- [Fix] **Team direct encounter works when not every tied team has met.**
+  Before, it only ordered a group in which everybody had played everybody.
+  Now all of Article 6 applies to teams too.
+- [Change] **A round still in progress no longer moves the team
+  tie-breaks.** They count the rounds whose every match is finished. Match
+  points, which rank first, still count every finished match.
 
 ## [0.63.6] - 2026-09-23
 

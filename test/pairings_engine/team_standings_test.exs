@@ -132,30 +132,35 @@ defmodule PairingsEngine.TeamStandingsTest do
   end
 
   describe "team tie-breaks, hand-computed" do
-    test "BH, SB, EMGSB and BB" do
+    # A round robin: Buchholz is not used (C.07 Article 8) - dropped, with
+    # the reason the page gives.
+    test "SB, EMGSB and BB; no Buchholz in a round robin" do
       t = worked_example(tiebreaks: ~w(GP BH SB EMGSB BB))
       e = t |> TeamStandings.standings() |> by_name()
 
-      assert Map.take(e["T1"].tiebreaks, ~w(BH SB EMGSB BB)) ==
-               %{"BH" => 9.0, "SB" => 4.0, "EMGSB" => 6.5, "BB" => 5.0}
+      assert TeamStandings.dropped_tiebreaks_with_reasons(t) == [{"BH", :round_robin}]
+      refute Map.has_key?(e["T1"].tiebreaks, "BH")
 
-      assert Map.take(e["T2"].tiebreaks, ~w(BH SB EMGSB BB)) ==
-               %{"BH" => 8.0, "SB" => 8.0, "EMGSB" => 8.0, "BB" => 7.0}
+      assert Map.take(e["T1"].tiebreaks, ~w(SB EMGSB BB)) ==
+               %{"SB" => 4.0, "EMGSB" => 6.5, "BB" => 5.0}
 
-      assert Map.take(e["T3"].tiebreaks, ~w(BH SB EMGSB BB)) ==
-               %{"BH" => 7.0, "SB" => 10.0, "EMGSB" => 8.5, "BB" => 5.0}
+      assert Map.take(e["T2"].tiebreaks, ~w(SB EMGSB BB)) ==
+               %{"SB" => 8.0, "EMGSB" => 8.0, "BB" => 7.0}
 
-      assert Map.take(e["T4"].tiebreaks, ~w(BH SB EMGSB BB)) ==
-               %{"BH" => 12.0, "SB" => 0.0, "EMGSB" => 2.5, "BB" => 1.0}
+      assert Map.take(e["T3"].tiebreaks, ~w(SB EMGSB BB)) ==
+               %{"SB" => 10.0, "EMGSB" => 8.5, "BB" => 5.0}
+
+      assert Map.take(e["T4"].tiebreaks, ~w(SB EMGSB BB)) ==
+               %{"SB" => 0.0, "EMGSB" => 2.5, "BB" => 1.0}
 
       assert e["T2"].tiebreaks["GP"] == 4.0
     end
 
     test "the working adds up to the number" do
-      t = worked_example(tiebreaks: ~w(BH SB))
+      t = worked_example(tiebreaks: ~w(SB EMGSB))
       e = t |> TeamStandings.standings() |> by_name()
 
-      for {_name, entry} <- e, code <- ~w(BH SB) do
+      for {_name, entry} <- e, code <- ~w(SB EMGSB) do
         parts = entry.working[code]
         assert length(parts) == 3
         assert parts |> Enum.map(& &1.value) |> Enum.sum() == entry.tiebreaks[code]

@@ -29,43 +29,44 @@ defmodule PairingsEngine.TeamStandings do
 
   C.07 Art. 13 (local text) lets every individual tie-break of Articles 6-10
   be applied to teams "using teams MP or GP as the reference score - the
-  primary score being the default". The codes this module calculates, each
-  with that reading:
+  primary score being the default". BH, SB, EMGSB and the order within a
+  tied group come from `Ainalrami.Tiebreaks` - the code `ainalrami -c`
+  checks standings with, compared game by game with FIDE's TieBreakServer
+  on generated team events. The codes, each with its reading:
 
     * `MP`, `GP` - the scores themselves (Art. 11.1). `GP` as a tie-break
       after MP is also what Art. 13.1 (MPvGP) describes.
-    * `DE` - Direct encounter (Art. 6) on match points: among teams still tied
-      on MP and on every tie-break listed before DE, if they have all met,
-      the match points each scored against the others. Two meetings between
-      the same teams count as their average (Art. 6.1.2). Otherwise 0 for
-      the whole group, and the next tie-break decides, as in individual
-      standings.
-    * `BH` - Buchholz (Art. 8.1) on match points: the sum of each opponent's
-      final match points, once per match played against them.
-    * `SB` - Sonneborn-Berger (Art. 9.1) on the primary score: each
-      opponent's final match points multiplied by the match points scored
-      against them. This is Art. 13.2.1's EMMSB.
-    * `EMGSB` - Art. 13.2.2: each opponent's final match points multiplied by
-      the GAME points scored against them - the Olympiad-style team
-      Sonneborn-Berger.
+    * `DE` - Direct encounter (Art. 6) on match points, all of it: 6.2's
+      reapplication to a subset, 6.3's Swiss rule, 6.1.2's average of two
+      meetings. The number shown is the match points each team scored
+      against the others of its group when all of them met, 0.0 otherwise;
+      the order is Ainalrami's.
+    * `BH` - Buchholz (Art. 8.1) on match points. Not used in a round robin
+      (Art. 8): dropped, with the reason.
+    * `SB` - Sonneborn-Berger (Art. 9.1) on match points: Art. 13.2.1's
+      EMMSB.
+    * `EMGSB` - Art. 13.2.2: each opponent's match points times the GAME
+      points scored against them - the Olympiad-style team Sonneborn-Berger.
     * `BB` - board points weighted by board: on a match of B boards, a point
       on board k is worth B + 1 - k, so board 1 weighs most. Higher is
-      better. For teams level on game points this ranks exactly as C.07 Art.
-      12.1's Board Count (lower is better), since the two add up to
-      (B + 1) x GP.
+      better. The order uses Art. 12.1's Board Count, which ranks the same
+      for teams level on game points (the two add up to (B + 1) x GP) and,
+      as 12.1 says, does not apply to teams that are not.
+
+  The tie-breaks count the rounds every match of which is finished; the
+  match points the table ranks by first count every finished match.
 
   A match against no opponent in a round robin (the bye of an odd-sized
-  field) scores nothing and contributes nothing: every team has exactly one
-  per cycle, and C.07 Art. 16's unplayed-round rules are for Swiss events only
-  (Art. 15.3).
+  field) scores nothing and is no round for a tie-break: every team has
+  exactly one per cycle, and C.07 Art. 16's unplayed-round rules are for
+  Swiss events only (Art. 15.3).
 
   ## Team Swiss
 
   In a team Swiss (`Tournament.team_swiss?/1`) the pairing-allocated bye
   scores a drawn match (C.04.6 Art. 1.4), and BH, SB and EMGSB apply C.07
   Art. 16 to every unplayed round - the bye, a match with no game played, a
-  round the team was not paired in. See `add_unplayed_rounds/3` and
-  `docs/team-tournaments.md`.
+  round the team was not paired in.
 
   When every configured tie-break is exhausted the teams stay in pairing
   number order. C.07 Art. 4.2 prescribes drawing of lots there, which is the
@@ -79,12 +80,29 @@ defmodule PairingsEngine.TeamStandings do
 
   @supported ~w(MP GP DE BH SB EMGSB BB)
 
+  # Each code in Ainalrami's (C.07) spelling. BB ranks as Board Count; see
+  # the tie-breaks section below.
+  @c07 %{
+    "MP" => "MPTS",
+    "GP" => "GPTS",
+    "DE" => "DE",
+    "BH" => "BH:MP",
+    "SB" => "SB:MP",
+    "EMGSB" => "EMGSB",
+    "BB" => "BC"
+  }
+
+  @with_working ~w(BH SB EMGSB)
+  @buchholz ~w(BH)
+
   @doc "The tie-break codes team standings can calculate."
   def supported_codes, do: @supported
 
   @doc "The configured tie-breaks team standings will apply, in order."
-  def effective_tiebreaks(%Tournament{} = t),
-    do: Enum.filter(t.tiebreaks || [], &(&1 in @supported))
+  def effective_tiebreaks(%Tournament{} = t) do
+    dropped = t |> dropped_tiebreaks_with_reasons() |> Enum.map(&elem(&1, 0))
+    Enum.reject(t.tiebreaks || [], &(&1 in dropped))
+  end
 
   @doc """
   The configured tie-breaks that are left out, each with `:not_calculable` -
@@ -92,8 +110,20 @@ defmodule PairingsEngine.TeamStandings do
   page can explain them the same way.
   """
   def dropped_tiebreaks_with_reasons(%Tournament{} = t) do
-    for code <- t.tiebreaks || [], code not in @supported, do: {code, :not_calculable}
+    for code <- t.tiebreaks || [],
+        reason = drop_reason(code, t),
+        reason != nil,
+        do: {code, reason}
   end
+
+  defp drop_reason(code, _t) when code not in @supported, do: :not_calculable
+
+  # C.07 Article 8: "Buchholz ... must not be used in round-robins".
+  defp drop_reason(code, t) when code in @buchholz do
+    if Tournament.team_round_robin?(t), do: :round_robin
+  end
+
+  defp drop_reason(_code, _t), do: nil
 
   ## ---------- matches ----------
 
@@ -286,35 +316,53 @@ defmodule PairingsEngine.TeamStandings do
         }
       end)
 
-    entries =
-      if Tournament.team_swiss?(t),
-        do: add_unplayed_rounds(entries, matches, t),
-        else: entries
+    event = ainalrami_event(entries, matches, t)
 
-    by_id = Map.new(entries, &{&1.team.id, &1})
+    values =
+      for code <- codes, Map.has_key?(@c07, code), code not in ~w(DE BB), into: %{} do
+        {code, ainalrami_values(event, @c07[code])}
+      end
+
+    working =
+      for code <- codes, code in @with_working, into: %{} do
+        {code, ainalrami_working(event, @c07[code])}
+      end
 
     entries =
       Enum.map(entries, fn e ->
-        {values, working} =
-          Enum.reduce(codes, {%{}, %{}}, fn
-            "DE", acc ->
-              acc
+        id = e.team.id
 
-            code, {values, working} ->
-              {value, parts} = tiebreak(code, e, by_id, t)
-              working = if parts, do: Map.put(working, code, parts), else: working
-              {Map.put(values, code, value), working}
-          end)
+        tiebreaks =
+          for code <- codes, code != "DE", into: %{} do
+            value =
+              case code do
+                "MP" -> e.mp
+                "GP" -> e.gp
+                "BB" -> board_weighted(e, t)
+                _ -> as_float(get_in(values, [code, id]))
+              end
 
-        Map.merge(e, %{tiebreaks: values, working: working})
+            {code, value}
+          end
+
+        parts =
+          for {code, by_id} <- working, by_id != nil, into: %{} do
+            {code, Map.get(by_id, id, [])}
+          end
+
+        Map.merge(e, %{tiebreaks: tiebreaks, working: parts})
       end)
 
     entries = if "DE" in codes, do: add_direct_encounter(entries, codes), else: entries
+    places = c07_places(event, codes)
 
+    # Match points first - they count every finished match, a round still
+    # being played included - then C.07's order, which Ainalrami gives over
+    # the rounds that are complete. Once the round is over the two agree.
     entries
     |> Enum.sort_by(fn e ->
-      {[-e.mp | Enum.map(codes, &(-Map.get(e.tiebreaks, &1, 0.0)))],
-       sort_number(e.team.pairing_number), sort_number(e.team.seed), e.team.name, e.team.id}
+      {-e.mp, Map.get(places, e.team.id, 0), sort_number(e.team.pairing_number),
+       sort_number(e.team.seed), e.team.name, e.team.id}
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
@@ -372,197 +420,181 @@ defmodule PairingsEngine.TeamStandings do
     Enum.any?(boards, fn b -> b.pairing.result != "" and Results.played?(b.pairing.result) end)
   end
 
-  defp tiebreak("MP", e, _by_id, _t), do: {e.mp, nil}
-  defp tiebreak("GP", e, _by_id, _t), do: {e.gp, nil}
+  ## ---------- tie-breaks: Ainalrami's ----------
+  #
+  # BH, SB and EMGSB - Article 16 included - and the order within a tied
+  # group come from `Ainalrami.Tiebreaks` (C.07, effective 1 March 2026),
+  # the same code `ainalrami -c` checks standings with and the individual
+  # standings use (`PairingsEngine.Standings`). It was checked against
+  # FIDE's TieBreakServer on generated team events game by game
+  # (Ainalrami's `tools/team_tiebreak_compare.exs`).
+  #
+  # MP, GP and BB are this module's own: MP and GP are the scores the table
+  # shows, and BB is not a C.07 code. For the order BB is Board Count
+  # (Article 12.1): for teams level on game points the two rank alike (they
+  # add up to (B + 1) x GP); for teams that are not, 12.1 says Board Count
+  # does not apply, and the next tie-break decides.
 
-  # A team Swiss: C.07 Art. 16 for BH, SB (EMMSB) and EMGSB. See
-  # `add_unplayed_rounds/3`.
-  defp tiebreak(code, %{slots: slots} = e, by_id, t) when code in ~w(BH SB EMGSB) do
-    parts = Enum.flat_map(slots, &art16_part(code, &1, e, by_id, t))
-    {sum_parts(parts), parts}
-  end
-
-  defp tiebreak("BH", e, by_id, _t) do
-    parts =
-      for r <- played_records(e) do
-        %{round: r.round, opponent_id: r.opponent_id, value: opp_mp(by_id, r), kind: :played}
-      end
-
-    {sum_parts(parts), parts}
-  end
-
-  defp tiebreak("SB", e, by_id, _t) do
-    parts =
-      for r <- played_records(e) do
-        %{
-          round: r.round,
-          opponent_id: r.opponent_id,
-          value: round2(opp_mp(by_id, r) * r.mp),
-          kind: :played
-        }
-      end
-
-    {sum_parts(parts), parts}
-  end
-
-  defp tiebreak("EMGSB", e, by_id, _t) do
-    parts =
-      for r <- played_records(e) do
-        %{
-          round: r.round,
-          opponent_id: r.opponent_id,
-          value: round2(opp_mp(by_id, r) * r.gp),
-          kind: :played
-        }
-      end
-
-    {sum_parts(parts), parts}
-  end
-
-  defp tiebreak("BB", e, _by_id, t) do
+  defp board_weighted(e, t) do
     boards = max(t.team_boards || 1, 1)
 
-    value =
-      e.records
-      |> Enum.flat_map(&Map.to_list(&1.board_points))
-      |> Enum.map(fn {k, points} -> (boards + 1 - k) * (points || 0.0) end)
-      |> Enum.sum()
-
-    {round2(value), nil}
+    e.records
+    |> Enum.flat_map(&Map.to_list(&1.board_points))
+    |> Enum.map(fn {k, points} -> (boards + 1 - k) * (points || 0.0) end)
+    |> Enum.sum()
+    |> round2()
   end
 
-  ## ---------- C.07 Art. 16, team Swiss ----------
+  # The event Ainalrami ranks: every team, each round that is complete for
+  # the whole field. A round still being played has no place in a
+  # tie-break yet - its opponents' scores are not final.
+  defp ainalrami_event(entries, matches, t) do
+    alias Ainalrami.Tiebreaks.Team, as: C07Team
 
-  # Each round of the event, for each team, sorted into Art. 16.2's
-  # categories (C.07 effective 1 March 2026, read from the local text):
-  #
-  #   * `:played`       - a match with at least one game played
-  #   * `:pab`          - the pairing-allocated bye (16.2.1)
-  #   * `:forfeit_win`  - a match with no game played, won on game points
-  #                       (16.2.2)
-  #   * `:forfeit_loss` - a match with no game played, not won (16.2.4)
-  #   * `:bye`          - not paired at all (sat out, withdrawn, not yet
-  #                       entered): a zero-point requested bye (16.1.1)
-  #                       followed by a round that is not voluntary unplayed
-  #                       (16.2.3)
-  #   * `:trailing_bye` - the same, followed only by voluntary unplayed
-  #                       rounds, or in the last round (16.2.5)
-  #   * `:pending`      - a match still missing results; it contributes
-  #                       nothing until it is finished
-  #
-  # and the team's ADJUSTED match points (16.3), which is what an opponent's
-  # BH/SB/EMGSB reads: every round as awarded, except 16.2.5's, which count
-  # as a draw. "For teams, match points and game points" (16.3.1) - these
-  # tie-breaks all multiply by the opponent's match points, so the match
-  # points are what is adjusted.
-  defp add_unplayed_rounds(entries, matches, t) do
-    last_round = matches |> Enum.map(& &1.round) |> Enum.max(fn -> 0 end)
+    boards = max(t.team_boards || 1, 1)
+    rounds = complete_rounds(matches)
 
-    Enum.map(entries, fn e ->
-      by_round = Map.new(e.records, &{&1.round, &1})
+    teams =
+      for e <- entries do
+        by_round = Map.new(e.records, &{&1.round, &1})
 
-      kinds =
-        for r <- 1..last_round//1 do
-          record = Map.get(by_round, r)
-          {slot_kind(record), record, r}
-        end
-
-      slots =
-        kinds
-        |> Enum.with_index()
-        |> Enum.map(fn {{kind, record, r}, i} ->
-          kind =
-            if kind == :bye and trailing?(Enum.drop(kinds, i + 1)), do: :trailing_bye, else: kind
-
-          %{round: r, kind: kind, record: record}
-        end)
-
-      adjusted =
-        slots
-        |> Enum.map(fn
-          %{kind: :trailing_bye} -> t.team_match_points_draw
-          %{kind: :pending} -> 0.0
-          %{record: nil} -> 0.0
-          %{record: record} -> record.mp || 0.0
-        end)
-        |> Enum.sum()
-        |> round1()
-
-      Map.merge(e, %{slots: slots, adjusted_mp: adjusted})
-    end)
-  end
-
-  defp slot_kind(nil), do: :bye
-  defp slot_kind(%{bye?: true}), do: :pab
-  defp slot_kind(%{complete?: false}), do: :pending
-  # A match forfeited by decision after games were played is `played?`
-  # (C.07 Art. 15.1: the teams did play a match), so it lands here too.
-  defp slot_kind(%{played?: true}), do: :played
-  defp slot_kind(%{gp: gp, opp_gp: opp_gp}) when gp > opp_gp, do: :forfeit_win
-  defp slot_kind(_record), do: :forfeit_loss
-
-  # 16.2.5: a requested bye "followed only by VURs or in the last round".
-  # A voluntary unplayed round is a requested bye or a forfeit loss (16.1.2).
-  defp trailing?(later),
-    do: Enum.all?(later, fn {kind, _, _} -> kind in [:bye, :forfeit_loss] end)
-
-  # One part of BH / SB / EMGSB for one round.
-  #
-  # A played match contributes the opponent's adjusted match points (16.3),
-  # times what was scored against them for SB and EMGSB. An unplayed round
-  # is a game against a dummy (16.4) whose score is the team's own match
-  # points, capped by the scheduled opponent's adjusted match points for a
-  # forfeit (16.4.1) and by a draw's match points times the rounds of the
-  # tournament otherwise (16.4.2), times what the round awarded. "For team
-  # competitions, 'points' means 'match points and game points'": the dummy
-  # takes the place of the opponent's MATCH points - the factor these three
-  # tie-breaks read - and the round's award is match points for SB and game
-  # points for EMGSB.
-  defp art16_part(_code, %{kind: :pending}, _e, _by_id, _t), do: []
-
-  defp art16_part(code, %{kind: :played, record: r} = slot, _e, by_id, _t) do
-    opp = adjusted_opp_mp(by_id, r.opponent_id)
-    [part(code, slot, r.opponent_id, opp, r.mp, r.gp, :played)]
-  end
-
-  defp art16_part(code, %{kind: kind, record: r} = slot, e, by_id, _t)
-       when kind in [:forfeit_win, :forfeit_loss] do
-    dummy = min(e.mp, adjusted_opp_mp(by_id, r.opponent_id))
-    [part(code, slot, r.opponent_id, dummy, r.mp || 0.0, r.gp, kind)]
-  end
-
-  defp art16_part(code, %{kind: kind, record: r} = slot, e, _by_id, t) do
-    dummy = min(e.mp, t.team_match_points_draw * t.rounds_count)
-    {mp, gp} = if r, do: {r.mp || 0.0, r.gp}, else: {0.0, 0.0}
-    [part(code, slot, nil, dummy, mp, gp, kind)]
-  end
-
-  defp part(code, slot, opponent_id, opponent_mp, mp, gp, kind) do
-    value =
-      case code do
-        "BH" -> opponent_mp
-        "SB" -> opponent_mp * mp
-        "EMGSB" -> opponent_mp * gp
+        %C07Team.Entry{
+          id: e.team.id,
+          tpn: e.team.pairing_number || e.team.id,
+          rounds: Map.new(1..rounds//1, &{&1, c07_match(Map.get(by_round, &1), t, boards)})
+        }
       end
 
-    %{round: slot.round, opponent_id: opponent_id, value: round2(value), kind: kind}
+    C07Team.new(teams, rounds,
+      boards: boards,
+      match_points: %{
+        win: t.team_match_points_win,
+        draw: t.team_match_points_draw,
+        loss: t.team_match_points_loss
+      },
+      game_points: %{win: t.points_win, draw: t.points_draw, loss: t.points_loss},
+      predetermined?: Tournament.team_round_robin?(t),
+      total_rounds: t.rounds_count
+    )
   end
 
-  defp adjusted_opp_mp(by_id, opponent_id) do
-    case Map.get(by_id, opponent_id) do
-      nil -> 0.0
-      opp -> opp.adjusted_mp
+  defp complete_rounds(matches) do
+    by_round = Enum.group_by(matches, & &1.round)
+
+    Stream.iterate(1, &(&1 + 1))
+    |> Enum.find(fn r ->
+      case Map.get(by_round, r) do
+        nil -> true
+        ms -> not Enum.all?(ms, & &1.complete?)
+      end
+    end)
+    |> Kernel.-(1)
+  end
+
+  # One team's round in Ainalrami's terms. Not paired at all - sat out,
+  # withdrawn, entered late - is a zero-point bye. The bye of a team Swiss
+  # pays what `score_match/4` gave it (a drawn match, C.04.6 Art. 1.4), and
+  # its boards count as won for Article 12 ("the same as those assigned to a
+  # standard win"). The free round of a team round robin is no round at all
+  # for a tie-break: the pairings were fixed in advance.
+  defp c07_match(nil, _t, _boards), do: %Ainalrami.Tiebreaks.Team.Match{kind: :zero_bye}
+
+  defp c07_match(%{bye?: true} = r, t, boards) do
+    if Tournament.team_swiss?(t) do
+      %Ainalrami.Tiebreaks.Team.Match{
+        kind: :pab,
+        mp: (r.mp || 0.0) * 1.0,
+        gp: r.gp * 1.0,
+        boards: Map.new(1..boards, &{&1, t.points_win * 1.0})
+      }
+    else
+      %Ainalrami.Tiebreaks.Team.Match{kind: :zero_bye}
     end
   end
 
-  defp opp_mp(by_id, record) do
-    case Map.get(by_id, record.opponent_id) do
-      nil -> 0.0
-      opp -> opp.mp
+  defp c07_match(r, _t, _boards) do
+    kind =
+      cond do
+        r.played? -> :played
+        r.gp > r.opp_gp -> :forfeit_win
+        true -> :forfeit_loss
+      end
+
+    %Ainalrami.Tiebreaks.Team.Match{
+      kind: kind,
+      opponent: r.opponent_id,
+      mp: (r.mp || 0.0) * 1.0,
+      gp: r.gp * 1.0,
+      boards: Map.new(r.board_points, fn {k, v} -> {k, (v || 0.0) * 1.0} end)
+    }
+  end
+
+  # One code at a time: a code Ainalrami refuses for this event (Buchholz
+  # in a round robin, C.07 Article 8) costs only its own column.
+  defp ainalrami_values(event, c07) do
+    case Ainalrami.Tiebreaks.compute(event, [c07]) do
+      {:ok, %{^c07 => %{} = map}} -> map
+      _ -> %{}
     end
   end
 
-  defp sum_parts(parts), do: parts |> Enum.map(& &1.value) |> Enum.sum() |> round2()
+  defp ainalrami_working(event, c07) do
+    case Ainalrami.Tiebreaks.working(event, [c07]) do
+      {:ok, %{^c07 => by_id}} ->
+        Map.new(by_id, fn {id, parts} ->
+          {id, Enum.map(parts, &part(&1, event.teams[id].rounds[&1.round]))}
+        end)
+
+      _ ->
+        nil
+    end
+  end
+
+  # `PairingsEngine.TiebreakWorking`'s part shape, with a team id for the
+  # opponent. Article 16's dummy rounds (Ainalrami's `:virtual` parts) are
+  # named by what the round was - the bye, a forfeit against the scheduled
+  # opponent, or a round the team was not paired in - which is how the
+  # Standings page and the published working label them. An excluded part
+  # shows zero, what it counts for.
+  defp part(%{kind: :virtual} = p, match) do
+    {kind, opponent} =
+      case match.kind do
+        :pab -> {:pab, nil}
+        kind when kind in [:forfeit_win, :forfeit_loss] -> {kind, match.opponent}
+        _ -> {:bye, nil}
+      end
+
+    %{round: p.round, opponent_id: opponent, value: round2(p.value), kind: kind}
+  end
+
+  defp part(%{round: round, opponent: opponent, value: value, kind: kind}, _match) do
+    %{
+      round: round,
+      opponent_id: opponent,
+      value: if(kind == :excluded, do: 0.0, else: round2(value)),
+      kind: kind
+    }
+  end
+
+  # `%{team_id => place}` under C.07 for the configured codes, from the
+  # complete rounds; empty before the first round is over.
+  defp c07_places(%{rounds: 0}, _codes), do: %{}
+
+  defp c07_places(event, codes) do
+    ranking =
+      codes
+      |> Enum.filter(&Map.has_key?(@c07, &1))
+      |> Enum.reject(&(event.predetermined? and &1 in @buchholz))
+      |> Enum.map(&@c07[&1])
+
+    case Ainalrami.Tiebreaks.rank(event, ["MPTS" | ranking]) do
+      {:ok, rows} -> Map.new(rows, &{&1.id, &1.rank})
+      {:error, _} -> %{}
+    end
+  end
+
+  defp as_float(nil), do: 0.0
+  defp as_float(v), do: v * 1.0
 
   # C.07 Art. 6 over the teams tied on MP and on every tie-break listed ahead
   # of DE - Art. 4.2 applies each tie-break "for each subgroup of participants
