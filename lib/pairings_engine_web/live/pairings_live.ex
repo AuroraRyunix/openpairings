@@ -2841,6 +2841,17 @@ defmodule PairingsEngineWeb.PairingsLive do
         style="margin-top: -8px; margin-bottom: 12px"
       >
         {Postponed.trf_not_final_text(length(@postponed_open))}
+        <span
+          :if={
+            @tournament.postponed_requester_outcome != "draw" or
+              @tournament.postponed_opponent_outcome != "draw"
+          }
+          id="postponed-trf-counts-draw"
+        >
+          {gettext(
+            "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
+          )}
+        </span>
       </p>
 
       <%!-- Every postponed game still to be played, whichever round is on

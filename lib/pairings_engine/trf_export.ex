@@ -301,7 +301,22 @@ defmodule PairingsEngine.TrfExport do
     %{row | games: games}
   end
 
-  defp report_unknown(row, _dialect), do: row
+  # The older spelling has no `?`: a postponed game stays the `=` a pairing
+  # program reads. It is scored as that draw too, not at what the tournament
+  # counts it as, so this file adds up from itself as well - a downloaded
+  # file is checked against its own games. Only the file the app hands its
+  # own engine (`Pairing.trf_game/4`) carries the provisional points, since
+  # that one pairs with them and is never sent anywhere.
+  defp report_unknown(row, _dialect) do
+    games =
+      Enum.map(row.games, fn game ->
+        if Map.get(game, :postponed) == true,
+          do: Map.put(game, :provisional_points, nil),
+          else: game
+      end)
+
+    %{row | games: games}
+  end
 
   ## ---------- the postponed-games file ----------
 

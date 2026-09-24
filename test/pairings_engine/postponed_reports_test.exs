@@ -317,6 +317,31 @@ defmodule PairingsEngine.PostponedReportsTest do
     end
   end
 
+  describe "downloaded TRFs add up from themselves" do
+    test "an open game counted as a win for its postponer is scored as the draw the file shows" do
+      {t, %{"Alice" => alice}} =
+        tournament(postponed_requester_outcome: "win", postponed_opponent_outcome: "loss")
+
+      round1 = pair!(t)
+      # Alice's opponent postpones: they get the provisional win.
+      postponed = board_of(round1, alice)
+      by = if postponed.white_player_id == alice.id, do: "*B", else: "*W"
+      postponed = result!(postponed, by)
+      others!(round1, postponed)
+      postponer = if by == "*W", do: postponed.white_player_id, else: postponed.black_player_id
+
+      # The standings count the win...
+      assert Standings.player_scores_before_round(Repo.reload!(t), 2)[postponer] == t.points_win
+
+      # ...and both downloads score the draw they carry.
+      for dialect <- [:trf26, :engine] do
+        {:ok, text} = TrfExport.export(Repo.reload!(t), [1], dialect: dialect)
+        line = line_of(text, rank(t, postponer))
+        assert line |> String.slice(80, 4) |> String.trim() == "0.5", inspect(dialect)
+      end
+    end
+  end
+
   describe "the sent-games record across a restore" do
     defp snapshot!(t) do
       {:ok, snapshot} = Snapshots.capture(Repo.reload!(t), "manual", nil)
