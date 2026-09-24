@@ -149,6 +149,13 @@ defmodule PairingsEngineWeb.Layouts do
               <.link navigate={~p"/t/#{@tournament.id}/audit/explain"} class="topbar-menu-item">
                 {gettext("Pairing rationale")}
               </.link>
+              <%!-- A plain link, not a live one: /t/:id/badges is a controller
+                    that answers with the user's badge event for this
+                    tournament, or the form for a new one, so the menu does not
+                    have to query for it on every render. --%>
+              <.link href={~p"/t/#{@tournament.id}/badges"} class="topbar-menu-item">
+                {gettext("Badges")}
+              </.link>
             </div>
           </details>
           <details class="topbar-menu" name="topbar-popover">

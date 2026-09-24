@@ -4912,3 +4912,51 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   content: " ·";
   color: var(--text-soft);
 }
+
+/* Accreditation badges (docs/badges.md). The cards themselves are styled
+   inline in PairingsEngineWeb.BadgeCard; these are the preview's flip and the
+   inline QR code. The print sheet's own CSS lives in BadgePrintHTML, because
+   its @page rule must not reach the rest of the app. */
+.badge-card {
+  color-scheme: light;
+}
+
+.badge-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.badge-flip {
+  perspective: 1000px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.badge-flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.badge-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.badge-flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.badge-flip-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-flip-inner {
+    transition: none;
+  }
+}

@@ -146,8 +146,12 @@ html { background:") do
   # `style="..."` and `style={"..."}` both appear; the second is the HEEx form.
   # Elixir interpolations are dropped rather than analysed - `#{h}px` is a
   # length, and its `#` must not be read as the start of a hex colour.
+  # The accreditation badge components are left out: a badge is printed
+  # artwork, black on white paper whatever theme the screen is in, so its
+  # colours are literal by design - the same argument as the seat colours.
   defp inline_styles do
     Path.wildcard("lib/pairings_engine_web/**/*.ex")
+    |> Enum.reject(&String.starts_with?(&1, "lib/pairings_engine_web/components/badges/"))
     |> Enum.flat_map(fn file ->
       ~r/style=\{?"([^"]*)"/
       |> Regex.scan(File.read!(file))

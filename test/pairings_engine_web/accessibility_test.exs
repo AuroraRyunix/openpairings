@@ -80,10 +80,18 @@ defmodule PairingsEngineWeb.AccessibilityTest do
         "helper#{System.unique_integer([:positive])}@example.com"
       )
 
+    {:ok, badge_event} =
+      PairingsEngine.Badges.create_event(scope, %{"name" => "", "tournament_id" => tournament.id})
+
+    {:ok, _} = PairingsEngine.Badges.import_players(scope, badge_event)
+    badge = scope |> PairingsEngine.Badges.list_badges(badge_event) |> hd()
+
     {:ok,
      conn: conn,
      scope: scope,
      tournament: tournament,
+     badge_event: badge_event,
+     badge: badge,
      invite: invite,
      player: tournament.id |> Tournaments.list_players() |> hd()}
   end
@@ -126,6 +134,18 @@ defmodule PairingsEngineWeb.AccessibilityTest do
 
       "/tools/norms" ->
         ["/tools/norms"]
+
+      "/badges" ->
+        ["/badges", "/badges?new=1"]
+
+      "/badges/:id" ->
+        ["/badges/#{world.badge_event.id}"]
+
+      "/badges/:id/settings" ->
+        ["/badges/#{world.badge_event.id}/settings"]
+
+      "/badges/:id/badge/:badge_id" ->
+        ["/badges/#{world.badge_event.id}/badge/#{world.badge.id}"]
 
       # Token pages: a real token is single-use and bound to an email flow;
       # a made-up one redirects before rendering anything to audit.

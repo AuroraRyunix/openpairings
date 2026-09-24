@@ -138,6 +138,20 @@ defmodule PairingsEngineWeb.PrintLive do
           </tbody>
         </table>
       </div>
+
+      <div class="card mt-4 flex flex-wrap items-center justify-between gap-3" id="print-badges">
+        <div>
+          <strong>{gettext("Accreditation badges")}</strong>
+          <p class="hint m-0">
+            {gettext(
+              "A6 badges for the players and officials, plus press and guests, two to an A4 sheet."
+            )}
+          </p>
+        </div>
+        <.link href={~p"/t/#{@tournament.id}/badges"} class="pe-btn" id="print-badges-link">
+          {gettext("Badges…")}
+        </.link>
+      </div>
     </Layouts.app>
     """
   end

@@ -102,7 +102,22 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/live", LiveRoundLive
       live "/t/:id/norms", NormsLive
       live "/invites/:token", InviteLive
+
+      # Accreditation badges (docs/badges.md). Signed-in only, and in this
+      # live_session rather than `:require_authenticated_user` because an event
+      # imports from a tournament and the two link to each other: sharing the
+      # session keeps that a live navigation instead of a full page load. The
+      # user is always signed in on a local install, so it works there too.
+      live "/badges", BadgeEventsLive, :index
+      live "/badges/:id", BadgeStudioLive, :index
+      live "/badges/:id/settings", BadgeStudioLive, :settings
+      live "/badges/:id/badge/:badge_id", BadgeStudioLive, :edit
     end
+
+    get "/badges/:id/print", BadgeController, :print
+    get "/badges/:id/photo/:badge_id", BadgeController, :photo
+    get "/badges/:id/logo/:slot", BadgeController, :logo
+    get "/t/:id/badges", BadgeController, :for_tournament
 
     get "/t/:id/print/players", PrintController, :player_list
     get "/t/:id/print/cards", PrintController, :player_cards
