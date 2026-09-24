@@ -452,7 +452,9 @@ defmodule PairingsEngineWeb.PlayersLive do
       |> Map.new(fn {player, idx} -> {player.id, idx} end)
 
     Enum.map(entries, fn entry ->
-      played_games = Enum.filter(entry.games, & &1.played)
+      # Finished games only - a postponed one has no result yet
+      # (`Standings.finished_game?/1`).
+      played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
       opponent_ratings =
         played_games

@@ -15,6 +15,7 @@ defmodule PairingsEngine.ResultsImport do
 
   alias PairingsEngine.Encoding
   alias PairingsEngine.PairingDisplay
+  alias PairingsEngine.PostponedGames
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
   alias PairingsEngine.Tournaments
@@ -84,6 +85,7 @@ defmodule PairingsEngine.ResultsImport do
     * `0-0FF`, `-/-` - double forfeit (neither played)
     * `1-0U`, `0-1U`, `1/2-1/2U` (also `½-½U`, `0.5-0.5U`) - played but not
       rated
+    * `*` - postponed, still to be played (a draw until it is)
 
   That list is `PairingsEngine.Results.token_groups/0` written out, and it
   had drifted from the parser in both directions: the two asymmetric rows
@@ -248,7 +250,10 @@ defmodule PairingsEngine.ResultsImport do
 
   Returns `{:ok, count}` (number of results written) or
   `{:error, [reason, ...]}`, truncated with a count past the same limit
-  `parse_text/1` applies.
+  `parse_text/1` applies. A reason is a sentence, or
+  `{:postponed_non_draw, board}` for a postponed game given a result that
+  is not a draw - which has to be entered on the Pairings page, where it is
+  confirmed (VCL4THP Q163).
   """
   def apply_import(tournament, round_number, rows) when is_list(rows) do
     case Tournaments.get_round(tournament.id, round_number) do
@@ -285,8 +290,19 @@ defmodule PairingsEngine.ResultsImport do
               {:ok, %{result: "bye"}} ->
                 {resolved, ["board #{board}: is a bye - no result to enter" | errors]}
 
+              # A postponed game given a result that is not a draw. Every
+              # round paired since counted it as a draw, and the arbiter has
+              # to confirm knowingly that the scores those pairings were
+              # made with change (VCL4THP Q163) - which one line of a CSV
+              # cannot do, so the board is refused here, before anything is
+              # written, and the whole file with it. A reason rather than a
+              # sentence: the page words it (`PairingsLive`).
               {:ok, pairing} ->
-                {[{pairing, result} | resolved], errors}
+                if PostponedGames.result_warnings(pairing, result) == [] do
+                  {[{pairing, result} | resolved], errors}
+                else
+                  {resolved, [{:postponed_non_draw, board} | errors]}
+                end
 
               {:error, message} ->
                 {resolved, [message | errors]}

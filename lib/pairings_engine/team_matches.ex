@@ -132,8 +132,14 @@ defmodule PairingsEngine.TeamMatches do
   """
   def played_before_decision?(%{forfeited_to_team_id: nil}), do: false
 
+  # A postponed board (`"*"`) is a game still to be played, so it is not one
+  # that was played before the decision, even though it counts as played for
+  # the tie-breaks while it waits.
   def played_before_decision?(%{forfeit_previous_results: previous}) when is_map(previous),
-    do: Enum.any?(previous, fn {_board, result} -> result != "" and Results.played?(result) end)
+    do:
+      Enum.any?(previous, fn {_board, result} ->
+        result != "" and Results.played?(result) and not Results.postponed?(result)
+      end)
 
   def played_before_decision?(_match), do: false
 

@@ -16,6 +16,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Standings
   alias PairingsEngine.PlayerStats
   alias PairingsEngine.PairingDisplay
+  alias PairingsEngine.PostponedGames
   alias PairingsEngine.RoundRobin
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
@@ -3905,8 +3906,26 @@ defmodule PairingsEngine.Tournaments do
     Repo.all(from r in Round, where: r.tournament_id == ^tournament_id, order_by: r.number)
   end
 
-  def update_pairing_result(%Pairing{} = pairing, result) do
-    with :ok <- ensure_writable(round_tournament_id(pairing.round_id)) do
+  @doc """
+  Writes `result` onto `pairing` - the one write path every result goes
+  through: the Pairings page, the phone, a CSV import, the pairing run that
+  records missing results as postponed.
+
+  Refuses a write that a postponed-game warning guards until the arbiter has
+  confirmed it: a postponed game (`"*"`) given a result that is not a draw
+  returns `{:error, {:needs_acknowledgement, [:adjourned_non_draw_result]}}`
+  (VCL4THP Q163), and goes through when the caller passes that id in
+  `opts[:acknowledged]`. Every round paired since counted the game as a
+  draw, and those pairings stand - so the arbiter is told before the score
+  they were made with changes, whichever screen the result comes from. See
+  `PairingsEngine.PostponedGames.result_warnings/2`.
+  """
+  def update_pairing_result(%Pairing{} = pairing, result, opts \\ []) do
+    with :ok <- ensure_writable(round_tournament_id(pairing.round_id)),
+         :ok <-
+           pairing
+           |> PostponedGames.result_warnings(result)
+           |> PostponedGames.check_acknowledged(Keyword.get(opts, :acknowledged, [])) do
       do_update_pairing_result(pairing, result)
     end
   end
@@ -4572,7 +4591,8 @@ defmodule PairingsEngine.Tournaments do
   unchanged otherwise. Accepts either a `%Tournament{}` or a tournament id.
 
     * `"finished"` - `rounds_count` rounds have been paired, and every
-      pairing in every paired round has a recorded result.
+      pairing in every paired round has a recorded result. A postponed
+      game is not one: it keeps the tournament running until it is played.
     * `"running"`  - at least one round has been paired, but the tournament
       isn't finished yet per the rule above.
     * `"setup"`    - no round has been paired yet.
@@ -4649,12 +4669,19 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  # A postponed game (`"*"`) is not a score: the tournament stays "running"
+  # until it is played, however many rounds have been paired, so nothing
+  # reading the status can take the event for finished while a game in it
+  # is still to be played (VCL4THP Q161, Q169). It does not hold up pairing
+  # the next round - `Pairing.round_complete?/2` only looks for blanks.
   defp all_rounds_scored?(tournament_id) do
+    postponed = PairingsEngine.Results.postponed()
+
     not Repo.exists?(
       from p in Pairing,
         join: r in Round,
         on: p.round_id == r.id,
-        where: r.tournament_id == ^tournament_id and p.result == ""
+        where: r.tournament_id == ^tournament_id and p.result in ["", ^postponed]
     )
   end
 end

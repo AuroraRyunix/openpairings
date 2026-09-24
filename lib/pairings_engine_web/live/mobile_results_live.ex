@@ -34,7 +34,10 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     {"0-0", "0-0 (both lose, played)"},
     {"1-0U", "1-0 (played, not rated)"},
     {"0-1U", "0-1 (played, not rated)"},
-    {"1/2-1/2U", "½-½ (played, not rated)"}
+    {"1/2-1/2U", "½-½ (played, not rated)"},
+    # Labelled at render time (`button_label/2`) so the words go through
+    # gettext; the list only holds what a module attribute can.
+    {"*", :postponed}
   ]
 
   # Every code an arbiter may write, from the one table
@@ -281,6 +284,20 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                       "This tournament has been handed to another machine - the arbiter needs to take it back before results can be entered."
                     )
 
+                  # A postponed game given a decisive result. Every round
+                  # paired since counted it as a draw, and the arbiter has to
+                  # confirm that knowingly (VCL4THP Q163) - which this screen
+                  # has no room to do properly, so it sends the result there.
+                  {:error, {:needs_acknowledgement, [:adjourned_non_draw_result]}} ->
+                    put_flash(
+                      socket,
+                      :error,
+                      gettext(
+                        "Board %{board} was postponed and counted as a draw for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page.",
+                        board: pairing.board
+                      )
+                    )
+
                   {:error, _reason} ->
                     put_flash(socket, :error, "Could not save that result.")
                 end
@@ -332,6 +349,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   defp permit_error_message(:earlier_round, _pairing) do
     gettext("Helpers can only enter results for the current round.")
   end
+
+  defp button_label("*", :postponed), do: gettext("* postponed")
+  defp button_label(_value, label), do: label
 
   defp helper?(%Mobile.Enrollment{level: "helper"}), do: true
   defp helper?(%Mobile.Enrollment{}), do: false
@@ -641,7 +661,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               phx-value-id={p.id}
               phx-value-result={value}
             >
-              {label}
+              {button_label(value, label)}
             </button>
           </div>
         </div>

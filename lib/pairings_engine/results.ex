@@ -46,6 +46,28 @@ defmodule PairingsEngine.Results do
   `"+--"`/`"--+"` are the historical forfeit notation, still readable from
   SWAR imports and old data; `entry_codes/0` no longer offers them.
 
+  ## The postponed game
+
+  `"*"` is a game that was paired and has not been played yet: postponed by
+  agreement, or adjourned (VCL4THP Q157-169). The result is unknown and the
+  game is still to be played, so it is not a blank - a blank is a board
+  nobody has reported on, and pairing the next round refuses it. `"*"` is
+  the arbiter saying "this one is known to be open, carry on".
+
+  It classifies as a **draw for both players**, and this table is the one
+  place that says so. Until the real result is entered, a postponed game
+  counts as a draw for pairing the next round (Q167: no other provisional
+  score is allowed), and the standings, the tie-breaks and the engine's TRF
+  all read it from here, so they cannot disagree about what it is worth.
+  `played?` is true because the game is going to be played over the board:
+  Article 16's unplayed-round rules are for rounds nobody will play, and a
+  postponed game is not one of them. `postponed?/1` is how a caller that
+  must not treat it as finished - final standings, a FIDE report, a norm -
+  tells it apart from a real draw. See `PairingsEngine.PostponedGames`.
+
+  PGN's own symbol for "game still in progress or result unknown" is `*`,
+  which is why the code is spelled that way; TRF26 spells it `?`.
+
   ## What still keeps its own table, and why
 
   `PairingsEngine.Keizer.classify_result/2` answers a **different** question.
@@ -76,7 +98,10 @@ defmodule PairingsEngine.Results do
     {"0-1U", :loss, :win, true, false},
     {"1/2-1/2U", :draw, :draw, true, false},
     {"+--", :win, :loss, false, true},
-    {"--+", :loss, :win, false, true}
+    {"--+", :loss, :win, false, true},
+    # Postponed or adjourned, still to be played: a draw until its result is
+    # entered. See the moduledoc's "The postponed game".
+    {"*", :draw, :draw, true, false}
   ]
 
   # A pairing-allocated bye is stored as a pairing with no black player. It
@@ -88,6 +113,9 @@ defmodule PairingsEngine.Results do
   # The blank a board sits at between being paired and someone entering a
   # score. Not a played "0-0" - no record is built for it at all.
   @blank ""
+
+  # A game postponed or adjourned - see the moduledoc.
+  @postponed "*"
 
   @codes [@blank] ++ Enum.map(@table, &elem(&1, 0)) ++ [@bye]
 
@@ -111,6 +139,28 @@ defmodule PairingsEngine.Results do
   codes since the day they shipped.
   """
   def entry_codes, do: @codes -- [@bye, "+--", "--+"]
+
+  @doc """
+  The code for a postponed or adjourned game: result unknown, game still to
+  be played. See the moduledoc's "The postponed game".
+  """
+  def postponed, do: @postponed
+
+  @doc "Is this the postponed-game code? True for `\"*\"` and nothing else."
+  def postponed?(code), do: code == @postponed
+
+  @doc """
+  Is this a result that is a draw for BOTH players - what a postponed game
+  counts as until it is played?
+
+  The asymmetric `"1/2-0"`/`"0-1/2"` are not: one side lost. Neither are the
+  blank and `"bye"`, which are not results. `"*"` itself is, because that is
+  how it is classified.
+  """
+  def draw_for_both?(code) do
+    {white, black, _played?, _forfeit?} = classify(code)
+    white == :draw and black == :draw
+  end
 
   @doc """
   `{white_outcome, black_outcome, played?, forfeit?}` for a stored code.
@@ -190,7 +240,8 @@ defmodule PairingsEngine.Results do
     "0-1U" => "0-1U",
     "1/2-1/2U" => "1/2-1/2U",
     "½-½U" => "1/2-1/2U",
-    "0.5-0.5U" => "1/2-1/2U"
+    "0.5-0.5U" => "1/2-1/2U",
+    "*" => "*"
   }
 
   @doc """

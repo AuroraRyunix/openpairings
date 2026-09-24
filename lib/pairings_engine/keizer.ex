@@ -731,7 +731,17 @@ defmodule PairingsEngine.Keizer do
   # Mirrors PairingsEngine.Pairing's result semantics (see `trf_game/3`
   # there): forfeits/double-forfeits are always unplayed for both sides;
   # played "0-0" is a played game where both lose.
+  #
+  # A postponed game ("*") is whatever `PairingsEngine.Results` classifies it
+  # as - a draw - until it is played, read from there rather than restated
+  # here, so the ladder pairs the next round with the same half it shows.
   defp classify_result(result, white?) do
+    if PairingsEngine.Results.postponed?(result),
+      do: PairingsEngine.Results.outcome(result, white?),
+      else: classify_code(result, white?)
+  end
+
+  defp classify_code(result, white?) do
     case {result, white?} do
       {"1-0", true} -> :win
       {"1-0", false} -> :loss

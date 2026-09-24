@@ -107,7 +107,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
-        pairing.match_forfeit_withdrawn pairing.board_attached)},
+        pairing.match_forfeit_withdrawn pairing.board_attached
+        pairing.missing_recorded_postponed)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -421,8 +422,19 @@ defmodule PairingsEngineWeb.AuditLive do
   # arbiter did than the one the app gives the same act today.
   def describe("pairing.result_changed", d) do
     kind = if blank?(d["to"]), do: :cleared, else: :changed
-    sentences([result_sentence(kind, d), phone_sentence(d)])
+    sentences([result_sentence(kind, d), confirmed_sentence(d), phone_sentence(d)])
   end
+
+  # Pairing a round after recording its missing results as postponed games
+  # (VCL4THP Q159-160) - `PairingsLive.note_recorded_missing/1`.
+  def describe("pairing.missing_recorded_postponed", d),
+    do:
+      ngettext(
+        "Recorded %{count} board without a result in round %{round} as a postponed game, to pair the next round.",
+        "Recorded %{count} boards without a result in round %{round} as postponed games, to pair the next round.",
+        count(d, "count"),
+        round: value(d, "round")
+      )
 
   def describe("pairing.result_cleared", d),
     do: sentences([result_sentence(:cleared, d), phone_sentence(d)])
@@ -1443,6 +1455,16 @@ defmodule PairingsEngineWeb.AuditLive do
   end
 
   defp phone_sentence(_d), do: nil
+
+  # A result the arbiter had to confirm before it was written - today only a
+  # postponed game given a result that is not a draw (VCL4THP Q163).
+  defp confirmed_sentence(%{"confirmed" => "adjourned_non_draw_result"}),
+    do:
+      gettext(
+        "Confirmed over the warning that the game was postponed and had counted as a draw for pairing."
+      )
+
+  defp confirmed_sentence(_d), do: nil
 
   # The same two words the Live round page shows when the phone is enrolled
   # (`LiveRoundLive.enrollment_level_label/1`), so the trail names a level

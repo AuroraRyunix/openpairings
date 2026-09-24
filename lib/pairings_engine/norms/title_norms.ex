@@ -263,13 +263,15 @@ defmodule PairingsEngine.Norms.TitleNorms do
   def titles_for(_player), do: ~w(GM IM)
 
   # A game that counts for norm purposes: played over the board (excludes
-  # forfeits - B.01 1.4.2.3) against a real opponent (excludes byes).
+  # forfeits - B.01 1.4.2.3) against a real opponent (excludes byes), with
+  # its result known (excludes a postponed game still to be played, which
+  # counts in the standings as a draw nobody has played yet).
   # Returns `[%{opponent: %Player{}, points: awarded}]` - `points` is still
   # on the tournament's own (possibly club-configured) scale; `to_standard/2`
   # converts to 1 / ½ / 0 at evaluation time.
   defp counted_games(entry, by_id) do
     entry.games
-    |> Enum.filter(&(&1.played and &1.opponent_id != nil))
+    |> Enum.filter(&(PairingsEngine.Standings.finished_game?(&1) and &1.opponent_id != nil))
     |> Enum.flat_map(fn g ->
       case by_id[g.opponent_id] do
         nil -> []

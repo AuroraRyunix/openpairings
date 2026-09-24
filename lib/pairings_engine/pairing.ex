@@ -27,7 +27,17 @@ defmodule PairingsEngine.Pairing do
 
   import Ecto.Query
   require Logger
-  alias PairingsEngine.{Repo, Standings, Tournaments, Exclusions, Categories}
+
+  alias PairingsEngine.{
+    Repo,
+    Results,
+    PostponedGames,
+    Standings,
+    Tournaments,
+    Exclusions,
+    Categories
+  }
+
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
   # The app has one TRF16 implementation and it lives in the engine. There
@@ -92,6 +102,25 @@ defmodule PairingsEngine.Pairing do
   `PairingsEngineWeb.SettingsSupport.error_text/1`. Most refusals are still
   plain strings; `{:all_rounds_paired, rounds_count}` is a reason instead,
   for every pairing system, because round robin's own loop decides by it.
+
+  ## Postponed games
+
+  A postponed game (`"*"`) does not hold the next round up: it counts as a
+  draw for this pairing, from `PairingsEngine.Results`. Two situations wait
+  for the arbiter to confirm them first, by passing the warning's id in
+  `opts[:acknowledged]` (see `PairingsEngine.PostponedGames.pairing_warnings/1`):
+
+    * `:missing_results_recorded_as_adjourned` (VCL4THP Q159, Q160) - the
+      last round still has boards without a result. Unconfirmed, the round
+      is refused exactly as it always was; confirmed, those boards are
+      recorded as postponed and the round is paired. If the pairing itself
+      then fails, they are put back to no result.
+    * `:adjourned_older_round_open` (Q168) - a postponed game from a round
+      before the last one is still open. Unconfirmed, this returns
+      `{:error, {:needs_acknowledgement, [:adjourned_older_round_open]}}`.
+
+  A round robin pairs from its schedule rather than from results, so none
+  of this applies to it.
   """
   # A frozen tournament is refused before the pairing-system dispatch below,
   # so this covers Swiss, round robin and Keizer in one place. Returns a
@@ -105,10 +134,45 @@ defmodule PairingsEngine.Pairing do
   # went straight past this clause and got paired, which is precisely the
   # divergence ("both copies paired round 6, differently") the hand-off lock
   # exists to make impossible. Duplicating a gate is how a gate gets missed.
-  def pair_next_round(%Tournament{} = tournament) do
+  def pair_next_round(%Tournament{} = tournament, opts \\ []) do
     case Tournaments.ensure_writable(tournament) do
-      :ok -> dispatch_pair_next_round(tournament)
+      :ok -> pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
       {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
+    end
+  end
+
+  # See the doc's "Postponed games". The missing-results warning is the one
+  # whose refusal is not new: left unconfirmed it falls through to the
+  # engines' own "still has missing results", so nothing about pairing a
+  # tournament that never postpones a game has changed.
+  defp pair_with_postponed_games(tournament, acknowledged) do
+    warnings = PostponedGames.pairing_warnings(tournament)
+    missing = Enum.find(warnings, &(&1.id == :missing_results_recorded_as_adjourned))
+    guarded = Enum.reject(warnings, &(&1.id == :missing_results_recorded_as_adjourned))
+
+    with :ok <- PostponedGames.check_acknowledged(guarded, acknowledged) do
+      if missing && :missing_results_recorded_as_adjourned in acknowledged do
+        pair_after_recording_missing(tournament, missing.round)
+      else
+        dispatch_pair_next_round(tournament)
+      end
+    end
+  end
+
+  defp pair_after_recording_missing(tournament, round_number) do
+    case PostponedGames.record_missing(tournament, round_number) do
+      {:ok, recorded} ->
+        case dispatch_pair_next_round(tournament) do
+          {:ok, _round} = ok ->
+            ok
+
+          error ->
+            PostponedGames.clear(recorded)
+            error
+        end
+
+      error ->
+        error
     end
   end
 
@@ -3034,6 +3098,8 @@ defmodule PairingsEngine.Pairing do
     tournament.id |> build_shared_history() |> then(&precompute_games(tournament, &1))
   end
 
+  @postponed PairingsEngine.Results.postponed()
+
   defp trf_game(pairing, player_id, full_roster) do
     white? = pairing.white_player_id == player_id
 
@@ -3085,6 +3151,13 @@ defmodule PairingsEngine.Pairing do
         {"+--", false} -> "-"
         {"--+", true} -> "-"
         {"--+", false} -> "+"
+        # Postponed, still to be played: the character of whatever
+        # `PairingsEngine.Results` classifies it as - a draw - rather than a
+        # second statement here of what it is worth. That is what the engine
+        # pairs the next round with (VCL4THP Q167), and the colours count
+        # the way any game's do: the two have met and the seats are fixed.
+        # `TrfExport` writes TRF26's `?` in its place for a report.
+        {code, _} when code == @postponed -> outcome_code(Results.outcome(code, white?))
         {"", _} -> nil
         _ -> nil
       end
@@ -3105,9 +3178,16 @@ defmodule PairingsEngine.Pairing do
           true -> "b"
         end,
       result: result,
-      points_kind: "game"
+      points_kind: "game",
+      # Read by `PairingsEngine.TrfExport`, which marks these games TRF26's
+      # unknown `?`. `Ainalrami.Trf.serialize/2` ignores the key.
+      postponed: pairing.result == @postponed
     }
   end
+
+  defp outcome_code(:win), do: "1"
+  defp outcome_code(:draw), do: "="
+  defp outcome_code(:loss), do: "0"
 
   # JaVaFo/TRF16 rule: opponent 0000 may only ever carry a bye/unplayed code
   # (F/H/Z/U) - never a played-game code (1/=/0/+/-). Reported bug: a

@@ -670,7 +670,7 @@ defmodule PairingsEngine.TrfImportTest do
     # that guard stops being a game and is reinterpreted as a bye, losing the
     # opponent. `?` would have gone one worse and raised FunctionClauseError
     # in `single_sided/2`, which has no fallback clause.
-    test "keeps the pairing, leaves the result blank, and says so" do
+    test "keeps the pairing, imports the game as postponed, and says so" do
       scope = user_scope()
 
       lines = [
@@ -691,10 +691,12 @@ defmodule PairingsEngine.TrfImportTest do
       refute is_nil(pairing.white_player_id)
       refute is_nil(pairing.black_player_id)
 
-      # And no result invented for it. "" is this app's "not recorded".
-      assert pairing.result in [nil, ""]
+      # And no result invented for it: a postponed game (VCL4THP Q166),
+      # unknown until the arbiter enters one - not "", which is "nobody has
+      # reported on this board yet" and would stop the next round.
+      assert pairing.result == "*"
 
-      assert Enum.any?(warnings, &(&1 =~ "not known"))
+      assert %{kind: :postponed_imported, rounds: [1]} in warnings
     end
 
     test "an ordinary result in the same file is untouched" do
@@ -716,7 +718,7 @@ defmodule PairingsEngine.TrfImportTest do
       assert [pairing] = round.pairings
       assert pairing.result == "1-0"
 
-      refute Enum.any?(warnings, &(&1 =~ "not known"))
+      refute Enum.any?(warnings, &match?(%{kind: :postponed_imported}, &1))
     end
   end
 

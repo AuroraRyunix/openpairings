@@ -820,6 +820,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
   # The individual (JaVaFo/Ainalrami) path's own crash guard
   # (`PairingsEngine.Pairing.run_ainalrami/5`) - same discipline as the team
   # path above: the round is left unpaired, nothing else changed.
+  # A postponed-game warning the write path waits on (VCL4THP Q159-168) that
+  # arrived unconfirmed - see `PairingsEngine.PostponedGames`. The pages that
+  # can trigger one ask first, so this is the fallback for a stale tab.
+  def error_text({:needs_acknowledgement, ids}) when is_list(ids),
+    do: PairingsEngineWeb.Postponed.needs_acknowledgement_text(ids)
+
   def error_text({:pairing_crashed, _round, nil}),
     do:
       gettext(

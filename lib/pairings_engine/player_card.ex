@@ -117,6 +117,12 @@ defmodule PairingsEngine.PlayerCard do
     end
   end
 
+  # A postponed game still to be played: `*`, the code it is stored and
+  # printed as everywhere else. It counts as the draw it stands for in the
+  # card's totals, which is why it is not labelled "½" - that would read as
+  # a game that was drawn.
+  def result_label(%{postponed: true}, _tournament), do: "*"
+
   # Read from the record's own classification rather than by comparing its
   # points against the tournament's - see PairingsEngine.Results. Matching
   # on `played`/`voluntary` and then reaching for `.outcome` is deliberate:

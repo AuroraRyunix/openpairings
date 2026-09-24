@@ -892,8 +892,28 @@ defmodule PairingsEngineWeb.PrintController do
           tournament.name,
           gettext("Standings after round %{n}", n: label),
           tournament_info_html(tournament) <>
+            postponed_banner(tournament, requested_round) <>
             manual_banner <> standings_body(entries, tournament, keizer?, params["rds"] == "1")
         )
+    end
+  end
+
+  # Printed standings with a postponed game still to be played in the rounds
+  # they cover are not final (VCL4THP Q161, Q169), and a sheet on the wall
+  # cannot be updated - so the paper says it, as loudly as manual ranking
+  # does. Nothing at all when every game is in, so final standings print
+  # exactly as they always did.
+  defp postponed_banner(tournament, requested_round) do
+    open =
+      tournament
+      |> PairingsEngine.PostponedGames.open_games()
+      |> Enum.count(&(is_nil(requested_round) or &1.round <= requested_round))
+
+    if open == 0 do
+      ""
+    else
+      ~s(<div id="postponed-not-final" style="border: 2px solid #000; padding: 8px 12px; margin-bottom: 14px; font-size: 12.5px;"><strong>) <>
+        esc(PairingsEngineWeb.Postponed.not_final_text(open)) <> "</strong></div>"
     end
   end
 
@@ -1245,6 +1265,7 @@ defmodule PairingsEngineWeb.PrintController do
         tournament.name,
         gettext("Team standings after round %{n}", n: label),
         tournament_info_html(tournament) <>
+          postponed_banner(tournament, requested) <>
           "<table><thead><tr>#{head}</tr></thead><tbody>#{rows}</tbody></table>"
       )
     end
@@ -1443,6 +1464,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     body =
       tournament_info_html(tournament) <>
+        postponed_banner(tournament, nil) <>
         "<div class=\"crosstable-wrap\"><table class=\"crosstable\"><thead><tr>" <>
         "<th class=\"num\">#{gettext("Rank")}</th>" <>
         "<th>#{gettext("Name")}</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{tb_headers}" <>
@@ -1485,6 +1507,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     body =
       tournament_info_html(tournament) <>
+        postponed_banner(tournament, nil) <>
         "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
         "<th>#{gettext("Name")}</th>#{col_headers}<th class=\"num\">Pts</th>" <>
         "<th class=\"num\">#{gettext("Rank")}</th></tr></thead>" <>
@@ -1612,6 +1635,11 @@ defmodule PairingsEngineWeb.PrintController do
   # argument both used to take is gone with the comparison that needed it -
   # see PairingsEngine.Results.
   defp crosstable_forfeit_symbol(game), do: if(game.outcome == :win, do: "+", else: "-")
+
+  # A postponed game still to be played prints as `*`, the code it is stored
+  # as: its half point is in the total, and the "not final" banner above the
+  # table says why.
+  defp crosstable_result_symbol(%{postponed: true}), do: "*"
 
   defp crosstable_result_symbol(game) do
     case game.outcome do

@@ -1152,6 +1152,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     messages =
       trf_illegal_round_message(Map.get(grouped, :illegal_round, [])) ++
+        trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
         trf_points_message(Map.get(grouped, :points, [])) ++
         Enum.map(Map.get(grouped, :note, []), & &1.text)
 
@@ -1159,6 +1160,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
       [] -> socket
       _ -> put_flash(socket, :info, Enum.join(messages, " "))
     end
+  end
+
+  # `?` in the file - a result it records as not known - imported as a
+  # postponed game (VCL4THP Q166). Said, because it counts as a draw until
+  # the arbiter enters what happened and holds the standings back from final.
+  defp trf_postponed_message([]), do: []
+
+  defp trf_postponed_message(warnings) do
+    rounds = warnings |> Enum.flat_map(& &1.rounds) |> Enum.uniq() |> Enum.sort()
+
+    [
+      ngettext(
+        "Round %{rounds} has a result the file records as not known (?). It was imported as a postponed game: it counts as a draw until its result is entered, and the standings are not final until then.",
+        "Rounds %{rounds} have results the file records as not known (?). They were imported as postponed games: each counts as a draw until its result is entered, and the standings are not final until then.",
+        length(rounds),
+        rounds: Enum.join(rounds, ", ")
+      )
+    ]
   end
 
   defp trf_points_message([]), do: []

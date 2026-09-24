@@ -167,7 +167,22 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
         "black" => "Bram Claes",
         "from" => "1-0",
         "to" => ""
+      },
+      # A postponed game given a result that is not a draw, confirmed over
+      # the warning (VCL4THP Q163).
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "*",
+        "to" => "1-0",
+        "confirmed" => "adjourned_non_draw_result"
       }
+    ],
+    "pairing.missing_recorded_postponed" => [
+      %{"round" => 3, "count" => 1},
+      %{"round" => 3, "count" => 2}
     ],
     "pairing.result_cleared" => [
       %{

@@ -875,7 +875,13 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
           # Provably drift rather than intent: `result_bits/2` in this same
           # file already handled all five missing codes before this line was
           # written.
-          played?: Standings.played_result?(pairing.result)
+          #
+          # A postponed game (`"*"`) is the exception: `result_bits/2` writes
+          # it as bitmask 0 - SWAR's own "not played yet", which is the state
+          # it is in - so it must not be counted as played beside that.
+          played?:
+            Standings.played_result?(pairing.result) and
+              not PairingsEngine.Results.postponed?(pairing.result)
         }
 
       bye && bye.type == "requested-half" ->
@@ -961,5 +967,8 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   defp result_bits("0-1U", true), do: {0x1000, 0.0}
   defp result_bits("0-1U", false), do: {0x4000, 1.0}
   defp result_bits("1/2-1/2U", _white?), do: {0x2000, 0.5}
+  # A postponed game (`"*"`), and "" (not entered), fall here: bitmask 0,
+  # SWAR's "not played yet". SWAR has no code for a game counted as a draw
+  # until it is played, so the file says the plain truth - no result yet.
   defp result_bits(_other, _white?), do: {0, 0.0}
 end

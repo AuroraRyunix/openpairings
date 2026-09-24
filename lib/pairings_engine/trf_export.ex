@@ -18,6 +18,7 @@ defmodule PairingsEngine.TrfExport do
   """
 
   alias PairingsEngine.{Federation, Pairing, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
   # with it. There used to be a local `PairingsEngine.Trf` as well - a
@@ -183,6 +184,16 @@ defmodule PairingsEngine.TrfExport do
 
     last_round = Enum.reduce(trf_players, length(rounds), &max(length(&1.games), &2))
 
+    # Postponed games, as `{starting rank, column}` - see `mark_unknown/2`.
+    unknown = if dialect == :trf26, do: postponed_columns(trf_players), else: []
+    point_system = unknown_point_value(Tournament.engine_point_system(tournament), unknown)
+
+    tournament
+    |> serialize(trf_players, players, rounds, last_round, point_system, dialect)
+    |> mark_unknown(unknown)
+  end
+
+  defp serialize(tournament, trf_players, players, rounds, last_round, point_system, dialect) do
     Trf.serialize(
       %{
         tournament: %{
@@ -227,7 +238,7 @@ defmodule PairingsEngine.TrfExport do
           type_code: tournament_type_code(tournament),
           tie_breaks: tie_break_codes(tournament),
           time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
-          point_system: PairingsEngine.Tournaments.Tournament.engine_point_system(tournament),
+          point_system: point_system,
           free_points: free_point_records(players, tournament),
           forbidden_pairs:
             Pairing.forbidden_pairs(tournament.id, players) ++
@@ -246,6 +257,72 @@ defmodule PairingsEngine.TrfExport do
       ascii: true
     )
   end
+
+  ## ---------- postponed games: TRF26's `?` ----------
+  #
+  # A postponed game (`"*"`, VCL4THP Q164-165) is written as TRF26's unknown
+  # result, `?`, on both players' `001` lines, and the `162` record declares
+  # what an unknown result is worth with `X` - a draw, because that is what
+  # the game counts as until it is played, so a reader adding up the columns
+  # gets the same points column this file states. A file carrying `?` is by
+  # construction not a final report: no reader can take an unknown result
+  # for a known one.
+  #
+  # `Ainalrami.Trf.serialize/2` refuses `?` in both dialects (its moduledoc,
+  # "The `?` unknown result"). So the game goes to the writer as the draw
+  # `Pairing.trf_player_rows/3` already hands the engine, and the character
+  # is swapped afterwards at the one column the round block defines for it.
+  # The swap checks the character it replaces, so a column that is not the
+  # draw it expects raises rather than being written over. The engine
+  # dialect keeps the draw: that spelling exists to be read by a pairing
+  # program, which pairs a postponed game as a draw and cannot read `?`.
+  #
+  # When Ainalrami's writer accepts `?` (an `allow_unknown_result` switch on
+  # `serialize/2`, which today only `parse/1` passes), this becomes a
+  # `result: "?"` on the game and `mark_unknown/2` goes away.
+  defp postponed_columns(trf_players) do
+    for player <- trf_players,
+        {game, column} <- Enum.with_index(player.games, 1),
+        Map.get(game, :postponed) == true,
+        do: {player.rank, column}
+  end
+
+  defp unknown_point_value(system, []), do: system
+  defp unknown_point_value(system, _unknown), do: Map.put(system, :unknown, system.draw)
+
+  defp mark_unknown(text, []), do: text
+
+  defp mark_unknown(text, unknown) do
+    by_rank = Enum.group_by(unknown, &elem(&1, 0), &elem(&1, 1))
+
+    text
+    |> String.split("\r\n")
+    |> Enum.map(&mark_line(&1, by_rank))
+    |> Enum.join("\r\n")
+  end
+
+  defp mark_line("001" <> _ = line, by_rank) do
+    rank = line |> String.slice(4, 4) |> String.trim() |> String.to_integer()
+
+    Enum.reduce(Map.get(by_rank, rank, []), line, fn column, acc ->
+      # Round blocks start at column 92, ten columns each, the result in the
+      # eighth: column 99 for round 1. Zero-based here, one-based in TRF.
+      at = 98 + (column - 1) * 10
+
+      case binary_part(acc, at, 1) do
+        "=" ->
+          binary_part(acc, 0, at) <> "?" <> binary_part(acc, at + 1, byte_size(acc) - at - 1)
+
+        other ->
+          raise ValidationError,
+            message:
+              "postponed game of starting rank #{rank}, round #{column}: expected the draw " <>
+                "it is written as, found #{inspect(other)}"
+      end
+    end)
+  end
+
+  defp mark_line(line, _by_rank), do: line
 
   # The TRF16 team section: one `013` record per team, its name and the
   # starting ranks of its players in board order - which, in this app, are

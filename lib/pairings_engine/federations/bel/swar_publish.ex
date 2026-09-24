@@ -592,7 +592,8 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
 
   defp classement_row(entry, tiebreak_codes, players_by_id) do
     player = entry.player
-    played_games = Enum.filter(entry.games, & &1.played)
+    # A postponed game has no result to rate yet (`Standings.finished_game?/1`).
+    played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
     opponent_ratings =
       played_games

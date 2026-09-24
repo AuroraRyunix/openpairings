@@ -92,7 +92,9 @@ defmodule PairingsEngine.Snapshot do
     Categories,
     Keizer,
     PairingDisplay,
+    PostponedGames,
     PublicDisplay,
+    Results,
     Standings,
     TeamStandings,
     Tiebreaks,
@@ -570,7 +572,11 @@ defmodule PairingsEngine.Snapshot do
       |> Enum.map(& &1.pairing.board)
       |> Enum.sort()
 
-    points_public? = results_public? and m.complete?
+    # `scored?`, not `complete?`: a match with a postponed board is not
+    # complete, but it has the provisional score the standings and the next
+    # round's pairing both use, and publishing that - flagged, below - beats
+    # a match with no score beside team standings that count it.
+    points_public? = results_public? and m.scored?
 
     %{
       "number" => m.number,
@@ -586,7 +592,17 @@ defmodule PairingsEngine.Snapshot do
       "match_points" => if(points_public?, do: %{"a" => m.mp_a, "b" => m.mp_b}),
       "forfeit_decision" => if(points_public?, do: forfeit_decision_row(m, team_nos))
     }
+    |> maybe_put_postponed_boards(m, results_public?)
   end
+
+  # How many of the match's boards are postponed, when any are: its points
+  # are then provisional - the postponed boards count as draws - and the
+  # match is not over. Additive, absent at zero, withheld with the results.
+  defp maybe_put_postponed_boards(row, %{postponed_boards: n}, true = _results_public?)
+       when n > 0,
+       do: Map.put(row, "postponed_boards", n)
+
+  defp maybe_put_postponed_boards(row, _m, _results_public?), do: row
 
   defp forfeit_decision_row(%{forfeited_to: team_id}, team_nos) when not is_nil(team_id),
     do: %{"to" => Map.get(team_nos, team_id)}
@@ -714,12 +730,30 @@ defmodule PairingsEngine.Snapshot do
         # Withheld here, at build time - see the moduledoc.
         "result" => if(results_public?, do: result_token(p.result))
       }
+      |> maybe_put_postponed(p, results_public?)
     end)
   end
+
+  # Added with postponed games (VCL4THP Q157-169). A postponed game has no
+  # result yet, so `result` stays `null` - the value every reader already
+  # understands as "not played yet", which is true - and `postponed: true`
+  # says why, for a reader that knows the key. It counts as a draw in the
+  # standings block until it is played (`standings.provisional` below), so a
+  # reader adding up a player's rounds should count it as one. Additive and
+  # absent unless true, like `manual_order`: a board that is not postponed
+  # reads exactly as it did. Withheld with the result, because being
+  # postponed is a fact about the result.
+  defp maybe_put_postponed(row, pairing, true = _results_public?) do
+    if Results.postponed?(pairing.result), do: Map.put(row, "postponed", true), else: row
+  end
+
+  defp maybe_put_postponed(row, _pairing, _results_public?), do: row
 
   # The token OpenPairings already stores, verbatim, apart from the two legacy
   # forfeit spellings. A game with no result yet is `null`, not `""`.
   defp result_token(result) when result in [nil, "", "bye"], do: nil
+  # A postponed game's result is not known yet - see `maybe_put_postponed/3`.
+  defp result_token("*"), do: nil
   defp result_token(result), do: Map.get(@legacy_results, result, result)
 
   # Two sources, one list. A pairing-allocated bye is a real `Pairing` row with
@@ -862,6 +896,7 @@ defmodule PairingsEngine.Snapshot do
       "tiebreaks" => [],
       "rows" => rows
     }
+    |> put_provisional(t, after_round)
   end
 
   defp standings(%Tournament{} = t, nos, after_round) do
@@ -971,6 +1006,21 @@ defmodule PairingsEngine.Snapshot do
       "tiebreaks_withheld" => Enum.any?(Standings.effective_tiebreaks(t), &(&1 not in shown)),
       "rows" => rows
     }
+    |> put_provisional(t, after_round)
+  end
+
+  # Added with postponed games (VCL4THP Q161, Q169). While a game in the
+  # rounds these standings cover is postponed it counts as a draw here, and
+  # the standings are not final - not even after the last round. Said, so
+  # the results site never labels them final: `provisional: true` and how
+  # many games are open. Additive and absent when there are none, so final
+  # standings read exactly as they always did.
+  defp put_provisional(standings, %Tournament{} = t, after_round) do
+    open = t |> PostponedGames.open_games() |> Enum.count(&(&1.round <= after_round))
+
+    if open > 0,
+      do: Map.merge(standings, %{"provisional" => true, "postponed_games" => open}),
+      else: standings
   end
 
   # Player ids never cross this boundary, so an opponent becomes their

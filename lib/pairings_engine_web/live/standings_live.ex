@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     Standings,
     Keizer,
     PlayerStats,
+    PostponedGames,
     TeamStandings
   }
 
@@ -468,6 +469,9 @@ defmodule PairingsEngineWeb.StandingsLive do
         if(latest_complete_round > 0,
           do: Tournaments.get_round(tournament.id, latest_complete_round)
         ),
+      # Open postponed games: the standings count each as a draw and are not
+      # final until they are played (VCL4THP Q161, Q169).
+      postponed_open_count: PostponedGames.open_count(tournament),
       manual_stale?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
       manual_incomplete?:
@@ -583,7 +587,9 @@ defmodule PairingsEngineWeb.StandingsLive do
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
 
     Enum.map(entries, fn entry ->
-      played_games = Enum.filter(entry.games, & &1.played)
+      # Finished games only: a postponed one has no result to expect a
+      # score for yet (`Standings.finished_game?/1`).
+      played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
       rated_games =
         Enum.filter(played_games, fn g ->
@@ -807,6 +813,8 @@ defmodule PairingsEngineWeb.StandingsLive do
           </label>
         </form>
       </div>
+
+      <PairingsEngineWeb.Postponed.not_final_banner count={@postponed_open_count} />
 
       <.team_standings_section
         :if={@team?}
