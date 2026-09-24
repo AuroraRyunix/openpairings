@@ -332,6 +332,9 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, list(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, list(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
+    # Rounds the file says were sent to the federation go on this copy's
+    # sent-games record too, so a restore here cannot make them sendable.
+    PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
     tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
 
     # Last, and after the players, because an audit row's `details` can

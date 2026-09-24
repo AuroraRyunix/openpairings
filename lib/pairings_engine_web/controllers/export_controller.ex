@@ -161,7 +161,7 @@ defmodule PairingsEngineWeb.ExportController do
     case TrfExport.postponed_export(tournament) do
       {:ok, text, games} ->
         if finalise? do
-          PostponedGames.mark_late_games_sent(games)
+          PostponedGames.mark_late_games_sent(tournament, games)
 
           Audit.log(tournament.id, conn.assigns.current_scope, "trf.postponed_sent", %{
             games: length(games)

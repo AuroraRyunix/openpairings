@@ -1051,6 +1051,17 @@ defmodule PairingsEngineWeb.AuditLive do
   # English sentence ("Before unpairing round 3") and no later version can
   # reword it without guessing at English; it is shown quoted, as the
   # point's name, exactly as the History page lists it.
+  def describe("snapshot.restored", %{"sent_games_changed" => n} = d) when is_integer(n) do
+    sentences([
+      describe("snapshot.restored", Map.delete(d, "sent_games_changed")),
+      ngettext(
+        "Confirmed over the warning that it took away or changed a game already sent in a finalised TRF.",
+        "Confirmed over the warning that it took away or changed %{count} games already sent in a finalised TRF.",
+        n
+      )
+    ])
+  end
+
   def describe("snapshot.restored", d) do
     case d["restored_to"] do
       label when is_binary(label) and label != "" ->

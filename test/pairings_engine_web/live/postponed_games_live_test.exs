@@ -313,6 +313,37 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       assert has_element?(lv, "#postponed-trf-empty")
     end
 
+    test "going back past a sent round warns loudly and needs its own tick", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      {:ok, before} = PairingsEngine.Snapshots.capture(t, "manual", scope)
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      assert {:error, :round_sent_in_trf} = Engine.delete_round(t.id, 1)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(before.id)})
+
+      assert has_element?(lv, "#restore-sent-warning")
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE", "sent_ack" => "false"})
+      assert has_element?(lv, "#restore-confirm-form button[type=submit][disabled]")
+
+      # Without the tick nothing happens, even with the word typed.
+      render_submit(lv, "restore_confirmed", %{"confirm" => "RESTORE", "sent_ack" => "false"})
+      assert Enum.all?(boards(t, 1), &(&1.result == "1-0"))
+
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE", "sent_ack" => "true"})
+      render_submit(lv, "restore_confirmed", %{"confirm" => "RESTORE", "sent_ack" => "true"})
+
+      # Back to the blank round - still marked as sent.
+      assert Enum.all?(boards(t, 1), &(&1.result == "" and &1.finalised_at))
+      [entry | _] = Audit.list_for_tournament(t.id)
+      assert entry.action == "snapshot.restored"
+      assert entry.details["sent_games_changed"] == 2
+    end
+
     test "with postponed games off, no postponed result is offered", %{conn: conn, scope: scope} do
       t = tournament(scope)
       {:ok, _} = Tournaments.update_tournament(t, %{"postponed_games" => "false"})

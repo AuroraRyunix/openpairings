@@ -44,7 +44,7 @@ defmodule PairingsEngine.PostponedGames do
   import Ecto.Query
 
   alias PairingsEngine.{Repo, Results}
-  alias PairingsEngine.Tournaments.{Pairing, Round, Tournament}
+  alias PairingsEngine.Tournaments.{Pairing, Round, Tournament, TrfSentGame}
 
   # One entry per warning. `vcl` is the VCL4THP v13 question it answers;
   # `acknowledge?` is whether the action it guards waits for the arbiter to
@@ -308,41 +308,56 @@ defmodule PairingsEngine.PostponedGames do
   ## ---------- sending results: finalise, and the postponed-games file ----------
   #
   # The rule above every other one here: no wrong TRF data is ever sent, and
-  # no game is sent twice. Two records make that checkable rather than a
-  # matter of care:
+  # no game is sent twice. Two kinds of record make that checkable rather
+  # than a matter of care.
+  #
+  # On the board (`pairings`), for the pages and the exports to read:
   #
   #   * `finalised_at` - the board went into a TRF the arbiter downloaded "for
   #     sending". Its result is then semi-frozen: changing it asks first
-  #     (`:finalised_result_changed`).
+  #     (`:finalised_result_changed`), and so does moving a player in or out
+  #     of its round (`:sent_round_changed`).
   #   * `finalised_open` - it was an open postponed game at that moment, so
   #     it went out as `?`. Every later main report writes it as `?` again,
   #     so a file already sent never changes; its real result, once played,
   #     goes in the postponed-games file (`sendable_late_games/1`), and
   #     `postponed_reported_at` records that it has been sent there - once.
+  #
+  # And the sent-games record (`TrfSentGame`, one row per game per file),
+  # which is what those marks are rebuilt from. The marks are tournament
+  # contents, and a snapshot restore or a hand-off return replaces contents
+  # wholesale; the record is kept beside the audit trail, which neither
+  # touches. So rolling a tournament back to before a round was sent cannot
+  # make that round sendable again: `finalise/2` asks the record, and
+  # `reapply_sent_marks/1` puts the marks back on every game still there.
 
   @doc """
-  Marks every board of `rounds` as sent (see the section above). Refuses,
-  writing nothing, while any of those boards has no result at all (a file
-  for sending must not carry a gap nobody decided about), or when one of
-  those rounds was already finalised: its games have been sent, and a second
-  file with them would send them twice. Downloading without finalising is
-  always possible, to see or keep a copy.
+  Who a sent game's player is, as the TRF names them and as it survives a
+  restore (which recreates player rows under new ids): `"fide:<id>"`, or
+  `"name:<name>"`, trimmed and lower-cased, for a player with no FIDE ID.
+  nil for an empty seat.
+  """
+  def player_key(nil), do: nil
+  def player_key(%{fide_id: id}) when is_integer(id) and id > 0, do: "fide:#{id}"
+
+  def player_key(%{name: name}),
+    do: "name:" <> (name |> to_string() |> String.trim() |> String.downcase())
+
+  @doc """
+  Marks every board of `rounds` as sent (see the section above) and records
+  each game in the sent-games record. Refuses, writing nothing, while any of
+  those boards has no result at all (a file for sending must not carry a gap
+  nobody decided about), or when one of those rounds was already sent: a
+  second file with its games would send them twice. That is asked of the
+  record, so it holds across a restore to before the round was sent, or
+  before it was even paired. Downloading without finalising is always
+  possible, to see or keep a copy.
 
   Returns `{:ok, newly_marked}`, `{:error, {:already_sent, rounds}}` or
   `{:error, {:blank_results, rounds}}`.
   """
   def finalise(%Tournament{} = tournament, rounds) when is_list(rounds) do
-    sent_rounds =
-      Repo.all(
-        from p in Pairing,
-          join: r in Round,
-          on: p.round_id == r.id,
-          where:
-            r.tournament_id == ^tournament.id and r.number in ^rounds and
-              not is_nil(p.finalised_at),
-          distinct: true,
-          select: r.number
-      )
+    already = tournament |> sent_rounds() |> Enum.filter(&(&1 in rounds))
 
     blank_rounds =
       Repo.all(
@@ -355,8 +370,8 @@ defmodule PairingsEngine.PostponedGames do
       )
 
     cond do
-      sent_rounds != [] ->
-        {:error, {:already_sent, Enum.sort(sent_rounds)}}
+      already != [] ->
+        {:error, {:already_sent, already}}
 
       blank_rounds != [] ->
         {:error, {:blank_results, Enum.sort(blank_rounds)}}
@@ -364,7 +379,7 @@ defmodule PairingsEngine.PostponedGames do
       true ->
         now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-        ids =
+        boards =
           Repo.all(
             from p in Pairing,
               join: r in Round,
@@ -372,14 +387,28 @@ defmodule PairingsEngine.PostponedGames do
               where:
                 r.tournament_id == ^tournament.id and r.number in ^rounds and
                   is_nil(p.finalised_at),
-              select: {p.id, p.result}
+              preload: [:white_player, :black_player],
+              select: {r.number, p}
           )
 
         # Compared here, not in SQL: SQLite hands a boolean back as 0 or 1.
-        {open, known} = Enum.split_with(ids, &Results.postponed?(elem(&1, 1)))
-        mark(Enum.map(open, &elem(&1, 0)), finalised_at: now, finalised_open: true)
-        mark(Enum.map(known, &elem(&1, 0)), finalised_at: now, finalised_open: false)
-        {:ok, length(ids)}
+        {open, known} = Enum.split_with(boards, fn {_, p} -> Results.postponed?(p.result) end)
+
+        {:ok, _} =
+          Repo.transaction(fn ->
+            mark(Enum.map(open, &elem(&1, 1).id), finalised_at: now, finalised_open: true)
+            mark(Enum.map(known, &elem(&1, 1).id), finalised_at: now, finalised_open: false)
+
+            record_sent(
+              tournament.id,
+              for({round, p} <- open, do: {round, p, "?"}) ++
+                for({round, p} <- known, do: {round, p, p.result}),
+              "report",
+              now
+            )
+          end)
+
+        {:ok, length(boards)}
     end
   end
 
@@ -390,20 +419,184 @@ defmodule PairingsEngine.PostponedGames do
     :ok
   end
 
+  defp record_sent(_tournament_id, [], _kind, _now), do: :ok
+
+  defp record_sent(tournament_id, games, kind, now) do
+    rows =
+      for {round, pairing, sent_as} <- games do
+        %{
+          tournament_id: tournament_id,
+          round: round,
+          white_key: player_key(pairing.white_player),
+          black_key: player_key(pairing.black_player),
+          kind: kind,
+          sent_as: sent_as,
+          sent_at: now
+        }
+      end
+
+    Repo.insert_all(TrfSentGame, rows)
+    :ok
+  end
+
   @doc """
-  The numbers of the rounds of `tournament` already finalised for sending,
-  in order - the ones `finalise/2` refuses a second time.
+  The numbers of the rounds of `tournament` already sent in a report, in
+  order - the ones `finalise/2` refuses a second time. From the sent-games
+  record and the marks on the boards both, so neither alone can lose one.
   """
   def sent_rounds(%Tournament{id: id}) do
+    recorded =
+      Repo.all(
+        from s in TrfSentGame,
+          where: s.tournament_id == ^id and s.kind == "report",
+          distinct: true,
+          select: s.round
+      )
+
+    marked =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where: r.tournament_id == ^id and not is_nil(p.finalised_at),
+          distinct: true,
+          select: r.number
+      )
+
+    (recorded ++ marked) |> Enum.uniq() |> Enum.sort()
+  end
+
+  @doc """
+  After a restore or a hand-off return replaced the tournament's contents:
+  puts the sent marks back on every board the sent-games record knows, and
+  records any mark the new contents carry that the record does not (a
+  round sent on the other machine during a hand-off). A board is the same
+  game when its round, its two players and their colours are the same.
+
+  Run inside the replacing transaction, after the contents are written.
+  """
+  def reapply_sent_marks(tournament_id) do
+    sent = Repo.all(from s in TrfSentGame, where: s.tournament_id == ^tournament_id)
+    by_key = Map.new(sent, &{{&1.kind, &1.round, &1.white_key, &1.black_key}, &1})
+
+    boards =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where: r.tournament_id == ^tournament_id,
+          preload: [:white_player, :black_player],
+          select: {r.number, p}
+      )
+
+    unrecorded =
+      Enum.flat_map(boards, fn {round, p} ->
+        {w, b} = {player_key(p.white_player), player_key(p.black_player)}
+        report = by_key[{"report", round, w, b}]
+        late = by_key[{"postponed", round, w, b}]
+
+        changes =
+          Enum.reject(
+            [
+              report && {:finalised_at, report.sent_at},
+              report && {:finalised_open, report.sent_as == "?"},
+              late && {:postponed_reported_at, late.sent_at}
+            ],
+            &(&1 in [nil, false])
+          )
+
+        if changes != [],
+          do: Repo.update_all(from(x in Pairing, where: x.id == ^p.id), set: changes)
+
+        unrecorded_marks(round, p, report, late)
+      end)
+
+    for {round, p, sent_as, kind, at} <- unrecorded do
+      record_sent(tournament_id, [{round, p, sent_as}], kind, DateTime.truncate(at, :second))
+    end
+
+    :ok
+  end
+
+  # Marks that came in with the contents and are not on record yet: a
+  # round sent on the other machine while the tournament was handed off.
+  defp unrecorded_marks(round, p, report, late) do
+    report_mark =
+      if is_nil(report) and not is_nil(p.finalised_at),
+        do: [{round, p, if(p.finalised_open, do: "?", else: p.result), "report", p.finalised_at}],
+        else: []
+
+    late_mark =
+      if is_nil(late) and not is_nil(p.postponed_reported_at),
+        do: [{round, p, p.result, "postponed", p.postponed_reported_at}],
+        else: []
+
+    report_mark ++ late_mark
+  end
+
+  @doc """
+  What restoring the export entry `entry` (a snapshot's payload) would do to
+  games already sent: each sent game the entry does not hold at all (in
+  that round, with those players and colours), or holds with a result other
+  than the one that went out. Empty when the restore loses nothing that was
+  sent. Each is `%{round:, white:, black:, sent_as:, kind:, restored:}`,
+  with `restored` nil for a game the entry does not hold.
+
+  A game sent as `?` is not changed by any result: its real one is still to
+  go out, in the postponed-games file.
+  """
+  def restore_conflicts(tournament_id, entry) do
+    players = Map.new(list(entry, "players"), &{&1["id"], &1})
+
+    key = fn id ->
+      case players[id] do
+        nil -> nil
+        p -> player_key(%{fide_id: p["fide_id"], name: p["name"]})
+      end
+    end
+
+    games =
+      for r <- list(entry, "rounds"), p <- r["pairings"] || [], into: %{} do
+        {{r["number"], key.(p["white_player_id"]), key.(p["black_player_id"])}, p["result"]}
+      end
+
     Repo.all(
-      from p in Pairing,
-        join: r in Round,
-        on: p.round_id == r.id,
-        where: r.tournament_id == ^id and not is_nil(p.finalised_at),
-        distinct: true,
-        order_by: r.number,
-        select: r.number
+      from s in TrfSentGame,
+        where: s.tournament_id == ^tournament_id,
+        order_by: [s.round, s.id]
     )
+    |> Enum.flat_map(fn s ->
+      restored = Map.get(games, {s.round, s.white_key, s.black_key}, :missing)
+
+      cond do
+        restored == :missing -> [conflict(s, nil)]
+        s.sent_as == "?" -> []
+        restored != s.sent_as -> [conflict(s, restored)]
+        true -> []
+      end
+    end)
+  end
+
+  defp conflict(s, restored) do
+    %{
+      round: s.round,
+      white: key_name(s.white_key),
+      black: key_name(s.black_key),
+      sent_as: s.sent_as,
+      kind: s.kind,
+      restored: restored
+    }
+  end
+
+  defp key_name(nil), do: nil
+  defp key_name("fide:" <> id), do: "FIDE " <> id
+  defp key_name("name:" <> name), do: name
+
+  defp list(map, key) do
+    case Map.get(map, key) do
+      list when is_list(list) -> list
+      _ -> []
+    end
   end
 
   @doc """
@@ -446,10 +639,26 @@ defmodule PairingsEngine.PostponedGames do
     )
   end
 
-  @doc "Records that `games` (from `sendable_late_games/1`) were sent."
-  def mark_late_games_sent(games) do
+  @doc """
+  Records that `games` (from `sendable_late_games/1`) were sent, on the
+  boards and in the sent-games record.
+  """
+  def mark_late_games_sent(%Tournament{id: tournament_id}, games) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
-    mark(Enum.map(games, & &1.pairing.id), postponed_reported_at: now)
+
+    {:ok, :ok} =
+      Repo.transaction(fn ->
+        mark(Enum.map(games, & &1.pairing.id), postponed_reported_at: now)
+
+        record_sent(
+          tournament_id,
+          for(%{round: round, pairing: p} <- games, do: {round, p, p.result}),
+          "postponed",
+          now
+        )
+      end)
+
+    :ok
   end
 
   # Past this many placements the exact search gives up and first-fit

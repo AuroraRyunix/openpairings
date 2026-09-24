@@ -686,6 +686,9 @@ defmodule PairingsEngine.Handoff do
           # is lifted below, after the contents are already correct.
           Snapshots.wipe_contents(tournament.id)
           restored = TournamentImport.restore_into!(tournament, entry)
+          # What went to the federation from either machine stays on record
+          # and on the boards (`PostponedGames.reapply_sent_marks/1`).
+          PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
 
           case Tournaments.take_back(restored, token) do
             {:ok, unlocked} ->

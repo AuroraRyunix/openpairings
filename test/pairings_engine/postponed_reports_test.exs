@@ -13,6 +13,7 @@ defmodule PairingsEngine.PostponedReportsTest do
     PostponedGames,
     Repo,
     ResultsImport,
+    Snapshots,
     Standings,
     TrfExport,
     TrfImport,
@@ -303,7 +304,7 @@ defmodule PairingsEngine.PostponedReportsTest do
       assert [%{result: "1", colour: "w"}] = white.games
       assert text =~ "26/10/02"
 
-      :ok = PostponedGames.mark_late_games_sent([game])
+      :ok = PostponedGames.mark_late_games_sent(Repo.reload!(t), [game])
 
       assert {:error, :nothing_to_send} = TrfExport.postponed_export(Repo.reload!(t))
 
@@ -313,6 +314,96 @@ defmodule PairingsEngine.PostponedReportsTest do
       # Its result, sent in that file, is semi-frozen like any other.
       assert {:error, {:needs_acknowledgement, [:finalised_result_changed]}} =
                Tournaments.update_pairing_result(Repo.reload!(postponed), "0-1")
+    end
+  end
+
+  describe "the sent-games record across a restore" do
+    defp snapshot!(t) do
+      {:ok, snapshot} = Snapshots.capture(Repo.reload!(t), "manual", nil)
+      snapshot
+    end
+
+    test "going back to before a round was paired never makes it sendable again" do
+      {t, _players} = tournament()
+      before = snapshot!(t)
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      # Both sent games are gone from that point: the restore asks first.
+      assert [%{round: 1, restored: nil}, %{round: 1, restored: nil}] =
+               Snapshots.sent_conflicts(Repo.reload!(t), before.id)
+
+      assert {:error, {:needs_acknowledgement, [:sent_games_changed]}} =
+               Snapshots.restore(Repo.reload!(t), before.id)
+
+      assert Tournaments.get_round(t.id, 1)
+
+      assert {:ok, _} =
+               Snapshots.restore(Repo.reload!(t), before.id, nil,
+                 acknowledged: [:sent_games_changed]
+               )
+
+      refute Tournaments.get_round(t.id, 1)
+
+      # Paired and played again, round 1 still counts as sent.
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "0-1")
+
+      assert {:error, {:already_sent, [1]}} = PostponedGames.finalise(Repo.reload!(t), [1])
+      assert PostponedGames.sent_rounds(Repo.reload!(t)) == [1]
+    end
+
+    test "a restore that keeps the sent games needs no warning and keeps them marked" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      same = snapshot!(t)
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      assert Snapshots.sent_conflicts(Repo.reload!(t), same.id) == []
+      assert {:ok, _} = Snapshots.restore(Repo.reload!(t), same.id)
+
+      # The snapshot was taken before the marks: they are put back.
+      assert Enum.all?(Tournaments.get_round(t.id, 1).pairings, & &1.finalised_at)
+
+      [board | _] = Tournaments.get_round(t.id, 1).pairings
+
+      assert {:error, {:needs_acknowledgement, [:finalised_result_changed]}} =
+               Tournaments.update_pairing_result(board, "0-1")
+    end
+
+    test "a restore that changes a sent result names it" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      [first, second] = round1.pairings
+      result!(first, "0-1")
+      result!(second, "1-0")
+      earlier = snapshot!(t)
+      result!(first, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      assert [%{round: 1, sent_as: "1-0", restored: "0-1"}] =
+               Snapshots.sent_conflicts(Repo.reload!(t), earlier.id)
+    end
+
+    test "a late game sent in the postponed-games file stays sent after a restore" do
+      {t, %{"Alice" => alice}} = tournament()
+      round1 = pair!(t)
+      postponed = round1 |> board_of(alice) |> result!("*W")
+      others!(round1, postponed)
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+      result!(postponed, "1/2-1/2")
+      played = snapshot!(t)
+
+      {:ok, _text, games} = TrfExport.postponed_export(Repo.reload!(t))
+      :ok = PostponedGames.mark_late_games_sent(Repo.reload!(t), games)
+
+      assert Snapshots.sent_conflicts(Repo.reload!(t), played.id) == []
+      assert {:ok, _} = Snapshots.restore(Repo.reload!(t), played.id)
+
+      assert PostponedGames.sendable_late_games(Repo.reload!(t)) == []
+      assert {:error, :nothing_to_send} = TrfExport.postponed_export(Repo.reload!(t))
     end
   end
 

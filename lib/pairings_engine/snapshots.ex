@@ -52,7 +52,7 @@ defmodule PairingsEngine.Snapshots do
   import Ecto.Query
   require Logger
 
-  alias PairingsEngine.{Repo, TournamentExport, TournamentImport, Tournaments}
+  alias PairingsEngine.{PostponedGames, Repo, TournamentExport, TournamentImport, Tournaments}
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.Snapshots.Snapshot
   alias PairingsEngine.Tournaments.{Player, Round, Team, Tournament}
@@ -334,23 +334,58 @@ defmodule PairingsEngine.Snapshots do
       all (see the moduledoc); a restore must never silently re-publish a
       tournament or resurrect a rotated link.
 
+    * **What was sent to the federation.** The sent-games record
+      (`PostponedGames`) is not in the payload and is not wiped, and the
+      sent marks are put back on every game it knows after the contents
+      land (`PostponedGames.reapply_sent_marks/1`). Going back to before a
+      round was sent therefore cannot make it sendable a second time.
+
+  A restore that would take away, or change the result of, a game already
+  sent in a TRF finalised for sending (`sent_conflicts/2`) waits for
+  `acknowledged: [:sent_games_changed]` in `opts`: the file that went out
+  keeps what it said, and the tournament would no longer agree with it.
+
   Runs in one transaction: either the whole state lands or nothing does.
   Refuses on an archived tournament, like every other write.
 
-  Returns `{:ok, tournament}` with the reloaded tournament, or
+  Returns `{:ok, tournament}` with the reloaded tournament,
+  `{:error, {:needs_acknowledgement, [:sent_games_changed]}}`, or
   `{:error, reason}`.
   """
-  @spec restore(Tournament.t(), integer() | String.t(), Scope.t() | integer() | nil) ::
+  @spec restore(Tournament.t(), integer() | String.t(), Scope.t() | integer() | nil, keyword()) ::
           {:ok, Tournament.t()} | {:error, term()}
-  def restore(%Tournament{} = tournament, snapshot_id, actor \\ nil) do
+  def restore(%Tournament{} = tournament, snapshot_id, actor \\ nil, opts \\ []) do
     with :ok <- Tournaments.ensure_writable(tournament),
          %Snapshot{} = snapshot <- get(tournament.id, snapshot_id),
-         {:ok, entry} <- payload_entry(snapshot) do
+         {:ok, entry} <- payload_entry(snapshot),
+         :ok <- check_sent(tournament, entry, opts) do
       do_restore(tournament, snapshot, entry, actor)
     else
       nil -> {:error, :not_found}
       {:error, _} = error -> error
     end
+  end
+
+  @doc """
+  The games already sent in a TRF finalised for sending that restoring
+  snapshot `snapshot_id` would take away or give another result
+  (`PostponedGames.restore_conflicts/2`). Empty when it loses nothing sent,
+  or when the snapshot is gone.
+  """
+  def sent_conflicts(%Tournament{} = tournament, snapshot_id) do
+    with %Snapshot{} = snapshot <- get(tournament.id, snapshot_id),
+         {:ok, entry} <- payload_entry(snapshot) do
+      PostponedGames.restore_conflicts(tournament.id, entry)
+    else
+      _ -> []
+    end
+  end
+
+  defp check_sent(tournament, entry, opts) do
+    if :sent_games_changed in Keyword.get(opts, :acknowledged, []) or
+         PostponedGames.restore_conflicts(tournament.id, entry) == [],
+       do: :ok,
+       else: {:error, {:needs_acknowledgement, [:sent_games_changed]}}
   end
 
   defp restore_label(%Snapshot{summary: summary}) when is_binary(summary) and summary != "",
@@ -394,7 +429,9 @@ defmodule PairingsEngine.Snapshots do
           set_head(tournament, snapshot.id)
 
           wipe_contents(tournament.id)
-          TournamentImport.restore_into!(tournament, entry)
+          restored = TournamentImport.restore_into!(tournament, entry)
+          PostponedGames.reapply_sent_marks(tournament.id)
+          restored
         end)
       end)
 
