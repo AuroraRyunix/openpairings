@@ -80,6 +80,19 @@ Each entry is tagged so a version can be skimmed:
   goes to FIDE twice. The rounds already sent are shown beside the button.
   A copy can always be downloaded with the box unticked. The whole file is
   refused while an exported round has a board with no result at all.
+- [Feature] **What was sent survives a restore.** Every game sent in a
+  finalised TRF is also kept in a record that a restore point or a hand-off
+  return does not replace, and the "sent" marks are put back on every game
+  still there afterwards. Going back to before a round was sent, even to
+  before it was paired, cannot make that round sendable again. A restore
+  that would take away a sent game, or give it another result, shows a
+  warning listing those games and needs its own tick besides the typed
+  word.
+- [Feature] **A round that was sent is protected from hand edits.**
+  Swapping players, marking one absent, filling a seat, awarding a bye or
+  pairing from the pool in a round already sent to FIDE shows a large
+  warning and needs its own tick before it goes through. The round stays
+  marked as sent. The audit trail says the warning was confirmed.
 - [Feature] **A postponed-games TRF.** A game still open when its round was
   sent goes in that report as `?`, and every later report writes it as `?`
   again, so a file that was sent never changes. A game played before its
@@ -112,9 +125,12 @@ Each entry is tagged so a version can be skimmed:
   TRF26 export writes `?` for both players, and the `162` record gives it
   the value of a draw (`X`), the value FIDE's format gives an unknown
   result, so the file's points column adds up from the file itself. The
-  Pairings page says the export is not final while one is open. The file
-  the pairing engine reads carries the value the tournament counts the game
-  as.
+  older spelling writes the draw and scores it as one too. The Pairings
+  page says the export is not final while one is open, and, when a
+  postponed game counts as something other than a draw, that the file's
+  points can differ from the standings until it is played. Only the file
+  the app hands its own pairing engine, which is never sent anywhere,
+  carries the value the tournament counts the game as.
 - [Feature] **The KBSB upload says "Voorlopige stand"** instead of
   "Eindstand" above the standings while a postponed game is still to be
   played.

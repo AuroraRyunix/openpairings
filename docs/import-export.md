@@ -133,9 +133,12 @@ export writes them in FIDE's own spelling:
     the Pairings page says so beside the export buttons while one is open.
     `Ainalrami.Trf.serialize/2` refuses `?`, so `TrfExport` writes the game
     as the draw the engine is handed and swaps the one character afterwards.
-    The older spelling below keeps the draw: it is read by pairing programs,
-    which pair a postponed game as one and cannot read `?`. On import, a `?`
-    comes back as a postponed game.
+    The older spelling below keeps the draw, and scores it as one: it is
+    read by pairing programs, which pair a postponed game as one and cannot
+    read `?`. (Where a tournament counts a postponed game as something other
+    than a draw, such a program will not reproduce its pairing from the
+    file; the app's own engine is handed the provisional points directly.)
+    On import, a `?` comes back as a postponed game.
 
 `?dialect=javafo` on the download URL asks for the older spelling instead -
 `XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what JaVaFo,

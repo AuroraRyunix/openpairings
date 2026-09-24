@@ -1024,10 +1024,22 @@ second mapping. What landed, against those touch points:
   (its played result went out in the postponed-games TRF).
   `PostponedGames.finalise/2` refuses a round with a blank board and a round
   already finalised (so a round is never sent twice), `Pairing.delete_round/2`
-  refuses a sent round, and a sent result changes only with
-  `:finalised_result_changed` acknowledged (no VCL question: it guards the
-  file, not a rule). Every later TRF26 report writes a `finalised_open` game
-  as `?` at the file's own `X` value, so a sent report never changes. A game
+  refuses a sent round, a sent result changes only with
+  `:finalised_result_changed` acknowledged, and the six seat-changing
+  functions in `Tournaments` wait for `:sent_round_changed` (no VCL
+  question for any of them: they guard the file, not a rule). The marks are
+  tournament contents, which a snapshot restore and a hand-off return
+  replace, so they are backed by a table those do not touch,
+  `trf_sent_games` (round, the players as the TRF names them - FIDE ID or
+  name, since player rows are recreated - kind, what was sent):
+  `sent_rounds/1` and `round_sent?/2` ask it, `reapply_sent_marks/1` puts
+  the marks back after a restore, a hand-off return or a backup import,
+  and `Snapshots.restore/4` waits for `:sent_games_changed` when the
+  restore point lacks a sent game or holds it with another result.
+  Every later TRF26 report writes a `finalised_open` game as `?` at the
+  file's own `X` value, so a sent report never changes; the older spelling
+  scores the `=` it writes as a draw too, so every downloaded file adds up
+  from itself, and only the engine's own input carries provisional points. A game
   played in time goes in its round with its result; one played after goes in
   `TrfExport.postponed_export/1`: only its two players, under their own
   ranks, in extra rounds packed by `PostponedGames.pack/1` (exact colouring

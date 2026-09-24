@@ -96,8 +96,11 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **TRF for sending** - the Pairings page's "Export TRF for sending" has a
   "Finalise results for TRF sending" box: ticked, the download marks every
   result of the exported rounds as sent. A sent result changes only after a
-  confirmation; a sent round cannot be finalised again or unpaired, so no
-  game is sent twice. A game still open when its round is sent goes out as
+  confirmation; a sent round cannot be finalised again or unpaired, and a
+  hand edit to who played whom in it needs a warning ticked, so no game is
+  sent twice. What was sent is also kept in a record a restore or a
+  hand-off return does not replace: the marks come back afterwards, and a
+  restore that would take a sent game away warns first. A game still open when its round is sent goes out as
   `?` and stays `?` in every later report; once played it goes in the
   **postponed-games TRF** on the Postponed games page instead - extra
   rounds, packed so nobody plays twice in a round, only the players of those
