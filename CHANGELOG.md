@@ -50,6 +50,52 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **A round still in progress no longer moves the team
   tie-breaks.** They count the rounds whose every match is finished. Match
   points, which rank first, still count every finished match.
+- [Feature] **Postponed games.** A game that is not played in its round -
+  moved to a later evening by agreement, or adjourned - can now be recorded
+  as postponed: pick "* postponed" as the board's result on the Pairings
+  page (or on a phone). The tournament goes on. Until the game is played it
+  counts as a draw for both players, in the standings, the tie-breaks and
+  the pairing of the next rounds alike, and never as anything else. Every
+  postponed game still to be played is listed at the top of the Pairings
+  page, with a button to its round, so its real result can be entered at
+  any time, however many rounds later. The standings, the tie-breaks and
+  everything else recompute from it.
+- [Feature] **Pairing with a result missing records it as postponed.** If
+  the last round still has boards without a result, a second button beside
+  "Pair round" offers to record them as postponed games and pair the next
+  round. It says what that does and asks first; the page then says which
+  boards it recorded, and so does the audit trail. The ordinary button still
+  refuses, as before.
+- [Feature] **Warnings where a postponed game matters.** Entering a result
+  that is not a draw for a postponed game asks for confirmation first,
+  because the rounds paired since counted it as a draw and stay as they
+  are. Pairing a round while a postponed game from an older round is still
+  open asks too. A postponed game in the last round is simply noted beside
+  the button. A results CSV cannot give a postponed game a result that is
+  not a draw: the import names the board and says to enter it on the
+  Pairings page, where the confirmation is.
+- [Feature] **Standings say "not final" while a game is postponed.** The
+  Standings page, the printed standings and team standings and the cross
+  tables carry a banner as long as a postponed game is still to be played,
+  and the tournament stays "running" rather than "finished" even after the
+  last round, until it is played.
+- [Feature] **The TRF marks a postponed game as an unknown result.** The
+  TRF26 export writes `?` for both players, and the `162` record gives it
+  the value of a draw (`X`), which is what it counts as. The Pairings page
+  says the export is not final while one is open. The TRF16/engine spelling
+  keeps the draw, which is what a pairing program reads.
+- [Change] **A `?` in an imported TRF becomes a postponed game.** It used
+  to be imported as a blank result, which stopped the next round from being
+  paired. It is now kept unknown - counted as a draw until its result is
+  entered - and the import says which rounds carry one.
+- [Fix] **Importing a TRF with a `?` result no longer crashes the page.**
+  The notice about it was the one import notice the page could not read.
+- [Change] **Norms, performance ratings and expected scores leave a
+  postponed game out** until it is played, and the SWAR export writes it as
+  not played yet. PGN exports it as `*`.
+- [Change] **A team match with a postponed board is not complete.** Its
+  score is shown as provisional, with the number of boards postponed, and
+  the next round is paired with that provisional score.
 
 ## [0.63.6] - 2026-09-23
 

@@ -2593,9 +2593,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL. No adjournment support at all (design doc Phase 5)."
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Result code * (PairingsEngine.Results), shown as \"postponed\" (uitgesteld). Enterable on the Pairings page, the phone and a results CSV."
   },
   {
    "q": 158,
@@ -2609,9 +2609,9 @@
     "outcome": "ok",
     "next": 161
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "check",
-   "note": "If it refuses, Q159-160 are skipped."
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A round pairs with a postponed game open (it counts as a draw). With blank boards, a second button records them as postponed first; the ordinary one still refuses (Pairing.pair_next_round/2)."
   },
   {
    "q": 159,
@@ -2625,9 +2625,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Blank two-player boards of the last round are recorded as * before pairing, once confirmed (PostponedGames.record_missing/2); put back if the pairing then fails. A vacated seat still blocks."
   },
   {
    "q": 160,
@@ -2642,9 +2642,9 @@
     "next": 161,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A confirmation before recording (warning :missing_results_recorded_as_adjourned) and a notice plus audit row after. No Level attached: the Levels are not defined yet (design-fide-mode Phase 0/4)."
   },
   {
    "q": 161,
@@ -2658,9 +2658,9 @@
     "outcome": "ok",
     "next": 162
    },
-   "answer": "Y",
+   "answer": "N",
    "status": "check",
-   "note": "FAIL if YES. Needs checking."
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Standings page, printed standings, team standings and cross tables carry a not-final banner while a * is open; the tournament stays running, not finished (Tournaments.refresh_status!/1); the OpenResults snapshot says provisional."
   },
   {
    "q": 162,
@@ -2674,9 +2674,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL once reached."
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Any time, in any round: every open game is listed on the Pairings page with a button to its round, and the one write path (Tournaments.update_pairing_result/3) has no round restriction."
   },
   {
    "q": 163,
@@ -2691,9 +2691,9 @@
     "next": 164,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A confirmation before a result that is not a draw replaces * (warning :adjourned_non_draw_result), enforced in Tournaments.update_pairing_result/3 for every writer. No Level attached yet (Phase 0/4)."
   },
   {
    "q": 164,
@@ -2708,9 +2708,9 @@
     "next": 166,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. The TRF26 export writes the game as ? for both players (TrfExport). The engine/TRF16 spelling keeps =, which is what a pairing program reads."
   },
   {
    "q": 165,
@@ -2725,9 +2725,9 @@
     "next": 166,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. ? in the 001 record, and X in the 162 record at the draw value, so the points column adds up. Ainalrami's writer refuses ?, so TrfExport patches it in after serializing."
   },
   {
    "q": 166,
@@ -2744,7 +2744,7 @@
    },
    "answer": "Y",
    "status": "check",
-   "note": "Ainalrami reads ? on purpose."
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. ? imports as a postponed game (*), with a notice, instead of a blank (TrfImport). Our own export round-trips."
   },
   {
    "q": 167,
@@ -2759,8 +2759,8 @@
     "next": 168
    },
    "answer": "N",
-   "status": "gap",
-   "note": ""
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. * classifies as a draw in PairingsEngine.Results, the one table the standings, the tie-breaks and the engine's TRF all read. Keizer and team matches read it from there too."
   },
   {
    "q": 168,
@@ -2775,9 +2775,9 @@
     "next": 169,
     "penalty": 20
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A confirmation when a * from a round before the last paired one is open (warning :adjourned_older_round_open), enforced in Pairing.pair_next_round/2. No Level attached yet (Phase 0/4)."
   },
   {
    "q": 169,
@@ -2792,8 +2792,8 @@
     "next": null
    },
    "answer": "N",
-   "status": "gap",
-   "note": ""
+   "status": "check",
+   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Final standings: see Q161. The TRF export is not refused: it writes ? (not final by construction) and the Pairings page says the export is not final. Needs a reading of whether marking is enough."
   },
   {
    "q": 170,

@@ -17,12 +17,12 @@ FIDE mode (`PairingsEngine.Compliance`).
 
 ```
 VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-24
-  Questions on our path:  183 of 225
+  Questions on our path:  186 of 225
   First failure:          Q14 - FIDE's verification would stop here
-  Failures on the path:   23 (Q14, Q43, Q58, Q60, Q65, Q68, Q74, Q76, Q81, Q83, Q86, Q93, Q103, Q109, Q110, Q157, Q161, Q162, Q189, Q191, Q195, Q196, Q201)
-  Penalties on the path:  687% (over 100% fails)
-  Answers:                75 met, 48 gaps, 102 still to check
-  On the path:            56 met, 42 gaps, 85 still to check
+  Failures on the path:   20 (Q14, Q43, Q58, Q60, Q65, Q68, Q74, Q76, Q81, Q83, Q86, Q93, Q103, Q109, Q110, Q189, Q191, Q195, Q196, Q201)
+  Penalties on the path:  642% (over 100% fails)
+  Answers:                75 met, 38 gaps, 112 still to check
+  On the path:            56 met, 35 gaps, 95 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -257,19 +257,19 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-24
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
-| 157 | A game can be recorded as adjourned? | N | gap | **FAIL** | FAIL. No adjournment support at all (design doc Phase 5). |
-| 158 | Can it pair with results missing? | N | check | ok | If it refuses, Q159-160 are skipped. |
-| 159 | Missing results auto-recorded as adjourned? | N | gap | - |  |
-| 160 | Level-2 warning for that? | N | gap | - |  |
-| 161 | Final standings with results missing? | Y | check | **FAIL** | FAIL if YES. Needs checking. |
-| 162 | Results for adjourned games enterable any time? | N | gap | **FAIL** | FAIL once reached. |
-| 163 | Level-3 when an adjourned result is not a draw? | N | gap | -15% |  |
-| 164 | Adjourned game marked in the ITDX file? | N | gap | -10% |  |
-| 165 | Marked with ?? | N | gap | - |  |
-| 166 | Unknown result symbols imported as unknown? | Y | check | ok | Ainalrami reads ? on purpose. |
-| 167 | Provisional score other than a draw allowed? | N | gap | ok |  |
-| 168 | Level-2 when pairing with an older adjourned game open? | N | gap | -20% |  |
-| 169 | Final standings/TRF with an adjourned game open? | N | gap | ok |  |
+| 157 | A game can be recorded as adjourned? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. Result code * (PairingsEngine.Results), shown as "postponed" (uitgesteld). Enterable on the Pairings page, the phone and a results CSV. |
+| 158 | Can it pair with results missing? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. A round pairs with a postponed game open (it counts as a draw). With blank boards, a second button records them as postponed first; the ordinary one still refuses (Pairing.pair_next_round/2). |
+| 159 | Missing results auto-recorded as adjourned? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. Blank two-player boards of the last round are recorded as * before pairing, once confirmed (PostponedGames.record_missing/2); put back if the pairing then fails. A vacated seat still blocks. |
+| 160 | Level-2 warning for that? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. A confirmation before recording (warning :missing_results_recorded_as_adjourned) and a notice plus audit row after. No Level attached: the Levels are not defined yet (design-fide-mode Phase 0/4). |
+| 161 | Final standings with results missing? | N | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. Standings page, printed standings, team standings and cross tables carry a not-final banner while a * is open; the tournament stays running, not finished (Tournaments.refresh_status!/1); the OpenResults snapshot says provisional. |
+| 162 | Results for adjourned games enterable any time? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. Any time, in any round: every open game is listed on the Pairings page with a button to its round, and the one write path (Tournaments.update_pairing_result/3) has no round restriction. |
+| 163 | Level-3 when an adjourned result is not a draw? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. A confirmation before a result that is not a draw replaces * (warning :adjourned_non_draw_result), enforced in Tournaments.update_pairing_result/3 for every writer. No Level attached yet (Phase 0/4). |
+| 164 | Adjourned game marked in the ITDX file? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. The TRF26 export writes the game as ? for both players (TrfExport). The engine/TRF16 spelling keeps =, which is what a pairing program reads. |
+| 165 | Marked with ?? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. ? in the 001 record, and X in the 162 record at the draw value, so the points column adds up. Ainalrami's writer refuses ?, so TrfExport patches it in after serializing. |
+| 166 | Unknown result symbols imported as unknown? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. ? imports as a postponed game (*), with a notice, instead of a blank (TrfImport). Our own export round-trips. |
+| 167 | Provisional score other than a draw allowed? | N | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. * classifies as a draw in PairingsEngine.Results, the one table the standings, the tie-breaks and the engine's TRF all read. Keizer and team matches read it from there too. |
+| 168 | Level-2 when pairing with an older adjourned game open? | Y | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. A confirmation when a * from a round before the last paired one is open (warning :adjourned_older_round_open), enforced in Pairing.pair_next_round/2. No Level attached yet (Phase 0/4). |
+| 169 | Final standings/TRF with an adjourned game open? | N | check | ok | Built on branch postponed-games (2026-09-24), not verified yet. Final standings: see Q161. The TRF export is not refused: it writes ? (not final by construction) and the Pairings page says the export is not final. Needs a reading of whether marking is enough. |
 
 ## Tournament events
 

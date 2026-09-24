@@ -56,6 +56,11 @@ board,result
 | `1-0U` | White wins, **played but not rated** |
 | `0-1U` | Black wins, played but not rated |
 | `1/2-1/2U`, `½-½U`, `0.5-0.5U` | Draw, played but not rated |
+| `*` | Postponed - still to be played, counts as a draw until it is |
+
+A postponed game cannot be given a result that is not a draw from a CSV:
+the rounds paired since counted it as a draw, and that change is confirmed
+on the Pairings page. The import refuses the whole file and names the board.
 
 These map onto exactly the same result strings the inline result `<select>`
 on the Pairings page writes - a CSV import and a manual click are

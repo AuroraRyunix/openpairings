@@ -73,6 +73,20 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   when nothing else is legal, and the rationale page shows the rung.
 - **Blind result entry** - SWAR-style keyboard flow: focus a board's result,
   type `1`/`2`/`3`, focus advances one board with smooth scrolling.
+- **Postponed games** - a board can be recorded as postponed ("* postponed",
+  uitgesteld): result unknown, game still to be played, for a game moved by
+  agreement or adjourned (VCL4THP Q157-169). The tournament goes on: until
+  the game is played it counts as a draw for both players, in the standings,
+  the tie-breaks and the pairing of every later round, from one place
+  (`PairingsEngine.Results`). Open games are listed on the Pairings page with
+  a button to their round, and the real result can be entered any time.
+  Pairing with blank boards can record them as postponed (a separate,
+  confirmed button); a result that is not a draw over a postponed game, and
+  pairing while one from an older round is open, both ask first. Standings,
+  prints and the OpenResults snapshot say "not final" while one is open, and
+  the tournament stays running. The TRF26 export writes `?` (with `X` in
+  `162`), and a `?` imports as a postponed game. The warnings and the VCL
+  questions they answer are listed in `PairingsEngine.PostponedGames`.
 
 ## Scoring, standings & tiebreaks
 
@@ -259,7 +273,9 @@ draft VCL and TEC Manual on 2026-08-25; when the final versions publish,
 existing endorsements are revoked and every vendor re-qualifies. The gap
 list, with our own read of which items are hard failures and which are
 accumulating penalties, is at the top of [`../TODO.md`](../TODO.md). The
-short version: FIDE Mode and adjourned games are the two real build items.
+short version: FIDE Mode was one of the two real build items; adjourned
+games, the other, are built as postponed games (above) and wait for the
+maintainer to verify Q157-169.
 TRF-26 was on that list and came off it on 2026-09-07: we read and write it
 now. What is still open there is FIDE's side - whether a specification is
 published as a specification, rather than as clarifications of one - and

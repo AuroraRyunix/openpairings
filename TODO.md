@@ -505,10 +505,13 @@ verdict - TEC verifies, we do not.
   Still to do: the `###` emitter itself (Ainalrami side, then
   `TrfExport`), and the Levels, which stay blocked on TEC. See
   [docs/design-fide-mode.md](docs/design-fide-mode.md) sections 3 and 6.
-- **Adjourned games are not implemented at all** (Q157-169). The word does
-  not appear in the codebase. Needs a result state, "counts as a draw for
-  pairing purposes", a Level-3 warning when a non-draw result is entered
-  later, and a block on final standings while any remain.
+- ~~**Adjourned games are not implemented at all** (Q157-169).~~ **Built
+  on branch `postponed-games` (2026-09-24), not verified yet.** A result
+  state (`"*"`, "postponed"), "counts as a draw for pairing purposes" in the
+  one results table, the warnings as codes in `PairingsEngine.PostponedGames`
+  (no Level attached - still blocked on TEC), and "not final" on standings,
+  prints, the snapshot and the TRF while any remain. See
+  [docs/design-fide-mode.md](docs/design-fide-mode.md) Phase 5.
 - **Prohibited pairings can be added mid-tournament** (Q196).
   Tournaments.add_forbidden_pairing/3 does not go through
   ensure_unlocked/2. Cheap to fix - but see the feedback draft, where we

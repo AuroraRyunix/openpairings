@@ -954,12 +954,57 @@ stamp that `update_tournament/3` does, at `add_forbidden_pairing/4` and
 it wrong in the strict direction permanently marks tournaments as
 non-conforming in files sent to FIDE, and that is not correctable.
 
-### Phase 5 - adjournment (Q157-169). Days, not hours. Separate scope.
+### Phase 5 - adjournment (Q157-169). BUILT on branch `postponed-games`, not verified.
 
-`docs/sweep-2026-08-26.md:2335-2348` has the three touch points worked out,
+`docs/sweep-2026-08-26.md:2335-2348` had the three touch points worked out,
 including the warning worth repeating: express "counts as a draw for pairing
 purposes" in the single scoring function 0.17.1 consolidated on, not in a
-second mapping.
+second mapping. What landed, against those touch points:
+
+- **The result state.** One code, `"*"`, in `PairingsEngine.Results` - the
+  table `Pairing.@results` has read since the sweep was written. PGN's own
+  "result unknown" symbol; TRF26 spells it `?`. The UI calls it
+  **postponed** (*uitgesteld*) for adjourned games too, one term everywhere;
+  the warning ids keep FIDE's "adjourned" because they name VCL questions.
+- **"A draw for pairing purposes" is stated once**, as the table row
+  `{"*", :draw, :draw, true, false}`. `Standings.pairing_records/4` (and so
+  `pairing_award/3`, the crosstable, the tie-breaks via the Ainalrami bridge,
+  team matches), `Pairing.trf_game/3` (the engine's `=`, derived from the
+  classification rather than restated) and `Keizer.classify_result/2` all
+  read it. No second result-to-points mapping exists. `played?` is true: a
+  postponed game is going to be played, so Article 16's unplayed-round rules
+  must not reach it; `Standings.finished_game?/1` is what norms, ratings and
+  performance ask instead.
+- **Tie-breaks before the result exists** count it as a played draw - the
+  same number the score counts, so Buchholz and Sonneborn-Berger are
+  consistent with the standings beside them and with what the next round was
+  paired on. C.07 has no rule for a game still to be played; treating it as
+  unplayed would bring in a dummy opponent (Article 16.4) for a game that
+  will be played, and leaving it out would make SB disagree with the score.
+  Final standings are never computed from it (below), so the provisional
+  value never becomes a final one.
+- **The warnings** are `PairingsEngine.PostponedGames.warnings/0`, codes
+  only, with the VCL question each answers and whether the action waits for
+  confirmation; the sentences are `PairingsEngineWeb.Postponed`. The two
+  write paths enforce them - `Tournaments.update_pairing_result/3`
+  (`:adjourned_non_draw_result`, Q163) and `Pairing.pair_next_round/2`
+  (`:missing_results_recorded_as_adjourned`, Q159-160;
+  `:adjourned_older_round_open`, Q168) - by refusing with
+  `{:needs_acknowledgement, ids}` until the id is passed back. **No Level is
+  attached to any of them**: Phase 4 adds one key per entry when the Levels
+  exist.
+- **Final outputs.** `derive_status/1` keeps a tournament "running" while a
+  `"*"` is open; the Standings page, printed standings, team standings and
+  cross tables carry a "not final" banner (`:adjourned_standings_not_final`);
+  the OpenResults snapshot sends `postponed: true` on the board (result
+  `null`) and `provisional: true` on the standings; the TRF26 export writes
+  `?` with `X` in `162` (`:adjourned_trf_not_final`, noted beside the export
+  buttons). The TRF is marked, not refused - whether that satisfies Q169 is
+  for the maintainer to read.
+- **What it asks of Ainalrami.** Its writer refuses `?` in both dialects, so
+  `TrfExport` swaps the character in after serializing. An
+  `allow_unknown_result` option on `Ainalrami.Trf.serialize/2` (it exists
+  only on `parse/1` today) would let that swap go.
 
 ### Phase 6 - read a `###` line back on import. ~half a day.
 
