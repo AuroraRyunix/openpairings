@@ -848,6 +848,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text({:needs_acknowledgement, ids}) when is_list(ids),
     do: PairingsEngineWeb.Postponed.needs_acknowledgement_text(ids)
 
+  def error_text(:round_sent_in_trf),
+    do:
+      gettext(
+        "This round's results were finalised and sent in a TRF, so it cannot be unpaired: the games that were sent would have nothing behind them."
+      )
+
   def error_text(:postponed_games_off),
     do:
       gettext(

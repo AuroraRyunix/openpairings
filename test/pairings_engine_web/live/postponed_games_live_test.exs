@@ -235,6 +235,96 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
     end
   end
 
+  describe "sending the TRF" do
+    test "finalising on download marks the round, and a second try is refused", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      [postponed, other] = boards(t, 1)
+      set!(postponed, "*B")
+      set!(other, "1-0")
+
+      sent = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      assert response(sent, 200) =~ "?"
+      assert %{finalised_open: true} = Repo.reload!(postponed)
+      assert %{finalised_open: false, finalised_at: %DateTime{}} = Repo.reload!(other)
+
+      again = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      assert redirected_to(again) == ~p"/t/#{t.id}/pairings"
+      assert Phoenix.Flash.get(again.assigns.flash, :error) =~ "twice"
+
+      # A copy, not finalised, can always be downloaded.
+      copy = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "false"})
+      assert response(copy, 200) =~ "?"
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      assert has_element?(lv, "#trf-sent-rounds")
+      assert has_element?(lv, "#postponed-page-link")
+    end
+
+    test "changing a sent result asks first, and the confirmation writes it", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      [first, second] = boards(t, 1)
+      set!(first, "1-0")
+      set!(second, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      change_result(lv, first, "0-1")
+
+      assert has_element?(lv, "#confirm-finalised-#{first.id}")
+      assert Repo.reload!(first).result == "1-0"
+
+      lv |> element("#confirm-postponed-yes-#{first.id}") |> render_click()
+
+      assert Repo.reload!(first).result == "0-1"
+      [entry | _] = Audit.list_for_tournament(t.id)
+      assert entry.details["confirmed"] == "finalised_result_changed"
+    end
+
+    test "the postponed-games page lists the game and sends its file once", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      [postponed, other] = boards(t, 1)
+      set!(postponed, "*W")
+      set!(other, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/postponed")
+      assert has_element?(lv, "#postponed-row-#{postponed.id}")
+      assert has_element?(lv, "#postponed-trf-empty")
+
+      set!(Repo.reload!(postponed), "1/2-1/2")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/postponed")
+      assert has_element?(lv, "#postponed-trf-round-1")
+
+      file = post(conn, ~p"/t/#{t.id}/export/postponed-trf", %{"finalise" => "true"})
+      assert response(file, 200) =~ "001"
+      assert Repo.reload!(postponed).postponed_reported_at
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/postponed")
+      assert has_element?(lv, "#postponed-trf-empty")
+    end
+
+    test "with postponed games off, no postponed result is offered", %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      {:ok, _} = Tournaments.update_tournament(t, %{"postponed_games" => "false"})
+      [board | _] = boards(t, 1)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      refute has_element?(lv, "#result-select-#{board.id} option[value='*W']")
+      refute has_element?(lv, "#result-select-#{board.id} option[value='*B']")
+      refute has_element?(lv, "#postponed-page-link")
+    end
+  end
+
   describe "the phone" do
     test "a deputy is sent to the Pairings page for a decisive result on a postponed game", %{
       conn: conn,

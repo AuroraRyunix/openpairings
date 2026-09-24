@@ -178,6 +178,26 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
         "from" => "*",
         "to" => "1-0",
         "confirmed" => "adjourned_non_draw_result"
+      },
+      # A result already sent in a finalised TRF, changed over the warning -
+      # alone, and together with the postponed one.
+      %{
+        "round" => 1,
+        "board" => 2,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "1-0",
+        "to" => "0-1",
+        "confirmed" => "finalised_result_changed"
+      },
+      %{
+        "round" => 1,
+        "board" => 3,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "*W",
+        "to" => "0-1",
+        "confirmed" => "adjourned_non_draw_result,finalised_result_changed"
       }
     ],
     "trf.finalised" => [

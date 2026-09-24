@@ -222,9 +222,12 @@ defmodule PairingsEngine.PostponedGames do
 
     # A board already sent in a finalised TRF, with the result it was sent
     # with. An open postponed game sent as `?` is the exception: its real
-    # result is still to come, and goes in the postponed-games file.
+    # result is still to come, and goes in the postponed-games file - after
+    # which it is sent too.
     sent_changed? =
-      not is_nil(stored.finalised_at) and not stored.finalised_open and result != stored.result
+      result != stored.result and
+        ((not is_nil(stored.finalised_at) and not stored.finalised_open) or
+           not is_nil(stored.postponed_reported_at))
 
     if(non_draw?, do: [:adjourned_non_draw_result], else: []) ++
       if sent_changed?, do: [:finalised_result_changed], else: []
@@ -319,12 +322,28 @@ defmodule PairingsEngine.PostponedGames do
 
   @doc """
   Marks every board of `rounds` as sent (see the section above). Refuses,
-  writing nothing, while any of those boards has no result at all: a file
-  for sending must not carry a gap nobody decided about.
+  writing nothing, while any of those boards has no result at all (a file
+  for sending must not carry a gap nobody decided about), or when one of
+  those rounds was already finalised: its games have been sent, and a second
+  file with them would send them twice. Downloading without finalising is
+  always possible, to see or keep a copy.
 
-  Returns `{:ok, newly_marked}` or `{:error, {:blank_results, rounds}}`.
+  Returns `{:ok, newly_marked}`, `{:error, {:already_sent, rounds}}` or
+  `{:error, {:blank_results, rounds}}`.
   """
   def finalise(%Tournament{} = tournament, rounds) when is_list(rounds) do
+    sent_rounds =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where:
+            r.tournament_id == ^tournament.id and r.number in ^rounds and
+              not is_nil(p.finalised_at),
+          distinct: true,
+          select: r.number
+      )
+
     blank_rounds =
       Repo.all(
         from p in Pairing,
@@ -335,27 +354,32 @@ defmodule PairingsEngine.PostponedGames do
           select: r.number
       )
 
-    if blank_rounds != [] do
-      {:error, {:blank_results, Enum.sort(blank_rounds)}}
-    else
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+    cond do
+      sent_rounds != [] ->
+        {:error, {:already_sent, Enum.sort(sent_rounds)}}
 
-      ids =
-        Repo.all(
-          from p in Pairing,
-            join: r in Round,
-            on: p.round_id == r.id,
-            where:
-              r.tournament_id == ^tournament.id and r.number in ^rounds and
-                is_nil(p.finalised_at),
-            select: {p.id, p.result}
-        )
+      blank_rounds != [] ->
+        {:error, {:blank_results, Enum.sort(blank_rounds)}}
 
-      # Compared here, not in SQL: SQLite hands a boolean back as 0 or 1.
-      {open, known} = Enum.split_with(ids, &Results.postponed?(elem(&1, 1)))
-      mark(Enum.map(open, &elem(&1, 0)), finalised_at: now, finalised_open: true)
-      mark(Enum.map(known, &elem(&1, 0)), finalised_at: now, finalised_open: false)
-      {:ok, length(ids)}
+      true ->
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+        ids =
+          Repo.all(
+            from p in Pairing,
+              join: r in Round,
+              on: p.round_id == r.id,
+              where:
+                r.tournament_id == ^tournament.id and r.number in ^rounds and
+                  is_nil(p.finalised_at),
+              select: {p.id, p.result}
+          )
+
+        # Compared here, not in SQL: SQLite hands a boolean back as 0 or 1.
+        {open, known} = Enum.split_with(ids, &Results.postponed?(elem(&1, 1)))
+        mark(Enum.map(open, &elem(&1, 0)), finalised_at: now, finalised_open: true)
+        mark(Enum.map(known, &elem(&1, 0)), finalised_at: now, finalised_open: false)
+        {:ok, length(ids)}
     end
   end
 
@@ -364,6 +388,22 @@ defmodule PairingsEngine.PostponedGames do
   defp mark(ids, set) do
     Repo.update_all(from(p in Pairing, where: p.id in ^ids), set: set)
     :ok
+  end
+
+  @doc """
+  The numbers of the rounds of `tournament` already finalised for sending,
+  in order - the ones `finalise/2` refuses a second time.
+  """
+  def sent_rounds(%Tournament{id: id}) do
+    Repo.all(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^id and not is_nil(p.finalised_at),
+        distinct: true,
+        order_by: r.number,
+        select: r.number
+    )
   end
 
   @doc """

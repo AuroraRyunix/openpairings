@@ -299,6 +299,18 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                       )
                     )
 
+                  # A result already sent in a finalised TRF: the same, for
+                  # the same reason - the Pairings page asks first.
+                  {:error, {:needs_acknowledgement, _ids}} ->
+                    put_flash(
+                      socket,
+                      :error,
+                      gettext(
+                        "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page.",
+                        board: pairing.board
+                      )
+                    )
+
                   {:error, _reason} ->
                     put_flash(socket, :error, "Could not save that result.")
                 end

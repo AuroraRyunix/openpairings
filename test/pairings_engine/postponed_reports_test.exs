@@ -12,6 +12,7 @@ defmodule PairingsEngine.PostponedReportsTest do
     Pairing,
     PostponedGames,
     Repo,
+    ResultsImport,
     Standings,
     TrfExport,
     TrfImport,
@@ -180,8 +181,31 @@ defmodule PairingsEngine.PostponedReportsTest do
       assert %{finalised_open: true, finalised_at: %DateTime{}} = Repo.reload!(postponed)
       assert %{finalised_open: false, finalised_at: %DateTime{}} = Repo.reload!(other)
 
-      # Twice is a no-op: nothing is re-marked.
-      assert {:ok, 0} = PostponedGames.finalise(Repo.reload!(t), [1])
+      # A second time would send the round's games twice: refused.
+      assert {:error, {:already_sent, [1]}} = PostponedGames.finalise(Repo.reload!(t), [1])
+    end
+
+    test "a round already sent is refused in any range that includes it" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      {:ok, 2} = PostponedGames.finalise(Repo.reload!(t), [1])
+      round2 = pair!(t)
+      for p <- round2.pairings, p.black_player_id, do: result!(p, "0-1")
+
+      assert {:error, {:already_sent, [1]}} = PostponedGames.finalise(Repo.reload!(t), [1, 2])
+      assert Enum.all?(Tournaments.get_round(t.id, 2).pairings, &is_nil(&1.finalised_at))
+      assert {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [2])
+    end
+
+    test "a round already sent cannot be unpaired" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      assert {:error, :round_sent_in_trf} = Pairing.delete_round(t.id, 1)
+      assert Tournaments.get_round(t.id, 1)
     end
 
     test "is refused, marking nothing, while a round has a board with no result" do
@@ -202,7 +226,7 @@ defmodule PairingsEngine.PostponedReportsTest do
       {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
 
       assert {:error, {:needs_acknowledgement, [:finalised_result_changed]}} =
-               Tournaments.update_pairing_result(other, "0-1")
+               Tournaments.update_pairing_result(Repo.reload!(other), "0-1")
 
       assert result!(other, "0-1", acknowledged: [:finalised_result_changed]).result == "0-1"
 
@@ -232,7 +256,10 @@ defmodule PairingsEngine.PostponedReportsTest do
       end
 
       # Byte for byte the report that was sent, but for the generator stamp.
-      strip = fn text -> text |> String.split("\r\n") |> Enum.reject(&(&1 =~ ~r/^0[0-9][0-9] /)) end
+      strip = fn text ->
+        text |> String.split("\r\n") |> Enum.reject(&(&1 =~ ~r/^0[0-9][0-9] /))
+      end
+
       assert strip.(later) -- strip.(before) == []
     end
 
@@ -258,7 +285,11 @@ defmodule PairingsEngine.PostponedReportsTest do
       postponed = round1 |> board_of(alice) |> result!("*W")
       others!(round1, postponed)
       {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
-      result!(postponed, "1-0", acknowledged: [:adjourned_non_draw_result], played_on: ~D[2026-10-02])
+
+      result!(postponed, "1-0",
+        acknowledged: [:adjourned_non_draw_result],
+        played_on: ~D[2026-10-02]
+      )
 
       assert {:ok, text, [game]} = TrfExport.postponed_export(Repo.reload!(t))
       assert game.pairing.id == postponed.id
@@ -278,6 +309,40 @@ defmodule PairingsEngine.PostponedReportsTest do
 
       assert {:error, :already_sent} =
                Tournaments.set_played_on(Repo.reload!(postponed), ~D[2026-10-03])
+
+      # Its result, sent in that file, is semi-frozen like any other.
+      assert {:error, {:needs_acknowledgement, [:finalised_result_changed]}} =
+               Tournaments.update_pairing_result(Repo.reload!(postponed), "0-1")
+    end
+  end
+
+  describe "the results CSV import" do
+    test "refuses a changed result that was already sent, and writes nothing" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      [first, second] = round1.pairings
+      result!(first, "1-0")
+      result!(second, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      assert {:error, [{:finalised_result_changed, board}]} =
+               ResultsImport.apply_import(Repo.reload!(t), 1, [
+                 {first.board, "0-1"},
+                 {second.board, "1-0"}
+               ])
+
+      assert board == first.board
+      assert Repo.reload!(first).result == "1-0"
+    end
+
+    test "refuses a postponed code where postponed games are off" do
+      {t, _players} = tournament(postponed_games: false)
+      [first | _] = pair!(t).pairings
+
+      assert {:error, [{:postponed_games_off, _board}]} =
+               ResultsImport.apply_import(Repo.reload!(t), 1, [{first.board, "*W"}])
+
+      assert Repo.reload!(first).result == ""
     end
   end
 

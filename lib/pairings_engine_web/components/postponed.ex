@@ -123,7 +123,9 @@ defmodule PairingsEngineWeb.Postponed do
 
   defp acknowledgement_reason(:adjourned_non_draw_result),
     do:
-      gettext("The game was postponed and counted provisionally; enter its result again to confirm.")
+      gettext(
+        "The game was postponed and counted provisionally; enter its result again to confirm."
+      )
 
   defp acknowledgement_reason(:missing_results_recorded_as_adjourned),
     do: gettext("The last round has boards without a result.")
@@ -131,7 +133,24 @@ defmodule PairingsEngineWeb.Postponed do
   defp acknowledgement_reason(:adjourned_older_round_open),
     do: gettext("A postponed game from an earlier round is still to be played.")
 
+  defp acknowledgement_reason(:finalised_result_changed),
+    do: gettext("This result was already sent in a TRF finalised for sending.")
+
   defp acknowledgement_reason(_other), do: ""
+
+  @doc """
+  The question before changing a result already sent in a TRF finalised for
+  sending (`:finalised_result_changed`). The file that went out is not
+  changed by this, and no later report sends the round again.
+  """
+  def finalised_changed_text(round_number, board, result) do
+    gettext(
+      "Board %{board} of round %{round} was already sent in a TRF finalised for sending. Changing it to %{result} changes it here only: the file that was sent keeps the old result, and the round is not sent again. Correct it with the rating officer too.",
+      board: board,
+      round: round_number,
+      result: result
+    )
+  end
 
   @doc """
   The banner a standings view carries while `count` postponed games are open

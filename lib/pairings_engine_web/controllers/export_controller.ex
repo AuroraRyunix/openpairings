@@ -112,6 +112,17 @@ defmodule PairingsEngineWeb.ExportController do
         |> put_flash(:error, "Could not export TRF: #{message}")
         |> redirect(to: ~p"/t/#{tournament.id}/pairings")
 
+      {:error, {:already_sent, rounds}} ->
+        conn
+        |> put_flash(
+          :error,
+          gettext(
+            "Not finalised, and no file: round %{rounds} was already finalised and sent. Sending it again would send its games twice. Choose only rounds not sent yet, or untick the box to download a copy.",
+            rounds: Enum.join(rounds, ", ")
+          )
+        )
+        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+
       {:error, {:blank_results, rounds}} ->
         conn
         |> put_flash(

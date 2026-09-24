@@ -1476,15 +1476,36 @@ defmodule PairingsEngineWeb.AuditLive do
 
   defp phone_sentence(_d), do: nil
 
-  # A result the arbiter had to confirm before it was written - today only a
-  # postponed game given a result that is not a draw (VCL4THP Q163).
-  defp confirmed_sentence(%{"confirmed" => "adjourned_non_draw_result"}),
+  # A result the arbiter had to confirm before it was written: a postponed
+  # game given a result that is not a draw (VCL4THP Q163), and a result
+  # already sent in a finalised TRF. `confirmed` is the warning ids, joined
+  # by commas when there was more than one.
+  defp confirmed_sentence(%{"confirmed" => ids}) when is_binary(ids) do
+    ids
+    |> String.split(",")
+    |> Enum.map(&confirmed_warning/1)
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      sentences -> Enum.join(sentences, " ")
+    end
+  end
+
+  defp confirmed_sentence(_d), do: nil
+
+  defp confirmed_warning("adjourned_non_draw_result"),
     do:
       gettext(
         "Confirmed over the warning that the game was postponed and had counted provisionally for pairing."
       )
 
-  defp confirmed_sentence(_d), do: nil
+  defp confirmed_warning("finalised_result_changed"),
+    do:
+      gettext(
+        "Confirmed over the warning that the result had already been sent in a TRF finalised for sending."
+      )
+
+  defp confirmed_warning(_other), do: nil
 
   # The same two words the Live round page shows when the phone is enrolled
   # (`LiveRoundLive.enrollment_level_label/1`), so the trail names a level
