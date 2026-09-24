@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-09-24
+
 - [Feature] **Accreditation badges.** A badge maker for the arbiters' room
   and the press desk: A6 badges with a photo, name, title, federation, FIDE
   ID, a coloured role (Chief Arbiter, Arbiter, Player, Press, VIP, ...) and
