@@ -50,16 +50,44 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **A round still in progress no longer moves the team
   tie-breaks.** They count the rounds whose every match is finished. Match
   points, which rank first, still count every finished match.
-- [Feature] **Postponed games.** A game that is not played in its round -
-  moved to a later evening by agreement, or adjourned - can now be recorded
-  as postponed: pick "* postponed" as the board's result on the Pairings
-  page (or on a phone). The tournament goes on. Until the game is played it
-  counts as a draw for both players, in the standings, the tie-breaks and
-  the pairing of the next rounds alike, and never as anything else. Every
-  postponed game still to be played is listed at the top of the Pairings
-  page, with a button to its round, so its real result can be entered at
-  any time, however many rounds later. The standings, the tie-breaks and
-  everything else recompute from it.
+- [Feature] **Postponed games, per tournament.** A game that is not played
+  in its round - moved to a later evening by agreement, or adjourned - can
+  now be recorded as postponed. Turn it on under Settings, Scoring
+  ("Allow postponed games"); it is off by default, and off means no
+  postponed option is offered anywhere. When on, the result list on the
+  Pairings page (and on a phone) offers "postponed by White" and "postponed
+  by Black". The tournament goes on. Every postponed game still to be played
+  is listed at the top of the Pairings page, with a button to its round, so
+  its real result can be entered at any time, however many rounds later.
+- [Feature] **What a postponed game counts as, until it is played.** Also
+  under Settings, Scoring: one value for the player who postponed it and one
+  for the opponent, each a draw, a win or a loss. The default is a draw for
+  both, which is what FIDE allows; anything else (a win for the player who
+  postponed, so they are paired higher up, for example) takes the
+  tournament out of FIDE mode, and the page says so. The value counts
+  everywhere - standings, tie-breaks and the pairing of the next rounds -
+  and is stored on the game when it is postponed, so changing the setting
+  later only affects games postponed after the change.
+- [Feature] **Postponed games page.** With postponed games on, a page lists
+  every game ever postponed: who postponed it, what it counts as, when it
+  was played (a date, today unless you change it) and what has been sent of
+  it.
+- [Feature] **Finalise results for TRF sending.** The TRF export for sending
+  on the Pairings page has a box, "Finalise results for TRF sending". Ticked,
+  the download marks every result of the exported rounds as sent. A sent
+  result can still be changed, but only after a confirmation, and a round
+  that was sent cannot be finalised a second time or unpaired, so no game
+  goes to FIDE twice. The rounds already sent are shown beside the button.
+  A copy can always be downloaded with the box unticked. The whole file is
+  refused while an exported round has a board with no result at all.
+- [Feature] **A postponed-games TRF.** A game still open when its round was
+  sent goes in that report as `?`, and every later report writes it as `?`
+  again, so a file that was sent never changes. A game played before its
+  round is sent simply goes in that round with its result. A game played
+  after goes in a separate TRF on the Postponed games page instead: extra
+  rounds, as few as possible, with nobody playing twice in a round, and only
+  the players of those games in it. Finalising that file marks its games as
+  sent, so each goes to FIDE exactly once.
 - [Feature] **Pairing with a result missing records it as postponed.** If
   the last round still has boards without a result, a second button beside
   "Pair round" offers to record them as postponed games and pair the next
@@ -68,12 +96,13 @@ Each entry is tagged so a version can be skimmed:
   refuses, as before.
 - [Feature] **Warnings where a postponed game matters.** Entering a result
   that is not a draw for a postponed game asks for confirmation first,
-  because the rounds paired since counted it as a draw and stay as they
-  are. Pairing a round while a postponed game from an older round is still
+  because the rounds paired since counted it provisionally and stay as they
+  are; the question says what it counted as. Pairing a round while a postponed game from an older round is still
   open asks too. A postponed game in the last round is simply noted beside
   the button. A results CSV cannot give a postponed game a result that is
-  not a draw: the import names the board and says to enter it on the
-  Pairings page, where the confirmation is.
+  not a draw, or change a result already sent in a finalised TRF: the
+  import names the board and says to enter it on the Pairings page, where
+  the confirmation is.
 - [Feature] **Standings say "not final" while a game is postponed.** The
   Standings page, the printed standings and team standings and the cross
   tables carry a banner as long as a postponed game is still to be played,
@@ -81,13 +110,19 @@ Each entry is tagged so a version can be skimmed:
   last round, until it is played.
 - [Feature] **The TRF marks a postponed game as an unknown result.** The
   TRF26 export writes `?` for both players, and the `162` record gives it
-  the value of a draw (`X`), which is what it counts as. The Pairings page
-  says the export is not final while one is open. The TRF16/engine spelling
-  keeps the draw, which is what a pairing program reads.
+  the value of a draw (`X`), the value FIDE's format gives an unknown
+  result, so the file's points column adds up from the file itself. The
+  Pairings page says the export is not final while one is open. The file
+  the pairing engine reads carries the value the tournament counts the game
+  as.
+- [Feature] **The KBSB upload says "Voorlopige stand"** instead of
+  "Eindstand" above the standings while a postponed game is still to be
+  played.
 - [Change] **A `?` in an imported TRF becomes a postponed game.** It used
   to be imported as a blank result, which stopped the next round from being
   paired. It is now kept unknown - counted as a draw until its result is
-  entered - and the import says which rounds carry one.
+  entered - and the import says which rounds carry one. Importing such a
+  file turns postponed games on for the tournament.
 - [Fix] **Importing a TRF with a `?` result no longer crashes the page.**
   The notice about it was the one import notice the page could not read.
 - [Change] **Norms, performance ratings and expected scores leave a

@@ -125,8 +125,11 @@ export writes them in FIDE's own spelling:
     human-readability courtesy copied from Swiss-Manager.
   * **`?`** - a postponed game still to be played (VCL4THP Q164-165),
     written for both players, with **`X`** in the `162` record at a draw's
-    value: that is what the game counts as until it is played, so the
-    points column adds up. A file carrying `?` is not a final report, and
+    value, and scored at that value in the points column, so the file adds
+    up from itself whatever the tournament counts a postponed game as. A
+    game written `?` in a report finalised for sending stays `?` in every
+    later report; its played result goes in the postponed-games TRF (the
+    Postponed games page), never back into the round. A file carrying `?` is not a final report, and
     the Pairings page says so beside the export buttons while one is open.
     `Ainalrami.Trf.serialize/2` refuses `?`, so `TrfExport` writes the game
     as the draw the engine is handed and swaps the one character afterwards.

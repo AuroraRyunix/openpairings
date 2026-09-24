@@ -961,17 +961,31 @@ including the warning worth repeating: express "counts as a draw for pairing
 purposes" in the single scoring function 0.17.1 consolidated on, not in a
 second mapping. What landed, against those touch points:
 
-- **The result state.** One code, `"*"`, in `PairingsEngine.Results` - the
-  table `Pairing.@results` has read since the sweep was written. PGN's own
-  "result unknown" symbol; TRF26 spells it `?`. The UI calls it
-  **postponed** (*uitgesteld*) for adjourned games too, one term everywhere;
-  the warning ids keep FIDE's "adjourned" because they name VCL questions.
-- **"A draw for pairing purposes" is stated once**, as the table row
-  `{"*", :draw, :draw, true, false}`. `Standings.pairing_records/4` (and so
-  `pairing_award/3`, the crosstable, the tie-breaks via the Ainalrami bridge,
-  team matches), `Pairing.trf_game/3` (the engine's `=`, derived from the
-  classification rather than restated) and `Keizer.classify_result/2` all
-  read it. No second result-to-points mapping exists. `played?` is true: a
+- **The result state.** Three codes in `PairingsEngine.Results` - the
+  table `Pairing.@results` has read since the sweep was written: `"*W"` and
+  `"*B"` (postponed by White / by Black, what the arbiter picks) and `"*"`
+  (postponed, nobody named: what a TRF `?` imports as, and what "record
+  missing results as postponed" writes). `*` is PGN's own "result unknown";
+  TRF26 spells it `?`. The UI calls it **postponed** (*uitgesteld*) for
+  adjourned games too, one term everywhere; the warning ids keep FIDE's
+  "adjourned" because they name VCL questions. The whole thing is a
+  per-tournament switch, `tournaments.postponed_games`, off by default: off,
+  no code is offered and `update_pairing_result/3` refuses one
+  (`:postponed_games_off`).
+- **What it counts as is stated once, on the game.** The table rows are
+  `{code, :draw, :draw, true, false}`; when a board is postponed,
+  `update_pairing_result/3` stamps `provisional_white`/`provisional_black`
+  from the tournament's `postponed_requester_outcome` /
+  `postponed_opponent_outcome` (`"draw"`, `"win"` or `"loss"`, default draw
+  for both), so changing the setting later changes only games postponed
+  after it. `Standings.pairing_records/4` reads that stamp (and so
+  `pairing_award/3`, the crosstable, the tie-breaks via the Ainalrami
+  bridge, team matches), `Pairing.trf_game/4` hands the engine the game as
+  `=` with the provisional points in the `001` points column (Ainalrami
+  brackets by that column), and `Keizer.classify_result/2` reads the same
+  stamp. No second result-to-points mapping exists. Anything but a draw for
+  both is a Compliance departure (`:postponed_requester_not_draw`,
+  `:postponed_opponent_not_draw`). `played?` is true: a
   postponed game is going to be played, so Article 16's unplayed-round rules
   must not reach it; `Standings.finished_game?/1` is what norms, ratings and
   performance ask instead.
@@ -999,8 +1013,27 @@ second mapping. What landed, against those touch points:
   the OpenResults snapshot sends `postponed: true` on the board (result
   `null`) and `provisional: true` on the standings; the TRF26 export writes
   `?` with `X` in `162` (`:adjourned_trf_not_final`, noted beside the export
-  buttons). The TRF is marked, not refused - whether that satisfies Q169 is
-  for the maintainer to read.
+  buttons), and the KBSB upload heads its table "Voorlopige stand" rather
+  than "Eindstand". The TRF is marked, not refused - `?` is the format's own
+  answer (Q164-165) - and whether that satisfies Q169 is for the maintainer
+  to read.
+- **Sending (Q164-166, Q169).** Three columns on `pairings`, all additive:
+  `finalised_at` (the board went out in a TRF downloaded with "Finalise
+  results for TRF sending" ticked), `finalised_open` (it was an open
+  postponed game then, so it went out as `?`) and `postponed_reported_at`
+  (its played result went out in the postponed-games TRF).
+  `PostponedGames.finalise/2` refuses a round with a blank board and a round
+  already finalised (so a round is never sent twice), `Pairing.delete_round/2`
+  refuses a sent round, and a sent result changes only with
+  `:finalised_result_changed` acknowledged (no VCL question: it guards the
+  file, not a rule). Every later TRF26 report writes a `finalised_open` game
+  as `?` at the file's own `X` value, so a sent report never changes. A game
+  played in time goes in its round with its result; one played after goes in
+  `TrfExport.postponed_export/1`: only its two players, under their own
+  ranks, in extra rounds packed by `PostponedGames.pack/1` (exact colouring
+  within a budget, first-fit after it) so nobody plays twice in a round,
+  dated by `played_on`, and parsed back before it is handed out
+  (`verify_postponed!`: every game once, opponent and colour right).
 - **What it asks of Ainalrami.** Its writer refuses `?` in both dialects, so
   `TrfExport` swaps the character in after serializing. An
   `allow_unknown_result` option on `Ainalrami.Trf.serialize/2` (it exists
