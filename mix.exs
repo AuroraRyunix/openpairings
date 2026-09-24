@@ -279,6 +279,9 @@ defmodule PairingsEngine.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
+      # Parses the FIDE profile page for the badge photo - see
+      # PairingsEngine.Badges.FideProfile.
+      {:floki, "~> 0.38"},
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.2"},
       {:burrito, "~> 1.3"},

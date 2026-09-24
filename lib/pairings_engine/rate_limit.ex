@@ -66,11 +66,23 @@ defmodule PairingsEngine.RateLimit do
     # what building one norm report takes - the tool combines a handful of
     # files, and re-doing it after fixing one is a few more - while capping
     # an address at 300 MB of parsing per window.
-    tools_upload: %{max: 60, window_ms: :timer.minutes(10)}
+    tools_upload: %{max: 60, window_ms: :timer.minutes(10)},
+    # "Fetch from FIDE" on the badge editor, keyed by USER id. Not an
+    # anonymous endpoint, but every hit is a request to ratings.fide.com made
+    # on this server's behalf, so it is rationed per person: enough to fetch
+    # the photos of a handful of officials in a row, never a bulk scrape.
+    fide_photo: %{max: 10, window_ms: :timer.minutes(1)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
-  @type bucket :: :mobile_enroll | :login_email | :login_client | :public_register | :fide_lookup
+  @type bucket ::
+          :mobile_enroll
+          | :login_email
+          | :login_client
+          | :public_register
+          | :fide_lookup
+          | :tools_upload
+          | :fide_photo
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 

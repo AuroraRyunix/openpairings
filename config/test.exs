@@ -57,6 +57,10 @@ config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 # convention. Individual tests set behaviour with Req.Test.stub/2.
 config :pairings_engine, :keycloak_req_plug, PairingsEngine.KeycloakTest
 
+# PairingsEngine.Badges.FideProfile - the badge editor's "Fetch from FIDE".
+# Every request goes to this stub, so no test can reach ratings.fide.com.
+config :pairings_engine, :fide_profile_req_plug, PairingsEngine.Badges.FideProfileTest
+
 # Same convention for the OpenResults publisher.
 config :pairings_engine, :publishing_req_plug, PairingsEngine.PublishingTest
 
