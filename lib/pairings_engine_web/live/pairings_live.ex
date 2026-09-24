@@ -763,6 +763,15 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The same for a round already sent in a TRF finalised for sending (see
+  # `stage/2`): its own box, because it is its own reason.
+  def handle_event("toggle_sent_ack", _params, socket) do
+    case socket.assigns.confirm do
+      nil -> {:noreply, socket}
+      confirm -> {:noreply, assign(socket, confirm: Map.update!(confirm, :sent_ack, &(!&1)))}
+    end
+  end
+
   def handle_event("apply_confirm", _params, socket) do
     apply_confirm(socket, socket.assigns.confirm)
   end
@@ -1181,7 +1190,21 @@ defmodule PairingsEngineWeb.PairingsLive do
     case confirm_for(socket, action) do
       {:ok, confirm} ->
         frozen? = frozen_round?(socket)
-        confirm = Map.merge(confirm, %{frozen: frozen?, frozen_ack: !frozen?})
+
+        # A round already sent to the federation: who played whom in it is
+        # on file there, and a change here cannot reach that file. Blocked
+        # behind its own warning and tick; `Tournaments` refuses too.
+        sent? =
+          PostponedGames.round_sent?(socket.assigns.tournament.id, socket.assigns.round_number)
+
+        confirm =
+          Map.merge(confirm, %{
+            frozen: frozen?,
+            frozen_ack: !frozen?,
+            sent: sent?,
+            sent_ack: !sent?
+          })
+
         assign(socket, confirm: confirm, menu: nil, seat_pick: nil)
 
       {:error, _reason} ->
@@ -1459,6 +1482,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # courtesy, not a guarantee - refuse server-side too rather than trust
   # it.
   defp apply_confirm(socket, %{frozen: true, frozen_ack: false}), do: {:noreply, socket}
+  defp apply_confirm(socket, %{sent: true, sent_ack: false}), do: {:noreply, socket}
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
@@ -1501,27 +1525,29 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp edited_pairing_id(_round, _confirm, _old_round), do: nil
 
   defp apply_confirmed(socket, confirm, round, t) do
+    ack = if confirm[:sent], do: [acknowledged: [:sent_round_changed]], else: []
+
     result =
       case confirm do
         %{kind: :swap, a_id: a, b_id: b} ->
-          Tournaments.swap_players_in_round(round, a, b)
+          Tournaments.swap_players_in_round(round, a, b, ack)
 
         %{kind: :swap_pool, seated_id: s, pool_id: p} ->
-          Tournaments.swap_seated_with_pool_player(round, s, p)
+          Tournaments.swap_seated_with_pool_player(round, s, p, ack)
 
         %{kind: :vacate, player_id: p} ->
-          Tournaments.vacate_seat(round, p)
+          Tournaments.vacate_seat(round, p, "absent", ack)
 
         %{kind: :bye, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
-               do: Tournaments.award_bye_for_vacancy(round, pairing)
+               do: Tournaments.award_bye_for_vacancy(round, pairing, ack)
 
         %{kind: :fill, pairing_id: id, player_id: p} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
-               do: Tournaments.fill_seat(round, pairing, p)
+               do: Tournaments.fill_seat(round, pairing, p, ack)
 
         %{kind: :pool_pair, a_id: a, b_id: b, board: board} ->
-          Tournaments.pair_from_pool(round, a, b, board)
+          Tournaments.pair_from_pool(round, a, b, board, ack)
 
         %{kind: :delete_pairing, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
@@ -1530,10 +1556,15 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case result do
       {:ok, _} ->
-        Audit.log(t.id, socket.assigns.current_scope, audit_action(confirm.kind), %{
-          round: socket.assigns.round_number,
-          summary: confirm.subtitle
-        })
+        Audit.log(
+          t.id,
+          socket.assigns.current_scope,
+          audit_action(confirm.kind),
+          Map.merge(
+            %{round: socket.assigns.round_number, summary: confirm.subtitle},
+            if(confirm[:sent], do: %{confirmed: "sent_round_changed"}, else: %{})
+          )
+        )
 
         socket = socket |> assign(error: nil) |> refresh()
 
@@ -3364,6 +3395,38 @@ defmodule PairingsEngineWeb.PairingsLive do
               )}
             </p>
 
+            <%!-- The loudest thing in the dialog: the federation already has
+                  this round. --%>
+            <div
+              :if={@confirm[:sent]}
+              class="pe-modal-warn"
+              id="confirm-sent-round"
+              role="alert"
+              style="border-width: 2px; font-size: 1.05em"
+            >
+              <strong>
+                {gettext(
+                  "⚠ Round %{n} was already sent to FIDE in a TRF finalised for sending.",
+                  n: @round_number
+                )}
+              </strong>
+              <p style="margin: 6px 0 0">
+                {gettext(
+                  "This changes who played whom here only: the file that was sent keeps the old pairing, and the tournament will no longer agree with it. The round stays marked as sent and is not sent again. Only go on to correct a real mistake, and tell the rating officer."
+                )}
+              </p>
+
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input
+                  type="checkbox"
+                  id="confirm-sent-ack"
+                  checked={@confirm.sent_ack}
+                  phx-click="toggle_sent_ack"
+                />
+                {gettext("I understand - change the sent round %{n} anyway", n: @round_number)}
+              </label>
+            </div>
+
             <div :if={@confirm.frozen} class="pe-modal-warn">
               <strong>
                 {gettext("You're changing round %{n}, not the current round (round %{current}).",
@@ -3387,7 +3450,10 @@ defmodule PairingsEngineWeb.PairingsLive do
               type="button"
               class="pe-btn primary pe-modal-go"
               phx-click="apply_confirm"
-              disabled={@confirm.frozen and !@confirm.frozen_ack}
+              disabled={
+                (@confirm.frozen and !@confirm.frozen_ack) or
+                  (@confirm[:sent] == true and !@confirm.sent_ack)
+              }
             >
               {@confirm.title}
             </button>

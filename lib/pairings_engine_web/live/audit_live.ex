@@ -1516,6 +1516,12 @@ defmodule PairingsEngineWeb.AuditLive do
         "Confirmed over the warning that the result had already been sent in a TRF finalised for sending."
       )
 
+  defp confirmed_warning("sent_round_changed"),
+    do:
+      gettext(
+        "Confirmed over the warning that the round had already been sent in a TRF finalised for sending."
+      )
+
   defp confirmed_warning(_other), do: nil
 
   # The same two words the Live round page shows when the phone is enrolled
@@ -1536,7 +1542,8 @@ defmodule PairingsEngineWeb.AuditLive do
   # comment above `describe("pairing.players_swapped", _)`. Quoted, and only
   # ever after a sentence of the reader's own: it was written in whatever
   # language the confirmation had, which so far has always been English.
-  defp hand_edit(sentence, d), do: sentences([sentence, recorded_summary(d)])
+  defp hand_edit(sentence, d),
+    do: sentences([sentence, recorded_summary(d), confirmed_sentence(d)])
 
   defp recorded_summary(%{"summary" => summary}) when is_binary(summary) and summary != "",
     do: gettext(~s(Recorded as "%{summary}".), summary: summary)

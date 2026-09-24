@@ -339,17 +339,10 @@ defmodule PairingsEngine.Pairing do
 
   # A round whose results went out in a TRF finalised for sending stays:
   # unpairing and re-pairing it would leave the games that were sent with
-  # nothing behind them, and put new ones in the next file.
-  defp round_sent?(tournament_id, numbers) do
-    Repo.exists?(
-      from p in Pairing,
-        join: r in Round,
-        on: p.round_id == r.id,
-        where:
-          r.tournament_id == ^tournament_id and r.number in ^numbers and
-            not is_nil(p.finalised_at)
-    )
-  end
+  # nothing behind them, and put new ones in the next file. Asked of the
+  # sent-games record too, so it holds after a restore.
+  defp round_sent?(tournament_id, numbers),
+    do: Enum.any?(numbers, &PairingsEngine.PostponedGames.round_sent?(tournament_id, &1))
 
   defp really_delete_rounds(tournament_id, numbers) do
     # One transaction, because the two deletes are one act. A crash

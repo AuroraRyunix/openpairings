@@ -231,6 +231,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     # The confirmation subtitles `PairingsLive.confirm_for/2` writes, word for
     # word, as `summary`.
     "pairing.players_swapped" => [
+      %{"round" => 1, "summary" => "Board 1: A - B", "confirmed" => "sent_round_changed"},
       %{"round" => 3, "summary" => "Anna Peeters  ⇄  Bram Claes"},
       %{"round" => 3}
     ],

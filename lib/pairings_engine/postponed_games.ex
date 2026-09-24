@@ -61,7 +61,9 @@ defmodule PairingsEngine.PostponedGames do
     # TRF marked as sent (see `finalise/2`). The rule above every other one
     # here is that no wrong TRF data is ever sent, so changing a sent
     # result is possible - "semi-frozen" - but never silent.
-    %{id: :finalised_result_changed, vcl: [], acknowledge?: true}
+    %{id: :finalised_result_changed, vcl: [], acknowledge?: true},
+    %{id: :sent_round_changed, vcl: [], acknowledge?: true},
+    %{id: :sent_games_changed, vcl: [], acknowledge?: true}
   ]
 
   @doc "Every warning this feature can raise, with the VCL question it answers."
@@ -464,6 +466,25 @@ defmodule PairingsEngine.PostponedGames do
       )
 
     (recorded ++ marked) |> Enum.uniq() |> Enum.sort()
+  end
+
+  @doc """
+  Whether round `number` of tournament `tournament_id` was sent in a report
+  (`sent_rounds/1`, from the record and the marks both).
+  """
+  def round_sent?(tournament_id, number) do
+    Repo.exists?(
+      from s in TrfSentGame,
+        where: s.tournament_id == ^tournament_id and s.kind == "report" and s.round == ^number
+    ) or
+      Repo.exists?(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where:
+            r.tournament_id == ^tournament_id and r.number == ^number and
+              not is_nil(p.finalised_at)
+      )
   end
 
   @doc """

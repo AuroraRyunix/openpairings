@@ -344,6 +344,70 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       assert entry.details["sent_games_changed"] == 2
     end
 
+    test "changing who plays whom in a sent round is blocked behind its own warning", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      [first, second] = boards(t, 1)
+      set!(first, "1-0")
+      set!(second, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "arm_swap", %{"player-id" => to_string(first.white_player_id)})
+      render_click(lv, "pick_swap_target", %{"player-id" => to_string(second.white_player_id)})
+
+      assert has_element?(lv, "#confirm-sent-round")
+      assert has_element?(lv, ".pe-modal-go[disabled]")
+
+      # Refused server-side too.
+      render_click(lv, "apply_confirm", %{})
+      assert Repo.reload!(first).white_player_id == first.white_player_id
+
+      render_click(lv, "toggle_sent_ack", %{})
+      refute has_element?(lv, ".pe-modal-go[disabled]")
+      render_click(lv, "apply_confirm", %{})
+
+      assert Repo.reload!(first).white_player_id == second.white_player_id
+      [entry | _] = Audit.list_for_tournament(t.id)
+      assert entry.action == "pairing.players_swapped"
+      assert entry.details["confirmed"] == "sent_round_changed"
+      # Still sent: it is never sent a second time.
+      assert {:error, {:already_sent, [1]}} =
+               PairingsEngine.PostponedGames.finalise(Tournaments.get_tournament!(t.id), [1])
+    end
+
+    test "every seat change in a sent round is refused without the acknowledgement", %{
+      scope: scope
+    } do
+      t = tournament(scope)
+      [first, second] = boards(t, 1)
+      set!(first, "1-0")
+      set!(second, "1-0")
+      {:ok, _} = PairingsEngine.PostponedGames.finalise(t, [1])
+      round = Tournaments.get_round(t.id, 1)
+      refused = {:error, {:needs_acknowledgement, [:sent_round_changed]}}
+
+      assert refused ==
+               Tournaments.swap_players_in_round(
+                 round,
+                 first.white_player_id,
+                 second.white_player_id
+               )
+
+      assert refused == Tournaments.vacate_seat(round, first.white_player_id)
+
+      assert refused ==
+               Tournaments.swap_seated_with_pool_player(round, first.white_player_id, 0)
+
+      assert refused == Tournaments.award_bye_for_vacancy(round, first)
+      assert refused == Tournaments.fill_seat(round, first, first.white_player_id)
+
+      assert refused ==
+               Tournaments.pair_from_pool(round, first.white_player_id, second.white_player_id, 9)
+    end
+
     test "with postponed games off, no postponed result is offered", %{conn: conn, scope: scope} do
       t = tournament(scope)
       {:ok, _} = Tournaments.update_tournament(t, %{"postponed_games" => "false"})

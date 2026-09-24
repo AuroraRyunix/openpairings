@@ -4049,6 +4049,26 @@ defmodule PairingsEngine.Tournaments do
     Repo.one(from r in Round, where: r.id == ^round_id, select: r.tournament_id)
   end
 
+  # A round already sent in a TRF finalised for sending: who played whom in
+  # it is what the federation has on file. Changing it here would leave the
+  # tournament disagreeing with that file - and nothing here can recall the
+  # file - so it waits for `acknowledged: [:sent_round_changed]` in `opts`,
+  # which the Pairings page asks for with a warning of its own. The round
+  # stays marked as sent either way, so it is never sent a second time.
+  defp sent_round_gate(%Round{} = round, opts) do
+    if :sent_round_changed not in Keyword.get(opts, :acknowledged, []) and
+         PostponedGames.round_sent?(round.tournament_id, round.number),
+       do: {:error, {:needs_acknowledgement, [:sent_round_changed]}},
+       else: :ok
+  end
+
+  defp sent_round_refused(round, opts) do
+    case sent_round_gate(round, opts) do
+      :ok -> nil
+      refusal -> refusal
+    end
+  end
+
   @doc """
   Swaps two players' SEATS in `round` - the SWAR "swap players" move.
   Whatever slot each player currently occupies (board, colour, opponent
@@ -4076,7 +4096,12 @@ defmodule PairingsEngine.Tournaments do
   or whatever `Ecto.Changeset` validation error the underlying update
   hits.
   """
-  def swap_players_in_round(%Round{} = round, player_a_id, player_b_id) do
+  def swap_players_in_round(%Round{} = round, player_a_id, player_b_id, opts \\ []) do
+    with :ok <- sent_round_gate(round, opts),
+         do: swap_players_unchecked(round, player_a_id, player_b_id)
+  end
+
+  defp swap_players_unchecked(%Round{} = round, player_a_id, player_b_id) do
     cond do
       refusal = write_refused(round.tournament_id) ->
         refusal
@@ -4268,8 +4293,9 @@ defmodule PairingsEngine.Tournaments do
   Any result already on that board is cleared: it described a game between
   two specific players, and one of them is no longer there.
   """
-  def vacate_seat(%Round{} = round, player_id, type \\ "absent") do
-    with :ok <- ensure_writable(round.tournament_id) do
+  def vacate_seat(%Round{} = round, player_id, type \\ "absent", opts \\ []) do
+    with :ok <- ensure_writable(round.tournament_id),
+         :ok <- sent_round_gate(round, opts) do
       do_vacate_seat(round, player_id, type)
     end
   end
@@ -4313,7 +4339,11 @@ defmodule PairingsEngine.Tournaments do
 
   Returns `{:error, :seat_taken}` if neither side of the board is vacant.
   """
-  def fill_seat(%Round{} = round, %Pairing{} = pairing, player_id) do
+  def fill_seat(%Round{} = round, %Pairing{} = pairing, player_id, opts \\ []) do
+    with :ok <- sent_round_gate(round, opts), do: fill_seat_unchecked(round, pairing, player_id)
+  end
+
+  defp fill_seat_unchecked(%Round{} = round, %Pairing{} = pairing, player_id) do
     field =
       cond do
         is_nil(pairing.white_player_id) -> :white_player_id
@@ -4365,7 +4395,11 @@ defmodule PairingsEngine.Tournaments do
   stored as `black_player_id: nil`, the shape `Standings` and the TRF
   export both already read) and the board scores `bye_value`.
   """
-  def award_bye_for_vacancy(%Round{} = round, %Pairing{} = pairing) do
+  def award_bye_for_vacancy(%Round{} = round, %Pairing{} = pairing, opts \\ []) do
+    with :ok <- sent_round_gate(round, opts), do: award_bye_unchecked(round, pairing)
+  end
+
+  defp award_bye_unchecked(%Round{} = round, %Pairing{} = pairing) do
     remaining = pairing.white_player_id || pairing.black_player_id
 
     cond do
@@ -4486,10 +4520,13 @@ defmodule PairingsEngine.Tournaments do
   Returns `{:error, :board_taken}` rather than creating a second pairing
   at the same board.
   """
-  def pair_from_pool(%Round{} = round, white_id, black_id, board)
+  def pair_from_pool(%Round{} = round, white_id, black_id, board, opts \\ [])
       when is_integer(board) and board > 0 do
     cond do
       refusal = write_refused(round.tournament_id) ->
+        refusal
+
+      refusal = sent_round_refused(round, opts) ->
         refusal
 
       white_id == black_id ->
@@ -4582,8 +4619,9 @@ defmodule PairingsEngine.Tournaments do
   tournament, and `{:error, :already_seated}` if they have been given a
   board in this round since the gesture was staged.
   """
-  def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id) do
+  def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id, opts \\ []) do
     with :ok <- ensure_writable(round.tournament_id),
+         :ok <- sent_round_gate(round, opts),
          {:ok, {pairing, field}} <- find_player_seat(round.pairings, seated_id) do
       handover_type = pool_player_type(round, pool_id) || "absent"
 
