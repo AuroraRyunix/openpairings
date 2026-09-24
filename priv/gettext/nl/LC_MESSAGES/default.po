@@ -6,7 +6,7 @@ msgstr ""
 #: lib/pairings_engine_web/components/core_components.ex:489
 #: lib/pairings_engine_web/live/admin_live.ex:219
 #: lib/pairings_engine_web/live/badge_events_live.ex:158
-#: lib/pairings_engine_web/live/badge_studio_live.ex:748
+#: lib/pairings_engine_web/live/badge_studio_live.ex:751
 #: lib/pairings_engine_web/live/categories_live.ex:767
 #: lib/pairings_engine_web/live/fide_live.ex:871
 #: lib/pairings_engine_web/live/norms_live.ex:1303
@@ -15,7 +15,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_options_live.ex:881
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:626
 #: lib/pairings_engine_web/live/teams_live.ex:522
-#: lib/pairings_engine_web/live/tools_norms_live.ex:953
+#: lib/pairings_engine_web/live/tools_norms_live.ex:925
 #: lib/pairings_engine_web/live/tournaments_live.ex:1456
 #: lib/pairings_engine_web/live/tournaments_live.ex:2094
 #: lib/pairings_engine_web/live/tournaments_live.ex:2221
@@ -59,7 +59,7 @@ msgid "close"
 msgstr "sluiten"
 
 #: lib/pairings_engine_web/live/norms_live.ex:972
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1166
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1138
 #, elixir-autogen, elixir-format
 msgid "+ Add arbiter"
 msgstr "+ Arbiter toevoegen"
@@ -80,7 +80,7 @@ msgid "- this tournament, always included"
 msgstr "- dit toernooi, altijd inbegrepen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1049
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1182
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1154
 #, elixir-autogen, elixir-format
 msgid "- type the details by hand -"
 msgstr "- gegevens met de hand invullen -"
@@ -289,17 +289,17 @@ msgstr "E-mailadres wijzigen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:874
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:456
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1066
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1038
 #, elixir-autogen, elixir-format
 msgid "Chief arbiter"
 msgstr "Hoofdarbiter"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1078
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1050
 #, elixir-autogen, elixir-format
 msgid "Chief arbiter e-mail"
 msgstr "E-mail hoofdarbiter"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:901
+#: lib/pairings_engine_web/live/tools_norms_live.ex:873
 #, elixir-autogen, elixir-format
 msgid "Choose SWAR/TRF files"
 msgstr "Kies SWAR/TRF-bestanden"
@@ -494,7 +494,7 @@ msgid "Delete…"
 msgstr "Verwijderen…"
 
 #: lib/pairings_engine_web/live/norms_live.ex:917
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1126
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1098
 #, elixir-autogen, elixir-format
 msgid "Deputy arbiters"
 msgstr "Hulparbiters"
@@ -510,25 +510,25 @@ msgid "Displays/prints this player's games at this table number, regardless of n
 msgstr "Toont/drukt de partijen van deze speler af op dit tafelnummer, ongeacht de normale bordvolgorde"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1101
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1240
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1212
 #, elixir-autogen, elixir-format
 msgid "Download FA1 (FIDE Arbiter)"
 msgstr "FA1 downloaden (FIDE Arbiter)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1110
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1248
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1220
 #, elixir-autogen, elixir-format
 msgid "Download IA1 (International Arbiter)"
 msgstr "IA1 downloaden (International Arbiter)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1018
 #: lib/pairings_engine_web/live/norms_live.ex:1022
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1232
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1204
 #, elixir-autogen, elixir-format
 msgid "Download IT3"
 msgstr "IT3 downloaden"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1252
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1224
 #, elixir-autogen, elixir-format
 msgid "Download IT3 / FA1 / IA1"
 msgstr "IT3 / FA1 / IA1 downloaden"
@@ -657,7 +657,7 @@ msgstr "Extra punten"
 msgid "FA1 / IA1 - Arbiter norm report"
 msgstr "FA1 / IA1 - Arbiternormrapport"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1177
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1149
 #, elixir-autogen, elixir-format
 msgid "FA1 / IA1 arbiter norm candidate"
 msgstr "FA1 / IA1 arbiternormkandidaat"
@@ -673,7 +673,7 @@ msgid "FIDE database"
 msgstr "FIDE-databank"
 
 #: lib/pairings_engine_web/live/settings_fide_live.ex:188
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1100
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1072
 #, elixir-autogen, elixir-format
 msgid "FIDE event code"
 msgstr "FIDE-evenementcode"
@@ -705,7 +705,7 @@ msgid "FIDE settings"
 msgstr "FIDE-instellingen"
 
 #: lib/pairings_engine_web/live/settings_fide_live.ex:212
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1107
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1079
 #, elixir-autogen, elixir-format
 msgid "FIDE tournament ID"
 msgstr "FIDE-toernooi-ID"
@@ -735,7 +735,7 @@ msgstr "Federaties die in aanmerking komen (leden)"
 msgid "Federations participating"
 msgstr "Deelnemende federaties"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1051
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1023
 #, elixir-autogen, elixir-format
 msgid "Fill in anything the uploaded file(s) don't already carry - nothing here is saved either."
 msgstr "Vul aan wat de geüploade bestanden nog niet bevatten - ook hier wordt niets bewaard."
@@ -745,11 +745,11 @@ msgstr "Vul aan wat de geüploade bestanden nog niet bevatten - ook hier wordt n
 msgid "Fill sequentially from round 1"
 msgstr "Opeenvolgend invullen vanaf ronde 1"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:612
-#: lib/pairings_engine_web/live/badge_studio_live.ex:887
+#: lib/pairings_engine_web/live/badge_studio_live.ex:615
+#: lib/pairings_engine_web/live/badge_studio_live.ex:890
 #: lib/pairings_engine_web/live/norms_live.ex:1075
 #: lib/pairings_engine_web/live/norms_live.ex:1206
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1200
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1172
 #, elixir-autogen, elixir-format
 msgid "First name"
 msgstr "Voornaam"
@@ -894,11 +894,11 @@ msgstr "Keizer-ptn"
 msgid "Keizer top value (blank = automatic)"
 msgstr "Keizer-topwaarde (leeg = automatisch)"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:613
-#: lib/pairings_engine_web/live/badge_studio_live.ex:890
+#: lib/pairings_engine_web/live/badge_studio_live.ex:616
+#: lib/pairings_engine_web/live/badge_studio_live.ex:893
 #: lib/pairings_engine_web/live/norms_live.ex:1070
 #: lib/pairings_engine_web/live/norms_live.ex:1202
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1194
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1166
 #, elixir-autogen, elixir-format
 msgid "Last name"
 msgstr "Achternaam"
@@ -1063,7 +1063,7 @@ msgstr "Nog geen auditgebeurtenissen geregistreerd."
 msgid "No categories yet."
 msgstr "Nog geen categorieën."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1036
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1008
 #, elixir-autogen, elixir-format
 msgid "No federation appears in more than one uploaded file."
 msgstr "Geen enkele federatie komt in meer dan één geüpload bestand voor."
@@ -1131,7 +1131,7 @@ msgid "Not playing list"
 msgstr "Lijst met niet-spelenden"
 
 #: lib/pairings_engine_web/live/norms_live.ex:516
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1218
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1190
 #, elixir-autogen, elixir-format
 msgid "Not ready to submit to FIDE."
 msgstr "Nog niet klaar om bij FIDE in te dienen."
@@ -1166,7 +1166,7 @@ msgstr "Aantal rondes"
 msgid "Officials & FIDE report data"
 msgstr "Officials & FIDE-rapportgegevens"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1048
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1020
 #, elixir-autogen, elixir-format
 msgid "Officials & arbiter candidate"
 msgstr "Officials & arbiterkandidaat"
@@ -1186,7 +1186,7 @@ msgstr "Eén herstelpunt, en je staat erop."
 msgid "Only used when 'Publish each round' above is set to 'After a delay'"
 msgstr "Enkel gebruikt wanneer 'Elke ronde publiceren' hierboven op 'Na een vertraging' staat"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1094
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1066
 #, elixir-autogen, elixir-format
 msgid "Organizer e-mail"
 msgstr "E-mail organisator"
@@ -1244,7 +1244,7 @@ msgstr "Waarde van een door de paring toegekende bye"
 msgid "Pairings & results"
 msgstr "Paringen & resultaten"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:928
+#: lib/pairings_engine_web/live/tools_norms_live.ex:900
 #, elixir-autogen, elixir-format
 msgid "Parse files"
 msgstr "Bestanden inlezen"
@@ -1260,7 +1260,7 @@ msgid "Per-round FIDE-ID ranges"
 msgstr "FIDE-ID-bereiken per ronde"
 
 #: lib/pairings_engine_web/live/norms_live.ex:893
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1117
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1089
 #, elixir-autogen, elixir-format
 msgid "Person responsible for pairings"
 msgstr "Verantwoordelijke voor de paringen"
@@ -1271,7 +1271,7 @@ msgid "Pick a paired round to see its pairing rationale"
 msgstr "Kies een gepaarde ronde om de paringsverantwoording te zien"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1047
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1180
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1152
 #, elixir-autogen, elixir-format
 msgid "Pick an arbiter"
 msgstr "Kies een arbiter"
@@ -1406,7 +1406,7 @@ msgid "Refresh ratings"
 msgstr "Ratings vernieuwen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:979
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1173
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1145
 #, elixir-autogen, elixir-format
 msgid "Remove last arbiter"
 msgstr "Laatste arbiter verwijderen"
@@ -1522,7 +1522,7 @@ msgstr "Herstelpunt opslaan"
 msgid "Save round dates"
 msgstr "Rondedata opslaan"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1384
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1436
 #: lib/pairings_engine_web/live/settings_scoring_live.ex:418
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:577
 #, elixir-autogen, elixir-format
@@ -1722,7 +1722,7 @@ msgstr "Deze uitnodigingslink is ongeldig, is al gebruikt of werd geweigerd."
 msgid "This looks like a tournament you already have"
 msgstr "Dit lijkt op een toernooi dat je al hebt"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1109
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1081
 #, elixir-autogen, elixir-format
 msgid "This report's own numeric ID at FIDE - a different thing from the event code above."
 msgstr "Het eigen numerieke ID van dit rapport bij FIDE - iets anders dan de evenementcode hierboven."
@@ -1804,7 +1804,7 @@ msgstr "Clubs bijwerken"
 msgid "Upload a SWAR or TRF file, no account needed - download the IT3/FA1/IA1 FIDE report forms."
 msgstr "Upload een SWAR- of TRF-bestand, geen account nodig - download de FIDE-rapportformulieren IT3/FA1/IA1."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:876
+#: lib/pairings_engine_web/live/tools_norms_live.ex:848
 #, elixir-autogen, elixir-format
 msgid "Upload files"
 msgstr "Bestanden uploaden"
@@ -1814,7 +1814,7 @@ msgstr "Bestanden uploaden"
 msgid "Upload logo"
 msgstr "Logo uploaden"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:934
+#: lib/pairings_engine_web/live/tools_norms_live.ex:906
 #, elixir-autogen, elixir-format
 msgid "Uploaded files"
 msgstr "Geüploade bestanden"
@@ -1893,7 +1893,7 @@ msgstr "Je hebt geen andere toernooien om dit mee te combineren."
 msgid "You've been invited"
 msgstr "Je bent uitgenodigd"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1101
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1073
 #, elixir-autogen, elixir-format
 msgid "Your federation's rating-homologation code, e.g. BEL2026001."
 msgstr "De homologatiecode van je federatie, bv. BEL2026001."
@@ -2023,7 +2023,7 @@ msgstr "niets opgegeven"
 msgid "or drag and drop it here"
 msgstr "of sleep het hierheen"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:902
+#: lib/pairings_engine_web/live/tools_norms_live.ex:874
 #, elixir-autogen, elixir-format
 msgid "or drag and drop them here"
 msgstr "of sleep ze hierheen"
@@ -2281,7 +2281,7 @@ msgstr "Elke vertegenwoordigde federatie, grootste delegatie eerst - FIDE-normre
 msgid "FIDE disagrees with what's already on file:"
 msgstr "FIDE is het oneens met wat er al geregistreerd staat:"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1218
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1190
 #, elixir-autogen, elixir-format
 msgid "FIDE identifies every official by FIDE ID and bounces a report missing one. Type their name or FIDE ID above and pick the matching result - missing for:"
 msgstr "FIDE identificeert elke official via het FIDE-ID en weigert een rapport waarin er een ontbreekt. Typ hierboven hun naam of FIDE-ID en kies het juiste resultaat - ontbreekt voor:"
@@ -2296,7 +2296,7 @@ msgstr "FIDE publiceert elke maand een nieuwe lijst (~1,9 miljoen spelers, de do
 msgid "FIDE's default is zero. Most opens pay half a point for the first one or two, which is what the two limits below are for. SWAR calls this option \"Pt ABSENT\"."
 msgstr "De FIDE-standaard is nul. De meeste opens geven een half punt voor de eerste een of twee, en daar dienen de twee grenzen hieronder voor. SWAR noemt deze optie \"Pt ABSENT\"."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1028
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1000
 #, elixir-autogen, elixir-format
 msgid "Federations shared across files:"
 msgstr "Federaties die in meerdere bestanden voorkomen:"
@@ -2585,7 +2585,7 @@ msgid_plural "%{count} changes predate the oldest restore point - they are in th
 msgstr[0] "%{count} wijziging dateert van voor het oudste herstelpunt - ze staat in het %[audit]."
 msgstr[1] "%{count} wijzigingen dateren van voor het oudste herstelpunt - ze staan in het %[audit]."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1015
+#: lib/pairings_engine_web/live/tools_norms_live.ex:987
 #, elixir-autogen, elixir-format
 msgid "%{count} distinct federation"
 msgid_plural "%{count} distinct federations"
@@ -2636,7 +2636,7 @@ msgstr[1] "%{count} paren worden op dit moment door deze regels uitgesloten."
 
 #: lib/pairings_engine_web/live/players_live.ex:2274
 #: lib/pairings_engine_web/live/players_live.ex:2360
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1012
+#: lib/pairings_engine_web/live/tools_norms_live.ex:984
 #, elixir-autogen, elixir-format
 msgid "%{count} player"
 msgid_plural "%{count} players"
@@ -2650,7 +2650,7 @@ msgid_plural "%{count} players registered"
 msgstr[0] "%{count} speler ingeschreven"
 msgstr[1] "%{count} spelers ingeschreven"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1007
+#: lib/pairings_engine_web/live/tools_norms_live.ex:979
 #, elixir-autogen, elixir-format
 msgid "%{count} uploaded file"
 msgid_plural "%{count} uploaded files"
@@ -2688,7 +2688,7 @@ msgid "(%{points} pt)"
 msgstr "(%{points} pt)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:943
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1144
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1116
 #, elixir-autogen, elixir-format
 msgid "(beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a plain \"Arbiter\" row)"
 msgstr "(bovenop de hoofdarbiter + 2 hulparbiters - FIDE rangschikt deze niet, dus IT3 drukt elk af als een gewone \"Arbiter\"-regel)"
@@ -2766,7 +2766,7 @@ msgid "Account Settings"
 msgstr "Accountinstellingen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:941
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1142
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1114
 #, elixir-autogen, elixir-format
 msgid "Additional arbiters"
 msgstr "Bijkomende arbiters"
@@ -2965,7 +2965,7 @@ msgstr "Code %{code}"
 #: lib/pairings_engine_web/controllers/print_controller.ex:539
 #: lib/pairings_engine_web/controllers/print_controller.ex:784
 #: lib/pairings_engine_web/controllers/print_controller.ex:1188
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1357
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1409
 #, elixir-autogen, elixir-format
 msgid "Colour"
 msgstr "Kleur"
@@ -3041,8 +3041,8 @@ msgstr "Data: %{value}"
 msgid "Decline"
 msgstr "Weigeren"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:838
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1111
+#: lib/pairings_engine_web/live/badge_studio_live.ex:841
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1163
 #: lib/pairings_engine_web/live/teams_live.ex:480
 #: lib/pairings_engine_web/live/tournaments_live.ex:2188
 #: lib/pairings_engine_web/live/tournaments_live.ex:2258
@@ -3087,7 +3087,7 @@ msgid "Done"
 msgstr "Klaar"
 
 #: lib/pairings_engine_web/live/fide_live.ex:885
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1215
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1187
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Downloaden"
@@ -3144,13 +3144,13 @@ msgstr "FIDE-ID: %{value}"
 msgid "FIDE identifies every official by FIDE ID, so a report missing one gets bounced. Fill these in under \"Officials & FIDE report data\" above:"
 msgstr "FIDE identificeert elke functionaris via het FIDE-ID, dus een rapport waarin er een ontbreekt wordt geweigerd. Vul deze hierboven in onder \"Officials & FIDE-rapportgegevens\":"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:615
-#: lib/pairings_engine_web/live/badge_studio_live.ex:894
+#: lib/pairings_engine_web/live/badge_studio_live.ex:618
+#: lib/pairings_engine_web/live/badge_studio_live.ex:897
 #: lib/pairings_engine_web/live/norms_live.ex:1085
 #: lib/pairings_engine_web/live/norms_live.ex:1214
 #: lib/pairings_engine_web/live/norms_live.ex:1297
 #: lib/pairings_engine_web/live/players_live.ex:1944
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1207
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1179
 #, elixir-autogen, elixir-format
 msgid "Federation"
 msgstr "Federatie"
@@ -3177,7 +3177,7 @@ msgstr "Voedt de FIDE-rapportformulieren IT3 / FA1 / IA1 / IT4 hieronder. De naa
 msgid "Field"
 msgstr "Veld"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:941
+#: lib/pairings_engine_web/live/tools_norms_live.ex:913
 #, elixir-autogen, elixir-format
 msgid "File"
 msgstr "Bestand"
@@ -3289,7 +3289,7 @@ msgstr "HANDMATIGE RANGSCHIKKING STAAT AAN."
 msgid "Many thanks to %[who] for his valuable feedback in the making of OpenPairings."
 msgstr "Met dank aan %[who] voor zijn waardevolle feedback bij het maken van OpenPairings."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:939
+#: lib/pairings_engine_web/live/tools_norms_live.ex:911
 #, elixir-autogen, elixir-format
 msgid "Master"
 msgstr "Master"
@@ -3299,7 +3299,7 @@ msgstr "Master"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1070
 #: lib/pairings_engine_web/controllers/print_controller.ex:1448
 #: lib/pairings_engine_web/controllers/print_controller.ex:1489
-#: lib/pairings_engine_web/live/badge_studio_live.ex:744
+#: lib/pairings_engine_web/live/badge_studio_live.ex:747
 #: lib/pairings_engine_web/live/live_round_live.ex:964
 #: lib/pairings_engine_web/live/live_round_live.ex:999
 #: lib/pairings_engine_web/live/norms_live.ex:1295
@@ -3322,7 +3322,7 @@ msgstr "Naam"
 msgid "No"
 msgstr "Nee"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:956
+#: lib/pairings_engine_web/live/badge_studio_live.ex:959
 #: lib/pairings_engine_web/live/settings_options_live.ex:754
 #, elixir-autogen, elixir-format
 msgid "None"
@@ -3402,7 +3402,7 @@ msgid "Or open %[url]"
 msgstr "Of open %[url]"
 
 #: lib/pairings_engine_web/live/norms_live.ex:884
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1083
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1055
 #, elixir-autogen, elixir-format
 msgid "Organizer"
 msgstr "Organisator"
@@ -3500,7 +3500,7 @@ msgstr "Plaatskaartjes"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:782
 #: lib/pairings_engine_web/controllers/print_controller.ex:834
-#: lib/pairings_engine_web/live/badge_studio_live.ex:608
+#: lib/pairings_engine_web/live/badge_studio_live.ex:611
 #: lib/pairings_engine_web/live/categories_live.ex:907
 #: lib/pairings_engine_web/live/live_round_live.ex:930
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3064
@@ -3528,7 +3528,7 @@ msgstr "Speler niet gevonden"
 #: lib/pairings_engine_web/live/categories_live.ex:715
 #: lib/pairings_engine_web/live/extra_points_live.ex:149
 #: lib/pairings_engine_web/live/players_live.ex:2043
-#: lib/pairings_engine_web/live/tools_norms_live.ex:945
+#: lib/pairings_engine_web/live/tools_norms_live.ex:917
 #: lib/pairings_engine_web/live/tournaments_live.ex:2088
 #, elixir-autogen, elixir-format
 msgid "Players"
@@ -3616,7 +3616,7 @@ msgstr "Opmerking %{n}"
 msgid "Remarks"
 msgstr "Opmerkingen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1427
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1479
 #: lib/pairings_engine_web/live/categories_live.ex:843
 #: lib/pairings_engine_web/live/players_live.ex:2116
 #: lib/pairings_engine_web/live/players_live.ex:2169
@@ -3626,8 +3626,8 @@ msgstr "Opmerkingen"
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:541
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:646
 #: lib/pairings_engine_web/live/teams_live.ex:568
-#: lib/pairings_engine_web/live/tools_norms_live.ex:983
-#: lib/pairings_engine_web/live/tools_norms_live.ex:997
+#: lib/pairings_engine_web/live/tools_norms_live.ex:955
+#: lib/pairings_engine_web/live/tools_norms_live.ex:969
 #, elixir-autogen, elixir-format
 msgid "Remove"
 msgstr "Verwijderen"
@@ -3702,7 +3702,7 @@ msgstr "Rondedatum: %{value}"
 msgid "Round dates: %{from} - %{to}"
 msgstr "Rondedata: %{from} - %{to}"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:947
+#: lib/pairings_engine_web/live/tools_norms_live.ex:919
 #: lib/pairings_engine_web/live/tournaments_live.ex:1557
 #: lib/pairings_engine_web/live/tournaments_live.ex:2086
 #, elixir-autogen, elixir-format
@@ -3894,7 +3894,7 @@ msgstr "De toestanden waarin je dit toernooi kan terugzetten, nieuwste eerst. Er
 msgid "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab. The officials, arbiters and pairing-system details for those reports live on the Norms tab too."
 msgstr "De eigen FIDE-identificatiegegevens van het toernooi, gebruikt om de rapportformulieren IT3 / FA1 / IA1 / IT4 op het tabblad %[norms] in te vullen. De functionarissen, arbiters en paringssysteemgegevens voor die rapporten staan ook op het tabblad Normen."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1040
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1012
 #, elixir-autogen, elixir-format
 msgid "These %{count} files combine into one \"Festival\" report - the master file supplies the name/dates/venue/officials, players from every file are pooled, and the same player can't appear in more than one of them."
 msgstr "Deze %{count} bestanden worden samengevoegd tot één \"Festival\"-rapport - het masterbestand levert de naam/data/locatie/functionarissen, spelers uit elk bestand worden samengebracht, en dezelfde speler mag in niet meer dan één ervan voorkomen."
@@ -3954,8 +3954,8 @@ msgstr "Dit toernooi wordt gepaard met %[engine]."
 msgid "Tiebreaks"
 msgstr "Tiebreaks"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:614
-#: lib/pairings_engine_web/live/badge_studio_live.ex:891
+#: lib/pairings_engine_web/live/badge_studio_live.ex:617
+#: lib/pairings_engine_web/live/badge_studio_live.ex:894
 #: lib/pairings_engine_web/live/players_live.ex:1894
 #: lib/pairings_engine_web/live/players_live.ex:2596
 #, elixir-autogen, elixir-format
@@ -3967,7 +3967,7 @@ msgstr "Titel"
 msgid "Title-norm judgment - %{name}"
 msgstr "Titelnormbeoordeling - %{name}"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:949
+#: lib/pairings_engine_web/live/tools_norms_live.ex:921
 #, elixir-autogen, elixir-format
 msgid "Titled"
 msgstr "Getiteld"
@@ -3984,7 +3984,7 @@ msgstr "Hulpmiddelen"
 msgid "Total"
 msgstr "Totaal"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1005
+#: lib/pairings_engine_web/live/tools_norms_live.ex:977
 #, elixir-autogen, elixir-format
 msgid "Totals across %{files}: %{players}, %{titled} titled, %{feds}."
 msgstr "Totalen over %{files}: %{players}, %{titled} getiteld, %{feds}."
@@ -3992,9 +3992,9 @@ msgstr "Totalen over %{files}: %{players}, %{titled} getiteld, %{feds}."
 #: lib/pairings_engine_web/components/layouts.ex:167
 #: lib/pairings_engine_web/live/audit_live.ex:208
 #: lib/pairings_engine_web/live/badge_events_live.ex:156
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1218
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1270
 #: lib/pairings_engine_web/live/settings_support.ex:66
-#: lib/pairings_engine_web/live/tools_norms_live.ex:943
+#: lib/pairings_engine_web/live/tools_norms_live.ex:915
 #: lib/pairings_engine_web/live/tournaments_live.ex:1452
 #, elixir-autogen, elixir-format
 msgid "Tournament"
@@ -4032,7 +4032,7 @@ msgstr "Dearchiveren"
 msgid "Unhide"
 msgstr "Weer tonen"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:880
+#: lib/pairings_engine_web/live/tools_norms_live.ex:852
 #, elixir-autogen, elixir-format
 msgid "Up to 10 files, 5 MB each - %[swar] or %[trf]. Two or more files combine into one \"Festival\" report (see below)."
 msgstr "Tot 10 bestanden van elk 5 MB - %[swar] of %[trf]. Twee of meer bestanden worden samengevoegd tot één \"Festival\"-rapport (zie hieronder)."
@@ -5027,9 +5027,9 @@ msgid "Database"
 msgstr "Databank"
 
 #: lib/pairings_engine_web/live/admin_live.ex:218
-#: lib/pairings_engine_web/live/badge_studio_live.ex:617
-#: lib/pairings_engine_web/live/badge_studio_live.ex:745
-#: lib/pairings_engine_web/live/badge_studio_live.ex:903
+#: lib/pairings_engine_web/live/badge_studio_live.ex:620
+#: lib/pairings_engine_web/live/badge_studio_live.ex:748
+#: lib/pairings_engine_web/live/badge_studio_live.ex:906
 #, elixir-autogen, elixir-format
 msgid "Role"
 msgstr "Rol"
@@ -5784,7 +5784,7 @@ msgstr "Helpers kunnen enkel resultaten invoeren voor de huidige ronde."
 msgid "Helpers can only view the current round - ask the arbiter to check an earlier one."
 msgstr "Helpers kunnen enkel de huidige ronde bekijken - vraag de arbiter om een eerdere ronde na te kijken."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:666
+#: lib/pairings_engine_web/live/badge_studio_live.ex:669
 #: lib/pairings_engine_web/live/live_round_live.ex:630
 #, elixir-autogen, elixir-format
 msgid "from"
@@ -7939,7 +7939,7 @@ msgid "Added category %{name}."
 msgstr "Categorie %{name} toegevoegd."
 
 #: lib/pairings_engine_web/live/audit_live.ex:201
-#: lib/pairings_engine_web/live/badge_studio_live.ex:938
+#: lib/pairings_engine_web/live/badge_studio_live.ex:941
 #, elixir-autogen, elixir-format
 msgid "All"
 msgstr "Alle"
@@ -10621,7 +10621,7 @@ msgstr "Rds"
 msgid "Rounds this player was there for - byes for an odd field count, arranged absences do not"
 msgstr "Rondes waarvoor deze speler aanwezig was - een bye bij een oneven veld telt mee, afgesproken afwezigheden niet"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1296
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1348
 #, elixir-autogen, elixir-format
 msgid "$tournament-name and $organiser are filled in when printing. A line starting with \"if \" is indented under the point above it."
 msgstr "$tournament-name en $organiser worden bij het afdrukken ingevuld. Een regel die met \"if \" begint, springt in onder het punt erboven."
@@ -10631,7 +10631,7 @@ msgstr "$tournament-name en $organiser worden bij het afdrukken ingevuld. Een re
 msgid "%{what}: %{created} new, %{updated} updated, %{unchanged} unchanged."
 msgstr "%{what}: %{created} nieuw, %{updated} bijgewerkt, %{unchanged} ongewijzigd."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:780
+#: lib/pairings_engine_web/live/badge_studio_live.ex:783
 #, elixir-autogen, elixir-format
 msgid "(no name)"
 msgstr "(geen naam)"
@@ -10644,7 +10644,7 @@ msgstr[0] "1 A4-blad"
 msgstr[1] "%{count} A4-bladen"
 
 #: lib/pairings_engine_web/controllers/badge_print_html.ex:72
-#: lib/pairings_engine_web/live/badge_studio_live.ex:664
+#: lib/pairings_engine_web/live/badge_studio_live.ex:667
 #, elixir-autogen, elixir-format
 msgid "1 badge"
 msgid_plural "%{count} badges"
@@ -10668,39 +10668,39 @@ msgstr "A6-badges voor de spelers en officials, en voor pers en gasten, twee per
 
 #: lib/pairings_engine_web/live/badge_events_live.ex:20
 #: lib/pairings_engine_web/live/badge_events_live.ex:93
-#: lib/pairings_engine_web/live/badge_studio_live.ex:660
+#: lib/pairings_engine_web/live/badge_studio_live.ex:663
 #: lib/pairings_engine_web/live/print_live.ex:144
-#: lib/pairings_engine_web/live/tools_norms_live.ex:846
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1234
 #, elixir-autogen, elixir-format
 msgid "Accreditation badges"
 msgstr "Accreditatiebadges"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1199
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1251
 #, elixir-autogen, elixir-format
 msgid "Actual size at 100%: A6, 105 x 148.5 mm. Printed two badges to an A4 sheet."
 msgstr "Ware grootte bij 100%: A6, 105 x 148,5 mm. Twee badges per A4-blad afgedrukt."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:698
+#: lib/pairings_engine_web/live/badge_studio_live.ex:701
 #, elixir-autogen, elixir-format
 msgid "Add badge"
 msgstr "Badge toevoegen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1326
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1378
 #, elixir-autogen, elixir-format
 msgid "Add role"
 msgstr "Rol toevoegen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:856
+#: lib/pairings_engine_web/live/badge_studio_live.ex:859
 #, elixir-autogen, elixir-format
 msgid "All badges"
 msgstr "Alle badges"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1272
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1324
 #, elixir-autogen, elixir-format
 msgid "Back of the badge"
 msgstr "Achterkant van de badge"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:882
+#: lib/pairings_engine_web/live/badge_studio_live.ex:885
 #, elixir-autogen, elixir-format
 msgid "Badge"
 msgstr "Badge"
@@ -10730,7 +10730,7 @@ msgstr "Badge-evenement verwijderd."
 #: lib/pairings_engine_web/live/badge_events_live.ex:157
 #: lib/pairings_engine_web/live/badge_studio_live.ex:95
 #: lib/pairings_engine_web/live/badge_studio_live.ex:108
-#: lib/pairings_engine_web/live/badge_studio_live.ex:679
+#: lib/pairings_engine_web/live/badge_studio_live.ex:682
 #, elixir-autogen, elixir-format
 msgid "Badges"
 msgstr "Badges"
@@ -10740,17 +10740,17 @@ msgstr "Badges"
 msgid "Badges…"
 msgstr "Badges…"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1068
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1120
 #, elixir-autogen, elixir-format
 msgid "Changed by hand, and kept on re-import:"
 msgstr "Met de hand gewijzigd en behouden bij opnieuw importeren:"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:802
+#: lib/pairings_engine_web/live/badge_studio_live.ex:805
 #, elixir-autogen, elixir-format
 msgid "Changed by hand; an import will not overwrite these fields."
 msgstr "Met de hand gewijzigd; een import overschrijft deze velden niet."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1251
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1303
 #, elixir-autogen, elixir-format
 msgid "City"
 msgstr "Stad"
@@ -10775,56 +10775,51 @@ msgstr "Kon die badge niet verwijderen."
 msgid "Could not duplicate that badge."
 msgstr "Kon die badge niet kopiëren."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:573
-#, elixir-autogen, elixir-format
-msgid "Could not reach ratings.fide.com. Try again later, or upload the photo."
-msgstr "ratings.fide.com is niet bereikbaar. Probeer het later opnieuw, of upload de foto."
-
 #: lib/pairings_engine_web/live/badge_events_live.ex:137
 #, elixir-autogen, elixir-format
 msgid "Create event"
 msgstr "Evenement aanmaken"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1280
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1332
 #, elixir-autogen, elixir-format
 msgid "Default text"
 msgstr "Standaardtekst"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1444
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1455
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1496
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1507
 #, elixir-autogen, elixir-format
 msgid "Delete event"
 msgstr "Evenement verwijderen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1452
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1504
 #, elixir-autogen, elixir-format
 msgid "Delete this badge event and all its badges? This cannot be undone."
 msgstr "Dit badge-evenement en al zijn badges verwijderen? Dit kan niet ongedaan worden gemaakt."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:836
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1109
+#: lib/pairings_engine_web/live/badge_studio_live.ex:839
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1161
 #, elixir-autogen, elixir-format
 msgid "Delete this badge?"
 msgstr "Deze badge verwijderen?"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1445
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1497
 #, elixir-autogen, elixir-format
 msgid "Deletes the event and every badge in it, photos included."
 msgstr "Verwijdert het evenement en elke badge erin, foto's inbegrepen."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:848
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1236
 #, elixir-autogen, elixir-format
 msgid "Design and print A6 badges for players, officials, press and guests, filled in from your tournament."
 msgstr "Ontwerp en druk A6-badges af voor spelers, officials, pers en gasten, ingevuld vanuit je toernooi."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:825
 #: lib/pairings_engine_web/live/badge_studio_live.ex:828
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1101
+#: lib/pairings_engine_web/live/badge_studio_live.ex:831
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1153
 #, elixir-autogen, elixir-format
 msgid "Duplicate"
 msgstr "Kopiëren"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1041
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1093
 #, elixir-autogen, elixir-format
 msgid "Enter a FIDE ID to fetch the photo from the player's FIDE profile."
 msgstr "Vul een FIDE-ID in om de foto van het FIDE-profiel van de speler op te halen."
@@ -10840,13 +10835,13 @@ msgid "Event"
 msgstr "Evenement"
 
 #: lib/pairings_engine_web/live/badge_events_live.ex:120
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1246
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1298
 #, elixir-autogen, elixir-format
 msgid "Event name"
 msgstr "Naam van het evenement"
 
 #: lib/pairings_engine_web/live/badge_studio_live.ex:120
-#: lib/pairings_engine_web/live/badge_studio_live.ex:686
+#: lib/pairings_engine_web/live/badge_studio_live.ex:689
 #, elixir-autogen, elixir-format
 msgid "Event settings"
 msgstr "Instellingen van het evenement"
@@ -10856,13 +10851,13 @@ msgstr "Instellingen van het evenement"
 msgid "Event settings saved."
 msgstr "Instellingen van het evenement opgeslagen."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:616
-#: lib/pairings_engine_web/live/badge_studio_live.ex:899
+#: lib/pairings_engine_web/live/badge_studio_live.ex:619
+#: lib/pairings_engine_web/live/badge_studio_live.ex:902
 #, elixir-autogen, elixir-format
 msgid "FIDE ID"
 msgstr "FIDE-ID"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:584
+#: lib/pairings_engine_web/live/badge_studio_live.ex:587
 #, elixir-autogen, elixir-format
 msgid "FIDE has no photo for this player. Please upload one."
 msgstr "FIDE heeft geen foto van deze speler. Upload er zelf een."
@@ -10877,78 +10872,78 @@ msgstr "FIDE kent geen speler met deze ID."
 msgid "FIDE was asked for this photo less than a minute ago. Please wait a moment."
 msgstr "Deze foto werd minder dan een minuut geleden al bij FIDE opgevraagd. Wacht even."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:580
+#: lib/pairings_engine_web/live/badge_studio_live.ex:583
 #, elixir-autogen, elixir-format
 msgid "FIDE's profile page has changed and the photo could not be found on it. Please upload the photo by hand."
 msgstr "De profielpagina van FIDE is veranderd en de foto is er niet meer op te vinden. Upload de foto met de hand."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1034
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1072
 #, elixir-autogen, elixir-format
 msgid "Fetch from FIDE"
 msgstr "Ophalen bij FIDE"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1039
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1091
 #, elixir-autogen, elixir-format
 msgid "Fetched from FIDE and stored with the badge."
 msgstr "Opgehaald bij FIDE en bij de badge bewaard."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1027
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1034
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1065
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1072
 #, elixir-autogen, elixir-format
 msgid "Fetching…"
 msgstr "Bezig met ophalen…"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:947
+#: lib/pairings_engine_web/live/badge_studio_live.ex:950
 #, elixir-autogen, elixir-format
 msgid "First half"
 msgstr "Eerste helft"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1149
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1201
 #, elixir-autogen, elixir-format
 msgid "Flip card"
 msgstr "Kaart omdraaien"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1184
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1236
 #, elixir-autogen, elixir-format
 msgid "Flip the badge"
 msgstr "Draai de badge om"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:622
+#: lib/pairings_engine_web/live/badge_studio_live.ex:625
 #, elixir-autogen, elixir-format
 msgid "Footer logo, left (default: FIDE)"
 msgstr "Logo onderaan, links (standaard: FIDE)"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:623
+#: lib/pairings_engine_web/live/badge_studio_live.ex:626
 #, elixir-autogen, elixir-format
 msgid "Footer logo, right"
 msgstr "Logo onderaan, rechts"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1066
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1118
 #, elixir-autogen, elixir-format
 msgid "From the tournament's officials."
 msgstr "Uit de officials van het toernooi."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1065
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1117
 #, elixir-autogen, elixir-format
 msgid "From the tournament's player list."
 msgstr "Uit de spelerslijst van het toernooi."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1140
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1192
 #, elixir-autogen, elixir-format
 msgid "Front and back"
 msgstr "Voor- en achterkant"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1243
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1295
 #, elixir-autogen, elixir-format
 msgid "Header"
 msgstr "Kop"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:621
+#: lib/pairings_engine_web/live/badge_studio_live.ex:624
 #, elixir-autogen, elixir-format
 msgid "Header emblem (top of both sides)"
 msgstr "Embleem in de kop (bovenaan beide kanten)"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1285
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1337
 #, elixir-autogen, elixir-format
 msgid "Heading"
 msgstr "Titel"
@@ -10958,27 +10953,27 @@ msgstr "Titel"
 msgid "Import from tournament (optional)"
 msgstr "Importeren uit toernooi (optioneel)"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:733
+#: lib/pairings_engine_web/live/badge_studio_live.ex:736
 #, elixir-autogen, elixir-format
 msgid "Import officials"
 msgstr "Officials importeren"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:730
+#: lib/pairings_engine_web/live/badge_studio_live.ex:733
 #, elixir-autogen, elixir-format
 msgid "Import players"
 msgstr "Spelers importeren"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1224
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1276
 #, elixir-autogen, elixir-format
 msgid "Import players and officials from"
 msgstr "Spelers en officials importeren uit"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:721
+#: lib/pairings_engine_web/live/badge_studio_live.ex:724
 #, elixir-autogen, elixir-format
 msgid "Import the tournament's players and officials. Running an import again updates those badges in place; badges you added by hand, and fields you changed on a badge, are left alone."
 msgstr "Importeer de spelers en officials van het toernooi. Opnieuw importeren werkt die badges bij zonder ze te verdubbelen; badges die je met de hand toevoegde en velden die je op een badge wijzigde, blijven ongemoeid."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1062
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1114
 #, elixir-autogen, elixir-format
 msgid "Imported"
 msgstr "Geïmporteerd"
@@ -10993,7 +10988,7 @@ msgstr "Koppel het evenement eerst aan een toernooi (Instellingen van het evenem
 msgid "Linked to %{name}."
 msgstr "Gekoppeld aan %{name}."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:866
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1254
 #, elixir-autogen, elixir-format
 msgid "Log in to make badges"
 msgstr "Log in om badges te maken"
@@ -11003,12 +10998,12 @@ msgstr "Log in om badges te maken"
 msgid "Logo saved."
 msgstr "Logo opgeslagen."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1390
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1442
 #, elixir-autogen, elixir-format
 msgid "Logos"
 msgstr "Logo's"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:610
+#: lib/pairings_engine_web/live/badge_studio_live.ex:613
 #, elixir-autogen, elixir-format
 msgid "Manual"
 msgstr "Met de hand"
@@ -11024,7 +11019,7 @@ msgstr "NIEUWE ROL"
 msgid "New badge event"
 msgstr "Nieuw badge-evenement"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:874
+#: lib/pairings_engine_web/live/badge_studio_live.ex:877
 #, elixir-autogen, elixir-format
 msgid "Next badge"
 msgstr "Volgende badge"
@@ -11034,7 +11029,7 @@ msgstr "Volgende badge"
 msgid "No badge events yet."
 msgstr "Nog geen badge-evenementen."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:754
+#: lib/pairings_engine_web/live/badge_studio_live.ex:757
 #, elixir-autogen, elixir-format
 msgid "No badges yet. Import them from the tournament, or add one by hand."
 msgstr "Nog geen badges. Importeer ze uit het toernooi, of voeg er met de hand een toe."
@@ -11045,38 +11040,38 @@ msgid "No such badge."
 msgstr "Die badge bestaat niet."
 
 #: lib/pairings_engine_web/live/badge_events_live.ex:127
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1226
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1278
 #, elixir-autogen, elixir-format
 msgid "No tournament - a stand-alone event"
 msgstr "Geen toernooi - een los evenement"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1307
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1359
 #, elixir-autogen, elixir-format
 msgid "Numbered rooms or zones on the badge"
 msgstr "Genummerde zalen of zones op de badge"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:609
+#: lib/pairings_engine_web/live/badge_studio_live.ex:612
 #, elixir-autogen, elixir-format
 msgid "Official"
 msgstr "Official"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:605
+#: lib/pairings_engine_web/live/badge_studio_live.ex:608
 #, elixir-autogen, elixir-format
 msgid "One file at a time."
 msgstr "Eén bestand tegelijk."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1043
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1095
 #, elixir-autogen, elixir-format
 msgid "One request to ratings.fide.com; the photo is then stored with the badge."
 msgstr "Eén aanvraag bij ratings.fide.com; daarna wordt de foto bij de badge bewaard."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:601
 #: lib/pairings_engine_web/live/badge_studio_live.ex:604
+#: lib/pairings_engine_web/live/badge_studio_live.ex:607
 #, elixir-autogen, elixir-format
 msgid "Only PNG, JPEG, GIF or WebP images can be used."
 msgstr "Alleen PNG-, JPEG-, GIF- of WebP-afbeeldingen kunnen gebruikt worden."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1231
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1283
 #, elixir-autogen, elixir-format
 msgid "Only tournaments you own or collaborate on can be linked."
 msgstr "Alleen toernooien die van jou zijn of waaraan je meewerkt, kunnen gekoppeld worden."
@@ -11086,23 +11081,23 @@ msgstr "Alleen toernooien die van jou zijn of waaraan je meewerkt, kunnen gekopp
 msgid "Open"
 msgstr "Openen"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:858
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1246
 #, elixir-autogen, elixir-format
 msgid "Open the badge maker"
 msgstr "Open de badgemaker"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1256
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1308
 #, elixir-autogen, elixir-format
 msgid "Organiser"
 msgstr "Organisator"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1392
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1444
 #, elixir-autogen, elixir-format
 msgid "PNG, JPEG, GIF or WebP, up to 1 MB and 3000 x 3000 pixels. Saved as soon as it is chosen."
 msgstr "PNG, JPEG, GIF of WebP, tot 1 MB en 3000 x 3000 pixels. Wordt opgeslagen zodra je het kiest."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:743
-#: lib/pairings_engine_web/live/badge_studio_live.ex:991
+#: lib/pairings_engine_web/live/badge_studio_live.ex:746
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1029
 #, elixir-autogen, elixir-format
 msgid "Photo"
 msgstr "Foto"
@@ -11118,23 +11113,23 @@ msgstr "Foto opgehaald bij FIDE en op de badge bewaard."
 msgid "Photo saved."
 msgstr "Foto opgeslagen."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1130
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1464
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1182
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1516
 #, elixir-autogen, elixir-format
 msgid "Preview"
 msgstr "Voorbeeld"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1132
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1184
 #, elixir-autogen, elixir-format
 msgid "Preview mode"
 msgstr "Voorbeeldweergave"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:865
+#: lib/pairings_engine_web/live/badge_studio_live.ex:868
 #, elixir-autogen, elixir-format
 msgid "Previous badge"
 msgstr "Vorige badge"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:695
+#: lib/pairings_engine_web/live/badge_studio_live.ex:698
 #, elixir-autogen, elixir-format
 msgid "Print all"
 msgstr "Alles afdrukken"
@@ -11144,77 +11139,77 @@ msgstr "Alles afdrukken"
 msgid "Print at 100% (no scaling, no margins), then cut and fold."
 msgstr "Druk af op 100% (niet schalen, geen marges), knip en plooi daarna."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:814
 #: lib/pairings_engine_web/live/badge_studio_live.ex:817
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1092
+#: lib/pairings_engine_web/live/badge_studio_live.ex:820
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1144
 #, elixir-autogen, elixir-format
 msgid "Print this badge"
 msgstr "Deze badge afdrukken"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1346
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1398
 #, elixir-autogen, elixir-format
 msgid "Printed name"
 msgstr "Afgedrukte naam"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1263
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1315
 #, elixir-autogen, elixir-format
 msgid "QR code link (printed on both sides)"
 msgstr "Link voor de QR-code (op beide kanten afgedrukt)"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1055
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1107
 #, elixir-autogen, elixir-format
 msgid "Remove photo"
 msgstr "Foto verwijderen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1369
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1372
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1421
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1424
 #, elixir-autogen, elixir-format
 msgid "Remove role"
 msgstr "Rol verwijderen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1278
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1330
 #, elixir-autogen, elixir-format
 msgid "Replace the conditions with the default text?"
 msgstr "De voorwaarden vervangen door de standaardtekst?"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1078
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1130
 #, elixir-autogen, elixir-format
 msgid "Replace your changes with the tournament's data?"
 msgstr "Je wijzigingen vervangen door de gegevens van het toernooi?"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:618
-#: lib/pairings_engine_web/live/badge_studio_live.ex:904
+#: lib/pairings_engine_web/live/badge_studio_live.ex:621
+#: lib/pairings_engine_web/live/badge_studio_live.ex:907
 #, elixir-autogen, elixir-format
 msgid "Role colour"
 msgstr "Kleur van de rol"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1324
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1376
 #, elixir-autogen, elixir-format
 msgid "Roles"
 msgstr "Rollen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:908
+#: lib/pairings_engine_web/live/badge_studio_live.ex:911
 #, elixir-autogen, elixir-format
 msgid "Roles of this event"
 msgstr "Rollen van dit evenement"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1316
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1368
 #, elixir-autogen, elixir-format
 msgid "Room %{num}"
 msgstr "Zaal %{num}"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:929
+#: lib/pairings_engine_web/live/badge_studio_live.ex:932
 #, elixir-autogen, elixir-format
 msgid "Room access"
 msgstr "Toegang tot zalen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:746
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1303
+#: lib/pairings_engine_web/live/badge_studio_live.ex:749
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1355
 #, elixir-autogen, elixir-format
 msgid "Rooms"
 msgstr "Zalen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:747
+#: lib/pairings_engine_web/live/badge_studio_live.ex:750
 #, elixir-autogen, elixir-format
 msgid "Source"
 msgstr "Herkomst"
@@ -11224,7 +11219,7 @@ msgstr "Herkomst"
 msgid "Stand-alone"
 msgstr "Los"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1249
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1301
 #, elixir-autogen, elixir-format
 msgid "Subtitle"
 msgstr "Ondertitel"
@@ -11244,17 +11239,17 @@ msgstr "De badge toont opnieuw de gegevens van het toernooi."
 msgid "The event is no longer linked to a tournament."
 msgstr "Het evenement is niet langer aan een toernooi gekoppeld."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:603
+#: lib/pairings_engine_web/live/badge_studio_live.ex:606
 #, elixir-autogen, elixir-format
 msgid "The file is too large."
 msgstr "Het bestand is te groot."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:591
+#: lib/pairings_engine_web/live/badge_studio_live.ex:594
 #, elixir-autogen, elixir-format
 msgid "The image is larger than %{mb} MB."
 msgstr "De afbeelding is groter dan %{mb} MB."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:597
+#: lib/pairings_engine_web/live/badge_studio_live.ex:600
 #, elixir-autogen, elixir-format
 msgid "The image is larger than %{px} x %{px} pixels. Please make it smaller first."
 msgstr "De afbeelding is groter dan %{px} x %{px} pixels. Maak ze eerst kleiner."
@@ -11265,22 +11260,22 @@ msgid "The import did not complete."
 msgstr "De import is niet voltooid."
 
 #: lib/pairings_engine_web/live/badge_studio_live.ex:553
-#: lib/pairings_engine_web/live/badge_studio_live.ex:725
+#: lib/pairings_engine_web/live/badge_studio_live.ex:728
 #, elixir-autogen, elixir-format
 msgid "The linked tournament is no longer available to you."
 msgstr "Het gekoppelde toernooi is niet langer beschikbaar voor jou."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:587
+#: lib/pairings_engine_web/live/badge_studio_live.ex:590
 #, elixir-autogen, elixir-format
 msgid "The photo FIDE sent is not an image a badge can use. Please upload one."
 msgstr "De foto die FIDE stuurde, is geen afbeelding die een badge kan gebruiken. Upload er zelf een."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1330
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1382
 #, elixir-autogen, elixir-format
 msgid "The role banner's text and colour. Write them in the languages the event prints in; players and officials are imported with the first four."
 msgstr "Tekst en kleur van de rolbalk. Schrijf ze in de talen waarin het evenement afdrukt; spelers en officials worden geïmporteerd met de eerste vier."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:606
+#: lib/pairings_engine_web/live/badge_studio_live.ex:609
 #, elixir-autogen, elixir-format
 msgid "The upload failed."
 msgstr "Het uploaden is mislukt."
@@ -11305,27 +11300,27 @@ msgstr "Dit evenement heeft nog geen badges."
 msgid "Too many FIDE requests in a short time. Please wait a minute and try again."
 msgstr "Te veel FIDE-aanvragen in korte tijd. Wacht een minuut en probeer opnieuw."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1415
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1467
 #, elixir-autogen, elixir-format
 msgid "Upload"
 msgstr "Uploaden"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1010
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1048
 #, elixir-autogen, elixir-format
 msgid "Upload photo"
 msgstr "Foto uploaden"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1292
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1344
 #, elixir-autogen, elixir-format
 msgid "Usage conditions"
 msgstr "Gebruiksvoorwaarden"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1080
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1132
 #, elixir-autogen, elixir-format
 msgid "Use the tournament's data again"
 msgstr "Opnieuw de gegevens van het toernooi gebruiken"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1252
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1304
 #, elixir-autogen, elixir-format
 msgid "Year"
 msgstr "Jaar"
@@ -11336,7 +11331,7 @@ msgstr "Jaar"
 msgid "You cannot link to that tournament."
 msgstr "Je kunt niet aan dat toernooi koppelen."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1154
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1206
 #, elixir-autogen, elixir-format
 msgid "Zoom"
 msgstr "Zoom"
@@ -11346,7 +11341,7 @@ msgstr "Zoom"
 msgid "cut here"
 msgstr "hier knippen"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:804
+#: lib/pairings_engine_web/live/badge_studio_live.ex:807
 #, elixir-autogen, elixir-format
 msgid "edited"
 msgstr "gewijzigd"
@@ -11356,17 +11351,32 @@ msgstr "gewijzigd"
 msgid "fold here"
 msgstr "hier plooien"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:576
+#: lib/pairings_engine_web/live/badge_studio_live.ex:579
 #, elixir-autogen, elixir-format
 msgid "ratings.fide.com answered with an error. Try again later, or upload the photo."
 msgstr "ratings.fide.com antwoordde met een fout. Probeer het later opnieuw, of upload de foto."
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1358
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1410
 #, elixir-autogen, elixir-format
 msgid "Colour of role %{n}"
 msgstr "Kleur van rol %{n}"
 
-#: lib/pairings_engine_web/live/badge_studio_live.ex:1347
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1399
 #, elixir-autogen, elixir-format
 msgid "Printed name of role %{n}"
 msgstr "Afgedrukte naam van rol %{n}"
+
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1083
+#, elixir-autogen, elixir-format
+msgid "Open FIDE profile"
+msgstr "FIDE-profiel openen"
+
+#: lib/pairings_engine_web/live/badge_studio_live.ex:1086
+#, elixir-autogen, elixir-format
+msgid "Or copy a photo and paste it here with Ctrl+V."
+msgstr "Of kopieer een foto en plak ze hier met Ctrl+V."
+
+#: lib/pairings_engine_web/live/badge_studio_live.ex:574
+#, elixir-autogen, elixir-format
+msgid "ratings.fide.com did not answer this server. Open the FIDE profile, copy the photo and paste it here with Ctrl+V, or save it and upload it."
+msgstr "ratings.fide.com antwoordde niet aan deze server. Open het FIDE-profiel, kopieer de foto en plak ze hier met Ctrl+V, of bewaar ze en laad ze op."

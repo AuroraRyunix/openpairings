@@ -74,11 +74,11 @@ defmodule PairingsEngineWeb.BadgeGraphics do
     """
   end
 
-  @doc "A footer logo: the uploaded one when there is one, nothing otherwise."
+  @doc "A footer logo: the uploaded one when there is one, else the event-less default (FIDE on the left, KBSB on the right), else nothing."
   attr :src, :string, default: nil
   attr :height, :string, required: true
   attr :max_width, :string, required: true
-  attr :fallback, :atom, default: nil, values: [nil, :fide]
+  attr :fallback, :atom, default: nil, values: [nil, :fide, :kbsb]
 
   def footer_logo(assigns) do
     ~H"""
@@ -91,6 +91,12 @@ defmodule PairingsEngineWeb.BadgeGraphics do
         />
       <% @fallback == :fide -> %>
         <.fide_logo height={@height} max_width={@max_width} />
+      <% @fallback == :kbsb -> %>
+        <img
+          src="/images/badges/kbsb_logo.png"
+          alt="KBSB"
+          style={"height: #{@height}; max-height: #{@height}; width: auto; max-width: #{@max_width}; object-fit: contain; display: block;"}
+        />
       <% true -> %>
         <span style={"display: block; height: #{@height};"}></span>
     <% end %>

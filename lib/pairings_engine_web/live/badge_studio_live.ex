@@ -570,7 +570,10 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
   def fide_error(:not_found), do: gettext("FIDE has no player with this ID.")
 
   def fide_error(:unreachable),
-    do: gettext("Could not reach ratings.fide.com. Try again later, or upload the photo.")
+    do:
+      gettext(
+        "ratings.fide.com did not answer this server. Open the FIDE profile, copy the photo and paste it here with Ctrl+V, or save it and upload it."
+      )
 
   def fide_error(:http_error),
     do: gettext("ratings.fide.com answered with an error. Try again later, or upload the photo.")
@@ -987,7 +990,42 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           </div>
         </section>
 
-        <section class="card" aria-labelledby="badge-photo-heading">
+        <%!-- Paste: copy a photo anywhere (the player's FIDE profile, say)
+              and press Ctrl+V on this page; it goes through the same upload,
+              size and type checks as a picked file. The server cannot
+              always fetch from FIDE itself - ratings.fide.com drops
+              connections from datacenter addresses - but the arbiter's own
+              browser can open the profile. --%>
+        <script :type={Phoenix.LiveView.ColocatedHook} name=".PastePhoto">
+          export default {
+            mounted() {
+              this.onPaste = (e) => {
+                const target = e.target
+                if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+                const items = Array.from((e.clipboardData && e.clipboardData.items) || [])
+                const item = items.find((i) => i.kind === "file" && i.type.startsWith("image/"))
+                if (!item) return
+                const file = item.getAsFile()
+                if (!file) return
+                e.preventDefault()
+                const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg")
+                const named = new File([file], `pasted-photo.${ext}`, { type: file.type })
+                this.upload("photo", [named])
+              }
+              window.addEventListener("paste", this.onPaste)
+            },
+            destroyed() {
+              window.removeEventListener("paste", this.onPaste)
+            }
+          }
+        </script>
+
+        <section
+          id="badge-photo-section"
+          class="card"
+          aria-labelledby="badge-photo-heading"
+          phx-hook=".PastePhoto"
+        >
           <h2 id="badge-photo-heading">{gettext("Photo")}</h2>
           <div class="flex gap-4">
             <div class="w-20 h-24 shrink-0 rounded overflow-hidden bg-neutral-200 flex items-center justify-center">
@@ -1033,6 +1071,20 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 <.icon name="hero-cloud-arrow-down" class="w-4 h-4" />
                 {if @fetching?, do: gettext("Fetching…"), else: gettext("Fetch from FIDE")}
               </button>
+              <a
+                :if={@badge.fide_id not in [nil, ""]}
+                id="open-fide-profile"
+                href={"https://ratings.fide.com/profile/#{@badge.fide_id}"}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="pe-btn"
+              >
+                <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
+                {gettext("Open FIDE profile")}
+              </a>
+              <p class="hint m-0">
+                {gettext("Or copy a photo and paste it here with Ctrl+V.")}
+              </p>
               <p class="hint m-0">
                 <%= cond do %>
                   <% @badge.photo_source == "fide" and @badge.photo_content_type != nil -> %>

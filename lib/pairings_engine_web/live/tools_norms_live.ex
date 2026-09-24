@@ -839,34 +839,6 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </.rich_text>
       </p>
 
-      <%!-- The badge maker keeps photos and a tournament link, so unlike
-            everything else on this page it needs an account; signed out, the
-            card says so instead of offering a link that would only bounce. --%>
-      <section id="tools-badges" class="card" aria-labelledby="tools-badges-heading">
-        <h2 id="tools-badges-heading">{gettext("Accreditation badges")}</h2>
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Design and print A6 badges for players, officials, press and guests, filled in from your tournament."
-          )}
-        </p>
-        <.link
-          :if={@current_scope}
-          id="tools-badges-link"
-          navigate={~p"/badges"}
-          class="pe-btn primary"
-        >
-          {gettext("Open the badge maker")}
-        </.link>
-        <.link
-          :if={!@current_scope}
-          id="tools-badges-login"
-          navigate={~p"/users/log-in"}
-          class="pe-btn"
-        >
-          {gettext("Log in to make badges")}
-        </.link>
-      </section>
-
       <form
         id="tools-upload-form"
         class="card"
@@ -1254,6 +1226,34 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </div>
         <.it3_counts_explain :if={@it3_counts} counts={@it3_counts} />
       </div>
+
+      <%!-- Last, after the FIDE-forms flow the page header describes. The badge maker keeps photos and a tournament link, so unlike
+            everything else on this page it needs an account; signed out, the
+            card says so instead of offering a link that would only bounce. --%>
+      <section id="tools-badges" class="card" aria-labelledby="tools-badges-heading">
+        <h2 id="tools-badges-heading">{gettext("Accreditation badges")}</h2>
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Design and print A6 badges for players, officials, press and guests, filled in from your tournament."
+          )}
+        </p>
+        <.link
+          :if={@current_scope}
+          id="tools-badges-link"
+          navigate={~p"/badges"}
+          class="pe-btn primary"
+        >
+          {gettext("Open the badge maker")}
+        </.link>
+        <.link
+          :if={!@current_scope}
+          id="tools-badges-login"
+          navigate={~p"/users/log-in"}
+          class="pe-btn"
+        >
+          {gettext("Log in to make badges")}
+        </.link>
+      </section>
     </Layouts.app>
     """
   end

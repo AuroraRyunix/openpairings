@@ -16,6 +16,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Badges: the KBSB logo is back** as the default right-hand logo on
+  both sides, and the stray black bar on the front's right edge is gone. The
+  logos, QR code and room numbers sit lower, as on the original design, and
+  the logos on the back are centred in the space under the rooms.
+- [Change] **Badges: a photo from FIDE also works when the server cannot
+  reach FIDE.** ratings.fide.com does not answer requests from a datacenter,
+  so on the server "Fetch from FIDE" can fail. "Open FIDE profile" opens the
+  player's page in your browser; copy the photo there and paste it into the
+  badge with Ctrl+V, or save it and upload it.
+- [Change] **Tools: the badge maker is listed after the FIDE report forms**,
+  instead of between the page's introduction and the upload it describes.
+
 ## [0.64.0] - 2026-09-24
 
 - [Feature] **Accreditation badges.** A badge maker for the arbiters' room

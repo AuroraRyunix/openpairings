@@ -33,8 +33,6 @@ defmodule PairingsEngineWeb.BadgeCard do
     >
       <.chess_watermark_front />
 
-      <div class="absolute right-0 bottom-20 w-1.5 h-16 bg-[#18181b] rounded-l-xs z-10" />
-
       <div class="relative z-10 flex flex-col items-center pt-2 px-3 shrink-0">
         <.event_header
           header_logo={@badge.header_logo}
@@ -104,7 +102,7 @@ defmodule PairingsEngineWeb.BadgeCard do
         </div>
       </div>
 
-      <div class="relative z-10 px-3 w-full shrink-0 mb-2 flex items-center justify-center">
+      <div class="relative z-10 px-3 w-full shrink-0 mb-[13px] flex items-center justify-center">
         <div
           class="py-1 px-2.5 rounded-full inline-flex items-center justify-center gap-1.5 w-auto max-w-[96%]"
           style="background-color: #f3f4f6 !important; border: 1px solid #d1d5db;"
@@ -119,7 +117,7 @@ defmodule PairingsEngineWeb.BadgeCard do
         </div>
       </div>
 
-      <div class="relative z-10 pb-7 px-3 shrink-0 mb-3">
+      <div class="relative z-10 pb-3 px-3 shrink-0 mb-2">
         <div
           class="flex items-center justify-between px-1 w-full"
           style="height: 64px; max-height: 64px;"
@@ -149,7 +147,7 @@ defmodule PairingsEngineWeb.BadgeCard do
           </div>
 
           <div class="flex items-center justify-end flex-1" style="height: 64px; max-height: 64px;">
-            <.footer_logo src={@badge.custom_logo_right} height="62px" max_width="136px" />
+            <.footer_logo src={@badge.custom_logo_right} height="62px" max_width="136px" fallback={:kbsb} />
           </div>
         </div>
       </div>
@@ -219,7 +217,7 @@ defmodule PairingsEngineWeb.BadgeCard do
       </div>
 
       <div
-        class="relative z-10 mx-2 mb-3 mt-auto p-2.5 rounded-sm shrink-0"
+        class="relative z-10 mx-2 mt-auto p-2.5 rounded-sm shrink-0"
         style="background-color: #f1f5f9 !important; border: 1.5px solid #cbd5e1; color: #111827 !important;"
       >
         <div class="flex items-center gap-3">
@@ -254,11 +252,11 @@ defmodule PairingsEngineWeb.BadgeCard do
       </div>
 
       <div
-        class="relative z-10 pb-7 px-4 flex items-center justify-between shrink-0 mb-3"
-        style="height: 48px; max-height: 48px;"
+        class="relative z-10 px-4 flex items-center justify-between shrink-0"
+        style="height: 60px; max-height: 60px;"
       >
         <.footer_logo src={@badge.custom_logo_left} height="31px" max_width="72px" fallback={:fide} />
-        <.footer_logo src={@badge.custom_logo_right} height="36px" max_width="85px" />
+        <.footer_logo src={@badge.custom_logo_right} height="36px" max_width="85px" fallback={:kbsb} />
       </div>
     </div>
     """
