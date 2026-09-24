@@ -60,6 +60,9 @@ everything the app does and what is planned next.
   order: an explicit, per-tournament override mode with a banner on every
   surface that shows a rank, and a staleness flag raised the moment a result
   or bye changes. Display-only - never affects points, tiebreaks, or the TRF.
+- [Accreditation badges](badges.md) - A6 badges printed two to an A4 sheet,
+  imported from a tournament's players and officials; data model, import
+  rules, photos and the FIDE photo fetch.
 - [Printing](printing.md) - print documents (player list, cards, pairings,
   standings, per-round result cards, place cards/chevalets, cross table -
   Swiss-style plus a players×players grid for round robin), the `?round=N`

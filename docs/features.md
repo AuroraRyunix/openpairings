@@ -156,6 +156,12 @@ folded place cards (chevalets) with field toggles - all per-round where it
 makes sense, all reachable from the page they belong to. Tournaments can
 carry a logo (stored in the database, shown on printed documents).
 
+**Accreditation badges** (`/badges`, signed in) - A6 badges, front and back,
+two to an A4 sheet: name, photo, title, federation, FIDE ID, a coloured role
+banner, up to 12 numbered rooms, logos and a QR code. An event linked to a
+tournament imports its players and officials, and re-imports update in place;
+press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
+
 ## Norms & FIDE reports
 
 - **Official FIDE Excel forms** filled in place: IT3 (tournament report),

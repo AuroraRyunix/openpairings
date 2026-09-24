@@ -16,6 +16,20 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Accreditation badges.** A badge maker for the arbiters' room
+  and the press desk: A6 badges with a photo, name, title, federation, FIDE
+  ID, a coloured role (Chief Arbiter, Arbiter, Player, Press, VIP, ...) and
+  up to twelve numbered rooms or zones on the front, the event's usage
+  conditions on the back, printed two to an A4 sheet with fold and cut
+  lines. Link a badge event to a tournament and "Import players" and "Import
+  officials" fill it in; running an import again updates those badges
+  instead of adding new ones, and never touches badges you added by hand or
+  fields you changed yourself. Photos can be uploaded, or fetched one at a
+  time from the player's FIDE profile with "Fetch from FIDE". Role names,
+  room names and the conditions are edited per event, so a bilingual event
+  prints in both languages. Find it under Tools, in a tournament's Advanced
+  menu, or on its Print page. Signed-in only.
+
 ## [0.63.6] - 2026-09-23
 
 - [Fix] **Ticking a box in the player dialog no longer jumps back to the
