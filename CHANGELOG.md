@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.65.2] - 2026-09-25
+
 - [Change] **The TRF section shows where every round stands.** One row per
   round: sent (with the date), ready to send, ready with a postponed game
   that goes out as unknown, or still being played with how many results are
