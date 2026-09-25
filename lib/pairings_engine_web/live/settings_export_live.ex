@@ -73,11 +73,105 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   # still open (the file is not final while one is).
   defp assign_trf_state(socket) do
     t = socket.assigns.tournament
+    rounds = PostponedGames.trf_round_states(t)
+    numbers = MapSet.new(rounds, & &1.round)
+
+    # The ticked rounds. First time: every round ready to send. After a
+    # change elsewhere: what the arbiter ticked, minus rounds that are gone.
+    selected =
+      case socket.assigns[:trf_selected] do
+        nil -> rounds |> Enum.filter(&(&1.state == :ready)) |> MapSet.new(& &1.round)
+        chosen -> MapSet.intersection(chosen, numbers)
+      end
 
     assign(socket,
       sent_rounds: PostponedGames.sent_rounds(t),
       ambiguous_players: PostponedGames.ambiguous_players(t.id),
-      postponed_open: PostponedGames.open_games(t)
+      postponed_open: PostponedGames.open_games(t),
+      trf_rounds: rounds,
+      trf_selected: selected
+    )
+  end
+
+  # The ticked rounds as the export routes read them, "1,2,5".
+  defp trf_rounds_param(selected), do: selected |> Enum.sort() |> Enum.join(",")
+
+  # Why "Send" cannot go ahead with this selection, or nil when it can.
+  defp trf_send_blocker(rounds, selected) do
+    chosen = Enum.filter(rounds, &MapSet.member?(selected, &1.round))
+
+    cond do
+      chosen == [] ->
+        gettext("Tick the rounds to send.")
+
+      Enum.any?(chosen, &(&1.state == :sent)) ->
+        gettext("Round %{rounds} was already sent. Untick it to send the others.",
+          rounds: chosen |> Enum.filter(&(&1.state == :sent)) |> Enum.map_join(", ", & &1.round)
+        )
+
+      Enum.any?(chosen, &(&1.state == :playing)) ->
+        gettext("Round %{rounds} still has boards without a result.",
+          rounds:
+            chosen |> Enum.filter(&(&1.state == :playing)) |> Enum.map_join(", ", & &1.round)
+        )
+
+      true ->
+        nil
+    end
+  end
+
+  defp trf_summary(rounds) do
+    count = fn state -> Enum.count(rounds, &(&1.state == state)) end
+    waiting = Enum.count(rounds, &(&1.state == :ready and &1.postponed > 0))
+
+    [
+      count.(:sent) > 0 &&
+        ngettext("%{count} round sent", "%{count} rounds sent", count.(:sent)),
+      count.(:ready) > 0 &&
+        ngettext("%{count} ready to send", "%{count} ready to send", count.(:ready)),
+      waiting > 0 &&
+        ngettext(
+          "%{count} with a postponed game open",
+          "%{count} with postponed games open",
+          waiting
+        ),
+      count.(:playing) > 0 &&
+        ngettext("%{count} being played", "%{count} being played", count.(:playing))
+    ]
+    |> Enum.filter(& &1)
+    |> Enum.join(" · ")
+  end
+
+  defp trf_state_label(%{state: :sent, sent_at: %DateTime{} = at}),
+    do: gettext("Sent %{date}", date: Calendar.strftime(at, "%d-%m-%Y"))
+
+  defp trf_state_label(%{state: :sent}), do: gettext("Sent")
+
+  defp trf_state_label(%{state: :ready, postponed: p}) when p > 0,
+    do:
+      ngettext(
+        "Ready - %{count} postponed game goes out as unknown",
+        "Ready - %{count} postponed games go out as unknown",
+        p
+      )
+
+  defp trf_state_label(%{state: :ready}), do: gettext("Ready to send")
+
+  defp trf_state_label(%{state: :playing, missing: m}),
+    do:
+      ngettext(
+        "Being played - %{count} result missing",
+        "Being played - %{count} results missing",
+        m
+      )
+
+  defp trf_state_class(%{state: :ready, postponed: p}) when p > 0, do: "is-waiting"
+  defp trf_state_class(%{state: state}), do: "is-#{state}"
+
+  defp trf_send_confirm(selected) do
+    gettext(
+      "Send round %{rounds}? The file downloads, and every result in it is marked as sent: changing one afterwards asks for confirmation, and these rounds cannot be sent a second time.",
+      rounds: trf_rounds_param(selected) |> String.replace(",", ", ")
     )
   end
 
@@ -105,6 +199,19 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   ## though the buttons that fire them only render when both are true - a
   ## control absent from the page is still an event anybody can send, the
   ## same reasoning `PairingsEngineWeb.FideLive` gives for its own re-checks.
+
+  @impl true
+  def handle_event("toggle_trf_round", %{"round" => round}, socket) do
+    n = String.to_integer(round)
+    selected = socket.assigns.trf_selected
+
+    selected =
+      if MapSet.member?(selected, n),
+        do: MapSet.delete(selected, n),
+        else: MapSet.put(selected, n)
+
+    {:noreply, assign(socket, trf_selected: selected)}
+  end
 
   @impl true
   def handle_event("swar_publish", _params, socket) do
@@ -317,65 +424,113 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
         <p class="hint" style="margin-top: 0">
           {gettext(
-            "The file for the rating officer: every round, or only the rounds you list. \"For sending\" is the file you send; with \"Finalise\" ticked, its results are marked as sent, and changing them afterwards asks for confirmation."
+            "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or send them: sending marks their results as sent, so a round is never sent twice and a sent result asks for confirmation before it changes."
           )}
         </p>
 
-        <div class="actions" style="margin: 0; flex-wrap: wrap">
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
-            {gettext("Export TRF (all rounds)")}
-          </a>
+        <p :if={@trf_rounds == []} class="hint" id="trf-no-rounds">
+          {gettext("No round is paired yet.")}
+        </p>
 
-          <form
-            id="trf-rounds-export-form"
-            method="get"
-            action={~p"/t/#{@tournament.id}/export/trf"}
-            target="_blank"
-            style="display: flex; gap: 6px; align-items: center; margin: 0"
-          >
-            <input
-              type="text"
-              name="rounds"
-              placeholder={gettext("e.g. 1-5 or 1,3,5")}
-              aria-label={gettext("Rounds to export")}
-              class="pe-select"
-              style="width: 150px"
-            />
-            <button type="submit" class="pe-btn" title={gettext("Export only the rounds listed here")}>
-              {gettext("Export rounds…")}
-            </button>
-          </form>
+        <div :if={@trf_rounds != []}>
+          <p id="trf-summary" class="trf-summary">{trf_summary(@trf_rounds)}</p>
 
-          <%!-- The TRF an arbiter SENDS - to the federation's rating office.
-                  POST, because with its box ticked it marks every exported
-                  result as sent (`PostponedGames.finalise/2`), and a GET that
-                  could do that would be fired by a link prefetch. --%>
-          <.form
-            for={%{}}
-            id="trf-send-form"
-            action={~p"/t/#{@tournament.id}/export/trf"}
-            method="post"
-            target="_blank"
-            style="display: flex; gap: 6px; align-items: center; margin: 0"
-          >
-            <input
-              type="text"
-              name="rounds"
-              placeholder={gettext("all rounds")}
-              aria-label={gettext("Rounds to send")}
-              class="pe-select"
-              style="width: 110px"
-            />
-            <label class="field-check" style="margin: 0">
-              <input type="hidden" name="finalise" value="false" />
-              <input type="checkbox" name="finalise" value="true" id="trf-send-finalise" />
-              {gettext("Finalise results for TRF sending")}
-            </label>
-            <button type="submit" class="pe-btn">{gettext("Export TRF for sending")}</button>
-          </.form>
-          <span :if={@sent_rounds != []} id="trf-sent-rounds" class="hint">
+          <div class="card-table-wrap">
+            <table class="pe-table trf-rounds" id="trf-rounds">
+              <thead>
+                <tr>
+                  <th scope="col" class="trf-tick">
+                    <span class="sr-only">{gettext("Include")}</span>
+                  </th>
+                  <th scope="col">{gettext("Round")}</th>
+                  <th scope="col">{gettext("Boards")}</th>
+                  <th scope="col">{gettext("State")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  :for={r <- @trf_rounds}
+                  id={"trf-round-#{r.round}"}
+                  class={["trf-row", trf_state_class(r)]}
+                >
+                  <td class="trf-tick">
+                    <input
+                      type="checkbox"
+                      id={"trf-tick-#{r.round}"}
+                      checked={MapSet.member?(@trf_selected, r.round)}
+                      phx-click="toggle_trf_round"
+                      phx-value-round={r.round}
+                      aria-label={gettext("Include round %{n}", n: r.round)}
+                    />
+                  </td>
+                  <td><label for={"trf-tick-#{r.round}"}>{r.round}</label></td>
+                  <td>{r.boards}</td>
+                  <td>
+                    <span class={["trf-state", trf_state_class(r)]}>
+                      <span class="trf-state-mark" aria-hidden="true"></span>
+                      {trf_state_label(r)}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <% blocker = trf_send_blocker(@trf_rounds, @trf_selected) %>
+          <div class="actions" style="align-items: center">
+            <a
+              id="trf-download-copy"
+              class={["pe-btn", MapSet.size(@trf_selected) == 0 && "is-disabled"]}
+              href={
+                if MapSet.size(@trf_selected) > 0,
+                  do: ~p"/t/#{@tournament.id}/export/trf?rounds=#{trf_rounds_param(@trf_selected)}"
+              }
+              aria-disabled={to_string(MapSet.size(@trf_selected) == 0)}
+              target="_blank"
+            >
+              {gettext("Download a copy")}
+            </a>
+
+            <%!-- The TRF an arbiter SENDS - to the federation's rating office.
+                  POST, because it marks every exported result as sent
+                  (`PostponedGames.finalise/2`), and a GET that could do that
+                  would be fired by a link prefetch. --%>
+            <.form
+              for={%{}}
+              id="trf-send-form"
+              action={~p"/t/#{@tournament.id}/export/trf"}
+              method="post"
+              target="_blank"
+              style="margin: 0"
+            >
+              <input type="hidden" name="rounds" value={trf_rounds_param(@trf_selected)} />
+              <input type="hidden" name="finalise" value="true" />
+              <button
+                type="submit"
+                id="trf-send"
+                class="pe-btn primary"
+                disabled={not is_nil(blocker)}
+                data-confirm={is_nil(blocker) && trf_send_confirm(@trf_selected)}
+              >
+                {gettext("Send…")}
+              </button>
+            </.form>
+
+            <span :if={blocker} id="trf-send-blocker" class="hint">{blocker}</span>
+
+            <a
+              class="trf-all-link"
+              style="margin-left: auto"
+              href={~p"/t/#{@tournament.id}/export/trf"}
+              target="_blank"
+            >
+              {gettext("All rounds (TRF)")}
+            </a>
+          </div>
+
+          <p :if={@sent_rounds != []} id="trf-sent-rounds" class="sr-only">
             {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
-          </span>
+          </p>
         </div>
         <p
           :if={@tournament.manual_ranking}

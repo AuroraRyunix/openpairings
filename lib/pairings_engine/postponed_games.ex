@@ -527,6 +527,67 @@ defmodule PairingsEngine.PostponedGames do
   end
 
   @doc """
+  Where each paired round of `tournament` stands for the TRF report, in
+  round order - what Settings, Export shows one row per round:
+
+      %{round: n, boards: count, missing: boards without a result,
+        postponed: open postponed games, sent_at: DateTime | nil,
+        state: :sent | :ready | :playing}
+
+  `:sent` is `sent_rounds/1`'s answer (`sent_at` is the latest time the
+  record has, nil for a round known sent only from the marks on its boards);
+  `:playing` a round with a board still without a result, which `finalise/2`
+  refuses; `:ready` the rest, an open postponed game included - it goes out
+  as unknown and its result follows in the postponed-games file.
+  """
+  def trf_round_states(%Tournament{id: id} = tournament) do
+    counts =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where: r.tournament_id == ^id,
+          group_by: r.number,
+          order_by: r.number,
+          select:
+            {r.number, count(p.id), sum(fragment("CASE WHEN ? = '' THEN 1 ELSE 0 END", p.result))}
+      )
+
+    postponed = tournament |> open_games() |> Enum.frequencies_by(& &1.round)
+
+    sent_at =
+      Repo.all(
+        from s in TrfSentGame,
+          where: s.tournament_id == ^id and s.kind == "report",
+          group_by: s.round,
+          select: {s.round, max(s.sent_at)}
+      )
+      |> Map.new()
+
+    sent = MapSet.new(sent_rounds(tournament))
+
+    for {n, boards, missing} <- counts do
+      missing = missing || 0
+
+      state =
+        cond do
+          MapSet.member?(sent, n) -> :sent
+          missing > 0 -> :playing
+          true -> :ready
+        end
+
+      %{
+        round: n,
+        boards: boards,
+        missing: missing,
+        postponed: Map.get(postponed, n, 0),
+        sent_at: Map.get(sent_at, n),
+        state: state
+      }
+    end
+  end
+
+  @doc """
   Whether round `number` of tournament `tournament_id` was sent in a report
   (`sent_rounds/1`, from the record and the marks both).
   """

@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The TRF section shows where every round stands.** One row per
+  round: sent (with the date), ready to send, ready with a postponed game
+  that goes out as unknown, or still being played with how many results are
+  missing - each with its own mark, not only a colour, and a summary line
+  above ("2 rounds sent · 1 ready to send"). Tick the rounds instead of
+  typing "1-5": the ready ones start ticked. "Download a copy" takes any
+  ticked round and marks nothing; "Send…" asks first, marks the results as
+  sent, and says why it cannot go ahead when a ticked round was already sent
+  or still has boards without a result. "All rounds (TRF)" stays as a quick
+  full download.
+
 - [Fix] **The round's Print and More menus open onto the page** instead of
   running off its right edge.
 - [Fix] **The top bar no longer jumps to two rows while publishing.** The

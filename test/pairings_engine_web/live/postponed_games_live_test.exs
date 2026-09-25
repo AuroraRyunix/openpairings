@@ -236,6 +236,46 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
     end
   end
 
+  describe "the TRF section's round table (Settings, Export)" do
+    test "shows each round's state, ticks what is ready, and blocks sending what cannot go",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+
+      # Round 1 being played: one board still without a result.
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#trf-round-1.is-playing")
+      refute has_element?(lv, "#trf-tick-1[checked]")
+      assert has_element?(lv, "#trf-send[disabled]")
+
+      # Ticked anyway: a copy is fine, sending is refused with the reason.
+      lv |> element("#trf-tick-1") |> render_click()
+      assert has_element?(lv, "#trf-download-copy[href$='rounds=1']")
+      assert has_element?(lv, "#trf-send-blocker", "without a result")
+
+      # Every result in, one postponed: ready, and it goes out as unknown.
+      [postponed, other] = boards(t, 1)
+      set!(postponed, "*B")
+      set!(other, "1-0")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#trf-round-1.is-waiting", "unknown")
+      assert has_element?(lv, "#trf-tick-1[checked]")
+      assert has_element?(lv, "#trf-send-form input[name='rounds'][value='1']")
+      refute has_element?(lv, "#trf-send[disabled]")
+
+      # Sent: marked as such, no longer ticked, and cannot be sent again.
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#trf-round-1.is-sent", "Sent")
+      assert has_element?(lv, "#trf-summary", "1 round sent")
+      refute has_element?(lv, "#trf-tick-1[checked]")
+
+      lv |> element("#trf-tick-1") |> render_click()
+      assert has_element?(lv, "#trf-send-blocker", "already sent")
+    end
+  end
+
   describe "sending the TRF" do
     test "finalising on download marks the round, and a second try is refused", %{
       conn: conn,

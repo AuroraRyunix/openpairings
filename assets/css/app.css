@@ -1540,6 +1540,28 @@ button.pe-btn, .pe-btn {
   color: var(--text-soft);
 }
 
+/* Settings, Export: the TRF section's one row per round. State is a
+   word and a mark shape as well as a colour. */
+.trf-summary { margin: 0 0 8px; font-weight: 600; }
+.trf-rounds .trf-tick { width: 2.2em; text-align: center; }
+.trf-rounds td label { cursor: pointer; font-variant-numeric: tabular-nums; }
+.trf-state { display: inline-flex; align-items: center; gap: 7px; }
+.trf-state-mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--border);
+}
+.trf-state.is-sent .trf-state-mark { background: var(--success); border-radius: 2px; }
+.trf-state.is-ready .trf-state-mark { background: var(--accent); }
+.trf-state.is-waiting .trf-state-mark { background: var(--warn); transform: rotate(45deg); border-radius: 1px; }
+.trf-state.is-playing .trf-state-mark { background: transparent; border: 2px solid var(--text-soft); }
+.trf-state.is-sent { color: var(--success); }
+.trf-row.is-sent td { color: var(--text-soft); }
+.pe-btn.is-disabled { opacity: 0.55; pointer-events: none; }
+.trf-all-link { margin-left: auto; font-size: 13px; color: var(--accent); }
+
 /* The Pairings page's tips, one line until opened. */
 .pe-tips { margin: 8px 0; }
 .pe-tips > summary { cursor: pointer; color: var(--text-soft); font-size: 13px; width: max-content; }
