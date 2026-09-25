@@ -17,6 +17,7 @@ defmodule PairingsEngine.Standings do
 
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
+  alias PairingsEngine.Standings.AinalramiBridge
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.{Pairing, Player, Round}
@@ -116,6 +117,9 @@ defmodule PairingsEngine.Standings do
       tiebreak, and silence about it is worse than the missing column.
     * `:unrated_present` - C.07 Article 10 forbids a rating-based break when
       an unrated player is in the field. See `effective_tiebreaks/2`.
+    * `:round_robin` - C.07 Article 8: Buchholz and the tie-breaks built on
+      it "must not be used in round-robins". Ainalrami refuses them there,
+      and a column it refuses would read zero for everyone.
 
   A code can qualify under both; it is reported once, under the reason a
   reader can act on - `:not_calculable` is about this software, and picking
@@ -136,8 +140,14 @@ defmodule PairingsEngine.Standings do
         []
       end
 
+    round_robin =
+      if tournament.pairing_system == "round_robin",
+        do: Enum.filter(configured, &(&1 in ~w(BH BHC1 BHC2 MBH))),
+        else: []
+
     Enum.map(not_calculable, &{&1, :not_calculable}) ++
-      Enum.map(unrated -- not_calculable, &{&1, :unrated_present})
+      Enum.map(unrated -- not_calculable, &{&1, :unrated_present}) ++
+      Enum.map((round_robin -- not_calculable) -- unrated, &{&1, :round_robin})
   end
 
   @doc """
@@ -250,52 +260,26 @@ defmodule PairingsEngine.Standings do
           rounds_played: rounds_played(games)
         }
       end)
-      # Article 16.3's adjusted score, computed ONCE per player and carried
-      # for the same reason `completed_rounds` is. It depends on nothing but
-      # that player's own games, their completed-round horizon and
-      # `points_draw`, yet it used to be recomputed at every game-encounter:
-      # separately inside BH, BHC1, BHC2 and MBH (which share no cache), and
-      # again inside SB. On a 300-player 11-round field that is ~9,900 calls
-      # doing an `Enum.sort_by` over the opponent's games apiece, for one of
-      # 300 distinct answers.
-      |> Enum.map(&Map.put(&1, :adjusted_score, adjusted_score(&1, tournament)))
 
     entries = compute_tiebreaks(entries, tournament, tiebreak_codes)
 
     # Hoisted, emphatically: `effective_tiebreaks/1` reads the player list to
-    # decide whether an unrated entrant is present, and a sort key runs once
-    # per comparison - inside the sort it would be O(n log n) database
-    # queries to answer the same question every time.
+    # decide whether an unrated entrant is present - asked once here, not per
+    # comparison.
     #
     # Not `tiebreak_codes` either: `grid_standings/1` adds display-only
     # columns to that list, and ranking must follow the tournament's own
     # configured order or the grid would rank differently from the table.
     ranking_codes = effective_tiebreaks(tournament, players)
+    places = c07_places(entries, tournament, ranking_codes)
 
+    # The place C.07 gives, then - for players it leaves level after the whole
+    # list - rating descending, name, id: a fixed order for the display, where
+    # C.07 would share the place or draw lots. Manual ranking, applied after
+    # this, is how an arbiter records a drawing of lots.
     entries
     |> Enum.sort_by(fn e ->
-      tb_values = Enum.map(ranking_codes, &Map.get(e.tiebreaks, &1, 0.0))
-      # Ranking sorts by `total` (points + extra_points) only when the
-      # tournament opted in to counting extra points; otherwise it's plain
-      # game `points` - see the moduledoc/doc above and docs/extra-points.md.
-      # ARO-style tiebreaks sort descending like the rest (higher = better).
-      rank_score = rank_score(e, tournament)
-
-      # The last three components make the key TOTAL, and they are not
-      # decoration. Everything above them can tie - a field where nobody has
-      # played yet ties on every one of them - and what used to break that
-      # tie was nothing but `Enum.sort_by/2`'s stability over whatever order
-      # the list happened to arrive in. That order was `Tournaments.list_players/1`'s
-      # (rating descending, then name), but only by luck: the list travels
-      # through `compute_tiebreaks/3` - and, whenever "DE" is among the codes,
-      # through `add_direct_encounter/2`, which rebuilds it out of an
-      # `Enum.group_by/2` map - before it reaches this sort, so nothing in the
-      # type system or the tests held that invariant in place. Say the
-      # fallback out loud instead: rating descending, then name, then `id` so
-      # that even two players with the same rating AND the same name have one
-      # fixed order rather than SQLite's.
-      {[-rank_score | Enum.map(tb_values, &(-&1))], -Player.rating(e.player), e.player.name,
-       e.player.id}
+      {Map.get(places, e.player.id, 0), -Player.rating(e.player), e.player.name, e.player.id}
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
@@ -1124,323 +1108,92 @@ defmodule PairingsEngine.Standings do
 
   ## ---------- tiebreak computation ----------
 
+  # ---- tie-breaks: Ainalrami's, the code FIDE's checker runs ------------
+  #
+  # The values and the order both come from `Ainalrami.Tiebreaks` (C.07,
+  # effective 1 March 2026), through `PairingsEngine.Standings.AinalramiBridge`
+  # - so the standings an arbiter prints are the ones `ainalrami -c` verifies.
+  # OpenPairings used to compute them here; the comparison that preceded the
+  # switch (`mix pairings.tiebreak_gate`, docs/tiebreak-gate-2026-09.md) found
+  # this module counting forfeits as played games in Buchholz and SB, and
+  # implementing direct encounter only for a score group in which everybody
+  # had met everybody. Both are C.07's rules now.
+
+  defp compute_tiebreaks([], _tournament, _tiebreak_codes), do: []
+
   defp compute_tiebreaks(entries, tournament, tiebreak_codes) do
-    by_id = Map.new(entries, &{&1.player.id, &1})
+    event = tiebreak_event(entries, tournament)
+
+    # One code at a time: Ainalrami refuses a code the event cannot use
+    # (Buchholz in a round robin, C.07 Article 8), and one refused code must
+    # not blank the others.
+    values =
+      for code <- tiebreak_codes,
+          code != "DE",
+          Map.has_key?(AinalramiBridge.codes(), code),
+          into: %{} do
+        c07 = AinalramiBridge.c07_code(code)
+
+        case Ainalrami.Tiebreaks.compute(event, [c07]) do
+          {:ok, %{^c07 => %{} = map}} -> {code, map}
+          _ -> {code, %{}}
+        end
+      end
 
     entries =
       Enum.map(entries, fn entry ->
-        values =
+        tiebreaks =
           for code <- tiebreak_codes, code != "DE", into: %{} do
-            {code, tiebreak(code, entry, by_id, tournament)}
+            {code, as_float(get_in(values, [code, entry.player.id]))}
           end
 
-        Map.put(entry, :tiebreaks, values)
+        Map.put(entry, :tiebreaks, tiebreaks)
       end)
 
-    if "DE" in tiebreak_codes do
-      add_direct_encounter(entries, tournament)
-    else
-      entries
+    if "DE" in tiebreak_codes, do: add_direct_encounter(entries, tournament), else: entries
+  end
+
+  # Values were floats here before the switch, and screens format them as
+  # such; Ainalrami gives counts and ratings as integers.
+  defp as_float(nil), do: 0.0
+  defp as_float(v), do: v * 1.0
+
+  defp tiebreak_event([first | _] = entries, tournament),
+    do: AinalramiBridge.event(entries, tournament, first.completed_rounds)
+
+  # `%{player_id => place}` under C.07 for the ranking codes, starting from
+  # the score `rank_score/2` ranks by (extra points included when the
+  # tournament counts them). Codes this module has no C.07 equivalent for,
+  # and Buchholz-type codes in a round robin (Article 8), are left out of the
+  # ranking rather than guessed.
+  defp c07_places([], _tournament, _codes), do: %{}
+
+  defp c07_places(entries, tournament, ranking_codes) do
+    event = tiebreak_event(entries, tournament)
+
+    codes =
+      ranking_codes
+      |> Enum.filter(&Map.has_key?(AinalramiBridge.codes(), &1))
+      |> Enum.reject(&(event.predetermined? and &1 in ~w(BH BHC1 BHC2 MBH)))
+      |> Enum.map(&AinalramiBridge.c07_code/1)
+
+    score = Map.new(entries, &{&1.player.id, rank_score(&1, tournament) * 1.0})
+
+    case Ainalrami.Tiebreaks.rank(event, codes, score: score) do
+      {:ok, standings} -> Map.new(standings, &{&1.id, &1.rank})
+      {:error, _} -> %{}
     end
   end
 
-  # Article 8.1: sum of the (adjusted) scores of the opponents; own unplayed
-  # rounds contribute a capped dummy score (Article 16.4).
-  defp tiebreak("BH", entry, by_id, t) do
-    entry
-    |> buchholz_contributions(by_id, t)
-    |> Enum.map(&elem(&1, 0))
-    |> Enum.sum()
-    |> round_f(2)
-  end
-
-  # Article 14.1.1: cut the least significant value(s).
-  defp tiebreak("BHC1", entry, by_id, t), do: cut(buchholz_contributions(entry, by_id, t), 1, 0)
-  defp tiebreak("BHC2", entry, by_id, t), do: cut(buchholz_contributions(entry, by_id, t), 2, 0)
-  defp tiebreak("MBH", entry, by_id, t), do: cut(buchholz_contributions(entry, by_id, t), 1, 1)
-
-  # Article 9.1: sum of opponents' (adjusted) scores × points scored against them.
-  defp tiebreak("SB", entry, by_id, t) do
-    entry.games
-    |> Enum.map(fn g ->
-      case opponent(g, by_id) do
-        nil -> dummy_score(entry, g, t) * g.points
-        opp -> opp.adjusted_score * g.points
-      end
-    end)
-    |> Enum.sum()
-    |> round_f(2)
-  end
-
-  # Article 7.1: "the number of rounds where a participant obtains, with or
-  # without playing, as many points as awarded for a win" - a POINT total in
-  # the regulation's own words, so the comparison below is the definition and
-  # not a re-derivation of the outcome. Contrast 7.2 just underneath.
-  #
-  # What it compares against is `win_points/1`, not `t.points_win`, and that
-  # is the whole of the correction. Article 7.1 puts the same quantity on
-  # both sides: what the participant OBTAINED for the round, and what a win
-  # AWARDS. A game record's `points` carry the SWAR 3-2-1 presence point
-  # (`pairing_records/4`); `points_win` does not, because the import stores
-  # the two separately (`points_win: sw321_win / 4`, `presence_value:
-  # sw321_pre / 4`). So the comparison was counting one side in a currency
-  # the other side did not use. Under the Belgian club scheme - win 2 /
-  # draw 1 / loss 0, plus 1 for turning up, which is what "3-2-1" names -
-  # a DRAW obtains 1.0 + 1.0 = 2.0, `points_win` is 2.0, and every draw in
-  # the event was counted as a win. So was a pairing-allocated bye worth a
-  # draw with the SW321_PreBye option on. WIN sits in FIDE's own default
-  # Swiss set (`Tiebreaks.fide_defaults/1`), so this ranked by default.
-  #
-  # The 2026-08-30 sweep read this line and cleared it, on the ground that
-  # 7.1 is defined in points rather than in outcomes. That reading is right
-  # and is kept - `tiebreak("WON", ...)` below is the one that reads the
-  # outcome. What it did not notice is which points.
-  defp tiebreak("WIN", entry, _by_id, t) do
-    win = win_points(t)
-    Enum.count(entry.games, &(&1.points >= win)) / 1
-  end
-
-  # Article 7.2: "the number of games won over the board" - an OUTCOME, so it
-  # reads the classification rather than the point total. Its neighbour above
-  # is deliberately different: 7.1 defines a win as "as many points as
-  # awarded for a win", in those words, so there the comparison IS the rule.
-  defp tiebreak("WON", entry, _by_id, _t) do
-    Enum.count(entry.games, &(&1.played and &1.outcome == :win)) / 1
-  end
-
-  # Games played with the black pieces.
-  defp tiebreak("BPG", entry, _by_id, _t) do
-    Enum.count(entry.games, &(&1.played and &1.colour == :b)) / 1
-  end
-
-  # Article 7.5: sum of the running score after each round.
-  #
-  # One term per ROUND OF THE EVENT, not per stored record. A player who
-  # withdrew or was forfeited out mid-event has no record for the rounds
-  # after they left - `Pairing.absent_players/1` requires
-  # `status == "active" and forfeit == false`, so no `byes` row is written -
-  # while `build_standings/3` still ranks them. Folding over `entry.games`
-  # alone therefore stopped the series early and understated their PS by
-  # (rounds since they left) x (their frozen score).
-  #
-  # C.07 in force 1 March 2026 settles what those rounds are worth: Art.
-  # 16.1.1 says "any round after a participant withdraws is a
-  # zero-point-bye", so the rounds exist for them and add nothing - which is
-  # exactly "carry the running total forward", since a zero-point round
-  # leaves the total where it was.
-  defp tiebreak("PS", entry, by_id, _t) do
-    horizon = round_horizon(by_id)
-    by_round = Map.new(entry.games, &{&1.round, &1.points})
-
-    if horizon == 0 do
-      0.0
-    else
-      1..horizon
-      |> Enum.map_reduce(0.0, fn round, running ->
-        running = running + Map.get(by_round, round, 0.0)
-        {running, running}
-      end)
-      |> elem(0)
-      |> Enum.sum()
-      |> round_f(1)
-    end
-  end
-
-  # Article 9.2: "the number of points achieved against all participants who
-  # have scored at least 50% of the maximum possible tournament score."
-  #
-  # The maximum is `win_points/1` a round, not `t.points_win` a round - the
-  # same currency mismatch Article 7.1 had above, and the same correction.
-  # `opp.points` on the left of the comparison carries the SWAR 3-2-1
-  # presence point, so a ceiling computed without it is not the maximum
-  # anybody could have scored. Under the Belgian 3-2-1 scheme the real
-  # maximum is 3.0 a round and this said 2.0, putting the 50% line at 1.0 a
-  # round - which is precisely what a player who loses every single game and
-  # turns up to every round scores. The whole field cleared the bar, so Koya
-  # stopped separating anyone: it returned each player's own score against
-  # everyone they had actually sat opposite, which is their score minus
-  # their byes.
-  #
-  # It reads `opp.points` directly where BH/BHC1/BHC2/MBH/SB all route
-  # through `adjusted_score/2` first, and that difference is CORRECT, not an
-  # oversight. Article 16 opens by naming its own scope: "the tie-breaks
-  # Buchholz (see Article 8.1), Sonneborn-Berger (see Articles 9.1 and 13.2)
-  # and their variants (Fore Buchholz, see Article 8.3; and "Cut" Modifiers,
-  # see Articles 14.1 to 14.4), which are directly or indirectly based on
-  # opponents' results, are affected by the presence of unplayed rounds".
-  # Koya is Article 9.2 and appears in no part of that list, so the unplayed-
-  # rounds adjustment does not reach it. Checked against C.07 directly on
-  # 2026-08-30, after a sweep filed the inconsistency as a suspected bug.
-  defp tiebreak("KS", entry, by_id, t) do
-    max_score = entry.completed_rounds * win_points(t)
-
-    entry.games
-    |> Enum.filter(fn g ->
-      opp = opponent(g, by_id)
-      opp != nil and opp.points >= max_score / 2
-    end)
-    |> Enum.map(& &1.points)
-    |> Enum.sum()
-    |> round_f(1)
-  end
-
-  # Article 10.1: average rating of opponents played over the board.
-  defp tiebreak("ARO", entry, by_id, _t), do: aro(entry, by_id, 0)
-  defp tiebreak("AROC1", entry, by_id, _t), do: aro(entry, by_id, 1)
-
-  # Reached only for a code nothing here implements. Those are dropped before
-  # ranking (see `dropped_tiebreaks_with_reasons/2`) and reported on the page,
-  # so this is the belt to that braces: a stored tournament asking for a code
-  # this version does not know must not crash a standings render.
-  defp tiebreak(_unknown, _entry, _by_id, _t), do: 0.0
-
-  defp aro(entry, by_id, cut_lowest) do
-    ratings =
-      entry.games
-      |> Enum.filter(& &1.played)
-      |> Enum.map(fn g -> opponent(g, by_id) end)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.map(&PairingsEngine.Tournaments.Player.rating(&1.player))
-      |> Enum.sort()
-      |> Enum.drop(cut_lowest)
-
-    case ratings do
-      [] -> 0.0
-      list -> Float.round(Enum.sum(list) / length(list) + 1.0e-9) / 1
-    end
-  end
-
-  # Each contribution tagged with whether it is a voluntary-unplayed-round
-  # (VUR) contribution - Art. 16.5.1's Cut-1 Exception needs to know this to
-  # cut it in preference to an ordinary contribution. Only the participant's
-  # OWN bye rounds (no opponent - `dummy_score`) can ever be a VUR
-  # contribution; a round with a real scheduled opponent always uses that
-  # opponent's adjusted score regardless of whether the round was forfeited,
-  # so it's never tagged. `g.voluntary` (see `pairing_records/3` and
-  # `add_bye_records/3`) already excludes pairing-allocated byes and
-  # forfeits, matching Art. 16.1's own VUR concept.
-  defp buchholz_contributions(entry, by_id, t) do
-    Enum.map(entry.games, fn g ->
-      case opponent(g, by_id) do
-        nil -> {dummy_score(entry, g, t), g.voluntary}
-        opp -> {opp.adjusted_score, false}
-      end
-    end)
-  end
-
-  # Article 16.3: for tiebreak purposes an opponent's trailing voluntarily
-  # unplayed rounds count as draws; other rounds count as the points awarded.
-  # A withdrawn/forfeited opponent's missing trailing rounds (no game record
-  # at all, because `active_players/1` stops generating any record for them)
-  # are treated the same as a real "not played and voluntary" record - that's
-  # the fix; everything else here is unchanged.
-  defp adjusted_score(opp_entry, t) do
-    games = Enum.sort_by(opp_entry.games, & &1.round)
-
-    trailing_voluntary =
-      games
-      |> Enum.reverse()
-      |> Enum.take_while(&(not &1.played and &1.voluntary))
-      |> length()
-
-    {head, tail} = Enum.split(games, length(games) - trailing_voluntary)
-
-    last_round =
-      games
-      |> List.last()
-      |> case do
-        nil -> 0
-        g -> g.round
-      end
-
-    missing_tail = max(opp_entry.completed_rounds - last_round, 0)
-
-    Enum.sum(Enum.map(head, & &1.points)) + (length(tail) + missing_tail) * t.points_draw
-  end
-
-  # Article 16.4: an unplayed round contributes the score of a dummy
-  # opponent, whose score for this purpose IS the participant's own actual
-  # score - not a projection reconstructed from "points before this round,
-  # plus a complementary result, plus draws for every round still left in
-  # the schedule". That reconstruction was this function's ENTIRE previous
-  # body and does not appear anywhere in the regulation; confirmed wrong
-  # against both the FIDE Handbook 07 text itself (Art. 16.4: "The dummy's
-  # score for the tie-break calculation is the participant's own score")
-  # and its own worked example (Tie-Break Exercises, Exercise 11: a
-  # player's half-point bye contributes "a value equal to their score...
-  # multiplied by the equivalent result of the round" - nothing else).
-  #
-  # Capped per 16.4.2 at a draw's worth of points × total rounds - this
-  # part of the old formula was already right and is unchanged. 16.4.1's
-  # forfeit-specific cap (against the scheduled opponent's adjusted score)
-  # never applies at this call site: every round `dummy_score` is asked
-  # about has no opponent at all (a real forfeit against a scheduled
-  # opponent is a played=false `Pairing` row WITH an opponent_id, handled
-  # by `adjusted_score/3` via `pairing_records/3` instead).
-  defp dummy_score(entry, _game, t) do
-    entry.points |> min(t.points_draw * t.rounds_count) |> round_f(2)
-  end
-
-  # Article 14.1.1/14.1.2/14.2: cut the least/most significant value(s).
-  #
-  # Article 16.5.1 "Cut-1 Exception": when a least-significant-value cut
-  # applies, a contribution from one of the participant's own voluntary
-  # unplayed rounds (VUR - tagged by `buchholz_contributions/3`) is cut in
-  # preference to an ordinary contribution, reapplied once per additional
-  # lowest-cut (so BHC2's second cut re-checks the remaining set). The
-  # regulation's own proviso ("as long as such contribution is not lower
-  # than the least significant value") always holds here: a VUR
-  # contribution is a member of the same set the natural minimum is drawn
-  # from, so its minimum can never be lower than the overall minimum.
-  # Highest-value cuts (MBH's second drop) are untouched - 16.5.1 only
-  # concerns the least significant value.
-  defp cut(contributions, n_lowest, n_highest) do
-    contributions
-    |> drop_lowest_with_vur_priority(n_lowest)
-    |> Enum.map(&elem(&1, 0))
-    |> Enum.sort(:desc)
-    |> Enum.drop(n_highest)
-    |> Enum.sum()
-    |> round_f(2)
-  end
-
-  defp drop_lowest_with_vur_priority([], _n), do: []
-  defp drop_lowest_with_vur_priority(contributions, 0), do: contributions
-
-  defp drop_lowest_with_vur_priority(contributions, n) do
-    vur_contributions = Enum.filter(contributions, &elem(&1, 1))
-
-    to_drop =
-      case vur_contributions do
-        [] -> Enum.min_by(contributions, &elem(&1, 0))
-        _ -> Enum.min_by(vur_contributions, &elem(&1, 0))
-      end
-
-    contributions
-    |> List.delete(to_drop)
-    |> drop_lowest_with_vur_priority(n - 1)
-  end
-
-  # Float.round that also accepts integers (sums of integer points).
   defp round_f(value, precision), do: Float.round(value / 1, precision)
 
-  defp opponent(%{opponent_id: nil}, _by_id), do: nil
-  defp opponent(%{opponent_id: id}, by_id), do: Map.get(by_id, id)
+  # The DE column's number: each player's points against the others in their
+  # score group, when every one of them has met every other; 0.0 (shown as a
+  # dash) otherwise. DISPLAY ONLY - the order within a tied group is C.07
+  # Article 6's, from `c07_places/3`, which also resolves what this sum
+  # cannot (6.2's reapplication to a subset, 6.3's Swiss rule). The KBSB
+  # publication prints this number as its "OR" column.
 
-  # The highest round NUMBER anyone has a record for - not
-  # `rounds_played_count/1`, which counts records and so gives a different
-  # (smaller) answer for exactly the players this matters for.
-  defp round_horizon(by_id) do
-    by_id
-    |> Map.values()
-    |> Enum.flat_map(& &1.games)
-    |> Enum.map(& &1.round)
-    |> Enum.max(fn -> 0 end)
-  end
-
-  # Article 6: direct encounter within groups tied on points. Only decisive
-  # when every pair in the tied group has met (Swiss partial ties otherwise
-  # stay tied here and fall through to the next tiebreak).
   defp add_direct_encounter(entries, tournament) do
     entries
     |> Enum.group_by(&rank_score(&1, tournament))

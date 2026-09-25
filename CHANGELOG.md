@@ -16,6 +16,40 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Tie-breaks now come from Ainalrami, the same code that checks
+  them.** Every tie-break value, the order inside a tied group, and the
+  per-round working on the public page are now computed by Ainalrami's
+  C.07 (2026) implementation. It was checked against FIDE's TieBreakServer
+  on more than seven million values. Before the switch, the two were
+  compared on 1,000 tournaments (`mix pairings.tiebreak_gate`,
+  docs/tiebreak-gate-2026-09.md), and every difference was traced to a
+  cause.
+- [Fix] **Forfeits no longer count as played games in Buchholz and
+  Sonneborn-Berger.** C.07 2026 treats a forfeit as an unplayed round, which
+  is scored against a dummy opponent. The old code counted the forfeit
+  opponent's score instead.
+- [Fix] **Direct encounter works when not everyone in the group has met.**
+  Before, it only ordered a score group in which everybody had played
+  everybody. It now follows all of Article 6, including re-applying it to a
+  smaller group and the Swiss rule.
+- [Fix] **A player's own missing rounds count in their Buchholz.** A round
+  with no game on record (after a withdrawal, for example) scores against a
+  dummy at the player's own score, as Article 16.4 says. It used to add
+  nothing.
+- [Change] **Buchholz is not used in round robins.** C.07 Article 8 forbids
+  it. The standings page drops it and says why. This applies to team round
+  robins too.
+- [Change] **Team tie-breaks come from Ainalrami as well.** Team Buchholz,
+  Sonneborn-Berger, EMGSB and the order among tied teams are now Ainalrami's
+  C.07 tie-breaks. Ainalrami's team tie-breaks were compared game by game
+  with FIDE's TieBreakServer. The values OpenPairings already gave are
+  unchanged.
+- [Fix] **Team direct encounter works when not every tied team has met.**
+  Before, it only ordered a group in which everybody had played everybody.
+  Now all of Article 6 applies to teams too.
+- [Change] **A round still in progress no longer moves the team
+  tie-breaks.** They count the rounds whose every match is finished. Match
+  points, which rank first, still count every finished match.
 - [Fix] **Badges: the KBSB logo is back** as the default right-hand logo on
   both sides, and the stray black bar on the front's right edge is gone. The
   logos, QR code and room numbers sit lower, as on the original design, and

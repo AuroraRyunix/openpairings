@@ -376,8 +376,6 @@ defmodule PairingsEngine.TeamSwissTest do
       e = t |> Repo.reload!() |> TeamStandings.standings() |> Map.new(&{&1.team.name, &1})
 
       assert {e["T1"].mp, e["T2"].mp, e["T3"].mp, e["T4"].mp} == {5.0, 2.0, 0.0, 3.0}
-      assert e["T3"].adjusted_mp == 2.0
-
       assert e["T1"].tiebreaks["BH"] == 7.0
       assert e["T1"].tiebreaks["SB"] == 11.0
       assert e["T1"].tiebreaks["EMGSB"] == 11.0
@@ -385,14 +383,11 @@ defmodule PairingsEngine.TeamSwissTest do
       assert e["T3"].tiebreaks["BH"] == 0.0
       assert e["T4"].tiebreaks["BH"] == 10.0
 
+      # Article 16's unplayed rounds are named by what they were.
       kinds = e["T1"].working["BH"] |> Enum.map(& &1.kind)
       assert kinds == [:forfeit_win, :played, :played]
 
-      assert e["T3"].working["BH"] |> Enum.map(& &1.kind) == [
-               :forfeit_loss,
-               :trailing_bye,
-               :trailing_bye
-             ]
+      assert e["T3"].working["BH"] |> Enum.map(& &1.kind) == [:forfeit_loss, :bye, :bye]
     end
 
     test "a round robin is untouched: no adjustment, and its bye scores nothing" do

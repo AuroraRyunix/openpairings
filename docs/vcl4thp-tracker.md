@@ -5,7 +5,7 @@
 
 Where OpenPairings stands against FIDE's Verification Checklist for
 Tournament Handler Programs, version 13 (FIDE TEC draft, 2026-08-25). Answers
-reviewed 2026-09-23. The goal before applying for a TAPC:
+reviewed 2026-09-24. The goal before applying for a TAPC:
 no failure and no penalty on our path, and every answer checked.
 
 Every question is asked **in FIDE mode**: anything only possible after
@@ -16,13 +16,13 @@ FIDE mode (`PairingsEngine.Compliance`).
 ## Summary
 
 ```
-VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-23
+VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-24
   Questions on our path:  183 of 225
   First failure:          Q14 - FIDE's verification would stop here
-  Failures on the path:   26 (Q14, Q21, Q31, Q33, Q43, Q58, Q60, Q65, Q68, Q74, Q76, Q81, Q83, Q86, Q93, Q103, Q109, Q110, Q157, Q161, Q162, Q189, Q191, Q195, Q196, Q201)
-  Penalties on the path:  705% (over 100% fails)
-  Answers:                75 met, 55 gaps, 95 still to check
-  On the path:            56 met, 49 gaps, 78 still to check
+  Failures on the path:   23 (Q14, Q43, Q58, Q60, Q65, Q68, Q74, Q76, Q81, Q83, Q86, Q93, Q103, Q109, Q110, Q157, Q161, Q162, Q189, Q191, Q195, Q196, Q201)
+  Penalties on the path:  687% (over 100% fails)
+  Answers:                75 met, 48 gaps, 102 still to check
+  On the path:            56 met, 42 gaps, 85 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -66,19 +66,19 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-09-23
 | 18 | External engine already inside a TAPC'd program? | N | met | - |  |
 | 19 | Checker (PTC) and generator (RTG) available? | Y | check | ok | ainalrami -c and -g exist. Needs public download + written instructions for FIDE (the form has a box for them). |
 | 20 | Checker has a free CLI? | Y | check | ok | ainalrami -c (Apache-2.0). Same distribution point as Q19. |
-| 21 | Checker reads TRF26 and reports wrong pairings per round AND standings that break the tie-breaks? | N | gap | **FAIL** | FAIL. -c checks pairings only; Ainalrami has no tie-breaks. The checker must also verify standings. |
+| 21 | Checker reads TRF26 and reports wrong pairings per round AND standings that break the tie-breaks? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. -c now also checks the standings: with a 202/212 list and final ranks (001 cols 86-89) it ranks by C.07 2026 (Ainalrami.Tiebreaks) and reports every player whose rank the list does not give. Values checked against TieBreakServer (docs/finding-tiebreakserver-2026-09.md). A team file's team ranks are not in 013 records, so -c says so and skips them. |
 | 22 | Generator has a free CLI? | Y | met | ok | ainalrami -g. |
 | 23 | Generator has a free non-CLI interface? | N | met | - | Not needed: Q22 is YES. |
-| 24 | Generator configures players, rounds, each bye type, forfeit wins/losses, odd results, BAM, tie-break list? | N | gap | ok | Has players, rounds, forfeit %, half/zero bye %, BAM. Missing: full-point byes, separate forfeit win/loss, odd results (1/2-0, 0-0), tie-break list. |
+| 24 | Generator configures players, rounds, each bye type, forfeit wins/losses, odd results, BAM, tie-break list? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. Players, rounds, full/half/zero bye %, forfeit-win and double-forfeit %, odd results (1/2-0, 0-1/2, 0-0) %, BAM, and --tie-breaks (writes 202 and the final ranks). |
 | 25 | Unset generator parameters get sensible random values? | Y | met | ok | Random players 10-60, rounds 5-11 (generator.ex). |
 | 26 | Generator has at least one way to set ratings? | Y | met | ok | Random ratings. |
-| 27 | Generator ratings user-specified? | N | gap | -10% | Costs 10%. |
-| 28 | Generator ratings parametrised (min/max, gaps)? | N | gap | -3% | Costs 3%. |
+| 27 | Generator ratings user-specified? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --ratings=2400,2350,... gives each TPN its rating. |
+| 28 | Generator ratings parametrised (min/max, gaps)? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --rating-range=MIN-MAX, or --rating-top/--rating-step[/--rating-sigma]. |
 | 29 | Generator ratings random? | Y | met | ok | 1400-2700 uniform. |
 | 30 | Same parameters always give the same TRF? | N | met | ok | Fresh random seed each run unless --seed is given. |
-| 31 | Generated tournaments follow the pairing rules AND the tie-break list in the file? | N | gap | **FAIL** | FAIL. Pairings yes; the generated file carries no tie-break list or standings by it. |
-| 32 | Generated results follow FIDE rating-table probabilities? | N | gap | -5% | Results are uniform 1/3 each; costs 5%. Use the FIDE expected-score table. |
-| 33 | Tested against another public engine, 50,000+ tournaments each way, pairings AND tie-breaks? | N | gap | **FAIL** | FAIL. Pairings: ~488M vs bbpPairings (confirm both directions). Tie-breaks: never cross-checked - TieBreakServer (public, on disk) can be the other engine. |
+| 31 | Generated tournaments follow the pairing rules AND the tie-break list in the file? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. With --tie-breaks the file carries the list (202) and each player's final rank by it; pairings as before. |
+| 32 | Generated results follow FIDE rating-table probabilities? | Y | check | ok | Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --results=fide [--draw-rate] draws each result from the FIDE rating table's expected score; uniform stays the default, so the answer depends on the reading of 'follow'. |
+| 33 | Tested against another public engine, 50,000+ tournaments each way, pairings AND tie-breaks? | Y | check | ok | Tie-breaks: done both ways against TieBreakServer (Ainalrami branch `tiebreaks`, docs/validation.md): Ainalrami-generated 50,060 tournaments ~29M values and TieBreakServer-generated 50,000 tournaments ~50M values, 0 unexplained; team events 2,200. Still to confirm: that the ~488M-pairing bbpPairings comparison ran in both directions. |
 | 34 | More than 10 discrepancies either way? | N | check | ok | Pairings: 0 in the corpus. Tie-breaks: unknown until Q33 is done. |
 | 35 | Discrepancies caused by our engine? | N | check | - | Only reached if Q34 is YES. |
 | 36 | Discrepancies caused by the other engine? | N | check | - |  |

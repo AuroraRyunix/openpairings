@@ -720,28 +720,39 @@ defmodule PairingsEngine.StandingsTest do
       entries = Standings.standings(tournament)
       ea = Enum.find(entries, &(&1.player.id == a.id))
 
-      # X: real round-1 loss (0.0) + missing rounds 2-4 (3 × 0.5 draw-value)
-      # = 1.5. Without the fix this would be 0.0 (rounds 2-4 silently
-      # contribute nothing since X has no game record for them at all).
-      assert ea.tiebreaks["BH"] == 1.5
+      # Round 1, X: real round-1 loss (0.0) + missing rounds 2-4 (3 × 0.5
+      # draw-value) = 1.5. Without the fix this would be 0.0 (rounds 2-4
+      # silently contribute nothing since X has no game record for them).
+      #
+      # A has no record for rounds 2-4 either, and those are A's own unplayed
+      # rounds: C.07 16.4 scores each against a dummy at A's own score, 1.0
+      # (below the 16.4.2 cap of 0.5 x 4). The old standings code ignored a
+      # player's own missing rounds; Ainalrami and FIDE's TieBreakServer do
+      # not. 1.5 + 3 × 1.0 = 4.5.
+      assert ea.tiebreaks["BH"] == 4.5
     end
 
     # The round-robin twin of the test below. An odd-sized round robin sits
     # exactly one player out per round against the phantom, recorded by
     # `RoundRobin.create_round/4` as a "requested-zero" byes row - a type
-    # picked purely for its point value (0), which also happened to carry
-    # `voluntary: true`. The player requested nothing; the Berger schedule
-    # sat them out, which is an INVOLUNTARY unplayed round under Art. 16.2.
-    # Marked voluntary, C's trailing bye was re-counted as a draw and every
-    # opponent's Buchholz rose by half a point.
-    test "BH does not treat an odd round robin's structural bye as voluntary (Article 16.2)" do
+    # picked purely for its point value (0). The player requested nothing;
+    # once that bye was counted as a voluntary draw and every opponent's
+    # Buchholz rose by half a point.
+    #
+    # Since the tie-breaks moved to Ainalrami, a round robin follows C.07's
+    # own rules for events with pairings fixed in advance: Buchholz is not
+    # used at all (Article 8 - it is dropped, and the page says why), and
+    # Sonneborn-Berger counts each opponent's score as it stands (15.2 -
+    # Article 16's adjustments are for Swiss events). C's free round cannot
+    # lend anybody anything.
+    test "an odd round robin's structural bye lends nobody points (Articles 8, 15.2)" do
       tournament =
         Repo.insert!(%Tournament{
           name: "Round Robin Structural Bye",
           type: "swiss",
           pairing_system: "round_robin",
           rounds_count: 3,
-          tiebreaks: ~w(BH),
+          tiebreaks: ~w(BH SB),
           points_win: 1.0,
           points_draw: 0.5,
           points_loss: 0.0
@@ -781,21 +792,25 @@ defmodule PairingsEngine.StandingsTest do
       # half a point for everyone else's benefit.
       assert by_name["C"].points == 0.0
 
-      # A met C (0.0) and B (1.0); B met C (0.0) and A (2.0).
-      assert by_name["A"].tiebreaks["BH"] == 1.0
-      assert by_name["B"].tiebreaks["BH"] == 2.0
+      assert Standings.dropped_tiebreaks_with_reasons(tournament) == [{"BH", :round_robin}]
+      refute Map.has_key?(by_name["A"].tiebreaks, "BH")
+
+      # SB: A beat C (0.0 x 1) and B (1.0 x 1) = 1.0; B beat C (0.0 x 1)
+      # and lost to A (2.0 x 0) = 0.0.
+      assert by_name["A"].tiebreaks["SB"] == 1.0
+      assert by_name["B"].tiebreaks["SB"] == 0.0
     end
 
-    # A genuine requested bye in the same tournament is still voluntary -
-    # the rule keys on the structural type, not on the pairing system alone.
-    test "a requested HALF-point bye in a round robin is still voluntary" do
+    # A requested half-point bye in a round robin: the opponent's score counts
+    # as it stands (15.2), bye included.
+    test "a requested half-point bye in a round robin counts as it stands (15.2)" do
       tournament =
         Repo.insert!(%Tournament{
           name: "Round Robin Requested Bye",
           type: "swiss",
           pairing_system: "round_robin",
           rounds_count: 2,
-          tiebreaks: ~w(BH),
+          tiebreaks: ~w(SB),
           points_win: 1.0,
           points_draw: 0.5,
           points_loss: 0.0
@@ -816,6 +831,8 @@ defmodule PairingsEngine.StandingsTest do
         result: "1-0"
       })
 
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+
       Repo.insert_all("byes", [
         %{tournament_id: tournament.id, player_id: opp.id, round: 2, type: "requested-half"}
       ])
@@ -823,9 +840,9 @@ defmodule PairingsEngine.StandingsTest do
       entries = Standings.standings(tournament)
       me_entry = Enum.find(entries, &(&1.player.id == me.id))
 
-      # Opp: round-1 loss (0.0) + a trailing VOLUNTARY bye re-counted as a
-      # draw (0.5) = 0.5.
-      assert me_entry.tiebreaks["BH"] == 0.5
+      # Opp: round-1 loss (0.0) + the half-point bye (0.5) = 0.5, and Me
+      # beat them: 0.5 x 1.
+      assert me_entry.tiebreaks["SB"] == 0.5
     end
 
     # Opp gets a real pairing-allocated bye (odd player count - a `Pairing`
@@ -876,10 +893,13 @@ defmodule PairingsEngine.StandingsTest do
       entries = Standings.standings(tournament)
       e = Enum.find(entries, &(&1.player.id == me.id))
 
-      # Opp's adjusted score = 0.0 (round-1 loss) + 2.0 (pairing-allocated
-      # bye, awarded value) = 2.0. Without the fix it would be 0.0 + 0.5
-      # (draw substituted for the trailing bye) = 0.5.
-      assert e.tiebreaks["BH"] == 2.0
+      # Round 1, Opp's adjusted score = 0.0 (round-1 loss) + 2.0
+      # (pairing-allocated bye, awarded value) = 2.0. Without the fix it
+      # would be 0.0 + 0.5 (draw substituted for the trailing bye) = 0.5.
+      #
+      # Round 2, Me has no record: C.07 16.4 scores it against a dummy at
+      # Me's own score (1.0), capped at 0.5 x 2 = 1.0. 2.0 + 1.0 = 3.0.
+      assert e.tiebreaks["BH"] == 3.0
     end
 
     test "DE groups players tied on the ranking key (total), not raw points, when count_extra_points is on" do
