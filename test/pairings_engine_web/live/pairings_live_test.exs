@@ -199,7 +199,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute html =~ "Explain this round"
   end
 
-  test "print pairings/results buttons stay single, with the extra variants tucked into a hidden right-click menu",
+  test "printing is one Print menu holding the pairings and result-card variants",
        %{conn: conn, scope: scope} do
     tournament = fixture(scope)
 
@@ -210,14 +210,14 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute html =~ "Test print (3)"
     refute html =~ "Print result cards (stack-cut order)"
 
-    assert html =~ "Print pairings"
-    assert html =~ "Print result cards"
+    assert html =~ ~s(href="/t/#{tournament.id}/print/pairings?round=2")
+    assert html =~ ~s(href="/t/#{tournament.id}/print/results?round=2")
     assert html =~ ~s(href="/t/#{tournament.id}/print/pairings?round=2&amp;absentees=1")
-    assert html =~ "With absentees section"
+    assert html =~ "Pairings, with absentees section"
     assert html =~ ~s(href="/t/#{tournament.id}/print/results?round=2&amp;limit=3")
-    assert html =~ "Test print (first 3 cards)"
+    assert html =~ "Result cards: test print (first 3)"
     assert html =~ ~s(href="/t/#{tournament.id}/print/results?round=2&amp;order=stack")
-    assert html =~ "Stack-cut order"
+    assert html =~ "Result cards: stack-cut order"
   end
 
   test "shows a PGN export link for the currently selected round", %{conn: conn, scope: scope} do
@@ -226,7 +226,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     assert html =~ ~s(href="/t/#{tournament.id}/export/pgn?round=2")
-    assert html =~ "Export PGN"
+    assert html =~ "PGN (metadata only"
   end
 
   test "renders a round's pairings sorted by board number regardless of insertion order", %{
@@ -1786,8 +1786,9 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      assert html =~ "Pairings round 2"
-      assert html =~ "Standings after round 2"
+      assert has_element?(lv, "#round-publish-group[aria-label='Round 2 on the public page']")
+      assert has_element?(lv, "#pairings-toggle-2", "Pairings")
+      assert has_element?(lv, "#standings-toggle-2", "Standings")
       assert has_element?(lv, "#pairings-toggle-2.is-locked[disabled]")
       assert has_element?(lv, "#standings-toggle-2.is-locked[disabled]")
       assert html =~ "Change that in Settings"
@@ -1927,9 +1928,9 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       tournament = fixture(scope)
       {:ok, _tournament} = Tournaments.publish_pairings_through(tournament, 2)
 
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      assert html =~ "Results round 2"
+      assert has_element?(lv, "#round-publish-group #results-toggle-2", "Results")
       assert has_element?(lv, "#results-toggle-2:not(.is-public):not([disabled])")
       assert has_element?(lv, "[phx-click='publish_results'][phx-value-round='2']")
     end
@@ -2096,6 +2097,31 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       round = Tournaments.get_round(tournament.id, 2)
       refute Tournaments.round_published?(tournament, round)
+    end
+  end
+
+  describe "the round header" do
+    test "groups the publish switches and puts printing, PGN, import and unpairing in two menus",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      n =
+        Tournaments.get_tournament!(tournament.id)
+        |> then(&Tournaments.list_rounds(&1.id))
+        |> length()
+
+      assert has_element?(lv, "#round-publish-group #pairings-toggle-#{n}", "Pairings")
+      assert has_element?(lv, "#round-print-menu-#{n} #print-pairings-#{n}")
+      assert has_element?(lv, "#round-print-menu-#{n} #print-results-#{n}")
+      assert has_element?(lv, "#round-more-menu-#{n} #export-pgn-#{n}")
+      assert has_element?(lv, "#round-more-menu-#{n} #import-results-csv-#{n}")
+      assert has_element?(lv, "#round-more-menu-#{n} #unpair-round-#{n}.is-danger")
+      assert has_element?(lv, "#pairings-tips")
+
+      # The menu's import button still opens the CSV form.
+      lv |> element("#import-results-csv-#{n}") |> render_click()
+      assert has_element?(lv, "#results-csv-import-form")
     end
   end
 

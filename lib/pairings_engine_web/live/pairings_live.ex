@@ -2182,13 +2182,35 @@ defmodule PairingsEngineWeb.PairingsLive do
   # LiveView still requires its ids to be unique) - so the caller gives each
   # copy its own id prefix.
   attr :id_prefix, :string, default: ""
+  # The round-header copy sits in a group labelled with the round already
+  # ("Public" beside "Round N"), so it names only what each switch shows.
+  attr :short, :boolean, default: false
 
   defp publish_controls(assigns) do
+    assigns =
+      assign(assigns,
+        pairings_label:
+          if(assigns.short,
+            do: gettext("Pairings"),
+            else: gettext("Pairings round %{n}", n: assigns.round.number)
+          ),
+        standings_label:
+          if(assigns.short,
+            do: gettext("Standings"),
+            else: gettext("Standings after round %{n}", n: assigns.round.number)
+          ),
+        results_label:
+          if(assigns.short,
+            do: gettext("Results"),
+            else: gettext("Results round %{n}", n: assigns.round.number)
+          )
+      )
+
     ~H"""
     <.publish_toggle
       :if={@tournament.publish_mode == "immediate"}
       id={"#{@id_prefix}pairings-toggle-#{@round.number}"}
-      label={gettext("Pairings round %{n}", n: @round.number)}
+      label={@pairings_label}
       state={:public}
       locked
       reason={immediate_lock_reason()}
@@ -2198,7 +2220,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       <% pairings_public? = Tournaments.round_published?(@tournament, @round) %>
       <.publish_toggle
         id={"#{@id_prefix}pairings-toggle-#{@round.number}"}
-        label={gettext("Pairings round %{n}", n: @round.number)}
+        label={@pairings_label}
         state={if pairings_public?, do: :public, else: :not_public}
         confirm={confirm_unpublish_pairings(@tournament, @round)}
         phx-click={if pairings_public?, do: "unpublish_pairings", else: "publish_pairings"}
@@ -2209,7 +2231,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     <.publish_toggle
       :if={@tournament.publish_mode == "immediate"}
       id={"#{@id_prefix}standings-toggle-#{@round.number}"}
-      label={gettext("Standings after round %{n}", n: @round.number)}
+      label={@standings_label}
       state={:public}
       locked
       reason={immediate_lock_reason()}
@@ -2220,7 +2242,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round.number, @round) %>
       <.publish_toggle
         id={"#{@id_prefix}standings-toggle-#{@round.number}"}
-        label={gettext("Standings after round %{n}", n: @round.number)}
+        label={@standings_label}
         state={if standings_public?, do: :public, else: :not_public}
         disabled={not standings_public? and not is_nil(blocked)}
         reason={standings_reason_text(blocked, @round.number)}
@@ -2234,7 +2256,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     <.publish_toggle
       :if={results_locked}
       id={"#{@id_prefix}results-toggle-#{@round.number}"}
-      label={gettext("Results round %{n}", n: @round.number)}
+      label={@results_label}
       state={:public}
       locked
       reason={results_lock_reason(results_locked, @round.number)}
@@ -2242,7 +2264,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     <.publish_toggle
       :if={is_nil(results_locked)}
       id={"#{@id_prefix}results-toggle-#{@round.number}"}
-      label={gettext("Results round %{n}", n: @round.number)}
+      label={@results_label}
       state={if @round.results_public, do: :public, else: :not_public}
       confirm={
         gettext(
@@ -2864,7 +2886,16 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
 
         <div class="actions" style="margin: 0; align-items: center">
-          <.publish_controls :if={@round != nil} tournament={@tournament} round={@round} />
+          <div
+            :if={@round != nil}
+            id="round-publish-group"
+            class="pe-publish-group"
+            role="group"
+            aria-label={gettext("Round %{n} on the public page", n: @round.number)}
+          >
+            <span class="pe-publish-group-label" aria-hidden="true">{gettext("Public")}</span>
+            <.publish_controls tournament={@tournament} round={@round} short />
+          </div>
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
@@ -2946,25 +2977,31 @@ defmodule PairingsEngineWeb.PairingsLive do
             {gettext("Record missing results as postponed and pair round %{n}", n: @round_number)}
           </button>
 
-          <div
+          <%!-- Everything for this round that is not entering results: what
+                to print, and a "More" menu for the rest - PGN, a results CSV,
+                and unpairing, last and apart. Native <details> menus, so every
+                item is a real link or LiveView button; `.RoundMenu` closes
+                them on an outside click, Escape or a choice, and the `open`
+                attribute survives a re-render (results arrive live). --%>
+          <details
             :if={@round != nil}
-            class="print-menu-wrap"
-            phx-hook=".PrintMenu"
-            id={"print-pairings-menu-#{@round_number}"}
+            id={"round-print-menu-#{@round_number}"}
+            class="pe-dropdown"
+            phx-hook=".RoundMenu"
+            phx-mounted={JS.ignore_attributes(["open"])}
           >
-            <a
-              class="pe-btn"
-              href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
-              target="_blank"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              title={gettext("Right-click for more print options")}
-            >
-              {gettext("Print pairings")} <span class="print-menu-affordance">⋯</span>
-            </a>
-
-            <div class="print-menu-items" hidden>
+            <summary class="pe-btn">{gettext("Print")}</summary>
+            <div class="pe-dropdown-panel" role="menu">
               <a
+                role="menuitem"
+                id={"print-pairings-#{@round_number}"}
+                href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
+                target="_blank"
+              >
+                {gettext("Pairings")}
+              </a>
+              <a
+                role="menuitem"
                 href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
                 target="_blank"
                 title={
@@ -2973,43 +3010,19 @@ defmodule PairingsEngineWeb.PairingsLive do
                   )
                 }
               >
-                {gettext("With absentees section")}
+                {gettext("Pairings, with absentees section")}
               </a>
-            </div>
-          </div>
-
-          <%!-- Standings printing lives on the Standings page (and the print
-                hub) now, not here - this button used to print standings AS
-                OF THIS ROUND (`?round=N`), which neither of those offers:
-                the Standings page has no round selector, it only ever shows
-                the latest paired round, so there is no home there for an
-                arbiter who is looking at an earlier round and wants that
-                round's snapshot. That capability is accepted as lost rather
-                than kept as a special case here - the print hub already has
-                the identical gap (current standings only, no round param),
-                so this does not introduce a new asymmetry, and the URL
-                (`/t/:id/print/standings?round=n`) still works for anyone who
-                needs it, unchanged. --%>
-
-          <div
-            :if={@round != nil}
-            class="print-menu-wrap"
-            phx-hook=".PrintMenu"
-            id={"print-results-menu-#{@round_number}"}
-          >
-            <a
-              class="pe-btn"
-              href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
-              target="_blank"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              title={gettext("Right-click for more print options")}
-            >
-              {gettext("Print result cards")} <span class="print-menu-affordance">⋯</span>
-            </a>
-
-            <div class="print-menu-items" hidden>
+              <hr />
               <a
+                role="menuitem"
+                id={"print-results-#{@round_number}"}
+                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
+                target="_blank"
+              >
+                {gettext("Result cards")}
+              </a>
+              <a
+                role="menuitem"
                 href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
                 target="_blank"
                 title={
@@ -3018,10 +3031,10 @@ defmodule PairingsEngineWeb.PairingsLive do
                   )
                 }
               >
-                {gettext("Test print (first 3 cards)")}
+                {gettext("Result cards: test print (first 3)")}
               </a>
-
               <a
+                role="menuitem"
                 href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
                 target="_blank"
                 title={
@@ -3030,34 +3043,33 @@ defmodule PairingsEngineWeb.PairingsLive do
                   )
                 }
               >
-                {gettext("Stack-cut order")}
+                {gettext("Result cards: stack-cut order")}
               </a>
             </div>
-          </div>
+          </details>
 
-          <div
+          <details
             :if={@round != nil}
-            class="print-menu-wrap"
-            phx-hook=".PrintMenu"
-            id={"pgn-export-menu-#{@round_number}"}
+            id={"round-more-menu-#{@round_number}"}
+            class="pe-dropdown"
+            phx-hook=".RoundMenu"
+            phx-mounted={JS.ignore_attributes(["open"])}
           >
-            <a
-              class="pe-btn"
-              href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
-              target="_blank"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              title={
-                gettext(
-                  "Metadata-only PGN - no moves are recorded in OpenPairings. Right-click for more options"
-                )
-              }
-            >
-              {gettext("Export PGN")} <span class="print-menu-affordance">⋯</span>
-            </a>
-
-            <div class="print-menu-items" hidden>
+            <summary class="pe-btn">{gettext("More")}</summary>
+            <div class="pe-dropdown-panel" role="menu">
+              <span class="pe-dropdown-label">
+                {gettext("PGN (metadata only - no moves are recorded)")}
+              </span>
               <a
+                role="menuitem"
+                id={"export-pgn-#{@round_number}"}
+                href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
+                target="_blank"
+              >
+                {gettext("This round")}
+              </a>
+              <a
+                role="menuitem"
                 href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}&board=1"}
                 target="_blank"
                 title={
@@ -3068,33 +3080,36 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("This round, with board numbers")}
               </a>
-
-              <a href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
+              <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
                 {gettext("All rounds")}
               </a>
-
-              <a href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
+              <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
                 {gettext("All rounds, with board numbers")}
               </a>
+              <hr :if={!@tournament.archived_at} />
+              <button
+                :if={!@tournament.archived_at}
+                type="button"
+                role="menuitem"
+                id={"import-results-csv-#{@round_number}"}
+                phx-click="toggle_import_results"
+              >
+                {gettext("Import results (CSV)")}
+              </button>
+              <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
+              <button
+                :if={@round_number == @paired_rounds && !@tournament.archived_at}
+                type="button"
+                role="menuitem"
+                id={"unpair-round-#{@round_number}"}
+                class="is-danger"
+                phx-click="unpair"
+                data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
+              >
+                {gettext("Unpair round")}
+              </button>
             </div>
-          </div>
-
-          <button
-            :if={@round != nil && !@tournament.archived_at}
-            class="pe-btn"
-            phx-click="toggle_import_results"
-          >
-            {gettext("Import results (CSV)")}
-          </button>
-
-          <button
-            :if={@round != nil && @round_number == @paired_rounds && !@tournament.archived_at}
-            class="pe-btn danger-link"
-            phx-click="unpair"
-            data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
-          >
-            {gettext("Unpair round")}
-          </button>
+          </details>
         </div>
       </div>
 
@@ -3173,16 +3188,19 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </form>
 
-      <p class="hint" style="margin: 8px 0">
-        {gettext(
-          "Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically."
-        )}
-        <strong>{gettext("Right-click any player")}</strong>
-        {gettext("to swap them, or to mark them absent for this round.")}
-        {gettext(
-          "By keyboard, Tab to a player or an empty seat and press Enter or the context-menu key for the same menu; with a swap armed, Enter on the second seat completes it."
-        )}
-      </p>
+      <details id="pairings-tips" class="pe-tips">
+        <summary>{gettext("Keyboard and mouse tips")}</summary>
+        <p class="hint" style="margin: 4px 0 0">
+          {gettext(
+            "Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically."
+          )}
+          <strong>{gettext("Right-click any player")}</strong>
+          {gettext("to swap them, or to mark them absent for this round.")}
+          {gettext(
+            "By keyboard, Tab to a player or an empty seat and press Enter or the context-menu key for the same menu; with a swap armed, Enter on the second seat completes it."
+          )}
+        </p>
+      </details>
 
       <div :if={@swap_first} class="swap-banner" phx-window-keydown="cancel_swap" phx-key="escape">
         <span class="swap-banner-dot"></span>
@@ -4553,137 +4571,31 @@ defmodule PairingsEngineWeb.PairingsLive do
         }
       </script>
 
-      <script :type={Phoenix.LiveView.ColocatedHook} name=".PrintMenu">
-        // Consolidates a print button's variants behind a right-click
-        // context menu instead of a row of separate buttons: left-click on
-        // the anchor still opens the plain/default print in a new tab
-        // (native <a target="_blank"> behavior, untouched); right-click
-        // suppresses the browser's context menu and shows this small popup
-        // built from the hidden ".print-menu-items" sibling's own <a> tags,
-        // so each menu item is a real link with its own href/target/title -
-        // no data-JSON to keep in sync with the markup.
-        //
-        // From the keyboard - the context-menu key or Shift+F10 on the focused
-        // print link - the same menu opens under the link and takes focus:
-        // Up and Down walk it, Enter follows a link, Escape and Tab close it
-        // and put focus back on the link. Before this the variants (the
-        // absentees section, the test print, stack-cut order, the PGN
-        // exports) had no way in without a mouse.
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".RoundMenu">
+        // A <details> menu that closes like a menu: on a click outside it,
+        // on Escape (focus back to its button), and once an item is chosen.
         export default {
           mounted() {
-            this.menu = this.el.querySelector(".print-menu-items");
-            this.trigger = this.el.querySelector("a[aria-haspopup]");
-            this.popup = null;
-            this.keyMenuAt = 0;
-
-            // The key itself, recorded first - the same way `.PairingMenu`
-            // and the Players grid tell a keyboard menu from a mouse one. The
-            // event's own shape (no pointer type, a (0, 0) position) is only
-            // the fallback: not every browser sends either from the keyboard,
-            // and there the menu opened with focus left on the link.
-            this.onKeydown = (e) => {
-              if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
-                this.keyMenuAt = Date.now();
-              }
+            this.close = (refocus) => {
+              if (!this.el.open) return;
+              this.el.open = false;
+              if (refocus) this.el.querySelector("summary").focus();
             };
-            this.el.addEventListener("keydown", this.onKeydown);
-
-            this.onContextMenu = (e) => {
-              e.preventDefault();
-              const fromKeyboard =
-                Date.now() - this.keyMenuAt < 1000 ||
-                e.pointerType === "" ||
-                (e.clientX === 0 && e.clientY === 0);
-              this.keyMenuAt = 0;
-              if (fromKeyboard) {
-                const box = (e.target.closest("a, button") || this.el).getBoundingClientRect();
-                this.opener = this.el.contains(document.activeElement)
-                  ? document.activeElement
-                  : this.trigger;
-                this.openAt(box.left, box.bottom, true);
-              } else {
-                this.openAt(e.clientX, e.clientY, false);
-              }
-            };
-            this.el.addEventListener("contextmenu", this.onContextMenu);
-
             this.onDocMousedown = (e) => {
-              if (this.popup && !this.popup.contains(e.target)) this.close();
+              if (!this.el.contains(e.target)) this.close(false);
             };
-            this.onDocKeydown = (e) => {
-              if (!this.popup) return;
-              const items = Array.from(this.popup.querySelectorAll("a"));
-              const index = items.indexOf(document.activeElement);
-
-              if (e.key === "Escape" || (e.key === "Tab" && index >= 0)) {
-                if (e.key === "Tab") e.preventDefault();
-                this.close(true);
-              } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && items.length) {
-                e.preventDefault();
-                const step = e.key === "ArrowDown" ? 1 : -1;
-                items[(index + step + items.length) % items.length].focus();
-              }
+            this.onKeydown = (e) => {
+              if (e.key === "Escape") this.close(true);
+            };
+            this.onClick = (e) => {
+              if (e.target.closest("[role=menuitem]")) this.close(false);
             };
             document.addEventListener("mousedown", this.onDocMousedown);
-            document.addEventListener("keydown", this.onDocKeydown);
+            this.el.addEventListener("keydown", this.onKeydown);
+            this.el.addEventListener("click", this.onClick);
           },
-
-          openAt(x, y, takeFocus) {
-            this.close();
-
-            const popup = document.createElement("div");
-            popup.className = "print-menu-popup";
-            popup.setAttribute("role", "menu");
-            popup.style.left = `${x}px`;
-            popup.style.top = `${y}px`;
-
-            Array.from(this.menu.querySelectorAll("a")).forEach((link) => {
-              const item = link.cloneNode(true);
-              item.setAttribute("role", "menuitem");
-              item.addEventListener("click", () => this.close());
-              popup.appendChild(item);
-            });
-
-            document.body.appendChild(popup);
-            this.popup = popup;
-            if (this.trigger) this.trigger.setAttribute("aria-expanded", "true");
-
-            if (takeFocus) {
-              const first = () => popup.querySelector("a");
-              first()?.focus();
-              // And once more after the event has finished: a browser can put
-              // focus back on the element the context-menu key was pressed on
-              // once the (cancelled) menu event is done, and a LiveView patch
-              // landing in between can do the same.
-              setTimeout(() => {
-                if (this.popup === popup && !popup.contains(document.activeElement)) first()?.focus();
-              }, 0);
-            }
-          },
-
-          // `refocus` when the keyboard closed it: back onto the print link.
-          close(refocus) {
-            if (this.popup) {
-              this.popup.remove();
-              this.popup = null;
-              if (this.trigger) this.trigger.setAttribute("aria-expanded", "false");
-              const back = (this.opener?.isConnected && this.opener) || this.trigger;
-              if (refocus && back) back.focus();
-            }
-          },
-
-          // A patch re-renders the link with `aria-expanded="false"`; an open
-          // menu must keep saying it is open.
-          updated() {
-            if (this.trigger) this.trigger.setAttribute("aria-expanded", this.popup ? "true" : "false");
-          },
-
           destroyed() {
-            this.close();
-            this.el.removeEventListener("keydown", this.onKeydown);
-            this.el.removeEventListener("contextmenu", this.onContextMenu);
             document.removeEventListener("mousedown", this.onDocMousedown);
-            document.removeEventListener("keydown", this.onDocKeydown);
           }
         }
       </script>

@@ -203,20 +203,27 @@ defmodule PairingsEngineWeb.HookEventsTest do
     end
   end
 
-  describe "the print menus (.PrintMenu)" do
-    # F8 of docs/js-hooks-audit-2026-09-13.md: each menu's trigger says it has
-    # a menu and starts collapsed; the hook keeps `aria-expanded` in step.
-    test "every trigger is a menu button, collapsed", %{conn: conn, tournament: t} do
+  describe "the round menus (.RoundMenu)" do
+    # The round's Print and More menus are native <details>: the <summary> is
+    # the button (focusable, Enter/Space toggle it, the browser reports it
+    # expanded or not), they start closed, and `open` survives a re-render.
+    test "Print and More start closed, with their items inside", %{conn: conn, tournament: t} do
       {:ok, _round} = Pairing.pair_next_round(Tournaments.get_tournament!(t.id))
       {:ok, view, _} = live(conn, ~p"/t/#{t.id}/pairings")
 
       document = view |> render() |> LazyHTML.from_fragment()
-      wraps = LazyHTML.query(document, "[phx-hook$='.PrintMenu']")
-      triggers = LazyHTML.query(document, "[phx-hook$='.PrintMenu'] > a[aria-haspopup='menu']")
+      menus = LazyHTML.query(document, "details[phx-hook$='.RoundMenu']")
 
-      assert Enum.count(wraps) == 3
-      assert Enum.count(triggers) == 3
-      assert triggers |> LazyHTML.attribute("aria-expanded") |> Enum.uniq() == ["false"]
+      assert Enum.count(menus) == 2
+      assert menus |> LazyHTML.attribute("open") |> Enum.reject(&is_nil/1) == []
+
+      assert Enum.count(LazyHTML.query(document, "details[phx-hook$='.RoundMenu'] > summary")) ==
+               2
+
+      assert Enum.count(
+               LazyHTML.query(document, "details[phx-hook$='.RoundMenu'] [role='menuitem']")
+             ) >
+               5
     end
   end
 end

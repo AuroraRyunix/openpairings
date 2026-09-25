@@ -1448,6 +1448,99 @@ button.pe-btn, .pe-btn {
 .pe-toggle:disabled { opacity: 0.6; cursor: default; }
 .pe-toggle.is-locked { cursor: default; }
 
+/* The round header's publish switches, grouped: one frame, a "Public"
+   label, and the switches inside it without frames of their own. */
+.pe-publish-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 4px 2px 12px;
+  background: var(--surface);
+}
+.pe-publish-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+.pe-publish-group .pe-toggle {
+  border-color: transparent;
+  background: transparent;
+  padding: 3px 10px 3px 4px;
+}
+.pe-publish-group .pe-toggle:hover:not(:disabled) { background: var(--bg); }
+
+/* A button that opens a small menu (<details>/<summary>, see `.RoundMenu`
+   on the Pairings page). Like `.topbar-menu`, the panel is display:none
+   until [open], so its box never adds invisible overflow. */
+.pe-dropdown { position: relative; display: inline-block; }
+.pe-dropdown > summary { list-style: none; }
+.pe-dropdown > summary::-webkit-details-marker { display: none; }
+.pe-dropdown > summary::after {
+  content: "\25BE";
+  font-size: 10px;
+  margin-left: 6px;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.pe-dropdown[open] > summary::after { transform: rotate(180deg); }
+.pe-dropdown-panel { display: none; }
+.pe-dropdown[open] > .pe-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+.pe-dropdown-panel > a,
+.pe-dropdown-panel > button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pe-dropdown-panel > a:hover,
+.pe-dropdown-panel > button:hover { background: var(--bg); }
+.pe-dropdown-panel > a:focus-visible,
+.pe-dropdown-panel > button:focus-visible {
+  background: var(--bg);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.pe-dropdown-panel > .is-danger { color: var(--danger); }
+.pe-dropdown-panel > hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+.pe-dropdown-label {
+  padding: 6px 12px 2px;
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+
+/* The Pairings page's tips, one line until opened. */
+.pe-tips { margin: 8px 0; }
+.pe-tips > summary { cursor: pointer; color: var(--text-soft); font-size: 13px; width: max-content; }
+
 /* The persistent "this tournament is archived" banner shown at the top of
    every page of an archived tournament. Louder than .hint, quieter than
    .error-note - this is a state, not a failure. */
@@ -1599,8 +1692,6 @@ button.pe-btn, .pe-btn {
 .search-results .kbsb-result-row:last-child { border-bottom: none; }
 
 /* print button right-click menu */
-.print-menu-wrap { display: inline-block; }
-.print-menu-affordance { color: var(--text-soft); margin-left: 2px; }
 
 .print-menu-popup {
   position: fixed;

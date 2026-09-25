@@ -72,9 +72,9 @@ row shows the player's name, a label (`requested half-point bye`,
 the tournament's configured scoring (`PairingsEngine.Standings.bye_points/2`
 - the same rule `PairingsEngineWeb.PairingsLive` uses for its own
 "Absentees"-shaped section on the Pairings page, see there for the byes vs.
-pairing-allocated-bye distinction in more depth). The Pairings page's "Print
-pairings" link stays absentee-off by default; a second "Print pairings
-(with absentees)" link opens the same document with `?absentees=1`.
+pairing-allocated-bye distinction in more depth). The Pairings page's Print
+menu has "Pairings" (absentee-off) and "Pairings, with absentees section",
+which opens the same document with `?absentees=1`.
 
 ## Result cards
 
@@ -150,8 +150,8 @@ full except the last two, exactly as required for the cut to make sense.
 
 `?order=stack` combines naturally with `?limit`: `limit` is applied first
 (trimming the board-ordered list), and the stack-cut imposition then runs
-over whatever's left. The Pairings page's "Print result cards (stack-cut
-order)" button links here with `order=stack`.
+over whatever's left. The Pairings page's Print menu item "Result cards:
+stack-cut order" links here with `order=stack`.
 
 ## Place cards (chevalets)
 

@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **A tidier round header on the Pairings page.** The three publish
+  switches sit together in one "Public" group, named Pairings, Standings and
+  Results (the heading already says which round). Printing is one "Print"
+  menu: pairings, pairings with the absentees section, result cards, a test
+  print and the stack-cut order. The rest is under "More": the PGN
+  downloads, "Import results (CSV)", and "Unpair round", last and in red,
+  apart from everything else. The long tip under the round is folded into
+  one "Keyboard and mouse tips" line.
+
 - [Change] **The TRF downloads moved to Settings, Export.** "Export TRF (all
   rounds)", the rounds you choose, and "Export TRF for sending" with its
   "Finalise" tick are now together in a TRF section there, with the notes

@@ -85,10 +85,8 @@ inside the quoted string) before being written.
 
 ## Where the control lives
 
-The Pairings page has an "Export PGN" link next to the print and TRF export
-links, scoped to the currently selected round (`?round=<selected round>`) -
-plain `GET`/`<a target="_blank">`, so it opens in a new tab without routing
-through the LiveView socket, same as every other export/print link there.
-Right-click it (same `.PrintMenu` hook the "Print pairings"/"Print result
-cards" buttons use) for three more variants: this round with board numbers,
-every round, and every round with board numbers.
+The Pairings page's "More" menu (beside "Print", in the round's header) has
+the four PGN downloads under a "PGN" heading: this round (`?round=<selected
+round>`), this round with board numbers, every round, and every round with
+board numbers - plain `GET`/`<a target="_blank">` links, so they open in a
+new tab without routing through the LiveView socket.
