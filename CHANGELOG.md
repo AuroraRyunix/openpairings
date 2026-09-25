@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.65.1] - 2026-09-25
+
 - [Change] **A tidier round header on the Pairings page.** The three publish
   switches sit together in one "Public" group, named Pairings, Standings and
   Results (the heading already says which round). Printing is one "Print"
