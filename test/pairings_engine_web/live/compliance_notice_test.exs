@@ -52,7 +52,13 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
       swiss_codes =
         [
           %Tournament{pairing_system: "swiss", pair_by_category: true},
-          %Tournament{pairing_system: "swiss", swiss_match_format: true}
+          %Tournament{pairing_system: "swiss", swiss_match_format: true},
+          %Tournament{
+            pairing_system: "swiss",
+            postponed_games: true,
+            postponed_requester_outcome: "win",
+            postponed_opponent_outcome: "loss"
+          }
         ]
         |> Enum.flat_map(&Enum.map(Compliance.check(&1), fn d -> d.code end))
         |> MapSet.new()

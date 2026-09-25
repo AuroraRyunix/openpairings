@@ -9,6 +9,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     Audit,
     PairingDisplay,
     PairingRationale,
+    PostponedGames,
     ResultsImport,
     RoundRobin,
     Snapshots,
@@ -19,6 +20,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngineWeb.Postponed
 
   @results [
     {"", "…"},
@@ -33,7 +35,11 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"0-0", "0-0 (both lose, game played)"},
     {"1-0U", "1-0 (played, not rated)"},
     {"0-1U", "0-1 (played, not rated)"},
-    {"1/2-1/2U", "½-½ (played, not rated)"}
+    {"1/2-1/2U", "½-½ (played, not rated)"},
+    # Labelled at render time by `results/2`, so the words go through
+    # gettext, and offered only where the tournament allows postponed games.
+    {"*W", :postponed_white},
+    {"*B", :postponed_black}
   ]
 
   # The labels above belong to this page; the CODES do not. They must be
@@ -74,6 +80,11 @@ defmodule PairingsEngineWeb.PairingsLive do
        # select's markup guarantees a patch fires on every refusal, so the
        # hook's existing data-result resync actually runs.
        write_refused_nonce: 0,
+       # The postponed-game warnings the last "pair" click confirmed, and the
+       # missing results it is recording as postponed - see
+       # `handle_event("pair", ...)` and `note_recorded_missing/1`.
+       pair_acknowledged: [],
+       recorded_missing: nil,
        # Set while a team Swiss round is pairing in a supervised task (see
        # `do_pair_team_swiss_async/1`) - 300-500 teams can take 10-50
        # seconds, run IN THIS BEAM with no subprocess timeout of its own.
@@ -86,6 +97,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # The pairing (if any) awaiting explicit confirmation to have its
        # result CLEARED - see `handle_event("result", ...)`'s guard below.
        confirm_clear_pairing_id: nil,
+       # A postponed game given a result that is not a draw, staged until the
+       # arbiter confirms it (`%{pairing_id:, result:}`) - VCL4THP Q163, see
+       # `handle_event("confirm_postponed_result", ...)`.
+       confirm_postponed: nil,
        # The board whose result select takes focus back when it reappears:
        # the clear-confirmation box replaces the select that had focus, and
        # without this closing the box dropped the keyboard at the top of the
@@ -166,6 +181,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp refresh(socket, opts \\ []) do
     %{tournament: t, round_number: n} = socket.assigns
     paired = Engine.paired_rounds_count(t.id)
+    postponed_open = PostponedGames.open_games(t)
     missing_setup = Tournament.missing_setup_fields(t)
     setup_complete = missing_setup == []
     round = Tournaments.get_round(t.id, n)
@@ -197,6 +213,13 @@ defmodule PairingsEngineWeb.PairingsLive do
         recommended_missing: Tournament.missing_recommended_fields(t),
         can_pair:
           setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
+        # Postponed games (VCL4THP Q157-169): every one still to be played,
+        # so it can be found and given its result from any round, and the
+        # warnings pairing the next round comes with.
+        postponed_open: postponed_open,
+        sent_rounds: PostponedGames.sent_rounds(t),
+        ambiguous_players: PostponedGames.ambiguous_players(t.id),
+        pairing_warnings: PostponedGames.pairing_warnings(t, postponed_open),
         team_matches: team_matches(t, round),
         teams_by_id: teams_by_id(t),
         unattached_boards: unattached_boards(t, round)
@@ -306,7 +329,9 @@ defmodule PairingsEngineWeb.PairingsLive do
      |> refresh()}
   end
 
-  def handle_event("pair", _params, socket) do
+  def handle_event("pair", params, socket) do
+    socket = assign(socket, pair_acknowledged: acknowledged(params))
+
     cond do
       # Belt and braces beside the button's own `disabled` - a second "pair"
       # event that reached the mailbox before the first one's task replied
@@ -739,6 +764,15 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The same for a round already sent in a TRF finalised for sending (see
+  # `stage/2`): its own box, because it is its own reason.
+  def handle_event("toggle_sent_ack", _params, socket) do
+    case socket.assigns.confirm do
+      nil -> {:noreply, socket}
+      confirm -> {:noreply, assign(socket, confirm: Map.update!(confirm, :sent_ack, &(!&1)))}
+    end
+  end
+
   def handle_event("apply_confirm", _params, socket) do
     apply_confirm(socket, socket.assigns.confirm)
   end
@@ -799,7 +833,23 @@ defmodule PairingsEngineWeb.PairingsLive do
               to: result
             })
 
-            {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
+            {:noreply,
+             socket |> assign(confirm_clear_pairing_id: nil, confirm_postponed: nil) |> refresh()}
+
+          # A postponed game given a result that is not a draw (VCL4THP
+          # Q163), or a result already sent in a finalised TRF. Nothing was
+          # written; the choice is staged and the board asks first, the way
+          # clearing a result does. The nonce bump puts the select back to
+          # what is stored in the meantime.
+          {:error, {:needs_acknowledgement, ids}} ->
+            {:noreply,
+             socket
+             |> assign(
+               confirm_clear_pairing_id: nil,
+               confirm_postponed: %{pairing_id: pairing.id, result: result, ids: ids},
+               write_refused_nonce: socket.assigns.write_refused_nonce + 1
+             )
+             |> refresh()}
 
           {:error, reason} ->
             {:noreply,
@@ -812,6 +862,55 @@ defmodule PairingsEngineWeb.PairingsLive do
              |> refresh()}
         end
     end
+  end
+
+  # The arbiter confirmed a result that is not a draw for a postponed game.
+  # Re-fetched from the round on screen rather than trusted from the staged
+  # map, and written with the one acknowledgement the confirmation stood for
+  # - if the board has changed underneath (someone else entered a result, or
+  # postponed it again), the write path decides afresh.
+  def handle_event("confirm_postponed_result", %{"pairing-id" => id}, socket) do
+    %{tournament: t, round_number: round_number, confirm_postponed: staged} = socket.assigns
+
+    with %{pairing_id: staged_id, result: result, ids: ids} <- staged,
+         true <- to_string(staged_id) == id,
+         %{} = pairing <- Enum.find(socket.assigns.round.pairings, &(&1.id == staged_id)) do
+      previous = pairing.result
+
+      case Tournaments.update_pairing_result(pairing, result, acknowledged: ids) do
+        {:ok, _} ->
+          Audit.log(t.id, socket.assigns.current_scope, "pairing.result_changed", %{
+            pairing_id: pairing.id,
+            round: round_number,
+            board: pairing.board,
+            white: player_name(pairing.white_player),
+            black: player_name(pairing.black_player),
+            from: previous,
+            to: result,
+            confirmed: Enum.map_join(ids, ",", &Atom.to_string/1)
+          })
+
+          {:noreply,
+           socket |> assign(confirm_postponed: nil, refocus_result: pairing.id) |> refresh()}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, error_text(reason))
+           |> assign(
+             confirm_postponed: nil,
+             write_refused_nonce: socket.assigns.write_refused_nonce + 1
+           )
+           |> refresh()}
+      end
+    else
+      _ -> {:noreply, socket |> assign(confirm_postponed: nil) |> refresh()}
+    end
+  end
+
+  def handle_event("cancel_postponed_result", _params, socket) do
+    refocus = socket.assigns.confirm_postponed && socket.assigns.confirm_postponed.pairing_id
+    {:noreply, assign(socket, confirm_postponed: nil, refocus_result: refocus)}
   end
 
   # The explicit second click confirming a blank-result overwrite staged by
@@ -1092,7 +1191,21 @@ defmodule PairingsEngineWeb.PairingsLive do
     case confirm_for(socket, action) do
       {:ok, confirm} ->
         frozen? = frozen_round?(socket)
-        confirm = Map.merge(confirm, %{frozen: frozen?, frozen_ack: !frozen?})
+
+        # A round already sent to the federation: who played whom in it is
+        # on file there, and a change here cannot reach that file. Blocked
+        # behind its own warning and tick; `Tournaments` refuses too.
+        sent? =
+          PostponedGames.round_sent?(socket.assigns.tournament.id, socket.assigns.round_number)
+
+        confirm =
+          Map.merge(confirm, %{
+            frozen: frozen?,
+            frozen_ack: !frozen?,
+            sent: sent?,
+            sent_ack: !sent?
+          })
+
         assign(socket, confirm: confirm, menu: nil, seat_pick: nil)
 
       {:error, _reason} ->
@@ -1370,6 +1483,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # courtesy, not a guarantee - refuse server-side too rather than trust
   # it.
   defp apply_confirm(socket, %{frozen: true, frozen_ack: false}), do: {:noreply, socket}
+  defp apply_confirm(socket, %{sent: true, sent_ack: false}), do: {:noreply, socket}
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
@@ -1412,27 +1526,29 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp edited_pairing_id(_round, _confirm, _old_round), do: nil
 
   defp apply_confirmed(socket, confirm, round, t) do
+    ack = if confirm[:sent], do: [acknowledged: [:sent_round_changed]], else: []
+
     result =
       case confirm do
         %{kind: :swap, a_id: a, b_id: b} ->
-          Tournaments.swap_players_in_round(round, a, b)
+          Tournaments.swap_players_in_round(round, a, b, ack)
 
         %{kind: :swap_pool, seated_id: s, pool_id: p} ->
-          Tournaments.swap_seated_with_pool_player(round, s, p)
+          Tournaments.swap_seated_with_pool_player(round, s, p, ack)
 
         %{kind: :vacate, player_id: p} ->
-          Tournaments.vacate_seat(round, p)
+          Tournaments.vacate_seat(round, p, "absent", ack)
 
         %{kind: :bye, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
-               do: Tournaments.award_bye_for_vacancy(round, pairing)
+               do: Tournaments.award_bye_for_vacancy(round, pairing, ack)
 
         %{kind: :fill, pairing_id: id, player_id: p} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
-               do: Tournaments.fill_seat(round, pairing, p)
+               do: Tournaments.fill_seat(round, pairing, p, ack)
 
         %{kind: :pool_pair, a_id: a, b_id: b, board: board} ->
-          Tournaments.pair_from_pool(round, a, b, board)
+          Tournaments.pair_from_pool(round, a, b, board, ack)
 
         %{kind: :delete_pairing, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
@@ -1441,10 +1557,15 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case result do
       {:ok, _} ->
-        Audit.log(t.id, socket.assigns.current_scope, audit_action(confirm.kind), %{
-          round: socket.assigns.round_number,
-          summary: confirm.subtitle
-        })
+        Audit.log(
+          t.id,
+          socket.assigns.current_scope,
+          audit_action(confirm.kind),
+          Map.merge(
+            %{round: socket.assigns.round_number, summary: confirm.subtitle},
+            if(confirm[:sent], do: %{confirmed: "sent_round_changed"}, else: %{})
+          )
+        )
 
         socket = socket |> assign(error: nil) |> refresh()
 
@@ -1676,7 +1797,38 @@ defmodule PairingsEngineWeb.PairingsLive do
           summary: "Before pairing round #{socket.assigns.round_number}"
         )
 
-        apply_pair_result(socket, Engine.pair_next_round(socket.assigns.tournament))
+        socket
+        |> assign(recorded_missing: missing_to_record(socket))
+        |> apply_pair_result(
+          Engine.pair_next_round(socket.assigns.tournament,
+            acknowledged: socket.assigns.pair_acknowledged
+          )
+        )
+    end
+  end
+
+  # The postponed-game warnings the arbiter confirmed on the button they
+  # clicked (`phx-value-acknowledged`, comma-separated ids). Only ids the
+  # write path knows are kept, so a crafted value cannot mint an atom.
+  defp acknowledged(%{"acknowledged" => ids}) when is_binary(ids) do
+    known = Map.new(PostponedGames.acknowledgement_ids(), &{Atom.to_string(&1), &1})
+
+    ids
+    |> String.split(",", trim: true)
+    |> Enum.flat_map(&List.wrap(Map.get(known, String.trim(&1))))
+  end
+
+  defp acknowledged(_params), do: []
+
+  # The missing results this pairing run will record as postponed, when the
+  # arbiter confirmed that - kept so the page can say so once the round is
+  # paired, and write it to the audit trail.
+  defp missing_to_record(socket) do
+    if :missing_results_recorded_as_adjourned in socket.assigns.pair_acknowledged do
+      Enum.find(
+        socket.assigns.pairing_warnings,
+        &(&1.id == :missing_results_recorded_as_adjourned)
+      )
     end
   end
 
@@ -1698,17 +1850,25 @@ defmodule PairingsEngineWeb.PairingsLive do
       summary: "Before pairing round #{round_number}"
     )
 
+    acknowledged = socket.assigns.pair_acknowledged
+
     Task.Supervisor.start_child(PairingsEngine.TaskSupervisor, fn ->
-      result = Engine.pair_next_round(tournament)
+      result = Engine.pair_next_round(tournament, acknowledged: acknowledged)
       send(parent, {:team_pairing_result, tournament.id, result})
     end)
 
-    {:noreply, assign(socket, pairing_in_progress: true, error: nil)}
+    {:noreply,
+     assign(socket,
+       pairing_in_progress: true,
+       error: nil,
+       recorded_missing: missing_to_record(socket)
+     )}
   end
 
   defp apply_pair_result(socket, result) do
     case result do
       {:ok, round} ->
+        socket = note_recorded_missing(socket)
         log_round_paired(socket, round.number)
         {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
 
@@ -1719,6 +1879,32 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply, assign(socket, error: error_text(reason))}
     end
   end
+
+  # The round was paired after its missing results were recorded as
+  # postponed (VCL4THP Q159-160): said on the page and kept in the trail, so
+  # the recording is not a side effect nobody sees.
+  defp note_recorded_missing(%{assigns: %{recorded_missing: %{round: n, count: count}}} = socket) do
+    Audit.log(
+      socket.assigns.tournament.id,
+      socket.assigns.current_scope,
+      "pairing.missing_recorded_postponed",
+      %{round: n, count: count}
+    )
+
+    socket
+    |> assign(recorded_missing: nil)
+    |> put_flash(
+      :info,
+      ngettext(
+        "Round %{round}'s board without a result was recorded as a postponed game.",
+        "Round %{round}'s %{count} boards without a result were recorded as postponed games.",
+        count,
+        round: n
+      )
+    )
+  end
+
+  defp note_recorded_missing(socket), do: socket
 
   # Round-robin pairs its whole Berger schedule in one click instead of one
   # round at a time (see RoundRobin.pair_all_rounds/1's doc - there's
@@ -1781,7 +1967,35 @@ defmodule PairingsEngineWeb.PairingsLive do
     )
   end
 
-  defp results, do: @results
+  # The result select's options for `pairing`. The two postponed codes only
+  # when the tournament allows postponed games; the unnamed `*` - recorded at
+  # pairing time or read from a TRF, never offered - only on the board that
+  # holds it, so the select shows what is stored rather than its first option.
+  defp results(tournament, pairing) do
+    offered =
+      Enum.flat_map(@results, fn
+        {"*W", :postponed_white} ->
+          if tournament.postponed_games,
+            do: [{"*W", gettext("* postponed by White")}],
+            else: []
+
+        {"*B", :postponed_black} ->
+          if tournament.postponed_games,
+            do: [{"*B", gettext("* postponed by Black")}],
+            else: []
+
+        other ->
+          [other]
+      end)
+
+    held =
+      if pairing.result == "*" or
+           (PairingsEngine.Results.postponed?(pairing.result) and not tournament.postponed_games),
+         do: [{pairing.result, gettext("* postponed")}],
+         else: []
+
+    offered ++ held
+  end
 
   # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
   # the flash/tooltip shown when pairing is blocked - the on-page banner (see
@@ -1822,6 +2036,51 @@ defmodule PairingsEngineWeb.PairingsLive do
   # Bare display name for an audit-log payload (nil = a bye's empty side).
   defp player_name(nil), do: nil
   defp player_name(player), do: player.name
+
+  # A results-import problem: a sentence from `ResultsImport`, or the one
+  # reason it hands over to be worded here.
+  defp import_error_text({:postponed_non_draw, board}),
+    do:
+      gettext(
+        "board %{board}: the game was postponed and counted provisionally for pairing - enter a result that is not a draw on this page, where it is confirmed",
+        board: board
+      )
+
+  defp import_error_text({:finalised_result_changed, board}),
+    do:
+      gettext(
+        "board %{board}: this result was already sent in a TRF finalised for sending - change it on this page, where it is confirmed",
+        board: board
+      )
+
+  defp import_error_text({:postponed_games_off, board}),
+    do:
+      gettext(
+        "board %{board}: this tournament does not allow postponed games - turn them on under Settings, Scoring first",
+        board: board
+      )
+
+  defp import_error_text(text), do: text
+
+  ## ---------- postponed games: the pair buttons' confirmations ----------
+
+  defp has_warning?(warnings, id), do: Enum.any?(warnings, &(&1.id == id))
+
+  # The ids of `ids` that apply now, as the button's `phx-value-acknowledged`
+  # - the confirmation text the arbiter read and the acknowledgement the
+  # click carries come from the same list, so they cannot say different
+  # things. nil (no attribute) when none applies.
+  defp acknowledged_value(warnings, ids) do
+    case Enum.filter(ids, &has_warning?(warnings, &1)) do
+      [] -> nil
+      present -> Enum.map_join(present, ",", &Atom.to_string/1)
+    end
+  end
+
+  # The browser confirmation for the same warnings (`Postponed.pair_confirm_text/2`).
+  defp pair_confirm_text(warnings, ids, next_round) do
+    warnings |> Enum.filter(&(&1.id in ids)) |> Postponed.pair_confirm_text(next_round)
+  end
 
   defp player_label(nil), do: ""
 
@@ -2523,6 +2782,46 @@ defmodule PairingsEngineWeb.PairingsLive do
               {gettext("Export rounds…")}
             </button>
           </form>
+
+          <%!-- The TRF an arbiter SENDS - to the federation's rating office.
+                POST, because with its box ticked it marks every exported
+                result as sent (`PostponedGames.finalise/2`), and a GET that
+                could do that would be fired by a link prefetch. --%>
+          <.form
+            for={%{}}
+            id="trf-send-form"
+            action={~p"/t/#{@tournament.id}/export/trf"}
+            method="post"
+            target="_blank"
+            style="display: flex; gap: 6px; align-items: center; margin: 0"
+          >
+            <input
+              type="text"
+              name="rounds"
+              placeholder={gettext("all rounds")}
+              aria-label={gettext("Rounds to send")}
+              class="pe-select"
+              style="width: 110px"
+            />
+            <label class="field-check" style="margin: 0">
+              <input type="hidden" name="finalise" value="false" />
+              <input type="checkbox" name="finalise" value="true" id="trf-send-finalise" />
+              {gettext("Finalise results for TRF sending")}
+            </label>
+            <button type="submit" class="pe-btn">{gettext("Export TRF for sending")}</button>
+          </.form>
+          <span :if={@sent_rounds != []} id="trf-sent-rounds" class="hint">
+            {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
+          </span>
+
+          <.link
+            :if={@tournament.postponed_games}
+            id="postponed-page-link"
+            class="pe-btn"
+            navigate={~p"/t/#{@tournament.id}/postponed"}
+          >
+            {gettext("Postponed games")}
+          </.link>
         </div>
       </div>
 
@@ -2535,6 +2834,82 @@ defmodule PairingsEngineWeb.PairingsLive do
           "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
         )}
       </p>
+
+      <%!-- Beside sending (`:sent_games_ambiguous_players`): the record of
+            sent games names a player with no FIDE ID by name, so two with
+            one name are one player to it. It warns; sending still works. --%>
+      <div
+        :if={@ambiguous_players != []}
+        id="sent-games-ambiguous-players"
+        class="card"
+        role="status"
+        style="display: block; margin: 0 0 12px; border-left: 3px solid var(--warn)"
+      >
+        {Postponed.ambiguous_players_text(@ambiguous_players)}
+      </div>
+
+      <p
+        :if={@postponed_open != []}
+        id="postponed-trf-not-final"
+        class="hint"
+        style="margin-top: -8px; margin-bottom: 12px"
+      >
+        {Postponed.trf_not_final_text(length(@postponed_open))}
+        <span
+          :if={
+            @tournament.postponed_requester_outcome != "draw" or
+              @tournament.postponed_opponent_outcome != "draw"
+          }
+          id="postponed-trf-counts-draw"
+        >
+          {gettext(
+            "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
+          )}
+          <%!-- Checked against `TrfExport`: the TRF26 download writes `?`
+                but values it at a draw (`X` in 162), and the older spelling
+                writes the draw itself, so neither carries the provisional
+                points the rounds were paired with. --%>
+          <span id="postponed-trf-outside-checkers">
+            {gettext(
+              "So an outside pairing program or checker (JaVaFo, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
+            )}
+          </span>
+        </span>
+      </p>
+
+      <%!-- Every postponed game still to be played, whichever round is on
+            screen (VCL4THP Q162): its result can be entered at any time, and
+            this is where it is found. Each one opens its own round. --%>
+      <div
+        :if={@postponed_open != []}
+        id="postponed-games"
+        class="card"
+        style="display: block; margin: 12px 0; border-left: 3px solid var(--warn)"
+      >
+        <strong>{Postponed.not_final_text(length(@postponed_open))}</strong>
+        <ul style="margin: 6px 0 0; padding-left: 20px">
+          <li :for={game <- @postponed_open} id={"postponed-game-#{game.pairing.id}"}>
+            {gettext("Round %{round}, board %{board}: %{white} - %{black}",
+              round: game.round,
+              # The frozen label the pairing sheet prints, like every other
+              # board number an arbiter reads on this page.
+              board: game.pairing.display_board || game.pairing.board,
+              white: player_name(game.pairing.white_player),
+              black: player_name(game.pairing.black_player)
+            )}
+            <button
+              :if={game.round != @round_number}
+              type="button"
+              class="pe-btn"
+              id={"postponed-open-round-#{game.pairing.id}"}
+              phx-click="select_round"
+              phx-value-number={game.round}
+            >
+              {gettext("Go to round %{n}", n: game.round)}
+            </button>
+          </li>
+        </ul>
+      </div>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("Finish the tournament setup before pairing - still missing:")}
@@ -2581,9 +2956,17 @@ defmodule PairingsEngineWeb.PairingsLive do
           <p class="subtitle" style="margin: 0">
             <span class={["badge", @round == nil && "muted"]}>
               {cond do
-                @round == nil -> "not paired"
-                Enum.any?(@round.pairings, &(&1.result == "")) -> "playing"
-                true -> "finished"
+                @round == nil ->
+                  "not paired"
+
+                Enum.any?(@round.pairings, &(&1.result == "")) ->
+                  "playing"
+
+                Enum.any?(@round.pairings, &PairingsEngine.Results.postponed?(&1.result)) ->
+                  gettext("postponed game still to be played")
+
+                true ->
+                  "finished"
               end}
             </span>
           </p>
@@ -2594,13 +2977,22 @@ defmodule PairingsEngineWeb.PairingsLive do
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
+            id="pair-round"
             phx-click="pair"
+            phx-value-acknowledged={
+              acknowledged_value(@pairing_warnings, [:adjourned_older_round_open])
+            }
             disabled={!@can_pair || @pairing_in_progress}
             data-confirm={
-              @tournament.pairing_system == "round_robin" &&
-                "This generates the whole round-robin schedule at once (every round, not just " <>
-                  "this one) and locks in who's playing - anyone added afterward won't be in " <>
-                  "it, and the schedule can't be changed once it exists. Continue?"
+              cond do
+                @tournament.pairing_system == "round_robin" ->
+                  "This generates the whole round-robin schedule at once (every round, not just " <>
+                    "this one) and locks in who's playing - anyone added afterward won't be in " <>
+                    "it, and the schedule can't be changed once it exists. Continue?"
+
+                true ->
+                  pair_confirm_text(@pairing_warnings, [:adjourned_older_round_open], @next_pairable)
+              end
             }
             title={
               cond do
@@ -2628,6 +3020,39 @@ defmodule PairingsEngineWeb.PairingsLive do
               true ->
                 "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"
             end}
+          </button>
+
+          <%!-- The last round still has boards without a result, and every
+                one of them has two players: pairing can record them as
+                postponed and go ahead (VCL4THP Q159), once the arbiter has
+                read what that does (Q160). The button above stays disabled
+                for exactly this case, so recording is always a separate,
+                deliberate click. --%>
+          <button
+            :if={
+              @round == nil && @round_number == @next_pairable && !@tournament.archived_at &&
+                !@can_pair && @setup_complete && @next_pairable <= @tournament.rounds_count &&
+                has_warning?(@pairing_warnings, :missing_results_recorded_as_adjourned)
+            }
+            id="pair-recording-postponed"
+            class="pe-btn"
+            phx-click="pair"
+            phx-value-acknowledged={
+              acknowledged_value(@pairing_warnings, [
+                :missing_results_recorded_as_adjourned,
+                :adjourned_older_round_open
+              ])
+            }
+            disabled={@pairing_in_progress}
+            data-confirm={
+              pair_confirm_text(
+                @pairing_warnings,
+                [:missing_results_recorded_as_adjourned, :adjourned_older_round_open],
+                @next_pairable
+              )
+            }
+          >
+            {gettext("Record missing results as postponed and pair round %{n}", n: @round_number)}
           </button>
 
           <div
@@ -2845,7 +3270,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <div :if={@import_errors} class="error-note" style="display: block">
           <strong>{gettext("Nothing was saved - fix these and try again:")}</strong>
           <ul style="margin: 6px 0 0">
-            <li :for={err <- @import_errors}>{err}</li>
+            <li :for={err <- @import_errors}>{import_error_text(err)}</li>
           </ul>
         </div>
 
@@ -3004,6 +3429,38 @@ defmodule PairingsEngineWeb.PairingsLive do
               )}
             </p>
 
+            <%!-- The loudest thing in the dialog: the federation already has
+                  this round. --%>
+            <div
+              :if={@confirm[:sent]}
+              class="pe-modal-warn"
+              id="confirm-sent-round"
+              role="alert"
+              style="border-width: 2px; font-size: 1.05em"
+            >
+              <strong>
+                {gettext(
+                  "⚠ Round %{n} was already sent to FIDE in a TRF finalised for sending.",
+                  n: @round_number
+                )}
+              </strong>
+              <p style="margin: 6px 0 0">
+                {gettext(
+                  "This changes who played whom here only: the file that was sent keeps the old pairing, and the tournament will no longer agree with it. The round stays marked as sent and is not sent again. Only go on to correct a real mistake, and tell the rating officer."
+                )}
+              </p>
+
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input
+                  type="checkbox"
+                  id="confirm-sent-ack"
+                  checked={@confirm.sent_ack}
+                  phx-click="toggle_sent_ack"
+                />
+                {gettext("I understand - change the sent round %{n} anyway", n: @round_number)}
+              </label>
+            </div>
+
             <div :if={@confirm.frozen} class="pe-modal-warn">
               <strong>
                 {gettext("You're changing round %{n}, not the current round (round %{current}).",
@@ -3027,7 +3484,10 @@ defmodule PairingsEngineWeb.PairingsLive do
               type="button"
               class="pe-btn primary pe-modal-go"
               phx-click="apply_confirm"
-              disabled={@confirm.frozen and !@confirm.frozen_ack}
+              disabled={
+                (@confirm.frozen and !@confirm.frozen_ack) or
+                  (@confirm[:sent] == true and !@confirm.sent_ack)
+              }
             >
               {@confirm.title}
             </button>
@@ -3072,7 +3532,24 @@ defmodule PairingsEngineWeb.PairingsLive do
               <td :if={!m.bye? and m.complete?} class="num">
                 {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
               </td>
-              <td :if={!m.bye? and !m.complete?} class="num">
+              <%!-- A match with a postponed board is not complete: its score
+                    is the provisional one the next round is paired with, the
+                    postponed boards counting as draws. --%>
+              <td
+                :if={!m.bye? and m.scored? and !m.complete?}
+                class="num"
+                id={"match-provisional-#{m.match_id}"}
+              >
+                {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
+                <span class="hint">
+                  {ngettext(
+                    "(provisional: %{count} board postponed)",
+                    "(provisional: %{count} boards postponed)",
+                    m.postponed_boards
+                  )}
+                </span>
+              </td>
+              <td :if={!m.bye? and !m.scored?} class="num">
                 <span class="hint">{gettext("in progress")}</span>
               </td>
               <td :if={m.bye?}>-</td>
@@ -3234,6 +3711,18 @@ defmodule PairingsEngineWeb.PairingsLive do
                         )}
                     <% end %>
                   </p>
+
+                  <%!-- A postponed game in the last round counts as a draw for
+                        this pairing (VCL4THP Q158, Q167) - said beside the
+                        button, not asked: nothing is unusual about it. --%>
+                  <p
+                    :for={w <- @pairing_warnings}
+                    :if={w.id == :adjourned_counted_as_draw and @round_number == @next_pairable}
+                    id="postponed-counted-as-draw"
+                    class="hint"
+                  >
+                    {Postponed.pairing_warning_text(w, @next_pairable)}
+                  </p>
                 </div>
               </td>
             </tr>
@@ -3263,6 +3752,54 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
                     <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
+                  <% @confirm_postponed && @confirm_postponed.pairing_id == pairing.id -> %>
+                    <%!-- A postponed game given a result that is not a draw
+                          (VCL4THP Q163): the same shape as clearing a result,
+                          focus on Cancel. --%>
+                    <div class="confirm-clear-result" id={"confirm-postponed-#{pairing.id}"}>
+                      <span class="hint" id={"confirm-postponed-text-#{pairing.id}"}>
+                        <span :if={:adjourned_non_draw_result in @confirm_postponed.ids}>
+                          {Postponed.non_draw_text(
+                            @round_number,
+                            display_board,
+                            @confirm_postponed.result,
+                            pairing
+                          )}
+                        </span>
+                        <span
+                          :if={:finalised_result_changed in @confirm_postponed.ids}
+                          id={"confirm-finalised-#{pairing.id}"}
+                        >
+                          {Postponed.finalised_changed_text(
+                            @round_number,
+                            display_board,
+                            @confirm_postponed.result
+                          )}
+                        </span>
+                      </span>
+
+                      <button
+                        type="button"
+                        class="pe-btn primary"
+                        id={"confirm-postponed-yes-#{pairing.id}"}
+                        phx-click="confirm_postponed_result"
+                        phx-value-pairing-id={pairing.id}
+                        aria-describedby={"confirm-postponed-text-#{pairing.id}"}
+                      >
+                        {gettext("Enter %{result}", result: @confirm_postponed.result)}
+                      </button>
+
+                      <button
+                        type="button"
+                        class="pe-btn"
+                        id={"confirm-postponed-cancel-#{pairing.id}"}
+                        phx-click="cancel_postponed_result"
+                        aria-describedby={"confirm-postponed-text-#{pairing.id}"}
+                        phx-mounted={JS.focus()}
+                      >
+                        {gettext("Cancel")}
+                      </button>
+                    </div>
                   <% @confirm_clear_pairing_id == pairing.id -> %>
                     <%!-- This box REPLACES the result select, which had focus, so
                           focus is put on Cancel as it appears - the safe answer,
@@ -3322,7 +3859,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         disabled={!is_nil(@tournament.archived_at)}
                       >
                         <option
-                          :for={{value, label} <- results()}
+                          :for={{value, label} <- results(@tournament, pairing)}
                           value={value}
                           selected={pairing.result == value}
                         >

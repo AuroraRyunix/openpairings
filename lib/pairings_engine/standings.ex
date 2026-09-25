@@ -791,7 +791,8 @@ defmodule PairingsEngine.Standings do
             bye_type: bye.type,
             # A bye is not a game, so it has no outcome. Every consumer
             # branches on `opponent_id: nil` before it would ask.
-            outcome: :none
+            outcome: :none,
+            postponed: false
           }
 
           {record, absent_count}
@@ -899,6 +900,15 @@ defmodule PairingsEngine.Standings do
     # All of that is now stated once, in the table there.
     {w_outcome, b_outcome, played, forfeit} = Results.classify(pairing.result)
 
+    # A postponed game counts as what the board was given when it was
+    # postponed - a draw unless the tournament counts it otherwise for the
+    # player who asked for it. `provisional_outcome/2` is the one reading of
+    # that, and everything below scores it like any other outcome.
+    {w_outcome, b_outcome} =
+      if Results.postponed?(pairing.result),
+        do: {provisional_outcome(pairing, true), provisional_outcome(pairing, false)},
+        else: {w_outcome, b_outcome}
+
     {wp, bp} =
       if pairing.result == "bye" do
         # A pairing-allocated bye scores via bye_points/2 - the single
@@ -908,6 +918,8 @@ defmodule PairingsEngine.Standings do
       else
         {outcome_points(t, w_outcome), outcome_points(t, b_outcome)}
       end
+
+    postponed? = Results.postponed?(pairing.result)
 
     {w_earned?, b_earned?} = presence_earned(pairing.result)
     w_present? = presence? and w_earned?
@@ -936,7 +948,12 @@ defmodule PairingsEngine.Standings do
       # Five screens used to answer it apiece by comparing `points` against
       # `t.points_win`, which reads a 3-2-1 draw (worth exactly points_win)
       # as a win. See PairingsEngine.Results.
-      outcome: w_outcome
+      outcome: w_outcome,
+      # A postponed game (`"*"`) scores, pairs and breaks ties as the draw
+      # `Results` classifies it as - nothing here treats it differently. The
+      # flag is for the readers that must not take it for a finished game:
+      # the "not final" notices, a norm, a rating estimate, the player card.
+      postponed: postponed?
     }
 
     if b == nil or pairing.result == "bye" do
@@ -953,10 +970,40 @@ defmodule PairingsEngine.Standings do
           played: played,
           voluntary: false,
           bye_type: nil,
-          outcome: b_outcome
+          outcome: b_outcome,
+          postponed: postponed?
         }
       ]
     end
+  end
+
+  @doc """
+  What one side of a postponed game counts as until it is played: the
+  outcome frozen on the board when it was postponed (`provisional_white` /
+  `provisional_black`), a draw when none was - the FIDE rule, and the
+  reading of every board postponed before the setting existed.
+  """
+  def provisional_outcome(%Pairing{} = pairing, white?) do
+    case if(white?, do: pairing.provisional_white, else: pairing.provisional_black) do
+      "win" -> :win
+      "loss" -> :loss
+      _draw_or_unset -> :draw
+    end
+  end
+
+  @doc """
+  The points one side of a postponed game is credited with while it waits,
+  presence point included - read off the same records `standings/2` adds up,
+  so the pairing engine's score column (`Pairing.player_points/2`) is the
+  crosstable's number and not a second opinion of it.
+  """
+  def provisional_points(%Pairing{} = pairing, white?, tournament) do
+    colour = if white?, do: :w, else: :b
+
+    pairing
+    |> pairing_records(0, tournament, true)
+    |> Enum.find(%{points: 0.0}, &(&1.colour == colour))
+    |> Map.fetch!(:points)
   end
 
   # What an outcome is worth. The one thing about a result that depends on
@@ -1002,6 +1049,20 @@ defmodule PairingsEngine.Standings do
   It reads the one table now, so there is nothing left to keep in step.
   """
   def played_result?(result), do: Results.played?(result)
+
+  @doc """
+  Whether a game record (as `standings/2` builds them) was played over the
+  board AND its result is known - a game a rating or a norm can be built on.
+
+  A postponed game (`postponed: true`) is `played` for the standings and the
+  tie-breaks, where it counts as the draw it stands for until it is played;
+  it is not a finished game. A norm, a performance rating or an expected
+  score counted from a draw nobody has played yet would be a figure the
+  arbiter could not stand behind, and it would move when the real result
+  came in.
+  """
+  def finished_game?(%{played: true} = game), do: not Map.get(game, :postponed, false)
+  def finished_game?(_game), do: false
 
   @doc """
   SWAR 3-2-1 presence points for one game, keyed by its **TRF code**.
@@ -1086,6 +1147,11 @@ defmodule PairingsEngine.Standings do
   # Byes are deliberately NOT handled here - they score through
   # `bye_points/2`, and their 3-2-1 treatment has open questions this pass
   # did not settle (see docs/swar-import.md).
+  #
+  # A postponed game (`"*"`) is a draw until it is played, and a 3-2-1 draw
+  # is worth its presence point too - the Ainalrami bridge values every draw
+  # with it - so it earns presence for both sides like the draw it stands in
+  # for. Leaving it out would score the same half point two ways.
   defp presence_earned(result)
        when result in [
               "1-0",
@@ -1096,7 +1162,10 @@ defmodule PairingsEngine.Standings do
               "0-0",
               "1-0U",
               "0-1U",
-              "1/2-1/2U"
+              "1/2-1/2U",
+              "*",
+              "*W",
+              "*B"
             ],
        do: {true, true}
 

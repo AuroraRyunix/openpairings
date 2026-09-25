@@ -126,6 +126,16 @@ defmodule PairingsEngine.Compliance do
       setting: :swiss_match_format,
       code: :mirrored_second_leg,
       restore_to: [false]
+    },
+    %{
+      setting: :postponed_requester_outcome,
+      code: :postponed_requester_not_draw,
+      restore_to: ["draw"]
+    },
+    %{
+      setting: :postponed_opponent_outcome,
+      code: :postponed_opponent_not_draw,
+      restore_to: ["draw"]
     }
   ]
 
@@ -188,6 +198,18 @@ defmodule PairingsEngine.Compliance do
   # paired by C.04.3, and a checker fed the TRF would say so about every
   # even-numbered one.
   defp departed?(:swiss_match_format, t), do: swiss?(t) and t.swiss_match_format == true
+
+  # A postponed game counts as a draw until it is played - VCL4THP Q167 fails
+  # a program that allows any other provisional score. A club may still want
+  # to "punish" the player who asked for it by counting it as a win for them
+  # (they are then paired higher up), and that is a legitimate club rule,
+  # but not a FIDE one. Only while the tournament allows postponed games at
+  # all: with them off, the two values are never read.
+  defp departed?(:postponed_requester_outcome, t),
+    do: t.postponed_games == true and t.postponed_requester_outcome not in [nil, "draw"]
+
+  defp departed?(:postponed_opponent_outcome, t),
+    do: t.postponed_games == true and t.postponed_opponent_outcome not in [nil, "draw"]
 
   # Both booleans above are inert unless the tournament actually pairs Swiss
   # - their own schema comments say "never read otherwise", the same

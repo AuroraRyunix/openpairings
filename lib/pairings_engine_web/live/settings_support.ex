@@ -449,6 +449,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def compliance_setting_label(:pair_by_category), do: gettext("Pair by category")
   def compliance_setting_label(:swiss_match_format), do: gettext("Match format")
 
+  def compliance_setting_label(:postponed_requester_outcome),
+    do: gettext("Postponed game, for the player who postponed it")
+
+  def compliance_setting_label(:postponed_opponent_outcome),
+    do: gettext("Postponed game, for the opponent")
+
   @doc """
   What one `PairingsEngine.Compliance` code means, in an arbiter's words.
 
@@ -469,6 +475,18 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "Each category is paired as a separate tournament and the results are merged into one round, so two players on the same score never meet if they are in different categories. That is not a pairing C.04.3 can produce for one field of players. Running the sections as separate tournaments does the same thing without this."
       )
 
+  def compliance_message(:postponed_requester_not_draw),
+    do:
+      gettext(
+        "A postponed game counts as something other than a draw for the player who postponed it. FIDE allows only a draw until the game is played. A draw puts this back."
+      )
+
+  def compliance_message(:postponed_opponent_not_draw),
+    do:
+      gettext(
+        "A postponed game counts as something other than a draw for the opponent. FIDE allows only a draw until the game is played. A draw puts this back."
+      )
+
   def compliance_message(:mirrored_second_leg),
     do:
       gettext(
@@ -482,6 +500,10 @@ defmodule PairingsEngineWeb.SettingsSupport do
   """
   def compliance_setting_path(tournament, :pair_by_category),
     do: ~p"/t/#{tournament.id}/categories"
+
+  def compliance_setting_path(tournament, setting)
+      when setting in [:postponed_requester_outcome, :postponed_opponent_outcome],
+      do: ~p"/t/#{tournament.id}/settings/scoring"
 
   # pairing_system and swiss_match_format both live on the Options page.
   def compliance_setting_path(tournament, _setting),
@@ -820,6 +842,24 @@ defmodule PairingsEngineWeb.SettingsSupport do
   # The individual (JaVaFo/Ainalrami) path's own crash guard
   # (`PairingsEngine.Pairing.run_ainalrami/5`) - same discipline as the team
   # path above: the round is left unpaired, nothing else changed.
+  # A postponed-game warning the write path waits on (VCL4THP Q159-168) that
+  # arrived unconfirmed - see `PairingsEngine.PostponedGames`. The pages that
+  # can trigger one ask first, so this is the fallback for a stale tab.
+  def error_text({:needs_acknowledgement, ids}) when is_list(ids),
+    do: PairingsEngineWeb.Postponed.needs_acknowledgement_text(ids)
+
+  def error_text(:round_sent_in_trf),
+    do:
+      gettext(
+        "This round's results were finalised and sent in a TRF, so it cannot be unpaired: the games that were sent would have nothing behind them."
+      )
+
+  def error_text(:postponed_games_off),
+    do:
+      gettext(
+        "This tournament does not allow postponed games - turn them on under Settings, Scoring first."
+      )
+
   def error_text({:pairing_crashed, _round, nil}),
     do:
       gettext(

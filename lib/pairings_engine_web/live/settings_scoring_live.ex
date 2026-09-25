@@ -137,7 +137,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     params =
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur team_match_points_win team_match_points_draw team_match_points_loss))
+        absent_counts_as_vur team_match_points_win team_match_points_draw team_match_points_loss
+        postponed_games postponed_requester_outcome postponed_opponent_outcome))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_nbfois", socket.assigns.abs_scoring_locked?)
@@ -155,6 +156,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
         log_unlocked_field_changes(socket, base, tournament, unlock_fields)
+        log_compliance_departures(socket, base, tournament)
 
         {:noreply,
          assign(socket,
@@ -175,6 +177,16 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   defp maybe_drop_locked(params, _key, false), do: params
   defp maybe_drop_locked(params, key, true), do: Map.delete(params, key)
+
+  # Outcomes rather than points, so the setting scales with the tournament's
+  # own scoring (a 3-2-1 club's "win" is 3).
+  defp postponed_outcome_options do
+    [
+      {"draw", gettext("A draw (FIDE)")},
+      {"win", gettext("A win")},
+      {"loss", gettext("A loss")}
+    ]
+  end
 
   defp abs_scoring_warning,
     do:
@@ -202,6 +214,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       </div>
 
       <.settings_subnav tournament={@tournament} active={:scoring} />
+
+      <.compliance_notice tournament={@tournament} />
 
       <.stale_banner stale={@stale} />
 
@@ -412,6 +426,70 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
               )}
             </div>
           </.setting_group>
+        </div>
+
+        <div class="card" id="postponed-settings">
+          <h2>{gettext("Postponed games")}</h2>
+
+          <p class="subtitle" style="margin: 0 0 8px">
+            {gettext(
+              "A game that is not played in its round - moved to a later date, or adjourned - can be recorded as postponed by White or by Black. The tournament goes on; until the game is played it counts as set here, in the standings, the tie-breaks and the pairing. Changing these values later only affects games postponed after the change."
+            )}
+          </p>
+
+          <.setting_group>
+            <label class="set-toggle">
+              <input type="hidden" name="tournament[postponed_games]" value="false" />
+              <input
+                type="checkbox"
+                id="postponed-games-toggle"
+                name="tournament[postponed_games]"
+                value="true"
+                checked={@tournament.postponed_games}
+              />
+              <span class="set-toggle-text">
+                {gettext("Allow postponed games")}
+                <span class="hint">
+                  {gettext(
+                    "Off (the default) = no postponed option is offered anywhere. On = the result lists offer \"postponed by White\" and \"postponed by Black\", and a Postponed games page lists them and exports their TRF."
+                  )}
+                </span>
+              </span>
+            </label>
+
+            <.setting_field label={gettext("Counts as, for the player who postponed it")}>
+              <select
+                name="tournament[postponed_requester_outcome]"
+                id="postponed-requester-outcome"
+              >
+                <option
+                  :for={{value, label} <- postponed_outcome_options()}
+                  value={value}
+                  selected={@tournament.postponed_requester_outcome == value}
+                >
+                  {label}
+                </option>
+              </select>
+            </.setting_field>
+
+            <.setting_field label={gettext("Counts as, for the opponent")}>
+              <select name="tournament[postponed_opponent_outcome]" id="postponed-opponent-outcome">
+                <option
+                  :for={{value, label} <- postponed_outcome_options()}
+                  value={value}
+                  selected={@tournament.postponed_opponent_outcome == value}
+                >
+                  {label}
+                </option>
+              </select>
+            </.setting_field>
+          </.setting_group>
+
+          <p class="hint" style="margin: 8px 0 0">
+            {gettext(
+              "FIDE allows only a draw for both. Anything else - a win for the player who postponed it, so they are paired higher up, for example - takes the tournament out of FIDE mode."
+            )}
+          </p>
         </div>
 
         <div class="actions form-actions">

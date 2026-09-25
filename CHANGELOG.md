@@ -50,6 +50,117 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **A round still in progress no longer moves the team
   tie-breaks.** They count the rounds whose every match is finished. Match
   points, which rank first, still count every finished match.
+- [Feature] **Postponed games, per tournament.** A game that is not played
+  in its round - moved to a later evening by agreement, or adjourned - can
+  now be recorded as postponed. Turn it on under Settings, Scoring
+  ("Allow postponed games"); it is off by default, and off means no
+  postponed option is offered anywhere. When on, the result list on the
+  Pairings page (and on a phone) offers "postponed by White" and "postponed
+  by Black". The tournament goes on. Every postponed game still to be played
+  is listed at the top of the Pairings page, with a button to its round, so
+  its real result can be entered at any time, however many rounds later.
+- [Feature] **What a postponed game counts as, until it is played.** Also
+  under Settings, Scoring: one value for the player who postponed it and one
+  for the opponent, each a draw, a win or a loss. The default is a draw for
+  both, which is what FIDE allows; anything else (a win for the player who
+  postponed, so they are paired higher up, for example) takes the
+  tournament out of FIDE mode, and the page says so. The value counts
+  everywhere - standings, tie-breaks and the pairing of the next rounds -
+  and is stored on the game when it is postponed, so changing the setting
+  later only affects games postponed after the change.
+- [Feature] **Postponed games page.** With postponed games on, a page lists
+  every game ever postponed: who postponed it, what it counts as, when it
+  was played (a date, today unless you change it) and what has been sent of
+  it.
+- [Feature] **Finalise results for TRF sending.** The TRF export for sending
+  on the Pairings page has a box, "Finalise results for TRF sending". Ticked,
+  the download marks every result of the exported rounds as sent. A sent
+  result can still be changed, but only after a confirmation, and a round
+  that was sent cannot be finalised a second time or unpaired, so no game
+  goes to FIDE twice. The rounds already sent are shown beside the button.
+  A copy can always be downloaded with the box unticked. The whole file is
+  refused while an exported round has a board with no result at all.
+- [Feature] **What was sent survives a restore.** Every game sent in a
+  finalised TRF is also kept in a record that a restore point or a hand-off
+  return does not replace, and the "sent" marks are put back on every game
+  still there afterwards. Going back to before a round was sent, even to
+  before it was paired, cannot make that round sendable again. A restore
+  that would take away a sent game, or give it another result, shows a
+  warning listing those games and needs its own tick besides the typed
+  word.
+- [Feature] **A round that was sent is protected from hand edits.**
+  Swapping players, marking one absent, filling a seat, awarding a bye or
+  pairing from the pool in a round already sent to FIDE shows a large
+  warning and needs its own tick before it goes through. The round stays
+  marked as sent. The audit trail says the warning was confirmed.
+- [Feature] **Absences in a sent round are protected too.** Changing a
+  player's "Absent at the rounds" in the player dialog on the Players page
+  so that it adds or removes a round already sent shows the same large
+  warning, and Save waits for its own tick. The round stays marked as sent,
+  and the audit trail says the warning was confirmed.
+- [Feature] **A warning when the sent-games record cannot tell two players
+  apart.** The record names a player with no FIDE ID by name, so two such
+  players with the same name (ignoring case and spaces) are one player to
+  it. The Pairings page says so beside the TRF for sending, naming them;
+  sending still works, and the audit trail notes the warning. A restore or
+  a hand-off return that puts the sent marks back says so too when one of
+  those players has a sent game.
+- [Feature] **A postponed-games TRF.** A game still open when its round was
+  sent goes in that report as `?`, and every later report writes it as `?`
+  again, so a file that was sent never changes. A game played before its
+  round is sent simply goes in that round with its result. A game played
+  after goes in a separate TRF on the Postponed games page instead: extra
+  rounds, as few as possible, with nobody playing twice in a round, and only
+  the players of those games in it. Finalising that file marks its games as
+  sent, so each goes to FIDE exactly once.
+- [Feature] **Pairing with a result missing records it as postponed.** If
+  the last round still has boards without a result, a second button beside
+  "Pair round" offers to record them as postponed games and pair the next
+  round. It says what that does and asks first; the page then says which
+  boards it recorded, and so does the audit trail. The ordinary button still
+  refuses, as before.
+- [Feature] **Warnings where a postponed game matters.** Entering a result
+  that is not a draw for a postponed game asks for confirmation first,
+  because the rounds paired since counted it provisionally and stay as they
+  are; the question says what it counted as. Pairing a round while a postponed game from an older round is still
+  open asks too. A postponed game in the last round is simply noted beside
+  the button. A results CSV cannot give a postponed game a result that is
+  not a draw, or change a result already sent in a finalised TRF: the
+  import names the board and says to enter it on the Pairings page, where
+  the confirmation is.
+- [Feature] **Standings say "not final" while a game is postponed.** The
+  Standings page, the printed standings and team standings and the cross
+  tables carry a banner as long as a postponed game is still to be played,
+  and the tournament stays "running" rather than "finished" even after the
+  last round, until it is played.
+- [Feature] **The TRF marks a postponed game as an unknown result.** The
+  TRF26 export writes `?` for both players, and the `162` record gives it
+  the value of a draw (`X`), the value FIDE's format gives an unknown
+  result, so the file's points column adds up from the file itself. The
+  older spelling writes the draw and scores it as one too. The Pairings
+  page says the export is not final while one is open, and, when a
+  postponed game counts as something other than a draw, that the file's
+  points can differ from the standings until it is played, and that an
+  outside pairing program or checker (JaVaFo, a FIDE pairing checker)
+  cannot reproduce the rounds paired since from either download. Only the file
+  the app hands its own pairing engine, which is never sent anywhere,
+  carries the value the tournament counts the game as.
+- [Feature] **The KBSB upload says "Voorlopige stand"** instead of
+  "Eindstand" above the standings while a postponed game is still to be
+  played.
+- [Change] **A `?` in an imported TRF becomes a postponed game.** It used
+  to be imported as a blank result, which stopped the next round from being
+  paired. It is now kept unknown - counted as a draw until its result is
+  entered - and the import says which rounds carry one. Importing such a
+  file turns postponed games on for the tournament.
+- [Fix] **Importing a TRF with a `?` result no longer crashes the page.**
+  The notice about it was the one import notice the page could not read.
+- [Change] **Norms, performance ratings and expected scores leave a
+  postponed game out** until it is played, and the SWAR export writes it as
+  not played yet. PGN exports it as `*`.
+- [Change] **A team match with a postponed board is not complete.** Its
+  score is shown as provisional, with the number of boards postponed, and
+  the next round is paired with that provisional score.
 - [Fix] **Badges: the KBSB logo is back** as the default right-hand logo on
   both sides, and the stray black bar on the front's right edge is gone. The
   logos, QR code and room numbers sit lower, as on the original design, and

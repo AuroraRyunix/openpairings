@@ -35,8 +35,8 @@ defmodule PairingsEngineWeb.HistoryLive do
   """
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Audit, Snapshots, Tournaments}
-  alias PairingsEngineWeb.{AuditLive, SettingsSupport}
+  alias PairingsEngine.{Audit, PostponedGames, Snapshots, Tournaments}
+  alias PairingsEngineWeb.{AuditLive, Postponed, SettingsSupport}
 
   # How many audit rows to pull. The stream is merged with snapshots and
   # rendered in full (no pagination) - this is the "recent narrative" view,
@@ -99,6 +99,11 @@ defmodule PairingsEngineWeb.HistoryLive do
        expanded_changes: MapSet.new(),
        restore_target: nil,
        restore_confirm: "",
+       # Games already sent in a TRF that the restore would take away or
+       # change (`Snapshots.sent_conflicts/2`), and whether the arbiter
+       # ticked that they know. See `restore_modal/1`.
+       restore_sent: [],
+       restore_sent_ack: false,
        snapshot_label: ""
      )
      |> load_stream()}
@@ -203,8 +208,17 @@ defmodule PairingsEngineWeb.HistoryLive do
 
   def handle_event("restore_start", %{"id" => id}, socket) do
     case Snapshots.get(socket.assigns.tournament.id, id) do
-      nil -> {:noreply, socket}
-      snapshot -> {:noreply, assign(socket, restore_target: snapshot, restore_confirm: "")}
+      nil ->
+        {:noreply, socket}
+
+      snapshot ->
+        {:noreply,
+         assign(socket,
+           restore_target: snapshot,
+           restore_confirm: "",
+           restore_sent: Snapshots.sent_conflicts(socket.assigns.tournament, snapshot.id),
+           restore_sent_ack: false
+         )}
     end
   end
 
@@ -212,14 +226,20 @@ defmodule PairingsEngineWeb.HistoryLive do
     {:noreply, assign(socket, restore_target: nil, restore_confirm: "")}
   end
 
-  def handle_event("restore_confirm_input", %{"confirm" => value}, socket) do
-    {:noreply, assign(socket, restore_confirm: value)}
+  def handle_event("restore_confirm_input", %{"confirm" => value} = params, socket) do
+    {:noreply,
+     assign(socket, restore_confirm: value, restore_sent_ack: params["sent_ack"] == "true")}
   end
 
-  def handle_event("restore_confirmed", _params, socket) do
+  def handle_event("restore_confirmed", params, socket) do
     case socket.assigns do
+      %{restore_target: %{} = snapshot, restore_confirm: "RESTORE", restore_sent: []} ->
+        do_restore(socket, snapshot, [])
+
       %{restore_target: %{} = snapshot, restore_confirm: "RESTORE"} ->
-        do_restore(socket, snapshot)
+        if params["sent_ack"] == "true",
+          do: do_restore(socket, snapshot, [:sent_games_changed]),
+          else: {:noreply, socket}
 
       _ ->
         {:noreply, socket}
@@ -249,28 +269,63 @@ defmodule PairingsEngineWeb.HistoryLive do
     ) || socket.assigns.tournament
   end
 
-  defp do_restore(socket, snapshot) do
+  defp do_restore(socket, snapshot, acknowledged) do
     tournament = socket.assigns.tournament
+    sent_changed = length(socket.assigns.restore_sent)
 
-    case Snapshots.restore(tournament, snapshot.id, socket.assigns.current_scope) do
+    case Snapshots.restore(tournament, snapshot.id, socket.assigns.current_scope,
+           acknowledged: acknowledged
+         ) do
       {:ok, restored} ->
-        Audit.log(restored.id, socket.assigns.current_scope, "snapshot.restored", %{
-          snapshot_id: snapshot.id,
-          restored_to: snapshot.summary || "",
-          taken_at: DateTime.to_iso8601(snapshot.inserted_at)
-        })
+        # The marks the restore re-applied cannot tell these players apart
+        # (`:sent_games_ambiguous_players`); said on screen and in the trail.
+        ambiguous = PostponedGames.ambiguous_sent_players(restored.id)
 
-        {:noreply,
-         socket
-         |> assign(tournament: restored, restore_target: nil, restore_confirm: "")
-         |> put_flash(:info, "Restored. The state you left is saved as a new restore point.")
-         |> load_stream()}
+        Audit.log(
+          restored.id,
+          socket.assigns.current_scope,
+          "snapshot.restored",
+          Map.merge(
+            %{
+              snapshot_id: snapshot.id,
+              restored_to: snapshot.summary || "",
+              taken_at: DateTime.to_iso8601(snapshot.inserted_at)
+            },
+            Map.merge(
+              if(acknowledged == [], do: %{}, else: %{sent_games_changed: sent_changed}),
+              if(ambiguous == [],
+                do: %{},
+                else: %{ambiguous_players: Enum.map(ambiguous, &hd(&1.names))}
+              )
+            )
+          )
+        )
+
+        socket =
+          socket
+          |> assign(tournament: restored, restore_target: nil, restore_confirm: "")
+          |> put_flash(:info, "Restored. The state you left is saved as a new restore point.")
+
+        socket =
+          if ambiguous == [],
+            do: socket,
+            else: put_flash(socket, :error, Postponed.ambiguous_sent_text(ambiguous))
+
+        {:noreply, load_stream(socket)}
 
       {:error, :archived} ->
         {:noreply,
          socket
          |> assign(restore_target: nil, restore_confirm: "")
          |> put_flash(:error, "This tournament is archived - unarchive it to restore.")}
+
+      # Something was sent since the dialog opened: ask again, with the list.
+      {:error, {:needs_acknowledgement, _ids}} ->
+        {:noreply,
+         assign(socket,
+           restore_sent: Snapshots.sent_conflicts(tournament, snapshot.id),
+           restore_sent_ack: false
+         )}
 
       {:error, reason} ->
         {:noreply,
@@ -676,6 +731,8 @@ defmodule PairingsEngineWeb.HistoryLive do
         :if={@restore_target}
         snapshot={@restore_target}
         confirm={@restore_confirm}
+        sent={@restore_sent}
+        sent_ack={@restore_sent_ack}
       />
     </Layouts.app>
     """
@@ -799,6 +856,8 @@ defmodule PairingsEngineWeb.HistoryLive do
 
   attr :snapshot, :map, required: true
   attr :confirm, :string, required: true
+  attr :sent, :list, default: []
+  attr :sent_ack, :boolean, default: false
 
   defp restore_modal(assigns) do
     ~H"""
@@ -841,6 +900,28 @@ defmodule PairingsEngineWeb.HistoryLive do
           )}
         </p>
 
+        <%!-- Games already sent to the federation that this restore takes
+              away or changes. The file that went out cannot be recalled from
+              here, so this is the loudest thing in the dialog, and it needs
+              its own tick on top of the typed word. --%>
+        <div :if={@sent != []} class="setting-warning" id="restore-sent-warning" role="alert">
+          <strong>
+            {ngettext(
+              "⚠ A game already sent to FIDE in a finalised TRF would be taken away or changed.",
+              "⚠ %{count} games already sent to FIDE in a finalised TRF would be taken away or changed.",
+              length(@sent)
+            )}
+          </strong>
+          <ul>
+            <li :for={game <- @sent}>{sent_conflict_text(game)}</li>
+          </ul>
+          <p>
+            {gettext(
+              "The file that was sent keeps what it said, and the tournament would no longer agree with it. Those rounds stay marked as sent, so they are never sent again - correct the difference with the rating officer."
+            )}
+          </p>
+        </div>
+
         <p>
           <.rich_text text={gettext("Type %[word] to confirm.")}>
             <:part name="word"><strong>RESTORE</strong></:part>
@@ -860,8 +941,23 @@ defmodule PairingsEngineWeb.HistoryLive do
             placeholder="RESTORE"
             aria-label={gettext("Type RESTORE to confirm")}
           />
+          <label :if={@sent != []} class="field-check">
+            <input type="hidden" name="sent_ack" value="false" />
+            <input
+              type="checkbox"
+              name="sent_ack"
+              value="true"
+              id="restore-sent-ack"
+              checked={@sent_ack}
+            />
+            {gettext("I know these games were already sent, and restore anyway")}
+          </label>
           <div class="actions">
-            <button type="submit" class="pe-btn danger" disabled={@confirm != "RESTORE"}>
+            <button
+              type="submit"
+              class="pe-btn danger"
+              disabled={@confirm != "RESTORE" or (@sent != [] and not @sent_ack)}
+            >
               {gettext("Go back to this point")}
             </button>
             <button type="button" class="pe-btn" phx-click="restore_cancel">{gettext("Cancel")}</button>
@@ -871,6 +967,25 @@ defmodule PairingsEngineWeb.HistoryLive do
     </div>
     """
   end
+
+  defp sent_conflict_text(%{restored: nil} = game),
+    do:
+      gettext("Round %{round}: %{white} - %{black}, sent as %{sent} - not in this restore point",
+        round: game.round,
+        white: game.white || "-",
+        black: game.black || "-",
+        sent: game.sent_as
+      )
+
+  defp sent_conflict_text(game),
+    do:
+      gettext("Round %{round}: %{white} - %{black}, sent as %{sent} - would become %{restored}",
+        round: game.round,
+        white: game.white || "-",
+        black: game.black || "-",
+        sent: game.sent_as,
+        restored: if(game.restored in [nil, ""], do: gettext("no result"), else: game.restored)
+      )
 
   attr :value, :any, required: true
   attr :side, :string, required: true

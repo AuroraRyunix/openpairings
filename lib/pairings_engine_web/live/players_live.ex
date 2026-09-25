@@ -139,6 +139,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_form: %{},
        edit_error: nil,
        edit_fide_conflicts: nil,
+       edit_sent_rounds: [],
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
@@ -452,7 +453,9 @@ defmodule PairingsEngineWeb.PlayersLive do
       |> Map.new(fn {player, idx} -> {player.id, idx} end)
 
     Enum.map(entries, fn entry ->
-      played_games = Enum.filter(entry.games, & &1.played)
+      # Finished games only - a postponed one has no result yet
+      # (`Standings.finished_game?/1`).
+      played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
       opponent_ratings =
         played_games
@@ -1017,7 +1020,8 @@ defmodule PairingsEngineWeb.PlayersLive do
            editing_player: player,
            edit_form: player_to_form(player),
            edit_error: nil,
-           edit_fide_conflicts: nil
+           edit_fide_conflicts: nil,
+           edit_sent_rounds: []
          )}
     end
   end
@@ -1030,7 +1034,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        editing_player: nil,
        edit_form: %{},
        edit_error: nil,
-       edit_fide_conflicts: nil
+       edit_fide_conflicts: nil,
+       edit_sent_rounds: []
      )}
   end
 
@@ -1048,7 +1053,14 @@ defmodule PairingsEngineWeb.PlayersLive do
         do: Map.put(params, "categories", form_categories(params)),
         else: params
 
-    {:noreply, assign(socket, edit_form: params, edit_fide_conflicts: nil)}
+    # Absences typed into a round already sent bring up its warning as they
+    # are typed, not only when Save is refused.
+    {:noreply,
+     assign(socket,
+       edit_form: params,
+       edit_fide_conflicts: nil,
+       edit_sent_rounds: Tournaments.sent_absence_rounds(socket.assigns.editing_player, params)
+     )}
   end
 
   # Mirrors SWAR's "Rafraichir": re-looks-up the player in the local FIDE
@@ -1164,10 +1176,16 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  # Absences in a round already sent (`:sent_round_changed`) wait for the
+  # dialog's own tick, `player[sent_ack]`; `update_player/3` refuses
+  # without it, whatever the page showed.
   def handle_event("save_player", %{"player" => params}, socket) do
     before = socket.assigns.editing_player
+    sent = Tournaments.sent_absence_rounds(before, params)
+    ack? = params["sent_ack"] == "true"
+    opts = if ack?, do: [acknowledged: [:sent_round_changed]], else: []
 
-    case Tournaments.update_player(before, params) do
+    case Tournaments.update_player(before, params, opts) do
       {:ok, player} ->
         changed = player_diff(before, player)
 
@@ -1176,7 +1194,10 @@ defmodule PairingsEngineWeb.PlayersLive do
             socket.assigns.tournament.id,
             socket.assigns.current_scope,
             "player.updated",
-            %{player_id: player.id, player_name: player.name, changed_fields: changed}
+            Map.merge(
+              %{player_id: player.id, player_name: player.name, changed_fields: changed},
+              if(ack? and sent != [], do: %{confirmed: "sent_round_changed"}, else: %{})
+            )
           )
         end
 
@@ -1189,6 +1210,18 @@ defmodule PairingsEngineWeb.PlayersLive do
            edit_fide_conflicts: nil
          )
          |> assign_players()}
+
+      {:error, {:needs_acknowledgement, _ids}} ->
+        {:noreply,
+         assign(socket,
+           edit_error:
+             gettext(
+               "Not saved: round %{rounds} was already sent to FIDE. Tick the box under the absences to change it anyway.",
+               rounds: Enum.join(sent, ", ")
+             ),
+           edit_form: params,
+           edit_sent_rounds: sent
+         )}
 
       {:error, changeset} ->
         {:noreply, assign(socket, edit_error: error_text(changeset), edit_form: params)}
@@ -2196,6 +2229,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         titles={@titles}
         fide_conflicts={@edit_fide_conflicts}
         editing_player_id={@editing_player.id}
+        sent_rounds={@edit_sent_rounds}
         players={@players}
         bel_lookup?={@bel_lookup?}
       />
@@ -2460,6 +2494,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :titles, :list, required: true
   attr :fide_conflicts, :map, default: nil
   attr :editing_player_id, :integer, default: nil
+  # Rounds already sent whose absence the form changes (`:sent_round_changed`).
+  attr :sent_rounds, :list, default: []
   attr :players, :list, default: []
   # Passed in rather than read from the socket: this is a function component,
   # so it sees only what its caller hands it.
@@ -2729,6 +2765,40 @@ defmodule PairingsEngineWeb.PlayersLive do
             <input name="player[absent_rounds]" value={@form["absent_rounds"]} />
           </label>
 
+          <%!-- The same warning and tick as a hand edit of a sent round on
+                the Pairings page: the federation already has that round. --%>
+          <div
+            :if={@sent_rounds != []}
+            class="pe-modal-warn"
+            id="player-sent-absence"
+            role="alert"
+            style="grid-column: 1 / -1; border-width: 2px; font-size: 1.05em"
+          >
+            <strong>
+              {gettext(
+                "⚠ Round %{n} was already sent to FIDE in a TRF finalised for sending.",
+                n: Enum.join(@sent_rounds, ", ")
+              )}
+            </strong>
+            <p style="margin: 6px 0 0">
+              {gettext(
+                "This changes the player's absence there only: the file that was sent keeps the old one, and the tournament will no longer agree with it. The round stays marked as sent and is not sent again. Only go on to correct a real mistake, and tell the rating officer."
+              )}
+            </p>
+            <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+              <input
+                type="checkbox"
+                name="player[sent_ack]"
+                value="true"
+                id="player-sent-ack"
+                checked={@form["sent_ack"] == "true"}
+              />
+              {gettext("I understand - change the sent round %{n} anyway",
+                n: Enum.join(@sent_rounds, ", ")
+              )}
+            </label>
+          </div>
+
           <div class="field" style="grid-column: 1 / -1">
             <span>{gettext("Registration")}</span>
             <div class="radio-row">
@@ -2779,7 +2849,14 @@ defmodule PairingsEngineWeb.PlayersLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            id="player-edit-save"
+            disabled={@sent_rounds != [] and @form["sent_ack"] != "true"}
+          >
+            {gettext("Save")}
+          </button>
           <button type="button" class="pe-btn" phx-click="close_edit">{gettext("Cancel")}</button>
         </div>
       </form>

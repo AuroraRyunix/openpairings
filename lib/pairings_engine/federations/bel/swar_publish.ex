@@ -274,7 +274,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
       "\n<body>\n<div align='center'>\n" <>
       banner(tournament) <>
       "\n" <>
-      classement(entries, tiebreak_codes) <>
+      classement(entries, tiebreak_codes, standings_heading(tournament)) <>
       "\n" <>
       round_links(tournament) <>
       "\n" <>
@@ -565,14 +565,25 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   ## tableClassement (standings)
   ## ================================================================
 
-  defp classement(entries, tiebreak_codes) do
+  # "Eindstand" is what SWAR prints and what the federation's site shows as
+  # the table's title. While a postponed game is still to be played the
+  # standings are not final, and a page that says they are would be sent to
+  # a public site that cannot be corrected from here - so it says
+  # "Voorlopige stand" (provisional standings) instead, until the game is in.
+  defp standings_heading(tournament) do
+    if PairingsEngine.PostponedGames.open_count(tournament) > 0,
+      do: gettext("Voorlopige stand"),
+      else: gettext("Eindstand")
+  end
+
+  defp classement(entries, tiebreak_codes, heading) do
     total_cols = 8 + length(tiebreak_codes)
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
 
     """
     <!-- CLASSEMENT -->
     <table class='tableClassement'>
-        <tr><td colspan='#{total_cols}' class='other'>#{esc(gettext("Eindstand"))}</td></tr>
+        <tr><td colspan='#{total_cols}' class='other'>#{esc(heading)}</td></tr>
         <tr>
     <td class='tdrib'>#{esc(gettext("Cl."))}</td>
             <td class='tdlib'>#{esc(gettext("Aanw"))}</td>
@@ -592,7 +603,8 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
 
   defp classement_row(entry, tiebreak_codes, players_by_id) do
     player = entry.player
-    played_games = Enum.filter(entry.games, & &1.played)
+    # A postponed game has no result to rate yet (`Standings.finished_game?/1`).
+    played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
     opponent_ratings =
       played_games

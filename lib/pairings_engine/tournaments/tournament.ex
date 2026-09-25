@@ -857,6 +857,15 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :logo_data, :binary
     field :logo_content_type, :string
 
+    # Postponed games (`PairingsEngine.PostponedGames`, VCL4THP Q157-169):
+    # whether the tournament allows them, and what one counts as until it is
+    # played - for the player who postponed it and for the opponent, as an
+    # outcome (`"win"`/`"draw"`/`"loss"`) so it scales with the tournament's
+    # own scoring. Both draw by default, the FIDE rule; anything else is a
+    # departure from FIDE mode (`PairingsEngine.Compliance`).
+    field :postponed_games, :boolean, default: false
+    field :postponed_requester_outcome, :string, default: "draw"
+    field :postponed_opponent_outcome, :string, default: "draw"
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team
@@ -888,6 +897,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :abs_nbfois,
       :absent_counts_as_vur,
       :presence_on_allocated_bye,
+      :postponed_games,
+      :postponed_requester_outcome,
+      :postponed_opponent_outcome,
       :tiebreaks,
       :acceleration,
       :status,
@@ -945,6 +957,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:club_exclusion, @exclusion_modes)
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_inclusion(:soft_position, @soft_positions)
+    |> validate_inclusion(:postponed_requester_outcome, ~w(win draw loss))
+    |> validate_inclusion(:postponed_opponent_outcome, ~w(win draw loss))
     |> validate_inclusion(:initial_colour, @initial_colours)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)

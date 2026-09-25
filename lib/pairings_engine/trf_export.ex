@@ -18,6 +18,7 @@ defmodule PairingsEngine.TrfExport do
   """
 
   alias PairingsEngine.{Federation, Pairing, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
   # with it. There used to be a local `PairingsEngine.Trf` as well - a
@@ -175,6 +176,7 @@ defmodule PairingsEngine.TrfExport do
     trf_players =
       tournament
       |> Pairing.trf_player_rows(players)
+      |> Enum.map(&report_unknown(&1, dialect))
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
       # Baku virtual points for the rounds in the file. The report had
       # left them out altogether; TRF26 wants them (`250`) for pairing.
@@ -183,6 +185,16 @@ defmodule PairingsEngine.TrfExport do
 
     last_round = Enum.reduce(trf_players, length(rounds), &max(length(&1.games), &2))
 
+    # Postponed games, as `{starting rank, column}` - see `mark_unknown/2`.
+    unknown = if dialect == :trf26, do: postponed_columns(trf_players), else: []
+    point_system = unknown_point_value(Tournament.engine_point_system(tournament), unknown)
+
+    tournament
+    |> serialize(trf_players, players, rounds, last_round, point_system, dialect)
+    |> mark_unknown(unknown)
+  end
+
+  defp serialize(tournament, trf_players, players, rounds, last_round, point_system, dialect) do
     Trf.serialize(
       %{
         tournament: %{
@@ -227,7 +239,7 @@ defmodule PairingsEngine.TrfExport do
           type_code: tournament_type_code(tournament),
           tie_breaks: tie_break_codes(tournament),
           time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
-          point_system: PairingsEngine.Tournaments.Tournament.engine_point_system(tournament),
+          point_system: point_system,
           free_points: free_point_records(players, tournament),
           forbidden_pairs:
             Pairing.forbidden_pairs(tournament.id, players) ++
@@ -246,6 +258,265 @@ defmodule PairingsEngine.TrfExport do
       ascii: true
     )
   end
+
+  ## ---------- postponed games: TRF26's `?` ----------
+  #
+  # A postponed game (`"*"`, VCL4THP Q164-165) is written as TRF26's unknown
+  # result, `?`, on both players' `001` lines, and the `162` record declares
+  # what an unknown result is worth with `X` - a draw, because that is what
+  # the game counts as until it is played, so a reader adding up the columns
+  # gets the same points column this file states. A file carrying `?` is by
+  # construction not a final report: no reader can take an unknown result
+  # for a known one.
+  #
+  # `Ainalrami.Trf.serialize/2` refuses `?` in both dialects (its moduledoc,
+  # "The `?` unknown result"). So the game goes to the writer as the draw
+  # `Pairing.trf_player_rows/3` already hands the engine, and the character
+  # is swapped afterwards at the one column the round block defines for it.
+  # The swap checks the character it replaces, so a column that is not the
+  # draw it expects raises rather than being written over. The engine
+  # dialect keeps the draw: that spelling exists to be read by a pairing
+  # program, which pairs a postponed game as a draw and cannot read `?`.
+  #
+  # When Ainalrami's writer accepts `?` (an `allow_unknown_result` switch on
+  # `serialize/2`, which today only `parse/1` passes), this becomes a
+  # `result: "?"` on the game and `mark_unknown/2` goes away.
+  # In a TRF26 report every game that is `?` - an open postponed game, and
+  # one that was sent as `?` in a report marked as sent (`finalised_open`),
+  # whose real result goes in the postponed-games file and never here - is
+  # written as the draw `mark_unknown/2` turns into `?`, and scores what the
+  # file's own `X` says: a draw. So the points column adds up from the file
+  # itself, whatever the club counts a postponed game as in its standings.
+  # A file for sending that disagreed with itself would be wrong data.
+  defp report_unknown(row, :trf26) do
+    games =
+      Enum.map(row.games, fn game ->
+        if Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true do
+          %{game | result: "="} |> Map.put(:postponed, true) |> Map.put(:provisional_points, nil)
+        else
+          game
+        end
+      end)
+
+    %{row | games: games}
+  end
+
+  # The older spelling has no `?`: a postponed game stays the `=` a pairing
+  # program reads. It is scored as that draw too, not at what the tournament
+  # counts it as, so this file adds up from itself as well - a downloaded
+  # file is checked against its own games. Only the file the app hands its
+  # own engine (`Pairing.trf_game/4`) carries the provisional points, since
+  # that one pairs with them and is never sent anywhere.
+  defp report_unknown(row, _dialect) do
+    games =
+      Enum.map(row.games, fn game ->
+        if Map.get(game, :postponed) == true,
+          do: Map.put(game, :provisional_points, nil),
+          else: game
+      end)
+
+    %{row | games: games}
+  end
+
+  ## ---------- the postponed-games file ----------
+
+  @doc """
+  The TRF26 file for postponed games that were sent as `?` in a report
+  marked as sent and have been played since (`PostponedGames.sendable_late_games/1`),
+  packed into as few extra rounds as possible with nobody twice in a round
+  (`PostponedGames.pack/1`). Each round is dated by the latest date one of
+  its games was played on. Only the players in those games are in the file,
+  under their own starting ranks, so every opponent reference is the same
+  number it is in the main report.
+
+  Returns `{:ok, text, games}` - the games it carries, for the caller to
+  mark as sent - or `{:error, :nothing_to_send}` /
+  `{:error, %ValidationError{}}`. Before it returns a file it reads it back
+  and checks it says exactly what was meant: every game once, nobody twice
+  in a round, the result each board holds. A file that fails that is not
+  returned at all.
+  """
+  def postponed_export(tournament) do
+    case PairingsEngine.PostponedGames.sendable_late_games(tournament) do
+      [] ->
+        {:error, :nothing_to_send}
+
+      games ->
+        rounds = games |> Enum.map(& &1.pairing) |> PairingsEngine.PostponedGames.pack()
+        text = build_postponed(tournament, rounds)
+        :ok = verify_postponed!(text, rounds)
+        {:ok, text, games}
+    end
+  rescue
+    e in ValidationError -> {:error, e}
+  end
+
+  defp build_postponed(tournament, rounds) do
+    roster = Pairing.full_roster_players(tournament.id) |> Map.new(&{&1.id, &1})
+
+    ids =
+      rounds
+      |> List.flatten()
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.uniq()
+
+    blank = %{opponent_rank: nil, colour: nil, result: nil}
+
+    rows =
+      ids
+      |> Enum.map(&Map.fetch!(roster, &1))
+      |> Enum.sort_by(& &1.pairing_number)
+      |> Enum.map(fn p ->
+        games =
+          Enum.map(rounds, fn games ->
+            case Enum.find(games, &(p.id in [&1.white_player_id, &1.black_player_id])) do
+              nil -> blank
+              pairing -> Pairing.trf_game(pairing, p.id, roster, tournament)
+            end
+          end)
+
+        %{
+          rank: p.pairing_number,
+          sex: p.sex,
+          title: p.title,
+          name: p.name,
+          fide_rating: p.fide_rating,
+          federation: p.federation,
+          fide_number: p.fide_id,
+          points: Pairing.player_points(games, tournament),
+          games: games
+        }
+      end)
+
+    dates =
+      Enum.map(rounds, fn games ->
+        games
+        |> Enum.map(& &1.played_on)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.max(Date, fn -> nil end)
+      end)
+
+    Trf.serialize(
+      %{
+        tournament: %{
+          name: tournament.name,
+          city: tournament.city,
+          federation: Federation.normalize(tournament.federation),
+          start_date: tournament.start_date,
+          end_date: tournament.end_date,
+          number_of_rated_players: Enum.count(rows, &((&1.fide_rating || 0) > 0)),
+          type: tournament.type,
+          chief_arbiter: chief_arbiter_line(tournament),
+          deputy_arbiters: deputy_arbiter_lines(tournament),
+          time_control: blank_to_nil(tournament.rate_of_play),
+          number_of_rounds: length(rounds),
+          round_dates: Enum.map(dates, &(&1 && Date.to_iso8601(&1))),
+          generator: "OpenPairings v#{app_version()}",
+          type_code: tournament_type_code(tournament),
+          time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
+          point_system: Tournament.engine_point_system(tournament)
+        },
+        players: rows
+      },
+      dialect: :trf26,
+      column_legend: true,
+      ascii: true
+    )
+  end
+
+  # Reads the file back and checks it against what was meant to be in it.
+  # Nothing here trusts the builder above: a file for sending is checked the
+  # way the federation will read it.
+  defp verify_postponed!(text, rounds) do
+    parsed = Trf.parse(text)
+    by_rank = Map.new(parsed.players, &{&1.rank, &1})
+
+    rounds
+    |> Enum.with_index()
+    |> Enum.each(fn {games, index} ->
+      in_round =
+        parsed.players
+        |> Enum.filter(&(Enum.at(&1.games, index, %{})[:opponent_rank] != nil))
+        |> length()
+
+      if in_round != 2 * length(games) do
+        raise ValidationError,
+          message:
+            "postponed-games file, round #{index + 1}: #{in_round} players with a game, " <>
+              "#{2 * length(games)} expected"
+      end
+
+      # Each game where it was meant to be: White against Black, in this
+      # round, with the colours the board had.
+      for pairing <- games do
+        white = pairing.white_player.pairing_number
+        black = pairing.black_player.pairing_number
+        w = by_rank |> Map.fetch!(white) |> Map.fetch!(:games) |> Enum.at(index)
+        b = by_rank |> Map.fetch!(black) |> Map.fetch!(:games) |> Enum.at(index)
+
+        unless w[:opponent_rank] == black and b[:opponent_rank] == white and
+                 w[:colour] == "w" and b[:colour] == "b" do
+          raise ValidationError,
+            message:
+              "postponed-games file, round #{index + 1}: the game #{white}-#{black} " <>
+                "is not written as it was played"
+        end
+      end
+    end)
+
+    total =
+      parsed.players |> Enum.flat_map(& &1.games) |> Enum.count(&(&1[:opponent_rank] != nil))
+
+    if total != 2 * length(List.flatten(rounds)) or map_size(by_rank) != length(parsed.players) do
+      raise ValidationError, message: "postponed-games file does not carry each game exactly once"
+    end
+
+    :ok
+  end
+
+  defp postponed_columns(trf_players) do
+    for player <- trf_players,
+        {game, column} <- Enum.with_index(player.games, 1),
+        Map.get(game, :postponed) == true,
+        do: {player.rank, column}
+  end
+
+  defp unknown_point_value(system, []), do: system
+  defp unknown_point_value(system, _unknown), do: Map.put(system, :unknown, system.draw)
+
+  defp mark_unknown(text, []), do: text
+
+  defp mark_unknown(text, unknown) do
+    by_rank = Enum.group_by(unknown, &elem(&1, 0), &elem(&1, 1))
+
+    text
+    |> String.split("\r\n")
+    |> Enum.map(&mark_line(&1, by_rank))
+    |> Enum.join("\r\n")
+  end
+
+  defp mark_line("001" <> _ = line, by_rank) do
+    rank = line |> String.slice(4, 4) |> String.trim() |> String.to_integer()
+
+    Enum.reduce(Map.get(by_rank, rank, []), line, fn column, acc ->
+      # Round blocks start at column 92, ten columns each, the result in the
+      # eighth: column 99 for round 1. Zero-based here, one-based in TRF.
+      at = 98 + (column - 1) * 10
+
+      case binary_part(acc, at, 1) do
+        "=" ->
+          binary_part(acc, 0, at) <> "?" <> binary_part(acc, at + 1, byte_size(acc) - at - 1)
+
+        other ->
+          raise ValidationError,
+            message:
+              "postponed game of starting rank #{rank}, round #{column}: expected the draw " <>
+                "it is written as, found #{inspect(other)}"
+      end
+    end)
+  end
+
+  defp mark_line(line, _by_rank), do: line
 
   # The TRF16 team section: one `013` record per team, its name and the
   # starting ranks of its players in board order - which, in this app, are

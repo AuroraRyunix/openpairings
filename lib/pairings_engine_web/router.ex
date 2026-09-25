@@ -82,6 +82,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/teams", TeamsLive
       live "/t/:id/registrations", RegistrationsLive
       live "/t/:id/pairings", PairingsLive
+      live "/t/:id/postponed", PostponedLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/standings", StandingsLive
       live "/t/:id/history", HistoryLive
@@ -152,6 +153,14 @@ defmodule PairingsEngineWeb.Router do
     # or a browser restoring tabs. See `PairingsEngine.Handoff`.
     post "/t/:id/export/handoff", ExportController, :hand_off
     post "/t/:id/export/handoff/return", ExportController, :hand_off_return
+
+    # The same, for the TRF "for sending": with its "finalise results for TRF
+    # sending" box ticked it marks every exported result as sent, and a
+    # link prefetch must not be able to do that. The plain GET export above
+    # stays exactly as it was.
+    post "/t/:id/export/trf", ExportController, :trf_send
+    get "/t/:id/export/postponed-trf", ExportController, :postponed_trf
+    post "/t/:id/export/postponed-trf", ExportController, :postponed_trf_send
 
     # A backup is the whole database - every player, the entry form's email
     # addresses, and every publishing key. SSO-gated inside the controller,

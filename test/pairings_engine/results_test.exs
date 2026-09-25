@@ -68,11 +68,38 @@ defmodule PairingsEngine.ResultsTest do
       end
     end
 
-    test "the nine contested codes, and only those" do
+    test "the nine contested codes and the postponed game, and only those" do
       played = Enum.filter(Results.codes(), &Results.played?/1)
 
+      # `*` is a game that is going to be contested over the board, so
+      # Article 16's unplayed-round rules must not reach it while it waits.
       assert Enum.sort(played) ==
-               Enum.sort(~w(1-0 1/2-1/2 0-1 1/2-0 0-1/2 0-0 1-0U 0-1U 1/2-1/2U))
+               Enum.sort(~w(1-0 1/2-1/2 0-1 1/2-0 0-1/2 0-0 1-0U 0-1U 1/2-1/2U * *W *B))
+    end
+  end
+
+  describe "the postponed game" do
+    test "three codes, a draw for both unless the board says otherwise" do
+      for code <- ~w(* *W *B), do: assert({:draw, :draw, true, false} = Results.classify(code))
+      assert Enum.filter(Results.codes(), &Results.postponed?/1) == ~w(* *W *B)
+      assert Results.postponed_by("*W") == :white
+      assert Results.postponed_by("*B") == :black
+      assert Results.postponed_by("*") == nil
+    end
+
+    test "by White and by Black can be entered and typed; the unnamed one cannot" do
+      assert "*W" in Results.entry_codes()
+      assert "*B" in Results.entry_codes()
+      refute "*" in Results.entry_codes()
+      assert Results.parse_token(" *w ") == {:ok, "*W"}
+      assert Results.parse_token("*") == :error
+    end
+
+    test "draw_for_both?/1 is true for the draws, not the asymmetric results" do
+      for code <- ["1/2-1/2", "1/2-1/2U", "*"], do: assert(Results.draw_for_both?(code))
+
+      for code <- ["1/2-0", "0-1/2", "1-0", "0-0", "0-0FF", "", "bye"],
+          do: refute(Results.draw_for_both?(code))
     end
   end
 

@@ -332,6 +332,9 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, list(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, list(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
+    # Rounds the file says were sent to the federation go on this copy's
+    # sent-games record too, so a restore here cannot make them sendable.
+    PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
     tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
 
     # Last, and after the players, because an audit row's `details` can
@@ -513,7 +516,17 @@ defmodule PairingsEngine.TournamentImport do
         |> Ecto.Changeset.change(
           hidden: truthy(Map.get(pr, "hidden")),
           display_board: display_board(Map.get(pr, "display_board")),
-          display_special: truthy(Map.get(pr, "display_special"))
+          display_special: truthy(Map.get(pr, "display_special")),
+          # Postponed games (see `TournamentExport.pairing_map/1`); nil and
+          # false for a payload written before they were exported.
+          provisional_white: outcome_or_nil(Map.get(pr, "provisional_white")),
+          provisional_black: outcome_or_nil(Map.get(pr, "provisional_black")),
+          postponed_by:
+            if(Map.get(pr, "postponed_by") in ["white", "black"], do: Map.get(pr, "postponed_by")),
+          played_on: parse_date(Map.get(pr, "played_on")),
+          finalised_at: parse_datetime(Map.get(pr, "finalised_at")),
+          finalised_open: truthy(Map.get(pr, "finalised_open")),
+          postponed_reported_at: parse_datetime(Map.get(pr, "postponed_reported_at"))
         )
         |> insert!()
       end)
@@ -634,6 +647,29 @@ defmodule PairingsEngine.TournamentImport do
   defp truthy(true), do: true
   defp truthy("true"), do: true
   defp truthy(_), do: false
+
+  # A postponed game's provisional outcome, from a hand-editable payload:
+  # only the three values the column can hold survive.
+  defp outcome_or_nil(value) when value in ~w(win draw loss), do: value
+  defp outcome_or_nil(_), do: nil
+
+  defp parse_date(value) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> date
+      _ -> nil
+    end
+  end
+
+  defp parse_date(_), do: nil
+
+  defp parse_datetime(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> DateTime.truncate(datetime, :second)
+      _ -> nil
+    end
+  end
+
+  defp parse_datetime(_), do: nil
 
   # The watermark rule for `fide_compliance_lost_round` on a restore - see
   # the long comment at `restore_into!/2`'s changeset for why it is neither

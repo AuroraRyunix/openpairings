@@ -32,7 +32,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # role and the phone access levels (see
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token
-             computer guid swar trf json csv fide elo keizer support deputy helper)
+             computer guid swar trf json csv fide id elo keizer support deputy helper)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list
@@ -46,6 +46,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{
         "player_name" => "Anna Peeters",
         "changed_fields" => %{"absent" => [false, true], "fide_rating" => [1850, 1873]}
+      },
+      %{
+        "player_name" => "Anna Peeters",
+        "changed_fields" => %{"absent_rounds" => ["", "1"]},
+        "confirmed" => "sent_round_changed"
       },
       %{"player_name" => "Anna Peeters", "changed_fields" => %{}}
     ],
@@ -167,7 +172,48 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
         "black" => "Bram Claes",
         "from" => "1-0",
         "to" => ""
+      },
+      # A postponed game given a result that is not a draw, confirmed over
+      # the warning (VCL4THP Q163).
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "*",
+        "to" => "1-0",
+        "confirmed" => "adjourned_non_draw_result"
+      },
+      # A result already sent in a finalised TRF, changed over the warning -
+      # alone, and together with the postponed one.
+      %{
+        "round" => 1,
+        "board" => 2,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "1-0",
+        "to" => "0-1",
+        "confirmed" => "finalised_result_changed"
+      },
+      %{
+        "round" => 1,
+        "board" => 3,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "*W",
+        "to" => "0-1",
+        "confirmed" => "adjourned_non_draw_result,finalised_result_changed"
       }
+    ],
+    "trf.finalised" => [
+      %{"rounds" => [1, 2], "marked" => 1},
+      %{"rounds" => [1, 2], "marked" => 12},
+      %{"rounds" => [1], "marked" => 4, "ambiguous_players" => ["Jan Peeters"]}
+    ],
+    "trf.postponed_sent" => [%{"games" => 1}, %{"games" => 3}],
+    "pairing.missing_recorded_postponed" => [
+      %{"round" => 3, "count" => 1},
+      %{"round" => 3, "count" => 2}
     ],
     "pairing.result_cleared" => [
       %{
@@ -191,6 +237,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     # The confirmation subtitles `PairingsLive.confirm_for/2` writes, word for
     # word, as `summary`.
     "pairing.players_swapped" => [
+      %{"round" => 1, "summary" => "Board 1: A - B", "confirmed" => "sent_round_changed"},
       %{"round" => 3, "summary" => "Anna Peeters  ⇄  Bram Claes"},
       %{"round" => 3}
     ],
@@ -320,13 +367,15 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     ],
     "handoff.released" => [
       %{"from" => "Laptop zaal B", "name" => "Paasopen Brugge"},
-      %{"from" => nil, "name" => "Paasopen Brugge"}
+      %{"from" => nil, "name" => "Paasopen Brugge"},
+      %{"from" => nil, "name" => "Paasopen Brugge", "ambiguous_players" => ["Jan Peeters"]}
     ],
     "tournament.duplicated" => [%{"from_name" => "Paasopen Brugge"}],
     "tournament.left" => [%{"name" => "Paasopen Brugge"}],
     "snapshot.restored" => [
       %{"restored_to" => "Voor de prijsuitreiking"},
-      %{"restored_to" => ""}
+      %{"restored_to" => ""},
+      %{"restored_to" => "", "ambiguous_players" => ["Jan Peeters"]}
     ],
     "snapshot.manual" => [%{"label" => "Voor de prijsuitreiking"}, %{"label" => ""}],
     "categories.toggled" => [%{"enabled" => true}, %{"enabled" => false}],

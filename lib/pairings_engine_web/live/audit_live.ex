@@ -107,7 +107,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
-        pairing.match_forfeit_withdrawn pairing.board_attached)},
+        pairing.match_forfeit_withdrawn pairing.board_attached
+        pairing.missing_recorded_postponed)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -123,7 +124,7 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.manual_ranking_disabled standings.manual_reseeded
         standings.extra_points_applied standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf import.json)},
+    {"imports", ~w(import.swar import.trf import.json trf.finalised trf.postponed_sent)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
     {"tournament",
@@ -250,10 +251,14 @@ defmodule PairingsEngineWeb.AuditLive do
         )
 
       changes ->
-        gettext("Updated player %{name}: %{changes}.",
-          name: name(d, "player_name"),
-          changes: changes
-        )
+        sentences([
+          gettext("Updated player %{name}: %{changes}.",
+            name: name(d, "player_name"),
+            changes: changes
+          ),
+          # Absences in a round already sent (`:sent_round_changed`).
+          confirmed_sentence(d)
+        ])
     end
   end
 
@@ -421,8 +426,19 @@ defmodule PairingsEngineWeb.AuditLive do
   # arbiter did than the one the app gives the same act today.
   def describe("pairing.result_changed", d) do
     kind = if blank?(d["to"]), do: :cleared, else: :changed
-    sentences([result_sentence(kind, d), phone_sentence(d)])
+    sentences([result_sentence(kind, d), confirmed_sentence(d), phone_sentence(d)])
   end
+
+  # Pairing a round after recording its missing results as postponed games
+  # (VCL4THP Q159-160) - `PairingsLive.note_recorded_missing/1`.
+  def describe("pairing.missing_recorded_postponed", d),
+    do:
+      ngettext(
+        "Recorded %{count} board without a result in round %{round} as a postponed game, to pair the next round.",
+        "Recorded %{count} boards without a result in round %{round} as postponed games, to pair the next round.",
+        count(d, "count"),
+        round: value(d, "round")
+      )
 
   def describe("pairing.result_cleared", d),
     do: sentences([result_sentence(:cleared, d), phone_sentence(d)])
@@ -750,6 +766,40 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("import.trf", d),
     do: gettext("Imported tournament %{name} from a TRF file.", name: name(d, "name"))
 
+  # A TRF downloaded "for sending" with its results marked as sent
+  # (`PostponedGames.finalise/2`), and a postponed-games file sent the same
+  # way. Both are records that something left for the federation.
+  # Sending, a restore or a hand-off return while the sent-games record
+  # could not tell some players apart (`:sent_games_ambiguous_players`): the
+  # row's own sentence, then the warning, naming them.
+  def describe(action, %{"ambiguous_players" => [_ | _] = names} = d)
+      when action in ["trf.finalised", "snapshot.restored", "handoff.released"] do
+    sentences([
+      describe(action, Map.delete(d, "ambiguous_players")),
+      gettext(
+        "Warned that the record of sent games cannot tell apart players who have no FIDE ID and the same name: %{names}.",
+        names: Enum.join(names, ", ")
+      )
+    ])
+  end
+
+  def describe("trf.finalised", d),
+    do:
+      ngettext(
+        "Exported a TRF for sending (rounds %{rounds}) and marked %{count} result as sent.",
+        "Exported a TRF for sending (rounds %{rounds}) and marked %{count} results as sent.",
+        count(d, "marked"),
+        rounds: shown(d["rounds"])
+      )
+
+  def describe("trf.postponed_sent", d),
+    do:
+      ngettext(
+        "Sent %{count} postponed game in a postponed-games TRF.",
+        "Sent %{count} postponed games in a postponed-games TRF.",
+        count(d, "games")
+      )
+
   def describe("import.json", d),
     do: gettext("Imported tournament %{name} from a JSON backup.", name: name(d, "name"))
 
@@ -1019,6 +1069,17 @@ defmodule PairingsEngineWeb.AuditLive do
   # English sentence ("Before unpairing round 3") and no later version can
   # reword it without guessing at English; it is shown quoted, as the
   # point's name, exactly as the History page lists it.
+  def describe("snapshot.restored", %{"sent_games_changed" => n} = d) when is_integer(n) do
+    sentences([
+      describe("snapshot.restored", Map.delete(d, "sent_games_changed")),
+      ngettext(
+        "Confirmed over the warning that it took away or changed a game already sent in a finalised TRF.",
+        "Confirmed over the warning that it took away or changed %{count} games already sent in a finalised TRF.",
+        n
+      )
+    ])
+  end
+
   def describe("snapshot.restored", d) do
     case d["restored_to"] do
       label when is_binary(label) and label != "" ->
@@ -1444,6 +1505,43 @@ defmodule PairingsEngineWeb.AuditLive do
 
   defp phone_sentence(_d), do: nil
 
+  # A result the arbiter had to confirm before it was written: a postponed
+  # game given a result that is not a draw (VCL4THP Q163), and a result
+  # already sent in a finalised TRF. `confirmed` is the warning ids, joined
+  # by commas when there was more than one.
+  defp confirmed_sentence(%{"confirmed" => ids}) when is_binary(ids) do
+    ids
+    |> String.split(",")
+    |> Enum.map(&confirmed_warning/1)
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      sentences -> Enum.join(sentences, " ")
+    end
+  end
+
+  defp confirmed_sentence(_d), do: nil
+
+  defp confirmed_warning("adjourned_non_draw_result"),
+    do:
+      gettext(
+        "Confirmed over the warning that the game was postponed and had counted provisionally for pairing."
+      )
+
+  defp confirmed_warning("finalised_result_changed"),
+    do:
+      gettext(
+        "Confirmed over the warning that the result had already been sent in a TRF finalised for sending."
+      )
+
+  defp confirmed_warning("sent_round_changed"),
+    do:
+      gettext(
+        "Confirmed over the warning that the round had already been sent in a TRF finalised for sending."
+      )
+
+  defp confirmed_warning(_other), do: nil
+
   # The same two words the Live round page shows when the phone is enrolled
   # (`LiveRoundLive.enrollment_level_label/1`), so the trail names a level
   # exactly as the arbiter chose it.
@@ -1462,7 +1560,8 @@ defmodule PairingsEngineWeb.AuditLive do
   # comment above `describe("pairing.players_swapped", _)`. Quoted, and only
   # ever after a sentence of the reader's own: it was written in whatever
   # language the confirmation had, which so far has always been English.
-  defp hand_edit(sentence, d), do: sentences([sentence, recorded_summary(d)])
+  defp hand_edit(sentence, d),
+    do: sentences([sentence, recorded_summary(d), confirmed_sentence(d)])
 
   defp recorded_summary(%{"summary" => summary}) when is_binary(summary) and summary != "",
     do: gettext(~s(Recorded as "%{summary}".), summary: summary)

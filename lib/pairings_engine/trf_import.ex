@@ -440,6 +440,7 @@ defmodule PairingsEngine.TrfImport do
       {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
 
       tournament = import_initial_colour(tournament, data)
+      tournament = allow_postponed_if_any(tournament, data)
 
       # TRF16 has teams but no matches: rebuild them from the boards where
       # the boards say it unambiguously (`TeamMatchInference`). A team Swiss
@@ -463,6 +464,17 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp note(text), do: %{kind: :note, text: text}
+
+  # A file carrying `?` came in with postponed games in it, so the tournament
+  # allows them - otherwise the boards holding one could not be given their
+  # result, nor shown on the Postponed games page.
+  defp allow_postponed_if_any(tournament, data) do
+    if unknown_result_warnings(data) == [] do
+      tournament
+    else
+      tournament |> Ecto.Changeset.change(postponed_games: true) |> Repo.update!()
+    end
+  end
 
   # `152` (or JaVaFo's `XXC white1`/`black1`) is the colour drawn by lot
   # before round 1. Stored as the draw, so the imported tournament pairs its
@@ -846,7 +858,12 @@ defmodule PairingsEngine.TrfImport do
         board: p.board,
         white_player_id: Map.fetch!(players_by_rank, p.white_rank).id,
         black_player_id: p.black_rank && Map.fetch!(players_by_rank, p.black_rank).id,
-        result: p.result
+        result: p.result,
+        # A `?` came in as a postponed game (see `result_string/2`): it counts
+        # as a draw for both, the value the file's `X` is written with and
+        # the FIDE rule, whatever the new tournament's own setting says.
+        provisional_white: if(p.result == PairingsEngine.Results.postponed(), do: "draw"),
+        provisional_black: if(p.result == PairingsEngine.Results.postponed(), do: "draw")
       })
     end)
 
@@ -928,10 +945,12 @@ defmodule PairingsEngine.TrfImport do
   #
   # A `?` entry names an opponent, so who played whom IS known and is worth
   # keeping. Only the result is missing, and `result_string/2` answers that
-  # with "" - no result recorded - rather than inventing one. The arbiter is
-  # told, in `unknown_result_warnings/1`; silently importing a blank would
-  # make a file that admits it lost a scoresheet indistinguishable from one
-  # whose round has not been played yet.
+  # with the postponed-game code (`"*"`, VCL4THP Q166) - a result this app
+  # knows is unknown - rather than inventing one. It used to be "" (no
+  # result recorded), which made a file that admits it lost a scoresheet
+  # indistinguishable from one whose round has not been played yet, and
+  # stopped the next round being paired. The arbiter is told, in
+  # `unknown_result_warnings/1`.
   @unknown_code Trf.result_codes()[:unknown]
   @game_codes [@unknown_code | @playing_codes]
 
@@ -984,10 +1003,11 @@ defmodule PairingsEngine.TrfImport do
 
   # Both seats say `?` or the file is not one this app can read - the engine
   # refuses `?` against anything else, since knowing one seat is knowing the
-  # other. Explicit rather than left to the catch-all below: the empty
-  # string here is a decision (the game happened, the result is not known),
-  # not a fallthrough.
-  defp result_string(@unknown_code, @unknown_code), do: ""
+  # other. The result is unknown and the game is kept: a postponed game,
+  # counted as a draw until the arbiter enters what happened, exactly like
+  # one postponed here. This is what `TrfExport` writes `?` for, so a file
+  # this app exported with an open game comes back with the game still open.
+  defp result_string(@unknown_code, @unknown_code), do: PairingsEngine.Results.postponed()
   defp result_string(_, _), do: ""
 
   # A round entry that never resolves to a real, mutual opponent this round:
@@ -1403,12 +1423,16 @@ defmodule PairingsEngine.TrfImport do
   # on some field shape nobody has met yet cannot take the import down with
   # it. Same reasoning, and the same shape, as `PairingsEngine.Pairing`'s
   # own `alternatives/6`.
-  # A file that says `?` is saying a game was played and its result is lost.
-  # That is a statement, and it does not survive the import: this app has no
-  # way to record "unknown" as distinct from "not entered yet", so both look
-  # like a blank result on the pairings page. The pairing itself is kept -
-  # who played whom is not in doubt - and the arbiter is told which rounds
-  # need a scoresheet rather than being left to notice the gaps.
+  # A file that says `?` is saying the result of a game is not known. It
+  # comes in as a postponed game (`"*"`) - kept unknown, never guessed - and
+  # the arbiter is told which rounds carry one, because it counts as a draw
+  # until a result is entered and the standings are not final until then.
+  #
+  # A reason with its rounds as data, worded where it is shown
+  # (`PairingsEngineWeb.TournamentsLive`), rather than a sentence: this used
+  # to return a bare English string, and the page that shows import warnings
+  # reads a `:kind` off every entry, which a string does not have - so the
+  # one file this warning exists for crashed the page it was imported from.
   defp unknown_result_warnings(data) do
     rounds =
       for player <- data.players,
@@ -1417,20 +1441,8 @@ defmodule PairingsEngine.TrfImport do
           do: index
 
     case Enum.sort(Enum.uniq(rounds)) do
-      [] ->
-        []
-
-      [one] ->
-        [
-          "Round #{one} carries a result the file records as not known (`?`). " <>
-            "The pairing was imported; the result was left blank."
-        ]
-
-      many ->
-        [
-          "Rounds #{Enum.join(many, ", ")} carry results the file records as " <>
-            "not known (`?`). The pairings were imported; the results were left blank."
-        ]
+      [] -> []
+      rounds -> [%{kind: :postponed_imported, rounds: rounds}]
     end
   rescue
     _ -> []

@@ -631,10 +631,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
       end)
 
     case results do
-      [{:ok, _unlocked}] ->
+      [{:ok, unlocked}] ->
         {:noreply,
          socket
          |> put_flash(:info, release_flash())
+         |> put_ambiguous_flash(PairingsEngine.PostponedGames.ambiguous_sent_players(unlocked.id))
          |> assign(return_target: nil, error: nil)
          |> assign_tournaments()}
 
@@ -921,6 +922,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
     )
   end
 
+  # `:sent_games_ambiguous_players` after the return re-applied the sent
+  # marks: an error flash, so it is not lost under the success one.
+  defp put_ambiguous_flash(socket, []), do: socket
+
+  defp put_ambiguous_flash(socket, ambiguous),
+    do: put_flash(socket, :error, PairingsEngineWeb.Postponed.ambiguous_sent_text(ambiguous))
+
   # `PairingsEngine.Handoff` answers in atoms; the wording lives here, where
   # the screen is. `ExportController` carries the same mapping for the two
   # refusals a POST can hit.
@@ -1152,6 +1160,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     messages =
       trf_illegal_round_message(Map.get(grouped, :illegal_round, [])) ++
+        trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
         trf_points_message(Map.get(grouped, :points, [])) ++
         Enum.map(Map.get(grouped, :note, []), & &1.text)
 
@@ -1159,6 +1168,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
       [] -> socket
       _ -> put_flash(socket, :info, Enum.join(messages, " "))
     end
+  end
+
+  # `?` in the file - a result it records as not known - imported as a
+  # postponed game (VCL4THP Q166). Said, because it counts as a draw until
+  # the arbiter enters what happened and holds the standings back from final.
+  defp trf_postponed_message([]), do: []
+
+  defp trf_postponed_message(warnings) do
+    rounds = warnings |> Enum.flat_map(& &1.rounds) |> Enum.uniq() |> Enum.sort()
+
+    [
+      ngettext(
+        "Round %{rounds} has a result the file records as not known (?). It was imported as a postponed game: it counts as a draw until its result is entered, and the standings are not final until then.",
+        "Rounds %{rounds} have results the file records as not known (?). They were imported as postponed games: each counts as a draw until its result is entered, and the standings are not final until then.",
+        length(rounds),
+        rounds: Enum.join(rounds, ", ")
+      )
+    ]
   end
 
   defp trf_points_message([]), do: []

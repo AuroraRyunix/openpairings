@@ -132,13 +132,18 @@ defmodule PairingsEngine.TeamStandings do
   when absent), scored:
 
       %{round: n, match_id: id, number: match_no, team_a_id: id, team_b_id: id | nil,
-        bye?: bool, complete?: bool, gp_a: float, gp_b: float,
-        mp_a: float | nil, mp_b: float | nil,
+        bye?: bool, scored?: bool, complete?: bool, postponed_boards: n,
+        gp_a: float, gp_b: float, mp_a: float | nil, mp_b: float | nil,
         boards: [%{board: k, pairing: %Pairing{}, a_player_id: id | nil,
                    b_player_id: id | nil, a_points: float | nil, b_points: float | nil}]}
 
-  `mp_a`/`mp_b` are nil until the match is complete; a board's points are nil
-  until it has a result.
+  `scored?` is every board carrying a result, a postponed game (`"*"`)
+  included, and `mp_a`/`mp_b` are nil until it is; a board's points are nil
+  until it has a result. `complete?` is the same with no postponed board
+  left: a match with a game still to be played is not complete, but its
+  postponed boards count as the draws they stand for, so the match scores -
+  provisionally - and the next round is paired with that score, the same
+  way the individual standings pair with it (VCL4THP Q167).
   """
   def matches(%Tournament{} = t, opts \\ []) do
     through = Keyword.get(opts, :through_round)
@@ -185,7 +190,9 @@ defmodule PairingsEngine.TeamStandings do
       bye?: true,
       forfeited_to: nil,
       played_before_decision?: false,
+      scored?: true,
       complete?: true,
+      postponed_boards: 0,
       gp_a: gp,
       gp_b: 0.0,
       mp_a: mp,
@@ -219,10 +226,11 @@ defmodule PairingsEngine.TeamStandings do
         }
       end)
 
-    complete? = Enum.all?(board_rows, &(&1.pairing.result != ""))
+    scored? = Enum.all?(board_rows, &(&1.pairing.result != ""))
+    postponed_boards = Enum.count(board_rows, &Results.postponed?(&1.pairing.result))
     gp_a = board_rows |> Enum.map(&(&1.a_points || 0.0)) |> Enum.sum() |> round1()
     gp_b = board_rows |> Enum.map(&(&1.b_points || 0.0)) |> Enum.sum() |> round1()
-    {mp_a, mp_b} = if complete?, do: match_points(t, gp_a, gp_b), else: {nil, nil}
+    {mp_a, mp_b} = if scored?, do: match_points(t, gp_a, gp_b), else: {nil, nil}
 
     %{
       round: round.number,
@@ -235,7 +243,9 @@ defmodule PairingsEngine.TeamStandings do
       # team it was awarded to, and whether games had been played first.
       forfeited_to: m.forfeited_to_team_id,
       played_before_decision?: PairingsEngine.TeamMatches.played_before_decision?(m),
-      complete?: complete?,
+      scored?: scored?,
+      complete?: scored? and postponed_boards == 0,
+      postponed_boards: postponed_boards,
       gp_a: gp_a,
       gp_b: gp_b,
       mp_a: mp_a,
@@ -295,7 +305,10 @@ defmodule PairingsEngine.TeamStandings do
     entries =
       Enum.map(teams, fn team ->
         records = records_for(team.id, matches)
-        done = Enum.filter(records, &(&1.complete? and not &1.bye?))
+        # Scored matches, postponed boards counting as the draws they stand
+        # for until they are played - the same provisional score the next
+        # round is paired with. `complete?` is what says it is final.
+        done = Enum.filter(records, &(&1.scored? and not &1.bye?))
 
         %{
           team: team,
@@ -304,7 +317,7 @@ defmodule PairingsEngine.TeamStandings do
           # (a round robin's bye carries none).
           mp:
             records
-            |> Enum.filter(&(&1.complete? and &1.mp != nil))
+            |> Enum.filter(&(&1.scored? and &1.mp != nil))
             |> Enum.map(& &1.mp)
             |> Enum.sum()
             |> round1(),
@@ -395,6 +408,7 @@ defmodule PairingsEngine.TeamStandings do
       opponent_id: opp,
       bye?: m.bye?,
       played?: not m.bye? and match_played?(m),
+      scored?: m.scored?,
       complete?: m.complete?,
       mp: mp,
       gp: gp,
@@ -403,7 +417,7 @@ defmodule PairingsEngine.TeamStandings do
     }
   end
 
-  defp played_records(entry), do: Enum.filter(entry.records, &(&1.complete? and not &1.bye?))
+  defp played_records(entry), do: Enum.filter(entry.records, &(&1.scored? and not &1.bye?))
 
   @doc """
   Whether a scored match (`matches/2`) was PLAYED: at least one of its games
@@ -485,7 +499,7 @@ defmodule PairingsEngine.TeamStandings do
     |> Enum.find(fn r ->
       case Map.get(by_round, r) do
         nil -> true
-        ms -> not Enum.all?(ms, & &1.complete?)
+        ms -> not Enum.all?(ms, & &1.scored?)
       end
     end)
     |> Kernel.-(1)

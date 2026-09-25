@@ -423,7 +423,11 @@ defmodule PairingsEngine.Keizer do
           round: round.number,
           white_id: p.white_player_id,
           black_id: p.black_player_id,
-          result: p.result
+          result: p.result,
+          # What each side of a postponed game counts as while it waits -
+          # see `classify_result/2`.
+          provisional_white: p.provisional_white,
+          provisional_black: p.provisional_black
         }
       end
 
@@ -722,7 +726,7 @@ defmodule PairingsEngine.Keizer do
       # row (`pairing_records/4`); this stops Keizer diverging from it.
 
       true ->
-        class = classify_result(game.result, white?)
+        class = classify_result(game, white?)
         points = class_points(class, player, opponent_id, values)
         %{round: game.round, class: class, points: points, opponent_id: opponent_id}
     end
@@ -731,7 +735,26 @@ defmodule PairingsEngine.Keizer do
   # Mirrors PairingsEngine.Pairing's result semantics (see `trf_game/3`
   # there): forfeits/double-forfeits are always unplayed for both sides;
   # played "0-0" is a played game where both lose.
-  defp classify_result(result, white?) do
+  #
+  # A postponed game is what the board was given when it was postponed - a
+  # draw unless the tournament counts it otherwise - read through
+  # `Standings.provisional_outcome/2` rather than restated here, so the
+  # ladder pairs the next round with the same value the standings show.
+  defp classify_result(%{result: result} = game, white?) do
+    if PairingsEngine.Results.postponed?(result) do
+      PairingsEngine.Standings.provisional_outcome(
+        %PairingsEngine.Tournaments.Pairing{
+          provisional_white: Map.get(game, :provisional_white),
+          provisional_black: Map.get(game, :provisional_black)
+        },
+        white?
+      )
+    else
+      classify_code(result, white?)
+    end
+  end
+
+  defp classify_code(result, white?) do
     case {result, white?} do
       {"1-0", true} -> :win
       {"1-0", false} -> :loss

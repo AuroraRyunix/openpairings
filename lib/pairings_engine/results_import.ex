@@ -15,6 +15,7 @@ defmodule PairingsEngine.ResultsImport do
 
   alias PairingsEngine.Encoding
   alias PairingsEngine.PairingDisplay
+  alias PairingsEngine.PostponedGames
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
   alias PairingsEngine.Tournaments
@@ -84,6 +85,9 @@ defmodule PairingsEngine.ResultsImport do
     * `0-0FF`, `-/-` - double forfeit (neither played)
     * `1-0U`, `0-1U`, `1/2-1/2U` (also `½-½U`, `0.5-0.5U`) - played but not
       rated
+    * `*W`, `*B` - postponed by White / by Black, still to be played
+      (counted as the tournament's setting says until it is); only where
+      the tournament allows postponed games
 
   That list is `PairingsEngine.Results.token_groups/0` written out, and it
   had drifted from the parser in both directions: the two asymmetric rows
@@ -248,7 +252,13 @@ defmodule PairingsEngine.ResultsImport do
 
   Returns `{:ok, count}` (number of results written) or
   `{:error, [reason, ...]}`, truncated with a count past the same limit
-  `parse_text/1` applies.
+  `parse_text/1` applies. A reason is a sentence, or
+  `{:postponed_non_draw, board}` for a postponed game given a result that
+  is not a draw, or `{:finalised_result_changed, board}` for a result
+  already sent in a finalised TRF - both have to be entered on the Pairings
+  page, where they are confirmed (VCL4THP Q163) - or
+  `{:postponed_games_off, board}` for a postponed code in a tournament that
+  has postponed games off.
   """
   def apply_import(tournament, round_number, rows) when is_list(rows) do
     case Tournaments.get_round(tournament.id, round_number) do
@@ -285,8 +295,33 @@ defmodule PairingsEngine.ResultsImport do
               {:ok, %{result: "bye"}} ->
                 {resolved, ["board #{board}: is a bye - no result to enter" | errors]}
 
+              # A postponed game given a result that is not a draw. Every
+              # round paired since counted it as a draw, and the arbiter has
+              # to confirm knowingly that the scores those pairings were
+              # made with change (VCL4THP Q163) - which one line of a CSV
+              # cannot do, so the board is refused here, before anything is
+              # written, and the whole file with it. A reason rather than a
+              # sentence: the page words it (`PairingsLive`).
+              # A result already sent in a TRF finalised for sending is
+              # semi-frozen the same way (`:finalised_result_changed`), and
+              # a postponed code is refused where the tournament has them
+              # off.
               {:ok, pairing} ->
-                {[{pairing, result} | resolved], errors}
+                warnings = PostponedGames.result_warnings(pairing, result)
+
+                cond do
+                  Results.postponed?(result) and not tournament.postponed_games ->
+                    {resolved, [{:postponed_games_off, board} | errors]}
+
+                  :adjourned_non_draw_result in warnings ->
+                    {resolved, [{:postponed_non_draw, board} | errors]}
+
+                  :finalised_result_changed in warnings ->
+                    {resolved, [{:finalised_result_changed, board} | errors]}
+
+                  true ->
+                    {[{pairing, result} | resolved], errors}
+                end
 
               {:error, message} ->
                 {resolved, [message | errors]}
@@ -376,8 +411,13 @@ defmodule PairingsEngine.ResultsImport do
       {:error, reason} when reason in [:archived, :handed_off] ->
         {:error, [Tournaments.refusal_message(reason, "importing results")]}
 
-      {:error, changeset} ->
+      {:error, %Ecto.Changeset{} = changeset} ->
         {:error, ["Could not save results: #{changeset_error_text(changeset)}"]}
+
+      # A refusal the checks above let through (another arbiter changed a
+      # board between the check and the write, say): nothing was written.
+      {:error, reason} ->
+        {:error, ["Could not save results: #{inspect(reason)}"]}
     end
   end
 

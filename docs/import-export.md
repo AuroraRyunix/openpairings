@@ -123,6 +123,26 @@ export writes them in FIDE's own spelling:
     building nowhere at all. Written only when the tournament counts them.
   * **A column ruler + field-code legend** before the player rows, a
     human-readability courtesy copied from Swiss-Manager.
+  * **`?`** - a postponed game still to be played (VCL4THP Q164-165),
+    written for both players, with **`X`** in the `162` record at a draw's
+    value, and scored at that value in the points column, so the file adds
+    up from itself whatever the tournament counts a postponed game as. A
+    game written `?` in a report finalised for sending stays `?` in every
+    later report; its played result goes in the postponed-games TRF (the
+    Postponed games page), never back into the round. A file carrying `?` is not a final report, and
+    the Pairings page says so beside the export buttons while one is open.
+    `Ainalrami.Trf.serialize/2` refuses `?`, so `TrfExport` writes the game
+    as the draw the engine is handed and swaps the one character afterwards.
+    The older spelling below keeps the draw, and scores it as one: it is
+    read by pairing programs, which pair a postponed game as one and cannot
+    read `?`. (Where a tournament counts a postponed game as something other
+    than a draw, an outside pairing program or checker - JaVaFo, a FIDE
+    pairing checker - cannot reproduce the rounds paired since from either
+    download: the TRF26 file marks the game `?` but values it at a draw
+    through `X`, and this one writes the draw itself. Only the app's own
+    engine is handed the provisional points. The Pairings page says so in
+    its note beside the export buttons.)
+    On import, a `?` comes back as a postponed game.
 
 `?dialect=javafo` on the download URL asks for the older spelling instead -
 `XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what JaVaFo,

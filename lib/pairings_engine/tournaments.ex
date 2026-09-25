@@ -16,6 +16,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Standings
   alias PairingsEngine.PlayerStats
   alias PairingsEngine.PairingDisplay
+  alias PairingsEngine.PostponedGames
   alias PairingsEngine.RoundRobin
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
@@ -2198,12 +2199,70 @@ defmodule PairingsEngine.Tournaments do
 
   def update_player(%Player{} = player, attrs) do
     with :ok <- ensure_writable(player.tournament_id) do
-      player
-      |> Player.changeset(attrs)
-      |> guard_pairing_number_freeze(player)
-      |> Repo.update()
-      |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
+      do_update_player(player, attrs)
     end
+  end
+
+  @doc """
+  `update_player/2` for the player dialog, where the arbiter edits absences
+  by hand: a change to `absent_rounds` that adds or removes a round already
+  sent in a TRF finalised for sending waits for
+  `acknowledged: [:sent_round_changed]` in `opts`, as every other hand edit
+  of a sent round does (`sent_round_gate/2`). The round stays marked as
+  sent either way.
+  """
+  def update_player(%Player{} = player, attrs, opts) do
+    with :ok <- ensure_writable(player.tournament_id),
+         :ok <- sent_absence_gate(player, attrs, opts) do
+      do_update_player(player, attrs)
+    end
+  end
+
+  @doc """
+  The rounds already sent whose absence `attrs` would change for `player`:
+  rounds added to or removed from `absent_rounds`. Empty when `attrs` leaves
+  it alone, or does not parse (the changeset reports that instead).
+  """
+  def sent_absence_rounds(%Player{} = player, attrs) do
+    case fetch_attr(attrs, :absent_rounds) do
+      {:ok, value} ->
+        case Player.parse_absent_rounds_input(to_string(value || "")) do
+          {:ok, canonical} ->
+            before = MapSet.new(Player.parse_absent_rounds(player.absent_rounds))
+            later = MapSet.new(Player.parse_absent_rounds(canonical))
+
+            changed =
+              MapSet.union(MapSet.difference(before, later), MapSet.difference(later, before))
+
+            if MapSet.size(changed) == 0 do
+              []
+            else
+              sent = PostponedGames.sent_rounds(%Tournament{id: player.tournament_id})
+              changed |> Enum.filter(&(&1 in sent)) |> Enum.sort()
+            end
+
+          :error ->
+            []
+        end
+
+      :error ->
+        []
+    end
+  end
+
+  defp sent_absence_gate(player, attrs, opts) do
+    if :sent_round_changed not in Keyword.get(opts, :acknowledged, []) and
+         sent_absence_rounds(player, attrs) != [],
+       do: {:error, {:needs_acknowledgement, [:sent_round_changed]}},
+       else: :ok
+  end
+
+  defp do_update_player(player, attrs) do
+    player
+    |> Player.changeset(attrs)
+    |> guard_pairing_number_freeze(player)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
   end
 
   # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while
@@ -3905,13 +3964,88 @@ defmodule PairingsEngine.Tournaments do
     Repo.all(from r in Round, where: r.tournament_id == ^tournament_id, order_by: r.number)
   end
 
-  def update_pairing_result(%Pairing{} = pairing, result) do
-    with :ok <- ensure_writable(round_tournament_id(pairing.round_id)) do
-      do_update_pairing_result(pairing, result)
+  @doc """
+  Writes `result` onto `pairing` - the one write path every result goes
+  through: the Pairings page, the phone, a CSV import, the pairing run that
+  records missing results as postponed.
+
+  Refuses a write that a postponed-game warning guards until the arbiter has
+  confirmed it: a postponed game (`"*"`) given a result that is not a draw
+  returns `{:error, {:needs_acknowledgement, [:adjourned_non_draw_result]}}`
+  (VCL4THP Q163), and goes through when the caller passes that id in
+  `opts[:acknowledged]`. Every round paired since counted the game as a
+  draw, and those pairings stand - so the arbiter is told before the score
+  they were made with changes, whichever screen the result comes from. See
+  `PairingsEngine.PostponedGames.result_warnings/2`.
+  """
+  def update_pairing_result(%Pairing{} = pairing, result, opts \\ []) do
+    tournament_id = round_tournament_id(pairing.round_id)
+
+    with :ok <- ensure_writable(tournament_id),
+         %Tournament{} = tournament <- Repo.get(Tournament, tournament_id),
+         :ok <- ensure_postponed_allowed(tournament, result),
+         :ok <-
+           pairing
+           |> PostponedGames.result_warnings(result)
+           |> PostponedGames.check_acknowledged(Keyword.get(opts, :acknowledged, [])) do
+      do_update_pairing_result(
+        pairing,
+        result,
+        postponed_attrs(tournament, pairing, result, opts)
+      )
     end
   end
 
-  defp do_update_pairing_result(%Pairing{} = pairing, result) do
+  # A postponed code is written only where the tournament allows postponed
+  # games - the option is not even offered otherwise, and this is the
+  # enforcement behind that courtesy.
+  defp ensure_postponed_allowed(%Tournament{postponed_games: true}, _result), do: :ok
+
+  defp ensure_postponed_allowed(%Tournament{}, result) do
+    if PairingsEngine.Results.postponed?(result),
+      do: {:error, :postponed_games_off},
+      else: :ok
+  end
+
+  # The postponed-game columns a result write carries (see the schema):
+  #
+  #   * postponing a board freezes what each side counts as, from the
+  #     tournament's setting AT THIS MOMENT - so changing the setting later
+  #     changes new postponements only. The player who asked gets the
+  #     requester's value and the other one the opponent's; with nobody
+  #     named (`*`), both get the opponent's;
+  #   * giving a postponed game its real result records when it was played
+  #     (`opts[:played_on]`, today by default), which decides the rating
+  #     report it belongs in;
+  #   * clearing a board clears that date.
+  defp postponed_attrs(tournament, pairing, result, opts) do
+    alias PairingsEngine.Results
+
+    cond do
+      Results.postponed?(result) ->
+        by = Results.postponed_by(result)
+        asked = tournament.postponed_requester_outcome || "draw"
+        other = tournament.postponed_opponent_outcome || "draw"
+
+        %{
+          provisional_white: if(by == :white, do: asked, else: other),
+          provisional_black: if(by == :black, do: asked, else: other),
+          postponed_by: by && Atom.to_string(by),
+          played_on: nil
+        }
+
+      result in ["", nil] ->
+        %{played_on: nil}
+
+      Results.postponed?(pairing.result) or not is_nil(pairing.provisional_white) ->
+        %{played_on: Keyword.get(opts, :played_on) || Date.utc_today()}
+
+      true ->
+        %{}
+    end
+  end
+
+  defp do_update_pairing_result(%Pairing{} = pairing, result, extra) do
     # Wrapped because this is the write an arbiter makes most often, under the
     # most time pressure, and it is the one that must never fail quietly. A
     # locked database raises rather than returning {:error, _}, which would
@@ -3920,6 +4054,7 @@ defmodule PairingsEngine.Tournaments do
     BusyWrite.run(fn ->
       pairing
       |> Pairing.changeset(%{result: result})
+      |> Ecto.Changeset.change(extra)
       |> Repo.update()
     end)
     |> tap_ok(fn updated ->
@@ -3939,8 +4074,57 @@ defmodule PairingsEngine.Tournaments do
     end)
   end
 
+  @doc """
+  Sets the date a postponed game was actually played - what decides which
+  rating report it belongs in and dates its round in the postponed-games
+  TRF. Refused once that game has been sent in a postponed-games file
+  (`{:error, :already_sent}`): a date already reported is not changed
+  behind the report's back.
+  """
+  def set_played_on(%Pairing{} = pairing, %Date{} = date) do
+    with :ok <- ensure_writable(round_tournament_id(pairing.round_id)) do
+      fresh = Repo.get!(Pairing, pairing.id)
+
+      cond do
+        not is_nil(fresh.postponed_reported_at) ->
+          {:error, :already_sent}
+
+        is_nil(fresh.provisional_white) or PairingsEngine.Results.postponed?(fresh.result) ->
+          {:error, :not_played_postponed_game}
+
+        true ->
+          fresh
+          |> Ecto.Changeset.change(played_on: date)
+          |> Repo.update()
+          |> tap_ok(fn updated ->
+            broadcast_tournament_change(round_tournament_id(updated.round_id), :results)
+          end)
+      end
+    end
+  end
+
   defp round_tournament_id(round_id) do
     Repo.one(from r in Round, where: r.id == ^round_id, select: r.tournament_id)
+  end
+
+  # A round already sent in a TRF finalised for sending: who played whom in
+  # it is what the federation has on file. Changing it here would leave the
+  # tournament disagreeing with that file - and nothing here can recall the
+  # file - so it waits for `acknowledged: [:sent_round_changed]` in `opts`,
+  # which the Pairings page asks for with a warning of its own. The round
+  # stays marked as sent either way, so it is never sent a second time.
+  defp sent_round_gate(%Round{} = round, opts) do
+    if :sent_round_changed not in Keyword.get(opts, :acknowledged, []) and
+         PostponedGames.round_sent?(round.tournament_id, round.number),
+       do: {:error, {:needs_acknowledgement, [:sent_round_changed]}},
+       else: :ok
+  end
+
+  defp sent_round_refused(round, opts) do
+    case sent_round_gate(round, opts) do
+      :ok -> nil
+      refusal -> refusal
+    end
   end
 
   @doc """
@@ -3970,7 +4154,12 @@ defmodule PairingsEngine.Tournaments do
   or whatever `Ecto.Changeset` validation error the underlying update
   hits.
   """
-  def swap_players_in_round(%Round{} = round, player_a_id, player_b_id) do
+  def swap_players_in_round(%Round{} = round, player_a_id, player_b_id, opts \\ []) do
+    with :ok <- sent_round_gate(round, opts),
+         do: swap_players_unchecked(round, player_a_id, player_b_id)
+  end
+
+  defp swap_players_unchecked(%Round{} = round, player_a_id, player_b_id) do
     cond do
       refusal = write_refused(round.tournament_id) ->
         refusal
@@ -4162,8 +4351,9 @@ defmodule PairingsEngine.Tournaments do
   Any result already on that board is cleared: it described a game between
   two specific players, and one of them is no longer there.
   """
-  def vacate_seat(%Round{} = round, player_id, type \\ "absent") do
-    with :ok <- ensure_writable(round.tournament_id) do
+  def vacate_seat(%Round{} = round, player_id, type \\ "absent", opts \\ []) do
+    with :ok <- ensure_writable(round.tournament_id),
+         :ok <- sent_round_gate(round, opts) do
       do_vacate_seat(round, player_id, type)
     end
   end
@@ -4207,7 +4397,11 @@ defmodule PairingsEngine.Tournaments do
 
   Returns `{:error, :seat_taken}` if neither side of the board is vacant.
   """
-  def fill_seat(%Round{} = round, %Pairing{} = pairing, player_id) do
+  def fill_seat(%Round{} = round, %Pairing{} = pairing, player_id, opts \\ []) do
+    with :ok <- sent_round_gate(round, opts), do: fill_seat_unchecked(round, pairing, player_id)
+  end
+
+  defp fill_seat_unchecked(%Round{} = round, %Pairing{} = pairing, player_id) do
     field =
       cond do
         is_nil(pairing.white_player_id) -> :white_player_id
@@ -4259,7 +4453,11 @@ defmodule PairingsEngine.Tournaments do
   stored as `black_player_id: nil`, the shape `Standings` and the TRF
   export both already read) and the board scores `bye_value`.
   """
-  def award_bye_for_vacancy(%Round{} = round, %Pairing{} = pairing) do
+  def award_bye_for_vacancy(%Round{} = round, %Pairing{} = pairing, opts \\ []) do
+    with :ok <- sent_round_gate(round, opts), do: award_bye_unchecked(round, pairing)
+  end
+
+  defp award_bye_unchecked(%Round{} = round, %Pairing{} = pairing) do
     remaining = pairing.white_player_id || pairing.black_player_id
 
     cond do
@@ -4380,10 +4578,13 @@ defmodule PairingsEngine.Tournaments do
   Returns `{:error, :board_taken}` rather than creating a second pairing
   at the same board.
   """
-  def pair_from_pool(%Round{} = round, white_id, black_id, board)
+  def pair_from_pool(%Round{} = round, white_id, black_id, board, opts \\ [])
       when is_integer(board) and board > 0 do
     cond do
       refusal = write_refused(round.tournament_id) ->
+        refusal
+
+      refusal = sent_round_refused(round, opts) ->
         refusal
 
       white_id == black_id ->
@@ -4476,8 +4677,9 @@ defmodule PairingsEngine.Tournaments do
   tournament, and `{:error, :already_seated}` if they have been given a
   board in this round since the gesture was staged.
   """
-  def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id) do
+  def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id, opts \\ []) do
     with :ok <- ensure_writable(round.tournament_id),
+         :ok <- sent_round_gate(round, opts),
          {:ok, {pairing, field}} <- find_player_seat(round.pairings, seated_id) do
       handover_type = pool_player_type(round, pool_id) || "absent"
 
@@ -4572,7 +4774,8 @@ defmodule PairingsEngine.Tournaments do
   unchanged otherwise. Accepts either a `%Tournament{}` or a tournament id.
 
     * `"finished"` - `rounds_count` rounds have been paired, and every
-      pairing in every paired round has a recorded result.
+      pairing in every paired round has a recorded result. A postponed
+      game is not one: it keeps the tournament running until it is played.
     * `"running"`  - at least one round has been paired, but the tournament
       isn't finished yet per the rule above.
     * `"setup"`    - no round has been paired yet.
@@ -4649,12 +4852,19 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  # A postponed game (`"*"`) is not a score: the tournament stays "running"
+  # until it is played, however many rounds have been paired, so nothing
+  # reading the status can take the event for finished while a game in it
+  # is still to be played (VCL4THP Q161, Q169). It does not hold up pairing
+  # the next round - `Pairing.round_complete?/2` only looks for blanks.
   defp all_rounds_scored?(tournament_id) do
+    unscored = ["" | PairingsEngine.Results.postponed_codes()]
+
     not Repo.exists?(
       from p in Pairing,
         join: r in Round,
         on: p.round_id == r.id,
-        where: r.tournament_id == ^tournament_id and p.result == ""
+        where: r.tournament_id == ^tournament_id and p.result in ^unscored
     )
   end
 end

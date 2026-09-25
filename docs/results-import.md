@@ -56,6 +56,13 @@ board,result
 | `1-0U` | White wins, **played but not rated** |
 | `0-1U` | Black wins, played but not rated |
 | `1/2-1/2U`, `½-½U`, `0.5-0.5U` | Draw, played but not rated |
+| `*W`, `*B` | Postponed by White / by Black - still to be played, counted as the tournament's setting says until it is (only where the tournament allows postponed games) |
+
+A postponed game cannot be given a result that is not a draw from a CSV:
+the rounds paired since counted it provisionally, and that change is
+confirmed on the Pairings page. Neither can a result already sent in a TRF
+finalised for sending be changed from one. In both cases the import refuses
+the whole file and names the board.
 
 These map onto exactly the same result strings the inline result `<select>`
 on the Pairings page writes - a CSV import and a manual click are
