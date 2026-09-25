@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.ExportController do
       {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
         conn
         |> put_flash(:error, "Could not export TRF: #{message}")
-        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
     end
   end
 
@@ -119,7 +119,7 @@ defmodule PairingsEngineWeb.ExportController do
       {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
         conn
         |> put_flash(:error, "Could not export TRF: #{message}")
-        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
 
       {:error, {:already_sent, rounds}} ->
         conn
@@ -130,7 +130,7 @@ defmodule PairingsEngineWeb.ExportController do
             rounds: Enum.join(rounds, ", ")
           )
         )
-        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
 
       {:error, {:blank_results, rounds}} ->
         conn
@@ -141,7 +141,7 @@ defmodule PairingsEngineWeb.ExportController do
             rounds: Enum.join(rounds, ", ")
           )
         )
-        |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
     end
   end
 

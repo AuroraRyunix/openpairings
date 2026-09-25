@@ -55,7 +55,7 @@ to `100%`.
 **Page headers / action rows** - `.page-header` and `.actions` both get
 `flex-wrap: wrap` so title/status blocks and button rows (print, export,
 live view, "Pair round…", etc.) wrap onto additional lines instead of
-overflowing. The TRF "Export rounds…" form on the Pairings page has a
+overflowing. The TRF "Export rounds…" form (Settings, Export) has a
 hard-coded `style="width: 150px"` input; `#trf-rounds-export-form
 input[name="rounds"] { width: 100% !important }` overrides it (the
 `!important` is needed only because it's fighting an inline style, and it's

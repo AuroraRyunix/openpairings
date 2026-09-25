@@ -16,6 +16,14 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The TRF downloads moved to Settings, Export.** "Export TRF (all
+  rounds)", the rounds you choose, and "Export TRF for sending" with its
+  "Finalise" tick are now together in a TRF section there, with the notes
+  that go with them (rounds already sent, postponed games still open,
+  players the sent-games record cannot tell apart). A TRF is made after a
+  round or at the end, and on the Pairings page, used while a round is
+  played, they were in the way.
+
 ## [0.65.0] - 2026-09-25
 
 - [Change] **Tie-breaks now come from Ainalrami, the same code that checks

@@ -93,7 +93,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   ("Voorlopige stand") and the OpenResults snapshot say "not final" while
   one is open, and the tournament stays running. The TRF26 export writes
   `?` (with `X` in `162`), and a `?` imports as a postponed game.
-- **TRF for sending** - the Pairings page's "Export TRF for sending" has a
+- **TRF for sending** - Settings, Export's "Export TRF for sending" has a
   "Finalise results for TRF sending" box: ticked, the download marks every
   result of the exported rounds as sent. A sent result changes only after a
   confirmation; a sent round cannot be finalised again or unpaired, and a

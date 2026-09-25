@@ -217,8 +217,6 @@ defmodule PairingsEngineWeb.PairingsLive do
         # so it can be found and given its result from any round, and the
         # warnings pairing the next round comes with.
         postponed_open: postponed_open,
-        sent_rounds: PostponedGames.sent_rounds(t),
-        ambiguous_players: PostponedGames.ambiguous_players(t.id),
         pairing_warnings: PostponedGames.pairing_warnings(t, postponed_open),
         team_matches: team_matches(t, round),
         teams_by_id: teams_by_id(t),
@@ -2759,61 +2757,6 @@ defmodule PairingsEngineWeb.PairingsLive do
             {gettext("Local view & phone QR")}
           </a>
 
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
-            {gettext("Export TRF (all rounds)")}
-          </a>
-
-          <form
-            id="trf-rounds-export-form"
-            method="get"
-            action={~p"/t/#{@tournament.id}/export/trf"}
-            target="_blank"
-            style="display: flex; gap: 6px; align-items: center; margin: 0"
-          >
-            <input
-              type="text"
-              name="rounds"
-              placeholder={gettext("e.g. 1-5 or 1,3,5")}
-              aria-label={gettext("Rounds to export")}
-              class="pe-select"
-              style="width: 150px"
-            />
-            <button type="submit" class="pe-btn" title={gettext("Export only the rounds listed here")}>
-              {gettext("Export rounds…")}
-            </button>
-          </form>
-
-          <%!-- The TRF an arbiter SENDS - to the federation's rating office.
-                POST, because with its box ticked it marks every exported
-                result as sent (`PostponedGames.finalise/2`), and a GET that
-                could do that would be fired by a link prefetch. --%>
-          <.form
-            for={%{}}
-            id="trf-send-form"
-            action={~p"/t/#{@tournament.id}/export/trf"}
-            method="post"
-            target="_blank"
-            style="display: flex; gap: 6px; align-items: center; margin: 0"
-          >
-            <input
-              type="text"
-              name="rounds"
-              placeholder={gettext("all rounds")}
-              aria-label={gettext("Rounds to send")}
-              class="pe-select"
-              style="width: 110px"
-            />
-            <label class="field-check" style="margin: 0">
-              <input type="hidden" name="finalise" value="false" />
-              <input type="checkbox" name="finalise" value="true" id="trf-send-finalise" />
-              {gettext("Finalise results for TRF sending")}
-            </label>
-            <button type="submit" class="pe-btn">{gettext("Export TRF for sending")}</button>
-          </.form>
-          <span :if={@sent_rounds != []} id="trf-sent-rounds" class="hint">
-            {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
-          </span>
-
           <.link
             :if={@tournament.postponed_games}
             id="postponed-page-link"
@@ -2824,58 +2767,6 @@ defmodule PairingsEngineWeb.PairingsLive do
           </.link>
         </div>
       </div>
-
-      <p
-        :if={@tournament.manual_ranking}
-        class="hint"
-        style="margin-top: -8px; margin-bottom: 12px"
-      >
-        {gettext(
-          "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
-        )}
-      </p>
-
-      <%!-- Beside sending (`:sent_games_ambiguous_players`): the record of
-            sent games names a player with no FIDE ID by name, so two with
-            one name are one player to it. It warns; sending still works. --%>
-      <div
-        :if={@ambiguous_players != []}
-        id="sent-games-ambiguous-players"
-        class="card"
-        role="status"
-        style="display: block; margin: 0 0 12px; border-left: 3px solid var(--warn)"
-      >
-        {Postponed.ambiguous_players_text(@ambiguous_players)}
-      </div>
-
-      <p
-        :if={@postponed_open != []}
-        id="postponed-trf-not-final"
-        class="hint"
-        style="margin-top: -8px; margin-bottom: 12px"
-      >
-        {Postponed.trf_not_final_text(length(@postponed_open))}
-        <span
-          :if={
-            @tournament.postponed_requester_outcome != "draw" or
-              @tournament.postponed_opponent_outcome != "draw"
-          }
-          id="postponed-trf-counts-draw"
-        >
-          {gettext(
-            "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
-          )}
-          <%!-- Checked against `TrfExport`: the TRF26 download writes `?`
-                but values it at a draw (`X` in 162), and the older spelling
-                writes the draw itself, so neither carries the provisional
-                points the rounds were paired with. --%>
-          <span id="postponed-trf-outside-checkers">
-            {gettext(
-              "So an outside pairing program or checker (JaVaFo, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
-            )}
-          </span>
-        </span>
-      </p>
 
       <%!-- Every postponed game still to be played, whichever round is on
             screen (VCL4THP Q162): its result can be entered at any time, and

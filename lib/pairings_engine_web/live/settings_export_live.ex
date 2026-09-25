@@ -1,8 +1,13 @@
 defmodule PairingsEngineWeb.SettingsExportLive do
   @moduledoc """
-  The "Export / backup" settings page (`/t/:id/settings/export`) - the full
-  JSON backup, the experimental `.swar` export, and the warning that the
-  backup carries this tournament's publishing key.
+  The "Export / backup" settings page (`/t/:id/settings/export`) - the TRF
+  downloads (all rounds, chosen rounds, and the file to send with its
+  "finalise" tick), the full JSON backup, the experimental `.swar` export,
+  and the warning that the backup carries this tournament's publishing key.
+
+  The TRF controls lived on the Pairings page until 0.65.x. A TRF is made
+  after a round or at the end, not while a round is being played, and on
+  the page used during play they were in the way.
 
   Split out from `PairingsEngineWeb.SettingsTournamentLive` on 2026-08-29:
   the card had nothing to do with tournament identity, it was just the last
@@ -13,7 +18,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Authz, Features, Publishing, PlayerExport, Tournaments}
+  alias PairingsEngine.{
+    Audit,
+    Authz,
+    Features,
+    Publishing,
+    PlayerExport,
+    PostponedGames,
+    Tournaments
+  }
+
+  alias PairingsEngineWeb.Postponed
   alias PairingsEngine.Federations.BEL.SwarUpload
 
   @impl true
@@ -49,7 +64,21 @@ defmodule PairingsEngineWeb.SettingsExportLive do
        csv_sort: "seed",
        csv_skip_absent: false,
        csv_bom: true
-     )}
+     )
+     |> assign_trf_state()}
+  end
+
+  # What the TRF section shows beside its downloads: rounds already sent,
+  # players the sent-games record cannot tell apart, and postponed games
+  # still open (the file is not final while one is).
+  defp assign_trf_state(socket) do
+    t = socket.assigns.tournament
+
+    assign(socket,
+      sent_rounds: PostponedGames.sent_rounds(t),
+      ambiguous_players: PostponedGames.ambiguous_players(t.id),
+      postponed_open: PostponedGames.open_games(t)
+    )
   end
 
   @impl true
@@ -65,7 +94,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, assign(socket, tournament: tournament)}
+        {:noreply, socket |> assign(tournament: tournament) |> assign_trf_state()}
     end
   end
 
@@ -283,20 +312,135 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
       <.settings_subnav tournament={@tournament} active={:export} />
 
+      <div class="card" id="trf-export">
+        <h2>{gettext("TRF (FIDE rating report)")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "The file for the rating officer: every round, or only the rounds you list. \"For sending\" is the file you send; with \"Finalise\" ticked, its results are marked as sent, and changing them afterwards asks for confirmation."
+          )}
+        </p>
+
+        <div class="actions" style="margin: 0; flex-wrap: wrap">
+          <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
+            {gettext("Export TRF (all rounds)")}
+          </a>
+
+          <form
+            id="trf-rounds-export-form"
+            method="get"
+            action={~p"/t/#{@tournament.id}/export/trf"}
+            target="_blank"
+            style="display: flex; gap: 6px; align-items: center; margin: 0"
+          >
+            <input
+              type="text"
+              name="rounds"
+              placeholder={gettext("e.g. 1-5 or 1,3,5")}
+              aria-label={gettext("Rounds to export")}
+              class="pe-select"
+              style="width: 150px"
+            />
+            <button type="submit" class="pe-btn" title={gettext("Export only the rounds listed here")}>
+              {gettext("Export rounds…")}
+            </button>
+          </form>
+
+          <%!-- The TRF an arbiter SENDS - to the federation's rating office.
+                  POST, because with its box ticked it marks every exported
+                  result as sent (`PostponedGames.finalise/2`), and a GET that
+                  could do that would be fired by a link prefetch. --%>
+          <.form
+            for={%{}}
+            id="trf-send-form"
+            action={~p"/t/#{@tournament.id}/export/trf"}
+            method="post"
+            target="_blank"
+            style="display: flex; gap: 6px; align-items: center; margin: 0"
+          >
+            <input
+              type="text"
+              name="rounds"
+              placeholder={gettext("all rounds")}
+              aria-label={gettext("Rounds to send")}
+              class="pe-select"
+              style="width: 110px"
+            />
+            <label class="field-check" style="margin: 0">
+              <input type="hidden" name="finalise" value="false" />
+              <input type="checkbox" name="finalise" value="true" id="trf-send-finalise" />
+              {gettext("Finalise results for TRF sending")}
+            </label>
+            <button type="submit" class="pe-btn">{gettext("Export TRF for sending")}</button>
+          </.form>
+          <span :if={@sent_rounds != []} id="trf-sent-rounds" class="hint">
+            {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
+          </span>
+        </div>
+        <p
+          :if={@tournament.manual_ranking}
+          class="hint"
+          style="margin: 8px 0 0"
+        >
+          {gettext(
+            "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
+          )}
+        </p>
+
+        <%!-- Beside sending (`:sent_games_ambiguous_players`): the record of
+              sent games names a player with no FIDE ID by name, so two with
+              one name are one player to it. It warns; sending still works. --%>
+        <div
+          :if={@ambiguous_players != []}
+          id="sent-games-ambiguous-players"
+          class="card"
+          role="status"
+          style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
+        >
+          {Postponed.ambiguous_players_text(@ambiguous_players)}
+        </div>
+
+        <p
+          :if={@postponed_open != []}
+          id="postponed-trf-not-final"
+          class="hint"
+          style="margin: 8px 0 0"
+        >
+          {Postponed.trf_not_final_text(length(@postponed_open))}
+          <span
+            :if={
+              @tournament.postponed_requester_outcome != "draw" or
+                @tournament.postponed_opponent_outcome != "draw"
+            }
+            id="postponed-trf-counts-draw"
+          >
+            {gettext(
+              "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
+            )}
+            <%!-- Checked against `TrfExport`: the TRF26 download writes `?`
+                  but values it at a draw (`X` in 162), and the older spelling
+                  writes the draw itself, so neither carries the provisional
+                  points the rounds were paired with. --%>
+            <span id="postponed-trf-outside-checkers">
+              {gettext(
+                "So an outside pairing program or checker (JaVaFo, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
+              )}
+            </span>
+          </span>
+        </p>
+      </div>
+
       <div class="card">
         <h2>{gettext("Export / backup")}</h2>
 
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
-              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF26 file instead, see %[pairings]."
+              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one."
             )
           }>
             <:part name="tournaments">
               <.link navigate={~p"/"}>{gettext("Tournaments")}</.link>
-            </:part>
-            <:part name="pairings">
-              <.link navigate={~p"/t/#{@tournament.id}/pairings"}>{gettext("Pairings")}</.link>
             </:part>
           </.rich_text>
           <span :if={@tournament.manual_ranking}>

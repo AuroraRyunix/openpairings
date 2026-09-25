@@ -209,13 +209,12 @@ weight:
    in a file leaving this app.
 
 The caveat now lives where it actually matters: on the page offering the
-TRF download. `PairingsEngineWeb.PairingsLive` (the "Pairings" page, where
+TRF download. `PairingsEngineWeb.SettingsExportLive` (Settings, Export, where
 the "Export TRF" button and the rounds-filtered export form both live)
 shows a short factual note - "the TRF export's rank column reflects the
 computed/starting-rank order, not the arbiter's hand-set display order" -
-whenever `tournament.manual_ranking` is on. The Settings page's export card
-carries a shorter version of the same caveat where it already points to the
-Pairings page for the TRF16 file.
+whenever `tournament.manual_ranking` is on. The backup card on the same page
+carries a shorter version of the same caveat for the JSON backup.
 
 ## Keizer: not offered, on purpose
 

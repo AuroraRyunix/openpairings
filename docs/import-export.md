@@ -162,7 +162,9 @@ row position.
 
 ### Where the export controls live
 
-The Pairings page (`/t/:id/pairings`) has an "Export TRF (all rounds)" link
+Settings, Export (`/t/:id/settings/export`) has an "Export TRF (all rounds)" link
+(on the Pairings page until 0.65.x; a TRF is made after a round, not during
+one, and the page used during play had no room for it)
 plus a small `rounds=` text field for a subset - both are plain
 `GET`/`<a target="_blank">`/`<form method="get" target="_blank">`, so
 middle-click / open-in-new-tab work and nothing routes through a LiveView

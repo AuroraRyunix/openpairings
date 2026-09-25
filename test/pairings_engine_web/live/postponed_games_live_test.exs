@@ -64,7 +64,8 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
 
       assert Repo.reload!(board).result == "*W"
       assert has_element?(lv, "#postponed-games #postponed-game-#{board.id}")
-      assert has_element?(lv, "#postponed-trf-not-final")
+      {:ok, export, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(export, "#postponed-trf-not-final")
     end
 
     test "a decisive result for a postponed game waits for confirmation (Q163)", %{
@@ -251,16 +252,18 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       assert %{finalised_open: false, finalised_at: %DateTime{}} = Repo.reload!(other)
 
       again = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
-      assert redirected_to(again) == ~p"/t/#{t.id}/pairings"
+      assert redirected_to(again) == ~p"/t/#{t.id}/settings/export"
       assert Phoenix.Flash.get(again.assigns.flash, :error) =~ "twice"
 
       # A copy, not finalised, can always be downloaded.
       copy = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "false"})
       assert response(copy, 200) =~ "?"
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#trf-sent-rounds")
-      assert has_element?(lv, "#postponed-page-link")
+
+      {:ok, pairings, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      assert has_element?(pairings, "#postponed-page-link")
     end
 
     test "changing a sent result asks first, and the confirmation writes it", %{
@@ -501,11 +504,11 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       scope: scope
     } do
       t = tournament(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       refute has_element?(lv, "#sent-games-ambiguous-players")
 
       t = with_namesakes(scope) |> then(&Tournaments.get_tournament!(&1.id))
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#sent-games-ambiguous-players", "Jan Peeters")
 
       for p <- boards(t, 1), do: set!(p, "1-0")
@@ -558,7 +561,7 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       [board | _] = boards(t, 1)
       set!(board, "*W")
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#postponed-trf-outside-checkers")
     end
 

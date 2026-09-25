@@ -207,7 +207,8 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
 
-      assert redirected_to(conn) == ~p"/t/#{tournament.id}/pairings"
+      # Back to where the TRF downloads are (Settings - Export).
+      assert redirected_to(conn) == ~p"/t/#{tournament.id}/settings/export"
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Could not export TRF"
     end
 
