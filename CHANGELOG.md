@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-09-25
+
 - [Change] **Tie-breaks now come from Ainalrami, the same code that checks
   them.** Every tie-break value, the order inside a tied group, and the
   per-round working on the public page are now computed by Ainalrami's
