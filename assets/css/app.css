@@ -1492,7 +1492,10 @@ button.pe-btn, .pe-btn {
 .pe-dropdown[open] > .pe-dropdown-panel {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
+  /* Anchored at the button's right edge: the round's menus sit at the end
+     of its header row, and a panel opened rightwards ran off the page. */
+  right: 0;
+  max-width: calc(100vw - 24px);
   z-index: 50;
   min-width: 220px;
   display: flex;
@@ -4896,6 +4899,11 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
 }
 
 .pub-word { font-weight: 600; }
+
+/* One width whatever the pill says. The top bar wraps when it runs out of
+   room, so a pill that grew from "Live 42 ms" to "Sending" and back pushed
+   the bar to two rows and back every time something was published. */
+.pub-pill { white-space: nowrap; flex-shrink: 0; min-width: 8.5em; }
 
 /* Tabular, so a latency that flips between 40 and 100 ms does not shift the
    pill - and with it the rest of the bar - sideways every thirty seconds. */

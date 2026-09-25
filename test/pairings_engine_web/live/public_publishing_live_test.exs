@@ -261,8 +261,6 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       assert pages.results =~ "The form opens on the results site once the first copy"
       refute pages.pairings =~ "Public page"
       refute pages.standings =~ "Public page"
-      refute pages.live =~ "enroll-qr-inner"
-      assert pages.live =~ "no copy of this tournament has reached the results site yet"
     end
 
     test "on every surface: not before the mint, not after a mint whose publish was refused - then everywhere",
@@ -294,8 +292,6 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       assert pages.results =~ link
       assert pages.pairings =~ link
       assert pages.standings =~ link
-      assert pages.live =~ "enroll-qr-inner"
-      assert pages.live =~ link
     end
 
     test "an open page shows the link when the first copy arrives, without a reload", %{

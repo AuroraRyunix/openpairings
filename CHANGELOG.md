@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The round's Print and More menus open onto the page** instead of
+  running off its right edge.
+- [Fix] **The top bar no longer jumps to two rows while publishing.** The
+  results-site indicator keeps one width, whether it says "Live 42 ms" or
+  "Sending".
+- [Removed] **The spectators' QR block on the local view.** The Pairings
+  page's "Public page" button already opens the same page.
+- [Change] **About is the last item in the Settings menu**, after Export.
+
 ## [0.65.1] - 2026-09-25
 
 - [Change] **A tidier round header on the Pairings page.** The three publish

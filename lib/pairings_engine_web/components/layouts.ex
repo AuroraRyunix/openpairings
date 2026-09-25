@@ -197,11 +197,11 @@ defmodule PairingsEngineWeb.Layouts do
                     did not already know it existed. The two navs list the
                     same pages, in the same order; a page added to one
                     belongs in the other. --%>
-              <.link navigate={~p"/t/#{@tournament.id}/settings/about"} class="topbar-menu-item">
-                {gettext("About")}
-              </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/export"} class="topbar-menu-item">
                 {gettext("Export")}
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/about"} class="topbar-menu-item">
+                {gettext("About")}
               </.link>
             </div>
           </details>

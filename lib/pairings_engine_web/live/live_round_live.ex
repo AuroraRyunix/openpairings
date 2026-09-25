@@ -12,8 +12,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngineWeb.PublicLink
-
   alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile, PairingDisplay}
   alias PairingsEngine.Pairing, as: Engine
 
@@ -702,60 +700,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </tbody>
           </table>
         </div>
-      </details>
-
-      <details class="card" style="margin-bottom: 20px">
-        <summary style="cursor: pointer; font-weight: 650">
-          {gettext("📣 Let spectators follow the standings")}
-        </summary>
-
-        <%= if PublicLink.public?(@tournament) do %>
-          <p class="hint">
-            {gettext(
-              "Anyone can scan this to open live standings on their own phone - no login needed."
-            )}
-          </p>
-          <div class="enroll-panel" style="margin-top: 16px">
-            <div class="enroll-qr">
-              <.qr_code
-                url={PublicLink.url(@tournament, :standings)}
-                label={gettext("QR code for the live standings")}
-              />
-            </div>
-            <div>
-              <p class="enroll-url">
-                <.rich_text text={gettext("Or open %[url]")}>
-                  <:part name="url">
-                    <strong>{PublicLink.url(@tournament, :standings)}</strong>
-                  </:part>
-                </.rich_text>
-              </p>
-            </div>
-          </div>
-        <% else %>
-          <%!-- Switched on, and no copy has reached the results site yet
-                (public mode). No QR code: until the first publish lands, the
-                site answers the address like an unknown one, so a QR code
-                printed now would be dead. --%>
-          <p :if={PublicLink.pending?(@tournament)} class="hint">
-            {gettext(
-              "Publishing is on, but no copy of this tournament has reached the results site yet, so there is no link or QR code to show. They appear here once the first copy has arrived."
-            )}
-          </p>
-          <p :if={not PublicLink.pending?(@tournament)} class="hint">
-            <.rich_text text={
-              gettext(
-                "This tournament is not published, so there is no page for spectators to open. %[settings] to publish it to the results site and get a link and QR code."
-              )
-            }>
-              <:part name="settings">
-                <.link navigate={~p"/t/#{@tournament.id}/settings"}>
-                  {gettext("Turn publishing on in Settings")}
-                </.link>
-              </:part>
-            </.rich_text>
-          </p>
-        <% end %>
       </details>
 
       <div :if={@round == nil and @paired_rounds == 0} class="card empty">

@@ -108,16 +108,16 @@ defmodule PairingsEngineWeb.SettingsSupport do
         FIDE
       </.link>
       <.link
-        navigate={~p"/t/#{@tournament.id}/settings/about"}
-        class={["pe-btn", "filter-picker", @active == :about && "active"]}
-      >
-        {gettext("About")}
-      </.link>
-      <.link
         navigate={~p"/t/#{@tournament.id}/settings/export"}
         class={["pe-btn", "filter-picker", @active == :export && "active"]}
       >
         {gettext("Export")}
+      </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/settings/about"}
+        class={["pe-btn", "filter-picker", @active == :about && "active"]}
+      >
+        {gettext("About")}
       </.link>
     </div>
     """

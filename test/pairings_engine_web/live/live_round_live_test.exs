@@ -486,11 +486,9 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     refute html =~ ">Pts<"
   end
 
-  test "shows a public-standings QR when public pages are on, and an enable-them hint when off",
-       %{
-         conn: conn,
-         scope: scope
-       } do
+  # The spectators' QR code lived here too; the Pairings page's "Public page"
+  # button opens the same public page, so this page no longer repeats it.
+  test "has no spectators' QR block, published or not", %{conn: conn, scope: scope} do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Public QR Test", "type" => "swiss"})
 
@@ -498,20 +496,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-    assert html =~ "enroll-qr-inner"
-    assert html =~ "https://results.example.org/t/#{tournament.public_slug}"
-
-    # The one a hall full of people actually scans. It must never resolve to
-    # the machine running the round.
-    refute html =~ "/p/#{tournament.public_slug}"
+    refute html =~ "Let spectators follow the standings"
+    refute html =~ "https://results.example.org/t/#{tournament.public_slug}"
 
     assert {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, false)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-    assert html =~ "This tournament is not published"
-    refute html =~ "enroll-qr-inner"
+    refute html =~ "This tournament is not published"
   end
 
   test "redirects to the tournament list if the tournament is deleted while the page is open", %{
