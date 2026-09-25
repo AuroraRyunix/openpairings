@@ -54,6 +54,8 @@ npm-debug.log
 # Database files
 *.db
 *.db-*
+# a restore's copy of the test database (Snapshots tests)
+*.db.restored
 
 # real tournament data (personal player info)
 /test/fixtures/*.swar
