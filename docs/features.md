@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.66.1**. One page: everything the app does today, and where
+Current version: **0.67.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing

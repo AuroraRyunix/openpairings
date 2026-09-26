@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-09-26
+
 - [Change] **Postponed games moved to Settings, Export.** Everything the
   separate Postponed games page had - every postponed game with its state
   and the date it was played, and the postponed-games TRF - is now in the
