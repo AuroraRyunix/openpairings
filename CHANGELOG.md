@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.66.1] - 2026-09-26
+
 - [Fix] **The top bar stays one row.** Your email, account settings,
   Features, the version and Log out are now one account menu at the end of
   the bar, instead of a row of links that pushed the bar onto a second line
