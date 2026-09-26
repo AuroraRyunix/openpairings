@@ -261,49 +261,74 @@ defmodule PairingsEngineWeb.Layouts do
                 it subscribes and re-assigns, and the re-render comes back
                 through here. --%>
           <.publish_pill status={@publish_status} />
-          <span class="user-email">{@current_scope.user.email}</span>
-          <%!-- Hidden on a local install for the same reason the log-out
-                link below is: the page offers change-email and
-                change-password for an account nobody logs into, and its
-                change-email confirmation would be sent to `ConsoleMailer`,
-                i.e. to a terminal the arbiter is probably not watching. A
-                control that visibly does nothing is worse than no
-                control. --%>
-          <.link :if={!Authz.local_mode?()} navigate={~p"/users/settings"}>
-            {gettext("Settings")}
-          </.link>
-          <%!-- Shown on a local install too, unlike the account settings link
-                above. The national-federation switches are the one account
-                preference an arbiter running the binary on their own laptop
-                genuinely needs - "I am not in Belgium, take those buttons
-                away" - and there is nothing on that page to confirm by
-                email or to sign in for. --%>
-          <.link
-            navigate={~p"/users/features"}
-            class={tab_class(@active == "features")}
-            aria-current={@active == "features" && "page"}
-          >
-            {gettext("Features")}
-          </.link>
-          <%!-- No log out on a local install. There is no second account to
-                log in as, and the next request would sign the same owner
-                straight back in - a control that visibly does nothing is
-                worse than no control. See
-                `PairingsEngineWeb.UserAuth.local_owner_session/2`. --%>
-          <.link :if={!local_mode?()} href={~p"/users/log-out"} method="delete">
-            {gettext("Log out")}
-          </.link>
+          <%!-- One account menu instead of a row of links. The email, the
+                two settings pages, log out and the build used to sit in the
+                bar side by side, and on a laptop-width window they pushed the
+                bar onto a second row. --%>
+          <details class="topbar-menu account-menu" name="topbar-popover" id="account-menu">
+            <summary class={tab_class(@active == "features")} title={@current_scope.user.email}>
+              <span class="user-email">{@current_scope.user.email}</span>
+              <span class="account-menu-short" aria-hidden="true">{gettext("Account")}</span>
+            </summary>
+            <div class="topbar-menu-panel">
+              <span class="account-menu-who">{@current_scope.user.email}</span>
+              <%!-- Hidden on a local install for the same reason the log-out
+                    link below is: the page offers change-email and
+                    change-password for an account nobody logs into, and its
+                    change-email confirmation would be sent to `ConsoleMailer`,
+                    i.e. to a terminal the arbiter is probably not watching. A
+                    control that visibly does nothing is worse than no
+                    control. --%>
+              <.link
+                :if={!Authz.local_mode?()}
+                navigate={~p"/users/settings"}
+                class="topbar-menu-item"
+              >
+                {gettext("Settings")}
+              </.link>
+              <%!-- Shown on a local install too, unlike the account settings
+                    link above. The national-federation switches are the one
+                    account preference an arbiter running the binary on their
+                    own laptop genuinely needs - "I am not in Belgium, take
+                    those buttons away" - and there is nothing on that page to
+                    confirm by email or to sign in for. --%>
+              <.link
+                navigate={~p"/users/features"}
+                class="topbar-menu-item"
+                aria-current={@active == "features" && "page"}
+              >
+                {gettext("Features")}
+              </.link>
+              <%!-- The BUILD, not just the release: the full identifier, with
+                    the commit and the build time, is in the tooltip. --%>
+              <.link
+                navigate={~p"/changelog"}
+                class="topbar-menu-item app-version"
+                title={Build.long()}
+              >
+                v{Build.id()}
+              </.link>
+              <%!-- No log out on a local install. There is no second account to
+                    log in as, and the next request would sign the same owner
+                    straight back in - a control that visibly does nothing is
+                    worse than no control. See
+                    `PairingsEngineWeb.UserAuth.local_owner_session/2`. --%>
+              <.link
+                :if={!local_mode?()}
+                href={~p"/users/log-out"}
+                method="delete"
+                class="topbar-menu-item"
+              >
+                {gettext("Log out")}
+              </.link>
+            </div>
+          </details>
         <% else %>
           <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
+          <.link navigate={~p"/changelog"} class="app-version" title={Build.long()}>
+            v{Build.id()}
+          </.link>
         <% end %>
-        <%!-- The BUILD, not just the release. Two deploys a week apart both
-              said "v0.18.0", so the one question asked after every deploy -
-              is the thing I just pushed the thing that is running - had no
-              answer on the screen. The full identifier, with the commit and
-              the build time, is in the tooltip. --%>
-        <.link navigate={~p"/changelog"} class="app-version" title={Build.long()}>
-          v{Build.id()}
-        </.link>
       </nav>
     </header>
 

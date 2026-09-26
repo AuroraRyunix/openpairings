@@ -2117,7 +2117,8 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert has_element?(lv, "#round-more-menu-#{n} #export-pgn-#{n}")
       assert has_element?(lv, "#round-more-menu-#{n} #import-results-csv-#{n}")
       assert has_element?(lv, "#round-more-menu-#{n} #unpair-round-#{n}.is-danger")
-      assert has_element?(lv, "#pairings-tips")
+      refute has_element?(lv, "#pairings-tips")
+      assert has_element?(lv, "#round-more-menu-#{n} #pgn-boards-form-#{n}")
 
       # The menu's import button still opens the CSV form.
       lv |> element("#import-results-csv-#{n}") |> render_click()

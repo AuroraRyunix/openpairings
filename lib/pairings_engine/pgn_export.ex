@@ -17,6 +17,9 @@ defmodule PairingsEngine.PgnExport do
   `""` when there's nothing to export (unpaired round, or a round with only
   byes).
 
+  `opts[:boards]` (a list of board numbers, as printed on the pairing
+  sheet) keeps only those boards - the top boards for a broadcast, say.
+
   `opts[:board]` (default `false`) adds a supplemental `[Board "N"]` tag
   to every game, right after `Round`. `N` is the REAL `pairing.board` -
   see `board_tag/1` for why this is the one board-numbered surface in the
@@ -24,14 +27,22 @@ defmodule PairingsEngine.PgnExport do
   """
   def export(tournament, round_number \\ nil, opts \\ []) do
     board? = Keyword.get(opts, :board, false)
+    boards = Keyword.get(opts, :boards)
 
     tournament
     |> rounds_for(round_number)
     |> Enum.flat_map(&games_for_round(tournament, &1, board?))
+    |> Enum.filter(fn {_t, _round, pairing, _board} -> on_boards?(pairing, boards) end)
     |> Enum.map(&game_text/1)
     |> Enum.join("\n\n")
     |> append_trailing_newline()
   end
+
+  # `opts[:boards]`: only these boards, by the number printed on the pairing
+  # sheet (`display_board` when the arbiter renumbered the round, else the
+  # board itself). nil = every board.
+  defp on_boards?(_pairing, nil), do: true
+  defp on_boards?(pairing, boards), do: (pairing.display_board || pairing.board) in boards
 
   defp rounds_for(tournament, nil) do
     Tournaments.list_rounds(tournament.id)

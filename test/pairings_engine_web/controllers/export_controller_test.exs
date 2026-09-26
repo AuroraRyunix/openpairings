@@ -310,6 +310,22 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       assert with_board =~ "[Board "
     end
 
+    test "?boards= keeps only those boards; an unreadable range keeps every board",
+         %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      kept = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=1&boards=1-4") |> response(200)
+      assert kept =~ ~s([White "Alice"])
+
+      dropped = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=1&boards=2-4") |> response(200)
+      refute dropped =~ "[White "
+
+      unreadable =
+        get(conn, ~p"/t/#{tournament.id}/export/pgn?round=1&boards=top") |> response(200)
+
+      assert unreadable =~ ~s([White "Alice"])
+    end
+
     test "an invalid round param falls back to every round rather than erroring", %{
       conn: conn,
       scope: scope

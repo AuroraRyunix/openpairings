@@ -820,6 +820,25 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
   color: var(--accent);
 }
 
+/* The account menu at the end of the bar: opens leftwards, since it sits
+   at the window's right edge. */
+.account-menu > .topbar-menu-panel { left: auto; right: 0; }
+.account-menu > summary { max-width: 22ch; }
+.account-menu > summary .user-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-short { display: none; }
+.account-menu-who {
+  padding: 6px 12px 4px;
+  font-size: 12px;
+  color: var(--text-soft);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.account-menu .app-version { font-size: 12px; color: var(--text-soft); }
+
 .topbar-auth .user-email {
   color: var(--text-soft);
   padding: 6px 4px;
@@ -1534,6 +1553,21 @@ button.pe-btn, .pe-btn {
 }
 .pe-dropdown-panel > .is-danger { color: var(--danger); }
 .pe-dropdown-panel > hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+/* The Pairings page's confirmation for a postponed or already-sent result:
+   a full sentence, so it wraps inside the result cell instead of stretching
+   the column across the table; the buttons sit under it. */
+.confirm-postponed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 30em;
+  white-space: normal;
+}
+.confirm-postponed > .hint { flex-basis: 100%; margin: 0; line-height: 1.35; }
+
+.pe-dropdown-form { display: flex; gap: 6px; padding: 4px 8px 6px; }
+.pe-dropdown-form .pe-select { width: 9em; }
+.pe-dropdown-form .pe-btn { white-space: nowrap; }
 .pe-dropdown-label {
   padding: 6px 12px 2px;
   font-size: 11.5px;
@@ -2410,6 +2444,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   /* The signed-in address is also shown on the account settings page, and
      the version in Settings → About. */
   .topbar-auth .user-email { display: none; }
+  .account-menu-short { display: inline; }
   .app-version { display: none; }
   .topbar { gap: 18px; padding: 0 16px; }
 }
@@ -2509,6 +2544,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   /* trim the email address from the top bar to leave room for the
      Settings / Log out links next to the brand */
   .topbar-auth .user-email { display: none; }
+  .account-menu-short { display: inline; }
   .app-version { display: none; }
 
   .modal-card {

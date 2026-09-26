@@ -3086,6 +3086,30 @@ defmodule PairingsEngineWeb.PairingsLive do
               <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
                 {gettext("All rounds, with board numbers")}
               </a>
+              <%!-- A range of boards, e.g. the top boards for a broadcast:
+                    the numbers printed on the pairing sheet. --%>
+              <form
+                id={"pgn-boards-form-#{@round_number}"}
+                class="pe-dropdown-form"
+                method="get"
+                action={~p"/t/#{@tournament.id}/export/pgn"}
+                target="_blank"
+              >
+                <input type="hidden" name="round" value={@round_number} />
+                <input type="hidden" name="board" value="1" />
+                <input
+                  type="text"
+                  name="boards"
+                  id={"pgn-boards-#{@round_number}"}
+                  class="pe-select"
+                  placeholder={gettext("boards, e.g. 1-4")}
+                  aria-label={gettext("Boards to export")}
+                  required
+                />
+                <button type="submit" role="menuitem" class="pe-btn">
+                  {gettext("This round, these boards")}
+                </button>
+              </form>
               <hr :if={!@tournament.archived_at} />
               <button
                 :if={!@tournament.archived_at}
@@ -3187,20 +3211,6 @@ defmodule PairingsEngineWeb.PairingsLive do
           </button>
         </div>
       </form>
-
-      <details id="pairings-tips" class="pe-tips">
-        <summary>{gettext("Keyboard and mouse tips")}</summary>
-        <p class="hint" style="margin: 4px 0 0">
-          {gettext(
-            "Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically."
-          )}
-          <strong>{gettext("Right-click any player")}</strong>
-          {gettext("to swap them, or to mark them absent for this round.")}
-          {gettext(
-            "By keyboard, Tab to a player or an empty seat and press Enter or the context-menu key for the same menu; with a swap armed, Enter on the second seat completes it."
-          )}
-        </p>
-      </details>
 
       <div :if={@swap_first} class="swap-banner" phx-window-keydown="cancel_swap" phx-key="escape">
         <span class="swap-banner-dot"></span>
@@ -3665,7 +3675,10 @@ defmodule PairingsEngineWeb.PairingsLive do
                     <%!-- A postponed game given a result that is not a draw
                           (VCL4THP Q163): the same shape as clearing a result,
                           focus on Cancel. --%>
-                    <div class="confirm-clear-result" id={"confirm-postponed-#{pairing.id}"}>
+                    <div
+                      class="confirm-clear-result confirm-postponed"
+                      id={"confirm-postponed-#{pairing.id}"}
+                    >
                       <span class="hint" id={"confirm-postponed-text-#{pairing.id}"}>
                         <span :if={:adjourned_non_draw_result in @confirm_postponed.ids}>
                           {Postponed.non_draw_text(

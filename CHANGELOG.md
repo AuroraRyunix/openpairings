@@ -16,6 +16,20 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The top bar stays one row.** Your email, account settings,
+  Features, the version and Log out are now one account menu at the end of
+  the bar, instead of a row of links that pushed the bar onto a second line
+  on a laptop-width window.
+- [Fix] **Sending a TRF updates the Export page straight away.** A round
+  sent from the TRF section now shows "Sent" without a reload.
+- [Fix] **Confirming a postponed or already-sent result no longer stretches
+  the pairings table.** The explanation wraps inside the result cell, with
+  its buttons underneath.
+- [Feature] **PGN for a range of boards.** More, PGN: type the boards (for
+  example 1-4, as printed on the pairing sheet) and download just those
+  games of the round - the top boards for a broadcast.
+- [Removed] **The "Keyboard and mouse tips" line** under the round header.
+
 ## [0.66.0] - 2026-09-26
 
 - [Fix] **Team Swiss picks the pairing C.04.6 defines on large fields too.**

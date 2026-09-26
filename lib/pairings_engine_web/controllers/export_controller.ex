@@ -93,6 +93,10 @@ defmodule PairingsEngineWeb.ExportController do
          meta = TrfExport.export_meta(tournament, params["rounds"]),
          {:ok, marked} <- maybe_finalise(tournament, meta.rounds, finalise?) do
       if finalise? do
+        # The rounds are sent now: the Export page's round table (and the
+        # Pairings page's sent-round warnings) reload on this.
+        Tournaments.broadcast_tournament_change(tournament.id, :results)
+
         # Sent anyway - the warning blocks nothing - but the trail says the
         # record could not tell these players apart when it went out.
         ambiguous = PostponedGames.ambiguous_players(tournament.id)
@@ -144,6 +148,20 @@ defmodule PairingsEngineWeb.ExportController do
         |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
     end
   end
+
+  # "1-4", "1,3,5" - the same forgiving range grammar the absent-rounds field
+  # reads. Blank or unreadable = every board.
+  defp pgn_boards(value) when is_binary(value) and value != "" do
+    case PairingsEngine.Tournaments.Player.parse_absent_rounds_input(value) do
+      {:ok, canonical} when canonical != "" ->
+        PairingsEngine.Tournaments.Player.parse_absent_rounds(canonical)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp pgn_boards(_value), do: nil
 
   defp ambiguous_details([]), do: %{}
 
@@ -214,7 +232,12 @@ defmodule PairingsEngineWeb.ExportController do
   def pgn(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     round_number = parse_round_param(params["round"])
-    text = PgnExport.export(tournament, round_number, board: params["board"] == "1")
+
+    text =
+      PgnExport.export(tournament, round_number,
+        board: params["board"] == "1",
+        boards: pgn_boards(params["boards"])
+      )
 
     conn
     |> put_resp_content_type("application/x-chess-pgn")
