@@ -335,15 +335,31 @@ defmodule PairingsEngine.TrfExport do
   and checks it says exactly what was meant: every game once, nobody twice
   in a round, the result each board holds. A file that fails that is not
   returned at all.
+
+  Options, both from the Export page's postponed-games part:
+
+    * `games:` - the pairing ids to send now; the others wait for a later
+      file. nil (the default) sends every sendable game. Ids that are not
+      sendable are ignored.
+    * `dates:` - a date per extra round, in order, to report instead of the
+      latest date its games were played on; a nil entry, or a list shorter
+      than the rounds, keeps that default.
   """
-  def postponed_export(tournament) do
-    case PairingsEngine.PostponedGames.sendable_late_games(tournament) do
+  def postponed_export(tournament, opts \\ []) do
+    chosen = Keyword.get(opts, :games)
+
+    games =
+      tournament
+      |> PairingsEngine.PostponedGames.sendable_late_games()
+      |> Enum.filter(&(is_nil(chosen) or &1.pairing.id in chosen))
+
+    case games do
       [] ->
         {:error, :nothing_to_send}
 
       games ->
         rounds = games |> Enum.map(& &1.pairing) |> PairingsEngine.PostponedGames.pack()
-        text = build_postponed(tournament, rounds)
+        text = build_postponed(tournament, rounds, Keyword.get(opts, :dates, []))
         :ok = verify_postponed!(text, rounds)
         {:ok, text, games}
     end
@@ -351,7 +367,18 @@ defmodule PairingsEngine.TrfExport do
     e in ValidationError -> {:error, e}
   end
 
-  defp build_postponed(tournament, rounds) do
+  @doc """
+  The date an extra round of the postponed-games file reports when nobody
+  sets one: the latest date one of its games was played on, or nil.
+  """
+  def postponed_round_date(games) do
+    games
+    |> Enum.map(& &1.played_on)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.max(Date, fn -> nil end)
+  end
+
+  defp build_postponed(tournament, rounds, set_dates) do
     roster = Pairing.full_roster_players(tournament.id) |> Map.new(&{&1.id, &1})
 
     ids =
@@ -389,12 +416,9 @@ defmodule PairingsEngine.TrfExport do
       end)
 
     dates =
-      Enum.map(rounds, fn games ->
-        games
-        |> Enum.map(& &1.played_on)
-        |> Enum.reject(&is_nil/1)
-        |> Enum.max(Date, fn -> nil end)
-      end)
+      rounds
+      |> Enum.with_index()
+      |> Enum.map(fn {games, i} -> Enum.at(set_dates, i) || postponed_round_date(games) end)
 
     Trf.serialize(
       %{

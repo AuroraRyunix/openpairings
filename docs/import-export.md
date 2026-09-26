@@ -129,7 +129,7 @@ export writes them in FIDE's own spelling:
     up from itself whatever the tournament counts a postponed game as. A
     game written `?` in a report finalised for sending stays `?` in every
     later report; its played result goes in the postponed-games TRF (the
-    Postponed games page), never back into the round. A file carrying `?` is not a final report, and
+    Postponed games part of Settings, Export), never back into the round. A file carrying `?` is not a final report, and
     the Pairings page says so beside the export buttons while one is open.
     `Ainalrami.Trf.serialize/2` refuses `?`, so `TrfExport` writes the game
     as the draw the engine is handed and swaps the one character afterwards.

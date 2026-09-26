@@ -179,21 +179,62 @@ defmodule PairingsEngineWeb.ExportController do
   POST with `finalise=true` marks the games in the file as sent, so no later
   file carries them again.
   """
-  def postponed_trf(conn, %{"id" => id}) do
+  def postponed_trf(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    send_postponed_trf(conn, tournament, false)
+    send_postponed_trf(conn, tournament, false, postponed_opts(params))
+  end
+
+  # `games=12,15,40` - the pairing ids ticked on the Export page (absent =
+  # every sendable game); `dates=2026-10-01,,2026-10-08` - one date per extra
+  # round, blank for the default. Anything unreadable is left out rather than
+  # guessed.
+  defp postponed_opts(params) do
+    games =
+      case params["games"] do
+        value when is_binary(value) and value != "" ->
+          value
+          |> String.split(",", trim: true)
+          |> Enum.flat_map(fn id ->
+            case Integer.parse(String.trim(id)) do
+              {n, ""} -> [n]
+              _ -> []
+            end
+          end)
+
+        _ ->
+          nil
+      end
+
+    dates =
+      case params["dates"] do
+        value when is_binary(value) ->
+          value
+          |> String.split(",")
+          |> Enum.map(fn d ->
+            case Date.from_iso8601(String.trim(d)) do
+              {:ok, date} -> date
+              _ -> nil
+            end
+          end)
+
+        _ ->
+          []
+      end
+
+    [games: games, dates: dates]
   end
 
   def postponed_trf_send(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    send_postponed_trf(conn, tournament, params["finalise"] == "true")
+    send_postponed_trf(conn, tournament, params["finalise"] == "true", postponed_opts(params))
   end
 
-  defp send_postponed_trf(conn, tournament, finalise?) do
-    case TrfExport.postponed_export(tournament) do
+  defp send_postponed_trf(conn, tournament, finalise?, opts) do
+    case TrfExport.postponed_export(tournament, opts) do
       {:ok, text, games} ->
         if finalise? do
           PostponedGames.mark_late_games_sent(tournament, games)
+          Tournaments.broadcast_tournament_change(tournament.id, :results)
 
           Audit.log(tournament.id, conn.assigns.current_scope, "trf.postponed_sent", %{
             games: length(games)
@@ -214,12 +255,12 @@ defmodule PairingsEngineWeb.ExportController do
           :error,
           gettext("There is no postponed game to send: none was played after its round was sent.")
         )
-        |> redirect(to: ~p"/t/#{tournament.id}/postponed")
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
 
       {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
         conn
         |> put_flash(:error, "Could not export TRF: #{message}")
-        |> redirect(to: ~p"/t/#{tournament.id}/postponed")
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
     end
   end
 

@@ -2778,15 +2778,6 @@ defmodule PairingsEngineWeb.PairingsLive do
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
             {gettext("Local view & phone QR")}
           </a>
-
-          <.link
-            :if={@tournament.postponed_games}
-            id="postponed-page-link"
-            class="pe-btn"
-            navigate={~p"/t/#{@tournament.id}/postponed"}
-          >
-            {gettext("Postponed games")}
-          </.link>
         </div>
       </div>
 

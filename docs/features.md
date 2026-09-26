@@ -106,7 +106,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   cannot be told apart in it: the Pairings page warns beside sending, and a
   restore or return warns when one of them has a sent game. A game still open when its round is sent goes out as
   `?` and stays `?` in every later report; once played it goes in the
-  **postponed-games TRF** on the Postponed games page instead - extra
+  **postponed-games TRF** in the Postponed games part of Settings, Export instead - extra
   rounds, packed so nobody plays twice in a round, only the players of those
   games - and finalising that file marks it sent too. The warnings and the
   VCL questions they answer are listed in `PairingsEngine.PostponedGames`.

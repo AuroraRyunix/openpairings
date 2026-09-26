@@ -91,6 +91,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       trf_rounds: rounds,
       trf_selected: selected
     )
+    |> assign_postponed()
   end
 
   # The ticked rounds as the export routes read them, "1,2,5".
@@ -168,6 +169,132 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp trf_state_class(%{state: :ready, postponed: p}) when p > 0, do: "is-waiting"
   defp trf_state_class(%{state: state}), do: "is-#{state}"
 
+  # ---- postponed games (the postponed-games file) ----
+  #
+  # Every postponed game and its state, and the file for the ones played
+  # after their round's report went out as `?`: ticked games packed into as
+  # few extra rounds as possible (`PostponedGames.pack/1`), each dated by the
+  # arbiter or by the latest date its games were played. Unticked games wait
+  # for a later file. This was its own page (`/t/:id/postponed`, which now
+  # comes here); sending belongs with the other TRF files.
+  defp assign_postponed(socket) do
+    t = socket.assigns.tournament
+
+    if t.postponed_games do
+      sendable = PostponedGames.sendable_late_games(t)
+      ids = MapSet.new(sendable, & &1.pairing.id)
+      seen = socket.assigns[:late_seen] || MapSet.new()
+
+      # Ticked: what the arbiter ticked, still sendable, plus every game that
+      # became sendable since (ticked by default).
+      selected =
+        case socket.assigns[:late_selected] do
+          nil ->
+            ids
+
+          chosen ->
+            chosen |> MapSet.intersection(ids) |> MapSet.union(MapSet.difference(ids, seen))
+        end
+
+      socket
+      |> assign(
+        postponed_all: PostponedGames.all_games(t),
+        late_sendable: sendable,
+        late_selected: selected,
+        late_seen: ids,
+        late_dates: socket.assigns[:late_dates] || %{}
+      )
+      |> assign_late_packed()
+    else
+      assign(socket,
+        postponed_all: [],
+        late_sendable: [],
+        late_selected: MapSet.new(),
+        late_seen: MapSet.new(),
+        late_dates: %{},
+        late_packed: []
+      )
+    end
+  end
+
+  defp assign_late_packed(socket) do
+    %{late_sendable: sendable, late_selected: selected} = socket.assigns
+
+    packed =
+      sendable
+      |> Enum.filter(&MapSet.member?(selected, &1.pairing.id))
+      |> Enum.map(& &1.pairing)
+      |> PostponedGames.pack()
+
+    assign(socket, late_packed: packed)
+  end
+
+  defp late_ids_param(selected), do: selected |> Enum.sort() |> Enum.join(",")
+
+  # One entry per extra round: the date set for it, or blank for the default.
+  defp late_dates_param(packed, dates) do
+    packed
+    |> Enum.with_index()
+    |> Enum.map_join(",", fn {_games, i} -> Map.get(dates, i, "") end)
+  end
+
+  defp late_round_date(games, dates, i) do
+    case Map.get(dates, i) do
+      value when is_binary(value) and value != "" ->
+        value
+
+      _ ->
+        case PairingsEngine.TrfExport.postponed_round_date(games) do
+          nil -> ""
+          date -> Date.to_iso8601(date)
+        end
+    end
+  end
+
+  defp late_player(nil), do: "?"
+  defp late_player(player), do: player.name
+
+  defp postponed_by_text(%{postponed_by: "white"}), do: gettext("White")
+  defp postponed_by_text(%{postponed_by: "black"}), do: gettext("Black")
+  defp postponed_by_text(_pairing), do: gettext("nobody named")
+
+  defp postponed_status_text(pairing) do
+    cond do
+      PairingsEngine.Results.postponed?(pairing.result) ->
+        gettext("still to be played")
+
+      pairing.played_on ->
+        gettext("played on %{date}: %{result}",
+          date: Date.to_iso8601(pairing.played_on),
+          result: pairing.result
+        )
+
+      true ->
+        gettext("played: %{result}", result: pairing.result)
+    end
+  end
+
+  defp postponed_sent_text(pairing) do
+    cond do
+      pairing.postponed_reported_at ->
+        gettext("sent in a postponed-games file on %{date}",
+          date: pairing.postponed_reported_at |> DateTime.to_date() |> Date.to_iso8601()
+        )
+
+      pairing.finalised_open and PairingsEngine.Results.postponed?(pairing.result) ->
+        gettext("in its round's report as ? - its result goes in the postponed-games file")
+
+      pairing.finalised_open ->
+        gettext("in its round's report as ? - ready for the postponed-games file")
+
+      pairing.finalised_at ->
+        gettext("sent in its round's report, with its result")
+
+      true ->
+        gettext("not sent yet - goes in its round's report")
+    end
+  end
+
   defp trf_send_confirm(selected) do
     gettext(
       "Send round %{rounds}? The file downloads, and every result in it is marked as sent: changing one afterwards asks for confirmation, and these rounds cannot be sent a second time.",
@@ -201,6 +328,48 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   ## same reasoning `PairingsEngineWeb.FideLive` gives for its own re-checks.
 
   @impl true
+  def handle_event("toggle_late_game", %{"id" => id}, socket) do
+    n = String.to_integer(id)
+    selected = socket.assigns.late_selected
+
+    selected =
+      if MapSet.member?(selected, n),
+        do: MapSet.delete(selected, n),
+        else: MapSet.put(selected, n)
+
+    # The rounds are packed again, so dates set for the old ones no longer
+    # belong to anything.
+    {:noreply, socket |> assign(late_selected: selected, late_dates: %{}) |> assign_late_packed()}
+  end
+
+  def handle_event("set_late_date", %{"round" => round, "date" => date}, socket) do
+    dates = Map.put(socket.assigns.late_dates, String.to_integer(round), date)
+    {:noreply, assign(socket, late_dates: dates)}
+  end
+
+  def handle_event("set_played_on", %{"pairing-id" => id, "played_on" => date}, socket) do
+    with %{pairing: pairing} <-
+           Enum.find(socket.assigns.postponed_all, &(to_string(&1.pairing.id) == id)),
+         {:ok, date} <- Date.from_iso8601(date),
+         {:ok, _} <- Tournaments.set_played_on(pairing, date) do
+      {:noreply, socket |> put_flash(:info, gettext("Date saved.")) |> assign_postponed()}
+    else
+      {:error, :already_sent} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Not changed: this game was already sent in a postponed-games file.")
+         )}
+
+      {:error, reason} when is_atom(reason) ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, gettext("That is not a date."))}
+    end
+  end
+
   def handle_event("toggle_trf_round", %{"round" => round}, socket) do
     n = String.to_integer(round)
     selected = socket.assigns.trf_selected
@@ -532,6 +701,170 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
           </p>
         </div>
+        <div :if={@tournament.postponed_games} id="postponed-part" class="trf-late-part">
+          <h3>{gettext("Postponed games")}</h3>
+
+          <div class="card-table-wrap">
+            <table class="pe-table" id="postponed-list">
+              <thead>
+                <tr>
+                  <th class="num">{gettext("Round")}</th>
+                  <th class="num">{gettext("Board")}</th>
+                  <th>{gettext("White")}</th>
+                  <th>{gettext("Black")}</th>
+                  <th>{gettext("Postponed by")}</th>
+                  <th>{gettext("Status")}</th>
+                  <th>{gettext("Sent")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :if={@postponed_all == []}>
+                  <td colspan="7" class="empty">{gettext("No game has been postponed yet.")}</td>
+                </tr>
+                <tr :for={%{round: round, pairing: p} <- @postponed_all} id={"postponed-row-#{p.id}"}>
+                  <td class="num">{round}</td>
+                  <td class="num">{p.display_board || p.board}</td>
+                  <td>{late_player(p.white_player)}</td>
+                  <td>{late_player(p.black_player)}</td>
+                  <td>{postponed_by_text(p)}</td>
+                  <td>
+                    {postponed_status_text(p)}
+                    <form
+                      :if={
+                        !PairingsEngine.Results.postponed?(p.result) and
+                          is_nil(p.postponed_reported_at)
+                      }
+                      id={"played-on-form-#{p.id}"}
+                      phx-submit="set_played_on"
+                      class="played-on-form"
+                    >
+                      <input type="hidden" name="pairing-id" value={p.id} />
+                      <input
+                        type="date"
+                        name="played_on"
+                        value={p.played_on && Date.to_iso8601(p.played_on)}
+                        aria-label={gettext("Date played")}
+                      />
+                      <button type="submit" class="pe-btn">{gettext("Save date")}</button>
+                    </form>
+                  </td>
+                  <td>{postponed_sent_text(p)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <%!-- The postponed-games file: games that went out as ? in their
+                round's report and were played since. Its own file, as extra
+                rounds, so each game is sent exactly once. --%>
+          <div id="trf-late-games" class="trf-late">
+            <h3>{gettext("Postponed-games file")}</h3>
+            <p :if={@late_sendable == []} id="postponed-trf-empty" class="hint" style="margin: 0">
+              {gettext("Nothing to send: no postponed game was played after its round was sent.")}
+            </p>
+
+            <div :if={@late_sendable != []}>
+              <p class="hint" style="margin: 0 0 8px">
+                {ngettext(
+                  "%{count} postponed game played since its round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
+                  "%{count} postponed games played since their round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
+                  length(@late_sendable)
+                )}
+              </p>
+
+              <ul class="late-games">
+                <li :for={%{round: round, pairing: p} <- @late_sendable}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      id={"late-tick-#{p.id}"}
+                      checked={MapSet.member?(@late_selected, p.id)}
+                      phx-click="toggle_late_game"
+                      phx-value-id={p.id}
+                    />
+                    {gettext("Round %{round}, board %{board}:",
+                      round: round,
+                      board: p.display_board || p.board
+                    )}
+                    {late_player(p.white_player)} - {late_player(p.black_player)}
+                    <strong>{p.result}</strong>
+                  </label>
+                </li>
+              </ul>
+
+              <ol :if={@late_packed != []} id="postponed-trf-rounds" class="late-rounds">
+                <li
+                  :for={{games, i} <- Enum.with_index(@late_packed)}
+                  id={"postponed-trf-round-#{i + 1}"}
+                >
+                  <form id={"late-date-form-#{i}"} phx-change="set_late_date" class="late-round-date">
+                    <strong>
+                      {ngettext(
+                        "Extra round %{n}: %{count} game",
+                        "Extra round %{n}: %{count} games",
+                        length(games),
+                        n: i + 1
+                      )}
+                    </strong>
+                    <input type="hidden" name="round" value={i} />
+                    <input
+                      type="date"
+                      name="date"
+                      id={"late-date-#{i}"}
+                      value={late_round_date(games, @late_dates, i)}
+                      aria-label={gettext("Date of extra round %{n}", n: i + 1)}
+                    />
+                  </form>
+                </li>
+              </ol>
+
+              <div class="actions" style="align-items: center">
+                <a
+                  id="trf-late-copy"
+                  class={["pe-btn", @late_packed == [] && "is-disabled"]}
+                  href={
+                    @late_packed != [] &&
+                      ~p"/t/#{@tournament.id}/export/postponed-trf?#{[games: late_ids_param(@late_selected), dates: late_dates_param(@late_packed, @late_dates)]}"
+                  }
+                  target="_blank"
+                >
+                  {gettext("Download a copy")}
+                </a>
+                <.form
+                  for={%{}}
+                  id="trf-late-send-form"
+                  action={~p"/t/#{@tournament.id}/export/postponed-trf"}
+                  method="post"
+                  target="_blank"
+                  style="margin: 0"
+                >
+                  <input type="hidden" name="finalise" value="true" />
+                  <input type="hidden" name="games" value={late_ids_param(@late_selected)} />
+                  <input
+                    type="hidden"
+                    name="dates"
+                    value={late_dates_param(@late_packed, @late_dates)}
+                  />
+                  <button
+                    type="submit"
+                    id="trf-late-send"
+                    class="pe-btn primary"
+                    disabled={@late_packed == []}
+                    data-confirm={
+                      @late_packed != [] &&
+                        gettext(
+                          "Send the postponed-games file? The file downloads, and the ticked games are marked as sent, so they are never sent again."
+                        )
+                    }
+                  >
+                    {gettext("Send…")}
+                  </button>
+                </.form>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <p
           :if={@tournament.manual_ranking}
           class="hint"

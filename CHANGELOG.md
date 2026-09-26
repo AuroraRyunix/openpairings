@@ -16,6 +16,21 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Postponed games moved to Settings, Export.** Everything the
+  separate Postponed games page had - every postponed game with its state
+  and the date it was played, and the postponed-games TRF - is now in the
+  TRF section, beside the round reports. The Pairings page keeps only the
+  reminder of games still to be played, where their results are entered;
+  its "Postponed games" button is gone, and an old link to that page lands
+  on Export.
+- [Feature] **Choose what goes in a postponed-games file, and its dates.**
+  Played postponed games that went out as ? in their round's report are
+  listed with tick boxes: send some now, keep the rest for a later file. The
+  ticked games are packed into as few extra rounds as possible, nobody
+  twice in a round, and each extra round has a date you can set - by
+  default the latest date its games were played. "Download a copy" marks
+  nothing; "Send…" asks first and marks only the ticked games as sent.
+
 ## [0.66.1] - 2026-09-26
 
 - [Fix] **The top bar stays one row.** Your email, account settings,

@@ -276,6 +276,81 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
     end
   end
 
+  describe "postponed games played later, on the Export page" do
+    test "listed once played, sent from there, then gone", %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      [postponed, other] = boards(t, 1)
+      set!(postponed, "*B")
+      set!(other, "1-0")
+
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#postponed-trf-empty")
+
+      set!(Repo.reload!(postponed), "0-1",
+        acknowledged: [:adjourned_non_draw_result, :finalised_result_changed]
+      )
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#trf-late-games", "1 postponed game played")
+      assert has_element?(lv, "#trf-late-copy")
+
+      sent = post(conn, ~p"/t/#{t.id}/export/postponed-trf", %{"finalise" => "true"})
+      assert response(sent, 200) =~ "001"
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#postponed-trf-empty")
+    end
+
+    test "sends only the ticked games, dated as set; the others wait", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      [a, b] = boards(t, 1)
+      set!(a, "*W")
+      set!(b, "*B")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+
+      ack = [acknowledged: [:adjourned_non_draw_result, :finalised_result_changed]]
+      set!(Repo.reload!(a), "1-0", ack)
+      set!(Repo.reload!(b), "0-1", ack)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#late-tick-#{a.id}[checked]")
+      assert has_element?(lv, "#late-tick-#{b.id}[checked]")
+
+      # Hold b back; set extra round 1's date.
+      lv |> element("#late-tick-#{b.id}") |> render_click()
+      refute has_element?(lv, "#late-tick-#{b.id}[checked]")
+
+      lv
+      |> element("#postponed-trf-round-1 form")
+      |> render_change(%{"round" => "0", "date" => "2026-10-04"})
+
+      assert has_element?(lv, "#trf-late-send-form input[name='games'][value='#{a.id}']")
+      assert has_element?(lv, "#trf-late-send-form input[name='dates'][value='2026-10-04']")
+
+      file =
+        post(conn, ~p"/t/#{t.id}/export/postponed-trf", %{
+          "finalise" => "true",
+          "games" => "#{a.id}",
+          "dates" => "2026-10-04"
+        })
+
+      text = response(file, 200)
+      assert text =~ "26/10/04"
+      assert Repo.reload!(a).postponed_reported_at
+      refute Repo.reload!(b).postponed_reported_at
+
+      # b is still there for a later file.
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#late-tick-#{b.id}")
+      refute has_element?(lv, "#late-tick-#{a.id}")
+    end
+  end
+
   describe "sending the TRF" do
     test "finalising on download marks the round, and a second try is refused", %{
       conn: conn,
@@ -302,8 +377,9 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#trf-sent-rounds")
 
-      {:ok, pairings, _html} = live(conn, ~p"/t/#{t.id}/pairings")
-      assert has_element?(pairings, "#postponed-page-link")
+      # The old Postponed games page sends a bookmark to the Export page.
+      assert {:error, {:live_redirect, %{to: to}}} = live(conn, ~p"/t/#{t.id}/postponed")
+      assert to =~ "/settings/export"
     end
 
     test "changing a sent result asks first, and the confirmation writes it", %{
@@ -329,7 +405,7 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       assert entry.details["confirmed"] == "finalised_result_changed"
     end
 
-    test "the postponed-games page lists the game and sends its file once", %{
+    test "the Export page lists the postponed game and sends its file once", %{
       conn: conn,
       scope: scope
     } do
@@ -339,20 +415,20 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       set!(other, "1-0")
       post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/postponed")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#postponed-row-#{postponed.id}")
       assert has_element?(lv, "#postponed-trf-empty")
 
       set!(Repo.reload!(postponed), "1/2-1/2")
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/postponed")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#postponed-trf-round-1")
 
       file = post(conn, ~p"/t/#{t.id}/export/postponed-trf", %{"finalise" => "true"})
       assert response(file, 200) =~ "001"
       assert Repo.reload!(postponed).postponed_reported_at
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/postponed")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#postponed-trf-empty")
     end
 

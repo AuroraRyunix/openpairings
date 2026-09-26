@@ -1593,6 +1593,22 @@ button.pe-btn, .pe-btn {
 .trf-state.is-playing .trf-state-mark { background: transparent; border: 2px solid var(--text-soft); }
 .trf-state.is-sent { color: var(--success); }
 .trf-row.is-sent td { color: var(--text-soft); }
+.trf-late {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--warn);
+  background: var(--surface-alt);
+  border-radius: 6px;
+}
+.trf-late h3 { margin: 0 0 6px; font-size: 15px; }
+.trf-late-part { margin-top: 18px; }
+.trf-late-part > h3 { margin: 0 0 8px; font-size: 16px; }
+.played-on-form { display: inline-flex; gap: 4px; margin-left: 6px; }
+.late-games { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+.late-games label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+.late-rounds { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 6px; }
+.late-round-date { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.trf-late ol { margin: 0 0 4px; padding-left: 20px; }
 .pe-btn.is-disabled { opacity: 0.55; pointer-events: none; }
 .trf-all-link { margin-left: auto; font-size: 13px; color: var(--accent); }
 
