@@ -16,6 +16,21 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-09-26
+
+- [Fix] **Team Swiss picks the pairing C.04.6 defines on large fields too.**
+  With Ainalrami 0.31.0, choosing among a score group's pairings (Article
+  3.6) is exact instead of a search with a budget, which on very large
+  early-round brackets could settle for a legal but different round. Rounds
+  are also faster.
+- [Fix] **A team tie-break list that starts with game points uses game
+  points throughout.** MPvGP, SSSC and extended direct encounter now follow
+  the score the list starts with (Ainalrami 0.31.0).
+- [Verified] **Tie-breaks checked two more ways:** against an independent
+  second implementation of C.07 (15,000 events, no disagreement) and under
+  random tie-break lists against FIDE's TieBreakServer (22,000 events, no
+  unexplained difference).
+
 - [Security] **Two dependency advisories closed.** mint 1.10.0 -> 1.10.1
   fixes EEF-CVE-2026-82672 (MEDIUM): its HTTP/1 client did not validate the
   tail of a chunk-size line, allowing response smuggling on pooled
