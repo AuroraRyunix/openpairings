@@ -9,8 +9,11 @@ defmodule PairingsEngine.TeamMatchInferenceTest do
   import Ecto.Query
   import PairingsEngine.TeamFixtures
 
+  import ExUnit.CaptureIO
+
   alias PairingsEngine.{Repo, TeamStandings, TeamMatches, Tournaments, TrfExport, TrfImport}
   alias PairingsEngine.Tournaments.{Match, Pairing, Player, Tournament}
+  alias Ainalrami.{CLI, Trf}
 
   # Every result of a round, board by board, where none is recorded yet.
   defp fill_round!(t, number) do
@@ -144,7 +147,234 @@ defmodule PairingsEngine.TeamMatchInferenceTest do
       {imported, warnings} = round_trip(Repo.reload!(t))
 
       assert summary(imported) == summary(Repo.reload!(t))
-      assert Enum.any?(warnings, &(&1 =~ "taken to have had the pairing-allocated bye"))
+      # This app's own export now writes TRF-2026's `320` record, so the bye
+      # comes back from that record rather than being assumed.
+      assert Enum.any?(
+               warnings,
+               &(&1 =~ "the file's 320 record gives it the pairing-allocated bye")
+             )
+    end
+  end
+
+  describe "TRF-2026 team records (310, 362, 320, 330)" do
+    # A minimal TRF-2026 team-swiss file: three teams, two boards, one round
+    # - "One" (2, 3; 1 a reserve who sat out) beats "Two" (4, 5) 1.5-0.5;
+    # "Three" (6, 7) has no boards at all - not even a per-player `001` game
+    # column for the round, the same shape this app's own export leaves a
+    # team with nobody paired that round (`Pairing.trf_player_rows/2`),
+    # rather than a `U` bye on each of its players (which reads as each
+    # player having a board with no opponent, not as the team having none -
+    # `TeamMatchInference.classify/2`). The `310` numbers are deliberately
+    # not file order (Three is 1, One 2, Two 3), the same trick Ainalrami's
+    # own `TrfTeamRecordsTest` uses, so a test that passed by coincidence of
+    # matching order would fail here.
+    defp trf26_team_data(extra_tournament \\ %{}) do
+      g = fn opp, colour, result -> %{opponent_rank: opp, colour: colour, result: result} end
+      none = %{opponent_rank: nil, colour: "-", result: ""}
+
+      players = [
+        {1, [none]},
+        {2, [g.(4, "w", "1")]},
+        {3, [g.(5, "b", "=")]},
+        {4, [g.(2, "b", "0")]},
+        {5, [g.(3, "w", "=")]},
+        {6, []},
+        {7, []}
+      ]
+
+      %{
+        tournament:
+          Map.merge(
+            %{
+              name: "Team records import",
+              type: "Team-Swiss-System",
+              number_of_rounds: 1,
+              team_point_system: %{win: 3.0, draw: 1.0, loss: 0.0}
+            },
+            extra_tournament
+          ),
+        players:
+          for {rank, games} <- players do
+            %{rank: rank, name: "P#{rank}", points: 0.0, games: games}
+          end,
+        teams: [
+          %{
+            number: 2,
+            name: "One",
+            match_points: 3.0,
+            game_points: 1.5,
+            final_rank: 2,
+            player_ranks: [1, 2, 3]
+          },
+          %{
+            number: 3,
+            name: "Two",
+            match_points: 0.0,
+            game_points: 0.5,
+            final_rank: 3,
+            player_ranks: [4, 5]
+          },
+          %{
+            number: 1,
+            name: "Three",
+            match_points: 3.0,
+            game_points: 2.0,
+            final_rank: 1,
+            player_ranks: [6, 7]
+          }
+        ]
+      }
+    end
+
+    defp note_texts(warnings), do: for(%{kind: :note, text: text} <- warnings, do: text)
+
+    test "362 sets the team match-point values" do
+      {:ok, imported, _warnings} = trf26_team_data() |> Trf.serialize() |> TrfImport.import_text()
+
+      assert imported.team_match_points_win == 3.0
+      assert imported.team_match_points_draw == 1.0
+      assert imported.team_match_points_loss == 0.0
+    end
+
+    test "a 320 record gives the pairing-allocated bye without guessing, even to 013's file order" do
+      data =
+        trf26_team_data(%{team_pab: %{match_points: 3.0, game_points: 2.0, teams: [1]}})
+
+      {:ok, imported, warnings} =
+        data |> Trf.serialize() |> TrfImport.import_text()
+
+      assert Tournament.team_swiss?(imported)
+      teams = imported.id |> Tournaments.list_teams() |> Map.new(&{&1.name, &1})
+
+      round = Tournaments.get_round(imported.id, 1)
+      matches = Tournaments.list_matches(round.id)
+      bye_match = Enum.find(matches, &is_nil(&1.team_b_id))
+
+      assert bye_match.team_a_id == teams["Three"].id
+
+      texts = note_texts(warnings)
+      assert Enum.any?(texts, &(&1 =~ "the file's 320 record gives it the pairing-allocated bye"))
+      refute Enum.any?(texts, &(&1 =~ "assumed"))
+      refute Enum.any?(texts, &(&1 =~ "taken to have had"))
+    end
+
+    # A file where "One" and "Two" both have no boards at all this round -
+    # nothing in `data.players`' `games` references either - and a 4th and
+    # 5th team ("Filler"/"Rival") play a genuine board so the round itself
+    # still registers as paired (`TrfImport.paired_rounds_from_data/1`
+    # needs at least one real result somewhere; a lone `U` on a boardless
+    # team's own player would read as that team having a board with no
+    # opponent, not as the team having none - the same reason
+    # `trf26_team_data/1`'s "Three" carries no game entry at all).
+    defp trf26_forfeit_data(forfeited_matches) do
+      data = trf26_team_data(%{forfeited_matches: forfeited_matches})
+
+      data =
+        put_in(
+          data.players,
+          for %{rank: rank} = p <- data.players do
+            if rank in 1..5, do: %{p | games: []}, else: p
+          end
+        )
+
+      filler = %{
+        rank: 8,
+        name: "F1",
+        points: 1.0,
+        games: [%{opponent_rank: 9, colour: "w", result: "1"}]
+      }
+
+      rival = %{
+        rank: 9,
+        name: "F2",
+        points: 0.0,
+        games: [%{opponent_rank: 8, colour: "b", result: "0"}]
+      }
+
+      %{
+        data
+        | players: data.players ++ [filler, rival],
+          teams:
+            data.teams ++
+              [
+                %{number: 4, name: "Filler", player_ranks: [8]},
+                %{number: 5, name: "Rival", player_ranks: [9]}
+              ]
+      }
+    end
+
+    test "a 330 record forfeits a match neither team has a board for" do
+      data = trf26_forfeit_data([%{type: "+-", round: 1, white: 2, black: 3}])
+      {:ok, imported, warnings} = data |> Trf.serialize() |> TrfImport.import_text()
+
+      teams = imported.id |> Tournaments.list_teams() |> Map.new(&{&1.name, &1})
+      round = Tournaments.get_round(imported.id, 1)
+      match = Enum.find(Tournaments.list_matches(round.id), &(&1.team_b_id == teams["Two"].id))
+
+      assert match.team_a_id == teams["One"].id
+      assert match.forfeited_to_team_id == teams["One"].id
+
+      boards =
+        round.pairings |> Enum.filter(&(&1.match_id == match.id)) |> Enum.sort_by(& &1.board)
+
+      assert boards != []
+      assert Enum.all?(boards, &(&1.result == "1-0FF"))
+
+      texts = note_texts(warnings)
+      assert Enum.any?(texts, &(&1 =~ "the file's 330 record forfeits it to One"))
+    end
+
+    test "an unresolvable 330 (a double forfeit) is left exactly as it would be without one" do
+      data = trf26_forfeit_data([%{type: "--", round: 1, white: 2, black: 3}])
+      {:ok, imported, warnings} = data |> Trf.serialize() |> TrfImport.import_text()
+
+      refute Tournament.paired_as_teams?(imported)
+      texts = note_texts(warnings)
+      assert Enum.any?(texts, &(&1 =~ "does not say which of them had the pairing-allocated bye"))
+    end
+
+    test "exports a 362, a 320 bye and 310 team numbers, ranks, match and game points" do
+      {t, _} =
+        team_swiss(for(i <- 1..5, do: {"T#{i}", [2000 - i, 1900 - i]}),
+          rounds: 2,
+          tiebreaks: ~w(MPTS GPTS)
+        )
+
+      pair_next!(t)
+      fill_round!(Repo.reload!(t), 1)
+
+      t =
+        Repo.reload!(t)
+        |> Ecto.Changeset.change(
+          start_date: "2026-09-01",
+          end_date: "2026-09-02",
+          round_dates: ["2026-09-01", "2026-09-02"]
+        )
+        |> Repo.update!()
+
+      {:ok, text} = TrfExport.export(t, nil)
+      lines = String.split(text, "\r\n")
+
+      assert Enum.any?(lines, &String.starts_with?(&1, "362"))
+      assert Enum.any?(lines, &String.starts_with?(&1, "320"))
+      assert Enum.count(lines, &String.starts_with?(&1, "310")) == 5
+
+      # Ainalrami's own checker agrees the file's team ranks follow its
+      # standings order - the same check `ainalrami -c` runs on a file an
+      # arbiter submits.
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "team_export_check_#{System.unique_integer([:positive])}.trf"
+        )
+
+      File.write!(path, text)
+      on_exit(fn -> File.rm(path) end)
+
+      out =
+        capture_io(fn -> capture_io(:stderr, fn -> CLI.run([path, "-c"]) end) |> IO.write() end)
+
+      assert out =~ "standings: all 5 ranks follow"
     end
   end
 

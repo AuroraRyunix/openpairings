@@ -14,7 +14,7 @@ What exists today (phases 1 and 2):
 | Paired team against team | yes (Berger tables) | yes (FIDE C.04.6, Ainalrami) - except an event already paired player by player, below |
 | Match points, game points, team standings | yes | yes, the bye scoring a draw |
 | Team tie-breaks, board statistics | yes | yes, with C.07 Art. 16 |
-| TRF team section (`013`) | yes | yes |
+| TRF team section (`310`/`013`, `362`) | yes | yes, plus `320` (the bye) and reading `330` (a declared forfeit) |
 | Team pairing sheet and team standings print | yes | yes |
 | Published to OpenResults | yes | yes |
 
@@ -349,20 +349,28 @@ played most often, for board prizes.
 
 ## TRF
 
-`PairingsEngine.TrfExport` writes the TRF16 team section: one `013` record
-per team, its name and its players' starting ranks (their pairing numbers) in
-board order, listing only players the file contains. The `082` header carries
-the team count. The individual games on the `001` lines are exactly what they
+`PairingsEngine.TrfExport` writes the team section in TRF-2026's own records:
+one `310` per team - its number (the team's `pairing_number`), name, match
+points, game points and final rank (`PairingsEngine.TeamStandings.standings/1`),
+and its players' starting ranks in board order, listing only players the file
+contains - a `362` for the tournament's own match-point values
+(`team_match_points_win/draw/loss`), and, for a team Swiss, a `320` naming the
+team given the pairing-allocated bye each round. The `082` header carries the
+team count. The individual games on the `001` lines are exactly what they
 would be for the same boards in an individual event; a board forfeited for
 want of a player has no opponent and goes out as the point without a game,
 the same record a vacated seat produces. An individual tournament's file is
-unchanged: `082 0` and no `013` line.
+unchanged: `082 0` and no team records. This app never writes a `330`: a
+match it forfeits by decision (`PairingsEngine.TeamMatches.forfeit_match/3`)
+already has every board's own forfeit result on the `001` lines, which is
+what a `330` is for a match that has none of at all.
 
-Importing a TRF with a team section creates the teams and their board orders,
-and then rebuilds each round's matches from the boards
-(`PairingsEngine.TeamMatchInference`) - TRF16 does not record which boards
-made up which match, so they are worked out, and only where the boards leave
-no doubt:
+Importing a TRF with a team section creates the teams and their board orders
+- from `310` records when the file has them, `013` otherwise - and then
+rebuilds each round's matches from the boards
+(`PairingsEngine.TeamMatchInference`) - neither record says which boards made
+up which match, so they are worked out, and only where the boards leave no
+doubt:
 
 1. Every board with two players pairs two teams; the boards between the same
    two teams are one match. A player on no team, two players of one team, or
@@ -376,17 +384,38 @@ no doubt:
 4. The team with White on board 1 is the match's first team and must have
    White on every odd board and Black on every even one.
 5. Teams without boards: in a round robin, the one team of an odd field is
-   the Berger bye. In a team Swiss, one such team that has not had a bye is
-   taken to have had the pairing-allocated bye, and the notice says it was
-   assumed (TRF16 cannot tell a bye from a team not paired); one that already
-   had a bye was not paired; two or more are unclear.
+   the Berger bye. In a team Swiss, a `320` record names the team with the
+   bye outright - no guessing, even of a team the rest of the file shows
+   already had one. Without one, a team that has not had a bye is taken to
+   have had it, and the notice says it was assumed (TRF16 cannot tell a bye
+   from a team not paired); one that already had a bye was not paired; two
+   or more are unclear - unless a `330` record forfeits the match between two
+   of them outright (see below), which resolves that pair and leaves only
+   the rest to the same rule.
+6. A `330` record forfeits a match neither team has any board for - two
+   teams both without boards, which step 5 would otherwise leave part of an
+   unclear round - to the side its type names (`+-`/`-+`; also `10`/`01` or
+   `WL`/`LW`, `WZ`/`ZW`), every board of it becoming that side's forfeit win,
+   the same result `PairingsEngine.TeamMatches.forfeit_match/3` writes for an
+   arbiter's own decision. A double forfeit (`330`'s `--`) has no side to
+   award it to, and this app has no way to record a match both teams lost,
+   so it is left exactly as it would be with no `330` line at all.
 
-Teams are numbered in the file's `013` order (the order the export writes
-them in), boards per match is the largest match in the file, and match
-numbers follow the order the pairing writes them in: by lower team number in
-a round robin, C.04.2 Art. 3.6's order in a team Swiss, worked out from the
-rebuilt earlier rounds. So a file exported by this app comes back with the
-same matches, match numbers and board numbers, and the same team standings.
+A `362` record's match points (`W`/`D`/`L`) become
+`team_match_points_win/draw/loss`; its bye and forfeit-loss values (`P`/`A`)
+are not imported, because this app has no separate setting for either - a
+team Swiss bye always pays a draw's match points (C.04.6 Art. 1.4) and a
+match lost by forfeit an ordinary loss's, regardless of what a `362` `P`/`A`
+says.
+
+Teams are numbered in the file's `310` (or `013`) order, boards per match is
+the largest match in the file, and match numbers follow the order the
+pairing writes them in: by lower team number in a round robin, C.04.2 Art.
+3.6's order in a team Swiss, worked out from the rebuilt earlier rounds. So a
+file exported by this app comes back with the same matches, match numbers
+and board numbers, and the same team standings - and its `310` team ranks
+check out against `ainalrami -c`, the same checker an arbiter runs on a file
+before sending it in.
 
 **An unclear round is not guessed.** The notice names the round and the
 reason ("Round 2: no matches were rebuilt - A has boards against both B and

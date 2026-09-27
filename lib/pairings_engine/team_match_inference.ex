@@ -35,10 +35,23 @@ defmodule PairingsEngine.TeamMatchInference do
   teams without boards simply have no match that round, and a note says so.
 
   In a team Swiss a team without boards either had the pairing-allocated bye
-  or was not paired, and TRF16 does not say which. One such team that has
+  or was not paired. TRF16 does not say which, and one such team that has
   not had a bye yet is read as the bye - what the pairing does whenever the
   field is odd - and the notice says it was assumed. One that already had a
   bye was not paired ([C2] allows one). Two or more are ambiguous.
+
+  TRF-2026's `320` record says which team had the bye each round, so a file
+  carrying it is not guessed at all: the bye it names is taken, even for a
+  team the rest of the file shows already had one. A `330` record forfeits a
+  whole match neither team has any board for - two teams both without
+  boards, which two-or-more-empties would otherwise leave ambiguous - to the
+  side its type names, the same way `PairingsEngine.TeamMatches.forfeit_match/3`
+  awards one an arbiter decides: every board becomes that side's forfeit
+  win. A double forfeit (`330`'s `--`) has no side to award it to and this
+  app has no way to record "both teams lost", so it is left exactly as
+  unmatched boards would be without a `330` line at all. Either record is
+  read only where the boards themselves are silent; a team or a pair the
+  boards already answer is unaffected.
 
   ## What an ambiguous round means
 
@@ -75,8 +88,14 @@ defmodule PairingsEngine.TeamMatchInference do
   Returns `{tournament, notes}`, `notes` being import notices
   (`%{kind: :note, text: text}`). A tournament that is not a team round robin
   or a team Swiss, or has no teams or no rounds, is returned unchanged.
+
+  `trf` is what a TRF-2026 file's team records said, when it had any -
+  `%{team_pab: tournament[:team_pab] | nil, forfeited_matches:
+  tournament[:forfeited_matches] | [], team_ids_by_number: %{trf_number =>
+  team_id}}` - built by `PairingsEngine.TrfImport`. `nil` (the default) is a
+  file with none of that, and every round is read exactly as before.
   """
-  def rebuild(%Tournament{} = t) do
+  def rebuild(%Tournament{} = t, trf \\ nil) do
     teams = Tournaments.list_teams(t.id)
 
     rounds =
@@ -90,7 +109,7 @@ defmodule PairingsEngine.TeamMatchInference do
     cond do
       teams == [] or rounds == [] -> {t, []}
       not system?(t) -> {t, []}
-      true -> do_rebuild(t, teams, rounds)
+      true -> do_rebuild(t, teams, rounds, trf)
     end
   end
 
@@ -101,7 +120,7 @@ defmodule PairingsEngine.TeamMatchInference do
 
   defp swiss?(t), do: t.type == "team-swiss"
 
-  defp do_rebuild(t, teams, rounds) do
+  defp do_rebuild(t, teams, rounds, trf) do
     players =
       Repo.all(from p in Player, where: p.tournament_id == ^t.id)
       |> Map.new(&{&1.id, &1})
@@ -116,7 +135,9 @@ defmodule PairingsEngine.TeamMatchInference do
       Enum.map_reduce(rounds, MapSet.new(), fn round, had_bye ->
         case infer_round(round.pairings, ctx) do
           {:ok, result} ->
-            case settle_empties(t, result, had_bye, ctx) do
+            result = apply_declared_forfeits(t, result, round.number, trf, ctx)
+
+            case settle_empties(t, result, had_bye, ctx, trf, round.number) do
               {:ok, result} ->
                 had_bye = if result.bye, do: MapSet.put(had_bye, result.bye), else: had_bye
                 {{round, {:ok, result}}, had_bye}
@@ -158,7 +179,9 @@ defmodule PairingsEngine.TeamMatchInference do
         {t, round_robin_failure_notes(failed, true)}
 
       true ->
-        t = write(t, teams, inferred, max(boards, 1))
+        boards = max(boards, 1)
+        inferred = materialize_declared_forfeits(inferred, boards)
+        t = write(t, teams, inferred, boards)
         {t, success_notes(t, inferred, failed)}
     end
   end
@@ -376,12 +399,25 @@ defmodule PairingsEngine.TeamMatchInference do
 
   ## ---------- teams with no board ----------
 
-  defp settle_empties(t, %{empties: empties} = result, had_bye, ctx) do
+  defp settle_empties(t, %{empties: empties} = result, had_bye, ctx, trf, round_number) do
     names = empties |> Enum.map(&team(ctx, &1)) |> Enum.join(", ")
+    file_bye = swiss?(t) && file_declared_bye(trf, round_number)
 
     cond do
       empties == [] ->
         {:ok, result}
+
+      file_bye && file_bye in empties ->
+        {:ok,
+         %{
+           result
+           | bye: file_bye,
+             notes:
+               result.notes ++
+                 [
+                   "#{team(ctx, file_bye)} has no boards; the file's 320 record gives it the pairing-allocated bye"
+                 ]
+         }}
 
       not swiss?(t) and length(empties) == 1 and rem(length(ctx.team_ids), 2) == 1 ->
         {:ok, %{result | bye: hd(empties)}}
@@ -390,16 +426,20 @@ defmodule PairingsEngine.TeamMatchInference do
         {:ok,
          %{
            result
-           | notes: [
-               "no match was rebuilt for #{names}, which #{have(empties)} no board in the file"
-             ]
+           | notes:
+               result.notes ++
+                 [
+                   "no match was rebuilt for #{names}, which #{have(empties)} no board in the file"
+                 ]
          }}
 
       length(empties) == 1 and MapSet.member?(had_bye, hd(empties)) ->
         {:ok,
          %{
            result
-           | notes: ["#{names} has no boards and has already had the bye, so it was not paired"]
+           | notes:
+               result.notes ++
+                 ["#{names} has no boards and has already had the bye, so it was not paired"]
          }}
 
       length(empties) == 1 ->
@@ -407,7 +447,9 @@ defmodule PairingsEngine.TeamMatchInference do
          %{
            result
            | bye: hd(empties),
-             notes: ["#{names} has no boards; it was taken to have had the pairing-allocated bye"]
+             notes:
+               result.notes ++
+                 ["#{names} has no boards; it was taken to have had the pairing-allocated bye"]
          }}
 
       true ->
@@ -418,6 +460,127 @@ defmodule PairingsEngine.TeamMatchInference do
 
   defp have([_]), do: "has"
   defp have(_), do: "have"
+
+  ## ---------- TRF-2026 `320`/`330` ----------
+
+  # The team `320` names for `round_number`, if the file has a `320` line and
+  # names one - `nil` when it has none, says none for this round (a `0`), or
+  # names a team this import cannot place (no `310` line gave that number).
+  defp file_declared_bye(nil, _round_number), do: nil
+
+  defp file_declared_bye(%{team_pab: pab, team_ids_by_number: by_number}, round_number) do
+    with %{teams: teams} <- pab,
+         number when is_integer(number) and number > 0 <- Enum.at(teams, round_number - 1, 0) do
+      Map.get(by_number, number)
+    else
+      _ -> nil
+    end
+  end
+
+  # A `330` line for `round_number` whose two teams are BOTH still without a
+  # board this round (see the moduledoc): a synthetic match is added for them
+  # - forfeited to the side its type names, boards filled in once the
+  # tournament's board count is known (`materialize_declared_forfeits/2`) -
+  # and both teams leave `empties`. A `330` whose type has no side to award
+  # (a double forfeit) or whose teams the file cannot resolve, or are not
+  # both still empty, changes nothing: the round is read exactly as it would
+  # be with no `330` line for that pair.
+  defp apply_declared_forfeits(_t, result, _round_number, nil, _ctx), do: result
+
+  defp apply_declared_forfeits(t, result, round_number, trf, ctx) do
+    if swiss?(t) do
+      forfeits =
+        (trf.forfeited_matches || [])
+        |> Enum.filter(&(&1.round == round_number))
+        |> Enum.map(&resolve_declared_forfeit(&1, trf.team_ids_by_number))
+        |> Enum.reject(&is_nil/1)
+
+      Enum.reduce(forfeits, result, fn {white_id, black_id, winner_id}, acc ->
+        if white_id in acc.empties and black_id in acc.empties do
+          match = %{team_a: white_id, team_b: black_id, boards: [], forfeited_to: winner_id}
+
+          %{
+            acc
+            | matches: [match | acc.matches],
+              empties: acc.empties -- [white_id, black_id],
+              notes:
+                acc.notes ++
+                  [
+                    "#{team(ctx, white_id)} - #{team(ctx, black_id)} has no boards; the file's " <>
+                      "330 record forfeits it to #{team(ctx, winner_id)}"
+                  ]
+          }
+        else
+          acc
+        end
+      end)
+    else
+      result
+    end
+  end
+
+  defp resolve_declared_forfeit(%{type: type, white: white, black: black}, by_number) do
+    with {:ok, white_id} <- fetch_team_by_number(by_number, white),
+         {:ok, black_id} <- fetch_team_by_number(by_number, black),
+         {:ok, winner_id} <- declared_forfeit_winner(type, white_id, black_id) do
+      {white_id, black_id, winner_id}
+    else
+      _ -> nil
+    end
+  end
+
+  defp fetch_team_by_number(by_number, number) do
+    case Map.get(by_number || %{}, number) do
+      nil -> :error
+      id -> {:ok, id}
+    end
+  end
+
+  # `330`'s `type`: `+-`/`-+` (also spelled `10`/`01` or `WL`/`LW`, `WZ`/`ZW`)
+  # name the side that won by forfeit, the same codes `Ainalrami.Tiebreaks.Team`
+  # reads. `--` (`00`, `LL`, `ZZ`) is a double forfeit - no side to award it
+  # to, and this app's `Match` has one `forfeited_to_team_id`, not two losers
+  # - so it is left unhandled here, same as a type this app does not
+  # recognize at all.
+  defp declared_forfeit_winner(type, white_id, black_id) do
+    type = (type || "") |> String.trim() |> String.upcase()
+
+    cond do
+      type in ~w(+- 10 WL WZ) -> {:ok, white_id}
+      type in ~w(-+ 01 LW ZW) -> {:ok, black_id}
+      true -> :error
+    end
+  end
+
+  # Fills in a synthetic `330` match's boards once the tournament's board
+  # count is known - every board a forfeit win for the side `330` named,
+  # exactly the results `PairingsEngine.TeamMatches.forfeit_match/3` would
+  # write for an arbiter's decision.
+  defp materialize_declared_forfeits(inferred, boards) do
+    Enum.map(inferred, fn
+      {round, {:ok, result}} ->
+        matches = Enum.map(result.matches, &materialize_forfeit(&1, boards))
+        {round, {:ok, %{result | matches: matches}}}
+
+      other ->
+        other
+    end)
+  end
+
+  defp materialize_forfeit(%{forfeited_to: winner_id, team_a: a, boards: []} = m, boards)
+       when not is_nil(winner_id) do
+    winner_is_a? = winner_id == a
+
+    board_list =
+      for k <- 1..boards do
+        winner_white? = winner_is_a? == TeamRounds.team_a_white?(k)
+        {k, nil, nil, if(winner_white?, do: "1-0FF", else: "0-1FF")}
+      end
+
+    %{m | boards: board_list}
+  end
+
+  defp materialize_forfeit(m, _boards), do: m
 
   ## ---------- writing ----------
 
@@ -444,7 +607,8 @@ defmodule PairingsEngine.TeamMatchInference do
             round_id: round.id,
             board: match_no,
             team_a_id: m.team_a,
-            team_b_id: m.team_b
+            team_b_id: m.team_b,
+            forfeited_to_team_id: Map.get(m, :forfeited_to)
           })
 
         for {k, white, black, result} <- m.boards do

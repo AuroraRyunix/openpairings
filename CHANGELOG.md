@@ -16,6 +16,32 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A team Swiss file's `320` and `330` records are trusted, not
+  guessed.** Importing a TRF-2026 file that says which team had the
+  pairing-allocated bye each round (`320`), or names a match forfeited by
+  decision with no boards for it at all (`330`), uses what the file says
+  instead of assuming the one boardless team had the bye. A file's own
+  `362` match-point values (win/draw/loss) are imported too. Files without
+  these records keep today's behaviour.
+- [Feature] **Team TRF exports carry FIDE's `310`/`362`/`320` team
+  records.** A team tournament's export now writes each team's number,
+  match points, game points and final rank (`310`), the tournament's match
+  points (`362`), and a team Swiss's pairing-allocated bye each round
+  (`320`) - so a file this app writes now round-trips through another
+  program's team-rank check, not just its own.
+- [Fix] **192 (which system paired the boards) named team events and round
+  robins by the wrong FIDE code.** A team event exported `FIDE_TEAM`, which
+  the table only defaults to `FIDE_TEAM_TYPEA_MP_GP` - now written
+  outright - and a team round robin of more than one cycle exported
+  `FIDE_TEAM_ROUNDROBIN` (one cycle) regardless, now
+  `BERGER_TEAM_ROUNDROBIN_G2`. Import now also recognises a team file's own
+  `FIDE_TEAM_DOUBLEROUNDROBIN`/`BERGER_TEAM_DOUBLEROUNDROBIN` as two
+  cycles, and an individual file's `FIDE_DUTCH_2025` (FIDE's real spelling
+  for the system in force since 1 July 2025) as Ainalrami, alongside the
+  `FIDE_DUTCH_2026` this app's own export still writes for now (the pinned
+  Ainalrami has the same wrong spelling baked into what it will write, so
+  switching this app's export to `_2025` has to wait for that).
+
 ## [0.68.0] - 2026-09-27
 
 - [Change] **Ainalrami 0.32.0.** Its TRF checker now also checks team

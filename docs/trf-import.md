@@ -175,7 +175,8 @@ the one that left. What a file says now lands where it belongs:
 | Record | Setting |
 |---|---|
 | `162` / `BB*` | `points_win`, `points_draw`, `points_loss`, `bye_value`, and `abs_value` when the zero-point bye differs from a loss |
-| `192` | `pairing_system`, `pairing_engine` (`FIDE_DUTCH_2017` is JaVaFo, `FIDE_DUTCH_2026` Ainalrami), `rr_cycles`, and `acceleration` from a `_BAKU` suffix |
+| `192` | `pairing_system`, `pairing_engine` (`FIDE_DUTCH_2017` is JaVaFo, `FIDE_DUTCH_2025`/`FIDE_DUTCH_2026`/bare `FIDE_DUTCH` are Ainalrami), `rr_cycles` (also read from the team round-robin spellings), and `acceleration` from a `_BAKU` suffix |
+| `310` / `362` / `320` / `330` | teams (name, roster, and - once every team has a `310` number - match points, game points, final rank), `team_match_points_win/draw/loss` from `362`, and `PairingsEngine.TeamMatchInference`'s bye (`320`) and forfeited-match (`330`) records, when the file has them |
 | `202` / `212` | `tiebreaks`, filtered to the codes this installation can compute |
 | `142` / `XXR` | `rounds_count` - the tournament's length, which is not how much of it has been played |
 | `250` / `XXA` | `acceleration`, when Baku reproduces the file's numbers |
