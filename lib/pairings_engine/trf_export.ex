@@ -677,15 +677,14 @@ defmodule PairingsEngine.TrfExport do
   # `TournamentTypeCodeTable192-TRF26` vocabulary. JaVaFo implements the
   # Dutch system as it stood before 1 July 2025 (`FIDE_DUTCH_2017`) and
   # Ainalrami the edition in force since - the table's code for that is
-  # `FIDE_DUTCH_2025`, but this app still writes `FIDE_DUTCH_2026`: the
-  # pinned `Ainalrami.Trf.serialize/2` (v0.32.0) validates `192` against its
-  # OWN copy of the table, which has the same `_2026` mistake this app's
-  # comments once had and does not yet accept `_2025` at all - writing it
-  # would refuse every export an Ainalrami-paired individual tournament
-  # makes. `system_attrs/1` reads BOTH spellings (and bare `FIDE_DUTCH`), so
-  # this only needs fixing once Ainalrami's own table, and the pin here, are
-  # both updated. Keizer and the two match formats have no FIDE code and are
-  # what the table calls CUSTOM.
+  # `FIDE_DUTCH_2025` (`_BAKU` under Baku acceleration). Before 0.69.0 this
+  # wrote `FIDE_DUTCH_2026`, a code FIDE's table has never had: the pinned
+  # `Ainalrami.Trf.serialize/2` validates `192` against its own copy of the
+  # table, which carried the same mistake until Ainalrami 0.33.0 put
+  # `FIDE_DUTCH_2025` in its place. `TrfImport.system_attrs/1` still reads
+  # `_2026` (and bare `FIDE_DUTCH`), so a file exported before the fix comes
+  # back as Ainalrami. Keizer and the two match formats have no FIDE code and
+  # are what the table calls CUSTOM.
   #
   # A team event's code names its colour rule and its primary/secondary
   # score, which this app always pairs the same way regardless of what an
@@ -706,7 +705,7 @@ defmodule PairingsEngine.TrfExport do
       t.pairing_system == "round_robin" -> "BERGER_ROUNDROBIN_G#{t.rr_cycles || 1}"
       t.swiss_match_format -> "CUSTOM_SWISS"
       t.pairing_engine == "javafo" -> "FIDE_DUTCH_2017" <> baku
-      true -> "FIDE_DUTCH_2026" <> baku
+      true -> "FIDE_DUTCH_2025" <> baku
     end
   end
 

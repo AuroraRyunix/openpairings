@@ -1154,17 +1154,11 @@ defmodule PairingsEngine.TrfImportTest do
   describe "192 (tournament type code) recognition" do
     # FIDE's TRF-2026 `TournamentTypeCodeTable192-TRF26` names the edition
     # in force since 1 July 2025 `FIDE_DUTCH_2025` (or the date-dependent
-    # bare `FIDE_DUTCH`); this app's own export still writes the mistaken
-    # `FIDE_DUTCH_2026` it always has (`PairingsEngine.TrfExport.tournament_type_code/1`
-    # explains why), so a file carrying either spelling - or a third
-    # party's own correctly-spelled `_2025` - reads as Ainalrami.
-    # `Ainalrami.Trf.serialize/2` (the pinned v0.32.0) refuses to WRITE a
-    # `192` it does not recognize as one of its own - which does not yet
-    # include the table's real `FIDE_DUTCH_2025` spelling
-    # (`PairingsEngine.TrfExport.tournament_type_code/1` explains why this
-    # app's own export still writes `_2026`) - so a file carrying `_2025`
-    # is built here by substitution after a valid line is serialized,
-    # exactly as a third party's own correctly-spelled file would arrive.
+    # bare `FIDE_DUTCH`); this app's own export wrote the mistaken
+    # `FIDE_DUTCH_2026` before 0.69.0 (`PairingsEngine.TrfExport.tournament_type_code/1`
+    # explains why), so a file carrying either spelling reads as Ainalrami.
+    # Each file is built here by substituting the code into a valid
+    # serialized line, exactly as a third party's own file would arrive.
     defp trf_with_type_code(code, extra \\ %{}) do
       text =
         verification_trf(%{1 => []}, Map.merge(%{type_code: "CUSTOM_SWISS"}, extra))

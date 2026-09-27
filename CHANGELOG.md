@@ -108,9 +108,9 @@ Each entry is tagged so a version can be skimmed:
   tournament stopped matching the FIDE rules; and the Export page's TRF
   section lists those rounds, since the TRF cannot carry the exclusion.
   Backups, snapshots, hand-offs and Duplicate carry the setting.
-- [Change] **Engine: Ainalrami pinned to its `bye-exclusions` commit** for
-  the option above, until it is released as v0.33.0. Pairing without an
-  exclusion is unchanged, byte for byte.
+- [Change] **Ainalrami 0.33.0.** It adds the bye exclusions above; pairing
+  without an exclusion is unchanged, byte for byte. Its TRF table now has
+  FIDE's own `FIDE_DUTCH_2025` code, which the TRF export writes (below).
 
 - [Feature] **An agreed date for each postponed game, with its history.**
   The list of open postponed games on the Pairings page has a date field
@@ -278,10 +278,14 @@ Each entry is tagged so a version can be skimmed:
   `BERGER_TEAM_ROUNDROBIN_G2`. Import now also recognises a team file's own
   `FIDE_TEAM_DOUBLEROUNDROBIN`/`BERGER_TEAM_DOUBLEROUNDROBIN` as two
   cycles, and an individual file's `FIDE_DUTCH_2025` (FIDE's real spelling
-  for the system in force since 1 July 2025) as Ainalrami, alongside the
-  `FIDE_DUTCH_2026` this app's own export still writes for now (the pinned
-  Ainalrami has the same wrong spelling baked into what it will write, so
-  switching this app's export to `_2025` has to wait for that).
+  for the system in force since 1 July 2025) as Ainalrami.
+- [Fix] **192 now names Ainalrami's Dutch system by FIDE's own code.** A
+  tournament paired by Ainalrami exported `FIDE_DUTCH_2026`, a code FIDE's
+  table does not have; it now writes `FIDE_DUTCH_2025` (and
+  `FIDE_DUTCH_2025_BAKU` under Baku acceleration). This waited for
+  Ainalrami 0.33.0, whose own table had the same wrong spelling. Import
+  still reads `FIDE_DUTCH_2026`, so files exported before come back as
+  Ainalrami.
 
 ## [0.68.0] - 2026-09-27
 

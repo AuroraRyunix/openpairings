@@ -352,7 +352,7 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     {imported, warnings, text} = round_trip(tournament)
 
     assert text =~ "\r\n250"
-    assert text =~ "\r\n192 FIDE_DUTCH_2026_BAKU\r\n"
+    assert text =~ "\r\n192 FIDE_DUTCH_2025_BAKU\r\n"
     assert imported.acceleration == "baku"
     assert warnings == []
   end

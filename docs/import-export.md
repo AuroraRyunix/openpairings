@@ -101,10 +101,10 @@ export writes them in FIDE's own spelling:
     event, a half-point pairing-allocated bye).
   * **`182`** - `OpenPairings v<version>`, the program that produced the file.
   * **`192`** - the encoded type of tournament, from FIDE's code table
-    (`TournamentTypeCodeTable192-TRF26`): `FIDE_DUTCH_2026` for a round
-    paired by Ainalrami (the table's own spelling is `FIDE_DUTCH_2025`,
-    which this app reads but does not yet write - the pinned Ainalrami
-    does not yet accept it either), `FIDE_DUTCH_2017` for one paired by
+    (`TournamentTypeCodeTable192-TRF26`): `FIDE_DUTCH_2025` for a round
+    paired by Ainalrami (before 0.69.0 this was written `FIDE_DUTCH_2026`,
+    a code the table does not have; import still reads it),
+    `FIDE_DUTCH_2017` for one paired by
     JaVaFo, `_BAKU` appended under Baku acceleration, `BERGER_ROUNDROBIN_Gn`
     for a round robin, `FIDE_TEAM_TYPEA_MP_GP` (or `BERGER_TEAM_ROUNDROBIN_Gn`
     for a team round robin) for a team event, and `CUSTOM_SWISS` for Keizer,

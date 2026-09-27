@@ -625,7 +625,7 @@ defmodule PairingsEngine.TrfExportTest do
         })
 
       assert {:ok, text} = TrfExport.export(tournament)
-      assert text =~ "\r\n192 FIDE_DUTCH_2026\r\n"
+      assert text =~ "\r\n192 FIDE_DUTCH_2025\r\n"
       assert text =~ "\r\n202 BH,SB\r\n"
       assert text =~ "\r\n222 5400+30\r\n"
       assert text =~ "\r\n142 3\r\n"
@@ -650,7 +650,7 @@ defmodule PairingsEngine.TrfExportTest do
 
       assert code.(pairing_engine: "javafo") == "FIDE_DUTCH_2017"
       assert code.(pairing_engine: "javafo", acceleration: "baku") == "FIDE_DUTCH_2017_BAKU"
-      assert code.(acceleration: "baku") == "FIDE_DUTCH_2026_BAKU"
+      assert code.(acceleration: "baku") == "FIDE_DUTCH_2025_BAKU"
       assert code.(pairing_system: "keizer") == "CUSTOM_SWISS"
       assert code.(swiss_match_format: true) == "CUSTOM_SWISS"
       assert code.(pairing_system: "round_robin", rr_cycles: 2) == "BERGER_ROUNDROBIN_G2"
@@ -729,7 +729,7 @@ defmodule PairingsEngine.TrfExportTest do
 
       assert shape.(trf26) == shape.(engine)
       assert Trf.parse(trf26).tournament[:forbidden_pairs] == [{[1, 2], 1, 3}]
-      assert Trf.parse(trf26).tournament[:type_code] == "FIDE_DUTCH_2026_BAKU"
+      assert Trf.parse(trf26).tournament[:type_code] == "FIDE_DUTCH_2025_BAKU"
     end
   end
 end
