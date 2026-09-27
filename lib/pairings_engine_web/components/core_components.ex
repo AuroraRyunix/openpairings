@@ -130,16 +130,13 @@ defmodule PairingsEngineWeb.CoreComponents do
   end
 
   @doc """
-  A green/red publish toggle - "Pairings round N" and "Standings after
-  round N" on the Pairings and Standings pages
-  (`PairingsEngineWeb.PairingsLive`/`StandingsLive`), each backed by one of
-  `PairingsEngine.Tournaments`' `publish_pairings_through/2`,
-  `unpublish_pairings_through/2`, `publish_standings_through/2` or
-  `unpublish_standings_through/2`, and "Results round N" on the Pairings
-  page, backed by `publish_results/2` / `unpublish_results/2` - which shows
-  `locked` green, with its own reason, whenever
-  `Tournaments.results_locked_reason/3` says the results are public
-  regardless of the switch.
+  A green/red publish toggle - "Standings after round N" on the Standings
+  page (`PairingsEngineWeb.StandingsLive`), backed by
+  `PairingsEngine.Tournaments.publish_standings_through/2` and
+  `unpublish_standings_through/2`, and any other on/off switch that wants
+  the same shape. The Pairings page used to carry three of these per round
+  (pairings, results, standings); since 2026-09-27 it has one cumulative
+  level instead (`PairingsEngineWeb.PairingsLive`'s `publish_level/1`).
 
   Green (`state={:public}`) means public; clicking it unpublishes, and
   `confirm` (shown only in that state) is the `data-confirm` text naming

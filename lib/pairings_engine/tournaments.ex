@@ -3532,11 +3532,7 @@ defmodule PairingsEngine.Tournaments do
   def publish_pairings_through(%Tournament{} = tournament, round_number)
       when is_integer(round_number) and round_number > 0 do
     with :ok <- ensure_writable(tournament) do
-      tournament.id
-      |> list_rounds()
-      |> Enum.filter(&(&1.number <= round_number and not round_published?(tournament, &1)))
-      |> set_rounds_published_at(DateTime.utc_now() |> DateTime.truncate(:second))
-      |> case do
+      case show_pairings_through(tournament, round_number) do
         :ok ->
           broadcast_tournament_change(tournament.id, :settings)
           {:ok, tournament}
@@ -3545,6 +3541,16 @@ defmodule PairingsEngine.Tournaments do
           error
       end
     end
+  end
+
+  # The writes behind `publish_pairings_through/2`, with no writability check
+  # and no broadcast - shared with `set_round_publish_level/3`, which does
+  # both once for several of these steps together.
+  defp show_pairings_through(%Tournament{} = tournament, round_number) do
+    tournament.id
+    |> list_rounds()
+    |> Enum.filter(&(&1.number <= round_number and not round_published?(tournament, &1)))
+    |> set_rounds_published_at(DateTime.utc_now() |> DateTime.truncate(:second))
   end
 
   @doc """
@@ -3564,21 +3570,29 @@ defmodule PairingsEngine.Tournaments do
   def unpublish_pairings_through(%Tournament{} = tournament, round_number)
       when is_integer(round_number) and round_number > 0 do
     with :ok <- ensure_writable(tournament) do
-      tournament.id
-      |> list_rounds()
-      |> Enum.filter(&(&1.number >= round_number))
-      |> tap(&clear_results_public/1)
-      |> Enum.filter(&round_published?(tournament, &1))
-      |> set_rounds_published_at(nil)
-      |> case do
-        :ok ->
-          tournament = maybe_lower_standings_through(tournament, round_number - 1)
+      case hide_pairings_from(tournament, round_number) do
+        {:ok, tournament} ->
           broadcast_tournament_change(tournament.id, :settings)
           {:ok, tournament}
 
         {:error, _} = error ->
           error
       end
+    end
+  end
+
+  # The writes behind `unpublish_pairings_through/2` - see
+  # `show_pairings_through/2` for why they stand apart.
+  defp hide_pairings_from(%Tournament{} = tournament, round_number) do
+    tournament.id
+    |> list_rounds()
+    |> Enum.filter(&(&1.number >= round_number))
+    |> tap(&clear_results_public/1)
+    |> Enum.filter(&round_published?(tournament, &1))
+    |> set_rounds_published_at(nil)
+    |> case do
+      :ok -> {:ok, maybe_lower_standings_through(tournament, round_number - 1)}
+      {:error, _} = error -> error
     end
   end
 
@@ -3707,22 +3721,31 @@ defmodule PairingsEngine.Tournaments do
   def unpublish_standings_through(%Tournament{} = tournament, round_number)
       when is_integer(round_number) and round_number >= 0 do
     with :ok <- ensure_writable(tournament) do
-      tournament =
-        put_standings_through(tournament, if(round_number == 0, do: nil, else: round_number - 1))
-
-      tournament.id
-      |> list_rounds()
-      |> Enum.filter(&(&1.number > round_number and round_published?(tournament, &1)))
-      |> tap(&clear_results_public/1)
-      |> set_rounds_published_at(nil)
-      |> case do
-        :ok ->
+      case hide_standings_from(tournament, round_number) do
+        {:ok, tournament} ->
           broadcast_tournament_change(tournament.id, :settings)
           {:ok, tournament}
 
         {:error, _} = error ->
           error
       end
+    end
+  end
+
+  # The writes behind `unpublish_standings_through/2` - see
+  # `show_pairings_through/2` for why they stand apart.
+  defp hide_standings_from(%Tournament{} = tournament, round_number) do
+    tournament =
+      put_standings_through(tournament, if(round_number == 0, do: nil, else: round_number - 1))
+
+    tournament.id
+    |> list_rounds()
+    |> Enum.filter(&(&1.number > round_number and round_published?(tournament, &1)))
+    |> tap(&clear_results_public/1)
+    |> set_rounds_published_at(nil)
+    |> case do
+      :ok -> {:ok, tournament}
+      {:error, _} = error -> error
     end
   end
 
@@ -3991,6 +4014,245 @@ defmodule PairingsEngine.Tournaments do
     end
 
     :ok
+  end
+
+  ## ---------- One public level per round (2026-09-27) ----------
+  #
+  # The Pairings page shows the three values above - a round's pairings,
+  # its results and the standings after it - as ONE cumulative level
+  # instead of three switches, because three independent switches allowed
+  # combinations that make no sense to a spectator (results public, pairings
+  # hidden) and one that leaks (standings public, results "hidden" - the
+  # table already contains them):
+  #
+  #   0  hidden     - nothing from this round
+  #   1  pairings   - who plays whom
+  #   2  + results  - its results as they come in
+  #   3  + standings - the standings after it too
+  #
+  # Nothing is stored for the level itself. It is read off the three values
+  # the snapshot already gates on, and choosing one writes those values with
+  # the same functions (and the same cascades) the separate switches used,
+  # in a single transaction with a single broadcast.
+
+  @typedoc "A round's level on the public page - see the section comment above."
+  @type publish_level :: 0..3
+
+  @typedoc "One write `set_round_publish_level/3` performed, for the audit trail."
+  @type publish_step ::
+          :pairings_published
+          | :pairings_unpublished
+          | :results_published
+          | :results_unpublished
+          | :standings_published
+          | :standings_unpublished
+
+  @doc """
+  Round `round`'s level on the public page, and anything switched on above
+  it.
+
+  The level is the highest one whose every step, and every step below it,
+  is on: pairings public (`round_published?/2`), results public
+  (`results_public?/3`), standings after the round public (the same
+  `effective_standings_through/1` comparison as `standings_public?/2`).
+  `extra` lists the steps that are on above that level - never written by
+  `set_round_publish_level/3`, but reachable from data the three separate
+  switches left behind, for instance a round's results switched on while
+  its pairings are hidden. The stored values are left as they are; the next
+  level chosen for the round replaces them.
+
+  "immediate" publish mode is always level 3 with nothing extra, like the
+  locked switches it replaces.
+  """
+  @spec round_publish_state(Tournament.t(), Round.t()) :: %{
+          level: publish_level(),
+          extra: [:results | :standings]
+        }
+  def round_publish_state(%Tournament{publish_mode: "immediate"}, %Round{}),
+    do: %{level: 3, extra: []}
+
+  def round_publish_state(%Tournament{} = tournament, %Round{} = round) do
+    through = effective_standings_through(tournament)
+    results? = results_public?(tournament, round, through)
+    standings? = round.number <= through
+    steps = [round_published?(tournament, round), results?, standings?]
+    level = steps |> Enum.take_while(& &1) |> length()
+
+    extra =
+      for {name, at, on?} <- [{:results, 2, results?}, {:standings, 3, standings?}],
+          on? and at > level,
+          do: name
+
+    %{level: level, extra: extra}
+  end
+
+  @doc """
+  Why `set_round_publish_level/3` would refuse level 3 for `round` right
+  now, or `nil` when it would not.
+
+  Choosing level 3 publishes the round's pairings first, so unlike
+  `standings_publish_blocked_reason/3` this never says
+  `:pairings_not_public`. What remains: `:round_not_complete` while the
+  round itself has a board without a result, and
+  `:earlier_round_not_complete` while an earlier round does - public
+  standings never go past a round that is not complete
+  (`standings_through_round/1`), so publishing them would change nothing
+  anyone could see.
+
+  Asked about a round whose standings are already public, the answer is
+  `nil` - there is nothing left to refuse. Levels below 3 are never refused.
+  """
+  @spec publish_level_blocked_reason(Tournament.t(), Round.t(), publish_level()) ::
+          nil | :round_not_complete | :earlier_round_not_complete
+  def publish_level_blocked_reason(%Tournament{} = tournament, %Round{} = round, 3) do
+    cond do
+      tournament.publish_mode == "immediate" ->
+        nil
+
+      standings_public?(tournament, round.number) ->
+        nil
+
+      not PairingsEngine.Pairing.round_complete?(tournament.id, round.number) ->
+        :round_not_complete
+
+      latest_complete_round(tournament) < round.number ->
+        :earlier_round_not_complete
+
+      true ->
+        nil
+    end
+  end
+
+  def publish_level_blocked_reason(%Tournament{}, %Round{}, level) when level in 0..2, do: nil
+
+  @doc """
+  Sets round `round_number` to `level` on the public page - exactly that
+  level, so anything above it is withdrawn and anything up to it published,
+  whatever mix the round was in before.
+
+  Built from the same writes as the separate switches, applied in the order
+  that keeps the public page consistent at every step: standings are pulled
+  back before results (public standings force the results public), and
+  pairings published before results and standings. The cascades are the
+  switches' own: hiding the pairings hides every later round too and pulls
+  the standings back (`unpublish_pairings_through/2`), and hiding the
+  standings after this round hides every later round's pairings
+  (`unpublish_standings_through/2`). Level 3 also turns the round's own
+  results switch on, so pulling the standings back later from the
+  Standings page leaves its results public, as they were.
+
+  One transaction and one broadcast, however many writes. Returns the
+  updated tournament and the writes that happened, in order, for the
+  caller's audit trail - `[]` when the round was already at exactly this
+  level. `{:error, :immediate}` in "immediate" publish mode, where the
+  level is not the arbiter's to choose; `{:error, reason}` from
+  `publish_level_blocked_reason/3` for a level 3 that cannot be reached;
+  `{:error, :not_paired}` for a round that does not exist.
+  """
+  @spec set_round_publish_level(Tournament.t(), pos_integer(), publish_level()) ::
+          {:ok, Tournament.t(), [publish_step()]} | {:error, term()}
+  def set_round_publish_level(%Tournament{publish_mode: "immediate"}, _round_number, _level),
+    do: {:error, :immediate}
+
+  def set_round_publish_level(%Tournament{} = tournament, round_number, level)
+      when is_integer(round_number) and round_number > 0 and level in 0..3 do
+    with :ok <- ensure_writable(tournament),
+         %Round{} = round <- get_round(tournament.id, round_number) || {:error, :not_paired},
+         state = round_publish_state(tournament, round),
+         :ok <- ensure_level_reachable(tournament, round, level) do
+      if state.level == level and state.extra == [] do
+        {:ok, tournament, []}
+      else
+        tournament
+        |> apply_publish_level(round, level)
+        |> tap_ok(fn _ -> broadcast_tournament_change(tournament.id, :settings) end)
+        |> case do
+          {:ok, {tournament, steps}} -> {:ok, tournament, steps}
+          {:error, _} = error -> error
+        end
+      end
+    end
+  end
+
+  defp ensure_level_reachable(tournament, round, level) do
+    case publish_level_blocked_reason(tournament, round, level) do
+      nil -> :ok
+      reason -> {:error, reason}
+    end
+  end
+
+  defp apply_publish_level(%Tournament{} = tournament, %Round{} = round, level) do
+    Repo.transaction(fn ->
+      case level_writes(tournament, round, level) do
+        {:ok, tournament, steps} -> {tournament, steps}
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  # Level 0: the pairings unpublish, cascade and all. Run whenever anything
+  # of this round's is on - including a results switch left on under hidden
+  # pairings, which the cascade clears.
+  defp level_writes(tournament, %Round{number: n} = round, 0) do
+    pairings? = round_published?(tournament, round)
+
+    with {:ok, tournament} <- hide_pairings_from(tournament, n) do
+      steps =
+        cond do
+          pairings? -> [:pairings_unpublished]
+          round.results_public -> [:results_unpublished]
+          true -> []
+        end
+
+      {:ok, tournament, steps}
+    end
+  end
+
+  defp level_writes(tournament, %Round{number: n} = round, level) do
+    standings? = standings_public?(tournament, n)
+
+    with {:ok, tournament, steps} <- lower_standings(tournament, n, level < 3 and standings?),
+         {:ok, steps} <- raise_pairings(tournament, round, steps) do
+      steps = set_results_switch(round, level >= 2, steps)
+      raise_standings(tournament, n, level == 3 and not standings?, steps)
+    end
+  end
+
+  defp lower_standings(tournament, _n, false), do: {:ok, tournament, []}
+
+  defp lower_standings(tournament, n, true) do
+    with {:ok, tournament} <- hide_standings_from(tournament, n),
+         do: {:ok, tournament, [:standings_unpublished]}
+  end
+
+  defp raise_pairings(tournament, round, steps) do
+    if round_published?(tournament, round) do
+      {:ok, steps}
+    else
+      with :ok <- show_pairings_through(tournament, round.number),
+           do: {:ok, steps ++ [:pairings_published]}
+    end
+  end
+
+  # The round's own stored switch, read from the round as loaded before any
+  # of these writes: neither standings cascade touches the round it is
+  # asked about, only the rounds after it.
+  defp set_results_switch(%Round{results_public: on}, on, steps), do: steps
+
+  defp set_results_switch(%Round{} = round, on, steps) do
+    put_results_public!(round, on)
+    steps ++ [if(on, do: :results_published, else: :results_unpublished)]
+  end
+
+  defp raise_standings(tournament, _n, false, steps), do: {:ok, tournament, steps}
+
+  # Never lowers a stored value that is already higher: that one is only
+  # not in effect because a round before it is incomplete or hidden, and
+  # `ensure_level_reachable/3` has already ruled out the first while the
+  # pairings above were just published.
+  defp raise_standings(%Tournament{standings_through: stored} = tournament, n, true, steps) do
+    tournament = put_standings_through(tournament, max(stored || 0, n))
+    {:ok, tournament, steps ++ [:standings_published]}
   end
 
   @doc """

@@ -267,15 +267,19 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
   one is withheld when the document is built rather than sent and hidden at
   the other end.
 
-  What reaches the site is decided per round by three switches on the
-  Pairings page: **Pairings round N**, **Standings after round N** and
-  **Results round N**. The last is off for every new round: the pairings
-  publish, the boards travel without results, and nothing computed from a
-  result goes with them, so live results are a deliberate choice rather than
-  the default. It locks on once the standings after that round are public
-  (they contain every result in it) and in "immediate" publish mode, and
-  unpublishing a round's pairings turns it off. Rounds already public when
-  the switch arrived kept their results public.
+  What reaches the site is decided per round by one **Public** control on
+  the Pairings page (and in the round's right-click menu), with four
+  cumulative levels: **Hidden**, **Pairings** (who plays whom), **+ Results**
+  (results as they come in) and **+ Standings** (the standings after the
+  round too). A newly published round starts at Pairings: the boards travel
+  without results, and nothing computed from a result goes with them, so
+  live results are a deliberate choice rather than the default. Choosing a
+  level writes exactly that level in one step; going down asks first and
+  names what disappears, including later rounds whose sheets would give it
+  away. Standings wait until the round and every round before it are
+  finished, and "immediate" publish mode shows everything public and locked.
+  Rounds left with a combination the old separate switches allowed keep it
+  until a level is chosen, with a short note saying so.
 
   The read-only pages used to be served by this app itself; they moved to
   OpenResults on 2026-08-29 so a busy public page and a live pairing session

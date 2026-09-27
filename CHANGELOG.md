@@ -16,6 +16,25 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **One "Public" control per round instead of three switches.**
+  The Pairings page used to show a separate Pairings, Standings and Results
+  switch for each round, which allowed combinations that make no sense on
+  the results site (results public while the pairings are hidden) or leak
+  (standings public while the results are "hidden" - the table already
+  contains them). Each round now has one choice, and each step includes the
+  ones before it: Hidden, Pairings, + Results, + Standings. Choosing a
+  level publishes or withdraws exactly what is needed, in the right order,
+  as one change. Going down still asks first and names everything that
+  disappears, including later rounds that have to go with it. Standings
+  cannot be chosen until the round and every round before it are finished,
+  and the control says why. In "immediate" publish mode it shows everything
+  public and locked, as before. The same control is in the round's
+  right-click menu. Nothing stored changes on upgrade: a round left with an
+  odd mix - for instance its results switched on while its pairings are
+  hidden - shows the level it actually reaches and a short note, and the
+  next level you choose tidies it up. The audit log records the same
+  entries as before.
+
 ## [0.69.0] - 2026-09-27
 
 - [Change] **Rounds before a late entrant joins count as absences.** In a

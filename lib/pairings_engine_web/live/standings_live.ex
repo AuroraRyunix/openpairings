@@ -309,9 +309,10 @@ defmodule PairingsEngineWeb.StandingsLive do
   defp standings_control_label(round_number),
     do: gettext("Standings after round %{n}", n: round_number)
 
-  # Same rule 3 confirm text as `PairingsEngineWeb.PairingsLive` - which
-  # published rounds would go dark as a side effect of pulling standings
-  # back (`Tournaments.unpublish_standings_through/2`'s own doc).
+  # Rule 3's confirm, worded like the one `PairingsEngineWeb.PairingsLive`
+  # asks when a round's level drops below standings - which published rounds
+  # would go dark as a side effect of pulling standings back
+  # (`Tournaments.unpublish_standings_through/2`'s own doc).
   defp confirm_unpublish_standings(tournament, round_number) do
     base =
       if round_number == 0 do
@@ -323,7 +324,8 @@ defmodule PairingsEngineWeb.StandingsLive do
           prev: round_number - 1
         ) <>
           " " <>
-          gettext("Round %{n}'s results stay public only if its Results switch is on.",
+          gettext(
+            "Round %{n}'s results stay public only if its level on the Pairings page includes them.",
             n: round_number
           )
       end

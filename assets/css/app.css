@@ -1467,31 +1467,273 @@ button.pe-btn, .pe-btn {
 .pe-toggle:disabled { opacity: 0.6; cursor: default; }
 .pe-toggle.is-locked { cursor: default; }
 
-/* The round header's publish switches, grouped: one frame, a "Public"
-   label, and the switches inside it without frames of their own. */
-.pe-publish-group {
+/* ---------- the round's "Public:" level ----------
+
+   `PairingsEngineWeb.PairingsLive.publish_level/1`: one cumulative choice
+   per round - Hidden, Pairings, + Results, + Standings - on one track.
+
+   A groove (the page's own --bg, a 1px hairline) holding four equal stops.
+   A raised thumb - a --surface tile, the same white as the buttons beside
+   it - sits on the chosen stop, and a --success tint fills every public
+   step from Pairings up to it, so the control reads "up to here" rather
+   than "this one". Hidden is outside the tint: it is the off position, not
+   a step.
+
+   Pure CSS: `data-level` on the root sets `--pe-level`, the thumb moves by
+   whole stop widths (`translateX(n * 100%)` of a quarter-wide thumb) and
+   the tint is clipped to the stops it covers, both eased on the compositor.
+   The stops are a 4-column grid with equal tracks, so every stop is as wide
+   as the widest label and the thumb never changes size - no layout shift
+   between levels, in any language.
+
+   Every colour is a theme token, so it follows all seven themes and the
+   accent picker (focus ring) with nothing of its own. */
+.pe-level-slot { display: contents; }
+
+.pe-level {
+  --pe-level: 0;
+  --pe-level-pad: 0px;
+  --pe-level-on: var(--success);
+  --pe-level-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: inline-flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  /* A `.pe-btn`'s height exactly - 1.5 lines of the inherited 15px, 8px
+     padding and a 1px border each side - so the header row lines up. */
+  height: calc(1.5em + 18px);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  white-space: nowrap;
+  vertical-align: middle;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pe-level[data-level="1"] { --pe-level: 1; }
+.pe-level[data-level="2"] { --pe-level: 2; }
+.pe-level[data-level="3"] { --pe-level: 3; }
+
+.pe-level-caption {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 4px 2px 12px;
-  background: var(--surface);
-}
-.pe-publish-group-label {
-  font-size: 12px;
+  gap: 5px;
+  padding: 0 11px 0 8px;
+  margin-right: 3px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-soft);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-right: 4px;
+  color: var(--text-soft);
 }
-.pe-publish-group .pe-toggle {
-  border-color: transparent;
+/* The hairline between the caption and the stops, inset top and bottom. */
+.pe-level-caption::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: var(--border);
+}
+.pe-level-lock { width: 12px; height: 12px; mask-size: 100%; -webkit-mask-size: 100%; }
+
+.pe-level-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: var(--pe-level-pad);
+  isolation: isolate;
+}
+
+.pe-level-thumb,
+.pe-level-range {
+  position: absolute;
+  top: var(--pe-level-pad);
+  bottom: var(--pe-level-pad);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.pe-level-thumb {
+  z-index: 1;
+  left: var(--pe-level-pad);
+  width: calc((100% - 2 * var(--pe-level-pad)) / 4);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border), var(--shadow);
+  transform: translateX(calc(var(--pe-level) * 100%));
+  transition:
+    transform 200ms var(--pe-level-ease),
+    box-shadow 200ms ease;
+}
+.pe-level:not([data-level="0"]) .pe-level-thumb {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pe-level-on) 45%, var(--border)),
+    var(--shadow);
+}
+
+/* Stops 2-4 (Pairings to Standings), clipped from the right down to the
+   chosen one. At Hidden it is clipped away entirely; at Pairings it sits
+   wholly under the thumb. */
+.pe-level-range {
+  z-index: 0;
+  left: calc(var(--pe-level-pad) + (100% - 2 * var(--pe-level-pad)) / 4);
+  width: calc((100% - 2 * var(--pe-level-pad)) * 3 / 4);
+  background: color-mix(in srgb, var(--pe-level-on) 13%, transparent);
+  clip-path: inset(0 calc((3 - var(--pe-level)) * 100% / 3) 0 0 round 6px);
+  transition: clip-path 200ms var(--pe-level-ease);
+}
+
+/* Two classes deep on purpose: the round's context menu styles every
+   `.ctx-menu button` as a full-width menu row, and this must win. */
+.pe-level .pe-level-stop,
+.pe-level .pe-level-stop:hover {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  height: 100%;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
   background: transparent;
-  padding: 3px 10px 3px 4px;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 160ms ease, background-color 160ms ease;
 }
-.pe-publish-group .pe-toggle:hover:not(:disabled) { background: var(--bg); }
+
+.pe-level-icon { flex-shrink: 0; opacity: 0.85; }
+.pe-level-icon,
+.pe-level-text { transition: transform 120ms ease; }
+
+/* Inside the tint, before the thumb: the steps that come along. */
+.pe-level[data-level="2"] .pe-level-stop:nth-of-type(2),
+.pe-level[data-level="3"] .pe-level-stop:is(:nth-of-type(2), :nth-of-type(3)) {
+  color: color-mix(in srgb, var(--pe-level-on) 72%, var(--text));
+}
+
+.pe-level .pe-level-stop[aria-checked="true"] { color: var(--text); }
+.pe-level:not([data-level="0"]) .pe-level-stop[aria-checked="true"] .pe-level-icon {
+  color: var(--pe-level-on);
+  opacity: 1;
+}
+
+.pe-level .pe-level-stop:not([aria-checked="true"]):not([aria-disabled="true"]):hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+/* Pressed: the stop's content gives a little, the thumb stays put. */
+.pe-level .pe-level-stop:not([aria-disabled="true"]):active :is(.pe-level-icon, .pe-level-text) {
+  transform: scale(0.94);
+}
+
+.pe-level .pe-level-stop:focus-visible {
+  z-index: 3;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Cannot be chosen yet - standings after an unfinished round. Faded, with
+   the reason on hover (`title`) and read out (`aria-describedby`). */
+.pe-level .pe-level-stop[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: color-mix(in srgb, var(--text-soft) 55%, transparent);
+}
+
+/* "immediate" publish mode: everything public, nothing to choose. The
+   public stops keep their colours - they are all genuinely on (the tint
+   rule above outranks the fade) - and only lose the pointer. */
+.pe-level.is-locked .pe-level-stop[aria-disabled="true"] { cursor: default; }
+.pe-level.is-locked .pe-level-stop[aria-checked="true"] { color: var(--text); }
+
+/* A step left on above the level by the old separate switches - said
+   calmly, on a line of its own under the header row. */
+.pe-level-note {
+  flex-basis: 100%;
+  order: 99;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-soft);
+}
+.pe-level-note-icon { flex-shrink: 0; opacity: 0.8; }
+
+/* The round's right-click menu: caption above, a framed track below, and
+   each stop's icon over its word so four fit the menu's width. */
+.pe-level-menu { padding: 6px 5px 4px; min-width: 280px; }
+
+.pe-level.is-compact {
+  --pe-level-pad: 3px;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.pe-level.is-compact .pe-level-caption {
+  padding: 0 2px 7px;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.pe-level.is-compact .pe-level-caption::after { content: none; }
+.pe-level.is-compact .pe-level-track {
+  height: 54px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+}
+.pe-level.is-compact .pe-level-stop,
+.pe-level.is-compact .pe-level-stop:hover {
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+  font-size: 11.5px;
+}
+.pe-level-menu .pe-level-note {
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 0 2px;
+  font-size: 12px;
+}
+
+/* A phone: the header's stops keep their icon and lose their word. Each
+   radio's accessible name and hover title still say the level in full. */
+@media (max-width: 640px) {
+  .pe-level:not(.is-compact) .pe-level-text { display: none; }
+  .pe-level:not(.is-compact) .pe-level-stop,
+  .pe-level:not(.is-compact) .pe-level-stop:hover { padding: 0 12px; }
+  .pe-level:not(.is-compact) .pe-level-caption { padding: 0 9px 0 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pe-level-thumb,
+  .pe-level-range,
+  .pe-level .pe-level-stop,
+  .pe-level-icon,
+  .pe-level-text { transition: none; }
+}
 
 /* A button that opens a small menu (<details>/<summary>, see `.RoundMenu`
    on the Pairings page). Like `.topbar-menu`, the panel is display:none

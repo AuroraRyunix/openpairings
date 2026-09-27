@@ -3308,6 +3308,167 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "one public level per round - round_publish_state/2, set_round_publish_level/3" do
+    # Two complete rounds, nothing public.
+    defp level_tournament(mode \\ "manual") do
+      t = gated_tournament(mode)
+
+      for n <- 1..2 do
+        seat_board(t, round_with(t, n, nil), "1-0")
+      end
+
+      Tournaments.get_tournament!(t.id)
+    end
+
+    defp level_of(t, n) do
+      t = Tournaments.get_tournament!(t.id)
+      Tournaments.round_publish_state(t, Tournaments.get_round(t.id, n))
+    end
+
+    defp set_level(t, n, level) do
+      Tournaments.set_round_publish_level(Tournaments.get_tournament!(t.id), n, level)
+    end
+
+    test "the level is the highest step that is on together with every step below it" do
+      t = level_tournament()
+      assert level_of(t, 1) == %{level: 0, extra: []}
+
+      {:ok, t} = Tournaments.publish_pairings_through(t, 1)
+      assert level_of(t, 1) == %{level: 1, extra: []}
+
+      {:ok, t} = Tournaments.publish_results(t, 1)
+      assert level_of(t, 1) == %{level: 2, extra: []}
+
+      {:ok, _t} = Tournaments.publish_standings_through(t, 1)
+      assert level_of(t, 1) == %{level: 3, extra: []}
+    end
+
+    test "a step left on above the level is reported, and nothing stored is changed by reading it" do
+      t = level_tournament()
+      {:ok, t} = Tournaments.publish_results(t, 2)
+
+      assert level_of(t, 2) == %{level: 0, extra: [:results]}
+      assert Tournaments.get_round(t.id, 2).results_public
+    end
+
+    test "immediate mode is always level 3" do
+      t = level_tournament("immediate")
+      assert level_of(t, 2) == %{level: 3, extra: []}
+    end
+
+    test "choosing level 3 from hidden writes all three steps in order, with one broadcast" do
+      t = level_tournament()
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+      tid = t.id
+
+      assert {:ok, _t, [:pairings_published, :results_published, :standings_published]} =
+               set_level(t, 2, 3)
+
+      assert level_of(t, 2) == %{level: 3, extra: []}
+      assert Tournaments.get_tournament!(t.id).standings_through == 2
+      # Round 1 came along: the pairings stay a contiguous prefix.
+      assert Tournaments.round_published?(t, Tournaments.get_round(t.id, 1))
+
+      assert_receive {:tournament_changed, ^tid, :settings}
+      refute_receive {:tournament_changed, ^tid, _}, 50
+    end
+
+    test "choosing a lower level withdraws exactly the steps above it" do
+      t = level_tournament()
+      {:ok, _t, _} = set_level(t, 2, 3)
+
+      assert {:ok, _t, [:standings_unpublished, :results_unpublished]} = set_level(t, 2, 1)
+      assert level_of(t, 2) == %{level: 1, extra: []}
+      refute Tournaments.get_round(t.id, 2).results_public
+
+      assert {:ok, _t, [:results_published]} = set_level(t, 2, 2)
+      assert level_of(t, 2) == %{level: 2, extra: []}
+
+      assert {:ok, _t, [:pairings_unpublished]} = set_level(t, 2, 0)
+      assert level_of(t, 2) == %{level: 0, extra: []}
+      refute Tournaments.get_round(t.id, 2).results_public
+    end
+
+    test "pulling a round's standings back hides the later rounds that implied them" do
+      t = level_tournament()
+      {:ok, t} = Tournaments.publish_pairings_through(t, 2)
+
+      # Round 2's sheet discloses the standings after round 1.
+      assert level_of(t, 1).level >= 1
+      assert Tournaments.standings_public?(Tournaments.get_tournament!(t.id), 1)
+
+      assert {:ok, _t, steps} = set_level(t, 1, 1)
+      assert :standings_unpublished in steps
+      assert level_of(t, 1) == %{level: 1, extra: []}
+      refute Tournaments.round_published?(t, Tournaments.get_round(t.id, 2))
+    end
+
+    test "the same level again writes nothing and broadcasts nothing" do
+      t = level_tournament()
+      {:ok, _t, _} = set_level(t, 2, 2)
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+      tid = t.id
+
+      assert {:ok, _t, []} = set_level(t, 2, 2)
+      refute_receive {:tournament_changed, ^tid, _}, 50
+    end
+
+    test "a step left on above the level is normalised by the next choice, even the same level" do
+      t = level_tournament()
+      {:ok, _t} = Tournaments.publish_results(t, 2)
+
+      assert {:ok, _t, [:results_unpublished]} = set_level(t, 2, 0)
+      assert level_of(t, 2) == %{level: 0, extra: []}
+      refute Tournaments.get_round(t.id, 2).results_public
+    end
+
+    test "level 3 is refused, with nothing written, while the round or an earlier one is unfinished" do
+      t = gated_tournament("manual")
+      seat_board(t, round_with(t, 1, nil), "")
+      seat_board(t, round_with(t, 2, nil), "1-0")
+      t = Tournaments.get_tournament!(t.id)
+
+      assert Tournaments.publish_level_blocked_reason(t, Tournaments.get_round(t.id, 1), 3) ==
+               :round_not_complete
+
+      assert Tournaments.publish_level_blocked_reason(t, Tournaments.get_round(t.id, 2), 3) ==
+               :earlier_round_not_complete
+
+      assert {:error, :earlier_round_not_complete} = set_level(t, 2, 3)
+      assert level_of(t, 2) == %{level: 0, extra: []}
+
+      # Every other level stays open.
+      for level <- 0..2 do
+        assert Tournaments.publish_level_blocked_reason(t, Tournaments.get_round(t.id, 2), level) ==
+                 nil
+      end
+    end
+
+    test "level 3 never lowers a stored standings value that is higher" do
+      t = gated_tournament("manual")
+
+      for n <- 1..3 do
+        seat_board(t, round_with(t, n, nil), "1-0")
+      end
+
+      t |> Ecto.Changeset.change(standings_through: 3) |> Repo.update!()
+
+      assert {:ok, _t, _} = set_level(t, 2, 3)
+      assert Tournaments.get_tournament!(t.id).standings_through == 3
+      assert level_of(t, 2) == %{level: 3, extra: []}
+    end
+
+    test "refused in immediate mode, on an archived tournament and for a round that is not paired" do
+      assert {:error, :immediate} = set_level(level_tournament("immediate"), 2, 0)
+
+      t = level_tournament()
+      assert {:error, :not_paired} = set_level(t, 4, 1)
+
+      {:ok, archived} = Tournaments.archive_tournament(t)
+      assert {:error, :archived} = Tournaments.set_round_publish_level(archived, 1, 1)
+    end
+  end
+
   describe "latest_published_round_number/1" do
     test "immediate mode delegates straight to the paired-rounds count" do
       tournament = immediate_tournament("T")

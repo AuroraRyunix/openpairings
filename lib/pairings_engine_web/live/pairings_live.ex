@@ -470,118 +470,33 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # The four publish/unpublish controls - see the "Publishing pairings and
-  # standings" section of `PairingsEngine.Tournaments` for the four rules
-  # these implement, and `CoreComponents.publish_toggle/1` for the button
-  # that sends them. `round` comes from `phx-value-round` on each toggle
-  # rather than `socket.assigns.round` (the round being VIEWED) so the
-  # round-context-menu's copy of these controls - which can target a round
-  # other than the one on screen - and the on-page copy share one pair of
-  # handlers.
-  def handle_event("publish_pairings", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
+  # The round's one "Public:" control - see the "One public level per round"
+  # section of `PairingsEngine.Tournaments` for the four levels and what
+  # each one writes, and `publish_level/1` below for the control itself.
+  # `round` comes from `phx-value-round` on each stop rather than
+  # `socket.assigns.round` (the round being VIEWED) so the round context
+  # menu's copy and the header's share one handler. Each write the level
+  # change made is audited under the action its own switch used to log, so
+  # the audit page reads the same as before.
+  def handle_event("set_publish_level", %{"round" => round, "level" => level}, socket) do
+    with round_number when is_integer(round_number) and round_number > 0 <- parse_id(round),
+         level when level in 0..3 <- parse_id(level) do
+      %{tournament: tournament, current_scope: scope} = socket.assigns
 
-    case Tournaments.publish_pairings_through(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.pairings_published", %{
-          through_round: round_number
-        })
+      case Tournaments.set_round_publish_level(tournament, round_number, level) do
+        {:ok, tournament, steps} ->
+          Enum.each(steps, &audit_publish_step(tournament, scope, &1, round_number))
+          {:noreply, socket |> assign(tournament: tournament) |> refresh()}
 
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, error_text(reason))}
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, publish_level_error_text(reason, round_number))}
+      end
+    else
+      _ -> {:noreply, socket}
     end
   end
 
-  def handle_event("unpublish_pairings", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
-
-    case Tournaments.unpublish_pairings_through(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.pairings_unpublished", %{
-          from_round: round_number
-        })
-
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, error_text(reason))}
-    end
-  end
-
-  def handle_event("publish_standings", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
-
-    case Tournaments.publish_standings_through(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "standings.published", %{
-          through_round: round_number
-        })
-
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, error_text(reason))}
-    end
-  end
-
-  def handle_event("unpublish_standings", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
-
-    case Tournaments.unpublish_standings_through(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "standings.unpublished", %{
-          from_round: round_number
-        })
-
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, error_text(reason))}
-    end
-  end
-
-  # The third switch, "Results round N" - see the "Publishing a round's
-  # results" section of `PairingsEngine.Tournaments`. Per round, not
-  # cumulative: switching round 3's results on says nothing about round 2's.
-  def handle_event("publish_results", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
-
-    case Tournaments.publish_results(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_published", %{
-          round: round_number
-        })
-
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, results_error_text(reason))}
-    end
-  end
-
-  def handle_event("unpublish_results", %{"round" => round}, socket) do
-    tournament = socket.assigns.tournament
-    round_number = String.to_integer(round)
-
-    case Tournaments.unpublish_results(tournament, round_number) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_unpublished", %{
-          round: round_number
-        })
-
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, results_error_text(reason))}
-    end
-  end
+  def handle_event("set_publish_level", _params, socket), do: {:noreply, socket}
 
   ## ---------- Editing a paired round by hand ----------
   #
@@ -2367,126 +2282,216 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
-  ## ---------- publish/unpublish controls ----------
+  ## ---------- the round's "Public:" level control ----------
+  #
+  # One cumulative choice per round instead of three switches - see the
+  # "One public level per round" section of `PairingsEngine.Tournaments`.
+  # Four stops on one track: the thumb sits on the chosen stop and a tint
+  # fills every public step up to it, so the control reads "up to here".
+  #
+  # A radio group, but not the kind that selects on an arrow key: every
+  # stop publishes or withdraws something the moment it is chosen, and an
+  # arrow key walking from "Hidden" to "Standings" would have published the
+  # pairings, then the results, then the standings on the way. The arrow
+  # keys move focus (`.PublishLevel`), Space or Enter chooses. Rendered
+  # twice - the round header and the round's right-click menu - with an id
+  # prefix on the menu's copy.
+
+  # `name` is each radio's accessible name: the visible word is one step,
+  # the level is every step up to it. `hint` is the hover title.
+  defp publish_stops do
+    [
+      %{
+        level: 0,
+        icon: "hero-eye-slash-micro",
+        label: gettext("Hidden"),
+        name: gettext("Hidden"),
+        hint: gettext("Nothing from this round is public")
+      },
+      %{
+        level: 1,
+        icon: "hero-arrows-right-left-micro",
+        label: gettext("Pairings"),
+        name: gettext("Pairings only"),
+        hint: gettext("Who plays whom")
+      },
+      %{
+        level: 2,
+        icon: "hero-check-circle-micro",
+        label: gettext("Results"),
+        name: gettext("Pairings and results"),
+        hint: gettext("Pairings, and results as they come in")
+      },
+      %{
+        level: 3,
+        icon: "hero-numbered-list-micro",
+        label: gettext("Standings"),
+        name: gettext("Pairings, results and standings"),
+        hint: gettext("Everything, including the standings after this round")
+      }
+    ]
+  end
 
   attr :tournament, Tournament, required: true
   attr :round, :any, required: true
-  # This component is rendered twice on screen at once - once in the
-  # round-header actions row, once in the round's own right-click context
-  # menu (hidden by CSS/JS until opened, but still present in the DOM, so
-  # LiveView still requires its ids to be unique) - so the caller gives each
-  # copy its own id prefix.
+  # The round-header copy and the context menu's copy are on screen at the
+  # same time (the menu's hidden until opened, but LiveView still needs
+  # unique ids), so the caller gives the menu's copy its own prefix.
   attr :id_prefix, :string, default: ""
-  # The round-header copy sits in a group labelled with the round already
-  # ("Public" beside "Round N"), so it names only what each switch shows.
-  attr :short, :boolean, default: false
+  # The context menu's narrower variant: icon above label, with the round
+  # named in its caption since the menu has no heading of its own.
+  attr :compact, :boolean, default: false
 
-  defp publish_controls(assigns) do
+  defp publish_level(assigns) do
+    %{tournament: tournament, round: round} = assigns
+    locked? = tournament.publish_mode == "immediate"
+    state = Tournaments.round_publish_state(tournament, round)
+
+    blocked =
+      if not locked? and state.level < 3,
+        do: Tournaments.publish_level_blocked_reason(tournament, round, 3)
+
+    id = "#{assigns.id_prefix}publish-level-#{round.number}"
+
+    stops =
+      for stop <- publish_stops() do
+        disabled? = locked? or (stop.level == 3 and not is_nil(blocked))
+
+        Map.merge(stop, %{
+          id: "#{id}-#{stop.level}",
+          checked?: stop.level == state.level,
+          disabled?: disabled?,
+          why: if(disabled? and not locked?, do: level_blocked_text(blocked, round.number)),
+          confirm: not disabled? && level_confirm(tournament, round, state.level, stop.level)
+        })
+      end
+
+    note = extra_note(state.extra)
+
     assigns =
       assign(assigns,
-        pairings_label:
-          if(assigns.short,
-            do: gettext("Pairings"),
-            else: gettext("Pairings round %{n}", n: assigns.round.number)
-          ),
-        standings_label:
-          if(assigns.short,
-            do: gettext("Standings"),
-            else: gettext("Standings after round %{n}", n: assigns.round.number)
-          ),
-        results_label:
-          if(assigns.short,
-            do: gettext("Results"),
-            else: gettext("Results round %{n}", n: assigns.round.number)
-          )
+        id: id,
+        locked?: locked?,
+        level: state.level,
+        stops: stops,
+        note: note,
+        described_by:
+          [locked? && "#{id}-lock", note && "#{id}-note"]
+          |> Enum.filter(& &1)
+          |> Enum.join(" ")
+          |> then(&if(&1 == "", do: nil, else: &1))
       )
 
     ~H"""
-    <.publish_toggle
-      :if={@tournament.publish_mode == "immediate"}
-      id={"#{@id_prefix}pairings-toggle-#{@round.number}"}
-      label={@pairings_label}
-      state={:public}
-      locked
-      reason={immediate_lock_reason()}
-    />
-
-    <%= if @tournament.publish_mode != "immediate" do %>
-      <% pairings_public? = Tournaments.round_published?(@tournament, @round) %>
-      <.publish_toggle
-        id={"#{@id_prefix}pairings-toggle-#{@round.number}"}
-        label={@pairings_label}
-        state={if pairings_public?, do: :public, else: :not_public}
-        confirm={confirm_unpublish_pairings(@tournament, @round)}
-        phx-click={if pairings_public?, do: "unpublish_pairings", else: "publish_pairings"}
-        phx-value-round={@round.number}
-      />
-    <% end %>
-
-    <.publish_toggle
-      :if={@tournament.publish_mode == "immediate"}
-      id={"#{@id_prefix}standings-toggle-#{@round.number}"}
-      label={@standings_label}
-      state={:public}
-      locked
-      reason={immediate_lock_reason()}
-    />
-
-    <%= if @tournament.publish_mode != "immediate" do %>
-      <% standings_public? = Tournaments.standings_public?(@tournament, @round.number) %>
-      <% blocked = Tournaments.standings_publish_blocked_reason(@tournament, @round.number, @round) %>
-      <.publish_toggle
-        id={"#{@id_prefix}standings-toggle-#{@round.number}"}
-        label={@standings_label}
-        state={if standings_public?, do: :public, else: :not_public}
-        disabled={not standings_public? and not is_nil(blocked)}
-        reason={standings_reason_text(blocked, @round.number)}
-        confirm={confirm_unpublish_standings(@tournament, @round.number)}
-        phx-click={if standings_public?, do: "unpublish_standings", else: "publish_standings"}
-        phx-value-round={@round.number}
-      />
-    <% end %>
-
-    <% results_locked = Tournaments.results_locked_reason(@tournament, @round) %>
-    <.publish_toggle
-      :if={results_locked}
-      id={"#{@id_prefix}results-toggle-#{@round.number}"}
-      label={@results_label}
-      state={:public}
-      locked
-      reason={results_lock_reason(results_locked, @round.number)}
-    />
-    <.publish_toggle
-      :if={is_nil(results_locked)}
-      id={"#{@id_prefix}results-toggle-#{@round.number}"}
-      label={@results_label}
-      state={if @round.results_public, do: :public, else: :not_public}
-      confirm={
-        gettext(
-          "Take round %{n}'s results off the public page? Its pairings stay public, without results.",
-          n: @round.number
-        )
-      }
-      phx-click={if @round.results_public, do: "unpublish_results", else: "publish_results"}
-      phx-value-round={@round.number}
-    />
+    <div
+      id={@id}
+      class={["pe-level", @compact && "is-compact", @locked? && "is-locked"]}
+      data-level={@level}
+    >
+      <span class="pe-level-caption" aria-hidden="true">
+        {if @compact,
+          do: gettext("Round %{n} on the public page", n: @round.number),
+          else: gettext("Public")}
+        <.icon :if={@locked?} name="hero-lock-closed-micro" class="pe-level-lock" />
+      </span>
+      <div
+        id={"#{@id}-radios"}
+        class="pe-level-track"
+        role="radiogroup"
+        aria-label={gettext("Round %{n} on the public page", n: @round.number)}
+        aria-describedby={@described_by}
+        phx-hook=".PublishLevel"
+      >
+        <span class="pe-level-range" aria-hidden="true"></span>
+        <span class="pe-level-thumb" aria-hidden="true"></span>
+        <button
+          :for={stop <- @stops}
+          type="button"
+          role="radio"
+          id={stop.id}
+          class="pe-level-stop"
+          aria-checked={to_string(stop.checked?)}
+          aria-label={stop.name}
+          aria-disabled={stop.disabled? && "true"}
+          aria-describedby={stop.why && "#{stop.id}-why"}
+          tabindex={if stop.checked?, do: "0", else: "-1"}
+          title={if @locked?, do: immediate_lock_reason(), else: stop.why || stop.hint}
+          data-confirm={stop.confirm}
+          phx-click={!stop.disabled? && "set_publish_level"}
+          phx-value-round={@round.number}
+          phx-value-level={stop.level}
+        >
+          <.icon name={stop.icon} class="pe-level-icon" />
+          <span class="pe-level-text">{stop.label}</span>
+        </button>
+        <%!-- Why a stop cannot be chosen. The `title` is a hover tooltip,
+              which reaches nobody on a keyboard or a screen reader; these
+              are what the stops' and the group's `aria-describedby` read. --%>
+        <span :for={stop <- @stops} :if={stop.why} id={"#{stop.id}-why"} hidden>{stop.why}</span>
+        <span :if={@locked?} id={"#{@id}-lock"} hidden>{immediate_lock_reason()}</span>
+      </div>
+    </div>
+    <p :if={@note} id={"#{@id}-note"} class="pe-level-note">
+      <.icon name="hero-information-circle-micro" class="pe-level-note-icon" />
+      <span>{@note}</span>
+    </p>
     """
   end
 
-  defp results_lock_reason(:immediate, _round_number), do: immediate_lock_reason()
+  # A round left with a step switched on above its level by the three
+  # separate switches - see `Tournaments.round_publish_state/2`. Said, not
+  # fixed: nothing changes until the arbiter chooses a level.
+  defp extra_note([]), do: nil
 
-  defp results_lock_reason(:standings_public, round_number),
+  defp extra_note([:results]),
+    do: gettext("Results are also switched on - choose a level to tidy this up.")
+
+  defp extra_note([:standings]),
+    do: gettext("Standings are also public - choose a level to tidy this up.")
+
+  defp extra_note(_both),
+    do: gettext("Results and standings are also public - choose a level to tidy this up.")
+
+  defp level_blocked_text(:round_not_complete, round_number),
     do:
       gettext(
-        "Standings after round %{n} are public, and they already contain every result of the round - so its results are public too.",
+        "Round %{n} isn't finished yet - every result must be entered first.",
         n: round_number
       )
 
-  defp results_error_text(:results_locked),
-    do: gettext("These results are public because the standings after this round are.")
+  defp level_blocked_text(:earlier_round_not_complete, round_number),
+    do:
+      gettext(
+        "An earlier round isn't finished yet - standings after round %{n} wait for every result before it.",
+        n: round_number
+      )
 
-  defp results_error_text(:not_paired), do: gettext("That round hasn't been paired yet.")
-  defp results_error_text(reason), do: error_text(reason)
+  defp publish_level_error_text(:immediate, _round_number), do: immediate_lock_reason()
+
+  defp publish_level_error_text(reason, round_number)
+       when reason in [:round_not_complete, :earlier_round_not_complete],
+       do: level_blocked_text(reason, round_number)
+
+  defp publish_level_error_text(:not_paired, _round_number),
+    do: gettext("That round hasn't been paired yet.")
+
+  defp publish_level_error_text(reason, _round_number), do: error_text(reason)
+
+  # Each write a level change made, logged under the action its own switch
+  # logged before there was one control, with the same detail key.
+  @publish_audit %{
+    pairings_published: {"pairing.pairings_published", :through_round},
+    pairings_unpublished: {"pairing.pairings_unpublished", :from_round},
+    results_published: {"pairing.results_published", :round},
+    results_unpublished: {"pairing.results_unpublished", :round},
+    standings_published: {"standings.published", :through_round},
+    standings_unpublished: {"standings.unpublished", :from_round}
+  }
+
+  defp audit_publish_step(tournament, scope, step, round_number) do
+    {action, key} = Map.fetch!(@publish_audit, step)
+    Audit.log(tournament.id, scope, action, %{key => round_number})
+  end
 
   defp immediate_lock_reason do
     gettext(
@@ -2494,11 +2499,64 @@ defmodule PairingsEngineWeb.PairingsLive do
     )
   end
 
-  # Rule 4's confirm - named consequences, not a bare "are you sure?": which
-  # rounds actually go dark (the round clicked is always at least one of
-  # them; manual publishing can make it more, per `round_published?/2`'s own
-  # doc), and whether the cascade in `unpublish_pairings_through/2` would
-  # also pull public standings back.
+  # The confirm for choosing a LOWER level - one question naming everything
+  # that disappears, not a bare "are you sure?". Nothing is asked when the
+  # level goes up, or stays (tidying a leftover switch hides nothing that
+  # was public).
+  defp level_confirm(_tournament, _round, current, target) when target >= current, do: nil
+
+  defp level_confirm(tournament, round, _current, 0),
+    do: confirm_unpublish_pairings(tournament, round)
+
+  defp level_confirm(_tournament, round, 2, 1),
+    do:
+      gettext(
+        "Take round %{n}'s results off the public page? Its pairings stay public, without results.",
+        n: round.number
+      )
+
+  defp level_confirm(tournament, round, 3, target) do
+    n = round.number
+
+    standings =
+      if n == 1 do
+        gettext("Hide the public standings after round 1? Only the list of players stays public.")
+      else
+        gettext(
+          "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
+          n: n,
+          prev: n - 1
+        )
+      end
+
+    stays =
+      if target == 2,
+        do: gettext("Round %{n}'s pairings and results stay public.", n: n),
+        else:
+          gettext("Round %{n}'s results come off the public page too - its pairings stay.", n: n)
+
+    later =
+      case lowest_published_round_above(tournament, n) do
+        nil ->
+          []
+
+        hidden_from ->
+          [
+            gettext(
+              "This also hides round %{n}'s pairings and results, and every round after it.",
+              n: hidden_from
+            )
+          ]
+      end
+
+    Enum.join([standings, stays | later], " ")
+  end
+
+  # The pairings unpublish - named consequences: which rounds actually go
+  # dark (the round chosen is always at least one of them; manual publishing
+  # can make it more, per `round_published?/2`'s own doc), and whether the
+  # cascade in `unpublish_pairings_through/2` also pulls public standings
+  # back.
   defp confirm_unpublish_pairings(tournament, round) do
     cap = round.number - 1
 
@@ -2518,40 +2576,6 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # Rule 3's confirm - the mirror image: which rounds' PAIRINGS would go
-  # dark as a side effect of pulling standings back (see
-  # `unpublish_standings_through/2`'s own doc for why a later sheet has to
-  # be hidden too).
-  defp confirm_unpublish_standings(tournament, round_number) do
-    base =
-      if round_number == 0 do
-        gettext("Hide the entry list from the public page again?")
-      else
-        gettext(
-          "Hide public standings after round %{n}? They will drop back to after round %{prev}.",
-          n: round_number,
-          prev: round_number - 1
-        ) <>
-          " " <>
-          gettext("Round %{n}'s results stay public only if its Results switch is on.",
-            n: round_number
-          )
-      end
-
-    case lowest_published_round_above(tournament, round_number) do
-      nil ->
-        base
-
-      hidden_from ->
-        base <>
-          " " <>
-          gettext(
-            "This also hides round %{n}'s pairings and results, and every round after it.",
-            n: hidden_from
-          )
-    end
-  end
-
   defp lowest_published_round_above(tournament, round_number) do
     tournament.id
     |> Tournaments.list_rounds()
@@ -2562,21 +2586,6 @@ defmodule PairingsEngineWeb.PairingsLive do
       numbers -> Enum.min(numbers)
     end
   end
-
-  defp standings_reason_text(nil, _round_number), do: nil
-
-  defp standings_reason_text(:not_paired, round_number),
-    do: gettext("Round %{n} hasn't been paired yet.", n: round_number)
-
-  defp standings_reason_text(:pairings_not_public, round_number),
-    do: gettext("Round %{n}'s pairings aren't public yet - publish them first.", n: round_number)
-
-  defp standings_reason_text(:round_not_complete, round_number),
-    do:
-      gettext(
-        "Round %{n} isn't finished yet - every result must be entered first.",
-        n: round_number
-      )
 
   ## ---------- Hand-editing UI pieces ----------
 
@@ -2868,8 +2877,8 @@ defmodule PairingsEngineWeb.PairingsLive do
     ~H"""
     <div class="ctx-backdrop" phx-click="close_menu" phx-window-keydown="close_menu" phx-key="escape">
       <%!-- A real menu for the three seat scopes (`role="menu"`, its buttons
-            `menuitem`s); the round's publishing controls are switches, not
-            menu items, so that scope stays a plain group. `.HandEditMenu`
+            `menuitem`s); the round's publishing control is a radio group,
+            not menu items, so that scope stays a plain group. `.HandEditMenu`
             moves focus in when the keyboard opened it (`data-keyboard`),
             walks the items with the arrow keys, and puts focus back on the
             seat it came from when it closes. `data-transient-menu` keeps
@@ -2965,8 +2974,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               {gettext("Delete this board…")}
             </button>
           <% "round" -> %>
-            <div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 8px">
-              <.publish_controls id_prefix="menu-" tournament={@tournament} round={@round} />
+            <div class="pe-level-menu">
+              <.publish_level id_prefix="menu-" tournament={@tournament} round={@round} compact />
             </div>
         <% end %>
       </div>
@@ -3184,15 +3193,11 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
 
         <div class="actions" style="margin: 0; align-items: center">
-          <div
-            :if={@round != nil}
-            id="round-publish-group"
-            class="pe-publish-group"
-            role="group"
-            aria-label={gettext("Round %{n} on the public page", n: @round.number)}
-          >
-            <span class="pe-publish-group-label" aria-hidden="true">{gettext("Public")}</span>
-            <.publish_controls tournament={@tournament} round={@round} short />
+          <%!-- `display: contents`: the control is a flex item of this row
+                like its neighbours, and the note it may carry wraps onto a
+                line of its own below them (see `.pe-level-note`). --%>
+          <div :if={@round != nil} id="round-publish-group" class="pe-level-slot">
+            <.publish_level tournament={@tournament} round={@round} />
           </div>
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
@@ -4917,8 +4922,11 @@ defmodule PairingsEngineWeb.PairingsLive do
             };
             this.el.addEventListener("keydown", this.onKeydown);
 
+            // The round's menu opens on its level control, whose tab stop
+            // is the chosen level rather than the first one.
             if (this.el.hasAttribute("data-keyboard")) {
-              const first = this.items()[0];
+              const first =
+                this.el.querySelector("[role=radio][aria-checked=true]") || this.items()[0];
               if (first) first.focus();
             }
           },
@@ -4931,6 +4939,52 @@ defmodule PairingsEngineWeb.PairingsLive do
               (this.opener && this.opener.isConnected && this.opener) ||
               (this.openerId && document.getElementById(this.openerId));
             if (back) back.focus({preventScroll: true});
+          }
+        }
+      </script>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".PublishLevel">
+        // The round's "Public:" radio group (`publish_level/1`). One tab stop
+        // - the chosen level - and the arrow keys, Home and End move focus
+        // between the four stops without choosing one: every stop publishes
+        // or withdraws something, so choosing stays a deliberate Space or
+        // Enter (the stops are buttons), confirm included. Disabled stops
+        // stay reachable so their reason is read out.
+        //
+        // The arrow keys stop here: inside the round's right-click menu the
+        // menu's own Up/Down walk would otherwise move focus a second time.
+
+        // The stop a key moves to, from `index` among `count`. Pure.
+        export const stopStep = (key, index, count) => {
+          switch (key) {
+            case "ArrowRight":
+            case "ArrowDown": return (index + 1) % count;
+            case "ArrowLeft":
+            case "ArrowUp": return (index - 1 + count) % count;
+            case "Home": return 0;
+            case "End": return count - 1;
+            default: return null;
+          }
+        };
+
+        export default {
+          mounted() {
+            this.onKeydown = (e) => {
+              if (e.altKey || e.ctrlKey || e.metaKey) return;
+              const stops = Array.from(this.el.querySelectorAll("[role=radio]"));
+              const index = stops.indexOf(document.activeElement);
+              if (index < 0) return;
+              const next = stopStep(e.key, index, stops.length);
+              if (next === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              stops.forEach((stop, i) => { stop.tabIndex = i === next ? 0 : -1; });
+              stops[next].focus();
+            };
+            this.el.addEventListener("keydown", this.onKeydown);
+          },
+          destroyed() {
+            this.el.removeEventListener("keydown", this.onKeydown);
           }
         }
       </script>
