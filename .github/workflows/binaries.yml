@@ -50,7 +50,12 @@ jobs:
           # lines brings it back:
           #   - { runner: macos-15-intel, target: macos_x86_64 }
           #   - { runner: macos-15, target: macos_aarch64 }
-          - { runner: ubuntu-latest, target: linux_x86_64 }
+          # linux_x86_64 named ubuntu-24.04 explicitly (was `ubuntu-latest`
+          # until 2026-09-27) for the same reason as the arm target below is
+          # already pinned: `ubuntu-latest` is due to move to a still-preview
+          # Ubuntu 26.04 in November 2026, and that should be a deliberate
+          # bump here, not whatever push happens to land after the switch.
+          - { runner: ubuntu-24.04, target: linux_x86_64 }
           - { runner: ubuntu-24.04-arm, target: linux_aarch64 }
           - { runner: windows-latest, target: windows_x86_64 }
           # No windows_aarch64: Erlang/OTP publishes no Windows/ARM build, so
@@ -65,8 +70,13 @@ jobs:
       # Actions are pinned to a commit, not to a tag. A tag is mutable, and
       # whoever can move it runs their code on five runners here. The
       # trailing comment is the human-readable version; .github/dependabot.yml
-      # is what keeps the pair current.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # is what keeps the pair current for patch/minor bumps, but ignores
+      # majors on purpose - checkout, cache, upload/download-artifact and
+      # action-gh-release below were raised by hand on 2026-09-27, for the
+      # Node 20 Actions runtime deprecation
+      # (https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/):
+      # the old pins were being silently forced onto Node 24 already.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
@@ -79,7 +89,7 @@ jobs:
       # starts clean; `_build/prod/lib` only - never `rel`, which is this
       # run's output and must not come from an earlier commit.
       - name: Cache deps and compiled dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             deps
@@ -363,7 +373,7 @@ jobs:
           # that bundle carries its own separately-written launcher.
           #
           # `ss` (iproute2) ships on both Ubuntu images this workflow uses
-          # (ubuntu-latest, ubuntu-24.04-arm); it has no macOS equivalent,
+          # (ubuntu-24.04, ubuntu-24.04-arm); it has no macOS equivalent,
           # which is why that check uses `lsof` instead. `-ltnp` = listening,
           # TCP, numeric (no DNS/service-name lookups slowing this down),
           # with the owning process. No sudo: `ss -p` shows a process without
@@ -465,7 +475,7 @@ jobs:
             }
           Get-ChildItem burrito_out
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: openpairings_portable_${{ matrix.target }}
           # Straight from where mix assembled it. There used to be a copy
@@ -477,7 +487,7 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: openpairings_${{ matrix.target }}
           path: burrito_out/*
@@ -701,7 +711,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os == 'macOS'
         with:
           name: openpairings_dmg_${{ matrix.target }}
@@ -809,7 +819,7 @@ jobs:
       # the release simply never appeared.
       - name: Collect the release assets
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release_assets_${{ matrix.target }}
           # `*.dmg` matches on macOS only, the zip and the installer_out/*
@@ -851,7 +861,9 @@ jobs:
     # condition. Until 2026-09-11 the portable zips and the Windows installers
     # were tag-only, and v0.58.0, released from main, went out without them.
     if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    # Pinned, not `ubuntu-latest` - see the build job's linux_x86_64 comment
+    # above on the November 2026 Ubuntu 26.04 switch.
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
@@ -859,7 +871,7 @@ jobs:
       # Only mix.exs is needed, and only on the main-push path - but the
       # checkout is unconditional so the version step never reads a stale or
       # missing file.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Work out which version this is, and whether it is already out
         id: ver
@@ -894,7 +906,7 @@ jobs:
 
       - name: Collect every target's release assets
         if: steps.ver.outputs.publish == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: release_assets_*
           merge-multiple: true
@@ -914,7 +926,7 @@ jobs:
 
           ls -lhR release_assets
 
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         if: steps.ver.outputs.publish == 'true'
         with:
           # Named rather than inferred from the ref, because on a push to main
