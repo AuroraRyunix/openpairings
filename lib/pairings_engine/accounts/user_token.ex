@@ -17,6 +17,10 @@ defmodule PairingsEngine.Accounts.UserToken do
     field :context, :string
     field :sent_to, :string
     field :authenticated_at, :utc_datetime
+    # The browser's own description of itself, for a session token only, so
+    # the account page can say "Firefox on Windows" beside it. Truncated to
+    # the column; never the address the request came from.
+    field :user_agent, :string
     belongs_to :user, PairingsEngine.Accounts.User
 
     timestamps(type: :utc_datetime, updated_at: false)
@@ -41,10 +45,40 @@ defmodule PairingsEngine.Accounts.UserToken do
   and devices in the UI and allow users to explicitly expire any
   session they deem invalid.
   """
-  def build_session_token(user) do
+  def build_session_token(user, user_agent \\ nil) do
     token = :crypto.strong_rand_bytes(@rand_size)
     dt = user.authenticated_at || DateTime.utc_now(:second)
-    {token, %UserToken{token: token, context: "session", user_id: user.id, authenticated_at: dt}}
+
+    {token,
+     %UserToken{
+       token: token,
+       context: "session",
+       user_id: user.id,
+       authenticated_at: dt,
+       user_agent: truncate_user_agent(user_agent)
+     }}
+  end
+
+  # A header is whatever the client chose to send, so it is cut to the
+  # column rather than trusted to fit, and an empty one is stored as nothing.
+  defp truncate_user_agent(ua) when is_binary(ua) do
+    case String.trim(ua) do
+      "" -> nil
+      trimmed -> String.slice(trimmed, 0, 255)
+    end
+  end
+
+  defp truncate_user_agent(_), do: nil
+
+  @doc """
+  Every session token of `user_id` that is still valid, newest first - what
+  the account page lists under "Where you're signed in".
+  """
+  def valid_sessions_query(user_id) do
+    from t in UserToken,
+      where: t.user_id == ^user_id and t.context == "session",
+      where: t.inserted_at > ago(@session_validity_in_days, "day"),
+      order_by: [desc: t.inserted_at, desc: t.id]
   end
 
   @doc """

@@ -343,16 +343,271 @@ defmodule PairingsEngine.Accounts do
     |> update_user_and_delete_all_tokens()
   end
 
+  ## Profile and preferences - the account page (docs/account.md)
+
+  @doc "A changeset for the display name - see `User.profile_changeset/2`."
+  def change_user_profile(%User{} = user, attrs \\ %{}), do: User.profile_changeset(user, attrs)
+
+  @doc "Sets or clears the display name."
+  def update_user_profile(%User{} = user, attrs) do
+    user
+    |> User.profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  A changeset for the stored language, theme and accent - see
+  `PairingsEngine.Accounts.Preferences` for what nil means.
+  """
+  def change_user_preferences(%User{} = user, attrs \\ %{}),
+    do: User.preferences_changeset(user, attrs)
+
+  @doc "Stores (or clears, with a blank) the language, theme and accent."
+  def update_user_preferences(%User{} = user, attrs) do
+    user
+    |> User.preferences_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Stores one preference - `:locale`, `:theme` or `:accent` - without
+  touching the other two. What the top-bar pickers write through; a no-op
+  (not a write) when the value is already the stored one, because the
+  language picker writes on every switch and most switches change nothing
+  on the account.
+  """
+  def put_user_preference(%User{} = user, key, value) when key in [:locale, :theme, :accent] do
+    if Map.get(user, key) == value do
+      {:ok, user}
+    else
+      update_user_preferences(user, %{key => value})
+    end
+  end
+
+  @doc "A changeset for the \"New tournament\" defaults."
+  def change_tournament_defaults(%User{} = user, attrs \\ %{}),
+    do: User.tournament_defaults_changeset(user, attrs)
+
+  @doc "Stores the \"New tournament\" defaults - see `PairingsEngine.Accounts.TournamentDefaults`."
+  def update_tournament_defaults(%User{} = user, attrs) do
+    user
+    |> User.tournament_defaults_changeset(attrs)
+    |> Repo.update()
+  end
+
   ## Session
 
   @doc """
-  Generates a session token.
+  Generates a session token. `user_agent` is the browser's `user-agent`
+  header, kept only so the account page can tell sessions apart.
   """
-  def generate_user_session_token(user) do
-    {token, user_token} = UserToken.build_session_token(user)
+  def generate_user_session_token(user, user_agent \\ nil) do
+    {token, user_token} = UserToken.build_session_token(user, user_agent)
     Repo.insert!(user_token)
     token
   end
+
+  @doc """
+  Every session of `user` that can still sign somebody in, newest first.
+
+  Includes the one asking - the account page marks it as "this device"
+  itself, by comparing the token it was mounted with.
+  """
+  def list_user_sessions(%User{} = user) do
+    user.id |> UserToken.valid_sessions_query() |> Repo.all()
+  end
+
+  @doc """
+  Ends one session of `user`, by its row id.
+
+  Scoped to `user` in the query itself, never by fetching the row and then
+  checking: the id arrives in an event payload, which whoever holds the
+  socket writes, so `id` alone must never be able to reach another account's
+  session. Returns the deleted token so the caller can disconnect its open
+  pages.
+  """
+  def delete_user_session(%User{} = user, token_id) do
+    with {id, ""} <- Integer.parse(to_string(token_id)),
+         %UserToken{} = token <-
+           Repo.get_by(UserToken, id: id, user_id: user.id, context: "session") do
+      Repo.delete(token)
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Ends every session of `user` except the one holding `current_token` -
+  "Sign out everywhere else". Returns the tokens it ended, for
+  `PairingsEngineWeb.UserAuth.disconnect_sessions/1`.
+
+  Only `"session"` tokens. A pending email-change or magic-link token is not
+  a signed-in device and ending it here would only break a link the person
+  is about to click.
+  """
+  def delete_other_user_sessions(%User{} = user, current_token) when is_binary(current_token) do
+    query =
+      from t in UserToken,
+        where: t.user_id == ^user.id and t.context == "session" and t.token != ^current_token
+
+    Repo.transact(fn ->
+      tokens = Repo.all(query)
+      Repo.delete_all(from t in UserToken, where: t.id in ^Enum.map(tokens, & &1.id))
+      {:ok, tokens}
+    end)
+  end
+
+  ## Deleting an account
+
+  @doc """
+  Why `user` cannot be deleted right now, or `[]` when nothing stands in
+  the way. See `delete_user_account/1` for why each of these refuses.
+
+  Each entry is `{reason, count}`:
+
+    * `{:owns_tournaments, n}` - tournaments on the list, archived or not;
+    * `{:recycle_bin, n}` - tournaments in the recycle bin, which still
+      belong to the account until they are purged;
+    * `{:last_admin, 1}` - the only administrator this database has.
+  """
+  def account_deletion_blockers(%User{} = user) do
+    alias PairingsEngine.Tournaments.Tournament
+
+    counts =
+      from(t in Tournament,
+        where: t.user_id == ^user.id,
+        select:
+          {fragment("CASE WHEN ? IS NULL THEN 'kept' ELSE 'bin' END", t.deleted_at), count(t.id)},
+        group_by: fragment("CASE WHEN ? IS NULL THEN 'kept' ELSE 'bin' END", t.deleted_at)
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    last_admin? =
+      User.admin?(user) and
+        Repo.aggregate(from(u in User, where: u.role == "admin"), :count) <= 1
+
+    [
+      {:owns_tournaments, Map.get(counts, "kept", 0)},
+      {:recycle_bin, Map.get(counts, "bin", 0)},
+      {:last_admin, if(last_admin?, do: 1, else: 0)}
+    ]
+    |> Enum.reject(fn {_reason, count} -> count == 0 end)
+  end
+
+  @doc """
+  Deletes `user` for good, or refuses and says why.
+
+  ## Refuses while the account owns a tournament
+
+  `tournaments.user_id` cascades on delete (`20260709231400`), so deleting
+  an account that still owns tournaments would delete those tournaments
+  with it - players, rounds, results, and whatever collaborators were
+  relying on them, with no recycle bin in between. There is no ownership
+  transfer to offer instead, and guessing one (the longest-serving
+  collaborator?) would hand somebody an event they never asked for.
+
+  So the rule is the conservative one: an account can only be deleted once
+  it owns nothing. The account page says how many are in the way and where
+  to deal with them - download them, delete them, purge the recycle bin -
+  and every one of those steps is an ordinary, confirmed, separately
+  audited act the arbiter takes on purpose. The recycle bin counts, because
+  a binned tournament is still restorable and still owned.
+
+  The last administrator is refused for the same kind of reason: an
+  installation without one cannot be administered from any screen, and
+  getting one back takes shell access (`mix pairings.role`).
+
+  ## What happens to everything else
+
+    * **Tournaments shared with them.** Their collaborator rows go (the
+      foreign key cascades), and each tournament they had accepted gets a
+      "Left tournament" line in its audit log, so the owner can see why
+      they are gone.
+    * **Their past actions in other people's tournaments stay attributed.**
+      The audit log is the organiser's record of who changed what; blanking
+      the actor would make an arbiter's decision read as "System". The
+      address is copied into each row's `details["former_actor"]` before
+      the account goes (the foreign key then nulls `user_id`), and the audit
+      pages show it marked as a deleted account.
+    * **Sessions and pending sign-in links** go with the account (cascade).
+      The caller disconnects the open pages with the returned tokens.
+    * **Badge events** (`badge_events.user_id`, cascade) go with it - they
+      are the account's own and nobody else can open them.
+
+  Returns `{:ok, %{tokens: tokens, tournament_ids: ids}}` - the session
+  tokens to disconnect and the tournaments whose collaborator lists
+  changed - or `{:error, {:blocked, blockers}}`.
+  """
+  def delete_user_account(%User{} = user) do
+    alias PairingsEngine.Audit
+    alias PairingsEngine.Audit.AuditLog
+    alias PairingsEngine.Tournaments.Collaborator
+
+    Repo.transact(fn ->
+      case account_deletion_blockers(user) do
+        [] ->
+          collaborations =
+            Repo.all(
+              from c in Collaborator,
+                where: c.user_id == ^user.id and c.status == "accepted",
+                preload: :tournament
+            )
+
+          Enum.each(collaborations, fn c ->
+            Audit.log(c.tournament_id, user.id, "tournament.left", %{
+              name: c.tournament.name,
+              reason: "account_deleted"
+            })
+          end)
+
+          from(a in AuditLog,
+            where: a.user_id == ^user.id,
+            update: [
+              set: [
+                details:
+                  fragment(
+                    "json_set(COALESCE(?, '{}'), '$.former_actor', ?)",
+                    a.details,
+                    ^user.email
+                  )
+              ]
+            ]
+          )
+          |> Repo.update_all([])
+
+          tokens = Repo.all(from t in UserToken, where: t.user_id == ^user.id)
+
+          case Repo.delete(user) do
+            {:ok, _deleted} ->
+              {:ok,
+               %{
+                 tokens: Enum.filter(tokens, &(&1.context == "session")),
+                 tournament_ids: Enum.map(collaborations, & &1.tournament_id)
+               }}
+
+            {:error, _changeset} = error ->
+              error
+          end
+
+        blockers ->
+          {:error, {:blocked, blockers}}
+      end
+    end)
+  end
+
+  @doc """
+  Whether `confirmation` is what the account page asks to be typed before
+  it deletes `user`: the account's own address, ignoring case and the
+  spaces around it. The address rather than a fixed word, so a
+  confirmation typed into the wrong tab cannot delete the wrong account.
+  """
+  def account_deletion_confirmed?(%User{email: email}, confirmation)
+      when is_binary(confirmation) do
+    String.downcase(String.trim(confirmation)) == String.downcase(email)
+  end
+
+  def account_deletion_confirmed?(_user, _confirmation), do: false
 
   @doc """
   Gets the user with the given signed token.

@@ -34,6 +34,10 @@ defmodule PairingsEngine.RateLimit do
       CLIENT address and counted per FILE. Unlike the others this one
       rations WORK rather than attempts: the page takes ten files of five
       megabytes on each press and parses every one of them.
+    * `:account_export`, `:email_change` - the account page's zip download
+      and its change-of-address mail, keyed by USER id. Signed-in only, but
+      one is real work and the other mails somebody's inbox; see the
+      buckets themselves.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` - behind a proxy the latter is the same value for
@@ -71,7 +75,17 @@ defmodule PairingsEngine.RateLimit do
     # anonymous endpoint, but every hit is a request to ratings.fide.com made
     # on this server's behalf, so it is rationed per person: enough to fetch
     # the photos of a handful of officials in a row, never a bulk scrape.
-    fide_photo: %{max: 10, window_ms: :timer.minutes(1)}
+    fide_photo: %{max: 10, window_ms: :timer.minutes(1)},
+    # The account page's "Download everything", keyed by USER id. Each one
+    # serialises every tournament the account can open into a zip, which is
+    # real work on a two-core box; five in ten minutes is several retries
+    # of a download that went wrong, never a loop.
+    account_export: %{max: 5, window_ms: :timer.minutes(10)},
+    # The account page's "Change email", keyed by USER id. Every one mails a
+    # confirmation link to an address the person typed - somebody else's
+    # inbox, if a stolen session is doing the typing - so it is rationed the
+    # way the log-in links are rationed per recipient.
+    email_change: %{max: 5, window_ms: :timer.minutes(60)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
@@ -83,6 +97,8 @@ defmodule PairingsEngine.RateLimit do
           | :fide_lookup
           | :tools_upload
           | :fide_photo
+          | :account_export
+          | :email_change
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 
