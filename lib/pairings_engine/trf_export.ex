@@ -17,7 +17,7 @@ defmodule PairingsEngine.TrfExport do
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
-  alias PairingsEngine.{Federation, Pairing, Tournaments}
+  alias PairingsEngine.{Federation, Pairing, TeamStandings, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
@@ -243,10 +243,12 @@ defmodule PairingsEngine.TrfExport do
           free_points: free_point_records(players, tournament),
           forbidden_pairs:
             Pairing.forbidden_pairs(tournament.id, players) ++
-              Pairing.exclusion_pairs(tournament, players)
+              Pairing.exclusion_pairs(tournament, players),
+          team_point_system: team_point_system(tournament, dialect),
+          team_pab: team_pab(tournament, rounds, dialect)
         },
         players: trf_players,
-        teams: team_records(tournament, players, trf_players)
+        teams: team_records(tournament, players, trf_players, dialect)
       },
       # `:trf26` for the file an arbiter uploads; `:engine` on request, for
       # a pairing program that reads the older `XX*`/`BB*` spelling.
@@ -542,23 +544,39 @@ defmodule PairingsEngine.TrfExport do
 
   defp mark_line(line, _by_rank), do: line
 
-  # The TRF16 team section: one `013` record per team, its name and the
+  # The team section: TRF26's `310` once every team has a `pairing_number`
+  # (round 1 paired - `PairingsEngine.Tournaments.Team`) AND the file is the
+  # `:trf26` dialect, the older `013` otherwise, each with its name and the
   # starting ranks of its players in board order - which, in this app, are
   # their pairing numbers, the same values every game's opponent column
   # carries. Only players the file actually contains are listed, so a record
   # never names a rank with no `001` line behind it.
   #
+  # A `310` record also carries the team's own number, match points, game
+  # points and final rank - `PairingsEngine.TeamStandings.standings/1`, the
+  # same numbers the Team standings page shows - so a file this app writes
+  # round-trips through `ainalrami -c`'s team-rank check (`docs/team-tournaments.md`).
+  # The `:engine` dialect stays plain `013`: a pairing program reading this
+  # file to pair the next round wants rosters, not standings, and every
+  # other TRF26-only record (`162`/`260`'s `BB*`/`XX*` alternates) is kept
+  # out of it the same way.
+  #
   # Empty for an individual tournament, so its file is byte-for-byte what it
-  # was: the `082` header was already written as 0, and no `013` line appears.
-  # The individual games stay on the `001` lines exactly as before; the team
-  # section only says who played for whom.
-  defp team_records(tournament, players, trf_players) do
-    if PairingsEngine.Tournaments.Tournament.team?(tournament) do
+  # was: the `082` header was already written as 0, and no team record
+  # appears. The individual games stay on the `001` lines exactly as before;
+  # the team section only says who played for whom.
+  defp team_records(tournament, players, trf_players, dialect) do
+    if Tournament.team?(tournament) do
       exported = MapSet.new(trf_players, & &1.rank)
+      teams = Tournaments.list_teams(tournament.id)
+      numbered? = dialect == :trf26 and teams != [] and Enum.all?(teams, & &1.pairing_number)
 
-      tournament.id
-      |> Tournaments.list_teams()
-      |> Enum.map(fn team ->
+      standings_by_id =
+        if numbered?,
+          do: Map.new(TeamStandings.standings(tournament), &{&1.team.id, &1}),
+          else: %{}
+
+      Enum.map(teams, fn team ->
         ranks =
           players
           |> Enum.filter(&(&1.team_id == team.id))
@@ -566,10 +584,82 @@ defmodule PairingsEngine.TrfExport do
           |> Enum.map(& &1.pairing_number)
           |> Enum.filter(&MapSet.member?(exported, &1))
 
-        %{name: team.name, player_ranks: ranks}
+        base = %{name: team.name, player_ranks: ranks}
+
+        case Map.get(standings_by_id, team.id) do
+          nil ->
+            base
+
+          entry ->
+            Map.merge(base, %{
+              number: team.pairing_number,
+              match_points: entry.mp,
+              game_points: entry.gp,
+              final_rank: entry.rank
+            })
+        end
       end)
     else
       []
+    end
+  end
+
+  # TRF26's `362`: a team event's own match-point values - this app's
+  # `team_match_points_win/draw/loss` (2/1/0 by default). `P` and `A` (a
+  # pairing-allocated bye's match points, and a match lost by forfeit's) are
+  # not separate settings in this app - a team Swiss bye always pays a
+  # draw's match points (C.04.6 Art. 1.4, `PairingsEngine.TeamStandings.score_match/4`)
+  # and a match lost by forfeit an ordinary loss's - so neither is written;
+  # a reader with no `362` `P`/`A` of its own already falls back to a win's
+  # and a loss's, the same fallback this app relies on reading one back
+  # (`PairingsEngine.TrfImport.team_scoring_attrs/1`).
+  defp team_point_system(tournament, dialect) do
+    if dialect == :trf26 and Tournament.team?(tournament) do
+      %{
+        win: tournament.team_match_points_win,
+        draw: tournament.team_match_points_draw,
+        loss: tournament.team_match_points_loss
+      }
+    end
+  end
+
+  # TRF26's `320`: the team given the pairing-allocated bye each round of a
+  # team Swiss, read back by `PairingsEngine.TeamMatchInference` without
+  # guessing. Column position is round position in `rounds` (the file's own
+  # round selection - "Two dialects"), not the tournament's round number, the
+  # same compaction `filter_player_games/3` already applies to every player's
+  # games; trailing rounds with no bye are dropped, same as `320`'s own
+  # column count on a file this app reads.
+  #
+  # A team round robin's bye is the Berger bye, not a pairing-allocated one
+  # (C.04.6 Art. 1.4 does not apply to it), so this app writes no `320` for
+  # it. Nor does it ever write a `330`: a match this app forfeits by decision
+  # (`PairingsEngine.TeamMatches.forfeit_match/3`) already has every board's
+  # own forfeit result on the `001` lines, which is what a `330` is for a
+  # match that has none of - so no match this app exports needs one.
+  defp team_pab(tournament, rounds, dialect) do
+    if dialect == :trf26 and Tournament.team_swiss?(tournament) do
+      teams = Tournaments.list_teams(tournament.id)
+
+      if teams != [] and Enum.all?(teams, & &1.pairing_number) do
+        numbers = Map.new(teams, &{&1.id, &1.pairing_number})
+        byes = Tournaments.team_byes_by_round(tournament.id)
+
+        teams_by_round =
+          rounds
+          |> Enum.map(&(Map.get(byes, &1) |> then(fn id -> id && Map.get(numbers, id) end) || 0))
+          |> Enum.reverse()
+          |> Enum.drop_while(&(&1 == 0))
+          |> Enum.reverse()
+
+        boards = max(tournament.team_boards || 1, 1)
+
+        %{
+          match_points: tournament.team_match_points_draw,
+          game_points: Float.round(boards * tournament.points_draw, 1),
+          teams: teams_by_round
+        }
+      end
     end
   end
 
@@ -583,18 +673,34 @@ defmodule PairingsEngine.TrfExport do
   # what that field is for.
   defp app_version, do: PairingsEngine.Build.version()
 
-  # TRF26's `192`: which system paired the boards, in ETT26's vocabulary.
-  # JaVaFo implements the Dutch system as it stood before 1 February 2026
-  # and Ainalrami the edition in force since; Keizer and the two match
-  # formats have no FIDE code and are what the table calls CUSTOM. A team
-  # event gets the family's default.
+  # TRF26's `192`: which system paired the boards, in FIDE's own
+  # `TournamentTypeCodeTable192-TRF26` vocabulary. JaVaFo implements the
+  # Dutch system as it stood before 1 July 2025 (`FIDE_DUTCH_2017`) and
+  # Ainalrami the edition in force since - the table's code for that is
+  # `FIDE_DUTCH_2025`, but this app still writes `FIDE_DUTCH_2026`: the
+  # pinned `Ainalrami.Trf.serialize/2` (v0.32.0) validates `192` against its
+  # OWN copy of the table, which has the same `_2026` mistake this app's
+  # comments once had and does not yet accept `_2025` at all - writing it
+  # would refuse every export an Ainalrami-paired individual tournament
+  # makes. `system_attrs/1` reads BOTH spellings (and bare `FIDE_DUTCH`), so
+  # this only needs fixing once Ainalrami's own table, and the pin here, are
+  # both updated. Keizer and the two match formats have no FIDE code and are
+  # what the table calls CUSTOM.
+  #
+  # A team event's code names its colour rule and its primary/secondary
+  # score, which this app always pairs the same way regardless of what an
+  # arbiter chooses (Type A colour preferences, match points primary, game
+  # points secondary - `Ainalrami.TeamPairing.Colour.first_team/4`,
+  # `PairingsEngine.TeamSwiss`), so it is always `FIDE_TEAM_TYPEA_MP_GP`
+  # (there is no OTHER code this app could honestly write). A team round
+  # robin's cycle count is written the same way the individual one below is.
   defp tournament_type_code(t) do
     baku = if t.acceleration == "baku", do: "_BAKU", else: ""
     team? = t.type in ["team-swiss", "team-roundrobin"]
 
     cond do
-      team? and t.pairing_system == "round_robin" -> "FIDE_TEAM_ROUNDROBIN"
-      team? -> "FIDE_TEAM" <> baku
+      team? and t.pairing_system == "round_robin" -> "BERGER_TEAM_ROUNDROBIN_G#{t.rr_cycles || 1}"
+      team? -> "FIDE_TEAM_TYPEA_MP_GP" <> baku
       t.pairing_system == "keizer" -> "CUSTOM_SWISS"
       t.pairing_system == "round_robin" and t.rr_match_format -> "CUSTOM_ROUNDROBIN"
       t.pairing_system == "round_robin" -> "BERGER_ROUNDROBIN_G#{t.rr_cycles || 1}"

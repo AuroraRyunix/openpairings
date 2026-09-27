@@ -27,6 +27,7 @@ defmodule PairingsEngine.Tournaments do
     Team,
     Round,
     Pairing,
+    Match,
     Collaborator,
     ForbiddenPairing
   }
@@ -2818,6 +2819,24 @@ defmodule PairingsEngine.Tournaments do
 
   defp nil_last(nil), do: {1, 0}
   defp nil_last(n), do: {0, n}
+
+  @doc """
+  The pairing-allocated bye of every round of a team Swiss, as `%{round
+  number => team_id}` - a round with no bye (an even field, or one not yet
+  paired) is simply absent. Used to write TRF26's `320` record
+  (`PairingsEngine.TrfExport`) and nowhere else: a team round robin's bye is
+  the Berger bye, not a pairing-allocated one, and this only reads matches
+  with no `team_b_id`, which is what either bye looks like.
+  """
+  def team_byes_by_round(tournament_id) do
+    from(m in Match,
+      join: r in assoc(m, :round),
+      where: r.tournament_id == ^tournament_id and is_nil(m.team_b_id),
+      select: {r.number, m.team_a_id}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
 
   @doc """
   Fetches a team within `tournament_id`, or nil - tolerant of a non-integer id

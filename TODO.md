@@ -293,13 +293,18 @@ Still open, and each needs a decision rather than typing:
   spine. Detailed in the next section. Q208 came off this list on
   2026-08-29 when ARO was fixed, because it was never only an acceptance
   item.
-- **Team Swiss (C.04.6)** - phase 2 of team tournaments, **built 2026-09-13**
-  (unreleased, merged to main): `PairingsEngine.TeamSwiss` pairs team
-  against team with Ainalrami's `TeamPairing` (Ainalrami v0.27.0, pinned),
-  Article 16 in the team tie-breaks, the initial-colour draw for individual
-  and team Swiss; `snapshot.ex` gates team fields on
-  `Tournament.paired_as_teams?/1`. Still open: the three readings (questions 5-7) are
-  research, not SPP rulings; the large-field fuzz on the fuzz server. (The
+- **Team Swiss (C.04.6)** - phase 2 of team tournaments, **built 2026-09-13,
+  released in 0.62.0 (2026-09-14)**: `PairingsEngine.TeamSwiss` pairs team
+  against team with Ainalrami's `TeamPairing` (Ainalrami pinned at v0.32.0
+  now), Article 16 in the team tie-breaks, the initial-colour draw for
+  individual and team Swiss; `snapshot.ex` gates team fields on
+  `Tournament.paired_as_teams?/1`. Still open: the three readings (questions
+  5-7) are research, not SPP rulings. **The large-field validation is done**:
+  Ainalrami's exhaustive 80-team proof against a brute-force reference
+  (merged in Ainalrami 0.31.0, `docs/team-proof-large-fields.md`) and a
+  billion-round C.04.6 fuzz run on this maintainer's own machine
+  (1,032,949,115 rounds, 0 failures, finished 2026-09-26) - the fuzz server
+  this used to depend on is gone, but the run no longer needs it. (The
   brackets are stored as the round's explanation since 2026-09-14, with the
   engine's own reasons since the `team-explain` follow-up.) See
   `docs/team-tournaments.md`.
@@ -441,11 +446,16 @@ Still open, and each needs a decision rather than typing:
 - **Team Swiss** - wired in 2026-09-13 (see above). No reference
   implementation pairs teams - not bbpPairings, JaVaFo, Gacrux or SWAR - so
   the engine's validation is a brute-force whole-round reference written
-  from the text (Ainalrami's `team_pairing_validation_test.exs`). Questions
-  5-7 still worth sending to the SPP; the research answers are recorded in
-  Ainalrami's `docs/conformance-c0406-teams.md`.
-- **Team pages on OpenResults** - team tournaments are refused publishing
-  until the results site can show teams, matches and team standings.
+  from the text (Ainalrami's `team_pairing_validation_test.exs`), now
+  extended to an exhaustive 80-team proof (0.31.0,
+  `docs/team-proof-large-fields.md`) and a billion-round fuzz run
+  (1,032,949,115 rounds, 0 failures, 2026-09-26). Questions 5-7 still worth
+  sending to the SPP; the research answers are recorded in Ainalrami's
+  `docs/conformance-c0406-teams.md`.
+- ~~**Team pages on OpenResults**~~ - **built 2026-09-14, released in
+  0.62.0**: team tournaments publish like any other event (teams, matches,
+  team standings, the same withholding rules). See
+  `docs/team-tournaments.md`.
 
 ### OpenResults
 
@@ -719,46 +729,51 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   What both pages do have is the silent live refresh: a broadcast reloads
   the round, so nobody is looking at stale boards. The gap is only that
   nothing SAYS a colleague did it.
-- **Team tournaments** - **phase 1 built 2026-09-13** (unreleased):
-  the Teams page, the team round robin (`PairingsEngine.TeamRoundRobin`,
-  Berger tables over teams, board-by-board matches, colours alternating from
-  the first team's White on board 1), match and game points, team standings
-  and tie-breaks (`PairingsEngine.TeamStandings`: MP, GP, DE, BH, SB, EMGSB,
-  BB, with working), board statistics, the TRF16 `013` team section written
-  and read, matches in backups, the team pairing sheet and team standings
-  print. See `docs/team-tournaments.md`.
+- **Team tournaments** - **phase 1 built 2026-09-13, released in 0.62.0
+  (2026-09-14)**: the Teams page, the team round robin
+  (`PairingsEngine.TeamRoundRobin`, Berger tables over teams, board-by-board
+  matches, colours alternating from the first team's White on board 1),
+  match and game points, team standings and tie-breaks
+  (`PairingsEngine.TeamStandings`: MP, GP, DE, BH, SB, EMGSB, BB, with
+  working), board statistics, the team TRF section written and read (`013`
+  then, `310`/`362`/`320` now - see below), matches in backups, the team
+  pairing sheet and team standings print. See `docs/team-tournaments.md`.
 
-  **Phase 2 built 2026-09-13** (unreleased): team Swiss paired by teams
-  (`PairingsEngine.TeamSwiss`), the shared match writer
+  **Phase 2 built 2026-09-13, released in 0.62.0**: team Swiss paired by
+  teams (`PairingsEngine.TeamSwiss`), the shared match writer
   (`PairingsEngine.TeamRounds`), the Swiss bye scoring a draw, C.07 Article 16
   in `TeamStandings` for team Swiss, `team_pairing_mode` keeping old team
   Swiss events player by player, `Tournament.paired_as_teams?/1`.
 
-  Still open:
-  * **Ainalrami tag and pin** - the team Swiss code needs Ainalrami's
-    `team-swiss` branch tagged and `mix.exs` bumped to it.
+  All of the below is done:
+  * ~~**Ainalrami tag and pin**~~ - Ainalrami is pinned at v0.32.0 (a
+    released tag, not a branch) and has been bumped many times since.
   * ~~**The round's explanation**~~ - stored and shown since 2026-09-14
     (`TeamSwiss.explanation/5`, `TeamRoundExplanation`). **The engine's
     reasons are in it** since the follow-up of 2026-09-14 (account version
     2): the bye's 3.4.1 passes and tie-break, each bracket's upfloater sets
     with [C4]-[C7] and the criterion that decided, each match's 4.2 and 4.3
-    rule - from Ainalrami's `explain: true` (branch `team-explain`, to be
-    tagged v0.28.0; **the `mix.exs` pin still needs bumping to it**, the code
-    here reads version 1 if the engine sends no reasons). Rounds paired
-    before keep version 1 and the "not recorded" note.
-  * **Not published to OpenResults** - refused on purpose until the results
-    site has team pages (additive snapshot fields in OpenResults'
-    `docs/snapshot-schema.md`, plus the pages).
+    rule - from Ainalrami's `explain: true`. Rounds paired before keep
+    version 1 and the "not recorded" note.
+  * ~~**Not published to OpenResults**~~ - team tournaments publish like any
+    other event since 0.62.0 (additive snapshot fields in OpenResults'
+    `docs/snapshot-schema.md`, and the pages).
 
-  **Follow-ups built 2026-09-14** (unreleased, worktree branch): a match
-  forfeited by decision (`PairingsEngine.TeamMatches.forfeit_match/3`,
-  withdrawable, honoured by [C2]); a board added by hand joins its teams'
-  match when it fits and is marked "no team" when it does not; a TRF import
-  rebuilds matches from the boards (`PairingsEngine.TeamMatchInference`,
-  unclear rounds not guessed: no matches in that round for a round robin,
-  none at all and "players" mode for a team Swiss). Still open: a team Swiss
-  round with one board-less team is ASSUMED to be the bye on import (TRF16
-  cannot tell a bye from a team not paired; TRF-2026's team records would).
+  **Follow-ups built 2026-09-14, released in 0.62.0**: a match forfeited by
+  decision (`PairingsEngine.TeamMatches.forfeit_match/3`, withdrawable,
+  honoured by [C2]); a board added by hand joins its teams' match when it
+  fits and is marked "no team" when it does not; a TRF import rebuilds
+  matches from the boards (`PairingsEngine.TeamMatchInference`, unclear
+  rounds not guessed: no matches in that round for a round robin, none at
+  all and "players" mode for a team Swiss). ~~Still open: a team Swiss round
+  with one board-less team is ASSUMED to be the bye on import~~ - **done on
+  branch `small-fixes`**: a TRF-2026 file's own `320` record (the team given
+  the bye each round) and `330` record (a match forfeited by decision with
+  no boards at all) are read and trusted instead, and its `362` match-point
+  values are imported; `PairingsEngine.TrfExport` now writes a team event's
+  `310`/`362`/`320` records too, so this app's own exports round-trip
+  through the change rather than only reading someone else's file. See
+  `docs/team-tournaments.md`.
   ~~Also open
   from that pass: the forfeit decision is not in the OpenResults snapshot~~
   **Done** in the follow-up: `rounds[].matches[].forfeit_decision`

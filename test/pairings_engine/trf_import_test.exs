@@ -1151,6 +1151,73 @@ defmodule PairingsEngine.TrfImportTest do
     )
   end
 
+  describe "192 (tournament type code) recognition" do
+    # FIDE's TRF-2026 `TournamentTypeCodeTable192-TRF26` names the edition
+    # in force since 1 July 2025 `FIDE_DUTCH_2025` (or the date-dependent
+    # bare `FIDE_DUTCH`); this app's own export still writes the mistaken
+    # `FIDE_DUTCH_2026` it always has (`PairingsEngine.TrfExport.tournament_type_code/1`
+    # explains why), so a file carrying either spelling - or a third
+    # party's own correctly-spelled `_2025` - reads as Ainalrami.
+    # `Ainalrami.Trf.serialize/2` (the pinned v0.32.0) refuses to WRITE a
+    # `192` it does not recognize as one of its own - which does not yet
+    # include the table's real `FIDE_DUTCH_2025` spelling
+    # (`PairingsEngine.TrfExport.tournament_type_code/1` explains why this
+    # app's own export still writes `_2026`) - so a file carrying `_2025`
+    # is built here by substitution after a valid line is serialized,
+    # exactly as a third party's own correctly-spelled file would arrive.
+    defp trf_with_type_code(code, extra \\ %{}) do
+      text =
+        verification_trf(%{1 => []}, Map.merge(%{type_code: "CUSTOM_SWISS"}, extra))
+
+      String.replace(text, "192 CUSTOM_SWISS", "192 #{code}", global: false)
+    end
+
+    test "FIDE_DUTCH_2025, bare FIDE_DUTCH, and this app's own FIDE_DUTCH_2026 all read as Ainalrami" do
+      for code <- ~w(FIDE_DUTCH_2025 FIDE_DUTCH FIDE_DUTCH_2026) do
+        assert {:ok, imported, _warnings} = TrfImport.import_text(trf_with_type_code(code))
+
+        assert imported.pairing_system == "swiss"
+        assert imported.pairing_engine == "ainalrami", code
+      end
+    end
+
+    test "FIDE_DUTCH_2017 reads as JaVaFo" do
+      assert {:ok, imported, _warnings} =
+               TrfImport.import_text(trf_with_type_code("FIDE_DUTCH_2017"))
+
+      assert imported.pairing_engine == "javafo"
+    end
+
+    # A team code always names the word TEAM (the table's own rule); this
+    # app pairs every team Swiss the same way regardless of which variant a
+    # file names (`PairingsEngine.TrfExport.tournament_type_code/1`), so
+    # none of them override the plain-language `092` classification
+    # `infer_type/1` already made, or `pairing_system`'s "swiss" default.
+    test "a FIDE_TEAM* code changes nothing system_attrs/1 has an opinion about" do
+      assert {:ok, imported, _warnings} =
+               TrfImport.import_text(
+                 trf_with_type_code("FIDE_TEAM_TYPEB_GP_MP", %{type: "Team-Swiss-System"})
+               )
+
+      assert imported.type == "team-swiss"
+      assert imported.pairing_system == "swiss"
+    end
+
+    # The table's own defaulting rule: `FIDE_TEAM_DOUBLEROUNDROBIN` and
+    # `BERGER_TEAM_DOUBLEROUNDROBIN` mean two cycles, same as their
+    # individual-tournament counterparts already read.
+    test "FIDE_TEAM_DOUBLEROUNDROBIN and BERGER_TEAM_DOUBLEROUNDROBIN both mean two cycles" do
+      for code <- ~w(FIDE_TEAM_DOUBLEROUNDROBIN BERGER_TEAM_DOUBLEROUNDROBIN) do
+        assert {:ok, imported, _warnings} =
+                 TrfImport.import_text(trf_with_type_code(code, %{type: "Team Round Robin"}))
+
+        assert imported.type == "team-roundrobin"
+        assert imported.pairing_system == "round_robin"
+        assert imported.rr_cycles == 2, code
+      end
+    end
+  end
+
   defp game(opponent, colour, result),
     do: %{opponent_rank: opponent, colour: colour, result: result}
 

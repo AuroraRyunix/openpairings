@@ -431,11 +431,13 @@ defmodule PairingsEngine.TrfImport do
       # 0.48.0, which is the quiet kind of wrong: a re-imported tournament
       # looked complete and was configured differently from the one that
       # left.
+      {team_notes, team_ids_by_number} = import_teams(tournament, data, players_by_rank)
+
       notes =
         import_forbidden_pairings(tournament, data, players_by_rank) ++
           import_future_byes(tournament, data, players_by_rank, paired) ++
           import_extra_points(tournament, data, players_by_rank) ++
-          import_teams(tournament, data, players_by_rank)
+          team_notes
 
       {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
 
@@ -445,11 +447,18 @@ defmodule PairingsEngine.TrfImport do
       # TRF16 has teams but no matches: rebuild them from the boards where
       # the boards say it unambiguously (`TeamMatchInference`). A team Swiss
       # with matches then pairs on by teams; one whose rounds could not all
-      # be rebuilt has none, and `settle_mode/1` makes it "players".
+      # be rebuilt has none, and `settle_mode/1` makes it "players". A
+      # TRF26 file's own `320`/`330`/`362` records (`team_rebuild_context/2`)
+      # say a round's bye or forfeited match outright, rather than leaving
+      # `TeamMatchInference` to assume one.
       {tournament, match_notes} =
         if data.teams in [nil, []],
           do: {tournament, []},
-          else: PairingsEngine.TeamMatchInference.rebuild(Repo.reload!(tournament))
+          else:
+            PairingsEngine.TeamMatchInference.rebuild(
+              Repo.reload!(tournament),
+              team_rebuild_context(data.tournament, team_ids_by_number)
+            )
 
       tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
       notes = notes ++ match_notes
@@ -464,6 +473,20 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp note(text), do: %{kind: :note, text: text}
+
+  # `nil` when the file gave no team number to resolve `320`/`330` against
+  # (a `013`-only file) - `TeamMatchInference.rebuild/2` reads every round
+  # exactly as it always did. Otherwise what the file's `320` (the bye each
+  # round), `330` (forfeited matches) and `team_ids_by_number` say.
+  defp team_rebuild_context(_t, team_ids_by_number) when team_ids_by_number == %{}, do: nil
+
+  defp team_rebuild_context(t, team_ids_by_number) do
+    %{
+      team_pab: t[:team_pab],
+      forfeited_matches: t[:forfeited_matches] || [],
+      team_ids_by_number: team_ids_by_number
+    }
+  end
 
   # A file carrying `?` came in with postponed games in it, so the tournament
   # allows them - otherwise the boards holding one could not be given their
@@ -536,6 +559,7 @@ defmodule PairingsEngine.TrfImport do
     |> Map.merge(scoring_attrs(t[:point_system]))
     |> Map.merge(system_attrs(t[:type_code]))
     |> Map.merge(tiebreak_attrs(t[:tie_breaks]))
+    |> Map.merge(team_scoring_attrs(t[:team_point_system]))
   end
 
   # The file's own `142`/`XXR` when it has one - the tournament's length,
@@ -611,15 +635,47 @@ defmodule PairingsEngine.TrfImport do
     if is_nil(zero) or zero == loss, do: attrs, else: Map.put(attrs, :abs_value, zero)
   end
 
-  # TRF26's `192`, the encoded type of tournament (FIDE's ETT26 table) -
-  # the inverse of `PairingsEngine.TrfExport`'s own mapping. It is the one
-  # field that says which EDITION of the Dutch rules paired the boards, and
-  # the app models that as the choice of engine: JaVaFo implements the
-  # system as it stood before 1 February 2026, Ainalrami the one in force
-  # since. A code this app has no system for (Dubov, Burstein, a CUSTOM_*,
-  # a team system) leaves the defaults alone rather than guessing; the
-  # settings the file could not fill are the arbiter's to set, and
-  # `infer_type/1` has already read the plain-language `092` line.
+  # TRF26's `362`, a team event's own point system: `W`/`D`/`L` are match
+  # points, which this app already has fields for
+  # (`team_match_points_win/draw/loss`, 2/1/0 by default -
+  # `PairingsEngine.TeamStandings.match_points/3`). `P` (a pairing-allocated
+  # bye's match points) and `A` (a match lost by forfeit's) have no field of
+  # their own here: this app scores a team Swiss bye at the draw's match
+  # points regardless (C.04.6 Art. 1.4, `PairingsEngine.TeamStandings.score_match/4`),
+  # and a match lost by forfeit is a plain loss, so neither is imported.
+  defp team_scoring_attrs(nil), do: %{}
+
+  defp team_scoring_attrs(system) do
+    %{
+      team_match_points_win: system[:win],
+      team_match_points_draw: system[:draw],
+      team_match_points_loss: system[:loss]
+    }
+    |> Enum.reject(fn {_field, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  # TRF26's `192`, the encoded type of tournament
+  # (`TournamentTypeCodeTable192-TRF26`) - the inverse of
+  # `PairingsEngine.TrfExport`'s own mapping. It is the one field that says
+  # which EDITION of the Dutch rules paired the boards, and the app models
+  # that as the choice of engine: JaVaFo implements the system as it stood
+  # before 1 July 2025 (`FIDE_DUTCH_2017`), Ainalrami the one in force since
+  # (`FIDE_DUTCH_2025`, or the date-dependent bare `FIDE_DUTCH`).
+  # `FIDE_DUTCH_2026` is not a code FIDE's table has ever had - this app
+  # wrote it by mistake before 0.69.0 - but it is read the same as
+  # `FIDE_DUTCH_2025` so a file this app already exported still comes back
+  # as Ainalrami, not as a code this app has no system for.
+  #
+  # A code this app has no system for (Dubov, Burstein, a CUSTOM_*) leaves
+  # the defaults alone rather than guessing; the settings the file could not
+  # fill are the arbiter's to set, and `infer_type/1` has already read the
+  # plain-language `092` line. A team code (always `FIDE_TEAM*` - the table
+  # reserves the word TEAM for exactly those) says the same choice this app
+  # always makes anyway (Type A colours, match points primary -
+  # `PairingsEngine.TrfExport`'s own writer), so none of its variants change
+  # anything here; a team ROUND ROBIN code still reaches the general
+  # `ROUNDROBIN` branch below for its cycle count.
   defp system_attrs(nil), do: %{}
 
   defp system_attrs(code) do
@@ -631,10 +687,11 @@ defmodule PairingsEngine.TrfImport do
         base == "FIDE_DUTCH_2017" ->
           %{pairing_system: "swiss", pairing_engine: "javafo"}
 
-        base in ~w(FIDE_DUTCH FIDE_DUTCH_2026) ->
+        base in ~w(FIDE_DUTCH FIDE_DUTCH_2025 FIDE_DUTCH_2026) ->
           %{pairing_system: "swiss", pairing_engine: "ainalrami"}
 
-        base in ~w(FIDE_DOUBLEROUNDROBIN BERGER_DOUBLEROUNDROBIN) ->
+        base in ~w(FIDE_DOUBLEROUNDROBIN BERGER_DOUBLEROUNDROBIN
+                   FIDE_TEAM_DOUBLEROUNDROBIN BERGER_TEAM_DOUBLEROUNDROBIN) ->
           %{pairing_system: "round_robin", rr_cycles: 2}
 
         String.contains?(base, "ROUNDROBIN") ->
@@ -1243,47 +1300,62 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
-  # The TRF16 team section (`013`): each team becomes a team here, and its
-  # listed starting ranks its roster in that order. Before this nothing read
-  # it, and a team event came back as a field of individuals with no teams.
+  # The team section - TRF26 `310`, or the older `013` when a file has no
+  # `310` (`Ainalrami.Trf.parse/1` prefers `310` when a file has both) - each
+  # team becomes a team here, and its listed starting ranks its roster in
+  # that order. Before this nothing read it, and a team event came back as a
+  # field of individuals with no teams.
   #
-  # TRF16 records who played for whom, not which boards made up which match;
-  # the matches are rebuilt from the boards afterwards
+  # Neither TRF16 nor TRF26 records which boards made up which match; the
+  # matches are rebuilt from the boards afterwards
   # (`PairingsEngine.TeamMatchInference`), and its notices say what came of
   # it. A team section on a file whose type is not a team system (so nothing
   # is rebuilt) still says the games stayed individual.
-  defp import_teams(_tournament, %{teams: []}, _players_by_rank), do: []
+  #
+  # Returns `{notes, team_ids_by_number}` - the second only ever non-empty
+  # for a `310` file, mapping each team's file number to the team row just
+  # created, for `TeamMatchInference.rebuild/2` to resolve `320`/`330`
+  # against.
+  defp import_teams(_tournament, %{teams: []}, _players_by_rank), do: {[], %{}}
 
   defp import_teams(tournament, %{teams: teams}, players_by_rank) do
-    Enum.each(teams, fn team ->
-      {:ok, created} =
-        Tournaments.create_team(tournament, %{"name" => blank_to_default(team.name, "Team")})
+    team_ids_by_number =
+      for team <- teams, into: %{} do
+        {:ok, created} =
+          Tournaments.create_team(tournament, %{"name" => blank_to_default(team.name, "Team")})
 
-      team.player_ranks
-      |> Enum.map(&players_by_rank[&1])
-      |> Enum.reject(&is_nil/1)
-      |> Enum.with_index(1)
-      |> Enum.each(fn {player, board} ->
-        player
-        |> Ecto.Changeset.change(team_id: created.id, board_order: board)
-        |> Repo.update!()
-      end)
-    end)
+        team.player_ranks
+        |> Enum.map(&players_by_rank[&1])
+        |> Enum.reject(&is_nil/1)
+        |> Enum.with_index(1)
+        |> Enum.each(fn {player, board} ->
+          player
+          |> Ecto.Changeset.change(team_id: created.id, board_order: board)
+          |> Repo.update!()
+        end)
 
-    if team_system?(tournament) do
-      []
-    else
-      [
-        note(
-          "The file's teams and their board orders were imported. Its games were imported as " <>
-            "individual games: a TRF file does not say which boards formed which team match, and " <>
-            "this file does not describe a team round robin or a team Swiss to rebuild them for."
-        )
-      ]
-    end
+        {Map.get(team, :number), created.id}
+      end
+      |> Enum.reject(fn {number, _id} -> is_nil(number) end)
+      |> Map.new()
+
+    notes =
+      if team_system?(tournament) do
+        []
+      else
+        [
+          note(
+            "The file's teams and their board orders were imported. Its games were imported as " <>
+              "individual games: the file does not say which boards formed which team match, and " <>
+              "this file does not describe a team round robin or a team Swiss to rebuild them for."
+          )
+        ]
+      end
+
+    {notes, team_ids_by_number}
   end
 
-  defp import_teams(_tournament, _data, _players_by_rank), do: []
+  defp import_teams(_tournament, _data, _players_by_rank), do: {[], %{}}
 
   defp team_system?(t),
     do:
@@ -1464,7 +1536,7 @@ defmodule PairingsEngine.TrfImport do
   # The Dutch-system codes of TRF26's `192` (ETT26), and only those. The
   # `_BAKU` suffix is a note about acceleration, not a different system, so
   # it is stripped rather than listed twice.
-  @dutch_type_codes ~w(FIDE_DUTCH FIDE_DUTCH_2017 FIDE_DUTCH_2026)
+  @dutch_type_codes ~w(FIDE_DUTCH FIDE_DUTCH_2017 FIDE_DUTCH_2025 FIDE_DUTCH_2026)
 
   # Which files may be judged at all - the gate that decides whether this
   # check earns its keep or invents findings.

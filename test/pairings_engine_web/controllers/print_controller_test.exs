@@ -1703,8 +1703,17 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       {:ok, a} =
         Tournaments.update_player(a, %{title: "GM", federation: "BEL", club: "Chess Club A"})
 
-      # Defaults: title + rating + board on, federation + club off.
-      default_html = get(conn, ~p"/t/#{tournament.id}/print/placecards") |> html_response(200)
+      # Every print page carries a fresh random CSP nonce (see `print_page/5`
+      # and `without_nonce/1` above) - a bare 2-3 letter needle like "GM" or
+      # "BEL" has a real chance of turning up by coincidence inside that
+      # random string, which is exactly what made this test flake once on CI
+      # (reported 2026-09-26). Strip the nonce before matching, same as every
+      # other byte-identity check in this file.
+      default_html =
+        get(conn, ~p"/t/#{tournament.id}/print/placecards")
+        |> html_response(200)
+        |> without_nonce()
+
       assert default_html =~ "GM"
       assert default_html =~ "2000"
       refute default_html =~ "BEL"
@@ -1717,6 +1726,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
           ~p"/t/#{tournament.id}/print/placecards?title=0&rating=0&board=0&federation=1&club=1"
         )
         |> html_response(200)
+        |> without_nonce()
 
       refute toggled_html =~ "GM"
       refute toggled_html =~ "<div class=\"place-card-board\">"

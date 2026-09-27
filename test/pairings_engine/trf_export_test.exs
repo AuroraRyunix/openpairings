@@ -655,7 +655,11 @@ defmodule PairingsEngine.TrfExportTest do
       assert code.(swiss_match_format: true) == "CUSTOM_SWISS"
       assert code.(pairing_system: "round_robin", rr_cycles: 2) == "BERGER_ROUNDROBIN_G2"
       assert code.(pairing_system: "round_robin", rr_match_format: true) == "CUSTOM_ROUNDROBIN"
-      assert code.(type: "team-swiss") == "FIDE_TEAM"
+      assert code.(type: "team-swiss") == "FIDE_TEAM_TYPEA_MP_GP"
+      assert code.(type: "team-swiss", acceleration: "baku") == "FIDE_TEAM_TYPEA_MP_GP_BAKU"
+
+      assert code.(type: "team-roundrobin", pairing_system: "round_robin", rr_cycles: 2) ==
+               "BERGER_TEAM_ROUNDROBIN_G2"
     end
 
     test "a 3-1-0 tournament states its points as a 162 line" do

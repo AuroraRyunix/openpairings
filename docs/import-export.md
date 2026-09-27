@@ -101,10 +101,14 @@ export writes them in FIDE's own spelling:
     event, a half-point pairing-allocated bye).
   * **`182`** - `OpenPairings v<version>`, the program that produced the file.
   * **`192`** - the encoded type of tournament, from FIDE's code table
-    (ETT26): `FIDE_DUTCH_2026` for a round paired by Ainalrami,
-    `FIDE_DUTCH_2017` for one paired by JaVaFo, `_BAKU` appended under Baku
-    acceleration, `BERGER_ROUNDROBIN_Gn` for a round robin, and
-    `CUSTOM_SWISS` for Keizer, which has no FIDE code.
+    (`TournamentTypeCodeTable192-TRF26`): `FIDE_DUTCH_2026` for a round
+    paired by Ainalrami (the table's own spelling is `FIDE_DUTCH_2025`,
+    which this app reads but does not yet write - the pinned Ainalrami
+    does not yet accept it either), `FIDE_DUTCH_2017` for one paired by
+    JaVaFo, `_BAKU` appended under Baku acceleration, `BERGER_ROUNDROBIN_Gn`
+    for a round robin, `FIDE_TEAM_TYPEA_MP_GP` (or `BERGER_TEAM_ROUNDROBIN_Gn`
+    for a team round robin) for a team event, and `CUSTOM_SWISS` for Keizer,
+    which has no FIDE code.
   * **`202`** - the configured tie-breaks, which are already C.07's codes.
   * **`222`** - the rate of play, encoded (`90min/end+30sec/move from move
     1` is `5400+30`) where the wording allows it; a Bronstein delay or a
