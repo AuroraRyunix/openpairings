@@ -42,12 +42,21 @@ defmodule PairingsEngineWeb.UserLive.FeaturesTest do
       assert html =~ "No other federations are packaged yet"
     end
 
+    test "opens the account page at the federation section", %{conn: conn} do
+      {:ok, lv, _html} =
+        conn |> log_in_user(user_fixture()) |> live(~p"/users/features")
+
+      assert has_element?(lv, "section#features #features-form")
+      assert has_element?(lv, "section#profile")
+    end
+
     test "needs a login", %{conn: conn} do
       assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/users/features")
       assert path == ~p"/users/log-in"
     end
 
-    # The whole reason this is not a section of `UserLive.Settings`.
+    # Folded into the account page, which is why that page itself no longer
+    # asks for a recent sign-in: only its dangerous sections do.
     test "does NOT require sudo mode", %{conn: conn} do
       assert {:ok, _lv, _html} =
                conn
@@ -106,7 +115,7 @@ defmodule PairingsEngineWeb.UserLive.FeaturesTest do
       user = user_fixture()
       {:ok, lv, _html} = conn |> log_in_user(user) |> live(~p"/users/features")
 
-      render_change(lv, "save", %{
+      render_change(lv, "save_features", %{
         "feature" => %{"bel_club_sync" => "true", "admin_everything" => "true"}
       })
 
