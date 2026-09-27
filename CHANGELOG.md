@@ -87,6 +87,22 @@ Each entry is tagged so a version can be skimmed:
   yet), and a round's
   pairing explanation says when it was paired with virtual points (extra
   points or Baku).
+- [Change] **Extra points in the pairing are on the tournament's FIDE
+  record.** Pairing with a counted handicap or with acceleration points is
+  not what the FIDE rules pair, so it is marked the way a bye exclusion
+  that moves the bye is: the first round in which extra points actually
+  reach the pairing - somebody in the round holds some - is recorded as the
+  round the tournament stopped matching the FIDE rules, and the audit trail
+  says so. With nobody holding extra points nothing is recorded, and Baku,
+  FIDE's own acceleration, never is. The Extra points page says this
+  before you save, and more strongly on a FIDE-homologated tournament.
+- [Change] **So are "only if possible" wishes that move a board.** A soft
+  forbidden pairing or "keep clubmates apart" changes the Dutch system's
+  own choice, even at the weakest setting, so the first round in which a
+  wish changes who plays whom is recorded the same way; a wish the pairing
+  already honoured records nothing. The round is paired a second time
+  without the wishes to tell, only when there are any. The exclusion rules
+  page says so beside the wishes.
 - [Feature] **"No pairing-allocated bye" for chosen players - an
   organiser's rule, not a FIDE one.** A new switch in the Belgian pack
   (Features page) adds "Exclude from the pairing-allocated bye" to a

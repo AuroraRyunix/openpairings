@@ -237,7 +237,7 @@ defmodule PairingsEngine.Pairing do
 
     case result do
       {:ok, _round} ->
-        record_bye_exclusion_deviation(tournament, next_number)
+        record_pairing_deviations(tournament, next_number)
         Tournaments.broadcast_tournament_change(tournament.id, :rounds)
         Tournaments.refresh_status!(tournament.id)
 
@@ -850,17 +850,78 @@ defmodule PairingsEngine.Pairing do
 
   defp bye_exclusion_error(error, _player_by_local_rank), do: error
 
-  # A round in which an exclusion actually moved the bye was not paired the
-  # way C.04.3 would have paired it, so the tournament's FIDE history says
-  # so, the same record a non-FIDE setting leaves (`fide_compliance_lost_round`,
-  # never cleared). An exclusion that changed nothing - the player was never
-  # going to get the bye - leaves the round exactly as FIDE's rules pair it
-  # and records nothing.
-  defp record_bye_exclusion_deviation(tournament, round_number) do
-    with nil <- tournament.fide_compliance_lost_round,
-         %Round{explanation: %{"sections" => sections}} <-
-           Tournaments.get_round(tournament.id, round_number),
-         true <- Enum.any?(sections, &((&1["bye_passed_over"] || []) != [])) do
+  @doc """
+  The ways `round_number` was paired away from what C.04.3 alone produces,
+  when any of them actually changed the round - an empty list otherwise:
+
+    * `:bye_exclusion` - an organiser's bye exclusion moved the
+      pairing-allocated bye (someone was passed over for it).
+    * `:soft_pairs` - the arbiter's "only if possible" wishes (soft
+      forbidden pairings, clubmates apart) moved at least one board: the
+      engine run again without them pairs the round differently.
+    * `:extra_points` - extra points reached the engine as virtual points
+      (acceleration mode, or a counted handicap): a player in the round had
+      some, or an earlier round's recorded ones are in the history the
+      engine judged floats by.
+
+  Baku acceleration is FIDE's own (C.04.7) and is never listed. A setting
+  that was on but changed nothing - an exclusion for a player who was never
+  going to get the bye, a wish the rules already honoured, extra points of
+  zero - leaves the round exactly as FIDE's rules pair it and is not listed.
+  """
+  def pairing_deviations(%Tournament{} = tournament, round_number) do
+    case Tournaments.get_round(tournament.id, round_number) do
+      nil ->
+        []
+
+      round ->
+        sections =
+          case round.explanation do
+            %{"sections" => sections} when is_list(sections) -> sections
+            _ -> []
+          end
+
+        [
+          {:bye_exclusion, Enum.any?(sections, &((&1["bye_passed_over"] || []) != []))},
+          {:soft_pairs, Enum.any?(sections, &(&1["soft_pairs_moved"] == true))},
+          {:extra_points, extra_points_reached_engine?(tournament, round)}
+        ]
+        |> Enum.filter(&elem(&1, 1))
+        |> Enum.map(&elem(&1, 0))
+    end
+  end
+
+  # Whether the engine was handed any non-zero virtual points from extra
+  # points for this round: the round's own recorded ones (the players it
+  # paired, `virtual_points_used/2`), or an earlier round's, which travel in
+  # every player's `XXA` history (`extra_point_accelerations/3`) - a SWAR
+  # file's rounds bring theirs. Negative values are floored to nothing on the
+  # way to the engine (`virtual_value/1`), so they do not count here either.
+  defp extra_points_reached_engine?(tournament, round) do
+    Tournament.extra_points_pairing?(tournament) and
+      (positive_virtual_points?(round.virtual_points) or
+         tournament.id
+         |> recorded_virtual_points()
+         |> Enum.any?(fn {number, points} ->
+           number < round.number and positive_virtual_points?(points)
+         end))
+  end
+
+  defp positive_virtual_points?(%{} = by_player),
+    do: Enum.any?(by_player, fn {_id, points} -> is_number(points) and points > 0 end)
+
+  defp positive_virtual_points?(_none), do: false
+
+  # A round paired away from C.04.3 (`pairing_deviations/2`) is on the
+  # tournament's FIDE history: the first such round is stamped as the one the
+  # tournament stopped matching the FIDE rules, the same record a non-FIDE
+  # setting leaves (`fide_compliance_lost_round`, never cleared). A round
+  # where none of them changed anything records nothing. The audit trail's
+  # copy is written by the page that asked for the pairing
+  # (`PairingsLive`), which knows who did it.
+  defp record_pairing_deviations(tournament, round_number) do
+    if is_nil(tournament.fide_compliance_lost_round) and
+         pairing_deviations(tournament, round_number) != [] do
       Repo.update_all(
         from(t in Tournament,
           where: t.id == ^tournament.id and is_nil(t.fide_compliance_lost_round)
@@ -1784,7 +1845,11 @@ defmodule PairingsEngine.Pairing do
           :current -> Map.take(round.explanation || %{}, ["origin", "paired_by"])
         end
 
-      payload = payload |> Map.merge(provenance) |> Map.put("depth", "full")
+      payload =
+        payload
+        |> Map.merge(provenance)
+        |> Map.put("depth", "full")
+        |> keep_soft_pairs_moved(round.explanation)
 
       round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
     else
@@ -1796,6 +1861,18 @@ defmodule PairingsEngine.Pairing do
       status when status in [:hand_edited, :ineligible] -> {:skip, status}
     end
   end
+
+  # Deepening re-explains the boards as played; it does not pair the round
+  # again, so it cannot tell whether the wishes moved it. What pairing time
+  # found is kept (`soft_pairs_moved?/4`).
+  defp keep_soft_pairs_moved(%{"sections" => [first | rest]} = payload, %{"sections" => old})
+       when is_list(old) do
+    if Enum.any?(old, &(&1["soft_pairs_moved"] == true)),
+      do: %{payload | "sections" => [Map.put(first, "soft_pairs_moved", true) | rest]},
+      else: payload
+  end
+
+  defp keep_soft_pairs_moved(payload, _old), do: payload
 
   # The shared history with everything from `round_number` onwards removed -
   # what `pairing_history/1` would have returned the moment that round was
@@ -1827,6 +1904,7 @@ defmodule PairingsEngine.Pairing do
         # mode is quiet - `explain_round/3` would describe a pairing that is
         # not the one the arbiter is looking at.
         raw_pairs = Ainalrami.Pairing.pair_next_round(parsed.players, engine_opts)
+        soft_moved? = soft_pairs_moved?(parsed.players, raw_pairs, engine_opts, tournament)
 
         # Ground truth, taken while the decision is fresh. `explain_round/3`
         # analyses a pairing it is GIVEN rather than emitting one as it
@@ -1846,7 +1924,8 @@ defmodule PairingsEngine.Pairing do
             # not lose the brackets, and neither may cost the round.
             Map.merge(
               %{brackets: brackets}
-              |> Map.merge(bye_exclusion_account(engine_opts, tournament.bye_exclusion_override)),
+              |> Map.merge(bye_exclusion_account(engine_opts, tournament.bye_exclusion_override))
+              |> Map.merge(if(soft_moved?, do: %{soft_pairs_moved: true}, else: %{})),
               alternatives(
                 parsed.players,
                 raw_pairs,
@@ -1953,6 +2032,37 @@ defmodule PairingsEngine.Pairing do
       end
     end)
     |> then(fn m -> if lifted, do: Map.put(m, :bye_exclusion_lifted, lifted), else: m end)
+  end
+
+  # Whether the arbiter's "only if possible" wishes changed the round: the
+  # same field paired again with no wishes, everything else - bye exclusions
+  # included - as it was. Soft pairs are not part of C.04.3 (Ainalrami's
+  # README lists them under "Organiser deviations"): even the weak position,
+  # below every quality criterion, replaces the Dutch system's own last word
+  # ("generated earlier") among equally good pairings, so a round they moved
+  # is not the round a FIDE checker reproduces. Only run when there are
+  # wishes, so a tournament without any pays nothing for it.
+  #
+  # Compared as the set of boards with their colours; board order is not a
+  # pairing decision. A second run that fails - it has fewer constraints
+  # than the first, so it should not - counts as moved: a round that cannot
+  # be shown to be the FIDE one is not claimed to be.
+  defp soft_pairs_moved?(players, raw_pairs, engine_opts, tournament) do
+    if (engine_opts[:soft_pairs] || []) == [] do
+      false
+    else
+      plain =
+        Ainalrami.Pairing.pair_next_round(players, Keyword.put(engine_opts, :soft_pairs, []))
+
+      Enum.sort(plain) != Enum.sort(raw_pairs)
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "Ainalrami could not pair tournament #{tournament.id} without its soft pairs to compare: #{Exception.message(e)}"
+      )
+
+      true
   end
 
   defp ainalrami_bye_to_zero({white, nil}), do: {white, 0}
@@ -2142,6 +2252,10 @@ defmodule PairingsEngine.Pairing do
   # engine's own account, in the order they would have had it - and whose
   # exclusion the arbiter lifted for this round. Absent otherwise, so a
   # round paired without exclusions stores exactly what it always did.
+  # `"soft_pairs_moved"` rides along for the same reason: set only when the
+  # arbiter's "only if possible" wishes changed the round
+  # (`soft_pairs_moved?/4`), the other organiser deviation the round's
+  # record has to keep.
   defp put_bye_exclusions(section, account, by_rank) do
     passed_over =
       account.brackets
@@ -2155,6 +2269,7 @@ defmodule PairingsEngine.Pairing do
     )
     |> put_unless_empty("bye_passed_over", passed_over)
     |> put_unless_empty("bye_exclusion_lifted", Map.get(account, :bye_exclusion_lifted))
+    |> put_unless_empty("soft_pairs_moved", Map.get(account, :soft_pairs_moved))
   end
 
   defp put_unless_empty(map, _key, value) when value in [nil, []], do: map

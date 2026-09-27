@@ -243,3 +243,16 @@ matcher no such rung (`read_forbidden/2` skips soft rows), so for them a
 soft pair is simply not a rule. The Options page says which is the case for
 the tournament in front of the arbiter rather than letting a wish be set
 that nothing reads.
+
+**Wishes are not FIDE's.** Even the weak position replaces the Dutch
+system's own last word among equally good pairings (the order candidates
+are generated in), so a round a wish changed is not the round a FIDE
+checker reproduces; Ainalrami lists soft pairs under "Organiser deviations".
+When the round has any wishes, `run_ainalrami/5` pairs it a second time
+without them (everything else as it was) and, if the boards differ, records
+`"soft_pairs_moved": true` on the round's account. The first such round is
+stamped as `fide_compliance_lost_round` and gets a
+`tournament.fide_compliance_lost` audit row (setting `soft_pairs`, code
+`soft_pairing_wish`), exactly as a bye exclusion that moves the bye does
+(`Pairing.pairing_deviations/2`). A wish the pairing already honoured
+records nothing. The Options page says so beside the wishes.

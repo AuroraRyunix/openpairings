@@ -32,6 +32,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
      assign(socket,
        tournament: tournament,
        mode: tournament.extra_points_mode,
+       count: tournament.count_extra_points == true,
        page_title: "#{tournament.name} · Extra points",
        extra_points_error: nil,
        extra_points_note: nil,
@@ -60,10 +61,11 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
   @impl true
   # The mode picked but not yet saved: the toggle's label, the band hint
   # and the example all follow it, so the arbiter reads what the choice
-  # means before committing to it.
+  # means before committing to it - the not-FIDE warning too, which follows
+  # the counting switch as well.
   def handle_event("change_extra_points", %{"tournament" => params}, socket) do
     mode = if params["extra_points_mode"] == "acceleration", do: "acceleration", else: "handicap"
-    {:noreply, assign(socket, mode: mode)}
+    {:noreply, assign(socket, mode: mode, count: params["count_extra_points"] == "true")}
   end
 
   def handle_event("save_extra_points", %{"tournament" => params}, socket) do
@@ -91,6 +93,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
          assign(socket,
            tournament: tournament,
            mode: tournament.extra_points_mode,
+           count: tournament.count_extra_points == true,
            extra_points_error: nil,
            extra_points_note: nil
          )}
@@ -185,7 +188,16 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, acceleration?: assigns.mode == "acceleration")
+    # Whether the choice in the form puts extra points in the pairing
+    # (`Tournament.extra_points_pairing?/1`): what the warning below is about.
+    pairing? =
+      Tournament.extra_points_pairing?(%{
+        assigns.tournament
+        | extra_points_mode: assigns.mode,
+          count_extra_points: assigns.count
+      })
+
+    assigns = assign(assigns, acceleration?: assigns.mode == "acceleration", pairing?: pairing?)
 
     ~H"""
     <Layouts.app
@@ -258,7 +270,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
                   else: gettext("Count extra points (standings and pairing)")
                 )
               }
-              checked={@tournament.count_extra_points}
+              checked={@count}
             />
 
             <.setting_field
@@ -276,6 +288,28 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
               />
             </.setting_field>
           </.setting_group>
+
+          <%!-- The same warning the bye exclusion gives on the player form:
+                extra points in the pairing are not FIDE's (Baku is, and
+                cannot be on with them). The pairing records the first round
+                they reach the engine - `Pairing.pairing_deviations/2`. --%>
+          <div :if={@pairing?} id="extra-points-fide-warning" class="pe-modal-warn" role="note">
+            <strong>{gettext("Not part of the FIDE rules.")}</strong>
+            {gettext(
+              "With extra points in the pairing, the Swiss pairings will differ from what the FIDE rules pair, and a FIDE checker cannot replay the rounds they change. The first round paired while a player holds extra points is recorded as the round the tournament stopped matching the FIDE rules, and the audit trail records it. With nobody holding extra points, nothing changes."
+            )}
+            <p
+              :if={@tournament.fide_homologated}
+              id="extra-points-fide-homologated-warning"
+              style="margin: 6px 0 0"
+            >
+              <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
+              {gettext(
+                "Its FIDE record will say it stopped matching the FIDE rules from that round on. Only use extra points in the pairing if the rating officer has agreed."
+              )}
+            </p>
+          </div>
+
           <p :if={@extra_points_error} class="error-note">{@extra_points_error}</p>
           <p :if={@extra_points_note} class="ok-note">{@extra_points_note}</p>
           <div class="actions">

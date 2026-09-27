@@ -45,13 +45,16 @@ defmodule PairingsEngine.Compliance do
       allows a negative value. `TrfExport.free_point_records/2` already
       writes it. FIDE does not merely permit these, it asks to be told about
       them. The C.07 tie-breaks never count them (docs/extra-points.md).
-      **Open:** since the extra-points modes, a counted handicap and
-      acceleration-mode points DO reach the pairing (as virtual points), which
-      by this module's own definition below is a departure. It is not listed
-      yet: acceleration mode changes nothing until a player holds points,
-      which no pure function over a `%Tournament{}` can see, and whether a
-      counted handicap should mark the event is a product decision still to
-      be taken.
+      In the PAIRING they are a departure - since the extra-points modes a
+      counted handicap and acceleration-mode points reach the engine as
+      virtual points - but not one a setting can show: acceleration mode
+      changes nothing until a player holds points, which no pure function
+      over a `%Tournament{}` can see. So the pairing marks it instead, in
+      the first round the points actually reach the engine
+      (`Pairing.pairing_deviations/2`, which stamps
+      `fide_compliance_lost_round` like a setting does), and the Extra
+      points page warns before it is saved. Baku is FIDE's own and is not
+      marked.
     * **Manual standings order** (`manual_ranking`). C.07 ends in
       mechanisms - a play-off, drawing of lots - whose outcome an arbiter
       has to be able to record, and recording one is the feature's first
@@ -82,7 +85,14 @@ defmodule PairingsEngine.Compliance do
       disagreement with TEC about whether that reading is right at all.
       Encoding one side of an open argument as a permanent mark on an
       arbiter's tournament is not this module's call. When Q196 settles,
-      `Tournaments.add_forbidden_pairing/4` is where it lands.
+      `Tournaments.add_forbidden_pairing/4` is where it lands. The SOFT
+      rules ("only if possible" pairs, clubmates apart) are the exception:
+      they are not `XXP`, they replace the Dutch system's own choice among
+      equally good pairings, and the round they change is not the one a FIDE
+      checker reproduces. Like extra points, that is a fact about a round,
+      so the pairing marks it when they move a board
+      (`Pairing.pairing_deviations/2`) and not before; so does an
+      organiser's bye exclusion that moves the bye.
     * **`rr_match_format`.** It reorders a fixed Berger schedule; every
       pairing in it is still a Berger pairing and everybody still meets
       everybody with the same colours. It changes the order of rounds, not

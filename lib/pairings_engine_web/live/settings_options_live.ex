@@ -1009,6 +1009,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             )}
           </p>
 
+          <p class="hint" id="soft-rules-fide-note" style="margin-top: 0">
+            <strong>{gettext("Not part of the FIDE rules.")}</strong>
+            {gettext(
+              "A round in which a wish moves a board is not the round the FIDE rules pair, and a FIDE checker cannot replay it. The first such round is recorded as the round the tournament stopped matching the FIDE rules, and the audit trail records it; a wish the rules already honour changes nothing."
+            )}
+          </p>
+
           <.setting_group>
             <.setting_field
               label={gettext("Keep clubmates apart for the first N rounds")}

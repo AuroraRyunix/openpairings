@@ -230,13 +230,25 @@ some player holding extra points. Those became "acceleration", which is what
 SWAR did with them. Their rounds paired before the upgrade have no recorded
 virtual points and read the players' current values.
 
+## FIDE compliance
+
+Extra points in the pairing - acceleration mode, or a counted handicap -
+are not what the FIDE rules pair. No setting shows it, since acceleration
+mode changes nothing while nobody holds points, so the pairing marks it:
+the first round in which extra points reach the engine (a player in the
+round holds some, or an earlier round's recorded points are in the `XXA`
+history) is stamped as `fide_compliance_lost_round`, and the Pairings page
+writes a `tournament.fide_compliance_lost` audit row with setting
+`extra_points_pairing` and code `extra_points_acceleration` or
+`extra_points_handicap` (`Pairing.pairing_deviations/2`). Nothing is
+recorded while nobody holds any. Baku is FIDE's own (C.04.7) and is never
+marked. The Extra points page shows the warning whenever the form puts
+extra points in the pairing.
+
 ## Not here
 
 - A pairing checker replaying the FIDE report of a counted-handicap event
   sees game-point pairings (see Handicap above).
-- The FIDE-compliance rules (`PairingsEngine.Compliance`) do not yet treat
-  extra points in the pairing as a departure from a FIDE pairing system,
-  though by that module's own definition they are one.
 - SWAR's automatic accelerated Swiss (type 2, `EcrireXXA_AccelereAuto`) is
   not this: it gives points to groups by the size of the field. It imports
   as a plain Swiss, with its per-round values as history.

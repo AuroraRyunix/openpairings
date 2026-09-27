@@ -1964,6 +1964,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         socket = note_recorded_missing(socket)
         log_round_paired(socket, round.number)
         log_bye_exclusions(socket, round.number)
+        log_compliance_loss(socket, round.number)
         {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
 
       {:error, %Ecto.Changeset{}} ->
@@ -2068,10 +2069,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # What the organiser's bye exclusions did in the round just paired, for
   # the audit trail (not a FIDE rule, so it is on record): whose exclusion
-  # was lifted to pair it, who was passed over for the bye because of one,
-  # and - the first time it happens - that the tournament stopped matching
-  # the FIDE rules in this round (`Pairing.record_bye_exclusion_deviation/2`
-  # stamps the round; this is the trail's copy, as for a settings change).
+  # was lifted to pair it, and who was passed over for the bye because of
+  # one. That the tournament stopped matching the FIDE rules in this round
+  # is `log_compliance_loss/2`'s.
   defp log_bye_exclusions(socket, round_number) do
     t = socket.assigns.tournament
 
@@ -2104,20 +2104,44 @@ defmodule PairingsEngineWeb.PairingsLive do
         player_ids: passed,
         player_names: Enum.map(passed, name)
       })
+    end
 
-      # Only the first time, and only when THIS round is the one recorded:
-      # the assign can be a pairing behind the database.
-      if is_nil(t.fide_compliance_lost_round) and
-           PairingsEngine.Repo.reload!(t).fide_compliance_lost_round == round_number do
+    :ok
+  end
+
+  # The first round paired away from C.04.3 - a bye exclusion that moved
+  # the bye, "only if possible" wishes that moved a board, extra points in
+  # the pairing (`Pairing.pairing_deviations/2`) - is stamped on the
+  # tournament by the pairing itself; this is the audit trail's copy, one
+  # row per deviation, as a settings change that loses compliance writes.
+  # Only the first time, and only when THIS round is the one recorded: the
+  # assign can be a pairing behind the database.
+  defp log_compliance_loss(socket, round_number) do
+    t = socket.assigns.tournament
+
+    if is_nil(t.fide_compliance_lost_round) and
+         PairingsEngine.Repo.reload!(t).fide_compliance_lost_round == round_number do
+      for deviation <- Engine.pairing_deviations(t, round_number) do
+        {setting, code} = compliance_loss_names(deviation, t)
+
         Audit.log(t.id, socket.assigns.current_scope, "tournament.fide_compliance_lost", %{
-          setting: "no_bye",
-          code: "bye_exclusion",
+          setting: setting,
+          code: code,
           round: round_number
         })
       end
     end
 
     :ok
+  end
+
+  defp compliance_loss_names(:bye_exclusion, _t), do: {"no_bye", "bye_exclusion"}
+  defp compliance_loss_names(:soft_pairs, _t), do: {"soft_pairs", "soft_pairing_wish"}
+
+  defp compliance_loss_names(:extra_points, t) do
+    if Tournament.extra_points_acceleration?(t),
+      do: {"extra_points_pairing", "extra_points_acceleration"},
+      else: {"extra_points_pairing", "extra_points_handicap"}
   end
 
   defp log_round_paired(socket, round_number) do

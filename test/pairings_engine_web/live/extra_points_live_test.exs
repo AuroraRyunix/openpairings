@@ -162,4 +162,111 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
 
     render(lv)
   end
+
+  describe "not part of the FIDE rules" do
+    test "the warning follows the form: acceleration, or a counted handicap", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+
+      # A handicap that is not counted never reaches the pairing.
+      refute has_element?(lv, "#extra-points-fide-warning")
+
+      lv
+      |> form("#extra-points-form", %{"tournament" => %{"count_extra_points" => "true"}})
+      |> render_change()
+
+      assert has_element?(lv, "#extra-points-fide-warning")
+
+      lv
+      |> form("#extra-points-form", %{
+        "tournament" => %{"extra_points_mode" => "acceleration", "count_extra_points" => "false"}
+      })
+      |> render_change()
+
+      assert has_element?(lv, "#extra-points-fide-warning")
+      refute has_element?(lv, "#extra-points-fide-homologated-warning")
+    end
+
+    test "a FIDE-homologated tournament gets the stronger warning too", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "fide_homologated" => "true",
+          "extra_points_mode" => "acceleration"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+
+      assert has_element?(lv, "#extra-points-fide-warning")
+      assert has_element?(lv, "#extra-points-fide-homologated-warning")
+    end
+
+    test "no warning with Baku, which is FIDE's own and cannot be combined", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"acceleration" => "baku"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+
+      lv
+      |> form("#extra-points-form", %{"tournament" => %{"extra_points_mode" => "acceleration"}})
+      |> render_change()
+
+      refute has_element?(lv, "#extra-points-fide-warning")
+    end
+
+    test "pairing with acceleration points records the round in the audit trail", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_engine" => "ainalrami",
+          "extra_points_mode" => "acceleration",
+          "start_date" => "2026-07-01",
+          "round_dates" => List.duplicate("2026-07-01", 5),
+          "tiebreaks" => ["BH", "SB"],
+          "chief_arbiter" => "Jane Arbiter",
+          "federation" => "BEL",
+          "rate_of_play" => "90 min + 30 sec/move"
+        })
+
+      for {name, rating, extra} <- [
+            {"A", 2000, "1"},
+            {"B", 1900, "1"},
+            {"C", 1800, "0"},
+            {"D", 1700, "0"}
+          ] do
+        {:ok, _} =
+          Tournaments.create_player(tournament.id, %{
+            "name" => name,
+            "fide_rating" => "#{rating}",
+            "extra_points" => extra
+          })
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      render_click(lv, "pair", %{})
+      render(lv)
+
+      assert [_round] = Tournaments.list_rounds(tournament.id)
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).fide_compliance_lost_round ==
+               1
+
+      assert [row] =
+               PairingsEngine.Audit.list_for_tournament(tournament.id,
+                 action: "tournament.fide_compliance_lost"
+               )
+
+      assert row.details["setting"] == "extra_points_pairing"
+      assert row.details["code"] == "extra_points_acceleration"
+      assert row.details["round"] == 1
+    end
+  end
 end
