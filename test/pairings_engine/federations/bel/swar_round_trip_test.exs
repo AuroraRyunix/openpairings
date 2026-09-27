@@ -151,6 +151,46 @@ defmodule PairingsEngine.Federations.BEL.SwarRoundTripTest do
     assert t.swar_settings["xtra_points"] == [[4, 2000], [2, 1800], [0, 0], [0, 0]]
   end
 
+  test "acceleration: the bands and each round's XtraPts go back as they came", %{tmp_dir: dir} do
+    opts =
+      swiss()
+      |> Map.update!(:players, fn [a, b | rest] ->
+        [Map.put(a, :extra_pts, 2), Map.put(b, :extra_pts, 4) | rest]
+      end)
+      |> Map.put(:xtra_points, [{4, 2000}, {2, 1800}])
+      |> Map.put(:round_xtra, %{{1, 1} => 4, {2, 1} => 2, {3, 1} => 2, {1, 2} => 4})
+
+    {t, _} = round_trip!(dir, opts)
+    t = PairingsEngine.Repo.reload!(t)
+    assert t.extra_points_mode == "acceleration"
+    assert t.extra_points_bands == "1800:0.5, 2000:1"
+
+    {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+    assert parsed.xtra_points == [{4, 2000}, {2, 1800}, {0, 0}, {0, 0}]
+
+    xtra = fn name ->
+      parsed.players
+      |> Enum.find(&(&1.name == name))
+      |> Map.fetch!(:rounds)
+      |> Enum.map(& &1.xtra_pts)
+    end
+
+    assert xtra.("Aerts, Anna") == [4, 2, 2]
+    assert xtra.("Bos, Bert") == [4, 0, 0]
+  end
+
+  test "a band set here in acceleration mode is written as SWAR's table", %{tmp_dir: dir} do
+    {t, _} = round_trip!(dir, swiss())
+
+    {:ok, t} =
+      PairingsEngine.Tournaments.update_tournament(PairingsEngine.Repo.reload!(t), %{
+        "extra_points_bands" => "1600:0.5, 2100:1.5"
+      })
+
+    {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+    assert parsed.xtra_points == [{6, 2100}, {2, 1600}, {0, 0}, {0, 0}]
+  end
+
   test "absence points with their caps", %{tmp_dir: dir} do
     round_trip!(
       dir,

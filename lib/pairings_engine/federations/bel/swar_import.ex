@@ -1128,10 +1128,11 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # `EcrireXXA_AccelereManuel` (`EnvoiJAVAFO.cpp:601-634`) writes them as
   # `XXA` lines in the `.trn` SWAR hands to JaVaFo - so JaVaFo brackets by
   # score-plus-acceleration for the next round paired inside SWAR.
-  # OpenPairings' own `extra_points` is a handicap bonus pairing never reads
-  # (`docs/extra-points.md`) and `tournament.acceleration` only knows Baku -
-  # so a SWAR tournament that used manual acceleration is paired differently
-  # here than it was there, silently, with nothing on screen saying so.
+  # This used to warn that OpenPairings paired without them. It pairs with
+  # them now - the import sets acceleration mode (`extra_points_attrs/1`)
+  # and each round's `XtraPts` becomes that round's recorded virtual points
+  # (`insert_round/4`) - so the notes below say what was carried over rather
+  # than what was lost.
   #
   # Only meaningful for an ordinary Swiss: SWAR itself zeroes `ExtraPts` on
   # load for round robin and 3-2-1 (`TournoiReadWrite.cpp:666-667` - see
@@ -1156,14 +1157,14 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
         any_player_extra? ->
           [
             gettext(
-              "This file carries SWAR XtraPoints. They count in the standings here, as they do in SWAR (Extra points is switched on in Settings). SWAR also hands them to its pairing engine as extra score - manual acceleration - and OpenPairings does not: pairing here never reads extra points. The rounds already in this file are imported as they are, but any round paired from here on may not match what SWAR would have paired."
+              "This file carries SWAR XtraPoints. They are imported as acceleration points, which is how SWAR uses them: every round they go to the pairing engine as virtual points, and they count in the standings (Settings, Extra points, where you can also take them off part-way). The rounds already in the file keep the virtual points SWAR paired them with."
             )
           ]
 
         band_populated? ->
           [
             gettext(
-              "This file carries a SWAR XtraPoints table, which SWAR uses to give players extra points - counted in its standings and handed to its pairing engine as manual acceleration. No player has any yet, so nothing changes. The table is kept for the SWAR export, but it is not used here: OpenPairings' extra-point bands pay players below a rating, SWAR's pay players at or above one, and pairing here never reads extra points."
+              "This file carries a SWAR XtraPoints table, which SWAR uses to give players extra points for acceleration. No player has any yet, so nothing changes. The table is imported as the acceleration bands under Settings, Extra points: \"Apply bands to players\" there gives players their points, as SWAR's \"Assign\" does."
             )
           ]
 
@@ -1750,10 +1751,49 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # zeroes them (`TournoiReadWrite.cpp`: `if (IsRobin(...) ||
   # IsSwiss321(...)) p.ExtraPts = 0`), and so does this import
   # (`player_attrs/2`).
+  #
+  # And SWAR's extra points are an ACCELERATION - handed to its pairing
+  # engine as `XXA` virtual points every round - which is this app's
+  # acceleration mode (docs/extra-points.md), so every SWAR file imports in
+  # that mode. Its band table converts as well: SWAR's bands pay players at
+  # or above a rating, and so do this mode's (`swar_bands/1`).
   defp extra_points_attrs(data) do
-    if extra_points_apply?(data.tournament) and Enum.any?(data.players, &(&1.extra_pts != 0)),
-      do: %{count_extra_points: true},
-      else: %{}
+    base = %{extra_points_mode: "acceleration"}
+
+    if extra_points_apply?(data.tournament) do
+      base
+      |> Map.put(:extra_points_bands, swar_bands(data.xtra_points))
+      |> Map.merge(
+        if Enum.any?(data.players, &(&1.extra_pts != 0)),
+          do: %{count_extra_points: true},
+          else: %{}
+      )
+    else
+      base
+    end
+  end
+
+  @doc """
+  SWAR's `[XTRA_POINTS]` table - four `{points x 4, Elo}` slots - as an
+  `extra_points_bands` string for acceleration mode ("2000:1, 1800:0.5").
+
+  A slot with Elo 0 is left out: SWAR's `AssignExtraPoints` stops at the
+  first one (`if (XtraPoints.Elo[i] == 0) break;`), so it never gives
+  anybody anything, where "0:bonus" here would give everybody the bonus.
+  Every other slot is SWAR's rule exactly: the highest Elo at or below the
+  player's gets its points, zero points included.
+  """
+  def swar_bands(slots) do
+    slots
+    |> Enum.filter(fn {_pts, elo} -> elo > 0 end)
+    |> Enum.uniq_by(fn {_pts, elo} -> elo end)
+    |> Enum.sort_by(fn {_pts, elo} -> elo end)
+    |> Enum.map_join(", ", fn {pts, elo} -> "#{elo}:#{format_quarter_points(pts)}" end)
+  end
+
+  defp format_quarter_points(pts) do
+    points = pts / 4
+    if points == Float.round(points, 0), do: Integer.to_string(trunc(points)), else: "#{points}"
   end
 
   defp extra_points_apply?(t),
@@ -2604,10 +2644,17 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     players =
       Enum.map(data.players, fn p ->
         p = Map.put(p, :seed, Map.fetch!(seeds, p.ni))
-        if zero_extra?, do: %{p | extra_pts: 0}, else: p
+        if zero_extra?, do: zero_extra_points(p), else: p
       end)
 
     %{data | players: players}
+  end
+
+  # The player's own extra points and each round's copy of them
+  # (`[RONDE]` `XtraPts`, which `insert_round/4` records as the round's
+  # virtual points) - SWAR discards both for these types.
+  defp zero_extra_points(p) do
+    %{p | extra_pts: 0, rounds: Enum.map(p.rounds, &Map.put(&1, :xtra_pts, 0))}
   end
 
   # Matched in full, not `{:ok, player} =`. `create_player/2` returns an
@@ -2824,7 +2871,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       Repo.insert!(%Round{
         tournament_id: tournament.id,
         number: round_number,
-        status: status
+        status: status,
+        virtual_points: round_virtual_points(entries, players_by_ni)
       })
 
     Enum.each(pairings, fn p ->
@@ -2852,6 +2900,19 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     end
 
     PairingsEngine.Tournaments.freeze_round_display_boards!(round.id)
+  end
+
+  # Each `[RONDE]` record's `XtraPts` - the extra points SWAR paired that
+  # player with in that round, frozen when the round was set up
+  # (`InitNextRonde`, `AssignXtraPointsManuels`) - as the round's recorded
+  # virtual points, so the next round paired here hands the engine the same
+  # history SWAR's `XXA` lines would have (`Pairing.accelerations/3`), and
+  # the export writes the same numbers back. Quarter points, as SWAR stores
+  # them; zero entries are left out, as the pairing records them.
+  defp round_virtual_points(entries, players_by_ni) do
+    for {p, r} <- entries, (r[:xtra_pts] || 0) != 0, into: %{} do
+      {to_string(Map.fetch!(players_by_ni, p.ni).id), r.xtra_pts / 4}
+    end
   end
 
   # Builds one Pairing row per GAME (not per player) by walking each
