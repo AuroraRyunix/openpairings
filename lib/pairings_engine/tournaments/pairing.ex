@@ -51,6 +51,14 @@ defmodule PairingsEngine.Tournaments.Pairing do
     field :finalised_open, :boolean, default: false
     field :postponed_reported_at, :utc_datetime
 
+    # The date the two players agreed to play a postponed game on - not a
+    # deadline, nothing is ever overdue - and every change to it, oldest
+    # first (`%{"from", "to", "at", "by"}`). One writer,
+    # `Tournaments.set_agreed_date/3`, so like the fields above they are kept
+    # out of changeset/2's cast list.
+    field :agreed_date, :date
+    field :agreed_date_log, {:array, :map}, default: []
+
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player

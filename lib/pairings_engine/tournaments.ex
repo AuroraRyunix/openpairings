@@ -4103,6 +4103,58 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  # How many date changes a postponed game keeps. A game moved more often
+  # than this still shows its latest moves, which is what anyone asks about.
+  @agreed_date_log_limit 20
+
+  @doc """
+  Sets (or, with nil, clears) the date the two players of an open postponed
+  game agreed to play it on. It is not a deadline: nothing is ever overdue.
+
+  Every change is appended to the game's `agreed_date_log` - the old date,
+  the new one, when, and who (the signed-in user's email) - so the arbiter
+  can see how the game moved. Setting the date it already has is a no-op
+  that logs nothing.
+
+  Refused with `{:error, :not_open_postponed_game}` once the game has been
+  played (or was never postponed): an agreed date only means something for
+  a game still to be played.
+  """
+  def set_agreed_date(%Pairing{} = pairing, date, scope \\ nil)
+      when is_nil(date) or is_struct(date, Date) do
+    with :ok <- ensure_writable(round_tournament_id(pairing.round_id)) do
+      fresh = Repo.get!(Pairing, pairing.id)
+
+      cond do
+        not PairingsEngine.Results.postponed?(fresh.result) ->
+          {:error, :not_open_postponed_game}
+
+        fresh.agreed_date == date ->
+          {:ok, fresh}
+
+        true ->
+          entry = %{
+            "from" => fresh.agreed_date && Date.to_iso8601(fresh.agreed_date),
+            "to" => date && Date.to_iso8601(date),
+            "at" => DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
+            "by" => scope_email(scope)
+          }
+
+          log = Enum.take((fresh.agreed_date_log || []) ++ [entry], -@agreed_date_log_limit)
+
+          fresh
+          |> Ecto.Changeset.change(agreed_date: date, agreed_date_log: log)
+          |> Repo.update()
+          |> tap_ok(fn updated ->
+            broadcast_tournament_change(round_tournament_id(updated.round_id), :results)
+          end)
+      end
+    end
+  end
+
+  defp scope_email(%{user: %{email: email}}) when is_binary(email), do: email
+  defp scope_email(_scope), do: nil
+
   defp round_tournament_id(round_id) do
     Repo.one(from r in Round, where: r.id == ^round_id, select: r.tournament_id)
   end

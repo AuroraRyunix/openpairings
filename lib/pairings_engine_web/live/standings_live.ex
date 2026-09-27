@@ -452,6 +452,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     latest_complete_round = Tournaments.latest_complete_round(tournament)
 
     socket = assign_team_standings(socket, tournament)
+    postponed_open = PostponedGames.open_games(tournament)
 
     assign(socket,
       keizer?: keizer?,
@@ -471,7 +472,13 @@ defmodule PairingsEngineWeb.StandingsLive do
         ),
       # Open postponed games: the standings count each as a draw and are not
       # final until they are played (VCL4THP Q161, Q169).
-      postponed_open_count: PostponedGames.open_count(tournament),
+      postponed_open_count: length(postponed_open),
+      # Listed under the banner, each a link to where its result is entered,
+      # and marked beside the players still to play one ("1 pending") - a
+      # provisional place must not be read as a final one, above all when
+      # the prizes are handed out from this page.
+      postponed_open: postponed_open,
+      pending_by_player: PostponedGames.pending_by_player(postponed_open),
       manual_stale?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
       manual_incomplete?:
@@ -814,7 +821,11 @@ defmodule PairingsEngineWeb.StandingsLive do
         </form>
       </div>
 
-      <PairingsEngineWeb.Postponed.not_final_banner count={@postponed_open_count} />
+      <PairingsEngineWeb.Postponed.not_final_banner
+        count={@postponed_open_count}
+        tournament={@tournament}
+        games={@postponed_open}
+      />
 
       <.team_standings_section
         :if={@team?}
@@ -1001,6 +1012,10 @@ defmodule PairingsEngineWeb.StandingsLive do
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
+                <PairingsEngineWeb.Postponed.pending_chip
+                  count={Map.get(@pending_by_player, entry.player.id, 0)}
+                  id={"pending-#{entry.player.id}"}
+                />
               </td>
 
               <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
@@ -1130,6 +1145,10 @@ defmodule PairingsEngineWeb.StandingsLive do
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
+                <PairingsEngineWeb.Postponed.pending_chip
+                  count={Map.get(@pending_by_player, entry.player.id, 0)}
+                  id={"pending-#{entry.player.id}"}
+                />
               </td>
 
               <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
@@ -1251,6 +1270,11 @@ defmodule PairingsEngineWeb.StandingsLive do
             <td class="num">{entry.rank}</td>
             <td>
               <strong>{entry.team.name}</strong>
+              <PairingsEngineWeb.Postponed.pending_chip
+                count={Map.get(entry, :pending_boards, 0)}
+                id={"team-pending-#{entry.team.id}"}
+                boards
+              />
               <details :if={entry.working != %{}} class="team-working">
                 <summary>
                   {gettext("Working")}<span class="sr-only">{gettext(" for %{team}",

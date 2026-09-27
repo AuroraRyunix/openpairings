@@ -115,6 +115,55 @@ defmodule PairingsEngine.PostponedGames do
   end
 
   @doc """
+  How many postponed games are open in each of `tournament_ids`, as
+  `%{tournament_id => count}` - one query for a list of tournaments. A
+  tournament with none is absent from the map.
+  """
+  def open_counts([]), do: %{}
+
+  def open_counts(tournament_ids) when is_list(tournament_ids) do
+    postponed = Results.postponed_codes()
+
+    Repo.all(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id in ^tournament_ids and p.result in ^postponed,
+        group_by: r.tournament_id,
+        select: {r.tournament_id, count(p.id)}
+    )
+    |> Map.new()
+  end
+
+  @doc """
+  How many open postponed games each player still has, as
+  `%{player_id => count}`, from `open_games/1`'s answer - what the standings
+  mark beside a name ("1 pending"), so a provisional place is not read as a
+  final one. A player with none is absent from the map.
+  """
+  def pending_by_player(open_games) do
+    open_games
+    |> Enum.flat_map(fn %{pairing: p} ->
+      Enum.reject([p.white_player_id, p.black_player_id], &is_nil/1)
+    end)
+    |> Enum.frequencies()
+  end
+
+  @doc """
+  The FIDE rating period a game played on `date` falls in, and the date to
+  have it reported by, as `%{period: first day of the month, deadline: last
+  day of the month}`.
+
+  FIDE rates month by month, so this is the calendar month the game was
+  played in, and the end of that month is used as the date to have it sent
+  by. It is guidance for the organiser, not a rule this app enforces - a
+  federation may set its own, earlier, cut-off.
+  """
+  def rating_period(%Date{} = date) do
+    %{period: Date.beginning_of_month(date), deadline: Date.end_of_month(date)}
+  end
+
+  @doc """
   Whether anything computed from `tournament`'s results may call itself
   final: `false` while a postponed game is open, whatever round it is in.
   """

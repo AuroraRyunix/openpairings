@@ -169,7 +169,41 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   defp assign_tournaments(socket) do
-    assign(socket, :tournaments, Tournaments.list_tournaments(socket.assigns.current_scope))
+    tournaments = Tournaments.list_tournaments(socket.assigns.current_scope)
+
+    assign(socket,
+      tournaments: tournaments,
+      # Open postponed games per tournament, one query for the list: a
+      # tournament with one is not over, however its status reads, and
+      # archiving it (closing the event) says so first.
+      postponed_counts:
+        tournaments
+        |> Enum.map(fn {t, _count, _owner?} -> t.id end)
+        |> PairingsEngine.PostponedGames.open_counts()
+    )
+  end
+
+  # The archive button's confirmation. With a postponed game still to be
+  # played it leads with that - archiving freezes the tournament, so the
+  # result cannot be entered until it is unarchived.
+  defp archive_confirm(t, postponed_counts) do
+    base =
+      gettext(
+        "Archive \"%{name}\"? It stays fully readable and keeps its public link, but nothing can be changed until you unarchive it.",
+        name: t.name
+      )
+
+    case Map.get(postponed_counts, t.id, 0) do
+      0 ->
+        base
+
+      n ->
+        ngettext(
+          "%{count} postponed game is still unplayed: its result cannot be entered while the tournament is archived, and the standings stay provisional.",
+          "%{count} postponed games are still unplayed: their results cannot be entered while the tournament is archived, and the standings stay provisional.",
+          n
+        ) <> " " <> base
+    end
   end
 
   # Whether "Export all" would put a publishing key in the file. Read off the
@@ -2143,6 +2177,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
               <td>
                 <span class={["badge", status_class(t.status)]}>{t.status}</span>
+                <.link
+                  :if={Map.get(@postponed_counts, t.id, 0) > 0}
+                  navigate={~p"/t/#{t.id}/pairings"}
+                  id={"tournament-pending-#{t.id}"}
+                  class="pending-chip"
+                  title={
+                    gettext("Postponed games still to be played - the standings are provisional")
+                  }
+                >
+                  {PairingsEngineWeb.Postponed.pending_text(Map.get(@postponed_counts, t.id))}
+                </.link>
                 <%!-- Two badges, never one that has to mean either. A copy can
                       be both at once: received from A, and since handed on to
                       C. See `PairingsEngine.Handoff`. --%>
@@ -2200,9 +2245,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 <button
                   :if={!Handoff.handed_away?(t)}
                   class="pe-btn"
+                  id={"archive-#{t.id}"}
                   phx-click="archive_tournament"
                   phx-value-id={t.id}
-                  data-confirm={"Archive \"#{t.name}\"? It stays fully readable and keeps its public link, but nothing can be changed until you unarchive it."}
+                  data-confirm={archive_confirm(t, @postponed_counts)}
                 >
                   {gettext("Archive")}
                 </button>

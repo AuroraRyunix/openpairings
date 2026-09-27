@@ -54,7 +54,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   @impl true
-  def mount(%{"id" => id}, _session, socket) do
+  def mount(%{"id" => id} = params, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
     paired = Engine.paired_rounds_count(tournament.id)
 
@@ -67,7 +67,10 @@ defmodule PairingsEngineWeb.PairingsLive do
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Pairings",
-       round_number: max(paired, 1),
+       # `?round=n` opens that round - the links to a postponed game from
+       # the Players, Standings and Print pages land where its result is
+       # entered. Anything else opens the latest round, as before.
+       round_number: initial_round(params["round"], tournament, paired),
        error: nil,
        # Bumped whenever a result-entry write is REFUSED (e.g. an archived
        # tournament) - see the `result`/`confirm_clear_result` handlers'
@@ -119,6 +122,13 @@ defmodule PairingsEngineWeb.PairingsLive do
      )
      |> allow_upload(:results_csv, accept: :any, max_entries: 1, max_file_size: 2_000_000)
      |> refresh()}
+  end
+
+  defp initial_round(value, tournament, paired) do
+    case value && Integer.parse(value) do
+      {n, ""} when n >= 1 and n <= tournament.rounds_count -> n
+      _ -> max(paired, 1)
+    end
   end
 
   # Results are entered inline (each select saves immediately on change, no
@@ -325,6 +335,53 @@ defmodule PairingsEngineWeb.PairingsLive do
      socket
      |> assign(round_number: String.to_integer(number), error: nil, refocus_result: nil)
      |> refresh()}
+  end
+
+  # The date the players of an open postponed game agreed to play it on. An
+  # empty field clears it. Not a deadline: nothing is checked against it.
+  def handle_event("set_agreed_date", %{"pairing-id" => id} = params, socket) do
+    game = Enum.find(socket.assigns.postponed_open, &(to_string(&1.pairing.id) == id))
+
+    date =
+      case params["agreed_date"] do
+        blank when blank in [nil, ""] -> {:ok, nil}
+        value -> Date.from_iso8601(value)
+      end
+
+    with %{pairing: pairing} <- game,
+         {:ok, date} <- date,
+         {:ok, updated} <-
+           Tournaments.set_agreed_date(pairing, date, socket.assigns.current_scope) do
+      if updated.agreed_date_log != pairing.agreed_date_log do
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "pairing.postponed_date_set",
+          %{
+            round: game.round,
+            board: pairing.display_board || pairing.board,
+            from: pairing.agreed_date && Date.to_iso8601(pairing.agreed_date),
+            to: date && Date.to_iso8601(date)
+          }
+        )
+      end
+
+      {:noreply, socket |> put_flash(:info, gettext("Date saved.")) |> refresh()}
+    else
+      nil ->
+        {:noreply,
+         socket |> put_flash(:error, gettext("That game is no longer postponed.")) |> refresh()}
+
+      {:error, :not_open_postponed_game} ->
+        {:noreply,
+         socket |> put_flash(:error, gettext("That game is no longer postponed.")) |> refresh()}
+
+      {:error, reason} when reason in [:archived, :handed_off] ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, gettext("That is not a date."))}
+    end
   end
 
   def handle_event("pair", params, socket) do
@@ -2075,9 +2132,13 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # The browser confirmation for the same warnings (`Postponed.pair_confirm_text/2`).
-  defp pair_confirm_text(warnings, ids, next_round) do
-    warnings |> Enum.filter(&(&1.id in ids)) |> Postponed.pair_confirm_text(next_round)
+  # The browser confirmation for the same warnings (`Postponed.pair_confirm_text/3`),
+  # naming the players of every open postponed game: they are paired on a
+  # provisional score, and the arbiter confirms knowing it - it never blocks.
+  defp pair_confirm_text(warnings, ids, next_round, open_games) do
+    warnings
+    |> Enum.filter(&(&1.id in ids))
+    |> Postponed.pair_confirm_text(next_round, open_games)
   end
 
   defp player_label(nil), do: ""
@@ -2784,33 +2845,105 @@ defmodule PairingsEngineWeb.PairingsLive do
       <%!-- Every postponed game still to be played, whichever round is on
             screen (VCL4THP Q162): its result can be entered at any time, and
             this is where it is found. Each one opens its own round. --%>
-      <div
-        :if={@postponed_open != []}
-        id="postponed-games"
-        class="card"
-        style="display: block; margin: 12px 0; border-left: 3px solid var(--warn)"
-      >
-        <strong>{Postponed.not_final_text(length(@postponed_open))}</strong>
-        <ul style="margin: 6px 0 0; padding-left: 20px">
-          <li :for={game <- @postponed_open} id={"postponed-game-#{game.pairing.id}"}>
-            {gettext("Round %{round}, board %{board}: %{white} - %{black}",
-              round: game.round,
-              # The frozen label the pairing sheet prints, like every other
-              # board number an arbiter reads on this page.
-              board: game.pairing.display_board || game.pairing.board,
-              white: player_name(game.pairing.white_player),
-              black: player_name(game.pairing.black_player)
-            )}
-            <button
-              :if={game.round != @round_number}
-              type="button"
-              class="pe-btn"
-              id={"postponed-open-round-#{game.pairing.id}"}
-              phx-click="select_round"
-              phx-value-number={game.round}
+      <%!-- Each game also carries the date its players agreed on (not a
+            deadline - nothing here is ever overdue), the history of that
+            date, and the notice and calendar file to hand them. --%>
+      <div :if={@postponed_open != []} id="postponed-games" class="card postponed-guard">
+        <div class="postponed-card-head">
+          <strong>{Postponed.not_final_text(length(@postponed_open))}</strong>
+          <a
+            id="postponed-notices-all"
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/postponed"}
+            target="_blank"
+          >
+            {gettext("Print notices")}
+          </a>
+        </div>
+        <ul class="postponed-games-list">
+          <li
+            :for={game <- @postponed_open}
+            id={"postponed-game-#{game.pairing.id}"}
+            class="postponed-game"
+          >
+            <div class="postponed-game-main">
+              <%!-- The frozen label the pairing sheet prints, like every
+                    other board number an arbiter reads on this page. --%>
+              <span class="postponed-game-text">{Postponed.game_text(game)}</span>
+              <span class="hint" id={"postponed-agreed-#{game.pairing.id}"}>
+                {Postponed.agreed_text(game.pairing.agreed_date)}
+              </span>
+            </div>
+            <div class="postponed-game-actions">
+              <form
+                id={"agreed-date-form-#{game.pairing.id}"}
+                phx-submit="set_agreed_date"
+                class="agreed-date-form"
+              >
+                <input type="hidden" name="pairing-id" value={game.pairing.id} />
+                <input
+                  type="date"
+                  name="agreed_date"
+                  id={"agreed-date-#{game.pairing.id}"}
+                  value={game.pairing.agreed_date && Date.to_iso8601(game.pairing.agreed_date)}
+                  aria-label={gettext("Agreed date for %{game}", game: Postponed.game_text(game))}
+                  disabled={!is_nil(@tournament.archived_at)}
+                />
+                <button
+                  type="submit"
+                  class="pe-btn"
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Save date")}
+                </button>
+              </form>
+              <a
+                id={"postponed-notice-#{game.pairing.id}"}
+                class="pe-btn"
+                href={~p"/t/#{@tournament.id}/print/postponed?#{[game: game.pairing.id]}"}
+                target="_blank"
+              >
+                {gettext("Notice")}
+              </a>
+              <a
+                :if={game.pairing.agreed_date}
+                id={"postponed-ics-#{game.pairing.id}"}
+                class="pe-btn"
+                href={~p"/t/#{@tournament.id}/export/postponed/#{game.pairing.id}/calendar"}
+                title={gettext("A calendar file (.ics) for the agreed date")}
+              >
+                {gettext("Calendar")}
+              </a>
+              <button
+                :if={game.round != @round_number}
+                type="button"
+                class="pe-btn"
+                id={"postponed-open-round-#{game.pairing.id}"}
+                phx-click="select_round"
+                phx-value-number={game.round}
+              >
+                {gettext("Go to round %{n}", n: game.round)}
+              </button>
+            </div>
+            <details
+              :if={(game.pairing.agreed_date_log || []) != []}
+              id={"agreed-date-log-#{game.pairing.id}"}
+              class="agreed-date-log"
             >
-              {gettext("Go to round %{n}", n: game.round)}
-            </button>
+              <summary>
+                {ngettext(
+                  "Date changed once",
+                  "Date changed %{count} times",
+                  length(game.pairing.agreed_date_log)
+                )}
+              </summary>
+              <ol>
+                <li :for={entry <- game.pairing.agreed_date_log}>
+                  <% {change, meta} = Postponed.date_log_parts(entry) %>
+                  <strong>{change}</strong> <span :if={meta != ""} class="hint">{meta}</span>
+                </li>
+              </ol>
+            </details>
           </li>
         </ul>
       </div>
@@ -2904,7 +3037,12 @@ defmodule PairingsEngineWeb.PairingsLive do
                     "it, and the schedule can't be changed once it exists. Continue?"
 
                 true ->
-                  pair_confirm_text(@pairing_warnings, [:adjourned_older_round_open], @next_pairable)
+                  pair_confirm_text(
+                    @pairing_warnings,
+                    [:adjourned_older_round_open, :adjourned_counted_as_draw],
+                    @next_pairable,
+                    @postponed_open
+                  )
               end
             }
             title={
@@ -2960,8 +3098,13 @@ defmodule PairingsEngineWeb.PairingsLive do
             data-confirm={
               pair_confirm_text(
                 @pairing_warnings,
-                [:missing_results_recorded_as_adjourned, :adjourned_older_round_open],
-                @next_pairable
+                [
+                  :missing_results_recorded_as_adjourned,
+                  :adjourned_older_round_open,
+                  :adjourned_counted_as_draw
+                ],
+                @next_pairable,
+                @postponed_open
               )
             }
           >
@@ -3430,7 +3573,11 @@ defmodule PairingsEngineWeb.PairingsLive do
               <td><strong>{match_team_name(@teams_by_id, m.team_a_id)}</strong></td>
               <td :if={m.bye?} class="num">-</td>
               <td :if={!m.bye?} class="num">
-                {format_match_score(m.gp_a)} - {format_match_score(m.gp_b)}
+                {format_match_score(m.gp_a)} - {format_match_score(m.gp_b)}<span
+                  :if={m.postponed_boards > 0}
+                  class="match-pending"
+                  id={"match-pending-#{m.match_id}"}
+                >, {Postponed.boards_pending_text(m.postponed_boards)}</span>
               </td>
               <td :if={m.bye? and is_nil(m.mp_a)}><em>{gettext("does not play this round")}</em></td>
               <td :if={m.bye? and not is_nil(m.mp_a)}>
@@ -3451,13 +3598,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 id={"match-provisional-#{m.match_id}"}
               >
                 {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
-                <span class="hint">
-                  {ngettext(
-                    "(provisional: %{count} board postponed)",
-                    "(provisional: %{count} boards postponed)",
-                    m.postponed_boards
-                  )}
-                </span>
+                <span class="hint">{gettext("(provisional)")}</span>
               </td>
               <td :if={!m.bye? and !m.scored?} class="num">
                 <span class="hint">{gettext("in progress")}</span>

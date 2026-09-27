@@ -33,6 +33,9 @@ defmodule PairingsEngineWeb.PrintController do
       paired or the tournament has no team matches.
     * `GET /t/:id/print/team-standings?round=n` - team standings (match
       points and the team tie-breaks) after round `n`, or current.
+    * `GET /t/:id/print/postponed` - a notice per player of every open
+      postponed game (round, board, opponent, colour, agreed date, venue);
+      `?game=<pairing id>` for one game, 404 if it is not open.
     * `GET /t/:id/print/crosstable` - for Swiss and Keizer tournaments, the
       full Swiss cross table: one row per player (current standings order),
       one column per played round. For round-robin tournaments, instead the
@@ -81,6 +84,7 @@ defmodule PairingsEngineWeb.PrintController do
   @media print { .player-card { break-inside: avoid; } }
   .pf-credit { margin-top: 24px; padding-top: 8px; border-top: 1px solid #ccc;
                color: #888; font-size: 10px; }
+  .pending { font-size: 11px; font-weight: normal; font-style: italic; color: #333; white-space: nowrap; }
   """
 
   # Card height (30mm) + margin-bottom (2mm) = 32mm per card. Eight of those
@@ -878,6 +882,7 @@ defmodule PairingsEngineWeb.PrintController do
           end
 
         label = requested_round || rounds_paired
+        entries = with_pending(entries, tournament, requested_round)
 
         manual_banner =
           if not keizer? and requested_round == nil and tournament.manual_ranking do
@@ -916,6 +921,24 @@ defmodule PairingsEngineWeb.PrintController do
         esc(PairingsEngineWeb.Postponed.not_final_text(open)) <> "</strong></div>"
     end
   end
+
+  # Each entry's open postponed games in the rounds the sheet covers, as
+  # `:pending`, printed beside the name ("(1 pending)") so a provisional place
+  # on a sheet pinned to the wall is not read as a final one.
+  defp with_pending(entries, tournament, requested_round) do
+    pending =
+      tournament
+      |> PairingsEngine.PostponedGames.open_games()
+      |> Enum.filter(&(is_nil(requested_round) or &1.round <= requested_round))
+      |> PairingsEngine.PostponedGames.pending_by_player()
+
+    Enum.map(entries, &Map.put(&1, :pending, Map.get(pending, &1.player.id, 0)))
+  end
+
+  defp pending_note(%{pending: n}) when is_integer(n) and n > 0,
+    do: " <span class=\"pending\">(#{esc(PairingsEngineWeb.Postponed.pending_text(n))})</span>"
+
+  defp pending_note(_entry), do: ""
 
   # Loud, printed banner for the manual-ranking override (SWAR parity #23
   # requirement 3) - a silent override on a document an arbiter might post
@@ -1058,7 +1081,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
       end)
 
-    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{pending_note(e)}</td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
@@ -1076,7 +1099,7 @@ defmodule PairingsEngineWeb.PrintController do
         do: "<td>#{esc(category_or_dash(categories_text(tournament, e.player)))}</td>",
         else: ""
 
-    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{pending_note(e)}</td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
@@ -1171,9 +1194,16 @@ defmodule PairingsEngineWeb.PrintController do
   end
 
   defp team_match_table(m, teams, pairings) do
+    # A postponed board leaves the score provisional: said beside it, so the
+    # sheet does not read as the match's final score.
+    pending =
+      if m.postponed_boards > 0,
+        do: ", " <> esc(PairingsEngineWeb.Postponed.boards_pending_text(m.postponed_boards)),
+        else: ""
+
     score =
       if Enum.any?(m.boards, &(&1.pairing.result != "")),
-        do: " (#{format_num(m.gp_a)} - #{format_num(m.gp_b)})",
+        do: " (#{format_num(m.gp_a)} - #{format_num(m.gp_b)}#{pending})",
         else: ""
 
     heading =
@@ -1212,6 +1242,12 @@ defmodule PairingsEngineWeb.PrintController do
       "<tbody>#{rows}</tbody></table>"
   end
 
+  defp team_pending_note(%{pending_boards: n}) when n > 0,
+    do:
+      " <span class=\"pending\">(#{esc(PairingsEngineWeb.Postponed.boards_pending_text(n))})</span>"
+
+  defp team_pending_note(_entry), do: ""
+
   defp team_print_name(teams, id) do
     case Map.get(teams, id) do
       nil -> "-"
@@ -1248,7 +1284,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       rows =
         Enum.map_join(entries, "", fn e ->
-          "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.team.name)}</strong></td>" <>
+          "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.team.name)}</strong>#{team_pending_note(e)}</td>" <>
             "<td class=\"num\">#{e.played}</td>" <>
             "<td class=\"num\">#{e.won}-#{e.drawn}-#{e.lost}</td>" <>
             "<td class=\"num\"><strong>#{format_num(e.mp)}</strong></td>" <>
@@ -1269,6 +1305,103 @@ defmodule PairingsEngineWeb.PrintController do
           "<table><thead><tr>#{head}</tr></thead><tbody>#{rows}</tbody></table>"
       )
     end
+  end
+
+  @notice_css """
+  @page { size: A4 portrait; margin: 12mm; }
+  .notices { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .notice { border: 1.5px dashed #000; padding: 5mm 6mm; page-break-inside: avoid; break-inside: avoid; }
+  .notice-kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin: 0; }
+  .notice h2 { font-size: 17px; margin: 2px 0 1px; }
+  .notice .notice-event { font-size: 12px; color: #444; margin: 0 0 8px; }
+  .notice table { font-size: 12.5px; }
+  .notice th { width: 34%; border: 0; text-transform: none; letter-spacing: 0; font-size: 11px;
+               color: #555; padding: 3px 6px 3px 0; vertical-align: top; }
+  .notice td { border: 0; border-bottom: 1px solid #ddd; padding: 3px 0; }
+  .notice .notice-date td { font-weight: 700; font-size: 14px; }
+  .notice .notice-foot { font-size: 10.5px; color: #444; margin: 8px 0 0; line-height: 1.4; }
+  """
+
+  @doc """
+  `GET /t/:id/print/postponed` - a notice for each player of every open
+  postponed game: round, board, opponent, colour, the date the players
+  agreed on (or that it is still to be agreed) and the venue. Two to a game,
+  one per player, two across an A4 page, to cut apart and hand out.
+  `?game=<pairing id>` prints just that game's two; 404 when it is not an
+  open postponed game of this tournament.
+  """
+  def postponed_notices(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    open = PairingsEngine.PostponedGames.open_games(tournament)
+
+    games =
+      case params["game"] do
+        nil -> {:ok, open}
+        game_id -> open |> Enum.filter(&(to_string(&1.pairing.id) == game_id)) |> one_game()
+      end
+
+    case games do
+      :error ->
+        send_resp(conn, 404, gettext("That game is not a postponed game still to be played."))
+
+      {:ok, games} ->
+        body =
+          if games == [],
+            do: "<p>#{gettext("No postponed game is still to be played.")}</p>",
+            else:
+              "<div class=\"notices\">" <>
+                Enum.map_join(games, "", &game_notices(&1, tournament)) <> "</div>"
+
+        print_page(
+          conn,
+          tournament,
+          tournament.name,
+          gettext("Postponed games - notices for the players"),
+          body,
+          @notice_css
+        )
+    end
+  end
+
+  defp one_game([game]), do: {:ok, [game]}
+  defp one_game(_), do: :error
+
+  defp game_notices(%{round: round, pairing: p}, tournament) do
+    notice(tournament, round, p, p.white_player, p.black_player, gettext("White")) <>
+      notice(tournament, round, p, p.black_player, p.white_player, gettext("Black"))
+  end
+
+  defp notice(tournament, round, pairing, player, opponent, colour) do
+    date =
+      if pairing.agreed_date,
+        do: PairingsEngineWeb.Postponed.date_text(pairing.agreed_date),
+        else: gettext("still to be agreed with the arbiter")
+
+    venue =
+      [tournament.venue, tournament.city]
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.join(", ")
+
+    row = fn label, value, class ->
+      "<tr#{class}><th>#{esc(label)}</th><td>#{esc(value)}</td></tr>"
+    end
+
+    "<div class=\"notice\" id=\"notice-#{pairing.id}-#{player && player.id}\">" <>
+      "<p class=\"notice-kicker\">#{gettext("Postponed game")}</p>" <>
+      "<h2>#{esc(result_card_name(player))}</h2>" <>
+      "<p class=\"notice-event\">#{esc(tournament.name)}</p>" <>
+      "<table>" <>
+      row.(gettext("Round"), to_string(round), "") <>
+      row.(gettext("Board"), to_string(PairingDisplay.board_label(pairing)), "") <>
+      row.(gettext("Opponent"), result_card_name(opponent), "") <>
+      row.(gettext("Your colour"), colour, "") <>
+      row.(gettext("Agreed date"), date, " class=\"notice-date\"") <>
+      row.(gettext("Venue"), if(venue == "", do: "-", else: venue), "") <>
+      "</table>" <>
+      "<p class=\"notice-foot\">" <>
+      gettext(
+        "Until it is played the game counts provisionally in the standings. Hand the result to the arbiter as soon as it is known."
+      ) <> "</p></div>"
   end
 
   def result_cards(conn, %{"id" => id} = params) do

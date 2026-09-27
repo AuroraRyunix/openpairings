@@ -108,7 +108,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
         pairing.match_forfeit_withdrawn pairing.board_attached
-        pairing.missing_recorded_postponed)},
+        pairing.missing_recorded_postponed pairing.postponed_date_set)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -439,6 +439,36 @@ defmodule PairingsEngineWeb.AuditLive do
         count(d, "count"),
         round: value(d, "round")
       )
+
+  # The date the players of a postponed game agreed to play it on -
+  # `PairingsLive`'s "set_agreed_date". Not a deadline.
+  def describe("pairing.postponed_date_set", d) do
+    cond do
+      blank?(d["to"]) ->
+        gettext(
+          "Cleared the agreed date of the postponed game on board %{board} of round %{round}.",
+          board: value(d, "board"),
+          round: value(d, "round")
+        )
+
+      blank?(d["from"]) ->
+        gettext(
+          "Set the agreed date of the postponed game on board %{board} of round %{round} to %{to}.",
+          board: value(d, "board"),
+          round: value(d, "round"),
+          to: value(d, "to")
+        )
+
+      true ->
+        gettext(
+          "Moved the postponed game on board %{board} of round %{round} from %{from} to %{to}.",
+          board: value(d, "board"),
+          round: value(d, "round"),
+          from: value(d, "from"),
+          to: value(d, "to")
+        )
+    end
+  end
 
   def describe("pairing.result_cleared", d),
     do: sentences([result_sentence(:cleared, d), phone_sentence(d)])

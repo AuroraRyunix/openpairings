@@ -174,7 +174,7 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       refute has_element?(lv, "#pair-recording-postponed")
     end
 
-    test "a postponed game in the last round is noted beside the pair button", %{
+    test "a postponed game in the last round is noted, and pairing names its players first", %{
       conn: conn,
       scope: scope
     } do
@@ -182,13 +182,22 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       [postponed, other] = boards(t, 1)
       set!(postponed, "*")
       set!(other, "1-0")
+      postponed = Repo.preload(Repo.reload!(postponed), [:white_player, :black_player])
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
       lv |> element(".round-picker button[phx-value-number='2']") |> render_click()
 
       assert has_element?(lv, "#postponed-counted-as-draw")
       refute has_element?(lv, "#pair-round[disabled]")
-      refute has_element?(lv, "#pair-round[data-confirm]")
+
+      # A confirmation, never a block: it names both players and says they
+      # are paired on a provisional score. Nothing to acknowledge.
+      assert has_element?(
+               lv,
+               "#pair-round[data-confirm*='#{postponed.white_player.name}'][data-confirm*='#{postponed.black_player.name}'][data-confirm*='provisional score']"
+             )
+
+      refute has_element?(lv, "#pair-round[phx-value-acknowledged]")
     end
   end
 

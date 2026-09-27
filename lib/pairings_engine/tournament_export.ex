@@ -621,6 +621,10 @@ defmodule PairingsEngine.TournamentExport do
       "finalised_open" => p.finalised_open,
       "postponed_reported_at" =>
         p.postponed_reported_at && DateTime.to_iso8601(p.postponed_reported_at),
+      # The date the players agreed to play a postponed game on, and how it
+      # changed - so a restore keeps both.
+      "agreed_date" => p.agreed_date && Date.to_iso8601(p.agreed_date),
+      "agreed_date_log" => p.agreed_date_log || [],
       "white_player_id" => p.white_player_id,
       "black_player_id" => p.black_player_id
     }

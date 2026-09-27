@@ -152,8 +152,18 @@ defmodule PairingsEngineWeb.PlayersLive do
        setup_complete: Tournament.setup_complete?(tournament),
        missing_setup: Tournament.missing_setup_fields(tournament)
      )
+     |> assign_postponed_open()
      |> assign_players()}
   end
+
+  # The tournament's main page carries a small card with every postponed
+  # game still to be played - round, board, players, the agreed date - each
+  # linking to the round where its result is entered.
+  defp assign_postponed_open(socket),
+    do:
+      assign(socket,
+        postponed_open: PairingsEngine.PostponedGames.open_games(socket.assigns.tournament)
+      )
 
   # Another user (or another tab) changed this tournament's data - reload
   # the players list and the tournament itself, but leave any open
@@ -185,9 +195,13 @@ defmodule PairingsEngineWeb.PlayersLive do
            setup_complete: Tournament.setup_complete?(tournament),
            missing_setup: Tournament.missing_setup_fields(tournament)
          )
+         |> assign_postponed_open()
          |> assign_players()}
     end
   end
+
+  defp postponed_name(nil), do: "?"
+  defp postponed_name(player), do: player.name
 
   defp assign_players(socket) do
     tournament = socket.assigns.tournament
@@ -1868,6 +1882,52 @@ defmodule PairingsEngineWeb.PlayersLive do
           </button>
         </div>
       </div>
+
+      <section
+        :if={@postponed_open != []}
+        id="postponed-overview"
+        class="card postponed-overview"
+        aria-labelledby="postponed-overview-title"
+      >
+        <div class="postponed-card-head">
+          <h2 id="postponed-overview-title">
+            {ngettext(
+              "%{count} postponed game to be played",
+              "%{count} postponed games to be played",
+              length(@postponed_open)
+            )}
+          </h2>
+          <.link navigate={~p"/t/#{@tournament.id}/pairings"} class="pe-btn">
+            {gettext("Enter results")}
+          </.link>
+        </div>
+        <ul class="postponed-overview-list">
+          <li :for={game <- @postponed_open} id={"postponed-overview-#{game.pairing.id}"}>
+            <.link
+              navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}
+              class="postponed-overview-game"
+            >
+              <span class="postponed-overview-round">
+                {gettext("Round %{round} · board %{board}",
+                  round: game.round,
+                  board: game.pairing.display_board || game.pairing.board
+                )}
+              </span>
+              <span class="postponed-overview-players">
+                {postponed_name(game.pairing.white_player)} – {postponed_name(
+                  game.pairing.black_player
+                )}
+              </span>
+              <span class={[
+                "postponed-overview-date",
+                is_nil(game.pairing.agreed_date) && "is-unset"
+              ]}>
+                {PairingsEngineWeb.Postponed.agreed_text(game.pairing.agreed_date)}
+              </span>
+            </.link>
+          </li>
+        </ul>
+      </section>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("Finish the tournament setup before adding players - still missing:")}
