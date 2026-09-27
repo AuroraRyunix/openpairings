@@ -122,7 +122,8 @@ defmodule PairingsEngineWeb.AuditLive do
         registration.toggled swar.published swar.publish_failed)},
     {"standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
         standings.manual_ranking_disabled standings.manual_reseeded
-        standings.extra_points_applied standings.published standings.unpublished
+        standings.extra_points_applied standings.extra_points_reduced
+        standings.published standings.unpublished
         standings.starting_rank_toggled)},
     {"imports", ~w(import.swar import.trf import.json trf.finalised trf.postponed_sent)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
@@ -910,6 +911,17 @@ defmodule PairingsEngineWeb.AuditLive do
         "Applied extra-points bands to %{matched} of %{count} players.",
         count(d, "total"),
         matched: value(d, "matched")
+      )
+
+  def describe("standings.extra_points_reduced", d),
+    do:
+      ngettext(
+        "Took %{amount} extra points off %{count} player rated %{from} to %{to}.",
+        "Took %{amount} extra points off %{count} players rated %{from} to %{to}.",
+        count(d, "changed"),
+        amount: value(d, "amount"),
+        from: value(d, "from"),
+        to: value(d, "to")
       )
 
   # The standings half of the publishing controls - see the comment above

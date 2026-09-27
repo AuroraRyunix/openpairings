@@ -69,6 +69,47 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     Tournaments.get_tournament!(t.id)
   end
 
+  describe "virtual points" do
+    test "a round paired with extra points says so, and its brackets include them",
+         %{conn: conn, scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Accelerated",
+          "type" => "swiss",
+          "extra_points_mode" => "acceleration"
+        })
+
+      [a, b] =
+        for name <- ~w(Anna Bram) do
+          {:ok, p} = Tournaments.create_player(t.id, %{"name" => name, "extra_points" => "1"})
+          p
+        end
+
+      r1 =
+        Repo.insert!(%RoundSchema{
+          tournament_id: t.id,
+          number: 1,
+          status: "playing",
+          virtual_points: %{to_string(a.id) => 1.0, to_string(b.id) => 1.0}
+        })
+
+      board(r1, 1, a, b, "")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert has_element?(lv, "#virtual-points-note")
+
+      rationale = PairingRationale.for_round(Tournaments.get_tournament!(t.id), 1)
+      assert Enum.map(rationale.score_groups, & &1.score) == [1.0]
+    end
+
+    test "a round paired on game points alone has no note", %{conn: conn, scope: scope} do
+      t = round_one_only(scope, "ainalrami")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      refute has_element?(lv, "#virtual-points-note")
+      refute has_element?(lv, "#baku-note")
+    end
+  end
+
   describe "Article 5.2.5" do
     test "a board decided by 5.2.5 says so", %{conn: conn, scope: scope} do
       t = round_one_only(scope, "javafo")

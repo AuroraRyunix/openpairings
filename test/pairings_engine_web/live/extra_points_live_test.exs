@@ -21,15 +21,91 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
     tournament
   end
 
-  test "discloses that the SWAR \"speed up pairings\" use of extra points is not supported", %{
+  test "the kind picked in the form changes the wording before it is saved", %{
     conn: conn,
     scope: scope
   } do
     tournament = create_tournament(scope)
-    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
 
-    assert html =~ "speed up pairings"
-    assert html =~ "is not supported"
+    assert lv |> element("#extra-points-mode-hint") |> render() =~ "Handicap"
+    refute has_element?(lv, "#reduce-extra-points-form")
+
+    lv
+    |> form("#extra-points-form", %{"tournament" => %{"extra_points_mode" => "acceleration"}})
+    |> render_change()
+
+    assert lv |> element("#extra-points-mode-hint") |> render() =~ "Acceleration"
+    assert render(lv) =~ "Keep acceleration points in the final standings"
+    # Nothing saved yet.
+    assert Tournaments.get_authorized_tournament!(scope, tournament.id).extra_points_mode ==
+             "handicap"
+  end
+
+  test "acceleration mode saves, and \"Remove half a point\" winds it down by rating range", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = create_tournament(scope)
+
+    {:ok, strong} =
+      Tournaments.create_player(tournament.id, %{
+        "name" => "Strong",
+        "fide_rating" => "2200",
+        "extra_points" => "1"
+      })
+
+    {:ok, weak} =
+      Tournaments.create_player(tournament.id, %{
+        "name" => "Weak",
+        "fide_rating" => "1500",
+        "extra_points" => "1"
+      })
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+
+    lv
+    |> form("#extra-points-form", %{"tournament" => %{"extra_points_mode" => "acceleration"}})
+    |> render_submit()
+
+    assert Tournaments.get_authorized_tournament!(scope, tournament.id).extra_points_mode ==
+             "acceleration"
+
+    assert has_element?(lv, "#reduce-extra-points-form")
+
+    html =
+      lv
+      |> form("#reduce-extra-points-form", %{"reduce" => %{"from" => "2000", "to" => "3000"}})
+      |> render_submit()
+
+    assert html =~ "Took half a point off 1 player."
+    assert Tournaments.get_player!(tournament.id, strong.id).extra_points == 0.5
+    assert Tournaments.get_player!(tournament.id, weak.id).extra_points == 1.0
+
+    html =
+      lv
+      |> form("#reduce-extra-points-form", %{"reduce" => %{"from" => "3000", "to" => "2000"}})
+      |> render_submit()
+
+    assert html =~ "not above the second"
+  end
+
+  test "Baku cannot be combined: the page says so instead of saving", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = create_tournament(scope, %{"acceleration" => "baku"})
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+
+    html =
+      lv
+      |> form("#extra-points-form", %{"tournament" => %{"extra_points_mode" => "acceleration"}})
+      |> render_submit()
+
+    assert html =~ "Baku acceleration cannot be combined"
+
+    assert Tournaments.get_authorized_tournament!(scope, tournament.id).extra_points_mode ==
+             "handicap"
   end
 
   test "toggling \"count extra points\" and saving the bands persists both", %{

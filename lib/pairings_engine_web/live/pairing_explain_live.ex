@@ -853,6 +853,34 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp violation_text(%{reason: :forbidden}), do: gettext("the arbiter forbade this pairing")
   defp violation_text(_), do: gettext("not allowed")
 
+  # Extra points the round was paired with (`rounds.virtual_points`). The
+  # scores on this page already include them, so the note says so rather
+  # than leaving the brackets to disagree with the standings unexplained.
+  defp virtual_points_note(tournament, virtual) do
+    count = map_size(virtual)
+
+    if Tournament.extra_points_acceleration?(tournament) do
+      ngettext(
+        "This round was paired with acceleration points: %{count} player was given their extra points as virtual points for pairing. The scores and brackets on this page include them.",
+        "This round was paired with acceleration points: %{count} players were given their extra points as virtual points for pairing. The scores and brackets on this page include them.",
+        count
+      )
+    else
+      ngettext(
+        "This round was paired on points plus extra points (handicap): %{count} player's extra points were added to the score the engine grouped by. The scores and brackets on this page include them.",
+        "This round was paired on points plus extra points (handicap): %{count} players' extra points were added to the score the engine grouped by. The scores and brackets on this page include them.",
+        count
+      )
+    end
+  end
+
+  # Baku's virtual points are given in the first half of the rounds
+  # (`Pairing.accelerations/3`), so only those rounds get the note.
+  defp baku_round?(%Tournament{acceleration: "baku", pairing_system: "swiss"} = t, round_number),
+    do: is_integer(round_number) and round_number <= div((t.rounds_count || 0) + 1, 2)
+
+  defp baku_round?(_tournament, _round_number), do: false
+
   defp score_str(nil), do: "0"
   defp score_str(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
   defp score_str(n), do: to_string(n)
@@ -2389,6 +2417,28 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         }>
           <:part name="flag"><strong>{gettext("Worth a look")}</strong></:part>
         </.rich_text>
+      </p>
+
+      <%!-- Virtual points move players into brackets their game points do
+            not put them in, and a reader comparing the brackets below with
+            the standings needs to be told why they differ. --%>
+      <p
+        :if={@rationale.virtual_points != %{}}
+        id="virtual-points-note"
+        class="hint"
+        style="margin: 4px 0 12px"
+      >
+        {virtual_points_note(@tournament, @rationale.virtual_points)}
+      </p>
+      <p
+        :if={baku_round?(@tournament, @round_number)}
+        id="baku-note"
+        class="hint"
+        style="margin: 4px 0 12px"
+      >
+        {gettext(
+          "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the field was given virtual points for pairing, which the engine added to their scores when it built the brackets. The scores shown here are game points without them, and the standings never count them."
+        )}
       </p>
 
       <%!-- A round from before the detailed account can be brought up to

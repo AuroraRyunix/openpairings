@@ -1021,7 +1021,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     main_table =
       "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(rds?)}" <>
-        "<th class=\"num\">Pts</th>#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
+        "<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
     if has_categories do
       main_table <> category_standings_tables(entries, tournament, rds?)
@@ -1053,7 +1053,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
         "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(rds?)}" <>
-        "<th class=\"num\">Pts</th>#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
+        "<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
     end)
   end
 
@@ -1075,6 +1075,22 @@ defmodule PairingsEngineWeb.PrintController do
     end)
   end
 
+  # A tournament that ranks on points plus extra points (`count_extra_points`
+  # - docs/extra-points.md) prints both beside the game points, as the
+  # Standings page does, so a printed table whose order is not the "Pts"
+  # order says why. Nothing otherwise.
+  defp extra_points_headers(%{count_extra_points: true}),
+    do: "<th class=\"num\">XtPts</th><th class=\"num\">#{gettext("Total")}</th>"
+
+  defp extra_points_headers(_tournament), do: ""
+
+  defp extra_points_cells(%{count_extra_points: true}, e),
+    do:
+      "<td class=\"num\">#{Map.get(e, :extra_points, 0.0)}</td>" <>
+        "<td class=\"num\"><strong>#{Map.get(e, :total, e.points)}</strong></td>"
+
+  defp extra_points_cells(_tournament, _e), do: ""
+
   # `rank_override` is the in-category place for a per-category table
   # (`category_standings_tables/3`), and for the main table when categories
   # are ranked separately; `nil` keeps showing the overall `e.rank`.
@@ -1088,7 +1104,7 @@ defmodule PairingsEngineWeb.PrintController do
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
-      "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}#{cat_cell}</tr>"
+      "<td class=\"num\"><strong>#{e.points}</strong></td>#{extra_points_cells(tournament, e)}#{tb_cells}#{cat_cell}</tr>"
   end
 
   # `has_categories` is false for the per-category tables below, which never
@@ -1595,7 +1611,7 @@ defmodule PairingsEngineWeb.PrintController do
 
         "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
           "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>#{round_cells}" <>
-          "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}</tr>"
+          "<td class=\"num\"><strong>#{e.points}</strong></td>#{extra_points_cells(tournament, e)}#{tb_cells}</tr>"
       end)
 
     body =
@@ -1603,7 +1619,7 @@ defmodule PairingsEngineWeb.PrintController do
         postponed_banner(tournament, nil) <>
         "<div class=\"crosstable-wrap\"><table class=\"crosstable\"><thead><tr>" <>
         "<th class=\"num\">#{gettext("Rank")}</th>" <>
-        "<th>#{gettext("Name")}</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{tb_headers}" <>
+        "<th>#{gettext("Name")}</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}#{tb_headers}" <>
         "</tr></thead><tbody>#{rows}</tbody></table></div>"
 
     print_page(conn, tournament, tournament.name, gettext("Cross table"), body, @crosstable_css)
@@ -1638,6 +1654,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<tr><td class=\"num\">#{row_entry.player.pairing_number}</td>" <>
           "<td><strong>#{esc(row_entry.player.name)}</strong></td>#{cells}" <>
           "<td class=\"num\"><strong>#{row_entry.points}</strong></td>" <>
+          extra_points_cells(tournament, row_entry) <>
           "<td class=\"num\">#{row_entry.rank}</td></tr>"
       end)
 
@@ -1645,7 +1662,7 @@ defmodule PairingsEngineWeb.PrintController do
       tournament_info_html(tournament) <>
         postponed_banner(tournament, nil) <>
         "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
-        "<th>#{gettext("Name")}</th>#{col_headers}<th class=\"num\">Pts</th>" <>
+        "<th>#{gettext("Name")}</th>#{col_headers}<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}" <>
         "<th class=\"num\">#{gettext("Rank")}</th></tr></thead>" <>
         "<tbody>#{rows}</tbody></table></div>"
 

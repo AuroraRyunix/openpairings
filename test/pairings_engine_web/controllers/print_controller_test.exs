@@ -416,6 +416,19 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ ~r/A.*?<strong>2\.0<\/strong>/s
     end
 
+    test "extra points and the total print beside Pts while the standings rank on them",
+         %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      refute html_response(get(conn, ~p"/t/#{tournament.id}/print/standings"), 200) =~ ">XtPts<"
+      refute html_response(get(conn, ~p"/t/#{tournament.id}/print/crosstable"), 200) =~ ">XtPts<"
+
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"count_extra_points" => "true"})
+
+      assert html_response(get(conn, ~p"/t/#{tournament.id}/print/standings"), 200) =~ ">XtPts<"
+      assert html_response(get(conn, ~p"/t/#{tournament.id}/print/crosstable"), 200) =~ ">XtPts<"
+    end
+
     test "the Rds column prints only when the link asks for it", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
 

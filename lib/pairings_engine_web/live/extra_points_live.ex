@@ -1,15 +1,24 @@
 defmodule PairingsEngineWeb.ExtraPointsLive do
   @moduledoc """
   The "Extra points" settings page (`/t/:id/settings/extra-points`) - SWAR
-  parity #12 ("XtPts"): administrative bonus points added to a player's
-  standing, optionally auto-assigned from Elo bands. Split out of the
-  combined Categories page into its own focused Settings sub-page.
+  parity #12 ("XtPts"): points a player holds on top of their game points,
+  optionally auto-assigned from Elo bands. Split out of the combined
+  Categories page into its own focused Settings sub-page.
+
+  Two kinds, chosen with `extra_points_mode` (docs/extra-points.md): a
+  **handicap** - a head start, counted in the standings and in the pairing
+  score while "count" is on - and an **acceleration** - SWAR's XtraPoints,
+  always handed to the pairing engine as virtual points, kept in the final
+  standings or not as the organiser chooses. The bands read "below the
+  rating" for one and "at or above" for the other, and the page's wording
+  follows the mode picked in the form before it is saved.
   """
   use PairingsEngineWeb, :live_view
 
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -22,9 +31,12 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
     {:ok,
      assign(socket,
        tournament: tournament,
+       mode: tournament.extra_points_mode,
        page_title: "#{tournament.name} · Extra points",
        extra_points_error: nil,
-       extra_points_note: nil
+       extra_points_note: nil,
+       reduce_error: nil,
+       reduce_note: nil
      )}
   end
 
@@ -46,37 +58,42 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
   end
 
   @impl true
+  # The mode picked but not yet saved: the toggle's label, the band hint
+  # and the example all follow it, so the arbiter reads what the choice
+  # means before committing to it.
+  def handle_event("change_extra_points", %{"tournament" => params}, socket) do
+    mode = if params["extra_points_mode"] == "acceleration", do: "acceleration", else: "handicap"
+    {:noreply, assign(socket, mode: mode)}
+  end
+
   def handle_event("save_extra_points", %{"tournament" => params}, socket) do
-    params = Map.take(params, ["count_extra_points", "extra_points_bands"])
+    params = Map.take(params, ["extra_points_mode", "count_extra_points", "extra_points_bands"])
     base = socket.assigns.tournament
 
     case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
-        if base.count_extra_points != tournament.count_extra_points or
-             base.extra_points_bands != tournament.extra_points_bands do
+        changed =
+          ~w(extra_points_mode count_extra_points extra_points_bands)a
+          |> Enum.reduce(%{}, fn field, acc ->
+            maybe_change(acc, to_string(field), Map.get(base, field), Map.get(tournament, field))
+          end)
+
+        if changed != %{} do
           Audit.log(
             tournament.id,
             socket.assigns.current_scope,
             "tournament.settings_updated",
-            %{
-              changed_fields:
-                %{}
-                |> maybe_change(
-                  "count_extra_points",
-                  base.count_extra_points,
-                  tournament.count_extra_points
-                )
-                |> maybe_change(
-                  "extra_points_bands",
-                  base.extra_points_bands,
-                  tournament.extra_points_bands
-                )
-            }
+            %{changed_fields: changed}
           )
         end
 
         {:noreply,
-         assign(socket, tournament: tournament, extra_points_error: nil, extra_points_note: nil)}
+         assign(socket,
+           tournament: tournament,
+           mode: tournament.extra_points_mode,
+           extra_points_error: nil,
+           extra_points_note: nil
+         )}
 
       {:error, changeset} ->
         {:noreply, assign(socket, extra_points_error: error_text(changeset))}
@@ -95,7 +112,13 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
 
         {:noreply,
          assign(socket,
-           extra_points_note: "Set extra points for #{matched} of #{total} players.",
+           extra_points_note:
+             ngettext(
+               "Set extra points for %{matched} of %{count} player.",
+               "Set extra points for %{matched} of %{count} players.",
+               total,
+               matched: matched
+             ),
            extra_points_error: nil
          )}
 
@@ -103,7 +126,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
         {:noreply,
          assign(socket,
            extra_points_error:
-             "Fix the Elo bands field before applying it (e.g. \"1400:1, 1600:0.5\").",
+             gettext("Fix the Elo bands field before applying it (e.g. \"1400:1, 1600:0.5\")."),
            extra_points_note: nil
          )}
 
@@ -113,11 +136,57 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
     end
   end
 
+  def handle_event("reduce_extra_points", %{"reduce" => params}, socket) do
+    tournament = socket.assigns.tournament
+
+    with {:ok, from} <- parse_rating(params["from"]),
+         {:ok, to} <- parse_rating(params["to"]),
+         {:ok, %{changed: changed}} <- Tournaments.reduce_extra_points(tournament, from, to) do
+      Audit.log(
+        tournament.id,
+        socket.assigns.current_scope,
+        "standings.extra_points_reduced",
+        %{changed: changed, from: from, to: to, amount: 0.5}
+      )
+
+      {:noreply,
+       assign(socket,
+         reduce_error: nil,
+         reduce_note:
+           ngettext(
+             "Took half a point off %{count} player.",
+             "Took half a point off %{count} players.",
+             changed
+           )
+       )}
+    else
+      {:error, :invalid_range} ->
+        {:noreply,
+         assign(socket,
+           reduce_error:
+             gettext("Give a rating range whose first number is not above the second."),
+           reduce_note: nil
+         )}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, reduce_error: error_text(reason), reduce_note: nil)}
+    end
+  end
+
+  defp parse_rating(value) do
+    case Integer.parse(String.trim(value || "")) do
+      {n, ""} when n >= 0 -> {:ok, n}
+      _ -> {:error, :invalid_range}
+    end
+  end
+
   defp maybe_change(map, _key, same, same), do: map
   defp maybe_change(map, key, before, after_value), do: Map.put(map, key, [before, after_value])
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, acceleration?: assigns.mode == "acceleration")
+
     ~H"""
     <Layouts.app
       publish_status={assigns[:publish_status]}
@@ -142,7 +211,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
-              "Administrative bonus points (SWAR \"XtPts\") - e.g. a handicap head start for lower-rated players. Off by default: pairing and TRF export always use game points only, and standings only add extra points to the ranking once you turn this on. See %[players] to edit a single player's value, or auto-assign everyone from Elo bands below."
+              "Points a player holds on top of their game points (SWAR \"XtPts\"). Choose what they are for below. See %[players] to edit a single player's value, or assign everyone's from Elo bands."
             )
           }>
             <:part name="players">
@@ -150,25 +219,60 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
             </:part>
           </.rich_text>
         </p>
-        <form id="extra-points-form" phx-submit="save_extra_points">
+        <form
+          id="extra-points-form"
+          phx-change="change_extra_points"
+          phx-submit="save_extra_points"
+        >
           <.setting_group>
+            <.setting_field label={gettext("Kind of extra points")}>
+              <select name="tournament[extra_points_mode]" id="extra-points-mode">
+                <option value="handicap" selected={not @acceleration?}>
+                  {gettext("Handicap - a head start for players below a rating")}
+                </option>
+                <option value="acceleration" selected={@acceleration?}>
+                  {gettext("Acceleration - SWAR's extra points, for players at or above a rating")}
+                </option>
+              </select>
+            </.setting_field>
+
+            <p :if={not @acceleration?} id="extra-points-mode-hint" class="hint">
+              {gettext(
+                "Handicap: the extra points are a head start. With counting on they are added to the player's score everywhere - the standings rank on points plus extra points, and the pairing puts players in score groups by the same total, so the leader on handicap meets the players chasing them. With counting off they do nothing. The FIDE TRF report keeps game points only; the extra points go in its 299 records."
+              )}
+            </p>
+            <p :if={@acceleration?} id="extra-points-mode-hint" class="hint">
+              {gettext(
+                "Acceleration (SWAR's XtraPoints): the extra points are virtual points for pairing. Every round, the pairing engine adds them to the player's score when it builds the score groups, so the strongest players meet each other from round 1. Take them off part-way with \"Remove half a point\" below; rounds already paired keep what they were paired with. Whether they also count in the standings is the switch below - on, as SWAR does; off, like Baku acceleration, the final standings are game points only."
+              )}
+            </p>
+
+            <%!-- One column, two meanings: "these points count in the
+                  standings". In handicap mode that also puts them in the
+                  pairing; in acceleration mode the pairing has them anyway. --%>
             <.setting_toggle
               name="tournament[count_extra_points]"
-              label={gettext("Count extra points in standings")}
+              label={
+                if(@acceleration?,
+                  do: gettext("Keep acceleration points in the final standings"),
+                  else: gettext("Count extra points (standings and pairing)")
+                )
+              }
               checked={@tournament.count_extra_points}
             />
 
             <.setting_field
               label={gettext("Elo bands (rating:bonus, comma-separated)")}
-              hint={
-                ~s|A player matches the lowest band whose threshold their rating is below (e.g. "1400:1, 1600:0.5" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit "0:bonus" band.|
-              }
+              hint={band_hint(@acceleration?)}
             >
               <input
                 type="text"
+                id="extra-points-bands"
                 name="tournament[extra_points_bands]"
                 value={@tournament.extra_points_bands}
-                placeholder="e.g. 1400:1, 1600:0.5"
+                placeholder={
+                  if(@acceleration?, do: "e.g. 1800:0.5, 2000:1", else: "e.g. 1400:1, 1600:0.5")
+                }
               />
             </.setting_field>
           </.setting_group>
@@ -176,18 +280,59 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
           <p :if={@extra_points_note} class="ok-note">{@extra_points_note}</p>
           <div class="actions">
             <button type="submit" class="pe-btn primary">{gettext("Save extra points settings")}</button>
-            <button type="button" class="pe-btn" phx-click="apply_extra_points_bands">
+            <button
+              type="button"
+              id="apply-extra-points-bands"
+              class="pe-btn"
+              phx-click="apply_extra_points_bands"
+            >
               {gettext("Apply bands to players")}
             </button>
           </div>
         </form>
-        <p class="hint" style="margin-bottom: 0">
+        <p :if={@tournament.extra_points_mode != @mode} class="hint" style="margin-bottom: 0">
           {gettext(
-            "OpenPairings only supports extra points as an Elo-band bonus added to a player's standing, as configured above. SWAR's other use of extra points - \"speed up pairings\" (accelerating/seeding early-round pairings based on extra points) - is not supported."
+            "Save first: \"Apply bands to players\" uses the saved kind and bands, not the ones in the form."
           )}
         </p>
+      </div>
+
+      <div :if={Tournament.extra_points_acceleration?(@tournament)} class="card">
+        <h2>{gettext("Remove half a point")}</h2>
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Winds the acceleration down, as SWAR's \"Remove\" does: every player rated in the range who still has extra points loses half a point, never going below zero. The next round is paired with what is left; rounds already paired are not changed."
+          )}
+        </p>
+        <form id="reduce-extra-points-form" phx-submit="reduce_extra_points">
+          <.setting_group>
+            <.setting_field label={gettext("From rating")}>
+              <input type="number" min="0" name="reduce[from]" value="0" />
+            </.setting_field>
+            <.setting_field label={gettext("To rating")}>
+              <input type="number" min="0" name="reduce[to]" value="3000" />
+            </.setting_field>
+          </.setting_group>
+          <p :if={@reduce_error} class="error-note">{@reduce_error}</p>
+          <p :if={@reduce_note} class="ok-note">{@reduce_note}</p>
+          <div class="actions">
+            <button type="submit" class="pe-btn">{gettext("Remove half a point")}</button>
+          </div>
+        </form>
       </div>
     </Layouts.app>
     """
   end
+
+  defp band_hint(true),
+    do:
+      gettext(
+        "A player gets the band with the highest rating at or below their own, as in SWAR (e.g. \"1800:0.5, 2000:1\" gives 1.0 from 2000 up, 0.5 from 1800 up to 1999, nothing below 1800). A \"0:bonus\" band is everyone else, unrated players included."
+      )
+
+  defp band_hint(false),
+    do:
+      gettext(
+        "A player matches the lowest band whose threshold their rating is below (e.g. \"1400:1, 1600:0.5\" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit \"0:bonus\" band."
+      )
 end

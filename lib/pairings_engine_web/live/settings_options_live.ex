@@ -758,6 +758,25 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   {gettext("Baku acceleration (FIDE C.04.7)")}
                 </option>
               </select>
+              <span
+                :if={
+                  @tournament.extra_points_mode == "acceleration" or @tournament.count_extra_points
+                }
+                id="acceleration-extra-points-hint"
+                class="hint"
+              >
+                <.rich_text text={
+                  gettext(
+                    "This tournament's extra points go to the pairing (%[page]), so Baku cannot be added on top: the engine gets one set of virtual points per player. Switch extra points to handicap with counting off first."
+                  )
+                }>
+                  <:part name="page">
+                    <.link navigate={~p"/t/#{@tournament.id}/settings/extra-points"}>
+                      {gettext("Extra points")}
+                    </.link>
+                  </:part>
+                </.rich_text>
+              </span>
             </.setting_field>
 
             <.setting_toggle
