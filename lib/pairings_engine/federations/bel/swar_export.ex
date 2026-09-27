@@ -40,7 +40,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   install, and comparing boards against a rating-seeded pairing - they
   didn't match at all. `assign_ranks/1` now computes the same
   rating/title/name sort SWAR's own `CmpRnkNormal` does. Full story,
-  with the exact source citations, is on `reverse_player/5`'s own
+  with the exact source citations, is on `reverse_player/6`'s own
   comment, and `test/pairings_engine/swar_export_test.exs` pins the
   fix down (scrambled rating vs. registration order, so a regression
   back to `rank = ni` fails loudly).
@@ -58,33 +58,35 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   export's arbiter fields come back wrong in SWAR, that's this
   ambiguity; flip `@tournoi_layout`.
 
-  ## Known-lossy mappings
+  ## Everything the import reads goes back
 
-  Several `SwarImport` mappings are many-to-one - several SWAR codes
-  collapse onto one OpenPairings value - and have no principled inverse.
-  Each is documented at its own `reverse_*` function below rather than
-  here, since the reasoning differs per field. The two structural ones
-  worth knowing before reading further:
+  Every setting `SwarImport` turns into a tournament setting is written
+  back from that setting, and every SWAR setting this app has no place for
+  travels in `Tournament.swar_settings` - kept by the import exactly as
+  the file had it - and is written back from there. Where a SWAR value maps
+  onto one of this app's in a way that cannot be undone (the chief
+  arbiter's title, SWAR's exact tournament type, its cadence index, its
+  tie-break list, its Belgian federation code, its FIDE-id block), the
+  file's own value goes back while the tournament still says what the
+  import made of it, and the tournament's own value otherwise. So a file
+  imported and exported again comes back with what SWAR had in it, and a
+  tournament imported from the export is the tournament that was exported
+  (`test/pairings_engine/federations/bel/swar_round_trip_test.exs`).
 
-    * SWAR's `[EXCLUSION]` section is always exported empty. Import maps
-      it onto the club/federation exclusion rules and forbidden pairings
-      (`SwarImport.exclusion_attrs/1`), but SWAR holds ONE rule where this
-      app holds two axes plus explicit pairs, and groups clubs by number
-      where this app groups them by name - there is no single section to
-      write back without choosing what to lose, so nothing is written yet.
-    * SWAR's `[CATEGORIES]` section is TWO parallel 16-slot lists
-      (`value1`/`value2`, presumably two independent category
-      dimensions); import already collapses them into one flat list
-      (`map_categories/1` concatenates both). Export puts everything
-      back into `value1` and leaves `value2` blank - which dimension a
-      category belonged to was never captured, so there is nothing to
-      restore it from.
+  What the format cannot hold is listed by `export_notes/1`, one sentence
+  each, beside the export button: SWAR keeps one exclusion rule where this
+  app has a club rule, a federation rule and forbidden pairs (all of them
+  are written as groups of player numbers when there is more than one),
+  one "separate categories" switch for pairing and ranking both, one Elo
+  per player, no soft pairing wishes, and so on. docs/swar-import.md,
+  "Export: what the file holds", has the full table.
   """
 
   import Ecto.Query
   require Logger
+  use Gettext, backend: PairingsEngineWeb.Gettext
 
-  alias PairingsEngine.{Categories, Encoding, Repo, Standings, Tournaments}
+  alias PairingsEngine.{Categories, Encoding, Exclusions, Repo, Standings, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Tournaments.Tournament
@@ -130,6 +132,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     # overwrites by guid means two tournaments where there should be one.
     tournament = SwarPublish.ensure_guid!(Tournaments.get_tournament!(tournament_id))
     players = Tournaments.list_players(tournament_id)
+    settings = tournament.swar_settings || %{}
     ni_by_player_id = assign_ni(players)
 
     rounds =
@@ -155,16 +158,40 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         {p.id, reverse_cat_index(pairing_cat, axis1, axis2_cat, axis2)}
       end)
 
+    exclusion = exclusion_for_export(tournament, players, ni_by_player_id)
+
     w_str("v7.00") <>
       w_str(tournament.swar_guid) <>
-      w_str("") <>
-      reverse_tournoi(tournament) <>
+      w_str(Map.get(settings, "mac") || "") <>
+      reverse_tournoi(tournament, settings) <>
       reverse_dates(tournament) <>
-      reverse_tie_break(tournament) <>
-      reverse_exclusion() <>
-      reverse_categories(axis1, axis2, cat_type) <>
-      reverse_xtra_points() <>
-      reverse_joueurs(players, cat_index_by_player_id, ni_by_player_id, round_records)
+      reverse_tie_break(tournament, settings) <>
+      reverse_exclusion(exclusion) <>
+      reverse_categories(axis1, axis2, category_type(cat_type, axis1, settings)) <>
+      reverse_xtra_points(settings) <>
+      reverse_joueurs(tournament, players, cat_index_by_player_id, ni_by_player_id, round_records)
+  end
+
+  @doc """
+  What a `.swar` export of `tournament` cannot carry, one sentence each for
+  the organiser, shown beside the export button - `[]` when the file holds
+  the tournament whole. SWAR has one exclusion rule, one Elo per player,
+  one "separate categories" switch for both pairing and ranking, no soft
+  pairing wishes, and so on; each sentence says what SWAR will do instead.
+  """
+  def export_notes(%Tournament{} = tournament) do
+    players = Tournaments.list_players(tournament.id)
+    results = tournament_results(tournament.id)
+    ni_by_player_id = assign_ni(players)
+    {_type, _values, exclusion_notes} = exclusion_for_export(tournament, players, ni_by_player_id)
+
+    exclusion_notes ++
+      system_notes(tournament) ++
+      scoring_notes(tournament, players) ++
+      category_notes(tournament) ++
+      tiebreak_notes(tournament) ++
+      player_notes(tournament, players) ++
+      result_notes(results)
   end
 
   # Splits `tournament.categories` back into the two axes SWAR reads it as,
@@ -204,82 +231,91 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
 
   ## ---------- [TOURNOI] ----------
 
-  defp reverse_tournoi(t) do
+  # Every field SWAR's `[TOURNOI]` holds, from the tournament - and, for the
+  # ones OpenPairings has no setting for, from `swar_settings`: the values
+  # the file this tournament was imported from had (`SwarImport.
+  # swar_settings/1`), or SWAR's own defaults for a tournament that never
+  # came from SWAR. Where a setting maps onto one of this app's in a way
+  # that loses something (the chief arbiter's title, SWAR's exact type,
+  # its cadence index), the file's own value is written back as long as
+  # the tournament still says the same thing - `settings_value/4`.
+  defp reverse_tournoi(t, settings) do
     {n_fide_ids, n_strings} = @tournoi_layout
+    {cadence, cadence_other} = reverse_cadence(t, settings)
+    type = reverse_tournament_type(t, settings)
 
-    # `arbiter1`/`arbiter2` on import: `arbiter1` becomes `chief_arbiter`
-    # via `strip_arbiter_title/1` (a one-way trim - a stripped title
-    # can't be reconstructed, so this writes the title-less name SWAR
-    # would have to re-derive the same way); `arbiter2`/`deputy_arbiter`
-    # is kept raw both directions.
-    # FRBE/FIDE homologation-range fields: no OpenPairings equivalent
-    # (rounds_count-wide homologation is tracked as a single boolean,
-    # `fide_homologated`, not a from/to round range) - written as "not
-    # set" rather than guessed.
-    # `cat_separes` ("categories use separate standings tables") - no
-    # OpenPairings equivalent; 0 (off) is the safe default.
-    # `elo_ou_pays` ("prefer Elo or federation for tiebreak/seeding
-    # display") - no OpenPairings equivalent; 0 is SWAR's own default.
-    # `plusieurs` ("several tournaments in one club session") - no
-    # OpenPairings equivalent; 0 (off).
-    # `first_table` (starting board number offset) - OpenPairings always
-    # numbers boards from 1.
-    # `elo_used` (which rating column feeds pairing/tiebreak) - no
-    # single OpenPairings equivalent (`Player.rating/1` always prefers
-    # FIDE); 0 is SWAR's own default.
-    # `tb_personel` (custom tiebreak formula toggle) - not modeled.
-    # `appar_order` (pairing-list display order) - not modeled.
-    # `elo_equal` (how equal-rated players are ordered) - not modeled.
-    # `ff_value` - the points paid for a forfeit, distinct from
-    # `abs_value`; not modeled as its own tournament setting
-    # (`Standings` scores a forfeit the same as an ordinary
-    # win/loss/draw code, not via a separate club-configured value), so
-    # this can't be reconstructed. 0 (SWAR's own "zero points") is the
-    # closest safe default.
     w_str("[TOURNOI]") <>
       w_str(t.name) <>
       w_str(t.organizer) <>
       w_str(t.organizer_club_number) <>
       w_str(t.city) <>
-      w_str(t.chief_arbiter) <>
+      w_str(reverse_arbiter1(t, settings)) <>
       w_str(t.deputy_arbiter) <>
-      w_str(t.start_date) <>
-      w_str(t.end_date) <>
-      w_i32(reverse_cadence(t)) <>
-      w_str(if reverse_cadence(t) == -1, do: t.rate_of_play, else: "") <>
+      w_str(swar_date(t.start_date)) <>
+      w_str(swar_date(t.end_date)) <>
+      w_i32(cadence) <>
+      w_str(cadence_other) <>
       w_i32(t.rounds_count) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(0) <>
+      w_i32(setting(settings, "frbe_from", 0)) <>
+      w_i32(setting(settings, "frbe_to", 0)) <>
+      w_i32(setting(settings, "fide_from", 0)) <>
+      w_i32(setting(settings, "fide_to", 0)) <>
+      w_i32(cat_separes(t, settings)) <>
+      w_i32(setting(settings, "elo_ou_pays", 1)) <>
       w_i32(if t.fide_homologated, do: 1, else: 0) <>
-      w_n(List.duplicate(nil, n_fide_ids), fn _ -> w_i32(0) <> w_i32(0) <> w_i32(0) end) <>
-      w_n(reverse_tournoi_tail_strings(t, n_strings), &w_str/1) <>
-      w_i32(reverse_tournament_type(t.type)) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(1) <>
-      w_i32(round(t.points_win * 4)) <>
-      w_i32(round(t.points_draw * 4)) <>
-      w_i32(round(t.points_loss * 4)) <>
-      w_i32(round((t.bye_value || 0.0) * 4)) <>
-      w_i32(round((t.presence_value || 0.0) * 4)) <>
-      w_i32(if t.presence_on_allocated_bye, do: 1, else: 0) <>
-      w_i32(0) <>
+      w_n(reverse_fide_ids(t, settings, n_fide_ids), fn [de, aa, id] ->
+        w_i32(de) <> w_i32(aa) <> w_i32(id)
+      end) <>
+      w_n(reverse_tournoi_tail_strings(settings, n_strings), &w_str/1) <>
+      w_i32(type) <>
+      w_i32(setting(settings, "sw_elo_r1", 1)) <>
+      w_i32(setting(settings, "sw_amer_presence", 0)) <>
+      w_i32(setting(settings, "plusieurs", 0)) <>
+      w_i32(setting(settings, "first_table", 1)) <>
+      w_n(reverse_sw321(t, settings, type), &w_i32/1) <>
+      w_i32(setting(settings, "elo_used", 1)) <>
       w_i32(reverse_standard(t.standard)) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(0) <>
-      w_i32(reverse_bye_value(t.bye_value)) <>
+      w_i32(setting(settings, "tb_personel", 0)) <>
+      w_i32(reverse_appar_order(t, settings)) <>
+      w_i32(setting(settings, "elo_equal", 0)) <>
+      w_i32(reverse_bye_value(t, settings, type)) <>
       w_u8(if (t.abs_value || 0.0) > 0, do: 1, else: 0) <>
       w_u8(abs_cap(t, t.abs_nbfois)) <>
       w_u8(abs_cap(t, t.abs_jusque)) <>
       w_u8(0) <>
-      w_i32(0) <>
-      w_i32(reverse_federation(t.federation))
+      w_i32(setting(settings, "ff_value", 2)) <>
+      w_i32(reverse_federation(t.federation, settings))
+  end
+
+  # A `swar_settings` value that is an integer, or `default`.
+  defp setting(settings, key, default) do
+    case Map.get(settings, key) do
+      v when is_integer(v) -> v
+      _ -> default
+    end
+  end
+
+  # SWAR keeps dates as "dd/mm/yyyy" (`Swar.h`: `DateDebut; // jj/mm/aaaa`);
+  # this app keeps them ISO. A date that is not ISO goes out as it is.
+  @doc false
+  def swar_date(date) when is_binary(date) do
+    case String.split(date, "-") do
+      [y, m, d] when byte_size(y) == 4 -> "#{d}/#{m}/#{y}"
+      _ -> date
+    end
+  end
+
+  def swar_date(_date), do: ""
+
+  # The chief arbiter as SWAR wrote them, title and all ("IA Luc Cornet"),
+  # while the name here is still the one the import took from it - the
+  # import drops the title, and may put a FIDE-matched name in its place.
+  defp reverse_arbiter1(t, settings) do
+    raw = Map.get(settings, "arbiter1")
+
+    if is_binary(raw) and SwarImport.strip_arbiter_title(raw) == t.chief_arbiter,
+      do: raw,
+      else: t.chief_arbiter
   end
 
   # `Cadence` is a 0-based index into a dropdown SWAR fills at runtime from
@@ -287,35 +323,228 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # finding which index THAT dropdown would show `t.rate_of_play` at. -1
   # (SWAR's own "custom" sentinel - verified against `cadence_label/2`
   # returning `nil` for any cadence outside its known table) falls back to
-  # writing `t.rate_of_play` as free text in `Cadence_Other` instead.
-  defp reverse_cadence(t) do
-    0..20
-    |> Enum.find(-1, &(SwarImport.cadence_label(t.standard, &1) == t.rate_of_play))
+  # writing `t.rate_of_play` as free text in `Cadence_Other` instead. The
+  # file's own index and text go back while they still read as
+  # `rate_of_play` - the "other cadence" entry is the last of SWAR's list,
+  # which `cadence_label/2` leaves out, so the index alone does not say which
+  # it was.
+  defp reverse_cadence(t, settings) do
+    raw = Map.get(settings, "cadence")
+    raw_other = Map.get(settings, "cadence_other") || ""
+
+    if is_integer(raw) and
+         (SwarImport.cadence_label(reverse_standard(t.standard), raw) || raw_other) ==
+           t.rate_of_play do
+      {raw, raw_other}
+    else
+      case Enum.find(
+             0..30,
+             &(SwarImport.cadence_label(reverse_standard(t.standard), &1) == t.rate_of_play)
+           ) do
+        nil -> {-1, t.rate_of_play}
+        index -> {index, ""}
+      end
+    end
   end
 
   # v7_strings folds arbiter-1/arbiter-2/remarks into ONE trailing string
   # (see `@tournoi_layout`) - `SwarImport.parse_tournoi/3` reads a
-  # single-element list back as `{"", "", remarks}`, so anything written
-  # as `fide_arb1`/`fide_arb2` here is unrecoverable on reimport no matter
-  # what goes in it. There's no dedicated "FIDE remarks" field on
-  # `Tournament` either, so this carries the deputy arbiter text instead
-  # of nothing - better than an empty string, not a claim it's correct.
-  defp reverse_tournoi_tail_strings(t, 1), do: [t.deputy_arbiter]
-  defp reverse_tournoi_tail_strings(t, 4), do: [t.chief_arbiter, t.deputy_arbiter, "", ""]
+  # single-element list back as `{"", "", remarks}`. That string is SWAR's
+  # "FIDE remarks", written back from the imported file; SWAR's two FIDE
+  # arbiter fields have no place in this layout.
+  defp reverse_tournoi_tail_strings(settings, 1), do: [Map.get(settings, "fide_remarks") || ""]
 
-  @tournament_type_reverse %{"swiss" => 0, "roundrobin" => 4}
-  # `team-swiss`/`team-roundrobin` have no SWAR code of their own (import
-  # never produces them - see `SwarImport`'s `@tournament_types`, every
-  # entry maps to plain "swiss"/"roundrobin"), so they fall back to their
-  # non-team base type: the closest SWAR concept, not an exact one.
-  defp reverse_tournament_type("team-swiss"), do: 0
-  defp reverse_tournament_type("team-roundrobin"), do: 4
-  defp reverse_tournament_type(type), do: Map.get(@tournament_type_reverse, type, 0)
+  defp reverse_tournoi_tail_strings(settings, 4),
+    do: [
+      Map.get(settings, "fide_arb1") || "",
+      Map.get(settings, "fide_arb2") || "",
+      "",
+      Map.get(settings, "fide_remarks") || ""
+    ]
+
+  # SWAR's per-round FIDE tournament ids (`FideIdDe`/`FideIdAA`/`FideIdId`,
+  # sixteen of them) - `fide_id_ranges` here. The imported block goes back
+  # as it was while the tournament still derives the same ranges and event
+  # code from it (an id with no usable round range is kept in `event_code`
+  # only, and would otherwise be lost); anything else is rebuilt from
+  # `fide_id_ranges`, then any id `event_code` names that no range carries,
+  # with no rounds.
+  defp reverse_fide_ids(t, settings, n) do
+    raw = Map.get(settings, "fide_ids")
+
+    entries =
+      if is_list(raw) and raw != [] and raw_fide_ids_current?(t, raw) do
+        raw
+      else
+        ranges =
+          Enum.flat_map(t.fide_id_ranges || [], fn r ->
+            case Integer.parse(to_string(r["fide_tournament_id"])) do
+              {id, ""} -> [[r["from_round"], r["to_round"], id]]
+              _ -> []
+            end
+          end)
+
+        in_ranges = MapSet.new(ranges, fn [_, _, id] -> id end)
+
+        extra =
+          (t.event_code || "")
+          |> String.split(",")
+          |> Enum.flat_map(fn part ->
+            case Integer.parse(String.trim(part)) do
+              {id, ""} when id > 0 -> [id]
+              _ -> []
+            end
+          end)
+          |> Enum.reject(&MapSet.member?(in_ranges, &1))
+          |> Enum.uniq()
+          |> Enum.map(&[0, 0, &1])
+
+        ranges ++ extra
+      end
+
+    entries
+    |> Enum.filter(
+      &match?([de, aa, id] when is_integer(de) and is_integer(aa) and is_integer(id), &1)
+    )
+    |> Enum.take(n)
+    |> then(&(&1 ++ List.duplicate([0, 0, 0], n - length(&1))))
+  end
+
+  defp raw_fide_ids_current?(t, raw) do
+    ids =
+      raw |> Enum.map(fn [_, _, id] -> id end) |> Enum.reject(&(&1 in [0, nil])) |> Enum.uniq()
+
+    event_code = Enum.map_join(ids, ", ", &to_string/1)
+
+    ranges =
+      raw
+      |> Enum.filter(fn [de, aa, id] -> id > 0 and de >= 1 and aa >= de end)
+      |> Enum.sort_by(fn [de, _, _] -> de end)
+      |> Enum.reduce([], fn [de, aa, id], acc ->
+        case acc do
+          [%{"to_round" => prev_aa} | _] when de <= prev_aa ->
+            acc
+
+          _ ->
+            [%{"fide_tournament_id" => to_string(id), "from_round" => de, "to_round" => aa} | acc]
+        end
+      end)
+      |> Enum.reverse()
+
+    event_code == (t.event_code || "") and ranges == (t.fide_id_ranges || [])
+  end
+
+  # SWAR's `TOURNOI_TYPE`: SWISS 0, SWISS_DBL 1, SWISS_ACC 2, SWISS_321 3,
+  # ROBIN 4, ROBIN_DBL 5, ROBIN_AR 6, SW_AMERICAIN 7, SW_AMERICAIN_DBL 8.
+  #
+  # From the tournament: a round robin is 4, 5 in match format (each
+  # pairing twice in a row), 6 as a double round robin; a Swiss is 1 in
+  # match format and 3 - SWAR's "3-2-1", the one type with its own point
+  # values - when it scores other than 1/½/0 with a full-point bye (SWAR
+  # scores every other type that way). A team tournament has no SWAR type
+  # and goes as the individual one; Keizer as a Swiss. A tournament that
+  # came from SWAR keeps the file's own type while it still reads the same
+  # here: an accelerated Swiss (2) is an ordinary Swiss in this app.
+  defp reverse_tournament_type(t, settings) do
+    derived = derived_tournament_type(t)
+    raw = Map.get(settings, "type")
+
+    if raw in 0..8 and imported_type(raw, t) == derived, do: raw, else: derived
+  end
+
+  defp derived_tournament_type(t) do
+    cond do
+      round_robin?(t) and t.rr_match_format -> 5
+      round_robin?(t) and t.rr_cycles == 2 -> 6
+      round_robin?(t) -> 4
+      t.swiss_match_format -> 1
+      custom_points?(t) -> 3
+      true -> 0
+    end
+  end
+
+  # The type `SwarImport` turns `raw` into, in this function's terms: an
+  # accelerated Swiss is a plain one, and an American one (which this app
+  # does not have) too.
+  defp imported_type(2, _t), do: 0
+  defp imported_type(raw, _t) when raw in [7, 8], do: 0
+  defp imported_type(1, t), do: if(t.swiss_match_format, do: 1, else: 0)
+  defp imported_type(raw, _t), do: raw
+
+  defp round_robin?(t),
+    do: t.pairing_system == "round_robin" or t.type in ["roundrobin", "team-roundrobin"]
+
+  # Anything but SWAR's fixed scoring: 1 / ½ / 0, and a pairing-allocated
+  # bye worth a point (a round robin's forced one included).
+  defp custom_points?(t) do
+    t.points_win != 1.0 or t.points_draw != 0.5 or t.points_loss != 0.0 or
+      (t.presence_value || 0.0) != 0.0
+  end
+
+  # `SW321_Win/Nul/Los/Bye/Pre/PreBye`, SWAR's own point values - which it
+  # reads only for its 3-2-1 type. For that type they are the tournament's;
+  # for any other, the imported file's own (whatever SWAR had there),
+  # else the fixed scoring they would stand for.
+  defp reverse_sw321(t, settings, type) do
+    case Map.get(settings, "sw321") do
+      [_, _, _, _, _, _] = raw when type != 3 ->
+        Enum.map(raw, &(&1 || 0))
+
+      _ ->
+        [
+          round(t.points_win * 4),
+          round(t.points_draw * 4),
+          round(t.points_loss * 4),
+          round((t.bye_value || 0.0) * 4),
+          round((t.presence_value || 0.0) * 4),
+          if(t.presence_on_allocated_bye, do: 1, else: 0)
+        ]
+    end
+  end
+
+  # `ApparOrder` - "Couleur du Nr.1 à la première ronde" (`TOptions.cpp`):
+  # the colour the top seed has in round 1, 0 white, 1 black, 2 drawn at
+  # random. That is the initial colour here (C.04.3 Article 5.1). A drawn
+  # lot goes as the colour it drew; one not drawn yet as SWAR's own random.
+  # A round robin's `ApparOrder` means something else in SWAR (how the
+  # table is seeded) and goes back as the file had it.
+  defp reverse_appar_order(t, settings) do
+    if round_robin?(t) do
+      setting(settings, "appar_order", 0)
+    else
+      case Tournament.effective_initial_colour(t) do
+        "white" -> 0
+        "black" -> 1
+        nil -> 2
+      end
+    end
+  end
 
   defp reverse_standard("standard"), do: 0
   defp reverse_standard("rapid"), do: 1
   defp reverse_standard("blitz"), do: 2
   defp reverse_standard(_), do: 0
+
+  # SWAR's `CatSepares`. Without categories it means nothing either way, and
+  # the imported file's own value goes back; with them, it is on when this
+  # tournament pairs or ranks its categories separately.
+  defp cat_separes(t, settings) do
+    cond do
+      t.categories_enabled and (t.categories || []) != [] ->
+        if separate_categories?(t), do: 1, else: 0
+
+      Map.get(settings, "cat_separes") in [0, 1] ->
+        Map.get(settings, "cat_separes")
+
+      true ->
+        0
+    end
+  end
+
+  defp separate_categories?(t) do
+    Standings.ranked_separately?(t) or
+      (t.pair_by_category and t.categories_enabled and (t.categories || []) != [])
+  end
 
   # SWAR's absence caps, where nil does NOT mean zero.
   #
@@ -369,39 +598,95 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     @max_abs_cap
   end
 
-  defp reverse_bye_value(1.0), do: 0
-  defp reverse_bye_value(0.5), do: 1
-  defp reverse_bye_value(v) when v == 0.0, do: 2
-  defp reverse_bye_value(_), do: 0
+  # SWAR's `ByeValue`: 0 a full point, 1 half, 2 nothing (`USE_POINTS`).
+  # A round robin's is forced to a full point on load in SWAR and on import
+  # here (`SwarImport.scoring_attrs/1`), so its file's own byte goes back
+  # as it was; so does a 3-2-1 event's, whose bye is `SW321_Bye` instead.
+  # Anything else is the tournament's.
+  defp reverse_bye_value(t, settings, type) do
+    raw = Map.get(settings, "bye_value")
+
+    cond do
+      raw in [0, 1, 2] and type == 3 -> raw
+      raw in [0, 1, 2] and round_robin?(t) and t.bye_value == 1.0 -> raw
+      raw in [0, 1, 2] and bye_points(raw) == t.bye_value -> raw
+      true -> bye_value_code(t.bye_value)
+    end
+  end
+
+  defp bye_points(0), do: 1.0
+  defp bye_points(1), do: 0.5
+  defp bye_points(2), do: 0.0
+
+  defp bye_value_code(1.0), do: 0
+  defp bye_value_code(0.5), do: 1
+  defp bye_value_code(v) when v == 0.0, do: 2
+  defp bye_value_code(_), do: 0
 
   # Belgian sub-federation codes 1-6 all collapse to the single FIDE
   # country code "BEL" on import (`normalize_federation/1`) - which ONE
-  # organized the tournament is gone by the time it reaches
-  # `tournament.federation`. 2 (KBSB, the national federation itself) is
-  # the arbitrary-but-documented choice for writing it back; any other
-  # value (a real FIDE country code, or "") has no SWAR federation-code
-  # equivalent at all - that field means "which Belgian entity", not "which
-  # country" - so it becomes 0 ("none selected").
-  defp reverse_federation("BEL"), do: 2
-  defp reverse_federation(_), do: 0
+  # organized the tournament is kept in `swar_settings` and goes back while
+  # the tournament is still Belgian. Otherwise 2 (KBSB, the national
+  # federation itself) is the documented choice for "BEL"; any other value
+  # (a real FIDE country code, or "") has no SWAR federation-code equivalent
+  # at all - that field means "which Belgian entity", not "which country" -
+  # so it becomes 0 ("none selected").
+  defp reverse_federation(federation, settings) do
+    case {federation, Map.get(settings, "federation")} do
+      {"BEL", raw} when raw in 1..6 -> raw
+      {"BEL", _} -> 2
+      _ -> 0
+    end
+  end
 
   ## ---------- [DATES] ----------
 
   defp reverse_dates(t) do
     dates = t.round_dates || []
     padded = dates ++ List.duplicate("", max(t.rounds_count - length(dates), 0))
-    w_str("[DATES]") <> w_n(Enum.take(padded, t.rounds_count), &w_str/1)
+    w_str("[DATES]") <> w_n(Enum.take(padded, t.rounds_count), &w_str(swar_date(&1)))
   end
 
   ## ---------- [TIE_BREAK] ----------
 
-  @tiebreak_reverse %{"BH" => 1, "BHC1" => 4, "SB" => 6, "DE" => 8, "WIN" => 10, "PS" => 7}
+  # SWAR's `DEPARTAGES` for each of this app's codes it has - the inverse of
+  # `SwarImport`'s `@tiebreak_codes`. SWAR has five slots.
+  @tiebreak_reverse %{
+    "BH" => 1,
+    "MBH" => 2,
+    "BHC1" => 4,
+    "BHC2" => 5,
+    "SB" => 6,
+    "PS" => 7,
+    "DE" => 8,
+    "KS" => 9,
+    "WIN" => 10,
+    "ARO" => 12,
+    "AROC1" => 13,
+    "BPG" => 14
+  }
 
-  defp reverse_tie_break(t) do
+  @doc false
+  def tiebreak_reverse, do: @tiebreak_reverse
+
+  # The imported file's own list goes back while the tournament still ranks
+  # by what the import made of it - which keeps SWAR's median-2, performance
+  # and black-wins criteria (no counterpart here, left out on import) in
+  # their places. Otherwise the tournament's list, each code SWAR has, in
+  # order, up to five.
+  defp reverse_tie_break(t, settings) do
+    raw = Map.get(settings, "tiebreaks")
+
     codes =
-      (t.tiebreaks || [])
-      |> Enum.map(&Map.get(@tiebreak_reverse, &1))
-      |> Enum.reject(&is_nil/1)
+      if is_list(raw) and length(raw) == 5 and Enum.all?(raw, &is_integer/1) and
+           SwarImport.map_tiebreaks(raw) == (t.tiebreaks || []) do
+        raw
+      else
+        (t.tiebreaks || [])
+        |> Enum.map(&Map.get(@tiebreak_reverse, &1))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.take(5)
+      end
 
     padded = codes ++ List.duplicate(0, max(5 - length(codes), 0))
     w_str("[TIE_BREAK]") <> w_n(Enum.take(padded, 5), &w_i32/1)
@@ -409,9 +694,229 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
 
   ## ---------- [EXCLUSION] ----------
 
-  # Never mapped to anything on import (see moduledoc) - written as "off,
-  # no list" rather than guessed.
-  defp reverse_exclusion, do: w_str("[EXCLUSION]") <> w_i32(0) <> w_str("")
+  defp reverse_exclusion({type, values, _notes}),
+    do: w_str("[EXCLUSION]") <> w_i32(type) <> w_str(values)
+
+  # SWAR's `USE_EXCLUSION` holds ONE rule (`Swar.h`; what each means is in
+  # `SwarImport`'s `[EXCLUSION]` section): -1 none, 0 groups of player
+  # numbers whose members never meet ("1,4:12,15,21"), 1 listed club
+  # numbers ("618:621"), 2 listed nationalities ("BEL:FRA"), 3 every club,
+  # 4 every nationality. This app holds a club rule, a federation rule and
+  # forbidden pairs, any of them at once. Returns `{type, values, notes}`,
+  # `notes` being what the export screen tells the organiser
+  # (`export_notes/1`):
+  #
+  #   * one rule alone goes as SWAR's own rule - the club rule only where
+  #     SWAR's club NUMBERS keep exactly the players apart that this app's
+  #     club NAMES do (SWAR groups by number, `BuildAllClub`);
+  #   * forbidden pairs alone go as groups of two;
+  #   * anything else - two rules, a rule and pairs, or a club rule the
+  #     numbers cannot express - goes as groups of player numbers (0) that
+  #     keep exactly the same players apart as the rules do now. A player
+  #     added in SWAR afterwards is in no group.
+  #
+  # Soft pairs and the soft club rule have no place in SWAR at all.
+  defp exclusion_for_export(t, players, ni_by_player_id) do
+    forbidden = Tournaments.list_forbidden_pairings(t.id)
+    {soft, hard} = Enum.split_with(forbidden, & &1.soft)
+    by_id = Map.new(players, &{&1.id, &1})
+
+    hard_pairs =
+      hard
+      |> Enum.flat_map(fn f ->
+        case {by_id[f.player_a_id], by_id[f.player_b_id]} do
+          {%{} = a, %{} = b} -> [{a, b}]
+          _ -> []
+        end
+      end)
+
+    club = if t.club_exclusion in ["all", "listed"], do: [:club], else: []
+    fed = if t.fed_exclusion in ["all", "listed"], do: [:fed], else: []
+
+    soft_notes =
+      if soft != [] or (t.soft_club_rounds || 0) > 0 do
+        [
+          gettext(
+            "SWAR has no soft pairing wishes: the pairs to avoid if possible, and the wish to keep clubmates apart in the first rounds, are not in the file."
+          )
+        ]
+      else
+        []
+      end
+
+    {type, values, notes} =
+      case {club ++ fed, hard_pairs} do
+        {[], []} ->
+          {-1, "", []}
+
+        {[], pairs} ->
+          {0, pairs_value(pairs, ni_by_player_id), []}
+
+        {[:club], []} ->
+          club_rule(t, players, ni_by_player_id)
+
+        {[:fed], []} ->
+          fed_rule(t)
+
+        {_rules, pairs} ->
+          groups =
+            rule_groups(t, players) ++ Enum.map(pairs, fn {a, b} -> [a, b] end)
+
+          {0, groups_value(groups, ni_by_player_id),
+           [
+             gettext(
+               "SWAR keeps one exclusion rule, and this tournament has more than one (club, federation or forbidden pairs). They are written as groups of player numbers whose members never meet, which keep exactly the same players apart - but a player added in SWAR later is in no group, and re-importing the file brings them back as forbidden pairs, not as club or federation rules."
+             )
+           ]}
+      end
+
+    {type, values, notes ++ soft_notes}
+  end
+
+  # The club rule on its own: SWAR's 3 (every club) or 1 (these club
+  # numbers) when its grouping by club NUMBER keeps apart the same players as
+  # this app's grouping by club NAME; groups of player numbers otherwise.
+  defp club_rule(t, players, ni_by_player_id) do
+    ours = club_name_groups(t, players)
+
+    {type, numbers} =
+      case t.club_exclusion do
+        "all" ->
+          {3, nil}
+
+        "listed" ->
+          {1,
+           ours
+           |> List.flatten()
+           |> Enum.map(& &1.club_number)
+           |> Enum.reject(&is_nil/1)
+           |> Enum.uniq()
+           |> Enum.sort()}
+      end
+
+    swar =
+      players
+      |> Enum.filter(&(is_nil(numbers) or &1.club_number in numbers))
+      |> Enum.group_by(&(&1.club_number || 0))
+      |> Map.values()
+      |> Enum.filter(&(length(&1) >= 2))
+
+    if as_sets(swar) == as_sets(ours) do
+      {type, if(numbers, do: Enum.join(numbers, ":"), else: ""), []}
+    else
+      {0, groups_value(ours, ni_by_player_id),
+       [
+         gettext(
+           "SWAR keeps clubmates apart by club number, and here the club numbers do not match the club names for every player (a club without a number, or one number for two names). The club rule is written as groups of player numbers whose members never meet, which keep exactly the same players apart - but a player added in SWAR later is in no group, and re-importing the file brings them back as forbidden pairs."
+         )
+       ]}
+    end
+  end
+
+  # The federation rule on its own: SWAR's 4 (every nationality) or 2 (these
+  # nationalities). SWAR v6.65 does not apply 4 at all (`BuildAllNat` is
+  # empty - docs/swar-source-audit-2026-09-09.md, F2): the file says what
+  # the tournament wants, and the note says SWAR will not do it.
+  defp fed_rule(%{fed_exclusion: "all"}) do
+    {4, "",
+     [
+       gettext(
+         "The rule keeping players of the same federation apart is written as SWAR's own \"every nationality\" rule - which SWAR 6.65 does not apply (a known SWAR defect). If the tournament is continued in SWAR, check its pairings for compatriots."
+       )
+     ]}
+  end
+
+  defp fed_rule(t) do
+    codes = t.fed_exclusion_list |> Exclusions.normalize_list() |> Enum.map(&String.upcase/1)
+    {2, Enum.join(codes, ":"), []}
+  end
+
+  # The groups the club and federation rules keep apart now, as lists of
+  # players.
+  defp rule_groups(t, players) do
+    club = if t.club_exclusion in ["all", "listed"], do: club_name_groups(t, players), else: []
+
+    fed =
+      if t.fed_exclusion in ["all", "listed"],
+        do: value_groups(players, & &1.federation, t.fed_exclusion, t.fed_exclusion_list),
+        else: []
+
+    club ++ fed
+  end
+
+  defp club_name_groups(t, players),
+    do: value_groups(players, & &1.club, t.club_exclusion, t.club_exclusion_list)
+
+  # `PairingsEngine.Exclusions`' own grouping: trimmed, case-insensitive,
+  # blank never a group; "listed" keeps the listed values only.
+  defp value_groups(players, field, mode, list) do
+    allowed = list |> Exclusions.normalize_list() |> MapSet.new(&String.downcase/1)
+
+    players
+    |> Enum.group_by(&(&1 |> field.() |> to_string() |> String.trim() |> String.downcase()))
+    |> Enum.reject(fn {value, _} -> value == "" end)
+    |> Enum.filter(fn {value, _} -> mode == "all" or MapSet.member?(allowed, value) end)
+    |> Enum.map(fn {_value, group} -> group end)
+    |> Enum.filter(&(length(&1) >= 2))
+  end
+
+  defp as_sets(groups), do: MapSet.new(groups, fn g -> MapSet.new(g, & &1.id) end)
+
+  # "1,4:12,15,21" - `ImplodeValues1`'s shape, player numbers (NI), in a
+  # fixed order so the same rules always write the same file.
+  defp groups_value(groups, ni_by_player_id) do
+    groups
+    |> Enum.map(fn group ->
+      group |> Enum.map(&Map.fetch!(ni_by_player_id, &1.id)) |> Enum.uniq() |> Enum.sort()
+    end)
+    |> Enum.filter(&(length(&1) >= 2))
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> Enum.map_join(":", &Enum.join(&1, ","))
+  end
+
+  # Forbidden pairs as SWAR's groups: every pair within a group never meets,
+  # so pairs that form a group ("1,2,3" imported as 1-2, 1-3, 2-3) go back
+  # as that group - each group grown from its first pair by every player
+  # forbidden against all of it, so no group forbids a pair that was not.
+  defp pairs_value(pairs, ni_by_player_id) do
+    edges =
+      pairs
+      |> Enum.map(fn {a, b} ->
+        [x, y] = Enum.sort([Map.fetch!(ni_by_player_id, a.id), Map.fetch!(ni_by_player_id, b.id)])
+        {x, y}
+      end)
+      |> MapSet.new()
+
+    adjacent? = fn x, y -> MapSet.member?(edges, {min(x, y), max(x, y)}) end
+    vertices = edges |> Enum.flat_map(&Tuple.to_list/1) |> Enum.uniq() |> Enum.sort()
+
+    {groups, _covered} =
+      edges
+      |> Enum.sort()
+      |> Enum.reduce({[], MapSet.new()}, fn {x, y} = edge, {groups, covered} ->
+        if MapSet.member?(covered, edge) do
+          {groups, covered}
+        else
+          group =
+            Enum.reduce(vertices, [x, y], fn v, group ->
+              if v in group or not Enum.all?(group, &adjacent?.(&1, v)),
+                do: group,
+                else: group ++ [v]
+            end)
+            |> Enum.sort()
+
+          covered =
+            for(a <- group, b <- group, a < b, into: covered, do: {a, b})
+
+          {[group | groups], covered}
+        end
+      end)
+
+    groups
+    |> Enum.reverse()
+    |> Enum.map_join(":", &Enum.join(&1, ","))
+  end
 
   ## ---------- [CATEGORIES] ----------
 
@@ -428,10 +933,9 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # resolved the name, only one that checked the raw `value1` shape, which
   # is how it survived. Fixed alongside two-axis import/export; see
   # docs/swar-import.md.
-  defp reverse_categories(axis1, axis2, cat_type) do
+  defp reverse_categories(axis1, axis2, type) do
     value1 = axis1 |> pad_strings(17)
     value2 = axis2 |> pad_strings(17)
-    type = cat_type || if(axis1 == [], do: 0, else: 1)
 
     w_str("[CATEGORIES]") <>
       w_i32(type) <>
@@ -439,22 +943,64 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       w_n(value2, &w_str/1)
   end
 
+  # SWAR's `Categorie` type: the two-axis type a two-axis import kept, 0 for
+  # no categories, and otherwise the single-axis type the imported file had
+  # (1 rating, 2 age, 5 names) - or 5, names, for categories made here: they
+  # are names a player is given, which is what SWAR's type 5 is.
+  defp category_type(two_axis, _axis1, _settings) when two_axis in [3, 4], do: two_axis
+
+  # No categories: the imported file's type still goes back (a SWAR file can
+  # name a type and leave its lists empty), else SWAR's "none".
+  defp category_type(_two_axis, [], settings) do
+    case Map.get(settings, "category_type") do
+      raw when raw in 0..5 -> raw
+      _ -> 0
+    end
+  end
+
+  defp category_type(_two_axis, _axis1, settings) do
+    case Map.get(settings, "category_type") do
+      raw when raw in [1, 2, 5] -> raw
+      _ -> 5
+    end
+  end
+
   defp pad_strings(list, n) when length(list) >= n, do: Enum.take(list, n)
   defp pad_strings(list, n), do: list ++ List.duplicate("", n - length(list))
 
   ## ---------- [XTRA_POINTS] ----------
 
-  # SWAR's own Elo-band extra-points table - a DIFFERENT mechanism from
-  # `Tournament.extra_points_bands` (OpenPairings' own band syntax, an
-  # importer-side addition with no SWAR-side field to write back to; see
-  # `docs/extra-points.md`). Four empty bands, matching "feature unused".
-  defp reverse_xtra_points,
-    do: w_str("[XTRA_POINTS]") <> w_n(1..4, fn _ -> w_i32(0) <> w_i32(0) end)
+  # SWAR's own Elo-band extra-points table: four `(points x 4, Elo)` bands,
+  # a player at or above a band's Elo getting its points (`XtraPoints.cpp`,
+  # `AssignExtraPoints`). This app's `extra_points_bands` pays players BELOW
+  # a rating instead (`docs/extra-points.md`), so neither converts into the
+  # other: the imported file's table goes back as it was, and a tournament
+  # that never came from SWAR has four empty bands. The players' own extra
+  # points are in `[JOUEURS]` either way.
+  defp reverse_xtra_points(settings) do
+    bands =
+      case Map.get(settings, "xtra_points") do
+        list when is_list(list) ->
+          list
+          |> Enum.filter(&match?([p, e] when is_integer(p) and is_integer(e), &1))
+          |> Enum.take(4)
+
+        _ ->
+          []
+      end
+
+    bands = bands ++ List.duplicate([0, 0], 4 - length(bands))
+    w_str("[XTRA_POINTS]") <> w_n(bands, fn [pts, elo] -> w_i32(pts) <> w_i32(elo) end)
+  end
 
   ## ---------- [JOUEURS] ----------
 
-  # SWAR's own internal player number (`NI`) IS `pairing_number` - checked
-  # directly against `SwarImport.player_attrs/2`, `pairing_number: p.ni`.
+  # SWAR's own internal player number (`NI`) is written as `pairing_number`.
+  # `NI` means nothing in a file but "the player a [RONDE] record's opponent
+  # number points at", and the import reads it only for that - it numbers
+  # players by SWAR's seed order (`SwarImport.prepare_players/1`) - so a
+  # file that went through here comes back to SWAR with the same players
+  # under their seed numbers.
   # A player who was never paired has no `pairing_number`; such a player
   # has no round records either (see `build_round_records/3`), so their NI
   # is cosmetic - just needs to be distinct - and gets one continuing past
@@ -483,7 +1029,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # no better default at the time - this makes that choice load-bearing
   # rather than arbitrary, so the two now agree on purpose).
   #
-  # Unlike `Class` (see `reverse_player/4`'s own comment), `Rank` is NOT
+  # Unlike `Class` (see `reverse_player/6`'s own comment), `Rank` is NOT
   # recomputed on a plain file load for a Swiss tournament - checked
   # directly: `RecomputeRank()` only runs from the "add a player" action
   # (`Base.cpp`) or Round Robin's own pre-pairing prompt
@@ -500,21 +1046,42 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # `reverse_title/1`'s `@title_reverse` IS `J_TITRE`'s own enum order -
   # higher value wins a rating tie, same table, reused rather than
   # duplicated.
+  #
+  # That sort is for players this tournament has not numbered yet. Once
+  # pairing numbers exist they ARE the seed - this app's starting ranks,
+  # handed out by rating when round 1 was paired and frozen since (C.04.2.B),
+  # late entrants after them; for a SWAR import, SWAR's own seed order
+  # (`SwarImport.prepare_players/1`) - so Rank follows them, and a
+  # tournament continued in SWAR orders its players, and numbers a round
+  # robin's Berger table, the way it was being paired here. Players without
+  # a number come after the numbered ones.
   defp assign_ranks(players) do
-    players
-    |> Enum.sort_by(&{-(&1.fide_rating || 0), -reverse_title(&1.title), &1.name})
+    {numbered, unnumbered} = Enum.split_with(players, & &1.pairing_number)
+
+    (Enum.sort_by(numbered, & &1.pairing_number) ++
+       Enum.sort_by(unnumbered, &{-(&1.fide_rating || 0), -reverse_title(&1.title), &1.name}))
     |> Enum.with_index(1)
     |> Map.new(fn {p, i} -> {p.id, i} end)
   end
 
-  defp reverse_joueurs(players, cat_index_by_player_id, ni_by_player_id, round_records) do
+  defp reverse_joueurs(
+         tournament,
+         players,
+         cat_index_by_player_id,
+         ni_by_player_id,
+         round_records
+       ) do
     rank_by_player_id = assign_ranks(players)
+    # In player-number order, as SWAR lists them - and so the same tournament
+    # always writes the same file, whatever order the roster query returns.
+    players = Enum.sort_by(players, &Map.fetch!(ni_by_player_id, &1.id))
 
     w_str("[JOUEURS]") <>
       w_i32(length(players)) <>
       w_n(
         players,
         &reverse_player(
+          tournament,
           &1,
           cat_index_by_player_id,
           ni_by_player_id,
@@ -525,6 +1092,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   end
 
   defp reverse_player(
+         tournament,
          p,
          cat_index_by_player_id,
          ni_by_player_id,
@@ -535,7 +1103,11 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     rank = Map.fetch!(rank_by_player_id, p.id)
     rounds = Map.get(round_records, p.id, [])
     nb_parties = Enum.count(rounds, & &1.played?)
-    points_x2 = round(Enum.sum(Enum.map(rounds, & &1.points)) * 2)
+    # SWAR's `Points` are quarter points (the import divides by 4 - see
+    # docs/swar-import.md on the c-reeks anchor). This wrote half points.
+    # SWAR recomputes them before it shows or pairs anything, so only a
+    # reader of the raw file ever saw the difference.
+    points_x4 = round(Enum.sum(Enum.map(rounds, & &1.points)) * 4)
 
     # `class` and `rank` are the two fields the SWAR question "does the
     # seed survive?" turns on - SWAR's Swiss pairing sorts players by
@@ -601,20 +1173,35 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       w_i32(p.club_number || 0) <>
       w_str(p.club) <>
       w_i32(nb_parties) <>
-      w_i32(points_x2) <>
+      w_i32(points_x4) <>
       w_i32(0) <>
       w_n(1..5, fn _ -> w_i32(0) end) <>
       w_i32(0) <>
       w_i32(reverse_paid(p.paid)) <>
       w_i32(reverse_absent_code(p)) <>
       w_str(p.absent_rounds || "") <>
-      w_i32(round((p.extra_points || 0.0) * 4)) <>
+      w_i32(reverse_extra_points(tournament, p)) <>
       w_i32(0) <>
       w_i16(length(rounds)) <>
       w_i16(reverse_handy_table(p)) <>
       w_str("[RONDE]") <>
       w_n(rounds, &reverse_round/1)
   end
+
+  # SWAR counts `ExtraPts` in every Swiss standings, always
+  # (`CalculLeClassement`); this app only with `count_extra_points` on. So a
+  # player's extra points go into the file only while the tournament counts
+  # them - otherwise SWAR would rank on points this tournament does not -
+  # and never for a round robin or a 3-2-1 event, whose extra points SWAR
+  # throws away on load. Quarter points, as SWAR stores them.
+  defp reverse_extra_points(tournament, p) do
+    if extra_points_exported?(tournament),
+      do: round((p.extra_points || 0.0) * 4),
+      else: 0
+  end
+
+  defp extra_points_exported?(t),
+    do: t.count_extra_points and not round_robin?(t) and derived_tournament_type(t) != 3
 
   # The largest table number a signed 16-bit HandyTable field can hold.
   # `w_i16/1` would WRAP anything past it rather than fail - 40000 comes out
@@ -789,7 +1376,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       w_i32(table) <> w_i32(advers) <> w_i32(result) <> w_i32(colour) <> w_i32(0) <> w_i32(0)
   end
 
-  # One preloaded round's pairings, keyed the way `reverse_player/4` wants
+  # One preloaded round's pairings, keyed the way `reverse_player/6` wants
   # them: white/black players + result, board number, nothing sentinel
   # about pairing-allocated byes still to resolve (that happens in
   # `round_record_for/4`).
@@ -974,4 +1561,143 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # SWAR's "not played yet". SWAR has no code for a game counted as a draw
   # until it is played, so the file says the plain truth - no result yet.
   defp result_bits(_other, _white?), do: {0, 0.0}
+
+  ## ---------- What the export screen says the file cannot carry ----------
+
+  # Every result code in the tournament, for `result_notes/1`.
+  defp tournament_results(tournament_id) do
+    from(p in PairingsEngine.Tournaments.Pairing,
+      join: r in PairingsEngine.Tournaments.Round,
+      on: r.id == p.round_id,
+      where: r.tournament_id == ^tournament_id,
+      select: p.result
+    )
+    |> Repo.all()
+  end
+
+  defp system_notes(t) do
+    [
+      t.pairing_system == "keizer" &&
+        gettext(
+          "SWAR has no Keizer system: the tournament is written as a Swiss, with its games and results. Its Keizer standings are not in the file."
+        ),
+      t.type in ["team-swiss", "team-roundrobin"] &&
+        gettext(
+          "SWAR has no team tournaments: the individual games are written, but the teams, the matches and the match points are not in the file."
+        ),
+      t.acceleration == "baku" &&
+        gettext(
+          "Baku acceleration is not written: SWAR's own accelerated Swiss groups and scores players differently. The rounds already played are in the file as they are."
+        ),
+      t.manual_ranking &&
+        gettext(
+          "The standings order set by hand is not written: SWAR ranks by its own tie-breaks."
+        ),
+      Standings.ranked_separately?(t) !=
+        (t.pair_by_category and t.categories_enabled and (t.categories || []) != []) &&
+        gettext(
+          "SWAR has one setting for pairing and ranking each category on its own, and this tournament does only one of the two. The file switches it on, so SWAR will both pair and rank each category separately."
+        ),
+      (t.pair_by_category and t.categories_enabled and (t.categories || []) != [] and
+         t.swiss_match_format) &&
+        gettext(
+          "Match format with categories paired separately goes to SWAR as its \"double rounds\" Swiss with separate categories."
+        )
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
+
+  defp scoring_notes(t, players) do
+    [
+      (round_robin?(t) and custom_points?(t)) &&
+        gettext(
+          "SWAR scores a round robin 1, ½ and 0 only: this tournament's own point values are not in the file, and SWAR will score its games the usual way."
+        ),
+      (not round_robin?(t) and custom_points?(t)) &&
+        gettext(
+          "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values. OpenPairings cannot import a 3-2-1 file back yet."
+        ),
+      (not t.count_extra_points and Enum.any?(players, &((&1.extra_points || 0.0) != 0.0))) &&
+        gettext(
+          "Players' extra points are not written, because this tournament does not count them and SWAR always would."
+        ),
+      (t.count_extra_points and round_robin?(t)) &&
+        gettext(
+          "Extra points are not written for a round robin: SWAR discards them when it opens one."
+        ),
+      (t.extra_points_bands || "") != "" &&
+        gettext(
+          "The extra-point bands are not written: SWAR's band table gives points to players at or above a rating, these to players below one. The points already given to players are."
+        )
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
+
+  defp category_notes(t) do
+    categories = t.categories || []
+
+    [
+      length(categories) > 16 &&
+        gettext(
+          "SWAR holds 16 categories; the ones after the 16th, and the players' places in them, are not in the file."
+        ),
+      (categories != [] and map_size(t.category_rules || %{}) > 0) &&
+        gettext(
+          "The conditions that fill a category automatically are not written: SWAR's categories are names, and every player goes with the category they are in now."
+        )
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
+
+  defp tiebreak_notes(t) do
+    case Enum.reject(t.tiebreaks || [], &Map.has_key?(@tiebreak_reverse, &1)) do
+      [] ->
+        if length(t.tiebreaks || []) > 5 do
+          [
+            gettext("SWAR keeps five tie-breaks; the ones after the fifth are not in the file.")
+          ]
+        else
+          []
+        end
+
+      missing ->
+        [
+          gettext(
+            "SWAR has no tie-break for %{codes}: it is left out of the file's tie-break list, and SWAR will rank without it.",
+            codes: Enum.join(missing, ", ")
+          )
+        ]
+    end
+  end
+
+  defp player_notes(_t, players) do
+    [
+      Enum.any?(
+        players,
+        &((&1.national_rating || 0) > 0 and &1.national_rating != &1.fide_rating)
+      ) &&
+        gettext(
+          "A SWAR 7 file has one rating per player: the FIDE rating is written, and a national rating that differs from it is not."
+        ),
+      Enum.any?(players, &((&1.start_round || 1) > 1)) &&
+        gettext(
+          "Players who joined after round 1 have no record for the rounds before it; SWAR shows those rounds as not played."
+        )
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
+
+  defp result_notes(results) do
+    [
+      Enum.any?(results, &(&1 in ["1-0U", "0-1U", "1/2-1/2U"])) &&
+        gettext(
+          "SWAR has no \"played but not rated\" result: those games are written as ordinary rated results."
+        ),
+      Enum.any?(results, &PairingsEngine.Results.postponed?/1) &&
+        gettext(
+          "Postponed games are written as not played yet, which is what SWAR has for them; what they count as until then is not in the file."
+        )
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
 end

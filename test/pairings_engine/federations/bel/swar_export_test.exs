@@ -316,11 +316,15 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     assert tournoi.nb_rounds == 3
     assert tournoi.fide_homolog == 1
     # v7_strings layout: arb1/arb2 cannot survive (only ONE trailing
-    # string exists on the wire) - see SwarExport's moduledoc. Only the
-    # single "remarks" slot (written from deputy_arbiter) comes back.
+    # string exists on the wire) - see SwarExport's moduledoc. The single
+    # "remarks" slot is SWAR's FIDE remarks, which a tournament that never
+    # came from SWAR has none of.
     assert tournoi.fide_arb1 == ""
     assert tournoi.fide_arb2 == ""
-    assert tournoi.fide_remarks == "John Deputy"
+    assert tournoi.fide_remarks == ""
+    # SWAR's own date shape, `jj/mm/aaaa`.
+    assert tournoi.start_date == "10/08/2026"
+    assert tournoi.end_date == "12/08/2026"
 
     assert tournoi.type == 0
     assert tournoi.sw321_win == 4
@@ -334,7 +338,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     assert tournoi.abs_jusque == 7
     assert tournoi.federation == 2
 
-    assert parsed.dates == ["2026-08-10", "2026-08-11", "2026-08-12"]
+    assert parsed.dates == ["10/08/2026", "11/08/2026", "12/08/2026"]
     assert parsed.tiebreaks == [1, 6, 8, 0, 0]
   end
 
@@ -388,7 +392,9 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     binary = SwarExport.export(t.id)
     {:ok, parsed} = SwarImport.parse(binary)
 
-    assert parsed.categories.type == 1
+    # 5 - SWAR's categories given by name, which is what categories made
+    # here are.
+    assert parsed.categories.type == 5
     assert Enum.take(parsed.categories.value1, 3) == ["-1100", "-1800", "Women"]
     assert Enum.all?(parsed.categories.value2, &(&1 == ""))
   end
@@ -411,7 +417,9 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     # "-1800" is index 1 (0-based) in tournament.categories, so cat_index
     # is (1+1)*100 = 200 - see reverse_cat_index/2 and category_name/2.
     assert alice.cat_index == 200
-    assert alice.extra_pts == 2
+    # The tournament does not count extra points and SWAR always would, so
+    # they stay out of the file - see the extra-points test below.
+    assert alice.extra_pts == 0
 
     bob = Enum.find(parsed.players, &(&1.name == "Bob Loser"))
     assert bob.birth == "20050000"
@@ -533,34 +541,260 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     assert Enum.map(late_parsed.rounds, & &1.round_nr) == [2]
   end
 
-  test "Rank is the rating-sorted seed, not pairing_number/registration order" do
-    # Deliberately scrambled: the LOWEST pairing_number (registration
-    # order, what `Ni` carries) belongs to the LOWEST-rated player, and
-    # vice versa. If `Rank` were ever written as `Ni` again (the bug
-    # this pins down - see `reverse_player/5`'s own comment for the full
-    # story, including the real SWAR install this was found against),
-    # this test would see Rank in registration order instead of rating
-    # order and fail on every assertion below.
+  test "Rank is the rating-sorted seed for players not numbered yet, not registration order" do
+    # Deliberately scrambled: the player registered FIRST (what `Ni` carries
+    # for a player with no pairing number) is the LOWEST-rated. If `Rank`
+    # were ever written as `Ni` again (the bug this pins down - see
+    # `reverse_player/6`'s own comment for the full story, including the
+    # real SWAR install this was found against), this test would see Rank in
+    # registration order instead of rating order.
     t = build_tournament()
 
-    low = build_player(t, %{name: "Low Rated High Ni", pairing_number: 1, fide_rating: 1200})
-    mid = build_player(t, %{name: "Mid Rated Mid Ni", pairing_number: 2, fide_rating: 1800})
-    high = build_player(t, %{name: "High Rated Low Ni", pairing_number: 3, fide_rating: 2400})
+    low = build_player(t, %{name: "Low Rated First In", fide_rating: 1200})
+    mid = build_player(t, %{name: "Mid Rated Second In", fide_rating: 1800})
+    high = build_player(t, %{name: "High Rated Last In", fide_rating: 2400})
 
     binary = SwarExport.export(t.id)
     {:ok, parsed} = SwarImport.parse(binary)
 
     by_name = Map.new(parsed.players, &{&1.name, &1})
 
-    # Rating descending: High(2400) < Mid(1800) < Low(1200) in Rank order,
-    # the OPPOSITE of their Ni/pairing_number order.
     assert by_name[high.name].rank == 1
     assert by_name[mid.name].rank == 2
     assert by_name[low.name].rank == 3
+  end
 
-    # Ni still carries registration order, unaffected by this fix.
+  test "once players have pairing numbers, Rank follows them" do
+    # Pairing numbers are this tournament's starting ranks - by rating when
+    # round 1 was paired, late entrants after - or, imported, SWAR's own
+    # seed. SWAR seeds and numbers a round robin's Berger table by Rank, so
+    # a tournament continued in SWAR must see the same order it was being
+    # paired in here, rating or not.
+    t = build_tournament()
+
+    low = build_player(t, %{name: "Low Rated Number 1", pairing_number: 1, fide_rating: 1200})
+    mid = build_player(t, %{name: "Mid Rated Number 2", pairing_number: 2, fide_rating: 1800})
+    high = build_player(t, %{name: "High Rated Number 3", pairing_number: 3, fide_rating: 2400})
+    late = build_player(t, %{name: "Unnumbered", fide_rating: 2600})
+
+    {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+    by_name = Map.new(parsed.players, &{&1.name, &1})
+
+    assert by_name[low.name].rank == 1
+    assert by_name[mid.name].rank == 2
+    assert by_name[high.name].rank == 3
+    assert by_name[late.name].rank == 4
+
     assert by_name[low.name].ni == 1
-    assert by_name[mid.name].ni == 2
     assert by_name[high.name].ni == 3
+  end
+
+  test "extra points go into the file only while the tournament counts them", %{tournament: t} do
+    {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+    assert Enum.find(parsed.players, &(&1.name == "Alice Winner")).extra_pts == 0
+
+    {:ok, t} = t |> Ecto.Changeset.change(count_extra_points: true) |> Repo.update()
+    {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+    # Quarter points, as SWAR keeps them.
+    assert Enum.find(parsed.players, &(&1.name == "Alice Winner")).extra_pts == 2
+  end
+
+  describe "exclusions: SWAR keeps one rule" do
+    defp excl_tournament(attrs, players) do
+      t =
+        Repo.insert!(
+          struct(
+            %Tournament{name: "Excl", type: "swiss", pairing_system: "swiss", rounds_count: 3},
+            attrs
+          )
+        )
+
+      created =
+        for {p, i} <- Enum.with_index(players, 1) do
+          build_player(t, Map.merge(%{name: "P#{i}", pairing_number: i}, p))
+        end
+
+      {t, created}
+    end
+
+    defp exported_exclusion(t) do
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+      parsed.exclusion
+    end
+
+    test "every club, where club numbers and names agree, is SWAR's own rule" do
+      {t, _} =
+        excl_tournament(%{club_exclusion: "all"}, [
+          %{club: "A", club_number: 1},
+          %{club: "A", club_number: 1},
+          %{club: "B", club_number: 2}
+        ])
+
+      assert exported_exclusion(t) == %{type: 3, values: ""}
+      assert SwarExport.export_notes(t) == []
+    end
+
+    test "listed clubs go as their club numbers" do
+      {t, _} =
+        excl_tournament(%{club_exclusion: "listed", club_exclusion_list: "A"}, [
+          %{club: "A", club_number: 618},
+          %{club: "A", club_number: 618},
+          %{club: "B", club_number: 2},
+          %{club: "B", club_number: 2}
+        ])
+
+      assert exported_exclusion(t) == %{type: 1, values: "618"}
+    end
+
+    test "a club without a number is kept apart as a group of players, and said so" do
+      {t, _} =
+        excl_tournament(%{club_exclusion: "all"}, [
+          %{club: "A", club_number: nil},
+          %{club: "A", club_number: nil},
+          %{club: "B", club_number: nil}
+        ])
+
+      # SWAR would put all three in "club 0" together; the club names keep
+      # only the first two apart.
+      assert exported_exclusion(t) == %{type: 0, values: "1,2"}
+      assert Enum.any?(SwarExport.export_notes(t), &(&1 =~ "club numbers do not match"))
+    end
+
+    test "every federation is SWAR's own rule, with a word about SWAR's defect" do
+      {t, _} = excl_tournament(%{fed_exclusion: "all"}, [%{}, %{}])
+      assert exported_exclusion(t) == %{type: 4, values: ""}
+      assert Enum.any?(SwarExport.export_notes(t), &(&1 =~ "does not apply"))
+    end
+
+    test "listed federations" do
+      {t, _} =
+        excl_tournament(%{fed_exclusion: "listed", fed_exclusion_list: "BEL, fra"}, [%{}, %{}])
+
+      assert exported_exclusion(t) == %{type: 2, values: "BEL:FRA"}
+    end
+
+    test "two rules and a forbidden pair become groups of players that keep the same apart" do
+      {t, [a, b, c, d]} =
+        excl_tournament(
+          %{club_exclusion: "all", fed_exclusion: "listed", fed_exclusion_list: "NED"},
+          [
+            %{club: "A", club_number: 1},
+            %{club: "A", club_number: 1},
+            %{club: "B", club_number: 2, federation: "NED"},
+            %{club: "C", club_number: 3, federation: "NED"}
+          ]
+        )
+
+      {:ok, _} = Tournaments.add_forbidden_pairing(t, a.id, d.id)
+      {:ok, _} = Tournaments.add_forbidden_pairing(t, b.id, c.id, soft: true)
+
+      assert exported_exclusion(t) == %{type: 0, values: "1,2:1,4:3,4"}
+
+      notes = SwarExport.export_notes(t)
+      assert Enum.any?(notes, &(&1 =~ "SWAR keeps one exclusion rule"))
+      assert Enum.any?(notes, &(&1 =~ "no soft pairing wishes"))
+    end
+  end
+
+  describe "the rest of what SWAR can hold" do
+    test "a round robin's own type, and every tie-break SWAR has" do
+      t =
+        Repo.insert!(%Tournament{
+          name: "RR",
+          type: "roundrobin",
+          pairing_system: "round_robin",
+          rr_cycles: 2,
+          rounds_count: 6,
+          tiebreaks: ["DE", "KS", "BPG", "AROC1", "MBH"]
+        })
+
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+      assert parsed.tournament.type == 6
+      assert parsed.tiebreaks == [8, 9, 14, 13, 2]
+    end
+
+    test "match format, both systems" do
+      rr =
+        Repo.insert!(%Tournament{
+          name: "RR",
+          type: "roundrobin",
+          pairing_system: "round_robin",
+          rr_match_format: true,
+          rounds_count: 6
+        })
+
+      swiss =
+        Repo.insert!(%Tournament{
+          name: "Sw",
+          type: "swiss",
+          pairing_system: "swiss",
+          swiss_match_format: true,
+          rounds_count: 6
+        })
+
+      assert {:ok, %{tournament: %{type: 5}}} = rr.id |> SwarExport.export() |> SwarImport.parse()
+
+      assert {:ok, %{tournament: %{type: 1}}} =
+               swiss.id |> SwarExport.export() |> SwarImport.parse()
+    end
+
+    test "categories ranked separately, and the initial colour" do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Cat",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          categories: ["A"],
+          categories_enabled: true,
+          categories_ranked_separately: true,
+          pair_by_category: true,
+          initial_colour: "black"
+        })
+
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+      assert parsed.tournament.cat_separes == 1
+      assert parsed.tournament.appar_order == 1
+      assert SwarExport.export_notes(t) == []
+    end
+
+    test "points other than 1, ½, 0 go as SWAR's 3-2-1 type, and the note says so" do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Football",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          points_win: 3.0,
+          points_draw: 1.0
+        })
+
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse(allow_swiss321: true)
+      assert parsed.tournament.type == 3
+      assert parsed.tournament.sw321_win == 12
+      assert Enum.any?(SwarExport.export_notes(t), &(&1 =~ "3-2-1"))
+    end
+
+    test "the FIDE ids go into SWAR's per-round block" do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Homologated",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 9,
+          fide_homologated: true,
+          event_code: "111, 999",
+          fide_id_ranges: [%{"fide_tournament_id" => "111", "from_round" => 1, "to_round" => 9}]
+        })
+
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
+      assert parsed.tournament.fide_homolog == 1
+
+      assert Enum.take(parsed.tournament.fide_ids, 3) == [
+               %{de: 1, aa: 9, id: 111},
+               %{de: 0, aa: 0, id: 999},
+               %{de: 0, aa: 0, id: 0}
+             ]
+    end
   end
 end
