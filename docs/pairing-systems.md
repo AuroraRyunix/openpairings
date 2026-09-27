@@ -151,6 +151,29 @@ who join after that first pairing are simply excluded from the schedule
 for the rest of the tournament** - they never receive a `pairing_number`
 via this path and never appear in any later round-robin round.
 
+**SWAR's own table, exactly.** SWAR's `GenerationBerger` (`PairingRobin.cpp`,
+SWAR v6.65) produces the same table as `schedule/3`, colours included -
+checked for every field size from 2 to 30 against a literal port of it - and
+SWAR's "double rounds" (`ROBIN_DBL`) and "aller-retour" (`ROBIN_AR`) are
+match format and the double cycle here. SWAR numbers each table by the
+players' `Rank`, and a SWAR import makes that order the pairing numbers
+(`SwarImport.prepare_players/1`), so a round robin continued here from a
+SWAR file pairs the rounds SWAR would have: for every single-table round
+robin among the SWAR files at hand (ten files, 114 rounds), the table built
+from the imported pairing numbers is, round for round, the one SWAR paired
+into the file. Such a round robin also keeps SWAR's free round - a bye
+board worth the full point SWAR forces on it (docs/swar-import.md) - rather
+than this app's zero-point one, so its rounds all score the same way.
+
+**One table per category.** With categories on and "Pair each category
+independently" set, every category gets its own Berger table, numbered by
+pairing number within the category, all paired into one round with the
+boards running on from category to category (`RoundRobin.schedule_groups/2`)
+- SWAR's round robin with separate categories, where each group of a club
+event is its own round robin. The tournament lasts as long as its largest
+table; a category of one player gets no table. Board numbers are this
+app's, lowest number first, not SWAR's table order.
+
 **Absences don't change the schedule.** A player marked absent for a
 specific round (or withdrawn/forfeited entirely) still appears in the
 schedule every round after the freeze - round robin never pulls someone
