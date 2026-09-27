@@ -48,7 +48,10 @@ defmodule PairingsEngineWeb.InviteLive do
         assign(socket,
           invitation: collaborator,
           tournament: tournament,
-          owner_email: owner.email,
+          # "Jan Peeters (jan@club.be)" when the owner has a display name:
+          # the person deciding whether to accept should see who is asking,
+          # and still the address, because a name alone is not unique.
+          owner_email: Accounts.User.display_with_email(owner),
           mismatch?: mismatch?
         )
 

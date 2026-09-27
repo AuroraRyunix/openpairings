@@ -12,6 +12,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
     RateOfPlay
   }
 
+  alias PairingsEngine.Accounts
+  alias PairingsEngine.Accounts.TournamentDefaults
   alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tools.Parser
@@ -69,6 +71,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_team?: false,
        new_standard: "standard",
        new_params: @new_tournament_defaults,
+       new_from_defaults?: false,
        swar_pending: nil,
        swar_duplicate: nil,
        swar_team: nil,
@@ -289,17 +292,26 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
+  # The form starts from the account's own defaults for a new tournament
+  # (Account → New tournaments, `PairingsEngine.Accounts.TournamentDefaults`)
+  # laid over the app's. Read fresh from the database rather than from the
+  # scope this page mounted with: the defaults may have been changed in
+  # another tab since, and the form should start from what is saved now.
   @impl true
   def handle_event("new", _params, socket) do
+    defaults = account_tournament_defaults(socket)
+    params = Map.merge(@new_tournament_defaults, TournamentDefaults.form_params(defaults))
+
     {:noreply,
      assign(socket,
        creating: true,
        importing: false,
        importing_trf: false,
-       new_pairing_system: "swiss",
+       new_pairing_system: params["pairing_system"] || "swiss",
        new_team?: false,
-       new_standard: "standard",
-       new_params: @new_tournament_defaults
+       new_standard: params["standard"] || "standard",
+       new_params: params,
+       new_from_defaults?: TournamentDefaults.any?(defaults)
      )}
   end
 
@@ -451,8 +463,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # the client, so the two can never disagree (see docs/pairing-systems.md
   # and the "New tournament" form below).
   def handle_event("create", %{"tournament" => params}, socket) do
+    # The defaults the form does not show (federation, organiser, how rounds
+    # are published) go UNDER what was submitted, so anything the form does
+    # carry always wins.
+    hidden = TournamentDefaults.hidden_params(account_tournament_defaults(socket))
+
     params =
-      params
+      hidden
+      |> Map.merge(params)
       |> Map.put("type", derive_type(params["pairing_system"], params["team"]))
       |> seed_round_dates()
 
@@ -1472,6 +1490,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # settings page uses, via the shared `PairingsEngine.RateOfPlay` catalogue.
   defp rate_of_play_options(standard), do: RateOfPlay.select_options(standard, nil)
   defp pairing_system_options, do: @pairing_system_options
+
+  defp account_tournament_defaults(socket) do
+    Accounts.get_user!(socket.assigns.current_scope.user.id).tournament_defaults
+  end
+
   defp rr_cycles_options, do: @rr_cycles_options
 
   # A single-day tournament (the common case for a club event) has
@@ -1578,11 +1601,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
             <tbody>
               <tr :for={
-                %{collaborator: c, tournament: t, owner_email: owner_email} <- @pending_invitations
+                %{collaborator: c, tournament: t, owner_email: owner_email} = invitation <-
+                  @pending_invitations
               }>
                 <td><strong>{t.name}</strong></td>
 
-                <td>{owner_email}</td>
+                <td>
+                  <span :if={invitation[:owner_name]} class="collab-name">
+                    {invitation[:owner_name]}
+                  </span>
+                  {owner_email}
+                </td>
 
                 <td style="text-align: right">
                   <button
@@ -1615,6 +1644,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-change="pairing_system_picked"
       >
         <h2>{gettext("New tournament")}</h2>
+
+        <p :if={@new_from_defaults?} class="hint" id="new-tournament-defaults-note">
+          <.rich_text text={
+            gettext(
+              "Filled in from %[link]. Anything you change here applies to this tournament only."
+            )
+          }>
+            <:part name="link">
+              <.link navigate={~p"/users/settings" <> "#new-tournaments"}>
+                {gettext("your defaults for new tournaments")}
+              </.link>
+            </:part>
+          </.rich_text>
+        </p>
 
         <%!-- Three grids, not one, with prose BETWEEN them rather than
               inside them.

@@ -687,6 +687,13 @@ defmodule PairingsEngine.TournamentExport do
        when is_binary(label) and label != "",
        do: label
 
+  # The same for a row whose account was deleted on this machine - see
+  # `Accounts.delete_user_account/1`. The address, not the display name: the
+  # file is evidence, and an address is what identifies the person.
+  defp actor_label(%AuditLog{details: %{"former_actor" => label}})
+       when is_binary(label) and label != "",
+       do: label
+
   defp actor_label(%AuditLog{}), do: nil
 
   defp collaborator_map(collaborator), do: struct_fields(collaborator, @collaborator_fields)

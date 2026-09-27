@@ -329,7 +329,7 @@ defmodule PairingsEngineWeb.AdminLive do
 
               <tr :for={entry <- @recent_activity}>
                 <td style="white-space: nowrap">{AuditLive.format_time(entry.inserted_at)}</td>
-                <td>{AuditLive.actor(entry)}</td>
+                <td title={AuditLive.actor_title(entry)}>{AuditLive.actor(entry)}</td>
                 <td>{AuditLive.describe(entry)}</td>
               </tr>
             </tbody>

@@ -316,7 +316,10 @@ defmodule PairingsEngine.Tournaments do
     Repo.all(
       from c in Collaborator,
         where: c.tournament_id == ^tournament.id,
-        order_by: [desc: c.inserted_at]
+        order_by: [desc: c.inserted_at],
+        # The sharing list shows a linked account's display name beside the
+        # address it was invited under.
+        preload: [:user]
     )
   end
 
@@ -415,7 +418,8 @@ defmodule PairingsEngine.Tournaments do
   defp deliver_invitation_email(owner, tournament, collaborator) do
     case PairingsEngine.Accounts.UserNotifier.deliver_invitation(
            collaborator.email,
-           owner.email,
+           # "Jan Peeters (jan@club.be)" when the owner has a display name.
+           PairingsEngine.Accounts.User.display_with_email(owner),
            tournament.name,
            invite_url(collaborator.invite_token)
          ) do
@@ -529,7 +533,12 @@ defmodule PairingsEngine.Tournaments do
         join: owner in assoc(t, :user),
         where: c.status == "pending" and (c.user_id == ^user.id or c.email == ^email),
         order_by: [desc: c.inserted_at],
-        select: %{collaborator: c, tournament: t, owner_email: owner.email}
+        select: %{
+          collaborator: c,
+          tournament: t,
+          owner_email: owner.email,
+          owner_name: owner.display_name
+        }
     )
   end
 

@@ -629,7 +629,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
             <tbody>
               <tr :for={c <- @collaborators}>
-                <td>{c.email}</td>
+                <td>
+                  <%!-- The name the person gave their account, when they
+                        have one - above the address they were invited
+                        under, which stays because a name is not unique. --%>
+                  <span
+                    :if={match?(%{display_name: name} when is_binary(name), c.user)}
+                    class="collab-name"
+                  >
+                    {c.user.display_name}
+                  </span>
+                  {c.email}
+                </td>
 
                 <td>
                   <span class={["badge", c.status != "accepted" && "muted"]}>
