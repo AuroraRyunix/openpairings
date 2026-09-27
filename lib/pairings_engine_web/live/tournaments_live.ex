@@ -754,6 +754,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           # offering "Copy of X" a takeover of X's published page would put
           # two rows one click away from fighting over one address.
           |> put_in(["tournaments", Access.at(0), "openresults"], nil)
+          # Nor does the SWAR guid, for the same reason: it is the original's
+          # identity in SWAR and on the federation's results site, and the
+          # original is still here. The copy mints its own the first time
+          # it goes to SWAR.
+          |> put_in(["tournaments", Access.at(0), "tournament", "swar_guid"], nil)
 
         case TournamentImport.import(envelope, socket.assigns.current_scope) do
           {:ok, [new_tournament]} ->

@@ -199,11 +199,16 @@ defmodule PairingsEngine.TournamentImport do
   something a restore should be able to do.
   """
   def restore_into!(%Tournament{} = tournament, entry) when is_map(entry) do
-    t_attrs = entry |> fetch_map!("tournament") |> migrate_legacy_category_rules()
+    t_attrs =
+      entry
+      |> fetch_map!("tournament")
+      |> migrate_legacy_category_rules()
+      |> keep_live_swar_guid(tournament)
 
     tournament =
       tournament
       |> Tournament.changeset(t_attrs)
+      |> Ecto.Changeset.change(swar_settings: swar_settings(t_attrs, tournament.swar_settings))
       |> Ecto.Changeset.change(
         manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
         # The round FIDE-mode compliance was first lost in, and the ONLY
@@ -282,6 +287,33 @@ defmodule PairingsEngine.TournamentImport do
     [initial_colour_drawn: drawn, team_pairing_mode: mode]
   end
 
+  # SWAR bookkeeping (`TournamentExport`'s `@tournament_fields`: the guid,
+  # `swar_settings` and the two-axis category columns), so a restored copy
+  # writes the `.swar` file the original did. `swar_guid` and the category
+  # columns are cast and come through the changeset; `swar_settings` is not
+  # cast - no form may write it - so it is carried here, like the other
+  # uncast fields. A file from before these travelled has no key: a new row
+  # gets the empty default, a restore keeps what the live row has.
+  defp swar_settings(t_attrs, fallback) do
+    case Map.get(t_attrs, "swar_settings") do
+      settings when is_map(settings) -> settings
+      _ -> fallback || %{}
+    end
+  end
+
+  # A restore point taken before the tournament first went to SWAR carries
+  # no guid. Restoring it must not take the one minted since away: the guid
+  # is the tournament's lasting identity in SWAR and on the federation's
+  # results site, and losing it would make the next export a different
+  # tournament there.
+  defp keep_live_swar_guid(t_attrs, %Tournament{swar_guid: live}) when live not in [nil, ""] do
+    if Map.get(t_attrs, "swar_guid") in [nil, ""],
+      do: Map.delete(t_attrs, "swar_guid"),
+      else: t_attrs
+  end
+
+  defp keep_live_swar_guid(t_attrs, _tournament), do: t_attrs
+
   defp update!(changeset) do
     case Repo.update(changeset) do
       {:ok, record} ->
@@ -304,6 +336,7 @@ defmodule PairingsEngine.TournamentImport do
     tournament =
       %Tournament{user_id: scope.user.id}
       |> Tournament.changeset(t_attrs)
+      |> Ecto.Changeset.change(swar_settings: swar_settings(t_attrs, %{}))
       # `manual_ranking_stale` is deliberately outside `changeset/2`'s cast
       # list (only the manual-ranking writers in `Tournaments` set it), so it
       # has to be carried across explicitly or an imported tournament with a

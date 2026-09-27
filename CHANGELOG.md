@@ -99,6 +99,14 @@ Each entry is tagged so a version can be skimmed:
   cadence of a rapid or blitz event is found in SWAR's list, and categories
   go as names. The Export page lists, for the tournament at hand, what the
   file cannot hold and what SWAR will do instead.
+- [Fix] **A backup of a SWAR tournament restores as that tournament.** A
+  JSON backup, a restore point or a hand-off left out the tournament's SWAR
+  identity and the SWAR settings it was imported with, so the restored copy
+  exported a different .swar file, under a new identity on the federation's
+  results site. They now travel, together with "Rank each category
+  separately", and the restored copy exports the same file byte for byte
+  and continues a SWAR round robin with SWAR's full-point free rounds. Older backups still restore. "Duplicate" still gives
+  the copy its own identity, since the original is right beside it.
 - [Verified] **Import, export, import gives the same tournament.** Checked
   for a synthetic file per feature and for every real SWAR file at hand:
   each comes back as the same tournament, and exporting it again gives the

@@ -729,8 +729,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # exactly as the imported `.swar` had them - the rating SWAR pairs by,
     # the first table number, the rating-report round ranges, its XtraPoints
     # band table, its exact tournament type and tie-break list. Written by
-    # `SwarImport` only (never cast from a form), read by `SwarExport` only,
-    # so a tournament that came from SWAR goes back with them. String keys;
+    # `SwarImport` only (never cast from a form), read by `SwarExport`, so a
+    # tournament that came from SWAR goes back with them - and carried by
+    # JSON backups and restore points (`TournamentExport`), so a restored
+    # copy does too. String keys;
     # see `SwarImport.swar_settings/1` for the list. Empty for anything that
     # did not come from a `.swar` file.
     field :swar_settings, :map, default: %{}
