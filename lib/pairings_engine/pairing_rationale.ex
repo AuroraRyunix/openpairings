@@ -73,7 +73,7 @@ defmodule PairingsEngine.PairingRationale do
   defp build(tournament, round, round_number) do
     prior = round_number - 1
 
-    score_by_player = pre_round_scores(tournament, prior)
+    score_by_player = pre_round_scores(tournament, prior, round.virtual_points)
     ladder = ladder_values(tournament, prior)
     colour_hist = colour_history(tournament.id, prior)
     played_before = prior_opponents(tournament.id, prior)
@@ -132,6 +132,11 @@ defmodule PairingsEngine.PairingRationale do
       byes: %{allocated: allocated_bye, requested: requested_byes},
       score_groups: score_groups,
       berger: berger_info(tournament, round_number),
+      # The extra points the round was paired with (`rounds.virtual_points`),
+      # `%{player_id => points}`; empty when it was paired on game points
+      # alone. Baku's are not recorded - they follow from the rules - and
+      # the page names them from the tournament's own setting.
+      virtual_points: virtual_points_by_id(round.virtual_points),
       summary: %{
         boards: Enum.count(boards, &(not &1.is_bye)),
         byes: Enum.count(boards, & &1.is_bye),
@@ -651,8 +656,35 @@ defmodule PairingsEngine.PairingRationale do
 
   ## ---------- pre-round scores ----------
 
-  defp pre_round_scores(tournament, through),
+  # A round that recorded the virtual points it was paired with
+  # (`rounds.virtual_points`, docs/extra-points.md) is explained on the
+  # scores the engine actually grouped: game points plus those. Anything
+  # else - a round from before the column, a manual round, Keizer - falls
+  # back to the standings' own ranking score, as it always did.
+  defp pre_round_scores(%{pairing_system: "keizer"} = tournament, through, _virtual),
     do: score_map(tournament, round_standings(tournament, [through])[through])
+
+  defp pre_round_scores(tournament, through, virtual) when is_map(virtual) do
+    tournament
+    |> round_standings([through])
+    |> Map.fetch!(through)
+    |> Map.new(fn e ->
+      extra = Map.get(virtual, to_string(e.player.id), 0.0) / 1
+      {e.player.id, %{score: Float.round(e.points + extra, 2), standings_rank: e.rank}}
+    end)
+  end
+
+  defp pre_round_scores(tournament, through, _virtual),
+    do: score_map(tournament, round_standings(tournament, [through])[through])
+
+  defp virtual_points_by_id(virtual) when is_map(virtual) do
+    for {id, points} <- virtual,
+        {int_id, ""} <- [Integer.parse(to_string(id))],
+        into: %{},
+        do: {int_id, points / 1}
+  end
+
+  defp virtual_points_by_id(_), do: %{}
 
   # Standings at each horizon. Keizer keeps its own per-horizon calls: its
   # ladder is a running recurrence over the rounds before it, so there is no

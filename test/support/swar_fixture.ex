@@ -51,7 +51,15 @@ defmodule PairingsEngine.SwarFixture do
     version = Map.get(opts, :version, "v6.78")
     nb_rounds = Map.get(opts, :nb_rounds, 3)
     players = Map.get(opts, :players, [])
-    records = records(players, Map.get(opts, :games, []), Map.get(opts, :byes, []))
+
+    records =
+      records(
+        players,
+        Map.get(opts, :games, []),
+        Map.get(opts, :byes, []),
+        Map.get(opts, :round_xtra, %{})
+      )
+
     t = Map.get(opts, :tournament, %{})
     g = fn key, default -> Map.get(t, key, default) end
 
@@ -182,7 +190,7 @@ defmodule PairingsEngine.SwarFixture do
         w_i32(r.round_nr) <>
           w_i32(r.table) <>
           w_i32(r.advers) <>
-          w_i32(r.result) <> w_i32(r.color) <> w_i32(0) <> w_i32(0)
+          w_i32(r.result) <> w_i32(r.color) <> w_i32(0) <> w_i32(Map.get(r, :xtra, 0))
       end)
   end
 
@@ -193,7 +201,8 @@ defmodule PairingsEngine.SwarFixture do
   #     :black_ff, :double_ff, :zero_zero, :unplayed (no result yet)
   #   byes: {round, ni, kind} - :pab (pairing-allocated), :half, :zero,
   #     :absent (SWAR's TABLE_ABSENT), :unpaired (no table yet, table -1)
-  defp records(_players, games, byes) do
+  #   round_xtra: %{{round, ni} => quarter points} - that round's `XtraPts`
+  defp records(_players, games, byes, round_xtra) do
     game_records =
       Enum.flat_map(games, fn {round, table, w, b, outcome} ->
         {rw, rb} = outcome_codes(outcome)
@@ -220,7 +229,10 @@ defmodule PairingsEngine.SwarFixture do
 
     (game_records ++ bye_records)
     |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
-    |> Map.new(fn {ni, list} -> {ni, Enum.sort_by(list, & &1.round_nr)} end)
+    |> Map.new(fn {ni, list} ->
+      list = Enum.map(list, &Map.put(&1, :xtra, Map.get(round_xtra, {&1.round_nr, ni}, 0)))
+      {ni, Enum.sort_by(list, & &1.round_nr)}
+    end)
   end
 
   defp outcome_codes(:white_wins), do: {@win, @loss}
@@ -291,7 +303,16 @@ defmodule PairingsEngine.SwarFixture do
           |> Enum.map(&{pn[&1.player_id], &1.type})
           |> Enum.sort()
 
-        %{number: round.number, status: round.status, pairings: pairings, byes: byes}
+        virtual =
+          Map.new(round.virtual_points || %{}, fn {id, v} -> {pn[String.to_integer(id)], v} end)
+
+        %{
+          number: round.number,
+          status: round.status,
+          pairings: pairings,
+          byes: byes,
+          virtual_points: virtual
+        }
       end
 
     forbidden =

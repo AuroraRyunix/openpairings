@@ -329,6 +329,10 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"matched" => 6, "total" => 40},
       %{"matched" => 1, "total" => 1}
     ],
+    "standings.extra_points_reduced" => [
+      %{"changed" => 1, "from" => 2000, "to" => 3000, "amount" => 0.5},
+      %{"changed" => 4, "from" => 0, "to" => 3000, "amount" => 0.5}
+    ],
     "standings.published" => [%{"through_round" => 3}, %{"through_round" => 0}],
     "standings.unpublished" => [
       %{"from_round" => 3},
@@ -605,6 +609,13 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
 
     assert nl("standings.extra_points_applied", %{"matched" => 6, "total" => 40}) ==
              "Extra punten volgens Elo-schijven toegepast op 6 van 40 spelers."
+
+    assert nl("standings.extra_points_reduced", %{
+             "changed" => 4,
+             "from" => 0,
+             "to" => 3000,
+             "amount" => 0.5
+           }) == "0.5 extra punten afgenomen van 4 spelers met rating 0 tot 3000."
 
     assert nl("player.bulk_absent_set", %{"absent" => true, "player_count" => 1}) ==
              "Elke speler als afwezig gemarkeerd voor het hele toernooi (1 speler)."

@@ -95,7 +95,7 @@ defmodule PairingsEngine.TournamentExport do
     team_pairing_mode initial_colour initial_colour_drawn
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
-    count_extra_points extra_points_bands
+    extra_points_mode count_extra_points extra_points_bands
     publish_mode publish_delay_minutes standings_through
     manual_ranking manual_ranking_stale
     fide_compliance_lost_round
@@ -291,7 +291,14 @@ defmodule PairingsEngine.TournamentExport do
     # until that exists, dropping it is the honest option. It is a
     # diagnostic panel, not tournament state, so losing it costs an
     # explanation and not a result.
-    :explanation
+    :explanation,
+    # Carried outside the field list, like `id`: `round_map/1` writes it
+    # under `"virtual_points"`, and it is keyed by DB player id too - but
+    # unlike `explanation` its shape is one flat map, so the import remaps
+    # the keys through its player map (`TournamentImport.import_rounds!/4`)
+    # rather than dropping it. It is pairing input, not a diagnostic: the
+    # next round's `XXA` history is read from it (docs/extra-points.md).
+    :virtual_points
   ]
 
   @pairing_excluded [
@@ -566,7 +573,8 @@ defmodule PairingsEngine.TournamentExport do
     |> Map.merge(%{
       "id" => round.id,
       "pairings" => Enum.map(round.pairings, &pairing_map/1),
-      "matches" => Enum.map(round.matches, &match_map/1)
+      "matches" => Enum.map(round.matches, &match_map/1),
+      "virtual_points" => round.virtual_points
     })
   end
 

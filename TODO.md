@@ -384,11 +384,11 @@ Still open, and each needs a decision rather than typing:
     * **§5.2, the legacy `CatIndex < 100` normalisation** - fixed.
       `category_name/2` now mirrors SWAR's own unconditional normalisation,
       agreeing with the off-by-one fix already there.
-    * **§5.4, SWAR's XtraPoints (F13)** - a warning, per the section's own
-      "minimum action". Manual acceleration itself is not implemented and
-      was never asked for; the import now says plainly, when a file carries
-      it, that OpenPairings does not reproduce it and a further round may
-      pair differently.
+    * **§5.4, SWAR's XtraPoints (F13)** - first a warning, per the section's
+      own "minimum action"; since the extra-points modes (branch
+      `extra-points-modes`), implemented: a SWAR file imports in
+      acceleration mode and pairs with its XtraPoints, per-round history
+      included (docs/extra-points.md).
 
   All four are written up for arbiters in `docs/swar-import.md`, tested (a
   new `swar_import_pass2_test.exs`, plus additions to

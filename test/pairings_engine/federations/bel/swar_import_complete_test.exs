@@ -45,10 +45,43 @@ defmodule PairingsEngine.Federations.BEL.SwarImportCompleteTest do
         })
 
       assert t.count_extra_points
+      assert t.extra_points_mode == "acceleration"
       assert by_name(t)["A"].extra_points == 1.0
       assert [first | _] = Standings.standings(t)
       assert first.player.name == "A"
-      assert Enum.any?(warnings, &(is_binary(&1) and &1 =~ "count in the standings here"))
+      assert Enum.any?(warnings, &(is_binary(&1) and &1 =~ "imported as acceleration points"))
+    end
+
+    test "each round's XtraPts is what that round was paired with, and the bands convert",
+         %{tmp_dir: dir} do
+      {t, _} =
+        import!(dir, %{
+          nb_rounds: 2,
+          players: [%{ni: 1, name: "A", extra_pts: 2}, %{ni: 2, name: "B"}],
+          games: [{1, 1, 1, 2, :draw}, {2, 1, 2, 1, :draw}],
+          # A was paired on a full point in round 1 and half a point in
+          # round 2 - SWAR's "remove half a point" in between.
+          round_xtra: %{{1, 1} => 4, {2, 1} => 2},
+          # Two bands and an Elo-0 slot, which SWAR never pays out.
+          xtra_points: [{4, 2000}, {2, 1800}, {8, 0}]
+        })
+
+      a = by_name(t)["A"]
+      assert Tournaments.get_round(t.id, 1).virtual_points == %{to_string(a.id) => 1.0}
+      assert Tournaments.get_round(t.id, 2).virtual_points == %{to_string(a.id) => 0.5}
+      assert t.extra_points_bands == "1800:0.5, 2000:1"
+
+      # The next round's XXA history is the file's, then today's value.
+      trf = PairingsEngine.Pairing.javafo_input(t)
+      assert trf =~ ~r/^XXA\s+\d+\s+1\.0\s+0\.5\s+0\.5\s*$/m
+    end
+
+    test "a file without extra points still imports in acceleration mode, not counted",
+         %{tmp_dir: dir} do
+      {t, _} = import!(dir, %{nb_rounds: 1, players: [%{ni: 1}, %{ni: 2}]})
+      assert t.extra_points_mode == "acceleration"
+      refute t.count_extra_points
+      assert t.extra_points_bands == ""
     end
 
     test "a round robin has none, as SWAR's loader zeroes them", %{tmp_dir: dir} do

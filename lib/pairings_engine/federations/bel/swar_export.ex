@@ -148,10 +148,10 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     # (`LateEntry`), join the round's real byes rows - written as the
     # absence SWAR itself keeps for a player added after rounds were paired.
     late = tournament |> LateEntry.absences() |> Enum.group_by(& &1.round)
+    listed_rounds = Tournaments.list_rounds(tournament_id)
 
     rounds =
-      Tournaments.list_rounds(tournament_id)
-      |> Enum.map(fn round ->
+      Enum.map(listed_rounds, fn round ->
         pairings = get_pairings(round.id)
 
         byes =
@@ -161,7 +161,14 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         {round.number, pairings, byes}
       end)
 
-    round_records = build_round_records(tournament, players, rounds, ni_by_player_id)
+    round_records =
+      tournament
+      |> build_round_records(players, rounds, ni_by_player_id)
+      |> attach_round_xtra_points(
+        tournament,
+        Map.new(listed_rounds, &{&1.number, &1.virtual_points})
+      )
+
     {axis1, axis2, cat_type} = category_axes_for_export(tournament)
 
     # Resolved here, where the tournament is still in scope, and threaded
@@ -186,7 +193,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       reverse_tie_break(tournament, settings) <>
       reverse_exclusion(exclusion) <>
       reverse_categories(axis1, axis2, category_type(cat_type, axis1, settings)) <>
-      reverse_xtra_points(settings) <>
+      reverse_xtra_points(tournament, settings) <>
       reverse_joueurs(tournament, players, cat_index_by_player_id, ni_by_player_id, round_records)
   end
 
@@ -990,25 +997,47 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
 
   # SWAR's own Elo-band extra-points table: four `(points x 4, Elo)` bands,
   # a player at or above a band's Elo getting its points (`XtraPoints.cpp`,
-  # `AssignExtraPoints`). This app's `extra_points_bands` pays players BELOW
-  # a rating instead (`docs/extra-points.md`), so neither converts into the
-  # other: the imported file's table goes back as it was, and a tournament
-  # that never came from SWAR has four empty bands. The players' own extra
-  # points are in `[JOUEURS]` either way.
-  defp reverse_xtra_points(settings) do
+  # `AssignExtraPoints`). Acceleration mode's bands are the same rule
+  # (`Tournament.band_extra_points/3`), so they are written from
+  # `extra_points_bands`: highest Elo first, as SWAR sorts them
+  # (`SortXtraPoints`), at most four. A handicap's bands pay players BELOW a
+  # rating and do not convert; there, and in acceleration mode with no bands
+  # of its own, the imported file's table goes back as it was, and a
+  # tournament that never came from SWAR has four empty bands. The players'
+  # own extra points are in `[JOUEURS]` either way.
+  defp reverse_xtra_points(tournament, settings) do
     bands =
-      case Map.get(settings, "xtra_points") do
-        list when is_list(list) ->
-          list
-          |> Enum.filter(&match?([p, e] when is_integer(p) and is_integer(e), &1))
-          |> Enum.take(4)
-
-        _ ->
-          []
+      case acceleration_bands(tournament) do
+        [] -> imported_xtra_points(settings)
+        bands -> bands
       end
 
     bands = bands ++ List.duplicate([0, 0], 4 - length(bands))
     w_str("[XTRA_POINTS]") <> w_n(bands, fn [pts, elo] -> w_i32(pts) <> w_i32(elo) end)
+  end
+
+  defp acceleration_bands(tournament) do
+    with true <- Tournament.extra_points_acceleration?(tournament),
+         {:ok, bands} <- Tournament.parse_extra_points_bands(tournament.extra_points_bands) do
+      bands
+      |> Enum.sort_by(fn {threshold, _bonus} -> -threshold end)
+      |> Enum.take(4)
+      |> Enum.map(fn {threshold, bonus} -> [round(bonus * 4), threshold] end)
+    else
+      _ -> []
+    end
+  end
+
+  defp imported_xtra_points(settings) do
+    case Map.get(settings, "xtra_points") do
+      list when is_list(list) ->
+        list
+        |> Enum.filter(&match?([p, e] when is_integer(p) and is_integer(e), &1))
+        |> Enum.take(4)
+
+      _ ->
+        []
+    end
   end
 
   ## ---------- [JOUEURS] ----------
@@ -1207,11 +1236,14 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   end
 
   # SWAR counts `ExtraPts` in every Swiss standings, always
-  # (`CalculLeClassement`); this app only with `count_extra_points` on. So a
-  # player's extra points go into the file only while the tournament counts
-  # them - otherwise SWAR would rank on points this tournament does not -
-  # and never for a round robin or a 3-2-1 event, whose extra points SWAR
-  # throws away on load. Quarter points, as SWAR stores them.
+  # (`CalculLeClassement`), and pairs with them (`EcrireXXA_AccelereManuel`).
+  # A handicap's points go into the file only while the tournament counts
+  # them - otherwise SWAR would rank and pair on points this tournament does
+  # not. Acceleration points always go: they are what the pairing is built
+  # on, which is what SWAR uses them for, and `export_notes/1` says so when
+  # this tournament keeps them out of its standings. Never for a round robin
+  # or a 3-2-1 event, whose extra points SWAR throws away on load. Quarter
+  # points, as SWAR stores them.
   defp reverse_extra_points(tournament, p) do
     if extra_points_exported?(tournament),
       do: round((p.extra_points || 0.0) * 4),
@@ -1219,7 +1251,33 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   end
 
   defp extra_points_exported?(t),
-    do: t.count_extra_points and not round_robin?(t) and derived_tournament_type(t) != 3
+    do:
+      (t.count_extra_points or Tournament.extra_points_acceleration?(t)) and
+        extra_points_type?(t)
+
+  defp extra_points_type?(t), do: not round_robin?(t) and derived_tournament_type(t) != 3
+
+  # Each round's `XtraPts`: the extra points the player was paired with in
+  # that round (`rounds.virtual_points`), which SWAR's next `XXA` history
+  # reads back. Zero where the round recorded none, and for the types SWAR
+  # discards extra points for. Done over the finished records rather than
+  # inside `round_record_for/5`, so the round records themselves stay what
+  # they were.
+  defp attach_round_xtra_points(round_records, tournament, virtual_by_round) do
+    if extra_points_type?(tournament) do
+      Map.new(round_records, fn {player_id, records} ->
+        key = to_string(player_id)
+
+        {player_id,
+         Enum.map(records, fn record ->
+           points = virtual_by_round |> Map.get(record.round_nr) |> Kernel.||(%{}) |> Map.get(key)
+           Map.put(record, :xtra, round((points || 0.0) * 4))
+         end)}
+      end)
+    else
+      round_records
+    end
+  end
 
   # The largest table number a signed 16-bit HandyTable field can hold.
   # `w_i16/1` would WRAP anything past it rather than fail - 40000 comes out
@@ -1389,9 +1447,13 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
 
   ## ---------- [RONDE] ----------
 
-  defp reverse_round(%{round_nr: n, table: table, advers: advers, result: result, colour: colour}) do
+  defp reverse_round(
+         %{round_nr: n, table: table, advers: advers, result: result, colour: colour} = record
+       ) do
     w_i32(n) <>
-      w_i32(table) <> w_i32(advers) <> w_i32(result) <> w_i32(colour) <> w_i32(0) <> w_i32(0)
+      w_i32(table) <>
+      w_i32(advers) <>
+      w_i32(result) <> w_i32(colour) <> w_i32(0) <> w_i32(Map.get(record, :xtra, 0))
   end
 
   # One preloaded round's pairings, keyed the way `reverse_player/6` wants
@@ -1660,6 +1722,9 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   end
 
   defp scoring_notes(t, players) do
+    acceleration? = Tournament.extra_points_acceleration?(t)
+    any_extra? = Enum.any?(players, &((&1.extra_points || 0.0) != 0.0))
+
     [
       (round_robin?(t) and custom_points?(t)) &&
         gettext(
@@ -1669,20 +1734,35 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         gettext(
           "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values. OpenPairings cannot import a 3-2-1 file back yet."
         ),
-      (not t.count_extra_points and Enum.any?(players, &((&1.extra_points || 0.0) != 0.0))) &&
+      (not acceleration? and not t.count_extra_points and any_extra?) &&
         gettext(
           "Players' extra points are not written, because this tournament does not count them and SWAR always would."
         ),
-      (t.count_extra_points and round_robin?(t)) &&
+      (acceleration? and not t.count_extra_points and any_extra? and not round_robin?(t)) &&
+        gettext(
+          "The acceleration points are written as SWAR's XtraPoints, which SWAR pairs with as this tournament does - but SWAR also counts them in its standings, which this tournament does not."
+        ),
+      ((t.count_extra_points or (acceleration? and any_extra?)) and round_robin?(t)) &&
         gettext(
           "Extra points are not written for a round robin: SWAR discards them when it opens one."
         ),
-      (t.extra_points_bands || "") != "" &&
+      (not acceleration? and (t.extra_points_bands || "") != "") &&
         gettext(
           "The extra-point bands are not written: SWAR's band table gives points to players at or above a rating, these to players below one. The points already given to players are."
+        ),
+      (acceleration? and band_count(t) > 4) &&
+        gettext(
+          "SWAR holds four extra-point bands: the four with the highest ratings are written, the others are not. The points already given to players are."
         )
     ]
     |> Enum.filter(&is_binary/1)
+  end
+
+  defp band_count(t) do
+    case Tournament.parse_extra_points_bands(t.extra_points_bands) do
+      {:ok, bands} -> length(bands)
+      :error -> 0
+    end
   end
 
   defp category_notes(t) do

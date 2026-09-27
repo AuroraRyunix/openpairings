@@ -305,6 +305,35 @@ defmodule PairingsEngine.TournamentImport do
     [initial_colour_drawn: drawn, team_pairing_mode: mode]
   end
 
+  # A file written before extra points had a mode carries no
+  # `extra_points_mode`. The migration that added the column decided the
+  # rows already in the database by one rule (a SWAR tournament using extra
+  # points, with no bands of this app's own, is an acceleration), and a file
+  # from the same era gets the same answer here - otherwise the backup of an
+  # imported SWAR event would come back pairing without its acceleration.
+  # A restore needs none of this: its changeset is built on the live row,
+  # and a key the file lacks leaves the live value alone.
+  defp legacy_extra_points_mode(t_attrs, t_data) do
+    if Map.has_key?(t_attrs, "extra_points_mode") do
+      t_attrs
+    else
+      swar? =
+        Map.get(t_attrs, "swar_guid") not in [nil, ""] or
+          Map.get(t_attrs, "swar_settings") not in [nil, %{}]
+
+      uses? =
+        truthy(Map.get(t_attrs, "count_extra_points")) or
+          Enum.any?(
+            list(t_data, "players"),
+            &(is_map(&1) and Map.get(&1, "extra_points") not in [nil, 0, 0.0])
+          )
+
+      if swar? and uses? and Map.get(t_attrs, "extra_points_bands") in [nil, ""],
+        do: Map.put(t_attrs, "extra_points_mode", "acceleration"),
+        else: t_attrs
+    end
+  end
+
   # SWAR bookkeeping (`TournamentExport`'s `@tournament_fields`: the guid,
   # `swar_settings` and the two-axis category columns), so a restored copy
   # writes the `.swar` file the original did. `swar_guid` and the category
@@ -350,7 +379,11 @@ defmodule PairingsEngine.TournamentImport do
 
   defp import_tournament!(t_data, scope) do
     {t_attrs, notes} =
-      t_data |> fetch_map!("tournament") |> migrate_legacy_category_rules() |> unique_swar_guid()
+      t_data
+      |> fetch_map!("tournament")
+      |> migrate_legacy_category_rules()
+      |> legacy_extra_points_mode(t_data)
+      |> unique_swar_guid()
 
     tournament =
       %Tournament{user_id: scope.user.id}
@@ -543,12 +576,33 @@ defmodule PairingsEngine.TournamentImport do
     end)
   end
 
+  # The virtual points a round was paired with (`rounds.virtual_points`),
+  # keyed by the file's player ids - re-keyed to the new rows, and a key
+  # naming no player in the file dropped. Nil (a payload written before the
+  # field existed, or a round that recorded none) stays nil, which the
+  # pairing reads as "use the player's current extra points".
+  defp remap_virtual_points(r, player_map) do
+    case Map.get(r, "virtual_points") do
+      %{} = virtual ->
+        for {old_id, points} <- virtual,
+            new_id = Map.get(player_map, old_id) || Map.get(player_map, coerce_int(old_id)),
+            new_id != nil,
+            is_number(points),
+            into: %{},
+            do: {to_string(new_id), points / 1}
+
+      _ ->
+        nil
+    end
+  end
+
   defp import_rounds!(tournament, rounds, player_map, team_map) do
     Enum.each(rounds, fn r ->
       new_round =
         %Round{tournament_id: tournament.id}
         |> Round.changeset(r)
         |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
+        |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
         |> insert!()
 
       pairings = list(r, "pairings")

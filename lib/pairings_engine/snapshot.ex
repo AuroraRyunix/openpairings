@@ -892,6 +892,23 @@ defmodule PairingsEngine.Snapshot do
     end
   end
 
+  # A tournament that ranks on points plus extra points (`count_extra_points`
+  # - a counted handicap, or acceleration points kept in the standings) has
+  # rows whose order `points` alone does not explain: the leader can have
+  # fewer game points than the player below. The two numbers that do explain
+  # it travel with the row - `extra_points` and `total`, the score the
+  # standings actually rank on (`Standings.rank_score/2`). Not `score`, which
+  # a Keizer row already uses for something else. Additive and absent
+  # otherwise, like `rounds_played` above; see docs/snapshot-schema.md.
+  # Only the Swiss/round-robin rows: a Keizer entry has no extra points.
+  defp maybe_put_extra_points(row, %Tournament{count_extra_points: true}, %{total: total} = e) do
+    row
+    |> Map.put("extra_points", e.extra_points)
+    |> Map.put("total", total)
+  end
+
+  defp maybe_put_extra_points(row, %Tournament{}, _entry), do: row
+
   # Computed here, ordered here, tiebroken here. OpenResults never calculates a
   # placing - the arbiter's screen and the public page have to agree, and the
   # printed crosstable is the document of record.
@@ -990,6 +1007,7 @@ defmodule PairingsEngine.Snapshot do
           "category" => blank_to_nil(Categories.pairing_category(t, e.player))
         }
         |> maybe_put_rounds_played(t, e)
+        |> maybe_put_extra_points(t, e)
       end)
 
     %{

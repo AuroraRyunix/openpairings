@@ -4,6 +4,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @types ~w(swiss roundrobin team-swiss team-roundrobin)
   @accelerations ~w(none baku)
+  # What `players.extra_points` are - see `extra_points_mode` below and
+  # docs/extra-points.md.
+  @extra_points_modes ~w(handicap acceleration)
   @statuses ~w(setup running finished)
   @standards ~w(standard rapid blitz)
   # Which pairing engine PairingsEngine.Pairing.pair_next_round/1 dispatches
@@ -699,16 +702,35 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :soft_position, :string, default: "strong"
 
     # Extra points (SWAR parity #12, "XtPts") - see docs/extra-points.md.
-    # `players.extra_points` (administrative bonus points) already exists,
-    # but an explicit earlier product decision keeps standings from counting
-    # it by default - this flag is the opt-in, per tournament, always
-    # starting off. `extra_points_bands` is the Elo-band auto-assign rule:
-    # a comma-separated "threshold:bonus" string, e.g. "1400:1, 1600:0.5"
-    # (rating below 1400 gets 1.0, below 1600 gets 0.5) - see
-    # `parse_extra_points_bands/1` and `band_extra_points/2` below for exact
-    # matching semantics. Never applied automatically; only
+    #
+    # `extra_points_mode` says what `players.extra_points` ARE:
+    #
+    #   * "handicap" - a head start. `count_extra_points` is the one switch:
+    #     on, the points count in the standings AND in the score the pairing
+    #     engine groups by (so the score groups are the standings' own); off,
+    #     they do nothing at all. The Elo bands pay players BELOW a rating.
+    #   * "acceleration" - SWAR's XtraPoints. The points always go to the
+    #     pairing engine as virtual points (`XXA`), round by round, and
+    #     `count_extra_points` only decides whether they also stay in the
+    #     standings ("Keep acceleration points in the final standings" - on
+    #     is SWAR's behaviour, off removes them like Baku's). The Elo bands
+    #     pay players AT OR ABOVE a rating, as SWAR's do.
+    #
+    # `count_extra_points` keeps its one meaning in both modes - "the
+    # standings rank on points plus extra points" - so every surface that
+    # shows a score reads it and nothing else. Which of the two feeds the
+    # pairing is `extra_points_pairing?/1`. Baku acceleration and extra
+    # points in the pairing are refused together
+    # (`validate_extra_points_excludes_baku/1`).
+    #
+    # `extra_points_bands` is the Elo-band auto-assign rule: a
+    # comma-separated "threshold:bonus" string, e.g. "1400:1, 1600:0.5" - see
+    # `parse_extra_points_bands/1` and `band_extra_points/3` below for exact
+    # matching semantics per mode. Never applied automatically; only
     # `PairingsEngine.Tournaments.apply_extra_points_bands/1`, triggered
     # explicitly from Settings, writes it into players' `extra_points`.
+    field :extra_points_mode, :string, default: "handicap"
+
     field :count_extra_points, :boolean, default: false
 
     field :extra_points_bands, :string, default: ""
@@ -975,6 +997,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :fed_exclusion_list,
       :soft_club_rounds,
       :soft_position,
+      :extra_points_mode,
       :count_extra_points,
       :extra_points_bands,
       :categories_enabled,
@@ -987,6 +1010,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_length(:name, min: 1, max: 200)
     |> validate_inclusion(:type, @types)
     |> validate_inclusion(:acceleration, @accelerations)
+    |> validate_inclusion(:extra_points_mode, @extra_points_modes)
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:standard, @standards)
     |> validate_inclusion(:pairing_system, @pairing_systems)
@@ -1016,6 +1040,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_rr_match_format()
     |> validate_swiss_match_format()
     |> validate_pair_by_category()
+    |> validate_extra_points_excludes_baku()
     |> normalize_exclusion_list(:club_exclusion_list)
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
@@ -1264,6 +1289,64 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
+  # Baku (C.04.7) and extra points that feed the pairing are two ways of
+  # handing the engine virtual points, and they are not combined: both would
+  # be one `XXA` value per player per round, and no rule says how Baku's
+  # Group A and a player's extra points should add up. Refused outright,
+  # same precedent as the other exclusive options above. The error lands on
+  # whichever of the two this save changed, so the page that made the
+  # conflicting change is the one that shows it.
+  #
+  # `Pairing.accelerations/3` gives Baku precedence all the same, for a row
+  # that reached the database some other way (an import writes the two in
+  # separate saves).
+  defp validate_extra_points_excludes_baku(changeset) do
+    extra_points_pairing? =
+      case get_field(changeset, :extra_points_mode) do
+        "acceleration" -> true
+        _handicap -> get_field(changeset, :count_extra_points) == true
+      end
+
+    if get_field(changeset, :acceleration) == "baku" and extra_points_pairing? do
+      field = if get_change(changeset, :acceleration), do: :acceleration, else: :extra_points_mode
+
+      add_error(
+        changeset,
+        field,
+        "Baku acceleration cannot be combined with extra points in the pairing (extra points in acceleration mode, or counted in handicap mode)"
+      )
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Whether `tournament`'s players' `extra_points` go to the pairing engine as
+  virtual points (`PairingsEngine.Pairing.accelerations/3`).
+
+    * Acceleration mode: always - that is what the mode is.
+    * Handicap mode: while the points count (`count_extra_points`), so that
+      the score groups the engine pairs are the standings' own. Off, the
+      points do nothing anywhere.
+
+  Only a Swiss pairs through an engine that reads virtual points; round
+  robin's schedule and Keizer's ladder never do. And never together with
+  Baku, which the changeset refuses and this gives precedence to.
+  """
+  def extra_points_pairing?(%__MODULE__{pairing_system: "swiss", acceleration: acceleration} = t)
+      when acceleration != "baku" do
+    case t.extra_points_mode do
+      "acceleration" -> true
+      _handicap -> t.count_extra_points == true
+    end
+  end
+
+  def extra_points_pairing?(%__MODULE__{}), do: false
+
+  @doc "Whether `tournament` treats extra points as SWAR-style acceleration."
+  def extra_points_acceleration?(%__MODULE__{extra_points_mode: "acceleration"}), do: true
+  def extra_points_acceleration?(%__MODULE__{}), do: false
+
   # Re-parses and re-normalizes `extra_points_bands` on every write (like the
   # exclusion lists above), storing back the canonical
   # "threshold:bonus, threshold:bonus" shape sorted ascending by threshold -
@@ -1444,8 +1527,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @doc """
   The extra-points bonus a player with `rating` earns from `bands` (as
-  returned by `parse_extra_points_bands/1`), per the Elo-band auto-assign
-  rule (SWAR parity #12):
+  returned by `parse_extra_points_bands/1`) in `mode` - the tournament's
+  `extra_points_mode`.
+
+  ## "acceleration" - at or above the rating (SWAR's XtraPoints)
+
+  A player matches every band whose threshold is at or below their rating,
+  and the **highest** such threshold wins: with `"1800:0.5, 2000:1"` a
+  2100-rated player gets `1.0`, a 1900-rated one `0.5`, a 1700-rated one
+  nothing. This is SWAR's own rule (`XtraPoints.cpp`, `AssignExtraPoints`:
+  the bands sorted by Elo descending, the first with `EloUsed >= Elo`
+  wins). A `0:bonus` band is the one an unrated player (rating 0) can
+  match - everybody is at or above 0 - so it reads as "everyone else".
+
+  ## "handicap" - below the rating
+
+  The rule this app has always had (SWAR parity #12):
 
     * A rated player (`rating > 0`) matches every band whose threshold is
       strictly greater than their rating (i.e. "rating below `threshold`").
@@ -1460,17 +1557,28 @@ defmodule PairingsEngine.Tournaments.Tournament do
       unrated players the same treatment as the lowest band, rather than an
       accidental side effect of the general rule.
   """
-  @spec band_extra_points([{non_neg_integer(), float()}], non_neg_integer()) :: float()
-  def band_extra_points(bands, rating)
+  @spec band_extra_points([{non_neg_integer(), float()}], non_neg_integer(), String.t()) ::
+          float()
+  def band_extra_points(bands, rating, mode \\ "handicap")
 
-  def band_extra_points(bands, 0) do
+  def band_extra_points(bands, rating, "acceleration") do
+    bands
+    |> Enum.filter(fn {threshold, _bonus} -> rating >= threshold end)
+    |> Enum.max_by(fn {threshold, _bonus} -> threshold end, fn -> nil end)
+    |> case do
+      nil -> 0.0
+      {_threshold, bonus} -> bonus
+    end
+  end
+
+  def band_extra_points(bands, 0, _handicap) do
     case Enum.find(bands, fn {threshold, _bonus} -> threshold == 0 end) do
       {_threshold, bonus} -> bonus
       nil -> 0.0
     end
   end
 
-  def band_extra_points(bands, rating) do
+  def band_extra_points(bands, rating, _handicap) do
     bands
     |> Enum.filter(fn {threshold, _bonus} -> threshold > 0 and rating < threshold end)
     |> Enum.min_by(fn {threshold, _bonus} -> threshold end, fn -> nil end)

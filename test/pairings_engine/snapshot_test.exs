@@ -299,6 +299,21 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "extra points on standings rows" do
+    test "travel as extra_points and total only when the standings rank on them" do
+      tournament = unnumbered_tournament(%{standings_through: 0})
+
+      rows = Snapshot.build(tournament)["standings"]["rows"]
+      assert rows != []
+      refute Enum.any?(rows, &Map.has_key?(&1, "extra_points"))
+
+      tournament = tournament |> Ecto.Changeset.change(count_extra_points: true) |> Repo.update!()
+
+      rows = Snapshot.build(tournament)["standings"]["rows"]
+      assert Enum.all?(rows, &(Map.has_key?(&1, "extra_points") and Map.has_key?(&1, "total")))
+    end
+  end
+
   describe "the optional rounds_played field on standings rows" do
     test "does not travel until the arbiter asks for it" do
       tournament = unnumbered_tournament(%{standings_through: 0})

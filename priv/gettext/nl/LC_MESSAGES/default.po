@@ -12611,3 +12611,159 @@ msgstr[1] "Deze speler heeft niets in ronde 1-%{last}. Stapte die in ronde %{nex
 msgid "no absences left"
 
 msgstr "geen afwezigheden meer over"
+
+#: lib/pairings_engine/federations/bel/swar_export.ex:1764
+#, elixir-autogen, elixir-format
+msgid "Players who joined after round 1 have no record for the rounds before it; SWAR shows those rounds as not played."
+msgstr "Spelers die na ronde 1 instapten, hebben geen gegevens voor de rondes daarvoor; SWAR toont die rondes als niet gespeeld."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:329
+#, elixir-autogen, elixir-format
+msgid "A player gets the band with the highest rating at or below their own, as in SWAR (e.g. \"1800:0.5, 2000:1\" gives 1.0 from 2000 up, 0.5 from 1800 up to 1999, nothing below 1800). A \"0:bonus\" band is everyone else, unrated players included."
+msgstr "Een speler krijgt de schijf met de hoogste rating die niet boven de zijne ligt, zoals in SWAR (bv. \"1800:0.5, 2000:1\" geeft 1,0 vanaf 2000, 0,5 van 1800 tot 1999, niets onder 1800). Een schijf \"0:bonus\" is voor alle anderen, spelers zonder rating inbegrepen."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:335
+#, elixir-autogen, elixir-format
+msgid "A player matches the lowest band whose threshold their rating is below (e.g. \"1400:1, 1600:0.5\" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit \"0:bonus\" band."
+msgstr "Een speler krijgt de laagste schijf waarvan de drempel boven zijn rating ligt (bv. \"1400:1, 1600:0.5\" geeft 1,0 onder 1400, 0,5 van 1400 tot 1599, niets vanaf 1600). Spelers zonder rating krijgen alleen iets van een uitdrukkelijke schijf \"0:bonus\"."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:245
+#, elixir-autogen, elixir-format
+msgid "Acceleration (SWAR's XtraPoints): the extra points are virtual points for pairing. Every round, the pairing engine adds them to the player's score when it builds the score groups, so the strongest players meet each other from round 1. Take them off part-way with \"Remove half a point\" below; rounds already paired keep what they were paired with. Whether they also count in the standings is the switch below - on, as SWAR does; off, like Baku acceleration, the final standings are game points only."
+msgstr "Versnelling (de XtraPoints van SWAR): de extra punten zijn virtuele punten voor de paring. Elke ronde telt de paringsengine ze bij de score van de speler op wanneer ze de scoregroepen vormt, zodat de sterkste spelers elkaar vanaf ronde 1 treffen. Bouw ze onderweg af met \"Een half punt afnemen\" hieronder; rondes die al gepaard zijn, houden wat ze toen hadden. Of ze ook in de stand meetellen, bepaalt de schakelaar hieronder - aan, zoals SWAR; uit, zoals bij Baku-versnelling, dan telt de eindstand alleen partijpunten."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:234
+#, elixir-autogen, elixir-format
+msgid "Acceleration - SWAR's extra points, for players at or above a rating"
+msgstr "Versnelling - de extra punten van SWAR, voor spelers vanaf een rating"
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:258
+#, elixir-autogen, elixir-format
+msgid "Count extra points (standings and pairing)"
+msgstr "Extra punten meetellen (stand en paring)"
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:129
+#, elixir-autogen, elixir-format
+msgid "Fix the Elo bands field before applying it (e.g. \"1400:1, 1600:0.5\")."
+msgstr "Verbeter eerst het veld met de Elo-schijven (bv. \"1400:1, 1600:0.5\")."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:309
+#, elixir-autogen, elixir-format
+msgid "From rating"
+msgstr "Vanaf rating"
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:167
+#, elixir-autogen, elixir-format
+msgid "Give a rating range whose first number is not above the second."
+msgstr "Geef een ratingbereik waarvan het eerste getal niet boven het tweede ligt."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:231
+#, elixir-autogen, elixir-format
+msgid "Handicap - a head start for players below a rating"
+msgstr "Handicap - een voorsprong voor spelers onder een rating"
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:240
+#, elixir-autogen, elixir-format
+msgid "Handicap: the extra points are a head start. With counting on they are added to the player's score everywhere - the standings rank on points plus extra points, and the pairing puts players in score groups by the same total, so the leader on handicap meets the players chasing them. With counting off they do nothing. The FIDE TRF report keeps game points only; the extra points go in its 299 records."
+msgstr "Handicap: de extra punten zijn een voorsprong. Met meetellen aan komen ze overal bij de score van de speler - de stand rangschikt op punten plus extra punten, en de paring deelt spelers in scoregroepen in op datzelfde totaal, zodat wie dankzij de handicap leidt, zijn achtervolgers treft. Met meetellen uit doen ze niets. Het FIDE-TRF-rapport houdt alleen partijpunten; de extra punten staan in de 299-records."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:257
+#, elixir-autogen, elixir-format
+msgid "Keep acceleration points in the final standings"
+msgstr "Versnellingspunten in de eindstand behouden"
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:228
+#, elixir-autogen, elixir-format
+msgid "Kind of extra points"
+msgstr "Soort extra punten"
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:213
+#, elixir-autogen, elixir-format
+msgid "Points a player holds on top of their game points (SWAR \"XtPts\"). Choose what they are for below. See %[players] to edit a single player's value, or assign everyone's from Elo bands."
+msgstr "Punten die een speler bovenop zijn partijpunten heeft (SWAR \"XtPts\"). Kies hieronder waarvoor ze dienen. Zie %[players] om de waarde van één speler te wijzigen, of ken ze iedereen toe met Elo-schijven."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:301
+#: lib/pairings_engine_web/live/extra_points_live.ex:319
+#, elixir-autogen, elixir-format
+msgid "Remove half a point"
+msgstr "Een half punt afnemen"
+
+#: lib/pairings_engine/federations/bel/swar_export.ex:1703
+#, elixir-autogen, elixir-format
+msgid "SWAR holds four extra-point bands: the four with the highest ratings are written, the others are not. The points already given to players are."
+msgstr "SWAR kent vier schijven voor extra punten: de vier met de hoogste rating worden geschreven, de andere niet. De punten die spelers al kregen, wel."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:294
+#, elixir-autogen, elixir-format
+msgid "Save first: \"Apply bands to players\" uses the saved kind and bands, not the ones in the form."
+msgstr "Sla eerst op: \"Schijven toepassen op spelers\" gebruikt de opgeslagen soort en schijven, niet die in het formulier."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:116
+#, elixir-autogen, elixir-format
+msgid "Set extra points for %{matched} of %{count} player."
+msgid_plural "Set extra points for %{matched} of %{count} players."
+msgstr[0] "Extra punten ingesteld voor %{matched} van %{count} speler."
+msgstr[1] "Extra punten ingesteld voor %{matched} van %{count} spelers."
+
+#: lib/pairings_engine/federations/bel/swar_export.ex:1691
+#, elixir-autogen, elixir-format
+msgid "The acceleration points are written as SWAR's XtraPoints, which SWAR pairs with as this tournament does - but SWAR also counts them in its standings, which this tournament does not."
+msgstr "De versnellingspunten worden geschreven als de XtraPoints van SWAR, waarmee SWAR paart zoals dit toernooi - maar SWAR telt ze ook in zijn stand, wat dit toernooi niet doet."
+
+#: lib/pairings_engine/federations/bel/swar_import.ex:1159
+#, elixir-autogen, elixir-format
+msgid "This file carries SWAR XtraPoints. They are imported as acceleration points, which is how SWAR uses them: every round they go to the pairing engine as virtual points, and they count in the standings (Settings, Extra points, where you can also take them off part-way). The rounds already in the file keep the virtual points SWAR paired them with."
+msgstr "Dit bestand bevat XtraPoints van SWAR. Ze worden geïmporteerd als versnellingspunten, zoals SWAR ze gebruikt: elke ronde gaan ze als virtuele punten naar de paringsengine, en ze tellen mee in de stand (Instellingen, Extra punten, waar je ze onderweg ook kunt afbouwen). De rondes die al in het bestand staan, houden de virtuele punten waarmee SWAR ze paarde."
+
+#: lib/pairings_engine/federations/bel/swar_import.ex:1166
+#, elixir-autogen, elixir-format
+msgid "This file carries a SWAR XtraPoints table, which SWAR uses to give players extra points for acceleration. No player has any yet, so nothing changes. The table is imported as the acceleration bands under Settings, Extra points: \"Apply bands to players\" there gives players their points, as SWAR's \"Assign\" does."
+msgstr "Dit bestand bevat een XtraPoints-tabel van SWAR, waarmee SWAR spelers extra punten voor versnelling geeft. Nog geen enkele speler heeft er, dus er verandert niets. De tabel wordt geïmporteerd als de versnellingsschijven onder Instellingen, Extra punten: \"Schijven toepassen op spelers\" daar geeft spelers hun punten, zoals \"Assign\" in SWAR."
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:869
+#, elixir-autogen, elixir-format
+msgid "This round was paired on points plus extra points (handicap): %{count} player's extra points were added to the score the engine grouped by. The scores and brackets on this page include them."
+msgid_plural "This round was paired on points plus extra points (handicap): %{count} players' extra points were added to the score the engine grouped by. The scores and brackets on this page include them."
+msgstr[0] "Deze ronde werd gepaard op punten plus extra punten (handicap): de extra punten van %{count} speler werden opgeteld bij de score waarop de engine groepeerde. De scores en scoregroepen op deze pagina bevatten ze."
+msgstr[1] "Deze ronde werd gepaard op punten plus extra punten (handicap): de extra punten van %{count} spelers werden opgeteld bij de score waarop de engine groepeerde. De scores en scoregroepen op deze pagina bevatten ze."
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:2439
+#, elixir-autogen, elixir-format
+msgid "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the field was given virtual points for pairing, which the engine added to their scores when it built the brackets. The scores shown here are game points without them, and the standings never count them."
+msgstr "Deze ronde werd gepaard met Baku-versnelling (FIDE C.04.7): de bovenste helft van het veld kreeg virtuele punten voor de paring, die de engine bij hun score optelde toen ze de scoregroepen vormde. De scores hier zijn partijpunten zonder die punten, en de stand telt ze nooit mee."
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:863
+#, elixir-autogen, elixir-format
+msgid "This round was paired with acceleration points: %{count} player was given their extra points as virtual points for pairing. The scores and brackets on this page include them."
+msgid_plural "This round was paired with acceleration points: %{count} players were given their extra points as virtual points for pairing. The scores and brackets on this page include them."
+msgstr[0] "Deze ronde werd gepaard met versnellingspunten: %{count} speler kreeg zijn extra punten als virtuele punten voor de paring. De scores en scoregroepen op deze pagina bevatten ze."
+msgstr[1] "Deze ronde werd gepaard met versnellingspunten: %{count} spelers kregen hun extra punten als virtuele punten voor de paring. De scores en scoregroepen op deze pagina bevatten ze."
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:769
+#, elixir-autogen, elixir-format
+msgid "This tournament's extra points go to the pairing (%[page]), so Baku cannot be added on top: the engine gets one set of virtual points per player. Switch extra points to handicap with counting off first."
+msgstr "De extra punten van dit toernooi gaan naar de paring (%[page]), dus Baku kan er niet bovenop: de engine krijgt één reeks virtuele punten per speler. Zet de extra punten eerst op handicap met meetellen uit."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:312
+#, elixir-autogen, elixir-format
+msgid "To rating"
+msgstr "Tot rating"
+
+#: lib/pairings_engine_web/live/audit_live.ex:918
+#, elixir-autogen, elixir-format
+msgid "Took %{amount} extra points off %{count} player rated %{from} to %{to}."
+msgid_plural "Took %{amount} extra points off %{count} players rated %{from} to %{to}."
+msgstr[0] "%{amount} extra punten afgenomen van %{count} speler met rating %{from} tot %{to}."
+msgstr[1] "%{amount} extra punten afgenomen van %{count} spelers met rating %{from} tot %{to}."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:156
+#, elixir-autogen, elixir-format
+msgid "Took half a point off %{count} player."
+msgid_plural "Took half a point off %{count} players."
+msgstr[0] "Een half punt afgenomen van %{count} speler."
+msgstr[1] "Een half punt afgenomen van %{count} spelers."
+
+#: lib/pairings_engine_web/live/extra_points_live.ex:303
+#, elixir-autogen, elixir-format
+msgid "Winds the acceleration down, as SWAR's \"Remove\" does: every player rated in the range who still has extra points loses half a point, never going below zero. The next round is paired with what is left; rounds already paired are not changed."
+msgstr "Bouwt de versnelling af, zoals \"Remove\" in SWAR: elke speler met een rating in het bereik die nog extra punten heeft, verliest een half punt, nooit onder nul. De volgende ronde wordt gepaard met wat overblijft; rondes die al gepaard zijn, veranderen niet."
