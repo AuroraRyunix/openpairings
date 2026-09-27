@@ -136,6 +136,12 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **Configurable scoring** - per-tournament win/draw/loss points, bye value,
   presence points, and plain-absence value (covers SWAR's "3-2-1" club
   scoring configurations exactly).
+- **Late entrants** - adding a player after rounds were paired offers the
+  next round as the one they join in ("Joins in round" on the Players page,
+  which says what the rounds before it count as). When absences pay points, those rounds count
+  as absences - the same value, within the same two limits, using up the
+  same allowance, as SWAR does; a setting beside the absence points turns
+  it off. A FIDE event without absence points scores them as nothing.
 - **Extra points** - Elo-band bonus points with an opt-in toggle for counting
   them in the ranking.
 - **Rounds-present column ("Rds")** - an optional standings column counting the

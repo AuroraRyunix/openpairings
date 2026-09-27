@@ -1664,7 +1664,18 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       # `PairingsEngine.Standings.round_capped?/2`) without needing a
       # separate "is this feature even on" flag.
       abs_jusque: t.abs_jusque,
-      abs_nbfois: t.abs_nbfois
+      abs_nbfois: t.abs_nbfois,
+      # SWAR counts every round before a player was added as an absence:
+      # `JoueurInit` (Joueur.cpp:581-596) gives the new player a
+      # `TABLE_ABSENT` record for each round already paired, which
+      # `GetPoints` pays at `AbsValue` under both caps and `GetNbAbsence`
+      # counts (Utils.cpp:1254-1257, 1159-1170, 1102-1118). The file already
+      # carries those records - they import as "absent" rows - so this
+      # decides what a round before a player's start round counts as for
+      # players added here afterwards. A 3-2-1 event is the exception:
+      # SWAR's `GetPoints` scores it by `ConvertPoint321` and never pays
+      # `AbsValue` (Utils.cpp:1232-1234).
+      late_entry_absences: t.type != 3
     }
     |> Map.merge(scoring_attrs(t))
     |> Map.merge(system_attrs(t))

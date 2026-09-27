@@ -16,6 +16,37 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Rounds before a late entrant joins count as absences.** In a
+  tournament that pays points for a round sat out (Settings, Scoring), a
+  player who joins in round 4 is now scored for rounds 1-3 exactly as if
+  they had been registered and marked absent: the absence points, within
+  the "last round" and "first N" limits, and those rounds use up the
+  absences allowed. With half a point for the first three absences, a
+  player added before round 4 has 1.5 points after round 3 and a later
+  absence pays nothing. This is what SWAR does. It applies to tournaments
+  already running too: their late entrants' scores, places and tie-breaks
+  can move. A new setting beside the absence points, on by default, turns
+  it off. Tournaments without absence points - FIDE events - are
+  unchanged: the rounds before joining still count as nothing. The
+  standings, crosstable, player card, printed lists, the score the next
+  round is paired on, the TRF report, the SWAR file and the results site
+  all count these rounds the same way.
+- [Feature] **"Joins in round" on the Players page.** Adding a player after
+  rounds were paired offers the round after the last one paired; the add
+  form and the player dialog let you change it, and say what the rounds
+  before it count as - "Rounds 1-3 count as absences: 1.5 points, no
+  absences left." An absence typed in for a round before the
+  player joins is said to be covered, or not counted, instead of silently
+  doing nothing. A player added before this version has "Joins in round" 1;
+  the dialog points out when they have nothing in the first rounds, so you
+  can set it.
+- [Fix] **The SWAR file keeps absences the way SWAR does.** A declared
+  absence is written as SWAR's own absence record, so SWAR pays it the
+  absence points and counts it towards the limit - it went out as a round
+  worth nothing. A round before a player joined is no longer left out of
+  the file, which made SWAR read that player's later rounds one round
+  early.
+
 - [Feature] **An agreed date for each postponed game, with its history.**
   The list of open postponed games on the Pairings page has a date field
   per game: the date the two players agreed to play it on. It is optional

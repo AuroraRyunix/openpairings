@@ -2252,4 +2252,89 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
              ) == [0, 0, 1]
     end
   end
+
+  describe "a player joining after rounds were paired" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Late Entry Page",
+          "type" => "swiss",
+          "start_date" => "2026-07-15",
+          "rounds_count" => "9",
+          "round_dates" => List.duplicate("2026-07-15", 9),
+          "tiebreaks" => ["BH", "SB"],
+          "chief_arbiter" => "Jane Arbiter",
+          "federation" => "BEL",
+          "rate_of_play" => "90 min + 30 sec/move",
+          "abs_value" => "0.5",
+          "abs_nbfois" => "3",
+          "abs_jusque" => "9"
+        })
+
+      for n <- 1..3 do
+        Repo.insert!(%PairingsEngine.Tournaments.Round{
+          tournament_id: tournament.id,
+          number: n,
+          status: "finished"
+        })
+      end
+
+      %{tournament: tournament}
+    end
+
+    test "the add form offers the next round and says what the rounds before it count as", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      assert has_element?(lv, ~s(#add-player-start-round[value="4"]))
+
+      assert lv |> element("#add-player-late-note") |> render() =~
+               "Rounds 1-3 count as absences: 1.5 points, no absences left."
+
+      render_change(lv, "add_start_round", %{"player" => %{"start_round" => "2"}})
+
+      assert lv |> element("#add-player-late-note") |> render() =~
+               "Round 1 counts as an absence: 0.5 points, 2 absences left."
+
+      lv
+      |> form("#add-player-form", %{
+        "player" => %{"name" => "Latecomer, Lena", "start_round" => "2"}
+      })
+      |> render_submit()
+
+      [player] = Tournaments.list_players(tournament.id)
+      assert player.start_round == 2
+    end
+
+    test "the player dialog edits the start round, with the same line", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "Old, Entry", "start_round" => "1"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+
+      # Nothing in rounds 1-3, and still starting in round 1: pointed at it.
+      assert lv |> element("#player-join-hint") |> render() =~ "joined in round 4"
+      refute has_element?(lv, "#player-late-note")
+
+      lv
+      |> form("#player-edit-form", %{"player" => %{"start_round" => "4"}})
+      |> render_change()
+
+      assert lv |> element("#player-late-note") |> render() =~ "Rounds 1-3 count as absences"
+      refute has_element?(lv, "#player-join-hint")
+
+      lv
+      |> form("#player-edit-form", %{"player" => %{"start_round" => "4"}})
+      |> render_submit()
+
+      assert Repo.get!(PairingsEngine.Tournaments.Player, player.id).start_round == 4
+    end
+  end
 end

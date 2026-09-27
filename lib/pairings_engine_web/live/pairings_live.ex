@@ -2562,6 +2562,25 @@ defmodule PairingsEngineWeb.PairingsLive do
   # on the day, the one they need to recognise at a glance.
   defp pool_tag(%{absent?: true}, _tournament, _counts), do: "absent (whole event)"
 
+  # A late entrant in a round before they joined: not "unpaired", and - when
+  # the tournament counts such rounds as absences - scored as one
+  # (`PairingsEngine.LateEntry`), at what the standings pay for it.
+  defp pool_tag(
+         %{type: nil, player: %{start_round: start}, round: round} = entry,
+         tournament,
+         counts
+       )
+       when is_integer(start) and is_integer(round) and round < start do
+    if PairingsEngine.LateEntry.applies?(tournament) do
+      points =
+        PairingsEngine.Standings.bye_points_for_row(%{entry | type: "absent"}, tournament, counts)
+
+      "joins in round #{start} · absent · #{points} pt"
+    else
+      "joins in round #{start}"
+    end
+  end
+
   defp pool_tag(%{type: nil}, _tournament, _counts), do: "unpaired"
 
   defp pool_tag(%{type: type} = entry, tournament, counts) do

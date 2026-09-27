@@ -146,6 +146,11 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_inclusion(:status, ~w(active withdrawn))
     |> validate_inclusion(:paid, @paid_statuses)
     |> validate_number(:extra_points, greater_than_or_equal_to: 0.0)
+    |> blank_start_round_is_one()
+    |> validate_number(:start_round,
+      greater_than_or_equal_to: 1,
+      less_than_or_equal_to: PairingsEngine.Tournaments.Tournament.max_rounds()
+    )
     |> validate_fixed_board()
     |> validate_team_in_tournament()
     |> normalize_absent_rounds()
@@ -169,6 +174,14 @@ defmodule PairingsEngine.Tournaments.Player do
   # `test/pairings_engine/fixed_board_collision_test.exs`, which asserts that
   # duplicate row by row). Rejecting a colliding value here, or checking it
   # against the round's real boards, would reverse that decision.
+  # The Players dialog's "Joins in round" box, emptied, means "from the
+  # start" - the column is NOT NULL and 1 is what it has always defaulted to.
+  defp blank_start_round_is_one(changeset) do
+    if get_field(changeset, :start_round) == nil,
+      do: put_change(changeset, :start_round, 1),
+      else: changeset
+  end
+
   defp validate_fixed_board(changeset) do
     validate_number(changeset, :fixed_board, greater_than: 0)
   end

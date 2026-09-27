@@ -298,4 +298,52 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
       assert :sys.get_state(lv.pid).socket.assigns.locked_hint == :abs_scoring
     end
   end
+
+  describe "rounds before a late entrant joins (late_entry_absences)" do
+    test "offered only while a round sat out pays points", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      refute has_element?(lv, "#late-entry-absences-toggle")
+
+      # Follows the points box as it is typed, before any save.
+      render_change(lv, "preview", %{"tournament" => %{"abs_value" => "0.5"}})
+      assert has_element?(lv, "#late-entry-absences-toggle[checked]")
+
+      render_change(lv, "preview", %{"tournament" => %{"abs_value" => ""}})
+      refute has_element?(lv, "#late-entry-absences-toggle")
+    end
+
+    test "can be switched off and on again", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"abs_value" => "0.5"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      assert has_element?(lv, "#late-entry-absences-toggle[checked]")
+
+      lv
+      |> form("#scoring-settings-form", %{"tournament" => %{"late_entry_absences" => "false"}})
+      |> render_submit()
+
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).late_entry_absences
+      refute has_element?(lv, "#late-entry-absences-toggle[checked]")
+
+      lv
+      |> form("#scoring-settings-form", %{"tournament" => %{"late_entry_absences" => "true"}})
+      |> render_submit()
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).late_entry_absences
+    end
+
+    test "not offered in a Keizer event, whose ladder scores absences its own way", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{"abs_value" => "0.5", "pairing_system" => "keizer"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      refute has_element?(lv, "#late-entry-absences-toggle")
+    end
+  end
 end

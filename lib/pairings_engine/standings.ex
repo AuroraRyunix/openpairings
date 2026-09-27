@@ -15,6 +15,7 @@ defmodule PairingsEngine.Standings do
   import Ecto.Query
   require Logger
 
+  alias PairingsEngine.LateEntry
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
   alias PairingsEngine.Standings.AinalramiBridge
@@ -500,6 +501,20 @@ defmodule PairingsEngine.Standings do
 
     rounds = through(rounds, & &1.number, through_round)
     byes = through(byes, & &1.round, through_round)
+
+    # The rounds before a late entrant joined, as the absences they count as
+    # when the tournament says so - see `PairingsEngine.LateEntry`. Added to
+    # the real rows before they are scored, so the `abs_nbfois` count below
+    # runs over both, in round order.
+    byes =
+      byes ++
+        LateEntry.absences(
+          tournament,
+          players,
+          Enum.map(rounds, & &1.number),
+          LateEntry.taken_from(rounds, byes)
+        )
+
     player_ids = MapSet.new(players, & &1.id)
 
     games =
@@ -706,11 +721,17 @@ defmodule PairingsEngine.Standings do
     if is_nil(tournament.abs_value) or not is_integer(tournament.abs_nbfois) do
       %{}
     else
+      # The rounds before a late entrant joined use up the same allowance
+      # (`PairingsEngine.LateEntry`), so they are counted here too, and are
+      # keys like any other absence.
+      late = Enum.map(LateEntry.absences(tournament), &{&1.player_id, &1.round})
+
       Repo.all(
         from b in "byes",
           where: b.tournament_id == ^tournament.id and b.type == "absent",
           select: {b.player_id, b.round}
       )
+      |> Kernel.++(late)
       |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
       |> Enum.flat_map(fn {player_id, rounds} ->
         rounds
@@ -774,13 +795,32 @@ defmodule PairingsEngine.Standings do
   # counts up to and including the round being scored (§ manual 4.2,
   # `AbsentIsLoss`).
   defp absent_count_through_round(tournament, bye) do
-    Repo.one(
-      from b in "byes",
-        where:
-          b.tournament_id == ^tournament.id and b.player_id == ^bye.player_id and
-            b.type == "absent" and b.round <= ^bye.round,
-        select: count(b.id)
-    )
+    # Still one query per row: the player's start round comes back with the
+    # count, so only a late entrant costs more.
+    {recorded, start} =
+      Repo.one(
+        from p in Player,
+          left_join: b in "byes",
+          on:
+            b.player_id == p.id and b.tournament_id == ^tournament.id and
+              b.type == "absent" and b.round <= ^bye.round,
+          where: p.id == ^bye.player_id,
+          group_by: p.start_round,
+          select: {count(b.id), p.start_round}
+      ) || {0, 1}
+
+    # Plus the rounds before they joined, when those count as absences -
+    # and a row that IS one of them was not in the query above.
+    late =
+      if (start || 1) > 1 and LateEntry.applies?(tournament) do
+        tournament
+        |> LateEntry.absences(through_round: bye.round)
+        |> Enum.count(&(&1.player_id == bye.player_id))
+      else
+        0
+      end
+
+    recorded + late
   end
 
   # The `presence_on_allocated_bye` add-on for a pairing-allocated bye -
@@ -841,6 +881,10 @@ defmodule PairingsEngine.Standings do
             # lies under custom scoring (e.g. a presence-valued zero bye
             # worth exactly points_draw).
             bye_type: bye.type,
+            # A round before the player joined, counted as an absence
+            # (`PairingsEngine.LateEntry`) - scored exactly like any other
+            # "absent" row; the flag only lets a page say why it is there.
+            late_entry: Map.get(bye, :late_entry, false),
             # A bye is not a game, so it has no outcome. Every consumer
             # branches on `opponent_id: nil` before it would ask.
             outcome: :none,

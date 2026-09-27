@@ -801,9 +801,13 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   # above already took, so anything reaching here has a token.
   defp single_seat_award(result, _bye), do: result_token(result)
 
+  # A round before a late entrant joined is listed too when it counts as an
+  # absence (`PairingsEngine.LateEntry`): SWAR keeps such a round as an
+  # absence (`TABLE_ABSENT`) and prints it here like any other.
   defp absence_rows(tournament, round, scores_before) do
     tournament.id
     |> Tournaments.list_byes_for_round(round.number)
+    |> Kernel.++(PairingsEngine.LateEntry.absences_for_round(tournament, round.number))
     |> Enum.sort_by(& &1.player.pairing_number)
     |> Enum.with_index()
     |> Enum.map(fn {bye, index} ->
