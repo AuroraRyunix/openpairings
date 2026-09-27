@@ -537,8 +537,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Tie-breaks: done both ways against TieBreakServer (Ainalrami branch `tiebreaks`, docs/validation.md): Ainalrami-generated 50,060 tournaments ~29M values and TieBreakServer-generated 50,000 tournaments ~50M values, 0 unexplained; team events 2,200. Still to confirm: that the ~488M-pairing bbpPairings comparison ran in both directions."
+   "status": "met",
+   "note": "Pairings, both ways against bbpPairings (Ainalrami v0.33.0, docs/validation.md): Ainalrami-generated tournaments paired by bbpPairings, ~2.5 billion pairings; bbpPairings-generated tournaments paired by Ainalrami, 50,045 tournaments (158 more set aside where bbpPairings' own generator found no legal pairing), 499,816 rounds, 28,964,816 pairings, 0 composition and 0 colour disagreements (25,842,761 colour boards). Tie-breaks, both ways against TieBreakServer: Ainalrami-generated 50,060 tournaments ~29M values and TieBreakServer-generated 50,000 tournaments ~50M values, 0 unexplained; team events 2,200."
   },
   {
    "q": 34,
@@ -554,7 +554,7 @@
    },
    "answer": "N",
    "status": "check",
-   "note": "Pairings: 0 in the corpus. Tie-breaks: unknown until Q33 is done."
+   "note": "Pairings: direction 1 (Ainalrami-generated, ~2.5 billion pairings) 2 disagreements, both bbpPairings' own [C2] defect; direction 2 (bbpPairings-generated, 28,964,816 pairings) 0 composition and 0 colour. Tie-breaks: 0 unexplained either way (Q33). Ainalrami v0.33.0 docs/validation.md."
   },
   {
    "q": 35,

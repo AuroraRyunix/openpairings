@@ -24,10 +24,15 @@ Each entry is tagged so a version can be skimmed:
   absences allowed. With half a point for the first three absences, a
   player added before round 4 has 1.5 points after round 3 and a later
   absence pays nothing. This is what SWAR does. It applies to tournaments
-  already running too: their late entrants' scores, places and tie-breaks
-  can move. A new setting beside the absence points, on by default, turns
-  it off. Tournaments without absence points - FIDE events - are
-  unchanged: the rounds before joining still count as nothing. The
+  already running too, including players added before this version, whose
+  join round is worked out (below): their late entrants' scores, places and
+  tie-breaks can move. A new setting beside the absence points turns it
+  off; it is on for every tournament still being played, and off for one
+  that is finished or archived (and for a finished one restored from a
+  backup made before this version), so upgrading does not rewrite final
+  standings - switch it on there if you want the new count. Tournaments
+  without absence points - FIDE events - are unchanged: the rounds before
+  joining still count as nothing. The
   standings, crosstable, player card, printed lists, the score the next
   round is paired on, the TRF report, the SWAR file and the results site
   all count these rounds the same way.
@@ -37,9 +42,18 @@ Each entry is tagged so a version can be skimmed:
   before it count as - "Rounds 1-3 count as absences: 1.5 points, no
   absences left." An absence typed in for a round before the
   player joins is said to be covered, or not counted, instead of silently
-  doing nothing. A player added before this version has "Joins in round" 1;
-  the dialog points out when they have nothing in the first rounds, so you
-  can set it.
+  doing nothing.
+- [Feature] **The join round is worked out when it was never set.** A player
+  added before this version, or through an accepted registration, has no
+  "Joins in round". For them it is read off their rounds: the first round
+  they have anything in (a game, a bye, an absence), or - with nothing yet
+  - the next round to be paired. Anyone with something in round 1 was there
+  from the start and nothing changes for them; a withdrawn player who never
+  played stays as they were. Nothing is saved: unpairing and pairing a
+  round again gives the same answer. The player dialog shows it - "Joins in
+  round 4 (worked out from their first game)" - and typing another round
+  sets it; a round you set always wins. The pairing is unaffected: such a
+  player is paired in the next round, as before.
 - [Fix] **The SWAR file keeps absences the way SWAR does.** A declared
   absence is written as SWAR's own absence record, so SWAR pays it the
   absence points and counts it towards the limit - it went out as a round

@@ -499,6 +499,11 @@ defmodule PairingsEngine.Standings do
     # `SwarImport.points_adjusted_warnings/3`.
     presence? = Keyword.get(opts, :presence, true)
 
+    # Every round's seats and rows, taken BEFORE the cut-off below: a join
+    # round that is not set is worked out from the player's first row, which
+    # may lie after it (`LateEntry.effective_start_round/4`).
+    taken = LateEntry.taken_from(rounds, byes)
+
     rounds = through(rounds, & &1.number, through_round)
     byes = through(byes, & &1.round, through_round)
 
@@ -508,12 +513,7 @@ defmodule PairingsEngine.Standings do
     # runs over both, in round order.
     byes =
       byes ++
-        LateEntry.absences(
-          tournament,
-          players,
-          Enum.map(rounds, & &1.number),
-          LateEntry.taken_from(rounds, byes)
-        )
+        LateEntry.absences(tournament, players, Enum.map(rounds, & &1.number), taken)
 
     player_ids = MapSet.new(players, & &1.id)
 
@@ -795,27 +795,52 @@ defmodule PairingsEngine.Standings do
   # counts up to and including the round being scored (§ manual 4.2,
   # `AbsentIsLoss`).
   defp absent_count_through_round(tournament, bye) do
-    # Still one query per row: the player's start round comes back with the
-    # count, so only a late entrant costs more.
-    {recorded, start} =
+    tid = tournament.id
+
+    # Anything of theirs in round 1 - a board or a `byes` row - means they
+    # were there from the start, so no join round is worked out for them
+    # (`LateEntry.effective_start_round/4`).
+    seated_in_1 =
+      from pr in Pairing,
+        join: r in Round,
+        on: r.id == pr.round_id,
+        where:
+          r.tournament_id == ^tid and r.number == 1 and
+            (pr.white_player_id == parent_as(:player).id or
+               pr.black_player_id == parent_as(:player).id),
+        select: 1
+
+    row_in_1 =
+      from b1 in "byes",
+        where:
+          b1.tournament_id == ^tid and b1.round == 1 and b1.player_id == parent_as(:player).id,
+        select: 1
+
+    # Still one query per row: the player's start round, and whether they
+    # were there in round 1, come back with the count, so only a late
+    # entrant costs more.
+    {recorded, start, there_from_1?} =
       Repo.one(
         from p in Player,
+          as: :player,
           left_join: b in "byes",
           on:
-            b.player_id == p.id and b.tournament_id == ^tournament.id and
+            b.player_id == p.id and b.tournament_id == ^tid and
               b.type == "absent" and b.round <= ^bye.round,
           where: p.id == ^bye.player_id,
-          group_by: p.start_round,
-          select: {count(b.id), p.start_round}
-      ) || {0, 1}
+          group_by: [p.id, p.start_round],
+          select:
+            {count(b.id), p.start_round,
+             exists(subquery(seated_in_1)) or exists(subquery(row_in_1))}
+      ) || {0, 1, true}
 
     # Plus the rounds before they joined, when those count as absences -
     # and a row that IS one of them was not in the query above.
     late =
-      if (start || 1) > 1 and LateEntry.applies?(tournament) do
+      if ((start || 1) > 1 or not there_from_1?) and LateEntry.applies?(tournament) do
         tournament
-        |> LateEntry.absences(through_round: bye.round)
-        |> Enum.count(&(&1.player_id == bye.player_id))
+        |> LateEntry.absences(through_round: bye.round, player_id: bye.player_id)
+        |> length()
       else
         0
       end

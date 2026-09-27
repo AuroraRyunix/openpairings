@@ -7,6 +7,8 @@ defmodule PairingsEngine.LateEntryTest do
   alias PairingsEngine.Federations.BEL.{SwarExport, SwarImport}
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
+  import Ecto.Query
+
   @dates for day <- 1..9, do: "2026-03-0#{day}"
 
   # Four regulars play rounds 1-3; "Late" is added before round 4. Half a
@@ -226,8 +228,13 @@ defmodule PairingsEngine.LateEntryTest do
       {:ok, late} = Tournaments.update_player(late, %{start_round: 3})
       assert points(t, late) == 1.0
 
+      {:ok, late} = Tournaments.update_player(late, %{start_round: 2})
+      assert points(t, late) == 0.5
+
+      # 1 is "not set": with nothing in rounds 1-3 the join round is worked
+      # out again - round 4, the next one to be paired.
       {:ok, late} = Tournaments.update_player(late, %{start_round: 1})
-      assert points(t, late) == 0.0
+      assert points(t, late) == 1.5
 
       {:ok, late} = Tournaments.update_player(late, %{start_round: 4})
       assert points(t, late) == 1.5
@@ -288,17 +295,199 @@ defmodule PairingsEngine.LateEntryTest do
       assert Tournaments.next_start_round(tournament.id) == 1
     end
 
-    test "a player with nothing in the first rounds is pointed at the right start round" do
-      %{tournament: t} = setup_event()
+    test "a player with nothing in the first rounds has their join round worked out" do
+      %{tournament: t, players: [anna | _]} = setup_event()
 
       {:ok, added} =
         Tournaments.create_player(t.id, %{"name" => "Old style", "start_round" => "1"})
 
-      assert LateEntry.unrecorded_leading_rounds(added, t.id) == 3
+      assert LateEntry.derived_start_round(t, added) == {4, :next_round}
 
-      %{late: late} = %{late: Repo.get!(Player, added.id)}
-      {:ok, late} = Tournaments.update_player(late, %{start_round: 4})
-      assert LateEntry.unrecorded_leading_rounds(late, t.id) == 0
+      # Set, it is the organiser's and nothing is worked out.
+      {:ok, late} = Tournaments.update_player(added, %{start_round: 4})
+      assert LateEntry.derived_start_round(t, late) == nil
+
+      # There from round 1: nothing to work out either.
+      assert LateEntry.derived_start_round(t, anna) == nil
+    end
+  end
+
+  describe "a join round worked out, not set (start round 1)" do
+    # Players added before "Joins in round" existed, and accepted
+    # registrations, all have start round 1. What they have in the rounds
+    # decides when they joined; nothing is written.
+    defp old_style(t, attrs \\ %{}) do
+      {:ok, p} =
+        Tournaments.create_player(
+          t.id,
+          Map.merge(%{"name" => "Old style", "fide_rating" => "1500"}, attrs)
+        )
+
+      # Numbered like the late entrant it replaces, so it has a TRF row.
+      p |> Ecto.Changeset.change(pairing_number: 5) |> Repo.update!()
+    end
+
+    test "an existing late entrant with nothing in rounds 1-3 has 1.5 points" do
+      %{tournament: t, late: late} = setup_event()
+      Repo.delete!(late)
+      p = old_style(t)
+
+      assert Repo.reload!(p).start_round == 1
+      assert points(t, p) == 1.5
+      assert LateEntry.effective_start_rounds(t)[p.id] == {4, :next_round}
+
+      # The pairing input and the TRF report agree.
+      row =
+        t
+        |> Pairing.trf_player_rows(Tournaments.list_players(t.id))
+        |> Enum.find(&(&1.id == p.id))
+
+      assert row.points == 1.5
+
+      {:ok, text} = TrfExport.export(t)
+
+      line =
+        text
+        |> String.split(["\r\n", "\n"])
+        |> Enum.find(&(String.starts_with?(&1, "001") and &1 =~ "Old style"))
+
+      assert line |> String.slice(80, 4) |> String.trim() == "1.5"
+
+      # Nothing was written.
+      assert Repo.reload!(p).start_round == 1
+    end
+
+    test "their worked-out rounds use up the allowance, row by row too" do
+      %{tournament: t, late: late, players: [a, b, c, d]} = setup_event()
+      Repo.delete!(late)
+      p = old_style(t)
+
+      r4 = round!(t, 4)
+      pairing!(r4, 1, a, b, "1-0")
+      pairing!(r4, 2, c, d, "1-0")
+      absent!(t, p, 4)
+
+      assert points(t, p) == 1.5
+      assert LateEntry.effective_start_rounds(t)[p.id] == {4, :first_game}
+
+      row = %{player_id: p.id, round: 4, type: "absent"}
+      assert Standings.bye_points_for_row(row, t, Standings.absent_counts(t)) == 0.0
+      assert Standings.bye_points_for_row(row, t) == 0.0
+    end
+
+    test "a player whose first game is in round 3 joined in round 3" do
+      %{tournament: t, late: late, players: [a, b, c, d]} = setup_event()
+      Repo.delete!(late)
+      p = old_style(t)
+
+      # Round 3 re-paired with the newcomer on a board of their own.
+      r3 = Tournaments.get_round(t.id, 3)
+      Repo.delete_all(from x in PairingsEngine.Tournaments.Pairing, where: x.round_id == ^r3.id)
+      pairing!(r3, 1, a, b, "1-0")
+      pairing!(r3, 2, c, p, "0-1")
+      absent!(t, d, 3)
+
+      assert LateEntry.effective_start_rounds(t)[p.id] == {3, :first_game}
+      # Two absences (1.0) and a win.
+      assert points(t, p) == 2.0
+    end
+
+    test "an accepted registration added mid-event joins in the next round" do
+      %{tournament: t, late: late} = setup_event()
+      Repo.delete!(late)
+
+      # What `Registrations.accept/1` creates: start round unset, absent
+      # until they walk in.
+      p = old_style(t, %{"name" => "Web Entry", "absent" => "true"})
+
+      assert points(t, p) == 1.5
+      assert LateEntry.derived_start_round(t, p) == {4, :next_round}
+    end
+
+    test "unpairing round 4 and pairing it again keeps the score the same" do
+      %{tournament: t, late: late} =
+        setup_event(%{pairing_engine: "ainalrami", tiebreaks: ["BH"]})
+
+      Repo.delete!(late)
+      p = old_style(t)
+
+      before = points(t, p)
+      assert before == 1.5
+
+      row = fn ->
+        t
+        |> Pairing.trf_player_rows(Tournaments.list_players(t.id))
+        |> Enum.find(&(&1.id == p.id))
+      end
+
+      assert row.().points == 1.5
+
+      assert {:ok, r4} = Pairing.pair_next_round(Repo.reload!(t))
+
+      assert p.id in Enum.flat_map(
+               Repo.preload(r4, :pairings).pairings,
+               &[&1.white_player_id, &1.black_player_id]
+             )
+
+      assert LateEntry.effective_start_rounds(t)[p.id] == {4, :first_game}
+      assert points(t, p) == 1.5
+
+      :ok = Pairing.delete_round(t.id, 4)
+      assert LateEntry.effective_start_rounds(t)[p.id] == {4, :next_round}
+      assert points(t, p) == 1.5
+      assert row.().points == 1.5
+
+      assert {:ok, _r4} = Pairing.pair_next_round(Repo.reload!(t))
+      assert points(t, p) == 1.5
+      assert Repo.reload!(p).start_round == 1
+    end
+
+    test "a player with an absence row in round 1 was there from the start" do
+      %{tournament: t, late: late} = setup_event()
+      Repo.delete!(late)
+      p = old_style(t)
+      absent!(t, p, 1)
+
+      # Their own absence in round 1 pays; rounds 2 and 3 are not absences.
+      assert points(t, p) == 0.5
+      assert LateEntry.effective_start_rounds(t)[p.id] == nil
+      assert LateEntry.derived_start_round(t, p) == nil
+    end
+
+    test "a withdrawn player with nothing anywhere never joined" do
+      %{tournament: t, late: late} = setup_event()
+      Repo.delete!(late)
+      p = old_style(t, %{"status" => "withdrawn"})
+
+      assert points(t, p) == 0.0
+      assert LateEntry.effective_start_rounds(t)[p.id] == nil
+    end
+
+    test "a set start round wins over the first game" do
+      %{tournament: t, late: late, players: [a, b, c, d]} = setup_event()
+      {:ok, late} = Tournaments.update_player(late, %{start_round: 2})
+
+      r4 = round!(t, 4)
+      pairing!(r4, 1, late, a, "0-1")
+      pairing!(r4, 2, b, c, "1-0")
+      pairing!(r4, 3, d, nil, "bye")
+
+      # Round 1 only: rounds 2 and 3 are theirs and hold nothing.
+      assert points(t, late) == 0.5
+      assert LateEntry.effective_start_rounds(t)[late.id] == {2, :set}
+    end
+
+    test "standings through an earlier round agree" do
+      %{tournament: t, late: late} = setup_event()
+      Repo.delete!(late)
+      p = old_style(t)
+
+      row =
+        t
+        |> Standings.standings(through_round: 2)
+        |> Enum.find(&(&1.player.id == p.id))
+
+      assert row.points == 1.0
     end
   end
 

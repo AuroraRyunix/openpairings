@@ -369,6 +369,9 @@ defmodule PairingsEngineWeb.ExportController do
     csv =
       tournament.id
       |> Tournaments.list_players()
+      # "Start round" is the round each player joined, set or worked out
+      # from their first game (`LateEntry`).
+      |> PairingsEngine.LateEntry.with_effective_start_rounds(tournament)
       |> PlayerExport.export(
         columns: PlayerExport.parse_columns(params["cols"]),
         delimiter: params["delimiter"],

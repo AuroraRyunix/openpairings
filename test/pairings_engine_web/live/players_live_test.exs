@@ -2309,7 +2309,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert player.start_round == 2
     end
 
-    test "the player dialog edits the start round, with the same line", %{
+    test "the player dialog shows a worked-out join round and lets it be set", %{
       conn: conn,
       tournament: tournament
     } do
@@ -2319,22 +2319,34 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
 
-      # Nothing in rounds 1-3, and still starting in round 1: pointed at it.
-      assert lv |> element("#player-join-hint") |> render() =~ "joined in round 4"
-      refute has_element?(lv, "#player-late-note")
-
-      lv
-      |> form("#player-edit-form", %{"player" => %{"start_round" => "4"}})
-      |> render_change()
-
+      # Nothing in rounds 1-3 and no start round set: round 4, worked out,
+      # and scored as such already.
+      assert has_element?(lv, ~s(#player-start-round[value="4"]))
+      assert lv |> element("#player-join-hint") |> render() =~ "Joins in round 4"
       assert lv |> element("#player-late-note") |> render() =~ "Rounds 1-3 count as absences"
-      refute has_element?(lv, "#player-join-hint")
 
+      # Saved as shown, it stays worked out - nothing is written.
       lv
       |> form("#player-edit-form", %{"player" => %{"start_round" => "4"}})
       |> render_submit()
 
-      assert Repo.get!(PairingsEngine.Tournaments.Player, player.id).start_round == 4
+      assert Repo.get!(PairingsEngine.Tournaments.Player, player.id).start_round == 1
+
+      # Another round is the organiser's, and is kept.
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+
+      lv
+      |> form("#player-edit-form", %{"player" => %{"start_round" => "3"}})
+      |> render_change()
+
+      refute has_element?(lv, "#player-join-hint")
+      assert lv |> element("#player-late-note") |> render() =~ "Rounds 1-2 count as absences"
+
+      lv
+      |> form("#player-edit-form", %{"player" => %{"start_round" => "3"}})
+      |> render_submit()
+
+      assert Repo.get!(PairingsEngine.Tournaments.Player, player.id).start_round == 3
     end
   end
 end

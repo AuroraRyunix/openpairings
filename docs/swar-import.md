@@ -599,7 +599,9 @@ use up the allowance. Only a 3-2-1 event differs: `GetPoints` scores it
 with `ConvertPoint321` and never pays `AbsValue` (1232-1234).
 
 On import those records are ordinary `"absent"` rows (the players keep
-`start_round` 1), so a file's late entrants score exactly what SWAR stored.
+`start_round` 1), so a file's late entrants score exactly what SWAR stored -
+and, having a row in round 1, are never given a worked-out join round
+(`LateEntry.effective_start_round/4`).
 The import also sets the tournament's `late_entry_absences` to what SWAR
 does - on, off for 3-2-1 - which decides what the rounds before a player's
 `start_round` count as for a player added here afterwards (see

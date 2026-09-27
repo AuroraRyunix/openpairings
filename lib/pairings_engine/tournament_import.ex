@@ -334,6 +334,17 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
+  # A file written before `late_entry_absences` existed carries none. The
+  # migration that added the column left it off for a finished tournament,
+  # so an upgrade would not rewrite final standings, and a file of a
+  # finished tournament from the same era gets the same answer - otherwise
+  # restoring an old backup would rescore the event the upgrade left alone.
+  defp legacy_late_entry_absences(t_attrs) do
+    if Map.has_key?(t_attrs, "late_entry_absences") or Map.get(t_attrs, "status") != "finished",
+      do: t_attrs,
+      else: Map.put(t_attrs, "late_entry_absences", false)
+  end
+
   # SWAR bookkeeping (`TournamentExport`'s `@tournament_fields`: the guid,
   # `swar_settings` and the two-axis category columns), so a restored copy
   # writes the `.swar` file the original did. `swar_guid` and the category
@@ -383,6 +394,7 @@ defmodule PairingsEngine.TournamentImport do
       |> fetch_map!("tournament")
       |> migrate_legacy_category_rules()
       |> legacy_extra_points_mode(t_data)
+      |> legacy_late_entry_absences()
       |> unique_swar_guid()
 
     tournament =

@@ -2,7 +2,7 @@ defmodule PairingsEngine.LateEntry do
   @moduledoc """
   Rounds before a late entrant joins, counted as absences.
 
-  A player's `start_round` is the first round they are in the tournament.
+  A player's join round is the first round they are in the tournament.
   Nothing is stored for the rounds before it: `Pairing` leaves them out of
   those rounds and writes no `byes` row for them. What such a round is WORTH
   is the tournament's `late_entry_absences` setting:
@@ -43,6 +43,31 @@ defmodule PairingsEngine.LateEntry do
   player's own value, never `abs_value`, and already scores a round before
   `start_round` as not joined (`Keizer.score_round/5`). A round robin's
   schedule has no late entrants. Both are left alone by `applies?/1`.
+
+  ## The join round: set, or worked out
+
+  A `start_round` above 1 is the organiser's word and always wins. A player
+  whose `start_round` is 1 - every player added before "Joins in round"
+  existed, and every accepted registration - has their join round worked
+  out when it is read, never written (`effective_start_round/4`), in an
+  individual Swiss event (`derives?/1`):
+
+    * rows (a board, or a `byes` row of any kind) in round 1: round 1, as
+      stored - nothing changes for anyone who was there from the start;
+    * no row in rounds 1..k and one in round k + 1: round k + 1, the first
+      round they have anything in;
+    * no row at all yet: the next round to be paired, if they can be paired
+      (status active, not forfeited) - a player added after round 3 joins
+      in round 4. A withdrawn or forfeited player with nothing anywhere
+      stays at round 1: they never joined, and their rounds score nothing,
+      as before.
+
+  Nobody present when a round was paired ends up with nothing in it (an
+  active player is paired, and anyone else gets a `byes` row), so a run of
+  empty rounds at the start can only be a player who was not there yet.
+  Pairing ELIGIBILITY keeps reading the stored value
+  (`Pairing.not_yet_started?/2`): a player with `start_round` 1 and no rows
+  is paired in the next round, which is exactly the round this works out.
   """
 
   use Gettext, backend: PairingsEngineWeb.Gettext
@@ -66,27 +91,89 @@ defmodule PairingsEngine.LateEntry do
 
   def applies?(_tournament), do: false
 
-  @doc "The player's first round (1 when unset)."
+  @doc "The player's STORED first round (1 when unset) - see `effective_start_round/4`."
   def start_round(%{start_round: start}) when is_integer(start) and start > 1, do: start
   def start_round(_player), do: 1
+
+  @doc """
+  Whether a player's join round is worked out from their rounds when it is
+  not set (see the moduledoc): an individual Swiss event. Keizer reads the
+  stored value its own way, a round robin has no late entrants, and a team
+  event's players are placed by their team.
+  """
+  def derives?(%{pairing_system: "swiss"} = tournament), do: not Tournament.team?(tournament)
+  def derives?(_tournament), do: false
+
+  @doc """
+  The round `player` joined, for scoring, exports and display: the stored
+  `start_round` when it is above 1, otherwise worked out from their rows
+  (moduledoc). `round_numbers` are the rounds that exist (any order); `taken`
+  is every `{player_id, round}` with a board or a `byes` row - ALL of the
+  player's rounds, even when `round_numbers` stops early, so a player whose
+  first game is after the cut-off is still read as having one.
+
+  Returns `{round, how}` - `how` is `:set` (the stored value, including 1),
+  `:first_game` or `:next_round`.
+  """
+  def effective_start_round(player, round_numbers, taken, seated \\ nil) do
+    case start_round(player) do
+      start when start > 1 ->
+        {start, :set}
+
+      1 ->
+        leading = leading_empty_rounds(player.id, round_numbers, taken)
+        seated = seated || MapSet.new(taken, &elem(&1, 0))
+
+        cond do
+          leading == 0 -> {1, :set}
+          MapSet.member?(seated, player.id) -> {leading + 1, :first_game}
+          pairable?(player) -> {leading + 1, :next_round}
+          true -> {1, :set}
+        end
+    end
+  end
+
+  # How many of rounds 1, 2, 3 ... (as long as they exist, in order) the
+  # player has nothing in.
+  defp leading_empty_rounds(player_id, round_numbers, taken) do
+    round_numbers
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> Enum.with_index(1)
+    |> Enum.take_while(fn {number, expected} ->
+      number == expected and not MapSet.member?(taken, {player_id, number})
+    end)
+    |> length()
+  end
+
+  # Could the next pairing seat them? The same test `Pairing.active_players/1`
+  # and its absent twin make (a whole-event absentee is not paired but gets
+  # a row every round, so is in the tournament all the same).
+  defp pairable?(player),
+    do: Map.get(player, :status, "active") == "active" and Map.get(player, :forfeit) != true
 
   @doc """
   The absences `tournament` owes its late entrants, as `byes`-row-shaped
   maps (`%{player_id:, round:, type: "absent", late_entry: true}`), from
   data the caller already holds:
 
-    * `players` - anything with `:id` and `:start_round`;
-    * `round_numbers` - the rounds that exist (paired, with or without
-      results);
+    * `players` - anything with `:id` and `:start_round` (and `:status` /
+      `:forfeit`, which a player with nothing recorded is judged by);
+    * `round_numbers` - the rounds to score (paired, with or without
+      results) - all of them, or those up to a cut-off;
     * `taken` - a `MapSet` of `{player_id, round}` already holding a board
-      or a `byes` row, which are the player's own and never replaced.
+      or a `byes` row, which are the player's own and never replaced. All
+      rounds', not only those in `round_numbers`: it is also what an unset
+      join round is worked out from (`effective_start_round/4`).
 
   `[]` whenever `applies?/1` is false.
   """
   def absences(tournament, players, round_numbers, taken) do
     if applies?(tournament) do
+      seated = MapSet.new(taken, &elem(&1, 0))
+
       for player <- players,
-          start = start_round(player),
+          {start, _how} = effective_start_round(player, round_numbers, taken, seated),
           start > 1,
           round <- round_numbers,
           round < start,
@@ -100,19 +187,74 @@ defmodule PairingsEngine.LateEntry do
   @doc """
   `absences/4` for the whole of `tournament`, read from the database -
   for a caller without the rounds in hand. `through_round: n` stops at
-  round `n`. Costs nothing but the setting check when it does not apply,
-  and one small query when nobody joined late.
+  round `n`; `player_id: id` looks at that one player only. Costs nothing
+  but the setting check when it does not apply, and one small query when
+  nobody can have joined late (everyone has something in round 1).
   """
   def absences(tournament, opts \\ []) do
     through = Keyword.get(opts, :through_round)
 
     with true <- applies?(tournament),
-         [_ | _] = late <- late_players(tournament.id) do
-      numbers = round_numbers(tournament.id, through)
-      absences(tournament, late, numbers, taken(tournament.id, late))
+         {[_ | _] = late, numbers, taken} <- late_field(tournament, opts[:player_id]) do
+      numbers = if through, do: Enum.filter(numbers, &(&1 <= through)), else: numbers
+      absences(tournament, late, numbers, taken)
     else
       _ -> []
     end
+  end
+
+  @doc """
+  Every player of `tournament` who joins after round 1, as
+  `%{player_id => {round, how}}` (`effective_start_round/4`) - a set round
+  above 1, or one worked out in an individual Swiss event. For the pages
+  and files that say when a player joined; the scores go through
+  `absences/2`.
+  """
+  def effective_start_rounds(tournament, opts \\ []) do
+    {players, numbers, taken} = late_field(tournament, opts[:player_id])
+    seated = MapSet.new(taken, &elem(&1, 0))
+    derive? = derives?(tournament)
+
+    for player <- players,
+        {start, how} =
+          if(derive?,
+            do: effective_start_round(player, numbers, taken, seated),
+            else: {start_round(player), :set}
+          ),
+        start > 1,
+        into: %{},
+        do: {player.id, {start, how}}
+  end
+
+  @doc """
+  For the player dialog: the join round worked out for `player` when their
+  stored `start_round` is 1 - `{round, :first_game | :next_round}` - or
+  `nil` when there is nothing to work out (set above 1, round 1 after all,
+  or not an individual Swiss event).
+  """
+  def derived_start_round(tournament, %{id: player_id} = player) do
+    if derives?(tournament) and start_round(player) == 1 do
+      case tournament |> effective_start_rounds(player_id: player_id) |> Map.get(player_id) do
+        {round, how} when how in [:first_game, :next_round] -> {round, how}
+        _ -> nil
+      end
+    end
+  end
+
+  @doc """
+  `players` with `start_round` replaced by the round each joined
+  (`effective_start_rounds/2`) - a copy for a file or a page that SHOWS the
+  join round, such as the players export. Never saved.
+  """
+  def with_effective_start_rounds(players, tournament) do
+    starts = effective_start_rounds(tournament)
+
+    Enum.map(players, fn p ->
+      case Map.get(starts, p.id) do
+        {start, _how} -> %{p | start_round: start}
+        nil -> p
+      end
+    end)
   end
 
   @doc """
@@ -129,21 +271,58 @@ defmodule PairingsEngine.LateEntry do
         []
 
       rows ->
-        players = Map.new(late_players(tournament.id), &{&1.id, &1})
+        ids = rows |> Enum.map(& &1.player_id) |> Enum.uniq()
+        players = Map.new(Repo.all(from p in Player, where: p.id in ^ids), &{&1.id, &1})
         Enum.map(rows, &Map.put(&1, :player, Map.fetch!(players, &1.player_id)))
     end
   end
 
-  defp late_players(tournament_id) do
-    Repo.all(from p in Player, where: p.tournament_id == ^tournament_id and p.start_round > 1)
+  # The players who can be joining after round 1 - a set start round above
+  # 1, or nothing at all in round 1 - with the rounds that exist and every
+  # round they hold something in. Everyone who was there from round 1 is
+  # left out by the query itself, so an ordinary tournament pays for one
+  # query and nothing else.
+  defp late_field(tournament, only) do
+    tid = tournament.id
+
+    seated_in_1 =
+      from pr in Pairing,
+        join: r in Round,
+        on: r.id == pr.round_id,
+        where:
+          r.tournament_id == ^tid and r.number == 1 and
+            (pr.white_player_id == parent_as(:player).id or
+               pr.black_player_id == parent_as(:player).id),
+        select: 1
+
+    row_in_1 =
+      from b in "byes",
+        where: b.tournament_id == ^tid and b.round == 1 and b.player_id == parent_as(:player).id,
+        select: 1
+
+    query =
+      from p in Player,
+        as: :player,
+        where:
+          p.tournament_id == ^tid and
+            (p.start_round > 1 or
+               (not exists(subquery(seated_in_1)) and not exists(subquery(row_in_1))))
+
+    query = if only, do: from(p in query, where: p.id == ^only), else: query
+
+    case Repo.all(query) do
+      [] -> {[], [], MapSet.new()}
+      players -> {players, round_numbers(tid), taken(tid, players)}
+    end
   end
 
-  defp round_numbers(tournament_id, through) do
-    query = from r in Round, where: r.tournament_id == ^tournament_id, select: r.number
-
-    query = if through, do: from(r in query, where: r.number <= ^through), else: query
-
-    Repo.all(query)
+  defp round_numbers(tournament_id) do
+    Repo.all(
+      from r in Round,
+        where: r.tournament_id == ^tournament_id,
+        order_by: r.number,
+        select: r.number
+    )
   end
 
   # Every round in which one of `players` already sits at a board or has a
@@ -187,41 +366,6 @@ defmodule PairingsEngine.LateEntry do
           do: {id, round.number}
 
     MapSet.new(seats ++ Enum.map(byes, &{&1.player_id, &1.round}))
-  end
-
-  @doc """
-  For a player who starts in round 1: how many of the tournament's first
-  rounds they have nothing at all in - no board, no `byes` row. `0` for
-  anyone else.
-
-  Nobody present when a round was paired ends up with nothing in it (an
-  active player is paired, anybody else gets a `byes` row), so a run of
-  empty rounds at the start is almost always a player added after they
-  were paired - before the Players page could say so. The dialog offers
-  the round after them as the player's start round; it is never set
-  without the organiser.
-  """
-  def unrecorded_leading_rounds(%{start_round: start}, _tournament_id)
-      when is_integer(start) and start > 1,
-      do: 0
-
-  def unrecorded_leading_rounds(%{id: player_id}, tournament_id) do
-    numbers =
-      Repo.all(
-        from r in Round,
-          where: r.tournament_id == ^tournament_id,
-          order_by: r.number,
-          select: r.number
-      )
-
-    taken = taken(tournament_id, [%{id: player_id}])
-
-    numbers
-    |> Enum.with_index(1)
-    |> Enum.take_while(fn {number, expected} ->
-      number == expected and not MapSet.member?(taken, {player_id, number})
-    end)
-    |> length()
   end
 
   ## ---------- what the organiser is told ----------

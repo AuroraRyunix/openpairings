@@ -1814,7 +1814,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       # SWAR has no "joined in round N": it keeps every round before it,
       # as an absence (which is what they are here when the tournament
       # counts them as one) or as not played.
-      (not LateEntry.applies?(t) and Enum.any?(players, &((&1.start_round || 1) > 1))) &&
+      (not LateEntry.applies?(t) and LateEntry.effective_start_rounds(t) != %{}) &&
         gettext(
           "Players who joined after round 1 are written as not having played the rounds before it: SWAR has no \"joined in round\"."
         )

@@ -148,7 +148,11 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   which says what the rounds before it count as). When absences pay points, those rounds count
   as absences - the same value, within the same two limits, using up the
   same allowance, as SWAR does; a setting beside the absence points turns
-  it off. A FIDE event without absence points scores them as nothing.
+  it off (off for tournaments already finished or archived when it
+  arrived). A FIDE event without absence points scores them as nothing. A
+  player whose join round was never set (added before it existed, or an
+  accepted registration) has it worked out from their first round with
+  anything in it, or the next round to be paired - never saved.
 - **Extra points** - Elo-band bonus points with an opt-in toggle for counting
   them in the ranking.
 - **Rounds-present column ("Rds")** - an optional standings column counting the

@@ -214,7 +214,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         # The pool is a superset of `list_byes_for_round/2` - it adds anyone
         # simply unpaired - so the byes-only query this page used to run is
         # no longer needed here. Other views still use it.
-        round_pool: Tournaments.list_round_pool(t.id, n),
+        round_pool: t.id |> Tournaments.list_round_pool(n) |> with_join_rounds(t),
         # The pool chips' absence counts, built once per refresh rather
         # than queried once per chip (`Standings.absent_counts/1`). Empty,
         # and no query at all, unless the tournament caps "Pt ABSENT" by
@@ -2689,6 +2689,25 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp pool_click(nil), do: "stage_pool_pair"
   defp pool_click(_swap_first), do: "pick_swap_target"
 
+  # Each pool entry with the round its player joined (`joins_in`,
+  # `LateEntry.effective_start_rounds/2`), 1 for everyone who was there
+  # from the start.
+  defp with_join_rounds([], _tournament), do: []
+
+  defp with_join_rounds(pool, tournament) do
+    starts = PairingsEngine.LateEntry.effective_start_rounds(tournament)
+
+    Enum.map(pool, fn entry ->
+      joins_in =
+        case Map.get(starts, entry.player_id) do
+          {start, _how} -> start
+          nil -> 1
+        end
+
+      Map.put(entry, :joins_in, joins_in)
+    end)
+  end
+
   # What the pool chip says about WHY someone isn't playing, and what it
   # scores. The tournament-wide `absent` flag is reported ahead of the
   # per-round byes row because it is the reason they are not in the
@@ -2698,9 +2717,11 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # A late entrant in a round before they joined: not "unpaired", and - when
   # the tournament counts such rounds as absences - scored as one
-  # (`PairingsEngine.LateEntry`), at what the standings pay for it.
+  # (`PairingsEngine.LateEntry`), at what the standings pay for it. The join
+  # round is the one `with_join_rounds/2` worked out: set, or read off the
+  # player's first game.
   defp pool_tag(
-         %{type: nil, player: %{start_round: start}, round: round} = entry,
+         %{type: nil, joins_in: start, round: round} = entry,
          tournament,
          counts
        )

@@ -142,9 +142,9 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_error: nil,
        edit_fide_conflicts: nil,
        edit_sent_rounds: [],
-       # For a player who starts in round 1 but has nothing in the first
-       # rounds - see `LateEntry.unrecorded_leading_rounds/2`.
-       edit_join_hint: 0,
+       # The join round worked out for the player in the dialog when theirs
+       # is not set - `LateEntry.derived_start_round/2`.
+       edit_derived_start: nil,
        # The add form's "Joins in round" - the round after the last one
        # paired, set each time the form opens.
        add_start_round: 1,
@@ -1051,15 +1051,21 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply, socket}
 
       player ->
+        # A join round that is not set is shown as worked out, so the field
+        # says what the scores already use; saving it unchanged leaves it
+        # worked out (`keep_derived_start/2`).
+        derived = LateEntry.derived_start_round(socket.assigns.tournament, player)
+        form = player_to_form(player)
+        form = if derived, do: Map.put(form, "start_round", elem(derived, 0)), else: form
+
         {:noreply,
          assign(socket,
            editing_player: player,
-           edit_form: player_to_form(player),
+           edit_form: form,
            edit_error: nil,
            edit_fide_conflicts: nil,
            edit_sent_rounds: [],
-           edit_join_hint:
-             LateEntry.unrecorded_leading_rounds(player, socket.assigns.tournament.id)
+           edit_derived_start: derived
          )}
     end
   end
@@ -1219,6 +1225,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # without it, whatever the page showed.
   def handle_event("save_player", %{"player" => params}, socket) do
     before = socket.assigns.editing_player
+    params = keep_derived_start(params, socket.assigns.edit_derived_start)
     sent = Tournaments.sent_absence_rounds(before, params)
     ack? = params["sent_ack"] == "true"
     opts = if ack?, do: [acknowledged: [:sent_round_changed]], else: []
@@ -1510,6 +1517,17 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp blank_or(nil), do: ""
   defp blank_or(value), do: value
+
+  # "Joins in round" left at the round the dialog worked out is not a choice
+  # the organiser made: it stays unset, so it keeps following the player's
+  # rounds (a round unpaired and paired again). Any other number is theirs.
+  defp keep_derived_start(%{"start_round" => typed} = params, {round, _how}) do
+    if parse_start_round(typed) == round,
+      do: Map.put(params, "start_round", "1"),
+      else: params
+  end
+
+  defp keep_derived_start(params, _derived), do: params
 
   ## ---------- "No pairing-allocated bye" (an organiser's rule, not FIDE's) ----------
 
@@ -2495,7 +2513,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         fide_conflicts={@edit_fide_conflicts}
         editing_player_id={@editing_player.id}
         sent_rounds={@edit_sent_rounds}
-        join_hint={@edit_join_hint}
+        derived_start={@edit_derived_start}
         players={@players}
         bel_lookup?={@bel_lookup?}
         bel_bye_exclusions?={@bel_bye_exclusions? or @editing_player.no_bye}
@@ -2782,7 +2800,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Rounds already sent whose absence the form changes (`:sent_round_changed`).
   attr :sent_rounds, :list, default: []
   # Leading rounds with nothing recorded, for a player starting in round 1.
-  attr :join_hint, :integer, default: 0
+  attr :derived_start, :any, default: nil
   attr :players, :list, default: []
   # Passed in rather than read from the socket: this is a function component,
   # so it sees only what its caller hands it.
@@ -3086,18 +3104,26 @@ defmodule PairingsEngineWeb.PlayersLive do
           </p>
 
           <p
-            :if={@join_hint > 0 and parse_start_round(@form["start_round"]) == 1}
+            :if={
+              @derived_start != nil and
+                parse_start_round(@form["start_round"]) == elem(@derived_start, 0)
+            }
             class="hint"
             id="player-join-hint"
             style="grid-column: 1 / -1; margin: 0"
           >
-            {ngettext(
-              "This player has nothing in round 1. If they joined in round 2, set that above.",
-              "This player has nothing in rounds 1-%{last}. If they joined in round %{next}, set that above.",
-              @join_hint,
-              last: @join_hint,
-              next: @join_hint + 1
-            )}
+            <%= case @derived_start do %>
+              <% {round, :first_game} -> %>
+                {gettext(
+                  "Joins in round %{round} (worked out from their first game). Type another round to set it yourself.",
+                  round: round
+                )}
+              <% {round, _next_round} -> %>
+                {gettext(
+                  "Joins in round %{round} (no game yet: the next round to be paired). Type another round to set it yourself.",
+                  round: round
+                )}
+            <% end %>
           </p>
 
           <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
