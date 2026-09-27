@@ -836,33 +836,33 @@ defmodule SwarRerank do
       {:ok, tournament, warnings} ->
         tournament = Repo.reload!(tournament)
 
+        # The import numbers players in SWAR's seed order, not by Ni
+        # (`SwarImport.prepare_players/1`); this is its map back to Ni.
+        ni_of =
+          data
+          |> SwarImport.prepare_players()
+          |> Map.fetch!(:players)
+          |> Map.new(&{&1.seed, &1.ni})
+
         # Ranks as imported, before anything below changes the tournament.
         as_imported = Standings.standings(tournament)
 
         rank_diffs_as_imported =
           as_imported
-          |> Enum.map(fn e -> {e.player.pairing_number, e.rank} end)
+          |> Enum.map(fn e -> {ni_of[e.player.pairing_number], e.rank} end)
           |> Enum.count(fn {ni, rank} -> t.cat_separes == 0 and self_order[ni] != rank end)
 
         # SWAR ranks a Swiss on points + ExtraPts (`CalculLeClassement`) and
         # zeroes ExtraPts at load for a round robin or 3-2-1. The import
-        # leaves `count_extra_points` off - a product decision
-        # (docs/extra-points.md) - so the comparison below mirrors SWAR
-        # instead and reports the two counts separately.
-        extra? =
-          Model.swiss?(t.type) and not Model.swiss321?(t.type) and
-            Enum.any?(players, &(&1.extra_pts != 0))
-
-        tournament =
-          if extra?,
-            do: tournament |> Ecto.Changeset.change(count_extra_points: true) |> Repo.update!(),
-            else: tournament
-
-        entries = if extra?, do: Standings.standings(tournament), else: as_imported
+        # switches `count_extra_points` on for such a file, and ranks each
+        # category on its own when SWAR does (`CatSepares`), so the
+        # standings as imported are the ones compared.
+        extra? = tournament.count_extra_points
+        entries = as_imported
         op_players = Enum.map(entries, & &1.player)
         effective = Standings.effective_tiebreaks(tournament, op_players)
         dropped = Standings.dropped_tiebreaks_with_reasons(tournament, op_players)
-        by_ni = Map.new(entries, &{&1.player.pairing_number, &1})
+        by_ni = Map.new(entries, &{ni_of[&1.player.pairing_number], &1})
 
         completed =
           case entries do
@@ -878,7 +878,7 @@ defmodule SwarRerank do
           Map.new(entries, fn e ->
             participant = event.participants[e.player.id]
 
-            {e.player.pairing_number,
+            {ni_of[e.player.pairing_number],
              Ainalrami.Tiebreaks.Unplayed.adjusted_score(participant.rounds, event)}
           end)
 
