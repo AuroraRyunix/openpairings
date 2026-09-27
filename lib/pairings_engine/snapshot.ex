@@ -743,8 +743,25 @@ defmodule PairingsEngine.Snapshot do
   # absent unless true, like `manual_order`: a board that is not postponed
   # reads exactly as it did. Withheld with the result, because being
   # postponed is a fact about the result.
+  #
+  # `postponed_date` (added with agreed dates): the date the two players
+  # agreed to play it on, ISO 8601, so the results site can say "to be played
+  # on ..." instead of an empty board. Absent when none was agreed - never a
+  # deadline - and only ever beside `postponed: true`.
   defp maybe_put_postponed(row, pairing, true = _results_public?) do
-    if Results.postponed?(pairing.result), do: Map.put(row, "postponed", true), else: row
+    cond do
+      not Results.postponed?(pairing.result) ->
+        row
+
+      match?(%Date{}, pairing.agreed_date) ->
+        Map.merge(row, %{
+          "postponed" => true,
+          "postponed_date" => Date.to_iso8601(pairing.agreed_date)
+        })
+
+      true ->
+        Map.put(row, "postponed", true)
+    end
   end
 
   defp maybe_put_postponed(row, _pairing, _results_public?), do: row

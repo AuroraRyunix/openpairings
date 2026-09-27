@@ -286,11 +286,12 @@ defmodule PairingsEngine.TeamStandings do
   Team standings, ranked:
 
       [%{team: %Team{}, rank: n, mp: float, gp: float, played: n, won: n,
-         drawn: n, lost: n, records: [record], tiebreaks: %{code => float},
-         working: %{code => [part]}}]
+         drawn: n, lost: n, pending_boards: n, records: [record],
+         tiebreaks: %{code => float}, working: %{code => [part]}}]
 
   A `record` is one match from this team's side: `%{round, opponent_id,
-  bye?, complete?, mp, gp, opp_gp, board_points: %{k => float}}`. `working`
+  bye?, complete?, postponed_boards, mp, gp, opp_gp, board_points: %{k =>
+  float}}`. `pending_boards` adds up the records' postponed boards. `working`
   carries, for BH, SB and EMGSB, the parts the number was added up from, in
   `PairingsEngine.TiebreakWorking`'s shape (`round`, `opponent_id` - a team
   id here - `value`, `kind`).
@@ -323,6 +324,10 @@ defmodule PairingsEngine.TeamStandings do
             |> round1(),
           gp: records |> Enum.map(& &1.gp) |> Enum.sum() |> round1(),
           played: length(done),
+          # Boards of this team's matches still to be played as postponed
+          # games: its match points count them as draws until they are, so
+          # its place is provisional. Display only - nothing ranks by it.
+          pending_boards: records |> Enum.map(& &1.postponed_boards) |> Enum.sum(),
           won: Enum.count(done, &(&1.gp > &1.opp_gp)),
           drawn: Enum.count(done, &(&1.gp == &1.opp_gp)),
           lost: Enum.count(done, &(&1.gp < &1.opp_gp))
@@ -410,6 +415,7 @@ defmodule PairingsEngine.TeamStandings do
       played?: not m.bye? and match_played?(m),
       scored?: m.scored?,
       complete?: m.complete?,
+      postponed_boards: m.postponed_boards,
       mp: mp,
       gp: gp,
       opp_gp: opp_gp,

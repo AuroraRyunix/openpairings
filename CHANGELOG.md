@@ -16,6 +16,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The results site can show when a postponed game will be
+  played.** The agreed date is sent to OpenResults with the board, so
+  spectators see "Postponed, to be played …" instead of an empty result.
+
 ## [0.67.0] - 2026-09-26
 
 - [Change] **Postponed games moved to Settings, Export.** Everything the

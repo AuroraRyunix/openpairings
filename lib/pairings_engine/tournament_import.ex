@@ -526,7 +526,9 @@ defmodule PairingsEngine.TournamentImport do
           played_on: parse_date(Map.get(pr, "played_on")),
           finalised_at: parse_datetime(Map.get(pr, "finalised_at")),
           finalised_open: truthy(Map.get(pr, "finalised_open")),
-          postponed_reported_at: parse_datetime(Map.get(pr, "postponed_reported_at"))
+          postponed_reported_at: parse_datetime(Map.get(pr, "postponed_reported_at")),
+          agreed_date: parse_date(Map.get(pr, "agreed_date")),
+          agreed_date_log: agreed_date_log(Map.get(pr, "agreed_date_log"))
         )
         |> insert!()
       end)
@@ -652,6 +654,20 @@ defmodule PairingsEngine.TournamentImport do
   # only the three values the column can hold survive.
   defp outcome_or_nil(value) when value in ~w(win draw loss), do: value
   defp outcome_or_nil(_), do: nil
+
+  # A postponed game's agreed-date history: only the four string keys it is
+  # written with, each a string or nil, so a hand-edited file cannot carry
+  # anything else onto the page that lists it. Anything unreadable is left
+  # out; a payload written before the field existed has none.
+  defp agreed_date_log(entries) when is_list(entries) do
+    for %{} = entry <- entries do
+      Map.new(~w(from to at by), fn key ->
+        {key, if(is_binary(entry[key]), do: entry[key])}
+      end)
+    end
+  end
+
+  defp agreed_date_log(_), do: []
 
   defp parse_date(value) when is_binary(value) do
     case Date.from_iso8601(value) do
