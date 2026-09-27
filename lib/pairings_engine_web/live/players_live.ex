@@ -17,6 +17,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
+  alias PairingsEngine.LateEntry
 
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
@@ -140,6 +141,12 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_error: nil,
        edit_fide_conflicts: nil,
        edit_sent_rounds: [],
+       # For a player who starts in round 1 but has nothing in the first
+       # rounds - see `LateEntry.unrecorded_leading_rounds/2`.
+       edit_join_hint: 0,
+       # The add form's "Joins in round" - the round after the last one
+       # paired, set each time the form opens.
+       add_start_round: 1,
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
@@ -540,7 +547,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   @impl true
   def handle_event("add", _params, socket) do
     if Tournament.setup_complete?(socket.assigns.tournament) do
-      {:noreply, assign(socket, adding: true)}
+      {:noreply,
+       assign(socket,
+         adding: true,
+         add_start_round: Tournaments.next_start_round(socket.assigns.tournament.id)
+       )}
     else
       {:noreply,
        put_flash(
@@ -683,6 +694,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("lookup_kbsb_add", _params, socket), do: {:noreply, socket}
+
+  # The add form's "Joins in round": what the rounds before it count as is
+  # worked out as it is typed (`add_late_note/2`).
+  def handle_event("add_start_round", %{"player" => %{"start_round" => value}}, socket) do
+    {:noreply, assign(socket, add_start_round: parse_start_round(value))}
+  end
+
+  def handle_event("add_start_round", _params, socket), do: {:noreply, socket}
 
   def handle_event("save", %{"player" => params}, socket) do
     if not Tournament.setup_complete?(socket.assigns.tournament) do
@@ -1035,7 +1054,9 @@ defmodule PairingsEngineWeb.PlayersLive do
            edit_form: player_to_form(player),
            edit_error: nil,
            edit_fide_conflicts: nil,
-           edit_sent_rounds: []
+           edit_sent_rounds: [],
+           edit_join_hint:
+             LateEntry.unrecorded_leading_rounds(player, socket.assigns.tournament.id)
          )}
     end
   end
@@ -1409,7 +1430,14 @@ defmodule PairingsEngineWeb.PlayersLive do
           rating: Player.rating(player)
         })
 
-        {:noreply, socket |> assign(error: nil, form_values: %{}) |> assign_players()}
+        {:noreply,
+         socket
+         |> assign(
+           error: nil,
+           form_values: %{},
+           add_start_round: Tournaments.next_start_round(socket.assigns.tournament.id)
+         )
+         |> assign_players()}
 
       {:error, :duplicate_fide_id} ->
         {:noreply, assign(socket, error: "A player with this FIDE ID is already registered")}
@@ -1468,6 +1496,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       "forfeit" => p.forfeit,
       "fixed_board" => blank_or(p.fixed_board),
       "absent_rounds" => p.absent_rounds,
+      "start_round" => p.start_round || 1,
       "extra_points" => p.extra_points
     }
   end
@@ -2053,7 +2082,23 @@ defmodule PairingsEngineWeb.PlayersLive do
                 pair, so a player registered with a name and no number would
                 immediately show up as a pending club change. --%>
           <input type="hidden" name="player[club_number]" value={@form_values["club_number"]} />
+
+          <label class="field">
+            <span>{gettext("Joins in round")}</span>
+            <input
+              type="number"
+              min="1"
+              id="add-player-start-round"
+              name="player[start_round]"
+              value={@add_start_round}
+              phx-change="add_start_round"
+            />
+          </label>
         </div>
+
+        <p :if={add_late_note(@tournament, @add_start_round)} class="hint" id="add-player-late-note">
+          {add_late_note(@tournament, @add_start_round)}
+        </p>
 
         <p :if={@error} class="error-note">{@error}</p>
 
@@ -2290,6 +2335,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         fide_conflicts={@edit_fide_conflicts}
         editing_player_id={@editing_player.id}
         sent_rounds={@edit_sent_rounds}
+        join_hint={@edit_join_hint}
         players={@players}
         bel_lookup?={@bel_lookup?}
       />
@@ -2533,6 +2579,24 @@ defmodule PairingsEngineWeb.PlayersLive do
   # other there), just a heads-up so setting it on the wrong player by
   # accident doesn't go unnoticed. Excludes the player being edited so
   # their own unchanged value never warns against itself.
+  # A "Joins in round" value as typed: a round number, or 1 for anything
+  # that is not one (blank, mid-edit, nonsense) - which is also what the
+  # changeset stores for a blank box.
+  defp parse_start_round(value) when is_integer(value) and value > 0, do: value
+
+  defp parse_start_round(value) when is_binary(value) do
+    case Integer.parse(String.trim(value)) do
+      {n, ""} when n > 0 -> n
+      _ -> 1
+    end
+  end
+
+  defp parse_start_round(_value), do: 1
+
+  # The add form's line under "Joins in round" - what the rounds before it
+  # count as, with the tournament's caps (`LateEntry.note/3`).
+  defp add_late_note(tournament, start), do: LateEntry.note(tournament, start)
+
   defp fixed_board_conflicts(raw, editing_player_id, players) do
     case parse_rating(raw) do
       0 ->
@@ -2556,6 +2620,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :editing_player_id, :integer, default: nil
   # Rounds already sent whose absence the form changes (`:sent_round_changed`).
   attr :sent_rounds, :list, default: []
+  # Leading rounds with nothing recorded, for a player starting in round 1.
+  attr :join_hint, :integer, default: 0
   attr :players, :list, default: []
   # Passed in rather than read from the socket: this is a function component,
   # so it sees only what its caller hands it.
@@ -2566,6 +2632,14 @@ defmodule PairingsEngineWeb.PlayersLive do
       assigns
       |> Phoenix.Component.assign(:fide_player, Fide.get_player(assigns.form["fide_id"]))
       |> Phoenix.Component.assign(:elo_used, elo_used_from_form(assigns.form))
+      |> Phoenix.Component.assign(
+        :late_note,
+        LateEntry.note(
+          assigns.tournament,
+          parse_start_round(assigns.form["start_round"]),
+          to_string(assigns.form["absent_rounds"] || "")
+        )
+      )
       |> Phoenix.Component.assign(
         :fixed_board_conflicts,
         fixed_board_conflicts(
@@ -2824,6 +2898,41 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>{gettext("Absent at the rounds (e.g. 3,5 or 2-4)")}</span>
             <input name="player[absent_rounds]" value={@form["absent_rounds"]} />
           </label>
+
+          <label class="field">
+            <span>{gettext("Joins in round")}</span>
+            <input
+              type="number"
+              min="1"
+              id="player-start-round"
+              name="player[start_round]"
+              value={@form["start_round"]}
+            />
+          </label>
+
+          <p
+            :if={@late_note}
+            class="hint"
+            id="player-late-note"
+            style="grid-column: 1 / -1; margin: 0"
+          >
+            {@late_note}
+          </p>
+
+          <p
+            :if={@join_hint > 0 and parse_start_round(@form["start_round"]) == 1}
+            class="hint"
+            id="player-join-hint"
+            style="grid-column: 1 / -1; margin: 0"
+          >
+            {ngettext(
+              "This player has nothing in round 1. If they joined in round 2, set that above.",
+              "This player has nothing in rounds 1-%{last}. If they joined in round %{next}, set that above.",
+              @join_hint,
+              last: @join_hint,
+              next: @join_hint + 1
+            )}
+          </p>
 
           <%!-- The same warning and tick as a hand edit of a sent round on
                 the Pairings page: the federation already has that round. --%>

@@ -516,11 +516,17 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     assert round2.result == 0
   end
 
-  test "a round before a player's start_round stays correctly omitted, not backfilled" do
-    # The opposite case: a player who joined the tournament partway
-    # through must NOT get phantom "absent" records fabricated for
-    # rounds before they even existed in it.
-    t = build_tournament()
+  test "a round before a player's start_round is written as not played, never omitted" do
+    # A player who joined partway through still gets a record for every
+    # round: SWAR finds a round by its POSITION in the player's array, so an
+    # omitted round 1 made SWAR read round 2 as round 1. In a tournament that
+    # does not count such a round as an absence it is the plain not-played
+    # shape - nothing SWAR would count or pay (`LateEntry`; the other case,
+    # SWAR's own absence record, is in late_entry_test.exs).
+    t =
+      build_tournament()
+      |> Ecto.Changeset.change(late_entry_absences: false)
+      |> Repo.update!()
 
     early = build_player(t, %{name: "Early Bird", pairing_number: 1})
     late = build_player(t, %{name: "Late Joiner", pairing_number: 2, start_round: 2})
@@ -536,9 +542,10 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
 
     late_parsed = Enum.find(parsed.players, &(&1.name == "Late Joiner"))
 
-    # Only round 2 (the one they actually played) - round 1, before
-    # start_round, is correctly absent from the array, not backfilled.
-    assert Enum.map(late_parsed.rounds, & &1.round_nr) == [2]
+    assert Enum.map(late_parsed.rounds, & &1.round_nr) == [1, 2]
+
+    round1 = Enum.find(late_parsed.rounds, &(&1.round_nr == 1))
+    assert {round1.table, round1.advers, round1.result} == {0, 0, 0}
   end
 
   test "Rank is the rating-sorted seed for players not numbered yet, not registration order" do

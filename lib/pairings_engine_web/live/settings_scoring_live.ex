@@ -13,6 +13,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.Tournaments
+  alias PairingsEngine.Tournaments.Tournament
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -42,10 +43,30 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
        # independently of the saved value so the warning below it appears
        # (or disappears) the instant it's toggled - before "Save settings"
        # is even clicked. See the "vur_toggle" handler.
-       vur_checked: tournament.absent_counts_as_vur
+       vur_checked: tournament.absent_counts_as_vur,
+       # Whether a round sat out pays points in what the form shows right
+       # now - the late-entry toggle only means something then. Follows the
+       # points box as it is typed (the "preview" event), not only the save.
+       abs_points_on?: abs_points_on?(tournament.abs_value)
      )
      |> assign_abs_scoring_lock()}
   end
+
+  defp abs_points_on?(value) when is_number(value), do: value > 0
+
+  defp abs_points_on?(value) when is_binary(value) do
+    case Float.parse(String.trim(value)) do
+      {number, _} -> number > 0
+      :error -> false
+    end
+  end
+
+  defp abs_points_on?(_value), do: false
+
+  # Where "rounds before a late entrant joins" can mean anything at all: an
+  # individual Swiss event (see `PairingsEngine.LateEntry.applies?/1`).
+  defp late_entry_possible?(tournament),
+    do: tournament.pairing_system == "swiss" and not Tournament.team?(tournament)
 
   # Locked once round 1 has been paired - same rationale as the
   # pairing-shape controls on the Options page: changing who's owed points
@@ -90,7 +111,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
          |> assign(
            tournament: tournament,
            stale: false,
-           vur_checked: tournament.absent_counts_as_vur
+           vur_checked: tournament.absent_counts_as_vur,
+           abs_points_on?: abs_points_on?(tournament.abs_value)
          )
          |> assign_abs_scoring_lock()}
     end
@@ -133,11 +155,19 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     {:noreply, assign(socket, vur_checked: !socket.assigns.vur_checked)}
   end
 
+  # Only follows the absence points box, for the late-entry toggle beside
+  # it. A locked (disabled) box is not sent, and then the saved value holds.
+  def handle_event("preview", %{"tournament" => %{"abs_value" => value}}, socket) do
+    {:noreply, assign(socket, abs_points_on?: abs_points_on?(value))}
+  end
+
+  def handle_event("preview", _params, socket), do: {:noreply, socket}
+
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur team_match_points_win team_match_points_draw team_match_points_loss
+        absent_counts_as_vur late_entry_absences team_match_points_win team_match_points_draw team_match_points_loss
         postponed_games postponed_requester_outcome postponed_opponent_outcome))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
@@ -162,6 +192,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
          assign(socket,
            tournament: tournament,
            vur_checked: tournament.absent_counts_as_vur,
+           abs_points_on?: abs_points_on?(tournament.abs_value),
            note: "Saved.",
            error: nil,
            dirty: false,
@@ -219,7 +250,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
       <.stale_banner stale={@stale} />
 
-      <form id="scoring-settings-form" phx-submit="save">
+      <form id="scoring-settings-form" phx-submit="save" phx-change="preview">
         <div class="card">
           <h2>{gettext("Points")}</h2>
 
@@ -409,6 +440,29 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 <span class="hint">
                   {gettext(
                     "On (the default) = a trailing one is downgraded to a draw for opponents' Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off = it always counts at its award value above, same as a forfeit loss."
+                  )}
+                </span>
+              </span>
+            </label>
+
+            <label
+              :if={@abs_points_on? and late_entry_possible?(@tournament)}
+              class="set-toggle"
+              id="late-entry-absences-setting"
+            >
+              <input type="hidden" name="tournament[late_entry_absences]" value="false" />
+              <input
+                type="checkbox"
+                id="late-entry-absences-toggle"
+                name="tournament[late_entry_absences]"
+                value="true"
+                checked={@tournament.late_entry_absences}
+              />
+              <span class="set-toggle-text">
+                {gettext("Rounds before a late entrant joins count as absences")}
+                <span class="hint">
+                  {gettext(
+                    "On (the default) = a player who joins in round 4 is scored for rounds 1-3 as if absent: the points above, within both limits, and they use up the absences allowed. This is what SWAR does. Off = those rounds score nothing."
                   )}
                 </span>
               </span>

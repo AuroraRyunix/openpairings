@@ -86,7 +86,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   require Logger
   use Gettext, backend: PairingsEngineWeb.Gettext
 
-  alias PairingsEngine.{Categories, Encoding, Exclusions, Repo, Standings, Tournaments}
+  alias PairingsEngine.{Categories, Encoding, Exclusions, LateEntry, Repo, Standings, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Tournaments.Tournament
@@ -96,6 +96,15 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # than made public there: it is read-side vocabulary that export needs
   # too, not a shared concept worth coupling the two modules over.
   @table_bye 0x1000
+
+  # Swar.h `TABLE_ABSENT`: the table number SWAR keeps for a round a player
+  # was absent from - announced, or before they were added to the event
+  # (`JoueurInit` in Joueur.cpp gives every round already paired this
+  # table). SWAR pays such a round `AbsValue` under its two caps and counts
+  # it towards `AbsNbFois` (`GetPoints`/`GetNbAbsence`, Utils.cpp) only by
+  # this table number; every real file writes it with Advers -1, no result
+  # and no colour.
+  @table_absent 0x4000
 
   # `{fide-id entries, trailing strings}` - see `SwarImport`'s own
   # `@tournoi_layouts` and the moduledoc above. `:v7_strings` is
@@ -135,15 +144,24 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     settings = tournament.swar_settings || %{}
     ni_by_player_id = assign_ni(players)
 
+    # The rounds before a late entrant joined, when they count as absences
+    # (`LateEntry`), join the round's real byes rows - written as the
+    # absence SWAR itself keeps for a player added after rounds were paired.
+    late = tournament |> LateEntry.absences() |> Enum.group_by(& &1.round)
+
     rounds =
       Tournaments.list_rounds(tournament_id)
       |> Enum.map(fn round ->
         pairings = get_pairings(round.id)
-        byes = Tournaments.list_byes_for_round(tournament_id, round.number)
+
+        byes =
+          Tournaments.list_byes_for_round(tournament_id, round.number) ++
+            Map.get(late, round.number, [])
+
         {round.number, pairings, byes}
       end)
 
-    round_records = build_round_records(players, rounds, ni_by_player_id)
+    round_records = build_round_records(tournament, players, rounds, ni_by_player_id)
     {axis1, axis2, cat_type} = category_axes_for_export(tournament)
 
     # Resolved here, where the tournament is still in scope, and threaded
@@ -1389,11 +1407,18 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   end
 
   # Builds every player's per-round `[RONDE]` entries across the whole
-  # tournament, keyed by player id. A round BEFORE the player's
-  # `start_round` (they hadn't joined yet) is omitted - genuinely never
-  # happened for them. A round from `start_round` onward with no pairing
-  # and no byes row (globally `absent: true`, no per-round bye recorded)
-  # gets an explicit zero-point "absent" record instead of being skipped.
+  # tournament, keyed by player id: one per round, always. A round with no
+  # pairing and no byes row (globally `absent: true` with no per-round bye
+  # recorded, or a round before the player's `start_round` that does not
+  # count as an absence) gets an explicit zero-point record instead of
+  # being skipped.
+  #
+  # A round before `start_round` used to be omitted. SWAR has no such
+  # thing: a player added after rounds were paired gets a record for every
+  # one of them (`JoueurInit`, Joueur.cpp), and SWAR finds a round by its
+  # POSITION in the player's array (`jou.pRound + RoundIndex`, e.g.
+  # `GetNbAbsence` in Utils.cpp) - so a missing round 1 made SWAR read the
+  # player's round 2 as round 1, and every later round one early.
   #
   # This used to omit those rounds outright, on the theory that our own
   # reader (`SwarImport.parse_round/1`) doesn't need the array to be
@@ -1407,13 +1432,25 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # never recorded that way, i.e. the reader desyncing past a truncated
   # block into the next player's raw bytes. Always writing a full,
   # gap-free block avoids the shape entirely.
-  defp build_round_records(players, rounds, ni_by_player_id) do
+  #
+  # An absence carries the points it scores - `abs_value` under the
+  # tournament's two caps, the running count kept here in round order the
+  # way `Standings` keeps it - so the file's `Points` add up to the
+  # standings rather than to a zero per absence.
+  defp build_round_records(tournament, players, rounds, ni_by_player_id) do
     for player <- players, into: %{} do
-      records =
-        for {number, pairings, byes} <- rounds,
-            record = round_record_for(player, number, pairings, byes, ni_by_player_id),
-            record != nil,
-            do: record
+      {records, _absences} =
+        Enum.map_reduce(rounds, 0, fn {number, pairings, byes}, absences ->
+          case round_record_for(player, number, pairings, byes, ni_by_player_id) do
+            :absent ->
+              absences = absences + 1
+              points = Standings.bye_points("absent", tournament, number, absences)
+              {absent_record(number, points), absences}
+
+            record ->
+              {record, absences}
+          end
+        end)
 
       {player.id, records}
     end
@@ -1496,28 +1533,43 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
           played?: false
         }
 
+      # A declared absence - a real "absent" row, or a round before the
+      # player joined that counts as one (`LateEntry`, merged into `byes`
+      # by `export/1`). Scored by `build_round_records/4`, which keeps the
+      # running count the `abs_nbfois` cap is measured with.
       bye && bye.type == "absent" ->
-        absent_record(bye.round)
+        :absent
 
       # No pairing, no byes row - the round the player wasn't there for
-      # and nobody logged a bye/absence type for. Before, this was a `nil`
-      # (round omitted from the array); see `build_round_records/3`'s
-      # comment for why that produced garbled real-SWAR reads. Anything
-      # from the player's `start_round` onward gets the exact same
-      # zero-point shape as a real declared absence, just above - a round
-      # BEFORE `start_round` (not registered yet) stays correctly omitted.
-      number >= (player.start_round || 1) ->
-        absent_record(number)
-
+      # and nobody logged a bye/absence type for, or a round before they
+      # joined that is worth nothing. Before, this was a `nil` (round
+      # omitted from the array); see `build_round_records/4`'s comment for
+      # why that produced garbled real-SWAR reads.
       true ->
-        nil
+        not_played_record(number)
     end
   end
 
-  # Shared shape for a zero-point declared-absence round, used both for a
-  # real "absent" byes-table row and for a gap round with neither a
-  # pairing nor a byes row (see `round_record_for/5`'s two call sites).
-  defp absent_record(round_nr) do
+  # A declared absence, the way SWAR itself keeps one (every real file:
+  # `TABLE_ABSENT`, Advers -1, no result, no colour) - the only shape SWAR
+  # pays `AbsValue` for and counts towards `AbsNbFois`. It used to be the
+  # zero-table shape below, which SWAR scores as nothing and does not count,
+  # so an event paying half a point per absence lost it on the way to SWAR.
+  defp absent_record(round_nr, points) do
+    %{
+      round_nr: round_nr,
+      table: @table_absent,
+      advers: -1,
+      colour: 0,
+      result: 0,
+      points: points,
+      played?: false
+    }
+  end
+
+  # A round with nothing in it for the player: no table, no result - worth
+  # nothing in SWAR as here, and not an absence SWAR counts.
+  defp not_played_record(round_nr) do
     %{
       round_nr: round_nr,
       table: 0,
@@ -1670,7 +1722,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     end
   end
 
-  defp player_notes(_t, players) do
+  defp player_notes(t, players) do
     [
       Enum.any?(
         players,
@@ -1679,9 +1731,12 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         gettext(
           "A SWAR 7 file has one rating per player: the FIDE rating is written, and a national rating that differs from it is not."
         ),
-      Enum.any?(players, &((&1.start_round || 1) > 1)) &&
+      # SWAR has no "joined in round N": it keeps every round before it,
+      # as an absence (which is what they are here when the tournament
+      # counts them as one) or as not played.
+      (not LateEntry.applies?(t) and Enum.any?(players, &((&1.start_round || 1) > 1))) &&
         gettext(
-          "Players who joined after round 1 have no record for the rounds before it; SWAR shows those rounds as not played."
+          "Players who joined after round 1 are written as not having played the rounds before it: SWAR has no \"joined in round\"."
         )
     ]
     |> Enum.filter(&is_binary/1)

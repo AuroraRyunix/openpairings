@@ -208,7 +208,10 @@ paired against others close to them on that list. See
   (odd-count) bye. A forfeit loss, double forfeit, or a played "0-0" is
   worth nothing. An excused absence (the player's `Absent` flag, or the
   round listed in `absent_rounds`) is worth a third of the player's own
-  value. Rounds before a player's `start_round` are worth nothing.
+  value. Rounds before a player's `start_round` are worth nothing - also
+  when the Swiss setting "Rounds before a late entrant joins count as
+  absences" is on: the ladder pays an excused absence a third of the
+  player's own value, never the absence points that setting uses.
 
 * **Retroactive recalculation** is the signature Keizer feature: nothing
   Keizer-specific is ever stored in the database - only results, byes and

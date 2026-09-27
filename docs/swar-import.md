@@ -587,6 +587,30 @@ and always have been (`federations/bel/swar_import.ex`'s
   the `abs_jusque`/`abs_nbfois` caps just described. Never affected by
   `ByeValue`.
 
+### Rounds before a late entrant joined
+
+SWAR has no "joined in round N". A player added after rounds were paired
+gets a round record for every one of them, `Table = TABLE_ABSENT`, no
+opponent, no result (`JoueurInit`, Joueur.cpp:581-596) - an absence like
+any other. `GetPoints` pays it `AbsValue` under both caps
+(Utils.cpp:1254-1257 via `GetSpecialAbsValue`, 1159-1170) and
+`GetNbAbsence` counts it towards `AbsNbFois` (1102-1118), so those rounds
+use up the allowance. Only a 3-2-1 event differs: `GetPoints` scores it
+with `ConvertPoint321` and never pays `AbsValue` (1232-1234).
+
+On import those records are ordinary `"absent"` rows (the players keep
+`start_round` 1), so a file's late entrants score exactly what SWAR stored.
+The import also sets the tournament's `late_entry_absences` to what SWAR
+does - on, off for 3-2-1 - which decides what the rounds before a player's
+`start_round` count as for a player added here afterwards (see
+`PairingsEngine.LateEntry`). The export writes those rounds back as SWAR's
+own absence record when they count as absences, and as a plain not-played
+record otherwise - never leaving them out: SWAR finds a round by its
+position in the player's array, so a missing round 1 shifted every later
+round. A declared absence is written the same way SWAR writes one
+(`TABLE_ABSENT`, Advers -1); it used to go out as a zero table, which SWAR
+neither pays nor counts.
+
 ## Tiebreaks: three places our numbers legitimately differ from SWAR's
 
 Everything above is about reading the file correctly. This section is about
@@ -1232,7 +1256,8 @@ extra points the tournament does not count; this app's extra-point bands;
 more than 16 categories, and the conditions that fill them; tie-breaks SWAR
 has no code for (WON, TPN and the team ones) and more than five; a national
 rating that differs from the FIDE one; the rounds before a late entrant
-joined; unrated and postponed results. The settings that are about this
+joined, when the tournament does not count them as absences (SWAR only has
+the absence); unrated and postponed results. The settings that are about this
 app rather than the event - publishing, the postponed-game outcomes, the
 unplayed-round rule for Buchholz, norms data, e-mail addresses - have no
 SWAR field at all.

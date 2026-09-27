@@ -162,6 +162,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # at its configured award value like a forfeit loss.
     # See `PairingsEngine.Standings.add_bye_records/3`.
     field :absent_counts_as_vur, :boolean, default: true
+    # "Rounds before a late entrant joins count as absences": each round
+    # before a player's `start_round` is scored as a plain absence - at
+    # `abs_value`, under the same `abs_jusque`/`abs_nbfois` caps, using up
+    # the same allowance - exactly as if they had been registered and marked
+    # absent for it. What SWAR does: a player added after rounds were paired
+    # gets an absent record for every one of them (`JoueurInit`, Joueur.cpp).
+    #
+    # ON by default, and it only has an effect where absences pay points at
+    # all (`abs_value` > 0, Swiss, individual): a FIDE event keeps scoring a
+    # round before joining as nothing, which is how C.07 16.1.2 reads. The
+    # rounds are derived, never written as `byes` rows, so changing this or
+    # a player's `start_round` rescores at once. See `PairingsEngine.LateEntry`.
+    field :late_entry_absences, :boolean, default: true
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
     # games") - when true, a pairing-allocated bye pays `presence_value` ON
     # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
@@ -921,6 +934,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :abs_jusque,
       :abs_nbfois,
       :absent_counts_as_vur,
+      :late_entry_absences,
       :presence_on_allocated_bye,
       :postponed_games,
       :postponed_requester_outcome,

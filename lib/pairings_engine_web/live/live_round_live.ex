@@ -404,8 +404,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       results_public?: results_public?,
       scores:
         if(shown > 0, do: Standings.player_scores_before_round(tournament, shown), else: %{}),
+      # With a late entrant's round before joining when it counts as an
+      # absence (`PairingsEngine.LateEntry`), as the standings count it.
       round_byes:
-        if(shown > 0, do: Tournaments.list_byes_for_round(tournament.id, shown), else: []),
+        if(shown > 0,
+          do:
+            Tournaments.list_byes_for_round(tournament.id, shown) ++
+              PairingsEngine.LateEntry.absences_for_round(tournament, shown),
+          else: []
+        ),
       # The byes table's absence counts, once per reload rather than once
       # per rendered row (`Standings.absent_counts/1`). An empty map, and no
       # query at all, unless the tournament caps "Pt ABSENT" by occurrence.

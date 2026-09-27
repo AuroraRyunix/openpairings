@@ -2198,6 +2198,22 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  @doc """
+  The round a player added now would join in: the round after the last one
+  paired (1 before any round is). What the Players page's add form offers
+  in its "Joins in round" box, where the organiser sees it and can change
+  it.
+
+  Deliberately NOT a default of `create_player/2`: a player added while a
+  round is paired but before it is played may be meant for that round -
+  the organiser unpairs it, adds them and pairs it again - and a start
+  round nobody saw would quietly leave them out of it.
+  """
+  def next_start_round(tournament_id) do
+    (Repo.one(from r in Round, where: r.tournament_id == ^tournament_id, select: max(r.number)) ||
+       0) + 1
+  end
+
   def update_player(%Player{} = player, attrs) do
     with :ok <- ensure_writable(player.tournament_id) do
       do_update_player(player, attrs)

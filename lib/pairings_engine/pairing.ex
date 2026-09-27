@@ -489,7 +489,10 @@ defmodule PairingsEngine.Pairing do
     # so lands in NEITHER list: not sent to the engine, and not given an
     # absentee bye row either. They are not absent - they have not joined
     # yet, and a round before `start_round` is a round the tournament did
-    # not have them for.
+    # not have them for. What that round is WORTH is not decided here: with
+    # `late_entry_absences` on and points paid for an absence it counts as
+    # one, derived when scores are read and never written as a row - see
+    # `PairingsEngine.LateEntry`.
     #
     # `pair_next_round/1` has always computed this filter (that is what
     # `eligible_players/2` is), but only ever used the result to count
@@ -1668,7 +1671,7 @@ defmodule PairingsEngine.Pairing do
   # what `pairing_history/1` would have returned the moment that round was
   # about to be paired.
   defp history_before(tournament, round_number) do
-    history = build_shared_history(tournament.id)
+    history = build_shared_history(tournament)
 
     %{
       history
@@ -2921,6 +2924,11 @@ defmodule PairingsEngine.Pairing do
   has the same structural gap and now uses this too; it was harmless there
   only because `Keizer.score_round/5` guards on `start_round` before the bye
   lookup, which the Swiss `Standings` module does not.
+
+  When a tournament DOES count the rounds before joining as absences
+  (`late_entry_absences`), that is `PairingsEngine.LateEntry`'s answer,
+  derived when scores are read - with the tournament's caps applied once,
+  in round order - and still never a row written here.
   """
   def absent_players(tournament_id, round_number) do
     tournament_id
@@ -2985,7 +2993,7 @@ defmodule PairingsEngine.Pairing do
   # `by_id` only scopes which players' rows get BUILT from it, not what the
   # queries themselves return).
   defp games_per_player(tournament, by_id, shared_history) do
-    history = shared_history || build_shared_history(tournament.id)
+    history = shared_history || build_shared_history(tournament)
 
     case history do
       # Already walked for this run (see `precompute_games/2`). Anything
@@ -3063,7 +3071,9 @@ defmodule PairingsEngine.Pairing do
   #     mirroring `trf_player_rows/2`'s own tolerance rule) - deliberately
   #     wider than the `active_players/1`/category-local sets used to
   #     decide who gets rows built or who gets paired THIS round.
-  defp build_shared_history(tournament_id) do
+  defp build_shared_history(tournament) do
+    tournament_id = tournament.id
+
     rounds =
       Repo.all(
         from r in Round,
@@ -3085,6 +3095,14 @@ defmodule PairingsEngine.Pairing do
           where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
       )
       |> Map.new(&{&1.id, &1})
+
+    # The rounds before a late entrant joined, as the absences they count as
+    # when the tournament says so (`PairingsEngine.LateEntry`) - the same
+    # rows `Standings` scores, so the score column the engine brackets by
+    # and the TRF export's `001` total agree with the crosstable. Written as
+    # the `Z` any absence is, and scored by `player_points/2` at the absence
+    # value with its caps.
+    byes = byes ++ PairingsEngine.LateEntry.absences(tournament)
 
     %{
       rounds: rounds,
@@ -3112,7 +3130,7 @@ defmodule PairingsEngine.Pairing do
   # The shared history for one pairing run: three queries, one roster walk,
   # one forbidden-pairing read, and every consumer downstream reads from it.
   defp pairing_history(tournament) do
-    tournament.id |> build_shared_history() |> then(&precompute_games(tournament, &1))
+    tournament |> build_shared_history() |> then(&precompute_games(tournament, &1))
   end
 
   @postponed_codes PairingsEngine.Results.postponed_codes()

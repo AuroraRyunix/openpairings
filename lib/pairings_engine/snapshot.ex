@@ -91,6 +91,7 @@ defmodule PairingsEngine.Snapshot do
   alias PairingsEngine.{
     Categories,
     Keizer,
+    LateEntry,
     PairingDisplay,
     PostponedGames,
     PublicDisplay,
@@ -796,8 +797,16 @@ defmodule PairingsEngine.Snapshot do
     # `bye_points_for_row/2` would ask the database once per emitted row.
     absent_counts = Standings.absent_counts(t)
 
+    # A round before a late entrant joined travels as the absence it counts
+    # as (`LateEntry`), with its points: the results site adds these
+    # per-round figures up into each player's running total, which has to
+    # land on the `standings` block's number.
+    rows =
+      Tournaments.list_byes_for_round(t.id, round.number) ++
+        LateEntry.absences_for_round(t, round.number)
+
     recorded =
-      for row <- Tournaments.list_byes_for_round(t.id, round.number),
+      for row <- rows,
           Map.has_key?(nos, row.player_id) do
         %{
           "player" => Map.get(nos, row.player_id),

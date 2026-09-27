@@ -814,7 +814,11 @@ defmodule PairingsEngineWeb.PrintController do
     do: ""
 
   defp absentees_section(tournament, number, _absentees) do
-    byes = Tournaments.list_byes_for_round(tournament.id, number)
+    # With the rounds before a late entrant joined, when those count as
+    # absences - the standings count them, so the sheet lists them.
+    byes =
+      Tournaments.list_byes_for_round(tournament.id, number) ++
+        PairingsEngine.LateEntry.absences_for_round(tournament, number)
 
     case byes do
       [] ->
