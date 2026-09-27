@@ -2109,6 +2109,19 @@ defmodule PairingsEngineWeb.PairingsLive do
     Enum.map_join(missing, "; ", fn {_field, message} -> message end)
   end
 
+  # The on-page setup line's items: each `{field, message}` a link to the
+  # page that fills it in, comma-separated on the one line.
+  attr :tournament, Tournament, required: true
+  attr :items, :list, required: true
+
+  defp setup_links(assigns) do
+    assigns = assign(assigns, :indexed, Enum.with_index(assigns.items))
+
+    ~H"""
+    <span class="setup-line-items" phx-no-format><%= for {{field, message}, i} <- @indexed do %>{if i > 0, do: ", "}<.link id={"setup-link-#{field}"} navigate={setup_field_path(@tournament, field)}>{message}</.link><% end %></span>
+    """
+  end
+
   # Long JaVaFo failures come through as multi-line output - show a short
   # first-line preview as the collapsed summary, never a truncated message
   # (the full text is always available by expanding the block).
@@ -2269,8 +2282,9 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Same match/leg breakdown as `round_label/2`, but spelled out for the
-  # "Round ..." heading below the picker, where the compact button label
-  # would read ambiguously ("Round M1·1").
+  # "Round ..." heading beside the picker (visually hidden since 2026-09-28:
+  # the selected picker button already says it on screen), where the
+  # compact button label would read ambiguously ("Round M1·1").
   defp round_heading(n, tournament) do
     if match_format?(tournament) do
       "Match #{match_number(n)}, game #{leg_number(n)}"
@@ -2282,16 +2296,21 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
-  ## ---------- the round's "Public:" level control ----------
+  ## ---------- the round's "Spectators see:" level control ----------
   #
   # One cumulative choice per round instead of three switches - see the
   # "One public level per round" section of `PairingsEngine.Tournaments`.
   # Four stops on one track: the thumb sits on the chosen stop and a tint
   # fills every public step up to it, so the control reads "up to here".
+  # Labelled for who it is about - "Spectators see: Nothing · Pairings ·
+  # Results · Standings" - since 2026-09-28; it read "Public: Hidden ..."
+  # before, which named a state rather than an audience. The Standings page
+  # has no control of its own: it says what this one is set to and links
+  # here (`PairingsEngineWeb.StandingsLive`'s `spectator_status/1`).
   #
   # A radio group, but not the kind that selects on an arrow key: every
   # stop publishes or withdraws something the moment it is chosen, and an
-  # arrow key walking from "Hidden" to "Standings" would have published the
+  # arrow key walking from "Nothing" to "Standings" would have published the
   # pairings, then the results, then the standings on the way. The arrow
   # keys move focus (`.PublishLevel`), Space or Enter chooses. Rendered
   # twice - the round header and the round's right-click menu - with an id
@@ -2304,9 +2323,9 @@ defmodule PairingsEngineWeb.PairingsLive do
       %{
         level: 0,
         icon: "hero-eye-slash-micro",
-        label: gettext("Hidden"),
-        name: gettext("Hidden"),
-        hint: gettext("Nothing from this round is public")
+        label: gettext("Nothing"),
+        name: gettext("Nothing"),
+        hint: gettext("Spectators see nothing from this round")
       },
       %{
         level: 1,
@@ -2388,17 +2407,25 @@ defmodule PairingsEngineWeb.PairingsLive do
       class={["pe-level", @compact && "is-compact", @locked? && "is-locked"]}
       data-level={@level}
     >
-      <span class="pe-level-caption" aria-hidden="true">
+      <%!-- The visible caption is the audience ("Spectators see:"); the
+            group's accessible name also names the round, which the caption
+            leaves to the round picker beside it. --%>
+      <span
+        id={"#{@id}-caption"}
+        class="pe-level-caption"
+        aria-hidden="true"
+        title={gettext("What spectators see on the results site")}
+      >
         {if @compact,
-          do: gettext("Round %{n} on the public page", n: @round.number),
-          else: gettext("Public")}
+          do: gettext("Round %{n}: what spectators see", n: @round.number),
+          else: gettext("Spectators see:")}
         <.icon :if={@locked?} name="hero-lock-closed-micro" class="pe-level-lock" />
       </span>
       <div
         id={"#{@id}-radios"}
         class="pe-level-track"
         role="radiogroup"
-        aria-label={gettext("Round %{n} on the public page", n: @round.number)}
+        aria-label={gettext("Round %{n}: what spectators see", n: @round.number)}
         aria-describedby={@described_by}
         phx-hook=".PublishLevel"
       >
@@ -2995,35 +3022,11 @@ defmodule PairingsEngineWeb.PairingsLive do
       tournament={@tournament}
       active="pairings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
-
-          <p class="subtitle" style="margin: 0">{gettext("Pairings & results")}</p>
-        </div>
-
-        <div class="actions" style="margin: 0">
-          <a
-            :if={PublicLink.public?(@tournament)}
-            class="pe-btn"
-            href={PublicLink.url(@tournament, :pairings)}
-            target="_blank"
-            title={gettext("Opens the results site - no login needed, share this link")}
-          >
-            {gettext("Public page")}
-          </a>
-
-          <%!-- "Live" reads as "live to the public", and this page is the
-                opposite: it is the LOCAL view, the screen in the venue and
-                the arbiter's own tab. What's public is OpenResults - and
-                now that page also carries the projector cycle and only
-                ever shows PUBLISHED rounds, calling this one "live" invited
-                exactly the confusion the publish gating exists to remove. --%>
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
-            {gettext("Local view & phone QR")}
-          </a>
-        </div>
-      </div>
+      <%!-- Two rows above the table (2026-09-28): the tournament's name,
+            then the round bar below. The top bar's tab already says
+            "Pairings", so the name stands alone; the links that sat beside
+            it - the public page and the local view - are in More. --%>
+      <h1 id="pairings-title" class="pairings-title">{@tournament.name}</h1>
 
       <%!-- Every postponed game still to be played, whichever round is on
             screen (VCL4THP Q162): its result can be entered at any time, and
@@ -3131,68 +3134,81 @@ defmodule PairingsEngineWeb.PairingsLive do
         </ul>
       </div>
 
-      <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        {gettext("Finish the tournament setup before pairing - still missing:")}
-        <ul style="margin: 6px 0 0; padding-left: 20px">
-          <li :for={{field, message} <- @missing_setup}>
-            <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
-          </li>
-        </ul>
-      </div>
+      <%!-- The setup gaps, one line each: what is missing, each item a link
+            to the settings page that fills it in. The blocking one first
+            (pairing waits for it), the FIDE-report one only once pairing is
+            possible. --%>
+      <p :if={!@setup_complete} id="setup-missing" class="setup-line is-blocking">
+        <.icon name="hero-exclamation-triangle-micro" class="setup-line-icon" />
+        <span>
+          {gettext("Finish the tournament setup before pairing - still missing:")}
+          <.setup_links tournament={@tournament} items={@missing_setup} />
+        </span>
+      </p>
 
-      <div
+      <p
         :if={@setup_complete and @recommended_missing != []}
-        class="card"
-        style="display: block; margin: 12px 0; border-left: 3px solid var(--accent)"
+        id="setup-recommended"
+        class="setup-line"
       >
-        {gettext("You're ready to pair. For a complete FIDE report, you may also want to fill in:")}
-        <ul style="margin: 6px 0 0; padding-left: 20px">
-          <li :for={{field, message} <- @recommended_missing}>
-            <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
-          </li>
-        </ul>
-      </div>
+        <.icon name="hero-information-circle-micro" class="setup-line-icon" />
+        <span>
+          {gettext("You're ready to pair. For a complete FIDE report, you may also want to fill in:")}
+          <.setup_links tournament={@tournament} items={@recommended_missing} />
+        </span>
+      </p>
 
-      <div class="round-picker">
-        <button
-          :for={n <- 1..@tournament.rounds_count}
-          class={[
-            "pe-btn",
-            match_format?(@tournament) && "filter-picker",
-            n == @round_number && "active"
-          ]}
-          aria-pressed={to_string(n == @round_number)}
-          phx-click="select_round"
-          phx-value-number={n}
-        >
-          {round_label(n, @tournament)}
-        </button>
-      </div>
+      <%!-- The round bar: which round, how it stands, and everything to do
+            with it. The picker and the status on the left, the round's
+            actions on the right; below about 900px the actions wrap onto a
+            row of their own (`.round-bar`). --%>
+      <div id="round-bar" class="round-bar">
+        <div class="round-bar-main">
+          <div
+            id="round-picker"
+            class="round-picker"
+            role="group"
+            aria-label={gettext("Rounds")}
+          >
+            <button
+              :for={n <- 1..@tournament.rounds_count}
+              id={"round-pick-#{n}"}
+              class={[
+                "pe-btn",
+                match_format?(@tournament) && "filter-picker",
+                n == @round_number && "active"
+              ]}
+              aria-pressed={to_string(n == @round_number)}
+              phx-click="select_round"
+              phx-value-number={n}
+            >
+              {round_label(n, @tournament)}
+            </button>
+          </div>
 
-      <div class="page-header" style="margin-top: 16px">
-        <div>
-          <h2 style="margin: 0">{round_heading(@round_number, @tournament)}</h2>
+          <%!-- The selected picker button says which round this is; the
+                heading keeps the page's outline for a screen reader, and
+                spells out a match format's "M1·2" as "Match 1, game 2". --%>
+          <h2 id="round-heading" class="sr-only">{round_heading(@round_number, @tournament)}</h2>
 
-          <p class="subtitle" style="margin: 0">
-            <span class={["badge", @round == nil && "muted"]}>
-              {cond do
-                @round == nil ->
-                  "not paired"
+          <span id="round-status" class={["badge", "round-status", @round == nil && "muted"]}>
+            {cond do
+              @round == nil ->
+                "not paired"
 
-                Enum.any?(@round.pairings, &(&1.result == "")) ->
-                  "playing"
+              Enum.any?(@round.pairings, &(&1.result == "")) ->
+                "playing"
 
-                Enum.any?(@round.pairings, &PairingsEngine.Results.postponed?(&1.result)) ->
-                  gettext("postponed game still to be played")
+              Enum.any?(@round.pairings, &PairingsEngine.Results.postponed?(&1.result)) ->
+                gettext("postponed game still to be played")
 
-                true ->
-                  "finished"
-              end}
-            </span>
-          </p>
+              true ->
+                "finished"
+            end}
+          </span>
         </div>
 
-        <div class="actions" style="margin: 0; align-items: center">
+        <div id="round-actions" class="round-bar-actions">
           <%!-- `display: contents`: the control is a flex item of this row
                 like its neighbours, and the note it may carry wraps onto a
                 line of its own below them (see `.pe-level-note`). --%>
@@ -3361,8 +3377,10 @@ defmodule PairingsEngineWeb.PairingsLive do
             </div>
           </details>
 
+          <%!-- There even before a round is paired: the local view and the
+                public page are not about one round, and More is where they
+                live now. --%>
           <details
-            :if={@round != nil}
             id={"round-more-menu-#{@round_number}"}
             class="pe-dropdown"
             phx-hook=".RoundMenu"
@@ -3370,81 +3388,109 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             <summary class="pe-btn">{gettext("More")}</summary>
             <div class="pe-dropdown-panel" role="menu">
-              <span class="pe-dropdown-label">
-                {gettext("PGN (metadata only - no moves are recorded)")}
-              </span>
+              <%!-- "Live" reads as "live to the public", and this is the
+                    opposite: the LOCAL view, the screen in the venue and the
+                    arbiter's own tab. What's public is OpenResults - and that
+                    page also carries the projector cycle and only ever shows
+                    PUBLISHED rounds, so calling this one "live" invited
+                    exactly the confusion the publish gating exists to
+                    remove. --%>
               <a
                 role="menuitem"
-                id={"export-pgn-#{@round_number}"}
-                href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
+                id="local-view-link"
+                href={~p"/t/#{@tournament.id}/live"}
                 target="_blank"
               >
-                {gettext("This round")}
+                {gettext("Local view & phone QR")}
               </a>
               <a
+                :if={PublicLink.public?(@tournament)}
                 role="menuitem"
-                href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}&board=1"}
+                id="public-page-link"
+                href={PublicLink.url(@tournament, :pairings)}
                 target="_blank"
-                title={
-                  gettext(
-                    ~s(Adds a [Board "N"] tag to every game, using the same board number shown on the pairing sheet)
-                  )
-                }
+                title={gettext("Opens the results site - no login needed, share this link")}
               >
-                {gettext("This round, with board numbers")}
+                {gettext("Public page")}
               </a>
-              <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
-                {gettext("All rounds")}
-              </a>
-              <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
-                {gettext("All rounds, with board numbers")}
-              </a>
-              <%!-- A range of boards, e.g. the top boards for a broadcast:
+              <%= if @round != nil do %>
+                <hr />
+                <span class="pe-dropdown-label">
+                  {gettext("PGN (metadata only - no moves are recorded)")}
+                </span>
+                <a
+                  role="menuitem"
+                  id={"export-pgn-#{@round_number}"}
+                  href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
+                  target="_blank"
+                >
+                  {gettext("This round")}
+                </a>
+                <a
+                  role="menuitem"
+                  href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}&board=1"}
+                  target="_blank"
+                  title={
+                    gettext(
+                      ~s(Adds a [Board "N"] tag to every game, using the same board number shown on the pairing sheet)
+                    )
+                  }
+                >
+                  {gettext("This round, with board numbers")}
+                </a>
+                <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
+                  {gettext("All rounds")}
+                </a>
+                <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
+                  {gettext("All rounds, with board numbers")}
+                </a>
+                <%!-- A range of boards, e.g. the top boards for a broadcast:
                     the numbers printed on the pairing sheet. --%>
-              <form
-                id={"pgn-boards-form-#{@round_number}"}
-                class="pe-dropdown-form"
-                method="get"
-                action={~p"/t/#{@tournament.id}/export/pgn"}
-                target="_blank"
-              >
-                <input type="hidden" name="round" value={@round_number} />
-                <input type="hidden" name="board" value="1" />
-                <input
-                  type="text"
-                  name="boards"
-                  id={"pgn-boards-#{@round_number}"}
-                  class="pe-select"
-                  placeholder={gettext("boards, e.g. 1-4")}
-                  aria-label={gettext("Boards to export")}
-                  required
-                />
-                <button type="submit" role="menuitem" class="pe-btn">
-                  {gettext("This round, these boards")}
+                <form
+                  id={"pgn-boards-form-#{@round_number}"}
+                  class="pe-dropdown-form"
+                  method="get"
+                  action={~p"/t/#{@tournament.id}/export/pgn"}
+                  target="_blank"
+                >
+                  <input type="hidden" name="round" value={@round_number} />
+                  <input type="hidden" name="board" value="1" />
+                  <input
+                    type="text"
+                    name="boards"
+                    id={"pgn-boards-#{@round_number}"}
+                    class="pe-select"
+                    placeholder={gettext("boards, e.g. 1-4")}
+                    aria-label={gettext("Boards to export")}
+                    required
+                  />
+                  <button type="submit" role="menuitem" class="pe-btn">
+                    {gettext("This round, these boards")}
+                  </button>
+                </form>
+                <hr :if={!@tournament.archived_at} />
+                <button
+                  :if={!@tournament.archived_at}
+                  type="button"
+                  role="menuitem"
+                  id={"import-results-csv-#{@round_number}"}
+                  phx-click="toggle_import_results"
+                >
+                  {gettext("Import results (CSV)")}
                 </button>
-              </form>
-              <hr :if={!@tournament.archived_at} />
-              <button
-                :if={!@tournament.archived_at}
-                type="button"
-                role="menuitem"
-                id={"import-results-csv-#{@round_number}"}
-                phx-click="toggle_import_results"
-              >
-                {gettext("Import results (CSV)")}
-              </button>
-              <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
-              <button
-                :if={@round_number == @paired_rounds && !@tournament.archived_at}
-                type="button"
-                role="menuitem"
-                id={"unpair-round-#{@round_number}"}
-                class="is-danger"
-                phx-click="unpair"
-                data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
-              >
-                {gettext("Unpair round")}
-              </button>
+                <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
+                <button
+                  :if={@round_number == @paired_rounds && !@tournament.archived_at}
+                  type="button"
+                  role="menuitem"
+                  id={"unpair-round-#{@round_number}"}
+                  class="is-danger"
+                  phx-click="unpair"
+                  data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
+                >
+                  {gettext("Unpair round")}
+                </button>
+              <% end %>
             </div>
           </details>
         </div>
@@ -3771,10 +3817,6 @@ defmodule PairingsEngineWeb.PairingsLive do
           </footer>
         </div>
       </div>
-
-      <p :if={initial_colour_text(@tournament)} id="initial-colour" class="hint">
-        {initial_colour_text(@tournament)}
-      </p>
 
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
@@ -4163,6 +4205,16 @@ defmodule PairingsEngineWeb.PairingsLive do
           </tbody>
         </table>
       </div>
+
+      <%!-- The initial colour is what round 1 was paired from (C.04.3 Art.
+            5.1), so it is said under round 1's table and nowhere else. --%>
+      <p
+        :if={@round_number == 1 && initial_colour_text(@tournament)}
+        id="initial-colour"
+        class="hint table-note"
+      >
+        {initial_colour_text(@tournament)}
+      </p>
 
       <%!-- Hidden rows never render in the table above (see `display_rows/1`),
            so this is their only reachable management surface: unhide them,
@@ -4944,7 +4996,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       </script>
 
       <script :type={Phoenix.LiveView.ColocatedHook} name=".PublishLevel">
-        // The round's "Public:" radio group (`publish_level/1`). One tab stop
+        // The round's "Spectators see:" radio group (`publish_level/1`). One tab stop
         // - the chosen level - and the arrow keys, Home and End move focus
         // between the four stops without choosing one: every stop publishes
         // or withdraws something, so choosing stays a deliberate Space or

@@ -16,6 +16,42 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The Pairings page has two rows above the table.** The
+  tournament's name, then one bar for the round: the round buttons and the
+  round's status ("playing", "finished", ...) on the left, and on the right
+  what spectators see, Print and More - or the "Pair round" button while
+  the round is not paired yet. On a narrow window the right-hand group
+  moves onto its own row. The "Pairings & results" subtitle and the
+  separate "Round N" heading are gone (the selected round button says it;
+  screen readers still get the heading). "Local view & phone QR" and
+  "Public page" moved into More, which is there even before a round is
+  paired. A missing setup item is now one line with each item linked to
+  where it is filled in, and "Initial colour: drawn by lot" is a small note
+  under round 1's table only.
+
+- [Change] **The round's publishing control now reads "Spectators see:
+  Nothing · Pairings · Results · Standings".** It said "Public" and
+  "Hidden" before (0.69.1). Same four levels, same behaviour; the label
+  now says who it is about, with "What spectators see on the results site"
+  on hover. The copy in the round's right-click menu is headed "Round N:
+  what spectators see".
+
+- [Change] **One place to choose what spectators see of a round.** The
+  Standings page no longer has its own "Standings after round N" switch,
+  which did the same as the Standings level on the Pairings page. Instead
+  it says what spectators see of the round the standings are after - for
+  instance "Round 3 · Spectators see: pairings, results and standings" -
+  with a "Change on the Pairings page" link that opens that round. The
+  "Initial standings" switch stays on the Standings page until round 1 is
+  finished, since no round's level covers the entry list.
+
+- [Change] **The version is back on the top bar.** It had moved into the
+  account menu; it now sits, small and grey, after the account menu (or
+  after "Log in"), linking to the changelog. Below 1400px wide it shows
+  the release alone ("v0.69.1"), with the full build in the tooltip, and
+  the bar still fits on one row from 769px up. On the phone layout it is
+  in the account menu, as before.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the

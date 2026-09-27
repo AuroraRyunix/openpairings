@@ -548,7 +548,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     end
   end
 
-  describe "the 'Standings after round K' control beside Public page" do
+  describe "the 'Initial standings' control, and what spectators see after a round" do
     # The control only exists while there IS a public page to change.
     defp public_tournament(scope, name) do
       {:ok, tournament} =
@@ -569,6 +569,8 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       assert html =~ "Public page"
       assert has_element?(lv, "#standings-toggle-0.is-public")
       assert html =~ "Initial standings"
+      # No round is complete, so there is no round's level to report yet.
+      refute has_element?(lv, "#standings-spectator-status")
     end
 
     test "not shown for a tournament that does not publish", %{conn: conn, scope: scope} do
@@ -607,12 +609,10 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       assert has_element?(lv, "#standings-toggle-0")
     end
 
-    test "moves to round 1 once round 1 is complete and its own pairings are public", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = public_tournament(scope, "Round One Complete")
-
+    # Once round 1 is complete, the standings are after a real round, and
+    # what spectators see of it is chosen on the Pairings page only
+    # (2026-09-28): this page says it and links there, no second switch.
+    defp complete_round_one(tournament) do
       a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
       b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob"})
       now = DateTime.utc_now() |> DateTime.truncate(:second)
@@ -633,10 +633,79 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
         result: "1-0"
       })
 
+      tournament
+    end
+
+    test "after a complete round: a read-only line and a link, no switch", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = scope |> public_tournament("Round One Complete") |> complete_round_one()
+      {:ok, tournament, _steps} = Tournaments.set_round_publish_level(tournament, 1, 3)
+
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
       assert html =~ "Standings after round 1"
-      refute has_element?(lv, "#standings-toggle-1[disabled]")
+      refute has_element?(lv, "[id^='standings-toggle-']")
+      refute has_element?(lv, "[phx-click='publish_standings']")
+      refute has_element?(lv, "[phx-click='unpublish_standings']")
+
+      assert has_element?(lv, "#standings-spectator-status[data-level='3']", "Round 1")
+
+      assert has_element?(
+               lv,
+               "#standings-spectator-text",
+               "Spectators see: pairings, results and standings"
+             )
+
+      assert has_element?(
+               lv,
+               "#standings-spectator-change[href='/t/#{tournament.id}/pairings?round=1']",
+               "Change on the Pairings page"
+             )
+    end
+
+    test "the line follows the round's level on the Pairings page", %{conn: conn, scope: scope} do
+      tournament = scope |> public_tournament("Level Words") |> complete_round_one()
+
+      for {level, words} <- [
+            {2, "Spectators see: pairings and results"},
+            {1, "Spectators see: pairings"},
+            {0, "Spectators see: nothing yet"}
+          ] do
+        {:ok, _tournament, _steps} =
+          Tournaments.set_round_publish_level(
+            Tournaments.get_tournament!(tournament.id),
+            1,
+            level
+          )
+
+        {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+        assert has_element?(lv, "#standings-spectator-status[data-level='#{level}']")
+        assert has_element?(lv, "#standings-spectator-text", words)
+      end
+    end
+
+    test "a publish event for a real round is refused here - that is the Pairings page's",
+         %{conn: conn, scope: scope} do
+      tournament = scope |> public_tournament("No Second Control") |> complete_round_one()
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      render_click(lv, "publish_standings", %{"round" => "1"})
+
+      refute Tournaments.standings_public?(Tournaments.get_tournament!(tournament.id), 1)
+      assert Audit.list_for_tournament(tournament.id, action: "standings.published") == []
+    end
+
+    test "no status line for a tournament that does not publish", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Private Done", "type" => "swiss"})
+
+      complete_round_one(tournament)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      refute has_element?(lv, "#standings-spectator-status")
     end
 
     test "publishing the entry list persists, survives a reload, and is audited", %{

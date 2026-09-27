@@ -78,6 +78,25 @@ defmodule PairingsEngineWeb.TeamSwissLiveTest do
       assert has_element?(lv, "#initial-colour", "Initial colour: drawn by lot: White")
     end
 
+    # Since 2026-09-28: round 1's own note, under its table - not repeated
+    # above every other round.
+    test "the initial colour is a note under round 1's table, and only round 1's", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = swiss(scope)
+      {:ok, _} = Pairing.pair_next_round(t)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings?round=1")
+      assert has_element?(lv, ".table-card + p#initial-colour.table-note")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings?round=2")
+      refute has_element?(lv, "#initial-colour")
+
+      lv |> element("#round-pick-1") |> render_click()
+      assert has_element?(lv, "#initial-colour", "Initial colour: drawn by lot")
+    end
+
     test "a team Swiss lists its matches and the bye", %{conn: conn, scope: scope} do
       {t, _} = team_swiss(teams(3), user_id: scope.user.id)
       {:ok, _} = Pairing.pair_next_round(t)

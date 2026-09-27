@@ -55,8 +55,24 @@ defmodule PairingsEngineWeb.ChangelogLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-    refute lv |> element("nav a[href='/changelog']:not(.app-version)") |> has_element?()
+    # The account menu's phone-layout copy of the version is not a tab either.
+    refute lv
+           |> element("nav a[href='/changelog']:not(.app-version):not(.account-menu-version)")
+           |> has_element?()
+
     assert lv |> element("a.app-version[href='/changelog']") |> has_element?()
+  end
+
+  # 2026-09-28: the version is on the bar again, after the account menu,
+  # signed in or not - not only inside the menu.
+  test "the version is on the bar itself, after the account menu", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/")
+
+    assert has_element?(lv, "nav.topbar-auth > a.app-version[href='/changelog'][title]")
+    assert has_element?(lv, "#account-menu + a.app-version")
+    refute has_element?(lv, "#account-menu a.app-version")
+    assert has_element?(lv, "a.app-version .app-version-full")
+    assert has_element?(lv, "a.app-version .app-version-short")
   end
 
   test "the old tournament-scoped changelog route redirects to the global page", %{

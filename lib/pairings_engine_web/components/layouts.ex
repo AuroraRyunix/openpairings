@@ -262,9 +262,10 @@ defmodule PairingsEngineWeb.Layouts do
                 through here. --%>
           <.publish_pill status={@publish_status} />
           <%!-- One account menu instead of a row of links. The email, the
-                two settings pages, log out and the build used to sit in the
-                bar side by side, and on a laptop-width window they pushed the
-                bar onto a second row. --%>
+                two settings pages and log out used to sit in the bar side by
+                side, and on a laptop-width window they pushed the bar onto a
+                second row. The build went in here too, and came back out to
+                the bar on 2026-09-28 (`version_link/1`, after this menu). --%>
           <details class="topbar-menu account-menu" name="topbar-popover" id="account-menu">
             <summary class={tab_class(@active == "features")} title={@current_scope.user.email}>
               <span class="user-email">{@current_scope.user.email}</span>
@@ -302,11 +303,13 @@ defmodule PairingsEngineWeb.Layouts do
               >
                 {gettext("Features")}
               </.link>
-              <%!-- The BUILD, not just the release: the full identifier, with
-                    the commit and the build time, is in the tooltip. --%>
+              <%!-- The phone layout's copy of the version: there the bar has
+                    no room for `version_link/1`, which is hidden, so it is
+                    here. Hidden in this menu from 769px up, where the bar
+                    shows it. --%>
               <.link
                 navigate={~p"/changelog"}
-                class="topbar-menu-item app-version"
+                class="topbar-menu-item account-menu-version"
                 title={Build.long()}
               >
                 v{Build.id()}
@@ -328,10 +331,8 @@ defmodule PairingsEngineWeb.Layouts do
           </details>
         <% else %>
           <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
-          <.link navigate={~p"/changelog"} class="app-version" title={Build.long()}>
-            v{Build.id()}
-          </.link>
         <% end %>
+        <.version_link />
       </nav>
     </header>
 
@@ -807,6 +808,23 @@ defmodule PairingsEngineWeb.Layouts do
   defp theme_label("paper"), do: gettext("Paper")
   defp theme_label("board"), do: gettext("Board")
   defp theme_label("contrast"), do: gettext("High Contrast")
+
+  @doc """
+  The build, at the end of the top bar, linking to the changelog - signed in
+  or not. The BUILD, not just the release: `Build.id/0` (the release and the
+  commit) where the bar has room for it, the release alone where it does not
+  (below 1400px; see `.app-version` in app.css), and the full identifier with
+  the build time in the tooltip either way. Hidden on the phone layout, where
+  the account menu carries a copy.
+  """
+  def version_link(assigns) do
+    ~H"""
+    <.link navigate={~p"/changelog"} class="app-version" title={Build.long()}>
+      <span class="app-version-full">v{Build.id()}</span>
+      <span class="app-version-short">v{Build.version()}</span>
+    </.link>
+    """
+  end
 
   attr :locale, :string, default: nil
   attr :path, :string, default: "/"

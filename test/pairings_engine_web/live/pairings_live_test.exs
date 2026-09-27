@@ -126,11 +126,17 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   } do
     tournament = fixture(scope)
 
-    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     assert html =~ "Local view &amp; phone QR"
     refute html =~ "Live view &amp; phone QR"
-    assert html =~ ~s(href="/t/#{tournament.id}/live")
+
+    # In the More menu since 2026-09-28, same link, same new tab.
+    assert has_element?(
+             lv,
+             "#round-more-menu-2 #local-view-link[role='menuitem'][href='/t/#{tournament.id}/live'][target='_blank']",
+             "Local view & phone QR"
+           )
   end
 
   # White right-aligned, Result centred, Black left-aligned - a printed
@@ -942,13 +948,15 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       result: "0-1"
     })
 
-    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     assert html =~ "M1·1"
     assert html =~ "M1·2"
     assert html =~ "M2·1"
     assert html =~ "M2·2"
-    assert html =~ "Match 1, game 2"
+    # Spelled out in the (visually hidden) heading, where "Round M1·2" would
+    # read ambiguously.
+    assert has_element?(lv, "h2#round-heading.sr-only", "Match 1, game 2")
   end
 
   test "round-picker labels show match/game numbers when swiss_match_format is set", %{
@@ -1795,7 +1803,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       assert has_element?(
                lv,
-               "#round-publish-group #publish-level-2-radios[role='radiogroup'][aria-label='Round 2 on the public page'][phx-hook]"
+               "#round-publish-group #publish-level-2-radios[role='radiogroup'][aria-label='Round 2: what spectators see'][phx-hook]"
              )
 
       assert has_element?(lv, "#publish-level-2[data-level='0']")
@@ -1805,6 +1813,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       end
 
       assert has_element?(lv, "#publish-level-2-0[aria-checked='true'][tabindex='0']")
+      assert has_element?(lv, "#publish-level-2-0[aria-label='Nothing']", "Nothing")
       assert has_element?(lv, "#publish-level-2-1[aria-checked='false'][tabindex='-1']")
       assert has_element?(lv, "#publish-level-2-1[aria-label='Pairings only']", "Pairings")
       assert has_element?(lv, "#publish-level-2-2[aria-label='Pairings and results']", "Results")
@@ -2066,6 +2075,14 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert has_element?(lv, "#menu-publish-level-2.is-compact[data-level='1']")
       assert has_element?(lv, "#menu-publish-level-2-radios[role='radiogroup'][phx-hook]")
       assert has_element?(lv, "#menu-publish-level-2-1[aria-checked='true']")
+
+      # The menu has no heading of its own, so its copy names the round.
+      assert has_element?(lv, "#menu-publish-level-2-caption", "Round 2: what spectators see")
+
+      assert has_element?(
+               lv,
+               "#menu-publish-level-2-radios[aria-label='Round 2: what spectators see']"
+             )
     end
 
     test "choosing a level there writes it, like the header's", %{conn: conn, scope: scope} do
@@ -2128,6 +2145,133 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       # The menu's import button still opens the CSV form.
       lv |> element("#import-results-csv-#{n}") |> render_click()
       assert has_element?(lv, "#results-csv-import-form")
+    end
+
+    # 2026-09-28: two rows above the table - the name, then one bar for the
+    # round (picker and status left, the round's actions right).
+    test "is two rows: the name alone, then picker, status and actions in one bar",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "h1#pairings-title", "Pairings Print Test")
+      refute html =~ "Pairings &amp; results"
+
+      assert has_element?(lv, "#round-bar .round-bar-main #round-picker #round-pick-1")
+      assert has_element?(lv, "#round-bar .round-bar-main #round-pick-2[aria-pressed='true']")
+      assert has_element?(lv, "#round-bar .round-bar-main #round-status", "finished")
+
+      assert has_element?(lv, "#round-bar #round-actions #round-publish-group #publish-level-2")
+      assert has_element?(lv, "#round-bar #round-actions #round-print-menu-2")
+      assert has_element?(lv, "#round-bar #round-actions #round-more-menu-2")
+
+      # No visible "Round N" heading; the screen reader's one stays.
+      assert has_element?(lv, "#round-bar h2#round-heading.sr-only", "Round 2")
+      refute has_element?(lv, "h2:not(.sr-only)", "Round 2")
+    end
+
+    test "the screen reader's heading follows the picker", %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      lv |> element("#round-pick-1") |> render_click()
+      assert has_element?(lv, "h2#round-heading.sr-only", "Round 1")
+      assert has_element?(lv, "#round-pick-1[aria-pressed='true']")
+    end
+
+    test "before a round is paired: the pair button in the actions, More with the views",
+         %{conn: conn, scope: scope} do
+      tournament = complete_setup_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "#round-status.muted", "not paired")
+      assert has_element?(lv, "#round-actions #pair-round", "Pair round 1")
+      refute has_element?(lv, "#round-publish-group")
+      refute has_element?(lv, "[id^='round-print-menu-']")
+
+      assert has_element?(lv, "#round-actions #round-more-menu-1 #local-view-link")
+      refute has_element?(lv, "#round-more-menu-1 [id^='export-pgn-']")
+      refute has_element?(lv, "#round-more-menu-1 [id^='unpair-round-']")
+    end
+
+    test "the public page link is in More while the tournament publishes",
+         %{conn: conn, scope: scope} do
+      Publishing.put_endpoint("https://results.example.org")
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(
+               lv,
+               "#round-more-menu-2 #public-page-link[href^='https://results.example.org/t/#{tournament.public_slug}']",
+               "Public page"
+             )
+    end
+
+    test "the level is captioned for spectators", %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(
+               lv,
+               "#publish-level-2-caption[title='What spectators see on the results site']",
+               "Spectators see:"
+             )
+
+      assert has_element?(lv, "#publish-level-2-0 .pe-level-text", "Nothing")
+      refute has_element?(lv, "#publish-level-2 .pe-level-caption", "Public")
+      refute html =~ ">Hidden<"
+    end
+  end
+
+  describe "the setup line" do
+    test "says what is missing on one line, each item linked to where it is filled in",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Gaps", "type" => "swiss"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "p#setup-missing.setup-line", "Finish the tournament setup")
+      assert has_element?(lv, "#setup-missing #setup-link-round_dates[href]")
+      refute has_element?(lv, "#setup-missing ul")
+      refute has_element?(lv, "#setup-missing li")
+
+      missing = PairingsEngine.Tournaments.Tournament.missing_setup_fields(tournament)
+
+      for {field, message} <- missing do
+        assert has_element?(lv, "#setup-missing #setup-link-#{field}", message)
+      end
+
+      # Several items read as a comma-separated list on the one line.
+      if length(missing) > 1 do
+        text =
+          lv
+          |> element("#setup-missing .setup-line-items")
+          |> render()
+          |> LazyHTML.from_fragment()
+          |> LazyHTML.text()
+
+        assert text == Enum.map_join(missing, ", ", &elem(&1, 1))
+      end
+    end
+
+    test "the FIDE-report suggestions get the same one-line shape once pairing is possible",
+         %{conn: conn, scope: scope} do
+      tournament = complete_setup_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      refute has_element?(lv, "#setup-missing")
+
+      case PairingsEngine.Tournaments.Tournament.missing_recommended_fields(tournament) do
+        [] ->
+          refute has_element?(lv, "#setup-recommended")
+
+        [{field, message} | _] ->
+          assert has_element?(lv, "p#setup-recommended.setup-line #setup-link-#{field}", message)
+          refute has_element?(lv, "#setup-recommended li")
+      end
     end
   end
 

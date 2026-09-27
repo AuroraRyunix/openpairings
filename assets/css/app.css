@@ -837,7 +837,12 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
   border-bottom: 1px solid var(--border);
   margin-bottom: 2px;
 }
-.account-menu .app-version { font-size: 12px; color: var(--text-soft); }
+/* The version's copy in the account menu, for the phone layout only - from
+   769px up the bar shows it (`.app-version`). */
+.account-menu .account-menu-version { font-size: 12px; color: var(--text-soft); }
+@media (min-width: 769px) {
+  .account-menu .account-menu-version { display: none; }
+}
 
 .topbar-auth .user-email {
   color: var(--text-soft);
@@ -866,14 +871,25 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 }
 .topbar-signin:hover { background: var(--accent-hover); }
 
-/* No opacity: faded to 65% the version read at 2.7:1 on Light and 1.9:1 on
-   Slate. --text-soft on its own clears 4.5:1 in every theme. */
-.app-version {
+/* The build, last in the bar (`Layouts.version_link/1`). No opacity: faded
+   to 65% the version read at 2.7:1 on Light and 1.9:1 on Slate. --text-soft
+   on its own clears 4.5:1 in every theme.
+
+   Both forms are in the markup: the build id ("v0.69.1+3f2a1c9") where the
+   bar has room, the release alone below 1400px (the breakpoints near the
+   end of this file), the full id always in the tooltip. `.topbar nav a`'s
+   tab padding is not wanted here: it is a caption, not a tab. */
+.topbar .app-version {
   color: var(--text-soft);
   font-size: 11px;
-  padding: 6px 0 6px 8px;
+  font-weight: 500;
+  padding: 6px 2px 6px 6px;
   white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
 }
+.topbar .app-version:hover { background: none; color: var(--text); text-decoration: underline; }
+.app-version-short { display: none; }
 
 .page { width: 100%; margin: 0 auto; padding: 28px 32px 64px; }
 
@@ -1408,8 +1424,8 @@ button.pe-btn, .pe-btn {
   color: var(--warn);
 }
 
-/* The publish/unpublish switch - "Pairings round N" / "Standings after
-   round N" on the Pairings and Standings pages
+/* The publish/unpublish switch - "Initial standings" on the Standings page,
+   the one thing the Pairings page's per-round level has no stop for
    (`PairingsEngineWeb.CoreComponents.publish_toggle/1`). Built entirely
    from the app's own theme tokens (`--success`/`--danger`/`--border`/
    `--text`/`--surface`), so it follows every theme this app ships,
@@ -1467,16 +1483,16 @@ button.pe-btn, .pe-btn {
 .pe-toggle:disabled { opacity: 0.6; cursor: default; }
 .pe-toggle.is-locked { cursor: default; }
 
-/* ---------- the round's "Public:" level ----------
+/* ---------- the round's "Spectators see:" level ----------
 
    `PairingsEngineWeb.PairingsLive.publish_level/1`: one cumulative choice
-   per round - Hidden, Pairings, + Results, + Standings - on one track.
+   per round - Nothing, Pairings, + Results, + Standings - on one track.
 
    A groove (the page's own --bg, a 1px hairline) holding four equal stops.
    A raised thumb - a --surface tile, the same white as the buttons beside
    it - sits on the chosen stop, and a --success tint fills every public
    step from Pairings up to it, so the control reads "up to here" rather
-   than "this one". Hidden is outside the tint: it is the off position, not
+   than "this one". Nothing is outside the tint: it is the off position, not
    a step.
 
    Pure CSS: `data-level` on the root sets `--pe-level`, the thumb moves by
@@ -1574,7 +1590,7 @@ button.pe-btn, .pe-btn {
 }
 
 /* Stops 2-4 (Pairings to Standings), clipped from the right down to the
-   chosen one. At Hidden it is clipped away entirely; at Pairings it sits
+   chosen one. At Nothing it is clipped away entirely; at Pairings it sits
    wholly under the thumb. */
 .pe-level-range {
   z-index: 0;
@@ -2632,6 +2648,100 @@ a.pending-chip:hover {
   font-variant-numeric: normal;
 }
 
+/* ---------- Pairings page: the two rows above the table ----------
+
+   The tournament's name, then the round bar: picker and status on the left,
+   the round's actions (the "Spectators see:" level, Print, More, or the
+   pair button) pushed right. Both halves wrap inside themselves, and below
+   900px the actions take a row of their own, left-aligned under the picker,
+   rather than squeezing it - no width is ever fixed, so nothing overflows
+   the page at phone width. */
+.page .pairings-title { margin: 0 0 14px; overflow-wrap: anywhere; }
+
+.round-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 16px;
+}
+.round-bar-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+}
+.round-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
+}
+/* The pair button's in-progress label is a sentence; let it wrap inside
+   the button instead of pushing the row wider than the page. */
+.round-bar-actions > .pe-btn { max-width: 100%; white-space: normal; }
+.round-status { flex-shrink: 0; }
+
+@media (max-width: 900px) {
+  .round-bar-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+  .round-bar-actions .pe-level-note { justify-content: flex-start; }
+}
+
+/* A setup gap, said on one line with its items linked. Soft for the
+   FIDE-report fields, the danger tone for what pairing waits on. */
+.setup-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+.setup-line.is-blocking { color: var(--danger); font-weight: 500; }
+.setup-line-icon { flex-shrink: 0; align-self: center; }
+.setup-line-items a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.setup-line-items a:hover { color: var(--text); }
+
+/* A note that belongs to the table above it (round 1's initial colour):
+   close under the card, not a card's gap away. */
+.table-note { margin: -10px 0 20px; }
+
+/* The Standings page's quiet line under its title: what spectators see of
+   the round the standings are after, and where that is changed. Read-only,
+   so no control shape - text, an eye, a link. */
+.spectator-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-soft);
+}
+.spectator-status > span { display: inline-flex; flex-wrap: wrap; gap: 0 6px; }
+.spectator-status-icon { flex-shrink: 0; }
+.spectator-status:not([data-level="0"]) .spectator-status-icon { color: var(--success); }
+.spectator-status-round { font-weight: 600; color: var(--text); }
+.spectator-status-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+.spectator-status-link:hover { color: var(--accent); }
+
 /* split layout: table + right-hand Display panel (SWAR-style) */
 .split { display: flex; gap: 16px; align-items: flex-start; }
 .split-main { flex: 1; min-width: 0; overflow-x: auto; }
@@ -2810,11 +2920,11 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    pickers now in the bar, a full address (capped at 22ch) still wrapped the
    account group onto a second row up to about 1180px. */
 @media (max-width: 1200px) {
-  /* The signed-in address is also shown on the account settings page, and
-     the version in Settings → About. */
+  /* The signed-in address is also shown on the account settings page. The
+     version stays (short form, see `.app-version`): it was hidden here, and
+     then in the account menu, and people look for it on the bar. */
   .topbar-auth .user-email { display: none; }
   .account-menu-short { display: inline; }
-  .app-version { display: none; }
   .topbar { gap: 18px; padding: 0 16px; }
 }
 
@@ -2834,6 +2944,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
   .topbar .brand { order: 1; }
   .topbar-auth { order: 2; margin-left: auto; }
+
+  /* No room beside the brand; the account menu carries the version here
+     (`.account-menu-version`). */
+  .topbar .app-version { display: none; }
 
   .topbar nav a {
     min-height: 44px;
@@ -2914,7 +3028,6 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
      Settings / Log out links next to the brand */
   .topbar-auth .user-email { display: none; }
   .account-menu-short { display: inline; }
-  .app-version { display: none; }
 
   .modal-card {
     width: 95vw;
@@ -5528,4 +5641,28 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
 @media (min-width: 769px) and (max-width: 880px) {
   .topbar-auth .account-menu-short { display: none; }
   .account-menu-icon { display: inline-block; }
+
+  /* And the ~45px the version needs (2026-09-28): two pixels off each
+     side of every tab, one off every gap in the two navs, two off the
+     bar's. */
+  .topbar { gap: 8px; }
+  .topbar nav { gap: 1px; }
+  .topbar nav a,
+  .topbar-menu > summary { padding: 5px 5px; }
+}
+
+/* ---------- the version on the bar ----------
+   The release alone ("v0.69.1") below 1400px, the build id from there up,
+   where even a full 22ch address leaves room for it. Between 1201px and
+   1399px the address is shown and the bar is at its fullest, so the address
+   is capped a little shorter there (its full text is the summary's title)
+   and the bar's gap comes down to what the band below uses. */
+@media (max-width: 1399px) {
+  .app-version-full { display: none; }
+  .app-version-short { display: inline; }
+}
+
+@media (min-width: 1201px) and (max-width: 1399px) {
+  .topbar { gap: 20px; }
+  .account-menu > summary { max-width: 18ch; }
 }

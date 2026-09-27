@@ -267,13 +267,18 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
   one is withheld when the document is built rather than sent and hidden at
   the other end.
 
-  What reaches the site is decided per round by one **Public** control on
-  the Pairings page (and in the round's right-click menu), with four
-  cumulative levels: **Hidden**, **Pairings** (who plays whom), **+ Results**
-  (results as they come in) and **+ Standings** (the standings after the
-  round too). A newly published round starts at Pairings: the boards travel
-  without results, and nothing computed from a result goes with them, so
-  live results are a deliberate choice rather than the default. Choosing a
+  What reaches the site is decided per round by one **Spectators see:**
+  control on the Pairings page (and in the round's right-click menu), with
+  four cumulative levels: **Nothing**, **Pairings** (who plays whom),
+  **+ Results** (results as they come in) and **+ Standings** (the standings
+  after the round too). It is the only place a round's level is chosen: the
+  Standings page says what spectators see of the round its standings are
+  after and links to that round on the Pairings page, and keeps a switch
+  only for the **Initial standings** (the entry list, before round 1 is
+  finished), which no round's level covers. A newly published round starts
+  at Pairings: the boards travel without results, and nothing computed from
+  a result goes with them, so live results are a deliberate choice rather
+  than the default. Choosing a
   level writes exactly that level in one step; going down asks first and
   names what disappears, including later rounds whose sheets would give it
   away. Standings wait until the round and every round before it are
