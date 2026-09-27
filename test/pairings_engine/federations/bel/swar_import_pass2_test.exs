@@ -106,7 +106,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImportPass2Test do
         w_i32(0)
 
     dates = w_str("[DATES]") <> Enum.map_join(1..nb_rounds, "", fn _ -> w_str("") end)
-    tie_break = w_str("TIE_BREAK") <> Enum.map_join(1..5, "", fn _ -> w_i32(0) end)
+    tiebreaks = Map.get(opts, :tiebreaks, []) |> then(&(&1 ++ List.duplicate(0, 5 - length(&1))))
+    tie_break = w_str("TIE_BREAK") <> Enum.map_join(tiebreaks, "", &w_i32/1)
     exclusion = w_str("EXCLUSION") <> w_i32(0) <> w_str("")
 
     max_categ = if version_gte?(version, "v6.50"), do: 16, else: 12
@@ -285,6 +286,92 @@ defmodule PairingsEngine.Federations.BEL.SwarImportPass2Test do
       assert {:ok, tournament, warnings} = import_synthetic!(opts)
       assert tournament.bye_value == 0.0
       assert warnings == []
+    end
+  end
+
+  ## ---------- a round robin is a round robin in `pairing_system` too ----------
+  #
+  # Not from the audit: found by re-ranking SWAR's archive against SWAR's own
+  # stored standings (tools/swar_rerank.exs). The import set `type` only, so
+  # an imported round robin kept the schema's `pairing_system: "swiss"` and
+  # was ranked by C.07's Swiss rules.
+
+  describe "a SWAR round robin" do
+    test "imports with the round-robin pairing system, single, match or double" do
+      for {swar_type, cycles, match?} <- [{4, 1, false}, {5, 1, true}, {6, 2, false}] do
+        assert {:ok, tournament, _warnings} =
+                 import_synthetic!(%{type: swar_type, players: [%{ni: 1, name: "Solo, One"}]})
+
+        assert tournament.type == "roundrobin"
+        assert tournament.pairing_system == "round_robin"
+        assert tournament.rr_cycles == cycles
+        assert tournament.rr_match_format == match?
+      end
+
+      assert {:ok, swiss, _} =
+               import_synthetic!(%{type: 0, players: [%{ni: 1, name: "Solo, One"}]})
+
+      assert swiss.pairing_system == "swiss"
+    end
+
+    # Four players, three rounds; the two leaders' own game was a forfeit.
+    # C.07 Article 15.2 makes that forfeit a game in a round robin, and 6.1.1
+    # excludes only forfeits it does not cover - so direct encounter puts the
+    # forfeit winner first. Ranked as a Swiss, the two never met, direct
+    # encounter cannot separate them, and the name order put the loser first.
+    test "is ranked by the round-robin rules of C.07 (direct encounter counts a forfeit)" do
+      win_ff = 0x0004
+      lost_ff = 0x0001
+      draw = 0x2000
+
+      game = fn round, table, opp, result, colour ->
+        %{round_nr: round, table: table, advers: opp, result: result, color: colour}
+      end
+
+      opts = %{
+        type: 4,
+        nb_rounds: 3,
+        # SWAR's DEPARTAGES: 8 = direct encounter.
+        tiebreaks: [8],
+        players: [
+          %{
+            ni: 1,
+            name: "Zulu, Forfeit Winner",
+            rounds: [game.(1, 1, 2, win_ff, 1), game.(2, 1, 3, @loss, 1), game.(3, 1, 4, @win, 1)]
+          },
+          %{
+            ni: 2,
+            name: "Alpha, Forfeit Loser",
+            rounds: [
+              game.(1, 1, 1, lost_ff, -1),
+              game.(2, 2, 4, @win, 1),
+              game.(3, 2, 3, @win, 1)
+            ]
+          },
+          %{
+            ni: 3,
+            name: "Charlie, Three",
+            rounds: [game.(1, 2, 4, draw, 1), game.(2, 1, 1, @win, -1), game.(3, 2, 2, @loss, -1)]
+          },
+          %{
+            ni: 4,
+            name: "Delta, Four",
+            rounds: [
+              game.(1, 2, 3, draw, -1),
+              game.(2, 2, 2, @loss, -1),
+              game.(3, 1, 1, @loss, -1)
+            ]
+          }
+        ]
+      }
+
+      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+      assert tournament.tiebreaks == ["DE"]
+
+      assert [first, second | _] = PairingsEngine.Standings.standings(tournament)
+      assert {first.points, second.points} == {2.0, 2.0}
+      assert first.player.name == "Zulu, Forfeit Winner"
+      assert second.player.name == "Alpha, Forfeit Loser"
     end
   end
 

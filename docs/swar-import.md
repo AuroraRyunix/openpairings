@@ -704,6 +704,48 @@ unlike the two above it is not a case of two defensible readings of the
 same rule; it is this importer not reading the file the way SWAR itself
 does.
 
+### Measured: SWAR's own stored standings, re-ranked here (2026-09-27)
+
+Every `[JOUEURS]` record carries SWAR's own place (`Class`), score and five
+tie-break values as `CalculLeClassement` left them when the file was saved.
+`tools/swar_rerank.exs` imports each file through this module into a
+throwaway database, ranks it with `Standings` (Ainalrami's tie-breaks), and
+compares - with a port of SWAR v6.65's `Classement.cpp` beside it, so a
+difference can be called SWAR's algorithm (the port reproduces SWAR's
+number) rather than guessed. The run and its report stay outside the
+repository; the files are real events.
+
+On the SWAR archive at hand (43 files compared, 13 of them finished events)
+the port reproduced every stored value of every file saved by v6.49-v6.77
+(bar the direct-encounter number of one part-played round robin; older
+files and v7 compute Buchholz and SB differently), and every rank
+difference in a finished event came down to one of these:
+
+* **C.07 2024 vs 2026.** SWAR's Article 16.4 dummy is the player's own
+  score, uncapped - the 1 August 2024 text. The 2026 text caps it (16.4.1
+  at a forfeit opponent's adjusted score, 16.4.2 at a draw per round).
+* **SWAR defects, in both texts.** `TieBucholtz` compares an opponent's
+  forfeit opponent with the player's *Rank* instead of their *Ni*: a forfeit
+  opponent is counted as if played (on top of the dummy), and a played
+  opponent who forfeited against somebody else is left out. Trailing forfeit
+  losses count as draws in the adjusted score (16.3.2 covers requested byes
+  only). `TieSonneborn` ignores an opponent's single last-round absence
+  (SWAR's own Buchholz does not). Cut-1 never cuts the dummy.
+* **The Belgian conventions above**: cut count scaled by rounds played, no
+  cut for a player with an absence; `WIN` without the pairing-allocated bye;
+  black games counted whatever the result.
+* **Categories ranked separately** (`CatSepares`): SWAR ranks, and applies
+  direct encounter, per category; this app ranks one field. A file of
+  several round-robin groups in one tournament is the case that shows it.
+* **Extra points**: SWAR ranks a Swiss on points plus `ExtraPts`; an import
+  leaves `count_extra_points` off (docs/extra-points.md).
+
+Three import defects it found are fixed: a v6.50 file with 12 categories
+did not import at all (`parse_categories/2`), a round robin kept
+`pairing_system: "swiss"` and was ranked by C.07's Swiss rules
+(`system_attrs/1`), and a round SWAR had prepared but not paired came in as
+a finished round of absences (`drop_unpaired_rounds/1`).
+
 ## Round robin: SWAR forces a bye to a full point, and this import now matches it
 
 **If you import a round robin with an odd number of players, the
