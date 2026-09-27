@@ -44,6 +44,20 @@ defmodule PairingsEngine.Tournaments.Round do
     # then would explain a pairing the engine never produced.
     field :explanation, :map
 
+    # The extra points each player was paired with in this round - the
+    # virtual points handed to the engine as that round's `XXA` value -
+    # `%{"player id" => points}`, non-zero entries only, so `%{}` is "paired
+    # on game points alone". Written when a Swiss round is paired
+    # (`PairingsEngine.Pairing`) and by the SWAR import (each `[RONDE]`
+    # record's `XtraPts`), read back as the history every later round's
+    # `XXA` line carries (`Pairing.accelerations/3`). Stored for the same
+    # reason `explanation` is: a player's extra points change between
+    # rounds (SWAR's "remove half a point"), and the engine needs what each
+    # past round was paired WITH, not what the player holds today. Nil for a
+    # round paired before the column existed, or by hand. See
+    # docs/extra-points.md. Not cast.
+    field :virtual_points, :map
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     has_many :pairings, PairingsEngine.Tournaments.Pairing
     # A team round's matches (`PairingsEngine.TeamRoundRobin`); none for an

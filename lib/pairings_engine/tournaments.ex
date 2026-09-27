@@ -2470,9 +2470,11 @@ defmodule PairingsEngine.Tournaments do
       {:ok, bands} ->
         players = list_players(tournament.id)
 
+        mode = tournament.extra_points_mode || "handicap"
+
         updates =
           Enum.map(players, fn player ->
-            extra = Tournament.band_extra_points(bands, Player.rating(player))
+            extra = Tournament.band_extra_points(bands, Player.rating(player), mode)
             {player, %{extra_points: extra}}
           end)
 
@@ -2487,6 +2489,42 @@ defmodule PairingsEngine.Tournaments do
         {:error, :invalid_bands}
     end
   end
+
+  @doc """
+  Takes `amount` (half a point by default) off the extra points of every
+  player rated `from`..`to` (both ends included) who still has some - SWAR's
+  "remove half a point" (`XtraPoints.cpp`, `OnBnClickedXtraButtonRemove`),
+  the way an organiser winds an acceleration down part-way through the
+  event. Nobody goes below zero, and a player with none is left alone, so
+  pressing it once more than needed changes nothing.
+
+  Rounds already paired keep the virtual points they were paired with
+  (`rounds.virtual_points`); the change reaches the next round's pairing
+  and, when the tournament counts extra points, the standings.
+
+  Returns `{:ok, %{changed: n}}`, or `{:error, :invalid_range}` for a range
+  whose `from` is above its `to` or an amount that is not positive.
+  """
+  def reduce_extra_points(tournament, from, to, amount \\ 0.5)
+
+  def reduce_extra_points(%Tournament{} = tournament, from, to, amount)
+      when is_integer(from) and is_integer(to) and from >= 0 and from <= to and
+             is_number(amount) and amount > 0 do
+    updates =
+      for player <- list_players(tournament.id),
+          (player.extra_points || 0.0) > 0.0,
+          rating = Player.rating(player),
+          rating >= from and rating <= to do
+        {player, %{extra_points: max(Float.round(player.extra_points - amount, 2), 0.0)}}
+      end
+
+    case bulk_update_players(tournament.id, updates) do
+      {:ok, _updated} -> {:ok, %{changed: length(updates)}}
+      error -> error
+    end
+  end
+
+  def reduce_extra_points(%Tournament{}, _from, _to, _amount), do: {:error, :invalid_range}
 
   @doc """
   Applies `tournament.category_rules` to every player - same shape as

@@ -812,6 +812,15 @@ defmodule PairingsEngine.Pairing do
       end)
       |> explanation_payload()
 
+    paired_players =
+      Enum.flat_map(group_results, fn
+        {_category_name, :bye, player} ->
+          [player]
+
+        {_category_name, :paired, pairs, by_rank, _explanation} ->
+          for {w, b} <- pairs, rank <- [w, b], rank != 0, do: Map.fetch!(by_rank, rank)
+      end)
+
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
@@ -819,7 +828,8 @@ defmodule PairingsEngine.Pairing do
           number: next_number,
           status: "playing",
           published_at: Tournaments.compute_published_at(tournament, next_number),
-          explanation: explanation
+          explanation: explanation,
+          virtual_points: virtual_points_used(tournament, paired_players)
         })
 
       insert_round_absentee_byes(tournament, next_number, round_absentees)
@@ -1028,9 +1038,18 @@ defmodule PairingsEngine.Pairing do
   for the engines, `250` records in the TRF26 dialect. For the FIDE-facing
   export, which had left acceleration out of the file entirely; a
   tournament without acceleration gets its rows back as they were.
+
+  Acceleration-mode extra points are acceleration too, and go in the same
+  way: they are what the rounds were paired with. A HANDICAP is not: the
+  report's score is game points, and a head start is not a virtual point
+  a pairing checker should add back - it stays out of the file (the `299`
+  records carry it when it counts, `TrfExport.free_point_records/2`).
   """
   def accelerated_rows(tournament, rows, players, current_round) do
-    attach_accelerations(rows, accelerations(tournament, players, current_round))
+    if Tournament.extra_points_pairing?(tournament) and
+         not Tournament.extra_points_acceleration?(tournament),
+       do: rows,
+       else: attach_accelerations(rows, accelerations(tournament, players, current_round))
   end
 
   defp attach_accelerations(rows, accelerations) when map_size(accelerations) == 0, do: rows
@@ -2183,6 +2202,9 @@ defmodule PairingsEngine.Pairing do
        ) do
     pairing_allocated_bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
 
+    paired_players =
+      for {w, b} <- pairs, rank <- [w, b], rank != 0, do: Map.fetch!(player_by_local_rank, rank)
+
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
@@ -2190,7 +2212,8 @@ defmodule PairingsEngine.Pairing do
           number: next_number,
           status: "playing",
           published_at: Tournaments.compute_published_at(tournament, next_number),
-          explanation: explanation
+          explanation: explanation,
+          virtual_points: virtual_points_used(tournament, paired_players)
         })
 
       leg1_pairings =
@@ -2221,7 +2244,13 @@ defmodule PairingsEngine.Pairing do
       Tournaments.freeze_round_display_boards!(round.id)
 
       if tournament.swiss_match_format do
-        create_mirrored_leg(tournament, leg1_pairings, round_absentees, next_number + 1)
+        create_mirrored_leg(
+          tournament,
+          leg1_pairings,
+          round_absentees,
+          next_number + 1,
+          round.virtual_points
+        )
       else
         round
       end
@@ -2242,13 +2271,18 @@ defmodule PairingsEngine.Pairing do
   # before this transaction even starts) - `manual_ranking_stale` is a
   # single boolean flag, not per-round, so re-firing it for the mirrored
   # row would be a harmless but redundant broadcast-adjacent write.
-  defp create_mirrored_leg(tournament, leg1_pairings, round_absentees, leg2_number) do
+  #
+  # Leg 2 is leg 1 played again, so it records leg 1's virtual points: the
+  # history the next match's `XXA` line carries says both legs were paired
+  # on the same scores.
+  defp create_mirrored_leg(tournament, leg1_pairings, round_absentees, leg2_number, virtual) do
     leg2 =
       Repo.insert!(%Round{
         tournament_id: tournament.id,
         number: leg2_number,
         status: "playing",
-        published_at: Tournaments.compute_published_at(tournament, leg2_number)
+        published_at: Tournaments.compute_published_at(tournament, leg2_number),
+        virtual_points: virtual
       })
 
     Enum.each(leg1_pairings, fn p ->
@@ -2521,10 +2555,13 @@ defmodule PairingsEngine.Pairing do
   its player's TRF row, and `Ainalrami.Trf.serialize/2` writes it as
   JaVaFo's fixed-column `XXA` extension line.
 
-  Returns `%{}` unless `tournament.acceleration == "baku"` *and*
-  `tournament.pairing_system == "swiss"`: round robin's fixed Berger
+  Returns `%{}` unless `tournament.pairing_system == "swiss"` and either
+  `tournament.acceleration == "baku"` or the players' extra points feed the
+  pairing (`Tournament.extra_points_pairing?/1` - acceleration mode, or a
+  counted handicap; docs/extra-points.md): round robin's fixed Berger
   schedule ignores acceleration entirely, and Keizer never goes through
-  JaVaFo at all.
+  JaVaFo at all. Baku takes precedence over extra points; the changeset
+  refuses the two together.
 
   Keyed by player id and not by rank on purpose. This used to emit the line
   itself, and so had to work out which number to label it with - the local
@@ -2617,7 +2654,83 @@ defmodule PairingsEngine.Pairing do
     |> Map.new(&{&1.id, points})
   end
 
+  # Extra points as virtual points - acceleration mode always, handicap mode
+  # while the points count (`Tournament.extra_points_pairing?/1`). See
+  # `extra_point_accelerations/3`.
+  def accelerations(%Tournament{} = tournament, players, current_round)
+      when is_integer(current_round) and current_round > 0 do
+    if Tournament.extra_points_pairing?(tournament),
+      do: extra_point_accelerations(tournament, players, current_round),
+      else: %{}
+  end
+
   def accelerations(_tournament, _players, _current_round), do: %{}
+
+  # Every player's extra points as an `XXA` history, one value per round
+  # 1..`current_round` - the same shape Baku's list has, and for the same
+  # reason: the engine judges a float by the two scores AS THE BRACKETS SAW
+  # THEM in that round, virtual points included, so each past round needs
+  # the value it was paired with and not the player's value today. SWAR does
+  # the same (`EcrireXXA_AccelereManuel` writes each round's `ROUND.XtraPts`,
+  # frozen when the round was set up).
+  #
+  # A round already paired gives its recorded `virtual_points` (a player
+  # missing from it - absent, not yet entered, or on nothing - had none,
+  # which is what SWAR writes for an absent round too). A round paired before
+  # that column existed, or by hand, has none recorded and reads the
+  # player's current extra points: the closest answer there is. The round
+  # being paired, which has no row yet, is the player's current value.
+  #
+  # A player whose whole history is zero gets no line at all, so a
+  # tournament where nobody holds extra points hands the engine exactly the
+  # file it always did.
+  defp extra_point_accelerations(tournament, players, current_round) do
+    recorded = recorded_virtual_points(tournament.id)
+
+    players
+    |> Enum.filter(&(&1.pairing_number != nil))
+    |> Enum.flat_map(fn p ->
+      key = to_string(p.id)
+      current = (p.extra_points || 0.0) / 1
+
+      points =
+        Enum.map(1..current_round, fn round ->
+          case Map.fetch(recorded, round) do
+            {:ok, %{} = by_player} -> Map.get(by_player, key, 0.0) / 1
+            _legacy_or_unpaired -> current
+          end
+        end)
+
+      if Enum.all?(points, &(&1 == 0.0)), do: [], else: [{p.id, points}]
+    end)
+    |> Map.new()
+  end
+
+  defp recorded_virtual_points(tournament_id) do
+    Repo.all(
+      from r in Round,
+        where: r.tournament_id == ^tournament_id,
+        select: {r.number, r.virtual_points}
+    )
+    |> Map.new()
+  end
+
+  @doc """
+  The extra points `players` are paired with in the round about to be
+  paired, as `rounds.virtual_points` stores them - `%{"player id" =>
+  points}`, non-zero entries only, `%{}` when the tournament does not pair
+  on extra points. Recorded with the round so every later round's `XXA`
+  history carries what this one was actually paired with.
+  """
+  def virtual_points_used(tournament, players) do
+    if Tournament.extra_points_pairing?(tournament) do
+      for p <- players, p != nil, (p.extra_points || 0.0) != 0.0, into: %{} do
+        {to_string(p.id), p.extra_points / 1}
+      end
+    else
+      %{}
+    end
+  end
 
   defp virtual_points(round, accelerated_rounds, _first_stage_rounds)
        when round > accelerated_rounds,
@@ -2821,12 +2934,20 @@ defmodule PairingsEngine.Pairing do
   # No default: both pairing paths now build the run's shared history up
   # front and pass it. The nil default was the single-pool path silently
   # rebuilding it, which is what item 6 of the sweep was about.
+  #
+  # Extra points that feed the pairing are part of the score here too: the
+  # engine brackets on points plus this round's virtual points, and the rows
+  # go in that order, as SWAR's go in its standings order (points plus
+  # `ExtraPts`) before it writes the `.trn`. Baku's are not added - its
+  # order has always been the game-point one, and is left as it was.
   defp order_for_pairing(players, tournament, shared_history) do
     by_id = Map.new(players, &{&1.id, &1})
     games = games_per_player(tournament, by_id, shared_history)
+    extra? = Tournament.extra_points_pairing?(tournament)
 
     Enum.sort_by(players, fn p ->
       points = player_points(Map.get(games, p.id, []), tournament)
+      points = if extra?, do: points + (p.extra_points || 0.0), else: points
       {-points, -Player.rating(p), p.pairing_number}
     end)
   end
