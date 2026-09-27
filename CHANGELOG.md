@@ -87,6 +87,30 @@ Each entry is tagged so a version can be skimmed:
   yet), and a round's
   pairing explanation says when it was paired with virtual points (extra
   points or Baku).
+- [Feature] **"No pairing-allocated bye" for chosen players - an
+  organiser's rule, not a FIDE one.** A new switch in the Belgian pack
+  (Features page) adds "Exclude from the pairing-allocated bye" to a
+  player's details: for all rounds, or for certain rounds typed exactly like
+  absences. The Swiss engine then treats the player as one who already had
+  the bye, and nothing else changes. Swiss with the Ainalrami engine only:
+  with JaVaFo the form says it is not available, and round robin and Keizer
+  do not show it. The form warns every time it is ticked that the pairings
+  will differ from FIDE-endorsed programs and a FIDE checker cannot replay
+  those rounds, and more strongly on a FIDE-homologated tournament. The
+  players list marks such a player "no bye".
+- [Feature] **When the exclusions leave no legal round**, the Pairings page
+  names the excluded players and offers "Pair anyway, ignoring the
+  exclusion for X": the round is paired with that one player's exclusion
+  lifted for this round only, and the audit trail records it.
+- [Feature] **On record.** The round's explanation says "X was passed over
+  for the bye: organiser exclusion"; the audit trail records it; the first
+  round in which an exclusion moves the bye is recorded as the round the
+  tournament stopped matching the FIDE rules; and the Export page's TRF
+  section lists those rounds, since the TRF cannot carry the exclusion.
+  Backups, snapshots, hand-offs and Duplicate carry the setting.
+- [Change] **Engine: Ainalrami pinned to its `bye-exclusions` commit** for
+  the option above, until it is released as v0.33.0. Pairing without an
+  exclusion is unchanged, byte for byte.
 
 - [Feature] **An agreed date for each postponed game, with its history.**
   The list of open postponed games on the Pairings page has a date field

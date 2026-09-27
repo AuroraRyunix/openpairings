@@ -309,7 +309,12 @@ defmodule PairingsEngine.MixProject do
       # `v0.4.0` here against a v0.10.0 upstream is visible at a glance, in
       # a diff and in review. mix.lock still records the resolved commit, so
       # this is no less exact than a SHA was; it is only easier to read.
-      {:ainalrami, github: "AuroraRyunix/Ainalrami", tag: "v0.32.0"}
+      #
+      # TEMPORARY: pinned to the bye-exclusions commit on Ainalrami's
+      # `bye-exclusions` branch until it is released; move this back to a
+      # tag (v0.33.0) at release.
+      {:ainalrami,
+       github: "AuroraRyunix/Ainalrami", ref: "7a02c89779215cb4c86ed9188146e3e5403c60f1"}
     ]
   end
 

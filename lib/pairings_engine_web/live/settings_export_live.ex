@@ -90,7 +90,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       ambiguous_players: PostponedGames.ambiguous_players(t.id),
       postponed_open: PostponedGames.open_games(t),
       trf_rounds: rounds,
-      trf_selected: selected
+      trf_selected: selected,
+      bye_exclusion_rounds: PairingsEngine.RoundExplanation.bye_exclusion_rounds(t.id)
     )
     |> assign_postponed()
   end
@@ -754,6 +755,18 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               {gettext("All rounds (TRF)")}
             </a>
           </div>
+
+          <%!-- The organiser's bye exclusions are not a FIDE rule and no TRF
+                line records them, so a checker replaying the file pairs
+                these rounds as FIDE's rules would - differently. --%>
+          <p :if={@bye_exclusion_rounds != []} id="trf-bye-exclusion-note" class="hint">
+            {ngettext(
+              "Round %{rounds} was paired with a player excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently.",
+              "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
+              length(@bye_exclusion_rounds),
+              rounds: Enum.join(@bye_exclusion_rounds, ", ")
+            )}
+          </p>
 
           <p :if={@sent_rounds != []} id="trf-sent-rounds" class="sr-only">
             {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}

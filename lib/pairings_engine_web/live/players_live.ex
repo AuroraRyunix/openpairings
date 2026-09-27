@@ -37,6 +37,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # and a switched-off pack must never make a stored value unreachable.
   @lookup_feature "bel_player_lookup"
   @club_feature "bel_club_sync"
+  @bye_exclusions_feature "bel_bye_exclusions"
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
@@ -153,6 +154,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        club_refresh: nil,
        bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
+       bel_bye_exclusions?:
+         Features.enabled?(socket.assigns.current_scope, @bye_exclusions_feature),
        sort_col: nil,
        sort_dir: nil,
        cat_filter: nil,
@@ -1411,7 +1414,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # fields that actually changed (empty map when nothing tracked changed).
   @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
     federation club club_number birth_year category categories status absent
-    forfeit absent_rounds fixed_board start_round extra_points manual_rank)a
+    forfeit absent_rounds fixed_board start_round extra_points manual_rank no_bye
+    no_bye_rounds)a
 
   defp player_diff(before, after_player) do
     for field <- @audited_player_fields,
@@ -1497,12 +1501,155 @@ defmodule PairingsEngineWeb.PlayersLive do
       "fixed_board" => blank_or(p.fixed_board),
       "absent_rounds" => p.absent_rounds,
       "start_round" => p.start_round || 1,
-      "extra_points" => p.extra_points
+      "extra_points" => p.extra_points,
+      "no_bye" => p.no_bye,
+      "no_bye_scope" => if(p.no_bye_rounds in [nil, ""], do: "all", else: "rounds"),
+      "no_bye_rounds" => p.no_bye_rounds
     }
   end
 
   defp blank_or(nil), do: ""
   defp blank_or(value), do: value
+
+  ## ---------- "No pairing-allocated bye" (an organiser's rule, not FIDE's) ----------
+
+  # Whether the player form offers the exclusion, and how:
+  #
+  #   :hidden - not a Swiss the Dutch engine pairs player by player (round
+  #             robin, Keizer and team Swiss have no pairing-allocated bye
+  #             to withhold), or the BEL pack's switch is off and this
+  #             player has no exclusion stored;
+  #   :javafo - JaVaFo pairs this tournament and has no such option, so the
+  #             form says so in one line instead of offering a setting
+  #             nothing reads;
+  #   :on     - offered.
+  #
+  # A player who already HAS an exclusion keeps the control even with the
+  # switch off (the call site passes `enabled?` as "switch on, or stored"):
+  # the pack owns entrances, never stored values
+  # (`PairingsEngine.Features`), and a stored value nobody can see or clear
+  # is worse than an entrance left open.
+  defp no_bye_mode(tournament, enabled?) do
+    cond do
+      tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :hidden
+      not enabled? -> :hidden
+      tournament.pairing_engine == "javafo" -> :javafo
+      true -> :on
+    end
+  end
+
+  defp truthy?(value), do: value in [true, "true"]
+
+  defp no_bye_marker?(player, tournament) do
+    player.no_bye and tournament.pairing_system == "swiss" and
+      tournament.pairing_engine == "ainalrami" and not Tournament.team_swiss?(tournament)
+  end
+
+  defp no_bye_title(%{no_bye_rounds: rounds}) when rounds in [nil, ""],
+    do:
+      gettext(
+        "Excluded from the pairing-allocated bye in every round (organiser's rule, not FIDE)"
+      )
+
+  defp no_bye_title(%{no_bye_rounds: rounds}),
+    do:
+      gettext(
+        "Excluded from the pairing-allocated bye in rounds %{rounds} (organiser's rule, not FIDE)",
+        rounds: rounds
+      )
+
+  attr :mode, :atom, required: true
+  attr :form, :map, required: true
+  attr :tournament, :map, required: true
+
+  # First the tickbox; once ticked, "All rounds" or "Certain rounds", the
+  # rounds typed exactly like the absences above (same grammar, same parser,
+  # same look); and, every time it is on, the warning that this is not a
+  # FIDE rule - a stronger one on a FIDE-homologated tournament.
+  defp no_bye_fields(%{mode: :hidden} = assigns), do: ~H""
+
+  defp no_bye_fields(%{mode: :javafo} = assigns) do
+    ~H"""
+    <p id="player-no-bye-javafo" class="hint" style="grid-column: 1 / -1; margin: 0">
+      {gettext(
+        "Exclude from the pairing-allocated bye: not available - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it."
+      )}
+    </p>
+    """
+  end
+
+  defp no_bye_fields(assigns) do
+    assigns =
+      assigns
+      |> Phoenix.Component.assign(:on?, truthy?(assigns.form["no_bye"]))
+      |> Phoenix.Component.assign(
+        :scope,
+        if(assigns.form["no_bye_scope"] == "rounds", do: "rounds", else: "all")
+      )
+
+    ~H"""
+    <div id="player-no-bye" class="field" style="grid-column: 1 / -1">
+      <label class="check">
+        <input type="hidden" name="player[no_bye]" value="false" />
+        <input
+          type="checkbox"
+          id="player-no-bye-toggle"
+          name="player[no_bye]"
+          value="true"
+          checked={@on?}
+        />
+        {gettext("Exclude from the pairing-allocated bye")}
+      </label>
+
+      <div :if={@on?} class="radio-row" id="player-no-bye-scope">
+        <label>
+          <input
+            type="radio"
+            id="player-no-bye-scope-all"
+            name="player[no_bye_scope]"
+            value="all"
+            checked={@scope == "all"}
+          />
+          {gettext("All rounds")}
+        </label>
+        <label>
+          <input
+            type="radio"
+            id="player-no-bye-scope-rounds"
+            name="player[no_bye_scope]"
+            value="rounds"
+            checked={@scope == "rounds"}
+          />
+          {gettext("Certain rounds")}
+        </label>
+      </div>
+    </div>
+
+    <label :if={@on? and @scope == "rounds"} class="field" style="grid-column: span 2">
+      <span>{gettext("No pairing-allocated bye at the rounds (e.g. 3,5 or 2-4)")}</span>
+      <input id="player-no-bye-rounds" name="player[no_bye_rounds]" value={@form["no_bye_rounds"]} />
+    </label>
+
+    <div
+      :if={@on?}
+      id="player-no-bye-warning"
+      class="pe-modal-warn"
+      role="note"
+      style="grid-column: 1 / -1"
+    >
+      <strong>{gettext("Not part of the FIDE rules.")}</strong>
+      {gettext(
+        "With this player kept from the pairing-allocated bye, the Swiss pairings will differ from what FIDE-endorsed programs produce, and a FIDE checker cannot replay the rounds it changes. The round's explanation and the audit trail record it."
+      )}
+      <p :if={@tournament.fide_homologated} id="player-no-bye-fide-warning" style="margin: 6px 0 0">
+        <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
+        {gettext(
+          "A round in which this moves the bye is not paired the way the FIDE rules require, and the tournament's FIDE record says so from that round on. Only use it if the rating officer has agreed."
+        )}
+      </p>
+    </div>
+    """
+  end
 
   # Picking a FIDE result also enriches the form with the matching KBSB row
   # (if any), the same way a national-id-driven autofill would - the two
@@ -2277,6 +2424,19 @@ defmodule PairingsEngineWeb.PlayersLive do
                   >
                     {p.player.name}
                   </strong>
+                  <%!-- The organiser's "no pairing-allocated bye" (not a FIDE
+                        rule), shown wherever it would act, whether or not
+                        the feature's control is switched on: a stored
+                        setting that changes the pairing must never be
+                        invisible. --%>
+                  <span
+                    :if={no_bye_marker?(p.player, @tournament)}
+                    id={"player-no-bye-marker-#{p.player.id}"}
+                    class="pe-tag"
+                    title={no_bye_title(p.player)}
+                  >
+                    {gettext("no bye")}
+                  </span>
                 </td>
 
                 <%!-- The three cells with a menu say, in words, what their
@@ -2338,6 +2498,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         join_hint={@edit_join_hint}
         players={@players}
         bel_lookup?={@bel_lookup?}
+        bel_bye_exclusions?={@bel_bye_exclusions? or @editing_player.no_bye}
       />
       <.player_card_modal
         :if={@card_player_id}
@@ -2626,10 +2787,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Passed in rather than read from the socket: this is a function component,
   # so it sees only what its caller hands it.
   attr :bel_lookup?, :boolean, default: false
+  attr :bel_bye_exclusions?, :boolean, default: false
 
   defp player_edit_modal(assigns) do
     assigns =
       assigns
+      |> Phoenix.Component.assign(
+        :no_bye_mode,
+        no_bye_mode(assigns.tournament, assigns.bel_bye_exclusions?)
+      )
       |> Phoenix.Component.assign(:fide_player, Fide.get_player(assigns.form["fide_id"]))
       |> Phoenix.Component.assign(:elo_used, elo_used_from_form(assigns.form))
       |> Phoenix.Component.assign(
@@ -2933,6 +3099,8 @@ defmodule PairingsEngineWeb.PlayersLive do
               next: @join_hint + 1
             )}
           </p>
+
+          <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
 
           <%!-- The same warning and tick as a hand edit of a sent round on
                 the Pairings page: the federation already has that round. --%>

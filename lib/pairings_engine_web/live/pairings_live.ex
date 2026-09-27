@@ -88,6 +88,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # `handle_event("pair", ...)` and `note_recorded_missing/1`.
        pair_acknowledged: [],
        recorded_missing: nil,
+       # The organiser's bye exclusions left no legal round (not a FIDE
+       # rule): who is excluded, and the one player whose exclusion lifted
+       # for this round lets it pair - see `handle_event("pair_ignoring_bye_exclusion", ...)`.
+       bye_exclusion_block: nil,
        # Set while a team Swiss round is pairing in a supervised task (see
        # `do_pair_team_swiss_async/1`) - 300-500 teams can take 10-50
        # seconds, run IN THIS BEAM with no subprocess timeout of its own.
@@ -385,7 +389,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("pair", params, socket) do
-    socket = assign(socket, pair_acknowledged: acknowledged(params))
+    socket = assign(socket, pair_acknowledged: acknowledged(params), bye_exclusion_block: nil)
 
     cond do
       # Belt and braces beside the button's own `disabled` - a second "pair"
@@ -408,6 +412,40 @@ defmodule PairingsEngineWeb.PairingsLive do
         do_pair(socket)
     end
   end
+
+  # "Pair anyway, ignoring the exclusion for X": the same pairing run with
+  # that one player's bye exclusion lifted for this round only. Only the
+  # player the refusal offered is accepted - the id comes from the page, and
+  # lifting somebody else's exclusion is not what the arbiter was shown.
+  def handle_event("pair_ignoring_bye_exclusion", %{"player-id" => id}, socket) do
+    case socket.assigns.bye_exclusion_block do
+      %{override: %{id: override_id} = player} when is_binary(id) ->
+        if id == to_string(override_id) and not socket.assigns.pairing_in_progress do
+          Snapshots.capture(
+            socket.assigns.tournament,
+            "pairing.round_paired",
+            socket.assigns.current_scope,
+            summary: "Before pairing round #{socket.assigns.round_number}"
+          )
+
+          socket
+          |> assign(bye_exclusion_block: nil, recorded_missing: missing_to_record(socket))
+          |> apply_pair_result(
+            Engine.pair_next_round(socket.assigns.tournament,
+              acknowledged: socket.assigns.pair_acknowledged,
+              bye_exclusion_override: player.id
+            )
+          )
+        else
+          {:noreply, socket}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("pair_ignoring_bye_exclusion", _params, socket), do: {:noreply, socket}
 
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
@@ -1925,10 +1963,15 @@ defmodule PairingsEngineWeb.PairingsLive do
       {:ok, round} ->
         socket = note_recorded_missing(socket)
         log_round_paired(socket, round.number)
+        log_bye_exclusions(socket, round.number)
         {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
 
       {:error, %Ecto.Changeset{}} ->
         {:noreply, assign(socket, error: "Could not save the round")}
+
+      {:error, {:bye_exclusions, info}} ->
+        {:noreply,
+         assign(socket, error: nil, bye_exclusion_block: bye_exclusion_block(socket, info))}
 
       {:error, reason} ->
         {:noreply, assign(socket, error: error_text(reason))}
@@ -2010,6 +2053,73 @@ defmodule PairingsEngineWeb.PairingsLive do
   # the durable audit record and the visual page describe the same decision.
   # `swiss_match_format` pairs two rounds in one action; we log the primary
   # (leg-1) round number, whose rationale covers the decision that was made.
+  # The refusal's players, resolved for the panel. Scoped to this
+  # tournament like every other player lookup here.
+  defp bye_exclusion_block(socket, info) do
+    tid = socket.assigns.tournament.id
+    player = fn id -> id && Tournaments.get_player(tid, id) end
+
+    %{
+      excluded: info.excluded |> Enum.map(player) |> Enum.reject(&is_nil/1),
+      override: player.(info.override),
+      category: info[:category]
+    }
+  end
+
+  # What the organiser's bye exclusions did in the round just paired, for
+  # the audit trail (not a FIDE rule, so it is on record): whose exclusion
+  # was lifted to pair it, who was passed over for the bye because of one,
+  # and - the first time it happens - that the tournament stopped matching
+  # the FIDE rules in this round (`Pairing.record_bye_exclusion_deviation/2`
+  # stamps the round; this is the trail's copy, as for a settings change).
+  defp log_bye_exclusions(socket, round_number) do
+    t = socket.assigns.tournament
+
+    sections =
+      case Tournaments.get_round(t.id, round_number) do
+        %{explanation: %{"sections" => sections}} -> sections
+        _ -> []
+      end
+
+    name = fn id ->
+      case id && Tournaments.get_player(t.id, id) do
+        nil -> nil
+        p -> p.name
+      end
+    end
+
+    for id <- sections |> Enum.map(& &1["bye_exclusion_lifted"]) |> Enum.reject(&is_nil/1) do
+      Audit.log(t.id, socket.assigns.current_scope, "pairing.bye_exclusion_overridden", %{
+        round: round_number,
+        player_id: id,
+        player_name: name.(id)
+      })
+    end
+
+    passed = Enum.flat_map(sections, &(&1["bye_passed_over"] || []))
+
+    if passed != [] do
+      Audit.log(t.id, socket.assigns.current_scope, "pairing.bye_passed_over", %{
+        round: round_number,
+        player_ids: passed,
+        player_names: Enum.map(passed, name)
+      })
+
+      # Only the first time, and only when THIS round is the one recorded:
+      # the assign can be a pairing behind the database.
+      if is_nil(t.fide_compliance_lost_round) and
+           PairingsEngine.Repo.reload!(t).fide_compliance_lost_round == round_number do
+        Audit.log(t.id, socket.assigns.current_scope, "tournament.fide_compliance_lost", %{
+          setting: "no_bye",
+          code: "bye_exclusion",
+          round: round_number
+        })
+      end
+    end
+
+    :ok
+  end
+
   defp log_round_paired(socket, round_number) do
     t = socket.assigns.tournament
     rationale = PairingRationale.for_round(t, round_number)
@@ -3295,6 +3405,51 @@ defmodule PairingsEngineWeb.PairingsLive do
           <summary style="cursor: pointer">{error_summary(@error)}</summary>
           <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 0">{@error}</pre>
         </details>
+      </div>
+
+      <%!-- The organiser's bye exclusions left no legal round. Not a FIDE
+            rule, so the page names who is excluded and offers the one way
+            out it knows works: lift one player's exclusion for this round
+            only, which the audit trail records. --%>
+      <div
+        :if={@bye_exclusion_block}
+        id="bye-exclusion-block"
+        class="error-note"
+        role="alert"
+        style="display: block"
+      >
+        <p style="margin: 0 0 6px">
+          <strong>{gettext("This round cannot be paired with the bye exclusions as they stand.")}</strong>
+          {ngettext(
+            "Every legal pairing gives the pairing-allocated bye to the player excluded from it:",
+            "Every legal pairing gives the pairing-allocated bye to one of the %{count} players excluded from it:",
+            length(@bye_exclusion_block.excluded)
+          )}
+          {Enum.map_join(@bye_exclusion_block.excluded, ", ", & &1.name)}{if(
+            @bye_exclusion_block.category,
+            do: " (#{@bye_exclusion_block.category})"
+          )}.
+        </p>
+        <p :if={@bye_exclusion_block.override} style="margin: 0 0 8px">
+          {gettext(
+            "Nothing was paired. Pairing anyway lifts %{name}'s exclusion for this round only - they get the bye - and the audit trail records it.",
+            name: @bye_exclusion_block.override.name
+          )}
+        </p>
+        <button
+          :if={@bye_exclusion_block.override}
+          id="pair-ignoring-bye-exclusion"
+          type="button"
+          class="pe-btn primary"
+          phx-click="pair_ignoring_bye_exclusion"
+          phx-value-player-id={@bye_exclusion_block.override.id}
+          phx-disable-with={gettext("Pairing...")}
+          disabled={@pairing_in_progress}
+        >
+          {gettext("Pair anyway, ignoring the exclusion for %{name}",
+            name: @bye_exclusion_block.override.name
+          )}
+        </button>
       </div>
 
       <form

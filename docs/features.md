@@ -25,6 +25,13 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   - **Match format** - two-game matches: each pairing decision produces two
     back-to-back rounds, the second a colour-reversed mirror (verified safe
     against the real JaVaFo engine before implementation).
+  - **No pairing-allocated bye for chosen players** (Belgian pack, Ainalrami
+    only) - an organiser's rule, not FIDE's: a player excluded for all or
+    certain rounds is treated as one who already had the bye. Warned as a
+    departure from the FIDE rules, with "pair anyway" when it leaves no
+    legal round, and recorded in the round's explanation, the audit trail
+    and the TRF export's notes. See
+    [`pairing-systems.md`](pairing-systems.md).
   - Robust against real-world rosters: absent and round-specific-absent
     players anywhere in the field (including mid-ranking gaps that crash a
     naive JaVaFo invocation) are handled via contiguous rank remapping.

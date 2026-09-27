@@ -47,6 +47,22 @@ defmodule PairingsEngine.Tournaments.Player do
     field :special_table, :boolean, default: false
     # Comma-separated round numbers, e.g. "3,5"
     field :absent_rounds, :string, default: ""
+
+    # "No pairing-allocated bye" - an ORGANISER's rule, not FIDE's (a player
+    # who travelled far, a junior with a long drive home). While set, the
+    # Swiss engine treats the player as C.04.3 [C2] treats one who already
+    # had a pairing-allocated bye: ineligible for the bye, and for nothing
+    # else. `no_bye_rounds` blank means every round; otherwise the rounds it
+    # applies to, in `absent_rounds`' canonical form and parsed by the same
+    # two functions. Only Ainalrami honours it (`PairingsEngine.Pairing`'s
+    # `bye_exclusion_ranks/4`); JaVaFo, round robin and Keizer ignore it.
+    # See docs/pairing-systems.md, "Bye exclusions".
+    field :no_bye, :boolean, default: false
+    field :no_bye_rounds, :string, default: ""
+    # The player form's "All rounds" / "Certain rounds" choice. Not stored:
+    # it is `no_bye_rounds` being blank or not, and exists so the form can
+    # be told "certain rounds" before any round has been typed.
+    field :no_bye_scope, :string, virtual: true
     # SWAR XtPts
     field :extra_points, :float, default: 0.0
     # The pairing-pool OVERRIDE, not "the player's category". A player can
@@ -139,7 +155,10 @@ defmodule PairingsEngine.Tournaments.Player do
       :club_number,
       :norm_data,
       :birth_date,
-      :fixed_board
+      :fixed_board,
+      :no_bye,
+      :no_bye_rounds,
+      :no_bye_scope
     ])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
@@ -154,6 +173,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_fixed_board()
     |> validate_team_in_tournament()
     |> normalize_absent_rounds()
+    |> normalize_no_bye()
     |> normalize_categories()
     |> sync_special_table()
     |> validate_fide_id_range()
@@ -263,6 +283,69 @@ defmodule PairingsEngine.Tournaments.Player do
         end
     end
   end
+
+  # "No pairing-allocated bye": `no_bye_rounds` takes exactly the absent
+  # rounds' grammar and is stored in the same canonical form, so one parser
+  # serves both. The form's scope choice decides whether rounds are kept:
+  # "all" clears them (blank = every round), "rounds" requires some. Turning
+  # the exclusion off clears them too, so a stale list cannot come back to
+  # life the next time somebody ticks the box.
+  defp normalize_no_bye(changeset) do
+    changeset =
+      case fetch_change(changeset, :no_bye_rounds) do
+        {:ok, value} ->
+          case parse_absent_rounds_input(to_string(value || "")) do
+            {:ok, canonical} ->
+              put_change(changeset, :no_bye_rounds, canonical)
+
+            :error ->
+              add_error(
+                changeset,
+                :no_bye_rounds,
+                "must be round numbers or ranges, e.g. \"3,5\" or \"2-4\" " <>
+                  "(comma, semicolon, colon, period and \"-\" ranges are all accepted)"
+              )
+          end
+
+        :error ->
+          changeset
+      end
+
+    cond do
+      get_field(changeset, :no_bye) != true ->
+        clear_no_bye_rounds(changeset)
+
+      get_field(changeset, :no_bye_scope) == "all" ->
+        clear_no_bye_rounds(changeset)
+
+      get_field(changeset, :no_bye_scope) == "rounds" and
+          get_field(changeset, :no_bye_rounds) in [nil, ""] ->
+        add_error(changeset, :no_bye_rounds, "needs the rounds, e.g. \"3,5\" or \"2-4\"")
+
+      true ->
+        changeset
+    end
+  end
+
+  defp clear_no_bye_rounds(changeset) do
+    if get_field(changeset, :no_bye_rounds) in [nil, ""],
+      do: changeset,
+      else: put_change(changeset, :no_bye_rounds, "")
+  end
+
+  @doc """
+  Whether `player` must not receive the pairing-allocated bye in
+  `round_number` - the organiser's exclusion, which is not a FIDE rule.
+  Every round when `no_bye_rounds` is blank, else only those rounds.
+  """
+  def no_bye_for_round?(%{no_bye: true, no_bye_rounds: rounds}, round_number)
+      when rounds in [nil, ""],
+      do: is_integer(round_number)
+
+  def no_bye_for_round?(%{no_bye: true, no_bye_rounds: rounds}, round_number),
+    do: round_number in parse_absent_rounds(rounds)
+
+  def no_bye_for_round?(_player, _round_number), do: false
 
   # Max rounds a single range token may expand to - guards against a
   # pathological input (e.g. "1-999999999") ballooning the stored string.

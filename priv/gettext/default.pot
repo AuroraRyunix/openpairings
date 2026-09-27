@@ -12774,3 +12774,136 @@ msgstr[1] ""
 #, elixir-autogen, elixir-format
 msgid "Winds the acceleration down, as SWAR's \"Remove\" does: every player rated in the range who still has extra points loses half a point, never going below zero. The next round is paired with what is left; rounds already paired are not changed."
 msgstr ""
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:3475
+#, elixir-autogen, elixir-format
+msgid "%{name} was passed over for the bye: organiser exclusion"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:3479
+#, elixir-autogen, elixir-format
+msgid "%{name}'s exclusion from the bye was lifted for this round only: no legal pairing kept the bye away from every excluded player."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1617
+#, elixir-autogen, elixir-format
+msgid "A round in which this moves the bye is not paired the way the FIDE rules require, and the tournament's FIDE record says so from that round on. Only use it if the rating officer has agreed."
+msgstr ""
+
+#: lib/pairings_engine/features.ex:164
+#, elixir-autogen, elixir-format
+msgid "Adds \"Exclude from the pairing-allocated bye\" to a player's details, for every round or chosen rounds. Not a FIDE rule: the Swiss pairings then differ from FIDE-endorsed programs, and a FIDE checker cannot replay those rounds. Ainalrami engine only."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1594
+#, elixir-autogen, elixir-format
+msgid "Certain rounds"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3404
+#, elixir-autogen, elixir-format
+msgid "Every legal pairing gives the pairing-allocated bye to the player excluded from it:"
+msgid_plural "Every legal pairing gives the pairing-allocated bye to one of the %{count} players excluded from it:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1572
+#, elixir-autogen, elixir-format
+msgid "Exclude from the pairing-allocated bye"
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1545
+#, elixir-autogen, elixir-format
+msgid "Exclude from the pairing-allocated bye: not available - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1521
+#, elixir-autogen, elixir-format
+msgid "Excluded from the pairing-allocated bye in every round (organiser's rule, not FIDE)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1527
+#, elixir-autogen, elixir-format
+msgid "Excluded from the pairing-allocated bye in rounds %{rounds} (organiser's rule, not FIDE)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:789
+#, elixir-autogen, elixir-format
+msgid "No legal pairing keeps the pairing-allocated bye away from the player excluded from it. Nothing was paired."
+msgid_plural "No legal pairing keeps the pairing-allocated bye away from the %{count} players excluded from it. Nothing was paired."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1600
+#, elixir-autogen, elixir-format
+msgid "No pairing-allocated bye at the rounds (e.g. 3,5 or 2-4)"
+msgstr ""
+
+#: lib/pairings_engine/features.ex:162
+#, elixir-autogen, elixir-format
+msgid "No pairing-allocated bye for chosen players"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:3485
+#, elixir-autogen, elixir-format
+msgid "Not a FIDE rule: a FIDE-endorsed program would have paired this round differently, and a FIDE checker cannot replay it."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1611
+#, elixir-autogen, elixir-format
+msgid "Not part of the FIDE rules."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3415
+#, elixir-autogen, elixir-format
+msgid "Nothing was paired. Pairing anyway lifts %{name}'s exclusion for this round only - they get the bye - and the audit trail records it."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3430
+#, elixir-autogen, elixir-format
+msgid "Pair anyway, ignoring the exclusion for %{name}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:450
+#, elixir-autogen, elixir-format
+msgid "Paired round %{round} ignoring %{name}'s exclusion from the pairing-allocated bye, for that round only - no legal pairing kept the bye away from every excluded player."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3427
+#, elixir-autogen, elixir-format
+msgid "Pairing..."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:763
+#, elixir-autogen, elixir-format
+msgid "Round %{rounds} was paired with a player excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently."
+msgid_plural "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:459
+#, elixir-autogen, elixir-format
+msgid "Round %{round}: %{names} was passed over for the pairing-allocated bye - organiser exclusion, not a FIDE rule."
+msgid_plural "Round %{round}: %{names} were passed over for the pairing-allocated bye - organiser exclusion, not a FIDE rule."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3403
+#, elixir-autogen, elixir-format
+msgid "This round cannot be paired with the bye exclusions as they stand."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:1612
+#, elixir-autogen, elixir-format
+msgid "With this player kept from the pairing-allocated bye, the Swiss pairings will differ from what FIDE-endorsed programs produce, and a FIDE checker cannot replay the rounds it changes. The round's explanation and the audit trail record it."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:2393
+#, elixir-autogen, elixir-format
+msgid "no bye"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:674
+#, elixir-autogen, elixir-format
+msgid "not allowed a bye - organiser exclusion, not a FIDE rule"
+msgstr ""

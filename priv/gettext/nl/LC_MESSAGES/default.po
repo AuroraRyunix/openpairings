@@ -12767,3 +12767,136 @@ msgstr[1] "Een half punt afgenomen van %{count} spelers."
 #, elixir-autogen, elixir-format
 msgid "Winds the acceleration down, as SWAR's \"Remove\" does: every player rated in the range who still has extra points loses half a point, never going below zero. The next round is paired with what is left; rounds already paired are not changed."
 msgstr "Bouwt de versnelling af, zoals \"Remove\" in SWAR: elke speler met een rating in het bereik die nog extra punten heeft, verliest een half punt, nooit onder nul. De volgende ronde wordt gepaard met wat overblijft; rondes die al gepaard zijn, veranderen niet."
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:3475
+#, elixir-autogen, elixir-format
+msgid "%{name} was passed over for the bye: organiser exclusion"
+msgstr "%{name} werd overgeslagen voor de bye: uitsluiting door de organisator"
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:3479
+#, elixir-autogen, elixir-format
+msgid "%{name}'s exclusion from the bye was lifted for this round only: no legal pairing kept the bye away from every excluded player."
+msgstr "De uitsluiting van %{name} voor de bye werd alleen voor deze ronde opgeheven: geen enkele geldige paring hield de bye weg van alle uitgesloten spelers."
+
+#: lib/pairings_engine_web/live/players_live.ex:1617
+#, elixir-autogen, elixir-format
+msgid "A round in which this moves the bye is not paired the way the FIDE rules require, and the tournament's FIDE record says so from that round on. Only use it if the rating officer has agreed."
+msgstr "Een ronde waarin dit de bye verschuift, is niet gepaard zoals de FIDE-regels het vereisen, en het FIDE-verslag van het toernooi vermeldt dat vanaf die ronde. Gebruik het alleen als de ratingverantwoordelijke akkoord gaat."
+
+#: lib/pairings_engine/features.ex:164
+#, elixir-autogen, elixir-format
+msgid "Adds \"Exclude from the pairing-allocated bye\" to a player's details, for every round or chosen rounds. Not a FIDE rule: the Swiss pairings then differ from FIDE-endorsed programs, and a FIDE checker cannot replay those rounds. Ainalrami engine only."
+msgstr "Voegt \"Uitsluiten van de door de paring toegekende bye\" toe aan de gegevens van een speler, voor alle rondes of gekozen rondes. Geen FIDE-regel: de Zwitserse paringen wijken dan af van door FIDE goedgekeurde programma's, en een FIDE-controleprogramma kan die rondes niet naspelen. Alleen met de Ainalrami-engine."
+
+#: lib/pairings_engine_web/live/players_live.ex:1594
+#, elixir-autogen, elixir-format
+msgid "Certain rounds"
+msgstr "Bepaalde rondes"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3404
+#, elixir-autogen, elixir-format
+msgid "Every legal pairing gives the pairing-allocated bye to the player excluded from it:"
+msgid_plural "Every legal pairing gives the pairing-allocated bye to one of the %{count} players excluded from it:"
+msgstr[0] "Elke geldige paring geeft de door de paring toegekende bye aan de speler die ervan uitgesloten is:"
+msgstr[1] "Elke geldige paring geeft de door de paring toegekende bye aan een van de %{count} spelers die ervan uitgesloten zijn:"
+
+#: lib/pairings_engine_web/live/players_live.ex:1572
+#, elixir-autogen, elixir-format
+msgid "Exclude from the pairing-allocated bye"
+msgstr "Uitsluiten van de door de paring toegekende bye"
+
+#: lib/pairings_engine_web/live/players_live.ex:1545
+#, elixir-autogen, elixir-format
+msgid "Exclude from the pairing-allocated bye: not available - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it."
+msgstr "Uitsluiten van de door de paring toegekende bye: niet beschikbaar - dit toernooi paart met JaVaFo, dat die optie niet heeft. Alleen de Ainalrami-engine past het toe."
+
+#: lib/pairings_engine_web/live/players_live.ex:1521
+#, elixir-autogen, elixir-format
+msgid "Excluded from the pairing-allocated bye in every round (organiser's rule, not FIDE)"
+msgstr "Uitgesloten van de door de paring toegekende bye in elke ronde (regel van de organisator, niet van de FIDE)"
+
+#: lib/pairings_engine_web/live/players_live.ex:1527
+#, elixir-autogen, elixir-format
+msgid "Excluded from the pairing-allocated bye in rounds %{rounds} (organiser's rule, not FIDE)"
+msgstr "Uitgesloten van de door de paring toegekende bye in de rondes %{rounds} (regel van de organisator, niet van de FIDE)"
+
+#: lib/pairings_engine_web/live/settings_support.ex:789
+#, elixir-autogen, elixir-format
+msgid "No legal pairing keeps the pairing-allocated bye away from the player excluded from it. Nothing was paired."
+msgid_plural "No legal pairing keeps the pairing-allocated bye away from the %{count} players excluded from it. Nothing was paired."
+msgstr[0] "Geen enkele geldige paring houdt de door de paring toegekende bye weg van de speler die ervan uitgesloten is. Er werd niets gepaard."
+msgstr[1] "Geen enkele geldige paring houdt de door de paring toegekende bye weg van de %{count} spelers die ervan uitgesloten zijn. Er werd niets gepaard."
+
+#: lib/pairings_engine_web/live/players_live.ex:1600
+#, elixir-autogen, elixir-format
+msgid "No pairing-allocated bye at the rounds (e.g. 3,5 or 2-4)"
+msgstr "Geen door de paring toegekende bye in de rondes (bv. 3,5 of 2-4)"
+
+#: lib/pairings_engine/features.ex:162
+#, elixir-autogen, elixir-format
+msgid "No pairing-allocated bye for chosen players"
+msgstr "Geen door de paring toegekende bye voor gekozen spelers"
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:3485
+#, elixir-autogen, elixir-format
+msgid "Not a FIDE rule: a FIDE-endorsed program would have paired this round differently, and a FIDE checker cannot replay it."
+msgstr "Geen FIDE-regel: een door de FIDE goedgekeurd programma had deze ronde anders gepaard, en een FIDE-controleprogramma kan ze niet naspelen."
+
+#: lib/pairings_engine_web/live/players_live.ex:1611
+#, elixir-autogen, elixir-format
+msgid "Not part of the FIDE rules."
+msgstr "Maakt geen deel uit van de FIDE-regels."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3415
+#, elixir-autogen, elixir-format
+msgid "Nothing was paired. Pairing anyway lifts %{name}'s exclusion for this round only - they get the bye - and the audit trail records it."
+msgstr "Er werd niets gepaard. Toch paren heft de uitsluiting van %{name} alleen voor deze ronde op - die speler krijgt de bye - en het logboek houdt het bij."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3430
+#, elixir-autogen, elixir-format
+msgid "Pair anyway, ignoring the exclusion for %{name}"
+msgstr "Toch paren, zonder de uitsluiting van %{name}"
+
+#: lib/pairings_engine_web/live/audit_live.ex:450
+#, elixir-autogen, elixir-format
+msgid "Paired round %{round} ignoring %{name}'s exclusion from the pairing-allocated bye, for that round only - no legal pairing kept the bye away from every excluded player."
+msgstr "Ronde %{round} gepaard zonder de uitsluiting van %{name} voor de door de paring toegekende bye, alleen voor die ronde - geen enkele geldige paring hield de bye weg van alle uitgesloten spelers."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3427
+#, elixir-autogen, elixir-format
+msgid "Pairing..."
+msgstr "Bezig met paren..."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:763
+#, elixir-autogen, elixir-format
+msgid "Round %{rounds} was paired with a player excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently."
+msgid_plural "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently."
+msgstr[0] "Ronde %{rounds} werd gepaard met een speler die uitgesloten was van de door de paring toegekende bye (een regel van de organisator, niet van de FIDE), en die uitsluiting veranderde wie ze kreeg. De TRF kan dat niet vastleggen, dus een FIDE-controleprogramma dat het bestand naspeelt, zal die ronde anders paren."
+msgstr[1] "Rondes %{rounds} werden gepaard met spelers die uitgesloten waren van de door de paring toegekende bye (een regel van de organisator, niet van de FIDE), en die uitsluiting veranderde wie ze kreeg. De TRF kan dat niet vastleggen, dus een FIDE-controleprogramma dat het bestand naspeelt, zal die rondes anders paren."
+
+#: lib/pairings_engine_web/live/audit_live.ex:459
+#, elixir-autogen, elixir-format
+msgid "Round %{round}: %{names} was passed over for the pairing-allocated bye - organiser exclusion, not a FIDE rule."
+msgid_plural "Round %{round}: %{names} were passed over for the pairing-allocated bye - organiser exclusion, not a FIDE rule."
+msgstr[0] "Ronde %{round}: %{names} werd overgeslagen voor de door de paring toegekende bye - uitsluiting door de organisator, geen FIDE-regel."
+msgstr[1] "Ronde %{round}: %{names} werden overgeslagen voor de door de paring toegekende bye - uitsluiting door de organisator, geen FIDE-regel."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3403
+#, elixir-autogen, elixir-format
+msgid "This round cannot be paired with the bye exclusions as they stand."
+msgstr "Deze ronde kan niet gepaard worden met de huidige uitsluitingen voor de bye."
+
+#: lib/pairings_engine_web/live/players_live.ex:1612
+#, elixir-autogen, elixir-format
+msgid "With this player kept from the pairing-allocated bye, the Swiss pairings will differ from what FIDE-endorsed programs produce, and a FIDE checker cannot replay the rounds it changes. The round's explanation and the audit trail record it."
+msgstr "Als deze speler geen door de paring toegekende bye mag krijgen, wijken de Zwitserse paringen af van wat door de FIDE goedgekeurde programma's opleveren, en kan een FIDE-controleprogramma de rondes die het verandert niet naspelen. De uitleg bij de ronde en het logboek houden het bij."
+
+#: lib/pairings_engine_web/live/players_live.ex:2393
+#, elixir-autogen, elixir-format
+msgid "no bye"
+msgstr "geen bye"
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:674
+#, elixir-autogen, elixir-format
+msgid "not allowed a bye - organiser exclusion, not a FIDE rule"
+msgstr "mag geen bye krijgen - uitsluiting door de organisator, geen FIDE-regel"

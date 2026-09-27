@@ -926,6 +926,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :postponed_games, :boolean, default: false
     field :postponed_requester_outcome, :string, default: "draw"
     field :postponed_opponent_outcome, :string, default: "draw"
+
+    # Bye exclusions for ONE pairing run - never stored (docs/pairing-systems.md,
+    # "Bye exclusions"). They ride on the struct because it is the one value
+    # every layer of `PairingsEngine.Pairing` already passes down, from
+    # `pair_next_round/2` to the Ainalrami options, so the per-round
+    # exclusion list reaches the engine without a new argument on every
+    # function in between.
+    #
+    #   * `bye_exclusion_override` - a player id whose exclusion the arbiter
+    #     lifted for the round being paired ("Pair anyway, ignoring the
+    #     exclusion for X"). Set by the caller.
+    #   * `engine_bye_exclusions` - the engine ranks excluded from the bye in
+    #     the run under way. Set by `Pairing` itself just before the engine
+    #     is called, from the players' `no_bye` settings.
+    field :bye_exclusion_override, :integer, virtual: true
+    field :engine_bye_exclusions, {:array, :integer}, virtual: true, default: []
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team
