@@ -185,8 +185,9 @@ defmodule PairingsEngine.Standings do
   table or it will contradict it on screen - `PairingRationale` reads it for
   the pre-round scores behind its score brackets. Reading `entry.total`
   directly is almost always a bug: it silently counts extra points in
-  tournaments that rank without them (the default, and what SWAR imports
-  come in as).
+  tournaments that rank without them (the default; a SWAR import switches
+  them on only when the file gives players extra points, as SWAR counts
+  them).
   """
   def rank_score(e, tournament),
     do: if(tournament.count_extra_points, do: e.total, else: e.points)
@@ -283,6 +284,57 @@ defmodule PairingsEngine.Standings do
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
+    |> put_category_places(tournament)
+  end
+
+  @doc """
+  True when `tournament` ranks each category on its own
+  (`categories_ranked_separately`, SWAR's `CatSepares`) - and can: categories
+  switched on and at least one defined.
+
+  Then every player is ranked within their pairing category
+  (`PairingsEngine.Categories.pairing_category/2`, the one category that
+  also decides their pairing pool): `c07_places/3` never lets a tie reach
+  across two categories, so C.07 Article 6's direct encounter is decided by
+  the games inside the category, as SWAR's `TieBetween` does, and the
+  entries come out category by category in the tournament's own category
+  order, uncategorised players last. Each entry carries `:rank_category`
+  (that category, `""` for none) and `:category_place` (1.. within it).
+  `:rank` stays the entry's position in the whole list, so everything that
+  needs one number per player still has one.
+  """
+  def ranked_separately?(tournament) do
+    Map.get(tournament, :categories_ranked_separately) == true and
+      Map.get(tournament, :categories_enabled) == true and
+      (Map.get(tournament, :categories) || []) != []
+  end
+
+  # The block a player is ranked in, when categories are ranked separately:
+  # the index of their pairing category in the tournament's own order, with
+  # the uncategorised ("") after every category.
+  defp rank_block(tournament, player) do
+    categories = tournament.categories || []
+
+    case PairingsEngine.Categories.pairing_category(tournament, player) do
+      "" -> {length(categories), ""}
+      name -> {Enum.find_index(categories, &(&1 == name)), name}
+    end
+  end
+
+  defp put_category_places(entries, tournament) do
+    if ranked_separately?(tournament) do
+      entries
+      |> Enum.map_reduce(%{}, fn e, seen ->
+        {_block, name} = rank_block(tournament, e.player)
+        place = Map.get(seen, name, 0) + 1
+
+        {e |> Map.put(:rank_category, name) |> Map.put(:category_place, place),
+         Map.put(seen, name, place)}
+      end)
+      |> elem(0)
+    else
+      entries
+    end
   end
 
   @doc """
@@ -1246,11 +1298,35 @@ defmodule PairingsEngine.Standings do
       |> Enum.reject(&(event.predetermined? and &1 in ~w(BH BHC1 BHC2 MBH)))
       |> Enum.map(&AinalramiBridge.c07_code/1)
 
-    score = Map.new(entries, &{&1.player.id, rank_score(&1, tournament) * 1.0})
+    score = Map.new(entries, &{&1.player.id, ranking_score(&1, tournament)})
 
     case Ainalrami.Tiebreaks.rank(event, codes, score: score) do
       {:ok, standings} -> Map.new(standings, &{&1.id, &1.rank})
       {:error, _} -> %{}
+    end
+  end
+
+  # How far apart two categories' scores are put when categories are ranked
+  # separately - more than any score a tournament of `Tournament.max_rounds/0`
+  # rounds can reach, whatever its point values.
+  @category_block 1_000_000.0
+
+  # The score C.07's ranking starts from. With categories ranked separately
+  # each category's scores are lifted into a band of their own, first
+  # category highest: C.07 then never finds two players of different
+  # categories on the same score, so no tie - and no direct encounter -
+  # reaches across a category, and the whole list comes out category by
+  # category. The tie-break values themselves come from the games and are
+  # untouched (a Buchholz still counts every opponent, as SWAR's does).
+  defp ranking_score(entry, tournament) do
+    score = rank_score(entry, tournament) * 1.0
+
+    if ranked_separately?(tournament) do
+      {block, _name} = rank_block(tournament, entry.player)
+      blocks = length(tournament.categories || []) + 1
+      (blocks - block) * @category_block + score
+    else
+      score
     end
   end
 
@@ -1265,7 +1341,7 @@ defmodule PairingsEngine.Standings do
 
   defp add_direct_encounter(entries, tournament) do
     entries
-    |> Enum.group_by(&rank_score(&1, tournament))
+    |> Enum.group_by(&ranking_score(&1, tournament))
     |> Enum.flat_map(fn {_points, group} ->
       ids = MapSet.new(group, & &1.player.id)
 

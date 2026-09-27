@@ -114,7 +114,7 @@ defmodule PairingsEngineWeb.AuditLive do
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed
         category.created category.removed category.rules_updated category.auto_assigned
-        categories.toggled pair_by_category.toggled
+        categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.taken_down
         openresults.kept_withdrawn
         openresults.claim_adopted openresults.claim_discarded openresults.public_consent_given
@@ -1117,6 +1117,12 @@ defmodule PairingsEngineWeb.AuditLive do
     if truthy?(d["enabled"]),
       do: gettext("Turned per-category pairing on."),
       else: gettext("Turned per-category pairing off.")
+  end
+
+  def describe("categories_ranked_separately.toggled", d) do
+    if truthy?(d["enabled"]),
+      do: gettext("Turned ranking each category separately on."),
+      else: gettext("Turned ranking each category separately off.")
   end
 
   # Nothing emits this any more - the local public pages were removed on

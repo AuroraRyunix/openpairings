@@ -248,6 +248,30 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
+  def handle_event("toggle_categories_ranked_separately", _params, socket) do
+    tournament = socket.assigns.tournament
+    enabled? = !tournament.categories_ranked_separately
+
+    case Tournaments.update_tournament(tournament, %{
+           "categories_ranked_separately" => to_string(enabled?)
+         }) do
+      {:ok, updated} ->
+        Audit.log(
+          updated.id,
+          socket.assigns.current_scope,
+          "categories_ranked_separately.toggled",
+          %{
+            enabled: enabled?
+          }
+        )
+
+        {:noreply, assign(socket, tournament: updated, toggle_error: nil)}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, toggle_error: error_text(reason))}
+    end
+  end
+
   ## ---------- Categories (SWAR CATEGORIES) - any authorized user ----------
 
   @impl true
@@ -675,7 +699,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <span class="set-label">{gettext("Pair each category independently (beta)")}</span>
           <p class="hint" style="margin: 2px 0 6px">
             {gettext(
-              "Swiss only - each category gets its own independent pairings and byes within one combined round."
+              "Each category gets its own independent pairings and byes within one combined round - in a round robin, its own Berger table."
             )}
           </p>
           <div class="actions" style="align-items: center; gap: 10px">
@@ -697,6 +721,38 @@ defmodule PairingsEngineWeb.CategoriesLive do
             locked_hint={@locked_hint}
             warning={pair_by_category_warning()}
           />
+        </div>
+
+        <%!-- SWAR's "separate categories" as far as the standings go. Not
+              locked: standings are computed afresh every time, so switching
+              it only changes how they are shown. --%>
+        <div
+          :if={@tournament.categories_enabled}
+          id="ranked-separately"
+          class="set-field solo"
+          style="margin-top: 10px"
+        >
+          <span class="set-label">{gettext("Rank each category separately")}</span>
+          <p class="hint" style="margin: 2px 0 6px">
+            {gettext(
+              "Each category gets its own standings, numbered from 1, and a tie is broken among the tied players of that category only - so direct encounter looks at the games within the category. SWAR's \"separate categories\" does this."
+            )}
+          </p>
+          <div class="actions" style="align-items: center; gap: 10px">
+            <span>
+              {if @tournament.categories_ranked_separately, do: gettext("On"), else: gettext("Off")}
+            </span>
+            <button
+              type="button"
+              id="toggle-ranked-separately"
+              class="pe-btn"
+              phx-click="toggle_categories_ranked_separately"
+            >
+              {if @tournament.categories_ranked_separately,
+                do: gettext("Turn off"),
+                else: gettext("Turn on")}
+            </button>
+          </div>
         </div>
 
         <p :if={@toggle_error} class="error-note" style="margin-top: 10px">{@toggle_error}</p>

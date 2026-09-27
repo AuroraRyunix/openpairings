@@ -86,7 +86,8 @@ defmodule PairingsEngine.TournamentExport do
     abs_jusque abs_nbfois absent_counts_as_vur
     presence_on_allocated_bye tiebreaks acceleration
     status standard rate_of_play organizer_club_number round_dates
-    categories category_rules category_prizes categories_enabled event_code
+    categories category_rules category_prizes categories_enabled
+    categories_ranked_separately event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
     pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category
@@ -202,11 +203,17 @@ defmodule PairingsEngine.TournamentExport do
   #     axes, two tag sets"). `categories` itself, the actual vocabulary, is
   #     exported normally; excluded the same way `swar_guid` and its
   #     siblings just above are.
+  #   swar_settings
+  #     The same kind of SWAR provenance: the imported `.swar` file's own
+  #     settings that this app has no place for, kept only so `SwarExport`
+  #     can write them back to SWAR. Excluded for the same reason as the two
+  #     just above - a copy is a new tournament, not that file.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
     public_slug_minted_at public_slug_server public_slug_published_at
     registration_open publish_to_openresults deleted_at archived_at swar_guid
     swar_uploaded_at swar_published_at swar_category_type swar_category_axis2
+    swar_settings
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
     handed_off_at handed_off_to handoff_token handoff_origin

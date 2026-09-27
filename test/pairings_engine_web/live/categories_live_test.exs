@@ -585,4 +585,34 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
              "categories_enabled is not a locked field - this must still work"
     end
   end
+
+  describe "ranking each category separately" do
+    test "offered once categories are on, and switching it persists and is audited", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{"categories_enabled" => true, "categories" => ["A", "B"]})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      assert html =~ "Rank each category separately"
+
+      lv |> element("#toggle-ranked-separately") |> render_click()
+      assert PairingsEngine.Repo.reload!(tournament).categories_ranked_separately
+
+      assert [_entry] =
+               Audit.list_for_tournament(tournament.id,
+                 action: "categories_ranked_separately.toggled"
+               )
+
+      lv |> element("#toggle-ranked-separately") |> render_click()
+      refute PairingsEngine.Repo.reload!(tournament).categories_ranked_separately
+    end
+
+    test "not offered while categories are off", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"categories_enabled" => false})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      refute has_element?(lv, "#ranked-separately")
+    end
+  end
 end

@@ -200,6 +200,7 @@ defmodule PairingsEngineWeb.RationaleEdgeCasesTest do
     "snapshot.restored",
     "categories.toggled",
     "pair_by_category.toggled",
+    "categories_ranked_separately.toggled",
     "public_pages.toggled",
     "public_pages.link_rotated",
     "registration.toggled"
