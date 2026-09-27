@@ -269,6 +269,9 @@ defmodule PairingsEngineWeb.Layouts do
             <summary class={tab_class(@active == "features")} title={@current_scope.user.email}>
               <span class="user-email">{@current_scope.user.email}</span>
               <span class="account-menu-short" aria-hidden="true">{gettext("Account")}</span>
+              <%!-- Takes the word's place where the bar is at its tightest,
+                    just above the phone layout (see app.css). --%>
+              <.icon name="hero-user-circle" class="account-menu-icon size-5" />
             </summary>
             <div class="topbar-menu-panel">
               <span class="account-menu-who">{@current_scope.user.email}</span>

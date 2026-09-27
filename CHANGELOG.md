@@ -16,6 +16,14 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The top bar stays on one row on narrower windows.** Between the
+  phone layout and about 1200px wide, the account menu and the publishing
+  status wrapped onto a second row. The bar now tightens its spacing there,
+  shows the logo without the word, the publishing status as its coloured
+  dot, and, just above the phone layout, a person icon for the account menu.
+  Everything that is hidden still has its full name for screen readers, and
+  the publishing panel still says everything.
+
 - [Change] **One "Public" control per round instead of three switches.**
   The Pairings page used to show a separate Pairings, Standings and Results
   switch for each round, which allowed combinations that make no sense on

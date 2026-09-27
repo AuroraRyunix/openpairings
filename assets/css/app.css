@@ -2806,7 +2806,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    768px block below). Everything removed here is either duplicated elsewhere
    or purely informational. */
 
-@media (max-width: 1120px) {
+/* 1200 rather than the 1120 this was: with the publishing pill and three
+   pickers now in the bar, a full address (capped at 22ch) still wrapped the
+   account group onto a second row up to about 1180px. */
+@media (max-width: 1200px) {
   /* The signed-in address is also shown on the account settings page, and
      the version in Settings → About. */
   .topbar-auth .user-email { display: none; }
@@ -5482,4 +5485,47 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   .badge-flip-inner {
     transition: none;
   }
+}
+
+/* ---------- top bar between the phone layout and a wide window ----------
+   From 769px up the bar is meant to be one row: brand, tabs, then the
+   pickers, the publishing pill and the account menu. Between the phone
+   breakpoint and about 1080px the three did not fit and the account group
+   wrapped onto a second row, doubling the bar's height on a laptop with a
+   side panel open. Here the bar gives up what it can spare, lightest loss
+   first: tighter gaps and tab padding, the brand's word (the mark stays,
+   and the link keeps its accessible name), and the publishing pill's words
+   (the coloured dot stays and the panel still says everything).
+
+   Visually hidden rather than display:none, so a screen reader still hears
+   "OpenPairings" and the publishing state. Placed last so it wins over the
+   base rules at equal specificity. */
+@media (min-width: 769px) and (max-width: 1080px) {
+  .topbar { gap: 10px; padding: 0 12px; }
+  .topbar nav { gap: 2px; }
+  .topbar nav a,
+  .topbar-menu > summary { padding: 5px 7px; }
+
+  .topbar .brand-name,
+  .pub-pill .pub-word,
+  .pub-pill .pub-ms {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pub-pill { min-width: 0; padding: 6px; }
+}
+
+/* The account menu's icon, shown only in the tightest band below. */
+.account-menu-icon { display: none; }
+
+/* The last ~30px just above the phone layout: the account menu's word
+   gives way to a person icon. The email stays the summary's title. */
+@media (min-width: 769px) and (max-width: 880px) {
+  .topbar-auth .account-menu-short { display: none; }
+  .account-menu-icon { display: inline-block; }
 }
