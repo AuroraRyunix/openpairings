@@ -93,7 +93,6 @@ defmodule PairingsEngine.ComplianceTest do
           "bye_value" => "0.5",
           "abs_value" => "0.5",
           "absent_counts_as_vur" => "false",
-          "count_extra_points" => "true",
           "manual_ranking" => "true",
           "club_exclusion" => "all",
           "fed_exclusion" => "all",
@@ -105,6 +104,17 @@ defmodule PairingsEngine.ComplianceTest do
 
       assert Compliance.check(t) == []
       assert is_nil(t.fide_compliance_lost_round)
+
+      # Counted extra points, separately: Baku and extra points in the
+      # pairing are refused together (docs/extra-points.md). Not a listed
+      # departure yet - `Compliance`'s moduledoc says why that is open.
+      {:ok, t} =
+        Tournaments.update_tournament(t, %{
+          "acceleration" => "none",
+          "count_extra_points" => "true"
+        })
+
+      assert Compliance.check(t) == []
     end
   end
 

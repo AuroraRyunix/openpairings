@@ -2691,12 +2691,12 @@ defmodule PairingsEngine.Pairing do
     |> Enum.filter(&(&1.pairing_number != nil))
     |> Enum.flat_map(fn p ->
       key = to_string(p.id)
-      current = (p.extra_points || 0.0) / 1
+      current = virtual_value(p.extra_points)
 
       points =
         Enum.map(1..current_round, fn round ->
           case Map.fetch(recorded, round) do
-            {:ok, %{} = by_player} -> Map.get(by_player, key, 0.0) / 1
+            {:ok, %{} = by_player} -> virtual_value(Map.get(by_player, key))
             _legacy_or_unpaired -> current
           end
         end)
@@ -2705,6 +2705,18 @@ defmodule PairingsEngine.Pairing do
     end)
     |> Map.new()
   end
+
+  # Virtual points are never negative. A negative extra point is a penalty,
+  # and it still counts in the standings, but JaVaFo cannot read one in an
+  # `XXA` slot: measured 2026-09-27 on a real SWAR file whose player was
+  # given -1.0 in one round, JaVaFo died with `NumberFormatException: For
+  # input string: "0-1.0"` and paired nothing. Both engines are handed the
+  # same file, so the floor applies to both. A round's recorded value (a
+  # SWAR import can bring a negative one) is kept as it came - the export
+  # writes it back - and floored only here, on its way to the engine.
+  defp virtual_value(nil), do: 0.0
+  defp virtual_value(points) when points < 0, do: 0.0
+  defp virtual_value(points), do: points / 1
 
   defp recorded_virtual_points(tournament_id) do
     Repo.all(
@@ -2724,8 +2736,8 @@ defmodule PairingsEngine.Pairing do
   """
   def virtual_points_used(tournament, players) do
     if Tournament.extra_points_pairing?(tournament) do
-      for p <- players, p != nil, (p.extra_points || 0.0) != 0.0, into: %{} do
-        {to_string(p.id), p.extra_points / 1}
+      for p <- players, p != nil, virtual_value(p.extra_points) != 0.0, into: %{} do
+        {to_string(p.id), virtual_value(p.extra_points)}
       end
     else
       %{}
@@ -2947,7 +2959,7 @@ defmodule PairingsEngine.Pairing do
 
     Enum.sort_by(players, fn p ->
       points = player_points(Map.get(games, p.id, []), tournament)
-      points = if extra?, do: points + (p.extra_points || 0.0), else: points
+      points = if extra?, do: points + virtual_value(p.extra_points), else: points
       {-points, -Player.rating(p), p.pairing_number}
     end)
   end

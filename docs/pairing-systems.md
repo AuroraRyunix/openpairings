@@ -16,6 +16,16 @@ round/pairing creation, absentee byes). Optional Baku acceleration
 (`tournament.acceleration == "baku"`, FIDE C.04.7) is Swiss-only - see
 `docs/acceleration.md`.
 
+Players' extra points can feed the pairing too, as virtual points on the
+same `XXA` channel (`docs/extra-points.md`): always in acceleration mode
+(SWAR's XtraPoints - the stronger players start a score group up), and in
+handicap mode while the handicap is counted (the score groups are then the
+standings' own totals). Each round records the virtual points it was paired
+with (`rounds.virtual_points`), because the engine needs the full per-round
+history to judge floats, and the row order handed to the engine
+(`order_for_pairing/3`) sorts by points plus this round's extra points.
+Baku and extra points in the pairing are mutually exclusive.
+
 *Which* engine runs is a second, independent setting - `pairing_engine`,
 below. Round robin and Keizer never reach an engine at all, so that setting
 is inert for them.
@@ -53,7 +63,8 @@ there instead of blocking the choice. See `docs/fide-endorsement.md`.
 
 **TRF extensions.** Ainalrami reads all three this app emits: `XXR` (round
 count), `XXP` (forbidden pairings and club/federation exclusions -
-`docs/forbidden-pairings.md`) and `XXA` (Baku acceleration virtual points).
+`docs/forbidden-pairings.md`) and `XXA` (virtual points: Baku acceleration,
+or players' extra points - `docs/extra-points.md`).
 All three are written by `Ainalrami.Trf.serialize/2` itself, from the
 tournament map the app hands it - the app used to concatenate them onto the
 finished text, which put the lines carrying the arbiter's rules outside the

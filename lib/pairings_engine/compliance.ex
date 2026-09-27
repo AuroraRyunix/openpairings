@@ -44,8 +44,14 @@ defmodule PairingsEngine.Compliance do
       penalty an arbiter added by hand", and FIDE's own wording for it
       allows a negative value. `TrfExport.free_point_records/2` already
       writes it. FIDE does not merely permit these, it asks to be told about
-      them. Pairing never counts them and neither do the C.07 tie-breaks
-      (docs/extra-points.md).
+      them. The C.07 tie-breaks never count them (docs/extra-points.md).
+      **Open:** since the extra-points modes, a counted handicap and
+      acceleration-mode points DO reach the pairing (as virtual points), which
+      by this module's own definition below is a departure. It is not listed
+      yet: acceleration mode changes nothing until a player holds points,
+      which no pure function over a `%Tournament{}` can see, and whether a
+      counted handicap should mark the event is a product decision still to
+      be taken.
     * **Manual standings order** (`manual_ranking`). C.07 ends in
       mechanisms - a play-off, drawing of lots - whose outcome an arbiter
       has to be able to record, and recording one is the feature's first

@@ -902,7 +902,7 @@ correct choice, since FIDE does not award a point for an odd-player
 round-robin bye either. The forcing above only concerns a round robin
 **read from** a `.swar` file.
 
-## XtraPoints: SWAR's manual acceleration does not reach pairing here
+## XtraPoints: SWAR's manual acceleration, and acceleration mode here
 
 SWAR's `[XTRA_POINTS]` band table and each player's `ExtraPts` are not only
 a number on a standings column - in SWAR itself they are an input to
@@ -915,37 +915,30 @@ same mechanism Baku uses here, just driven by hand instead of by a formula.
 See
 [swar-source-audit-pass2-2026-09-09.md, §5.4](swar-source-audit-pass2-2026-09-09.md#54-f13--swars-xtrapoints-reach-the-pairing-engine-openpairings-extra_points-never-can).
 
-OpenPairings' `extra_points` is a different feature under the same name -
-a **handicap bonus** that pairing never reads at all (`docs/extra-points.md`
-states this plainly), and `tournament.acceleration` only ever means Baku
-(FIDE's own C.04.7 method, computed from the roster, never from a
-per-player number an arbiter typed in). There is no manual-acceleration
-setting here to receive what SWAR's XtraPoints were doing.
+Until 2026-09 this app had no counterpart - its extra points were a
+handicap that pairing never read - and the import warned that any round
+paired here would differ from SWAR's. It has one now: **extra points in
+acceleration mode** (`docs/extra-points.md`), and every SWAR file imports in
+that mode:
 
-**So a SWAR tournament that used manual acceleration is paired differently
-here than it would have been in SWAR, from the next round on, and until
-this warning was added nothing said so.** The rounds already recorded in
-the imported file are unaffected - they are read as results, not
-re-paired - the warning is about pairing anything further from this
-tournament. It fires when the file carries a non-zero `ExtraPts` for any
-player, or a populated `[XTRA_POINTS]` band table, on an ordinary Swiss
-import (SWAR itself zeroes `ExtraPts` on load for a round robin or a 3-2-1
-tournament, so the importer stays quiet there - warning about a number
-SWAR's own pairing engine never saw either would blame this app for
-SWAR's own choice). Manual acceleration itself is not implemented, and
-this warning is not a step toward it - it exists so the arbiter knows to
-expect a different result, not to reproduce SWAR's own.
+- each player's `ExtraPts` is their extra points, sent to the pairing engine
+  as virtual points every round;
+- each `[RONDE]` record's `XtraPts` - the value SWAR froze into that round
+  when it set it up - is that round's recorded virtual points
+  (`rounds.virtual_points`), so the next round paired here hands the engine
+  the same `XXA` history SWAR's own `.trn` would have;
+- the `[XTRA_POINTS]` table becomes the tournament's bands, which in this
+  mode pay players AT OR ABOVE a rating, as SWAR's do (an Elo-0 slot, which
+  SWAR's `AssignExtraPoints` stops at and never pays, is left out); the
+  table is also still kept in `swar_settings`;
+- a file that gives any player extra points imports with "Keep acceleration
+  points in the final standings" on, so it ranks on points plus extra
+  points exactly as `CalculLeClassement` does.
 
-**The standings do count them, as SWAR's do.** A Swiss whose players have
-`ExtraPts` imports with `count_extra_points` on, so it ranks on points plus
-extra points exactly as `CalculLeClassement` does; a round robin or 3-2-1
-file has its extra points zeroed, as SWAR's loader zeroes them. The band
-table (`[XTRA_POINTS]`: four `(points x 4, Elo)` bands, a player AT OR ABOVE
-a band's Elo getting its points - `XtraPoints.cpp`, `AssignExtraPoints`)
-cannot become this app's `extra_points_bands`, which pay players BELOW a
-rating; it is kept in `swar_settings` and written back by the export, and
-the players' own extra points travel either way.
-
+SWAR's "Remove" (half a point off everyone in a rating range) is "Remove
+half a point" on the Extra points page. A round robin or 3-2-1 file has its
+extra points and per-round values zeroed, as SWAR's loader zeroes them. The
+import note now says what was carried over rather than what was lost.
 ## Categories: two axes, two tag sets
 
 `[CATEGORIES]` carries `Categorie type` plus **two** parallel lists,
@@ -1148,6 +1141,8 @@ can hold. What changed on the way:
 - **Extra points count as SWAR counts them.** A Swiss whose players have
   `ExtraPts` imports with `count_extra_points` on; a round robin or 3-2-1
   file has them zeroed, as SWAR's loader does (see "XtraPoints" above).
+  Since the extra-points modes, they also pair as SWAR pairs them:
+  acceleration mode, with each round's `XtraPts` as its recorded history.
 - **Pairing numbers are SWAR's seed order** (`SwarImport.prepare_players/1`):
   players in `(category when separate, Rank)` order, which is how SWAR
   numbers its Berger tables and orders its JaVaFo input. `Ni` only finds a
@@ -1208,7 +1203,7 @@ The other sections:
 | `[TIE_BREAK]` | tie-breaks (12 of SWAR's 15 codes) | the file's five while the tournament still ranks by what the import made of them, so median-2, performance and black wins stay in place; else every code SWAR has (the export knew six) |
 | `[EXCLUSION]` | club and federation rules, forbidden pairs | one rule as SWAR's own; forbidden pairs as the groups they came from; anything else as groups of player numbers, with a note |
 | `[CATEGORIES]` | categories, switched on; two-axis bookkeeping | yes; type as the file had it, or 5 (names) for categories made here (the export wrote 1, ratings) |
-| `[XTRA_POINTS]` | `swar_settings` (SWAR's bands pay at or above a rating, this app's below one) | yes (the export wrote zeros) |
+| `[XTRA_POINTS]` | the acceleration-mode bands, and `swar_settings` | yes, from the bands in acceleration mode (highest Elo first, at most four), else as the file had it (the export wrote zeros) |
 
 `[JOUEURS]` and `[RONDE]`:
 
@@ -1219,16 +1214,16 @@ The other sections:
 | `Nom`, `Sexe`, `Pays`, `MatNat`, `MatFide`, `Titre`, `ClubNr`, `Club`, `Dnaiss`, `Paye`, `Absent`, `AbsentRondes`, `HandyTable`, `CatIndex` | the player's fields | yes |
 | `Affilie` | affiliated (a G-licence, 2, is affiliated) | 1 or 0 |
 | `Elo`, `EloFide` | national and FIDE rating (a v7 file has one, both) | the FIDE rating: a v7 file has one |
-| `ExtraPts` | extra points (none for a round robin or 3-2-1) | while the tournament counts them |
+| `ExtraPts` | extra points, acceleration mode (none for a round robin or 3-2-1) | always in acceleration mode; a handicap only while counted |
 | `Class`, `NbParties`, `Points`, `TieBreak`, `Perf`, `Pts_Corr`, `AmericanPts`, `SpecialPts` | recomputed here (`Pts_Corr` warns) | games played, points (in quarter points - the export wrote halves), the rest 0: SWAR recomputes them |
-| `[RONDE]` | boards, results, byes, absences | yes; SWAR's floats and per-round extra points are 0 (the pairing engine works floats out itself) |
+| `[RONDE]` | boards, results, byes, absences; `XtraPts` as the round's recorded virtual points | yes; SWAR's floats are 0 (the pairing engine works floats out itself), `XtraPts` the recorded virtual points |
 
 What this app has that SWAR cannot hold is listed on the export page for the
 tournament at hand (`SwarExport.export_notes/1`): soft pairing wishes; more
 than one exclusion rule; Keizer; teams; Baku acceleration; a standings order
 set by hand; a round robin's own point values; other point values for a
 Swiss (written as SWAR's 3-2-1 type, which cannot be imported back yet);
-extra points the tournament does not count; this app's extra-point bands;
+a handicap the tournament does not count, and a handicap's bands; more than four acceleration bands;
 more than 16 categories, and the conditions that fill them; tie-breaks SWAR
 has no code for (WON, TPN and the team ones) and more than five; a national
 rating that differs from the FIDE one; the rounds before a late entrant
@@ -1242,7 +1237,7 @@ SWAR field at all.
 `test/pairings_engine/federations/bel/swar_round_trip_test.exs` imports a
 synthetic file for each feature above (every result and bye, absence and
 player field; SWAR's own settings; FIDE ids; every tie-break code; extra
-points and the band table; absence points; round robins single, match and
+points, the band table and each round's `XtraPts`; absence points; round robins single, match and
 double, with and without separate categories; separate and two-axis
 categories in a Swiss; double rounds; an accelerated Swiss; each initial
 colour; each of the five exclusion rules; an unpaired round; the round-0
@@ -1275,7 +1270,7 @@ above:
   reverse), which comes back as both;
 - a Swiss with its own point values, written as SWAR's 3-2-1 type, which
   cannot be imported yet;
-- extra points the tournament does not count, which are left out;
+- a handicap the tournament does not count, which is left out, and acceleration points kept out of the standings, which SWAR will count;
 - SWAR's player numbers: the export numbers players in seed order, so a
   file that went through here comes back to SWAR with the same players,
   seeds and games under new numbers.

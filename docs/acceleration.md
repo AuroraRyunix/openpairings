@@ -75,3 +75,13 @@ full doc comment. It returns each Group-A player's virtual-point history
 and `Ainalrami.Trf.serialize/2` writes the `XXA` lines from it - the column
 math lives with the writer, in that module's `@xxa_rank_cols` and
 `xxa_points_cols/1`.
+
+## The other acceleration: extra points
+
+SWAR accelerates differently - by the players' own extra points (its
+XtraPoints), assigned from rating bands and taken off by hand part-way.
+That is extra points in acceleration mode here (`docs/extra-points.md`),
+and it rides the same `XXA` channel with a recorded per-round history. The
+two are never combined: the changeset refuses Baku while a tournament's
+extra points feed the pairing, and `accelerations/3` gives Baku precedence
+for a row that holds both anyway.

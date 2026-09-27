@@ -16,6 +16,47 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Two kinds of extra points: handicap and acceleration.**
+  Settings, Extra points now asks what the extra points are for.
+  *Handicap* is what they always were here - a head start for players
+  below a rating (bands like "1400:1, 1600:0.5"). *Acceleration* is what
+  SWAR does with its XtraPoints - the stronger players get them (bands pay
+  players at or above a rating, "1800:0.5, 2000:1") so they meet each other
+  from round 1. The page explains each, with an example, before you save.
+- [Change] **A counted handicap now pairs on the total.** With "Count extra
+  points" on, the pairing puts players in score groups by points plus extra
+  points - the same total the standings rank on - so the leader on handicap
+  meets the players chasing them. Before, the standings counted the
+  handicap and the pairing ignored it. With counting off nothing changes.
+  The FIDE TRF report still gives game points; the handicap stays in its
+  299 records.
+- [Feature] **Acceleration points go to the pairing every round.** They are
+  handed to the pairing engine as virtual points (JaVaFo and Ainalrami
+  both), round by round, as SWAR does. "Keep acceleration points in the
+  final standings" decides the standings: on counts them, as SWAR does; off
+  leaves game points only, like Baku. "Remove half a point" takes half a
+  point off everyone in a rating range, as SWAR's "Remove" does - the next
+  round is paired with what is left, and rounds already paired keep what
+  they were paired with. Baku and extra points in the pairing cannot be on
+  together.
+- [Change] **SWAR files pair here as they paired in SWAR.** A SWAR file
+  imports in acceleration mode: its players' XtraPoints go to the pairing,
+  each round keeps the extra points SWAR paired it with, and SWAR's band
+  table becomes the bands. The .swar export writes all three back. The
+  import no longer warns that further rounds will differ from SWAR's.
+- [Change] **Existing tournaments.** A tournament that came from SWAR and
+  uses extra points (and has no bands set here) is now in acceleration
+  mode, which is what SWAR did with them - from its next round on, its
+  extra points are part of the pairing. Every other tournament is in
+  handicap mode, as before; one that counts its extra points pairs on the
+  total from its next round on.
+- [Feature] **Extra points wherever the score is shown.** Printed standings
+  and cross tables show XtPts and Total when the standings rank on them,
+  the standings sent to the results site carry both (it does not show them
+  yet), and a round's
+  pairing explanation says when it was paired with virtual points (extra
+  points or Baku).
+
 - [Feature] **An agreed date for each postponed game, with its history.**
   The list of open postponed games on the Pairings page has a date field
   per game: the date the two players agreed to play it on. It is optional

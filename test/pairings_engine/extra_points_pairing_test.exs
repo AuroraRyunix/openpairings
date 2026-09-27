@@ -182,6 +182,32 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
       assert Enum.all?(entries, &(Standings.rank_score(&1, Repo.reload!(t)) == &1.points))
     end
 
+    @tag :javafo
+    test "JaVaFo reads them too: the same top-half-against-top-half round 1" do
+      t =
+        tournament(%{extra_points_mode: "acceleration", pairing_engine: "javafo"})
+
+      roster(t, %{1 => 1.0, 2 => 1.0, 3 => 1.0, 4 => 1.0})
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      assert pairs(round) == halves()
+    end
+
+    @tag :javafo
+    test "JaVaFo pairs a counted handicap on the total as well" do
+      t =
+        tournament(%{
+          extra_points_mode: "handicap",
+          count_extra_points: true,
+          pairing_engine: "javafo"
+        })
+
+      roster(t, %{5 => 1.0, 6 => 1.0, 7 => 1.0, 8 => 1.0})
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      assert pairs(round) == halves()
+    end
+
     test "kept in the standings, they rank on the total, as SWAR does" do
       t = tournament(%{extra_points_mode: "acceleration", count_extra_points: true})
       roster(t, %{8 => 3.0})
@@ -258,6 +284,27 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
       p1 = copy.id |> Tournaments.list_players() |> Enum.find(&(&1.name == "P1"))
       assert Repo.reload!(copy).extra_points_mode == "acceleration"
       assert Tournaments.get_round(copy.id, 1).virtual_points == %{to_string(p1.id) => 1.0}
+    end
+
+    test "a penalty (negative extra points) counts in the standings but never reaches XXA" do
+      # JaVaFo cannot read a negative XXA value - it dies on "0-1.0" - so
+      # virtual points stop at zero, for both engines.
+      # The Players form refuses a negative value; an import (a TRF26 `299`
+      # penalty, a SWAR round record) is how one arrives.
+      t = tournament(%{extra_points_mode: "acceleration", count_extra_points: true})
+      [p1 | _] = roster(t, %{2 => 1.0})
+      p1 |> Ecto.Changeset.change(extra_points: -1.0) |> Repo.update!()
+
+      {:ok, r1} = Pairing.pair_next_round(t)
+      refute Map.has_key?(r1.virtual_points, to_string(p1.id))
+      white_wins(r1)
+
+      trf = Pairing.javafo_input(Repo.reload!(t))
+      refute trf =~ "-1.0"
+      refute trf =~ ~r/^XXA\s+1\s/m
+
+      entry = t |> Repo.reload!() |> Standings.standings() |> Enum.find(&(&1.player.id == p1.id))
+      assert entry.total == entry.points - 1.0
     end
 
     test "players with none of their own are not given a line" do

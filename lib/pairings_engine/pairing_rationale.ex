@@ -662,7 +662,7 @@ defmodule PairingsEngine.PairingRationale do
   # else - a round from before the column, a manual round, Keizer - falls
   # back to the standings' own ranking score, as it always did.
   defp pre_round_scores(%{pairing_system: "keizer"} = tournament, through, _virtual),
-    do: pre_round_scores(tournament, through, nil)
+    do: score_map(tournament, round_standings(tournament, [through])[through])
 
   defp pre_round_scores(tournament, through, virtual) when is_map(virtual) do
     tournament
