@@ -105,6 +105,69 @@ unchanged, and the comment above it records why: refusing outright asserted
 a quality judgement the measurements do not support. The Settings page warns
 on a homologated tournament instead.
 
+### Bye exclusions - "no pairing-allocated bye" (not a FIDE rule)
+
+An organiser's rule, offered because Belgian club and youth events ask for
+it: a player who travelled far, a junior whose parents drive an hour, must
+not be the one sent home with the pairing-allocated bye. It is **not part
+of the FIDE rules** - C.04.3 gives the bye to whoever its criteria select -
+so a round it changes differs from what a FIDE-endorsed program pairs, and
+a FIDE checker replaying the TRF will not reproduce it.
+
+**Where it is.** Behind the BEL pack's `bel_bye_exclusions` switch
+(Features page, `PairingsEngine.Features`): with it on, a player's details
+have "Exclude from the pairing-allocated bye"; ticked, "All rounds" or
+"Certain rounds", the rounds typed exactly like the absences above it
+(same grammar, same parser - `Player.parse_absent_rounds_input/1` - stored
+canonically in `players.no_bye_rounds`; blank means every round). Like
+every pack switch it gates the control only: a player who already has an
+exclusion keeps the control, and the exclusion keeps pairing, with the
+switch off. The players list marks such a player "no bye".
+
+- **Swiss, Ainalrami only.** Round robin, Keizer and team Swiss have no
+  pairing-allocated bye to withhold and do not show it. With JaVaFo
+  selected the form says it is not available and why, in one line; JaVaFo
+  is never handed it.
+- **Always warned.** Every time it is ticked the form says it is not a FIDE
+  rule and what that costs; on a FIDE-homologated tournament it adds the
+  stronger warning that the tournament's FIDE record will say so.
+
+**What the engine does with it.** `Pairing.with_bye_exclusions/4` turns the
+round's pairing pool into engine ranks and hands them to Ainalrami as
+`:bye_exclusions` (Ainalrami v0.33.0 and later). Each is treated exactly as
+C.04.3 [C2] treats a player who already had a pairing-allocated bye:
+ineligible for the bye, and for nothing else. An exclusion that does not
+bite - the player was never going to get the bye - pairs the round exactly
+as no exclusion does, byte for byte, and records nothing. Ainalrami's own
+validation of the option is in its README ("Organiser deviations").
+
+**When no legal round keeps the bye away from every excluded player.** The
+engine says so as data (`{:error, {:bye_exclusions, %{excluded:, override:}}}`),
+and the Pairings page names the excluded players and offers one button,
+"Pair anyway, ignoring the exclusion for X" - X being the player who takes
+the bye when the round is paired with no exclusion at all, whose exclusion
+is therefore the one whose lifting is certain to work. It re-pairs with
+that player's exclusion lifted for this round only (`pair_next_round/2`'s
+`bye_exclusion_override:`); the setting itself is untouched, and the audit
+trail records `pairing.bye_exclusion_overridden`.
+
+**What is recorded.** The round's stored explanation carries the exclusions
+it was paired under, who was passed over for the bye because of one ("X was
+passed over for the bye: organiser exclusion", in the order they would have
+had it - the engine's own account), and a lifted exclusion. A re-explained
+round reads its exclusions back from that record, not from today's player
+settings. When an exclusion actually moved the bye, the audit trail records
+`pairing.bye_passed_over`, and the tournament's FIDE record
+(`fide_compliance_lost_round`, the same column a non-FIDE setting stamps)
+names that round the first time it happens, with a
+`tournament.fide_compliance_lost` row (setting `no_bye`). The Export page's
+TRF section lists those rounds: the TRF has no way to carry the exclusion,
+so a checker replaying the file pairs them as FIDE's rules would.
+
+**Carried by** JSON backups, snapshots, hand-offs and Duplicate (all one
+export/import path, `TournamentExport`'s player fields). Not by SWAR, which
+has no such field.
+
 ## Round robin (Berger) - available
 
 Each player meets every other player once (single cycle, `rr_cycles: 1`) or

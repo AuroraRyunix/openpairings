@@ -35,7 +35,13 @@ defmodule PairingsEngine.RoundExplanation do
         # Version 3: who got the pairing-allocated bye, and what every other
         # candidate would have cost. nil for an even field, and for every
         # round recorded before the key existed.
-        bye: alternative(section["bye"], by_id, :holder)
+        bye: alternative(section["bye"], by_id, :holder),
+        # The organiser's bye exclusions (not a FIDE rule), when the round
+        # had any: who was passed over for the bye because of one, in the
+        # order they would have had it, and whose exclusion was lifted to
+        # pair the round at all. Empty/nil for every other round.
+        bye_passed_over: names(section["bye_passed_over"], by_id),
+        bye_exclusion_lifted: player(section["bye_exclusion_lifted"], by_id)
       }
     end)
     |> Enum.reject(&(&1.brackets == []))
@@ -76,7 +82,7 @@ defmodule PairingsEngine.RoundExplanation do
   end
 
   @outcomes ~w(same worse better tie incomparable impossible ineligible)
-  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye)
+  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye organiser_exclusion)
 
   # One "why him and not me" record - a float's or the bye's - with the
   # subject resolved under `subject_key` (`:floater` or `:holder`).
@@ -244,6 +250,26 @@ defmodule PairingsEngine.RoundExplanation do
 
   defp player(nil, _by_id), do: nil
   defp player(id, by_id), do: Map.get(by_id, id)
+
+  @doc """
+  The numbers of the rounds whose stored account says the organiser's bye
+  exclusions (not a FIDE rule) moved the pairing-allocated bye - someone
+  was passed over for it. Those are the rounds a FIDE checker replaying the
+  TRF cannot reproduce; a round where an exclusion changed nothing pairs
+  exactly as FIDE's rules do and is not listed.
+  """
+  def bye_exclusion_rounds(tournament_id) do
+    tournament_id
+    |> PairingsEngine.Tournaments.list_rounds()
+    |> Enum.filter(fn
+      %{explanation: %{"sections" => sections}} ->
+        Enum.any?(sections, &((&1["bye_passed_over"] || []) != []))
+
+      _ ->
+        false
+    end)
+    |> Enum.map(& &1.number)
+  end
 
   @doc """
   Whether the round on the board still matches the one the engine explained.

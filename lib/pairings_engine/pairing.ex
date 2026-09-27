@@ -134,6 +134,10 @@ defmodule PairingsEngine.Pairing do
   # divergence ("both copies paired round 6, differently") the hand-off lock
   # exists to make impossible. Duplicating a gate is how a gate gets missed.
   def pair_next_round(%Tournament{} = tournament, opts \\ []) do
+    # "Pair anyway, ignoring the exclusion for X": one player's bye exclusion
+    # lifted for this run only - see `with_bye_exclusions/4`.
+    tournament = %{tournament | bye_exclusion_override: opts[:bye_exclusion_override]}
+
     case Tournaments.ensure_writable(tournament) do
       :ok -> pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
       {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
@@ -233,6 +237,7 @@ defmodule PairingsEngine.Pairing do
 
     case result do
       {:ok, _round} ->
+        record_bye_exclusion_deviation(tournament, next_number)
         Tournaments.broadcast_tournament_change(tournament.id, :rounds)
         Tournaments.refresh_status!(tournament.id)
 
@@ -608,6 +613,7 @@ defmodule PairingsEngine.Pairing do
       )
 
     emit_trf_built(tournament.id, next_number, nil, trf)
+    tournament = with_bye_exclusions(tournament, players, local_rank_by_player_id, next_number)
 
     case run_engine(tournament, trf, next_number, nil, 0, soft) do
       {:ok, pairs, explanation} ->
@@ -621,7 +627,7 @@ defmodule PairingsEngine.Pairing do
         )
 
       {:error, _message} = error ->
-        error
+        bye_exclusion_error(error, player_by_local_rank)
     end
   end
 
@@ -781,13 +787,86 @@ defmodule PairingsEngine.Pairing do
 
     emit_trf_built(tournament.id, next_number, category_name, trf)
 
+    tournament =
+      with_bye_exclusions(tournament, group_players, local_rank_by_player_id, next_number)
+
     case run_engine(tournament, trf, next_number, category_name, index, soft) do
       {:ok, pairs, explanation} ->
         {:ok, {category_name, :paired, pairs, player_by_local_rank, explanation}}
 
       {:error, _message} = error ->
-        error
+        bye_exclusion_error(error, player_by_local_rank)
     end
+  end
+
+  ## ---------- bye exclusions (an organiser's rule, not FIDE's) ----------
+  #
+  # A player with `no_bye` set must not receive the pairing-allocated bye in
+  # the rounds it covers. Ainalrami takes the list as `:bye_exclusions` and
+  # treats each listed player exactly as C.04.3 [C2] treats one who already
+  # had a bye; nothing else about the pairing changes. JaVaFo has no such
+  # option, so it is never handed one - the player form says so rather than
+  # offering a setting nothing reads. See docs/pairing-systems.md.
+
+  # The ranks to exclude from the bye in this run, on the tournament struct
+  # the engine call already receives (see `Tournament`'s
+  # `engine_bye_exclusions`). `players` is the round's pairing pool; an
+  # exclusion the arbiter lifted for this run ("pair anyway") is left out.
+  defp with_bye_exclusions(
+         %Tournament{pairing_engine: "ainalrami"} = tournament,
+         players,
+         local_rank_by_player_id,
+         round_number
+       ) do
+    ranks =
+      players
+      |> Enum.filter(
+        &(&1.id != tournament.bye_exclusion_override and
+            Player.no_bye_for_round?(&1, round_number))
+      )
+      |> Enum.flat_map(&List.wrap(Map.get(local_rank_by_player_id, &1.id)))
+
+    %{tournament | engine_bye_exclusions: Enum.sort(ranks)}
+  end
+
+  defp with_bye_exclusions(tournament, _players, _local_rank_by_player_id, _round_number),
+    do: tournament
+
+  # The engine names excluded players by rank; the page needs players.
+  defp bye_exclusion_error({:error, {:bye_exclusions, info}}, player_by_local_rank) do
+    id = fn rank -> player_by_local_rank |> Map.fetch!(rank) |> Map.fetch!(:id) end
+
+    {:error,
+     {:bye_exclusions,
+      %{
+        info
+        | excluded: Enum.map(info.excluded, id),
+          override: info.override && id.(info.override)
+      }}}
+  end
+
+  defp bye_exclusion_error(error, _player_by_local_rank), do: error
+
+  # A round in which an exclusion actually moved the bye was not paired the
+  # way C.04.3 would have paired it, so the tournament's FIDE history says
+  # so, the same record a non-FIDE setting leaves (`fide_compliance_lost_round`,
+  # never cleared). An exclusion that changed nothing - the player was never
+  # going to get the bye - leaves the round exactly as FIDE's rules pair it
+  # and records nothing.
+  defp record_bye_exclusion_deviation(tournament, round_number) do
+    with nil <- tournament.fide_compliance_lost_round,
+         %Round{explanation: %{"sections" => sections}} <-
+           Tournaments.get_round(tournament.id, round_number),
+         true <- Enum.any?(sections, &((&1["bye_passed_over"] || []) != [])) do
+      Repo.update_all(
+        from(t in Tournament,
+          where: t.id == ^tournament.id and is_nil(t.fide_compliance_lost_round)
+        ),
+        set: [fide_compliance_lost_round: round_number]
+      )
+    end
+
+    :ok
   end
 
   # Writes the Round and every category's pairings in ONE transaction, board
@@ -1384,7 +1463,11 @@ defmodule PairingsEngine.Pairing do
       # colour from the boards instead, which before round 1 means White
       # whatever was drawn. nil (no line) leaves that inference in place for
       # a tournament with no draw on record.
-      initial_colour: parsed.tournament[:initial_colour]
+      initial_colour: parsed.tournament[:initial_colour],
+      # Players the organiser keeps from the pairing-allocated bye this
+      # round (`with_bye_exclusions/4`) - not a FIDE rule. `[]` pairs
+      # exactly as the option's absence does, byte for byte.
+      bye_exclusions: tournament.engine_bye_exclusions || []
     ]
   end
 
@@ -1459,16 +1542,42 @@ defmodule PairingsEngine.Pairing do
             round_number
           )
 
+        # Unlike the wishes, the bye exclusions are read off the round's own
+        # record: they were decided per round (and one may have been lifted
+        # for it), so today's player settings are not what it was paired on.
+        tournament = %{
+          tournament
+          | engine_bye_exclusions: recorded_bye_exclusions(round, local_rank_by_player_id)
+        }
+
         {:ok,
          %{
            round: round,
            players: parsed.players,
            opts: ainalrami_opts(tournament, parsed, soft),
            player_by_local_rank: player_by_local_rank,
-           local_rank_by_player_id: local_rank_by_player_id
+           local_rank_by_player_id: local_rank_by_player_id,
+           bye_exclusion_lifted: recorded_bye_exclusion_lifted(round)
          }}
     end
   end
+
+  # The bye exclusions a round was paired under, from its stored account
+  # (`put_bye_exclusions/3`), as the rebuilt field's ranks. A player no
+  # longer in the field is dropped rather than guessed at.
+  defp recorded_bye_exclusions(%Round{explanation: %{"sections" => sections}}, rank_by_id) do
+    sections
+    |> Enum.flat_map(&(&1["bye_exclusions"] || []))
+    |> Enum.flat_map(&List.wrap(Map.get(rank_by_id, &1)))
+    |> Enum.sort()
+  end
+
+  defp recorded_bye_exclusions(_round, _rank_by_id), do: []
+
+  defp recorded_bye_exclusion_lifted(%Round{explanation: %{"sections" => sections}}),
+    do: Enum.find_value(sections, & &1["bye_exclusion_lifted"])
+
+  defp recorded_bye_exclusion_lifted(_round), do: nil
 
   @doc """
   The boards of `field.round` as played, in the engine's rank space:
@@ -1565,7 +1674,8 @@ defmodule PairingsEngine.Pairing do
          {:ok, pairs} <- field_pairs(field) do
       account =
         Map.merge(
-          %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, field.opts)},
+          %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, field.opts)}
+          |> Map.merge(bye_exclusion_account(field.opts, field.bye_exclusion_lifted)),
           alternatives(field.players, pairs, field.opts, tournament, round_number, nil)
         )
 
@@ -1638,7 +1748,8 @@ defmodule PairingsEngine.Pairing do
          opts = Keyword.put(field.opts, :max_candidates, :all),
          account =
            Map.merge(
-             %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, opts)},
+             %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, opts)}
+             |> Map.merge(bye_exclusion_account(opts, field.bye_exclusion_lifted)),
              alternatives(field.players, pairs, opts, tournament, round_number, nil)
            ),
          payload when not is_nil(payload) <-
@@ -1712,7 +1823,8 @@ defmodule PairingsEngine.Pairing do
             # expensive part and are guarded on their own: losing them must
             # not lose the brackets, and neither may cost the round.
             Map.merge(
-              %{brackets: brackets},
+              %{brackets: brackets}
+              |> Map.merge(bye_exclusion_account(engine_opts, tournament.bye_exclusion_override)),
               alternatives(
                 parsed.players,
                 raw_pairs,
@@ -1742,16 +1854,23 @@ defmodule PairingsEngine.Pairing do
     # doc). Mapped onto the same `{:error, string}` shape so
     # `pair_next_round/1`'s callers, which just render the reason as-is,
     # cannot tell which engine refused.
+    # The organiser's bye exclusions, not the rules, made the round
+    # impossible: handed back as data, so the page can name the players and
+    # offer to pair without one of them (`bye_exclusion_error/2` turns the
+    # engine's ranks into players on the way up).
     e in Ainalrami.Pairing.NoValidPairingError ->
-      Logger.error(
-        "Ainalrami found no legal pairing for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
-      )
-
-      {:error,
-       ainalrami_scoped(
-         "Ainalrami found no legal pairing for this round - every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
-         category_name
-       )}
+      if Map.get(e, :reason) == :bye_exclusions do
+        {:error,
+         {:bye_exclusions,
+          %{
+            excluded: e.excluded,
+            override: e.override,
+            category: category_name,
+            round: round_number
+          }}}
+      else
+        no_legal_pairing(e, tournament, round_number, category_name)
+      end
 
     # The TRF we just built is our own, so this should be unreachable; it is
     # caught rather than allowed to escape because an unhandled raise here
@@ -1785,6 +1904,33 @@ defmodule PairingsEngine.Pairing do
       )
 
       {:error, {:pairing_crashed, round_number, category_name}}
+  end
+
+  defp no_legal_pairing(e, tournament, round_number, category_name) do
+    Logger.error(
+      "Ainalrami found no legal pairing for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+    )
+
+    {:error,
+     ainalrami_scoped(
+       "Ainalrami found no legal pairing for this round - every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
+       category_name
+     )}
+  end
+
+  # What the round's account records about bye exclusions: the ranks the
+  # engine was told to keep from the bye, and the player whose exclusion the
+  # arbiter lifted for this round. Empty - so the stored account is exactly
+  # what it was before the feature - when there was none of either.
+  defp bye_exclusion_account(engine_opts, lifted) do
+    %{}
+    |> then(fn m ->
+      case engine_opts[:bye_exclusions] do
+        excluded when excluded not in [nil, []] -> Map.put(m, :bye_exclusions, excluded)
+        _ -> m
+      end
+    end)
+    |> then(fn m -> if lifted, do: Map.put(m, :bye_exclusion_lifted, lifted), else: m end)
   end
 
   defp ainalrami_bye_to_zero({white, nil}), do: {white, 0}
@@ -1953,6 +2099,7 @@ defmodule PairingsEngine.Pairing do
                 ),
               "bye" => bye_json(Map.get(account, :bye), by_rank)
             }
+            |> put_bye_exclusions(account, by_rank)
           ]
       end)
 
@@ -1967,6 +2114,29 @@ defmodule PairingsEngine.Pairing do
       sections -> %{"engine" => "ainalrami", "version" => 3, "sections" => sections}
     end
   end
+
+  # The organiser's bye exclusions, when the round had any (not a FIDE rule):
+  # who was excluded, who was passed over for the bye because of it - the
+  # engine's own account, in the order they would have had it - and whose
+  # exclusion the arbiter lifted for this round. Absent otherwise, so a
+  # round paired without exclusions stores exactly what it always did.
+  defp put_bye_exclusions(section, account, by_rank) do
+    passed_over =
+      account.brackets
+      |> Enum.flat_map(&Map.get(&1, :bye_passed_over, []))
+      |> Enum.map(&player_id(&1.rank, by_rank))
+
+    section
+    |> put_unless_empty(
+      "bye_exclusions",
+      player_ids(Map.get(account, :bye_exclusions, []), by_rank)
+    )
+    |> put_unless_empty("bye_passed_over", passed_over)
+    |> put_unless_empty("bye_exclusion_lifted", Map.get(account, :bye_exclusion_lifted))
+  end
+
+  defp put_unless_empty(map, _key, value) when value in [nil, []], do: map
+  defp put_unless_empty(map, key, value), do: Map.put(map, key, value)
 
   defp bracket_json(bracket, by_rank, float_alternatives) do
     %{

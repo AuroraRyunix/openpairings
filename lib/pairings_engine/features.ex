@@ -27,7 +27,7 @@ defmodule PairingsEngine.Features do
   printing or export computation, and never on a changeset that decides what
   gets written.
 
-  ## Six independent switches, on purpose
+  ## Independent switches, on purpose
 
   `bel_player_lookup` and `bel_club_sync` READ the table `bel_ratings_sync`
   fills. With the sync off they search whatever was last downloaded -
@@ -149,6 +149,20 @@ defmodule PairingsEngine.Features do
         description:
           gettext(
             "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
+          )
+      },
+      # An organiser's rule rather than the federation's - Belgian club and
+      # youth events ask for it, which is why it sits in this pack - and not
+      # a FIDE one: a round paired with it cannot be replayed by a FIDE
+      # checker. Like every key here it gates the CONTROL only; an exclusion
+      # already stored keeps pairing as it did (see the moduledoc's rule).
+      %{
+        key: "bel_bye_exclusions",
+        federation: "BEL",
+        label: gettext("No pairing-allocated bye for chosen players"),
+        description:
+          gettext(
+            "Adds \"Exclude from the pairing-allocated bye\" to a player's details, for every round or chosen rounds. Not a FIDE rule: the Swiss pairings then differ from FIDE-endorsed programs, and a FIDE checker cannot replay those rounds. Ainalrami engine only."
           )
       }
     ]

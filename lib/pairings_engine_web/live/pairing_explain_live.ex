@@ -671,6 +671,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       :pairing_bye -> gettext("not allowed a bye - already had one")
       :forfeit_win -> gettext("not allowed a bye - won a game by forfeit")
       :full_point_bye -> gettext("not allowed a bye - already had a full-point bye")
+      :organiser_exclusion -> gettext("not allowed a bye - organiser exclusion, not a FIDE rule")
       _ -> gettext("not allowed a bye")
     end
   end
@@ -3458,6 +3459,33 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </details>
 
             <p :if={bracket.rungs == []} class="hint">{gettext("Nothing separated this bracket.")}</p>
+          </div>
+
+          <%!-- The organiser's bye exclusions (not a FIDE rule): who they
+                kept from the bye in this round, and whose was lifted to pair
+                it at all. Said before the bye's own account, because it is
+                the first thing that decided it. --%>
+          <div
+            :if={section.bye_passed_over != [] or section.bye_exclusion_lifted}
+            id="bye-exclusion-account"
+            class="pe-why-me"
+          >
+            <p :for={p <- section.bye_passed_over} class="pe-why-me-head">
+              <strong>
+                {gettext("%{name} was passed over for the bye: organiser exclusion", name: p.name)}
+              </strong>
+            </p>
+            <p :if={section.bye_exclusion_lifted}>
+              {gettext(
+                "%{name}'s exclusion from the bye was lifted for this round only: no legal pairing kept the bye away from every excluded player.",
+                name: section.bye_exclusion_lifted.name
+              )}
+            </p>
+            <p class="hint">
+              {gettext(
+                "Not a FIDE rule: a FIDE-endorsed program would have paired this round differently, and a FIDE checker cannot replay it."
+              )}
+            </p>
           </div>
 
           <div :if={section.bye} class="pe-why-me">

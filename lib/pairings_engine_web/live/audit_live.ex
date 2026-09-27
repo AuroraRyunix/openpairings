@@ -108,7 +108,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
         pairing.match_forfeit_withdrawn pairing.board_attached
-        pairing.missing_recorded_postponed pairing.postponed_date_set)},
+        pairing.missing_recorded_postponed pairing.postponed_date_set
+        pairing.bye_exclusion_overridden pairing.bye_passed_over)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -439,6 +440,30 @@ defmodule PairingsEngineWeb.AuditLive do
         count(d, "count"),
         round: value(d, "round")
       )
+
+  # The organiser's bye exclusions (not a FIDE rule) - `PairingsLive`'s
+  # `log_bye_exclusions/2`. The first: an exclusion lifted for one round to
+  # pair it at all ("Pair anyway"). The second: the players an exclusion
+  # kept from the bye in the round paired.
+  def describe("pairing.bye_exclusion_overridden", d),
+    do:
+      gettext(
+        "Paired round %{round} ignoring %{name}'s exclusion from the pairing-allocated bye, for that round only - no legal pairing kept the bye away from every excluded player.",
+        round: value(d, "round"),
+        name: value(d, "player_name")
+      )
+
+  def describe("pairing.bye_passed_over", d) do
+    names = d |> Map.get("player_names", []) |> List.wrap()
+
+    ngettext(
+      "Round %{round}: %{names} was passed over for the pairing-allocated bye - organiser exclusion, not a FIDE rule.",
+      "Round %{round}: %{names} were passed over for the pairing-allocated bye - organiser exclusion, not a FIDE rule.",
+      length(names),
+      round: value(d, "round"),
+      names: Enum.map_join(names, ", ", &text/1)
+    )
+  end
 
   # The date the players of a postponed game agreed to play it on -
   # `PairingsLive`'s "set_agreed_date". Not a deadline.

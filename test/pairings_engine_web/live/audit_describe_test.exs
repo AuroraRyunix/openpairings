@@ -211,6 +211,13 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"rounds" => [1], "marked" => 4, "ambiguous_players" => ["Jan Peeters"]}
     ],
     "trf.postponed_sent" => [%{"games" => 1}, %{"games" => 3}],
+    "pairing.bye_exclusion_overridden" => [
+      %{"round" => 5, "player_id" => 12, "player_name" => "Anna Peeters"}
+    ],
+    "pairing.bye_passed_over" => [
+      %{"round" => 5, "player_ids" => [12], "player_names" => ["Anna Peeters"]},
+      %{"round" => 5, "player_ids" => [12, 14], "player_names" => ["Anna Peeters", "Bram Claes"]}
+    ],
     "pairing.missing_recorded_postponed" => [
       %{"round" => 3, "count" => 1},
       %{"round" => 3, "count" => 2}

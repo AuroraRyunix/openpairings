@@ -780,6 +780,18 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "This tournament is already handed off to another copy - take it back before handing it anywhere else."
       )
 
+  # The organiser's bye exclusions left no legal round (not a FIDE rule -
+  # docs/pairing-systems.md). The Pairings page shows its own panel for
+  # this, naming the players and offering to pair anyway; this sentence is
+  # for anywhere else the refusal surfaces.
+  def error_text({:bye_exclusions, %{excluded: excluded}}) when is_list(excluded),
+    do:
+      ngettext(
+        "No legal pairing keeps the pairing-allocated bye away from the player excluded from it. Nothing was paired.",
+        "No legal pairing keeps the pairing-allocated bye away from the %{count} players excluded from it. Nothing was paired.",
+        length(excluded)
+      )
+
   # Pairing a tournament that has nothing left to pair, from any of the three
   # systems. A reason rather than a sentence because round robin's
   # pair-everything loop stops on it - it used to recognise the sentence by
