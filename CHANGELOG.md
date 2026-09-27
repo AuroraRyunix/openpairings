@@ -18,16 +18,13 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.68.0] - 2026-09-27
 
-- [Fix] **Team tie-breaks score fully forfeited matches and team byes per
-  FIDE.** With Ainalrami 0.32.0, a team match where every board was
-  forfeited counts as a forfeit win, forfeit loss, or double forfeit for
-  Article 12's board-based tie-breaks, instead of being read board by
-  board as if it had been played. A team's full-point bye scores a win on
-  every board and a half-point bye a draw on every board, as FIDE's
-  TieBreakServer counts them.
-- [Feature] **Team TRF files can carry team ranks.** Importing a TRF26 file
-  whose team section uses the newer `310` records (rather than the older
-  `013`) now reads each team's final rank along with its roster and name.
+- [Change] **Ainalrami 0.32.0.** Its TRF checker now also checks team
+  events: the team ranks in a TRF-2026 file, a match forfeited on every
+  board, and team byes, all as FIDE's tie-break rules set out. OpenPairings'
+  own team standings are unchanged.
+- [Feature] **Team TRF files in the 2026 format import their teams.** A
+  file whose team section uses the newer `310` records, instead of the
+  older `013`, now brings in each team's name and players.
 
 ## [0.67.0] - 2026-09-26
 
