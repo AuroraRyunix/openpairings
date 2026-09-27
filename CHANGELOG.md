@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.69.1] - 2026-09-28
+
 - [Fix] **The top bar stays on one row on narrower windows.** Between the
   phone layout and about 1200px wide, the account menu and the publishing
   status wrapped onto a second row. The bar now tightens its spacing there,
