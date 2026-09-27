@@ -16,6 +16,28 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A SWAR round robin imports as a round robin.** It came in as a
+  Swiss in everything but its name, so its standings used the Swiss rules
+  of the tie-break regulations: a forfeit between two tied players left
+  direct encounter undecided, the free round counted in Sonneborn-Berger,
+  and Buchholz was allowed. SWAR's own copy of FIDE's round-robin tie-break
+  exercise came out with three places reversed; it now matches SWAR. A
+  SWAR "double rounds" event imports as match format, "aller-retour" as a
+  double round robin.
+- [Fix] **A SWAR file saved just before pairing no longer adds a round.**
+  SWAR saves the round it is about to pair with nobody in it yet; the
+  import turned that into a finished round in which every player was
+  absent, and every Buchholz and Sonneborn-Berger moved. That round is now
+  left out, and the import says so - pair it here.
+- [Fix] **Some SWAR v6.50 files would not import at all.** A v6.50 file can
+  carry SWAR's older, shorter category list; the import now reads either.
+- [Verified] **Standings re-ranked against SWAR's own.** Every SWAR file at
+  hand was imported and ranked here, and compared with the places and
+  tie-break values SWAR stored in it (`tools/swar_rerank.exs`). Every
+  remaining difference in a finished event is SWAR applying the 2024
+  tie-break text, a Belgian convention, or a SWAR defect - listed in
+  docs/swar-import.md.
+
 ## [0.67.0] - 2026-09-26
 
 - [Change] **Postponed games moved to Settings, Export.** Everything the

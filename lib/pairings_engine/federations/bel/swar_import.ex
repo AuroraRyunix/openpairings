@@ -395,13 +395,38 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
 
   ## ---------- [CATEGORIES] ----------
 
+  # SWAR raised `MAX_CATEGO` from 12 to 16 in v6.50, and its reader gates the
+  # longer list on the file saying "v6.50" or later (`TournoiReadWrite.cpp`,
+  # `MaxCatego`, commented "v6.50 v6.57"). Not every file that says v6.50 was
+  # written with it: SWAR's own sample `RR_Nor.swar` is a v6.50 file with 12,
+  # and read as 16 its first player's name length lands in the category
+  # strings and the whole file fails to import. So from v6.50 on both lengths
+  # are tried, the documented one first, and the one kept is the one that
+  # leaves the parser on the `[XTRA_POINTS]` marker that must follow - the
+  # same technique as `parse_tournoi_section/2`'s layouts. An older file only
+  # ever had 12.
   defp parse_categories(bin, version) do
     {_marker, bin} = read_str(bin)
     {type, bin} = read_i32(bin)
-    max_categ = if version_gte?(version, "v6.50"), do: 16, else: 12
-    {value1, bin} = read_n(bin, max_categ + 1, &read_str/1)
-    {value2, bin} = read_n(bin, max_categ + 1, &read_str/1)
-    {%{type: type, value1: value1, value2: value2}, bin}
+    lengths = if version_gte?(version, "v6.50"), do: [16, 12], else: [12]
+
+    Enum.find_value(lengths, fn max_categ -> try_categories(bin, type, max_categ) end) ||
+      raise "no known [CATEGORIES] length leaves the parser at [XTRA_POINTS] (file version #{version})"
+  end
+
+  defp try_categories(bin, type, max_categ) do
+    {value1, rest} = read_n(bin, max_categ + 1, &read_str/1)
+    {value2, rest} = read_n(rest, max_categ + 1, &read_str/1)
+    {marker, _} = read_str(rest)
+
+    if String.contains?(marker, "XTRA_POINTS"),
+      do: {%{type: type, value1: value1, value2: value2}, rest},
+      else: nil
+  rescue
+    # A wrong length reads string lengths out of the middle of other fields;
+    # the binary match fails, which is exactly the "not this layout" answer.
+    MatchError -> nil
+    FunctionClauseError -> nil
   end
 
   ## ---------- [XTRA_POINTS] ----------
@@ -751,10 +776,12 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   defp do_import(data, scope) do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_ni = create_players(tournament, data.players, data.categories)
+      {data, unpaired} = drop_unpaired_rounds(data)
       create_rounds(tournament, data.players, players_by_ni)
 
       warnings =
-        points_adjusted_warnings(tournament, data, players_by_ni) ++
+        unpaired_round_warnings(unpaired) ++
+          points_adjusted_warnings(tournament, data, players_by_ni) ++
           category_warnings(data.categories) ++
           tiebreak_warnings(data.tiebreaks || []) ++
           round_robin_bye_warnings(data) ++
@@ -762,6 +789,58 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
 
       {:ok, tournament, warnings}
     end
+  end
+
+  # A round in which no player's record has an opponent, a result or a table
+  # (table -1, or SWAR's absence table 0x4000) is not a round anybody played:
+  # it is how SWAR saves the next round between "prepare" and "pair", with
+  # the stored `Class` still the tie-break-free order SWAR computes just
+  # before pairing. The importer's single-sided path read every such record
+  # as an absence. SWAR's own
+  # standings ignore it (`GetLastRoundWithResult` wants a result). Imported,
+  # it became a finished round with no games and everybody absent, so every
+  # player's Buchholz and Sonneborn-Berger counted one more unplayed round
+  # (an Article 16 dummy for their own, an adjusted draw for their
+  # opponents') and the standings moved. Four files in SWAR's archive, one
+  # of them a live 2026 championship, carry such a round - found by
+  # tools/swar_rerank.exs. Only trailing ones are dropped: a round like that
+  # followed by played rounds is not SWAR's pairing state, and is imported
+  # as it stands.
+  #
+  # "Unpaired" needs at least one record with SWAR's no-table marker (-1): a
+  # round whose every record is an absence is left alone - that is an
+  # arbiter's entry, not SWAR's pairing state.
+  defp drop_unpaired_rounds(data) do
+    by_round = data.players |> Enum.flat_map(& &1.rounds) |> Enum.group_by(& &1.round_nr)
+
+    dropped =
+      by_round
+      |> Map.keys()
+      |> Enum.sort(:desc)
+      |> Enum.take_while(&unpaired_round?(by_round[&1]))
+      |> Enum.sort()
+
+    players =
+      Enum.map(data.players, fn p ->
+        %{p | rounds: Enum.reject(p.rounds, &(&1.round_nr in dropped))}
+      end)
+
+    {%{data | players: players}, dropped}
+  end
+
+  defp unpaired_round?(records) do
+    Enum.all?(records, &(&1.table in [-1, 0, 0x4000] and &1.advers in [0, -1] and &1.result == 0)) and
+      Enum.any?(records, &(&1.table == -1))
+  end
+
+  defp unpaired_round_warnings([]), do: []
+
+  defp unpaired_round_warnings(rounds) do
+    [
+      "Round #{Enum.join(rounds, ", ")} was not imported: nobody in it has a game, a " <>
+        "bye or a result, which is how SWAR saves a round it has not paired yet. " <>
+        "Pair it here."
+    ]
   end
 
   # `scoring_attrs/1`'s round-robin clause always scores a pairing-allocated
@@ -1334,6 +1413,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       abs_nbfois: t.abs_nbfois
     }
     |> Map.merge(scoring_attrs(t))
+    |> Map.merge(system_attrs(t))
   end
 
   # `TOURNOI_TYPE.SWISS_321 == 3` (manual §5.1) is the flag for "this
@@ -1460,6 +1540,27 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     8 => "swiss"
   }
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")
+
+  # A round robin is a round robin in `pairing_system` too, not only in
+  # `type`. The import used to set `type` alone, leaving the schema's
+  # `pairing_system: "swiss"`, and everything that asks "is this a round
+  # robin?" asks `pairing_system`: `Standings` ranked an imported SWAR round
+  # robin by the Swiss rules of C.07 - no Article 15.2 (a forfeit among the
+  # tied players left direct encounter unresolved, so SWAR's own sample of
+  # FIDE's round-robin tie-break exercise came out in reverse order), a
+  # free round treated as a pairing-allocated bye with an Article 16 dummy
+  # in Sonneborn-Berger, and Buchholz not dropped (Article 8). Found by
+  # re-ranking SWAR's archive with tools/swar_rerank.exs. The same fields a
+  # TRF26 import sets from its `192` code (`TrfImport.system_attrs/1`).
+  #
+  # SWAR's `ROBIN_DBL` plays each pairing twice in consecutive rounds
+  # (`Swar.h`: "2 rencontres consecutives") - this app's match format;
+  # `ROBIN_AR` repeats the whole table after the first cycle ("aller-retour")
+  # - a double round robin.
+  defp system_attrs(%{type: 4}), do: %{pairing_system: "round_robin", rr_cycles: 1}
+  defp system_attrs(%{type: 5}), do: %{pairing_system: "round_robin", rr_match_format: true}
+  defp system_attrs(%{type: 6}), do: %{pairing_system: "round_robin", rr_cycles: 2}
+  defp system_attrs(_swiss), do: %{}
 
   # SWAR's [TOURNOI] `federation` field is *which Belgian federation entity*
   # organizes the tournament, not a FIDE country code: FRBE/KBSB are the
