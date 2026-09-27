@@ -215,6 +215,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 3, "count" => 1},
       %{"round" => 3, "count" => 2}
     ],
+    "pairing.postponed_date_set" => [
+      %{"round" => 2, "board" => 4, "from" => nil, "to" => "2026-10-05"},
+      %{"round" => 2, "board" => 4, "from" => "2026-10-05", "to" => "2026-10-12"},
+      %{"round" => 2, "board" => 4, "from" => "2026-10-12", "to" => nil}
+    ],
     "pairing.result_cleared" => [
       %{
         "round" => 2,

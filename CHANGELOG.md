@@ -16,6 +16,46 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **An agreed date for each postponed game, with its history.**
+  The list of open postponed games on the Pairings page has a date field
+  per game: the date the two players agreed to play it on. It is optional
+  and never a deadline - nothing becomes overdue. Every change is kept
+  (old date → new date, when, and by whom) and shown under the game, and
+  the audit trail records it too.
+- [Feature] **A notice and a calendar file for the players.** Each open
+  postponed game has a printable notice - one slip per player with round,
+  board, opponent, colour, the agreed date and the venue - and, once a date
+  is agreed, a calendar file (.ics) to add it to a phone. "Print notices"
+  prints them all; the Print page lists them too while a game is open.
+- [Feature] **The standings show who still has a game to play.** A player
+  with a postponed game still to be played is marked "1 pending" on the
+  Standings page and on the printed standings, so a provisional place is
+  not read as a final one. In a team event the team is marked "1 board
+  pending".
+- [Change] **Pairing the next round names the players of every open
+  postponed game.** The confirmation lists each game still to be played and
+  says its players are paired on a provisional score. It asks; it never
+  blocks.
+- [Feature] **A warning before anything reads as the end of the event.**
+  With a postponed game still unplayed, the Print page says "1 postponed
+  game still unplayed" above the standings, cross table and prize lists,
+  the Standings page lists the games under its "not final" note, and
+  archiving the tournament says so in its confirmation. The tournaments
+  list marks such a tournament "1 pending". Each game links to the round
+  where its result is entered.
+- [Feature] **Postponed games on the tournament's main page.** The Players
+  page shows a small card with every postponed game still to be played -
+  round, board, players and the agreed date - each opening its round on the
+  Pairings page.
+- [Feature] **Which FIDE rating period a late game belongs to.** On
+  Settings, Export, the postponed-games file says in plain words which
+  month's rating period each played game falls in, and to send it before
+  the end of that month to have it rated then. It is guidance; your
+  federation may want it sooner.
+- [Change] **A team match with a postponed board says so.** On the Pairings
+  page and the printed team pairings its score reads "2.5 - 1.5, 1 board
+  pending", and its match points are marked provisional. They still count
+  in the team standings, as before.
 - [Feature] **The results site can show when a postponed game will be
   played.** The agreed date is sent to OpenResults with the board, so
   spectators see "Postponed, to be played …" instead of an empty result.

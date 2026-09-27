@@ -1612,6 +1612,114 @@ button.pe-btn, .pe-btn {
 .pe-btn.is-disabled { opacity: 0.55; pointer-events: none; }
 .trf-all-link { margin-left: auto; font-size: 13px; color: var(--accent); }
 
+/* Postponed games, for the organiser (`PairingsEngineWeb.Postponed`). One
+   tone throughout - the theme's --warn, the same "careful, not wrong" colour
+   as the archived badge and the TRF's waiting rounds - so a provisional
+   place, an unplayed game and a pending match all read as one idea. */
+.pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: 1px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.pending-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+a.pending-chip:hover {
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  border-color: var(--warn);
+}
+.match-pending { color: var(--warn); font-weight: 600; white-space: nowrap; }
+
+.postponed-guard {
+  display: block;
+  margin: 12px 0;
+  border-left: 3px solid var(--warn);
+}
+.postponed-guard-note { margin: 4px 0 0; }
+.postponed-links { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 3px; }
+.postponed-links a { color: var(--text); text-decoration-color: color-mix(in srgb, var(--warn) 55%, transparent); text-underline-offset: 3px; }
+.postponed-links a:hover { color: var(--accent); }
+.postponed-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.postponed-card-head h2 { margin: 0; font-size: 16px; }
+
+/* The Pairings page's list of open games: the game on one line, its
+   controls on the next, the date history folded away beneath. */
+.postponed-games-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 0; }
+.postponed-game {
+  display: grid;
+  gap: 6px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+.postponed-game:first-child { border-top: 0; padding-top: 2px; }
+.postponed-game-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.postponed-game-text { font-weight: 600; }
+.postponed-game-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.agreed-date-form { display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
+.agreed-date-form input[type="date"] { padding: 4px 6px; }
+.agreed-date-log { font-size: 12.5px; }
+.agreed-date-log > summary {
+  cursor: pointer;
+  width: max-content;
+  color: var(--text-soft);
+  transition: color 0.15s ease;
+}
+.agreed-date-log > summary:hover { color: var(--text); }
+.agreed-date-log ol { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 2px; }
+
+/* The Players page's card: one tappable row per game. */
+.postponed-overview { display: block; margin: 12px 0; border-left: 3px solid var(--warn); }
+.postponed-overview-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.postponed-overview-game {
+  display: grid;
+  grid-template-columns: minmax(9em, auto) 1fr auto;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface-alt);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.postponed-overview-game:hover { background: var(--surface-hover); transform: translateX(2px); }
+.postponed-overview-round { color: var(--text-soft); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.postponed-overview-players { font-weight: 600; }
+.postponed-overview-date { font-size: 12.5px; color: var(--warn); }
+.postponed-overview-date.is-unset { color: var(--text-soft); font-style: italic; }
+@media (max-width: 640px) {
+  .postponed-overview-game { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* Settings, Export: which rating period each played game falls in. */
+.rating-periods { margin: 0 0 10px; }
+.rating-periods ul { margin: 0 0 4px; padding-left: 20px; display: grid; gap: 3px; }
+.rating-periods .hint { margin: 0; }
+
 /* The Pairings page's tips, one line until opened. */
 .pe-tips { margin: 8px 0; }
 .pe-tips > summary { cursor: pointer; color: var(--text-soft); font-size: 13px; width: max-content; }

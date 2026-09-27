@@ -200,6 +200,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       |> assign(
         postponed_all: PostponedGames.all_games(t),
         late_sendable: sendable,
+        late_periods: rating_periods(sendable),
         late_selected: selected,
         late_seen: ids,
         late_dates: socket.assigns[:late_dates] || %{}
@@ -209,12 +210,53 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       assign(socket,
         postponed_all: [],
         late_sendable: [],
+        late_periods: [],
         late_selected: MapSet.new(),
         late_seen: MapSet.new(),
         late_dates: %{},
         late_packed: []
       )
     end
+  end
+
+  # The postponed games waiting for a postponed-games file, grouped by the
+  # FIDE rating period they were played in (`PostponedGames.rating_period/1`),
+  # oldest first - the nudge beside the file says which month each belongs
+  # to and by when to send it. A game with no date played comes last, as its
+  # own group (`period: nil`).
+  defp rating_periods(sendable) do
+    sendable
+    |> Enum.group_by(fn %{pairing: p} ->
+      p.played_on && PostponedGames.rating_period(p.played_on)
+    end)
+    |> Enum.map(fn {period, games} -> %{period: period, count: length(games)} end)
+    |> Enum.sort_by(fn
+      %{period: nil} -> {1, nil}
+      %{period: %{period: date}} -> {0, Date.to_gregorian_days(date)}
+    end)
+  end
+
+  defp rating_period_id(%{period: nil}), do: "rating-period-undated"
+
+  defp rating_period_id(%{period: %{period: date}}),
+    do: "rating-period-" <> Calendar.strftime(date, "%Y-%m")
+
+  defp rating_period_text(%{period: nil, count: count}) do
+    ngettext(
+      "%{count} game has no date played: set it in the list above to see which rating period it belongs to.",
+      "%{count} games have no date played: set them in the list above to see which rating period they belong to.",
+      count
+    )
+  end
+
+  defp rating_period_text(%{period: %{period: month, deadline: deadline}, count: count}) do
+    ngettext(
+      "%{count} game played in %{month} falls in that month's FIDE rating period. Send it in a postponed-games file before %{deadline} to have it rated in that period.",
+      "%{count} games played in %{month} fall in that month's FIDE rating period. Send them in a postponed-games file before %{deadline} to have them rated in that period.",
+      count,
+      month: Postponed.month_text(month),
+      deadline: Postponed.date_text(deadline)
+    )
   end
 
   defp assign_late_packed(socket) do
@@ -771,6 +813,22 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   length(@late_sendable)
                 )}
               </p>
+
+              <%!-- Which FIDE rating period each game falls in, and by when
+                    to send it - guidance, in plain words; nothing here is
+                    enforced or ever marked overdue. --%>
+              <div id="postponed-rating-periods" class="rating-periods">
+                <ul>
+                  <li :for={period <- @late_periods} id={rating_period_id(period)}>
+                    {rating_period_text(period)}
+                  </li>
+                </ul>
+                <p class="hint">
+                  {gettext(
+                    "FIDE rates games month by month, so a game belongs to the rating period of the month it was played in. The end of that month is shown as the date to send it by; your federation may ask for it sooner."
+                  )}
+                </p>
+              </div>
 
               <ul class="late-games">
                 <li :for={%{round: round, pairing: p} <- @late_sendable}>

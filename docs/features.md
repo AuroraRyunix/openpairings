@@ -93,6 +93,23 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   ("Voorlopige stand") and the OpenResults snapshot say "not final" while
   one is open, and the tournament stays running. The TRF26 export writes
   `?` (with `X` in `162`), and a `?` imports as a postponed game.
+- **Postponed games, for the organiser** - each open game can carry the
+  date its players agreed on (optional, never a deadline: nothing becomes
+  overdue), with a short history of every change (old → new, when, by
+  whom), set in the Pairings page's list of open games. From there, a
+  printable notice per player (round, board, opponent, colour, agreed date,
+  venue - also on the Print page) and an `.ics` calendar file for the agreed
+  date. The standings (page and print) mark each player or team with a game
+  still to be played ("1 pending", "1 board pending"); a team match with a
+  postponed board reads "2.5 - 1.5, 1 board pending" on the Pairings page
+  and the printed team pairings. Pairing the next round names the players
+  of every open game and asks to confirm they are paired on a provisional
+  score (it never blocks). The Players page carries a card of open games
+  linking to their round; the Print page, the Standings page and archiving
+  the tournament say how many are still unplayed first. On Settings, Export,
+  the postponed-games file says which FIDE rating period each played game
+  falls in and to send it before the end of that month. OpenResults gets
+  the agreed date (`postponed_date`) to show "Postponed, to be played ...".
 - **TRF for sending** - Settings, Export's "Export TRF for sending" has a
   "Finalise results for TRF sending" box: ticked, the download marks every
   result of the exported rounds as sent. A sent result changes only after a

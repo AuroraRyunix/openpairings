@@ -7,15 +7,42 @@ defmodule PairingsEngineWeb.PrintLive do
   def mount(%{"id" => id}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
 
-    {:ok, assign(socket, tournament: tournament, page_title: "#{tournament.name} · Print")}
+    {:ok,
+     assign(socket,
+       tournament: tournament,
+       page_title: "#{tournament.name} · Print",
+       # Standings, cross table and prize lists printed while a postponed
+       # game is still to be played are provisional: the page says so
+       # before anything is printed, with a link to each game.
+       postponed_open: PairingsEngine.PostponedGames.open_games(tournament)
+     )}
   end
 
-  defp documents(tournament) do
+  defp documents(tournament, postponed_open) do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     latest = max(rounds_paired, 1)
 
     team_documents(tournament, rounds_paired, latest) ++
-      individual_documents(tournament, rounds_paired, latest)
+      individual_documents(tournament, rounds_paired, latest) ++
+      postponed_documents(tournament, postponed_open)
+  end
+
+  # The notice each player of a postponed game gets: round, board, opponent,
+  # agreed date and venue. Listed only while a game is still to be played.
+  defp postponed_documents(_tournament, []), do: []
+
+  defp postponed_documents(tournament, _open) do
+    [
+      %{
+        id: "print-postponed-notices",
+        name: gettext("Postponed-game notices"),
+        desc:
+          gettext(
+            "One slip per player of every postponed game still to be played: round, board, opponent, agreed date and venue."
+          ),
+        href: ~p"/t/#{tournament.id}/print/postponed"
+      }
+    ]
   end
 
   # A tournament paired as teams leads with its own sheets: the matches with their
@@ -108,6 +135,17 @@ defmodule PairingsEngineWeb.PrintLive do
         </div>
       </div>
 
+      <PairingsEngineWeb.Postponed.unplayed_guard
+        tournament={@tournament}
+        games={@postponed_open}
+        id="print-postponed-unplayed"
+        note={
+          gettext(
+            "Standings, the cross table and prize lists printed now are provisional: each postponed game counts provisionally until its result is entered."
+          )
+        }
+      />
+
       <div class="card table-card">
         <table class="pe-table">
           <thead>
@@ -118,7 +156,7 @@ defmodule PairingsEngineWeb.PrintLive do
             </tr>
           </thead>
           <tbody>
-            <tr :for={doc <- documents(@tournament)}>
+            <tr :for={doc <- documents(@tournament, @postponed_open)} id={doc[:id]}>
               <td><strong>{doc.name}</strong></td>
               <td class="hint">{doc.desc}</td>
               <td style="text-align: right">

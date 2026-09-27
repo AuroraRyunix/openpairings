@@ -14,6 +14,7 @@ defmodule PairingsEngineWeb.Postponed do
   """
   use Phoenix.Component
   use Gettext, backend: PairingsEngineWeb.Gettext
+  use PairingsEngineWeb, :verified_routes
 
   @doc """
   The sentence for one of `PairingsEngine.PostponedGames.pairing_warnings/1`'s
@@ -52,14 +53,206 @@ defmodule PairingsEngineWeb.Postponed do
 
   @doc """
   The confirmation a pair button asks for `warnings`, pairing `next_round`:
-  one sentence per warning, then the question. nil when there is nothing to
-  confirm, which leaves the button without a confirmation at all.
+  one sentence per warning, then the open postponed games by name
+  (`open_games/1`'s answer, `provisional_players_text/1`), then the
+  question. nil when there is nothing to confirm, which leaves the button
+  without a confirmation at all.
   """
-  def pair_confirm_text([], _next_round), do: nil
+  def pair_confirm_text(warnings, next_round, open_games \\ [])
 
-  def pair_confirm_text(warnings, next_round) do
-    Enum.map_join(warnings, " ", &pairing_warning_text(&1, next_round)) <>
-      " " <> gettext("Pair round %{n}?", n: next_round)
+  def pair_confirm_text([], _next_round, _open_games), do: nil
+
+  def pair_confirm_text(warnings, next_round, open_games) do
+    [
+      Enum.map_join(warnings, " ", &pairing_warning_text(&1, next_round)),
+      provisional_players_text(open_games),
+      gettext("Pair round %{n}?", n: next_round)
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" ")
+  end
+
+  @doc """
+  The open postponed games by name, for the pair confirmation: whoever is
+  in one is paired on a provisional score. nil when there are none.
+  """
+  def provisional_players_text([]), do: nil
+
+  def provisional_players_text(open_games) do
+    ngettext(
+      "Still to be played: %{games}. Both players are paired on a provisional score, which changes once the result is entered.",
+      "Still to be played: %{games}. Their players are paired on a provisional score, which changes once the results are entered.",
+      length(open_games),
+      games: Enum.map_join(open_games, "; ", &game_text/1)
+    )
+  end
+
+  @doc """
+  One postponed game as a line of text: "Round 3, board 2: Alice - Carol".
+  The board is the frozen label the pairing sheet prints.
+  """
+  def game_text(%{round: round, pairing: p}) do
+    gettext("Round %{round}, board %{board}: %{white} - %{black}",
+      round: round,
+      board: p.display_board || p.board,
+      white: player_name(p.white_player),
+      black: player_name(p.black_player)
+    )
+  end
+
+  defp player_name(nil), do: "?"
+  defp player_name(player), do: player.name
+
+  @doc "A date as this app prints one to an arbiter: 05-10-2026."
+  def date_text(%Date{} = date), do: Calendar.strftime(date, "%d-%m-%Y")
+
+  @doc "When a postponed game will be played, as the players agreed it."
+  def agreed_text(nil), do: gettext("no date agreed yet")
+  def agreed_text(%Date{} = date), do: gettext("to be played on %{date}", date: date_text(date))
+
+  @doc """
+  A month as a rating period is named: "October 2026". The month names are
+  translated here rather than taken from the calendar, which only knows
+  English.
+  """
+  def month_text(%Date{year: year, month: month}) do
+    gettext("%{month} %{year}", month: month_name(month), year: year)
+  end
+
+  defp month_name(1), do: gettext("January")
+  defp month_name(2), do: gettext("February")
+  defp month_name(3), do: gettext("March")
+  defp month_name(4), do: gettext("April")
+  defp month_name(5), do: gettext("May")
+  defp month_name(6), do: gettext("June")
+  defp month_name(7), do: gettext("July")
+  defp month_name(8), do: gettext("August")
+  defp month_name(9), do: gettext("September")
+  defp month_name(10), do: gettext("October")
+  defp month_name(11), do: gettext("November")
+  defp month_name(12), do: gettext("December")
+
+  @doc """
+  One entry of a game's agreed-date history (`Pairing.agreed_date_log`), as
+  `{change, when_and_who}`: "05-10-2026 → 12-10-2026" and
+  "27-09-2026 14:03 UTC, jan@example.org".
+  """
+  def date_log_parts(entry) do
+    change =
+      gettext("%{from} → %{to}", from: log_date(entry["from"]), to: log_date(entry["to"]))
+
+    at =
+      case DateTime.from_iso8601(entry["at"] || "") do
+        {:ok, dt, _offset} -> Calendar.strftime(dt, "%d-%m-%Y %H:%M UTC")
+        _ -> nil
+      end
+
+    {change, [at, entry["by"]] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(", ")}
+  end
+
+  defp log_date(nil), do: gettext("no date")
+
+  defp log_date(iso) do
+    case Date.from_iso8601(iso) do
+      {:ok, date} -> date_text(date)
+      _ -> iso
+    end
+  end
+
+  @doc "What a pending mark says: \"1 pending\"."
+  def pending_text(count), do: ngettext("%{count} pending", "%{count} pending", count)
+
+  @doc """
+  A team match's postponed boards, after its score: "3.5 - 2.5, 1 board
+  pending". The score is provisional until they are played - the postponed
+  boards count as the draws they stand for.
+  """
+  def boards_pending_text(count),
+    do: ngettext("%{count} board pending", "%{count} boards pending", count)
+
+  @doc """
+  The mark beside a player or team with a postponed game still to be
+  played, so a provisional place is not read as a final one. Renders nothing
+  at zero.
+  """
+  attr :count, :integer, required: true
+  attr :id, :string, required: true
+  attr :boards, :boolean, default: false, doc: "count boards (a team) rather than games"
+
+  def pending_chip(assigns) do
+    ~H"""
+    <span
+      :if={@count > 0}
+      id={@id}
+      class="pending-chip"
+      title={
+        if @boards,
+          do:
+            ngettext(
+              "%{count} board still to be played in a postponed game - this place is provisional",
+              "%{count} boards still to be played in postponed games - this place is provisional",
+              @count
+            ),
+          else:
+            ngettext(
+              "%{count} postponed game still to be played - this place is provisional",
+              "%{count} postponed games still to be played - this place is provisional",
+              @count
+            )
+      }
+    >
+      {if @boards, do: boards_pending_text(@count), else: pending_text(@count)}
+    </span>
+    """
+  end
+
+  @doc """
+  The guard in front of anything that reads as the end of the event - final
+  standings, prize lists, closing the tournament: how many postponed games
+  are still unplayed, each a link to the round where its result is entered.
+  Renders nothing when every game is in.
+  """
+  attr :tournament, :map, required: true
+  attr :games, :list, required: true, doc: "`PostponedGames.open_games/1`"
+  attr :id, :string, default: "postponed-unplayed"
+  attr :note, :string, default: nil
+
+  def unplayed_guard(assigns) do
+    ~H"""
+    <div :if={@games != []} id={@id} class="card postponed-guard" role="status">
+      <strong class="postponed-guard-title">
+        {ngettext(
+          "%{count} postponed game still unplayed",
+          "%{count} postponed games still unplayed",
+          length(@games)
+        )}
+      </strong>
+      <p :if={@note} class="hint postponed-guard-note">{@note}</p>
+      <.game_links tournament={@tournament} games={@games} id={@id} />
+    </div>
+    """
+  end
+
+  attr :tournament, :map, required: true
+  attr :games, :list, required: true
+  attr :id, :string, required: true
+
+  defp game_links(assigns) do
+    ~H"""
+    <ul class="postponed-links">
+      <li :for={game <- @games}>
+        <.link
+          id={"#{@id}-game-#{game.pairing.id}"}
+          navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}
+        >
+          {game_text(game)}
+        </.link>
+        <span :if={game.pairing.agreed_date} class="hint">
+          · {agreed_text(game.pairing.agreed_date)}
+        </span>
+      </li>
+    </ul>
+    """
   end
 
   @doc """
@@ -194,17 +387,14 @@ defmodule PairingsEngineWeb.Postponed do
   """
   attr :count, :integer, required: true
   attr :id, :string, default: "postponed-not-final"
+  attr :tournament, :map, default: nil
+  attr :games, :list, default: [], doc: "the open games, listed as links when given"
 
   def not_final_banner(assigns) do
     ~H"""
-    <div
-      :if={@count > 0}
-      id={@id}
-      class="card"
-      role="status"
-      style="display: block; margin: 12px 0; border-left: 3px solid var(--warn)"
-    >
+    <div :if={@count > 0} id={@id} class="card postponed-guard" role="status">
       <strong>{not_final_text(@count)}</strong>
+      <.game_links :if={@tournament && @games != []} tournament={@tournament} games={@games} id={@id} />
     </div>
     """
   end

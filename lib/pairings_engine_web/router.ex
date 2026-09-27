@@ -132,6 +132,7 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/print/crosstable", PrintController, :crosstable
     get "/t/:id/print/team-pairings", PrintController, :team_pairings
     get "/t/:id/print/team-standings", PrintController, :team_standings
+    get "/t/:id/print/postponed", PrintController, :postponed_notices
 
     get "/t/:id/norms/it3", NormsController, :it3
     get "/t/:id/norms/fa1", NormsController, :fa1
@@ -144,6 +145,7 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/export/pgn", ExportController, :pgn
     get "/t/:id/export/players", ExportController, :players
     get "/t/:id/export/json", ExportController, :json
+    get "/t/:id/export/postponed/:pairing_id/calendar", ExportController, :postponed_calendar
     get "/export/tournaments.json", ExportController, :all_json
 
     # POST, not GET, and the only two download routes here that are. Both

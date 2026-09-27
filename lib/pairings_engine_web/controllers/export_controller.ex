@@ -265,6 +265,66 @@ defmodule PairingsEngineWeb.ExportController do
   end
 
   @doc """
+  GET /t/:id/export/postponed/:pairing_id/calendar - an `.ics` calendar file
+  for an open postponed game's agreed date (`PairingsEngine.PostponedCalendar`):
+  both players, round and board, at the tournament's venue. 404 when the
+  game is not an open postponed game of this tournament or has no agreed
+  date yet - there is nothing to put in a calendar.
+  """
+  def postponed_calendar(conn, %{"id" => id, "pairing_id" => pairing_id}) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+
+    game =
+      tournament
+      |> PostponedGames.open_games()
+      |> Enum.find(&(to_string(&1.pairing.id) == pairing_id))
+
+    case game do
+      %{round: round, pairing: %{agreed_date: %Date{} = date} = p} ->
+        names = fn
+          nil -> "?"
+          player -> player.name
+        end
+
+        board = p.display_board || p.board
+
+        text =
+          PairingsEngine.PostponedCalendar.ics(
+            date,
+            "postponed-#{tournament.id}-#{p.id}@openpairings",
+            gettext("Postponed game: %{white} - %{black}",
+              white: names.(p.white_player),
+              black: names.(p.black_player)
+            ),
+            gettext("%{tournament}, round %{round}, board %{board}. %{white} has White.",
+              tournament: tournament.name,
+              round: round,
+              board: board,
+              white: names.(p.white_player)
+            ),
+            [tournament.venue, tournament.city]
+            |> Enum.reject(&(&1 in [nil, ""]))
+            |> Enum.join(", ")
+          )
+
+        conn
+        |> put_resp_content_type("text/calendar")
+        |> put_resp_header(
+          "content-disposition",
+          "attachment; filename=\"#{tournament_slug(tournament)}-round-#{round}-board-#{board}.ics\""
+        )
+        |> send_resp(200, text)
+
+      _ ->
+        send_resp(
+          conn,
+          404,
+          gettext("That game is not a postponed game still to be played with an agreed date.")
+        )
+    end
+  end
+
+  @doc """
   GET /t/:id/export/pgn?round=N&board=1 - metadata-only PGN text download,
   one round or all rounds. `board=1` adds a [Board "N"] tag to every game
   (see `PgnExport.export/3`'s moduledoc); omitted/anything else leaves it
