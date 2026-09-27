@@ -16,6 +16,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-09-27
+
 - [Change] **Rounds before a late entrant joins count as absences.** In a
   tournament that pays points for a round sat out (Settings, Scoring), a
   player who joins in round 4 is now scored for rounds 1-3 exactly as if
