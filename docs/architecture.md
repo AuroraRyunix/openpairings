@@ -130,7 +130,8 @@ The rest is the web layer: `fide_live.ex` (9), `players_live.ex` (6),
 ### Switching the pack off - `PairingsEngine.Features`
 
 Five independent per-user switches, stored as a `{:array, :string}` on
-`users.features` and rendered on `/users/features`:
+`users.features` and rendered in the account page's "Federation features"
+section (`/users/features` opens the page there):
 `bel_ratings_sync`, `bel_player_lookup`, `bel_club_sync`,
 `bel_swar_import`, `bel_swar_export`. The catalogue is data
 (`Features.catalogue/0`), so a `NED` pack is entries in that list rather

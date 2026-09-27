@@ -16,6 +16,57 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **A new account page.** Account → Settings is one calm page
+  with a card per section and a list of sections beside it (a row of
+  buttons on a phone): Profile, Sign-in & security, Preferences, New
+  tournaments, Federation features, Your data and Delete account. The
+  Federation features page is now a section of it; its old address opens
+  the page there.
+
+- [Change] **Only the risky parts ask you to sign in again.** The account
+  page used to ask for your password again before showing anything if you
+  had signed in more than ten minutes ago. Now it always opens, and only
+  changing your address or password, signing other browsers out,
+  downloading everything and deleting the account show a "Confirm it's
+  you" button until you have signed in within the last twenty minutes.
+
+- [Feature] **Display name.** Set one under Profile and it is shown
+  instead of your email address in the audit log, the history, the list of
+  people a tournament is shared with, invitations and the invitation email
+  (with the address beside it or on hover, since two people can share a
+  name).
+
+- [Feature] **See where you are signed in, and sign out other browsers.**
+  Sign-in & security lists every browser signed in to your account ("Safari
+  on iPhone, signed in 3 days ago"), marks this one, and signs out any
+  other one, or all of them at once. Addresses on the 02cloud domain see
+  that 02cloud manages their address and password instead of the two forms.
+  Changing your address is now limited to five confirmation emails an hour.
+
+- [Feature] **Language, theme and accent can follow you.** The language you
+  pick is kept on your account and used on every computer you sign in on.
+  A theme or accent chosen on the account page is used everywhere too, and
+  the top-bar pickers then change it everywhere; "This device decides", the
+  default, keeps each browser's own choice as before.
+
+- [Feature] **Defaults for new tournaments.** Set the pairing system,
+  rounds, format, rate of play, place, federation, organiser and how rounds
+  are published once, and "New tournament" starts from them (and says so).
+  Anything you change in the form applies to that tournament only; existing
+  tournaments and imports are not affected.
+
+- [Feature] **Download everything.** Your data gives you one zip with your
+  account settings and a backup of every tournament you can open,
+  including archived ones and your recycle bin. Each backup is the same
+  file a tournament's Export gives and can be imported the same way.
+
+- [Feature] **Delete your account.** Type your email address to confirm.
+  It is refused while the account still owns tournaments (including ones
+  in the recycle bin), because deleting it would delete them too, and for
+  the only administrator. Tournaments shared with you stay with their
+  owners, their audit logs record that you left, and what you changed in
+  them stays attributed to your address.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the
