@@ -9,7 +9,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
 
   import Ecto.Query
 
-  alias PairingsEngine.Repo
+  alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
@@ -372,11 +372,32 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
       assert counts() == before
     end
 
-    test "and round zero is refused too, so no Round row can be numbered 0" do
-      opts = %{players: [%{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, result: 0}]}]}
+    test "and a round zero with a game in it is refused too, so no Round row can be numbered 0" do
+      opts = %{
+        players: [
+          %{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, advers: 2, result: 0x4000}]},
+          %{ni: 2, name: "Zero, Two", rounds: [%{round_nr: 0, advers: 1, result: 0x1000}]}
+        ]
+      }
 
       assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
       assert message =~ "outside 1-30"
+    end
+
+    test "but an empty round zero - SWAR's own player-list template - imports with no rounds" do
+      # SWAR's "base" files (one in its own archive, "TOURNOI ZERO") give
+      # every player an empty round-0 record: no opponent, no result.
+      opts = %{
+        players: [
+          %{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, table: -1, result: 0}]},
+          %{ni: 2, name: "Zero, Two", rounds: [%{round_nr: 0, table: -1, result: 0}]}
+        ]
+      }
+
+      assert {:ok, tournament, warnings} = import_synthetic!(opts)
+      assert round_numbers(tournament) == []
+      assert length(Tournaments.list_players(tournament.id)) == 2
+      assert Enum.any?(warnings, &(is_binary(&1) and &1 =~ "no rounds"))
     end
 
     test "is refused by parse/1 itself, so the pure struct path refuses too" do

@@ -16,7 +16,7 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
   """
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.Repo
+  alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament}
 
@@ -163,15 +163,19 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
 
   describe "files this reader cannot be sure of" do
     @tag :tmp_dir
-    test "data after the player list is refused, and nothing is written", %{tmp_dir: dir} do
+    test "data after the player list is left out, and the import says so", %{tmp_dir: dir} do
       path = write_swar!(dir, "cup.swar", trailing: w_str("[EQUIPES]") <> w_i32(2))
       before = tournament_count()
 
-      assert {:error, message} = SwarImport.import_file(path)
-      assert message =~ "after the player list"
-      assert message =~ "v6.40"
-      assert {:error, ^message} = SwarImport.prepare_import(path)
-      assert tournament_count() == before
+      assert {:ok, tournament, warnings} = SwarImport.import_file(path)
+      warning = Enum.find(warnings, &(is_binary(&1) and &1 =~ "after the player list"))
+      assert warning =~ "v6.40"
+      assert warning =~ "imported without it"
+      assert tournament_count() == before + 1
+      assert length(Tournaments.list_players(tournament.id)) == 4
+
+      assert {:ok, %{data: %{trailing_bytes: bytes}}} = SwarImport.prepare_import(path)
+      assert bytes > 0
     end
 
     @tag :tmp_dir

@@ -10,6 +10,15 @@ did **not** count it - an explicit earlier product decision. This feature
 adds a per-tournament opt-in toggle plus an Elo-band auto-assign tool, and
 does not change that default.
 
+A SWAR import is the one place the toggle is switched on for you: a SWAR
+Swiss whose players have extra points imports with `count_extra_points` on,
+because SWAR always ranks a Swiss on points plus `ExtraPts`
+(`CalculLeClassement`). A SWAR round robin or 3-2-1 event has none - SWAR's
+loader zeroes them, and so does the import. SWAR's own band table
+(`[XTRA_POINTS]`) pays players at or above a rating, where the bands here
+pay players below one, so it is kept for the SWAR export and not turned
+into bands (docs/swar-import.md).
+
 ## Opt-in, off by default - and pairing is never affected
 
 - `tournament.count_extra_points` (boolean, default `false`) is the only
