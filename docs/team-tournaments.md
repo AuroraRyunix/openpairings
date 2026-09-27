@@ -406,6 +406,14 @@ C").
 A file whose type is not a team round robin or a team Swiss (a team section
 on an individual event) keeps its games as individual games and says so.
 
+## SWAR
+
+SWAR has no team tournaments, so a `.swar` file never becomes one here. Its
+"team" mode keeps only a team event's individual games; importing such a
+file asks first and offers them as an individual tournament. Its club and
+nationality exclusions ("ICN style" events) come across as this app's
+exclusion rules. See [`swar-import.md`](swar-import.md), "Team competitions".
+
 ## Backups, restore points, hand-off
 
 The JSON envelope carries the teams (including seeding order and pairing

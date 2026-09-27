@@ -130,6 +130,85 @@ rather than a bad import:
   app could not hold even if the loop were free. Round 0 goes with them: it
   produced a Round row numbered 0, a round before the first.
 
+## Team competitions: what a `.swar` file can and cannot say
+
+**A `.swar` file has no teams in it, so a SWAR team event cannot be imported
+as a team tournament.** Established 2026-09-27 from SWAR's own source
+(`Swar - 20250906 v6.65 FRBE`) and from every real `.swar` file on hand, not
+from a team sample - none exists, because SWAR does not write one:
+
+- **The writer.** `TournoiReadWrite.cpp` writes exactly `[TOURNOI]`,
+  `[DATES]`, `[TIE_BREAK]`, `[EXCLUSION]`, `[CATEGORIES]`, `[XTRA_POINTS]`,
+  `[JOUEURS]` and each player's `[RONDE]`, then closes the file. No team,
+  roster, board order, match, match point or team tie-break anywhere.
+- **The types.** `Swar.h`'s `TOURNOI_TYPE` has nine values, all individual:
+  Swiss, double Swiss, accelerated, 3-2-1, three round robins, two American.
+  `DEPARTAGES` (the tie-break list) is individual criteria only.
+- **The files.** 48 real files, SWAR v5.34 to v7.05, all parse to one of
+  those nine types, and all end exactly at the last player's rounds.
+
+What SWAR does have for team competitions is two ways of running one as an
+individual event, and the import handles each:
+
+| SWAR feature | What the file holds | What the import does |
+|---|---|---|
+| **Team mode** (v4.45, `PairingManual.cpp`, asked for by Luc Cornet): an ordinary Swiss (type 0) whose name contains `" - team"`, or whose file is named `"... - team.swar"` | the individual games only. SWAR stops pairing the event and reads each round's boards from a text file of player-number pairs (`<name>.R01.C01.txt`) made elsewhere; which team each player plays for, the board order, the matches and the team scores are not in the `.swar` | asks first (`SwarImport.team_marked?/2`, SWAR's own test, case-sensitive): the organiser can import the games as an individual tournament, or set the team tournament up here |
+| **Club or nationality exclusion** (`[EXCLUSION]`, "ICN style" in SWAR's manual - schools, the NATO event): an individual Swiss in which players of one club, or one nationality, never meet | the rule | carried over onto the club/federation exclusion rules and forbidden pairings (below) |
+
+Two further refusals guard the one place a newer SWAR could start writing
+teams (`SwarImport.check_importable/1`, run by `prepare_import/2` and
+`import_file/3`, not by the norms tool's `build_structs/1`):
+
+- **a tournament type outside the nine** - it used to import silently as a
+  Swiss;
+- **data after the player list** - it used to be ignored.
+
+Both stop the import with a sentence saying why and asking for the file. If
+either ever fires on a real file, that file is the sample a team import
+would need.
+
+### `[EXCLUSION]` is imported
+
+It used to be read and dropped. SWAR's `USE_EXCLUSION` (`Swar.h`) and what
+`EnvoiJAVAFO.cpp` makes of `Exclusion.Values`:
+
+| SWAR | Values | Here |
+|---|---|---|
+| -1 none | | nothing |
+| 0 players | `"1,4:12,15,21"` - groups of player numbers; every pair within a group never meets | forbidden pairings, every pair within each group |
+| 1 listed clubs | `"618:621"` - club numbers | club rule "listed", by the names of the players holding those numbers |
+| 2 listed nationalities | `"BEL:FRA"` | federation rule "listed" |
+| 3 every club | | club rule "all" |
+| 4 every nationality | | federation rule "all" |
+
+Two differences, both toward what the file says rather than what SWAR's code
+does with it:
+
+- SWAR groups clubs by **number** (`BuildAllClub`, formatting even club 0 as
+  a club), this app by **name**. Where the two groupings would keep a
+  different set of players apart - a club spelled two ways, two clubs with
+  one name, several players without a club number - the import says so.
+- Every-nationality does nothing in SWAR v6.65 (`BuildAllNat` is empty -
+  [swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md), F2).
+  The file asks for it, so it applies here.
+
+Export does not write the section back yet (`SwarExport`'s moduledoc): SWAR
+has one rule where this app has two axes and explicit pairs.
+
+### The sample that would settle a team import
+
+A team import needs evidence of where the team layer is kept. The file that
+would provide it, if one exists:
+
+1. a `.swar` from a real team competition in SWAR's team mode - tournament
+   name ending in `" - team"`, at least two rounds played, with a bye or a
+   forfeit - **together with** its round pairing files
+   (`<name>.R01.C01.txt`, ...) and whatever the organiser kept the teams,
+   board order and match results in (the TeamChess spreadsheet in SWAR's
+   own `DocLocal`, or similar); or
+2. any `.swar` that this import refuses as an unknown type or for data after
+   the player list - a newer SWAR's own team format, if it has one.
+
 ## File versions, and what SWAR v7 changed
 
 The format is a sequential binary serialization with no index: every field

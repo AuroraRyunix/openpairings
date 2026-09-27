@@ -16,9 +16,13 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   """
 
   import Ecto.Query
+  # The refusals and notices added for team competitions (`check_importable/1`,
+  # `team_marked_message/0`, `exclusion_warnings/1`) reach the organiser as
+  # they are, so they are translated here, the way `SwarPublish` does.
+  use Gettext, backend: PairingsEngineWeb.Gettext
 
   alias PairingsEngine.Repo
-  alias PairingsEngine.{Encoding, Federation, SafeError, Tournaments, Standings}
+  alias PairingsEngine.{Encoding, Exclusions, Federation, SafeError, Tournaments, Standings}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
 
@@ -72,7 +76,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     {exclusion, rest} = parse_exclusion(rest)
     {categories, rest} = parse_categories(rest, version)
     {xtra_points, rest} = parse_xtra_points(rest)
-    {players, _rest} = parse_joueurs(rest, version)
+    {players, rest} = parse_joueurs(rest, version)
 
     # Refused unless the caller explicitly opts in. `allow_swiss321: true`
     # exists so the parser, the SW321_* field mapping and the presence
@@ -96,7 +100,13 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
          exclusion: exclusion,
          categories: categories,
          xtra_points: xtra_points,
-         players: players
+         players: players,
+         # Bytes left over once the last [JOUEURS] record is read. SWAR's
+         # own writer (`TournoiReadWrite.cpp`, `TournoiWrite`) closes the
+         # file straight after the last player's [RONDE] records, so a real
+         # file leaves none; see `check_importable/1` for why a leftover is
+         # refused rather than ignored.
+         trailing_bytes: byte_size(rest)
        }}
     end
   rescue
@@ -606,15 +616,140 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   what it flags. `PairingsEngineWeb.TournamentsLive.maybe_flash_swar_warnings/2`
   is what turns them into what the arbiter actually sees.
   """
+  #
+  # `opts` also takes `as_individual: true`: a file in SWAR's team mode (see
+  # `team_marked?/2`) is refused without it, and imported as the individual
+  # tournament SWAR itself stores with it.
   def import_file(path, scope \\ nil, opts \\ []) do
     with {:ok, binary} <- File.read(path),
-         {:ok, data} <- parse(binary, opts) do
+         {:ok, data} <- parse(binary, opts),
+         :ok <- check_importable(data),
+         :ok <- check_team_mode(data, Path.basename(path), opts) do
       cache = build_fide_candidates_cache(data.players)
       players = Enum.map(data.players, &best_effort_fide_match(&1, cache))
       run_import(%{data | players: players}, scope)
     else
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp check_team_mode(data, filename, opts) do
+    if team_marked?(data, filename) and not Keyword.get(opts, :as_individual, false),
+      do: {:error, team_marked_message()},
+      else: :ok
+  end
+
+  ## ---------- Team competitions: what a .swar file can and cannot say ----------
+  #
+  # A `.swar` file has no teams in it. SWAR's writer (`TournoiReadWrite.cpp`,
+  # `TournoiWrite`, v6.65 FRBE source) writes exactly eight sections -
+  # [TOURNOI], [DATES], [TIE_BREAK], [EXCLUSION], [CATEGORIES],
+  # [XTRA_POINTS], [JOUEURS] and each player's [RONDE] - and none of them
+  # has a team, a roster, a board order, a match, a match point or a team
+  # tie-break (`Swar.h`'s `DEPARTAGES` is individual criteria only). Its
+  # `TOURNOI_TYPE` enum has nine values, all individual: Swiss, double,
+  # accelerated, 3-2-1, three round robins, two American. Every one of the
+  # 48 real files checked (v5.34 to v7.05) is one of those nine.
+  #
+  # What SWAR does have for team competitions is two ways of running one as
+  # an individual event:
+  #
+  #   * "team" mode (v4.45, `PairingManual.cpp`, asked for by Luc Cornet): an
+  #     ordinary Swiss whose name contains " - team", or whose file is named
+  #     "... - team.swar". SWAR then stops pairing it and reads each round's
+  #     boards from a text file of player-number pairs made elsewhere. The
+  #     .swar keeps the individual games; the teams, the matches and the
+  #     team scores live outside it. `team_marked?/2`.
+  #   * club or nationality exclusion (`[EXCLUSION]`, "ICN style" in SWAR's
+  #     own manual - schools, NATO teams): an individual Swiss in which two
+  #     players of the same club, or nationality, never meet. It is carried
+  #     over (`exclusion_attrs/1`), because this app has the same rules.
+  #
+  # So nothing in a .swar file can be mapped onto teams here, and nothing is
+  # guessed: a team-mode file is refused as a team event (the organiser may
+  # import its games as an individual tournament instead), and a file that
+  # does not look like any SWAR file seen so far - an unknown type, or data
+  # after the player list, which is where a newer SWAR would have to put
+  # teams - is refused outright. See docs/swar-import.md, "Team
+  # competitions".
+
+  # SWAR's `TOURNOI_TYPE` (`Swar.h`): SWISS 0, SWISS_DBL 1, SWISS_ACC 2,
+  # SWISS_321 3, ROBIN 4, ROBIN_DBL 5, ROBIN_AR 6, SW_AMERICAIN 7,
+  # SW_AMERICAIN_DBL 8.
+  @known_types 0..8
+
+  @doc """
+  The refusals every import makes once a file has parsed, before anything is
+  written: `:ok`, or `{:error, message}` with a sentence for the organiser.
+
+    * **Data after the player list.** SWAR's writer ends the file with the
+      last player's rounds, and every real file checked does. Anything after
+      it is a part of the file this reader does not know - the one place a
+      newer SWAR could keep teams - and importing without it would be
+      importing a different event from the one the file describes.
+    * **A tournament type outside SWAR's nine** (`@known_types`). It used to
+      import as a Swiss; a type this reader has never seen may be scored or
+      paired differently (a team competition, for instance), so it is not
+      guessed.
+
+  `build_structs/1` (the public norms tool) does not run these: it reads only
+  the players, which parse the same either way.
+  """
+  def check_importable(%{trailing_bytes: bytes, version: version}) when bytes > 0 do
+    {:error,
+     gettext(
+       "This SWAR file has a part after the player list that OpenPairings cannot read (%{bytes} bytes, saved by SWAR %{version}). Every SWAR file checked so far ends with the player list, so this is probably something a newer SWAR stores - teams, for instance. Nothing has been imported, rather than import the tournament without it. Please report it and include the file, so that support can be added.",
+       bytes: bytes,
+       version: version
+     )}
+  end
+
+  def check_importable(%{tournament: %{type: type}, version: version})
+      when type not in @known_types do
+    {:error,
+     gettext(
+       "This SWAR file is a kind of tournament OpenPairings does not know (type %{type}, saved by SWAR %{version}). It may be something a newer SWAR added - a team competition, for instance - so it has not been imported: read as an ordinary Swiss, its pairings and scores could come out wrong. Please report it and include the file, so that support can be added.",
+       type: type,
+       version: version
+     )}
+  end
+
+  def check_importable(_data), do: :ok
+
+  @doc """
+  True when SWAR itself would treat the file as a team competition in its
+  "team" mode: an ordinary Swiss (type 0) whose name contains `" - team"`,
+  or whose file name contains `" - team.swar"`. The test is SWAR's own
+  (`SwarView.cpp`, `OnPairing`: `Tournoi.Find(" - team") > 0 ||
+  CeFichier.Find(" - team.swar") > 0`, only under `case SWISS`), including
+  its case: `CString::Find` is case-sensitive, so `" - Team"` is an
+  ordinary tournament to SWAR and to this function.
+
+  `filename` is the name the organiser's file had - for an upload, the
+  browser's file name, not the temporary path it was saved under.
+  """
+  def team_marked?(%{tournament: %{type: 0, name: name}}, filename) do
+    found_after_start?(name, " - team") or found_after_start?(filename, " - team.swar")
+  end
+
+  def team_marked?(_data, _filename), do: false
+
+  defp found_after_start?(text, pattern) when is_binary(text) do
+    case :binary.match(text, pattern) do
+      {pos, _len} -> pos > 0
+      :nomatch -> false
+    end
+  end
+
+  defp found_after_start?(_text, _pattern), do: false
+
+  @doc """
+  Why a team-mode file (`team_marked?/2`) is not imported as a team event.
+  """
+  def team_marked_message do
+    gettext(
+      "This SWAR file is a team competition in SWAR's team mode. SWAR keeps only the individual games in the file: which team each player plays for, the board order, the matches and the match points are kept outside it, so OpenPairings cannot rebuild the team event from it. You can import the games as an individual tournament, or set up the team tournament here: create it with Team tournament ticked and enter the teams on its Teams page."
+    )
   end
 
   @doc """
@@ -643,10 +778,18 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   birth_year:, candidates: [...]}]}}` or `{:error, reason}`. `unresolved ==
   []` means every player is already settled - the caller can go straight to
   `commit_import(prepared, %{}, scope)` without showing anything.
+
+  The result also carries `team_marked:` (`team_marked?/2`, with
+  `opts[:filename]` - the organiser's own file name - or else `path`'s). A
+  team-mode file is not refused here, because the organiser may choose to
+  import its games as an individual tournament; `commit_import/3` refuses it
+  until the caller has asked them and set `team_marked: false`. A file
+  `check_importable/1` refuses comes back as `{:error, message}`.
   """
-  def prepare_import(path) do
+  def prepare_import(path, opts \\ []) do
     with {:ok, binary} <- File.read(path),
-         {:ok, data} <- parse(binary) do
+         {:ok, data} <- parse(binary),
+         :ok <- check_importable(data) do
       cache = build_fide_candidates_cache(data.players)
 
       {players, unresolved} =
@@ -658,14 +801,21 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
           end
         end)
 
-      {:ok, %{data: %{data | players: players}, unresolved: Enum.reverse(unresolved)}}
+      filename = Keyword.get(opts, :filename) || Path.basename(path)
+
+      {:ok,
+       %{
+         data: %{data | players: players},
+         unresolved: Enum.reverse(unresolved),
+         team_marked: team_marked?(data, filename)
+       }}
     else
       {:error, reason} -> {:error, reason}
     end
   end
 
   @doc """
-  Commits a tournament from `prepared` (as returned by `prepare_import/1`),
+  Commits a tournament from `prepared` (as returned by `prepare_import/2`),
   applying the caller's chosen resolution for each of `prepared.unresolved`
   first. `resolutions` maps a player's `ni` (the SWAR internal number used
   as the key throughout `unresolved`) to either a FIDE id (integer) to
@@ -674,9 +824,17 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   ever been attempted. Runs the same single-transaction,
   broadcast-after-commit import as `import_file/2`.
   Returns `{:ok, %Tournament{}, warnings}` or `{:error, reason}` - see
-  `import_file/2` for what `warnings` carries.
+  `import_file/2` for what `warnings` carries. A file still marked
+  `team_marked: true` is refused with `team_marked_message/0`: the caller
+  sets it to `false` once the organiser has chosen to import the games as
+  an individual tournament.
   """
-  def commit_import(%{data: data}, resolutions, scope \\ nil) when is_map(resolutions) do
+  def commit_import(prepared, resolutions, scope \\ nil)
+
+  def commit_import(%{team_marked: true}, resolutions, _scope) when is_map(resolutions),
+    do: {:error, team_marked_message()}
+
+  def commit_import(%{data: data}, resolutions, scope) when is_map(resolutions) do
     players = Enum.map(data.players, &apply_resolution(&1, resolutions))
     run_import(%{data | players: players}, scope)
   end
@@ -778,6 +936,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       players_by_ni = create_players(tournament, data.players, data.categories)
       {data, unpaired} = drop_unpaired_rounds(data)
       create_rounds(tournament, data.players, players_by_ni)
+      create_exclusion_pairs(tournament, data, players_by_ni)
 
       warnings =
         unpaired_round_warnings(unpaired) ++
@@ -785,7 +944,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
           category_warnings(data.categories) ++
           tiebreak_warnings(data.tiebreaks || []) ++
           round_robin_bye_warnings(data) ++
-          xtra_points_warnings(data)
+          xtra_points_warnings(data) ++
+          exclusion_warnings(data)
 
       {:ok, tournament, warnings}
     end
@@ -1414,7 +1574,179 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     }
     |> Map.merge(scoring_attrs(t))
     |> Map.merge(system_attrs(t))
+    |> Map.merge(exclusion_attrs(data))
   end
+
+  ## ---------- [EXCLUSION]: SWAR's "ICN style" team events ----------
+  #
+  # SWAR's `USE_EXCLUSION` (`Swar.h`), and what `EnvoiJAVAFO.cpp` makes of
+  # `Exclusion.Values` when it writes the `XXP` lines JaVaFo pairs with:
+  #
+  #   -1 EXCLU_NO        nothing
+  #    0 EXCLU_PART_JOU  groups of player numbers (NI), "1,4:12,15,21": every
+  #                      pair within a group never meets (EcrireExclusionJou)
+  #    1 EXCLU_PART_CLU  club numbers, "618:621": players of the same listed
+  #                      club never meet (EcrireExclusionClu, `atoi` against
+  #                      ClubNr)
+  #    2 EXCLU_PART_NAT  nationalities, "BEL:FRA", same within each listed one
+  #    3 EXCLU_GLOB_CLU  every club (BuildAllClub - by club NUMBER)
+  #    4 EXCLU_GLOB_NAT  every nationality
+  #
+  # SWAR's own manual calls 3 and 4 the way to run "ICN style" competitions -
+  # schools, or the NATO event - which is the team competition a .swar file
+  # can actually describe. This app has the same rules (`PairingsEngine.
+  # Exclusions`, "SWAR parity #7-10"), so they are carried over instead of
+  # being read and dropped, as they were before: pairing a further round
+  # here would otherwise seat teammates against each other.
+  #
+  # Two differences, both on the side of the file's intent:
+  #
+  #   * SWAR groups clubs by number, this app by club name. The rule is set
+  #     by name, and `exclusion_warnings/1` says so when the two groupings
+  #     would keep a different set of players apart.
+  #   * 4 does nothing in SWAR v6.65: `BuildAllNat` has an empty body
+  #     (docs/swar-source-audit-2026-09-09.md, F2). The file says "keep each
+  #     nationality apart", so that is what it becomes here - the audit's own
+  #     advice is not to calibrate this rule against SWAR's bug.
+  #
+  # 0 is not a tournament setting here but explicit forbidden pairings, so
+  # it is written in `create_exclusion_pairs/3` once the players exist.
+  defp exclusion_attrs(%{exclusion: %{type: 3}}), do: %{club_exclusion: "all"}
+  defp exclusion_attrs(%{exclusion: %{type: 4}}), do: %{fed_exclusion: "all"}
+
+  defp exclusion_attrs(%{exclusion: %{type: 1, values: values}, players: players}) do
+    case listed_club_names(values, players) do
+      [] -> %{}
+      names -> %{club_exclusion: "listed", club_exclusion_list: Enum.join(names, ", ")}
+    end
+  end
+
+  defp exclusion_attrs(%{exclusion: %{type: 2, values: values}}) do
+    case exclusion_values(values) |> Enum.map(&Federation.normalize/1) |> Enum.uniq() do
+      [] -> %{}
+      codes -> %{fed_exclusion: "listed", fed_exclusion_list: Enum.join(codes, ", ")}
+    end
+  end
+
+  defp exclusion_attrs(_data), do: %{}
+
+  # `Exclusion.Values` is ':'-separated, as `ImplodeValues1` (`TOptions.cpp`)
+  # stores it.
+  defp exclusion_values(values) when is_binary(values) do
+    values
+    |> String.split(":")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp exclusion_values(_values), do: []
+
+  # SWAR compares each listed entry with `atoi` against the player's club
+  # number, so "618" and "618 - Club" both mean club 618. A listed club no
+  # player belongs to excludes nobody in SWAR either, and is left out. A
+  # club name holding a comma cannot go in this app's comma-separated list;
+  # `exclusion_warnings/1` names the difference that makes.
+  defp listed_club_names(values, players) do
+    numbers = listed_club_numbers(values)
+
+    players
+    |> Enum.filter(&(&1.club_nr in numbers))
+    |> Enum.map(&String.trim(&1.club || ""))
+    |> Enum.reject(&(&1 == "" or String.contains?(&1, ",")))
+    |> Enum.uniq()
+  end
+
+  defp listed_club_numbers(values) do
+    values
+    |> exclusion_values()
+    |> Enum.flat_map(fn entry ->
+      case Integer.parse(entry) do
+        {n, _rest} -> [n]
+        :error -> []
+      end
+    end)
+  end
+
+  @doc false
+  # The notices an [EXCLUSION] section can give (see `exclusion_attrs/1`).
+  # Only the club rule has one: SWAR keeps players apart by club NUMBER, this
+  # app by club NAME, and where the two groupings differ - a club spelled two
+  # ways, two clubs sharing a name, several players without a club number -
+  # a different set of players is kept apart from the next round on.
+  def exclusion_warnings(%{exclusion: %{type: type}} = data) when type in [1, 3] do
+    players = data.players
+
+    swar_groups =
+      players
+      |> Enum.filter(&(type == 3 or &1.club_nr in listed_club_numbers(data.exclusion.values)))
+      |> groups_of(& &1.club_nr)
+
+    listed = exclusion_attrs(data) |> Map.get(:club_exclusion_list, "")
+    listed_names = Enum.map(Exclusions.normalize_list(listed), &String.downcase/1)
+
+    our_groups =
+      players
+      |> Enum.reject(&(club_key(&1) == ""))
+      |> Enum.filter(&(type == 3 or club_key(&1) in listed_names))
+      |> groups_of(&club_key/1)
+
+    if swar_groups == our_groups do
+      []
+    else
+      [
+        gettext(
+          "This SWAR file keeps players of the same club apart, and that rule has been carried over. SWAR tells clubs apart by club number, OpenPairings by club name, and in this file the two do not match for every player - a club spelled two ways, two clubs with one name, or players without a club number. Check the clubs on the Players page and the rule under Settings before pairing the next round."
+        )
+      ]
+    end
+  end
+
+  def exclusion_warnings(_data), do: []
+
+  defp club_key(p), do: (p.club || "") |> String.trim() |> String.downcase()
+
+  # The groups of two or more players a rule keeps apart, as a set of sets
+  # of player numbers - equal sets keep exactly the same pairs apart.
+  defp groups_of(players, key_fun) do
+    players
+    |> Enum.group_by(key_fun, & &1.ni)
+    |> Map.values()
+    |> Enum.filter(&(length(&1) >= 2))
+    |> MapSet.new(&MapSet.new/1)
+  end
+
+  # EXCLU_PART_JOU: each ':'-separated group of player numbers becomes
+  # forbidden pairings, every pair within the group - the `XXP` lines
+  # SWAR's `EcrireExclusionJou` writes for it. A number no player has is
+  # skipped, as SWAR's own `CheckJou` would refuse to pair with it anyway.
+  defp create_exclusion_pairs(tournament, %{exclusion: %{type: 0, values: values}}, players_by_ni) do
+    values
+    |> exclusion_values()
+    |> Enum.flat_map(fn group ->
+      ids =
+        group
+        |> String.split(",")
+        |> Enum.flat_map(fn entry ->
+          case Integer.parse(String.trim(entry)) do
+            {ni, _rest} -> List.wrap(players_by_ni[ni] && players_by_ni[ni].id)
+            :error -> []
+          end
+        end)
+        |> Enum.uniq()
+
+      for {a, i} <- Enum.with_index(ids), b <- Enum.drop(ids, i + 1), do: {a, b}
+    end)
+    |> Enum.uniq()
+    |> Enum.each(fn {a, b} ->
+      case Tournaments.add_forbidden_pairing(tournament, a, b) do
+        {:ok, _row} -> :ok
+        {:error, :already_forbidden} -> :ok
+        {:error, _reason} -> Repo.rollback("Could not import the file's excluded pairings.")
+      end
+    end)
+  end
+
+  defp create_exclusion_pairs(_tournament, _data, _players_by_ni), do: :ok
 
   # `TOURNOI_TYPE.SWISS_321 == 3` (manual §5.1) is the flag for "this
   # tournament's [TOURNOI] header carries custom win/draw/loss/bye point
