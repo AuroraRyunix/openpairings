@@ -2919,7 +2919,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* 1200 rather than the 1120 this was: with the publishing pill and three
    pickers now in the bar, a full address (capped at 22ch) still wrapped the
    account group onto a second row up to about 1180px. */
-@media (max-width: 1200px) {
+/* 1280, measured: with Dutch tab names and the version on the bar, the full
+   address still wrapped the bar up to about 1250px. */
+@media (max-width: 1280px) {
   /* The signed-in address is also shown on the account settings page. The
      version stays (short form, see `.app-version`): it was hidden here, and
      then in the account menu, and people look for it on the bar. */
@@ -5612,8 +5614,11 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
 
    Visually hidden rather than display:none, so a screen reader still hears
    "OpenPairings" and the publishing state. Placed last so it wins over the
-   base rules at equal specificity. */
-@media (min-width: 769px) and (max-width: 1080px) {
+   base rules at equal specificity.
+
+   Up to 1200px rather than 1080 since the version came back to the bar and
+   Dutch tab names were measured: at 1081px Dutch needed about 100px more. */
+@media (min-width: 769px) and (max-width: 1200px) {
   .topbar { gap: 10px; padding: 0 12px; }
   .topbar nav { gap: 2px; }
   .topbar nav a,
@@ -5649,6 +5654,16 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   .topbar nav { gap: 1px; }
   .topbar nav a,
   .topbar-menu > summary { padding: 5px 5px; }
+
+}
+
+/* Dutch tab names are about 60px longer than the English ones
+   ("Geavanceerd", "Instellingen", "Afdrukken"), and up to 960px they still
+   wrapped the bar (measured 2026-09-28). A slightly smaller tab label is
+   what is left to give. */
+@media (min-width: 769px) and (max-width: 960px) {
+  .topbar nav a,
+  .topbar-menu > summary { font-size: 13px; }
 }
 
 /* ---------- the version on the bar ----------
@@ -5662,7 +5677,7 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   .app-version-short { display: inline; }
 }
 
-@media (min-width: 1201px) and (max-width: 1399px) {
+@media (min-width: 1281px) and (max-width: 1399px) {
   .topbar { gap: 20px; }
   .account-menu > summary { max-width: 18ch; }
 }
