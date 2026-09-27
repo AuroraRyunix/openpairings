@@ -385,6 +385,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "snapshot.manual" => [%{"label" => "Voor de prijsuitreiking"}, %{"label" => ""}],
     "categories.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
     "pair_by_category.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
+    "categories_ranked_separately.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
     "public_pages.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
     "public_pages.link_rotated" => [%{"published" => true}],
     "registration.toggled" => [%{"open" => true}, %{"open" => false}],

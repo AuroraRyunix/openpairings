@@ -712,6 +712,31 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # default so a tournament that never touches categories stays inert.
     field :categories_enabled, :boolean, default: false
 
+    # Each category ranked on its own - SWAR's "separate categories"
+    # (`CatSepares`). When on (and categories are enabled), `Standings`
+    # ranks every player within their pairing category
+    # (`PairingsEngine.Categories.pairing_category/2`): places start from 1
+    # in each category, and a tie is broken among the tied players of the
+    # same category only, so direct encounter looks at the games inside the
+    # category. The table lists the categories one after another, in the
+    # tournament's own category order, uncategorised players last. Off by
+    # default: one ranking for the whole field, with each category's places
+    # read off it. See `PairingsEngine.Standings.ranked_separately?/1` and
+    # docs/swar-import.md.
+    field :categories_ranked_separately, :boolean, default: false
+
+    # The SWAR file's own settings that OpenPairings has no counterpart for,
+    # exactly as the imported `.swar` had them - the rating SWAR pairs by,
+    # the first table number, the rating-report round ranges, its XtraPoints
+    # band table, its exact tournament type and tie-break list. Written by
+    # `SwarImport` only (never cast from a form), read by `SwarExport`, so a
+    # tournament that came from SWAR goes back with them - and carried by
+    # JSON backups and restore points (`TournamentExport`), so a restored
+    # copy does too. String keys;
+    # see `SwarImport.swar_settings/1` for the list. Empty for anything that
+    # did not come from a `.swar` file.
+    field :swar_settings, :map, default: %{}
+
     # Soft-delete timestamp for the recycle bin (docs: recycle bin). nil =
     # live tournament; set = in the bin, auto-purged 3 months later. Managed
     # by PairingsEngine.Tournaments.soft_delete/restore/purge - deliberately
@@ -939,6 +964,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :count_extra_points,
       :extra_points_bands,
       :categories_enabled,
+      :categories_ranked_separately,
       :manual_ranking,
       :publish_mode,
       :publish_delay_minutes

@@ -9,7 +9,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
 
   import Ecto.Query
 
-  alias PairingsEngine.Repo
+  alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
@@ -94,12 +94,12 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
     tie_break = w_str("TIE_BREAK") <> Enum.map_join(1..5, "", fn _ -> w_i32(0) end)
     exclusion = w_str("EXCLUSION") <> w_i32(0) <> w_str("")
 
-    max_categ = if version_gte?(version, "v6.50"), do: 16, else: 12
+    max_categ = Map.get(opts, :max_categ, if(version_gte?(version, "v6.50"), do: 16, else: 12))
     cat_strs = Enum.map_join(1..(max_categ + 1), "", fn _ -> w_str("") end)
-    categories = w_str("CATEGORIES") <> w_i32(0) <> cat_strs <> cat_strs
+    categories = w_str("[CATEGORIES]") <> w_i32(0) <> cat_strs <> cat_strs
 
     xtra_points =
-      w_str("XTRA_POINTS") <> Enum.map_join(1..4, "", fn _ -> w_i32(0) <> w_i32(0) end)
+      w_str("[XTRA_POINTS]") <> Enum.map_join(1..4, "", fn _ -> w_i32(0) <> w_i32(0) end)
 
     joueurs =
       w_str("[JOUEURS]") <>
@@ -372,11 +372,32 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
       assert counts() == before
     end
 
-    test "and round zero is refused too, so no Round row can be numbered 0" do
-      opts = %{players: [%{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, result: 0}]}]}
+    test "and a round zero with a game in it is refused too, so no Round row can be numbered 0" do
+      opts = %{
+        players: [
+          %{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, advers: 2, result: 0x4000}]},
+          %{ni: 2, name: "Zero, Two", rounds: [%{round_nr: 0, advers: 1, result: 0x1000}]}
+        ]
+      }
 
       assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
       assert message =~ "outside 1-30"
+    end
+
+    test "but an empty round zero - SWAR's own player-list template - imports with no rounds" do
+      # SWAR's "base" files (one in its own archive, "TOURNOI ZERO") give
+      # every player an empty round-0 record: no opponent, no result.
+      opts = %{
+        players: [
+          %{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, table: -1, result: 0}]},
+          %{ni: 2, name: "Zero, Two", rounds: [%{round_nr: 0, table: -1, result: 0}]}
+        ]
+      }
+
+      assert {:ok, tournament, warnings} = import_synthetic!(opts)
+      assert round_numbers(tournament) == []
+      assert length(Tournaments.list_players(tournament.id)) == 2
+      assert Enum.any?(warnings, &(is_binary(&1) and &1 =~ "no rounds"))
     end
 
     test "is refused by parse/1 itself, so the pure struct path refuses too" do
@@ -431,6 +452,131 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
     test "and so does a file carrying no players either" do
       assert {:ok, tournament, _warnings} = import_synthetic!(%{players: []})
       assert round_numbers(tournament) == []
+    end
+  end
+
+  ## ---------- a trailing round SWAR has not paired yet ----------
+  #
+  # SWAR saves the next round between "prepare" and "pair" with an empty
+  # record for every player (table -1, no opponent, no result). The import
+  # read each as an absence: a finished round with no games and everyone
+  # absent, and every Buchholz moved. Four real files carry one; found by
+  # tools/swar_rerank.exs.
+
+  describe "a trailing round in which nobody has a game, a bye or a result" do
+    @placeholder %{table: -1, advers: -1, result: 0}
+
+    test "is not imported, and the import says so" do
+      opts = %{
+        nb_rounds: 3,
+        players: [
+          %{
+            ni: 1,
+            name: "Played, One",
+            rounds: [
+              %{round_nr: 1, table: 1, advers: 2, result: @win, color: 1},
+              Map.put(@placeholder, :round_nr, 2)
+            ]
+          },
+          %{
+            ni: 2,
+            name: "Played, Two",
+            rounds: [
+              %{round_nr: 1, table: 1, advers: 1, result: @loss, color: -1},
+              Map.put(@placeholder, :round_nr, 2)
+            ]
+          }
+        ]
+      }
+
+      assert {:ok, tournament, warnings} = import_synthetic!(opts)
+      assert round_numbers(tournament) == [1]
+      assert Enum.any?(warnings, &(is_binary(&1) and &1 =~ "Round 2 was not imported"))
+
+      assert Repo.aggregate(from(b in "byes", where: b.tournament_id == ^tournament.id), :count) ==
+               0
+    end
+
+    test "is kept when anybody in it has a game or a bye" do
+      opts = %{
+        nb_rounds: 2,
+        players: [
+          %{
+            ni: 1,
+            name: "Absent, One",
+            rounds: [
+              %{round_nr: 1, table: 1, advers: 2, result: @win, color: 1},
+              Map.put(@placeholder, :round_nr, 2)
+            ]
+          },
+          %{
+            ni: 2,
+            name: "Bye, Two",
+            rounds: [
+              %{round_nr: 1, table: 1, advers: 1, result: @loss, color: -1},
+              %{round_nr: 2, table: 0x1000, advers: 0, result: 0x0040}
+            ]
+          }
+        ]
+      }
+
+      assert {:ok, tournament, warnings} = import_synthetic!(opts)
+      assert round_numbers(tournament) == [1, 2]
+      refute Enum.any?(warnings, &(is_binary(&1) and &1 =~ "was not imported"))
+    end
+  end
+
+  ## ---------- a v6.50 file with SWAR's old category count ----------
+  #
+  # SWAR's reader reads 16 categories per axis from v6.50 on, but v6.50
+  # files exist with the old 12 - SWAR's own sample round robin
+  # `RR_Nor.swar` is one, and it failed to import at all: read as 16, the
+  # first player's name length came out of the category strings. Found by
+  # re-ranking SWAR's archive (tools/swar_rerank.exs).
+
+  describe "the [CATEGORIES] length of a v6.50 file" do
+    @two_players [
+      %{
+        ni: 1,
+        name: "First, Player",
+        rounds: [%{round_nr: 1, table: 1, advers: 2, result: @win, color: 1}]
+      },
+      %{
+        ni: 2,
+        name: "Second, Player",
+        rounds: [%{round_nr: 1, table: 1, advers: 1, result: @loss, color: -1}]
+      }
+    ]
+
+    test "12 categories under v6.50 imports, names and games intact" do
+      opts = %{version: "v6.50", max_categ: 12, players: @two_players}
+
+      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+      names =
+        Repo.all(
+          from p in Player,
+            where: p.tournament_id == ^tournament.id,
+            order_by: p.pairing_number,
+            select: p.name
+        )
+
+      assert names == ["First, Player", "Second, Player"]
+      assert [%Pairing{result: "1-0"}] = pairings(tournament)
+    end
+
+    test "16 categories under v6.50 still imports" do
+      opts = %{version: "v6.50", max_categ: 16, players: @two_players}
+
+      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+      assert [%Pairing{result: "1-0"}] = pairings(tournament)
+    end
+
+    test "a v6.49 file is read with 12 only" do
+      opts = %{version: "v6.49", max_categ: 16, players: @two_players}
+
+      assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
+      assert message =~ "[CATEGORIES]"
     end
   end
 end

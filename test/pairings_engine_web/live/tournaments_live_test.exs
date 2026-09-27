@@ -781,6 +781,132 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     end
   end
 
+  ## ---------- SWAR import: team competitions (docs/swar-import.md) ----------
+
+  # One ordinary Swiss player with a FIDE id (so no confirm step), under a
+  # given tournament name and SWAR type - enough for the team-mode card and
+  # the unknown-type refusal. Same v6.40 layout as the builder above.
+  defp team_swar_binary(name, type) do
+    s = &pass2_w_str/1
+    i = &pass2_w_i32/1
+    zeros = fn n -> Enum.map_join(1..n, "", fn _ -> i.(0) end) end
+
+    tournoi =
+      s.("[TOURNOI]") <>
+        s.(name) <>
+        Enum.map_join(1..7, "", fn _ -> s.("") end) <>
+        i.(0) <>
+        s.("") <>
+        i.(1) <>
+        zeros.(7) <>
+        zeros.(48) <>
+        Enum.map_join(1..4, "", fn _ -> s.("") end) <>
+        i.(type) <>
+        zeros.(16) <>
+        pass2_w_u8(0) <>
+        pass2_w_u8(0) <> pass2_w_u8(0) <> pass2_w_u8(0) <> i.(0) <> i.(0)
+
+    player =
+      i.(0) <>
+        s.("Solo, Anna") <>
+        i.(1) <>
+        i.(1) <>
+        i.(0) <>
+        s.("") <>
+        i.(0) <>
+        s.("") <>
+        i.(0) <>
+        i.(777_777) <>
+        i.(1) <>
+        zeros.(4) <>
+        s.("") <>
+        zeros.(3) <>
+        zeros.(5) <>
+        i.(0) <>
+        i.(1) <>
+        i.(0) <>
+        s.("") <>
+        zeros.(2) <> pass2_w_i16(0) <> pass2_w_i16(0) <> s.("[RONDE]")
+
+    s.(@swar_pass2_version) <>
+      s.("guid-#{System.unique_integer([:positive])}") <>
+      s.("") <>
+      tournoi <>
+      s.("[DATES]") <>
+      s.("") <>
+      s.("[TIE_BREAK]") <>
+      zeros.(5) <>
+      s.("[EXCLUSION]") <>
+      i.(-1) <>
+      s.("") <>
+      s.("[CATEGORIES]") <>
+      i.(0) <>
+      Enum.map_join(1..26, "", fn _ -> s.("") end) <>
+      s.("[XTRA_POINTS]") <> zeros.(8) <> s.("[JOUEURS]") <> i.(1) <> player
+  end
+
+  defp upload_swar(lv, filename, binary) do
+    lv |> element("button", "Import SWAR file") |> render_click()
+
+    swar =
+      file_input(lv, "form", :swar, [
+        %{name: filename, content: binary, type: "application/octet-stream"}
+      ])
+
+    render_upload(swar, filename)
+    lv |> form("#swar-import-form", %{}) |> render_submit()
+  end
+
+  describe "SWAR import: team competitions" do
+    setup :enable_federation_features
+
+    test "a file in SWAR's team mode asks first, and imports the games on request", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_swar(lv, "cup.swar", team_swar_binary("Interclubs - team", 0))
+
+      assert has_element?(lv, "#swar-team-warning")
+      assert Tournaments.list_tournaments(scope) == []
+
+      {:error, {:live_redirect, %{to: to}}} =
+        lv |> element("#swar-team-import-individual") |> render_click()
+
+      assert to =~ ~r"^/t/\d+/players$"
+
+      assert [{%Tournament{type: "swiss"}, _players, _owner?}] =
+               Tournaments.list_tournaments(scope)
+    end
+
+    test "the file name alone marks it, as in SWAR, and Cancel imports nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_swar(lv, "Interclubs - team.swar", team_swar_binary("Interclubs", 0))
+
+      assert has_element?(lv, "#swar-team-warning")
+      lv |> element("#swar-team-cancel") |> render_click()
+
+      refute has_element?(lv, "#swar-team-warning")
+      assert has_element?(lv, "#swar-import-form")
+      assert Tournaments.list_tournaments(scope) == []
+    end
+
+    test "an unknown SWAR tournament type is refused with the reason", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_swar(lv, "cup.swar", team_swar_binary("Cup", 12))
+
+      assert has_element?(lv, "#swar-import-form .error-note", "type 12")
+      refute has_element?(lv, "#swar-team-warning")
+      assert Tournaments.list_tournaments(scope) == []
+    end
+  end
+
   describe "SWAR import: re-uploading the same tournament warns instead of duplicating" do
     # SWAR import belongs to the Belgian pack and is absent for an account
     # that has not switched it on - see `PairingsEngine.Features`.

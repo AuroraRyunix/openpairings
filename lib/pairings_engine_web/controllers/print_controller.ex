@@ -1013,7 +1013,10 @@ defmodule PairingsEngineWeb.PrintController do
             do: "<td>#{esc(category_or_dash(categories_text(tournament, e.player)))}</td>",
             else: ""
 
-        standings_row(e, tournament, cat_cell, rds?)
+        # With categories ranked separately (`Standings.ranked_separately?/1`)
+        # the list runs category by category and each entry carries its
+        # place within its category - the number that means something here.
+        standings_row(e, tournament, cat_cell, rds?, Map.get(e, :category_place))
       end)
 
     main_table =
@@ -1073,9 +1076,9 @@ defmodule PairingsEngineWeb.PrintController do
   end
 
   # `rank_override` is the in-category place for a per-category table
-  # (`category_standings_tables/3`); `nil` (the default, and what the main
-  # table always passes) keeps showing the overall `e.rank`.
-  defp standings_row(e, tournament, cat_cell, rds?, rank_override \\ nil) do
+  # (`category_standings_tables/3`), and for the main table when categories
+  # are ranked separately; `nil` keeps showing the overall `e.rank`.
+  defp standings_row(e, tournament, cat_cell, rds?, rank_override) do
     tb_cells =
       Enum.map_join(tournament.tiebreaks, "", fn code ->
         "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"

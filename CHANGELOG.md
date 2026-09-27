@@ -59,6 +59,108 @@ Each entry is tagged so a version can be skimmed:
 - [Feature] **The results site can show when a postponed game will be
   played.** The agreed date is sent to OpenResults with the board, so
   spectators see "Postponed, to be played …" instead of an empty result.
+- [Fix] **A SWAR round robin imports as a round robin.** It came in as a
+  Swiss in everything but its name, so its standings used the Swiss rules
+  of the tie-break regulations: a forfeit between two tied players left
+  direct encounter undecided, the free round counted in Sonneborn-Berger,
+  and Buchholz was allowed. SWAR's own copy of FIDE's round-robin tie-break
+  exercise came out with three places reversed; it now matches SWAR. A
+  SWAR "double rounds" event imports as match format, "aller-retour" as a
+  double round robin.
+- [Fix] **A SWAR file saved just before pairing no longer adds a round.**
+  SWAR saves the round it is about to pair with nobody in it yet; the
+  import turned that into a finished round in which every player was
+  absent, and every Buchholz and Sonneborn-Berger moved. That round is now
+  left out, and the import says so - pair it here.
+- [Fix] **Some SWAR v6.50 files would not import at all.** A v6.50 file can
+  carry SWAR's older, shorter category list; the import now reads either.
+- [Verified] **Standings re-ranked against SWAR's own.** Every SWAR file at
+  hand was imported and ranked here, and compared with the places and
+  tie-break values SWAR stored in it (`tools/swar_rerank.exs`). Every
+  remaining difference in a finished event is SWAR applying the 2024
+  tie-break text, a Belgian convention, or a SWAR defect - listed in
+  docs/swar-import.md.
+- [Change] **A SWAR file in SWAR's team mode asks before it imports.** SWAR
+  has no team tournaments: its "team" mode (a Swiss named "... - team") keeps
+  only the individual games, while the teams, matches and match points live
+  outside the file. Importing one now says so and offers to import the games
+  as an individual tournament, instead of doing that without a word.
+- [Change] **SWAR files unlike any seen so far are refused, or flagged.** A
+  tournament type SWAR's own nine do not include used to import as an
+  ordinary Swiss; it is now refused with a sentence saying why. Data after
+  the player list - where a newer SWAR would put something new, teams for
+  instance - used to be ignored without a word; the tournament now imports
+  without it and the import says so, with the size and the SWAR version,
+  and asks for the file.
+- [Fix] **SWAR's pairing exclusions are imported.** A SWAR file that keeps
+  clubmates or compatriots apart - SWAR's way of running school and
+  interclub-style events - or that forbids certain pairs of players, lost the
+  rule on import, so the next round paired here could seat teammates against
+  each other. The club and federation rules and the forbidden pairings now
+  come across, with a notice when SWAR's club numbers and the clubs' names
+  do not group the players the same way.
+- [Feature] **Rank each category separately.** A new switch on the
+  Categories page gives every category its own standings, numbered from 1,
+  with ties broken among the tied players of that category only - so
+  direct encounter looks at the games within the category. The standings
+  table, its print and the category filter all follow it. This is SWAR's
+  "separate categories", and a SWAR file with that setting imports with it
+  on, and with each category paired on its own.
+- [Feature] **A round robin can pair each category on its own.** With
+  "Pair each category independently" on, every category gets its own
+  Berger table, all in one round with the boards running on - a club event
+  of several round-robin groups is one tournament.
+- [Fix] **A SWAR round robin continued here plays SWAR's own table.** The
+  import numbered players by their SWAR registration number, so a round
+  robin saved before pairing - or a Swiss seeded for round 1 - was paired in
+  registration order. Players are now numbered in SWAR's own seed order,
+  which is how SWAR numbers its Berger tables: for every single-group round
+  robin among the SWAR files checked, each round comes out exactly as SWAR
+  paired it.
+  Its free rounds stay worth the full point SWAR gives them.
+- [Fix] **SWAR's extra points count in the standings, as they do in SWAR.** A
+  SWAR Swiss whose players have extra points imports with Extra points
+  switched on; a round robin or 3-2-1 file has none, as SWAR drops them.
+- [Feature] **SWAR's player lists import.** A SWAR "base" file - a club's
+  players, saved once to start every tournament from - was refused for its
+  empty round 0. It now imports as a tournament with those players and no
+  rounds.
+- [Feature] **More of a SWAR file comes across.** Categories arrive switched
+  on; a "double rounds" Swiss is match format; FIDE homologation and SWAR's
+  per-round FIDE tournament ids fill in the FIDE settings; SWAR's colour for
+  the top seed in round 1 becomes the initial colour. An accelerated Swiss
+  says that SWAR's acceleration is not FIDE's Baku method and is imported
+  without it. SWAR's own settings OpenPairings has no place for - the rating
+  it seeds by, the first table number, the rating-report rounds, its
+  XtraPoints table and more - are kept, for the export.
+- [Feature] **The .swar export writes everything SWAR can hold.** Exclusion
+  rules and forbidden pairs, extra points (while the tournament counts
+  them), separate categories, round robins double and in match format,
+  Swiss match format, every tie-break SWAR has (six were written before),
+  FIDE homologation and tournament ids, the initial colour, and everything
+  a SWAR file brought with it. Dates go in SWAR's day/month/year, the
+  cadence of a rapid or blitz event is found in SWAR's list, and categories
+  go as names. The Export page lists, for the tournament at hand, what the
+  file cannot hold and what SWAR will do instead.
+- [Fix] **A backup of a SWAR tournament restores as that tournament.** A
+  JSON backup, a restore point or a hand-off left out the tournament's SWAR
+  identity and the SWAR settings it was imported with, so the restored copy
+  exported a different .swar file, under a new identity on the federation's
+  results site. They now travel, together with "Rank each category
+  separately", and the restored copy exports the same file byte for byte
+  and continues a SWAR round robin with SWAR's full-point free rounds.
+  Older backups still restore. A copy imported beside a tournament that
+  already has that identity - "Duplicate", or a backup imported on the
+  machine the original is on - gets its own instead, and the import says
+  so, so two tournaments never upload as one event.
+- [Verified] **Import, export, import gives the same tournament.** Checked
+  for a synthetic file per feature and for every real SWAR file at hand:
+  each comes back as the same tournament, and exporting it again gives the
+  same file. The one thing that does not survive is a national rating that
+  differs from the FIDE one, which a SWAR 7 file has no place for. Re-ranked
+  against SWAR's own standings, finished events now agree on 436 of 456
+  places (was 424) and 1890 of 1995 tie-break values (was 1848); the rest is
+  listed in docs/swar-import.md.
 
 ## [0.68.0] - 2026-09-27
 

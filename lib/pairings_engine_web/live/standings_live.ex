@@ -915,6 +915,20 @@ defmodule PairingsEngineWeb.StandingsLive do
         {dropped_reason_text(reason)}
       </p>
 
+      <p
+        :if={
+          @entries != [] and !@keizer? and !@team? and is_nil(@selected_category) and
+            Standings.ranked_separately?(@tournament)
+        }
+        id="ranked-separately-hint"
+        class="hint"
+        style="margin-bottom: 10px"
+      >
+        {gettext(
+          "Each category is ranked on its own: the table lists the categories one after another, and the place is the player's place in their category."
+        )}
+      </p>
+
       <div
         :if={@entries != [] and !@keizer? and !@team?}
         id="standings-table"

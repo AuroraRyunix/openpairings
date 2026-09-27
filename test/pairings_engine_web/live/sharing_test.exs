@@ -368,6 +368,36 @@ defmodule PairingsEngineWeb.SharingTest do
 
       assert Tournaments.list_collaborators(copy) == []
     end
+
+    test "the copy doesn't carry the original's SWAR identity, only its SWAR settings", %{
+      conn: conn,
+      scope: scope
+    } do
+      %{tournament: tournament} = fixture(scope)
+
+      {:ok, _} =
+        tournament
+        |> Ecto.Changeset.change(
+          swar_guid: "{ORIGINAL-GUID}",
+          swar_settings: %{"first_table" => 5}
+        )
+        |> PairingsEngine.Repo.update()
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      lv
+      |> element(~s(button[phx-click="duplicate"][phx-value-id="#{tournament.id}"]))
+      |> render_click()
+
+      [copy] =
+        Tournaments.list_tournaments(scope)
+        |> Enum.map(fn {t, _count, _owned?} -> t end)
+        |> Enum.filter(&(&1.name == "Copy of Shared Tournament"))
+
+      copy = PairingsEngine.Repo.reload!(copy)
+      assert copy.swar_guid in [nil, ""]
+      assert copy.swar_settings == %{"first_table" => 5}
+    end
   end
 
   describe "the Settings Share/Team card shows invited vs active status" do

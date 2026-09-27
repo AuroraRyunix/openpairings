@@ -31,6 +31,9 @@ defmodule PairingsEngine.TournamentImport do
   `PairingsEngine.TournamentExport` for the inverse.
   """
 
+  import Ecto.Query
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   alias PairingsEngine.{CategoryRules, Repo, Tournaments}
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.Audit.AuditLog
@@ -52,7 +55,20 @@ defmodule PairingsEngine.TournamentImport do
   format/version tag, or an invalid record anywhere inside it rolls the
   whole import back and comes back as `{:error, _}`, not a crash.
   """
-  def import(data, %Scope{} = scope) when is_map(data) do
+  def import(data, %Scope{} = scope) do
+    case import_with_notes(data, scope) do
+      {:ok, tournaments, _notes} -> {:ok, tournaments}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  `import/2`, with the notes an organiser should read about what the import
+  changed: `{:ok, tournaments, notes}`. Today the one note is a SWAR
+  identity left behind because another tournament here already has it
+  (`unique_swar_guid/1`).
+  """
+  def import_with_notes(data, %Scope{} = scope) when is_map(data) do
     cond do
       Map.get(data, "format") != @format ->
         {:error, "This file is not an OpenPairings export (unrecognized format)."}
@@ -68,7 +84,8 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
-  def import(_invalid, %Scope{}), do: {:error, "This file is not a valid OpenPairings export."}
+  def import_with_notes(_invalid, %Scope{}),
+    do: {:error, "This file is not a valid OpenPairings export."}
 
   ## ---------- reading the file ----------
 
@@ -156,11 +173,12 @@ defmodule PairingsEngine.TournamentImport do
       end)
 
     case result do
-      {:ok, imported} ->
+      {:ok, imported_with_notes} ->
+        {imported, notes} = Enum.unzip(imported_with_notes)
         Enum.each(imported, &Tournaments.broadcast_tournament_change(&1.id, :tournament))
         Tournaments.broadcast_user_tournaments(scope.user.id)
         refreshed = Enum.map(imported, &Tournaments.refresh_status!(&1.id))
-        {:ok, refreshed}
+        {:ok, refreshed, List.flatten(notes)}
 
       {:error, reason} ->
         {:error, reason}
@@ -199,11 +217,16 @@ defmodule PairingsEngine.TournamentImport do
   something a restore should be able to do.
   """
   def restore_into!(%Tournament{} = tournament, entry) when is_map(entry) do
-    t_attrs = entry |> fetch_map!("tournament") |> migrate_legacy_category_rules()
+    t_attrs =
+      entry
+      |> fetch_map!("tournament")
+      |> migrate_legacy_category_rules()
+      |> keep_live_swar_guid(tournament)
 
     tournament =
       tournament
       |> Tournament.changeset(t_attrs)
+      |> Ecto.Changeset.change(swar_settings: swar_settings(t_attrs, tournament.swar_settings))
       |> Ecto.Changeset.change(
         manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
         # The round FIDE-mode compliance was first lost in, and the ONLY
@@ -282,6 +305,33 @@ defmodule PairingsEngine.TournamentImport do
     [initial_colour_drawn: drawn, team_pairing_mode: mode]
   end
 
+  # SWAR bookkeeping (`TournamentExport`'s `@tournament_fields`: the guid,
+  # `swar_settings` and the two-axis category columns), so a restored copy
+  # writes the `.swar` file the original did. `swar_guid` and the category
+  # columns are cast and come through the changeset; `swar_settings` is not
+  # cast - no form may write it - so it is carried here, like the other
+  # uncast fields. A file from before these travelled has no key: a new row
+  # gets the empty default, a restore keeps what the live row has.
+  defp swar_settings(t_attrs, fallback) do
+    case Map.get(t_attrs, "swar_settings") do
+      settings when is_map(settings) -> settings
+      _ -> fallback || %{}
+    end
+  end
+
+  # A restore point taken before the tournament first went to SWAR carries
+  # no guid. Restoring it must not take the one minted since away: the guid
+  # is the tournament's lasting identity in SWAR and on the federation's
+  # results site, and losing it would make the next export a different
+  # tournament there.
+  defp keep_live_swar_guid(t_attrs, %Tournament{swar_guid: live}) when live not in [nil, ""] do
+    if Map.get(t_attrs, "swar_guid") in [nil, ""],
+      do: Map.delete(t_attrs, "swar_guid"),
+      else: t_attrs
+  end
+
+  defp keep_live_swar_guid(t_attrs, _tournament), do: t_attrs
+
   defp update!(changeset) do
     case Repo.update(changeset) do
       {:ok, record} ->
@@ -299,11 +349,13 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   defp import_tournament!(t_data, scope) do
-    t_attrs = t_data |> fetch_map!("tournament") |> migrate_legacy_category_rules()
+    {t_attrs, notes} =
+      t_data |> fetch_map!("tournament") |> migrate_legacy_category_rules() |> unique_swar_guid()
 
     tournament =
       %Tournament{user_id: scope.user.id}
       |> Tournament.changeset(t_attrs)
+      |> Ecto.Changeset.change(swar_settings: swar_settings(t_attrs, %{}))
       # `manual_ranking_stale` is deliberately outside `changeset/2`'s cast
       # list (only the manual-ranking writers in `Tournaments` set it), so it
       # has to be carried across explicitly or an imported tournament with a
@@ -344,7 +396,35 @@ defmodule PairingsEngine.TournamentImport do
     import_audit_log!(tournament, list(t_data, "audit_log"), player_map)
     import_collaborators!(tournament, list(t_data, "collaborators"))
 
-    apply_standings_through!(tournament, t_attrs)
+    {apply_standings_through!(tournament, t_attrs), notes}
+  end
+
+  # A new row may only take the file's SWAR guid if no tournament on this
+  # machine has it - whoever owns it, deleted or not. The guid is the
+  # tournament's identity in SWAR and on the federation's results site, so
+  # two rows holding it would both upload as the same event, each
+  # overwriting the other's page. Moving a tournament to a new machine, or
+  # receiving a hand-off, finds no other row and keeps it; importing a
+  # backup beside the original (or a second time) drops it, and the copy
+  # mints its own the first time it goes to SWAR. Restore points write into
+  # the tournament's own row (`restore_into!/2`) and never come here.
+  defp unique_swar_guid(t_attrs) do
+    guid = Map.get(t_attrs, "swar_guid")
+
+    if is_binary(guid) and guid != "" and
+         Repo.exists?(from(t in Tournament, where: t.swar_guid == ^guid)) do
+      name = Map.get(t_attrs, "name") || ""
+
+      {Map.put(t_attrs, "swar_guid", nil),
+       [
+         gettext(
+           "\"%{name}\" was imported without its SWAR identity: another tournament here already has it, and two tournaments with one identity would upload to the federation's results site as the same event. The copy gets an identity of its own the first time it is exported to SWAR or published.",
+           name: name
+         )
+       ]}
+    else
+      {t_attrs, []}
+    end
   end
 
   # `standings_through` is not cast (see `Tournament.standings_through`'s own

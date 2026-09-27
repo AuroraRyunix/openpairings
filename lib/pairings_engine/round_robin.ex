@@ -56,6 +56,16 @@ defmodule PairingsEngine.RoundRobin do
   freeze are simply excluded from every round of the schedule (see
   `docs/pairing-systems.md`).
 
+  ## One table per category, and SWAR's table
+
+  Pairing by category (`pair_by_category`), each category plays its own
+  Berger table, numbered by pairing number within it
+  (`schedule_groups/2`) - SWAR's round robin with separate categories.
+  `schedule/3` is SWAR's own `GenerationBerger` (`PairingRobin.cpp`),
+  colours included, and a SWAR import numbers players by SWAR's Rank, so a
+  round robin continued from a `.swar` file plays the rounds SWAR would have
+  (docs/pairing-systems.md).
+
   ## Byes
 
   Odd player counts always produce exactly one structural, zero-point bye
@@ -68,6 +78,11 @@ defmodule PairingsEngine.RoundRobin do
   isn't the pairing engine running out of opponents, it's a structural
   feature of an odd-sized round-robin, and giving it a free point would
   be unfair to the N-1 (or N, if N even) players who never get one.
+
+  The one exception is a round robin imported from SWAR, which forces its
+  free round to a full point (`SwarImport.scoring_attrs/1`): its free
+  rounds stay bye boards worth `bye_value`, like the ones it was imported
+  with (`swar_bye?/1`).
   """
 
   import Ecto.Query
@@ -110,7 +125,7 @@ defmodule PairingsEngine.RoundRobin do
     ensure_frozen(tournament)
     frozen = frozen_players(tournament.id)
 
-    case ensure_correct_rounds_count(tournament, length(frozen)) do
+    case ensure_correct_rounds_count(tournament, schedule_groups(tournament, frozen)) do
       {:error, reason} -> {:error, reason}
       tournament -> do_pair_next_round(tournament, frozen)
     end
@@ -193,7 +208,7 @@ defmodule PairingsEngine.RoundRobin do
     ensure_frozen(tournament)
     frozen = frozen_players(tournament.id)
 
-    case ensure_correct_rounds_count(tournament, length(frozen)) do
+    case ensure_correct_rounds_count(tournament, schedule_groups(tournament, frozen)) do
       {:error, reason} -> {:error, reason}
       corrected -> pair_remaining(corrected, frozen)
     end
@@ -391,7 +406,17 @@ defmodule PairingsEngine.RoundRobin do
   # never a free-standing arbiter choice the way it is for Swiss. Fewer
   # than 2 frozen players is a no-op (pair_next_round/1's own guard
   # already refuses to pair in that case; nothing useful to correct to).
-  defp ensure_correct_rounds_count(tournament, frozen_count) when frozen_count >= 2 do
+  #
+  # `groups` is `schedule_groups/2`'s answer: one Berger table per group, and
+  # the tournament lasts as long as its longest table.
+  defp ensure_correct_rounds_count(tournament, groups) do
+    case groups |> Enum.map(&length/1) |> Enum.max(fn -> 0 end) do
+      frozen_count when frozen_count >= 2 -> correct_rounds_count(tournament, frozen_count)
+      _ -> tournament
+    end
+  end
+
+  defp correct_rounds_count(tournament, frozen_count) do
     correct =
       if tournament.rr_match_format do
         match_total_rounds(frozen_count)
@@ -429,8 +454,6 @@ defmodule PairingsEngine.RoundRobin do
     end
   end
 
-  defp ensure_correct_rounds_count(tournament, _frozen_count), do: tournament
-
   # The frozen schedule set: every player who has a pairing_number,
   # regardless of their *current* status/absent/forfeit flags. A
   # round-robin schedule is fixed at freeze time - pulling someone out
@@ -443,20 +466,21 @@ defmodule PairingsEngine.RoundRobin do
   ## ---------- the pairing run ----------
 
   defp do_pair(tournament, frozen, next_number) do
-    result =
-      if tournament.rr_match_format do
-        match_schedule(length(frozen), next_number)
-      else
-        schedule(length(frozen), tournament.rr_cycles, next_number)
-      end
+    scheduled =
+      tournament
+      |> schedule_groups(frozen)
+      |> Enum.map(&{&1, group_schedule(tournament, length(&1), next_number)})
 
-    case result do
-      {:error, reason} ->
-        {:error, reason}
+    case Enum.find(scheduled, &match?({_group, {:ok, _}}, &1)) do
+      nil ->
+        # Every table has played all its rounds (or there is none).
+        case scheduled do
+          [{_group, error} | _] -> error
+          [] -> {:error, "At least two active players are needed"}
+        end
 
-      {:ok, matches} ->
-        by_number = Map.new(frozen, &{&1.pairing_number, &1})
-        result = create_round(tournament, by_number, matches, next_number)
+      _some ->
+        result = create_round(tournament, scheduled_matches(scheduled), next_number)
 
         case result do
           {:ok, _round} -> Tournaments.broadcast_tournament_change(tournament.id, :rounds)
@@ -467,7 +491,71 @@ defmodule PairingsEngine.RoundRobin do
     end
   end
 
-  defp create_round(tournament, by_number, matches, next_number) do
+  # Each table's own numbers - 1..n in pairing-number order - turned back
+  # into players, table after table, each table's boards lowest number
+  # first. One table over the whole field numbers exactly as the pairing
+  # numbers do, since a round robin frozen here numbers 1..N; a SWAR
+  # import's pairing numbers are SWAR's Berger numbers already (see
+  # `SwarImport`'s "pairing numbers"). A table that has played all its
+  # rounds, beside a longer one that has not, adds nothing.
+  defp scheduled_matches(scheduled) do
+    Enum.flat_map(scheduled, fn
+      {group, {:ok, group_matches}} ->
+        by_number = group |> Enum.with_index(1) |> Map.new(fn {p, i} -> {i, p} end)
+
+        group_matches
+        |> Enum.map(fn
+          {:pairing, w, b} -> {:pairing, Map.fetch!(by_number, w), Map.fetch!(by_number, b)}
+          {:bye, n} -> {:bye, Map.fetch!(by_number, n)}
+        end)
+        |> Enum.sort_by(fn
+          {:pairing, w, b} -> {0, min(w.pairing_number, b.pairing_number)}
+          {:bye, p} -> {1, p.pairing_number}
+        end)
+
+      {_group, {:error, _}} ->
+        []
+    end)
+  end
+
+  defp group_schedule(tournament, count, next_number) do
+    if tournament.rr_match_format do
+      match_schedule(count, next_number)
+    else
+      schedule(count, tournament.rr_cycles, next_number)
+    end
+  end
+
+  @doc """
+  The groups a round robin's Berger tables run over, each in pairing-number
+  order: the whole frozen field - or, when the tournament pairs by category,
+  one table per category, in the tournament's own category order with the
+  uncategorised last. The second is SWAR's round robin with separate
+  categories (`PairingRobin.cpp`: one Berger table per category, its
+  players numbered by Rank within it). A category of one player has nobody
+  to play, and gets no table.
+  """
+  def schedule_groups(tournament, frozen) do
+    if by_category?(tournament) do
+      order = (tournament.categories || []) ++ [""]
+
+      frozen
+      |> Enum.group_by(&PairingsEngine.Categories.pairing_category(tournament, &1))
+      |> Enum.sort_by(fn {name, _players} -> Enum.find_index(order, &(&1 == name)) end)
+      |> Enum.map(fn {_name, players} -> Enum.sort_by(players, & &1.pairing_number) end)
+      |> Enum.filter(&(length(&1) >= 2))
+    else
+      [Enum.sort_by(frozen, & &1.pairing_number)]
+    end
+  end
+
+  defp by_category?(tournament) do
+    Map.get(tournament, :pair_by_category) == true and
+      Map.get(tournament, :categories_enabled) == true and
+      (tournament.categories || []) != []
+  end
+
+  defp create_round(tournament, matches, next_number) do
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
@@ -479,12 +567,8 @@ defmodule PairingsEngine.RoundRobin do
 
       matches
       |> Enum.filter(&match?({:pairing, _, _}, &1))
-      |> Enum.sort_by(fn {:pairing, w, b} -> min(w, b) end)
       |> Enum.with_index(1)
-      |> Enum.each(fn {{:pairing, w, b}, board} ->
-        white = Map.fetch!(by_number, w)
-        black = Map.fetch!(by_number, b)
-
+      |> Enum.each(fn {{:pairing, white, black}, board} ->
         Repo.insert!(%Pairing{
           round_id: round.id,
           board: board,
@@ -494,12 +578,34 @@ defmodule PairingsEngine.RoundRobin do
         })
       end)
 
-      bye_rows =
+      {swar_byes, byes} =
         matches
         |> Enum.filter(&match?({:bye, _}, &1))
-        |> Enum.map(fn {:bye, num} ->
-          player = Map.fetch!(by_number, num)
+        |> Enum.split_with(fn _bye -> swar_bye?(tournament) end)
 
+      # A round robin continued from a SWAR file keeps SWAR's free round: a
+      # bye board worth `bye_value`, which the import set to the full point
+      # SWAR forces on every round robin (`SwarImport.scoring_attrs/1`) - the
+      # same shape as the free rounds already imported, so one tournament
+      # does not score its first rounds' byes at a point and the rest at
+      # nothing.
+      pairings_count = Enum.count(matches, &match?({:pairing, _, _}, &1))
+
+      swar_byes
+      |> Enum.with_index(pairings_count + 1)
+      |> Enum.each(fn {{:bye, player}, board} ->
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: player.id,
+          black_player_id: nil,
+          result: "bye"
+        })
+      end)
+
+      bye_rows =
+        byes
+        |> Enum.map(fn {:bye, player} ->
           %{
             tournament_id: tournament.id,
             player_id: player.id,
@@ -527,6 +633,13 @@ defmodule PairingsEngine.RoundRobin do
 
       round
     end)
+  end
+
+  # A round robin imported from a SWAR round-robin file (`swar_settings`'
+  # "type" is SWAR's ROBIN, ROBIN_DBL or ROBIN_AR).
+  defp swar_bye?(tournament) do
+    type = Map.get(Map.get(tournament, :swar_settings) || %{}, "type")
+    type in [4, 5, 6]
   end
 
   # A player who is currently `absent` or `forfeit` (both fields bypass

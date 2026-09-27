@@ -86,7 +86,8 @@ defmodule PairingsEngine.TournamentExport do
     abs_jusque abs_nbfois absent_counts_as_vur
     presence_on_allocated_bye tiebreaks acceleration
     status standard rate_of_play organizer_club_number round_dates
-    categories category_rules category_prizes categories_enabled event_code
+    categories category_rules category_prizes categories_enabled
+    categories_ranked_separately event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
     pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category
@@ -100,6 +101,7 @@ defmodule PairingsEngine.TournamentExport do
     fide_compliance_lost_round
     public_listed public_display public_hidden_tiebreaks
     postponed_games postponed_requester_outcome postponed_opponent_outcome
+    swar_guid swar_settings swar_category_type swar_category_axis2
   )a
 
   # Deliberately NOT in the tournament map, with the reason for each -
@@ -153,17 +155,27 @@ defmodule PairingsEngine.TournamentExport do
   #     unlocking. The hand-off flow moves a release token exactly once, in
   #     its own envelope block, and `PairingsEngine.Handoff` is the only thing
   #     that writes this column.
-  #   swar_guid
-  #     SWAR's own per-tournament GUID, used for re-upload duplicate
-  #     detection. Carrying it would make the imported copy look like a
-  #     duplicate of the original it was exported from.
   #   swar_uploaded_at, swar_published_at
   #     This machine's own record of when it last sent this tournament's
   #     results page to the federation and when that was last confirmed
   #     indexed (see `PairingsEngine.Federations.BEL.SwarUpload`) - not
   #     tournament content, and carrying it would make an imported copy
-  #     look like it had already published something it never has. The
-  #     `swar_guid` it depends on is excluded for the same reason above.
+  #     look like it had already published something it never has.
+  #
+  #     `swar_guid` and the SWAR bookkeeping beside it (`swar_settings`,
+  #     `swar_category_type`, `swar_category_axis2`) used to be held back
+  #     here too, and now travel (see `@tournament_fields`): together they
+  #     are what `SwarExport` writes, and without them a restored copy wrote
+  #     a different `.swar` file than the tournament it was a copy of - a new
+  #     guid, SWAR's own settings gone, two-axis categories flattened - and a
+  #     round robin continued from SWAR lost its full-point free round. The
+  #     guid IS the tournament's identity in SWAR and on the federation's
+  #     results site ("the identity the tournament keeps for the rest of its
+  #     life", `SwarExport.export/1`), and a backup, a restore point and a
+  #     hand-off are all that same tournament. The one copy that is not -
+  #     "Duplicate" in the tournament list, beside the original - drops the
+  #     guid itself (`TournamentsLive`'s "duplicate" handler), so the copy
+  #     mints its own the first time it goes to SWAR.
   #   logo_data, logo_content_type
   #     Known gap: binary, would need base64 in the envelope. Documented in
   #     docs/import-export.md rather than silently dropped.
@@ -194,19 +206,11 @@ defmodule PairingsEngine.TournamentExport do
   #     The installation key that minted it is not a tournament field at all
   #     and is in no export, backup or snapshot - see
   #     `PairingsEngine.Publishing.Installation`.
-  #   swar_category_type, swar_category_axis2
-  #     SWAR-provenance bookkeeping for `categories`, not tournament content
-  #     of its own - they tell `SwarExport` how to split `categories` back
-  #     across `[CATEGORIES]`' two columns for a tournament that came from a
-  #     two-axis SWAR import (see docs/swar-import.md's "Categories: two
-  #     axes, two tag sets"). `categories` itself, the actual vocabulary, is
-  #     exported normally; excluded the same way `swar_guid` and its
-  #     siblings just above are.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
     public_slug_minted_at public_slug_server public_slug_published_at
-    registration_open publish_to_openresults deleted_at archived_at swar_guid
-    swar_uploaded_at swar_published_at swar_category_type swar_category_axis2
+    registration_open publish_to_openresults deleted_at archived_at
+    swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
     handed_off_at handed_off_to handoff_token handoff_origin

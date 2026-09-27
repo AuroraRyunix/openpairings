@@ -33,10 +33,13 @@ The one place a `.swar` is still read with no switch involved is the public
 
 The inverse - `GET /t/:id/export/swar`, "Export .swar (v7, experimental)"
 on the Settings page - writes a v7 `.swar` binary field-for-field against
-this module's own read order and reverse-mapping tables. Full detail
-(what's exactly invertible and what's a documented policy choice) lives
-in `SwarExport`'s moduledoc, not duplicated here. Confirmed to open in a
-real SWAR v7 install.
+this module's own read order and reverse-mapping tables. Confirmed to open
+in a real SWAR v7 install. Everything the import reads goes back out, and
+an import of the export is the tournament that was exported - see
+"Import and export: what goes where" below for the field-by-field table,
+the round-trip results and the short list of what SWAR's format cannot
+hold. The export page lists, beside the button, what of THIS tournament
+the file cannot carry (`SwarExport.export_notes/1`).
 
 **Does the pairing "seed" survive an export → re-open-and-continue-in-SWAR
 round trip?** Yes - but getting there took one real wrong answer, found
@@ -64,7 +67,7 @@ rating-descending / title-descending / name-ascending sort SWAR's own
 `Joueur.cpp:CmpRnkNormal` does.
 `test/pairings_engine/federations/bel/swar_export_test.exs` pins it down with deliberately scrambled rating vs. registration order,
 so a regression back to `rank = ni` fails loudly. `Class` staying a
-constant 0 remains correct - see `reverse_player/5`'s own comment for
+constant 0 remains correct - see `reverse_player/6`'s own comment for
 the full citations on both.
 
 ## Re-opening an exported TRF file in SWAR: byes do not survive
@@ -127,8 +130,102 @@ rather than a bad import:
   SQLite's single write lock. One record saying 2,000,000,000 used to stop
   the whole application, not just the import. 30 is the ceiling because it
   is what a tournament may be here - a longer file describes an event this
-  app could not hold even if the loop were free. Round 0 goes with them: it
-  produced a Round row numbered 0, a round before the first.
+  app could not hold even if the loop were free. A round 0 with a game or a
+  result in it goes with them: it produced a Round row numbered 0, a round
+  before the first.
+
+An EMPTY round 0 - no opponent, no result, no table - is not refused but
+taken off (`strip_round_zero/1`): SWAR's own "base" files, a club's player
+list saved once and opened to start every new event from ("TOURNOI ZERO" in
+SWAR's archive, 333 players), give every player one. Such a file imports as
+a tournament with its players and no rounds, and says so.
+
+## Team competitions: what a `.swar` file can and cannot say
+
+**A `.swar` file has no teams in it, so a SWAR team event cannot be imported
+as a team tournament.** Established 2026-09-27 from SWAR's own source
+(`Swar - 20250906 v6.65 FRBE`) and from every real `.swar` file on hand, not
+from a team sample - none exists, because SWAR does not write one:
+
+- **The writer.** `TournoiReadWrite.cpp` writes exactly `[TOURNOI]`,
+  `[DATES]`, `[TIE_BREAK]`, `[EXCLUSION]`, `[CATEGORIES]`, `[XTRA_POINTS]`,
+  `[JOUEURS]` and each player's `[RONDE]`, then closes the file. No team,
+  roster, board order, match, match point or team tie-break anywhere.
+- **The types.** `Swar.h`'s `TOURNOI_TYPE` has nine values, all individual:
+  Swiss, double Swiss, accelerated, 3-2-1, three round robins, two American.
+  `DEPARTAGES` (the tie-break list) is individual criteria only.
+- **The files.** 48 real files, SWAR v5.34 to v7.05, all parse to one of
+  those nine types, and all end exactly at the last player's rounds.
+
+What SWAR does have for team competitions is two ways of running one as an
+individual event, and the import handles each:
+
+| SWAR feature | What the file holds | What the import does |
+|---|---|---|
+| **Team mode** (v4.45, `PairingManual.cpp`, asked for by Luc Cornet): an ordinary Swiss (type 0) whose name contains `" - team"`, or whose file is named `"... - team.swar"` | the individual games only. SWAR stops pairing the event and reads each round's boards from a text file of player-number pairs (`<name>.R01.C01.txt`) made elsewhere; which team each player plays for, the board order, the matches and the team scores are not in the `.swar` | asks first (`SwarImport.team_marked?/2`, SWAR's own test, case-sensitive): the organiser can import the games as an individual tournament, or set the team tournament up here |
+| **Club or nationality exclusion** (`[EXCLUSION]`, "ICN style" in SWAR's manual - schools, the NATO event): an individual Swiss in which players of one club, or one nationality, never meet | the rule | carried over onto the club/federation exclusion rules and forbidden pairings (below) |
+
+Two checks guard the places a newer SWAR could start writing teams:
+
+- **a tournament type outside the nine** is refused
+  (`SwarImport.check_importable/1`, run by `prepare_import/2` and
+  `import_file/3`, not by the norms tool's `build_structs/1`) - it used to
+  import silently as a Swiss, and a type never seen may score or pair
+  differently;
+- **data after the player list** is imported without it, with a warning
+  that gives its size and the SWAR version and asks for the file
+  (`trailing_data_warnings/1`). It was refused for a while; everything
+  before it reads exactly as always, so refusing only cost the organiser
+  their tournament.
+
+If either ever fires on a real file, that file is the sample a team import
+would need.
+
+### `[EXCLUSION]` is imported
+
+It used to be read and dropped. SWAR's `USE_EXCLUSION` (`Swar.h`) and what
+`EnvoiJAVAFO.cpp` makes of `Exclusion.Values`:
+
+| SWAR | Values | Here |
+|---|---|---|
+| -1 none | | nothing |
+| 0 players | `"1,4:12,15,21"` - groups of player numbers; every pair within a group never meets | forbidden pairings, every pair within each group |
+| 1 listed clubs | `"618:621"` - club numbers | club rule "listed", by the names of the players holding those numbers |
+| 2 listed nationalities | `"BEL:FRA"` | federation rule "listed" |
+| 3 every club | | club rule "all" |
+| 4 every nationality | | federation rule "all" |
+
+Two differences, both toward what the file says rather than what SWAR's code
+does with it:
+
+- SWAR groups clubs by **number** (`BuildAllClub`, formatting even club 0 as
+  a club), this app by **name**. Where the two groupings would keep a
+  different set of players apart - a club spelled two ways, two clubs with
+  one name, several players without a club number - the import says so.
+- Every-nationality does nothing in SWAR v6.65 (`BuildAllNat` is empty -
+  [swar-source-audit-2026-09-09.md](swar-source-audit-2026-09-09.md), F2).
+  The file asks for it, so it applies here.
+
+The export writes the section back (`SwarExport.exclusion_for_export/3`):
+one rule alone as SWAR's own, forbidden pairs as the groups they came from,
+and anything SWAR's single rule cannot say - two rules at once, or a club
+rule SWAR's club numbers would group differently - as groups of player
+numbers that keep exactly the same players apart, with a note on the export
+page. See "Import and export: what goes where".
+
+### The sample that would settle a team import
+
+A team import needs evidence of where the team layer is kept. The file that
+would provide it, if one exists:
+
+1. a `.swar` from a real team competition in SWAR's team mode - tournament
+   name ending in `" - team"`, at least two rounds played, with a bye or a
+   forfeit - **together with** its round pairing files
+   (`<name>.R01.C01.txt`, ...) and whatever the organiser kept the teams,
+   board order and match results in (the TeamChess spreadsheet in SWAR's
+   own `DocLocal`, or similar); or
+2. any `.swar` that this import refuses as an unknown type or for data after
+   the player list - a newer SWAR's own team format, if it has one.
 
 ## File versions, and what SWAR v7 changed
 
@@ -186,7 +283,7 @@ worth recording:
 - **The actual SWAR v6.65 FRBE C++ source** (`TournoiReadWrite.cpp`,
   `Base.cpp`, `Joueur.cpp`, …) - not just a `.swar` file to guess from, the
   literal read/write code. Checked field-by-field against `SwarImport`'s
-  `parse_player/2` and `SwarExport`'s `reverse_player/5`: the `[RONDE]`
+  `parse_player/2` and `SwarExport`'s `reverse_player/6`: the `[RONDE]`
   record (`round_nr`/`table`/`advers`/`result`/`color`/`float`/`xtra_pts`,
   all `int32`, in that order) matches exactly, as does the surrounding
   player-record field order - both confirmed correct, not just
@@ -704,6 +801,76 @@ unlike the two above it is not a case of two defensible readings of the
 same rule; it is this importer not reading the file the way SWAR itself
 does.
 
+### Measured: SWAR's own stored standings, re-ranked here (2026-09-27)
+
+Every `[JOUEURS]` record carries SWAR's own place (`Class`), score and five
+tie-break values as `CalculLeClassement` left them when the file was saved.
+`tools/swar_rerank.exs` imports each file through this module into a
+throwaway database, ranks it with `Standings` (Ainalrami's tie-breaks), and
+compares - with a port of SWAR v6.65's `Classement.cpp` beside it, so a
+difference can be called SWAR's algorithm (the port reproduces SWAR's
+number) rather than guessed. The run and its report stay outside the
+repository; the files are real events.
+
+On the SWAR archive at hand (43 files compared, 13 of them finished events)
+the port reproduced every stored value of every file saved by v6.49-v6.77
+(bar the direct-encounter number of one part-played round robin; older
+files and v7 compute Buchholz and SB differently), and every rank
+difference in a finished event came down to one of these:
+
+* **C.07 2024 vs 2026.** SWAR's Article 16.4 dummy is the player's own
+  score, uncapped - the 1 August 2024 text. The 2026 text caps it (16.4.1
+  at a forfeit opponent's adjusted score, 16.4.2 at a draw per round).
+* **SWAR defects, in both texts.** `TieBucholtz` compares an opponent's
+  forfeit opponent with the player's *Rank* instead of their *Ni*: a forfeit
+  opponent is counted as if played (on top of the dummy), and a played
+  opponent who forfeited against somebody else is left out. Trailing forfeit
+  losses count as draws in the adjusted score (16.3.2 covers requested byes
+  only). `TieSonneborn` ignores an opponent's single last-round absence
+  (SWAR's own Buchholz does not). Cut-1 never cuts the dummy.
+* **The Belgian conventions above**: cut count scaled by rounds played, no
+  cut for a player with an absence; `WIN` without the pairing-allocated bye;
+  black games counted whatever the result.
+* **Categories ranked separately** (`CatSepares`): SWAR ranks, and applies
+  direct encounter, per category; this app ranked one field. A file of
+  several round-robin groups in one tournament is the case that shows it.
+  **Fixed since** - see below.
+* **Extra points**: SWAR ranks a Swiss on points plus `ExtraPts`; an import
+  left `count_extra_points` off (docs/extra-points.md). **Fixed since** -
+  the import switches it on for such a file.
+
+Three import defects it found are fixed: a v6.50 file with 12 categories
+did not import at all (`parse_categories/2`), a round robin kept
+`pairing_system: "swiss"` and was ranked by C.07's Swiss rules
+(`system_attrs/1`), and a round SWAR had prepared but not paired came in as
+a finished round of absences (`drop_unpaired_rounds/1`).
+
+**After the SWAR import and export were completed (2026-09-27).** The two
+causes marked fixed are gone: a file with SWAR's separate categories
+imports ranked per category (`categories_ranked_separately`), and one with
+extra points counts them (the first run already counted them by hand, so
+that part changes no number). Re-run over the same archive, now 44 files
+compared (SWAR's 333-player "TOURNOI ZERO" player list imports now):
+
+| | before | after |
+|---|---|---|
+| finished events, ranks equal | 424 / 456 | **436 / 456** |
+| finished events, tie-break values equal | 1848 / 1995 | **1890 / 1995** |
+| unfinished events, ranks equal | 926 / 1543 | 1170 / 1876 (+ the 333-player list) |
+| unfinished events, values equal | 5450 / 6273 | 5446 / 6273 |
+
+The 16-group round-robin club event went from 16 rank differences to 4.
+Its last two discordant pairs are C.07, not SWAR: one pair level after the
+whole tie-break list (C.07 shares the place; SWAR orders by seed, this app
+by rating), and one pair C.07 Article 6.2 separates by applying direct
+encounter again to the two players left level, where SWAR's `TieBetween`
+counts it once for the whole tied group. Every other finished-event
+difference is in the first three bullets above. The four unfinished-event
+values that moved are one SWAR 7.05 file with separate categories, whose
+stored direct-encounter numbers count games across categories; this app
+now agrees with the v6.65 port of SWAR's own per-category rule there, and
+SWAR 7's source is not available.
+
 ## Round robin: SWAR forces a bye to a full point, and this import now matches it
 
 **If you import a round robin with an odd number of players, the
@@ -768,6 +935,16 @@ SWAR's own pairing engine never saw either would blame this app for
 SWAR's own choice). Manual acceleration itself is not implemented, and
 this warning is not a step toward it - it exists so the arbiter knows to
 expect a different result, not to reproduce SWAR's own.
+
+**The standings do count them, as SWAR's do.** A Swiss whose players have
+`ExtraPts` imports with `count_extra_points` on, so it ranks on points plus
+extra points exactly as `CalculLeClassement` does; a round robin or 3-2-1
+file has its extra points zeroed, as SWAR's loader zeroes them. The band
+table (`[XTRA_POINTS]`: four `(points x 4, Elo)` bands, a player AT OR ABOVE
+a band's Elo getting its points - `XtraPoints.cpp`, `AssignExtraPoints`)
+cannot become this app's `extra_points_bands`, which pay players BELOW a
+rating; it is kept in `swar_settings` and written back by the export, and
+the players' own extra points travel either way.
 
 ## Categories: two axes, two tag sets
 
@@ -860,8 +1037,9 @@ import; `SwarExport.reverse_categories/3` uses them to split `categories`
 back across `value1`/`value2` with the original type integer, and
 `reverse_cat_index/4` re-packs each player's `CatIndex` from their pairing
 category (axis 1) and whichever of their tags is in axis 2. A plain
-single-axis list (`swar_category_type` nil) exports exactly as before, into
-`value1` alone with type 1. `SwarTwoAxisCategoriesTest` pins the whole
+single-axis list (`swar_category_type` nil) exports into `value1` alone,
+with the type the imported file had (1 ratings, 2 ages, 5 names) or 5 for
+categories made here. `SwarTwoAxisCategoriesTest` pins the whole
 loop down: import a two-axis export, export it again, import that - same
 categories, same per-player tag sets, both times.
 
@@ -960,3 +1138,144 @@ what the club had configured.
 - Test fixture: `test/fixtures/test3-321.swar` (gitignored, real personal
   data, same convention as `c-reeks.swar`/`problemski.swar`) - a real
   club-championship file saved with 3-2-1 mode on.
+
+## Import and export: what goes where
+
+Completed 2026-09-27: everything a `.swar` file holds is either used by the
+tournament or kept for the way back, and the export writes every piece SWAR
+can hold. What changed on the way:
+
+- **Extra points count as SWAR counts them.** A Swiss whose players have
+  `ExtraPts` imports with `count_extra_points` on; a round robin or 3-2-1
+  file has them zeroed, as SWAR's loader does (see "XtraPoints" above).
+- **Pairing numbers are SWAR's seed order** (`SwarImport.prepare_players/1`):
+  players in `(category when separate, Rank)` order, which is how SWAR
+  numbers its Berger tables and orders its JaVaFo input. `Ni` only finds a
+  record's opponent. A round robin continued here therefore plays SWAR's
+  own table, one per category when categories are separate
+  (`RoundRobin.schedule_groups/2`), and keeps SWAR's full-point free round -
+  docs/pairing-systems.md.
+- **SWAR's separate categories** (`CatSepares`) are `pair_by_category` plus
+  `categories_ranked_separately`, a tournament setting of its own (the
+  Categories page, "Rank each category separately") that `Standings`
+  honours: each category ranked on its own, places from 1, and no tie -
+  so no direct encounter - reaching across a category
+  (`Standings.ranked_separately?/1`). A file with categories imports with
+  them switched on.
+- **Data after the player list** imports without it, with a warning.
+- **An empty round 0** (SWAR's player-list template) imports as a
+  tournament with players and no rounds, with a warning.
+- **A SWAR "double rounds" Swiss** is match format; an accelerated Swiss is
+  a plain one, with a warning (SWAR's acceleration is not FIDE's Baku).
+- **FIDE homologation and SWAR's per-round FIDE ids** set
+  `fide_homologated` and `fide_id_ranges`; SWAR's "colour of the top seed in
+  round 1" sets the initial colour.
+- **Everything else SWAR has and this app does not** is kept in
+  `Tournament.swar_settings` and written back.
+
+### Field by field
+
+`[TOURNOI]`:
+
+| SWAR | Here | Written back |
+|---|---|---|
+| `Tournoi`, `Organisateur`, `ClubOuLogo`, `Lieu` | name, organizer, organizer club number, city | yes |
+| `Arbitre1` | chief arbiter, title taken off (FIDE-matched name when one matches) | the file's text while the name is the one the import made of it, else the chief arbiter |
+| `Arbitre2` | deputy arbiter text, and the deputies on the Norms page | yes |
+| `DateDebut`, `DateFin`, `[DATES]` | start and end date, round dates | yes, as SWAR's `dd/mm/yyyy` (the export wrote ISO) |
+| `Cadence`, `CadenceAutre` | rate of play | the file's index while it reads as the rate of play, else the index of the rate of play in SWAR's list for the standard (rapid and blitz lists were never searched), else "other" with the text |
+| `NbRondes` | rounds | yes |
+| `FRBEfrom/to`, `FIDEfrom/to` (games to report) | `swar_settings` | yes |
+| `CatSepares` | pair by category + rank each category separately | on when either is on (a note when only one is) |
+| `AfficherEloOuPays`, `SW_EloR1`, `SW_AmerPresence`, `Plusieurs`, `FirstTable`, `EloUsed`, `TbPersonel`, `EloEqual`, `FF_Value` | `swar_settings` | yes (they were fixed defaults) |
+| `FideHomologation` | FIDE homologated | yes |
+| `FideIdDe/AA/Id` (16) | event code (every id), FIDE id ranges (the usable ones) | the file's block while the tournament still derives the same ranges and code from it, else from the ranges, then any other id of the event code |
+| `FideArbitre1/2` | `swar_settings` | no: a v7 file has one string there |
+| `FideRemarques` | `swar_settings` | yes (the export wrote the deputy arbiter there) |
+| `Type` | tournament type, pairing system, cycles, match format | the file's type while it still reads the same (an accelerated or American Swiss is a plain Swiss here); else round robin 4, 5 (match format) or 6 (two cycles), Swiss 0, 1 (match format) or 3 (points other than 1/½/0) |
+| `SW321_*` | 3-2-1 point values (the import refuses a 3-2-1 file) | the tournament's for a 3-2-1 file, else the file's own |
+| `TournoiStd` | standard | yes |
+| `ApparOrder` | initial colour (Swiss: 0 white, 1 black, 2 drawn by lot) | the initial colour, or the colour the lot drew; a round robin's as the file had it |
+| `ByeValue` | bye value (a round robin's forced to a point) | the file's while it agrees, else the tournament's |
+| `AbsValue`, `AbsNbFois`, `AbsJusque` | absence points and caps | yes |
+| `Federation` | "BEL" | the file's Belgian federation code while the tournament is Belgian, else 2 |
+| `Version`, `Guid`, `MacAdress` | SWAR guid; `swar_settings` | always "v7.00"; the guid; the MAC address (was blank) |
+
+The other sections:
+
+| SWAR | Here | Written back |
+|---|---|---|
+| `[TIE_BREAK]` | tie-breaks (12 of SWAR's 15 codes) | the file's five while the tournament still ranks by what the import made of them, so median-2, performance and black wins stay in place; else every code SWAR has (the export knew six) |
+| `[EXCLUSION]` | club and federation rules, forbidden pairs | one rule as SWAR's own; forbidden pairs as the groups they came from; anything else as groups of player numbers, with a note |
+| `[CATEGORIES]` | categories, switched on; two-axis bookkeeping | yes; type as the file had it, or 5 (names) for categories made here (the export wrote 1, ratings) |
+| `[XTRA_POINTS]` | `swar_settings` (SWAR's bands pay at or above a rating, this app's below one) | yes (the export wrote zeros) |
+
+`[JOUEURS]` and `[RONDE]`:
+
+| SWAR | Here | Written back |
+|---|---|---|
+| `Ni` | finds opponents only | the pairing number |
+| `Rank` | the pairing number (seed order) | the order of the pairing numbers, unnumbered players by rating after them (the export always sorted by rating) |
+| `Nom`, `Sexe`, `Pays`, `MatNat`, `MatFide`, `Titre`, `ClubNr`, `Club`, `Dnaiss`, `Paye`, `Absent`, `AbsentRondes`, `HandyTable`, `CatIndex` | the player's fields | yes |
+| `Affilie` | affiliated (a G-licence, 2, is affiliated) | 1 or 0 |
+| `Elo`, `EloFide` | national and FIDE rating (a v7 file has one, both) | the FIDE rating: a v7 file has one |
+| `ExtraPts` | extra points (none for a round robin or 3-2-1) | while the tournament counts them |
+| `Class`, `NbParties`, `Points`, `TieBreak`, `Perf`, `Pts_Corr`, `AmericanPts`, `SpecialPts` | recomputed here (`Pts_Corr` warns) | games played, points (in quarter points - the export wrote halves), the rest 0: SWAR recomputes them |
+| `[RONDE]` | boards, results, byes, absences | yes; SWAR's floats and per-round extra points are 0 (the pairing engine works floats out itself) |
+
+What this app has that SWAR cannot hold is listed on the export page for the
+tournament at hand (`SwarExport.export_notes/1`): soft pairing wishes; more
+than one exclusion rule; Keizer; teams; Baku acceleration; a standings order
+set by hand; a round robin's own point values; other point values for a
+Swiss (written as SWAR's 3-2-1 type, which cannot be imported back yet);
+extra points the tournament does not count; this app's extra-point bands;
+more than 16 categories, and the conditions that fill them; tie-breaks SWAR
+has no code for (WON, TPN and the team ones) and more than five; a national
+rating that differs from the FIDE one; the rounds before a late entrant
+joined; unrated and postponed results. The settings that are about this
+app rather than the event - publishing, the postponed-game outcomes, the
+unplayed-round rule for Buchholz, norms data, e-mail addresses - have no
+SWAR field at all.
+
+### Round trip
+
+`test/pairings_engine/federations/bel/swar_round_trip_test.exs` imports a
+synthetic file for each feature above (every result and bye, absence and
+player field; SWAR's own settings; FIDE ids; every tie-break code; extra
+points and the band table; absence points; round robins single, match and
+double, with and without separate categories; separate and two-axis
+categories in a Swiss; double rounds; an accelerated Swiss; each initial
+colour; each of the five exclusion rules; an unpaired round; the round-0
+template; trailing data), exports it, imports the export, and checks that
+the second tournament is the first (`SwarFixture.snapshot/1`: every
+column, player, board, bye and forbidden pair) and that exporting it again
+gives the same bytes.
+
+Over the real files at hand (run by hand; they are real events and are
+never committed): all 47 distinct files import, export and re-import as the
+same tournament, and every re-export is byte for byte the export before it.
+The one field that changes is the national rating, on the 44 files saved
+before SWAR 7: a v7 file has one Elo per player. For every single-table
+round robin among them (10 files, 114 rounds) the Berger table built from
+the imported pairing numbers is the one SWAR paired into the file. The
+16-group club round robin is the exception, and needs none: its stored
+Ranks were renumbered after it was paired (they run 1-119 across the
+groups, where SWAR's own round-robin pairing leaves them 1-8 in each), so
+no numbering can rebuild its table - and all its rounds are in the file.
+
+What does not come back the same, all of it said on the export page or
+above:
+
+- a national rating that differs from the FIDE rating (v6 files);
+- SWAR's two FIDE-arbiter strings (a v7 file has no place for them);
+- a G-licence affiliation, which comes back as an ordinary one;
+- two or more exclusion rules at once, or a club rule SWAR's club numbers
+  would group differently, which come back as forbidden pairs;
+- ranking categories separately without pairing them separately (or the
+  reverse), which comes back as both;
+- a Swiss with its own point values, written as SWAR's 3-2-1 type, which
+  cannot be imported yet;
+- extra points the tournament does not count, which are left out;
+- SWAR's player numbers: the export numbers players in seed order, so a
+  file that went through here comes back to SWAR with the same players,
+  seeds and games under new numbers.

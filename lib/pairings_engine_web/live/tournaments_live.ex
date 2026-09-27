@@ -71,6 +71,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_params: @new_tournament_defaults,
        swar_pending: nil,
        swar_duplicate: nil,
+       swar_team: nil,
        bel_swar_import?: Features.enabled?(socket.assigns.current_scope, @swar_import_feature),
        # ---- hand-off ----
        # Three separate assigns for three separate states, deliberately not
@@ -438,7 +439,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_standard: "standard",
        new_params: @new_tournament_defaults,
        swar_pending: nil,
-       swar_duplicate: nil
+       swar_duplicate: nil,
+       swar_team: nil
      )}
   end
 
@@ -514,6 +516,36 @@ defmodule PairingsEngineWeb.TournamentsLive do
     {:noreply, assign(socket, swar_pending: nil, importing: true, error: nil)}
   end
 
+  def handle_event("cancel_swar_team", _params, socket) do
+    {:noreply, assign(socket, swar_team: nil, importing: true, error: nil)}
+  end
+
+  def handle_event(
+        "swar_team_import_individual",
+        _params,
+        %{assigns: %{bel_swar_import?: false}} = socket
+      ),
+      do: {:noreply, socket |> assign(swar_team: nil) |> put_flash(:error, swar_import_off())}
+
+  def handle_event(
+        "swar_team_import_individual",
+        _params,
+        %{assigns: %{swar_team: nil}} = socket
+      ),
+      do: {:noreply, socket}
+
+  # The organiser's own choice: the games, as the individual tournament the
+  # file stores. From here on it is an ordinary SWAR import - the duplicate
+  # check and the FIDE-id step still come first.
+  def handle_event("swar_team_import_individual", _params, socket) do
+    prepared = %{socket.assigns.swar_team | team_marked: false}
+
+    {:noreply, socket} =
+      continue_or_warn_swar(socket, socket.assigns.current_scope, prepared)
+
+    {:noreply, assign(socket, swar_team: nil)}
+  end
+
   def handle_event("cancel_swar_duplicate", _params, socket) do
     {:noreply, assign(socket, swar_duplicate: nil, importing: true, error: nil)}
   end
@@ -562,7 +594,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       end)
 
     case results do
-      [{:ok, imported}] ->
+      [{:ok, imported, notes}] ->
         count = length(imported)
 
         Enum.each(imported, fn tournament ->
@@ -573,7 +605,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Imported #{count} tournament#{if count != 1, do: "s"}.")
+         |> put_flash(
+           :info,
+           Enum.join(["Imported #{count} tournament#{if count != 1, do: "s"}." | notes], " ")
+         )
          |> assign(importing_backup: false, error: nil)
          |> assign_tournaments()}
 
@@ -756,6 +791,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           # offering "Copy of X" a takeover of X's published page would put
           # two rows one click away from fighting over one address.
           |> put_in(["tournaments", Access.at(0), "openresults"], nil)
+          # Nor does the SWAR guid, for the same reason: it is the original's
+          # identity in SWAR and on the federation's results site, and the
+          # original is still here. The copy mints its own the first time
+          # it goes to SWAR.
+          |> put_in(["tournaments", Access.at(0), "tournament", "swar_guid"], nil)
 
         case TournamentImport.import(envelope, socket.assigns.current_scope) do
           {:ok, [new_tournament]} ->
@@ -1070,18 +1110,36 @@ defmodule PairingsEngineWeb.TournamentsLive do
         content = File.read!(path)
 
         case Parser.detect_format(entry.client_name, content) do
-          :swar when not swar? -> {:ok, {:swar, {:error, :feature_off}}}
-          :swar -> {:ok, {:swar, SwarImport.prepare_import(path)}}
-          :trf -> {:ok, {:trf, TrfImport.import_text(content, scope)}}
-          :unknown when panel == :swar and not swar? -> {:ok, {:swar, {:error, :feature_off}}}
-          :unknown when panel == :swar -> {:ok, {:swar, SwarImport.prepare_import(path)}}
-          :unknown -> {:ok, {:trf, TrfImport.import_text(content, scope)}}
+          :swar when not swar? ->
+            {:ok, {:swar, {:error, :feature_off}}}
+
+          :swar ->
+            {:ok, {:swar, SwarImport.prepare_import(path, filename: entry.client_name)}}
+
+          :trf ->
+            {:ok, {:trf, TrfImport.import_text(content, scope)}}
+
+          :unknown when panel == :swar and not swar? ->
+            {:ok, {:swar, {:error, :feature_off}}}
+
+          :unknown when panel == :swar ->
+            {:ok, {:swar, SwarImport.prepare_import(path, filename: entry.client_name)}}
+
+          :unknown ->
+            {:ok, {:trf, TrfImport.import_text(content, scope)}}
         end
       end)
 
     case results do
       [{:swar, {:error, :feature_off}}] ->
         {:noreply, put_flash(socket, :error, swar_import_off())}
+
+      # SWAR's team mode: the file holds a team competition's individual
+      # games and nothing of its teams (`SwarImport.team_marked?/2`). Ask
+      # before importing the games as an individual tournament.
+      [{:swar, {:ok, %{team_marked: true} = prepared}}] ->
+        {:noreply,
+         assign(socket, swar_team: prepared, importing: false, importing_trf: false, error: nil)}
 
       [{:swar, {:ok, prepared}}] ->
         continue_or_warn_swar(socket, scope, prepared)
@@ -1345,7 +1403,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp decode_and_import(path, scope) do
     case TournamentImport.decode_file(path) do
       {:ok, data} ->
-        TournamentImport.import(data, scope)
+        TournamentImport.import_with_notes(data, scope)
 
       {:error, :too_large} ->
         {:error,
@@ -1815,6 +1873,38 @@ defmodule PairingsEngineWeb.TournamentsLive do
             {gettext("Import as a new tournament anyway")}
           </button>
           <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">{gettext("Cancel")}</button>
+        </div>
+      </div>
+
+      <div
+        :if={@swar_team}
+        id="swar-team-warning"
+        class="card"
+        role="region"
+        aria-labelledby="swar-team-warning-title"
+      >
+        <h2 id="swar-team-warning-title">{gettext("This is a team competition")}</h2>
+
+        <p class="hint" style="margin-top: 0">{SwarImport.team_marked_message()}</p>
+
+        <p class="hint">
+          {gettext(
+            "As an individual tournament, every game is kept - results, colours, player records and the rating report - but there are no teams, matches or team standings."
+          )}
+        </p>
+
+        <div class="actions">
+          <button
+            type="button"
+            id="swar-team-import-individual"
+            class="pe-btn primary"
+            phx-click="swar_team_import_individual"
+          >
+            {gettext("Import the games as an individual tournament")}
+          </button>
+          <button type="button" id="swar-team-cancel" class="pe-btn" phx-click="cancel_swar_team">
+            {gettext("Cancel")}
+          </button>
         </div>
       </div>
 

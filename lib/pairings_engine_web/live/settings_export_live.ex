@@ -29,7 +29,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   }
 
   alias PairingsEngineWeb.Postponed
-  alias PairingsEngine.Federations.BEL.SwarUpload
+  alias PairingsEngine.Federations.BEL.{SwarExport, SwarUpload}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -65,7 +65,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
        csv_skip_absent: false,
        csv_bom: true
      )
-     |> assign_trf_state()}
+     |> assign_trf_state()
+     |> assign_swar_export_notes()}
   end
 
   # What the TRF section shows beside its downloads: rounds already sent,
@@ -357,8 +358,23 @@ defmodule PairingsEngineWeb.SettingsExportLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament) |> assign_trf_state()}
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> assign_trf_state()
+         |> assign_swar_export_notes()}
     end
+  end
+
+  # What a `.swar` export of this tournament cannot carry (`SwarExport.
+  # export_notes/1`), shown beside its button - only where that button is.
+  defp assign_swar_export_notes(socket) do
+    notes =
+      if socket.assigns.bel_swar_export?,
+        do: SwarExport.export_notes(socket.assigns.tournament),
+        else: []
+
+    assign(socket, swar_export_notes: notes)
   end
 
   ## ---------- publishing to the federation's own results site ----------
@@ -1050,6 +1066,24 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           >
             {gettext("Export SWAR results page (.html)")}
           </a>
+        </div>
+
+        <%!-- What SWAR's format cannot hold of THIS tournament, said before
+              the organiser opens the file in SWAR and finds out - each
+              sentence says what SWAR will do instead. Nothing when the file
+              holds it all. --%>
+        <div
+          :if={@bel_swar_export? and @swar_export_notes != []}
+          id="swar-export-notes"
+          class="hint"
+          style="margin-top: 10px"
+        >
+          <p style="margin: 0 0 4px">
+            <strong>{gettext("What the .swar file cannot hold of this tournament:")}</strong>
+          </p>
+          <ul style="margin: 0; padding-left: 18px">
+            <li :for={note <- @swar_export_notes}>{note}</li>
+          </ul>
         </div>
       </div>
 

@@ -181,7 +181,7 @@ socket.
   "exported_at": "2026-07-11T12:00:00Z",
   "tournaments": [
     {
-      "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* most Tournament fields - 15 are held back, see below */ },
+      "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* most Tournament fields - some are held back, see below */ },
       "openresults": { "key": "...", "slug": "...", "endpoint": "https://..." },  // or null - see below
       "teams":   [{ "id": 7, "name": "Team A", "captain": "..." }],
       "players": [{ "id": 42, "name": "...", "team_id": 7, "norm_data": {...}, /* every Player field except tournament_id/timestamps */ }],
@@ -213,7 +213,7 @@ their seeding order and frozen pairing number. See
 ### What does not travel
 
 The backup carries the tournament as an arbiter configured it, not the row
-as the database holds it. Of the tournament's 68 fields, **15 are held back**
+as the database holds it. A few of the tournament's fields are held back
 (`TournamentExport.@excluded_tournament_fields`), in three groups:
 
 - **Identity and ownership** - `id`, `user_id`, `inserted_at`, `updated_at`.
@@ -224,8 +224,29 @@ as the database holds it. Of the tournament's 68 fields, **15 are held back**
   handed; an imported copy must get its own unguessable link rather than
   share the original's.
 - **State that belongs to this machine** - `deleted_at`, `archived_at`,
-  `swar_guid`, `logo_data`, `logo_content_type`, `head_snapshot_id`,
-  `openresults_key`, `openresults_claim`.
+  `swar_uploaded_at`, `swar_published_at`, `logo_data`,
+  `logo_content_type`, `head_snapshot_id`, `openresults_key`,
+  `openresults_claim`, and the public-address and hand-off bookkeeping.
+
+The SWAR bookkeeping **does** travel: `swar_guid` (the tournament's identity
+in SWAR and on the federation's results site), `swar_settings` (the imported
+`.swar` file's own settings), `swar_category_type`/`swar_category_axis2`
+(two-axis categories) and `categories_ranked_separately`. A restored copy
+therefore exports the same `.swar` file as the original, byte for byte, and
+a round robin continued from SWAR keeps SWAR's full-point free round
+(`swar_backup_test.exs`). A backup from before these travelled restores with
+the defaults (no guid - a new one is minted on the first SWAR export - and
+no SWAR settings); restoring a restore point never takes away a guid the
+tournament has since been given. "Duplicate" in the tournament list is the
+one copy that drops the guid: it sits beside the original, so it gets its
+own identity the first time it goes to SWAR. The same holds for any import
+as a new tournament: when some tournament on this machine - whoever owns
+it, in the recycle bin or not - already has the file's guid, the new one is
+imported without it and the import says so
+(`TournamentImport.import_with_notes/2`), because two tournaments with one
+guid would upload to the federation's results site as the same event.
+Moving to a new machine, or receiving a hand-off, finds no such tournament
+and keeps it.
 
 `openresults_key` is the one exception worth naming: it is not in the
 tournament map but it does leave, in the entry's own `"openresults"` block

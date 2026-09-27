@@ -69,6 +69,25 @@ defmodule PairingsEngineWeb.SettingsExportLiveTest do
     response(swar_conn, 200)
   end
 
+  @tag :enable_features
+  test "says what the .swar file cannot hold of this tournament, and nothing when it holds it all",
+       %{conn: conn, scope: scope} do
+    plain = create_tournament(scope, %{"tiebreaks" => ["BHC1", "BH", "SB"]})
+    {:ok, lv, _html} = live(conn, ~p"/t/#{plain.id}/settings/export")
+    refute has_element?(lv, "#swar-export-notes")
+
+    tournament =
+      create_tournament(scope, %{
+        "club_exclusion" => "all",
+        "fed_exclusion" => "all",
+        "tiebreaks" => ["BH", "WON"]
+      })
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+    assert has_element?(lv, "#swar-export-notes", "SWAR keeps one exclusion rule")
+    assert has_element?(lv, "#swar-export-notes", "WON")
+  end
+
   test "the publishing-key warning only shows once this tournament has actually published", %{
     conn: conn,
     scope: scope
