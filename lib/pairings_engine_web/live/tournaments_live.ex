@@ -560,7 +560,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       end)
 
     case results do
-      [{:ok, imported}] ->
+      [{:ok, imported, notes}] ->
         count = length(imported)
 
         Enum.each(imported, fn tournament ->
@@ -571,7 +571,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Imported #{count} tournament#{if count != 1, do: "s"}.")
+         |> put_flash(
+           :info,
+           Enum.join(["Imported #{count} tournament#{if count != 1, do: "s"}." | notes], " ")
+         )
          |> assign(importing_backup: false, error: nil)
          |> assign_tournaments()}
 
@@ -1366,7 +1369,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp decode_and_import(path, scope) do
     case TournamentImport.decode_file(path) do
       {:ok, data} ->
-        TournamentImport.import(data, scope)
+        TournamentImport.import_with_notes(data, scope)
 
       {:error, :too_large} ->
         {:error,

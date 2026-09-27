@@ -29,7 +29,10 @@ defmodule PairingsEngine.Federations.BEL.SwarBackupTest do
     Repo.reload!(t)
   end
 
-  # A real backup: the envelope through JSON and back, into a new row.
+  # A real backup: the envelope through JSON and back, into a new row - on
+  # a machine where the original is not (its guid is taken off the
+  # original's row first, as if it lived elsewhere; a caller comparing
+  # exports takes the original's before that).
   defp backup_and_restore!(tournament, scope, edit \\ & &1) do
     envelope =
       tournament
@@ -38,7 +41,9 @@ defmodule PairingsEngine.Federations.BEL.SwarBackupTest do
       |> Jason.decode!()
       |> edit.()
 
-    assert {:ok, [copy]} = TournamentImport.import(envelope, scope)
+    Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id), set: [swar_guid: nil])
+
+    assert {:ok, [copy], []} = TournamentImport.import_with_notes(envelope, scope)
     Repo.reload!(copy)
   end
 
@@ -78,12 +83,13 @@ defmodule PairingsEngine.Federations.BEL.SwarBackupTest do
     scope: scope
   } do
     original = import_swar!(dir, round_robin_opts(), scope)
+    exported = SwarExport.export(original.id)
     copy = backup_and_restore!(original, scope)
 
     assert copy.id != original.id
     assert copy.swar_guid == "{RR-GUID-1}"
     assert copy.swar_settings == original.swar_settings
-    assert SwarExport.export(copy.id) == SwarExport.export(original.id)
+    assert SwarExport.export(copy.id) == exported
   end
 
   test "a restored SWAR round robin keeps SWAR's full-point free round", %{
@@ -113,12 +119,35 @@ defmodule PairingsEngine.Federations.BEL.SwarBackupTest do
     original = import_swar!(dir, swiss_opts(), scope)
     assert original.count_extra_points
     assert original.swar_category_type == 3
+    exported = SwarExport.export(original.id)
 
     copy = backup_and_restore!(original, scope)
 
     assert copy.swar_category_type == 3
     assert copy.swar_category_axis2 == original.swar_category_axis2
-    assert SwarExport.export(copy.id) == SwarExport.export(original.id)
+    assert SwarExport.export(copy.id) == exported
+  end
+
+  test "beside a tournament that already has its SWAR identity, a backup imports without it",
+       %{tmp_dir: dir, scope: scope} do
+    original = import_swar!(dir, swiss_opts(), scope)
+
+    envelope =
+      original |> TournamentExport.export_tournament() |> Jason.encode!() |> Jason.decode!()
+
+    # Any owner: somebody else imports it here.
+    other = Scope.for_user(PairingsEngine.AccountsFixtures.user_fixture())
+    assert {:ok, [copy], [note]} = TournamentImport.import_with_notes(envelope, other)
+    assert note =~ "without its SWAR identity"
+
+    copy = Repo.reload!(copy)
+    assert copy.swar_guid in [nil, ""]
+    assert copy.swar_settings == original.swar_settings
+    assert Repo.reload!(original).swar_guid == "{SWISS-GUID-1}"
+
+    # The copy's first export mints an identity of its own.
+    SwarExport.export(copy.id)
+    refute Repo.reload!(copy).swar_guid in [nil, "", "{SWISS-GUID-1}"]
   end
 
   test "categories ranked separately travel in a backup", %{tmp_dir: dir, scope: scope} do

@@ -105,8 +105,11 @@ Each entry is tagged so a version can be skimmed:
   exported a different .swar file, under a new identity on the federation's
   results site. They now travel, together with "Rank each category
   separately", and the restored copy exports the same file byte for byte
-  and continues a SWAR round robin with SWAR's full-point free rounds. Older backups still restore. "Duplicate" still gives
-  the copy its own identity, since the original is right beside it.
+  and continues a SWAR round robin with SWAR's full-point free rounds.
+  Older backups still restore. A copy imported beside a tournament that
+  already has that identity - "Duplicate", or a backup imported on the
+  machine the original is on - gets its own instead, and the import says
+  so, so two tournaments never upload as one event.
 - [Verified] **Import, export, import gives the same tournament.** Checked
   for a synthetic file per feature and for every real SWAR file at hand:
   each comes back as the same tournament, and exporting it again gives the

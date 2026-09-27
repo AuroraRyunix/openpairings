@@ -239,7 +239,14 @@ the defaults (no guid - a new one is minted on the first SWAR export - and
 no SWAR settings); restoring a restore point never takes away a guid the
 tournament has since been given. "Duplicate" in the tournament list is the
 one copy that drops the guid: it sits beside the original, so it gets its
-own identity the first time it goes to SWAR.
+own identity the first time it goes to SWAR. The same holds for any import
+as a new tournament: when some tournament on this machine - whoever owns
+it, in the recycle bin or not - already has the file's guid, the new one is
+imported without it and the import says so
+(`TournamentImport.import_with_notes/2`), because two tournaments with one
+guid would upload to the federation's results site as the same event.
+Moving to a new machine, or receiving a hand-off, finds no such tournament
+and keeps it.
 
 `openresults_key` is the one exception worth naming: it is not in the
 tournament map but it does leave, in the entry's own `"openresults"` block
