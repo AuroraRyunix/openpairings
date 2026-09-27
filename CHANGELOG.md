@@ -16,6 +16,24 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **A SWAR file in SWAR's team mode asks before it imports.** SWAR
+  has no team tournaments: its "team" mode (a Swiss named "... - team") keeps
+  only the individual games, while the teams, matches and match points live
+  outside the file. Importing one now says so and offers to import the games
+  as an individual tournament, instead of doing that without a word.
+- [Change] **SWAR files unlike any seen so far are refused.** A tournament
+  type SWAR's own nine do not include, or data after the player list, used to
+  import as an ordinary Swiss with the rest ignored. Both are where a newer
+  SWAR would put something new - teams, for instance - so the import now
+  stops and says why.
+- [Fix] **SWAR's pairing exclusions are imported.** A SWAR file that keeps
+  clubmates or compatriots apart - SWAR's way of running school and
+  interclub-style events - or that forbids certain pairs of players, lost the
+  rule on import, so the next round paired here could seat teammates against
+  each other. The club and federation rules and the forbidden pairings now
+  come across, with a notice when SWAR's club numbers and the clubs' names
+  do not group the players the same way.
+
 ## [0.67.0] - 2026-09-26
 
 - [Change] **Postponed games moved to Settings, Export.** Everything the

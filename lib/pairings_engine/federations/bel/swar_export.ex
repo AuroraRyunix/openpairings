@@ -66,9 +66,12 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   here, since the reasoning differs per field. The two structural ones
   worth knowing before reading further:
 
-    * SWAR's `[EXCLUSION]` section is parsed but never mapped to
-      anything on import (`data.exclusion` is read and discarded), so
-      there is no reverse to write either - always exported empty.
+    * SWAR's `[EXCLUSION]` section is always exported empty. Import maps
+      it onto the club/federation exclusion rules and forbidden pairings
+      (`SwarImport.exclusion_attrs/1`), but SWAR holds ONE rule where this
+      app holds two axes plus explicit pairs, and groups clubs by number
+      where this app groups them by name - there is no single section to
+      write back without choosing what to lose, so nothing is written yet.
     * SWAR's `[CATEGORIES]` section is TWO parallel 16-slot lists
       (`value1`/`value2`, presumably two independent category
       dimensions); import already collapses them into one flat list
