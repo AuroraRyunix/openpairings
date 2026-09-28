@@ -1946,29 +1946,29 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
              )
     end
 
-    test "immediate mode shows level 3, locked, with the Settings reason and nothing to click",
+    # The old "immediate" mode locked this control at level 3. The automation
+    # that replaced it (2026-09-28) moves rounds up, and the arbiter can
+    # always take one back down - it stays where they put it.
+    test "with the automation on nothing is locked: a round taken down by hand stays there",
          %{conn: conn, scope: scope} do
       tournament = fixture(scope)
-      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
+      {:ok, tournament} = Tournaments.set_auto_publish(tournament, "standings")
 
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      assert has_element?(lv, "#publish-level-2.is-locked[data-level='3']")
-      assert has_element?(lv, "#publish-level-2-3[aria-checked='true']")
+      refute has_element?(lv, "#publish-level-2.is-locked")
+      refute has_element?(lv, "#publish-level-2-0[aria-disabled='true']")
 
-      for level <- 0..3 do
-        assert has_element?(lv, "#publish-level-2-#{level}[aria-disabled='true']")
-      end
+      # Pairings only, although the automation would add the results.
+      lv |> element("#publish-level-2-1") |> render_click()
+      assert has_element?(lv, "#publish-level-2[data-level='1']")
+      assert Tournaments.get_round(tournament.id, 2).publish_cap == 1
 
-      assert has_element?(lv, "#publish-level-2-radios[aria-describedby='publish-level-2-lock']")
-      assert html =~ "Change that in Settings"
-      refute has_element?(lv, "[phx-click='set_publish_level']")
+      lv |> element("#publish-level-2-0") |> render_click()
+      assert has_element?(lv, "#publish-level-2[data-level='0']")
 
-      # Refused server-side too.
-      render_click(lv, "set_publish_level", %{"round" => "2", "level" => "0"})
-
-      assert Audit.list_for_tournament(tournament.id, action: "pairing.pairings_unpublished") ==
-               []
+      assert [_] =
+               Audit.list_for_tournament(tournament.id, action: "pairing.pairings_unpublished")
     end
 
     test "standings for an unfinished round: that stop is disabled with the reason",
@@ -2106,19 +2106,19 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert public_flags(tournament, 2) == %{pairings: false, results: false, standings: false}
     end
 
-    test "immediate mode: the menu's copy is locked too, with the same explanation", %{
+    test "with the automation on, the menu's copy is not locked either", %{
       conn: conn,
       scope: scope
     } do
       tournament = fixture(scope)
-      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
+      {:ok, tournament} = Tournaments.set_auto_publish(tournament, "standings")
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
 
-      assert has_element?(lv, "#menu-publish-level-2.is-locked[data-level='3']")
-      assert has_element?(lv, "#menu-publish-level-2-0[aria-disabled='true']")
-      assert html =~ "Change that in Settings"
+      refute has_element?(lv, "#menu-publish-level-2.is-locked")
+      refute has_element?(lv, "#menu-publish-level-2-0[aria-disabled='true']")
+      assert has_element?(lv, "#menu-publish-level-2-1[phx-click='set_publish_level']")
     end
   end
 

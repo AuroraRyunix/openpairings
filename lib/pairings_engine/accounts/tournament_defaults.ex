@@ -113,19 +113,33 @@ defmodule PairingsEngine.Accounts.TournamentDefaults do
   params. The create path merges the submitted form OVER these, so anything
   the form does carry always wins.
 
-  `publish_delay_minutes` travels only with the "timed" mode it belongs to:
-  on its own it would be a delay nothing reads.
+  `publish_delay_minutes` travels only with an automation that has the
+  pairings step it delays: on its own it would be a delay nothing reads. A
+  `publish_mode` from before 2026-09-28 (the migration converts stored ones,
+  this covers anything it could not reach) is converted the same way,
+  rather than handed to a changeset that would refuse it and with it the
+  whole new tournament.
   """
   def hidden_params(nil), do: %{}
 
   def hidden_params(%__MODULE__{} = defaults) do
-    params = params(defaults, @hidden_fields)
+    params =
+      defaults
+      |> params(@hidden_fields)
+      |> Map.update("publish_mode", nil, &current_publish_mode/1)
+      |> Map.reject(fn {_key, value} -> is_nil(value) end)
 
-    if params["publish_mode"] == "timed" do
+    if Tournament.auto_publish_level(params["publish_mode"]) >= 1 do
       params
     else
       Map.delete(params, "publish_delay_minutes")
     end
+  end
+
+  defp current_publish_mode(mode) do
+    if Tournament.legacy_publish_mode?(mode),
+      do: Tournament.legacy_publish_mode(mode, nil),
+      else: mode
   end
 
   @doc "Whether any default at all is stored."

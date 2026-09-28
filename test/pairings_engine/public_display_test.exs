@@ -77,7 +77,9 @@ defmodule PairingsEngine.PublicDisplayTest do
       for stored <- [nil, %{}, %{"club" => false}] do
         resolved = PublicDisplay.resolve(stored)
 
-        assert Enum.sort(Map.keys(resolved)) == Enum.sort(PublicDisplay.keys())
+        assert Enum.sort(Map.keys(resolved)) ==
+                 Enum.sort(PublicDisplay.keys() ++ PublicDisplay.legacy_keys())
+
         assert Enum.all?(Map.values(resolved), &is_boolean/1)
       end
     end
@@ -88,7 +90,9 @@ defmodule PairingsEngine.PublicDisplayTest do
       # know the six keys it does not mention.
       resolved = PublicDisplay.resolve(%{"club" => false})
 
-      assert Enum.sort(Map.keys(resolved)) == Enum.sort(PublicDisplay.keys())
+      assert Enum.sort(Map.keys(resolved)) ==
+               Enum.sort(PublicDisplay.keys() ++ PublicDisplay.legacy_keys())
+
       assert resolved["club"] == false
       assert resolved["rounds_played"] == false
 
@@ -111,16 +115,44 @@ defmodule PairingsEngine.PublicDisplayTest do
     end
 
     test "a whole page can be switched off, but not the truth on a shown one" do
-      # The line the feature draws. `standings` and `pairings` ARE keys - an
+      # The line the feature draws. `player_cards` and `byes` ARE keys - an
       # arbiter can decline to publish a page - but nothing lets them publish
       # a standings table with the names taken out, or a pairing list without
       # results. A page is shown honestly or not shown.
-      assert "standings" in PublicDisplay.keys()
-      assert "pairings" in PublicDisplay.keys()
+      assert "player_cards" in PublicDisplay.keys()
+      assert "byes" in PublicDisplay.keys()
 
       for forbidden <- ~w(name result board rank points) do
         refute forbidden in PublicDisplay.keys()
       end
+    end
+
+    # 2026-09-28: whether a round's pairings and the standings after it are
+    # public is that round's level. The two page switches are off the
+    # settings page, but still travel and are still honoured where they were
+    # switched off, until the arbiter shows the page again.
+    test "the standings and pairings pages are retired keys, not settings" do
+      assert PublicDisplay.legacy_keys() == ~w(standings pairings)
+
+      for key <- PublicDisplay.legacy_keys() do
+        refute key in PublicDisplay.keys()
+      end
+
+      assert PublicDisplay.resolve(%{"standings" => false})["standings"] == false
+      assert PublicDisplay.resolve(nil)["pairings"] == true
+
+      assert PublicDisplay.legacy_hidden(%{"standings" => false, "club" => false}) == [
+               "standings"
+             ]
+
+      assert PublicDisplay.legacy_hidden(nil) == []
+    end
+
+    test "cast/2 keeps a retired key the form cannot send" do
+      assert PublicDisplay.cast(%{"club" => "true"}, %{"pairings" => false, "club" => false}) ==
+               PublicDisplay.cast(%{"club" => "true"}) |> Map.put("pairings", false)
+
+      refute Map.has_key?(PublicDisplay.cast(%{}, nil), "standings")
     end
 
     test "every key belongs to a group the settings page renders" do

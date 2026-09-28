@@ -261,9 +261,9 @@ defmodule PairingsEngine.TournamentExport do
   #     created by this import.
   @player_excluded ~w(id tournament_id inserted_at updated_at)a
 
-  # `results_public` is not cast by `Round.changeset/2`; the import carries it
-  # explicitly (`TournamentImport.import_rounds!/3`).
-  @round_fields ~w(number date status published_at results_public)a
+  # `results_public` and `publish_cap` are not cast by `Round.changeset/2`;
+  # the import carries them explicitly (`TournamentImport.import_rounds!/3`).
+  @round_fields ~w(number date status published_at results_public publish_cap)a
 
   # Schema fields NOT exported, each with the reason. Paired with a test
   # (`tournament_export_test.exs`) that asserts every field on the Round and
@@ -298,7 +298,22 @@ defmodule PairingsEngine.TournamentExport do
     # the keys through its player map (`TournamentImport.import_rounds!/4`)
     # rather than dropping it. It is pairing input, not a diagnostic: the
     # next round's `XXA` history is read from it (docs/extra-points.md).
-    :virtual_points
+    :virtual_points,
+    # In-flight scheduling state for `PairingsEngine.Publishing.promote_due_rounds/1`,
+    # not tournament content - an absolute timestamp only `Tournaments.due_publish_at/1`
+    # writes, at the moment a round is paired, alongside `published_at`
+    # (which IS exported and restores fine on its own: a round's public
+    # visibility does not depend on this field, only on WHETHER it gets
+    # woken up again to re-publish once `published_at` catches up).
+    #
+    # A fresh import must not carry it regardless: import never adopts the
+    # original's publishing (`dormant_claim/1`), so a wake-up timer for a
+    # publish the imported copy will not send on its own would be a promise
+    # nothing keeps. A restore taken between pairing and this timing out
+    # loses only that: the round stays correctly hidden until its
+    # `published_at`, and an arbiter who needs it live sooner already has
+    # `publish_round_now/1` for exactly that.
+    :publish_due_at
   ]
 
   @pairing_excluded [

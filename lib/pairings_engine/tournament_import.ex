@@ -46,6 +46,10 @@ defmodule PairingsEngine.TournamentImport do
   @format "openpairings-export"
   @version 1
 
+  # Where `legacy_publish_mode/1` keeps a pre-2026-09-28 `publish_mode` for
+  # `apply_legacy_immediate!/2`. Not a tournament field, so nothing casts it.
+  @legacy_mode_key "__legacy_publish_mode"
+
   @doc """
   Imports every tournament in `data` (a JSON-decoded export envelope) as new
   tournaments owned by `scope`'s user. Returns `{:ok, [%Tournament{}, ...]}`
@@ -221,6 +225,7 @@ defmodule PairingsEngine.TournamentImport do
       entry
       |> fetch_map!("tournament")
       |> migrate_legacy_category_rules()
+      |> legacy_publish_mode()
       |> keep_live_swar_guid(tournament)
 
     tournament =
@@ -264,6 +269,18 @@ defmodule PairingsEngine.TournamentImport do
             Map.get(t_attrs, "fide_compliance_lost_round")
           )
       )
+      # Same reasoning, and the same three fields, as `import_tournament!/2`
+      # - see the comment there. A restore point taken before this shipped
+      # carries none of them and this tournament comes back with the
+      # column's own default, same as a fresh import of the same old file
+      # would; there is no "live value" to prefer here either, since a
+      # restore's whole point is to replace what is live with what the
+      # entry says.
+      |> Ecto.Changeset.change(
+        public_listed: truthy(Map.get(t_attrs, "public_listed")),
+        public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
+        public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
+      )
       |> Ecto.Changeset.change(pairing_state(t_attrs, tournament.initial_colour_drawn))
       |> update!()
 
@@ -276,6 +293,7 @@ defmodule PairingsEngine.TournamentImport do
     tournament
     |> PairingsEngine.TeamSwiss.settle_mode()
     |> apply_standings_through!(t_attrs)
+    |> apply_legacy_immediate!(t_attrs)
   end
 
   # The drawn initial colour and a team Swiss's pairing mode are written by
@@ -393,6 +411,7 @@ defmodule PairingsEngine.TournamentImport do
       t_data
       |> fetch_map!("tournament")
       |> migrate_legacy_category_rules()
+      |> legacy_publish_mode()
       |> legacy_extra_points_mode(t_data)
       |> legacy_late_entry_absences()
       |> unique_swar_guid()
@@ -421,6 +440,19 @@ defmodule PairingsEngine.TournamentImport do
         # the schema rather than a rule this function has to remember.
         openresults_claim: dormant_claim(t_data)
       )
+      # `public_listed`/`public_display`/`public_hidden_tiebreaks` are
+      # display preferences `TournamentExport` writes (see its own doc for
+      # why they travel) but, like `manual_ranking_stale` above, are outside
+      # `Tournament.changeset/2`'s cast list on purpose - so a fresh import
+      # has to carry them across by hand too, or an arbiter's public-page
+      # picks would silently reset to "show everything" on every restore.
+      # A brand-new row, so a file that predates the field simply gets that
+      # field's own default - there is no live value to fall back to.
+      |> Ecto.Changeset.change(
+        public_listed: truthy(Map.get(t_attrs, "public_listed")),
+        public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
+        public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
+      )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil))
       |> insert!()
 
@@ -441,8 +473,59 @@ defmodule PairingsEngine.TournamentImport do
     import_audit_log!(tournament, list(t_data, "audit_log"), player_map)
     import_collaborators!(tournament, list(t_data, "collaborators"))
 
-    {apply_standings_through!(tournament, t_attrs), notes}
+    tournament =
+      tournament
+      |> apply_standings_through!(t_attrs)
+      |> apply_legacy_immediate!(t_attrs)
+
+    {tournament, notes}
   end
+
+  # A file written before 2026-09-28 carries a `publish_mode` from the old
+  # set (immediate, timed, scheduled). It gets the conversion the migration
+  # that retired those gave every tournament already in the database -
+  # `Tournament.legacy_publish_mode/2`, with the file's own display ticks -
+  # and the old value is kept under a private key for
+  # `apply_legacy_immediate!/2`, which needs to know after the rounds land.
+  defp legacy_publish_mode(%{"publish_mode" => mode} = t_attrs) when is_binary(mode) do
+    if Tournament.legacy_publish_mode?(mode) do
+      t_attrs
+      |> Map.put("publish_mode", Tournament.legacy_publish_mode(mode, t_attrs["public_display"]))
+      |> Map.put(@legacy_mode_key, mode)
+    else
+      t_attrs
+    end
+  end
+
+  defp legacy_publish_mode(t_attrs), do: t_attrs
+
+  # "immediate" kept nothing it showed in the rows - every round, its
+  # results and the finished standings were public whatever they said - so
+  # an old immediate file is written out as what it showed, the same
+  # conversion `AutomaticPublishingLadder` applied in the database.
+  defp apply_legacy_immediate!(tournament, %{@legacy_mode_key => "immediate"}) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.update_all(
+      from(r in Round, where: r.tournament_id == ^tournament.id and is_nil(r.published_at)),
+      set: [published_at: now]
+    )
+
+    Repo.update_all(from(r in Round, where: r.tournament_id == ^tournament.id),
+      set: [results_public: true]
+    )
+
+    finished = Tournaments.standings_through_round(tournament)
+
+    if Tournament.auto_publish_level(tournament) < 3 and finished > 0 and
+         finished > (tournament.standings_through || 0) do
+      tournament |> Ecto.Changeset.change(standings_through: finished) |> update!()
+    else
+      tournament
+    end
+  end
+
+  defp apply_legacy_immediate!(tournament, _t_attrs), do: tournament
 
   # A new row may only take the file's SWAR guid if no tournament on this
   # machine has it - whoever owns it, deleted or not. The guid is the
@@ -614,6 +697,7 @@ defmodule PairingsEngine.TournamentImport do
         %Round{tournament_id: tournament.id}
         |> Round.changeset(r)
         |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
+        |> Ecto.Changeset.change(publish_cap: coerce_int(Map.get(r, "publish_cap")))
         |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
         |> insert!()
 
@@ -795,6 +879,27 @@ defmodule PairingsEngine.TournamentImport do
   defp truthy(true), do: true
   defp truthy("true"), do: true
   defp truthy(_), do: false
+
+  # `public_display` round-trips as the same sparse string-key -> boolean
+  # map `PairingsEngine.TournamentExport` wrote it from (see
+  # `Tournament.changeset/2`'s own doc for why it is not cast: a stray form
+  # field must not be able to flip it). Anything that is not a map at all
+  # - the field missing from an old backup taken before it existed, or a
+  # hand-edited garbage value - becomes `nil`, the same "everything shown"
+  # default `PairingsEngine.PublicDisplay.show?/2` already gives a
+  # tournament that has never touched the setting. Its own values are not
+  # otherwise filtered: `show?/2` already tolerates a key it does not know
+  # and a value that is not a real boolean, falling back to that key's
+  # default exactly as it would for one this app itself never wrote.
+  defp public_display_or_nil(value) when is_map(value), do: value
+  defp public_display_or_nil(_), do: nil
+
+  # `public_hidden_tiebreaks` - only strings survive, the same
+  # hand-edited-file defence `agreed_date_log/1` below uses; anything else,
+  # including the field missing entirely, comes back `[]` (every code
+  # shown), the column's own default.
+  defp hidden_tiebreaks(value) when is_list(value), do: Enum.filter(value, &is_binary/1)
+  defp hidden_tiebreaks(_), do: []
 
   # A postponed game's provisional outcome, from a hand-editable payload:
   # only the three values the column can hold survive.

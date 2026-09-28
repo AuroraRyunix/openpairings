@@ -39,6 +39,50 @@ Each entry is tagged so a version can be skimmed:
   engine's steps kept in this app; the answers are the same, and the
   candidates of one question are now worked out side by side on a machine
   with more than one core.
+- [Change] **Settings → OpenResults: three sliders instead of buttons, a
+  select and a Save button.** They are built like the "Spectators see:"
+  control on the Pairings page, and everything saves as it is chosen.
+  **On the results site: Off · Link only · Listed** replaces the
+  "Published" and "Listed on the front page" buttons: Link only publishes
+  the tournament at its own address, Listed also puts it on the results
+  site's front page. Going down to Off asks first; everything turning
+  publishing on or off did before still happens (the consent question on a
+  public results site, the first copy queued, the audit rows), and a copy
+  already on the site still stays there until it is removed under "The
+  address". **Automatically: By hand · Pairings once paired · + results
+  live · + standings when the round is finished** replaces "Publish each
+  round": the app moves each round up the per-round ladder by itself, as
+  far as chosen - a round's pairings once it is paired (after an optional
+  "after N minutes", inline), its results as they are entered, and the
+  standings after it once it and every round before it are finished.
+- [Change] **A round can always be taken down by hand, and it stays
+  down.** The old "Immediately" mode locked the per-round control; the
+  automation never does. A level chosen below what the automation would
+  give the round is kept for that round, so the automation does not push it
+  back up when the next result comes in. Turning the automation down keeps
+  every round at the level it has; turning it up (asked first when rounds
+  are already public) applies to the rounds already public too.
+- [Change] **The starting ranking is a setting, off by default.** "Before
+  round 1, spectators see the starting ranking" on Settings → OpenResults
+  replaces the "Initial standings" switch on the Standings page, which now
+  says what it is set to and links there. A new tournament shows spectators
+  nothing until its first round is public; a tournament that had published
+  its initial standings keeps them on.
+- [Change] **"Standings" and "Round pairings" are gone from "What the
+  public page shows".** Whether a round's pairings and the standings after
+  it are public is that round's level now. Every other box stays.
+- [Change] **How existing tournaments are carried over.** Nothing anybody
+  could see changes on the upgrade. "Manually" becomes By hand; "After a
+  delay" becomes Pairings once paired, with its delay; "Immediately"
+  becomes + standings when the round is finished - its rounds, results and
+  finished standings, which it showed without ever writing down, are
+  written down as public; "On the round's own date" becomes By hand, and
+  rounds already paired still go public on their date. A tournament that
+  had the "Standings" page switched off gets an automation without the
+  standings step, one that had "Round pairings" off gets By hand, and that
+  page stays hidden until the arbiter shows it again from a note on the
+  settings page. An account's default for new tournaments, and a backup
+  file written before this version, are converted the same way.
 - [Performance] **Standings are worked out once per change, not once per
   page.** Every page that shows standings - Standings, Players, Pairings,
   the printed standings and crosstable, the public results page, the
@@ -184,6 +228,32 @@ Each entry is tagged so a version can be skimmed:
   entered. A requested half-point bye is not an absence: it still pays half
   a point and uses none. Every case checked is listed in
   `docs/swar-import.md`.
+
+- [Fix] **A delayed "Pairings once paired" publish now actually fires on
+  its own.** With the automation's pairings step set to a delay (an
+  optional "after N minutes"), a round became due for OpenResults at that
+  moment but nothing re-published it if nothing else happened to touch the
+  tournament in the meantime - the post-pairing publish had already gone
+  out and been sent (excluding the still-delayed round) long before the
+  delay ran out, and the public page only caught up whenever some
+  unrelated write next enqueued a publish. Pairing a round under a real
+  delay now records its own due time (`rounds.publish_due_at`), and
+  `Publishing.Drain`'s existing 30-second timer and boot-time sweep pick it
+  up and publish it once it arrives - reusing the same queue a manual
+  "Publish now" uses, so a restart or deploy between pairing and the due
+  time cannot lose it. Publishing the round early or hiding it again by
+  hand cancels the wait.
+
+- [Fix] **A backup's public-page settings (listed, which columns show,
+  which tie-breaks are hidden) are read back on import and restore.**
+  `public_listed`, `public_display` and `public_hidden_tiebreaks` were
+  written to every export but never applied when importing that file or
+  restoring a tournament to an earlier point - an arbiter's public-page
+  picks silently reset to "list it, show everything" on every restore, and
+  an imported copy of a published tournament came back listable and fully
+  shown regardless of what the original had chosen. A backup written
+  before these settings existed keeps their ordinary defaults, exactly as
+  it always has.
 
 ## [0.69.1] - 2026-09-28
 

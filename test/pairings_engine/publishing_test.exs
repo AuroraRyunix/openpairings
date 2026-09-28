@@ -29,6 +29,8 @@ defmodule PairingsEngine.PublishingTest do
         type: "swiss",
         rounds_count: 3,
         publish_to_openresults: Keyword.get(opts, :publish, true),
+        # The starting ranking public - the roster these tests look for.
+        standings_through: 0,
         public_slug: Keyword.get(opts, :slug, "gent-#{System.unique_integer([:positive])}")
       })
 
@@ -1551,6 +1553,113 @@ defmodule PairingsEngine.PublishingTest do
 
       assert Repo.get(Tournament, published.id)
       refute Repo.get(Tournament, plain.id)
+    end
+  end
+
+  describe "promote_due_rounds/1 - the fix for a delayed publish never firing on its own" do
+    # A round paired under "timed"/"scheduled" mode gets `publish_due_at`
+    # from the pairing engines, not from anything in this test file - see
+    # `Tournaments.due_publish_at/1` and its callers in `Pairing`,
+    # `RoundRobin`, `Keizer` and `TeamRounds`. Building the round directly
+    # here (rather than actually pairing one) keeps this test about the
+    # sweep itself, which is exercised separately in `tournaments_test.exs`
+    # and `pairing_test.exs`.
+    defp due_round(t, due_at) do
+      Repo.insert!(%Round{
+        tournament_id: t.id,
+        number: 2,
+        status: "playing",
+        published_at: due_at,
+        publish_due_at: due_at
+      })
+    end
+
+    test "a round whose delay has run out gets its tournament enqueued" do
+      t = tournament()
+      due_round(t, DateTime.add(DateTime.utc_now(), -1, :second) |> DateTime.truncate(:second))
+
+      assert Publishing.pending_count() == 0
+      assert Publishing.promote_due_rounds() == 1
+      assert Publishing.pending_count() == 1
+    end
+
+    test "clears publish_due_at so the same round is never promoted twice" do
+      t = tournament()
+
+      round =
+        due_round(t, DateTime.add(DateTime.utc_now(), -1, :second) |> DateTime.truncate(:second))
+
+      assert Publishing.promote_due_rounds() == 1
+      refute Repo.get!(Round, round.id).publish_due_at
+
+      # settle() removed the queue row a real drain would leave behind -
+      # simulate that so a second sweep pass has nothing to inflate.
+      Repo.delete_all(
+        from(q in PairingsEngine.Publishing.QueueEntry, where: q.tournament_id == ^t.id)
+      )
+
+      assert Publishing.promote_due_rounds() == 0
+      assert Publishing.pending_count() == 0
+    end
+
+    test "a round not yet due is left alone" do
+      t = tournament()
+      due_round(t, DateTime.add(DateTime.utc_now(), 900, :second) |> DateTime.truncate(:second))
+
+      assert Publishing.promote_due_rounds() == 0
+      assert Publishing.pending_count() == 0
+    end
+
+    test "a round with no publish_due_at (immediate/manual pairing) is left alone" do
+      t = tournament()
+      due_round(t, nil)
+
+      assert Publishing.promote_due_rounds() == 0
+      assert Publishing.pending_count() == 0
+    end
+
+    test "a tournament that stopped publishing since pairing is not re-enqueued, but the sweep still fires" do
+      t = tournament(publish: false)
+
+      round =
+        due_round(t, DateTime.add(DateTime.utc_now(), -1, :second) |> DateTime.truncate(:second))
+
+      # Same funnel every write already goes through (`enqueue_id/1`), so the
+      # same refusal applies for free - nothing here has to special-case it.
+      assert Publishing.promote_due_rounds() == 1
+      refute Repo.get!(Round, round.id).publish_due_at
+      assert Publishing.pending_count() == 0
+    end
+
+    test "several tournaments due at once are all enqueued, once each" do
+      t1 = tournament()
+      t2 = tournament()
+      due_round(t1, DateTime.add(DateTime.utc_now(), -5, :second) |> DateTime.truncate(:second))
+      due_round(t2, DateTime.add(DateTime.utc_now(), -5, :second) |> DateTime.truncate(:second))
+
+      assert Publishing.promote_due_rounds() == 2
+      assert Publishing.pending_count() == 2
+    end
+  end
+
+  describe "Tournaments.due_publish_at/1" do
+    alias PairingsEngine.Tournaments
+
+    test "nil in, nil out - manual mode has nothing to schedule" do
+      refute Tournaments.due_publish_at(nil)
+    end
+
+    test "a timestamp already due (immediate mode, or a zero-delay timed round) is not scheduled" do
+      past = DateTime.add(DateTime.utc_now(), -1, :second) |> DateTime.truncate(:second)
+      refute Tournaments.due_publish_at(past)
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      refute Tournaments.due_publish_at(now)
+    end
+
+    test "a genuinely future timestamp is returned unchanged" do
+      future = DateTime.add(DateTime.utc_now(), 900, :second) |> DateTime.truncate(:second)
+      assert Tournaments.due_publish_at(future) == future
     end
   end
 end

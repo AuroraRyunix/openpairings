@@ -128,12 +128,15 @@ defmodule PairingsEngine.TeamRounds do
       lineups =
         Map.new(lineups, fn {id, ps} -> {id, Enum.map(ps, &Map.fetch!(numbered, &1.id))} end)
 
+      published_at = Tournaments.compute_published_at(tournament, number)
+
       round =
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: number,
           status: "playing",
-          published_at: Tournaments.compute_published_at(tournament, number)
+          published_at: published_at,
+          publish_due_at: Tournaments.due_publish_at(published_at)
         })
 
       played = Enum.filter(entries, &match?({:pairing, _, _}, &1))

@@ -262,9 +262,8 @@ defmodule PairingsEngineWeb.PostponedOrganiserTest do
       {t, game} = with_postponed(scope)
       {:ok, _} = Tournaments.set_agreed_date(game, ~D[2026-10-05], scope)
 
-      Tournaments.get_tournament!(t.id)
-      |> Ecto.Changeset.change(publish_mode: "immediate")
-      |> Repo.update!()
+      {:ok, _t, _steps} =
+        Tournaments.set_round_publish_level(Tournaments.get_tournament!(t.id), 1, 2)
 
       snapshot = Snapshot.build(Tournaments.get_tournament!(t.id))
       [round] = snapshot["rounds"]

@@ -117,6 +117,7 @@ defmodule PairingsEngineWeb.AuditLive do
         category.created category.removed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.taken_down
+        openresults.auto_publish
         openresults.kept_withdrawn
         openresults.claim_adopted openresults.claim_discarded openresults.public_consent_given
         openresults.public_consent_declined public_pages.toggled public_pages.link_rotated
@@ -1235,6 +1236,41 @@ defmodule PairingsEngineWeb.AuditLive do
       do: gettext("Listed this tournament on the results site's front page."),
       else:
         gettext("Took this tournament off the results site's front page. Its link still works.")
+  end
+
+  # "Automatically:" on Settings -> OpenResults - the whole setting after
+  # the change, like `openresults.display` below: the step and the delay.
+  def describe("openresults.auto_publish", d) do
+    delay = d["delay_minutes"]
+
+    step =
+      case d["mode"] do
+        "pairings" ->
+          gettext("pairings once paired")
+
+        "results" ->
+          gettext("pairings once paired, and results live")
+
+        "standings" ->
+          gettext("pairings once paired, results live, and standings when a round is finished")
+
+        _ ->
+          nil
+      end
+
+    cond do
+      is_nil(step) ->
+        gettext("Set publishing to by hand: nothing goes public until it is chosen.")
+
+      is_integer(delay) and delay > 0 ->
+        gettext("Set publishing to automatic: %{step}, pairings after %{n} minutes.",
+          step: step,
+          n: delay
+        )
+
+      true ->
+        gettext("Set publishing to automatic: %{step}.", step: step)
+    end
   end
 
   # The state after the save, not a diff: the form saves every box at once.

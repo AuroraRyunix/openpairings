@@ -402,6 +402,12 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "registration.toggled" => [%{"open" => true}, %{"open" => false}],
     "openresults.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
     "openresults.listed" => [%{"listed" => true}, %{"listed" => false}],
+    "openresults.auto_publish" => [
+      %{"mode" => "manual", "delay_minutes" => 0},
+      %{"mode" => "pairings", "delay_minutes" => 10},
+      %{"mode" => "results", "delay_minutes" => 0},
+      %{"mode" => "standings", "delay_minutes" => 0}
+    ],
     "openresults.display" => [
       %{"hidden" => ["club", "rating"], "hidden_tiebreaks" => ["BH", "SB"]},
       %{"hidden" => ["club"], "hidden_tiebreaks" => []},

@@ -1,4 +1,4 @@
-msgid ""
+﻿msgid ""
 msgstr ""
 "Language: nl\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
@@ -13510,3 +13510,345 @@ msgstr "Wordt uitgewerkt…"
 #, elixir-autogen, elixir-format
 msgid "Worked out."
 msgstr "Uitgewerkt."
+
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:2504
+#, elixir-autogen, elixir-format
+msgid "The round is paired and saved. The engine is now working out how it decided - the brackets it built, and for every float and the bye what each other candidate would have cost. On a large field that takes a few minutes; this page fills in by itself."
+msgstr "De ronde is gepaard en bewaard. De engine werkt nu uit hoe ze besliste - de scoregroepen die ze vormde en, voor elke doorschuiver en de bye, wat elke andere kandidaat gekost zou hebben. In een groot veld duurt dat enkele minuten; deze pagina vult zichzelf aan."
+
+#: lib/pairings_engine_web/live/settings_support.ex:701
+#, elixir-autogen, elixir-format
+msgid "+ results live"
+msgstr "+ uitslagen rechtstreeks"
+
+#: lib/pairings_engine_web/live/settings_support.ex:702
+#, elixir-autogen, elixir-format
+msgid "+ standings when the round is finished"
+msgstr "+ stand zodra de ronde af is"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1104
+#, elixir-autogen, elixir-format
+msgid "A round is public, so the players are too - the starting ranking only matters before that."
+msgstr "Er is een ronde publiek, dus de spelers ook - de startrangschikking telt alleen daarvoor."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:804
+#, elixir-autogen, elixir-format
+msgid "A round's pairings go public once it is paired, and its results as they are entered. The standings wait for you."
+msgstr "De paringen van een ronde worden publiek zodra ze gepaard is, en de uitslagen zodra ze ingevoerd worden. De stand wacht op jou."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:810
+#, elixir-autogen, elixir-format
+msgid "A round's pairings go public once it is paired, its results as they are entered, and the standings after it once every result in it - and in every round before it - is in."
+msgstr "De paringen van een ronde worden publiek zodra ze gepaard is, de uitslagen zodra ze ingevoerd worden, en de stand erna zodra elke uitslag van die ronde - en van elke ronde ervoor - binnen is."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:798
+#, elixir-autogen, elixir-format
+msgid "A round's pairings go public once it is paired. Its results and the standings wait for you."
+msgstr "De paringen van een ronde worden publiek zodra ze gepaard is. De uitslagen en de stand wachten op jou."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:745
+#, elixir-autogen, elixir-format
+msgid "Also on the results site's front page"
+msgstr "Ook op de voorpagina van de uitslagensite"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:738
+#, elixir-autogen, elixir-format
+msgid "Anyone with the address can follow it"
+msgstr "Wie het adres heeft, kan het volgen"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1050
+#, elixir-autogen, elixir-format
+msgid "Automatically:"
+msgstr "Automatisch:"
+
+#: lib/pairings_engine_web/live/standings_live.ex:213
+#, elixir-autogen, elixir-format
+msgid "Before round 1"
+msgstr "Voor ronde 1"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1094
+#, elixir-autogen, elixir-format
+msgid "Before round 1, spectators see the starting ranking"
+msgstr "Voor ronde 1 zien toeschouwers de startrangschikking"
+
+#: lib/pairings_engine_web/live/settings_support.ex:699
+#, elixir-autogen, elixir-format
+msgid "By hand"
+msgstr "Handmatig"
+
+#: lib/pairings_engine_web/live/standings_live.ex:226
+#, elixir-autogen, elixir-format
+msgid "Change in Settings → OpenResults"
+msgstr "Wijzigen in Instellingen → OpenResults"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:215
+#, elixir-autogen, elixir-format
+msgid "Could not change publishing"
+msgstr "Kon het publiceren niet wijzigen"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:239
+#, elixir-autogen, elixir-format
+msgid "Could not change the listing"
+msgstr "Kon de vermelding op de voorpagina niet wijzigen"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:627
+#, elixir-autogen, elixir-format
+msgid "Could not save the publish settings"
+msgstr "Kon de publicatie-instellingen niet bewaren"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1034
+#, elixir-autogen, elixir-format
+msgid "Each round has its own level on the Pairings page: what spectators see of it on %[link]. This moves every round up that ladder for you. You can always take a round back down by hand there, and it stays where you put it."
+msgstr "Elke ronde heeft haar eigen niveau op de pagina Paringen: wat toeschouwers ervan zien op %[link]. Dit zet elke ronde voor jou hoger op die ladder. Je kan een ronde daar altijd zelf terugzetten, en ze blijft waar je ze zet."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1108
+#, elixir-autogen, elixir-format
+msgid "Hide the starting ranking from spectators until round 1 is public?"
+msgstr "De startrangschikking voor toeschouwers verbergen tot ronde 1 publiek is?"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:736
+#, elixir-autogen, elixir-format
+msgid "Link only"
+msgstr "Alleen link"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:737
+#, elixir-autogen, elixir-format
+msgid "Link only - published, not listed"
+msgstr "Alleen link - gepubliceerd, niet op de voorpagina"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:997
+#, elixir-autogen, elixir-format
+msgid "Link only is not privacy."
+msgstr "Alleen link is geen privacy."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:743
+#, elixir-autogen, elixir-format
+msgid "Listed"
+msgstr "Op de voorpagina"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:744
+#, elixir-autogen, elixir-format
+msgid "Listed - published and on the front page"
+msgstr "Op de voorpagina - gepubliceerd en vermeld"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1129
+#, elixir-autogen, elixir-format
+msgid "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. Whether a round's pairings, results and the standings after it are public is that round's level, above and on the Pairings page."
+msgstr "Namen, borden, uitslagen en plaatsen worden altijd getoond op een pagina die überhaupt getoond wordt - dat ís het toernooi. Of de paringen, de uitslagen en de stand na een ronde publiek zijn, bepaalt het niveau van die ronde, hierboven en op de pagina Paringen."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:755
+#, elixir-autogen, elixir-format
+msgid "Nothing goes public until you choose it"
+msgstr "Niets wordt publiek tot jij het kiest"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:726
+#, elixir-autogen, elixir-format
+msgid "Nothing is sent to the results site"
+msgstr "Er wordt niets naar de uitslagensite gestuurd"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:982
+#, elixir-autogen, elixir-format
+msgid "Nothing is sent. Anything already on the results site stays there as it is."
+msgstr "Er wordt niets verstuurd. Wat al op de uitslagensite staat, blijft daar zoals het is."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:792
+#, elixir-autogen, elixir-format
+msgid "Nothing reaches spectators until you choose a round's level on the Pairings page, so you can check every round first. This is the default."
+msgstr "Toeschouwers zien niets tot je het niveau van een ronde kiest op de pagina Paringen, zodat je elke ronde eerst kan nakijken. Dit is de standaard."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:725
+#, elixir-autogen, elixir-format
+msgid "Off - not published"
+msgstr "Uit - niet gepubliceerd"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:971
+#, elixir-autogen, elixir-format
+msgid "On the results site:"
+msgstr "Op de uitslagensite:"
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1004
+#, elixir-autogen, elixir-format
+msgid "Pairings after (minutes)"
+msgstr "Paringen na (minuten)"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1067
+#, elixir-autogen, elixir-format
+msgid "Pairings go public after"
+msgstr "Paringen worden publiek na"
+
+#: lib/pairings_engine_web/live/settings_support.ex:700
+#, elixir-autogen, elixir-format
+msgid "Pairings once paired"
+msgstr "Paringen zodra gepaard"
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:994
+#, elixir-autogen, elixir-format
+msgid "Publish automatically"
+msgstr "Automatisch publiceren"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:986
+#, elixir-autogen, elixir-format
+msgid "Published at its own address, and not on the results site's front page - putting it there is a separate choice."
+msgstr "Gepubliceerd op een eigen adres, en niet op de voorpagina van de uitslagensite - het daar zetten is een aparte keuze."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:990
+#, elixir-autogen, elixir-format
+msgid "Published, and listed on the results site's front page for anyone browsing it."
+msgstr "Gepubliceerd, en vermeld op de voorpagina van de uitslagensite voor wie er rondkijkt."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1030
+#, elixir-autogen, elixir-format
+msgid "Publishing each round"
+msgstr "Elke ronde publiceren"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:786
+#, elixir-autogen, elixir-format
+msgid "Results and standings go public by themselves from now on - including those of rounds already public and finished. Continue?"
+msgstr "Uitslagen en stand worden voortaan vanzelf publiek - ook die van rondes die al publiek en af zijn. Doorgaan?"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:757
+#, elixir-autogen, elixir-format
+msgid "Results as they are entered"
+msgstr "Uitslagen zodra ze ingevoerd worden"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:780
+#, elixir-autogen, elixir-format
+msgid "Results go live from now on - including the results of rounds whose pairings are already public. Continue?"
+msgstr "Uitslagen worden voortaan rechtstreeks publiek - ook die van rondes waarvan de paringen al publiek zijn. Doorgaan?"
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1013
+#, elixir-autogen, elixir-format
+msgid "Rounds go public without you pressing anything."
+msgstr "Rondes worden publiek zonder dat je ergens op drukt."
+
+#: lib/pairings_engine_web/live/audit_live.ex:1259
+#, elixir-autogen, elixir-format
+msgid "Set publishing to automatic: %{step}, pairings after %{n} minutes."
+msgstr "Publiceren op automatisch gezet: %{step}, paringen na %{n} minuten."
+
+#: lib/pairings_engine_web/live/audit_live.ex:1265
+#, elixir-autogen, elixir-format
+msgid "Set publishing to automatic: %{step}."
+msgstr "Publiceren op automatisch gezet: %{step}."
+
+#: lib/pairings_engine_web/live/audit_live.ex:1256
+#, elixir-autogen, elixir-format
+msgid "Set publishing to by hand: nothing goes public until it is chosen."
+msgstr "Publiceren op handmatig gezet: niets wordt publiek tot het gekozen wordt."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:827
+#, elixir-autogen, elixir-format
+msgid "Show the pairings pages"
+msgstr "De paringenpagina's tonen"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:837
+#, elixir-autogen, elixir-format
+msgid "Show the pairings pages on the results site? They show every round whose level makes its pairings public."
+msgstr "De paringenpagina's op de uitslagensite tonen? Ze tonen elke ronde waarvan het niveau de paringen publiek maakt."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:826
+#, elixir-autogen, elixir-format
+msgid "Show the standings page"
+msgstr "De standpagina tonen"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:831
+#, elixir-autogen, elixir-format
+msgid "Show the standings page on the results site? It shows the standings each round's level makes public."
+msgstr "De standpagina op de uitslagensite tonen? Ze toont de stand die het niveau van elke ronde publiek maakt."
+
+#: lib/pairings_engine_web/live/standings_live.ex:217
+#, elixir-autogen, elixir-format
+msgid "Spectators see the starting ranking"
+msgstr "Toeschouwers zien de startrangschikking"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:729
+#, elixir-autogen, elixir-format
+msgid "Stop publishing this tournament? Nothing more is sent to the results site. A copy already there stays as it is - removing it is a separate step, under The address."
+msgstr "Dit toernooi niet meer publiceren? Er wordt niets meer naar de uitslagensite gestuurd. Een kopie die er al staat, blijft zoals ze is - ze verwijderen is een aparte stap, onder Het adres."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:420
+#, elixir-autogen, elixir-format
+msgid "The delay is a whole number of minutes, from 0 to %{max}."
+msgstr "De vertraging is een geheel aantal minuten, van 0 tot %{max}."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1112
+#, elixir-autogen, elixir-format
+msgid "The players in start order, before a game has been played. Off: spectators see nothing until the first round's pairings are public."
+msgstr "De spelers in startvolgorde, voor er een partij gespeeld is. Uit: toeschouwers zien niets tot de paringen van de eerste ronde publiek zijn."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:822
+#, elixir-autogen, elixir-format
+msgid "The round pairings pages are still switched off, from before each round had its own level. They stay off until you show them; from then on the rounds' levels decide."
+msgstr "De paringenpagina's staan nog uit, van voor elke ronde haar eigen niveau had. Ze blijven uit tot je ze toont; vanaf dan beslissen de niveaus van de rondes."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:760
+#, elixir-autogen, elixir-format
+msgid "The standings after a round, once every result in it is in"
+msgstr "De stand na een ronde, zodra elke uitslag ervan binnen is"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:816
+#, elixir-autogen, elixir-format
+msgid "The standings page is still switched off, from before each round had its own level. It stays off until you show it; from then on the rounds' levels decide."
+msgstr "De standpagina staat nog uit, van voor elke ronde haar eigen niveau had. Ze blijft uit tot je ze toont; vanaf dan beslissen de niveaus van de rondes."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:254
+#, elixir-autogen, elixir-format
+msgid "This tournament is no longer listed. Its link still works."
+msgstr "Dit toernooi staat niet meer op de voorpagina. De link werkt nog."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:249
+#, elixir-autogen, elixir-format
+msgid "This tournament will appear on the results site's front page."
+msgstr "Dit toernooi komt op de voorpagina van de uitslagensite."
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:995
+#, elixir-autogen, elixir-format
+msgid "Usual default (by hand)"
+msgstr "Gewone standaard (handmatig)"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1051
+#, elixir-autogen, elixir-format
+msgid "What is published automatically"
+msgstr "Wat automatisch gepubliceerd wordt"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:972
+#, elixir-autogen, elixir-format
+msgid "Where this tournament is on the results site"
+msgstr "Waar dit toernooi op de uitslagensite staat"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:756
+#, elixir-autogen, elixir-format
+msgid "Who plays whom, once a round is paired"
+msgstr "Wie tegen wie speelt, zodra een ronde gepaard is"
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1014
+#, elixir-autogen, elixir-format
+msgid "With no delay the field sees a pairing at the same moment you do. You can always take a round back down on the Pairings page."
+msgstr "Zonder vertraging ziet het veld een paring op hetzelfde moment als jij. Je kan een ronde altijd terugzetten op de pagina Paringen."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1080
+#, elixir-autogen, elixir-format
+msgid "minutes (0: as soon as the round is paired)"
+msgstr "minuten (0: zodra de ronde gepaard is)"
+
+#: lib/pairings_engine_web/live/audit_live.ex:1248
+#, elixir-autogen, elixir-format
+msgid "pairings once paired"
+msgstr "paringen zodra gepaard"
+
+#: lib/pairings_engine_web/live/audit_live.ex:1249
+#, elixir-autogen, elixir-format
+msgid "pairings once paired, and results live"
+msgstr "paringen zodra gepaard, en uitslagen rechtstreeks"
+
+#: lib/pairings_engine_web/live/audit_live.ex:1250
+#, elixir-autogen, elixir-format
+msgid "pairings once paired, results live, and standings when a round is finished"
+msgstr "paringen zodra gepaard, uitslagen rechtstreeks, en de stand zodra een ronde af is"
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:1042
+#, elixir-autogen, elixir-format
+msgid "the results site"
+msgstr "de uitslagensite"
+

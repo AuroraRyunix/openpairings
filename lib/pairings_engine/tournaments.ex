@@ -1193,7 +1193,9 @@ defmodule PairingsEngine.Tournaments do
   def set_public_display(%Tournament{} = tournament, params, tiebreak_params)
       when is_map(params) do
     with :ok <- ensure_writable(tournament) do
-      changes = [public_display: PairingsEngine.PublicDisplay.cast(params)]
+      changes = [
+        public_display: PairingsEngine.PublicDisplay.cast(params, tournament.public_display)
+      ]
 
       # `nil` means "this caller is not editing the tie-break list", which is
       # not the same as "hide none" - an older form, or a caller changing only
@@ -1209,6 +1211,28 @@ defmodule PairingsEngine.Tournaments do
 
       tournament
       |> Ecto.Changeset.change(changes)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
+    end
+  end
+
+  @doc """
+  Shows a page the retired "Standings" or "Round pairings" switch still
+  keeps off (`PairingsEngine.PublicDisplay.legacy_keys/0`) - the one way
+  back, since neither switch is on the settings page any more. From then on
+  the round levels alone decide what that page shows. There is no way to
+  switch one off again: that is what a round's level is for.
+  """
+  @spec show_legacy_page(Tournament.t(), String.t()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def show_legacy_page(%Tournament{} = tournament, key) do
+    with :ok <- ensure_writable(tournament),
+         true <- key in PairingsEngine.PublicDisplay.legacy_keys() || {:error, :unknown_key} do
+      tournament
+      |> Ecto.Changeset.change(public_display: Map.delete(tournament.public_display || %{}, key))
       |> Repo.update()
       |> tap_ok(fn updated ->
         PairingsEngine.Publishing.enqueue(updated)
@@ -3307,74 +3331,66 @@ defmodule PairingsEngine.Tournaments do
 
   ## ---------- Public pairings publish delay ----------
   #
-  # How long after pairing a round reaches the public, controlled by the
-  # tournament's `publish_mode`. Per-round, and on TOP of
-  # `publish_to_openresults` - that switch decides whether the tournament is
-  # public at all, this decides when each round joins it.
+  # When a round's pairings reach the public by themselves - the first step
+  # of the automation (`publish_mode`, see "Automatic publishing" below).
+  # Per-round, and on TOP of `publish_to_openresults` - that switch decides
+  # whether the tournament is public at all, this decides when each round
+  # joins it.
 
   @doc """
   What `round.published_at` should be set to at the moment a round is
-  paired, given `tournament.publish_mode` - called once, by every
-  pairing-engine call site that inserts a `%Round{}`
-  (`PairingsEngine.Pairing`/`RoundRobin`/`Keizer`), never recomputed
-  afterward. `nil` means "not published" (only reachable under "manual",
-  since the other three modes always resolve to a concrete instant).
+  paired - called once, by every pairing-engine call site that inserts a
+  `%Round{}` (`PairingsEngine.Pairing`/`RoundRobin`/`Keizer`/`TeamRounds`),
+  never recomputed afterward.
 
-  - `"immediate"` - `now`. Also what `round_published?/2` treats EVERY
-    round as regardless of this value (see that function's own comment),
-    so the exact instant doesn't actually matter for visibility here -
-    computed anyway for a truthful `published_at` if anything ever reads
-    it directly.
-  - `"manual"` - `nil`. Stays that way until `publish_round_now/1`.
-  - `"timed"` - `now + publish_delay_minutes`.
-  - `"scheduled"` - midnight UTC on that round's own date from
-    `tournament.round_dates` (1-indexed by `round_number`). Falls back to
-    `now` when that date is missing/blank/unparseable - pairing must
-    never silently produce a round that can never become visible because
-    nobody filled in a date.
+  `nil` ("not published", until the arbiter chooses a level on the Pairings
+  page) when the automation is by hand; otherwise `now` plus the
+  tournament's `publish_delay_minutes` - the pairings step, with the
+  optional delay the Settings page offers beside it. `round_number` is kept
+  for the call sites' sake; no step depends on it since the date-based
+  "scheduled" mode was retired (2026-09-28).
   """
   @spec compute_published_at(Tournament.t(), pos_integer()) :: DateTime.t() | nil
-  def compute_published_at(%Tournament{} = tournament, round_number) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    case tournament.publish_mode do
-      "manual" ->
-        nil
-
-      "timed" ->
-        DateTime.add(now, (tournament.publish_delay_minutes || 0) * 60, :second)
-
-      "scheduled" ->
-        with date_str when is_binary(date_str) and date_str != "" <-
-               Enum.at(tournament.round_dates || [], round_number - 1),
-             {:ok, date} <- Date.from_iso8601(date_str) do
-          DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
-        else
-          _ -> now
-        end
-
-      _ ->
-        now
+  def compute_published_at(%Tournament{} = tournament, _round_number) do
+    if Tournament.auto_publish_level(tournament) >= 1 do
+      DateTime.utc_now()
+      |> DateTime.truncate(:second)
+      |> DateTime.add((tournament.publish_delay_minutes || 0) * 60, :second)
     end
   end
 
   @doc """
-  Whether `round` is currently visible on the public pairings page.
+  What `round.publish_due_at` should be set to alongside a `compute_published_at/2`
+  result, at the same pairing time - every call site that sets one sets the
+  other. `nil` unless `published_at` is genuinely in the future (the
+  automation's pairings step with a real delay); "by hand"
+  (`published_at: nil`) and a pairings step already due when paired (no
+  delay, or the delay already elapsed) need nothing beyond the ordinary
+  post-pairing publish `Tournaments.broadcast_tournament_change/2` already
+  triggers, so scheduling a second one for them would only be a harmless but
+  pointless extra send.
 
-  "immediate" mode ignores `round.published_at` entirely and always
-  returns `true` - deliberately, not an oversight: it's both today's
-  actual behaviour (a round has always been public the instant it
-  exists) AND what makes this feature safe to ship with no backfill.
-  `rounds.published_at` was added with no data migration, so every round
-  paired before this feature existed has `published_at: nil`; without
-  this special case they'd all retroactively vanish from public pages
-  the moment this shipped. Every OTHER mode is a real timestamp
-  comparison - a round from "manual"/"timed"/"scheduled" is public once
+  See `PairingsEngine.Publishing.promote_due_rounds/1` for what reads this
+  column back.
+  """
+  @spec due_publish_at(DateTime.t() | nil) :: DateTime.t() | nil
+  def due_publish_at(nil), do: nil
+
+  def due_publish_at(%DateTime{} = published_at) do
+    if DateTime.compare(published_at, DateTime.utc_now()) == :gt, do: published_at
+  end
+
+  @doc """
+  Whether `round` is currently visible on the public pairings page: its
   `published_at` exists and isn't in the future.
+
+  There used to be an exception: "immediate" publish mode treated every
+  round as public whatever `published_at` said, because rounds paired
+  before the column existed carry `nil`. The migration that retired
+  immediate mode (2026-09-28) gave those rounds a real `published_at`, so
+  the reading is the same for every tournament now.
   """
   @spec round_published?(Tournament.t(), Round.t()) :: boolean()
-  def round_published?(%Tournament{publish_mode: "immediate"}, %Round{}), do: true
-
   def round_published?(%Tournament{}, %Round{published_at: nil}), do: false
 
   def round_published?(%Tournament{}, %Round{published_at: at}) do
@@ -3386,15 +3402,12 @@ defmodule PairingsEngine.Tournaments do
   complete (`PairingsEngine.Pairing.round_complete?/2` - every pairing in
   the round carries a result).
 
-  In "immediate" publish mode, this IS the round public standings go
-  through (`effective_standings_through/1` returns it unchanged - every
-  round is already public, so there is nothing else to fold in). In every
-  other mode it is instead the hard CAP `effective_standings_through/1`
-  never publishes past - safety rule 7 of the publish model: an arbiter's
-  explicit `standings_through`, and the "a published round's own sheet
-  already shows the previous round's standings" floor, can each say a
-  higher number, but neither may ever publish through a round that isn't
-  actually complete.
+  The hard CAP `effective_standings_through/1` never publishes past -
+  safety rule 7 of the publish model: an arbiter's explicit
+  `standings_through`, the "a published round's own sheet already shows the
+  previous round's standings" floor and the automation's standings step can
+  each say a higher number, but none may ever publish through a round that
+  isn't actually complete.
 
   Published alone used to be enough (this function's own behaviour until
   it gained the completeness half): the instant round 1's pairings reached
@@ -3433,7 +3446,7 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Makes `round` visible right now, regardless of `publish_mode` - the
   manual override available in every mode, not just "manual" (a
-  "scheduled" or "timed" round can always be published early by hand;
+  round the automation publishes after a delay can always be published early by hand;
   nothing about picking an automatic mode should mean you're stuck
   waiting on it). Broadcasts `:settings` so the public page (subscribed
   to the same topic) refreshes live the moment this lands, not on its
@@ -3453,21 +3466,19 @@ defmodule PairingsEngine.Tournaments do
   `published_at` back to `nil`. Available regardless of mode, same
   reasoning as `publish_round_now/1`'s own doc: an arbiter who published
   something by mistake (or too early) needs a way back, not just a way
-  forward. A no-op in "immediate" mode as far as the public page is
-  concerned (`round_published?/2` never looks at `published_at` there),
-  which is intentional, not a bug to work around - "immediate" means
-  "always public", full stop; hiding a round is only meaningful once
-  you've opted into one of the other three modes.
+  forward.
 
   Turns the round's results switch off too (`publish_results/2`), like
-  every other pairings unpublish.
+  every other pairings unpublish. Also clears `publish_due_at` - a round
+  taken back off the public page must not have
+  `Publishing.promote_due_rounds/1` put it right back a few minutes later.
   """
   @spec unpublish_round(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
   def unpublish_round(%Round{} = round) do
     with :ok <- ensure_writable(round.tournament_id) do
       round
       |> Round.changeset(%{published_at: nil})
-      |> Ecto.Changeset.change(results_public: false)
+      |> Ecto.Changeset.change(results_public: false, publish_due_at: nil)
       |> Repo.update()
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
     end
@@ -3478,8 +3489,16 @@ defmodule PairingsEngine.Tournaments do
   # (skipping the per-round `ensure_writable`/broadcast each of those two
   # already does) so that publishing or hiding several rounds at once
   # checks writability once and broadcasts once, not N times.
+  #
+  # Also clears `publish_due_at`: a round pushed live by hand (early, or
+  # after `promote_due_rounds/1` already fired) has nothing left to wait
+  # for, and leaving a past due-at behind would just mean the next sweep
+  # enqueues one more harmless-but-pointless publish for it.
   defp set_round_published_at(%Round{} = round, value) do
-    round |> Round.changeset(%{published_at: value}) |> Repo.update()
+    round
+    |> Round.changeset(%{published_at: value})
+    |> Ecto.Changeset.change(publish_due_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -3490,10 +3509,6 @@ defmodule PairingsEngine.Tournaments do
   (including "nothing paired at all", same as `paired_rounds_count/1`).
   """
   @spec latest_published_round_number(Tournament.t()) :: non_neg_integer()
-  def latest_published_round_number(%Tournament{publish_mode: "immediate"} = tournament) do
-    PairingsEngine.Pairing.paired_rounds_count(tournament.id)
-  end
-
   def latest_published_round_number(%Tournament{} = tournament) do
     now = DateTime.utc_now()
 
@@ -3532,8 +3547,8 @@ defmodule PairingsEngine.Tournaments do
 
   Deliberately does not touch `standings_through`: the "standings after
   N-1 are now implied" half of this rule is folded in only when a snapshot
-  is actually built (`effective_standings_through/1`), so a "timed" or
-  "scheduled" round crossing its own publish instant moves the public
+  is actually built (`effective_standings_through/1`), so a round whose
+  delayed publish instant passes moves the public
   standings with no background job either.
   """
   @spec publish_pairings_through(Tournament.t(), pos_integer()) ::
@@ -3791,7 +3806,8 @@ defmodule PairingsEngine.Tournaments do
   nobody explicitly published for - see this section's own comment above
   and `PairingsEngine.Snapshot`'s moduledoc.
 
-      effective S = max(stored S, contiguous published pairings - 1)
+      effective S = max(stored S, contiguous published pairings - 1,
+                        the automation's standings step)
 
   capped at `standings_through_round/1` (published AND complete,
   contiguous) so this can never publish through an incomplete round
@@ -3802,19 +3818,21 @@ defmodule PairingsEngine.Tournaments do
   `PairingsEngine.Snapshot.withhold_starting_rank/3`) - once anything is
   public at all this function's job is only to say how far.
 
-  "immediate" mode ignores the stored value entirely and returns
-  `standings_through_round/1` unchanged: every paired round is already
-  public the instant it exists, so there is no "ahead of the sheet" for a
-  stored value to ever ADD to.
+  The automation's standings step (`publish_mode` "standings") is folded in
+  here rather than written when a round finishes - see
+  `auto_standings_through/2`.
   """
   @spec effective_standings_through(Tournament.t()) :: non_neg_integer()
-  def effective_standings_through(%Tournament{publish_mode: "immediate"} = tournament) do
-    standings_through_round(tournament)
-  end
-
   def effective_standings_through(%Tournament{standings_through: stored} = tournament) do
-    contiguous = contiguous_published_pairings(tournament)
-    candidate = max(stored || -1, contiguous - 1)
+    rounds = list_rounds(tournament.id)
+    published = Enum.filter(rounds, &round_published?(tournament, &1))
+    contiguous = contiguous_from(MapSet.new(published, & &1.number), 0)
+
+    candidate =
+      (stored || -1)
+      |> max(contiguous - 1)
+      |> max(auto_standings_through(tournament, published))
+
     cap = standings_through_round(tournament)
 
     candidate |> max(0) |> min(cap)
@@ -3908,22 +3926,21 @@ defmodule PairingsEngine.Tournaments do
   #     result in it, so withholding the boards would contradict the table
   #     beside them. Unpublishing those standings does not turn the switch
   #     off; it only stops overriding it.
-  #   * "immediate" publish mode, where everything is public the instant it
-  #     exists, like the other two switches.
+  #   * the automation's results step (`publish_mode` "results" or
+  #     "standings"), for a round whose pairings are public and that the
+  #     arbiter has not taken below it by hand (`auto_results?/2`).
   #
-  # "timed" and "scheduled" follow the stored switch exactly like "manual":
-  # those modes decide WHEN a round's pairings go public, not whether its
-  # results go with them. The switch can be turned on before the pairings'
-  # own instant arrives, so an arbiter can arm live results for a round
-  # that publishes itself later.
+  # The switch can be turned on before the pairings' own instant arrives, so
+  # an arbiter can arm live results for a round that publishes itself later.
 
   @doc """
   Whether round `round`'s results are public right now - what
   `PairingsEngine.Snapshot` gates every board result, and every other
-  result-derived value, on, and what the "Results round N" control shows.
+  result-derived value, on, and what the round's level on the Pairings page
+  shows.
 
-  True when the tournament is in "immediate" mode, when the round's own
-  switch is on, or when public standings go through this round (see the
+  True when the round's own switch is on, when the automation's results step
+  covers it, or when public standings go through this round (see the
   section comment above). `standings_through` is
   `effective_standings_through/1`, taken as an argument so a caller asking
   about every round (the snapshot) computes it once; omitted, it is looked
@@ -3932,27 +3949,23 @@ defmodule PairingsEngine.Tournaments do
   @spec results_public?(Tournament.t(), Round.t(), non_neg_integer() | :lookup) :: boolean()
   def results_public?(tournament, round, standings_through \\ :lookup)
 
-  def results_public?(%Tournament{publish_mode: "immediate"}, %Round{}, _through), do: true
   def results_public?(%Tournament{}, %Round{results_public: true}, _through), do: true
 
   def results_public?(%Tournament{} = tournament, %Round{} = round, :lookup),
     do: results_public?(tournament, round, effective_standings_through(tournament))
 
-  def results_public?(%Tournament{}, %Round{number: number}, through) when is_integer(through),
-    do: number <= through
+  def results_public?(%Tournament{} = tournament, %Round{number: number} = round, through)
+      when is_integer(through),
+      do: number <= through or auto_results?(tournament, round)
 
   @doc """
-  Why the "Results round N" control cannot be switched, or `nil` when it
-  can: `:immediate` in "immediate" publish mode, `:standings_public` while
-  public standings go through round N. In both states the results are
-  public and the control shows locked green.
+  Why the "Results round N" switch cannot be turned off on its own, or `nil`
+  when it can: `:standings_public` while public standings go through round
+  N - the standings already contain every result in it.
   """
   @spec results_locked_reason(Tournament.t(), Round.t(), non_neg_integer() | :lookup) ::
-          nil | :immediate | :standings_public
+          nil | :standings_public
   def results_locked_reason(tournament, round, standings_through \\ :lookup)
-
-  def results_locked_reason(%Tournament{publish_mode: "immediate"}, %Round{}, _through),
-    do: :immediate
 
   def results_locked_reason(%Tournament{} = tournament, %Round{} = round, :lookup),
     do: results_locked_reason(tournament, round, effective_standings_through(tournament))
@@ -4070,16 +4083,13 @@ defmodule PairingsEngine.Tournaments do
   its pairings are hidden. The stored values are left as they are; the next
   level chosen for the round replaces them.
 
-  "immediate" publish mode is always level 3 with nothing extra, like the
-  locked switches it replaces.
+  The automation's steps count like any other way of being public - see
+  "Automatic publishing" below.
   """
   @spec round_publish_state(Tournament.t(), Round.t()) :: %{
           level: publish_level(),
           extra: [:results | :standings]
         }
-  def round_publish_state(%Tournament{publish_mode: "immediate"}, %Round{}),
-    do: %{level: 3, extra: []}
-
   def round_publish_state(%Tournament{} = tournament, %Round{} = round) do
     through = effective_standings_through(tournament)
     results? = results_public?(tournament, round, through)
@@ -4115,9 +4125,6 @@ defmodule PairingsEngine.Tournaments do
           nil | :round_not_complete | :earlier_round_not_complete
   def publish_level_blocked_reason(%Tournament{} = tournament, %Round{} = round, 3) do
     cond do
-      tournament.publish_mode == "immediate" ->
-        nil
-
       standings_public?(tournament, round.number) ->
         nil
 
@@ -4153,16 +4160,19 @@ defmodule PairingsEngine.Tournaments do
   One transaction and one broadcast, however many writes. Returns the
   updated tournament and the writes that happened, in order, for the
   caller's audit trail - `[]` when the round was already at exactly this
-  level. `{:error, :immediate}` in "immediate" publish mode, where the
-  level is not the arbiter's to choose; `{:error, reason}` from
-  `publish_level_blocked_reason/3` for a level 3 that cannot be reached;
-  `{:error, :not_paired}` for a round that does not exist.
+  level. `{:error, reason}` from `publish_level_blocked_reason/3` for a
+  level 3 that cannot be reached; `{:error, :not_paired}` for a round that
+  does not exist.
+
+  The automation (`publish_mode`) never overrides the level chosen here: a
+  level below what the automation would give the round is kept as the
+  round's `publish_cap`, so the round stays where the arbiter put it; a
+  level at or above it clears the cap and leaves the automation to carry the
+  round on from there (see "Automatic publishing" below). There is no lock -
+  the old "immediate" mode refused every change here.
   """
   @spec set_round_publish_level(Tournament.t(), pos_integer(), publish_level()) ::
           {:ok, Tournament.t(), [publish_step()]} | {:error, term()}
-  def set_round_publish_level(%Tournament{publish_mode: "immediate"}, _round_number, _level),
-    do: {:error, :immediate}
-
   def set_round_publish_level(%Tournament{} = tournament, round_number, level)
       when is_integer(round_number) and round_number > 0 and level in 0..3 do
     with :ok <- ensure_writable(tournament),
@@ -4191,13 +4201,50 @@ defmodule PairingsEngine.Tournaments do
   end
 
   defp apply_publish_level(%Tournament{} = tournament, %Round{} = round, level) do
+    before = round_publish_state(tournament, round)
+
     Repo.transaction(fn ->
       case level_writes(tournament, round, level) do
-        {:ok, tournament, steps} -> {tournament, steps}
-        {:error, reason} -> Repo.rollback(reason)
+        {:ok, tournament, steps} ->
+          settle_publish_cap(tournament, round.id, level)
+          {tournament, derived_steps(steps, before.level, level)}
+
+        {:error, reason} ->
+          Repo.rollback(reason)
       end
     end)
   end
+
+  # The cap that keeps the round at `level` against the automation: none
+  # first, then `level` if the automation would put the round higher than
+  # the level just written. Read after the writes, so it answers for the
+  # round as it now stands.
+  defp settle_publish_cap(%Tournament{} = tournament, round_id, level) do
+    round = Repo.get!(Round, round_id)
+
+    round =
+      if is_nil(round.publish_cap),
+        do: round,
+        else: round |> Ecto.Changeset.change(publish_cap: nil) |> Repo.update!()
+
+    if round_publish_state(tournament, round).level > level do
+      round |> Ecto.Changeset.change(publish_cap: level) |> Repo.update!()
+    end
+
+    :ok
+  end
+
+  # A results step the automation had made public, withdrawn by capping the
+  # round rather than by a write to the switch: said in the audit trail
+  # like the switch it stands in for.
+  defp derived_steps(steps, before, level)
+       when before >= 2 and level in [0, 1] do
+    if Enum.any?(steps, &(&1 in [:results_unpublished, :pairings_unpublished])),
+      do: steps,
+      else: steps ++ [:results_unpublished]
+  end
+
+  defp derived_steps(steps, _before, _level), do: steps
 
   # Level 0: the pairings unpublish, cascade and all. Run whenever anything
   # of this round's is on - including a results switch left on under hidden
@@ -4263,6 +4310,171 @@ defmodule PairingsEngine.Tournaments do
     tournament = put_standings_through(tournament, max(stored || 0, n))
     {:ok, tournament, steps ++ [:standings_published]}
   end
+
+  ## ---------- Automatic publishing (2026-09-28) ----------
+  #
+  # "Automatically: By hand · Pairings once paired · + results live ·
+  # + standings when the round is finished" on Settings -> OpenResults - the
+  # tournament's `publish_mode`, a level of the same ladder as the per-round
+  # control above. The automation moves each round up that ladder for the
+  # arbiter:
+  #
+  #   pairings   the round's `published_at` is set when it is paired, after
+  #              `publish_delay_minutes` (`compute_published_at/2`)
+  #   results    a round whose pairings are public has its results public
+  #              too, as they are entered (`auto_results?/2`)
+  #   standings  the standings after a round are public once it and every
+  #              round before it is finished (`auto_standings_through/2`)
+  #
+  # The last two are READ, not written - folded in where the snapshot and the
+  # Pairings page already ask (`results_public?/3`,
+  # `effective_standings_through/1`), the way the old "immediate" mode made
+  # everything public with no background job and no hook in the result
+  # entry. That is also what makes them exact: a result corrected to empty
+  # takes the round's standings back off with it, because they were never
+  # stored.
+  #
+  # The arbiter can always take a round down by hand on the Pairings page,
+  # and the automation respects that: `set_round_publish_level/3` records a
+  # level below what the automation would give the round as the round's
+  # `publish_cap`, and the two steps above stop at it.
+
+  # The automation's results step for `round`.
+  defp auto_results?(%Tournament{} = tournament, %Round{} = round) do
+    Tournament.auto_publish_level(tournament) >= 2 and round_cap(round) >= 2 and
+      round_published?(tournament, round)
+  end
+
+  # The automation's standings step: the highest round N such that every
+  # round 1..N is either already covered by the stored `standings_through`
+  # or published and not capped below standings. `-1` when the automation
+  # stops short of standings. Not capped at completeness here -
+  # `effective_standings_through/1` applies `standings_through_round/1` to
+  # everything at once. `published` is the tournament's published rounds.
+  defp auto_standings_through(%Tournament{standings_through: stored} = tournament, published) do
+    if Tournament.auto_publish_level(tournament) >= 3 do
+      covered =
+        published
+        |> Enum.filter(&(round_cap(&1) >= 3))
+        |> MapSet.new(& &1.number)
+        |> MapSet.union(MapSet.new(1..max(stored || 0, 0)//1))
+
+      contiguous_from(covered, 0)
+    else
+      -1
+    end
+  end
+
+  defp round_cap(%Round{publish_cap: nil}), do: 3
+  defp round_cap(%Round{publish_cap: cap}), do: cap
+
+  @doc """
+  Sets the automation - `publish_mode` (see `Tournament`'s `@publish_modes`)
+  and the pairings step's `publish_delay_minutes` - and audits nothing; the
+  caller does.
+
+  Turning the automation DOWN keeps what it has already made public: the
+  results and standings it was publishing by itself are written to the
+  rounds' own switches and `standings_through` first, so "by hand from now
+  on" does not take a finished round's standings back off the results
+  site. Turning it UP applies to the rounds already public too - a round
+  whose pairings are public gets its results live - except a round the
+  arbiter has taken down by hand (`Round.publish_cap`). A round paired but
+  not yet public stays that way: the pairings step happens when a round is
+  paired.
+
+  `delay` is kept whatever the mode, so switching away and back does not
+  lose it; `nil` leaves it as it is.
+  """
+  @spec set_auto_publish(Tournament.t(), String.t(), non_neg_integer() | nil) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def set_auto_publish(%Tournament{} = tournament, mode, delay \\ nil) do
+    attrs = %{publish_mode: mode}
+    attrs = if is_nil(delay), do: attrs, else: Map.put(attrs, :publish_delay_minutes, delay)
+
+    with :ok <- ensure_writable(tournament) do
+      Repo.transaction(fn ->
+        if Tournament.auto_publish_level(mode) < Tournament.auto_publish_level(tournament) do
+          keep_auto_published!(tournament)
+        end
+
+        tournament
+        |> Tournament.changeset(attrs)
+        |> Repo.update()
+        |> case do
+          {:ok, updated} -> updated
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
+  end
+
+  # What the automation made public, written where it stays public without
+  # it - each round's results switch, and the stored standings - so that no
+  # round's level changes when the automation is turned down. The rounds
+  # simply stop moving up by themselves from here on.
+  defp keep_auto_published!(%Tournament{} = tournament) do
+    through = effective_standings_through(tournament)
+
+    ids =
+      for round <- list_rounds(tournament.id),
+          not round.results_public and results_public?(tournament, round, through),
+          do: round.id
+
+    if ids != [] do
+      Repo.update_all(from(r in Round, where: r.id in ^ids), set: [results_public: true])
+    end
+
+    if through > 0 and through > (tournament.standings_through || 0) do
+      put_standings_through(tournament, through)
+    end
+
+    :ok
+  end
+
+  @doc """
+  "Before round 1, spectators see the starting ranking" - the entry list in
+  start order, round 0 of the standings, while no round's pairings are
+  public yet. Once a round is public the players travel with its pairings
+  anyway (`PairingsEngine.Snapshot`), so this only decides the time before
+  that.
+
+  Stored as `standings_through` being `nil` (off) or not (on) - the same
+  value the Standings page's round-0 switch wrote before this moved to
+  Settings -> OpenResults. Switching it off only clears a stored `0`:
+  a higher value is standings after a round that was published, and
+  pulling that back is the round's own level's job, with its confirmation.
+  Returns `{:error, :rounds_public}` when that is what switching off would
+  have to do.
+  """
+  @spec set_initial_standings_public(Tournament.t(), boolean()) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def set_initial_standings_public(%Tournament{} = tournament, on?) when is_boolean(on?) do
+    with :ok <- ensure_writable(tournament) do
+      case {on?, tournament.standings_through} do
+        {true, nil} ->
+          {:ok, put_standings_through(tournament, 0)}
+
+        {false, value} when value in [nil, 0] ->
+          {:ok, put_standings_through(tournament, nil)}
+
+        {false, _after_a_round} ->
+          {:error, :rounds_public}
+
+        {true, _already} ->
+          {:ok, tournament}
+      end
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
+  end
+
+  @doc """
+  Whether "Before round 1, spectators see the starting ranking" is on - see
+  `set_initial_standings_public/2`.
+  """
+  @spec initial_standings_public?(Tournament.t()) :: boolean()
+  def initial_standings_public?(%Tournament{standings_through: through}), do: not is_nil(through)
 
   @doc """
   Byes-table rows (`"requested-half"` / `"requested-zero"` / `"absent"` -

@@ -80,7 +80,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       {:ok, lv, html} = results_page(conn, tournament)
       render(lv)
 
-      assert html =~ "Turn on"
+      assert html =~ ~s|id="site-presence-link"|
       assert Server.requests() == []
     end
 
@@ -88,7 +88,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = results_page(conn, tournament)
 
-      lv |> element("button", "Turn on") |> render_click()
+      lv |> element("#site-presence-link") |> render_click()
       html = render_async(lv)
 
       assert html =~ "Publish on openresults.zerotwo.cloud?"
@@ -109,7 +109,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
       tournament = create_tournament(scope)
       {:ok, lv, _html} = results_page(conn, tournament)
-      lv |> element("button", "Turn on") |> render_click()
+      lv |> element("#site-presence-link") |> render_click()
       html = render_async(lv)
 
       assert html =~ "Publish on openresults.zerotwo.cloud?"
@@ -121,7 +121,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = results_page(conn, tournament)
 
-      lv |> element("button", "Turn on") |> render_click()
+      lv |> element("#site-presence-link") |> render_click()
       render_async(lv)
       assert [{"GET", "/api/server", _, _}] = Server.requests()
 
@@ -145,7 +145,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = results_page(conn, tournament)
 
-      lv |> element("button", "Turn on") |> render_click()
+      lv |> element("#site-presence-link") |> render_click()
       render_async(lv)
       html = lv |> element("#public-consent button", "Agree and publish") |> render_click()
 
@@ -194,7 +194,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
       tournament = create_tournament(scope)
       {:ok, lv, _html} = results_page(conn, tournament)
-      lv |> element("button", "Turn on") |> render_click()
+      lv |> element("#site-presence-link") |> render_click()
       html = render_async(lv)
 
       assert html =~ "only publishes tournaments sent with a token from its operator"
@@ -213,7 +213,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
       tournament = create_tournament(scope)
       {:ok, lv, _html} = results_page(conn, tournament)
-      lv |> element("button", "Turn on") |> render_click()
+      lv |> element("#site-presence-link") |> render_click()
       html = render_async(lv)
 
       assert html =~ "The connection was refused"

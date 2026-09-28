@@ -691,6 +691,17 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   def initial_colour_status(_tournament), do: nil
 
+  @doc """
+  The words for each step of the automation (`Tournament`'s
+  `@publish_modes`) - the stops of the "Automatically:" slider on Settings ->
+  OpenResults and the options of the account's default.
+  """
+  def auto_publish_label("manual"), do: gettext("By hand")
+  def auto_publish_label("pairings"), do: gettext("Pairings once paired")
+  def auto_publish_label("results"), do: gettext("+ results live")
+  def auto_publish_label("standings"), do: gettext("+ standings when the round is finished")
+  def auto_publish_label(other), do: other
+
   @doc "The label of one `initial_colour` setting value."
   def initial_colour_label("lot"), do: gettext("Drawn by lot (default)")
   def initial_colour_label("white"), do: gettext("White")

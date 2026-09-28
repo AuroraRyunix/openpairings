@@ -84,6 +84,54 @@ defmodule PairingsEngine.SnapshotRestoreTest do
       assert restored.points_win == 3.0
     end
 
+    test "public_listed, public_display and public_hidden_tiebreaks round-trip through backup and restore" do
+      # Exported by `TournamentExport` but, until this fix, never read back
+      # on import or restore - an arbiter's public-page picks (which columns
+      # show, which tie-breaks are hidden, whether the event is listed)
+      # silently reset to "list it, show everything" every time a restore
+      # point was captured after they were set and then restored to.
+      #
+      # Set directly via `Ecto.Changeset.change/2`, same as
+      # `set_public_listed/2`/`set_public_display/3` do internally - these
+      # three fields are outside `Tournament.changeset/2`'s cast list on
+      # purpose (see that changeset's own doc), so this is the same access
+      # path the live app uses, without `PublicDisplay.cast/1`'s
+      # ticked-vs-default checkbox bookkeeping complicating what the test
+      # asserts.
+      scope = user_scope()
+      t = tournament(scope, %{})
+
+      captured_display = %{"club" => false, "rating" => false}
+      captured_hidden = ["BH", "SB"]
+
+      t =
+        t
+        |> Ecto.Changeset.change(
+          public_listed: true,
+          public_display: captured_display,
+          public_hidden_tiebreaks: captured_hidden
+        )
+        |> Repo.update!()
+
+      {:ok, snapshot} = Snapshots.capture(t, "manual", scope, summary: "Display settings set")
+
+      # Wreck it: an arbiter unlists the event and un-hides everything -
+      # the opposite of every setting just captured.
+      t
+      |> Ecto.Changeset.change(
+        public_listed: false,
+        public_display: %{},
+        public_hidden_tiebreaks: []
+      )
+      |> Repo.update!()
+
+      assert {:ok, restored} = Snapshots.restore(Repo.reload!(t), snapshot.id, scope)
+
+      assert restored.public_listed == true
+      assert restored.public_display == captured_display
+      assert restored.public_hidden_tiebreaks == captured_hidden
+    end
+
     test "byes and forbidden pairings are restored, not left behind" do
       scope = user_scope()
       {t, a, b} = played(scope)

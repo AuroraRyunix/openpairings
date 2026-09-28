@@ -152,8 +152,8 @@ defmodule PairingsEngine.SnapshotTest do
       assert snapshot["standings"]["after_round"] == 0
     end
 
-    test "shown when nothing is published, but standings_through is 0 (the default)" do
-      tournament = roster_tournament(%{})
+    test "shown when nothing is published, but standings_through is 0 (the starting ranking switched on)" do
+      tournament = roster_tournament(%{standings_through: 0})
 
       snapshot = Snapshot.build(tournament)
 
@@ -191,6 +191,8 @@ defmodule PairingsEngine.SnapshotTest do
               pairing_system: "swiss",
               rounds_count: 3,
               publish_mode: "manual",
+              # The starting ranking switched on - what these tests are about.
+              standings_through: 0,
               public_slug: "unnumbered-#{System.unique_integer([:positive])}"
             },
             attrs
@@ -395,8 +397,8 @@ defmodule PairingsEngine.SnapshotTest do
       assert Snapshot.build(tournament)["standings"]["after_round"] == 2
     end
 
-    test "rule 8: immediate mode ignores standings_through and always shows the complete prefix" do
-      {tournament, _a, _b} = floor_fixture("immediate")
+    test "rule 8: the standings step shows the complete prefix whatever standings_through says" do
+      {tournament, _a, _b} = floor_fixture("standings")
       tournament = Ecto.Changeset.change(tournament, standings_through: nil) |> Repo.update!()
 
       snapshot = Snapshot.build(tournament)
@@ -405,7 +407,10 @@ defmodule PairingsEngine.SnapshotTest do
       assert snapshot["players"] != []
     end
 
-    test "round 0 default: a fresh tournament with no rounds shows the roster public, standings after round 0" do
+    # Changed on 2026-09-28: the starting ranking is off until the arbiter
+    # switches it on (Settings -> OpenResults). It used to be public from the
+    # moment the tournament was created.
+    test "round 0 default: a fresh tournament withholds the roster until the starting ranking is switched on" do
       tournament =
         Repo.insert!(%Tournament{
           name: "Fresh",
@@ -418,6 +423,9 @@ defmodule PairingsEngine.SnapshotTest do
 
       Repo.insert!(%Player{tournament_id: tournament.id, pairing_number: 1, name: "Solo"})
 
+      assert Snapshot.build(tournament)["players"] == []
+
+      {:ok, tournament} = Tournaments.set_initial_standings_public(tournament, true)
       snapshot = Snapshot.build(tournament)
 
       assert snapshot["standings"]["after_round"] == 0
@@ -438,6 +446,7 @@ defmodule PairingsEngine.SnapshotTest do
           rounds_count: 3,
           categories: ["Open", "Women"],
           categories_enabled: true,
+          standings_through: 0,
           public_slug: "tags"
         })
 
@@ -494,6 +503,7 @@ defmodule PairingsEngine.SnapshotTest do
           rounds_count: 3,
           categories: ["Open", "Women"],
           categories_enabled: true,
+          standings_through: 0,
           public_slug: "tags3"
         })
 
@@ -1254,7 +1264,7 @@ defmodule PairingsEngine.SnapshotTest do
       {tournament, _players} = withheld_fixture()
 
       tournament =
-        tournament |> Ecto.Changeset.change(publish_mode: "immediate") |> Repo.update!()
+        tournament |> Ecto.Changeset.change(publish_mode: "standings") |> Repo.update!()
 
       snapshot = Snapshot.build(tournament)
 

@@ -11,8 +11,8 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
   # This page shows what is PUBLISHED, not what is paired - projecting a round
   # in the hall is publishing it, so the two cannot differ. New tournaments are
-  # created "manual" (the schema's default, which quietly overrides the
-  # migration's "immediate"), so a test that pairs a round and then expects to
+  # created "manual" (by hand - the schema's default), so a test that pairs a
+  # round and then expects to
   # see it has to publish it, exactly as an arbiter would.
   # A round inserted straight into the table has no `published_at`, and this
   # page shows only what is published. These tests are about how boards
@@ -842,15 +842,17 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
         })
       end
 
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: publish_mode})
       {:ok, _} = Engine.pair_next_round(tournament)
 
-      tournament = Repo.get!(Tournaments.Tournament, tournament.id)
-      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: publish_mode})
-      tournament
+      Repo.get!(Tournaments.Tournament, tournament.id)
     end
 
-    test "immediate mode shows the paired round, as it always did", %{conn: conn, scope: scope} do
-      tournament = two_round_tournament(scope, "immediate")
+    test "the automation's pairings step shows the round the moment it is paired", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = two_round_tournament(scope, "pairings")
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 

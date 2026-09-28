@@ -9,7 +9,8 @@ defmodule PairingsEngineWeb.ClickPayloadTest do
 
   `players_live.ex` `toggle_column`/`pick`, `pairings_live.ex`
   `arm_swap`/`pick_swap_target`/`stage_vacate`/`stage_bye`/`stage_fill`,
-  and `standings_live.ex` `publish_standings`/`unpublish_standings` each
+  and `standings_live.ex` `publish_standings`/`unpublish_standings` (since moved
+  to Settings -> OpenResults, where its successors are covered) each
   took their own LiveView down - mostly `String.to_integer/1` on a
   non-numeric id, `toggle_column` also on a missing key entirely. Every
   one must now be a no-op that leaves the page standing, and none of them
@@ -279,20 +280,31 @@ defmodule PairingsEngineWeb.ClickPayloadTest do
     end
   end
 
-  describe "StandingsLive publish_standings and unpublish_standings" do
-    test "a round that is not a whole number", %{conn: conn, tournament: t} do
-      {:ok, view, _} = live(conn, ~p"/t/#{t.id}/standings")
+  # The Standings page's round-0 switch these tests used to cover moved to
+  # Settings -> OpenResults on 2026-09-28; its controls there take the same
+  # treatment.
+  describe "SettingsResultsLive set_presence, set_auto_publish and set_publish_delay" do
+    test "values no control of ours sends", %{conn: conn, tournament: t} do
+      {:ok, view, _} = live(conn, ~p"/t/#{t.id}/settings/results")
 
-      for round <- ["abc", "1.5", -1, "-1", nil, %{}, ["1"]] do
-        survives(view, "publish_standings", %{"round" => round})
-        survives(view, "unpublish_standings", %{"round" => round})
+      for value <- ["abc", "1.5", -1, "-1", nil, %{}, ["1"]] do
+        survives(view, "set_presence", %{"presence" => value})
+        survives(view, "set_auto_publish", %{"level" => value})
+        survives(view, "set_publish_delay", %{"delay" => value})
       end
 
-      survives(view, "publish_standings", %{})
-      survives(view, "unpublish_standings", %{})
+      for value <- ["4", 7, "on"], do: survives(view, "set_auto_publish", %{"level" => value})
+      survives(view, "set_publish_delay", %{"delay" => "100000"})
 
-      # Nothing was ever published, in spite of all that.
-      assert Tournaments.get_tournament!(t.id).standings_through == 0
+      survives(view, "set_presence", %{})
+      survives(view, "set_auto_publish", %{})
+      survives(view, "set_publish_delay", %{})
+
+      # Nothing was changed, in spite of all that.
+      t2 = Tournaments.get_tournament!(t.id)
+      assert t2.publish_mode == "manual"
+      assert t2.publish_delay_minutes == 0
+      refute t2.publish_to_openresults
     end
   end
 end

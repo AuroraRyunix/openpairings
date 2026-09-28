@@ -31,24 +31,31 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # is a sanity bound on a form field, not a regulation.
   @max_team_boards 20
   @team_types ~w(team-swiss team-roundrobin)
-  # How a newly-paired round becomes visible on the public pairings page
-  # (`PairingsEngineWeb.PublicPairingsLive`) - see
-  # `PairingsEngine.Tournaments.compute_published_at/2` for what each one
-  # actually computes, and `round_published?/2` for the visibility check
-  # itself.
+  # How far the automation moves each round's public level for the arbiter
+  # (Settings -> OpenResults, "Automatically:") - since 2026-09-28 one
+  # cumulative ladder, the same four levels as the per-round control on the
+  # Pairings page:
   #
-  # **"manual" is the default, and "immediate" used to be.** Immediate means
-  # a round reaches the public page in the same instant the engine hands it
-  # back - before the arbiter has looked at it. That is the wrong default for
-  # the same reason no printer defaults to printing without a preview: the
+  #   "manual"    - by hand: nothing reaches the public until the arbiter
+  #                 chooses a level on the Pairings page
+  #   "pairings"  - a round's pairings go public once it is paired, after
+  #                 `publish_delay_minutes`
+  #   "results"   - and its results go public live, as they are entered
+  #   "standings" - and the standings after it, once the round is finished
+  #
+  # The automation only ever moves a round UP; the arbiter can always take a
+  # round back down by hand, and that sticks (`Round.publish_cap`). See
+  # `PairingsEngine.Tournaments`' "Automatic publishing" section.
+  #
+  # **"manual" is the default.** A round that reaches the public page the
+  # instant the engine hands it back has not been looked at by anyone: the
   # first person to see a pairing should be the person responsible for it.
-  # A mistake caught in ten seconds is a re-pair; the same mistake seen by
-  # four hundred players is a correction, an announcement, and an argument.
   #
-  # Nobody chose immediate - it was simply what the field defaulted to before
-  # anything else existed, and it stayed the default while the reasons
-  # against it accumulated.
-  @publish_modes ~w(immediate manual timed scheduled)
+  # The values before 2026-09-28 were "immediate", "manual", "timed" and
+  # "scheduled"; `legacy_publish_mode/2` is the conversion the migration and
+  # the import of an older backup both apply.
+  @publish_modes ~w(manual pairings results standings)
+  @legacy_publish_modes ~w(immediate timed scheduled)
   # Club/federation pairing-exclusion rules (SWAR parity #7-10) - see
   # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
   @exclusion_modes ~w(none all listed)
@@ -501,28 +508,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :public_slug_server, :string
     field :public_slug_published_at, :utc_datetime
 
-    # How long a newly-paired round takes to reach the public pairings
-    # page - see `@publish_modes`'s own comment above, and
-    # `PairingsEngine.Tournaments.compute_published_at/2`/`round_published?/2`
-    # for what these two actually drive. Unlike `publish_to_openresults`/
-    # `registration_open` above, these ARE cast by the ordinary changeset -
-    # this is an ordinary settings choice on the Options page, not a
-    # separate toggle-action.
-    # "manual" is the intended default and the one that actually applies.
+    # How far the automation publishes each round for the arbiter - see
+    # `@publish_modes`'s own comment above - and how long after pairing the
+    # pairings step waits. Cast by the ordinary changeset, but written by the
+    # Settings page through `Tournaments.set_auto_publish/3`, which keeps what
+    # the automation already made public when it is turned down.
     #
     # `20260813150000_add_pairing_publish_delay.exs` sets the COLUMN default to
-    # "immediate" and says in its own comment that this preserves existing
-    # behaviour. It does not: Ecto sends struct defaults on insert, so this
-    # line wins for every tournament created through the app, and for restored
-    # ones too (`TournamentImport` inserts through a changeset). Nothing writes
-    # a tournament row in raw SQL, so the column default is unreachable.
-    #
-    # Do NOT "fix" the disagreement by changing this to "immediate". Manual is
-    # deliberate: publishing a round should be an act, not something that
-    # happens because a round got paired. The stale column default is the half
-    # that is wrong, and it costs nothing because nothing can reach it -
-    # changing a column default in SQLite means rebuilding the table, which is
-    # not worth doing for a value that never applies.
+    # "immediate", a value that no longer exists. Unreachable: Ecto sends
+    # struct defaults on insert, so this line wins for every tournament
+    # created through the app, and for restored ones too (`TournamentImport`
+    # inserts through a changeset). Nothing writes a tournament row in raw
+    # SQL, and changing a column default in SQLite means rebuilding the table.
     field :publish_mode, :string, default: "manual"
     field :publish_delay_minutes, :integer, default: 0
 
@@ -547,20 +544,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # with its own cascade (unpublishing standings after round N also hides
     # any pairings that would leak them), not an everyday settings save.
     #
-    # The value STORED here is not what a snapshot publishes through,
-    # except in "immediate" mode where it is ignored outright - see
+    # The value STORED here is not what a snapshot publishes through - see
     # `Tournaments.effective_standings_through/1`, which folds in "a
     # published round's own sheet already reveals the standings before it"
-    # and caps the result at the complete-and-published prefix, so nothing
-    # here can ever publish through an incomplete round on its own.
+    # and the automation's standings step, and caps the result at the
+    # complete-and-published prefix, so nothing here can ever publish
+    # through an incomplete round on its own.
     #
-    # Default `0`: a brand-new tournament's entry list is public from
-    # creation, same intent `publish_starting_rank`'s own `true` default
-    # carried, restated as "round 0's standings are already public" rather
-    # than as a separate toggle. Like the other uncast fields above, the
-    # default reaches every insert through the struct itself, not through
-    # `cast/3`.
-    field :standings_through, :integer, default: 0
+    # Default `nil` since 2026-09-28: before round 1, spectators see nothing
+    # until the arbiter switches on "Before round 1, spectators see the
+    # starting ranking" (Settings -> OpenResults,
+    # `Tournaments.set_initial_standings_public/2`). It was `0` - the entry
+    # list public from creation - and every tournament created then keeps
+    # the value it has, so nothing public today goes dark. Like the other
+    # uncast fields above, the default reaches every insert through the
+    # struct itself, not through `cast/3`.
+    field :standings_through, :integer, default: nil
 
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
@@ -2017,11 +2016,78 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   def publish_modes, do: @publish_modes
 
-  def publish_mode_label("immediate"), do: "Immediately - public the instant it's paired"
-  def publish_mode_label("manual"), do: "Manually - I'll publish each round myself"
-  def publish_mode_label("timed"), do: "After a delay - a fixed number of minutes"
-  def publish_mode_label("scheduled"), do: "On the round's own date (Dates page)"
-  def publish_mode_label(other), do: other
+  @doc """
+  How far the automation moves each round up, as a level of the per-round
+  ladder (`Tournaments.round_publish_state/2`): `0` by hand, `1` pairings,
+  `2` and results, `3` and standings. A value this code does not know reads
+  as `0` - never publishing is the direction a mistake here should fail in.
+  """
+  @spec auto_publish_level(%__MODULE__{} | String.t() | nil) :: 0..3
+  def auto_publish_level(%__MODULE__{publish_mode: mode}), do: auto_publish_level(mode)
+  def auto_publish_level("pairings"), do: 1
+  def auto_publish_level("results"), do: 2
+  def auto_publish_level("standings"), do: 3
+  def auto_publish_level(_manual_or_unknown), do: 0
+
+  @doc "The `publish_mode` for an automation level - `auto_publish_level/1` backwards."
+  @spec publish_mode_for_level(0..3) :: String.t()
+  def publish_mode_for_level(level) when level in 0..3, do: Enum.at(@publish_modes, level)
+
+  @doc """
+  The `publish_mode` a tournament stored before 2026-09-28 converts to.
+  Shared, frozen logic, pure for the reason `legacy_standings_through/3`
+  gives: the migration that introduced the automation ladder, the import of
+  an older backup and the account's stored tournament defaults all apply it.
+
+  One to one, as far as each old mode goes:
+
+    * `"manual"` - by hand, as before.
+    * `"timed"` - the pairings step, its delay kept. Results and standings
+      followed the switches by hand in timed mode, and still do.
+    * `"immediate"` - the standings step: immediate made every paired round,
+      every result and the standings through every finished round public the
+      moment they existed, which is the whole ladder with no delay. The
+      per-round lock it carried is gone - the arbiter can now take a round
+      back down by hand.
+    * `"scheduled"` (a round public at midnight on its own date) - by hand.
+      There is no date step on the ladder, and publishing the next round the
+      moment it is paired would put it out before the date the arbiter chose;
+      rounds already paired keep their date.
+
+  `display` is the tournament's stored `public_display`. The "Standings" and
+  "Round pairings" page switches were retired the same day - the per-round
+  level decides that now - so a tournament that had one of them off gets an
+  automation that stops below that step: no standings step with "Standings"
+  off, nothing automatic with "Round pairings" off. The switch itself stays
+  stored and honoured until the arbiter shows the page again
+  (`PairingsEngine.PublicDisplay.legacy_hidden/1`), so nothing hidden today
+  appears on the upgrade.
+  """
+  @spec legacy_publish_mode(String.t() | nil, map() | nil) :: String.t()
+  def legacy_publish_mode(mode, display) do
+    level =
+      case mode do
+        "immediate" -> 3
+        "timed" -> 1
+        "scheduled" -> 0
+        other -> auto_publish_level(other)
+      end
+
+    level =
+      cond do
+        hidden_page?(display, "pairings") -> 0
+        hidden_page?(display, "standings") -> min(level, 2)
+        true -> level
+      end
+
+    publish_mode_for_level(level)
+  end
+
+  @doc "Whether `mode` is one of the values `publish_mode` held before 2026-09-28."
+  def legacy_publish_mode?(mode), do: mode in @legacy_publish_modes
+
+  defp hidden_page?(display, key) when is_map(display), do: Map.get(display, key) == false
+  defp hidden_page?(_display, _key), do: false
 
   @doc """
   The `standings_through` a tournament converts to, from what publishing

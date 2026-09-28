@@ -444,7 +444,7 @@ defmodule PairingsEngine.PostponedGamesTest do
 
   describe "the OpenResults snapshot" do
     test "a postponed board travels with no result and a flag; standings say provisional" do
-      {t, %{"Alice" => alice}} = tournament(publish_mode: "immediate")
+      {t, %{"Alice" => alice}} = tournament(publish_mode: "standings")
       round1 = pair!(t)
       postponed = round1 |> board_of(alice) |> result!("*")
       white_wins_elsewhere!(round1, postponed)
@@ -463,7 +463,7 @@ defmodule PairingsEngine.PostponedGamesTest do
     end
 
     test "final standings carry no provisional flag at all" do
-      {t, _players} = tournament(publish_mode: "immediate")
+      {t, _players} = tournament(publish_mode: "standings")
       round1 = pair!(t)
       for p <- round1.pairings, p.black_player_id, do: result!(p, "1-0")
 

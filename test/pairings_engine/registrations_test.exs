@@ -30,6 +30,8 @@ defmodule PairingsEngine.RegistrationsTest do
       rounds_count: Keyword.get(opts, :rounds_count, 5),
       publish_to_openresults: Keyword.get(opts, :publish, true),
       archived_at: Keyword.get(opts, :archived_at),
+      # The starting ranking public - the roster a snapshot here is read for.
+      standings_through: 0,
       public_slug: "gent-#{System.unique_integer([:positive])}"
     })
   end
