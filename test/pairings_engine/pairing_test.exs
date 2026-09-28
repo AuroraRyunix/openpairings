@@ -2223,13 +2223,13 @@ defmodule PairingsEngine.PairingTest do
   # runs out (see that function's doc for why nothing else ever asks again).
 
   describe "pair_next_round/1 sets publish_due_at" do
-    test "\"timed\" mode with a real delay schedules a future publish_due_at" do
+    test "the automation's pairings step with a real delay schedules a future publish_due_at" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "timed",
+          publish_mode: "pairings",
           publish_delay_minutes: 15
         })
 
@@ -2244,8 +2244,14 @@ defmodule PairingsEngine.PairingTest do
       assert DateTime.diff(expected, round.publish_due_at, :second) in -2..2
     end
 
-    test "\"manual\" mode leaves publish_due_at nil - nothing to publish yet" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    test "\"manual\" (by hand) leaves publish_due_at nil - nothing to publish yet" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
 
       insert_player(tournament, "Alice", fide_rating: 2000)
       insert_player(tournament, "Bob", fide_rating: 1900)
@@ -2256,13 +2262,13 @@ defmodule PairingsEngine.PairingTest do
       refute round.publish_due_at
     end
 
-    test "\"immediate\" mode leaves publish_due_at nil - the ordinary post-pairing publish already covers it" do
+    test "the automation's standings step (no delay) leaves publish_due_at nil - the ordinary post-pairing publish already covers it" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "immediate"
+          publish_mode: "standings"
         })
 
       insert_player(tournament, "Alice", fide_rating: 2000)
@@ -2273,13 +2279,13 @@ defmodule PairingsEngine.PairingTest do
       refute round.publish_due_at
     end
 
-    test "a \"timed\" round with a zero-minute delay leaves publish_due_at nil too" do
+    test "the pairings step with a zero-minute delay leaves publish_due_at nil too" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "timed",
+          publish_mode: "pairings",
           publish_delay_minutes: 0
         })
 

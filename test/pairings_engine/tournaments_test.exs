@@ -2681,7 +2681,7 @@ defmodule PairingsEngine.TournamentsTest do
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "timed",
+          publish_mode: "pairings",
           publish_delay_minutes: 15
         })
 
@@ -2705,7 +2705,7 @@ defmodule PairingsEngine.TournamentsTest do
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "timed",
+          publish_mode: "pairings",
           publish_delay_minutes: 15
         })
 
