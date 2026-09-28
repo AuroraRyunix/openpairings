@@ -612,10 +612,14 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   ## ================================================================
 
   # Table number special value for a pairing-allocated bye (see manual §5.7).
-  # TABLE_FORFAIT (0x2000) and TABLE_ABSENT (0x4000) don't need a dedicated
-  # constant: any single-sided entry that isn't a bye/draw-bye/loss-bye falls
-  # through to the "absent" `byes` row regardless of its exact Table value.
   @table_bye 0x1000
+
+  # SWAR's absence table (`TABLE_ABSENT`, Swar.h): the only single-sided
+  # record without a result that is an absence - paid `AbsValue` and counted
+  # towards `AbsNbFois`. Any other table with no result (0, -1, SWAR's
+  # `TABLE_FORFAIT` 0x2000) is a round the player was not in, and scores
+  # nothing (`single_sided/2`).
+  @table_absent 0x4000
 
   # SWAR's "HandyTable" accessible-table numbering (Swar.h TABLE_HANDICAP):
   # 1000 is the sentinel meaning "no fixed table"; a real handicap board is
@@ -1676,7 +1680,13 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       # players added here afterwards. A 3-2-1 event is the exception:
       # SWAR's `GetPoints` scores it by `ConvertPoint321` and never pays
       # `AbsValue` (Utils.cpp:1232-1234).
-      late_entry_absences: t.type != 3
+      #
+      # And a file in which somebody's round 1 is neither a game, a bye nor
+      # an absence was not written that way: SWAR itself never leaves a
+      # round before a player joined empty. This app's own export does, for
+      # a tournament that has the setting off - so that is the answer the
+      # file gives, and reading it back on would pay those rounds after all.
+      late_entry_absences: t.type != 3 and not empty_round_one?(data.players)
     }
     |> Map.merge(scoring_attrs(t))
     |> Map.merge(system_attrs(t))
@@ -1686,6 +1696,25 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     |> Map.merge(fide_attrs(t))
     |> Map.merge(initial_colour_attrs(t))
   end
+
+  # A player whose round 1 imports as nothing at all (`single_sided/2`'s
+  # `:nothing`) but who has something - a game, a bye, an absence - in a
+  # later round: here that reads as a player who joined late, and the file
+  # scored the rounds before it as nothing. A player with nothing anywhere
+  # never joined, and scores nothing whatever the setting says.
+  defp empty_round_one?(players) do
+    Enum.any?(players, fn p ->
+      {first, later} = Enum.split_with(p.rounds, &(&1.round_nr == 1))
+
+      match?([_], first) and nothing_record?(hd(first)) and
+        Enum.any?(later, &(not nothing_record?(&1)))
+    end)
+  end
+
+  defp nothing_record?(r),
+    do:
+      r.advers in [0, -1] and result_class(r.result) == :none and
+        r.table not in [@table_absent, @table_bye]
 
   # `ApparOrder` - "Couleur du Nr.1 à la première ronde" (`TOptions.cpp`,
   # used by `EnvoiJAVAFO.cpp` for round 1): 0 the top seed has White, 1
@@ -2952,6 +2981,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
               case single_sided(player, r) do
                 {:pairing, pairing} -> {visited, [pairing | pairings], byes}
                 {:bye, bye} -> {visited, pairings, [bye | byes]}
+                :nothing -> {visited, pairings, byes}
               end
           end
         end
@@ -3016,6 +3046,20 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
 
       :loss_bye ->
         {:bye, %{player_ni: player.ni, type: "requested-zero"}}
+
+      # No result, and neither SWAR's absence table nor its bye table: a
+      # round the player was not in - SWAR's `TABLE_FORFAIT` (a withdrawn
+      # player's rounds, `ProcessAbsent`), or the empty record this app's
+      # own export writes for a round before a late entrant joined that is
+      # not an absence, or after a withdrawal. SWAR scores it nothing and
+      # does not count it as an absence: `GetPoints` pays `AbsValue` only
+      # for `TABLE_ABSENT` and `GetNbAbsence` counts only those (Utils.cpp
+      # 1102-1118, 1254-1257). It used to become an "absent" row, so a round
+      # trip through a `.swar` file paid those rounds and used up the
+      # allowance with them. Nothing is stored - the shape a round a player
+      # was not in has here.
+      :none when r.table not in [@table_absent, @table_bye] ->
+        :nothing
 
       _ ->
         if r.table == @table_bye do

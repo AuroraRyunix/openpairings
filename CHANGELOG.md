@@ -16,6 +16,19 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A SWAR file's empty rounds are no longer read as paid absences.**
+  Only SWAR's absence table makes an absence - it is the only one SWAR pays
+  the absence points for and counts towards the number of absences paid. A
+  round a player was not in (SWAR's "forfait" table for a withdrawn player,
+  or the empty round OpenPairings writes for a round before a late entrant
+  joined, when those do not count, or after a withdrawal) used to import as
+  an absence. So exporting to SWAR and importing the file again gave a
+  withdrawn player half a point for every round after he withdrew, and a
+  late entrant half a point for every round before he joined, using up his
+  paid absences with them. Those rounds now import as nothing, and a file
+  written with "Rounds before a late entrant joins count as absences" off
+  is imported with it off.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the

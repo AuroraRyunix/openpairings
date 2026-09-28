@@ -11,6 +11,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
   alias PairingsEngine.Standings
   alias PairingsEngine.Federations.BEL.SwarImport
 
+  import Ecto.Query
+
   ## ---------- synthetic .swar binary builder ----------
   #
   # Mirrors PairingsEngine.Federations.BEL.SwarImport.parse/1's field-by-field layout closely
@@ -195,11 +197,14 @@ defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
     end
   end
 
-  # A `[RONDE]` entry with result 0 (SWAR's `:none`), a non-bye table, and
-  # no real opponent (`advers: 0`) falls through `single_sided/2`'s
-  # catch-all clause to a `byes` row with `type: "absent"` - the same shape
-  # a TABLE_ABSENT-marked round from a real file would produce.
-  defp absent_round(round_nr), do: %{round_nr: round_nr, result: 0, table: 0, advers: 0}
+  # A `[RONDE]` entry with result 0 (SWAR's `:none`), SWAR's absence table
+  # (`TABLE_ABSENT`, 0x4000) and no real opponent - how every real file
+  # keeps an absence - imports as a `byes` row with `type: "absent"`.
+  defp absent_round(round_nr), do: %{round_nr: round_nr, result: 0, table: 0x4000, advers: 0}
+
+  # The same without the absence table: a round the player was not in.
+  defp empty_round(round_nr, table),
+    do: %{round_nr: round_nr, result: 0, table: table, advers: 0}
 
   ## ---------- parsed-map mapping: AbsValue 1/0 -> 0.5/0.0 ----------
 
@@ -337,6 +342,65 @@ defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
     assert by_round[1] == 0.5
     assert by_round[2] == 0.5
     assert by_round[3] == 0.0
+  end
+
+  # SWAR pays `AbsValue` only for `TABLE_ABSENT` and counts only those
+  # (`GetPoints`, `GetNbAbsence`): a record with no result on any other
+  # table - `TABLE_FORFAIT` for a withdrawn player, the empty record this
+  # app's export writes - scores nothing and uses no absence.
+  test "a record without a result off the absence table is not an absence: nothing paid, nothing used" do
+    opts = %{
+      type: 0,
+      abs_value: 1,
+      abs_jusque: 10,
+      abs_nbfois: 1,
+      players: [
+        %{
+          ni: 1,
+          name: "Player, One",
+          rounds: [absent_round(1), empty_round(2, 0x2000), empty_round(3, 0), absent_round(4)]
+        }
+      ]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
+
+    assert PairingsEngine.Repo.all(
+             from b in "byes",
+               where: b.player_id == ^player.id,
+               order_by: b.round,
+               select: b.round
+           ) == [1, 4]
+
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
+    # Round 1: the one absence paid. Rounds 2-3: nothing. Round 4: the
+    # second absence, over the allowance of one.
+    assert entry.points == 0.5
+    # SWAR's late entrants are all on the absence table, so the setting
+    # stays on.
+    assert tournament.late_entry_absences
+  end
+
+  test "a player with an empty round 1 and a game later: the file does not count rounds before joining" do
+    opts = %{
+      type: 0,
+      abs_value: 1,
+      abs_jusque: 10,
+      abs_nbfois: 3,
+      players: [
+        %{ni: 1, name: "Player, One", rounds: [absent_round(1), absent_round(2)]},
+        %{ni: 2, name: "Player, Two", rounds: [empty_round(1, 0), absent_round(2)]}
+      ]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+    refute tournament.late_entry_absences
+
+    two = Enum.find(PairingsEngine.Tournaments.list_players(tournament.id), &(&1.name =~ "Two"))
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == two.id))
+    assert entry.points == 0.5
   end
 
   test "an \"absent\" bye falls back to points_loss when the tournament isn't a SWAR import (abs_value nil)" do
