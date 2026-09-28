@@ -38,6 +38,17 @@ defmodule PairingsEngine.Publishing.Drain do
   length of a healthy round trip - would be a bigger cost than the wait it
   replaces.
 
+  ## Delayed rounds
+
+  The 30-second timer is also what makes a "timed" or "scheduled" round's
+  delay actually fire on its own: every tick (and the boot-time
+  reconciliation above) calls `Publishing.promote_due_rounds/1` first, which
+  enqueues any tournament whose round just became due. Without it, a
+  tournament with nothing else happening between pairing and the delay
+  running out would sit paired-but-unpublished forever - the post-pairing
+  publish already went out and was sent+deleted long before the delay
+  elapsed, and nothing else was going to ask again.
+
   ## Failures are not this process's business
 
   `drain/0` never raises, and a publish that fails is an ordinary outcome
@@ -115,14 +126,21 @@ defmodule PairingsEngine.Publishing.Drain do
 
   def handle_continue(:schedule, state) do
     # Before the first tick, not on every one: see `Publishing.backfill/0` for
-    # why this is a boot-time reconciliation rather than a poll.
+    # why this is a boot-time reconciliation rather than a poll. A round
+    # whose delay ran out while this machine was down or mid-deploy is the
+    # same kind of thing - see `Publishing.promote_due_rounds/1`.
     Publishing.backfill()
+    Publishing.promote_due_rounds()
     schedule(state.interval)
     {:noreply, state}
   end
 
   @impl true
   def handle_info(:drain, state) do
+    # Promoted before the drain it feeds, so a round whose delay just ran
+    # out is enqueued in time to go out with this same pass rather than
+    # waiting for the next one.
+    Publishing.promote_due_rounds()
     run()
     schedule(state.interval)
     {:noreply, clear_nudge(state)}

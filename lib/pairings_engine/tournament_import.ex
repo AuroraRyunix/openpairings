@@ -269,6 +269,18 @@ defmodule PairingsEngine.TournamentImport do
             Map.get(t_attrs, "fide_compliance_lost_round")
           )
       )
+      # Same reasoning, and the same three fields, as `import_tournament!/2`
+      # - see the comment there. A restore point taken before this shipped
+      # carries none of them and this tournament comes back with the
+      # column's own default, same as a fresh import of the same old file
+      # would; there is no "live value" to prefer here either, since a
+      # restore's whole point is to replace what is live with what the
+      # entry says.
+      |> Ecto.Changeset.change(
+        public_listed: truthy(Map.get(t_attrs, "public_listed")),
+        public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
+        public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
+      )
       |> Ecto.Changeset.change(pairing_state(t_attrs, tournament.initial_colour_drawn))
       |> update!()
 
@@ -427,6 +439,19 @@ defmodule PairingsEngine.TournamentImport do
         # which is what makes "an import never adopts a key" a property of
         # the schema rather than a rule this function has to remember.
         openresults_claim: dormant_claim(t_data)
+      )
+      # `public_listed`/`public_display`/`public_hidden_tiebreaks` are
+      # display preferences `TournamentExport` writes (see its own doc for
+      # why they travel) but, like `manual_ranking_stale` above, are outside
+      # `Tournament.changeset/2`'s cast list on purpose - so a fresh import
+      # has to carry them across by hand too, or an arbiter's public-page
+      # picks would silently reset to "show everything" on every restore.
+      # A brand-new row, so a file that predates the field simply gets that
+      # field's own default - there is no live value to fall back to.
+      |> Ecto.Changeset.change(
+        public_listed: truthy(Map.get(t_attrs, "public_listed")),
+        public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
+        public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil))
       |> insert!()
@@ -854,6 +879,27 @@ defmodule PairingsEngine.TournamentImport do
   defp truthy(true), do: true
   defp truthy("true"), do: true
   defp truthy(_), do: false
+
+  # `public_display` round-trips as the same sparse string-key -> boolean
+  # map `PairingsEngine.TournamentExport` wrote it from (see
+  # `Tournament.changeset/2`'s own doc for why it is not cast: a stray form
+  # field must not be able to flip it). Anything that is not a map at all
+  # - the field missing from an old backup taken before it existed, or a
+  # hand-edited garbage value - becomes `nil`, the same "everything shown"
+  # default `PairingsEngine.PublicDisplay.show?/2` already gives a
+  # tournament that has never touched the setting. Its own values are not
+  # otherwise filtered: `show?/2` already tolerates a key it does not know
+  # and a value that is not a real boolean, falling back to that key's
+  # default exactly as it would for one this app itself never wrote.
+  defp public_display_or_nil(value) when is_map(value), do: value
+  defp public_display_or_nil(_), do: nil
+
+  # `public_hidden_tiebreaks` - only strings survive, the same
+  # hand-edited-file defence `agreed_date_log/1` below uses; anything else,
+  # including the field missing entirely, comes back `[]` (every code
+  # shown), the column's own default.
+  defp hidden_tiebreaks(value) when is_list(value), do: Enum.filter(value, &is_binary/1)
+  defp hidden_tiebreaks(_), do: []
 
   # A postponed game's provisional outcome, from a hand-editable payload:
   # only the three values the column can hold survive.

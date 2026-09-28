@@ -484,12 +484,15 @@ defmodule PairingsEngine.Keizer do
          eligible_ids
        ) do
     Repo.transaction(fn ->
+      published_at = Tournaments.compute_published_at(tournament, next_number)
+
       round =
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
           status: "playing",
-          published_at: Tournaments.compute_published_at(tournament, next_number)
+          published_at: published_at,
+          publish_due_at: Tournaments.due_publish_at(published_at)
         })
 
       coloured_pairs

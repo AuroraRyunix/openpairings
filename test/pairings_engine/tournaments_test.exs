@@ -2674,6 +2674,54 @@ defmodule PairingsEngine.TournamentsTest do
       tid = tournament.id
       assert_receive {:tournament_changed, ^tid, :settings}
     end
+
+    test "publish_round_now/1 clears a pending publish_due_at - nothing left to wait for" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "timed",
+          publish_delay_minutes: 15
+        })
+
+      future = DateTime.add(DateTime.utc_now(), 900, :second) |> DateTime.truncate(:second)
+
+      round =
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: 1,
+          published_at: future,
+          publish_due_at: future
+        })
+
+      assert {:ok, updated} = Tournaments.publish_round_now(round)
+      refute updated.publish_due_at
+    end
+
+    test "unpublish_round/1 clears a pending publish_due_at along with published_at" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "timed",
+          publish_delay_minutes: 15
+        })
+
+      future = DateTime.add(DateTime.utc_now(), 900, :second) |> DateTime.truncate(:second)
+
+      round =
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: 1,
+          published_at: future,
+          publish_due_at: future
+        })
+
+      assert {:ok, updated} = Tournaments.unpublish_round(round)
+      refute updated.publish_due_at
+    end
   end
 
   describe "publish_pairings_through/2 - rule 1" do

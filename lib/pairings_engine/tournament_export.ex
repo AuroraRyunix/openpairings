@@ -298,7 +298,22 @@ defmodule PairingsEngine.TournamentExport do
     # the keys through its player map (`TournamentImport.import_rounds!/4`)
     # rather than dropping it. It is pairing input, not a diagnostic: the
     # next round's `XXA` history is read from it (docs/extra-points.md).
-    :virtual_points
+    :virtual_points,
+    # In-flight scheduling state for `PairingsEngine.Publishing.promote_due_rounds/1`,
+    # not tournament content - an absolute timestamp only `Tournaments.due_publish_at/1`
+    # writes, at the moment a round is paired, alongside `published_at`
+    # (which IS exported and restores fine on its own: a round's public
+    # visibility does not depend on this field, only on WHETHER it gets
+    # woken up again to re-publish once `published_at` catches up).
+    #
+    # A fresh import must not carry it regardless: import never adopts the
+    # original's publishing (`dormant_claim/1`), so a wake-up timer for a
+    # publish the imported copy will not send on its own would be a promise
+    # nothing keeps. A restore taken between pairing and this timing out
+    # loses only that: the round stays correctly hidden until its
+    # `published_at`, and an arbiter who needs it live sooner already has
+    # `publish_round_now/1` for exactly that.
+    :publish_due_at
   ]
 
   @pairing_excluded [

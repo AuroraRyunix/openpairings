@@ -3360,6 +3360,27 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  What `round.publish_due_at` should be set to alongside a `compute_published_at/2`
+  result, at the same pairing time - every call site that sets one sets the
+  other. `nil` unless `published_at` is genuinely in the future (the
+  automation's pairings step with a real delay); "by hand"
+  (`published_at: nil`) and a pairings step already due when paired (no
+  delay, or the delay already elapsed) need nothing beyond the ordinary
+  post-pairing publish `Tournaments.broadcast_tournament_change/2` already
+  triggers, so scheduling a second one for them would only be a harmless but
+  pointless extra send.
+
+  See `PairingsEngine.Publishing.promote_due_rounds/1` for what reads this
+  column back.
+  """
+  @spec due_publish_at(DateTime.t() | nil) :: DateTime.t() | nil
+  def due_publish_at(nil), do: nil
+
+  def due_publish_at(%DateTime{} = published_at) do
+    if DateTime.compare(published_at, DateTime.utc_now()) == :gt, do: published_at
+  end
+
+  @doc """
   Whether `round` is currently visible on the public pairings page: its
   `published_at` exists and isn't in the future.
 
@@ -3448,14 +3469,16 @@ defmodule PairingsEngine.Tournaments do
   forward.
 
   Turns the round's results switch off too (`publish_results/2`), like
-  every other pairings unpublish.
+  every other pairings unpublish. Also clears `publish_due_at` - a round
+  taken back off the public page must not have
+  `Publishing.promote_due_rounds/1` put it right back a few minutes later.
   """
   @spec unpublish_round(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
   def unpublish_round(%Round{} = round) do
     with :ok <- ensure_writable(round.tournament_id) do
       round
       |> Round.changeset(%{published_at: nil})
-      |> Ecto.Changeset.change(results_public: false)
+      |> Ecto.Changeset.change(results_public: false, publish_due_at: nil)
       |> Repo.update()
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
     end
@@ -3466,8 +3489,16 @@ defmodule PairingsEngine.Tournaments do
   # (skipping the per-round `ensure_writable`/broadcast each of those two
   # already does) so that publishing or hiding several rounds at once
   # checks writability once and broadcasts once, not N times.
+  #
+  # Also clears `publish_due_at`: a round pushed live by hand (early, or
+  # after `promote_due_rounds/1` already fired) has nothing left to wait
+  # for, and leaving a past due-at behind would just mean the next sweep
+  # enqueues one more harmless-but-pointless publish for it.
   defp set_round_published_at(%Round{} = round, value) do
-    round |> Round.changeset(%{published_at: value}) |> Repo.update()
+    round
+    |> Round.changeset(%{published_at: value})
+    |> Ecto.Changeset.change(publish_due_at: nil)
+    |> Repo.update()
   end
 
   @doc """

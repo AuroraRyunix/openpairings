@@ -207,6 +207,32 @@ Each entry is tagged so a version can be skimmed:
   a point and uses none. Every case checked is listed in
   `docs/swar-import.md`.
 
+- [Fix] **A delayed "Pairings once paired" publish now actually fires on
+  its own.** With the automation's pairings step set to a delay (an
+  optional "after N minutes"), a round became due for OpenResults at that
+  moment but nothing re-published it if nothing else happened to touch the
+  tournament in the meantime - the post-pairing publish had already gone
+  out and been sent (excluding the still-delayed round) long before the
+  delay ran out, and the public page only caught up whenever some
+  unrelated write next enqueued a publish. Pairing a round under a real
+  delay now records its own due time (`rounds.publish_due_at`), and
+  `Publishing.Drain`'s existing 30-second timer and boot-time sweep pick it
+  up and publish it once it arrives - reusing the same queue a manual
+  "Publish now" uses, so a restart or deploy between pairing and the due
+  time cannot lose it. Publishing the round early or hiding it again by
+  hand cancels the wait.
+
+- [Fix] **A backup's public-page settings (listed, which columns show,
+  which tie-breaks are hidden) are read back on import and restore.**
+  `public_listed`, `public_display` and `public_hidden_tiebreaks` were
+  written to every export but never applied when importing that file or
+  restoring a tournament to an earlier point - an arbiter's public-page
+  picks silently reset to "list it, show everything" on every restore, and
+  an imported copy of a published tournament came back listable and fully
+  shown regardless of what the original had chosen. A backup written
+  before these settings existed keeps their ordinary defaults, exactly as
+  it always has.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the

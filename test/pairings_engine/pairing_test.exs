@@ -2215,6 +2215,83 @@ defmodule PairingsEngine.PairingTest do
     player
   end
 
+  ## ---------- publish_due_at, alongside published_at ----------
+  #
+  # `Tournaments.due_publish_at/1` is unit-tested on its own; these confirm
+  # `pair_next_round/1` actually wires it in, which is what lets
+  # `Publishing.promote_due_rounds/1` find a delayed round when its delay
+  # runs out (see that function's doc for why nothing else ever asks again).
+
+  describe "pair_next_round/1 sets publish_due_at" do
+    test "\"timed\" mode with a real delay schedules a future publish_due_at" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "timed",
+          publish_delay_minutes: 15
+        })
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+
+      assert round.publish_due_at
+      assert round.publish_due_at == round.published_at
+      expected = DateTime.add(DateTime.utc_now(), 15 * 60, :second)
+      assert DateTime.diff(expected, round.publish_due_at, :second) in -2..2
+    end
+
+    test "\"manual\" mode leaves publish_due_at nil - nothing to publish yet" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+
+      refute round.published_at
+      refute round.publish_due_at
+    end
+
+    test "\"immediate\" mode leaves publish_due_at nil - the ordinary post-pairing publish already covers it" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "immediate"
+        })
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+
+      refute round.publish_due_at
+    end
+
+    test "a \"timed\" round with a zero-minute delay leaves publish_due_at nil too" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "timed",
+          publish_delay_minutes: 0
+        })
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+
+      refute round.publish_due_at
+    end
+  end
+
   ## ---------- the external engine gets a deadline ----------
   #
   # `System.cmd/3` has no timeout, so a hung JVM used to block the calling

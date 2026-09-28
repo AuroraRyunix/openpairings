@@ -608,6 +608,62 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.standings_through == 0
     end
 
+    test "public_listed, public_display and public_hidden_tiebreaks survive the round trip" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Public Display Round Trip",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id,
+          public_listed: true,
+          public_display: %{"club" => false, "rating" => false},
+          public_hidden_tiebreaks: ["BH", "SB"]
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      imported = Repo.reload!(imported)
+
+      # Before this fix these were exported but never read back on import -
+      # an arbiter's public-page picks silently reset to "list it, show
+      # everything" on every restore or transfer of ownership.
+      assert imported.public_listed
+      assert imported.public_display == %{"club" => false, "rating" => false}
+      assert imported.public_hidden_tiebreaks == ["BH", "SB"]
+    end
+
+    test "a backup written before public_display existed keeps the defaults" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Pre-display Backup",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id
+        })
+
+      # Simulates a file written before `public_listed`/`public_display`/
+      # `public_hidden_tiebreaks` existed - none of the three keys present at
+      # all, same as `standings_through`'s own "ancient backup" test above.
+      envelope =
+        update_in(
+          TournamentExport.export_tournament(original),
+          ["tournaments", Access.at(0), "tournament"],
+          &Map.drop(&1, ["public_listed", "public_display", "public_hidden_tiebreaks"])
+        )
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      refute imported.public_listed
+      refute imported.public_display
+      assert imported.public_hidden_tiebreaks == []
+    end
+
     test "a backup carrying the old publish_starting_rank flag (off) withholds the roster" do
       owner = user_scope()
       importer = user_scope()

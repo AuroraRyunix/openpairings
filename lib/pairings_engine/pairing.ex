@@ -985,12 +985,15 @@ defmodule PairingsEngine.Pairing do
       end)
 
     Repo.transaction(fn ->
+      published_at = Tournaments.compute_published_at(tournament, next_number)
+
       round =
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
           status: "playing",
-          published_at: Tournaments.compute_published_at(tournament, next_number),
+          published_at: published_at,
+          publish_due_at: Tournaments.due_publish_at(published_at),
           explanation: explanation,
           virtual_points: virtual_points_used(tournament, paired_players)
         })
@@ -2863,12 +2866,15 @@ defmodule PairingsEngine.Pairing do
       for {w, b} <- pairs, rank <- [w, b], rank != 0, do: Map.fetch!(player_by_local_rank, rank)
 
     Repo.transaction(fn ->
+      published_at = Tournaments.compute_published_at(tournament, next_number)
+
       round =
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
           status: "playing",
-          published_at: Tournaments.compute_published_at(tournament, next_number),
+          published_at: published_at,
+          publish_due_at: Tournaments.due_publish_at(published_at),
           explanation: explanation,
           virtual_points: virtual_points_used(tournament, paired_players)
         })
@@ -2933,12 +2939,15 @@ defmodule PairingsEngine.Pairing do
   # history the next match's `XXA` line carries says both legs were paired
   # on the same scores.
   defp create_mirrored_leg(tournament, leg1_pairings, round_absentees, leg2_number, virtual) do
+    leg2_published_at = Tournaments.compute_published_at(tournament, leg2_number)
+
     leg2 =
       Repo.insert!(%Round{
         tournament_id: tournament.id,
         number: leg2_number,
         status: "playing",
-        published_at: Tournaments.compute_published_at(tournament, leg2_number),
+        published_at: leg2_published_at,
+        publish_due_at: Tournaments.due_publish_at(leg2_published_at),
         virtual_points: virtual
       })
 

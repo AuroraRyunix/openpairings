@@ -126,7 +126,7 @@ defmodule PairingsEngine.Publishing do
 
   alias PairingsEngine.{Authz, Meta, Repo, Snapshot, Tournaments}
   alias PairingsEngine.Publishing.{Drain, Failure, Installation, QueueEntry, TakedownJournal}
-  alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngine.Tournaments.{Tournament, Round}
 
   require Logger
 
@@ -1950,6 +1950,69 @@ defmodule PairingsEngine.Publishing do
       end
 
       length(ids)
+    end
+  end
+
+  @doc """
+  Wakes up every round whose delayed publish is now due, and asks
+  `enqueue_id/1` to send its tournament.
+
+  This is the fix for delayed publishing otherwise never firing on its own.
+  `enqueue_id/1` only ever runs off the back of an application write, so a
+  round paired under "timed" or "scheduled" mode with nothing else touching
+  the tournament between pairing and the delay running out never actually
+  reached the results site once it became due - the queue row from the
+  post-pairing publish had already been sent and deleted
+  (`settle/1`) long before, since a publish is a whole-document snapshot
+  rebuilt at send time, not a promise about a future one.
+
+  `round.publish_due_at` (set by every pairing-engine call site alongside
+  `published_at`, via `Tournaments.due_publish_at/1`) is this round's own
+  record that it needs a wake-up call. It is cleared to `nil` the moment
+  this reads it, which is what makes calling this twice for the same round
+  idempotent: a second call finds nothing due and enqueues nothing.
+  Only one process ever runs this (`Drain` is a singleton), so there is no
+  concurrent caller to race for the same row.
+
+  `enqueue_id/1` is the same funnel every write in the app already goes
+  through, so the same refusals apply for free: a tournament that has
+  stopped publishing, been handed off, or been binned since pairing sends
+  nothing, silently, exactly as if a write had tried to enqueue it. And
+  because `Tournaments.compute_published_at/2` is computed once at pairing
+  time and never recomputed (see its own doc), a delay or automation
+  changed AFTER a round was paired does not retroactively change what this
+  round is waiting for - consistent with every other reader of
+  `published_at`, not a new inconsistency this introduces.
+
+  Called on `Publishing.Drain`'s periodic tick, so nothing waits longer
+  than that timer's period for a delay that has already run out, and once
+  at boot (alongside `backfill/0`) so a restart or deploy between pairing
+  and the due time does not lose it - the due-at is a database column, not
+  in-memory state, so there is nothing to lose in the first place.
+  """
+  @spec promote_due_rounds(DateTime.t()) :: non_neg_integer()
+  def promote_due_rounds(now \\ DateTime.utc_now()) do
+    due =
+      Repo.all(
+        from r in Round,
+          where: not is_nil(r.publish_due_at) and r.publish_due_at <= ^now,
+          select: {r.id, r.tournament_id}
+      )
+
+    if due == [] do
+      0
+    else
+      {ids, tournament_ids} = Enum.unzip(due)
+
+      {claimed, _} =
+        Repo.update_all(
+          from(r in Round, where: r.id in ^ids and not is_nil(r.publish_due_at)),
+          set: [publish_due_at: nil]
+        )
+
+      tournament_ids |> Enum.uniq() |> Enum.each(&enqueue_id/1)
+
+      claimed
     end
   end
 

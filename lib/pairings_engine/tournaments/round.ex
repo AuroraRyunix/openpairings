@@ -14,6 +14,19 @@ defmodule PairingsEngine.Tournaments.Round do
     # visibility is just "is this timestamp in the past", checked live.
     field :published_at, :utc_datetime
 
+    # This round's own due-at for `PairingsEngine.Publishing.promote_due_rounds/1` -
+    # a copy of `published_at`, set ONLY when it was genuinely in the future
+    # at pairing time (see `Tournaments.due_publish_at/1`). Cleared the
+    # moment the sweep acts on it, or when the round is published/unpublished
+    # by hand (`Tournaments.publish_round_now/1`, `unpublish_round/1`), which
+    # is what makes the sweep idempotent and a manual override a real
+    # override. `nil` for every round before this field existed, and for
+    # every round that does not need a background wake-up (by hand, or the
+    # automation's pairings step already due when paired - no delay, or the
+    # delay already elapsed). Not cast - written only by the pairing engines
+    # and the two functions above, same reasoning as `virtual_points`.
+    field :publish_due_at, :utc_datetime
+
     # The "Results round N" switch: whether the results typed into this
     # round may travel with its published pairings. `false` for every new
     # round - the pairings still publish, the boards go out without results
