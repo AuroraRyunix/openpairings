@@ -29,6 +29,13 @@ Each entry is tagged so a version can be skimmed:
   written with "Rounds before a late entrant joins count as absences" off
   is imported with it off.
 
+- [Fix] **A TRF of chosen rounds scores each absence as the standings do.**
+  When a tournament pays for only a limited number of absences, a TRF
+  exported for, say, rounds 4-6 counted the absences from round 4 again, so
+  an absence the standings no longer paid (the fourth, with three paid) was
+  paid in the file. Every absence now counts the ones before it, including
+  those in rounds the file leaves out.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the
