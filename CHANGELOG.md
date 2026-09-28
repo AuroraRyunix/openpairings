@@ -34,6 +34,11 @@ Each entry is tagged so a version can be skimmed:
   decides or records the round moved: the checks whether a bye exclusion
   or an "only if possible" wish changed it still run in the click. Rounds
   paired before this keep the alternatives they stored.
+- [Change] "Why did he float and not me" for one player is now Ainalrami's
+  own answer (`Alternatives.float_alternative/5`) instead of a copy of the
+  engine's steps kept in this app; the answers are the same, and the
+  candidates of one question are now worked out side by side on a machine
+  with more than one core.
 - [Performance] **Standings are worked out once per change, not once per
   page.** Every page that shows standings - Standings, Players, Pairings,
   the printed standings and crosstable, the public results page, the

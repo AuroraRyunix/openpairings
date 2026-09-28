@@ -278,11 +278,11 @@ as it stood before the round (the same rebuild as a restart's recompute),
 takes the pairs from the record rather than the boards - a board changed by
 hand since is not what the account describes, and the page already says so
 - and asks the engine that one question: `Ainalrami.Alternatives.bye_alternatives/3`
-for the bye, and for a float `Explainer.float_question/5`, which is
-`float_alternatives/3`'s computation for one floater (Ainalrami only answers
-for every floater at once). `test/pairings_engine/alternatives_on_demand_test.exs`
-holds the two side by side, so an engine upgrade that changes one fails
-there. It runs as an `ExplanationJobs.run_alternative/5` job: supervised,
+for the bye, and for a float `Ainalrami.Alternatives.float_alternative/5`
+(through `Explainer.float_question/5`), the engine's own one-floater entry
+of `float_alternatives/3` - Ainalrami holds the two equal over generated
+rounds, and `test/pairings_engine/alternatives_on_demand_test.exs` checks
+them side by side on this app's own field once more. It runs as an `ExplanationJobs.run_alternative/5` job: supervised,
 low priority, registered by `{:alternative, round id, question}` so a second
 click or a second viewer joins it, the same timeout. The answer goes into
 `round_alternatives` (round, job fingerprint, question, JSON), only while
