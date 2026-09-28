@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang={Gettext.get_locale(PairingsEngineWeb.Gettext)}>
+<html
+  lang={Gettext.get_locale(PairingsEngineWeb.Gettext)}
+  {PairingsEngineWeb.AccountPreferences.html_attrs(assigns[:current_scope])}
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -105,7 +108,9 @@
           }
         };
         if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(store.get("phx:theme") || defaultTheme());
+          // A theme stored on the account (AccountPreferences.html_attrs)
+          // wins, so a choice made on one device follows the user to the next.
+          setTheme(document.documentElement.dataset.accountTheme || store.get("phx:theme") || defaultTheme());
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || defaultTheme()));
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
@@ -125,7 +130,7 @@
           store.set("phx:accent", accent);
           document.documentElement.setAttribute("data-accent", accent);
         };
-        setAccent(store.get("phx:accent"));
+        setAccent(document.documentElement.dataset.accountAccent || store.get("phx:accent"));
         window.addEventListener("storage", (e) => e.key === "phx:accent" && setAccent(e.newValue));
         window.addEventListener("phx:set-accent", (e) => setAccent(e.target.dataset.phxAccent));
       })();

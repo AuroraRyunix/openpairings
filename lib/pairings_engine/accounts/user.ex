@@ -31,6 +31,19 @@ defmodule PairingsEngine.Accounts.User do
     # which is what an arbiter outside Belgium should see.
     field :features, {:array, :string}, default: []
 
+    # The account page's own settings - see `PairingsEngineWeb.UserLive.Settings`
+    # and docs/account.md. All four are nil until chosen, and nil always
+    # means the behaviour from before they existed: the address is shown,
+    # the browser picks the language, each device keeps its own theme and
+    # accent. `PairingsEngine.Accounts.Preferences` holds the lists.
+    field :display_name, :string
+    field :locale, :string
+    field :theme, :string
+    field :accent, :string
+
+    embeds_one :tournament_defaults, PairingsEngine.Accounts.TournamentDefaults,
+      on_replace: :update
+
     timestamps(type: :utc_datetime)
   end
 
@@ -310,6 +323,80 @@ defmodule PairingsEngine.Accounts.User do
       changeset
     end
   end
+
+  @doc """
+  The account's display name - shown instead of the address where the app
+  names a person: the audit log, the history, the sharing list, an
+  invitation.
+
+  Free text, trimmed, and blank clears it. No uniqueness: two arbiters may
+  well both be called Jan Peeters, which is exactly why every place that
+  shows the name keeps the address within reach (a tooltip, or beside it).
+  Control characters are refused because the name is also written into the
+  subject and body of an invitation email.
+  """
+  def profile_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:display_name], empty_values: [])
+    |> update_change(:display_name, &normalize_display_name/1)
+    |> validate_length(:display_name, max: 80)
+    |> validate_format(:display_name, ~r/\A[^\x00-\x1f\x7f]*\z/u,
+      message: "must not contain control characters"
+    )
+  end
+
+  defp normalize_display_name(value) when is_binary(value) do
+    case value |> String.trim() |> String.replace(~r/\s+/u, " ") do
+      "" -> nil
+      name -> name
+    end
+  end
+
+  defp normalize_display_name(value), do: value
+
+  @doc """
+  Language, theme and accent stored on the account. Blank clears each back
+  to "not stored" - see `PairingsEngine.Accounts.Preferences`.
+  """
+  def preferences_changeset(user, attrs) do
+    alias PairingsEngine.Accounts.Preferences
+
+    user
+    |> cast(attrs, [:locale, :theme, :accent], empty_values: [nil, ""])
+    |> validate_inclusion(:locale, Preferences.locales())
+    |> validate_inclusion(:theme, Preferences.themes())
+    |> validate_inclusion(:accent, Preferences.accents())
+  end
+
+  @doc "The \"New tournament\" defaults - see `PairingsEngine.Accounts.TournamentDefaults`."
+  def tournament_defaults_changeset(user, attrs) do
+    user
+    |> cast(%{"tournament_defaults" => attrs}, [])
+    |> cast_embed(:tournament_defaults)
+  end
+
+  @doc """
+  What to call `user` wherever the app names a person: the display name
+  when one is set, the address otherwise.
+  """
+  def display_label(%__MODULE__{display_name: name}) when is_binary(name) and name != "",
+    do: name
+
+  def display_label(%__MODULE__{email: email}), do: email
+  def display_label(_), do: nil
+
+  @doc """
+  The display name with the address beside it - "Jan Peeters (jan@club.be)" -
+  or just the address. For the places where the reader has to know WHICH
+  account this is and not only what it is called: an invitation, and the
+  sharing list, where two people with the same name must stay apart.
+  """
+  def display_with_email(%__MODULE__{display_name: name, email: email})
+      when is_binary(name) and name != "",
+      do: "#{name} (#{email})"
+
+  def display_with_email(%__MODULE__{email: email}), do: email
+  def display_with_email(_), do: nil
 
   @doc """
   Confirms the account by setting `confirmed_at`.

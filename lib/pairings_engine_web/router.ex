@@ -23,6 +23,9 @@ defmodule PairingsEngineWeb.Router do
     # rather than the one after a redirect.
     plug :local_owner_session
     plug :fetch_current_scope_for_user
+    # After the scope, which it reads: a language stored on the signed-in
+    # account wins over the session's. Inert for an account without one.
+    plug PairingsEngineWeb.Plugs.AccountLocale
   end
 
   pipeline :api do
@@ -241,19 +244,41 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.UpdateNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
+      # The account page. Ordinary authentication for the page itself: the
+      # preferences, defaults and federation switches on it cannot lock
+      # anybody out, so they do not make anyone re-type a password. The
+      # sections that can - address, password, sessions, the download, and
+      # deleting the account - each check a recent sign-in themselves, in
+      # the page's handlers and again in `AccountController`. See
+      # `PairingsEngineWeb.UserLive.Settings`.
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
-      # NOT under `/users/settings`, and deliberately not inside
-      # `UserLive.Settings`: that LiveView is `require_sudo_mode`, and
-      # re-typing a password to tick a checkbox that hides five buttons is a
-      # cost with nothing on the other side of it. Ordinary authentication,
-      # in the same `live_session` as the rest of the account pages. See
-      # `PairingsEngineWeb.UserLive.Features`.
-      live "/users/features", UserLive.Features
+      # The federation switches used to be their own page here. They are a
+      # section of the account page now; this address still works (the
+      # account menu links it on a local install) and opens the page at
+      # that section.
+      live "/users/features", UserLive.Settings, :features
     end
 
     post "/users/update-password", UserSessionController, :update_password
+
+    # The account page's download and its delete - both need a conn, see
+    # `PairingsEngineWeb.AccountController`. The download is a GET because it
+    # changes nothing; deleting is a POST with the typed confirmation.
+    get "/users/settings/export", AccountController, :export
+    post "/users/settings/delete", AccountController, :delete
+  end
+
+  # The top-bar theme and accent pickers writing through to the account.
+  # `:browser` only, not `:require_authenticated_user`: it is a background
+  # call from a picker, and that plug would answer a signed-out one with a
+  # redirect and a flash left waiting for the next page. The controller
+  # ignores anything it will not act on. See `AccountController.appearance/2`.
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    post "/users/preferences/appearance", AccountController, :appearance
   end
 
   scope "/", PairingsEngineWeb do

@@ -32,6 +32,11 @@ everything the app does and what is planned next.
 
 ## Feature guides
 
+- [Account page](account.md) - `/users/settings`: display name, sign-in and
+  signed-in browsers, language/theme/accent stored on the account, defaults
+  for new tournaments, the federation switches, "download everything", and
+  deleting an account (refused while it owns tournaments - and why).
+
 - [Team tournaments](team-tournaments.md) - teams, board order, the team
   round robin, match and game points, team tie-breaks, board statistics, the
   TRF team section, and why team events are not published yet. Team Swiss is

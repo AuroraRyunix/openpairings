@@ -1373,6 +1373,90 @@ window.addEventListener("phx:page-loading-stop", markPickers)
 window.addEventListener("phx:set-theme", markPickers)
 window.addEventListener("phx:set-accent", markPickers)
 
+// ---- theme and accent stored on the account ----
+//
+// An account may store a theme and an accent (Account → Preferences, see
+// `PairingsEngine.Accounts.Preferences`). Stored, they follow the person to
+// every browser they sign in on; not stored (the default), each browser keeps
+// its own, exactly as before.
+//
+// Three pieces, all going through the root layout's own `setTheme`/`setAccent`
+// (by dispatching the same `phx:set-theme` / `phx:set-accent` events the
+// top-bar pickers dispatch), so the rules about unknown values, "system" and
+// localStorage live in one place:
+//
+//   1. On load, apply what the account stores. The server says so with
+//      `data-account-theme` / `data-account-accent` on <html>, rendered by
+//      `PairingsEngineWeb.AccountPreferences.html_attrs/1` in the root layout.
+//   2. When the account page saves a new one, apply it here at once
+//      (`pe:apply-appearance`, pushed by `UserLive.Settings`).
+//   3. When a top-bar picker is used while signed in, tell the server, which
+//      stores it only if the account already stores that choice - a pick on
+//      one device must not turn "each device decides" into "all devices
+//      follow this one" (`AccountController.appearance/2`).
+let applyingAccountAppearance = false
+
+const applyAppearance = (kind, value) => {
+  if (!value) { return }
+  const el = document.createElement("span")
+  el.hidden = true
+  el.dataset[kind === "theme" ? "phxTheme" : "phxAccent"] = value
+  document.body.appendChild(el)
+  applyingAccountAppearance = true
+  try {
+    el.dispatchEvent(new Event(kind === "theme" ? "phx:set-theme" : "phx:set-accent", {bubbles: true}))
+  } finally {
+    applyingAccountAppearance = false
+    el.remove()
+  }
+}
+
+const currentTheme = () => {
+  const root = document.documentElement
+  return root.getAttribute("data-theme-source") === "system" ? "system" : root.getAttribute("data-theme")
+}
+
+const applyStoredAppearance = () => {
+  const {accountTheme, accountAccent} = document.documentElement.dataset
+  if (accountTheme && accountTheme !== currentTheme()) { applyAppearance("theme", accountTheme) }
+  if (accountAccent && accountAccent !== document.documentElement.getAttribute("data-accent")) {
+    applyAppearance("accent", accountAccent)
+  }
+}
+
+applyStoredAppearance()
+
+window.addEventListener("phx:pe:apply-appearance", (e) => {
+  const {theme, accent} = e.detail || {}
+  // Kept in step with the attributes, so a later live navigation does not
+  // "restore" the value this just replaced.
+  if (theme) { document.documentElement.dataset.accountTheme = theme; applyAppearance("theme", theme) }
+  if (accent) { document.documentElement.dataset.accountAccent = accent; applyAppearance("accent", accent) }
+})
+
+const rememberAppearance = (kind) => (e) => {
+  if (applyingAccountAppearance) { return }
+  // Signed in: the account menu is only rendered for a signed-in visitor.
+  if (!document.getElementById("account-menu")) { return }
+  const value = e.target && e.target.dataset && e.target.dataset[kind === "theme" ? "phxTheme" : "phxAccent"]
+  if (!value) { return }
+
+  const root = document.documentElement
+  if (kind === "theme" && root.dataset.accountTheme) { root.dataset.accountTheme = value }
+  if (kind === "accent" && root.dataset.accountAccent) { root.dataset.accountAccent = value }
+
+  const body = new URLSearchParams({[kind]: value})
+  fetch("/users/preferences/appearance", {
+    method: "POST",
+    headers: {"x-csrf-token": csrfToken, "content-type": "application/x-www-form-urlencoded"},
+    body,
+    credentials: "same-origin"
+  }).catch(() => {})
+}
+
+window.addEventListener("phx:set-theme", rememberAppearance("theme"))
+window.addEventListener("phx:set-accent", rememberAppearance("accent"))
+
 // Escape closes the open one, which is what every other dismissible thing
 // on the web does and what a keyboard user will try first.
 document.addEventListener("keydown", (e) => {

@@ -1250,6 +1250,331 @@ label.field > span {
   .fed-switches .set-toggle { transition: background 0.12s ease; }
 }
 
+/* ---- The account page (UserLive.Settings) ---------------------------------
+   The Settings pages' vocabulary - `.set-card` sections, a label above each
+   control, one accent button per card - arranged as one page with a rail of
+   section links beside it. Nothing here introduces a colour: every value is
+   a theme token, so all seven themes and nine accents come out right. */
+.acct-page { max-width: 1080px; margin: 0 auto; }
+
+.acct-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.acct-avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--accent-soft);
+  color: color-mix(in srgb, var(--accent) 65%, var(--accent-lift));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.acct-identity { min-width: 0; }
+.acct-identity h1 { margin: 0; }
+.acct-who { margin: 2px 0 0; color: var(--text-soft); overflow-wrap: anywhere; }
+.acct-who-name { color: var(--text); font-weight: 600; margin-right: 8px; }
+.acct-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.acct-tags:empty { display: none; }
+
+.acct-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+/* The rail: sticky beside the cards on a wide screen, a wrapping row of
+   chips above them on a narrow one (below). */
+.acct-nav {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acct-nav a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.acct-nav a:hover { background: var(--surface-hover); color: var(--text); }
+.acct-nav a.acct-nav-danger { color: var(--danger); }
+
+.acct-main { min-width: 0; }
+
+/* Clear of the top of the window when a rail link scrolls here. */
+.acct-section { scroll-margin-top: 16px; padding: 22px 24px; margin-bottom: 20px; }
+
+.acct-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.acct-section-head h2 { font-size: 17px; font-weight: 650; margin: 0 0 4px; }
+.acct-section-head .hint { margin: 0; max-width: 62ch; line-height: 1.5; }
+
+/* A sub-part of a section: the address, the password, the sessions. */
+.acct-sub { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 18px; }
+.acct-sub.acct-sub-first { border-top: 0; margin-top: 0; padding-top: 0; }
+.acct-sub h3 { font-size: 14.5px; font-weight: 650; margin: 0 0 4px; }
+.acct-sub > .hint { margin: 0 0 12px; max-width: 62ch; line-height: 1.5; }
+
+.acct-sub-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.acct-sub-head .hint { margin: 0; max-width: 56ch; line-height: 1.5; }
+
+/* core_components' <.input> on this page reads like a settings field: the
+   same small soft label, and the same capped width as `.set-field`. */
+.acct-page .fieldset { padding: 0; margin: 0 0 14px; max-width: 26rem; }
+
+.acct-page .fieldset .label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.acct-field-hint { margin: -8px 0 14px; max-width: 62ch; }
+
+/* Two columns of fields where there are several short ones. */
+.acct-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+  max-width: 46rem;
+}
+
+.acct-grid .fieldset { max-width: none; }
+.acct-upper { text-transform: uppercase; }
+
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 6px;
+}
+
+.acct-actions .pe-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+.acct-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* "Confirm it's you", in place of the controls it guards. */
+.acct-lock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: var(--info-soft);
+  border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
+}
+
+.acct-lock p { flex: 1 1 18rem; margin: 0; font-size: 13.5px; line-height: 1.5; }
+.acct-lock-icon { flex: none; color: var(--info); }
+
+.acct-sso {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.acct-sso .hint { margin: 4px 0 0; line-height: 1.5; }
+.acct-sso-icon { flex: none; color: var(--accent); margin-top: 1px; }
+
+/* Where you're signed in. */
+.acct-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.acct-session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.acct-session:last-child { border-bottom: 0; }
+.acct-session.is-current { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.acct-session-icon { flex: none; color: var(--text-soft); }
+.acct-session-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.acct-session-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.acct-session-meta { font-size: 12.5px; color: var(--text-soft); }
+#sessions > .acct-saved { margin-top: 10px; }
+
+/* Theme and accent: one pill per choice, the whole pill the click target. */
+.acct-choice-group { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+
+.acct-choice-group legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.acct-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.acct-choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.acct-choice:hover { background: var(--surface-hover); }
+
+/* The radio itself is not drawn - the pill is - but it stays in the
+   accessibility tree and takes the keyboard focus. */
+.acct-choice input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.acct-choice:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 60%, var(--accent-lift));
+  font-weight: 600;
+}
+
+.acct-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.acct-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* The federation packs, inside the section instead of cards of their own. */
+.acct-note {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  font-size: 13.5px;
+}
+
+.acct-note p { margin: 4px 0 0; color: var(--text-soft); line-height: 1.5; }
+.acct-fed .fed-title h3 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
+.acct-foot { margin: 16px 0 0; }
+
+/* Your data. */
+.acct-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.acct-counts > div {
+  flex: 1 1 8rem;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.acct-counts dt { font-size: 12.5px; color: var(--text-soft); }
+.acct-counts dd { margin: 2px 0 0; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#your-data .setting-warning { margin: 0 0 16px; }
+
+/* Delete account. */
+.acct-danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.acct-danger .acct-section-head h2 { color: var(--danger); }
+.acct-consequences { margin: 0 0 16px; padding-left: 20px; line-height: 1.6; max-width: 66ch; }
+.acct-blocked p { margin: 0 0 8px; line-height: 1.5; }
+.acct-blocked ul { margin: 0 0 10px; padding-left: 20px; line-height: 1.6; }
+
+/* A display name above the address it belongs to (sharing lists). */
+.collab-name { display: block; font-weight: 600; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .acct-nav a, .acct-choice { transition: background 0.12s ease, border-color 0.12s ease; }
+}
+
+@media (max-width: 900px) {
+  .acct-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+
+  .acct-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+
+  .acct-nav a {
+    padding: 5px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+}
+
+@media (max-width: 600px) {
+  .acct-header { align-items: flex-start; }
+  .acct-avatar { width: 44px; height: 44px; font-size: 16px; }
+  .acct-section { padding: 18px 16px; }
+  .acct-grid { grid-template-columns: minmax(0, 1fr); }
+  .acct-page .fieldset { max-width: none; }
+}
+
 .set-group { display: flex; flex-direction: column; gap: 16px; }
 
 .set-field { display: block; }

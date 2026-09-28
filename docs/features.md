@@ -305,7 +305,14 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
   float was repeated). Swiss on JaVaFo stays an honest input/output analysis:
   its internal reasoning is not pretended to be known.
 - **Recycle bin** - deleted tournaments are soft-deleted and restorable.
-- **Federation features** (`/users/features`) - the Belgium-specific parts of
+- **Account page** (`/users/settings`, see [account.md](account.md)) -
+  profile with a display name shown in audit logs, history and sharing
+  lists; sign-in and security with the list of signed-in browsers and
+  "sign out everywhere else"; language, theme and accent stored on the
+  account so they follow you; defaults for new tournaments; a zip of all
+  your data; and deleting the account. Changing the address or password,
+  ending sessions, downloading and deleting ask for a recent sign-in.
+- **Federation features** (Account page, also at `/users/features`) - the Belgium-specific parts of
   the app are five independent per-account switches, all off by default: the
   KBSB rating-list sync, the KBSB player lookup, the bulk club update, SWAR
   import and SWAR export. An arbiter outside Belgium never sees any of them;

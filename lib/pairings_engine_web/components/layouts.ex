@@ -268,7 +268,9 @@ defmodule PairingsEngineWeb.Layouts do
                 the bar on 2026-09-28 (`version_link/1`, after this menu). --%>
           <details class="topbar-menu account-menu" name="topbar-popover" id="account-menu">
             <summary class={tab_class(@active == "features")} title={@current_scope.user.email}>
-              <span class="user-email">{@current_scope.user.email}</span>
+              <span class="user-email">
+                {PairingsEngine.Accounts.User.display_label(@current_scope.user)}
+              </span>
               <span class="account-menu-short" aria-hidden="true">{gettext("Account")}</span>
               <%!-- Takes the word's place where the bar is at its tightest,
                     just above the phone layout (see app.css). --%>

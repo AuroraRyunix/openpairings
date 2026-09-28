@@ -170,7 +170,12 @@ defmodule PairingsEngineWeb.UserAuth do
   # function will clear the session to avoid fixation attacks. See the
   # renew_session function to customize this behaviour.
   defp create_or_extend_session(conn, user, params) do
-    token = Accounts.generate_user_session_token(user)
+    # The browser's description of itself rides along so the account page
+    # can say which device each session is ("Firefox on Windows"). A
+    # reissue (below) records it again, so a session keeps describing the
+    # browser that is actually using it.
+    user_agent = conn |> get_req_header("user-agent") |> List.first()
+    token = Accounts.generate_user_session_token(user, user_agent)
     remember_me = get_session(conn, :user_remember_me)
 
     conn

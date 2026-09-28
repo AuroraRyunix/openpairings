@@ -451,7 +451,7 @@ defmodule PairingsEngineWeb.HistoryLive do
       at: to_utc(row.inserted_at),
       kind: kind_for(row.action),
       action: row.action,
-      who: who(row.user),
+      who: audit_who(row),
       text: headline(row, diff),
       diff: diff,
       snapshot_id: nil,
@@ -540,8 +540,22 @@ defmodule PairingsEngineWeb.HistoryLive do
     Map.get(@kinds, prefix, "tournament")
   end
 
+  # The display name when the account has one (Account → Profile), the
+  # address otherwise - the same rule as the Audit page (`AuditLive.actor/1`).
+  defp who(%PairingsEngine.Accounts.User{} = user),
+    do: PairingsEngine.Accounts.User.display_label(user)
+
   defp who(%{email: email}) when is_binary(email), do: email
   defp who(_), do: "System"
+
+  # An audit row can also outlive its account: the address it was written
+  # under is kept in `details["former_actor"]` (see
+  # `Accounts.delete_user_account/1`), and that is who did it - not "System".
+  defp audit_who(%{user: nil, details: %{"former_actor" => actor}})
+       when is_binary(actor) and actor != "",
+       do: gettext("%{who} (account deleted)", who: actor)
+
+  defp audit_who(row), do: who(row.user)
 
   defp time_label(at), do: Calendar.strftime(at, "%H:%M")
 

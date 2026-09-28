@@ -20,12 +20,32 @@ defmodule PairingsEngineWeb.LocaleController do
   def update(conn, %{"locale" => locale} = params) do
     conn =
       if Locale.known?(locale) do
+        remember_on_account(conn, locale)
         put_session(conn, Locale.session_key(), locale)
       else
         conn
       end
 
     redirect(conn, to: safe_path(params["redirect_to"]))
+  end
+
+  # A signed-in pick is stored on the account as well, so it follows the
+  # person to their other devices - see `PairingsEngineWeb.Plugs.AccountLocale`,
+  # which would otherwise put the account's OLD language back on the very
+  # next request. A language is a fact about the person, not the screen
+  # (unlike the theme, which only follows the account when the person asks
+  # for that on the account page - see `PairingsEngine.Accounts.Preferences`).
+  #
+  # A failed write costs this request nothing: the session still switches,
+  # and the account keeps the language it had.
+  defp remember_on_account(conn, locale) do
+    case conn.assigns[:current_scope] do
+      %{user: %PairingsEngine.Accounts.User{} = user} ->
+        PairingsEngine.Accounts.put_user_preference(user, :locale, locale)
+
+      _ ->
+        :ok
+    end
   end
 
   # Only same-origin paths, and only ones Phoenix will actually accept.

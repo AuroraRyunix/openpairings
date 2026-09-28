@@ -1788,12 +1788,36 @@ defmodule PairingsEngineWeb.AuditLive do
   fallback every imported row renders as "System", which says an automated
   process did something an arbiter did.
   """
+  #
+  # A display name, when the account has set one (Account → Profile), is
+  # shown instead of the address - the address stays one hover away
+  # (`actor_title/1`), because a chosen name is not unique and the trail is
+  # evidence. A row whose account was deleted since keeps the address it
+  # was written under (`details["former_actor"]`, see
+  # `Accounts.delete_user_account/1`) and says the account is gone, rather
+  # than falling through to "System", which would claim nobody did it.
+  def actor(%{user: %PairingsEngine.Accounts.User{} = user}),
+    do: PairingsEngine.Accounts.User.display_label(user)
+
   def actor(%{user: %{email: email}}), do: email
 
   def actor(%{details: %{"imported_actor" => actor}}) when is_binary(actor) and actor != "",
     do: actor
 
+  def actor(%{details: %{"former_actor" => actor}}) when is_binary(actor) and actor != "",
+    do: gettext("%{who} (account deleted)", who: actor)
+
   def actor(_), do: gettext("System")
+
+  @doc """
+  The address behind `actor/1`'s name, for a tooltip - nil when the cell
+  already shows the address.
+  """
+  def actor_title(%{user: %PairingsEngine.Accounts.User{display_name: name, email: email}})
+      when is_binary(name) and name != "",
+      do: email
+
+  def actor_title(_entry), do: nil
 
   @doc "Formats an audit row's `inserted_at` for display."
   def format_time(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%Y-%m-%d %H:%M")
@@ -1947,7 +1971,7 @@ defmodule PairingsEngineWeb.AuditLive do
 
             <tr :for={entry <- @entries}>
               <td style="white-space: nowrap">{format_time(entry.inserted_at)}</td>
-              <td>{actor(entry)}</td>
+              <td title={actor_title(entry)}>{actor(entry)}</td>
               <td>{describe(entry)}</td>
             </tr>
           </tbody>
