@@ -1317,15 +1317,17 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "asked to keep apart if possible"
     end
 
-    # Version 3: "why did HE get the bye and not me" - every other candidate
-    # in the bye holder's bracket, each with a verdict.
+    # "Why did HE get the bye and not me" - every other candidate in the bye
+    # holder's bracket, each with a verdict, worked out when opened.
     test "an odd field says why the bye went where it went", %{conn: conn, scope: scope} do
       t = ainalrami_tournament(scope, 7)
       {:ok, _round} = Pairing.pair_next_round(t)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
-
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
       assert html =~ "Why the bye went to"
+
+      html = lv |> element("#alt-bye-0-toggle") |> render_click()
+
       # Six other candidates, each a line with a verdict.
       assert length(Regex.scan(~r/pe-verdict-why/, html)) >= 6
     end
@@ -1363,10 +1365,11 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       v1 =
         round.explanation
         |> Map.put("version", 1)
+        |> Map.drop(["alternatives", "job"])
         |> update_in(["sections"], fn sections ->
           Enum.map(sections, fn section ->
             section
-            |> Map.delete("bye")
+            |> Map.drop(["bye", "bye_holder", "pairs"])
             |> update_in(["brackets"], fn brackets ->
               Enum.map(
                 brackets,
@@ -1396,17 +1399,64 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ "from before the detailed analysis"
     end
 
-    # A question the pairing-time cap skipped can be worked out on request.
-    # Fifteen players in round one: the bye holder's bracket is everybody,
-    # fourteen candidates, past the cap of twelve.
-    test "a skipped question offers to be worked out, and then is", %{conn: conn, scope: scope} do
+    # A question past the cap says so when opened, and can be worked out in
+    # full on request. Fifteen players in round one: the bye holder's
+    # bracket is everybody, fourteen candidates, past the cap of twelve.
+    test "a question past the cap offers to be worked out, and then is", %{
+      conn: conn,
+      scope: scope
+    } do
       t = ainalrami_tournament(scope, 15)
       {:ok, round} = Pairing.pair_next_round(t)
       boards_before = board_signature(round)
 
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      lv |> element("#alt-bye-0-toggle") |> render_click()
+      assert has_element?(lv, "#alt-bye-0-skipped")
+
+      lv |> element("#alt-bye-0-full") |> render_click()
+      refute has_element?(lv, "#alt-bye-0-skipped")
+      assert has_element?(lv, "#alt-bye-0-answer")
+
+      # Fourteen verdicts, one per other player - and not a board touched.
+      round = Tournaments.get_round(t.id, 1)
+      assert %{"bye/0" => bye} = Pairing.stored_alternatives(round)
+      assert length(bye["candidates"]) == 14
+      assert board_signature(round) == boards_before
+    end
+
+    # The whole round at once, past the cap, for a round whose account
+    # still carries its alternatives inline (version 3).
+    test "a skipped question on an older account is worked out for the whole round", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = ainalrami_tournament(scope, 15)
+      {:ok, round} = Pairing.pair_next_round(t)
+      boards_before = board_signature(round)
+
+      # A version-3 record, as every round paired before 2026-09-28 has it:
+      # the bye's alternatives skipped at pairing time.
+      round.explanation
+      |> Map.put("version", 3)
+      |> Map.drop(["alternatives", "job"])
+      |> update_in(["sections"], fn [section] ->
+        [
+          section
+          |> Map.drop(["bye_holder", "pairs"])
+          |> Map.put("bye", %{
+            "holder" => section["bye_holder"],
+            "group" => 0.0,
+            "skipped" => "too_many",
+            "count" => 14
+          })
+        ]
+      end)
+      |> then(&(round |> Ecto.Changeset.change(explanation: &1) |> Repo.update!()))
+
       {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
       assert html =~ "Not worked out at pairing time"
-      assert html =~ "Work it out now"
+      refute has_element?(lv, ".pe-alt-toggle")
 
       html = lv |> element("button", "Work it out now") |> render_click()
       assert html =~ "Working - a minute or so"
@@ -1417,7 +1467,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ "Not worked out at pairing time"
       assert html =~ "Why the bye went to"
 
-      # Fourteen verdicts, one per other player - and not a board touched.
       round = Tournaments.get_round(t.id, 1)
       assert round.explanation["depth"] == "full"
       [section] = round.explanation["sections"]

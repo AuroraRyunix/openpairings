@@ -99,6 +99,7 @@ defmodule PairingsEngine.ExplanationJobsTest do
       assert_receive {:explainer_started, job}, 5_000
       assert Pairing.explanation_state(round) == :pending
       assert Pairing.explanation_state(stored(t, 1)) == :pending
+      pending_job = round.explanation["job"]
       assert ExplanationJobs.running?(round.id)
       # Boards are all there already.
       assert length(Repo.preload(round, :pairings).pairings) == 5
@@ -109,8 +110,12 @@ defmodule PairingsEngine.ExplanationJobsTest do
 
       round = stored(t, 1)
       assert Pairing.explanation_state(round) == :ready
-      assert round.explanation["version"] == 3
-      refute Map.has_key?(round.explanation, "job")
+      # The brackets only; the alternatives are worked out when opened, and
+      # stored against the fingerprint the account keeps.
+      assert round.explanation["version"] == 4
+      assert round.explanation["alternatives"] == "on_demand"
+      assert round.explanation["job"] == pending_job
+      refute Map.has_key?(round.explanation, "status")
       assert [_ | _] = RoundExplanation.for_round(round, Tournaments.list_players(t.id))
       refute ExplanationJobs.running?(round.id)
     end
@@ -130,7 +135,8 @@ defmodule PairingsEngine.ExplanationJobsTest do
       Application.put_env(:pairings_engine, :explanation_jobs, :inline)
       {:ok, _} = Pairing.pair_next_round(Repo.reload!(t))
 
-      assert stored(t, 1).explanation == later
+      # Apart from the fingerprint, which is new for every pairing.
+      assert Map.delete(stored(t, 1).explanation, "job") == Map.delete(later, "job")
     end
   end
 
@@ -307,7 +313,10 @@ defmodule PairingsEngine.ExplanationJobsTest do
       assert {:ok, rebuilt} = Pairing.recompute_explanation(Repo.reload!(t), 2)
 
       json = &(&1 |> Jason.encode!() |> Jason.decode!())
-      assert json.(Map.drop(rebuilt, ["origin", "paired_by"])) == json.(in_memory)
+      # The job stores the fingerprint on it; `recompute_explanation/2` is
+      # the work, which does not.
+      assert json.(Map.drop(rebuilt, ["origin", "paired_by"])) ==
+               json.(Map.delete(in_memory, "job"))
     end
 
     test "a category-paired round is rebuilt section by section" do
@@ -346,7 +355,10 @@ defmodule PairingsEngine.ExplanationJobsTest do
       assert {:ok, rebuilt} = Pairing.recompute_explanation(Repo.reload!(t), 1)
 
       json = &(&1 |> Jason.encode!() |> Jason.decode!())
-      assert json.(Map.drop(rebuilt, ["origin", "paired_by"])) == json.(in_memory)
+      # The job stores the fingerprint on it; `recompute_explanation/2` is
+      # the work, which does not.
+      assert json.(Map.drop(rebuilt, ["origin", "paired_by"])) ==
+               json.(Map.delete(in_memory, "job"))
     end
   end
 

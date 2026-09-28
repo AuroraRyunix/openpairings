@@ -16,7 +16,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   """
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{PairingRationale, Tournaments}
+  alias PairingsEngine.{ExplanationJobs, PairingRationale, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.RoundExplanation
@@ -96,11 +96,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        ExplanationJobs.alternatives_topic(tournament.id)
+      )
+
       if explanation_state == :pending, do: schedule_account_check()
     end
 
     {:ok,
-     assign(socket,
+     socket
+     |> assign(alt_open: MapSet.new(), alt_failed: MapSet.new(), alt_check: false)
+     |> assign_alternatives(round, players)
+     |> assign(
        tournament: tournament,
        round_number: round_number,
        rationale: rationale,
@@ -129,6 +138,140 @@ defmodule PairingsEngineWeb.PairingExplainLive do
      )}
   end
 
+  ## ---------- the alternatives, worked out when opened ----------
+  ##
+  ## A round paired since 2026-09-28 stores the brackets only; each "why him
+  ## and not me" is worked out when somebody opens it here
+  ## (`PairingsEngine.Pairing.open_alternative/4`) and kept for everybody
+  ## after. `alt_open` is what THIS viewer has opened; the answers, and
+  ## which questions are being worked out, are the same for every viewer and
+  ## arrive by broadcast (`PairingsEngine.ExplanationJobs.alternatives_topic/1`).
+
+  defp assign_alternatives(socket, round, players) do
+    case round do
+      %{id: id, explanation: %{"job" => job} = record} when is_binary(job) ->
+        if RoundExplanation.on_demand?(record) and Engine.explanation_state(round) == :ready do
+          socket
+          |> forget_other_pairing(id, job)
+          |> assign(
+            alt_round: %{id: id, job: job},
+            alt_players: players,
+            alt_answers: RoundExplanation.answers(Engine.stored_alternatives(round), players),
+            alt_running: ExplanationJobs.running_alternatives(id, job)
+          )
+          |> schedule_alternatives_check()
+        else
+          no_alternatives(socket)
+        end
+
+      _ ->
+        no_alternatives(socket)
+    end
+  end
+
+  defp no_alternatives(socket) do
+    socket
+    |> forget_other_pairing(nil, nil)
+    |> assign(alt_round: nil, alt_players: [], alt_answers: %{}, alt_running: MapSet.new())
+  end
+
+  # The round was unpaired and paired again under the open page: what this
+  # viewer had opened, or saw fail, was about the old pairing.
+  defp forget_other_pairing(socket, id, job) do
+    case socket.assigns[:alt_round] do
+      %{id: ^id, job: ^job} -> socket
+      nil when is_nil(id) -> socket
+      _ -> assign(socket, alt_open: MapSet.new(), alt_failed: MapSet.new())
+    end
+  end
+
+  defp refresh_alternatives(%{assigns: %{alt_round: %{id: id, job: job}}} = socket) do
+    stored = ExplanationJobs.stored_alternatives(id, job)
+
+    assign(socket,
+      alt_answers: RoundExplanation.answers(stored, socket.assigns.alt_players),
+      alt_running: ExplanationJobs.running_alternatives(id, job)
+    )
+  end
+
+  defp refresh_alternatives(socket), do: socket
+
+  # A job that died without a word (the node restarted under it, or it was
+  # stopped) would leave "Working it out…" up for good, so while anything
+  # is being worked out the page looks again now and then: a question
+  # nobody is working on any more, and with no answer, has failed.
+  @alternatives_check_ms 15_000
+  defp schedule_alternatives_check(socket) do
+    if connected?(socket) and not socket.assigns.alt_check and
+         MapSet.size(socket.assigns.alt_running) > 0 do
+      Process.send_after(self(), :check_alternatives, @alternatives_check_ms)
+      assign(socket, alt_check: true)
+    else
+      socket
+    end
+  end
+
+  defp start_alternative(socket, question, opts \\ []) do
+    %{tournament: tournament, round_number: number, alt_round: %{job: job}} = socket.assigns
+
+    case Engine.open_alternative(tournament, number, question, [job: job] ++ opts) do
+      {:error, :stale} ->
+        put_flash(
+          socket,
+          :error,
+          gettext("This round has changed since the page was opened. Reload the page.")
+        )
+
+      # Stored already, or started: `run_alternative/5` returns once the
+      # job is registered, so the registry says which.
+      _stored_or_started ->
+        socket
+        |> assign(alt_failed: MapSet.delete(socket.assigns.alt_failed, question))
+        |> refresh_alternatives()
+        |> schedule_alternatives_check()
+    end
+  end
+
+  # What one question shows, for this viewer.
+  defp alt_status(assigns, key),
+    do: alt_status(assigns.alt_running, assigns.alt_failed, assigns.alt_answers, key)
+
+  defp alt_status(running, failed, answers, key) do
+    cond do
+      MapSet.member?(running, key) -> :running
+      MapSet.member?(failed, key) -> :failed
+      answer = Map.get(answers, key) -> {:answer, answer}
+      true -> :idle
+    end
+  end
+
+  # What the question's live region says: nothing until this viewer opens
+  # it, then that it is being worked out, then that the answer is in. A
+  # failure is its own alert.
+  defp alt_announcement(false, _status), do: ""
+  defp alt_announcement(true, :running), do: gettext("Working it out…")
+  defp alt_announcement(true, {:answer, _}), do: gettext("Worked out.")
+  defp alt_announcement(true, _status), do: ""
+
+  # Only the questions on the page can be opened - not whatever a client
+  # sends.
+  defp known_question?(%{assigns: %{alt_round: nil}}, _question), do: false
+
+  defp known_question?(%{assigns: %{engine_account: sections}}, question)
+       when is_list(sections) do
+    Enum.any?(sections, fn section ->
+      match?(%{key: ^question}, section.bye_question) or
+        Enum.any?(section.brackets, fn b ->
+          Enum.any?(b.float_questions, &(&1.key == question))
+        end)
+    end)
+  end
+
+  defp known_question?(_socket, _question), do: false
+
+  # "float/0/2/17" -> "alt-float-0-2-17": an id-safe form of a question's name.
+  defp alt_dom(key), do: "alt-" <> String.replace(key, "/", "-")
+
   defp preload_pairings(nil), do: nil
   defp preload_pairings(round), do: PairingsEngine.Repo.preload(round, :pairings)
 
@@ -151,13 +294,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     if state == :pending and socket.assigns.explanation_state != :pending,
       do: schedule_account_check()
 
-    assign(socket,
+    socket
+    |> assign(
       engine_account: round && RoundExplanation.for_round(round, players),
       account_divergence: if(round, do: RoundExplanation.divergence(round), else: :no_record),
       account_origin: round && round.explanation && round.explanation["origin"],
       recompute: Engine.reexplain_status(tournament, round),
       explanation_state: state
     )
+    |> assign_alternatives(round, players)
   end
 
   @impl true
@@ -178,6 +323,56 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   end
 
   def handle_info(:check_account, socket), do: {:noreply, socket}
+
+  # A question of this round's account started, was stored, or failed -
+  # opened here or on anybody else's copy of the page. The job broadcasts
+  # before it leaves the registry, so the question it names is taken out of
+  # "running" by hand.
+  def handle_info(
+        {:round_alternative, round_id, job, question, status},
+        %{assigns: %{alt_round: %{id: round_id, job: job}}} = socket
+      ) do
+    socket =
+      case status do
+        :running ->
+          socket
+          |> update(:alt_running, &MapSet.put(&1, question))
+          |> update(:alt_failed, &MapSet.delete(&1, question))
+          |> schedule_alternatives_check()
+
+        :ready ->
+          socket
+          |> refresh_alternatives()
+          |> update(:alt_running, &MapSet.delete(&1, question))
+          |> update(:alt_failed, &MapSet.delete(&1, question))
+
+        :failed ->
+          socket
+          |> refresh_alternatives()
+          |> update(:alt_running, &MapSet.delete(&1, question))
+          |> update(:alt_failed, &MapSet.put(&1, question))
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:round_alternative, _round_id, _job, _question, _status}, socket),
+    do: {:noreply, socket}
+
+  def handle_info(:check_alternatives, socket) do
+    was_running = socket.assigns.alt_running
+    socket = socket |> assign(alt_check: false) |> refresh_alternatives()
+
+    lost =
+      was_running
+      |> MapSet.difference(socket.assigns.alt_running)
+      |> Enum.reject(&Map.has_key?(socket.assigns.alt_answers, &1))
+
+    {:noreply,
+     socket
+     |> update(:alt_failed, &Enum.into(lost, &1))
+     |> schedule_alternatives_check()}
+  end
 
   # Top-of-page index of the genuine per-board anomalies - rematch outside
   # match format, a repeat pairing-allocated (engine-assigned) bye, and the
@@ -427,6 +622,40 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     end
 
     {:noreply, reload_account(socket)}
+  end
+
+  # Opening or closing one "why him and not me". Opening a question nobody
+  # has worked out yet starts it (`start_alternative/3`); one already
+  # answered - by anybody, any time since the round was paired - is shown
+  # as stored.
+  def handle_event("alternative", %{"q" => question}, socket) do
+    cond do
+      not known_question?(socket, question) ->
+        {:noreply, socket}
+
+      MapSet.member?(socket.assigns.alt_open, question) ->
+        {:noreply, update(socket, :alt_open, &MapSet.delete(&1, question))}
+
+      true ->
+        socket = update(socket, :alt_open, &MapSet.put(&1, question))
+
+        if alt_status(socket.assigns, question) == :idle,
+          do: {:noreply, start_alternative(socket, question)},
+          else: {:noreply, socket}
+    end
+  end
+
+  def handle_event("alternative_retry", %{"q" => question}, socket) do
+    if known_question?(socket, question),
+      do: {:noreply, start_alternative(socket, question)},
+      else: {:noreply, socket}
+  end
+
+  # Past the cap: every candidate, one full pairing each, asked for knowingly.
+  def handle_event("alternative_full", %{"q" => question}, socket) do
+    if known_question?(socket, question),
+      do: {:noreply, start_alternative(socket, question, full: true)},
+      else: {:noreply, socket}
   end
 
   # "Work it out now" on a question the pairing-time cap skipped. Same
@@ -814,6 +1043,114 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         do: gettext("Working - a minute or so"),
         else: gettext("Work it out now")}
     </button>
+    """
+  end
+
+  attr :key, :string, required: true
+  attr :title, :string, required: true
+  attr :open, :boolean, required: true
+  attr :status, :any, required: true
+  attr :paired_by, :string, default: nil
+
+  # One "why him and not me" of a version-4 account: a disclosure button
+  # (aria-expanded, aria-controls) over a panel that says "Working it out…"
+  # while the forced searches run, the verdicts once they are in, or what
+  # went wrong with a way to try again. The panel is announced politely, so
+  # a screen reader hears the answer arrive without moving focus.
+  defp alternative_question(assigns) do
+    answer =
+      case assigns.status do
+        {:answer, answer} -> answer
+        _ -> nil
+      end
+
+    assigns = assign(assigns, dom: alt_dom(assigns.key), answer: answer)
+
+    ~H"""
+    <div id={@dom} class="pe-why-me pe-alt">
+      <p class="pe-why-me-head">
+        <button
+          type="button"
+          id={"#{@dom}-toggle"}
+          class="pe-alt-toggle"
+          phx-click="alternative"
+          phx-value-q={@key}
+          aria-expanded={to_string(@open)}
+          aria-controls={"#{@dom}-panel"}
+        >
+          <.icon name="hero-chevron-right" class="pe-alt-chevron" />
+          <span>{@title}</span>
+        </button>
+      </p>
+
+      <%!-- Outside the panel, which is hidden while closed: a live region
+            must stay rendered to be heard. It speaks only for a question
+            this viewer opened. --%>
+      <span id={"#{@dom}-status"} class="sr-only" role="status">
+        {alt_announcement(@open, @status)}
+      </span>
+
+      <div
+        id={"#{@dom}-panel"}
+        class="pe-alt-panel"
+        hidden={!@open}
+        aria-busy={to_string(@status == :running)}
+      >
+        <p :if={@status == :running} id={"#{@dom}-working"} class="pe-alt-working">
+          <span class="pe-account-dot" aria-hidden="true"></span>
+          <span>
+            <strong>{gettext("Working it out…")}</strong>
+            {gettext(
+              "Each other candidate is a full pairing of the round, so on a large field this takes a while. Once worked out it is kept for everybody."
+            )}
+          </span>
+        </p>
+
+        <div
+          :if={@open and @status == :failed}
+          id={"#{@dom}-failed"}
+          class="pe-alt-failed"
+          role="alert"
+        >
+          <p>
+            {gettext("This could not be worked out. Nothing about the round depends on it.")}
+          </p>
+          <button
+            type="button"
+            id={"#{@dom}-retry"}
+            class="pe-btn"
+            phx-click="alternative_retry"
+            phx-value-q={@key}
+          >
+            {gettext("Try again")}
+          </button>
+        </div>
+
+        <p :if={@answer && @answer.skipped} id={"#{@dom}-skipped"} class="hint">
+          {gettext(
+            "Not worked out yet: %{count} candidates, and each one is a full pairing of the round.",
+            count: @answer.count
+          )}
+          <button
+            type="button"
+            id={"#{@dom}-full"}
+            class="pe-btn tonal"
+            phx-click="alternative_full"
+            phx-value-q={@key}
+            style="margin-left: 6px"
+          >
+            {gettext("Work it out now")}
+          </button>
+        </p>
+
+        <ul :if={@answer && !@answer.skipped} id={"#{@dom}-answer"}>
+          <li :for={c <- @answer.candidates} class={outcome_class(c, @paired_by)}>
+            {c.player.name}
+            <span class="pe-verdict-why">— {candidate_text(c, @paired_by)}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
     """
   end
 
@@ -2502,7 +2839,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <p>
           <strong>{gettext("Working out the explanation…")}</strong>
           {gettext(
-            "The round is paired and saved. The engine is now working out how it decided - the brackets it built, and for every float and the bye what each other candidate would have cost. On a large field that takes a few minutes; this page fills in by itself."
+            "The round is paired and saved. The engine is now working out how it decided - the brackets it built and the criteria that separated them. That takes a moment; this page fills in by itself."
           )}
         </p>
       </div>
@@ -3433,6 +3770,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           )}
         </p>
 
+        <p :if={@alt_round} id="alternatives-on-demand-note" class="hint">
+          {gettext(
+            "Why a player floated, or why the bye went where it went, is worked out when you open the question: each other candidate is a full pairing of the round. Once worked out it is kept."
+          )}
+        </p>
+
         <p :if={@account_origin == "recomputed" and @paired_by == "javafo"} class="hint">
           <strong>{gettext("Paired by JaVaFo. Analysed after the fact by Ainalrami")}</strong>
           {gettext(
@@ -3579,6 +3922,17 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               </ul>
             </div>
 
+            <%!-- The same question on a round paired since 2026-09-28: worked
+                  out when opened, once, and kept for everybody. --%>
+            <.alternative_question
+              :for={q <- bracket.float_questions}
+              key={q.key}
+              title={gettext("Why %{name} floated and not somebody else", name: q.floater.name)}
+              open={MapSet.member?(@alt_open, q.key)}
+              status={alt_status(@alt_running, @alt_failed, @alt_answers, q.key)}
+              paired_by={@paired_by}
+            />
+
             <ul :if={bracket.edges == []} class="pe-account-pairs">
               <li :for={{white, black} <- bracket.pairs}>
                 {white && white.name} vs {(black && black.name) || "bye"}
@@ -3681,6 +4035,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               </li>
             </ul>
           </div>
+
+          <.alternative_question
+            :if={section.bye_question}
+            key={section.bye_question.key}
+            title={gettext("Why the bye went to %{name}", name: section.bye_question.holder.name)}
+            open={MapSet.member?(@alt_open, section.bye_question.key)}
+            status={alt_status(@alt_running, @alt_failed, @alt_answers, section.bye_question.key)}
+            paired_by={@paired_by}
+          />
         </div>
 
         <p class="hint">

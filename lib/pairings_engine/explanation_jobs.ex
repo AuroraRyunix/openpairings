@@ -10,7 +10,13 @@ defmodule PairingsEngine.ExplanationJobs do
   450-player round 2 on the two-core server it was 235 of the click's 253
   seconds. So `PairingsEngine.Pairing` now stores the round with a PENDING
   record - the deviation facts it already knows, and a fingerprint - and
-  hands the expensive part to `run/4`.
+  hands the rest to `run/4`.
+
+  Since 2026-09-28 that job works out the brackets only (under a second on
+  that field), and each alternative is worked out when somebody opens it
+  on the explanation page - `run_alternative/5`, the same machinery, one
+  job per question - and kept in `round_alternatives` (see "One
+  alternative" below).
 
   ## The job
 
@@ -53,7 +59,7 @@ defmodule PairingsEngine.ExplanationJobs do
   import Ecto.Query
 
   alias PairingsEngine.{Repo, Tournaments}
-  alias PairingsEngine.Tournaments.Round
+  alias PairingsEngine.Tournaments.{Round, RoundAlternative}
 
   @supervisor PairingsEngine.ExplanationTaskSupervisor
   @registry PairingsEngine.ExplanationJobRegistry
@@ -128,8 +134,10 @@ defmodule PairingsEngine.ExplanationJobs do
   things to do with its two cores.
   """
   def cancel(round_ids) do
-    for round_id <- List.wrap(round_ids), {pid, _} <- Registry.lookup(@registry, round_id) do
-      Task.Supervisor.terminate_child(@supervisor, pid)
+    for round_id <- List.wrap(round_ids) do
+      account = for {pid, _fingerprint} <- Registry.lookup(@registry, round_id), do: pid
+      alternatives = for {_question, pid, _fingerprint} <- alternative_jobs(round_id), do: pid
+      Enum.each(account ++ alternatives, &Task.Supervisor.terminate_child(@supervisor, &1))
     end
 
     :ok
@@ -138,6 +146,10 @@ defmodule PairingsEngine.ExplanationJobs do
   @doc """
   Writes `payload` onto the round if, and only if, it still holds the
   pending (or failed) record `fingerprint` names. `:stored` or `:stale`.
+
+  A finished account keeps its `"job"` since 2026-09-28 - its alternatives
+  are stored against it (`store_alternative/4`) - so the guard asks for the
+  status as well: a finished account is never written over by a second job.
   """
   def store(round_id, fingerprint, payload) do
     {count, _} =
@@ -145,7 +157,8 @@ defmodule PairingsEngine.ExplanationJobs do
         from(r in Round,
           where:
             r.id == ^round_id and
-              fragment("json_extract(?, '$.job')", r.explanation) == ^fingerprint
+              fragment("json_extract(?, '$.job')", r.explanation) == ^fingerprint and
+              fragment("json_extract(?, '$.status')", r.explanation) in ["pending", "failed"]
         ),
         set: [explanation: payload]
       )
@@ -178,6 +191,174 @@ defmodule PairingsEngine.ExplanationJobs do
     end
   end
 
+  ## ---------- one alternative, when somebody opens it ----------
+  #
+  # Since 2026-09-28 the account a job above stores is the cheap part only:
+  # the brackets and the criteria. Each "why him and not me" - one forced
+  # re-pairing of the round per candidate - is worked out when somebody
+  # opens that question on the explanation page, by the same machinery: a
+  # supervised, low-priority task, registered (by round and question, so a
+  # second click, or a second viewer, joins the one already running), a
+  # timeout, and a guarded write (`store_alternative/4`).
+  #
+  # Its news goes out on a topic of its own (`alternatives_topic/1`), not
+  # the tournament's: a dozen pages reload on anything said there, and an
+  # arbiter opening a question changes nothing they show.
+
+  @doc "The PubSub topic of a tournament's alternatives being worked out."
+  def alternatives_topic(tournament_id), do: "round_alternatives:#{tournament_id}"
+
+  @doc """
+  Works out one alternative of `round_id` with `work` (zero-arity, returning
+  `{:ok, result_json}` or `{:error, reason}`) and stores it against
+  `fingerprint` and `question`. Broadcasts
+  `{:round_alternative, round_id, fingerprint, question, status}` on
+  `alternatives_topic/1` - `:running` when it starts, `:ready` when stored,
+  `:failed` when it failed or no longer applies. Asynchronous unless
+  configured `:inline`; a job already working on the question wins.
+  """
+  def run_alternative(tournament_id, round_id, fingerprint, question, work)
+      when is_function(work, 0) do
+    case mode() do
+      :inline ->
+        broadcast_alternative(tournament_id, round_id, fingerprint, question, :running)
+        perform_alternative(tournament_id, round_id, fingerprint, question, work, :inline)
+
+      _async ->
+        caller = self()
+        ref = make_ref()
+
+        {:ok, _pid} =
+          Task.Supervisor.start_child(@supervisor, fn ->
+            registered =
+              Registry.register(@registry, {:alternative, round_id, question}, fingerprint)
+
+            send(caller, {ref, :registered})
+
+            case registered do
+              {:ok, _} ->
+                broadcast_alternative(tournament_id, round_id, fingerprint, question, :running)
+                perform_alternative(tournament_id, round_id, fingerprint, question, work, :async)
+
+              {:error, {:already_registered, _pid}} ->
+                :ok
+            end
+          end)
+
+        receive do
+          {^ref, :registered} -> :ok
+        after
+          5_000 -> :ok
+        end
+    end
+  end
+
+  @doc """
+  The questions of `round_id` a job in this node is working on for the
+  account `fingerprint`.
+  """
+  def running_alternatives(round_id, fingerprint) do
+    for {question, _pid, ^fingerprint} <- alternative_jobs(round_id),
+        into: MapSet.new(),
+        do: question
+  end
+
+  defp alternative_jobs(round_id) do
+    Registry.select(@registry, [
+      {{{:alternative, round_id, :"$1"}, :"$2", :"$3"}, [], [{{:"$1", :"$2", :"$3"}}]}
+    ])
+  end
+
+  @doc """
+  Keeps `result` as the answer to `question` for the account `fingerprint`
+  of `round_id` - if, and only if, the round still holds that finished
+  account. `:stored` or `:stale`. A second answer to the same question (the
+  whole bracket worked out, past the cap) replaces the first.
+  """
+  def store_alternative(round_id, fingerprint, question, result) do
+    Repo.transaction(fn ->
+      current =
+        Repo.exists?(
+          from(r in Round,
+            where:
+              r.id == ^round_id and
+                fragment("json_extract(?, '$.job')", r.explanation) == ^fingerprint and
+                is_nil(fragment("json_extract(?, '$.status')", r.explanation))
+          )
+        )
+
+      if current do
+        now = DateTime.utc_now(:second)
+
+        Repo.insert!(
+          %RoundAlternative{
+            round_id: round_id,
+            job: fingerprint,
+            question: question,
+            result: result,
+            inserted_at: now,
+            updated_at: now
+          },
+          on_conflict: [set: [result: result, updated_at: now]],
+          conflict_target: [:round_id, :job, :question]
+        )
+
+        :stored
+      else
+        :stale
+      end
+    end)
+    |> case do
+      {:ok, outcome} -> outcome
+      {:error, _} -> :stale
+    end
+  end
+
+  @doc "The stored answers of `round_id`'s account `fingerprint`, by question."
+  def stored_alternatives(round_id, fingerprint) do
+    Repo.all(
+      from(a in RoundAlternative,
+        where: a.round_id == ^round_id and a.job == ^fingerprint,
+        select: {a.question, a.result}
+      )
+    )
+    |> Map.new()
+  end
+
+  defp perform_alternative(tournament_id, round_id, fingerprint, question, work, how) do
+    result =
+      case how do
+        :inline -> safely(work)
+        :async -> with_timeout(work)
+      end
+
+    outcome =
+      case result do
+        {:ok, answer} when is_map(answer) ->
+          store_alternative(round_id, fingerprint, question, answer)
+
+        {:error, reason} ->
+          Logger.warning(
+            "An alternative of round #{round_id} (tournament #{tournament_id}, #{question}) " <>
+              "could not be worked out: #{inspect(reason)}"
+          )
+
+          :failed
+      end
+
+    status = if outcome == :stored, do: :ready, else: :failed
+    broadcast_alternative(tournament_id, round_id, fingerprint, question, status)
+    outcome
+  end
+
+  defp broadcast_alternative(tournament_id, round_id, fingerprint, question, status) do
+    Phoenix.PubSub.broadcast(
+      PairingsEngine.PubSub,
+      alternatives_topic(tournament_id),
+      {:round_alternative, round_id, fingerprint, question, status}
+    )
+  end
+
   defp perform(tournament_id, round_id, fingerprint, work, how) do
     result =
       case how do
@@ -187,8 +368,10 @@ defmodule PairingsEngine.ExplanationJobs do
 
     outcome =
       case result do
+        # The fingerprint stays on the finished account: its alternatives,
+        # worked out later, are stored against it.
         {:ok, payload} when is_map(payload) ->
-          store(round_id, fingerprint, payload)
+          store(round_id, fingerprint, Map.put(payload, "job", fingerprint))
 
         {:error, reason} ->
           Logger.warning(

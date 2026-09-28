@@ -17,6 +17,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Performance] **A round's explanation is ready within a second of
+  pairing; each "why him and not me" is worked out when you open it.** The
+  explanation page's alternatives - why this player floated and not
+  another, why the bye went where it went - each cost one full re-pairing
+  of the round per candidate, and were all worked out after every pairing
+  although most are never read. Now only the brackets and their criteria
+  are worked out after pairing (on a 450-player event, well under half a
+  second), and each question is a button: open it and the page says
+  "Working it out…" until the answer is in - a few seconds per candidate
+  on a large field - then keeps it, so it is worked out once per round and
+  shows at once for anybody who opens it later, including on other screens
+  already open. If it cannot be worked out the page says so and offers
+  "Try again". An answer belongs to the pairing it was worked out for:
+  unpair and pair again and the questions start afresh. Nothing that
+  decides or records the round moved: the checks whether a bye exclusion
+  or an "only if possible" wish changed it still run in the click. Rounds
+  paired before this keep the alternatives they stored.
 - [Performance] **Standings are worked out once per change, not once per
   page.** Every page that shows standings - Standings, Players, Pairings,
   the printed standings and crosstable, the public results page, the

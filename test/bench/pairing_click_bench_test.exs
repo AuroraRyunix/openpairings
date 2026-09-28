@@ -15,6 +15,11 @@ defmodule PairingsEngine.Bench.PairingClickBenchTest do
 
   `BENCH_MODE=inline` works the account out inside the click, as every
   version before this change did - the "before" to compare with.
+
+  Since the alternatives are worked out when opened
+  (`PairingsEngine.Pairing.open_alternative/4`), it also opens, from round
+  2 on, the bye's question and the first `BENCH_QUESTIONS` (default 1)
+  floats' and times each from the click on the page to its answer stored.
   """
   use PairingsEngine.DataCase, async: false
 
@@ -47,6 +52,11 @@ defmodule PairingsEngine.Bench.PairingClickBenchTest do
 
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
 
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        PairingsEngine.ExplanationJobs.alternatives_topic(t.id)
+      )
+
       for number <- 1..5 do
         {micros, {:ok, round}} = :timer.tc(fn -> Pairing.pair_next_round(Repo.reload!(t)) end)
         {wait_micros, _} = :timer.tc(fn -> wait_for_explanation(t, round.number) end)
@@ -56,8 +66,61 @@ defmodule PairingsEngine.Bench.PairingClickBenchTest do
             "explanation ready #{ms(wait_micros)} ms after the click returned"
         )
 
+        if number > 1, do: open_questions(t, round.number)
+
         random_results(round)
       end
+    end
+  end
+
+  # The bye's question and the first few floats', one after the other, as
+  # an arbiter would open them.
+  defp open_questions(t, number) do
+    take = String.to_integer(System.get_env("BENCH_QUESTIONS") || "1")
+    round = Tournaments.get_round(t.id, number)
+
+    case PairingsEngine.RoundExplanation.for_round(round, Tournaments.list_players(t.id)) do
+      [section | _] ->
+        floats = for b <- section.brackets, q <- b.float_questions, do: q.key
+        bye = if section.bye_question, do: [section.bye_question.key], else: []
+
+        for question <- bye ++ Enum.take(floats, take) do
+          {micros, answer} =
+            :timer.tc(fn ->
+              :started = Pairing.open_alternative(Repo.reload!(t), number, question)
+              wait_for_alternative(question)
+            end)
+
+          candidates =
+            case answer do
+              %{"skipped" => _, "count" => count} -> "skipped, #{count} candidates"
+              %{"candidates" => c} -> "#{length(c)} candidates"
+              other -> inspect(other)
+            end
+
+          IO.puts(
+            "[bench]   #{question} (#{length(floats)} float questions in all): " <>
+              "#{ms(micros)} ms, #{candidates}"
+          )
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp wait_for_alternative(question) do
+    receive do
+      {:round_alternative, round_id, job, ^question, :ready} ->
+        PairingsEngine.ExplanationJobs.stored_alternatives(round_id, job)[question]
+
+      {:round_alternative, _, _, ^question, :failed} ->
+        flunk("#{question} failed")
+
+      {:round_alternative, _, _, _, _} ->
+        wait_for_alternative(question)
+    after
+      1_800_000 -> flunk("no answer to #{question} after 30 minutes")
     end
   end
 

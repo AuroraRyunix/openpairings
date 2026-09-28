@@ -40,6 +40,7 @@ defmodule PairingsEngine.Pairing do
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
   alias PairingsEngine.ExplanationJobs
   alias PairingsEngine.Pairing.Explainer
+  alias PairingsEngine.RoundExplanation
 
   # The app has one TRF16 implementation and it lives in the engine. There
   # used to be a second, `PairingsEngine.Trf`, photocopied into Ainalrami and
@@ -1989,6 +1990,111 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
+  ## ---------- one alternative, when somebody opens it ----------
+
+  @doc """
+  Somebody opened `question` (`PairingsEngine.RoundExplanation.parse_question/2`)
+  on round `round_number`'s explanation page. Returns
+
+    * `:stored` - its answer is already stored (`stored_alternatives/1`);
+      nothing to do.
+    * `:started` - it is being worked out now (or already was, by somebody
+      else's click): `PairingsEngine.ExplanationJobs.run_alternative/5`
+      broadcasts when it is stored or failed.
+    * `{:error, :stale}` - the round no longer holds a finished version-4
+      account asking that question: unpaired, paired again, or never one.
+
+  `full: true` works it out past `Ainalrami.Alternatives.max_candidates/0`
+  - the arbiter asked, and knows it is one full pairing per candidate - and
+  replaces the capped answer. `job: fingerprint` refuses (`:stale`) unless
+  the round still holds that account: a page opened on a pairing since
+  undone must not start work on the one that replaced it.
+
+  Like `reexplain_round/2` this never touches a board: the forced searches
+  happen in memory and only the answer is kept.
+  """
+  def open_alternative(%Tournament{} = tournament, round_number, question, opts \\ []) do
+    full? = Keyword.get(opts, :full, false)
+    expected = Keyword.get(opts, :job)
+
+    with %Round{explanation: %{"job" => job} = record} = round <-
+           Tournaments.get_round(tournament.id, round_number),
+         true <- is_nil(expected) or expected == job,
+         :ready <- explanation_state(round),
+         {:ok, parsed} <- RoundExplanation.parse_question(record, question) do
+      if not full? and Map.has_key?(ExplanationJobs.stored_alternatives(round.id, job), question) do
+        :stored
+      else
+        ExplanationJobs.run_alternative(tournament.id, round.id, job, question, fn ->
+          work_out_alternative(tournament, round_number, job, parsed, full?)
+        end)
+
+        :started
+      end
+    else
+      _ -> {:error, :stale}
+    end
+  end
+
+  @doc """
+  The stored answers of a round's version-4 account, by question - `%{}`
+  for any other round. The questions being worked out in this node are
+  `PairingsEngine.ExplanationJobs.running_alternatives/2`.
+  """
+  def stored_alternatives(%Round{id: id, explanation: %{"job" => job} = record}) do
+    if RoundExplanation.on_demand?(record),
+      do: ExplanationJobs.stored_alternatives(id, job),
+      else: %{}
+  end
+
+  def stored_alternatives(_round), do: %{}
+
+  # The work behind one opened question: the section's field rebuilt as it
+  # stood before the round, the pairs the engine made (from the record, not
+  # the boards - a board changed by hand since is not what the account
+  # describes), and one forced search per candidate. `{:ok, answer JSON}`
+  # or `{:error, reason}`; stores nothing.
+  defp work_out_alternative(tournament, round_number, job, parsed, full?) do
+    with %Round{explanation: %{"job" => ^job, "sections" => sections}} <-
+           Tournaments.get_round(tournament.id, round_number),
+         section when is_map(section) <- Enum.at(sections, elem(parsed, 1)) do
+      {_history, _roster, rank_by_id, by_rank} =
+        rebuilt = field_before(tournament, round_number)
+
+      recorded = section["pairs"] || []
+      field = recorded |> List.flatten() |> Enum.reject(&is_nil/1) |> MapSet.new()
+
+      # A player deleted since the round was paired: the field it was
+      # paired from can no longer be rebuilt.
+      if Enum.any?(field, &is_nil(rank_by_id[&1])) do
+        {:error, :field_changed}
+      else
+        pairs = Enum.map(recorded, fn [w, b] -> {rank_by_id[w], b && rank_by_id[b]} end)
+        input = section_input(tournament, round_number, section, field, rebuilt)
+        opts = if full?, do: Keyword.put(input.opts, :max_candidates, :all), else: input.opts
+        answer_question(parsed, section, input.players, pairs, opts, rank_by_id, by_rank)
+      end
+    else
+      _ -> {:error, :stale}
+    end
+  end
+
+  defp answer_question({:bye, _s}, _section, players, pairs, opts, _rank_by_id, by_rank) do
+    case Explainer.impl().bye_question(players, pairs, opts) do
+      nil -> {:error, :no_bye}
+      bye -> {:ok, bye_json(bye, by_rank)}
+    end
+  end
+
+  defp answer_question({:float, _s, b, id}, section, players, pairs, opts, rank_by_id, by_rank) do
+    group = section["brackets"] |> Enum.at(b) |> Map.fetch!("group")
+
+    case Explainer.impl().float_question(players, pairs, opts, group, rank_by_id[id]) do
+      nil -> {:error, :not_a_floater}
+      float -> {:ok, alternative_json(float, by_rank)}
+    end
+  end
+
   @doc """
   Works a pending round's account out again from scratch: the field rebuilt
   as it stood before the round (`history_before/2`), one section per
@@ -2004,19 +2110,12 @@ defmodule PairingsEngine.Pairing do
   def recompute_explanation(%Tournament{} = tournament, round_number) do
     case tournament.id |> Tournaments.get_round(round_number) |> Repo.preload(:pairings) do
       %Round{explanation: %{"job" => _, "sections" => sections}} = round ->
-        history = history_before(tournament, round_number)
-
-        full_roster =
-          history.full_roster |> Map.values() |> order_for_pairing(tournament, history)
-
-        rank_by_id = full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
-        by_id = Map.new(full_roster, &{&1.id, &1})
-        by_rank = Map.new(rank_by_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
+        {_history, _roster, _rank_by_id, by_rank} =
+          rebuilt = field_before(tournament, round_number)
 
         accounts =
           Enum.map(sections, fn section ->
-            {section["category"],
-             recomputed_account(tournament, round, section, history, full_roster, rank_by_id),
+            {section["category"], recomputed_account(tournament, round, section, rebuilt),
              by_rank}
           end)
 
@@ -2036,21 +2135,51 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  defp recomputed_account(tournament, round, section, history, full_roster, rank_by_id) do
-    field = MapSet.new(section["field"] || [])
+  # The roster as it stood before `round_number`, in pairing order, and the
+  # rank <-> player maps over it - what the engine saw, rebuilt from history.
+  defp field_before(tournament, round_number) do
+    history = history_before(tournament, round_number)
+
+    full_roster =
+      history.full_roster |> Map.values() |> order_for_pairing(tournament, history)
+
+    rank_by_id = full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+    by_id = Map.new(full_roster, &{&1.id, &1})
+    by_rank = Map.new(rank_by_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
+
+    {history, full_roster, rank_by_id, by_rank}
+  end
+
+  # One section's engine input, rebuilt: the players of `field` (ids) as the
+  # engine saw them before the round, and the options it paired them under -
+  # the section's own recorded bye exclusions, today's wishes (the record
+  # keeps neither the wishes nor the forbidden pairings as of the round).
+  defp section_input(tournament, round_number, section, field, rebuilt) do
+    {history, full_roster, rank_by_id, _by_rank} = rebuilt
     rank = &List.wrap(Map.get(rank_by_id, &1))
 
-    trf = build_category_trf(tournament, full_roster, field, rank_by_id, history, round.number)
+    trf =
+      build_category_trf(tournament, full_roster, field, rank_by_id, history, round_number)
+
     parsed = Ainalrami.Trf.parse(trf)
 
     soft =
-      soft_pairs(tournament, full_roster, rank_by_id, history.forbidden_pairings, round.number)
+      soft_pairs(tournament, full_roster, rank_by_id, history.forbidden_pairings, round_number)
 
     tournament = %{
       tournament
       | engine_bye_exclusions:
           section |> Map.get("bye_exclusions", []) |> Enum.flat_map(rank) |> Enum.sort()
     }
+
+    %{players: parsed.players, opts: ainalrami_opts(tournament, parsed, soft)}
+  end
+
+  defp recomputed_account(tournament, round, section, rebuilt) do
+    {_history, _roster, rank_by_id, _by_rank} = rebuilt
+    field = MapSet.new(section["field"] || [])
+    rank = &List.wrap(Map.get(rank_by_id, &1))
+    input = section_input(tournament, round.number, section, field, rebuilt)
 
     pairs =
       round.pairings
@@ -2064,10 +2193,10 @@ defmodule PairingsEngine.Pairing do
         end
       end)
 
-    deferred_account(tournament, round.number, section["category"], %{
-      players: parsed.players,
+    deferred_account(%{
+      players: input.players,
       pairs: pairs,
-      opts: ainalrami_opts(tournament, parsed, soft),
+      opts: input.opts,
       lifted: section["bye_exclusion_lifted"],
       soft_pairs_moved: section["soft_pairs_moved"] == true,
       bye_passed_over: section |> Map.get("bye_passed_over", []) |> Enum.flat_map(rank)
@@ -2078,8 +2207,13 @@ defmodule PairingsEngine.Pairing do
   # (`run_ainalrami/5`'s `deferred`) or what `recomputed_account/6` rebuilt.
   # The bye chain was worked out in the click, so the engine is asked not to
   # repeat it. A failure of the brackets fails the job (and the page says
-  # so); a failure of the alternatives only loses them, as it always did.
-  defp deferred_account(tournament, round_number, category_name, deferred) do
+  # so).
+  #
+  # The brackets only - a second or so on a 450-player field. The "why him
+  # and not me" alternatives, one forced re-pairing per candidate and most
+  # of the old job's minutes, are worked out one question at a time when
+  # somebody opens it (`open_alternative/4`), from the pairs recorded here.
+  defp deferred_account(deferred) do
     brackets =
       Explainer.impl().brackets(
         deferred.players,
@@ -2090,16 +2224,7 @@ defmodule PairingsEngine.Pairing do
     deferred
     |> deviation_account()
     |> Map.put(:brackets, brackets)
-    |> Map.merge(
-      alternatives(
-        deferred.players,
-        deferred.pairs,
-        deferred.opts,
-        tournament,
-        round_number,
-        category_name
-      )
-    )
+    |> Map.put(:pairs_played, deferred.pairs)
   end
 
   # What the click itself knows about one engine run: the organiser's
@@ -2164,10 +2289,8 @@ defmodule PairingsEngine.Pairing do
       %{id: id, job: job} when is_binary(job) ->
         ExplanationJobs.run(tournament.id, id, job, fn ->
           accounts =
-            for {category_name, %{} = deferred, by_rank} <- sections do
-              {category_name, deferred_account(tournament, round_number, category_name, deferred),
-               by_rank}
-            end
+            for {category_name, %{} = deferred, by_rank} <- sections,
+                do: {category_name, deferred_account(deferred), by_rank}
 
           case explanation_payload(accounts) do
             nil -> {:error, :nothing_to_explain}
@@ -2590,20 +2713,59 @@ defmodule PairingsEngine.Pairing do
               "bye" => bye_json(Map.get(account, :bye), by_rank)
             }
             |> put_bye_exclusions(account, by_rank)
+            |> put_on_demand(account, by_rank)
           ]
       end)
 
+    on_demand? = Enum.any?(built, &Map.has_key?(&1, "pairs"))
+
     case built do
-      [] -> nil
+      [] ->
+        nil
+
+      # Version 4 (2026-09-28): the alternatives are not in the record. Each
+      # section carries the pairs the engine made instead ("pairs", player
+      # ids, board order) and who had the bye, and each question is worked
+      # out from those when somebody opens it (`open_alternative/4`), kept
+      # in `round_alternatives` against the record's "job".
+      sections when on_demand? ->
+        %{
+          "engine" => "ainalrami",
+          "version" => 4,
+          "alternatives" => "on_demand",
+          "sections" => sections
+        }
+
       # Version 2 (2026-09-06) added, per bracket, the state the pairing was
       # made FROM - subgroups, colour states, excluded pairs. Version 3 (the
       # same day) adds the alternatives: for every float and for the bye,
       # what each other candidate would have cost. An older record simply
       # lacks the keys, and `PairingsEngine.RoundExplanation` reads them as
       # empty rather than refusing the round.
-      sections -> %{"engine" => "ainalrami", "version" => 3, "sections" => sections}
+      sections ->
+        %{"engine" => "ainalrami", "version" => 3, "sections" => sections}
     end
   end
+
+  # A version-4 section: the pairs its questions are worked out from, and
+  # the bye holder the bye's question is about. The brackets lose their
+  # always-empty "float_alternatives": the answers live elsewhere.
+  defp put_on_demand(section, %{pairs_played: pairs}, by_rank) do
+    section
+    |> Map.put(
+      "pairs",
+      Enum.map(pairs, fn {w, b} -> [player_id(w, by_rank), player_id(b, by_rank)] end)
+    )
+    |> Map.put(
+      "bye_holder",
+      Enum.find_value(pairs, fn {w, b} -> if is_nil(b), do: player_id(w, by_rank) end)
+    )
+    |> Map.update!("brackets", fn brackets ->
+      Enum.map(brackets, &Map.delete(&1, "float_alternatives"))
+    end)
+  end
+
+  defp put_on_demand(section, _account, _by_rank), do: section
 
   # The organiser's bye exclusions, when the round had any (not a FIDE rule):
   # who was excluded, who was passed over for the bye because of it - the

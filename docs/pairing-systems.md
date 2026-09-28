@@ -249,6 +249,64 @@ recompute and deepen exactly as before. `Pairing.reexplain_status/2` says
 `:pending` or `:failed` for a round whose job owns it, and Recompute and
 "Work it out now" leave such a round alone.
 
+### The alternatives, when opened (since 2026-09-28)
+
+Most arbiters never open "why did HE float and not me". So the job above
+now works out the cheap part only - `explain_round/3` with
+`bye_passed_over: false`, the brackets and their criteria - and each
+alternative is worked out when somebody opens that question on the
+explanation page. 451 players at `+S 2:2`
+(`test/bench/pairing_click_bench_test.exs`): the explanation is ready
+0.24-0.42 s after the click returns, rounds 1-5; an opened question takes
+about 0.3-0.4 s to rebuild its field plus about 2.3 s per candidate (one
+full re-pairing each) - 4.6 s for a float with two candidates, 9.6 s for a
+bye with four. Past the cap of twelve candidates the answer says so at once
+and offers "Work it out now" for that one question.
+
+**The record (version 4).** `"alternatives" => "on_demand"`, no
+`"float_alternatives"` and no `"bye"` answers; each section keeps the pairs
+the engine made (`"pairs"`, player ids, board order) and `"bye_holder"`,
+and the finished record keeps the pending one's `"job"` fingerprint (the
+job's guarded write now also asks for `"status"` pending or failed, so a
+finished account is never written over). The questions are named by their
+place in the record - `"bye/<section>"`,
+`"float/<section>/<bracket>/<player id>"` - and checked against it
+(`RoundExplanation.parse_question/2`), never trusted from the page.
+
+**One question.** `Pairing.open_alternative/4` rebuilds that section's field
+as it stood before the round (the same rebuild as a restart's recompute),
+takes the pairs from the record rather than the boards - a board changed by
+hand since is not what the account describes, and the page already says so
+- and asks the engine that one question: `Ainalrami.Alternatives.bye_alternatives/3`
+for the bye, and for a float `Explainer.float_question/5`, which is
+`float_alternatives/3`'s computation for one floater (Ainalrami only answers
+for every floater at once). `test/pairings_engine/alternatives_on_demand_test.exs`
+holds the two side by side, so an engine upgrade that changes one fails
+there. It runs as an `ExplanationJobs.run_alternative/5` job: supervised,
+low priority, registered by `{:alternative, round id, question}` so a second
+click or a second viewer joins it, the same timeout. The answer goes into
+`round_alternatives` (round, job fingerprint, question, JSON), only while
+the round still holds that finished account; a table of its own because
+every write to `rounds` changes the standings cache key, and opening a
+question changes no standing. Rows go with their round; a re-paired round
+has another fingerprint, so an old answer is never read as its own.
+Unpairing stops the round's question jobs too.
+
+**The page.** Each question is a button (`aria-expanded`, `aria-controls`)
+over a panel announced politely: "Working it out…" while the job runs, the
+verdicts once stored, or "This could not be worked out" with "Try again".
+News goes out on `ExplanationJobs.alternatives_topic/1`, not the tournament's
+topic (a dozen pages reload on anything said there), as
+`{:round_alternative, round id, fingerprint, question, :running | :ready | :failed}`,
+so every open copy of the page follows. A page with something running looks
+again every fifteen seconds: a question nobody is working on any more, and
+with no answer, shows as failed rather than a spinner forever. The
+compliance checks are not alternatives and stay in the click, as above.
+
+Records of version 3 and earlier keep their alternatives inline and show
+exactly as before; Recompute and the whole-round "Work it out now" still
+write version 3.
+
 **Tests** run the same work inline, before `pair_next_round/2` returns
 (`config :pairings_engine, :explanation_jobs, :inline`), so every existing
 assertion on a round's account still holds;

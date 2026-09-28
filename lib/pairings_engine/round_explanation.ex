@@ -24,14 +24,26 @@ defmodule PairingsEngine.RoundExplanation do
   """
   def for_round(%{explanation: nil}, _players), do: nil
 
-  def for_round(%{explanation: %{"sections" => sections}}, players) do
+  def for_round(%{explanation: %{"sections" => sections} = record}, players) do
     by_id = Map.new(players, &{&1.id, &1})
+    on_demand? = on_demand?(record)
 
     sections
-    |> Enum.map(fn section ->
+    |> Enum.with_index()
+    |> Enum.map(fn {section, s} ->
       %{
         category: section["category"],
-        brackets: Enum.map(section["brackets"], &bracket(&1, by_id)),
+        brackets:
+          section["brackets"]
+          |> Enum.with_index()
+          |> Enum.map(fn {b, i} ->
+            b
+            |> bracket(by_id)
+            |> Map.put(:float_questions, float_questions(on_demand?, section, s, b, i, by_id))
+          end),
+        # Version 4: the bye's "why him and not me", to be worked out when
+        # opened. nil for every other record, and for an even field.
+        bye_question: bye_question(on_demand?, section, s, by_id),
         # Version 3: who got the pairing-allocated bye, and what every other
         # candidate would have cost. nil for an even field, and for every
         # round recorded before the key existed.
@@ -52,6 +64,118 @@ defmodule PairingsEngine.RoundExplanation do
   end
 
   def for_round(_round, _players), do: nil
+
+  ## ---------- version 4: the alternatives, worked out when opened ----------
+  #
+  # A record paired since 2026-09-28 does not carry the "why him and not me"
+  # answers; it names the questions - one per player who floated out of a
+  # bracket, one for the bye - and each is worked out when somebody opens it
+  # (`PairingsEngine.Pairing.open_alternative/4`). A question is named by
+  # its place in the record, so it can be checked against the record rather
+  # than trusted: `"bye/<section>"`, `"float/<section>/<bracket>/<player>"`.
+
+  @doc "Whether an account's alternatives are worked out when opened (version 4)."
+  def on_demand?(%{"alternatives" => "on_demand", "sections" => _}), do: true
+  def on_demand?(_record), do: false
+
+  @doc "The name of a section's bye question."
+  def bye_question_key(section), do: "bye/#{section}"
+
+  @doc "The name of the question why `player_id` floated out of a bracket."
+  def float_question_key(section, bracket, player_id),
+    do: "float/#{section}/#{bracket}/#{player_id}"
+
+  @doc """
+  A question's name checked against the record it is asked of:
+  `{:ok, {:bye, section}}`, `{:ok, {:float, section, bracket, player_id}}`,
+  or `:error` - for a record that is not version 4, a name that does not
+  parse, or a question the record does not ask (no bye; that player did
+  not float out of that bracket).
+  """
+  def parse_question(record, question) when is_binary(question) do
+    with true <- on_demand?(record),
+         {:ok, parsed} <- parse_question_name(String.split(question, "/")),
+         true <- asks?(record["sections"], parsed) do
+      {:ok, parsed}
+    else
+      _ -> :error
+    end
+  end
+
+  def parse_question(_record, _question), do: :error
+
+  defp parse_question_name(["bye", s]) do
+    with {:ok, s} <- index(s), do: {:ok, {:bye, s}}
+  end
+
+  defp parse_question_name(["float", s, b, p]) do
+    with {:ok, s} <- index(s),
+         {:ok, b} <- index(b),
+         {:ok, p} <- index(p),
+         do: {:ok, {:float, s, b, p}}
+  end
+
+  defp parse_question_name(_parts), do: :error
+
+  defp index(text) do
+    case Integer.parse(text) do
+      {n, ""} when n >= 0 -> {:ok, n}
+      _ -> :error
+    end
+  end
+
+  defp asks?(sections, {:bye, s}) do
+    match?(%{"bye_holder" => holder} when not is_nil(holder), Enum.at(sections, s))
+  end
+
+  defp asks?(sections, {:float, s, b, p}) do
+    with %{"brackets" => brackets} = section <- Enum.at(sections, s),
+         %{"floats" => floats} <- Enum.at(brackets, b) do
+      p in floats and p != section["bye_holder"]
+    else
+      _ -> false
+    end
+  end
+
+  # Who floated out of this bracket, each a question. The bye holder is the
+  # bye's question, not a float's - as `Ainalrami.Alternatives` has it.
+  defp float_questions(false, _section, _s, _bracket, _i, _by_id), do: []
+
+  defp float_questions(true, section, s, bracket, i, by_id) do
+    for id <- bracket["floats"] || [],
+        id != section["bye_holder"],
+        floater = player(id, by_id),
+        do: %{key: float_question_key(s, i, id), floater: floater}
+  end
+
+  defp bye_question(true, %{"bye_holder" => id}, s, by_id) when not is_nil(id) do
+    case player(id, by_id) do
+      nil -> nil
+      holder -> %{key: bye_question_key(s), holder: holder}
+    end
+  end
+
+  defp bye_question(_on_demand?, _section, _s, _by_id), do: nil
+
+  @doc """
+  Stored answers (`%{question => result JSON}`, as
+  `PairingsEngine.ExplanationJobs.stored_alternatives/2` returns them) with
+  their players resolved - the same shape as a version-3 record's
+  `float_alternatives` entries and `bye`. An answer whose subject is no
+  longer in the tournament is dropped.
+  """
+  def answers(stored, players) do
+    by_id = Map.new(players, &{&1.id, &1})
+
+    for {question, json} <- stored,
+        answer = answer(question, json, by_id),
+        into: %{},
+        do: {question, answer}
+  end
+
+  defp answer("bye/" <> _, json, by_id), do: alternative(json, by_id, :holder)
+  defp answer("float/" <> _, json, by_id), do: alternative(json, by_id, :floater)
+  defp answer(_question, _json, _by_id), do: nil
 
   defp bracket(bracket, by_id) do
     %{

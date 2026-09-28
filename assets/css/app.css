@@ -3459,8 +3459,29 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-account-failed { border-left: 3px solid var(--warn); }
 .pe-account-failed p { margin: 0 0 8px; }
 .pe-account-status { font-size: 0.85em; color: var(--text-soft); display: inline-flex; gap: 6px; align-items: center; }
+
+/* One "why him and not me", worked out when opened: the question is a
+   disclosure button in the panel's own voice (bold, like the questions
+   above it on older rounds), the chevron turning as it opens. */
+.pe-alt-toggle {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 4px; margin: 0 -4px;
+  background: none; border: 0; border-radius: 4px; font: inherit; font-weight: 650;
+  color: var(--text); text-align: left; cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pe-alt-toggle:hover { background: var(--bg); color: var(--accent); }
+.pe-alt-chevron {
+  flex: none; width: 14px; height: 14px; align-self: center;
+  transition: transform 0.18s ease;
+}
+.pe-alt-toggle[aria-expanded="true"] .pe-alt-chevron { transform: rotate(90deg); }
+.pe-alt-panel { padding: 2px 0 0 20px; }
+.pe-alt-working { display: flex; gap: 10px; align-items: baseline; margin: 2px 0; }
+.pe-alt-failed { border-left: 3px solid var(--warn); padding: 2px 0 4px 8px; }
+.pe-alt-failed p { margin: 2px 0 6px; }
 @media (prefers-reduced-motion: reduce) {
   .pe-account-dot { animation: none; }
+  .pe-alt-toggle, .pe-alt-chevron { transition: none; }
 }
 /* The float cascade: one row per bracket, read top to bottom. */
 .pe-cascade { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 13px; }

@@ -310,16 +310,17 @@ defmodule PairingsEngine.PairingEngineTest do
 
   describe "deepen_round/2" do
     # Fifteen players in round one: the bye holder's bracket is everybody,
-    # fourteen candidates, past the pairing-time cap of twelve - so the
-    # stored account says "skipped", and this is what fills it in.
-    test "works out the alternatives the cap skipped, and touches no board" do
+    # fourteen candidates, past the cap of twelve. The account stored after
+    # pairing leaves every alternative to be opened (version 4); this works
+    # them all out at once, past the cap.
+    test "works out every alternative past the cap, and touches no board" do
       t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
       roster(t, 15)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
       [section] = round.explanation["sections"]
-      assert section["bye"]["skipped"] == "too_many"
-      assert section["bye"]["count"] == 14
+      assert is_nil(section["bye"])
+      assert section["bye_holder"]
 
       boards_before = board_ids(round)
 
@@ -851,7 +852,7 @@ defmodule PairingsEngine.PairingEngineTest do
 
       assert {:ok, round} = Pairing.pair_next_round(t)
 
-      assert %{"engine" => "ainalrami", "version" => 3, "sections" => [section]} =
+      assert %{"engine" => "ainalrami", "version" => 4, "sections" => [section]} =
                round.explanation
 
       # One pool, so no category name.
@@ -980,19 +981,23 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Enum.sort(pair) == Enum.sort([p1.id, p2.id])
     end
 
-    # Version 3: the alternatives. "Why did HE get the bye and not me" is
-    # judged for every other member of the bye holder's bracket at pairing
-    # time and stored - one forced search each, which is why it is stored
-    # rather than recomputed on every page view.
-    test "an odd field records why the bye went where it went" do
+    # The alternatives. "Why did HE get the bye and not me" is judged for
+    # every other member of the bye holder's bracket - one forced search
+    # each. Since version 4 that happens when somebody opens the question,
+    # and the answer is stored so it happens once.
+    test "an odd field records who had the bye, and why once asked" do
       t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
       players = roster(t, 7)
       ids = MapSet.new(players, & &1.id)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
-      [%{"bye" => bye}] = round.explanation["sections"]
+      [%{"bye" => nil, "bye_holder" => holder}] = round.explanation["sections"]
+      assert MapSet.member?(ids, holder)
 
-      assert MapSet.member?(ids, bye["holder"])
+      assert Pairing.open_alternative(t, 1, "bye/0") == :started
+      assert %{"bye/0" => bye} = Pairing.stored_alternatives(Tournaments.get_round(t.id, 1))
+
+      assert bye["holder"] == holder
       assert length(bye["candidates"]) == 6
 
       for c <- bye["candidates"] do
@@ -1008,8 +1013,12 @@ defmodule PairingsEngine.PairingEngineTest do
       roster(t, 8)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
-      [%{"bye" => nil, "brackets" => [bracket]}] = round.explanation["sections"]
-      assert bracket["float_alternatives"] == []
+
+      [%{"bye" => nil, "bye_holder" => nil, "brackets" => [bracket]}] =
+        round.explanation["sections"]
+
+      assert bracket["floats"] == []
+      refute Map.has_key?(bracket, "float_alternatives")
     end
   end
 

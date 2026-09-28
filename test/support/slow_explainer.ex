@@ -4,15 +4,22 @@ defmodule PairingsEngine.Test.SlowExplainer do
   `Application.put_env(:pairings_engine, :round_explainer, #{inspect(__MODULE__)})`
   (see `PairingsEngine.Pairing.Explainer`).
 
-  What it does is `Application.get_env(:pairings_engine, :slow_explainer)`:
+  The brackets do what `Application.get_env(:pairings_engine, :slow_explainer)`
+  says; the one-question alternatives (`float_question/5`, `bye_question/3`)
+  what `:slow_alternatives` says, so a test can let the account through and
+  hold up an opened question:
 
     * `{:block, test_pid}` - tells `test_pid` `{:explainer_started, pid}`
-      and waits for `:release` before doing the real work: the stand-in for
-      the four minutes a large round's alternatives take.
+      (`{:alternative_started, pid}` for a question) and waits for
+      `:release` before doing the real work: the stand-in for a large
+      round's minutes.
     * `:raise` - fails, as an engine error would.
     * anything else - the real explainer.
 
-  Only for `async: false` tests: the setting is global.
+  Every call to a question is also counted (`question_calls/0`), so a test
+  can tell a stored answer from one worked out again.
+
+  Only for `async: false` tests: the settings are global.
   """
   @behaviour PairingsEngine.Pairing.Explainer
 
@@ -20,9 +27,41 @@ defmodule PairingsEngine.Test.SlowExplainer do
 
   @impl true
   def brackets(players, pairs, opts) do
-    case Application.get_env(:pairings_engine, :slow_explainer) do
+    held(:slow_explainer, :explainer_started, fn -> Explainer.brackets(players, pairs, opts) end)
+  end
+
+  @impl true
+  def alternatives(players, pairs, opts), do: Explainer.alternatives(players, pairs, opts)
+
+  @impl true
+  def float_question(players, pairs, opts, group, floater) do
+    count_question()
+
+    held(:slow_alternatives, :alternative_started, fn ->
+      Explainer.float_question(players, pairs, opts, group, floater)
+    end)
+  end
+
+  @impl true
+  def bye_question(players, pairs, opts) do
+    count_question()
+
+    held(:slow_alternatives, :alternative_started, fn ->
+      Explainer.bye_question(players, pairs, opts)
+    end)
+  end
+
+  @doc "How many questions have been worked out since `reset_question_calls/0`."
+  def question_calls, do: :persistent_term.get({__MODULE__, :calls}, 0)
+
+  def reset_question_calls, do: :persistent_term.put({__MODULE__, :calls}, 0)
+
+  defp count_question, do: :persistent_term.put({__MODULE__, :calls}, question_calls() + 1)
+
+  defp held(setting, started, work) do
+    case Application.get_env(:pairings_engine, setting) do
       {:block, test_pid} ->
-        send(test_pid, {:explainer_started, self()})
+        send(test_pid, {started, self()})
 
         receive do
           :release -> :ok
@@ -30,16 +69,13 @@ defmodule PairingsEngine.Test.SlowExplainer do
           30_000 -> :ok
         end
 
-        Explainer.brackets(players, pairs, opts)
+        work.()
 
       :raise ->
         raise "the explainer failed on purpose"
 
       _real ->
-        Explainer.brackets(players, pairs, opts)
+        work.()
     end
   end
-
-  @impl true
-  def alternatives(players, pairs, opts), do: Explainer.alternatives(players, pairs, opts)
 end
