@@ -19,6 +19,7 @@ defmodule PairingsEngine.Standings do
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
   alias PairingsEngine.Standings.AinalramiBridge
+  alias PairingsEngine.StandingsCache
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.{Pairing, Player, Round}
@@ -46,8 +47,16 @@ defmodule PairingsEngine.Standings do
   pass a round `>=` the latest paired round) for the current/overall
   standings.
   """
-  def standings(tournament, opts \\ []),
-    do: build_standings(tournament, effective_tiebreaks(tournament), opts)
+  #
+  # Every public entry point that replays the games goes through
+  # `PairingsEngine.StandingsCache`: the replay is still done from scratch,
+  # but only once per state of the data - see that module for why a cached
+  # table is always what this would compute now.
+  def standings(tournament, opts \\ []) do
+    StandingsCache.fetch(tournament, {:standings, Enum.sort(opts)}, fn ->
+      build_standings(tournament, effective_tiebreaks(tournament), opts)
+    end)
+  end
 
   # Rating-based tiebreaks, in C.07's sense. Only these two are implemented;
   # anything added later that averages or compares ratings belongs here.
@@ -172,8 +181,10 @@ defmodule PairingsEngine.Standings do
   configured tiebreaks, so `:rank` matches `standings/1` exactly.
   """
   def grid_standings(tournament) do
-    codes = Enum.uniq(effective_tiebreaks(tournament) ++ ~w(BH BHC1 SB PS DE))
-    build_standings(tournament, codes, [])
+    StandingsCache.fetch(tournament, :grid, fn ->
+      codes = Enum.uniq(effective_tiebreaks(tournament) ++ ~w(BH BHC1 SB PS DE))
+      build_standings(tournament, codes, [])
+    end)
   end
 
   @doc """
@@ -356,6 +367,14 @@ defmodule PairingsEngine.Standings do
   collapse.
   """
   def standings_by_round(tournament, through_rounds) do
+    horizons = through_rounds |> Enum.uniq() |> Enum.sort()
+
+    StandingsCache.fetch(tournament, {:by_round, horizons}, fn ->
+      compute_standings_by_round(tournament, horizons)
+    end)
+  end
+
+  defp compute_standings_by_round(tournament, through_rounds) do
     players = Tournaments.list_players(tournament.id)
     codes = effective_tiebreaks(tournament, players)
     data = round_data(tournament, Enum.max(through_rounds, fn -> nil end))
@@ -404,11 +423,13 @@ defmodule PairingsEngine.Standings do
   ever look at a rank or a tiebreak.
   """
   def points_by_player(tournament, opts \\ []) do
-    players = Tournaments.list_players(tournament.id)
-    {games_by_player, _completed_rounds} = games_by_player(tournament, players, opts)
+    StandingsCache.fetch(tournament, {:points, Enum.sort(opts)}, fn ->
+      players = Tournaments.list_players(tournament.id)
+      {games_by_player, _completed_rounds} = games_by_player(tournament, players, opts)
 
-    Map.new(players, fn player ->
-      {player.id, games_by_player |> Map.get(player.id, []) |> total_points()}
+      Map.new(players, fn player ->
+        {player.id, games_by_player |> Map.get(player.id, []) |> total_points()}
+      end)
     end)
   end
 

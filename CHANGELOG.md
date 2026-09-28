@@ -17,6 +17,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Performance] **Standings are worked out once per change, not once per
+  page.** Every page that shows standings - Standings, Players, Pairings,
+  the printed standings and crosstable, the public results page, the
+  projector - used to replay every game of the tournament on its own, and
+  again for every arbiter and every refresh. They now share one replay
+  until something that can change the standings is written: a result, a
+  bye, a player, a round paired or unpaired, an import or a restore. The
+  replay itself is unchanged and still never trusts a stored total; the
+  database marks every such write, whichever part of the program made it,
+  so a page can never be shown a table from before the change. A
+  tie-break or scoring setting is part of what is remembered, so changing
+  one shows the new table at once.
 - [Performance] **"Pair round" shows the round as soon as the engine has
   paired it.** The engine's explanation of the round - the brackets, and
   for every float and the bye what each other candidate would have cost -

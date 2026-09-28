@@ -242,6 +242,13 @@ app has exactly one TRF implementation, and it lives in the engine - see
 internal steps (full-roster scoping, scratch-file lifecycle, acceleration,
 match-format legs) - this diagram is intentionally the high-level version.
 
+An Ainalrami round is saved with a *pending* engine account; the account
+itself (the brackets and the float/bye alternatives, most of the work on a
+large field) is worked out after the click by `ExplanationJobs`, a
+supervised low-priority task, and announced with
+`{:tournament_changed, id, :explanation}`. What stays in the click and why:
+docs/pairing-systems.md, "The engine's account, after the click".
+
 ## Data flow: standings/tiebreaks
 
 `Standings.standings/1` (and `grid_standings/1`) never trusts a
@@ -257,6 +264,62 @@ regardless of where that history came from.
 replay but truncated to rounds `<= n` - used for "standings as they stood
 after round N" views, and is the same code path live/current standings use,
 just with a smaller round window.
+
+### The standings cache
+
+The replay stays from scratch; it is just not done twice for the same data.
+`Standings.standings/2`, `grid_standings/1`, `standings_by_round/2`,
+`points_by_player/2` (and so `player_scores_before_round/2`) and
+`Keizer.standings/2` go through `PairingsEngine.StandingsCache`, so every
+page that shows standings - Standings, Players, Pairings, the print
+documents and crosstable, the public snapshot, the projector - shares one
+computation per state of the data.
+
+**Key.** `{tournament id, tournaments.data_version, SHA-256 of (the
+%Tournament{} passed in, the variant)}`. The variant is the function and its
+options (`through_round`, `presence`, the horizons), so each round, option
+and category ranking is its own entry.
+
+**Invalidation is the database's job.** `data_version` is re-randomised by
+SQLite triggers on every insert, update and delete of the tournament's
+`players`, `rounds`, `pairings` and `byes` - in the same transaction as the
+write, whichever code wrote it (a page, an import, a restore, the pairing
+engine, a raw `update_all`). The cache never has to be told; a new write
+path cannot forget to tell it. Random rather than a counter, so a
+rolled-back transaction cannot bring an old value back with other data
+behind it, nor can a tournament created with a deleted one's id. The
+tournament's own settings are not in the trigger set: standings are
+computed from the struct handed in, and the struct is in the key - a
+settings change, or a struct changed in memory (the tie-break gate does
+this), is a different entry.
+
+**Bounds.** One ETS table owned by the `StandingsCache` process: only the
+current version's entries per tournament, at most 24 of them (least
+recently used out), at most 32 tournaments and 128 MB (least recently used
+tournament out). `config :pairings_engine, PairingsEngine.StandingsCache,
+enabled: false` switches it off.
+
+**Checked** by `test/pairings_engine/standings_cache_test.exs`: a property
+test applying random sequences of writes (pairing, unpairing, results
+entered, cleared and written raw, players added, re-rated, given extra
+points, marked absent, withdrawn, bye rows, scoring and tie-break settings)
+and comparing every cached entry point with a fresh replay after each, and
+one test per write path (results, byes, players, scoring/tie-break
+settings, late entry, extra points, categories, results import, snapshot
+restore, raw SQL, Keizer). With the version pinned the suite fails twelve
+of those, so it does notice a stale answer.
+
+**Measured** (`test/bench/standings_pages_bench_test.exs`, 451 players,
+five rounds, `+S 2:2` on a desktop; the server is several times slower,
+so its absolute numbers are larger, not the ratio). Cache off / on, the
+second load with nothing written in between: `standings/2` 33 / 0 ms,
+printed standings 56 / 5 ms, crosstable 44 / 10 ms, public snapshot
+161 / 27 ms; the Standings, Players and Pairings LiveViews 192 / 210,
+302 / 223 and 211 / 145 ms - those are mostly rendering 451 rows, which
+the cache does not touch. All six pages once after a write: 1112 / 916 ms.
+The first load after a write still pays for one replay; what goes is every
+repeat of it - the other open pages, the public publish and the projector
+all reloading on the same broadcast.
 
 ## Live-refresh architecture
 

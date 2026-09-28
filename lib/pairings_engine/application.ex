@@ -44,6 +44,9 @@ defmodule PairingsEngine.Application do
     children = [
       PairingsEngineWeb.Telemetry,
       PairingsEngine.Repo,
+      # Computed standings, until the data behind them changes - see its
+      # moduledoc. Before anything that could ask for standings.
+      PairingsEngine.StandingsCache,
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,

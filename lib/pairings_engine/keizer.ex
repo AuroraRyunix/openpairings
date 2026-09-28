@@ -225,7 +225,17 @@ defmodule PairingsEngine.Keizer do
   option (or pass a round `>=` the latest paired round) for the current/
   overall ladder.
   """
+  #
+  # Cached like `PairingsEngine.Standings.standings/2`, by the same rule:
+  # the ladder is still recalculated from every game, once per state of the
+  # data (`PairingsEngine.StandingsCache`).
   def standings(%Tournament{} = tournament, opts \\ []) do
+    PairingsEngine.StandingsCache.fetch(tournament, {:keizer, Enum.sort(opts)}, fn ->
+      compute_standings(tournament, opts)
+    end)
+  end
+
+  defp compute_standings(tournament, opts) do
     paired = Engine.paired_rounds_count(tournament.id)
     through = min(Keyword.get(opts, :through_round) || paired, paired)
     ladder_pool = ladder_players(tournament.id)
