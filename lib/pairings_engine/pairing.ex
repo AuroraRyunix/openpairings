@@ -38,6 +38,8 @@ defmodule PairingsEngine.Pairing do
   }
 
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
+  alias PairingsEngine.ExplanationJobs
+  alias PairingsEngine.Pairing.Explainer
 
   # The app has one TRF16 implementation and it lives in the engine. There
   # used to be a second, `PairingsEngine.Trf`, photocopied into Ainalrami and
@@ -236,16 +238,18 @@ defmodule PairingsEngine.Pairing do
       end
 
     case result do
-      {:ok, _round} ->
+      {:ok, round, sections} ->
+        # Synchronous, and before anything else sees the round: the
+        # deviation facts are on the pending record already, so the stamp
+        # is what it always was. Only the account is left for later.
         record_pairing_deviations(tournament, next_number)
         Tournaments.broadcast_tournament_change(tournament.id, :rounds)
         Tournaments.refresh_status!(tournament.id)
+        {:ok, start_explanation(tournament, next_number, sections, round)}
 
-      _ ->
-        :ok
+      other ->
+        other
     end
-
-    result
   end
 
   # `swiss_match_format` inserts BOTH legs of a match (rounds `next_number`
@@ -350,6 +354,13 @@ defmodule PairingsEngine.Pairing do
     do: Enum.any?(numbers, &PairingsEngine.PostponedGames.round_sent?(tournament_id, &1))
 
   defp really_delete_rounds(tournament_id, numbers) do
+    round_ids =
+      Repo.all(
+        from r in Round,
+          where: r.tournament_id == ^tournament_id and r.number in ^numbers,
+          select: r.id
+      )
+
     # One transaction, because the two deletes are one act. A crash
     # between them used to leave orphan `byes` rows behind, and every bye
     # insert in the module uses `on_conflict: :nothing` - so on
@@ -391,6 +402,11 @@ defmodule PairingsEngine.Pairing do
 
         :ok
       end)
+
+    # A round still having its account worked out: the result could no
+    # longer be stored (`PairingsEngine.ExplanationJobs.store/3` wants the
+    # row and its fingerprint), so stop spending the server's cores on it.
+    ExplanationJobs.cancel(round_ids)
 
     Tournaments.broadcast_tournament_change(tournament_id, :rounds)
     Tournaments.refresh_status!(tournament_id)
@@ -619,15 +635,18 @@ defmodule PairingsEngine.Pairing do
     tournament = with_bye_exclusions(tournament, players, local_rank_by_player_id, next_number)
 
     case run_engine(tournament, trf, next_number, nil, 0, soft) do
-      {:ok, pairs, explanation} ->
-        create_round(
-          pairs,
+      {:ok, pairs, deferred} ->
+        sections = [{nil, deferred, player_by_local_rank}]
+
+        pairs
+        |> create_round(
           tournament,
           player_by_local_rank,
           next_number,
           round_absentees,
-          explanation_payload([{nil, explanation, player_by_local_rank}])
+          pending_payload(tournament, next_number, sections)
         )
+        |> with_deferred(sections)
 
       {:error, _message} = error ->
         bye_exclusion_error(error, player_by_local_rank)
@@ -776,7 +795,8 @@ defmodule PairingsEngine.Pairing do
         full_roster,
         eligible_ids,
         local_rank_by_player_id,
-        shared_history
+        shared_history,
+        next_number
       )
 
     soft =
@@ -944,16 +964,16 @@ defmodule PairingsEngine.Pairing do
   defp insert_category_round(tournament, group_results, next_number, round_absentees) do
     # One section per category that the engine actually paired. A 1-player
     # group's automatic bye never reaches an engine, so it contributes none.
-    explanation =
-      group_results
-      |> Enum.flat_map(fn
-        {category_name, :paired, _pairs, by_rank, bracket_report} ->
-          [{category_name, bracket_report, by_rank}]
+    sections =
+      Enum.flat_map(group_results, fn
+        {category_name, :paired, _pairs, by_rank, deferred} ->
+          [{category_name, deferred, by_rank}]
 
         _bye ->
           []
       end)
-      |> explanation_payload()
+
+    explanation = pending_payload(tournament, next_number, sections)
 
     paired_players =
       Enum.flat_map(group_results, fn
@@ -1010,6 +1030,7 @@ defmodule PairingsEngine.Pairing do
 
       round
     end)
+    |> with_deferred(sections)
   end
 
   # A player can carry several categories, but only one of them can pool
@@ -1073,12 +1094,16 @@ defmodule PairingsEngine.Pairing do
   # acceleration audit finding wants; not verified here). `shared_history`
   # (see `build_shared_history/1`) is computed once by
   # `do_pair_by_category/4` and passed straight through.
+  #
+  # `current_round` is the round being paired - or, for a pending account
+  # rebuilt after a restart (`recompute_explanation/2`), the round it was.
   defp build_category_trf(
          tournament,
          full_roster,
          eligible_ids,
          local_rank_by_player_id,
-         shared_history
+         shared_history,
+         current_round
        ) do
     trf_rows =
       tournament
@@ -1094,7 +1119,7 @@ defmodule PairingsEngine.Pairing do
       trf_rows,
       full_roster,
       local_rank_by_player_id,
-      paired_rounds_count(tournament.id) + 1,
+      current_round,
       shared_history.forbidden_pairings
     )
   end
@@ -1558,10 +1583,7 @@ defmodule PairingsEngine.Pairing do
   defp soft_position(_tournament), do: :strong
 
   defp alternatives(players, pairs, opts, tournament, round_number, category_name) do
-    %{
-      floats: Ainalrami.Alternatives.float_alternatives(players, pairs, opts),
-      bye: Ainalrami.Alternatives.bye_alternatives(players, pairs, opts)
-    }
+    Explainer.impl().alternatives(players, pairs, opts)
   rescue
     e ->
       Logger.warning(
@@ -1692,11 +1714,15 @@ defmodule PairingsEngine.Pairing do
       record is the engine's original decision and is kept as it is.
     * `:ineligible` - not a single-pool Swiss round. Which engine paired it
       does not matter; see `reexplain_round/2`.
+    * `:pending` / `:failed` - the round's account is still being worked
+      out after pairing, or that failed (`explanation_state/1`). Its own
+      job, or its own "Try again", owns it; a recompute leaves it alone.
   """
   def reexplain_status(%Tournament{} = tournament, round) do
     cond do
-      not reexplainable?(tournament) -> :ineligible
       is_nil(round) -> :ineligible
+      explanation_state(round) in [:pending, :failed] -> explanation_state(round)
+      not reexplainable?(tournament) -> :ineligible
       current_account?(round) -> :current
       hand_edited?(round) -> :hand_edited
       true -> :stale
@@ -1757,7 +1783,7 @@ defmodule PairingsEngine.Pairing do
          {:ok, pairs} <- field_pairs(field) do
       account =
         Map.merge(
-          %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, field.opts)}
+          %{brackets: Explainer.impl().brackets(field.players, pairs, field.opts)}
           |> Map.merge(bye_exclusion_account(field.opts, field.bye_exclusion_lifted)),
           alternatives(field.players, pairs, field.opts, tournament, round_number, nil)
         )
@@ -1772,11 +1798,20 @@ defmodule PairingsEngine.Pairing do
 
       round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
     else
-      {:error, :no_such_round} -> {:skip, :no_such_round}
-      {:error, reason} -> {:skip, {:refused, reason}}
-      nil -> {:skip, :no_such_round}
-      :error -> {:skip, :no_boards}
-      status when status in [:current, :hand_edited, :ineligible] -> {:skip, status}
+      {:error, :no_such_round} ->
+        {:skip, :no_such_round}
+
+      {:error, reason} ->
+        {:skip, {:refused, reason}}
+
+      nil ->
+        {:skip, :no_such_round}
+
+      :error ->
+        {:skip, :no_boards}
+
+      status when status in [:current, :hand_edited, :ineligible, :pending, :failed] ->
+        {:skip, status}
     end
   end
 
@@ -1831,7 +1866,7 @@ defmodule PairingsEngine.Pairing do
          opts = Keyword.put(field.opts, :max_candidates, :all),
          account =
            Map.merge(
-             %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, opts)}
+             %{brackets: Explainer.impl().brackets(field.players, pairs, opts)}
              |> Map.merge(bye_exclusion_account(opts, field.bye_exclusion_lifted)),
              alternatives(field.players, pairs, opts, tournament, round_number, nil)
            ),
@@ -1858,7 +1893,295 @@ defmodule PairingsEngine.Pairing do
       nil -> {:skip, :no_such_round}
       :error -> {:skip, :no_boards}
       true -> {:skip, :hand_edited}
-      status when status in [:hand_edited, :ineligible] -> {:skip, status}
+      status when status in [:hand_edited, :ineligible, :pending, :failed] -> {:skip, status}
+    end
+  end
+
+  ## ---------- the account, after the round is saved ----------
+  #
+  # See `PairingsEngine.ExplanationJobs` for why the account is no longer
+  # worked out inside the click, and docs/pairing-systems.md ("The engine's
+  # account, after the click") for what the arbiter sees meanwhile.
+
+  @doc """
+  Where a round's engine account stands:
+
+    * `:ready` - an account is stored.
+    * `:pending` - the round is saved and its account is being worked out
+      (`PairingsEngine.ExplanationJobs`), or was when the node went down.
+    * `:failed` - working it out failed; the explanation page offers to try
+      again.
+    * `:none` - no account at all: a JaVaFo round, a round from before
+      accounts existed, or no round.
+
+  A pending or failed record already carries the round's deviation facts
+  (who an exclusion passed over for the bye, whether the arbiter's wishes
+  moved a board), so `pairing_deviations/2` reads the same either way.
+  """
+  def explanation_state(%Round{explanation: %{"status" => "pending"}}), do: :pending
+  def explanation_state(%Round{explanation: %{"status" => "failed"}}), do: :failed
+  def explanation_state(%Round{explanation: %{"sections" => _}}), do: :ready
+  def explanation_state(_round), do: :none
+
+  @doc "`explanation_state/1` of a round by number, reading the one column."
+  def explanation_state(tournament_id, round_number) do
+    explanation =
+      Repo.one(
+        from r in Round,
+          where: r.tournament_id == ^tournament_id and r.number == ^round_number,
+          select: r.explanation
+      )
+
+    explanation_state(%Round{explanation: explanation})
+  end
+
+  @doc """
+  For a page that wants to show a round's account: when it is pending and
+  nothing in this node is working on it - the job was lost with a restart -
+  starts working it out again, from the round's history
+  (`recompute_explanation/2`). Returns the round's `explanation_state/1`.
+  """
+  def ensure_explanation(%Tournament{} = tournament, %Round{} = round) do
+    with :pending <- explanation_state(round),
+         false <- ExplanationJobs.running?(round.id) do
+      start_recompute(tournament, round)
+    end
+
+    explanation_state(round)
+  end
+
+  # By number, reading only what it needs - for a page that has not loaded
+  # the round's boards.
+  def ensure_explanation(%Tournament{} = tournament, round_number)
+      when is_integer(round_number) do
+    round =
+      Repo.one(
+        from r in Round,
+          where: r.tournament_id == ^tournament.id and r.number == ^round_number,
+          select: struct(r, [:id, :number, :explanation])
+      )
+
+    ensure_explanation(tournament, round)
+  end
+
+  def ensure_explanation(_tournament, round), do: explanation_state(round)
+
+  @doc """
+  "Try again" on a failed account: puts it back to pending and works it out
+  from the round's history. `:ok`, or `:stale` when the round no longer
+  holds that failed record.
+  """
+  def retry_explanation(%Tournament{} = tournament, %Round{} = round) do
+    with :failed <- explanation_state(round),
+         :stored <- ExplanationJobs.mark_pending(round.id, round.explanation["job"]) do
+      start_recompute(tournament, round)
+      :ok
+    else
+      _ -> :stale
+    end
+  end
+
+  defp start_recompute(tournament, round) do
+    number = round.number
+
+    ExplanationJobs.run(tournament.id, round.id, round.explanation["job"], fn ->
+      recompute_explanation(tournament, number)
+    end)
+  end
+
+  @doc """
+  Works a pending round's account out again from scratch: the field rebuilt
+  as it stood before the round (`history_before/2`), one section per
+  pending section, over the players that section paired (its `"field"`),
+  and the boards as they now stand. What the click already worked out - the
+  deviation facts - is carried over from the pending record, not redone.
+
+  Marked `"origin" => "recomputed"`, since it is an account of the boards
+  as played rather than of the decision in memory. `{:ok, payload}` or
+  `{:error, reason}`; writes nothing (`PairingsEngine.ExplanationJobs`
+  does, under its guard).
+  """
+  def recompute_explanation(%Tournament{} = tournament, round_number) do
+    case tournament.id |> Tournaments.get_round(round_number) |> Repo.preload(:pairings) do
+      %Round{explanation: %{"job" => _, "sections" => sections}} = round ->
+        history = history_before(tournament, round_number)
+
+        full_roster =
+          history.full_roster |> Map.values() |> order_for_pairing(tournament, history)
+
+        rank_by_id = full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+        by_id = Map.new(full_roster, &{&1.id, &1})
+        by_rank = Map.new(rank_by_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
+
+        accounts =
+          Enum.map(sections, fn section ->
+            {section["category"],
+             recomputed_account(tournament, round, section, history, full_roster, rank_by_id),
+             by_rank}
+          end)
+
+        case explanation_payload(accounts) do
+          nil ->
+            {:error, :nothing_to_explain}
+
+          payload ->
+            {:ok,
+             payload
+             |> Map.put("origin", "recomputed")
+             |> Map.put("paired_by", tournament.pairing_engine)}
+        end
+
+      _ ->
+        {:error, :not_pending}
+    end
+  end
+
+  defp recomputed_account(tournament, round, section, history, full_roster, rank_by_id) do
+    field = MapSet.new(section["field"] || [])
+    rank = &List.wrap(Map.get(rank_by_id, &1))
+
+    trf = build_category_trf(tournament, full_roster, field, rank_by_id, history, round.number)
+    parsed = Ainalrami.Trf.parse(trf)
+
+    soft =
+      soft_pairs(tournament, full_roster, rank_by_id, history.forbidden_pairings, round.number)
+
+    tournament = %{
+      tournament
+      | engine_bye_exclusions:
+          section |> Map.get("bye_exclusions", []) |> Enum.flat_map(rank) |> Enum.sort()
+    }
+
+    pairs =
+      round.pairings
+      |> Enum.sort_by(& &1.board)
+      |> Enum.filter(&MapSet.member?(field, &1.white_player_id))
+      |> Enum.flat_map(fn p ->
+        case {Map.get(rank_by_id, p.white_player_id), p.black_player_id} do
+          {nil, _} -> []
+          {white, nil} -> [{white, nil}]
+          {white, black} -> [{white, Map.get(rank_by_id, black)}]
+        end
+      end)
+
+    deferred_account(tournament, round.number, section["category"], %{
+      players: parsed.players,
+      pairs: pairs,
+      opts: ainalrami_opts(tournament, parsed, soft),
+      lifted: section["bye_exclusion_lifted"],
+      soft_pairs_moved: section["soft_pairs_moved"] == true,
+      bye_passed_over: section |> Map.get("bye_passed_over", []) |> Enum.flat_map(rank)
+    })
+  end
+
+  # The account of one engine run, from what the click kept in memory
+  # (`run_ainalrami/5`'s `deferred`) or what `recomputed_account/6` rebuilt.
+  # The bye chain was worked out in the click, so the engine is asked not to
+  # repeat it. A failure of the brackets fails the job (and the page says
+  # so); a failure of the alternatives only loses them, as it always did.
+  defp deferred_account(tournament, round_number, category_name, deferred) do
+    brackets =
+      Explainer.impl().brackets(
+        deferred.players,
+        deferred.pairs,
+        Keyword.put(deferred.opts, :bye_passed_over, false)
+      )
+
+    deferred
+    |> deviation_account()
+    |> Map.put(:brackets, brackets)
+    |> Map.merge(
+      alternatives(
+        deferred.players,
+        deferred.pairs,
+        deferred.opts,
+        tournament,
+        round_number,
+        category_name
+      )
+    )
+  end
+
+  # What the click itself knows about one engine run: the organiser's
+  # deviations. It is the whole of a pending record's section, and part of
+  # the finished one.
+  defp deviation_account(deferred) do
+    %{brackets: [], bye_passed_over: deferred.bye_passed_over}
+    |> Map.merge(bye_exclusion_account(deferred.opts, deferred.lifted))
+    |> Map.merge(if(deferred.soft_pairs_moved, do: %{soft_pairs_moved: true}, else: %{}))
+  end
+
+  # The record a round is saved with: per section, the players it paired
+  # (`"field"`, so the account can be rebuilt after a restart), the
+  # deviation facts, and no brackets yet - `PairingsEngine.RoundExplanation`
+  # reads that as "no account", which is what it is until the job is done.
+  # nil for a JaVaFo round, which has nothing to work out.
+  defp pending_payload(tournament, round_number, sections) do
+    built =
+      for {category_name, %{} = deferred, by_rank} <- sections do
+        field =
+          deferred.pairs
+          |> Enum.flat_map(fn {w, b} -> [w, b] end)
+          |> Enum.map(&player_id(&1, by_rank))
+          |> Enum.reject(&is_nil/1)
+
+        %{"category" => category_name, "brackets" => [], "bye" => nil, "field" => field}
+        |> put_bye_exclusions(deviation_account(deferred), by_rank)
+      end
+
+    case built do
+      [] ->
+        nil
+
+      built ->
+        pairs = for {c, %{} = d, _} <- sections, do: {c, d.pairs}
+
+        %{
+          "engine" => "ainalrami",
+          "status" => "pending",
+          "job" => ExplanationJobs.fingerprint({tournament.id, round_number, pairs}),
+          "sections" => built
+        }
+    end
+  end
+
+  defp with_deferred({:ok, round}, sections), do: {:ok, round, sections}
+  defp with_deferred(error, _sections), do: error
+
+  # Hands the saved round's account to `PairingsEngine.ExplanationJobs`,
+  # built from the very field the engine just paired. The record is looked
+  # up by number because a match-format pairing returns its second leg,
+  # while the account is the first's.
+  defp start_explanation(tournament, round_number, sections, returned) do
+    target =
+      Repo.one(
+        from r in Round,
+          where: r.tournament_id == ^tournament.id and r.number == ^round_number,
+          select: %{id: r.id, job: fragment("json_extract(?, '$.job')", r.explanation)}
+      )
+
+    case target do
+      %{id: id, job: job} when is_binary(job) ->
+        ExplanationJobs.run(tournament.id, id, job, fn ->
+          accounts =
+            for {category_name, %{} = deferred, by_rank} <- sections do
+              {category_name, deferred_account(tournament, round_number, category_name, deferred),
+               by_rank}
+            end
+
+          case explanation_payload(accounts) do
+            nil -> {:error, :nothing_to_explain}
+            payload -> {:ok, payload}
+          end
+        end)
+
+        # Worked out before returning (tests): hand back the finished row.
+        if ExplanationJobs.mode() == :inline and returned.id == id,
+          do: Repo.reload!(returned),
+          else: returned
+
+      _ ->
+        returned
     end
   end
 
@@ -1904,47 +2227,32 @@ defmodule PairingsEngine.Pairing do
         # mode is quiet - `explain_round/3` would describe a pairing that is
         # not the one the arbiter is looking at.
         raw_pairs = Ainalrami.Pairing.pair_next_round(parsed.players, engine_opts)
+
+        # The two organiser deviations are worked out HERE, in the click,
+        # because the round's FIDE-compliance stamp and its audit rows are
+        # written from them the moment it is saved
+        # (`record_pairing_deviations/2`, `PairingsLive`). Each is a second
+        # pairing run, and each only runs when its setting is in play.
         soft_moved? = soft_pairs_moved?(parsed.players, raw_pairs, engine_opts, tournament)
+        passed_over = bye_passed_over(parsed.players, raw_pairs, engine_opts, tournament)
 
-        # Ground truth, taken while the decision is fresh. `explain_round/3`
-        # analyses a pairing it is GIVEN rather than emitting one as it
-        # works, so it is a second call - but it is one call per round, on a
-        # click the arbiter is already waiting on, not per page view.
-        #
-        # Deliberately not allowed to fail the round: an explanation is
-        # commentary, and losing it must never cost an arbiter a pairing
-        # that the engine has already computed correctly.
-        explanation =
-          try do
-            brackets = Ainalrami.Pairing.explain_round(parsed.players, raw_pairs, engine_opts)
+        # Everything else about the round's account - the brackets
+        # (`explain_round/3`, a second call because it analyses a pairing
+        # it is GIVEN) and the alternatives (one forced search per
+        # candidate: the expensive part) - is commentary. It is worked out
+        # after the round is saved (`PairingsEngine.ExplanationJobs`), from
+        # exactly this field, so the arbiter sees the boards as soon as the
+        # engine has them.
+        deferred = %{
+          players: parsed.players,
+          pairs: raw_pairs,
+          opts: engine_opts,
+          lifted: tournament.bye_exclusion_override,
+          soft_pairs_moved: soft_moved?,
+          bye_passed_over: passed_over
+        }
 
-            # The alternatives - "why did HE float / get the bye and not
-            # me" - are one forced search per candidate, so they are the
-            # expensive part and are guarded on their own: losing them must
-            # not lose the brackets, and neither may cost the round.
-            Map.merge(
-              %{brackets: brackets}
-              |> Map.merge(bye_exclusion_account(engine_opts, tournament.bye_exclusion_override))
-              |> Map.merge(if(soft_moved?, do: %{soft_pairs_moved: true}, else: %{})),
-              alternatives(
-                parsed.players,
-                raw_pairs,
-                engine_opts,
-                tournament,
-                round_number,
-                category_name
-              )
-            )
-          rescue
-            e ->
-              Logger.warning(
-                "Ainalrami could not explain #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
-              )
-
-              nil
-          end
-
-        {:ok, Enum.map(raw_pairs, &ainalrami_bye_to_zero/1), explanation}
+        {:ok, Enum.map(raw_pairs, &ainalrami_bye_to_zero/1), deferred}
 
       codes ->
         {:error, ainalrami_unsupported_message(codes, category_name)}
@@ -2063,6 +2371,56 @@ defmodule PairingsEngine.Pairing do
       )
 
       true
+  end
+
+  # Who the organiser's bye exclusions passed over for the bye, in the order
+  # they would have had it - the ranks `explain_round/3` reports as a
+  # bracket's `bye_passed_over`, by the same chain: pair the round with no
+  # exclusion, and while the bye lands on an excluded player, exclude just
+  # the ones found so far and pair again. Empty when the exclusions changed
+  # nothing, and without a single extra run when none is in force or the
+  # round has no bye.
+  #
+  # Worked out here, in the click, rather than read off `explain_round/3`
+  # as it used to be: that call moved after the round is saved, and a round
+  # whose bye an exclusion moved is stamped as leaving the FIDE rules
+  # (`pairing_deviations/2`) the moment it is. The later account is asked
+  # not to repeat the chain (`bye_passed_over: false`) and carries this
+  # list instead, so the record and the stamp are one answer.
+  #
+  # A run that fails stops the chain where it got to, as the engine's does.
+  defp bye_passed_over(players, raw_pairs, engine_opts, tournament) do
+    excluded = engine_opts[:bye_exclusions] || []
+    holder = Enum.find_value(raw_pairs, fn {w, b} -> if is_nil(b), do: w end)
+
+    if excluded == [] or is_nil(holder) do
+      []
+    else
+      passed_over_chain(players, engine_opts, MapSet.new(excluded), [])
+    end
+  rescue
+    e ->
+      Logger.warning(
+        "Ainalrami could not pair tournament #{tournament.id} without its bye exclusions to compare: #{Exception.message(e)}"
+      )
+
+      []
+  end
+
+  defp passed_over_chain(players, engine_opts, excluded, passed) do
+    pairs =
+      Ainalrami.Pairing.pair_next_round(
+        players,
+        Keyword.put(engine_opts, :bye_exclusions, Enum.reverse(passed))
+      )
+
+    holder = Enum.find_value(pairs, fn {w, b} -> if is_nil(b), do: w end)
+
+    if MapSet.member?(excluded, holder) and holder not in passed,
+      do: passed_over_chain(players, engine_opts, excluded, [holder | passed]),
+      else: Enum.reverse(passed)
+  rescue
+    Ainalrami.Pairing.NoValidPairingError -> Enum.reverse(passed)
   end
 
   defp ainalrami_bye_to_zero({white, nil}), do: {white, 0}
@@ -2256,11 +2614,22 @@ defmodule PairingsEngine.Pairing do
   # arbiter's "only if possible" wishes changed the round
   # (`soft_pairs_moved?/4`), the other organiser deviation the round's
   # record has to keep.
+  #
+  # The passed-over list comes from the account itself when the pairing
+  # click worked it out (`bye_passed_over/4`, ranks), and from the engine's
+  # brackets otherwise (`reexplain_round/2`, `deepen_round/2`).
   defp put_bye_exclusions(section, account, by_rank) do
     passed_over =
-      account.brackets
-      |> Enum.flat_map(&Map.get(&1, :bye_passed_over, []))
-      |> Enum.map(&player_id(&1.rank, by_rank))
+      case Map.fetch(account, :bye_passed_over) do
+        {:ok, ranks} when is_list(ranks) ->
+          ranks
+
+        _ ->
+          account.brackets
+          |> Enum.flat_map(&Map.get(&1, :bye_passed_over, []))
+          |> Enum.map(& &1.rank)
+      end
+      |> Enum.map(&player_id(&1, by_rank))
 
     section
     |> put_unless_empty(

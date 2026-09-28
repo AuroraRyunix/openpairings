@@ -213,7 +213,8 @@ end
 
 exclude_tags = for {tag, _reason, _count} <- missing, do: tag
 
-ExUnit.start(max_cases: 1, exclude: exclude_tags)
+# `:bench` is never a test: test/bench/ prints timings, run with `--include bench`.
+ExUnit.start(max_cases: 1, exclude: [:bench | exclude_tags])
 
 # While the Sandbox is still in its default automatic mode, so the deletes
 # commit: rows an earlier process committed to this database outside the

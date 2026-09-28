@@ -165,7 +165,8 @@ trail records `pairing.bye_exclusion_overridden`.
 **What is recorded.** The round's stored explanation carries the exclusions
 it was paired under, who was passed over for the bye because of one ("X was
 passed over for the bye: organiser exclusion", in the order they would have
-had it - the engine's own account), and a lifted exclusion. A re-explained
+had it - worked out in the pairing click by the engine's own chain, see
+"The engine's account, after the click" below), and a lifted exclusion. A re-explained
 round reads its exclusions back from that record, not from today's player
 settings. When an exclusion actually moved the bye, the audit trail records
 `pairing.bye_passed_over`, and the tournament's FIDE record
@@ -178,6 +179,84 @@ so a checker replaying the file pairs them as FIDE's rules would.
 **Carried by** JSON backups, snapshots, hand-offs and Duplicate (all one
 export/import path, `TournamentExport`'s player fields). Not by SWAR, which
 has no such field.
+
+### The engine's account, after the click
+
+Ainalrami's account of a round - the brackets it built
+(`Ainalrami.Pairing.explain_round/3`) and, for every float and the bye, what
+each other candidate would have cost (`Ainalrami.Alternatives`, one forced
+re-pairing per candidate, capped at twelve) - is shown on the round's
+explanation page. It used to be worked out inside the "Pair round" click,
+before the round was saved. On a large field that was most of the click:
+450 players, round 2, on the two-core server took 253 s, 235 of them the
+alternatives. It is now worked out after the round is saved, by
+`PairingsEngine.ExplanationJobs`.
+
+**What stays in the click, and why.** Everything that decides or records the
+round:
+
+- the pairing itself, and the round, its boards and byes, in one transaction;
+- the two organiser-deviation checks, each a second pairing run that only
+  happens when its setting is in play: whether the "only if possible" wishes
+  moved a board (`soft_pairs_moved?/4`), and who a bye exclusion passed over
+  (`bye_passed_over/4`, the same chain the engine's `explain_round/3` runs).
+  The round's `fide_compliance_lost_round` stamp and the
+  `tournament.fide_compliance_lost` / `pairing.bye_passed_over` audit rows
+  are written from these the moment the round is saved, so they cannot wait.
+  Moving them to the background was considered and rejected: the stamp
+  would be right in the end, but the Pairings page and the audit rows read
+  it in between, and a tournament would briefly claim compliance it had
+  lost;
+- the bye-exclusion refusal and its "Pair anyway" override (a refusal is the
+  pairing failing, so there is nothing to explain yet);
+- the `pairing.round_paired` audit entry.
+
+**The pending record.** The round is saved with
+`explanation: %{"status" => "pending", "job" => fingerprint, "sections" => [...]}`,
+each section holding its category, the players it paired (`"field"`) and the
+deviation facts above - but no brackets, which is what makes
+`PairingsEngine.RoundExplanation` read it as "no account yet". So
+`pairing_deviations/2`, `RoundExplanation.bye_exclusion_rounds/1` and the
+audit rows read the same record before and after the job.
+
+**The job.** One supervised task per round
+(`PairingsEngine.ExplanationTaskSupervisor`, registered by round id in
+`PairingsEngine.ExplanationJobRegistry`), at low scheduler priority so pages
+keep answering on two cores, working from the very field the engine just
+paired. Its result is written only if the round still holds the pending
+record with that fingerprint (one guarded `UPDATE`): a round unpaired,
+re-paired or restored meanwhile no longer does, and a late result is
+dropped. The fingerprint has a random part because SQLite reuses the
+highest row id after a delete - a re-paired round can have the old one's
+id. Unpairing also stops the job. When the account is stored (or the job
+fails) `{:tournament_changed, id, :explanation}` goes out on the
+tournament's topic; the Pairings page updates its note from the one column,
+the explanation page reloads its account.
+
+**Failure and restart.** A job that raises, exits or runs past 30 minutes
+marks the record `"failed"`: the page says so and offers "Try again", which
+works the account out from the round's history. A job lost with the node
+leaves the record `"pending"` with nobody on it; the explanation page
+notices (`Pairing.ensure_explanation/2`) and starts it again - from the
+round's history (`Pairing.recompute_explanation/2`: the field rebuilt as it
+stood before the round, section by section from each section's `"field"`,
+the boards as played) - and while it waits it looks again every fifteen
+seconds, so it never shows "working" with nothing working. A rebuilt account
+is marked `"origin": "recomputed"`, like a Recompute.
+
+**Rounds paired before this.** Their records have no `"status"`; they read,
+recompute and deepen exactly as before. `Pairing.reexplain_status/2` says
+`:pending` or `:failed` for a round whose job owns it, and Recompute and
+"Work it out now" leave such a round alone.
+
+**Tests** run the same work inline, before `pair_next_round/2` returns
+(`config :pairings_engine, :explanation_jobs, :inline`), so every existing
+assertion on a round's account still holds;
+`test/pairings_engine/explanation_jobs_test.exs` and
+`explanation_pending_live_test.exs` run it in the background against a
+stand-in explainer (`PairingsEngine.Test.SlowExplainer`) they hold up or
+break. `test/bench/pairing_click_bench_test.exs` (`--include bench`) times
+the click on generated 301- and 451-player events.
 
 ## Round robin (Berger) - available
 

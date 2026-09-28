@@ -149,7 +149,20 @@ defmodule PairingsEngineWeb.PairingsLive do
   # it sat as a toast that kept surprising people mid-click regardless of
   # how it was positioned, and the round data refreshing live underneath
   # it is the part that actually matters.
+  # A round's engine account arrived (or could not be worked out) - see
+  # `PairingsEngine.ExplanationJobs`. Nothing on this page but the "working
+  # out the explanation" note depends on it, so this reads the one column
+  # rather than reloading a large round's every board and score.
   @impl true
+  def handle_info({:tournament_changed, _tournament_id, :explanation}, socket),
+    do: {:noreply, put_explanation_state(socket, socket.assigns.round_number)}
+
+  # See `put_explanation_state/2`.
+  def handle_info(:check_explanation, socket) do
+    socket = assign(socket, explanation_check: false)
+    {:noreply, put_explanation_state(socket, socket.assigns.round_number)}
+  end
+
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(
            socket.assigns.current_scope,
@@ -236,6 +249,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         teams_by_id: teams_by_id(t),
         unattached_boards: unattached_boards(t, round)
       )
+      |> put_explanation_state(round)
 
     if Keyword.get(opts, :keep_gesture, false) do
       socket
@@ -246,6 +260,29 @@ defmodule PairingsEngineWeb.PairingsLive do
       # to "nothing selected" than to leave a just-consumed gesture
       # sitting around.
       assign(socket, menu: nil, swap_first: nil, pool_first: nil, seat_pick: nil, confirm: nil)
+    end
+  end
+
+  # The "Working out the explanation…" note beside the round's status. Once
+  # connected, `ensure_explanation/2` also restarts an account the node lost
+  # with a restart, and while it is pending the page looks again every
+  # fifteen seconds - a job that died without broadcasting must not leave
+  # the note up forever. `round` is the loaded round or its number.
+  @explanation_check_ms 15_000
+  defp put_explanation_state(socket, round) do
+    state =
+      if connected?(socket),
+        do: Engine.ensure_explanation(socket.assigns.tournament, round),
+        else: Engine.explanation_state(round)
+
+    socket = assign(socket, explanation_state: state)
+
+    if connected?(socket) and state == :pending and
+         not Map.get(socket.assigns, :explanation_check, false) do
+      Process.send_after(self(), :check_explanation, @explanation_check_ms)
+      assign(socket, explanation_check: true)
+    else
+      socket
     end
   end
 
@@ -3206,6 +3243,19 @@ defmodule PairingsEngineWeb.PairingsLive do
                 "finished"
             end}
           </span>
+
+          <%!-- The round's engine account is worked out after the click
+                (PairingsEngine.ExplanationJobs). Quiet, because the round is
+                saved and final; it goes away when the account is in. --%>
+          <.link
+            :if={@explanation_state == :pending}
+            id="round-explanation-pending"
+            class="pe-account-status"
+            navigate={~p"/t/#{@tournament.id}/pairings/#{@round_number}/explain"}
+          >
+            <span class="pe-account-dot" aria-hidden="true"></span>
+            {gettext("Working out the explanation…")}
+          </.link>
         </div>
 
         <div id="round-actions" class="round-bar-actions">

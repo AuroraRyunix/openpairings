@@ -70,7 +70,7 @@ defmodule PairingsEngine.ChangelogStyleTest do
   end
 
   test "every entry starts with a recognised tag" do
-    known = ~w(Feature Fix Change Removed Security Verified)
+    known = ~w(Feature Fix Change Removed Security Verified Performance)
 
     offenders =
       Enum.reject(entries(), fn entry ->

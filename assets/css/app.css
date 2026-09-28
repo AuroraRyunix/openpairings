@@ -988,6 +988,7 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .changelog-body .cl-removed { color: var(--text-soft); }
 .changelog-body .cl-security { color: var(--danger); }
 .changelog-body .cl-verified { color: var(--accent); }
+.changelog-body .cl-performance { color: var(--info); }
 
 /* The legend table's first column is nothing but a tag - stop it stretching. */
 .changelog-body table td:first-child { white-space: nowrap; }
@@ -3444,6 +3445,23 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* The offer to bring an older account up to date: the warning colour,
    because the page beneath it is missing the half that answers questions. */
 .pe-recompute { border-left: 3px solid var(--warn); }
+
+/* The round's account while it is being worked out after the pairing click
+   (PairingsEngine.ExplanationJobs): calm, not an alarm - the round itself is
+   saved. A slow breathing dot says "working", and stops for anyone who asked
+   for less motion. */
+.pe-account-pending { border-left: 3px solid var(--accent); display: flex; gap: 10px; align-items: baseline; }
+.pe-account-pending p { margin: 0; }
+.pe-account-dot {
+  flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); animation: conn-pulse 1.8s ease-in-out infinite;
+}
+.pe-account-failed { border-left: 3px solid var(--warn); }
+.pe-account-failed p { margin: 0 0 8px; }
+.pe-account-status { font-size: 0.85em; color: var(--text-soft); display: inline-flex; gap: 6px; align-items: center; }
+@media (prefers-reduced-motion: reduce) {
+  .pe-account-dot { animation: none; }
+}
 /* The float cascade: one row per bracket, read top to bottom. */
 .pe-cascade { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 13px; }
 .pe-cascade caption { text-align: left; font-size: 12px; color: var(--text-soft); padding: 0 0 4px; }

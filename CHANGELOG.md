@@ -13,8 +13,27 @@ Each entry is tagged so a version can be skimmed:
 | [Removed] | something is gone |
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
+| [Performance] | the same result, sooner |
 
 ## [Unreleased]
+
+- [Performance] **"Pair round" shows the round as soon as the engine has
+  paired it.** The engine's explanation of the round - the brackets, and
+  for every float and the bye what each other candidate would have cost -
+  used to be worked out inside the click, one full re-pairing per
+  candidate: on a 450-player event on the two-core server that was about
+  four of the click's four and a quarter minutes. It is now worked out
+  afterwards, in the background and at low priority, and the explanation
+  page says "Working out the explanation…" until it arrives, then fills in
+  by itself; the Pairings page shows the same note beside the round's
+  status meanwhile. Everything that decides or records the round stays in
+  the click: the pairing, the check whether a bye exclusion or an "only if
+  possible" wish moved it (and so the "no longer FIDE-compliant" mark and
+  its audit rows), the audit entry. If working the explanation out fails,
+  the page says so and offers "Try again"; if the server restarted
+  meanwhile, it is worked out again when somebody opens the page.
+  Unpairing the round stops it. Explanations of rounds paired before this
+  read exactly as they did.
 
 - [Change] **The Pairings page has two rows above the table.** The
   tournament's name, then one bar for the round: the round buttons and the

@@ -84,6 +84,21 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     # why there is none.
     recompute = Engine.reexplain_status(tournament, round)
 
+    # A round's account is worked out after the pairing click
+    # (`PairingsEngine.ExplanationJobs`). While it is, the page says so and
+    # fills in when the job's broadcast arrives; a pending account nobody is
+    # working on any more (the node restarted) is started again here, on
+    # demand. Only once connected: the dead render must not start work.
+    explanation_state =
+      if connected?(socket) and round,
+        do: Engine.ensure_explanation(tournament, round),
+        else: Engine.explanation_state(round)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      if explanation_state == :pending, do: schedule_account_check()
+    end
+
     {:ok,
      assign(socket,
        tournament: tournament,
@@ -100,6 +115,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        seated: seated_players(round, players),
        what_if: nil,
        recompute: recompute,
+       explanation_state: explanation_state,
        # `:recompute` or `:deepen` while one of those runs off the LiveView
        # process (`start_async`); the buttons grey out and say so meanwhile.
        busy: nil,
@@ -115,6 +131,53 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp preload_pairings(nil), do: nil
   defp preload_pairings(round), do: PairingsEngine.Repo.preload(round, :pairings)
+
+  # The job broadcasts when the account is stored, or when it failed. A job
+  # that died without a word (the node went down under it, or it was
+  # killed) would leave the page waiting on a broadcast that never comes, so
+  # a pending page also looks again now and then - and `ensure_explanation/2`
+  # starts the work afresh if nobody is doing it any more.
+  @account_check_ms 15_000
+  defp schedule_account_check, do: Process.send_after(self(), :check_account, @account_check_ms)
+
+  # Only the account's part of the page: the live analysis above it is of
+  # the boards, which the job never touches.
+  defp reload_account(socket) do
+    %{tournament: tournament, round_number: number} = socket.assigns
+    round = tournament.id |> Tournaments.get_round(number) |> preload_pairings()
+    players = Tournaments.list_players(tournament.id)
+    state = if round, do: Engine.ensure_explanation(tournament, round), else: :none
+
+    if state == :pending and socket.assigns.explanation_state != :pending,
+      do: schedule_account_check()
+
+    assign(socket,
+      engine_account: round && RoundExplanation.for_round(round, players),
+      account_divergence: if(round, do: RoundExplanation.divergence(round), else: :no_record),
+      account_origin: round && round.explanation && round.explanation["origin"],
+      recompute: Engine.reexplain_status(tournament, round),
+      explanation_state: state
+    )
+  end
+
+  @impl true
+  def handle_info({:tournament_changed, _id, :explanation}, %{assigns: %{team_mode: true}} = s),
+    do: {:noreply, s}
+
+  def handle_info({:tournament_changed, _id, :explanation}, socket),
+    do: {:noreply, reload_account(socket)}
+
+  # Everything else on the topic: this page is an analysis taken when it was
+  # opened, and never reloaded itself on other changes; it still does not.
+  def handle_info({:tournament_changed, _id, _hint}, socket), do: {:noreply, socket}
+
+  def handle_info(:check_account, %{assigns: %{explanation_state: :pending}} = socket) do
+    socket = reload_account(socket)
+    if socket.assigns.explanation_state == :pending, do: schedule_account_check()
+    {:noreply, socket}
+  end
+
+  def handle_info(:check_account, socket), do: {:noreply, socket}
 
   # Top-of-page index of the genuine per-board anomalies - rematch outside
   # match format, a repeat pairing-allocated (engine-assigned) bye, and the
@@ -350,6 +413,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
      socket
      |> assign(busy: :recompute)
      |> start_async(:reexplain, fn -> Engine.reexplain_tournament(tournament) end)}
+  end
+
+  # "Try again" on an account that could not be worked out after pairing.
+  # Writes the account only, like the recompute below; the job's broadcast
+  # fills the page in.
+  def handle_event("retry_explanation", _params, socket) do
+    %{tournament: tournament, round_number: number} = socket.assigns
+
+    case Tournaments.get_round(tournament.id, number) do
+      nil -> :ok
+      round -> Engine.retry_explanation(tournament, round)
+    end
+
+    {:noreply, reload_account(socket)}
   end
 
   # "Work it out now" on a question the pairing-time cap skipped. Same
@@ -2410,7 +2487,55 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </.rich_text>
       </p>
 
-      <p :if={is_nil(@engine_account)} class="hint" style="margin: 4px 0 12px">
+      <%!-- The round is saved and the engine is still working out its
+            account (PairingsEngine.ExplanationJobs). Calm, because nothing
+            is wrong: the boards are final, this is the commentary. The page
+            fills in by itself when the job's broadcast arrives. --%>
+      <div
+        :if={@explanation_state == :pending}
+        id="explanation-pending"
+        class="card pe-account-pending"
+        role="status"
+        style="margin: 8px 0"
+      >
+        <span class="pe-account-dot" aria-hidden="true"></span>
+        <p>
+          <strong>{gettext("Working out the explanation…")}</strong>
+          {gettext(
+            "The round is paired and saved. The engine is now working out how it decided - the brackets it built, and for every float and the bye what each other candidate would have cost. On a large field that takes a few minutes; this page fills in by itself."
+          )}
+        </p>
+      </div>
+
+      <div
+        :if={@explanation_state == :failed}
+        id="explanation-failed"
+        class="card pe-account-failed"
+        role="alert"
+        style="margin: 8px 0"
+      >
+        <p>
+          <strong>{gettext("The engine's explanation of this round could not be worked out.")}</strong>
+          {gettext(
+            "The round itself is paired and saved, and nothing about it depends on this. Trying again works it out from the boards as played, on the standings as they stood before this round."
+          )}
+        </p>
+        <button
+          type="button"
+          id="explanation-retry"
+          class="pe-btn primary"
+          phx-click="retry_explanation"
+          phx-disable-with={gettext("Working...")}
+        >
+          {gettext("Try again")}
+        </button>
+      </div>
+
+      <p
+        :if={is_nil(@engine_account) and @explanation_state not in [:pending, :failed]}
+        class="hint"
+        style="margin: 4px 0 12px"
+      >
         <.rich_text text={
           gettext(
             "This is a live analysis of the current data (pre-round standings, colour history and pairing output), not a stored replay. The engine's internal tie-break reasoning is not recorded in what it hands back, so for Swiss this shows the input state that constrained the decision and the observable shape of its output (brackets, floaters, byes). Items marked %[flag] below are automated data-consistency checks, not proof of an actual arbiting error - they flag patterns worth a second look, nothing more."

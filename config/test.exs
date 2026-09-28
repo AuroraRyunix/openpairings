@@ -52,6 +52,12 @@ config :swoosh, :api_client, false
 # In test we don't send emails
 config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 
+# A round's engine account is worked out after the pairing click, in a
+# background task (`PairingsEngine.ExplanationJobs`). Here the same work runs
+# before `pair_next_round/2` returns, so a test reads a finished record, and
+# no task outlives the test's sandbox. Its own tests switch it to `:async`.
+config :pairings_engine, :explanation_jobs, :inline
+
 # Route PairingsEngine.Keycloak's Req calls through a Req.Test stub instead of
 # the real network - see Req.Test's moduledoc for the `plug: {Req.Test, name}`
 # convention. Individual tests set behaviour with Req.Test.stub/2.

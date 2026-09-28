@@ -53,11 +53,11 @@ defmodule PairingsEngine.Changelog do
   # markdown: the renderer escapes text and emits only tags on its own
   # allowlist, so a `<span>` in the source would come out as visible
   # characters rather than markup. Doing it here keeps that property - the
-  # only markup this step can introduce is these six literals.
+  # only markup this step can introduce is these seven literals.
   #
   # Inlined rather than called as a private function: this runs while the
   # module is still being compiled, and a module cannot call itself there.
-  @tags ~w(Feature Fix Change Removed Security Verified)
+  @tags ~w(Feature Fix Change Removed Security Verified Performance)
 
   # The file's own "# Changelog" title is dropped: the page around it already
   # has that heading as its one <h1>, and a second one told a screen reader's

@@ -98,6 +98,12 @@ defmodule PairingsEngine.Application do
       # and running it inline would freeze the page - every click, every
       # toggle - for as long as an unreachable results site takes to give up.
       {Task.Supervisor, name: PairingsEngine.TaskSupervisor},
+      # A round's engine account, worked out after the round is saved rather
+      # than inside the pairing click - see `PairingsEngine.ExplanationJobs`.
+      # Its own supervisor so an unpair can find and stop the one job it
+      # makes pointless, and the registry says which round each job is for.
+      {Registry, keys: :unique, name: PairingsEngine.ExplanationJobRegistry},
+      {Task.Supervisor, name: PairingsEngine.ExplanationTaskSupervisor},
       # AFTER the Task.Supervisor, deliberately: it hands its first
       # connection check off the moment it starts, and a task supervisor that
       # does not exist yet is an exit rather than a retry.
