@@ -620,6 +620,36 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert Enum.any?(errors, fn [_ref, reason] -> reason == :too_many_files end)
   end
 
+  # Production crashed on exactly this shape of race on the SWAR import
+  # panel - a submit reaching the server a beat before the upload had
+  # finished arriving - and every `consume_uploaded_entries/3` call site
+  # (this public, no-login page included) took the same fix; see
+  # `PairingsEngineWeb.UploadGuard` and CHANGELOG. `render_upload/3` with a
+  # percent below 100 reproduces the half-arrived state without a real
+  # network race.
+  test "a partially-uploaded file does not crash, and parses itself once it catches up", %{
+    conn: conn
+  } do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    content = trf_text("Not Crashed Open", [{"Alice", nil}, {"Bob", nil}])
+
+    input =
+      file_input(lv, "#tools-upload-form", :files, [
+        %{name: "notcrashed.trf", content: content, type: "application/octet-stream"}
+      ])
+
+    render_upload(input, "notcrashed.trf", 50)
+    html = lv |> form("#tools-upload-form", %{}) |> render_submit()
+
+    assert html =~ "Still uploading"
+    refute html =~ "Not Crashed Open"
+
+    render_upload(input, "notcrashed.trf", 50)
+
+    assert render(lv) =~ "Not Crashed Open"
+  end
+
   ## ---------- junk footer removed ----------
 
   test "the promotional footer is gone", %{conn: conn} do

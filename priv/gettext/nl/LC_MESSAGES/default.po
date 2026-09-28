@@ -13511,7 +13511,6 @@ msgstr "Wordt uitgewerkt…"
 msgid "Worked out."
 msgstr "Uitgewerkt."
 
-
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2504
 #, elixir-autogen, elixir-format
 msgid "The round is paired and saved. The engine is now working out how it decided - the brackets it built, and for every float and the bye what each other candidate would have cost. On a large field that takes a few minutes; this page fills in by itself."
@@ -13851,4 +13850,81 @@ msgstr "paringen zodra gepaard, uitslagen rechtstreeks, en de stand zodra een ro
 #, elixir-autogen, elixir-format
 msgid "the results site"
 msgstr "de uitslagensite"
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:21
+#, elixir-autogen, elixir-format
+msgid "Manage your account email address and password settings"
+msgstr "Beheer het e-mailadres en de wachtwoordinstellingen van je account"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3048
+#, elixir-autogen, elixir-format
+msgid "Pairings & results"
+msgstr "Paringen & resultaten"
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:20
+#, elixir-autogen, elixir-format
+msgid "Account Settings"
+msgstr "Accountinstellingen"
+
+#: lib/pairings_engine_web/live/standings_live.ex:361
+#, elixir-autogen, elixir-format
+msgid "Round %{n} hasn't been paired yet."
+msgstr "Ronde %{n} is nog niet gepaard."
+
+#: lib/pairings_engine_web/live/standings_live.ex:364
+#, elixir-autogen, elixir-format
+msgid "Round %{n}'s pairings aren't public yet - publish them first."
+msgstr "De paringen van ronde %{n} zijn nog niet publiek - publiceer ze eerst."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2439
+#: lib/pairings_engine_web/live/pairings_live.ex:2447
+#, elixir-autogen, elixir-format
+msgid "Round %{n} on the public page"
+msgstr "Ronde %{n} op de publieke pagina"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2353
+#: lib/pairings_engine_web/live/pairings_live.ex:2354
+#, elixir-autogen, elixir-format
+msgid "Hidden"
+msgstr "Verborgen"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2355
+#, elixir-autogen, elixir-format
+msgid "Nothing from this round is public"
+msgstr "Niets van deze ronde is publiek"
+
+#: lib/pairings_engine_web/live/standings_live.ex:327
+#, elixir-autogen, elixir-format
+msgid "Round %{n}'s results stay public only if its level on the Pairings page includes them."
+msgstr "De uitslagen van ronde %{n} blijven alleen publiek als het niveau van die ronde op de pagina Paringen ze bevat."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3616
+#: lib/pairings_engine_web/live/tournaments_live.ex:2014
+#: lib/pairings_engine_web/live/tournaments_live.ex:2188
+#: lib/pairings_engine_web/live/tournaments_live.ex:2250
+#: lib/pairings_engine_web/live/tournaments_live.ex:2318
+#: lib/pairings_engine_web/live/tournaments_live.ex:2388
+#, elixir-autogen, elixir-format
+msgid "Importing…"
+msgstr "Bezig met importeren…"
+
+#: lib/pairings_engine_web/live/tools_norms_live.ex:948
+#, elixir-autogen, elixir-format
+msgid "Parsing…"
+msgstr "Bezig met inlezen…"
+
+#: lib/pairings_engine_web/live/upload_guard.ex:57
+#, elixir-autogen, elixir-format
+msgid "Still uploading - the import starts as soon as the file has arrived."
+msgstr "Nog aan het uploaden - de import start zodra het bestand is aangekomen."
+
+#: lib/pairings_engine_web/live/upload_guard.ex:61
+#, elixir-autogen, elixir-format
+msgid "That file could not be uploaded. Fix the problem shown above it and try again."
+msgstr "Dat bestand kon niet worden geüpload. Los het probleem hierboven op en probeer het opnieuw."
+
+#: lib/pairings_engine_web/live/settings_tournament_live.ex:761
+#, elixir-autogen, elixir-format
+msgid "Uploading…"
+msgstr "Bezig met uploaden…"
 

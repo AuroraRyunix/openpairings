@@ -670,6 +670,43 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert Enum.find(round.pairings, &(&1.board == 1)).result == ""
   end
 
+  # Production crashed on exactly this shape of race on the SWAR import
+  # panel - a submit reaching the server a beat before the upload had
+  # finished arriving - and every `consume_uploaded_entries/3` call site
+  # took the same fix; see `PairingsEngineWeb.UploadGuard` and CHANGELOG.
+  # `render_upload/3` with a percent below 100 reproduces the half-arrived
+  # state without a real network race.
+  test "a partially-uploaded CSV does not crash, and the import finishes itself", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = import_fixture(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    lv |> element("button", "Import results (CSV)") |> render_click()
+
+    csv =
+      file_input(lv, "#results-csv-import-form", :results_csv, [
+        %{name: "results.csv", content: "1,1-0\n2,0-1\n", type: "text/csv"}
+      ])
+
+    render_upload(csv, "results.csv", 50)
+    html = lv |> form("#results-csv-import-form", %{}) |> render_submit()
+
+    assert html =~ "Still uploading"
+    refute html =~ "Imported 2 results."
+
+    render_upload(csv, "results.csv", 50)
+
+    assert render(lv) =~ "Imported 2 results."
+    round = Tournaments.get_round(tournament.id, 1)
+    assert Enum.find(round.pairings, &(&1.board == 1)).result == "1-0"
+
+    # A successful import broadcasts on the tournament's PubSub topic;
+    # drain that message before the test process exits.
+    render(lv)
+  end
+
   ## ---------- Setup-completion gate ----------
 
   test "pairing is blocked, with a banner, when the tournament is missing a start date", %{

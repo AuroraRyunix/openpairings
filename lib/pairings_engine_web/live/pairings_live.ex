@@ -21,6 +21,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.Postponed
+  alias PairingsEngineWeb.UploadGuard
 
   @results [
     {"", "…"},
@@ -101,6 +102,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        pairing_in_progress: false,
        importing_results: false,
        import_errors: nil,
+       # Set instead of consuming when Import was pressed while the CSV was
+       # still arriving (see `UploadGuard`), and cleared by
+       # `handle_upload_progress/3` once the upload catches up.
+       pending_results_import?: false,
        # The pairing (if any) awaiting explicit confirmation to have its
        # result CLEARED - see `handle_event("result", ...)`'s guard below.
        confirm_clear_pairing_id: nil,
@@ -124,7 +129,12 @@ defmodule PairingsEngineWeb.PairingsLive do
        seat_pick: nil,
        confirm: nil
      )
-     |> allow_upload(:results_csv, accept: :any, max_entries: 1, max_file_size: 2_000_000)
+     |> allow_upload(:results_csv,
+       accept: :any,
+       max_entries: 1,
+       max_file_size: 2_000_000,
+       progress: &handle_upload_progress/3
+     )
      |> refresh()}
   end
 
@@ -1121,13 +1131,49 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("toggle_import_results", _params, socket) do
     {:noreply,
-     assign(socket, importing_results: not socket.assigns.importing_results, import_errors: nil)}
+     assign(socket,
+       importing_results: not socket.assigns.importing_results,
+       import_errors: nil,
+       # Closing (or reopening) the panel cancels any "finish this import
+       # once the upload arrives" promise - see `UploadGuard`.
+       pending_results_import?: false
+     )}
   end
 
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_results_csv", _params, socket), do: {:noreply, socket}
 
   def handle_event("import_results_csv", _params, socket) do
+    case UploadGuard.status(socket, :results_csv) do
+      :uploading ->
+        {:noreply,
+         assign(socket,
+           pending_results_import?: true,
+           import_errors: [UploadGuard.still_uploading_message()]
+         )}
+
+      :errored ->
+        {:noreply, assign(socket, import_errors: [UploadGuard.entry_error_message()])}
+
+      :ready ->
+        do_import_results_csv(socket)
+    end
+  end
+
+  defp handle_upload_progress(:results_csv, _entry, socket) do
+    if socket.assigns.pending_results_import? and
+         UploadGuard.status(socket, :results_csv) == :ready do
+      socket
+      |> assign(pending_results_import?: false)
+      |> do_import_results_csv()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(_name, _entry, socket), do: {:noreply, socket}
+
+  defp do_import_results_csv(socket) do
     %{tournament: tournament, round_number: round_number} = socket.assigns
 
     uploaded =
@@ -3628,6 +3674,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             <% else %>
               <span :for={entry <- @uploads.results_csv.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -3643,7 +3690,14 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Importing…")}
+            disabled={Enum.any?(@uploads.results_csv.entries, &(!&1.done?))}
+          >
+            {gettext("Import")}
+          </button>
           <button type="button" class="pe-btn" phx-click="toggle_import_results">
             {gettext("Cancel")}
           </button>
