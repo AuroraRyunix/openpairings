@@ -3135,14 +3135,22 @@ defmodule PairingsEngine.Pairing do
   The rows built by `games_per_player/2` carry `points_kind` (the bye's real
   type) and `round`, so a bye is now scored by `Standings.bye_points/4` -
   the same function the crosstable calls, rather than a second opinion about
-  the same rule. `cumulative_absences` is counted along the list instead of
-  re-queried; the list is one entry per round in round order, which is what
-  makes that equivalent.
+  the same rule. `cumulative_absences` is each absence's `:absence_number`
+  - numbered over every round by `games_per_player/3`, so a list that keeps
+  only some rounds (a TRF of chosen rounds) still counts the absences in
+  the rounds it left out - and otherwise counted along the list, which is
+  one entry per round in round order.
   """
   def player_points(games, t) do
     {points, _absences} =
       Enum.reduce(games, {0.0, 0}, fn g, {sum, absences} ->
-        absences = if Map.get(g, :points_kind) == "absent", do: absences + 1, else: absences
+        absences =
+          if Map.get(g, :points_kind) == "absent",
+            # Numbered over the whole tournament when the list came from
+            # `games_per_player/3` - which matters once rounds are left out.
+            do: Map.get(g, :absence_number, absences + 1),
+            else: absences
+
         {sum + game_points(g, t, absences), absences}
       end)
 
@@ -3471,8 +3479,26 @@ defmodule PairingsEngine.Pairing do
           end
         end)
 
-      {player_id, games}
+      {player_id, number_absences(games)}
     end
+  end
+
+  # Each absence carries which one it is, counted over EVERY round - the
+  # count `abs_nbfois` is measured with (`player_points/2`). A caller that
+  # keeps only some rounds (`TrfExport`'s round selection) then still scores
+  # an absence at what the standings paid for it, rather than restarting
+  # the allowance at the first round it kept.
+  defp number_absences(games) do
+    {games, _count} =
+      Enum.map_reduce(games, 0, fn
+        %{points_kind: "absent"} = game, count ->
+          {Map.put(game, :absence_number, count + 1), count + 1}
+
+        game, count ->
+          {game, count}
+      end)
+
+    games
   end
 
   # The three tournament-wide queries `games_per_player/2` needs, bundled

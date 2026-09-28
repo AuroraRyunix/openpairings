@@ -174,6 +174,32 @@ defmodule PairingsEngine.TrfExportTest do
     assert bob.points == 0.5
   end
 
+  # An absence's value depends on how many came before it (`abs_nbfois`),
+  # in rounds a selection may leave out. Bob is absent in rounds 1 and 2
+  # with one paid absence: round 2 pays nothing in the standings, so a file
+  # of round 2 alone must not pay it either.
+  test "?rounds=2 scores an absence as the standings do, counting the absences before it" do
+    {tournament, %{bob: bob}} = fixture()
+
+    tournament =
+      tournament
+      |> Ecto.Changeset.change(abs_value: 0.5, abs_nbfois: 1, abs_jusque: 9)
+      |> Repo.update!()
+
+    Repo.delete_all(Pairing)
+
+    Repo.insert_all("byes", [
+      %{tournament_id: tournament.id, player_id: bob.id, round: 1, type: "absent"},
+      %{tournament_id: tournament.id, player_id: bob.id, round: 2, type: "absent"}
+    ])
+
+    for {spec, points} <- [{"1-2", 0.5}, {"1", 0.5}, {"2", 0.0}] do
+      assert {:ok, text} = TrfExport.export(tournament, spec)
+      parsed_bob = Enum.find(Trf.parse(text).players, &(String.trim(&1.name) == "Bob"))
+      assert parsed_bob.points == points, "rounds #{spec}: #{parsed_bob.points}"
+    end
+  end
+
   test "?rounds=1,2 (explicit list) matches the no-param default for a fully-paired tournament" do
     {tournament, _} = fixture()
 

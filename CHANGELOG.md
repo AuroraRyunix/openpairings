@@ -101,6 +101,36 @@ Each entry is tagged so a version can be skimmed:
   the only administrator. Tournaments shared with you stay with their
   owners, their audit logs record that you left, and what you changed in
   them stays attributed to your address.
+- [Fix] **A SWAR file's empty rounds are no longer read as paid absences.**
+  Only SWAR's absence table makes an absence - it is the only one SWAR pays
+  the absence points for and counts towards the number of absences paid. A
+  round a player was not in (SWAR's "forfait" table for a withdrawn player,
+  or the empty round OpenPairings writes for a round before a late entrant
+  joined, when those do not count, or after a withdrawal) used to import as
+  an absence. So exporting to SWAR and importing the file again gave a
+  withdrawn player half a point for every round after he withdrew, and a
+  late entrant half a point for every round before he joined, using up his
+  paid absences with them. Those rounds now import as nothing, and a file
+  written with "Rounds before a late entrant joins count as absences" off
+  is imported with it off.
+
+- [Fix] **A TRF of chosen rounds scores each absence as the standings do.**
+  When a tournament pays for only a limited number of absences, a TRF
+  exported for, say, rounds 4-6 counted the absences from round 4 again, so
+  an absence the standings no longer paid (the fourth, with three paid) was
+  paid in the file. Every absence now counts the ones before it, including
+  those in rounds the file leaves out.
+
+- [Verified] **A late entrant's rounds before joining use up the paid
+  absences first.** With half a point per absence, three paid, a player who
+  joins before round 4 has rounds 1-3 as his three paid absences, and an
+  absence in round 4 pays nothing - in the standings, the cross table, the
+  player card, the tie-breaks, the score the next round is paired on, the
+  TRF report, the SWAR file and the results site alike, whether his join
+  round was set or worked out, and however the round-4 absence was
+  entered. A requested half-point bye is not an absence: it still pays half
+  a point and uses none. Every case checked is listed in
+  `docs/swar-import.md`.
 
 ## [0.69.1] - 2026-09-28
 
