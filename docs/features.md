@@ -262,29 +262,53 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
 - **Publishing to OpenResults** - a tournament is pushed to the public
   results site under an unguessable per-tournament link: pairings, standings
   and a card per player, no login. A QR on the Live page points spectators
-  straight at it. Seventeen per-tournament switches decide what a published
-  page may show, from whole pages down to individual columns, and a hidden
-  one is withheld when the document is built rather than sent and hidden at
-  the other end.
+  straight at it. Per-tournament switches decide which details a published
+  page may show, from the player cards and byes pages down to individual
+  columns and tie-breaks, and a hidden one is withheld when the document is
+  built rather than sent and hidden at the other end.
+
+  Settings -> OpenResults holds three controls built like the per-round one
+  below, so the three read as one family:
+
+  - **On the results site: Off · Link only · Listed** - whether the
+    tournament is published at all, and whether it is also on the results
+    site's front page. Going down to Off asks first; a copy already on the
+    site stays until it is removed under "The address".
+  - **Automatically: By hand · Pairings once paired · + results live ·
+    + standings when the round is finished** - how far up the per-round
+    ladder the app moves each round by itself. The pairings step takes an
+    optional "after N minutes"; everything saves as it is chosen. Standings
+    go public once the round and every round before it are finished.
+  - **Before round 1, spectators see the starting ranking** - off by
+    default; once a round is public the players travel with it anyway.
 
   What reaches the site is decided per round by one **Spectators see:**
   control on the Pairings page (and in the round's right-click menu), with
   four cumulative levels: **Nothing**, **Pairings** (who plays whom),
   **+ Results** (results as they come in) and **+ Standings** (the standings
-  after the round too). It is the only place a round's level is chosen: the
-  Standings page says what spectators see of the round its standings are
-  after and links to that round on the Pairings page, and keeps a switch
-  only for the **Initial standings** (the entry list, before round 1 is
-  finished), which no round's level covers. A newly published round starts
-  at Pairings: the boards travel without results, and nothing computed from
-  a result goes with them, so live results are a deliberate choice rather
-  than the default. Choosing a
-  level writes exactly that level in one step; going down asks first and
-  names what disappears, including later rounds whose sheets would give it
-  away. Standings wait until the round and every round before it are
-  finished, and "immediate" publish mode shows everything public and locked.
+  after the round too). The automation only ever moves a round up; the
+  arbiter can always take a round down here, and it stays where they put it
+  (the automation stops at that level for that round). It is the only place
+  a round's level is chosen by hand: the Standings page says what spectators
+  see of the round its standings are after, or before round 1 what the
+  starting-ranking setting is, and links to where each is changed. By hand,
+  a newly published round starts at Pairings: the boards travel without
+  results, and nothing computed from a result goes with them, so live
+  results are a deliberate choice rather than the default. Choosing a level
+  writes exactly that level in one step; going down asks first and names
+  what disappears, including later rounds whose sheets would give it away.
   Rounds left with a combination the old separate switches allowed keep it
   until a level is chosen, with a short note saying so.
+
+  Upgrading to the automation ladder (2026-09-28) changed nothing anybody
+  could see: "Manually" became By hand, "After a delay" the pairings step
+  with its delay, "Immediately" the whole ladder (its rounds, results and
+  finished standings written down as public, and the lock on the per-round
+  control gone), and "On the round's own date" By hand, rounds already paired
+  keeping their date. The retired "Standings" and "Round pairings" page
+  switches took their step out of the automation where they were off, and
+  keep that page hidden until the arbiter shows it again from a note on the
+  settings page.
 
   The read-only pages used to be served by this app itself; they moved to
   OpenResults on 2026-08-29 so a busy public page and a live pairing session
