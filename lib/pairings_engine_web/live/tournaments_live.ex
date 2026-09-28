@@ -17,6 +17,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.SettingsSupport
+  alias PairingsEngineWeb.UploadGuard
 
   # SWAR is the Belgian federation's own tournament program, so taking its
   # files in is part of the pack. The switch hides "Import SWAR file" and its
@@ -83,13 +84,32 @@ defmodule PairingsEngineWeb.TournamentsLive do
        receiving_handoff: false,
        return_target: nil,
        force_unlock_text: "",
-       force_unlock_error: nil
+       force_unlock_error: nil,
+       # ---- uploads still arriving when Import was pressed ----
+       # Set by the submit handler instead of consuming (see `UploadGuard`),
+       # and consumed by `handle_upload_progress/3` the moment the entry it
+       # is waiting on finishes - so the arbiter never has to press Import a
+       # second time for an upload that was merely still in flight.
+       pending_import: nil,
+       pending_backup_import?: false,
+       pending_handoff_receive?: false,
+       pending_handoff_release?: false
      )
      # ".swar"/".trf" have no registered MIME type, so the browser-side accept
      # filter can't be used; each parser rejects anything that isn't its own
      # format anyway.
-     |> allow_upload(:swar, accept: :any, max_entries: 1, max_file_size: 5_000_000)
-     |> allow_upload(:trf, accept: :any, max_entries: 1, max_file_size: 5_000_000)
+     |> allow_upload(:swar,
+       accept: :any,
+       max_entries: 1,
+       max_file_size: 5_000_000,
+       progress: &handle_upload_progress/3
+     )
+     |> allow_upload(:trf,
+       accept: :any,
+       max_entries: 1,
+       max_file_size: 5_000_000,
+       progress: &handle_upload_progress/3
+     )
      # The three JSON boxes take their size from the importer rather than
      # naming one of their own. The browser refusing a file early is a
      # better message than the server refusing it late, but the importer is
@@ -99,7 +119,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> allow_upload(:backup,
        accept: ~w(.json),
        max_entries: 1,
-       max_file_size: TournamentImport.max_bytes()
+       max_file_size: TournamentImport.max_bytes(),
+       progress: &handle_upload_progress/3
      )
      # Two uploads rather than one shared "hand-off file" box, for the same
      # reason as the assigns above: the arriving file and the returning file
@@ -107,12 +128,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> allow_upload(:handoff,
        accept: ~w(.json),
        max_entries: 1,
-       max_file_size: TournamentImport.max_bytes()
+       max_file_size: TournamentImport.max_bytes(),
+       progress: &handle_upload_progress/3
      )
      |> allow_upload(:handoff_return,
        accept: ~w(.json),
        max_entries: 1,
-       max_file_size: TournamentImport.max_bytes()
+       max_file_size: TournamentImport.max_bytes(),
+       progress: &handle_upload_progress/3
      )
      |> assign_tournaments()
      |> assign_deleted_tournaments()
@@ -440,7 +463,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_params: @new_tournament_defaults,
        swar_pending: nil,
        swar_duplicate: nil,
-       swar_team: nil
+       swar_team: nil,
+       # Closing the dialog also cancels any "finish this import once the
+       # upload arrives" promise made by `UploadGuard` - otherwise a file
+       # that keeps uploading in the background would import itself after
+       # the arbiter has already walked away from the panel.
+       pending_import: nil,
+       pending_backup_import?: false,
+       pending_handoff_receive?: false,
+       pending_handoff_release?: false
      )}
   end
 
@@ -586,37 +617,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("validate_backup", _params, socket), do: {:noreply, socket}
 
   def handle_event("import_backup_file", _params, socket) do
-    scope = socket.assigns.current_scope
-
-    results =
-      consume_uploaded_entries(socket, :backup, fn %{path: path}, _entry ->
-        {:ok, decode_and_import(path, scope)}
-      end)
-
-    case results do
-      [{:ok, imported, notes}] ->
-        count = length(imported)
-
-        Enum.each(imported, fn tournament ->
-          Audit.log(tournament.id, socket.assigns.current_scope, "import.json", %{
-            name: tournament.name
-          })
-        end)
-
+    case UploadGuard.status(socket, :backup) do
+      :uploading ->
         {:noreply,
-         socket
-         |> put_flash(
-           :info,
-           Enum.join(["Imported #{count} tournament#{if count != 1, do: "s"}." | notes], " ")
-         )
-         |> assign(importing_backup: false, error: nil)
-         |> assign_tournaments()}
+         assign(socket,
+           pending_backup_import?: true,
+           error: UploadGuard.still_uploading_message()
+         )}
 
-      [{:error, reason}] ->
-        {:noreply, assign(socket, error: reason)}
+      :errored ->
+        {:noreply, assign(socket, error: UploadGuard.entry_error_message())}
 
-      [] ->
-        {:noreply, assign(socket, error: "Choose a .json export file first")}
+      :ready ->
+        do_import_backup_file(socket)
     end
   end
 
@@ -655,33 +668,26 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   def handle_event("return_cancel", _params, socket) do
-    {:noreply, assign(socket, return_target: nil, error: nil)}
+    {:noreply, assign(socket, return_target: nil, error: nil, pending_handoff_release?: false)}
   end
 
   # Receiving: a hand-off file arriving from another machine becomes a live
   # tournament here. Refuses an ordinary backup outright rather than importing
   # it and calling it a hand-off - see `PairingsEngine.Handoff.receive/2`.
   def handle_event("receive_handoff_file", _params, socket) do
-    scope = socket.assigns.current_scope
-
-    results =
-      consume_uploaded_entries(socket, :handoff, fn %{path: path}, _entry ->
-        {:ok, decode_and_receive(path, scope)}
-      end)
-
-    case results do
-      [{:ok, tournament}] ->
+    case UploadGuard.status(socket, :handoff) do
+      :uploading ->
         {:noreply,
-         socket
-         |> put_flash(:info, received_flash(tournament))
-         |> assign(receiving_handoff: false, error: nil)
-         |> assign_tournaments()}
+         assign(socket,
+           pending_handoff_receive?: true,
+           error: UploadGuard.still_uploading_message()
+         )}
 
-      [{:error, reason}] ->
-        {:noreply, assign(socket, error: handoff_error(reason))}
+      :errored ->
+        {:noreply, assign(socket, error: UploadGuard.entry_error_message())}
 
-      [] ->
-        {:noreply, assign(socket, error: gettext("Choose the hand-off file first."))}
+      :ready ->
+        do_receive_handoff_file(socket)
     end
   end
 
@@ -691,28 +697,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # where both copies hold work (the break-glass was used here while the
   # tournament was away).
   def handle_event("release_handoff_file", _params, socket) do
-    tournament = socket.assigns.return_target
-    scope = socket.assigns.current_scope
-
-    results =
-      consume_uploaded_entries(socket, :handoff_return, fn %{path: path}, _entry ->
-        {:ok, decode_and_release(path, tournament, scope)}
-      end)
-
-    case results do
-      [{:ok, unlocked}] ->
+    case UploadGuard.status(socket, :handoff_return) do
+      :uploading ->
         {:noreply,
-         socket
-         |> put_flash(:info, release_flash())
-         |> put_ambiguous_flash(PairingsEngine.PostponedGames.ambiguous_sent_players(unlocked.id))
-         |> assign(return_target: nil, error: nil)
-         |> assign_tournaments()}
+         assign(socket,
+           pending_handoff_release?: true,
+           error: UploadGuard.still_uploading_message()
+         )}
 
-      [{:error, reason}] ->
-        {:noreply, assign(socket, error: handoff_error(reason))}
+      :errored ->
+        {:noreply, assign(socket, error: UploadGuard.entry_error_message())}
 
-      [] ->
-        {:noreply, assign(socket, error: gettext("Choose the returning file first."))}
+      :ready ->
+        do_release_handoff_file(socket)
     end
   end
 
@@ -960,6 +957,99 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
+  ## ---------- upload consumption, deferred past `def handle_event` above ----------
+  #
+  # Each of these is the body a submit handler used to run inline, before
+  # `UploadGuard.status/2` was added in front of it - see each handler and
+  # `handle_upload_progress/3` below. Kept together, past every
+  # `handle_event/3` clause, so that group stays contiguous (Elixir warns
+  # otherwise) rather than scattered one per matching handler.
+
+  defp do_import_backup_file(socket) do
+    scope = socket.assigns.current_scope
+
+    results =
+      consume_uploaded_entries(socket, :backup, fn %{path: path}, _entry ->
+        {:ok, decode_and_import(path, scope)}
+      end)
+
+    case results do
+      [{:ok, imported, notes}] ->
+        count = length(imported)
+
+        Enum.each(imported, fn tournament ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "import.json", %{
+            name: tournament.name
+          })
+        end)
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           Enum.join(["Imported #{count} tournament#{if count != 1, do: "s"}." | notes], " ")
+         )
+         |> assign(importing_backup: false, error: nil)
+         |> assign_tournaments()}
+
+      [{:error, reason}] ->
+        {:noreply, assign(socket, error: reason)}
+
+      [] ->
+        {:noreply, assign(socket, error: "Choose a .json export file first")}
+    end
+  end
+
+  defp do_receive_handoff_file(socket) do
+    scope = socket.assigns.current_scope
+
+    results =
+      consume_uploaded_entries(socket, :handoff, fn %{path: path}, _entry ->
+        {:ok, decode_and_receive(path, scope)}
+      end)
+
+    case results do
+      [{:ok, tournament}] ->
+        {:noreply,
+         socket
+         |> put_flash(:info, received_flash(tournament))
+         |> assign(receiving_handoff: false, error: nil)
+         |> assign_tournaments()}
+
+      [{:error, reason}] ->
+        {:noreply, assign(socket, error: handoff_error(reason))}
+
+      [] ->
+        {:noreply, assign(socket, error: gettext("Choose the hand-off file first."))}
+    end
+  end
+
+  defp do_release_handoff_file(socket) do
+    tournament = socket.assigns.return_target
+    scope = socket.assigns.current_scope
+
+    results =
+      consume_uploaded_entries(socket, :handoff_return, fn %{path: path}, _entry ->
+        {:ok, decode_and_release(path, tournament, scope)}
+      end)
+
+    case results do
+      [{:ok, unlocked}] ->
+        {:noreply,
+         socket
+         |> put_flash(:info, release_flash())
+         |> put_ambiguous_flash(PairingsEngine.PostponedGames.ambiguous_sent_players(unlocked.id))
+         |> assign(return_target: nil, error: nil)
+         |> assign_tournaments()}
+
+      [{:error, reason}] ->
+        {:noreply, assign(socket, error: handoff_error(reason))}
+
+      [] ->
+        {:noreply, assign(socket, error: gettext("Choose the returning file first."))}
+    end
+  end
+
   ## ---------- Hand-off helpers ----------
 
   defp decode_and_receive(path, scope) do
@@ -1098,6 +1188,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # journey, resolve step included: `swar_pending` renders its own form
   # independently of both modals, so closing them both is all this has to do.
   defp import_tournament_file(socket, panel) do
+    case UploadGuard.status(socket, panel) do
+      :uploading ->
+        {:noreply,
+         assign(socket, pending_import: panel, error: UploadGuard.still_uploading_message())}
+
+      :errored ->
+        {:noreply, assign(socket, error: UploadGuard.entry_error_message())}
+
+      :ready ->
+        do_import_tournament_file(socket, panel)
+    end
+  end
+
+  defp do_import_tournament_file(socket, panel) do
     scope = socket.assigns.current_scope
     # The TRF panel accepts a `.swar` file too (see above), so the SWAR
     # switch has to be consulted HERE and not only at the SWAR panel's own
@@ -1166,6 +1270,70 @@ defmodule PairingsEngineWeb.TournamentsLive do
          )}
     end
   end
+
+  ## ---------- finish an import once its upload catches up ----------
+  #
+  # The `progress:` callback for every upload this LiveView allows - fired on
+  # every progress tick of every entry, for every upload name at once, which
+  # is why each clause re-checks BOTH that the relevant pending flag is set
+  # AND that `UploadGuard.status/2` now reports `:ready` before it does
+  # anything: an early tick (10%, 50%) for the very upload a submit is
+  # waiting on must fall through to the no-op clause just like a tick for an
+  # upload nobody submitted.
+  defp handle_upload_progress(panel, _entry, %{assigns: %{pending_import: panel}} = socket)
+       when panel in [:swar, :trf] do
+    if UploadGuard.status(socket, panel) == :ready do
+      socket
+      |> assign(pending_import: nil)
+      |> do_import_tournament_file(panel)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(
+         :backup,
+         _entry,
+         %{assigns: %{pending_backup_import?: true}} = socket
+       ) do
+    if UploadGuard.status(socket, :backup) == :ready do
+      socket
+      |> assign(pending_backup_import?: false)
+      |> do_import_backup_file()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(
+         :handoff,
+         _entry,
+         %{assigns: %{pending_handoff_receive?: true}} = socket
+       ) do
+    if UploadGuard.status(socket, :handoff) == :ready do
+      socket
+      |> assign(pending_handoff_receive?: false)
+      |> do_receive_handoff_file()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(
+         :handoff_return,
+         _entry,
+         %{assigns: %{pending_handoff_release?: true}} = socket
+       ) do
+    if UploadGuard.status(socket, :handoff_return) == :ready do
+      socket
+      |> assign(pending_handoff_release?: false)
+      |> do_release_handoff_file()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(_name, _entry, socket), do: {:noreply, socket}
 
   # A `.swar` file carries SWAR's own persistent per-tournament GUID (see
   # `Tournaments.find_tournament_by_swar_guid/2`), unchanged across every
@@ -1833,6 +2001,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% else %>
               <span :for={entry <- @uploads.swar.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -1843,7 +2012,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Importing…")}
+            disabled={Enum.any?(@uploads.swar.entries, &(!&1.done?))}
+          >
+            {gettext("Import")}
+          </button>
           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
@@ -1999,6 +2175,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% else %>
               <span :for={entry <- @uploads.trf.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -2009,7 +2186,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Importing…")}
+            disabled={Enum.any?(@uploads.trf.entries, &(!&1.done?))}
+          >
+            {gettext("Import")}
+          </button>
           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
@@ -2053,6 +2237,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% else %>
               <span :for={entry <- @uploads.backup.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -2063,7 +2248,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Importing…")}
+            disabled={Enum.any?(@uploads.backup.entries, &(!&1.done?))}
+          >
+            {gettext("Import")}
+          </button>
           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
@@ -2113,6 +2305,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% else %>
               <span :for={entry <- @uploads.handoff.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -2123,7 +2316,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Take it in")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Importing…")}
+            disabled={Enum.any?(@uploads.handoff.entries, &(!&1.done?))}
+          >
+            {gettext("Take it in")}
+          </button>
           <button type="button" class="pe-btn tonal" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
@@ -2173,6 +2373,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% else %>
               <span :for={entry <- @uploads.handoff_return.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -2185,7 +2386,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Unlock this copy")}</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Importing…")}
+            disabled={Enum.any?(@uploads.handoff_return.entries, &(!&1.done?))}
+          >
+            {gettext("Unlock this copy")}
+          </button>
           <button type="button" class="pe-btn tonal" phx-click="return_cancel">
             {gettext("Cancel")}
           </button>

@@ -57,6 +57,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngineWeb.ClientIp
   alias PairingsEngineWeb.Live.ArbiterCombo
+  alias PairingsEngineWeb.UploadGuard
 
   @max_entries 10
   @max_file_size 5_000_000
@@ -107,12 +108,17 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
        # `handle_event/3` raises. `nil` on the static render, which parses
        # nothing anyway.
        client_ip: ClientIp.from_socket(socket),
-       upload_refused: nil
+       upload_refused: nil,
+       # Set instead of consuming when "Parse files" was pressed while a
+       # selected file was still arriving (see `UploadGuard`), and cleared by
+       # `handle_upload_progress/3` once every entry has caught up.
+       pending_parse_files?: false
      )
      |> allow_upload(:files,
        accept: :any,
        max_entries: @max_entries,
-       max_file_size: @max_file_size
+       max_file_size: @max_file_size,
+       progress: &handle_upload_progress/3
      )}
   end
 
@@ -135,25 +141,22 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   # cannot outrun it by pressing again while the first press is still
   # working.
   def handle_event("parse_files", _params, socket) do
-    wanted = length(socket.assigns.uploads.files.entries)
+    # `UploadGuard.status/2` first and always - `upload_allowed?/2` below
+    # spends this stranger's rate-limit allowance, and a press that only
+    # found an upload still in flight must not be billed for it.
+    case UploadGuard.status(socket, :files) do
+      :uploading ->
+        {:noreply,
+         assign(socket,
+           pending_parse_files?: true,
+           upload_refused: UploadGuard.still_uploading_message()
+         )}
 
-    if upload_allowed?(socket, wanted) do
-      new_rows =
-        consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
-          content = File.read!(path)
-          {:ok, parse_row(entry.client_name, content)}
-        end)
+      :errored ->
+        {:noreply, assign(socket, upload_refused: UploadGuard.entry_error_message())}
 
-      files = socket.assigns.files ++ new_rows
-
-      {:noreply,
-       socket
-       |> assign(files: files, upload_refused: nil)
-       |> prefill_from_master()
-       |> assign_it3_counts()
-       |> sync_session()}
-    else
-      {:noreply, assign(socket, upload_refused: upload_refused_message())}
+      :ready ->
+        do_parse_files(socket)
     end
   end
 
@@ -265,6 +268,46 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   def handle_event("pick_candidate", _params, socket), do: {:noreply, socket}
+
+  ## ---------- upload consumption, deferred past `def handle_event` above ----------
+  #
+  # Kept together, past every `handle_event/3` clause, so that group stays
+  # contiguous (Elixir warns otherwise) rather than scattered.
+
+  defp handle_upload_progress(:files, _entry, socket) do
+    if socket.assigns.pending_parse_files? and UploadGuard.status(socket, :files) == :ready do
+      socket
+      |> assign(pending_parse_files?: false)
+      |> do_parse_files()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(_name, _entry, socket), do: {:noreply, socket}
+
+  defp do_parse_files(socket) do
+    wanted = length(socket.assigns.uploads.files.entries)
+
+    if upload_allowed?(socket, wanted) do
+      new_rows =
+        consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
+          content = File.read!(path)
+          {:ok, parse_row(entry.client_name, content)}
+        end)
+
+      files = socket.assigns.files ++ new_rows
+
+      {:noreply,
+       socket
+       |> assign(files: files, upload_refused: nil)
+       |> prefill_from_master()
+       |> assign_it3_counts()
+       |> sync_session()}
+    else
+      {:noreply, assign(socket, upload_refused: upload_refused_message())}
+    end
+  end
 
   ## ---------- parsing ----------
 
@@ -875,6 +918,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <% else %>
               <span :for={entry <- @uploads.files.entries} class="dropzone-file">
                 {entry.client_name}
+                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -884,9 +928,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           {upload_error_label(err)}
         </p>
 
-        <%!-- The rate limit refusing this press. Beside the upload errors
-              rather than as a flash, because it is about the files sitting
-              in the box right now and it says the parsed ones are safe. --%>
+        <%!-- The rate limit refusing this press, or `UploadGuard` saying the
+              upload is still arriving / has failed on its own. Beside the
+              upload errors rather than as a flash, because it is about the
+              files sitting in the box right now and it says the parsed ones
+              are safe. --%>
         <p :if={@upload_refused} class="error-note">{@upload_refused}</p>
 
         <div :for={entry <- @uploads.files.entries}>
@@ -896,7 +942,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </div>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary" disabled={@uploads.files.entries == []}>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            phx-disable-with={gettext("Parsing…")}
+            disabled={@uploads.files.entries == [] or Enum.any?(@uploads.files.entries, &(!&1.done?))}
+          >
             {gettext("Parse files")}
           </button>
         </div>

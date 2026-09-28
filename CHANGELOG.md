@@ -16,6 +16,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Importing a file no longer crashes if Import is pressed a beat
+  before the upload has actually arrived.** Production hit this on an
+  ordinary 20 KB SWAR file over Cloudflare: the "import_swar" submit reached
+  the server while the entry was still uploading, and Phoenix's
+  `consume_uploaded_entries/3` raises on that rather than waiting, which
+  took the whole page down to a reload. Every upload-consuming submit in the
+  app (SWAR, TRF, JSON backup, hand-off, hand-off return, results CSV
+  import, tournament logo, and the public arbiter tools' SWAR/TRF uploads)
+  now checks first, keeps the dialog open with a calm "Still uploading"
+  message instead of crashing, and finishes the import itself the moment
+  the upload catches up - no second click needed. A file that failed on its
+  own (too large, wrong type) is reported with its existing message rather
+  than being called "still uploading". The Import/Upload/Parse button is
+  also now disabled with a progress percentage while a file is arriving, so
+  the race is unlikely to begin with.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the

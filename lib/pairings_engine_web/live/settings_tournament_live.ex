@@ -20,6 +20,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   alias PairingsEngine.{Audit, Tournaments, Tiebreaks}
   alias PairingsEngine.Authz
   alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngineWeb.UploadGuard
 
   # 4th tuple element marks a field as mandatory setup data (see
   # `Tournament.required_setup_fields/0`) - its label renders bold with a
@@ -68,13 +69,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        dirty: false,
        stale: false,
        collaborator_error: nil,
-       collaborator_note: nil
+       collaborator_note: nil,
+       # Set instead of consuming when "Upload logo" was pressed while the
+       # image was still arriving (see `UploadGuard`), and cleared by
+       # `handle_upload_progress/3` once the upload catches up.
+       pending_logo_upload?: false
      )
      |> assign_collaborators()
      |> allow_upload(:logo,
        accept: ~w(.png .jpg .jpeg .gif .webp),
        max_entries: 1,
-       max_file_size: 2_000_000
+       max_file_size: 2_000_000,
+       progress: &handle_upload_progress/3
      )}
   end
 
@@ -263,6 +269,57 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   def handle_event("validate_logo", _params, socket), do: {:noreply, socket}
 
   def handle_event("upload_logo", _params, socket) do
+    case UploadGuard.status(socket, :logo) do
+      :uploading ->
+        {:noreply,
+         socket
+         |> assign(pending_logo_upload?: true)
+         |> put_flash(:info, UploadGuard.still_uploading_message())}
+
+      :errored ->
+        {:noreply, put_flash(socket, :error, UploadGuard.entry_error_message())}
+
+      :ready ->
+        do_upload_logo(socket)
+    end
+  end
+
+  def handle_event("clear_logo", _params, socket) do
+    case Tournaments.clear_logo(socket.assigns.tournament) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "logo.cleared", %{})
+
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> put_flash(:info, "Logo removed.")}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not remove the logo")}
+    end
+  end
+
+  ## ---------- upload consumption, deferred past `def handle_event` above ----------
+  #
+  # Kept together, past every `handle_event/3` clause, so that group stays
+  # contiguous (Elixir warns otherwise) rather than scattered.
+
+  defp handle_upload_progress(:logo, _entry, socket) do
+    if socket.assigns.pending_logo_upload? and UploadGuard.status(socket, :logo) == :ready do
+      socket
+      |> assign(pending_logo_upload?: false)
+      |> do_upload_logo()
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_upload_progress(_name, _entry, socket), do: {:noreply, socket}
+
+  defp do_upload_logo(socket) do
     results =
       consume_uploaded_entries(socket, :logo, fn %{path: path}, _entry ->
         {:ok, File.read!(path)}
@@ -297,24 +354,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
       [] ->
         {:noreply, put_flash(socket, :error, "Choose an image file first")}
-    end
-  end
-
-  def handle_event("clear_logo", _params, socket) do
-    case Tournaments.clear_logo(socket.assigns.tournament) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "logo.cleared", %{})
-
-        {:noreply,
-         socket
-         |> assign(tournament: tournament)
-         |> put_flash(:info, "Logo removed.")}
-
-      {:error, :archived} ->
-        {:noreply, put_flash(socket, :error, error_text(:archived))}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not remove the logo")}
     end
   end
 
@@ -699,6 +738,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               <% else %>
                 <span :for={entry <- @uploads.logo.entries} class="dropzone-file">
                   {entry.client_name}
+                  <span :if={!entry.done?} class="hint">{entry.progress}%</span>
                 </span>
               <% end %>
             </div>
@@ -715,7 +755,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </div>
 
           <div class="actions">
-            <button type="submit" class="pe-btn primary" disabled={@uploads.logo.entries == []}>
+            <button
+              type="submit"
+              class="pe-btn primary"
+              phx-disable-with={gettext("Uploading…")}
+              disabled={@uploads.logo.entries == [] or Enum.any?(@uploads.logo.entries, &(!&1.done?))}
+            >
               {gettext("Upload logo")}
             </button>
           </div>

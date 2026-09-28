@@ -279,6 +279,39 @@ defmodule PairingsEngineWeb.HandoffUiTest do
 
       assert html =~ "two live copies"
     end
+
+    # Production crashed on exactly this shape of race - a submit reaching
+    # the server a beat before the upload had finished arriving - on the
+    # SWAR import panel; this box takes the same fix (see
+    # `PairingsEngineWeb.UploadGuard` and CHANGELOG). `render_upload/3` with
+    # a percent below 100 reproduces the half-arrived state without a real
+    # network race.
+    test "a partially-arrived file does not crash, and finishes on its own", %{
+      conn: conn,
+      scope: _scope
+    } do
+      {_source, payload} = envelope_from_elsewhere()
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element(~s(button[phx-click="receive_handoff"])) |> render_click()
+
+      entry =
+        file_input(lv, "#handoff-receive-form", :handoff, [
+          %{name: "payload.json", content: Jason.encode!(payload), type: "application/json"}
+        ])
+
+      render_upload(entry, "payload.json", 50)
+      html = lv |> form("#handoff-receive-form") |> render_submit()
+
+      assert html =~ "Still uploading"
+      refute html =~ "is now live on this machine"
+
+      # `render_upload/3`'s percent is how much MORE of the file to chunk in
+      # this call, not the new total, so 50 + 50 here is what reaches 100%.
+      render_upload(entry, "payload.json", 50)
+
+      assert render(lv) =~ "is now live on this machine"
+    end
   end
 
   describe "bringing it back" do
@@ -338,6 +371,37 @@ defmodule PairingsEngineWeb.HandoffUiTest do
 
       refute Tournaments.handed_off?(Repo.reload!(tournament))
       assert "Signed Up There" in Enum.map(Tournaments.list_players(tournament.id), & &1.name)
+    end
+
+    test "a partially-arrived returning file does not crash, and finishes on its own", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, out} = Handoff.hand_off(tournament, "the club laptop", scope)
+
+      elsewhere =
+        PairingsEngine.Accounts.Scope.for_user(PairingsEngine.AccountsFixtures.user_fixture())
+
+      {:ok, copy} = Handoff.receive(out, elsewhere)
+      {:ok, returning} = Handoff.return(Repo.reload!(copy), elsewhere)
+
+      {:ok, lv, _html} = live(conn, ~p"/?return=#{tournament.id}")
+
+      entry =
+        file_input(lv, "#handoff-return-form", :handoff_return, [
+          %{name: "payload.json", content: Jason.encode!(returning), type: "application/json"}
+        ])
+
+      render_upload(entry, "payload.json", 50)
+      html = lv |> form("#handoff-return-form") |> render_submit()
+
+      assert html =~ "Still uploading"
+      refute html =~ "live again"
+
+      render_upload(entry, "payload.json", 50)
+
+      assert render(lv) =~ "live again"
     end
 
     test "a source that was force-unlocked refuses the file and names the way out", %{

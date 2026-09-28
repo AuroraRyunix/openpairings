@@ -415,6 +415,111 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     end
   end
 
+  ## ---------- an upload still arriving when Import is pressed (hotfix) ----------
+  #
+  # Production crashed on this: "import_swar" reached the server a beat
+  # before the upload (over Cloudflare, websocket/longpoll) had finished
+  # arriving, and `consume_uploaded_entries/3` raises `ArgumentError` on an
+  # entry that is still in progress - see `PairingsEngineWeb.UploadGuard` and
+  # the CHANGELOG. `render_upload/3` with a percent below 100 reproduces that
+  # half-arrived state without a real network race.
+  describe "the upload is still arriving when Import is pressed" do
+    setup :enable_federation_features
+
+    # Every test here uploads test/fixtures/problemski.swar - a gitignored
+    # personal-data fixture (see .gitignore); excluded automatically by
+    # test_helper.exs when it isn't present.
+    @describetag :swar_fixture
+
+    test "SWAR: no crash, a calm message, and the import finishes itself once the upload catches up",
+         %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "Import SWAR file") |> render_click()
+
+      swar =
+        file_input(lv, "form", :swar, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
+
+      render_upload(swar, "problemski.swar", 50)
+      html = lv |> form("#swar-import-form", %{}) |> render_submit()
+
+      assert html =~ "Still uploading"
+      refute has_element?(lv, "h2", "Resolve FIDE ids")
+
+      # Nobody clicked Import again - the upload simply finished arriving,
+      # and that alone is enough to complete the import. (`render_upload/3`'s
+      # percent is how much MORE of the file to chunk in this call, not the
+      # new total, so 50 + 50 here is what reaches 100%.)
+      render_upload(swar, "problemski.swar", 50)
+
+      assert has_element?(lv, "h2", "Resolve FIDE ids")
+      assert has_element?(lv, "*", "Ashrafi, Sulaiman Ahmad")
+    end
+
+    test "TRF: no crash and a calm message while the upload is still arriving", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "Import TRF file") |> render_click()
+
+      trf =
+        file_input(lv, "form", :trf, [
+          %{
+            # At least 100 bytes: below that, `render_upload/3`'s percent-to-byte
+            # rounding can overshoot the requested split (e.g. 23 bytes at 50%
+            # rounds up to 52%), which then makes the second 50%-more call
+            # overshoot 100% and raise in the test's own upload-simulation
+            # client - nothing to do with the code under test.
+            name: "junk.trf",
+            content: "not a tournament at all, " |> String.duplicate(5),
+            type: "text/plain"
+          }
+        ])
+
+      render_upload(trf, "junk.trf", 50)
+      html = lv |> form("#trf-import-form", %{}) |> render_submit()
+
+      assert html =~ "Still uploading"
+      refute html =~ "no player records"
+
+      # The upload finishing on its own is enough - the deferred submit
+      # runs itself, and TRF's own (unrelated) complaint about the junk
+      # content is what proves it ran rather than staying stuck.
+      render_upload(trf, "junk.trf", 50)
+
+      assert render(lv) =~ "TRF"
+    end
+
+    test "backup: no crash, a calm message, and the import finishes itself once the upload catches up",
+         %{conn: conn, scope: scope} do
+      {:ok, source} =
+        Tournaments.create_tournament(scope, %{"name" => "Backed Up", "type" => "swiss"})
+
+      payload = source |> PairingsEngine.TournamentExport.export_tournament() |> Jason.encode!()
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "Import backup (JSON)") |> render_click()
+
+      backup =
+        file_input(lv, "#backup-import-form", :backup, [
+          %{name: "backup.json", content: payload, type: "application/json"}
+        ])
+
+      render_upload(backup, "backup.json", 50)
+      html = lv |> form("#backup-import-form", %{}) |> render_submit()
+
+      assert html =~ "Still uploading"
+      refute html =~ "Imported 1 tournament"
+
+      render_upload(backup, "backup.json", 50)
+
+      assert render(lv) =~ "Imported 1 tournament"
+    end
+  end
+
   ## ---------- SWAR import: FIDE-match confirm step (task 2) ----------
 
   describe "SWAR import: confirm step for players SWAR has no FIDE id for" do

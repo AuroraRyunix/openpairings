@@ -211,6 +211,36 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
       refute Repo.reload!(tournament).logo_data
     end
 
+    # Production crashed on exactly this shape of race on the SWAR import
+    # panel - a submit reaching the server a beat before the upload had
+    # finished arriving - and every `consume_uploaded_entries/3` call site
+    # took the same fix; see `PairingsEngineWeb.UploadGuard` and CHANGELOG.
+    # `render_upload/3` with a percent below 100 reproduces the half-arrived
+    # state without a real network race.
+    test "a partially-uploaded logo does not crash, and finishes on its own", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      logo =
+        file_input(lv, "#logo-upload-form", :logo, [
+          %{name: "logo.png", content: @tiny_png, type: "image/png"}
+        ])
+
+      render_upload(logo, "logo.png", 50)
+      html = lv |> form("#logo-upload-form", %{}) |> render_submit()
+
+      assert html =~ "Still uploading"
+      refute Repo.reload!(tournament).logo_content_type
+
+      render_upload(logo, "logo.png", 50)
+
+      assert render(lv) =~ "Logo uploaded."
+      assert Repo.reload!(tournament).logo_content_type == "image/png"
+    end
+
     test "removing a set logo clears it", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
