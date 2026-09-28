@@ -4,9 +4,10 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
   existence, gathered on one screen on 2026-08-29.
 
   The takedown and imported-key tests came here from
-  `SettingsTournamentLiveTest`, and the "Public pairings publish mode card"
-  tests from `SettingsOptionsLiveTest`, with the cards they exercise. The
-  rest is new, and covers the controls the page was created for.
+  `SettingsTournamentLiveTest`, with the cards they exercise. The three
+  sliders - On the results site, Automatically, and the before-round-1
+  switch beside them - replaced the Published and Listed buttons and the
+  publish-mode select on 2026-09-28.
   """
   # async: false: sequential SQLite writes plus self-broadcast/render ordering,
   # same rationale as the other Settings LiveView tests.
@@ -14,7 +15,7 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{PublicDisplay, Publishing, Repo, Snapshot, Tournaments}
+  alias PairingsEngine.{Audit, PublicDisplay, Publishing, Repo, Snapshot, Tournaments}
 
   setup :register_and_log_in_user
 
@@ -32,24 +33,21 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
   end
 
   describe "the publish controls when there is no results site" do
-    test "unconfigured and not publishing - no toggle, an explanation instead", %{
+    test "unconfigured and not publishing - no control, an explanation instead", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
       refute Publishing.configured?()
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      refute html =~ ~s|phx-click="toggle_publish_to_openresults"|
-      refute html =~ ~s|phx-click="toggle_listed"|
-      refute html =~ "Not published"
-      refute html =~ "Listed on the front page"
+      refute has_element?(lv, "#site-presence")
       assert html =~ "No results site is set up yet"
       assert html =~ ~s|href="/fide"|
     end
 
-    test "unconfigured but already publishing - the toggle stays, so it can be turned off", %{
+    test "unconfigured but already publishing - the control stays, so it can be turned off", %{
       conn: conn,
       scope: scope
     } do
@@ -59,31 +57,30 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      assert html =~ ~s|phx-click="toggle_publish_to_openresults"|
-      assert html =~ "Turn off"
+      assert has_element?(lv, "#site-presence-off")
       refute html =~ "No results site is set up yet"
 
-      html = lv |> element("button", "Turn off") |> render_click()
+      html = lv |> element("#site-presence-off") |> render_click()
       refute Tournaments.get_tournament!(tournament.id).publish_to_openresults
       assert html =~ "will not be published again"
     end
 
-    test "configured - the controls render exactly as before", %{conn: conn, scope: scope} do
+    test "configured - the control renders at Off", %{conn: conn, scope: scope} do
       Publishing.put_endpoint("https://openresults.example/")
       Publishing.put_token("s3cret")
 
       tournament = create_tournament(scope)
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      assert html =~ ~s|phx-click="toggle_publish_to_openresults"|
-      assert html =~ ~s|phx-click="toggle_listed"|
-      assert html =~ "Not published"
-      assert html =~ "Listed on the front page"
+      assert has_element?(lv, "#site-presence[data-level='0'][data-stops='3']")
+      assert has_element?(lv, "#site-presence-off[aria-checked='true']")
+      assert has_element?(lv, "#site-presence-link[aria-checked='false']")
+      assert has_element?(lv, "#site-presence-listed[aria-checked='false']")
       refute html =~ "No results site is set up yet"
     end
   end
 
-  describe "listing a tournament on the front page" do
+  describe "On the results site: Off · Link only · Listed" do
     setup do
       Publishing.put_endpoint("https://openresults.example/")
       Publishing.put_token("s3cret")
@@ -102,27 +99,95 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert Snapshot.build(tournament)["tournament"]["listed"] == false
     end
 
-    test "listing travels in the snapshot", %{conn: conn, scope: scope} do
+    test "Link only publishes without listing, and is audited as the old button was", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      html = lv |> element("button", "List it") |> render_click()
-      assert html =~ "will appear on the results site"
+      html = lv |> element("#site-presence-link") |> render_click()
+      assert html =~ "will be published"
 
       updated = Tournaments.get_tournament!(tournament.id)
-      assert updated.public_listed
-      assert Snapshot.build(updated)["tournament"]["listed"] == true
+      assert updated.publish_to_openresults
+      refute updated.public_listed
+      assert Publishing.queued(tournament.id)
+      assert has_element?(lv, "#site-presence[data-level='1']")
 
-      # And back off again.
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
-      html = lv |> element("button", "Unlist it") |> render_click()
-      assert html =~ "no longer listed"
-
-      assert Snapshot.build(Tournaments.get_tournament!(tournament.id))["tournament"]["listed"] ==
-               false
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "openresults.toggled")
+      assert log.details["enabled"] == true
+      assert Audit.list_for_tournament(tournament.id, action: "openresults.listed") == []
     end
 
-    test "says in as many words that it is not privacy", %{conn: conn, scope: scope} do
+    test "Listed from Off lists before it publishes, so the first copy says so", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      lv |> element("#site-presence-listed") |> render_click()
+
+      updated = Tournaments.get_tournament!(tournament.id)
+      assert updated.publish_to_openresults
+      assert updated.public_listed
+      assert Snapshot.build(updated)["tournament"]["listed"] == true
+      assert has_element?(lv, "#site-presence[data-level='2']")
+
+      assert [_] = Audit.list_for_tournament(tournament.id, action: "openresults.listed")
+      assert [_] = Audit.list_for_tournament(tournament.id, action: "openresults.toggled")
+    end
+
+    test "Listed and back to Link only only changes the listing", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+      Repo.delete_all(PairingsEngine.Publishing.QueueEntry)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      html = lv |> element("#site-presence-listed") |> render_click()
+      assert html =~ "will appear on the results site"
+      # Putting something on a front page - or taking it off - and being told
+      # "it will happen when the next result comes in" is not an answer.
+      assert Publishing.queued(tournament.id)
+
+      html = lv |> element("#site-presence-link") |> render_click()
+      assert html =~ "no longer listed"
+
+      updated = Tournaments.get_tournament!(tournament.id)
+      assert updated.publish_to_openresults
+      refute updated.public_listed
+      assert Audit.list_for_tournament(tournament.id, action: "openresults.toggled") == []
+      assert length(Audit.list_for_tournament(tournament.id, action: "openresults.listed")) == 2
+    end
+
+    test "going down to Off asks first, and only while publishing", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute has_element?(lv, "#site-presence-off[data-confirm]")
+
+      lv |> element("#site-presence-link") |> render_click()
+
+      assert has_element?(lv, "#site-presence-off[data-confirm*='Stop publishing']")
+      refute has_element?(lv, "#site-presence-listed[data-confirm]")
+
+      html = lv |> element("#site-presence-off") |> render_click()
+      assert html =~ "will not be published again"
+      refute Tournaments.get_tournament!(tournament.id).publish_to_openresults
+    end
+
+    test "choosing the stop it is already at does nothing", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      lv |> element("#site-presence-off") |> render_click()
+
+      assert Audit.list_for_tournament(tournament.id) == []
+    end
+
+    test "says in as many words that Link only is not privacy", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
@@ -130,132 +195,240 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       # An arbiter who reads "unlisted" as "private" will publish something
       # they meant to keep off the web. The page has to say so before they
       # click, not after.
-      assert html =~ "This is not privacy"
+      assert html =~ "Link only is not privacy"
       assert html =~ "still readable by anyone who has its address"
-    end
-
-    test "changing the listing pushes rather than waiting for the next result", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope)
-      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
-      Repo.delete_all(PairingsEngine.Publishing.QueueEntry)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
-      lv |> element("button", "List it") |> render_click()
-
-      # Putting something on a front page - or taking it off - and being told
-      # "it will happen when the next result comes in" is not an answer.
-      assert Publishing.queued(tournament.id)
     end
   end
 
-  describe "Public pairings publish mode card" do
-    test "defaults to Immediately and renders every mode option", %{conn: conn, scope: scope} do
+  describe "Automatically: By hand · Pairings once paired · + results live · + standings" do
+    test "by hand is the default, and the slider says so", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      assert html =~ "Public pairings"
-      assert html =~ "Publish each round"
-      assert html =~ "Immediately"
-      assert html =~ "Manually"
-      assert html =~ "After a delay"
-      assert html =~ "On the round&#39;s own date"
+      assert has_element?(lv, "#auto-publish[data-level='0'][data-stops='4']")
+      assert has_element?(lv, "#auto-publish-0[aria-checked='true']", "By hand")
+      assert has_element?(lv, "#auto-publish-1", "Pairings once paired")
+      assert has_element?(lv, "#auto-publish-2", "+ results live")
+      assert has_element?(lv, "#auto-publish-3", "+ standings when the round is finished")
+      # No delay to set without the pairings step, and no Save button at all.
+      refute has_element?(lv, "#publish-delay-form")
+      refute html =~ ~s|type="submit"|
     end
 
-    test "switching to manual mode saves it", %{conn: conn, scope: scope} do
+    test "each stop saves its step at once, and is audited", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
-
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      lv
-      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
-      |> render_submit()
+      for {level, mode} <- [{1, "pairings"}, {2, "results"}, {3, "standings"}, {0, "manual"}] do
+        lv |> element("#auto-publish-#{level}") |> render_click()
 
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_mode == "manual"
+        assert Tournaments.get_tournament!(tournament.id).publish_mode == mode
+        assert has_element?(lv, "#auto-publish[data-level='#{level}']")
+      end
+
+      logs = Audit.list_for_tournament(tournament.id, action: "openresults.auto_publish")
+
+      assert logs |> Enum.map(& &1.details["mode"]) |> Enum.sort() ==
+               Enum.sort(~w(pairings results standings manual))
     end
 
-    test "switching to timed mode with a delay saves both fields", %{conn: conn, scope: scope} do
+    test "the pairings step's delay is inline, and saved as it is typed", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
-
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      # The "Delay (minutes)" field only renders once the mode select is
-      # actually switched to "timed" (see the "field is hidden by default"
-      # / "appears live" tests below) - flip it first so the form the
-      # submit below reads from actually has the field in it.
-      lv
-      |> element("select[name='tournament[publish_mode]']")
-      |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
+      lv |> element("#auto-publish-1") |> render_click()
+      assert has_element?(lv, "#publish-delay-form #publish-delay-input")
 
-      lv
-      |> form("#publish-settings-form", %{
-        "tournament" => %{"publish_mode" => "timed", "publish_delay_minutes" => "20"}
+      lv |> form("#publish-delay-form", %{"delay" => "12"}) |> render_change()
+
+      updated = Tournaments.get_tournament!(tournament.id)
+      assert updated.publish_mode == "pairings"
+      assert updated.publish_delay_minutes == 12
+
+      assert [log | _] =
+               Audit.list_for_tournament(tournament.id, action: "openresults.auto_publish")
+
+      assert log.details["delay_minutes"] == 12
+
+      # Kept through by hand and back.
+      lv |> element("#auto-publish-0") |> render_click()
+      refute has_element?(lv, "#publish-delay-form")
+      lv |> element("#auto-publish-3") |> render_click()
+      assert has_element?(lv, "#publish-delay-input[value='12']")
+    end
+
+    test "a delay that is not a whole number of minutes is said, not saved", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"publish_mode" => "pairings"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      html = lv |> form("#publish-delay-form", %{"delay" => "-3"}) |> render_change()
+
+      assert html =~ "whole number of minutes"
+      assert Tournaments.get_tournament!(tournament.id).publish_delay_minutes == 0
+    end
+
+    test "a round paired afterwards follows the chosen step", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      for n <- 1..4,
+          do: {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "P#{n}"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      lv |> element("#auto-publish-2") |> render_click()
+
+      {:ok, round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+
+      t = Tournaments.get_tournament!(tournament.id)
+      round = Tournaments.get_round(t.id, round.number)
+
+      assert Tournaments.round_published?(t, round)
+      assert Tournaments.results_public?(t, round)
+      assert Tournaments.round_publish_state(t, round).level == 2
+    end
+
+    test "raising the automation over rounds already public asks first", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"publish_mode" => "pairings"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      # Nothing public yet: nothing to warn about.
+      refute has_element?(lv, "#auto-publish-2[data-confirm]")
+
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: DateTime.utc_now() |> DateTime.truncate(:second)
       })
-      |> render_submit()
 
-      updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
-      assert updated.publish_mode == "timed"
-      assert updated.publish_delay_minutes == 20
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(lv, "#auto-publish-2[data-confirm*='already public']")
+      assert has_element?(lv, "#auto-publish-3[data-confirm]")
+      # Going down takes nothing off the site, so it asks nothing.
+      refute has_element?(lv, "#auto-publish-0[data-confirm]")
     end
+  end
 
-    test "the \"Delay (minutes)\" field is hidden by default (mode is Immediately)", %{
+  describe "Before round 1, spectators see the starting ranking" do
+    test "off by default; switching it on and off is saved and audited", %{
       conn: conn,
       scope: scope
     } do
-      tournament = create_tournament(scope)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
-
-      refute html =~ "Delay (minutes)"
-    end
-
-    test "the \"Delay (minutes)\" field appears live when the mode is switched to 'timed', and hides again when switched away",
-         %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      html =
-        lv
-        |> element("select[name='tournament[publish_mode]']")
-        |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
+      assert has_element?(lv, "#initial-standings-toggle[aria-checked='false']")
 
-      assert html =~ "Delay (minutes)"
+      lv |> element("#initial-standings-toggle") |> render_click()
 
-      html =
-        lv
-        |> element("select[name='tournament[publish_mode]']")
-        |> render_change(%{"tournament" => %{"publish_mode" => "manual"}})
+      assert has_element?(lv, "#initial-standings-toggle[aria-checked='true']")
+      assert Tournaments.get_tournament!(tournament.id).standings_through == 0
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "standings.published")
+      assert log.details["through_round"] == 0
 
-      refute html =~ "Delay (minutes)"
+      # Switching it off asks first.
+      assert has_element?(lv, "#initial-standings-toggle[data-confirm]")
+      lv |> element("#initial-standings-toggle") |> render_click()
+
+      assert Tournaments.get_tournament!(tournament.id).standings_through == nil
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "standings.unpublished")
+      assert log.details["from_round"] == 0
     end
 
-    test "a tournament already saved in 'timed' mode shows the Delay field on initial render", %{
+    test "the roster reaches the snapshot only while it is on", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Solo"})
+      assert Snapshot.build(Tournaments.get_tournament!(tournament.id))["players"] == []
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      lv |> element("#initial-standings-toggle") |> render_click()
+
+      assert [%{"name" => "Solo"}] =
+               Snapshot.build(Tournaments.get_tournament!(tournament.id))["players"]
+    end
+
+    test "cannot be changed once a round is public", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(lv, "#initial-standings-toggle[disabled]")
+    end
+  end
+
+  describe "the retired Standings and Round pairings switches" do
+    test "are not offered", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute html =~ ~s|name="display[standings]"|
+      refute html =~ ~s|name="display[pairings]"|
+      assert html =~ ~s|name="display[player_cards]"|
+      refute has_element?(lv, "[id^='legacy-page-']")
+    end
+
+    test "a page one of them kept off stays off, with a way to show it", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
 
-      {:ok, _updated} =
-        Tournaments.update_tournament(tournament, %{
-          "publish_mode" => "timed",
-          "publish_delay_minutes" => "15"
-        })
+      tournament
+      |> Ecto.Changeset.change(public_display: %{"standings" => false, "club" => false})
+      |> Repo.update!()
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      assert html =~ "Delay (minutes)"
+      assert has_element?(lv, "#legacy-page-standings")
+      refute has_element?(lv, "#legacy-page-pairings")
+
+      # Ticking the other boxes does not bring it back.
+      render_change(lv, "save_display", %{
+        "display" => PublicDisplay.keys() |> Map.new(&{&1, "true"})
+      })
+
+      reloaded = Tournaments.get_tournament!(tournament.id)
+      assert reloaded.public_display["standings"] == false
+      refute Map.has_key?(reloaded.public_display, "club")
+      assert Snapshot.build(reloaded)["tournament"]["display"]["standings"] == false
+
+      assert has_element?(lv, "#show-legacy-page-standings[data-confirm]")
+      lv |> element("#show-legacy-page-standings") |> render_click()
+
+      reloaded = Tournaments.get_tournament!(tournament.id)
+      refute Map.has_key?(reloaded.public_display, "standings")
+      assert Snapshot.build(reloaded)["tournament"]["display"]["standings"] == true
+      refute has_element?(lv, "#legacy-page-standings")
+      assert [_ | _] = Audit.list_for_tournament(tournament.id, action: "openresults.display")
     end
+  end
 
+  describe "the address on the page" do
     test "the real address renders once published, a plain description before that", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
-      assert html =~ "this tournament&#39;s page on the results site"
+      refute html =~ "https://openresults.example/t/"
 
       Publishing.put_endpoint("https://openresults.example/")
       {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
@@ -309,7 +482,9 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert tournament.public_display == nil
 
       display = Snapshot.build(tournament)["tournament"]["display"]
-      assert Enum.sort(Map.keys(display)) == Enum.sort(PublicDisplay.keys())
+
+      assert Enum.sort(Map.keys(display)) ==
+               Enum.sort(PublicDisplay.keys() ++ PublicDisplay.legacy_keys())
 
       # ...with one exception, and the resolved map states it rather than
       # leaving the reader to infer it: the attendance column is opt-in, so a
@@ -445,7 +620,9 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
 
       # A reader must not have to know this app's default list to interpret
       # the answer.
-      assert Enum.sort(Map.keys(display)) == Enum.sort(PublicDisplay.keys())
+      assert Enum.sort(Map.keys(display)) ==
+               Enum.sort(PublicDisplay.keys() ++ PublicDisplay.legacy_keys())
+
       assert display["rating"] == true
       assert display["club"] == false
     end

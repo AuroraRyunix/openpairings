@@ -68,7 +68,7 @@ defmodule PairingsEngineWeb.TournamentDefaultsTest do
         "city" => "Gent",
         "federation" => "BEL",
         "organizer" => "KSK Gent",
-        "publish_mode" => "timed",
+        "publish_mode" => "results",
         "publish_delay_minutes" => "10"
       })
 
@@ -85,7 +85,7 @@ defmodule PairingsEngineWeb.TournamentDefaultsTest do
     assert t.city == "Brugge"
     assert t.federation == "BEL"
     assert t.organizer == "KSK Gent"
-    assert t.publish_mode == "timed"
+    assert t.publish_mode == "results"
     assert t.publish_delay_minutes == 10
   end
 

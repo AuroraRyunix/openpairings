@@ -48,7 +48,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
   """
   use PairingsEngineWeb, :live_view
 
-  import PairingsEngineWeb.SettingsSupport, only: [setting_toggle: 1]
+  import PairingsEngineWeb.SettingsSupport, only: [setting_toggle: 1, auto_publish_label: 1]
 
   alias PairingsEngine.{Accounts, Authz, Features, Publishing, RateLimit, RateOfPlay, Tournaments}
   alias PairingsEngine.Accounts.{Preferences, TournamentDefaults, User}
@@ -991,23 +991,26 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   <.input
                     field={@defaults_form[:publish_mode]}
                     type="select"
-                    label={gettext("Publish each round")}
-                    prompt={gettext("Usual default (manually)")}
+                    label={gettext("Publish automatically")}
+                    prompt={gettext("Usual default (by hand)")}
                     options={publish_mode_options()}
                   />
                   <.input
-                    :if={@defaults_form[:publish_mode].value == "timed"}
+                    :if={@defaults_form[:publish_mode].value in ~w(pairings results standings)}
                     field={@defaults_form[:publish_delay_minutes]}
                     type="number"
-                    label={gettext("Delay (minutes)")}
+                    label={gettext("Pairings after (minutes)")}
                     min="0"
                   />
                 </div>
 
-                <p :if={@defaults_form[:publish_mode].value == "immediate"} class="error-note">
-                  <strong>{gettext("Rounds go public the instant you pair them.")}</strong>
+                <p
+                  :if={@defaults_form[:publish_mode].value in ~w(pairings results standings)}
+                  class="error-note"
+                >
+                  <strong>{gettext("Rounds go public without you pressing anything.")}</strong>
                   {gettext(
-                    "You will not get to check a pairing first - the field sees it at the same moment you do."
+                    "With no delay the field sees a pairing at the same moment you do. You can always take a round back down on the Pairings page."
                   )}
                 </p>
 
@@ -1357,7 +1360,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
   end
 
   defp publish_mode_options do
-    Enum.map(Tournament.publish_modes(), &{Tournament.publish_mode_label(&1), &1})
+    Enum.map(Tournament.publish_modes(), &{auto_publish_label(&1), &1})
   end
 
   defp device_label(ua) do

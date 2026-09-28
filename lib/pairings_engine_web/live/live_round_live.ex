@@ -359,12 +359,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     # So a round is live or it is not, and this page tracks the same flag the
     # public page does.
     #
-    # In "immediate" mode every paired round is published the moment it
-    # exists and this is a no-op. Do NOT assume that is the common case: the
-    # migration sets the column default to "immediate", but the schema's own
-    # default is "manual" and Ecto sends struct defaults on insert, so every
-    # tournament created through the app is actually "manual", which is the
-    # intended default - see the note on the field itself.
+    # With the automation's pairings step on, a round is published once it
+    # is paired (after its delay) and this simply follows it. By hand - the
+    # default - it waits for the arbiter's level on the Pairings page.
     paired = Engine.paired_rounds_count(tournament.id)
     shown = Tournaments.latest_published_round_number(tournament)
     round = if(shown > 0, do: Tournaments.get_round(tournament.id, shown))

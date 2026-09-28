@@ -40,6 +40,10 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   # plugged a cable back in sees it go green without reloading.
   @connection_poll :timer.seconds(10)
 
+  # The longest "after N minutes" the pairings step takes - a day, the same
+  # bound the account's default has.
+  @max_delay 24 * 60
+
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
@@ -58,10 +62,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        tournament: tournament,
        page_title: "#{tournament.name} · OpenResults",
        openresults_configured?: Publishing.configured?(),
-       # Tracked as its own assign so the "Delay (minutes)" field can be
-       # shown/hidden live as the "Publish each round" select changes,
-       # without waiting for a round trip through `@tournament`.
-       publish_mode: tournament.publish_mode,
        connection: nil,
        stale: false,
        consent: nil
@@ -95,7 +95,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         # checkboxes here.
         {:noreply,
          socket
-         |> assign(tournament: tournament, publish_mode: tournament.publish_mode)
+         |> assign(tournament: tournament)
          |> assign_public_state()
          |> assign_ranking_tiebreaks()}
     end
@@ -179,27 +179,9 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
-  defp toggled_note(socket, enabled?) do
-    note =
-      if enabled?,
-        do: "This tournament will be published. The first copy is on its way.",
-        else:
-          "This tournament will not be published again. Anything already sent stays where it is."
-
-    {:noreply, put_flash(socket, :info, note)}
-  end
-
-  defp needs_consent? do
-    Publishing.public_mode?() and not Installation.registered?() and
-      not Installation.consented?() and not Installation.stopping_state?()
-  end
-
-  ## ---------- publishing ----------
-
-  @impl true
-  def handle_event("toggle_publish_to_openresults", _params, socket) do
-    enabled? = !socket.assigns.tournament.publish_to_openresults
-
+  # Publishing on or off - what the old "Turn on"/"Turn off" button did,
+  # consent question included.
+  defp switch_publishing(socket, enabled?) do
     case Tournaments.set_publish_to_openresults(socket.assigns.tournament, enabled?) do
       {:ok, tournament} ->
         Audit.log(tournament.id, socket.assigns.current_scope, "openresults.toggled", %{
@@ -230,33 +212,108 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change publishing")}
+        {:noreply, put_flash(socket, :error, gettext("Could not change publishing"))}
     end
   end
 
-  def handle_event("toggle_listed", _params, socket) do
-    listed? = !listed?(socket.assigns.tournament)
+  # The front-page flag, audited as the old "List it"/"Unlist it" button
+  # audited it. A no-op when it already reads `listed?`.
+  defp put_listed(socket, listed?) do
+    tournament = socket.assigns.tournament
 
-    case Tournaments.set_public_listed(socket.assigns.tournament, listed?) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.listed", %{
-          listed: listed?
-        })
+    if listed?(tournament) == listed? do
+      {:ok, socket}
+    else
+      case Tournaments.set_public_listed(tournament, listed?) do
+        {:ok, tournament} ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "openresults.listed", %{
+            listed: listed?
+          })
 
-        note =
-          if listed?,
-            do: "This tournament will appear on the results site's front page.",
-            else: "This tournament is no longer listed. Its link still works."
+          {:ok, assign(socket, tournament: tournament)}
 
-        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
+        {:error, :archived} ->
+          {:error, put_flash(socket, :error, error_text(:archived))}
 
-      {:error, :archived} ->
-        {:noreply, put_flash(socket, :error, error_text(:archived))}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change the listing")}
+        {:error, _changeset} ->
+          {:error, put_flash(socket, :error, gettext("Could not change the listing"))}
+      end
     end
   end
+
+  defp listed_note(socket, true),
+    do:
+      put_flash(
+        socket,
+        :info,
+        gettext("This tournament will appear on the results site's front page.")
+      )
+
+  defp listed_note(socket, false),
+    do:
+      put_flash(
+        socket,
+        :info,
+        gettext("This tournament is no longer listed. Its link still works.")
+      )
+
+  defp toggled_note(socket, enabled?) do
+    note =
+      if enabled?,
+        do: "This tournament will be published. The first copy is on its way.",
+        else:
+          "This tournament will not be published again. Anything already sent stays where it is."
+
+    {:noreply, put_flash(socket, :info, note)}
+  end
+
+  defp needs_consent? do
+    Publishing.public_mode?() and not Installation.registered?() and
+      not Installation.consented?() and not Installation.stopping_state?()
+  end
+
+  ## ---------- publishing ----------
+
+  # "On the results site: Off · Link only · Listed" - the old "Published"
+  # and "Listed on the front page" buttons as one control. Each stop is the
+  # pair of flags it stands for (`presence/1`); moving between two stops
+  # writes only the flag that differs, through the same setters and with
+  # the same audit rows the two buttons wrote, so every consequence of
+  # switching publishing on or off - the queued first copy, public mode's
+  # consent question, the key, the steps under the control - is the one it
+  # always was.
+  #
+  # The listing flag is written BEFORE publishing goes on, so the first
+  # copy that leaves already says whether it belongs on the front page. Off
+  # leaves the listing flag alone, as the old "Turn off" did: nothing more
+  # is sent, and a copy already on the site stays as it is (see "The
+  # address" below for taking it down).
+  @impl true
+  def handle_event("set_presence", %{"presence" => presence}, socket)
+      when presence in ~w(off link listed) do
+    tournament = socket.assigns.tournament
+    target = String.to_existing_atom(presence)
+    current = presence(tournament)
+
+    cond do
+      target == current ->
+        {:noreply, socket}
+
+      target == :off ->
+        switch_publishing(socket, false)
+
+      true ->
+        with {:ok, socket} <- put_listed(socket, target == :listed) do
+          if tournament.publish_to_openresults,
+            do: {:noreply, listed_note(socket, target == :listed)},
+            else: switch_publishing(socket, true)
+        else
+          {:error, socket} -> {:noreply, socket}
+        end
+    end
+  end
+
+  def handle_event("set_presence", _params, socket), do: {:noreply, socket}
 
   ## ---------- public mode: consent, registering again, trying again ----------
 
@@ -335,37 +392,83 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
      |> put_flash(:info, gettext("Trying again."))}
   end
 
-  ## ---------- when each paired round reaches the results site ----------
+  ## ---------- what the automation publishes by itself ----------
 
-  # Purely cosmetic: shows/hides the "Delay (minutes)" field below as the
-  # "Publish each round" select changes, so an arbiter isn't shown a field
-  # that's ignored unless the mode is "timed" (see the field's own hint
-  # text, still kept as a fallback).
-  def handle_event(
-        "publish_mode_change",
-        %{"tournament" => %{"publish_mode" => mode}},
-        socket
-      ) do
-    {:noreply, assign(socket, publish_mode: mode)}
+  # "Automatically: By hand · Pairings once paired · + results live ·
+  # + standings when the round is finished" - `publish_mode`, see the
+  # "Automatic publishing" section of `PairingsEngine.Tournaments`. Saved the
+  # moment a stop is chosen; there is no Save button.
+  def handle_event("set_auto_publish", %{"level" => level}, socket) do
+    case parse_level(level) do
+      nil -> {:noreply, socket}
+      level -> save_auto_publish(socket, Tournament.publish_mode_for_level(level), nil)
+    end
   end
 
-  def handle_event("save_publish_settings", %{"tournament" => params}, socket) do
-    base = socket.assigns.tournament
+  def handle_event("set_auto_publish", _params, socket), do: {:noreply, socket}
 
-    case Tournaments.update_tournament(base, params) do
-      {:ok, tournament} ->
-        log_settings_change(socket, base, tournament)
+  # "after N minutes" beside the pairings step, saved as it is typed. A
+  # value that is not a whole number of minutes is said, not saved.
+  def handle_event("set_publish_delay", %{"delay" => delay}, socket) do
+    case parse_delay(delay) do
+      {minutes, ""} when minutes in 0..@max_delay ->
+        if minutes == socket.assigns.tournament.publish_delay_minutes,
+          do: {:noreply, socket},
+          else: save_auto_publish(socket, socket.assigns.tournament.publish_mode, minutes)
 
+      _ ->
         {:noreply,
-         socket
-         |> assign(tournament: tournament, publish_mode: tournament.publish_mode)
-         |> put_flash(:info, "Saved.")}
+         put_flash(
+           socket,
+           :error,
+           gettext("The delay is a whole number of minutes, from 0 to %{max}.", max: @max_delay)
+         )}
+    end
+  end
+
+  def handle_event("set_publish_delay", _params, socket), do: {:noreply, socket}
+
+  # "Before round 1, spectators see the starting ranking" - moved here from
+  # the Standings page's "Initial standings" switch on 2026-09-28, and
+  # audited under the same actions it wrote there.
+  def handle_event("toggle_initial_standings", _params, socket) do
+    tournament = socket.assigns.tournament
+    on? = not Tournaments.initial_standings_public?(tournament)
+
+    case Tournaments.set_initial_standings_public(tournament, on?) do
+      {:ok, tournament} ->
+        scope = socket.assigns.current_scope
+
+        if on?,
+          do: Audit.log(tournament.id, scope, "standings.published", %{through_round: 0}),
+          else: Audit.log(tournament.id, scope, "standings.unpublished", %{from_round: 0})
+
+        {:noreply, assign(socket, tournament: tournament)}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not save the publish settings")}
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+    end
+  end
+
+  # A page the retired "Standings"/"Round pairings" switch still keeps off.
+  def handle_event("show_legacy_page", %{"key" => key}, socket) do
+    case Tournaments.show_legacy_page(socket.assigns.tournament, key) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.display", %{
+          hidden: tournament.public_display |> Map.keys() |> Enum.sort(),
+          hidden_tiebreaks: Enum.sort(tournament.public_hidden_tiebreaks || [])
+        })
+
+        {:noreply, assign(socket, tournament: tournament)}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 
@@ -511,6 +614,239 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   ## ---------- helpers ----------
 
+  defp save_auto_publish(socket, mode, delay) do
+    case Tournaments.set_auto_publish(socket.assigns.tournament, mode, delay) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.auto_publish", %{
+          mode: tournament.publish_mode,
+          delay_minutes: tournament.publish_delay_minutes
+        })
+
+        {:noreply, assign(socket, tournament: tournament)}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not save the publish settings"))}
+    end
+  end
+
+  defp parse_level(level) when is_integer(level) and level in 0..3, do: level
+
+  defp parse_level(level) when is_binary(level) do
+    case Integer.parse(level) do
+      {n, ""} when n in 0..3 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_level(_level), do: nil
+
+  defp parse_delay(delay) when is_integer(delay), do: {delay, ""}
+  defp parse_delay(delay) when is_binary(delay), do: Integer.parse(String.trim(delay))
+  defp parse_delay(_delay), do: :error
+
+  # The stop "On the results site" shows.
+  defp presence(%Tournament{publish_to_openresults: false}), do: :off
+  defp presence(tournament), do: if(listed?(tournament), do: :listed, else: :link)
+
+  defp presence_level(tournament) do
+    case presence(tournament) do
+      :off -> 0
+      :link -> 1
+      :listed -> 2
+    end
+  end
+
+  # Whether any round's pairings are public - the moment the starting
+  # ranking stops being this page's question, and raising the automation
+  # starts to apply to something already out there.
+  defp rounds_public?(tournament), do: Tournaments.latest_published_round_number(tournament) > 0
+
+  # A setting as a track of stops - the Pairings page's per-round level
+  # control (`PairingsEngineWeb.PairingsLive`'s `publish_level/1`) in its
+  # settings form, same CSS (`.pe-level`, `.is-field`) and same keyboard
+  # model, so "On the results site", "Automatically" and "Spectators see"
+  # read as one family. `level` is the index of the chosen stop; each stop
+  # carries its own `value` for `param`, and an optional `confirm`.
+  attr :id, :string, required: true
+  attr :caption, :string, required: true
+  attr :label, :string, required: true
+  attr :event, :string, required: true
+  attr :param, :string, required: true
+  attr :level, :integer, required: true
+  attr :stops, :list, required: true
+
+  defp setting_slider(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class="pe-level is-field"
+      data-level={@level}
+      data-stops={length(@stops)}
+    >
+      <span class="pe-level-caption" aria-hidden="true">{@caption}</span>
+      <div
+        id={"#{@id}-radios"}
+        class="pe-level-track"
+        role="radiogroup"
+        aria-label={@label}
+        phx-hook=".SettingSlider"
+      >
+        <span class="pe-level-range" aria-hidden="true"></span>
+        <span class="pe-level-thumb" aria-hidden="true"></span>
+        <button
+          :for={{stop, index} <- Enum.with_index(@stops)}
+          type="button"
+          role="radio"
+          id={"#{@id}-#{stop.value}"}
+          class="pe-level-stop"
+          aria-checked={to_string(index == @level)}
+          aria-label={stop.name}
+          tabindex={if index == @level, do: "0", else: "-1"}
+          title={stop.hint}
+          data-confirm={index != @level && stop[:confirm]}
+          phx-click={@event}
+          {%{"phx-value-#{@param}" => stop.value}}
+        >
+          <.icon name={stop.icon} class="pe-level-icon" />
+          <span class="pe-level-text">{stop.label}</span>
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  defp presence_stops(tournament) do
+    on? = tournament.publish_to_openresults
+
+    [
+      %{
+        value: "off",
+        icon: "hero-eye-slash-micro",
+        label: gettext("Off"),
+        name: gettext("Off - not published"),
+        hint: gettext("Nothing is sent to the results site"),
+        confirm:
+          on? &&
+            gettext(
+              "Stop publishing this tournament? Nothing more is sent to the results site. A copy already there stays as it is - removing it is a separate step, under The address."
+            )
+      },
+      %{
+        value: "link",
+        icon: "hero-link-micro",
+        label: gettext("Link only"),
+        name: gettext("Link only - published, not listed"),
+        hint: gettext("Anyone with the address can follow it")
+      },
+      %{
+        value: "listed",
+        icon: "hero-globe-alt-micro",
+        label: gettext("Listed"),
+        name: gettext("Listed - published and on the front page"),
+        hint: gettext("Also on the results site's front page")
+      }
+    ]
+  end
+
+  defp auto_publish_stops(tournament) do
+    current = Tournament.auto_publish_level(tournament)
+    public? = rounds_public?(tournament)
+
+    [
+      %{icon: "hero-hand-raised-micro", hint: gettext("Nothing goes public until you choose it")},
+      %{
+        icon: "hero-arrows-right-left-micro",
+        hint: gettext("Who plays whom, once a round is paired")
+      },
+      %{icon: "hero-check-circle-micro", hint: gettext("Results as they are entered")},
+      %{
+        icon: "hero-numbered-list-micro",
+        hint: gettext("The standings after a round, once every result in it is in")
+      }
+    ]
+    |> Enum.with_index()
+    |> Enum.map(fn {stop, level} ->
+      label = auto_publish_label(Tournament.publish_mode_for_level(level))
+
+      Map.merge(stop, %{
+        value: level,
+        label: label,
+        name: label,
+        confirm: (public? and level > current and level >= 2) && raise_confirm(level)
+      })
+    end)
+  end
+
+  # Raising the automation applies to the rounds already public too - said
+  # before it happens, since results or standings go out at once.
+  defp raise_confirm(2),
+    do:
+      gettext(
+        "Results go live from now on - including the results of rounds whose pairings are already public. Continue?"
+      )
+
+  defp raise_confirm(3),
+    do:
+      gettext(
+        "Results and standings go public by themselves from now on - including those of rounds already public and finished. Continue?"
+      )
+
+  defp auto_publish_about(0),
+    do:
+      gettext(
+        "Nothing reaches spectators until you choose a round's level on the Pairings page, so you can check every round first. This is the default."
+      )
+
+  defp auto_publish_about(1),
+    do:
+      gettext(
+        "A round's pairings go public once it is paired. Its results and the standings wait for you."
+      )
+
+  defp auto_publish_about(2),
+    do:
+      gettext(
+        "A round's pairings go public once it is paired, and its results as they are entered. The standings wait for you."
+      )
+
+  defp auto_publish_about(3),
+    do:
+      gettext(
+        "A round's pairings go public once it is paired, its results as they are entered, and the standings after it once every result in it - and in every round before it - is in."
+      )
+
+  defp legacy_page_text("standings"),
+    do:
+      gettext(
+        "The standings page is still switched off, from before each round had its own level. It stays off until you show it; from then on the rounds' levels decide."
+      )
+
+  defp legacy_page_text("pairings"),
+    do:
+      gettext(
+        "The round pairings pages are still switched off, from before each round had its own level. They stay off until you show them; from then on the rounds' levels decide."
+      )
+
+  defp legacy_page_button("standings"), do: gettext("Show the standings page")
+  defp legacy_page_button("pairings"), do: gettext("Show the pairings pages")
+
+  defp legacy_page_confirm("standings"),
+    do:
+      gettext(
+        "Show the standings page on the results site? It shows the standings each round's level makes public."
+      )
+
+  defp legacy_page_confirm("pairings"),
+    do:
+      gettext(
+        "Show the pairings pages on the results site? They show every round whose level makes its pairings public."
+      )
+
+  defp max_delay, do: @max_delay
+
   # Green for on, red for off, with the word as well as the colour - a pill
   # that only differs by hue is unreadable to a colourblind arbiter and
   # ambiguous to everyone at a glance ("is green on, or is green good?").
@@ -637,15 +973,39 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               publishing: that pair MUST keep its "Turn off" button even
               with the connection gone, or there would be no way back. --%>
         <%= if openresults_reachable?(@tournament, @openresults_configured?) do %>
-          <div class="set-field solo">
-            <span class="set-label">{gettext("Published")}</span>
-            <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-              <.state on?={@tournament.publish_to_openresults} on="Published" off="Not published" />
-              <button type="button" class="pe-btn" phx-click="toggle_publish_to_openresults">
-                {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
-              </button>
-            </div>
-          </div>
+          <.setting_slider
+            id="site-presence"
+            caption={gettext("On the results site:")}
+            label={gettext("Where this tournament is on the results site")}
+            event="set_presence"
+            param="presence"
+            level={presence_level(@tournament)}
+            stops={presence_stops(@tournament)}
+          />
+
+          <p id="site-presence-about" class="pe-level-about">
+            <%= case presence(@tournament) do %>
+              <% :off -> %>
+                {gettext(
+                  "Nothing is sent. Anything already on the results site stays there as it is."
+                )}
+              <% :link -> %>
+                {gettext(
+                  "Published at its own address, and not on the results site's front page - putting it there is a separate choice."
+                )}
+              <% :listed -> %>
+                {gettext(
+                  "Published, and listed on the results site's front page for anyone browsing it."
+                )}
+            <% end %>
+          </p>
+
+          <p :if={presence(@tournament) != :listed} class="pe-level-about">
+            <strong>{gettext("Link only is not privacy.")}</strong>
+            {gettext(
+              "An unlisted tournament is still readable by anyone who has its address, and addresses get forwarded. It hides the event from someone browsing the site, not from someone who was sent the link."
+            )}
+          </p>
 
           <%!-- Public mode only: what "on" is still waiting for. Without it,
                 a tournament switched on with no consent, no key or no
@@ -655,27 +1015,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             tournament={@tournament}
             state={@public_state}
           />
-
-          <div class="set-field solo" style="margin-top: 18px">
-            <span class="set-label">{gettext("Listed on the front page")}</span>
-            <p class="hint" style="margin: 4px 0 0">
-              {gettext(
-                "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
-              )}
-            </p>
-            <p class="hint" style="margin: 4px 0 0">
-              <strong>{gettext("This is not privacy.")}</strong>
-              {gettext(
-                "An unlisted tournament is still readable by anyone who has its address, and addresses get forwarded. It hides the event from someone browsing the site, not from someone who was sent the link."
-              )}
-            </p>
-            <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-              <.state on?={listed?(@tournament)} on="Listed" off="Unlisted" />
-              <button type="button" class="pe-btn" phx-click="toggle_listed">
-                {if listed?(@tournament), do: "Unlist it", else: "List it"}
-              </button>
-            </div>
-          </div>
         <% else %>
           <p class="hint" style="margin-top: 18px">
             <.rich_text text={
@@ -689,81 +1028,100 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         <% end %>
       </div>
 
-      <%!-- Moved from Settings -> Options on 2026-08-29, with the rest of
-            this tournament's public existence - see the moduledoc. Its help
-            text used to point at a local `/p/:slug/pairings` link removed
-            the same day; PublicLink is what replaced it, so this shows
-            whatever that module says the real address is, or isn't yet. --%>
-      <form id="publish-settings-form" phx-submit="save_publish_settings">
-        <div class="card">
-          <h2>{gettext("Public pairings")}</h2>
+      <%!-- What each round's level on the Pairings page gets moved up to
+            without the arbiter pressing anything - the same four steps as
+            that control, so the two read as one ladder. Replaced the
+            "Publish each round" select, its delay field and its Save
+            button on 2026-09-28; everything here saves as it is chosen. --%>
+      <div class="card" id="auto-publish-card">
+        <h2>{gettext("Publishing each round")}</h2>
 
-          <p class="subtitle" style="margin: 0 0 8px">
-            <.rich_text text={
+        <p class="hint" style="margin-top: 0">
+          <.rich_text text={
+            gettext(
+              "Each round has its own level on the Pairings page: what spectators see of it on %[link]. This moves every round up that ladder for you. You can always take a round back down by hand there, and it stays where you put it."
+            )
+          }>
+            <:part name="link">
+              <%= if PublicLink.public?(@tournament) do %>
+                <code>{PublicLink.url(@tournament)}</code>
+              <% else %>
+                {gettext("the results site")}
+              <% end %>
+            </:part>
+          </.rich_text>
+        </p>
+
+        <.setting_slider
+          id="auto-publish"
+          caption={gettext("Automatically:")}
+          label={gettext("What is published automatically")}
+          event="set_auto_publish"
+          param="level"
+          level={Tournament.auto_publish_level(@tournament)}
+          stops={auto_publish_stops(@tournament)}
+        />
+
+        <%!-- The pairings step's optional delay, inline and autosaved. Kept
+              when the automation is by hand, so switching back finds it. --%>
+        <form
+          :if={Tournament.auto_publish_level(@tournament) >= 1}
+          id="publish-delay-form"
+          class="auto-delay"
+          phx-change="set_publish_delay"
+          phx-submit="set_publish_delay"
+        >
+          <label for="publish-delay-input">{gettext("Pairings go public after")}</label>
+          <input
+            id="publish-delay-input"
+            class="pe-input"
+            type="number"
+            name="delay"
+            value={@tournament.publish_delay_minutes}
+            min="0"
+            max={max_delay()}
+            step="1"
+            inputmode="numeric"
+            phx-debounce="600"
+          />
+          <span>{gettext("minutes (0: as soon as the round is paired)")}</span>
+        </form>
+
+        <p id="auto-publish-about" class="pe-level-about">
+          {auto_publish_about(Tournament.auto_publish_level(@tournament))}
+        </p>
+
+        <%!-- Round 0, the one set of standings no round's level covers.
+              Moved here from the Standings page on 2026-09-28: it is a
+              setting about the time before the tournament starts, not a
+              round to publish. --%>
+        <div class="set-field solo" style="margin-top: 20px">
+          <.publish_toggle
+            id="initial-standings-toggle"
+            label={gettext("Before round 1, spectators see the starting ranking")}
+            state={
+              if Tournaments.initial_standings_public?(@tournament),
+                do: :public,
+                else: :not_public
+            }
+            on_text={gettext("On")}
+            off_text={gettext("Off")}
+            disabled={rounds_public?(@tournament)}
+            reason={
               gettext(
-                "When a round you pair actually reaches %[link] - gated on \"Publish this tournament\" above, not on this setting. Whichever round is currently paired can always be published early or hidden again by hand from the Pairings page, regardless of this setting."
+                "A round is public, so the players are too - the starting ranking only matters before that."
               )
-            }>
-              <:part name="link">
-                <%= if PublicLink.public?(@tournament) do %>
-                  <code>{PublicLink.url(@tournament)}</code>
-                <% else %>
-                  {gettext("this tournament's page on the results site")}
-                <% end %>
-              </:part>
-            </.rich_text>
+            }
+            confirm={gettext("Hide the starting ranking from spectators until round 1 is public?")}
+            phx-click="toggle_initial_standings"
+          />
+          <p class="hint" style="margin: 6px 0 0">
+            {gettext(
+              "The players in start order, before a game has been played. Off: spectators see nothing until the first round's pairings are public."
+            )}
           </p>
-
-          <.setting_group>
-            <.setting_field label={gettext("Publish each round")}>
-              <select name="tournament[publish_mode]" phx-change="publish_mode_change">
-                <option
-                  :for={mode <- Tournament.publish_modes()}
-                  value={mode}
-                  selected={@tournament.publish_mode == mode}
-                >
-                  {Tournament.publish_mode_label(mode)}
-                </option>
-              </select>
-            </.setting_field>
-
-            <%!-- Said at the moment it is chosen, not in a hint nobody
-                  reads. Immediate is the one setting here that cannot be
-                  undone by noticing: the round is on the public page before
-                  the arbiter has seen it, and taking it down afterwards is
-                  a correction rather than a re-pair. --%>
-            <p :if={@publish_mode == "immediate"} class="error-note" style="margin: 6px 0 0">
-              <strong>{gettext("Rounds go public the instant you pair them.")}</strong>
-              {gettext(
-                "You will not get to check a pairing first - the field sees it at the same moment you do. If you spot a mistake, you are correcting a published round rather than re-pairing an unpublished one."
-              )}
-            </p>
-
-            <p :if={@publish_mode == "manual"} class="hint" style="margin: 6px 0 0">
-              {gettext(
-                "Nothing reaches the public page until you press Publish on the Pairings page, so you can check a round first. This is the default."
-              )}
-            </p>
-
-            <.setting_field
-              :if={@publish_mode == "timed"}
-              label={gettext("Delay (minutes)")}
-              hint={gettext("Only used when 'Publish each round' above is set to 'After a delay'")}
-            >
-              <input
-                type="number"
-                name="tournament[publish_delay_minutes]"
-                value={@tournament.publish_delay_minutes}
-                min="0"
-              />
-            </.setting_field>
-          </.setting_group>
-
-          <div class="actions form-actions" style="margin-top: 14px">
-            <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
-          </div>
         </div>
-      </form>
+      </div>
 
       <div class="card">
         <h2>{gettext("What the public page shows")}</h2>
@@ -776,9 +1134,32 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
         <p class="hint">
           {gettext(
-            "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. To hide those, switch the whole page off above, or do not publish."
+            "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. Whether a round's pairings, results and the standings after it are public is that round's level, above and on the Pairings page."
           )}
         </p>
+
+        <%!-- The "Standings" and "Round pairings" switches were retired on
+              2026-09-28. A tournament that had one off keeps that page off
+              - the upgrade must not put it in front of spectators - and
+              this is the way back. --%>
+        <div
+          :for={key <- PublicDisplay.legacy_hidden(@tournament.public_display)}
+          id={"legacy-page-#{key}"}
+          class="legacy-page-note"
+        >
+          <.icon name="hero-eye-slash-micro" />
+          <p>{legacy_page_text(key)}</p>
+          <button
+            type="button"
+            id={"show-legacy-page-#{key}"}
+            class="pe-btn"
+            phx-click="show_legacy_page"
+            phx-value-key={key}
+            data-confirm={legacy_page_confirm(key)}
+          >
+            {legacy_page_button(key)}
+          </button>
+        </div>
 
         <%!-- A grid of compact toggles grouped by what they decide, rather
               than a stacked list with a paragraph under each. The old shape
@@ -1054,6 +1435,46 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
       </div>
 
       <PublicConsent.consent_dialog consent={@consent} />
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".SettingSlider">
+        // "On the results site" and "Automatically" (`setting_slider/1`) - the
+        // Pairings page's ".PublishLevel" keyboard model: one tab stop, the
+        // chosen one; the arrow keys, Home and End move focus between the
+        // stops without choosing one, because every stop publishes or
+        // withdraws something the moment it is chosen. Space or Enter
+        // chooses (the stops are buttons), confirm included.
+        const step = (key, index, count) => {
+          switch (key) {
+            case "ArrowRight":
+            case "ArrowDown": return (index + 1) % count;
+            case "ArrowLeft":
+            case "ArrowUp": return (index - 1 + count) % count;
+            case "Home": return 0;
+            case "End": return count - 1;
+            default: return null;
+          }
+        };
+
+        export default {
+          mounted() {
+            this.onKeydown = (e) => {
+              if (e.altKey || e.ctrlKey || e.metaKey) return;
+              const stops = Array.from(this.el.querySelectorAll("[role=radio]"));
+              const index = stops.indexOf(document.activeElement);
+              if (index < 0) return;
+              const next = step(e.key, index, stops.length);
+              if (next === null) return;
+              e.preventDefault();
+              stops.forEach((stop, i) => { stop.tabIndex = i === next ? 0 : -1; });
+              stops[next].focus();
+            };
+            this.el.addEventListener("keydown", this.onKeydown);
+          },
+          destroyed() {
+            this.el.removeEventListener("keydown", this.onKeydown);
+          }
+        }
+      </script>
     </Layouts.app>
     """
   end

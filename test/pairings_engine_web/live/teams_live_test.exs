@@ -282,7 +282,7 @@ defmodule PairingsEngineWeb.TeamsLiveTest do
       assert html =~ "Team tournament"
       assert html =~ "OpenPairings computed"
 
-      render_click(lv, "toggle_publish_to_openresults", %{})
+      render_click(lv, "set_presence", %{"presence" => "link"})
       assert Repo.reload!(t).publish_to_openresults
     end
 

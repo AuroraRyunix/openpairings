@@ -130,17 +130,14 @@ defmodule PairingsEngineWeb.CoreComponents do
   end
 
   @doc """
-  A green/red publish toggle - "Initial standings" on the Standings page
-  (`PairingsEngineWeb.StandingsLive`), backed by
-  `PairingsEngine.Tournaments.publish_standings_through/2` and
-  `unpublish_standings_through/2` for round 0, and any other on/off switch
-  that wants the same shape. The Pairings page used to carry three of these
-  per round (pairings, results, standings); since 2026-09-27 it has one
-  cumulative "Spectators see:" level instead
-  (`PairingsEngineWeb.PairingsLive`'s `publish_level/1`). The Standings
-  page's "Standings after round N" switch went on 2026-09-28 - a second
-  control for what that level decides - leaving only the entry list, which
-  no round's level covers.
+  A green/red publish toggle - "Before round 1, spectators see the starting
+  ranking" on Settings -> OpenResults (`PairingsEngineWeb.SettingsResultsLive`,
+  backed by `PairingsEngine.Tournaments.set_initial_standings_public/2`), and
+  any other on/off switch that wants the same shape. The Pairings page used
+  to carry three of these per round (pairings, results, standings); since
+  2026-09-27 it has one cumulative "Spectators see:" level instead
+  (`PairingsEngineWeb.PairingsLive`'s `publish_level/1`). The Standings page
+  carried the round-0 one until 2026-09-28, when it moved to Settings.
 
   Green (`state={:public}`) means public; clicking it unpublishes, and
   `confirm` (shown only in that state) is the `data-confirm` text naming
@@ -152,11 +149,9 @@ defmodule PairingsEngineWeb.CoreComponents do
   action would currently refuse (see
   `Tournaments.standings_publish_blocked_reason/2`).
 
-  `locked` is the third state "immediate" publish mode shows:
-  always green, always disabled, `reason` explaining that it is controlled
-  from Settings instead - there is nothing here to publish or unpublish
-  because every paired round (and the standings behind it) is already
-  public the instant it exists.
+  `locked` is a third state: always green, always disabled, `reason`
+  explaining where it is controlled instead. Nothing uses it since the
+  "immediate" publish mode it was built for was retired (2026-09-28).
 
   `role="switch"` + `aria-checked` throughout, a visible text label AND a
   visible "Public"/"Not public" state word (colour is reinforcement, not

@@ -2400,24 +2400,23 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp publish_level(assigns) do
     %{tournament: tournament, round: round} = assigns
-    locked? = tournament.publish_mode == "immediate"
     state = Tournaments.round_publish_state(tournament, round)
 
     blocked =
-      if not locked? and state.level < 3,
+      if state.level < 3,
         do: Tournaments.publish_level_blocked_reason(tournament, round, 3)
 
     id = "#{assigns.id_prefix}publish-level-#{round.number}"
 
     stops =
       for stop <- publish_stops() do
-        disabled? = locked? or (stop.level == 3 and not is_nil(blocked))
+        disabled? = stop.level == 3 and not is_nil(blocked)
 
         Map.merge(stop, %{
           id: "#{id}-#{stop.level}",
           checked?: stop.level == state.level,
           disabled?: disabled?,
-          why: if(disabled? and not locked?, do: level_blocked_text(blocked, round.number)),
+          why: if(disabled?, do: level_blocked_text(blocked, round.number)),
           confirm: not disabled? && level_confirm(tournament, round, state.level, stop.level)
         })
       end
@@ -2427,21 +2426,16 @@ defmodule PairingsEngineWeb.PairingsLive do
     assigns =
       assign(assigns,
         id: id,
-        locked?: locked?,
         level: state.level,
         stops: stops,
         note: note,
-        described_by:
-          [locked? && "#{id}-lock", note && "#{id}-note"]
-          |> Enum.filter(& &1)
-          |> Enum.join(" ")
-          |> then(&if(&1 == "", do: nil, else: &1))
+        described_by: note && "#{id}-note"
       )
 
     ~H"""
     <div
       id={@id}
-      class={["pe-level", @compact && "is-compact", @locked? && "is-locked"]}
+      class={["pe-level", @compact && "is-compact"]}
       data-level={@level}
     >
       <%!-- The visible caption is the audience ("Spectators see:"); the
@@ -2456,7 +2450,6 @@ defmodule PairingsEngineWeb.PairingsLive do
         {if @compact,
           do: gettext("Round %{n}: what spectators see", n: @round.number),
           else: gettext("Spectators see:")}
-        <.icon :if={@locked?} name="hero-lock-closed-micro" class="pe-level-lock" />
       </span>
       <div
         id={"#{@id}-radios"}
@@ -2479,7 +2472,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           aria-disabled={stop.disabled? && "true"}
           aria-describedby={stop.why && "#{stop.id}-why"}
           tabindex={if stop.checked?, do: "0", else: "-1"}
-          title={if @locked?, do: immediate_lock_reason(), else: stop.why || stop.hint}
+          title={stop.why || stop.hint}
           data-confirm={stop.confirm}
           phx-click={!stop.disabled? && "set_publish_level"}
           phx-value-round={@round.number}
@@ -2492,7 +2485,6 @@ defmodule PairingsEngineWeb.PairingsLive do
               which reaches nobody on a keyboard or a screen reader; these
               are what the stops' and the group's `aria-describedby` read. --%>
         <span :for={stop <- @stops} :if={stop.why} id={"#{stop.id}-why"} hidden>{stop.why}</span>
-        <span :if={@locked?} id={"#{@id}-lock"} hidden>{immediate_lock_reason()}</span>
       </div>
     </div>
     <p :if={@note} id={"#{@id}-note"} class="pe-level-note">
@@ -2530,8 +2522,6 @@ defmodule PairingsEngineWeb.PairingsLive do
         n: round_number
       )
 
-  defp publish_level_error_text(:immediate, _round_number), do: immediate_lock_reason()
-
   defp publish_level_error_text(reason, round_number)
        when reason in [:round_not_complete, :earlier_round_not_complete],
        do: level_blocked_text(reason, round_number)
@@ -2555,12 +2545,6 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp audit_publish_step(tournament, scope, step, round_number) do
     {action, key} = Map.fetch!(@publish_audit, step)
     Audit.log(tournament.id, scope, action, %{key => round_number})
-  end
-
-  defp immediate_lock_reason do
-    gettext(
-      "Every round - and the standings behind it - is public here the instant it's paired. Change that in Settings → OpenResults."
-    )
   end
 
   # The confirm for choosing a LOWER level - one question naming everything

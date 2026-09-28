@@ -247,15 +247,23 @@ defmodule PairingsEngineWeb.UserLive.SettingsTest do
       assert Accounts.get_user!(user.id).tournament_defaults == nil
     end
 
-    test "the delay field appears only for the timed mode", %{conn: conn} do
+    test "the delay field appears only with the pairings step", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/settings")
       refute has_element?(lv, "#defaults_publish_delay_minutes")
 
+      for mode <- ~w(pairings results standings) do
+        lv
+        |> form("#defaults-form", %{"defaults" => %{"publish_mode" => mode}})
+        |> render_change()
+
+        assert has_element?(lv, "#defaults_publish_delay_minutes")
+      end
+
       lv
-      |> form("#defaults-form", %{"defaults" => %{"publish_mode" => "timed"}})
+      |> form("#defaults-form", %{"defaults" => %{"publish_mode" => "manual"}})
       |> render_change()
 
-      assert has_element?(lv, "#defaults_publish_delay_minutes")
+      refute has_element?(lv, "#defaults_publish_delay_minutes")
     end
 
     test "Clear all empties them", %{conn: conn, user: user} do
