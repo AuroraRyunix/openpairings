@@ -8,12 +8,9 @@ defmodule PairingsEngine.Tournaments.Round do
     field :status, :string, default: "pairing"
     # When this round becomes visible on the public pairings page - see
     # `PairingsEngine.Tournaments.compute_published_at/2` (set once, at
-    # pairing time, from the tournament's `publish_mode`) and
-    # `round_published?/2` (the actual visibility check, which ignores
-    # this entirely in "immediate" mode - see that function's own
-    # comment for why nil-by-default here is safe for every tournament
-    # that predates this field). `nil` means "not published" under any
-    # OTHER mode; never published retroactively by a background job -
+    # pairing time, from the tournament's `publish_mode` and its delay) and
+    # `round_published?/2` (the actual visibility check). `nil` means "not
+    # published"; never published retroactively by a background job -
     # visibility is just "is this timestamp in the past", checked live.
     field :published_at, :utc_datetime
 
@@ -22,7 +19,7 @@ defmodule PairingsEngine.Tournaments.Round do
     # round - the pairings still publish, the boards go out without results
     # (`PairingsEngine.Snapshot` withholds them). Read through
     # `Tournaments.results_public?/2`, never directly: public standings after
-    # this round, and "immediate" publish mode, make the results public
+    # this round, and the automation's results step, make the results public
     # whatever this says.
     #
     # Written only by `Tournaments.publish_results/2`,
@@ -31,6 +28,15 @@ defmodule PairingsEngine.Tournaments.Round do
     # The migration that added it backfilled `true` on every round already
     # published, because those results were public at the time.
     field :results_public, :boolean, default: false
+
+    # The highest level the automation may bring this round to - set when the
+    # arbiter chooses a level on the Pairings page that is BELOW what the
+    # automation would give the round (`Tournaments.set_round_publish_level/3`),
+    # so a round taken down by hand stays down. `nil` - the usual case - is
+    # no limit. Only the automation's derived steps read it (results live,
+    # standings once finished); what the arbiter chose by hand is stored in
+    # the fields above and never capped. Not cast, like `results_public`.
+    field :publish_cap, :integer
 
     # What the pairing engine reported about its own decision, captured when
     # the round was paired - see `PairingsEngine.Pairing.explanation/3`. Only

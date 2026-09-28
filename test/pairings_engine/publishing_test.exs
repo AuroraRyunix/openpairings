@@ -29,6 +29,8 @@ defmodule PairingsEngine.PublishingTest do
         type: "swiss",
         rounds_count: 3,
         publish_to_openresults: Keyword.get(opts, :publish, true),
+        # The starting ranking public - the roster these tests look for.
+        standings_through: 0,
         public_slug: Keyword.get(opts, :slug, "gent-#{System.unique_integer([:positive])}")
       })
 

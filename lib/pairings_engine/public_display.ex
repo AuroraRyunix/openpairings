@@ -31,8 +31,9 @@ defmodule PairingsEngine.PublicDisplay do
   Names, board numbers, results, pairing numbers and standings positions **when
   the page they live on is shown at all**. Those are the tournament; a
   standings page without names is not a page. An arbiter who does not want them
-  public does not publish, or switches that whole page off with the keys in the
-  `:pages` group.
+  public does not publish, or keeps the round at a lower level on the Pairings
+  page - since 2026-09-28 that level, not a key here, decides whether a round's
+  pairings and the standings after it are public (see `legacy_keys/0`).
 
   That is the line: this decides which pages exist and which columns they
   carry, never whether a shown page tells the truth.
@@ -50,6 +51,8 @@ defmodule PairingsEngine.PublicDisplay do
   stays exactly as it was, defaults to shown, and must: this is an exception
   for a NEW column, not a licence to make the next one quiet too.
   """
+
+  @legacy_keys ~w(standings pairings)
 
   @typedoc "Which part of the public page a key controls."
   @type group :: :pages | :player | :tournament | :columns
@@ -73,22 +76,9 @@ defmodule PairingsEngine.PublicDisplay do
   def fields do
     [
       # ---- whole pages ----
-      %{
-        key: "standings",
-        group: :pages,
-        label: "Standings",
-        hint:
-          "The placings table. Off publishes the rounds without a league table - " <>
-            "some arbiters withhold standings until the last round is in."
-      },
-      %{
-        key: "pairings",
-        group: :pages,
-        label: "Round pairings",
-        hint:
-          "A page per published round, with the boards and their results. Off leaves " <>
-            "the standings and no way to see who played whom."
-      },
+      # "standings" and "pairings" were keys here until 2026-09-28 - see
+      # `legacy_keys/0`. Whether a round's pairings and the standings after it
+      # are public is the round's own level now.
       %{
         key: "player_cards",
         group: :pages,
@@ -281,7 +271,25 @@ defmodule PairingsEngine.PublicDisplay do
   this app has.
   """
   @spec resolve(map() | nil) :: %{String.t() => boolean()}
-  def resolve(display), do: Map.new(keys(), &{&1, show?(display, &1)})
+  def resolve(display), do: Map.new(keys() ++ @legacy_keys, &{&1, show?(display, &1)})
+
+  @doc """
+  The two page keys retired on 2026-09-28: `"standings"` (the placings
+  table) and `"pairings"` (a page per published round). The per-round level
+  on the Pairings page decides both now, so the settings page no longer
+  offers them.
+
+  They still travel, resolved like every other key: the snapshot contract
+  is additive-only, and a tournament that had one switched off keeps it off
+  until the arbiter shows that page again (`legacy_hidden/1`) - the upgrade
+  must not put a page in front of spectators that was hidden the day before.
+  """
+  @spec legacy_keys() :: [String.t()]
+  def legacy_keys, do: @legacy_keys
+
+  @doc "The retired page keys (`legacy_keys/0`) this tournament still has switched off."
+  @spec legacy_hidden(map() | nil) :: [String.t()]
+  def legacy_hidden(display), do: Enum.reject(@legacy_keys, &show?(display, &1))
 
   @doc """
   Normalises submitted params into the sparse map to store.
@@ -294,8 +302,10 @@ defmodule PairingsEngine.PublicDisplay do
   but `rounds_played` that is the same thing it has always been - a map of
   what was turned off.
   """
-  @spec cast(map()) :: map()
-  def cast(params) when is_map(params) do
+  @spec cast(map(), map() | nil) :: map()
+  def cast(params, previous \\ nil)
+
+  def cast(params, previous) when is_map(params) do
     # Not a comprehension with `ticked? = ...` in it: an assignment in a
     # comprehension is also a FILTER on its own truthiness, so every unticked
     # box silently dropped out of the result and nothing was recorded as off.
@@ -303,6 +313,9 @@ defmodule PairingsEngine.PublicDisplay do
     |> Enum.map(&{&1, truthy?(Map.get(params, &1))})
     |> Enum.reject(fn {key, ticked?} -> ticked? == default(key) end)
     |> Map.new()
+    # The form has no box for a retired key, so an absent one means "not on
+    # this form", not "unticked": what `previous` stored for it is kept.
+    |> Map.merge(Map.take(previous || %{}, @legacy_keys))
   end
 
   @doc "How many keys this tournament has turned off."

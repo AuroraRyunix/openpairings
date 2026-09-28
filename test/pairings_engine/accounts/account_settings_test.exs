@@ -103,7 +103,7 @@ defmodule PairingsEngine.Accounts.AccountSettingsTest do
           "standard" => "rapid",
           "federation" => " ned ",
           "organizer" => " KSK ",
-          "publish_mode" => "timed",
+          "publish_mode" => "pairings",
           "publish_delay_minutes" => "15"
         })
 
@@ -118,6 +118,8 @@ defmodule PairingsEngine.Accounts.AccountSettingsTest do
             {"standard", "bullet"},
             {"federation", "NE"},
             {"publish_mode", "whenever"},
+            # Retired on 2026-09-28 - the migration converts stored ones.
+            {"publish_mode", "timed"},
             {"publish_delay_minutes", "-1"}
           ] do
         assert {:error, _} = Accounts.update_tournament_defaults(user, %{field => value}),
@@ -141,15 +143,26 @@ defmodule PairingsEngine.Accounts.AccountSettingsTest do
                "city" => "Gent"
              }
 
-      # The delay means nothing outside the timed mode, so it does not travel.
+      # The delay means nothing without the pairings step, so it does not travel.
       assert TournamentDefaults.hidden_params(defaults) == %{
                "federation" => "BEL",
                "publish_mode" => "manual"
              }
 
-      assert TournamentDefaults.hidden_params(%{defaults | publish_mode: "timed"})[
-               "publish_delay_minutes"
-             ] == "30"
+      for mode <- ~w(pairings results standings) do
+        assert TournamentDefaults.hidden_params(%{defaults | publish_mode: mode})[
+                 "publish_delay_minutes"
+               ] == "30"
+      end
+
+      # A value stored before 2026-09-28 is converted, not handed to a
+      # changeset that would refuse the whole new tournament.
+      assert %{"publish_mode" => "pairings", "publish_delay_minutes" => "30"} =
+               TournamentDefaults.hidden_params(%{defaults | publish_mode: "timed"})
+
+      assert TournamentDefaults.hidden_params(%{defaults | publish_mode: "immediate"})[
+               "publish_mode"
+             ] == "standings"
 
       assert TournamentDefaults.form_params(nil) == %{}
       refute TournamentDefaults.any?(nil)

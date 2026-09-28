@@ -58,7 +58,8 @@ defmodule PairingsEngine.Snapshot do
     * A `Pairing` with `hidden` set never reaches `boards`.
     * A published round whose results are not public
       (`Tournaments.results_public?/3` - the "Results round N" switch, forced
-      on by public standings through that round and by "immediate" mode)
+      on by public standings through that round and by the automation's results
+      step)
       travels with every board's `result` set to `null` and
       `"results_public": false`. Nothing else derived from a result can
       carry that round: `standings` (and with it `working`) stop at

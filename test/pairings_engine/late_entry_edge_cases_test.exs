@@ -62,7 +62,7 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
             abs_value: 0.5,
             abs_nbfois: 3,
             abs_jusque: 8,
-            publish_mode: "immediate",
+            publish_mode: "standings",
             public_slug: "late-edge-#{System.unique_integer([:positive])}"
           },
           attrs
@@ -195,7 +195,19 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
     points
   end
 
-  defp snapshot(t), do: Snapshot.build(fresh(t))
+  # Every round public first, whatever the rows say - what "immediate" publish
+  # mode did before the automation ladder replaced it: these tests compare
+  # scores, not what is public.
+  defp snapshot(t) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.update_all(
+      from(r in Round, where: r.tournament_id == ^t.id and is_nil(r.published_at)),
+      set: [published_at: now]
+    )
+
+    Snapshot.build(fresh(t))
+  end
 
   defp snapshot_points(snapshot, player) do
     no = Repo.reload!(player).pairing_number
@@ -926,7 +938,7 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
 
       assert {:ok, copy, _warnings} = SwarImport.import_file(path)
       # Public at once, so the snapshot has standings to compare.
-      copy = copy |> fresh() |> Ecto.Changeset.change(publish_mode: "immediate") |> Repo.update!()
+      copy = copy |> fresh() |> Ecto.Changeset.change(publish_mode: "standings") |> Repo.update!()
       assert copy.late_entry_absences
       assert {copy.abs_value, copy.abs_nbfois, copy.abs_jusque} == {0.5, 3, 8}
 
@@ -985,7 +997,7 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
     on_exit(fn -> File.rm(path) end)
 
     assert {:ok, copy, _warnings} = SwarImport.import_file(path)
-    copy = copy |> fresh() |> Ecto.Changeset.change(publish_mode: "immediate") |> Repo.update!()
+    copy = copy |> fresh() |> Ecto.Changeset.change(publish_mode: "standings") |> Repo.update!()
 
     copy_player =
       Repo.one!(from p in Player, where: p.tournament_id == ^copy.id and p.name == ^player.name)

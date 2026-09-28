@@ -709,6 +709,117 @@ defmodule PairingsEngine.TournamentImportTest do
       refute Tournaments.get_round(imported.id, 2).results_public
     end
 
+    test "a round's publish cap round-trips" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Capped",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "standings",
+          user_id: owner.user.id
+        })
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      Repo.insert!(%Round{
+        tournament_id: original.id,
+        number: 1,
+        published_at: now,
+        publish_cap: 1
+      })
+
+      Repo.insert!(%Round{tournament_id: original.id, number: 2, published_at: now})
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert imported.publish_mode == "standings"
+      assert Tournaments.get_round(imported.id, 1).publish_cap == 1
+      assert Tournaments.get_round(imported.id, 2).publish_cap == nil
+    end
+
+    # A file written before 2026-09-28 carries one of the retired publish
+    # modes. It comes back converted the way the migration converted the
+    # database - and an "immediate" one with what it showed written down.
+    defp legacy_envelope(original, mode, display \\ nil) do
+      update_in(
+        TournamentExport.export_tournament(original),
+        ["tournaments", Access.at(0), "tournament"],
+        &Map.merge(&1, %{"publish_mode" => mode, "public_display" => display})
+      )
+    end
+
+    test "a backup in timed or scheduled mode comes back on its step" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Timed Backup",
+          type: "swiss",
+          rounds_count: 3,
+          publish_delay_minutes: 15,
+          user_id: owner.user.id
+        })
+
+      assert {:ok, [timed]} =
+               TournamentImport.import(legacy_envelope(original, "timed"), importer)
+
+      assert %{publish_mode: "pairings", publish_delay_minutes: 15} = timed
+
+      assert {:ok, [scheduled]} =
+               TournamentImport.import(legacy_envelope(original, "scheduled"), importer)
+
+      assert scheduled.publish_mode == "manual"
+    end
+
+    test "a backup in immediate mode comes back with everything it showed still public" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Immediate Backup",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id
+        })
+
+      a = Repo.insert!(%Player{tournament_id: original.id, name: "A", pairing_number: 1})
+      b = Repo.insert!(%Player{tournament_id: original.id, name: "B", pairing_number: 2})
+      round = Repo.insert!(%Round{tournament_id: original.id, number: 1, published_at: nil})
+
+      Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+      assert {:ok, [imported]} =
+               TournamentImport.import(legacy_envelope(original, "immediate"), importer)
+
+      assert imported.publish_mode == "standings"
+      r1 = Tournaments.get_round(imported.id, 1)
+      assert Tournaments.round_published?(imported, r1)
+      assert r1.results_public
+      assert Tournaments.effective_standings_through(imported) == 1
+
+      # With the Standings page off, the standings it reached are stored.
+      assert {:ok, [no_standings]} =
+               TournamentImport.import(
+                 legacy_envelope(original, "immediate", %{"standings" => false}),
+                 importer
+               )
+
+      assert no_standings.publish_mode == "results"
+      assert no_standings.standings_through == 1
+    end
+
     test "manual ranking round-trips with its actual order, not just the flag" do
       owner = user_scope()
       importer = user_scope()

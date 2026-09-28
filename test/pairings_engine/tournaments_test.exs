@@ -2363,11 +2363,13 @@ defmodule PairingsEngine.TournamentsTest do
       })
     end
 
-    test "immediate mode publishes every round that exists" do
-      t = gated_tournament("immediate")
+    # "immediate" mode used to count every round whatever `published_at`
+    # said; since it was retired (2026-09-28) no mode does.
+    test "a round with no published_at is not published, even with the whole automation on" do
+      t = gated_tournament("standings")
       for n <- 1..3, do: round_with(t, n, nil)
 
-      assert Tournaments.standings_through_round(t) == 3
+      assert Tournaments.standings_through_round(t) == 0
     end
 
     test "manual mode counts only the rounds actually published" do
@@ -2405,7 +2407,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "a round scheduled for the future is not published yet" do
-      t = gated_tournament("timed")
+      t = gated_tournament("pairings")
       now = DateTime.utc_now() |> DateTime.truncate(:second)
 
       round_with(t, 1, now)
@@ -2415,28 +2417,28 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "a published round with no results yet does not count until complete" do
-      t = gated_tournament("immediate")
-      round = round_with(t, 1, nil)
+      t = gated_tournament("standings")
+      round = round_with(t, 1, now())
       seat_board(t, round, "")
 
       assert Tournaments.standings_through_round(t) == 0
     end
 
     test "a published round counts once every board carries a result" do
-      t = gated_tournament("immediate")
-      round = round_with(t, 1, nil)
+      t = gated_tournament("standings")
+      round = round_with(t, 1, now())
       seat_board(t, round, "1-0")
 
       assert Tournaments.standings_through_round(t) == 1
     end
 
     test "round 2 half-entered leaves the bound at round 1, not 2" do
-      t = gated_tournament("immediate")
+      t = gated_tournament("standings")
 
-      r1 = round_with(t, 1, nil)
+      r1 = round_with(t, 1, now())
       seat_board(t, r1, "1-0")
 
-      r2 = round_with(t, 2, nil)
+      r2 = round_with(t, 2, now())
       seat_board(t, r2, "")
 
       assert Tournaments.standings_through_round(t) == 1
@@ -2459,12 +2461,12 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "Keizer tournaments are bound by the same published-and-complete rule" do
-      incomplete = gated_tournament("immediate", %{"pairing_system" => "keizer"})
-      seat_board(incomplete, round_with(incomplete, 1, nil), "")
+      incomplete = gated_tournament("standings", %{"pairing_system" => "keizer"})
+      seat_board(incomplete, round_with(incomplete, 1, now()), "")
       assert Tournaments.standings_through_round(incomplete) == 0
 
-      complete = gated_tournament("immediate", %{"pairing_system" => "keizer"})
-      seat_board(complete, round_with(complete, 1, nil), "1-0")
+      complete = gated_tournament("standings", %{"pairing_system" => "keizer"})
+      seat_board(complete, round_with(complete, 1, now()), "1-0")
       assert Tournaments.standings_through_round(complete) == 1
     end
   end
@@ -2523,12 +2525,14 @@ defmodule PairingsEngine.TournamentsTest do
   end
 
   describe "compute_published_at/2" do
-    test "immediate mode returns roughly now" do
-      tournament = immediate_tournament("T")
+    test "the pairings step with no delay returns roughly now, whatever steps follow it" do
+      for mode <- ~w(pairings results standings) do
+        tournament = auto_tournament("T", mode)
 
-      at = Tournaments.compute_published_at(tournament, 1)
+        at = Tournaments.compute_published_at(tournament, 1)
 
-      assert DateTime.diff(DateTime.utc_now(), at, :second) in -2..2
+        assert DateTime.diff(DateTime.utc_now(), at, :second) in -2..2
+      end
     end
 
     test "manual mode returns nil - the round starts out hidden" do
@@ -2543,80 +2547,47 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.compute_published_at(tournament, 1) == nil
     end
 
-    test "timed mode returns now plus the configured delay" do
+    test "the pairings step returns now plus the configured delay" do
+      for mode <- ~w(pairings results standings) do
+        tournament =
+          Repo.insert!(%Tournament{
+            name: "T",
+            type: "swiss",
+            rounds_count: 3,
+            publish_mode: mode,
+            publish_delay_minutes: 15
+          })
+
+        at = Tournaments.compute_published_at(tournament, 1)
+        expected = DateTime.add(DateTime.utc_now(), 15 * 60, :second)
+
+        assert DateTime.diff(expected, at, :second) in -2..2
+      end
+    end
+
+    test "by hand ignores a delay kept from before" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "timed",
+          publish_mode: "manual",
           publish_delay_minutes: 15
         })
 
-      at = Tournaments.compute_published_at(tournament, 1)
-      expected = DateTime.add(DateTime.utc_now(), 15 * 60, :second)
-
-      assert DateTime.diff(expected, at, :second) in -2..2
-    end
-
-    test "scheduled mode returns midnight UTC of that round's own round_dates entry" do
-      tournament =
-        Repo.insert!(%Tournament{
-          name: "T",
-          type: "swiss",
-          rounds_count: 3,
-          publish_mode: "scheduled",
-          round_dates: ["2026-09-01", "2026-09-08", "2026-09-15"]
-        })
-
-      assert Tournaments.compute_published_at(tournament, 2) ==
-               DateTime.new!(~D[2026-09-08], ~T[00:00:00], "Etc/UTC")
-    end
-
-    test "scheduled mode falls back to now when that round's date is missing or unparseable" do
-      tournament =
-        Repo.insert!(%Tournament{
-          name: "T",
-          type: "swiss",
-          rounds_count: 3,
-          publish_mode: "scheduled",
-          round_dates: ["2026-09-01", "", "not-a-date"]
-        })
-
-      # Round 2's entry is blank, round 3's is garbage - neither should ever
-      # produce a round that can never be published.
-      at2 = Tournaments.compute_published_at(tournament, 2)
-      at3 = Tournaments.compute_published_at(tournament, 3)
-
-      assert DateTime.diff(DateTime.utc_now(), at2, :second) in -2..2
-      assert DateTime.diff(DateTime.utc_now(), at3, :second) in -2..2
-    end
-
-    test "scheduled mode falls back to now when round_dates doesn't cover that round at all" do
-      tournament =
-        Repo.insert!(%Tournament{
-          name: "T",
-          type: "swiss",
-          rounds_count: 3,
-          publish_mode: "scheduled",
-          round_dates: ["2026-09-01"]
-        })
-
-      at = Tournaments.compute_published_at(tournament, 3)
-
-      assert DateTime.diff(DateTime.utc_now(), at, :second) in -2..2
+      assert Tournaments.compute_published_at(tournament, 1) == nil
     end
   end
 
   describe "round_published?/2" do
-    test "immediate mode is always public, regardless of published_at - including nil" do
-      tournament = immediate_tournament("T")
+    test "published_at nil is not public, even with the whole automation on" do
+      tournament = auto_tournament("T", "standings")
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
 
-      assert Tournaments.round_published?(tournament, round)
+      refute Tournaments.round_published?(tournament, round)
     end
 
-    test "non-immediate mode with published_at nil is not public" do
+    test "published_at nil is not public" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
@@ -2630,13 +2601,13 @@ defmodule PairingsEngine.TournamentsTest do
       refute Tournaments.round_published?(tournament, round)
     end
 
-    test "non-immediate mode with a past published_at is public" do
+    test "a past published_at is public" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "timed"
+          publish_mode: "pairings"
         })
 
       past = DateTime.add(DateTime.utc_now(), -60, :second) |> DateTime.truncate(:second)
@@ -2645,13 +2616,13 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.round_published?(tournament, round)
     end
 
-    test "non-immediate mode with a future published_at is not public yet" do
+    test "a future published_at is not public yet" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
           type: "swiss",
           rounds_count: 3,
-          publish_mode: "scheduled"
+          publish_mode: "pairings"
         })
 
       future = DateTime.add(DateTime.utc_now(), 3600, :second) |> DateTime.truncate(:second)
@@ -2735,7 +2706,7 @@ defmodule PairingsEngine.TournamentsTest do
       round_with(t, 1, nil)
 
       assert {:ok, updated} = Tournaments.publish_pairings_through(t, 1)
-      assert updated.standings_through == 0
+      assert updated.standings_through == t.standings_through
     end
 
     test "broadcasts :settings" do
@@ -3086,16 +3057,29 @@ defmodule PairingsEngine.TournamentsTest do
       refute results_public_now?(t, 2)
     end
 
-    test "immediate mode: always public and locked" do
-      t = gated_tournament("immediate")
-      round_with(t, 1, nil)
+    test "the automation's results step: public once the pairings are, whatever the switch says" do
+      for mode <- ~w(results standings) do
+        t = gated_tournament(mode)
+        # Unfinished, so no standings force the results public here.
+        seat_board(t, round_with(t, 1, now()), "")
+        round_with(t, 2, nil)
 
-      assert results_public_now?(t, 1)
-      assert Tournaments.results_locked_reason(t, Tournaments.get_round(t.id, 1)) == :immediate
-      assert {:error, :results_locked} = Tournaments.unpublish_results(t, 1)
+        assert results_public_now?(t, 1)
+        refute results_on?(t, 1)
+        # Not before the pairings: results of a hidden round never travel.
+        refute results_public_now?(t, 2)
+        assert Tournaments.results_locked_reason(t, Tournaments.get_round(t.id, 1)) == nil
+      end
     end
 
-    for mode <- ~w(timed scheduled) do
+    test "the pairings step alone leaves results to the switch" do
+      t = gated_tournament("pairings")
+      round_with(t, 1, now())
+
+      refute results_public_now?(t, 1)
+    end
+
+    for mode <- ~w(manual pairings) do
       test "#{mode} mode follows the switch, and it can be armed before the pairings go public" do
         t = gated_tournament(unquote(mode))
         future = DateTime.add(DateTime.utc_now(), 3600, :second) |> DateTime.truncate(:second)
@@ -3174,7 +3158,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "a published round's own sheet floors standings at N - 1, with no explicit publish and no background job" do
-      t = gated_tournament("timed", %{"publish_delay_minutes" => "0"})
+      t = gated_tournament("pairings", %{"publish_delay_minutes" => "0"})
       now = DateTime.utc_now() |> DateTime.truncate(:second)
 
       r1 = round_with(t, 1, now)
@@ -3191,7 +3175,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "a round scheduled for the future does not move the floor yet" do
-      t = gated_tournament("scheduled")
+      t = gated_tournament("pairings")
       now = DateTime.utc_now() |> DateTime.truncate(:second)
       future = DateTime.add(now, 3600, :second) |> DateTime.truncate(:second)
 
@@ -3202,14 +3186,50 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.effective_standings_through(t) == 0
     end
 
-    test "immediate mode ignores the stored value entirely" do
-      t = gated_tournament("immediate")
-      round = round_with(t, 1, nil)
+    test "the standings step reaches the finished prefix with nothing stored" do
+      t = gated_tournament("standings")
+      round = round_with(t, 1, now())
       seat_board(t, round, "1-0")
 
       t = Ecto.Changeset.change(t, standings_through: nil) |> Repo.update!()
 
       assert Tournaments.effective_standings_through(t) == 1
+    end
+
+    test "the standings step waits for every result, and for every earlier round" do
+      t = gated_tournament("standings")
+      r1 = round_with(t, 1, now())
+      seat_board(t, r1, "")
+      r2 = round_with(t, 2, now())
+      seat_board(t, r2, "1-0")
+
+      assert Tournaments.effective_standings_through(t) == 0
+
+      board = Repo.one!(from p in Pairing, where: p.round_id == ^r1.id)
+      {:ok, _} = Tournaments.update_pairing_result(board, "1-0")
+
+      assert Tournaments.effective_standings_through(t) == 2
+    end
+
+    test "the standings step stops at a round the arbiter capped below standings" do
+      t = gated_tournament("standings")
+
+      for n <- 1..2 do
+        seat_board(t, round_with(t, n, now()), "1-0")
+      end
+
+      Repo.update_all(from(r in Round, where: r.tournament_id == ^t.id and r.number == 2),
+        set: [publish_cap: 2]
+      )
+
+      assert Tournaments.effective_standings_through(Tournaments.get_tournament!(t.id)) == 1
+    end
+
+    test "without the standings step, only the sheet's floor and the stored value count" do
+      t = gated_tournament("results")
+      seat_board(t, round_with(t, 1, now()), "1-0")
+
+      assert Tournaments.effective_standings_through(t) == 0
     end
 
     test "a gap below floors the contiguous term at the hole, not the higher published round" do
@@ -3240,14 +3260,6 @@ defmodule PairingsEngine.TournamentsTest do
 
       assert Tournaments.contiguous_published_pairings(t) == 0
     end
-
-    test "immediate mode counts every round that exists" do
-      t = gated_tournament("immediate")
-      round_with(t, 1, nil)
-      round_with(t, 2, nil)
-
-      assert Tournaments.contiguous_published_pairings(t) == 2
-    end
   end
 
   describe "latest_complete_round/1" do
@@ -3275,9 +3287,17 @@ defmodule PairingsEngine.TournamentsTest do
   end
 
   describe "standings_public?/2 - round 0's degenerate case" do
-    test "round 0 reads public when standings_through is 0 (the default)" do
+    test "round 0 reads public when standings_through is 0 (the starting ranking switched on)" do
       t = gated_tournament("manual")
+      {:ok, t} = Tournaments.set_initial_standings_public(t, true)
+      assert t.standings_through == 0
       assert Tournaments.standings_public?(t, 0)
+    end
+
+    test "a new tournament starts with the starting ranking off" do
+      t = gated_tournament("manual")
+      assert t.standings_through == nil
+      refute Tournaments.standings_public?(t, 0)
     end
 
     test "round 0 reads NOT public when standings_through is nil and nothing is published" do
@@ -3351,9 +3371,16 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.get_round(t.id, 2).results_public
     end
 
-    test "immediate mode is always level 3" do
-      t = level_tournament("immediate")
+    test "the automation's steps count towards the level" do
+      t = level_tournament("standings")
+      {:ok, t} = Tournaments.publish_pairings_through(t, 2)
+
+      assert level_of(t, 1) == %{level: 3, extra: []}
       assert level_of(t, 2) == %{level: 3, extra: []}
+
+      t = gated_tournament("results")
+      seat_board(t, round_with(t, 1, now()), "1-0")
+      assert level_of(t, 1) == %{level: 2, extra: []}
     end
 
     test "choosing level 3 from hidden writes all three steps in order, with one broadcast" do
@@ -3458,9 +3485,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert level_of(t, 2) == %{level: 3, extra: []}
     end
 
-    test "refused in immediate mode, on an archived tournament and for a round that is not paired" do
-      assert {:error, :immediate} = set_level(level_tournament("immediate"), 2, 0)
-
+    test "refused on an archived tournament and for a round that is not paired" do
       t = level_tournament()
       assert {:error, :not_paired} = set_level(t, 4, 1)
 
@@ -3469,16 +3494,149 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "automatic publishing - the arbiter's hand and the automation" do
+    # Two complete rounds, both paired and public, with the automation at `mode`.
+    defp auto_level_tournament(mode) do
+      t = gated_tournament(mode)
+
+      for n <- 1..2 do
+        seat_board(t, round_with(t, n, now()), "1-0")
+      end
+
+      Tournaments.get_tournament!(t.id)
+    end
+
+    test "the arbiter can take a round down below the automation, and it stays there" do
+      t = auto_level_tournament("standings")
+      assert level_of(t, 2).level == 3
+
+      assert {:ok, _t, steps} = set_level(t, 2, 1)
+      assert :standings_unpublished in steps
+      assert :results_unpublished in steps
+      assert level_of(t, 2) == %{level: 1, extra: []}
+      assert Tournaments.get_round(t.id, 2).publish_cap == 1
+      # Round 1 is not touched: its standings stay public by themselves.
+      assert level_of(t, 1).level == 3
+
+      # A result corrected in the round does not bring the automation back.
+      [board] = Tournaments.get_round(t.id, 2).pairings
+      {:ok, _} = Tournaments.update_pairing_result(board, "0-1")
+      assert level_of(t, 2) == %{level: 1, extra: []}
+    end
+
+    test "lowering a round the automation made results-public records the results withdrawal" do
+      t = auto_level_tournament("results")
+      # Round 1 is at standings: round 2's sheet discloses them.
+      assert level_of(t, 2).level == 2
+
+      assert {:ok, _t, steps} = set_level(t, 2, 1)
+      assert steps == [:results_unpublished]
+      assert level_of(t, 2).level == 1
+    end
+
+    test "raising a capped round back to where the automation has it clears the cap" do
+      t = auto_level_tournament("results")
+      {:ok, _t, _} = set_level(t, 2, 1)
+      assert Tournaments.get_round(t.id, 2).publish_cap == 1
+
+      assert {:ok, _t, _} = set_level(t, 2, 2)
+      assert Tournaments.get_round(t.id, 2).publish_cap == nil
+      assert level_of(t, 2).level == 2
+    end
+
+    test "choosing the level the automation would give leaves no cap" do
+      t = auto_level_tournament("standings")
+      {:ok, _t, _} = set_level(t, 2, 0)
+      assert Tournaments.get_round(t.id, 2).publish_cap == nil
+      assert level_of(t, 2).level == 0
+
+      # Published again by hand: the automation carries it on from there.
+      assert {:ok, _t, _} = set_level(t, 2, 3)
+      assert Tournaments.get_round(t.id, 2).publish_cap == nil
+      assert level_of(t, 2).level == 3
+    end
+
+    test "a round paired with the pairings step on goes public by itself, after its delay" do
+      t = gated_tournament("pairings", %{"publish_delay_minutes" => "10"})
+      at = Tournaments.compute_published_at(t, 1)
+      round = round_with(t, 1, at)
+
+      refute Tournaments.round_published?(t, round)
+      assert DateTime.diff(at, DateTime.utc_now(), :second) in 598..601
+    end
+
+    test "turning the automation down keeps what it made public" do
+      t = auto_level_tournament("standings")
+      before = for n <- 1..2, do: level_of(t, n)
+
+      assert {:ok, t} = Tournaments.set_auto_publish(t, "manual")
+      assert t.publish_mode == "manual"
+      assert for(n <- 1..2, do: level_of(t, n)) == before
+      assert Tournaments.get_round(t.id, 2).results_public
+      assert Tournaments.get_tournament!(t.id).standings_through == 2
+    end
+
+    test "turning the automation up applies to the rounds already public" do
+      t = auto_level_tournament("pairings")
+      assert level_of(t, 2).level == 1
+
+      assert {:ok, t} = Tournaments.set_auto_publish(t, "results")
+      assert level_of(t, 2).level == 2
+      # Stored nothing: it is the automation's doing.
+      refute Tournaments.get_round(t.id, 2).results_public
+    end
+
+    test "the delay is kept when switching to by hand and back" do
+      t = gated_tournament("pairings")
+      {:ok, t} = Tournaments.set_auto_publish(t, "pairings", 20)
+      {:ok, t} = Tournaments.set_auto_publish(t, "manual")
+      {:ok, t} = Tournaments.set_auto_publish(t, "standings")
+
+      assert t.publish_delay_minutes == 20
+    end
+
+    test "set_auto_publish refuses an unknown mode and an archived tournament" do
+      t = gated_tournament("manual")
+      assert {:error, %Ecto.Changeset{}} = Tournaments.set_auto_publish(t, "immediate")
+
+      {:ok, archived} = Tournaments.archive_tournament(t)
+      assert {:error, :archived} = Tournaments.set_auto_publish(archived, "results")
+    end
+  end
+
+  describe "the starting ranking - set_initial_standings_public/2" do
+    test "on and off before any round is public" do
+      t = gated_tournament("manual")
+      refute Tournaments.initial_standings_public?(t)
+
+      {:ok, t} = Tournaments.set_initial_standings_public(t, true)
+      assert Tournaments.initial_standings_public?(t)
+      assert Tournaments.standings_public?(t, 0)
+
+      {:ok, t} = Tournaments.set_initial_standings_public(t, false)
+      refute Tournaments.initial_standings_public?(t)
+      refute Tournaments.standings_public?(t, 0)
+    end
+
+    test "switching it off never pulls back standings after a round" do
+      t = gated_tournament("manual")
+      t = t |> Ecto.Changeset.change(standings_through: 2) |> Repo.update!()
+
+      assert {:error, :rounds_public} = Tournaments.set_initial_standings_public(t, false)
+      assert Tournaments.get_tournament!(t.id).standings_through == 2
+    end
+  end
+
   describe "latest_published_round_number/1" do
-    test "immediate mode delegates straight to the paired-rounds count" do
-      tournament = immediate_tournament("T")
+    test "a round with no published_at is not counted, whatever the automation" do
+      tournament = auto_tournament("T", "standings")
       Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
       Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: nil})
 
-      assert Tournaments.latest_published_round_number(tournament) == 2
+      assert Tournaments.latest_published_round_number(tournament) == 0
     end
 
-    test "non-immediate mode counts only rounds with a published_at that has passed" do
+    test "counts only rounds with a published_at that has passed" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
@@ -3497,7 +3655,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.latest_published_round_number(tournament) == 1
     end
 
-    test "non-immediate mode with nothing published returns 0" do
+    test "nothing published returns 0" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
@@ -3511,7 +3669,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.latest_published_round_number(tournament) == 0
     end
 
-    test "non-immediate mode can report a later round published out of order" do
+    test "can report a later round published out of order" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
@@ -3804,12 +3962,14 @@ defmodule PairingsEngine.TournamentsTest do
   # Immediate is no longer the default, so a test about immediate's behaviour
   # has to ask for it. Named rather than inlined three times, and the name
   # says which half of the test is the subject.
-  defp immediate_tournament(name) do
+  defp auto_tournament(name, mode) do
     Repo.insert!(%Tournament{
       name: name,
       type: "swiss",
       rounds_count: 3,
-      publish_mode: "immediate"
+      publish_mode: mode
     })
   end
+
+  defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 end

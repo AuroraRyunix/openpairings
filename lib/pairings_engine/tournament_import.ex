@@ -46,6 +46,10 @@ defmodule PairingsEngine.TournamentImport do
   @format "openpairings-export"
   @version 1
 
+  # Where `legacy_publish_mode/1` keeps a pre-2026-09-28 `publish_mode` for
+  # `apply_legacy_immediate!/2`. Not a tournament field, so nothing casts it.
+  @legacy_mode_key "__legacy_publish_mode"
+
   @doc """
   Imports every tournament in `data` (a JSON-decoded export envelope) as new
   tournaments owned by `scope`'s user. Returns `{:ok, [%Tournament{}, ...]}`
@@ -221,6 +225,7 @@ defmodule PairingsEngine.TournamentImport do
       entry
       |> fetch_map!("tournament")
       |> migrate_legacy_category_rules()
+      |> legacy_publish_mode()
       |> keep_live_swar_guid(tournament)
 
     tournament =
@@ -276,6 +281,7 @@ defmodule PairingsEngine.TournamentImport do
     tournament
     |> PairingsEngine.TeamSwiss.settle_mode()
     |> apply_standings_through!(t_attrs)
+    |> apply_legacy_immediate!(t_attrs)
   end
 
   # The drawn initial colour and a team Swiss's pairing mode are written by
@@ -393,6 +399,7 @@ defmodule PairingsEngine.TournamentImport do
       t_data
       |> fetch_map!("tournament")
       |> migrate_legacy_category_rules()
+      |> legacy_publish_mode()
       |> legacy_extra_points_mode(t_data)
       |> legacy_late_entry_absences()
       |> unique_swar_guid()
@@ -441,8 +448,59 @@ defmodule PairingsEngine.TournamentImport do
     import_audit_log!(tournament, list(t_data, "audit_log"), player_map)
     import_collaborators!(tournament, list(t_data, "collaborators"))
 
-    {apply_standings_through!(tournament, t_attrs), notes}
+    tournament =
+      tournament
+      |> apply_standings_through!(t_attrs)
+      |> apply_legacy_immediate!(t_attrs)
+
+    {tournament, notes}
   end
+
+  # A file written before 2026-09-28 carries a `publish_mode` from the old
+  # set (immediate, timed, scheduled). It gets the conversion the migration
+  # that retired those gave every tournament already in the database -
+  # `Tournament.legacy_publish_mode/2`, with the file's own display ticks -
+  # and the old value is kept under a private key for
+  # `apply_legacy_immediate!/2`, which needs to know after the rounds land.
+  defp legacy_publish_mode(%{"publish_mode" => mode} = t_attrs) when is_binary(mode) do
+    if Tournament.legacy_publish_mode?(mode) do
+      t_attrs
+      |> Map.put("publish_mode", Tournament.legacy_publish_mode(mode, t_attrs["public_display"]))
+      |> Map.put(@legacy_mode_key, mode)
+    else
+      t_attrs
+    end
+  end
+
+  defp legacy_publish_mode(t_attrs), do: t_attrs
+
+  # "immediate" kept nothing it showed in the rows - every round, its
+  # results and the finished standings were public whatever they said - so
+  # an old immediate file is written out as what it showed, the same
+  # conversion `AutomaticPublishingLadder` applied in the database.
+  defp apply_legacy_immediate!(tournament, %{@legacy_mode_key => "immediate"}) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.update_all(
+      from(r in Round, where: r.tournament_id == ^tournament.id and is_nil(r.published_at)),
+      set: [published_at: now]
+    )
+
+    Repo.update_all(from(r in Round, where: r.tournament_id == ^tournament.id),
+      set: [results_public: true]
+    )
+
+    finished = Tournaments.standings_through_round(tournament)
+
+    if Tournament.auto_publish_level(tournament) < 3 and finished > 0 and
+         finished > (tournament.standings_through || 0) do
+      tournament |> Ecto.Changeset.change(standings_through: finished) |> update!()
+    else
+      tournament
+    end
+  end
+
+  defp apply_legacy_immediate!(tournament, _t_attrs), do: tournament
 
   # A new row may only take the file's SWAR guid if no tournament on this
   # machine has it - whoever owns it, deleted or not. The guid is the
@@ -614,6 +672,7 @@ defmodule PairingsEngine.TournamentImport do
         %Round{tournament_id: tournament.id}
         |> Round.changeset(r)
         |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
+        |> Ecto.Changeset.change(publish_cap: coerce_int(Map.get(r, "publish_cap")))
         |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
         |> insert!()
 
