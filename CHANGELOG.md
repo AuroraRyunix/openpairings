@@ -17,6 +17,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-09-28
+
+- [Security] **Mint 1.11.0.** The HTTP client underneath the app's outbound
+  requests (FIDE, the rating lists, publishing) had three advisories
+  (EEF-CVE-2026-91043, -92103, -94194); 1.11.0 fixes them.
+- [Performance] **Ainalrami 0.34.0: large rounds pair 2.5-2.8x faster on a
+  two-core server**, with output identical to 0.33.0 on 445,172 compared
+  rounds.
+
 - [Performance] **A round's explanation is ready within a second of
   pairing; each "why him and not me" is worked out when you open it.** The
   explanation page's alternatives - why this player floated and not

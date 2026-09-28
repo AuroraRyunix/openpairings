@@ -4,7 +4,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.69.1",
+      version: "0.70.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -309,12 +309,7 @@ defmodule PairingsEngine.MixProject do
       # `v0.4.0` here against a v0.10.0 upstream is visible at a glance, in
       # a diff and in review. mix.lock still records the resolved commit, so
       # this is no less exact than a SHA was; it is only easier to read.
-      #
-      # TEMPORARY: a commit on Ainalrami's `explain-single` branch, for
-      # `Alternatives.float_alternative/5`. Moves to the next Ainalrami tag
-      # at release - never ship this SHA.
-      {:ainalrami,
-       github: "AuroraRyunix/Ainalrami", ref: "765b27a845310f1744dbf83e3cdafe08a7efb9c0"}
+      {:ainalrami, github: "AuroraRyunix/Ainalrami", tag: "v0.34.0"}
     ]
   end
 
