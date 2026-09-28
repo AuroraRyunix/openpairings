@@ -613,6 +613,62 @@ round. A declared absence is written the same way SWAR writes one
 (`TABLE_ABSENT`, Advers -1); it used to go out as a zero table, which SWAR
 neither pays nor counts.
 
+Reading a file, only `TABLE_ABSENT` makes an absence. A record with no
+opponent and no result on any other table - SWAR's `TABLE_FORFAIT` (what
+`ProcessAbsent` writes for a withdrawn player), a table 0 or -1, or the
+not-played record this app's export writes - is a round the player was not
+in: SWAR scores it nothing (`GetPoints` pays `AbsValue` only for
+`TABLE_ABSENT`) and does not count it (`GetNbAbsence` counts only
+`TABLE_ABSENT`), so it imports as nothing at all. It used to import as an
+`"absent"` row, so a round trip through a `.swar` file paid a withdrawn
+player half a point per round after withdrawing, and a late entrant from a
+tournament with the setting off half a point per round before joining.
+And because SWAR never leaves a round before a player joined empty, a file
+in which someone's round 1 is empty but a later round is not was written
+with the setting off: the import then leaves it off, so those rounds keep
+scoring nothing.
+
+### Late entrants and the absence allowance: the rules, verified
+
+Checked case by case in `test/pairings_engine/late_entry_edge_cases_test.exs`,
+where every case asserts one number in the standings, the score the
+pairing run brackets by, the TRF `001` total, the results-site snapshot
+(standings row and each round's bye row) and the `.swar` file:
+
+- **The rounds before joining come first.** With half a point per absence,
+  three paid and pay through round 8, a player joining in round 4 has rounds
+  1-3 as his three paid absences (1.5). An absence in round 4 - marked in
+  "absent at rounds", as a whole-event absentee, or as a `byes` row from a
+  vacated seat or an import - is his fourth and pays nothing, everywhere.
+  A join round that was set (4) and one worked out (nothing in rounds 1-3)
+  give the same answer.
+- **Both caps, SWAR's way.** An absence past `abs_jusque` pays nothing but
+  still counts towards `abs_nbfois` (`GetNbAbsence` counts every
+  `TABLE_ABSENT` record, `GetSpecialAbsValue` checks the round first): joining
+  before round 10 with pay-through-8 and three paid gives 1.5, and without a
+  count cap 4.0 (rounds 1-8), round 9 never paid.
+- **A requested bye is not an absence.** SWAR has no requested bye; its
+  half-point bye (`DRAW_BYE`) is a bye-table record `GetNbAbsence` does not
+  count. A requested half-point bye after the allowance is used up still
+  pays half a point and uses nothing, so a later absence is still the
+  fourth. A requested zero-point bye likewise uses nothing.
+- **A forfeit loss is a game**, not an absence, and uses nothing.
+- **Setting off, `abs_value` 0, or not an individual Swiss** (round robin,
+  Keizer, team events): the rounds before joining are not absences and
+  score nothing; the player's first real absence is his first.
+- **A withdrawn or forfeited player with nothing anywhere and no set join
+  round never joined**: nothing before or after. With a join round set, the
+  organiser's round stands and the rounds before it are absences.
+- **Changing things afterwards** - the join round, the setting, deleting or
+  re-pairing a round - rescores everywhere at once, because none of it is
+  stored.
+- **A TRF of chosen rounds** scores each absence at what the standings paid
+  for it, counting the absences in the rounds it leaves out
+  (`Pairing.player_points/2`'s `:absence_number`).
+- **Match format**: a join round on a match's second leg cannot be seated
+  (the leg mirrors the first); that round holds nothing and scores nothing,
+  and is not an absence.
+
 ## Tiebreaks: three places our numbers legitimately differ from SWAR's
 
 Everything above is about reading the file correctly. This section is about

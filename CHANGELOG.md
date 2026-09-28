@@ -36,6 +36,17 @@ Each entry is tagged so a version can be skimmed:
   paid in the file. Every absence now counts the ones before it, including
   those in rounds the file leaves out.
 
+- [Verified] **A late entrant's rounds before joining use up the paid
+  absences first.** With half a point per absence, three paid, a player who
+  joins before round 4 has rounds 1-3 as his three paid absences, and an
+  absence in round 4 pays nothing - in the standings, the cross table, the
+  player card, the tie-breaks, the score the next round is paired on, the
+  TRF report, the SWAR file and the results site alike, whether his join
+  round was set or worked out, and however the round-4 absence was
+  entered. A requested half-point bye is not an absence: it still pays half
+  a point and uses none. Every case checked is listed in
+  `docs/swar-import.md`.
+
 ## [0.69.1] - 2026-09-28
 
 - [Fix] **The top bar stays on one row on narrower windows.** Between the
