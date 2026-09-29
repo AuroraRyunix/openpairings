@@ -17,6 +17,27 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Bye preferences: "must get", "rather gets" and "rather not"
+  the pairing-allocated bye, per player, for every round or chosen rounds**
+  (the fourth, "must not get it", is the existing bye exclusion). An
+  organiser's wish, not a FIDE rule, so every time one is chosen the player
+  form says so. "Must get it" gives the player the bye whenever the round
+  has one and a legal pairing allows it - otherwise the round is paired
+  normally and the Pairings page says why. The two soft ones decide who on
+  the score that gets the bye takes it, above the quality criteria and
+  below everything FIDE ranks higher: they never lift the bye to a higher
+  score or leave a round unpairable. Wanting the bye where the player is
+  excluded from it is refused with the rounds named. A round they change
+  is explained on its explanation page and under the boards, recorded in
+  the audit trail and on the tournament's FIDE record, and listed on the
+  Export page's TRF section; a round they did not change records nothing.
+  Swiss with Ainalrami only. See docs/pairing-systems.md, "Bye preferences".
+- [Feature] **Not on a FIDE-rated tournament.** A FIDE-homologated
+  tournament does not offer bye preferences; one that becomes FIDE-rated
+  keeps the stored ones but ignores them when pairing, and the Players and
+  Pairings pages say whose are being ignored. The bye exclusion is
+  unchanged.
+
 ## [0.70.0] - 2026-09-28
 
 - [Security] **Mint 1.11.0.** The HTTP client underneath the app's outbound

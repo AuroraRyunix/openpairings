@@ -218,6 +218,17 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 5, "player_ids" => [12], "player_names" => ["Anna Peeters"]},
       %{"round" => 5, "player_ids" => [12, 14], "player_names" => ["Anna Peeters", "Bram Claes"]}
     ],
+    "pairing.bye_preference" => [
+      %{
+        "round" => 4,
+        "moved" => true,
+        "player_id" => 12,
+        "fide_player_id" => 14,
+        "notes" => [
+          "The bye preferences changed this round (an organiser's wish, not a FIDE rule): the pairing-allocated bye went to Anna Peeters; by the FIDE rules alone it would have gone to Bram Claes."
+        ]
+      }
+    ],
     "pairing.missing_recorded_postponed" => [
       %{"round" => 3, "count" => 1},
       %{"round" => 3, "count" => 2}

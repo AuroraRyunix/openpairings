@@ -1422,7 +1422,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
     federation club club_number birth_year category categories status absent
     forfeit absent_rounds fixed_board start_round extra_points manual_rank no_bye
-    no_bye_rounds)a
+    no_bye_rounds bye_preference bye_preference_rounds)a
 
   defp player_diff(before, after_player) do
     for field <- @audited_player_fields,
@@ -1511,7 +1511,11 @@ defmodule PairingsEngineWeb.PlayersLive do
       "extra_points" => p.extra_points,
       "no_bye" => p.no_bye,
       "no_bye_scope" => if(p.no_bye_rounds in [nil, ""], do: "all", else: "rounds"),
-      "no_bye_rounds" => p.no_bye_rounds
+      "no_bye_rounds" => p.no_bye_rounds,
+      "bye_preference" => p.bye_preference || "",
+      "bye_preference_scope" =>
+        if(p.bye_preference_rounds in [nil, ""], do: "all", else: "rounds"),
+      "bye_preference_rounds" => p.bye_preference_rounds
     }
   end
 
@@ -1665,6 +1669,200 @@ defmodule PairingsEngineWeb.PlayersLive do
           "A round in which this moves the bye is not paired the way the FIDE rules require, and the tournament's FIDE record says so from that round on. Only use it if the rating officer has agreed."
         )}
       </p>
+    </div>
+    """
+  end
+
+  ## ---------- Bye preferences (an organiser's wish, not FIDE's) ----------
+
+  # Whether the player form offers a bye preference, and how:
+  #
+  #   :hidden     - not a Swiss the Dutch engine pairs player by player, or
+  #                 JaVaFo pairs it and this player has none stored;
+  #   :javafo     - JaVaFo pairs it and this player has one stored, which
+  #                 JaVaFo will not read: said in one line;
+  #   :fide_rated - the tournament is FIDE-rated, where the preferences are
+  #                 not offered at all; a stored one is shown as ignored
+  #                 (and kept, not deleted);
+  #   :on         - offered, with the warning that it is not a FIDE rule.
+  #
+  # Not behind the BEL pack's switch: unlike the exclusion, nothing about it
+  # is Belgian. "Must not get the bye" stays the exclusion's tickbox above.
+  defp bye_preference_mode(tournament, form) do
+    stored? = form["bye_preference"] not in [nil, ""]
+
+    cond do
+      tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :hidden
+      tournament.fide_homologated -> if(stored?, do: :fide_rated, else: :hidden)
+      tournament.pairing_engine == "javafo" -> if(stored?, do: :javafo, else: :hidden)
+      true -> :on
+    end
+  end
+
+  defp bye_preference_options do
+    [
+      {gettext("No preference (the FIDE rules decide)"), ""},
+      {gettext("Must get it, if a legal pairing allows"), "want_hard"},
+      {gettext("Rather gets it"), "want_soft"},
+      {gettext("Rather not"), "avoid_soft"}
+    ]
+  end
+
+  defp bye_preference_label("want_hard"), do: gettext("must get the pairing-allocated bye")
+  defp bye_preference_label("want_soft"), do: gettext("rather gets the pairing-allocated bye")
+  defp bye_preference_label("avoid_soft"), do: gettext("rather not the pairing-allocated bye")
+  defp bye_preference_label(_other), do: ""
+
+  defp bye_preference_marker?(player, tournament) do
+    player.bye_preference in Player.bye_preferences() and tournament.pairing_system == "swiss" and
+      tournament.pairing_engine == "ainalrami" and not Tournament.team_swiss?(tournament)
+  end
+
+  defp bye_preference_tag("want_hard"), do: gettext("bye: must")
+  defp bye_preference_tag("want_soft"), do: gettext("bye: rather")
+  defp bye_preference_tag("avoid_soft"), do: gettext("bye: rather not")
+  defp bye_preference_tag(_other), do: ""
+
+  defp bye_preference_title(player, tournament) do
+    what = bye_preference_label(player.bye_preference)
+
+    base =
+      if player.bye_preference_rounds in [nil, ""],
+        do:
+          gettext("Bye preference in every round: %{what} (organiser's wish, not FIDE)",
+            what: what
+          ),
+        else:
+          gettext("Bye preference in rounds %{rounds}: %{what} (organiser's wish, not FIDE)",
+            what: what,
+            rounds: player.bye_preference_rounds
+          )
+
+    if tournament.fide_homologated,
+      do: base <> " - " <> gettext("ignored: the tournament is FIDE-rated"),
+      else: base
+  end
+
+  attr :mode, :atom, required: true
+  attr :form, :map, required: true
+  attr :tournament, :map, required: true
+
+  # The preference, then - unless it is none - "All rounds" or "Certain
+  # rounds" with the rounds typed like the absences, and the warning that it
+  # is not a FIDE rule, every time one is chosen.
+  defp bye_preference_fields(%{mode: :hidden} = assigns), do: ~H""
+
+  defp bye_preference_fields(%{mode: :javafo} = assigns) do
+    ~H"""
+    <p id="player-bye-preference-javafo" class="hint" style="grid-column: 1 / -1; margin: 0">
+      {gettext(
+        "Bye preference (%{what}): not applied - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it.",
+        what: bye_preference_label(@form["bye_preference"])
+      )}
+    </p>
+    """
+  end
+
+  defp bye_preference_fields(%{mode: :fide_rated} = assigns) do
+    ~H"""
+    <div
+      id="player-bye-preference-ignored"
+      class="pe-modal-warn"
+      role="note"
+      style="grid-column: 1 / -1"
+    >
+      <strong>{gettext("Bye preference ignored: this tournament is FIDE-rated.")}</strong>
+      {gettext(
+        "This player's stored preference (%{what}) is not applied while the tournament is FIDE-rated, and cannot be changed here. It is kept, and applies again if the tournament stops being FIDE-rated.",
+        what: bye_preference_label(@form["bye_preference"])
+      )}
+    </div>
+    """
+  end
+
+  defp bye_preference_fields(assigns) do
+    assigns =
+      assigns
+      |> Phoenix.Component.assign(:on?, assigns.form["bye_preference"] not in [nil, ""])
+      |> Phoenix.Component.assign(
+        :scope,
+        if(assigns.form["bye_preference_scope"] == "rounds", do: "rounds", else: "all")
+      )
+
+    ~H"""
+    <div id="player-bye-preference" class="field" style="grid-column: 1 / -1">
+      <.input
+        type="select"
+        id="player-bye-preference-select"
+        name="player[bye_preference]"
+        label={gettext("Pairing-allocated bye preference")}
+        value={@form["bye_preference"] || ""}
+        options={bye_preference_options()}
+        class="pe-select"
+      />
+
+      <div :if={@on?} class="radio-row" id="player-bye-preference-scope">
+        <label>
+          <input
+            type="radio"
+            id="player-bye-preference-scope-all"
+            name="player[bye_preference_scope]"
+            value="all"
+            checked={@scope == "all"}
+          />
+          {gettext("All rounds")}
+        </label>
+        <label>
+          <input
+            type="radio"
+            id="player-bye-preference-scope-rounds"
+            name="player[bye_preference_scope]"
+            value="rounds"
+            checked={@scope == "rounds"}
+          />
+          {gettext("Certain rounds")}
+        </label>
+      </div>
+    </div>
+
+    <div :if={@on? and @scope == "rounds"} class="field" style="grid-column: span 2">
+      <.input
+        type="text"
+        id="player-bye-preference-rounds"
+        name="player[bye_preference_rounds]"
+        label={gettext("Bye preference at the rounds (e.g. 3,5 or 2-4)")}
+        value={@form["bye_preference_rounds"]}
+        class="pe-input"
+      />
+    </div>
+
+    <div
+      :if={@on?}
+      id="player-bye-preference-warning"
+      class="pe-modal-warn"
+      role="note"
+      style="grid-column: 1 / -1"
+    >
+      <strong>{gettext("Not part of the FIDE rules.")}</strong>
+      {gettext(
+        "A bye preference makes the Swiss pairings differ from what FIDE-endorsed programs produce in any round it changes, and a FIDE checker cannot replay that round. The round's explanation and the audit trail record it."
+      )}
+      <span id="player-bye-preference-meaning">
+        <%= case @form["bye_preference"] do %>
+          <% "want_hard" -> %>
+            {gettext(
+              "Must get it: whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - unless no legal pairing allows it; then the round is paired normally and the Pairings page says why."
+            )}
+          <% "want_soft" -> %>
+            {gettext(
+              "Rather gets it: decides the bye among the players on the score that gets it, at the cost of the quality criteria only. It never lifts the bye to a higher score and never makes the round unpairable."
+            )}
+          <% _avoid_soft -> %>
+            {gettext(
+              "Rather not: another player on the score that gets the bye takes it, if any can. It never lifts the bye to a higher score and never makes the round unpairable."
+            )}
+        <% end %>
+      </span>
     </div>
     """
   end
@@ -2455,6 +2653,14 @@ defmodule PairingsEngineWeb.PlayersLive do
                   >
                     {gettext("no bye")}
                   </span>
+                  <span
+                    :if={bye_preference_marker?(p.player, @tournament)}
+                    id={"player-bye-preference-marker-#{p.player.id}"}
+                    class={["pe-tag", @tournament.fide_homologated && "pe-tag-muted"]}
+                    title={bye_preference_title(p.player, @tournament)}
+                  >
+                    {bye_preference_tag(p.player.bye_preference)}
+                  </span>
                 </td>
 
                 <%!-- The three cells with a menu say, in words, what their
@@ -3127,6 +3333,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           </p>
 
           <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
+          <.bye_preference_fields
+            mode={bye_preference_mode(@tournament, @form)}
+            form={@form}
+            tournament={@tournament}
+          />
 
           <%!-- The same warning and tick as a hand edit of a sent round on
                 the Pairings page: the federation already has that round. --%>

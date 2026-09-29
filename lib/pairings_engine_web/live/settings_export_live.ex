@@ -91,7 +91,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       postponed_open: PostponedGames.open_games(t),
       trf_rounds: rounds,
       trf_selected: selected,
-      bye_exclusion_rounds: PairingsEngine.RoundExplanation.bye_exclusion_rounds(t.id)
+      bye_exclusion_rounds: PairingsEngine.RoundExplanation.bye_exclusion_rounds(t.id),
+      bye_preference_rounds: PairingsEngine.RoundExplanation.bye_preference_rounds(t.id)
     )
     |> assign_postponed()
   end
@@ -765,6 +766,16 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
               length(@bye_exclusion_rounds),
               rounds: Enum.join(@bye_exclusion_rounds, ", ")
+            )}
+          </p>
+
+          <%!-- Nor are the players' bye preferences. --%>
+          <p :if={@bye_preference_rounds != []} id="trf-bye-preference-note" class="hint">
+            {ngettext(
+              "Round %{rounds} was changed by a player's bye preference (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently.",
+              "Rounds %{rounds} were changed by players' bye preferences (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
+              length(@bye_preference_rounds),
+              rounds: Enum.join(@bye_preference_rounds, ", ")
             )}
           </p>
 

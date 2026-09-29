@@ -180,6 +180,85 @@ so a checker replaying the file pairs them as FIDE's rules would.
 export/import path, `TournamentExport`'s player fields). Not by SWAR, which
 has no such field.
 
+### Bye preferences - "must get", "rather gets", "rather not" (not a FIDE rule)
+
+Three more settings per player beside the exclusion, which is the fourth
+("must not get it"). Like it, they are an organiser's wish, **not part of
+the FIDE rules**: a round they change differs from what a FIDE-endorsed
+program pairs, and a FIDE checker replaying the TRF will not reproduce it.
+
+| setting | what it does | what it never does |
+|---|---|---|
+| **Must get it** (`want_hard`) | whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - as long as the rest can still be paired under the absolute criteria | break C1/C3, a forbidden pairing, or C2 (a player who already had a pairing-allocated bye, won by forfeit or had a full-point bye does not get a second one) |
+| **Rather gets it** (`want_soft`) | among the players on the score that gets the bye, this one gets it | lift the bye to a higher score, or leave the round unpairable |
+| **Rather not** (`avoid_soft`) | another player on the score that gets the bye takes it, if any can | the same |
+| **Must not get it** | the bye exclusion above, unchanged | - |
+
+**Where the soft ones sit in the criteria.** Exactly where a "Rather not,
+if possible" pair wish sits in its strong position: directly below the
+ladder's top rung - the absolute criteria, completing the round, and the
+bye's own rules (C2; the bye to the lowest score that still lets the rest
+be paired) - and above every quality criterion, C6 to C21 (C9, the bye
+holder's unplayed games, included) and the final ordering rule. So they
+decide *who on the bye score* gets it, and the brackets are paired as well
+as the criteria allow around that choice. The tournament's "weak" position
+for pair wishes does not apply to them: below C21 there is practically
+never a choice of bye holder left to make.
+
+**Where it is.** In a player's details, under the exclusion: "Pairing-allocated
+bye preference", then "All rounds" or "Certain rounds" typed like the
+absences (`players.bye_preference`, `players.bye_preference_rounds`). Not
+behind the BEL pack - nothing about it is Belgian. Every time one is chosen
+the form says it is not a FIDE rule and what the chosen one does; the
+players list tags such a player "bye: must", "bye: rather" or "bye: rather
+not". Swiss with Ainalrami only; with JaVaFo a stored one gets a one-line
+"not applied", and round robin, Keizer and team Swiss do not show it.
+
+**Never on a FIDE-rated tournament.** With "FIDE-homologated" ticked the
+form does not offer them. If the tournament becomes FIDE-rated while
+players have one, nothing is deleted: the pairing ignores them, the player
+form shows the stored one as ignored, the players list greys its tag, and
+the Pairings page names the players whose preferences are being ignored.
+Untick it and they apply again. (The exclusion is unchanged by this: it
+keeps working on a FIDE-homologated tournament, with its stronger warning,
+as it always did.)
+
+**Conflicts.** Wanting the bye in a round where the player is excluded
+from it is refused when the player is saved, naming the rounds. In the
+engine (`Ainalrami.ByePreference`, which a TRF-driven or CLI caller can
+also reach): for one player, an exclusion beats any want, "must get"
+beats "rather not", "rather gets" and "rather not" cancel out; across
+players, "must get" goes first - with two of them the FIDE criteria choose
+between them - then "rather gets", then "rather not". On an even field
+there is no bye to give; a player not in the round, or one C2 rules out,
+is skipped. Every case is reported, not silently dropped.
+
+**What the engine does.** `Pairing.with_bye_exclusions/4` also collects the
+round's preferences (`bye_preference_ranks/4`) and Ainalrami resolves them
+into bye exclusions (Ainalrami's `bye_preferences:` option): a want pairs
+the round with every other active player kept from the bye, and a soft one
+keeps that round only if its bye holder is on the score the round without
+preferences gives the bye to. The explanation and the "why him and not me"
+answers are then worked out under those exclusions, so they judge the round
+by the rules it was paired by.
+
+**What is recorded.** The round's explanation carries a `"bye_preference"`
+record: whether the preferences changed the round, who got the bye, who
+would have had it by the FIDE rules alone, the extra players they kept from
+the bye (so a re-explained round is judged the same way), and what
+happened to each preference. When a "must get it" could not be honoured,
+the Pairings page says so under the boards ("... no legal pairing gives it
+to them: the round was paired as without the preference"), as it does for
+every preference that was not applied and why; the round explanation says
+the same, and the audit trail records `pairing.bye_preference`. A round the
+preferences changed is stamped on the tournament's FIDE record like an
+exclusion's (`tournament.fide_compliance_lost`, setting `bye_preference`),
+and the Export page's TRF section lists it. A preference that changed
+nothing records no deviation.
+
+**Carried by** JSON backups, snapshots, hand-offs and Duplicate. Not by
+SWAR.
+
 ### The engine's account, after the click
 
 Ainalrami's account of a round - the brackets it built

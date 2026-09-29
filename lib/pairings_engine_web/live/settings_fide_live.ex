@@ -28,6 +28,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
      |> attach_dirty_tracker()
      |> assign(
        tournament: tournament,
+       ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
        page_title: "#{tournament.name} · Settings",
        rows: tournament.fide_id_ranges || [],
        note: nil,
@@ -57,6 +58,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         {:noreply,
          assign(socket,
            tournament: tournament,
+           ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
            rows: tournament.fide_id_ranges || [],
            stale: false
          )}
@@ -97,6 +99,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         {:noreply,
          assign(socket,
            tournament: tournament,
+           ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
            rows: tournament.fide_id_ranges || [],
            note: "Saved.",
            error: nil,
@@ -180,6 +183,23 @@ defmodule PairingsEngineWeb.SettingsFideLive do
               label={gettext("This tournament is FIDE-homologated (rated/reportable)")}
               checked={@tournament.fide_homologated}
             />
+
+            <%!-- Bye preferences are not applied on a FIDE-rated
+                  tournament; stored ones are kept, and this says whose. --%>
+            <div
+              :if={@ignored_bye_preferences != []}
+              id="fide-bye-preference-ignored"
+              class="pe-modal-warn"
+              role="note"
+            >
+              <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong>
+              {ngettext(
+                "%{names} has a bye preference, which is not applied when pairing a FIDE-rated tournament. It is kept, and applies again if the tournament stops being FIDE-rated.",
+                "%{names} have bye preferences, which are not applied when pairing a FIDE-rated tournament. They are kept, and apply again if the tournament stops being FIDE-rated.",
+                length(@ignored_bye_preferences),
+                names: Enum.join(@ignored_bye_preferences, ", ")
+              )}
+            </div>
 
             <.setting_field label={gettext("FIDE tournament ID (tournament-wide default)")}>
               <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />

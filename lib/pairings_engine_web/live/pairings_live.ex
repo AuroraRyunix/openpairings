@@ -1,6 +1,7 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
+  alias PairingsEngineWeb.ByePreferenceText
   alias PairingsEngineWeb.PublicLink
 
   import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2, error_text: 1]
@@ -226,6 +227,10 @@ defmodule PairingsEngineWeb.PairingsLive do
     socket =
       assign(socket,
         round: round,
+        # What the players' bye preferences did in this round, and the
+        # stored ones a FIDE-rated tournament is ignoring.
+        bye_preference_notice: bye_preference_notice(round, t),
+        ignored_bye_preferences: Engine.ignored_bye_preferences(t),
         # Fully-vacated rows the arbiter has hidden from the main table
         # (see `set_pairing_hidden/3`) - kept as their own list so the
         # "Hidden boards" management panel can still offer Unhide/Delete
@@ -1962,6 +1967,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         socket = note_recorded_missing(socket)
         log_round_paired(socket, round.number)
         log_bye_exclusions(socket, round.number)
+        log_bye_preferences(socket, round.number)
         log_compliance_loss(socket, round.number)
         {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
 
@@ -2107,6 +2113,63 @@ defmodule PairingsEngineWeb.PairingsLive do
     :ok
   end
 
+  # What the players' bye preferences (not a FIDE rule) did in the round
+  # just paired, for the audit trail: that they changed who got the bye, and
+  # every preference that was not applied, with why - the Pairings page's
+  # notice in words that outlive the round's record.
+  defp log_bye_preferences(socket, round_number) do
+    t = socket.assigns.tournament
+
+    for %{"bye_preference" => %{} = record} <- round_sections(t.id, round_number) do
+      {moved, notes} = ByePreferenceText.account(record, &player_name(t.id, &1))
+
+      if moved || notes != [] do
+        Audit.log(t.id, socket.assigns.current_scope, "pairing.bye_preference", %{
+          round: round_number,
+          moved: record["moved"] == true,
+          player_id: record["bye"],
+          fide_player_id: record["fide_bye"],
+          notes: Enum.reject([moved | notes], &is_nil/1)
+        })
+      end
+    end
+
+    :ok
+  end
+
+  defp round_sections(tournament_id, round_number) do
+    case Tournaments.get_round(tournament_id, round_number) do
+      %{explanation: %{"sections" => sections}} when is_list(sections) -> sections
+      _ -> []
+    end
+  end
+
+  defp player_name(tournament_id, id) do
+    case id && Tournaments.get_player(tournament_id, id) do
+      nil -> nil
+      p -> p.name
+    end
+  end
+
+  # The notice under the board list: what the bye preferences did in the
+  # round on screen, from its record. Empty when they did nothing worth
+  # saying.
+  defp bye_preference_notice(nil, _t), do: []
+
+  defp bye_preference_notice(round, t) do
+    case round.explanation do
+      %{"sections" => sections} when is_list(sections) ->
+        for %{"bye_preference" => %{} = record} <- sections,
+            {moved, notes} = ByePreferenceText.account(record, &player_name(t.id, &1)),
+            line <- [moved | notes],
+            line != nil,
+            do: line
+
+      _ ->
+        []
+    end
+  end
+
   # The first round paired away from C.04.3 - a bye exclusion that moved
   # the bye, "only if possible" wishes that moved a board, extra points in
   # the pairing (`Pairing.pairing_deviations/2`) - is stamped on the
@@ -2135,6 +2198,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp compliance_loss_names(:bye_exclusion, _t), do: {"no_bye", "bye_exclusion"}
   defp compliance_loss_names(:soft_pairs, _t), do: {"soft_pairs", "soft_pairing_wish"}
+  defp compliance_loss_names(:bye_preference, _t), do: {"bye_preference", "bye_preference"}
 
   defp compliance_loss_names(:extra_points, t) do
     if Tournament.extra_points_acceleration?(t),
@@ -3581,6 +3645,36 @@ defmodule PairingsEngineWeb.PairingsLive do
           <summary style="cursor: pointer">{error_summary(@error)}</summary>
           <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 0">{@error}</pre>
         </details>
+      </div>
+
+      <%!-- The players' bye preferences (not a FIDE rule): what they did
+            to the pairing-allocated bye in the round on screen. --%>
+      <div
+        :if={@bye_preference_notice != []}
+        id="bye-preference-notice"
+        class="pe-modal-warn"
+        role="note"
+        style="display: block; margin: 8px 0"
+      >
+        <p :for={line <- @bye_preference_notice} style="margin: 0 0 4px">{line}</p>
+      </div>
+
+      <%!-- A FIDE-rated tournament does not apply bye preferences; stored
+            ones are kept, and the arbiter is told they are being ignored. --%>
+      <div
+        :if={@ignored_bye_preferences != []}
+        id="bye-preference-ignored"
+        class="pe-modal-warn"
+        role="note"
+        style="display: block; margin: 8px 0"
+      >
+        <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong>
+        {ngettext(
+          "%{names} has a bye preference, which is not applied when pairing a FIDE-rated tournament. It is kept, and applies again if the tournament stops being FIDE-rated.",
+          "%{names} have bye preferences, which are not applied when pairing a FIDE-rated tournament. They are kept, and apply again if the tournament stops being FIDE-rated.",
+          length(@ignored_bye_preferences),
+          names: Enum.join(@ignored_bye_preferences, ", ")
+        )}
       </div>
 
       <%!-- The organiser's bye exclusions left no legal round. Not a FIDE

@@ -850,11 +850,62 @@ defmodule PairingsEngine.Pairing do
       )
       |> Enum.flat_map(&List.wrap(Map.get(local_rank_by_player_id, &1.id)))
 
-    %{tournament | engine_bye_exclusions: Enum.sort(ranks)}
+    %{
+      tournament
+      | engine_bye_exclusions: Enum.sort(ranks),
+        engine_bye_preferences:
+          bye_preference_ranks(tournament, players, local_rank_by_player_id, round_number)
+    }
   end
 
   defp with_bye_exclusions(tournament, _players, _local_rank_by_player_id, _round_number),
     do: tournament
+
+  ## ---------- bye preferences (an organiser's wish, not FIDE's) ----------
+  #
+  # "Must get", "rather gets" and "rather not" the pairing-allocated bye
+  # (`Player`'s `bye_preference`) - the fourth setting, "must not get", is
+  # the bye exclusion above. Ainalrami resolves them
+  # (`Ainalrami.ByePreference`); JaVaFo is never handed any. NOT on a
+  # FIDE-rated tournament (`fide_homologated`): a stored preference is
+  # ignored there, not deleted, and the Players and Pairings pages say so.
+
+  # `[{rank, preference}]` for the round being paired.
+  defp bye_preference_ranks(%Tournament{fide_homologated: true}, _players, _ranks, _round),
+    do: []
+
+  defp bye_preference_ranks(_tournament, players, local_rank_by_player_id, round_number) do
+    players
+    |> Enum.flat_map(fn player ->
+      case Player.bye_preference_for_round(player, round_number) do
+        nil ->
+          []
+
+        pref ->
+          player.id
+          |> then(&Map.get(local_rank_by_player_id, &1))
+          |> List.wrap()
+          |> Enum.map(&{&1, pref})
+      end
+    end)
+    |> Enum.sort()
+  end
+
+  @doc """
+  The players of `tournament` whose stored bye preference is being ignored
+  because the tournament is FIDE-rated, by name - for the pages' warning.
+  Empty on a tournament that is not FIDE-rated, or where nobody has one.
+  """
+  def ignored_bye_preferences(%Tournament{fide_homologated: true, id: id}) do
+    Repo.all(
+      from p in Player,
+        where: p.tournament_id == ^id and p.bye_preference in ^Player.bye_preferences(),
+        order_by: p.name,
+        select: p.name
+    )
+  end
+
+  def ignored_bye_preferences(_tournament), do: []
 
   # The engine names excluded players by rank; the page needs players.
   defp bye_exclusion_error({:error, {:bye_exclusions, info}}, player_by_local_rank) do
@@ -880,6 +931,8 @@ defmodule PairingsEngine.Pairing do
     * `:soft_pairs` - the arbiter's "only if possible" wishes (soft
       forbidden pairings, clubmates apart) moved at least one board: the
       engine run again without them pairs the round differently.
+    * `:bye_preference` - a player's bye preference (must get / rather
+      gets / rather not the bye) changed the round.
     * `:extra_points` - extra points reached the engine as virtual points
       (acceleration mode, or a counted handicap): a player in the round had
       some, or an earlier round's recorded ones are in the history the
@@ -905,12 +958,16 @@ defmodule PairingsEngine.Pairing do
         [
           {:bye_exclusion, Enum.any?(sections, &((&1["bye_passed_over"] || []) != []))},
           {:soft_pairs, Enum.any?(sections, &(&1["soft_pairs_moved"] == true))},
+          {:bye_preference, Enum.any?(sections, &bye_preference_moved?/1)},
           {:extra_points, extra_points_reached_engine?(tournament, round)}
         ]
         |> Enum.filter(&elem(&1, 1))
         |> Enum.map(&elem(&1, 0))
     end
   end
+
+  defp bye_preference_moved?(%{"bye_preference" => %{"moved" => true}}), do: true
+  defp bye_preference_moved?(_section), do: false
 
   # Whether the engine was handed any non-zero virtual points from extra
   # points for this round: the round's own recorded ones (the players it
@@ -1654,9 +1711,22 @@ defmodule PairingsEngine.Pairing do
         # Unlike the wishes, the bye exclusions are read off the round's own
         # record: they were decided per round (and one may have been lifted
         # for it), so today's player settings are not what it was paired on.
+        organiser = recorded_bye_exclusions(round, local_rank_by_player_id)
+
+        # And the players the round's bye preferences kept from the bye, so
+        # the round is judged under the exclusions it was really paired by.
+        preference =
+          case round.explanation do
+            %{"sections" => sections} ->
+              recorded_preference_exclusions(sections, local_rank_by_player_id)
+
+            _ ->
+              []
+          end
+
         tournament = %{
           tournament
-          | engine_bye_exclusions: recorded_bye_exclusions(round, local_rank_by_player_id)
+          | engine_bye_exclusions: Enum.sort(Enum.uniq(organiser ++ preference))
         }
 
         {:ok,
@@ -1664,12 +1734,18 @@ defmodule PairingsEngine.Pairing do
            round: round,
            players: parsed.players,
            opts: ainalrami_opts(tournament, parsed, soft),
+           organiser_exclusions: organiser,
            player_by_local_rank: player_by_local_rank,
            local_rank_by_player_id: local_rank_by_player_id,
            bye_exclusion_lifted: recorded_bye_exclusion_lifted(round)
          }}
     end
   end
+
+  # A rebuilt field's options with only the organiser's own exclusions -
+  # what the round's account records as its "bye_exclusions".
+  defp organiser_opts(field),
+    do: Keyword.put(field.opts, :bye_exclusions, field.organiser_exclusions)
 
   # The bye exclusions a round was paired under, from its stored account
   # (`put_bye_exclusions/3`), as the rebuilt field's ranks. A player no
@@ -1788,13 +1864,14 @@ defmodule PairingsEngine.Pairing do
       account =
         Map.merge(
           %{brackets: Explainer.impl().brackets(field.players, pairs, field.opts)}
-          |> Map.merge(bye_exclusion_account(field.opts, field.bye_exclusion_lifted)),
+          |> Map.merge(bye_exclusion_account(organiser_opts(field), field.bye_exclusion_lifted)),
           alternatives(field.players, pairs, field.opts, tournament, round_number, nil)
         )
 
       payload =
         [{nil, account, field.player_by_local_rank}]
         |> explanation_payload()
+        |> keep_bye_preference(round.explanation)
         |> Map.put("origin", "recomputed")
         # Who produced the boards. "engine" above is who ANALYSED them, and
         # for a JaVaFo round the two differ - which the page must say.
@@ -1871,7 +1948,9 @@ defmodule PairingsEngine.Pairing do
          account =
            Map.merge(
              %{brackets: Explainer.impl().brackets(field.players, pairs, opts)}
-             |> Map.merge(bye_exclusion_account(opts, field.bye_exclusion_lifted)),
+             |> Map.merge(
+               bye_exclusion_account(organiser_opts(field), field.bye_exclusion_lifted)
+             ),
              alternatives(field.players, pairs, opts, tournament, round_number, nil)
            ),
          payload when not is_nil(payload) <-
@@ -1889,6 +1968,7 @@ defmodule PairingsEngine.Pairing do
         |> Map.merge(provenance)
         |> Map.put("depth", "full")
         |> keep_soft_pairs_moved(round.explanation)
+        |> keep_bye_preference(round.explanation)
 
       round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
     else
@@ -2169,13 +2249,19 @@ defmodule PairingsEngine.Pairing do
     soft =
       soft_pairs(tournament, full_roster, rank_by_id, history.forbidden_pairings, round_number)
 
+    organiser = section |> Map.get("bye_exclusions", []) |> Enum.flat_map(rank) |> Enum.sort()
+    preference = recorded_preference_exclusions([section], rank_by_id)
+
     tournament = %{
       tournament
-      | engine_bye_exclusions:
-          section |> Map.get("bye_exclusions", []) |> Enum.flat_map(rank) |> Enum.sort()
+      | engine_bye_exclusions: Enum.sort(Enum.uniq(organiser ++ preference))
     }
 
-    %{players: parsed.players, opts: ainalrami_opts(tournament, parsed, soft)}
+    %{
+      players: parsed.players,
+      opts: ainalrami_opts(tournament, parsed, soft),
+      organiser_exclusions: organiser
+    }
   end
 
   defp recomputed_account(tournament, round, section, rebuilt) do
@@ -2200,9 +2286,11 @@ defmodule PairingsEngine.Pairing do
       players: input.players,
       pairs: pairs,
       opts: input.opts,
+      organiser_exclusions: input.organiser_exclusions,
       lifted: section["bye_exclusion_lifted"],
       soft_pairs_moved: section["soft_pairs_moved"] == true,
-      bye_passed_over: section |> Map.get("bye_passed_over", []) |> Enum.flat_map(rank)
+      bye_passed_over: section |> Map.get("bye_passed_over", []) |> Enum.flat_map(rank),
+      bye_preference_json: section["bye_preference"]
     })
   end
 
@@ -2234,10 +2322,25 @@ defmodule PairingsEngine.Pairing do
   # deviations. It is the whole of a pending record's section, and part of
   # the finished one.
   defp deviation_account(deferred) do
+    organiser = Map.get(deferred, :organiser_exclusions, deferred.opts[:bye_exclusions])
+
     %{brackets: [], bye_passed_over: deferred.bye_passed_over}
-    |> Map.merge(bye_exclusion_account(deferred.opts, deferred.lifted))
+    |> Map.merge(
+      bye_exclusion_account(
+        Keyword.put(deferred.opts, :bye_exclusions, organiser),
+        deferred.lifted
+      )
+    )
     |> Map.merge(if(deferred.soft_pairs_moved, do: %{soft_pairs_moved: true}, else: %{}))
+    |> Map.merge(bye_preference_entry(deferred))
   end
+
+  defp bye_preference_entry(%{bye_preference: %{} = account}), do: %{bye_preference: account}
+
+  defp bye_preference_entry(%{bye_preference_json: %{} = json}),
+    do: %{bye_preference_json: json}
+
+  defp bye_preference_entry(_deferred), do: %{}
 
   # The record a round is saved with: per section, the players it paired
   # (`"field"`, so the account can be rebuilt after a restart), the
@@ -2352,15 +2455,28 @@ defmodule PairingsEngine.Pairing do
         # next option added to one of them would not have, and the failure
         # mode is quiet - `explain_round/3` would describe a pairing that is
         # not the one the arbiter is looking at.
-        raw_pairs = Ainalrami.Pairing.pair_next_round(parsed.players, engine_opts)
+        #
+        # With bye preferences the engine resolves them into bye exclusions
+        # and hands back the options it finally paired under (`opts`), which
+        # everything explaining the round then uses; `engine_opts` keeps the
+        # organiser's own exclusions for their account.
+        {raw_pairs, opts, preference} =
+          pair_with_preferences(parsed.players, engine_opts, tournament)
 
-        # The two organiser deviations are worked out HERE, in the click,
+        # The organiser deviations are worked out HERE, in the click,
         # because the round's FIDE-compliance stamp and its audit rows are
         # written from them the moment it is saved
         # (`record_pairing_deviations/2`, `PairingsLive`). Each is a second
         # pairing run, and each only runs when its setting is in play.
-        soft_moved? = soft_pairs_moved?(parsed.players, raw_pairs, engine_opts, tournament)
-        passed_over = bye_passed_over(parsed.players, raw_pairs, engine_opts, tournament)
+        soft_moved? = soft_pairs_moved?(parsed.players, raw_pairs, opts, tournament)
+
+        # The exclusion chain re-pairs the round without preferences, so it
+        # describes the round only when they did not move it; when they did,
+        # the preference account says what happened to the bye instead.
+        passed_over =
+          if preference && preference.moved,
+            do: [],
+            else: bye_passed_over(parsed.players, raw_pairs, engine_opts, tournament)
 
         # Everything else about the round's account - the brackets
         # (`explain_round/3`, a second call because it analyses a pairing
@@ -2372,10 +2488,12 @@ defmodule PairingsEngine.Pairing do
         deferred = %{
           players: parsed.players,
           pairs: raw_pairs,
-          opts: engine_opts,
+          opts: opts,
+          organiser_exclusions: engine_opts[:bye_exclusions] || [],
           lifted: tournament.bye_exclusion_override,
           soft_pairs_moved: soft_moved?,
-          bye_passed_over: passed_over
+          bye_passed_over: passed_over,
+          bye_preference: preference
         }
 
         {:ok, Enum.map(raw_pairs, &ainalrami_bye_to_zero/1), deferred}
@@ -2439,6 +2557,32 @@ defmodule PairingsEngine.Pairing do
       )
 
       {:error, {:pairing_crashed, round_number, category_name}}
+  end
+
+  # `{pairs, opts, preference_account | nil}`. Without preferences exactly
+  # the call it always was.
+  defp pair_with_preferences(players, engine_opts, tournament) do
+    case tournament.engine_bye_preferences || [] do
+      [] ->
+        {Ainalrami.Pairing.pair_next_round(players, engine_opts), engine_opts, nil}
+
+      prefs ->
+        {pairs, report} =
+          Ainalrami.ByePreference.pair(players, engine_opts ++ [bye_preferences: prefs])
+
+        organiser = engine_opts[:bye_exclusions] || []
+
+        account = %{
+          bye: report.bye,
+          moved: report.moved,
+          decided_by: report.decided_by,
+          fide_bye: report.fide_bye,
+          exclusions: report.exclusions -- organiser,
+          outcomes: report.outcomes
+        }
+
+        {pairs, report.opts, account}
+    end
   end
 
   defp no_legal_pairing(e, tournament, round_number, category_name) do
@@ -2804,7 +2948,65 @@ defmodule PairingsEngine.Pairing do
     |> put_unless_empty("bye_passed_over", passed_over)
     |> put_unless_empty("bye_exclusion_lifted", Map.get(account, :bye_exclusion_lifted))
     |> put_unless_empty("soft_pairs_moved", Map.get(account, :soft_pairs_moved))
+    |> put_bye_preference(account, by_rank)
   end
+
+  # What the players' bye preferences (not a FIDE rule) did in this round,
+  # in player ids: whether they changed it, which setting decided the bye,
+  # who would have had it without them, the extra players they kept from
+  # the bye (so the account can be rebuilt under the same rules), and what
+  # happened to each preference. Absent when the round had none.
+  defp put_bye_preference(section, %{bye_preference: %{} = pref}, by_rank) do
+    id = &player_id(&1, by_rank)
+
+    Map.put(section, "bye_preference", %{
+      "moved" => pref.moved,
+      "bye" => pref.bye && id.(pref.bye),
+      "decided_by" => pref.decided_by && Atom.to_string(pref.decided_by),
+      "fide_bye" => pref.fide_bye && id.(pref.fide_bye),
+      "exclusions" => pref.exclusions |> Enum.map(id) |> Enum.reject(&is_nil/1),
+      "outcomes" =>
+        Enum.map(pref.outcomes, fn o ->
+          %{
+            "player" => id.(o.rank),
+            "preference" => Atom.to_string(o.preference),
+            "outcome" => Atom.to_string(o.outcome)
+          }
+          |> put_unless_empty("reason", o[:reason] && Atom.to_string(o.reason))
+          |> put_unless_empty("with", o[:with] && Atom.to_string(o.with))
+          |> put_unless_empty("holder", o[:holder] && id.(o.holder))
+        end)
+    })
+  end
+
+  defp put_bye_preference(section, %{bye_preference_json: %{} = json}, _by_rank),
+    do: Map.put(section, "bye_preference", json)
+
+  defp put_bye_preference(section, _account, _by_rank), do: section
+
+  # The extra players a round's recorded bye preferences kept from the bye,
+  # as the rebuilt field's ranks - added to its exclusions, so an account
+  # rebuilt later judges the round under the rules it was paired by.
+  defp recorded_preference_exclusions(sections, rank_by_id) when is_list(sections) do
+    sections
+    |> Enum.flat_map(&(get_in(&1, ["bye_preference", "exclusions"]) || []))
+    |> Enum.flat_map(&List.wrap(Map.get(rank_by_id, &1)))
+  end
+
+  defp recorded_preference_exclusions(_sections, _rank_by_id), do: []
+
+  # Re-explaining reads the boards as played and does not pair the round
+  # again, so it cannot tell what the preferences did; what pairing time
+  # found is kept, as `keep_soft_pairs_moved/2` keeps the wishes'.
+  defp keep_bye_preference(%{"sections" => [first | rest]} = payload, %{"sections" => old})
+       when is_list(old) do
+    case Enum.find_value(old, & &1["bye_preference"]) do
+      nil -> payload
+      pref -> %{payload | "sections" => [Map.put(first, "bye_preference", pref) | rest]}
+    end
+  end
+
+  defp keep_bye_preference(payload, _old), do: payload
 
   defp put_unless_empty(map, _key, value) when value in [nil, []], do: map
   defp put_unless_empty(map, key, value), do: Map.put(map, key, value)
