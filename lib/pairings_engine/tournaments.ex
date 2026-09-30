@@ -1220,6 +1220,29 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Sets how the results site's hall display runs, announcement included - see
+  `PairingsEngine.HallDisplay`.
+
+  Validation errors come back as `{:error, changeset}` ready for the form.
+  Enqueues a publish like `set_public_display/3`: an announcement typed for
+  the hall has to reach the screen now, not with the next result.
+  """
+  @spec set_hall_display(Tournament.t(), map()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()} | {:error, atom()}
+  def set_hall_display(%Tournament{} = tournament, params) when is_map(params) do
+    with :ok <- ensure_writable(tournament),
+         {:ok, hall} <- PairingsEngine.HallDisplay.cast(tournament.public_hall, params) do
+      tournament
+      |> Ecto.Changeset.change(public_hall: hall)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
+    end
+  end
+
+  @doc """
   Shows a page the retired "Standings" or "Round pairings" switch still
   keeps off (`PairingsEngine.PublicDisplay.legacy_keys/0`) - the one way
   back, since neither switch is on the settings page any more. From then on

@@ -279,6 +279,7 @@ defmodule PairingsEngine.TournamentImport do
       |> Ecto.Changeset.change(
         public_listed: truthy(Map.get(t_attrs, "public_listed")),
         public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
+        public_hall: public_display_or_nil(Map.get(t_attrs, "public_hall")),
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, tournament.initial_colour_drawn))
@@ -451,6 +452,7 @@ defmodule PairingsEngine.TournamentImport do
       |> Ecto.Changeset.change(
         public_listed: truthy(Map.get(t_attrs, "public_listed")),
         public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
+        public_hall: public_display_or_nil(Map.get(t_attrs, "public_hall")),
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil))
@@ -891,6 +893,10 @@ defmodule PairingsEngine.TournamentImport do
   # otherwise filtered: `show?/2` already tolerates a key it does not know
   # and a value that is not a real boolean, falling back to that key's
   # default exactly as it would for one this app itself never wrote.
+  #
+  # `public_hall` goes through the same door for the same reason:
+  # `PairingsEngine.HallDisplay.resolve/1` falls back to the default for any
+  # value of the wrong type or out of range, so only a non-map needs catching.
   defp public_display_or_nil(value) when is_map(value), do: value
   defp public_display_or_nil(_), do: nil
 

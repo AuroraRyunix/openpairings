@@ -5755,6 +5755,39 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   font-weight: 500;
 }
 
+/* The hall display card: core_components' <.input> read as settings fields -
+   the same small soft label as `.set-field`, the four views on one row, the
+   two numbers side by side. */
+.hall-form { margin-top: 14px; }
+.hall-form .fieldset { padding: 0; margin: 0 0 12px; max-width: 40rem; }
+
+.hall-form .fieldset .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.hall-form input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+.hall-views { display: flex; flex-wrap: wrap; gap: 0 22px; }
+.hall-views .fieldset .label { color: var(--text); font-weight: 500; }
+
+.hall-numbers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 12rem));
+  gap: 0 20px;
+}
+
+.hall-form textarea { min-height: 5rem; resize: vertical; }
+.hall-hint { margin: -6px 0 12px; }
+
+@media (max-width: 560px) {
+  .hall-numbers { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* State, said in a word as well as a colour: a pill that differs only by hue
    is unreadable to a colourblind arbiter, and ambiguous to everybody else at a
    glance - is green "on", or is green "good"? */

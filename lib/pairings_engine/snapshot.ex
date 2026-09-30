@@ -91,6 +91,7 @@ defmodule PairingsEngine.Snapshot do
 
   alias PairingsEngine.{
     Categories,
+    HallDisplay,
     Keizer,
     LateEntry,
     PairingDisplay,
@@ -300,7 +301,14 @@ defmodule PairingsEngine.Snapshot do
       # app's default list to interpret the answer, and sending
       # `%{"club" => false}` and expecting six `true`s to be inferred would
       # make the contract depend on a list only this side has.
-      "display" => PublicDisplay.resolve(t.public_display)
+      "display" => PublicDisplay.resolve(t.public_display),
+
+      # Added 2026-09-30. How the hall display (the results site's full-screen
+      # page for a TV in the playing hall) runs, and the arbiter's
+      # announcement. Resolved like `display`; `announcement` is omitted when
+      # there is none. Preferences for that screen only - it never widens what
+      # `display` and the round levels make public.
+      "hall" => HallDisplay.resolve(t.public_hall)
     }
     |> put_tournament_categories(t)
     |> put_team_event(t)

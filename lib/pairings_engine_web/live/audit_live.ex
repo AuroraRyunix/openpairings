@@ -116,7 +116,8 @@ defmodule PairingsEngineWeb.AuditLive do
         forbidden_pairing.added forbidden_pairing.removed
         category.created category.removed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
-        openresults.toggled openresults.listed openresults.display openresults.taken_down
+        openresults.toggled openresults.listed openresults.display openresults.hall
+        openresults.taken_down
         openresults.auto_publish
         openresults.kept_withdrawn
         openresults.claim_adopted openresults.claim_discarded openresults.public_consent_given
@@ -1289,6 +1290,40 @@ defmodule PairingsEngineWeb.AuditLive do
       if(hidden != [], do: gettext("Hidden: %{fields}.", fields: shown(hidden))),
       if(tiebreaks != [],
         do: gettext("Hidden tie-breaks: %{tiebreaks}.", tiebreaks: shown(tiebreaks))
+      )
+    ])
+  end
+
+  # The hall display card on Settings -> OpenResults - the whole setting
+  # after the save, like `openresults.display` above. `announcement` is
+  # whether there is one: its text is on the results site, not in the log.
+  def describe("openresults.hall", d) do
+    views =
+      for {key, label} <- [
+            {"pairings", gettext("pairings")},
+            {"names", gettext("find your board")},
+            {"results", gettext("results")},
+            {"standings", gettext("standings")}
+          ],
+          truthy?(d[key]),
+          do: label
+
+    sentences([
+      gettext("Changed the hall display."),
+      if(views == [],
+        do: gettext("It shows none of its views."),
+        else: gettext("It cycles through %{views}.", views: Enum.join(views, ", "))
+      ),
+      gettext("%{seconds} seconds per page, the top %{n} of the standings.",
+        seconds: value(d, "page_seconds"),
+        n: value(d, "standings_top")
+      ),
+      if(truthy?(d["hold_new_round"]),
+        do: gettext("It holds on the pairings until a new round's first result is in.")
+      ),
+      if(truthy?(d["announcement"]),
+        do: gettext("With an announcement."),
+        else: gettext("No announcement.")
       )
     ])
   end

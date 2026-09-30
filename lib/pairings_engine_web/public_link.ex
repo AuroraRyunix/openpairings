@@ -38,14 +38,15 @@ defmodule PairingsEngineWeb.PublicLink do
   the two apps together far more tightly than the snapshot contract does - a
   route rename over there would break links printed on paper over here. So a
   tournament gets its front page and the reader finds their own way; only
-  registration, a distinct destination rather than a view of the same thing,
-  is addressed directly.
+  registration and the hall display (`/t/:slug/hall`, the full-screen page for
+  a TV in the playing hall) - distinct destinations rather than views of the
+  same thing - are addressed directly.
   """
 
   alias PairingsEngine.Publishing
   alias PairingsEngine.Tournaments.Tournament
 
-  @type target :: :standings | :pairings | :register
+  @type target :: :standings | :pairings | :register | :hall
 
   @doc """
   Whether this tournament has a public address at all.
@@ -139,6 +140,9 @@ defmodule PairingsEngineWeb.PublicLink do
 
   defp path(%Tournament{public_slug: slug}, :register),
     do: "/t/#{URI.encode_www_form(slug)}/register"
+
+  defp path(%Tournament{public_slug: slug}, :hall),
+    do: "/t/#{URI.encode_www_form(slug)}/hall"
 
   defp path(%Tournament{public_slug: slug}, _front_page),
     do: "/t/#{URI.encode_www_form(slug)}"
