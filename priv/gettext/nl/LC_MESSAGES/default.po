@@ -859,8 +859,8 @@ msgstr "Uitgenodigd door"
 msgid "KBSB lookup"
 msgstr "KBSB-opzoeking"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1153
-#: lib/pairings_engine_web/controllers/print_controller.ex:1233
+#: lib/pairings_engine_web/controllers/print_controller.ex:1156
+#: lib/pairings_engine_web/controllers/print_controller.ex:1236
 #: lib/pairings_engine_web/live/live_round_live.ex:950
 #: lib/pairings_engine_web/live/standings_live.ex:1030
 #, elixir-autogen, elixir-format
@@ -2116,7 +2116,7 @@ msgstr "Er is een speler toegevoegd nadat dit werd ingeschakeld, en die heeft no
 msgid "A recorded result will be cleared - it described a game between players who are no longer both on that board."
 msgstr "Een geregistreerd resultaat wordt gewist - het beschreef een partij tussen spelers die niet allebei meer aan dat bord zitten."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1116
+#: lib/pairings_engine_web/controllers/print_controller.ex:1119
 #: lib/pairings_engine_web/live/standings_live.ex:748
 #, elixir-autogen, elixir-format
 msgid "A result changed since this order was last set - it may no longer match the real standings."
@@ -2590,7 +2590,7 @@ msgstr "(%{points} pt)"
 msgid "(beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a plain \"Arbiter\" row)"
 msgstr "(bovenop de hoofdarbiter + 2 hulparbiters - FIDE rangschikt deze niet, dus IT3 drukt elk af als een gewone \"Arbiter\"-regel)"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1989
+#: lib/pairings_engine_web/controllers/print_controller.ex:1992
 #, elixir-autogen, elixir-format
 msgid "(table %{n})"
 msgstr "(tafel %{n})"
@@ -2617,7 +2617,7 @@ msgid_plural "- apply these?"
 msgstr[0] "- dit toepassen?"
 msgstr[1] "- deze toepassen?"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1125
+#: lib/pairings_engine_web/controllers/print_controller.ex:1128
 #, elixir-autogen, elixir-format
 msgid "A player was added after this was turned on and has not been placed yet."
 msgstr "Er is een speler toegevoegd nadat dit werd ingeschakeld, en die heeft nog geen plaats gekregen."
@@ -2703,18 +2703,18 @@ msgstr "Terug"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:710
 #: lib/pairings_engine_web/controllers/print_controller.ex:771
-#: lib/pairings_engine_web/controllers/print_controller.ex:949
-#: lib/pairings_engine_web/controllers/print_controller.ex:974
-#: lib/pairings_engine_web/controllers/print_controller.ex:987
-#: lib/pairings_engine_web/controllers/print_controller.ex:1405
-#: lib/pairings_engine_web/controllers/print_controller.ex:1551
-#: lib/pairings_engine_web/controllers/print_controller.ex:1662
-#: lib/pairings_engine_web/controllers/print_controller.ex:1667
-#: lib/pairings_engine_web/controllers/print_controller.ex:1678
-#: lib/pairings_engine_web/controllers/print_controller.ex:1883
+#: lib/pairings_engine_web/controllers/print_controller.ex:952
+#: lib/pairings_engine_web/controllers/print_controller.ex:977
+#: lib/pairings_engine_web/controllers/print_controller.ex:990
+#: lib/pairings_engine_web/controllers/print_controller.ex:1408
+#: lib/pairings_engine_web/controllers/print_controller.ex:1554
+#: lib/pairings_engine_web/controllers/print_controller.ex:1665
+#: lib/pairings_engine_web/controllers/print_controller.ex:1670
+#: lib/pairings_engine_web/controllers/print_controller.ex:1681
+#: lib/pairings_engine_web/controllers/print_controller.ex:1886
 #: lib/pairings_engine_web/live/live_round_live.ex:764
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:396
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:418
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:412
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:440
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1341
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2998
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3377
@@ -2730,12 +2730,12 @@ msgstr "Zwart"
 #: lib/pairings_engine_web/components/layouts.ex:811
 #: lib/pairings_engine_web/controllers/print_controller.ex:707
 #: lib/pairings_engine_web/controllers/print_controller.ex:791
-#: lib/pairings_engine_web/controllers/print_controller.ex:947
-#: lib/pairings_engine_web/controllers/print_controller.ex:1006
-#: lib/pairings_engine_web/controllers/print_controller.ex:1417
-#: lib/pairings_engine_web/controllers/print_controller.ex:1575
+#: lib/pairings_engine_web/controllers/print_controller.ex:950
+#: lib/pairings_engine_web/controllers/print_controller.ex:1009
+#: lib/pairings_engine_web/controllers/print_controller.ex:1420
+#: lib/pairings_engine_web/controllers/print_controller.ex:1578
 #: lib/pairings_engine_web/live/live_round_live.ex:761
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:394
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:408
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2996
 #: lib/pairings_engine_web/live/pairings_live.ex:4110
 #: lib/pairings_engine_web/live/settings_export_live.ex:783
@@ -2807,8 +2807,8 @@ msgstr "Kandidaat"
 msgid "Categories"
 msgstr "Categorieën"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1147
-#: lib/pairings_engine_web/controllers/print_controller.ex:1168
+#: lib/pairings_engine_web/controllers/print_controller.ex:1150
+#: lib/pairings_engine_web/controllers/print_controller.ex:1171
 #: lib/pairings_engine_web/live/categories_live.ex:815
 #: lib/pairings_engine_web/live/players_live.ex:3041
 #: lib/pairings_engine_web/live/standings_live.ex:698
@@ -2818,8 +2818,8 @@ msgstr "Categorieën"
 msgid "Category"
 msgstr "Categorie"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1215
-#: lib/pairings_engine_web/controllers/print_controller.ex:1231
+#: lib/pairings_engine_web/controllers/print_controller.ex:1218
+#: lib/pairings_engine_web/controllers/print_controller.ex:1234
 #, elixir-autogen, elixir-format
 msgid "Category: %{name}"
 msgstr "Categorie: %{name}"
@@ -2835,7 +2835,7 @@ msgstr "Wijzigingen"
 msgid "Changing..."
 msgstr "Bezig met wijzigen..."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2129
+#: lib/pairings_engine_web/controllers/print_controller.ex:2132
 #, elixir-autogen, elixir-format
 msgid "Chief arbiter: %{value}"
 msgstr "Hoofdarbiter: %{value}"
@@ -2868,8 +2868,8 @@ msgstr "Code %{code}"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:547
 #: lib/pairings_engine_web/controllers/print_controller.ex:792
-#: lib/pairings_engine_web/controllers/print_controller.ex:1006
-#: lib/pairings_engine_web/controllers/print_controller.ex:1418
+#: lib/pairings_engine_web/controllers/print_controller.ex:1009
+#: lib/pairings_engine_web/controllers/print_controller.ex:1421
 #: lib/pairings_engine_web/live/badge_studio_live.ex:1409
 #, elixir-autogen, elixir-format
 msgid "Colour"
@@ -2901,8 +2901,8 @@ msgstr "Account wordt aangemaakt..."
 msgid "Credits"
 msgstr "Met dank aan"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1786
-#: lib/pairings_engine_web/controllers/print_controller.ex:1834
+#: lib/pairings_engine_web/controllers/print_controller.ex:1789
+#: lib/pairings_engine_web/controllers/print_controller.ex:1837
 #, elixir-autogen, elixir-format
 msgid "Cross table"
 msgstr "Kruistabel"
@@ -2930,12 +2930,12 @@ msgstr "Cycli"
 msgid "Dates"
 msgstr "Data"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2152
+#: lib/pairings_engine_web/controllers/print_controller.ex:2155
 #, elixir-autogen, elixir-format
 msgid "Dates: %{from} - %{to}"
 msgstr "Data: %{from} - %{to}"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2155
+#: lib/pairings_engine_web/controllers/print_controller.ex:2158
 #, elixir-autogen, elixir-format
 msgid "Dates: %{value}"
 msgstr "Data: %{value}"
@@ -2960,7 +2960,7 @@ msgstr "Verwijderen"
 msgid "Deleted"
 msgstr "Verwijderd"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2132
+#: lib/pairings_engine_web/controllers/print_controller.ex:2135
 #, elixir-autogen, elixir-format
 msgid "Deputy arbiter: %{value}"
 msgstr "Hulparbiter: %{value}"
@@ -3033,7 +3033,7 @@ msgstr "Vervalt %{when}."
 msgid "Export"
 msgstr "Exporteren"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2138
+#: lib/pairings_engine_web/controllers/print_controller.ex:2141
 #, elixir-autogen, elixir-format
 msgid "FIDE ID: %{value}"
 msgstr "FIDE-ID: %{value}"
@@ -3055,7 +3055,7 @@ msgstr "FIDE identificeert elke functionaris via het FIDE-ID, dus een rapport wa
 msgid "Federation"
 msgstr "Federatie"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2124
+#: lib/pairings_engine_web/controllers/print_controller.ex:2127
 #, elixir-autogen, elixir-format
 msgid "Federation: %{value}"
 msgstr "Federatie: %{value}"
@@ -3180,7 +3180,7 @@ msgstr "Lokale mailadapter - verzonden e-mails verschijnen in %[mailbox]."
 msgid "Logo"
 msgstr "Logo"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1129
+#: lib/pairings_engine_web/controllers/print_controller.ex:1132
 #, elixir-autogen, elixir-format
 msgid "MANUAL RANKING IS ON."
 msgstr "HANDMATIGE RANGSCHIKKING STAAT AAN."
@@ -3197,9 +3197,9 @@ msgstr "Master"
 
 #: lib/pairings_engine_web/components/arbiter_combo.ex:85
 #: lib/pairings_engine_web/controllers/print_controller.ex:445
-#: lib/pairings_engine_web/controllers/print_controller.ex:1293
-#: lib/pairings_engine_web/controllers/print_controller.ex:1783
-#: lib/pairings_engine_web/controllers/print_controller.ex:1826
+#: lib/pairings_engine_web/controllers/print_controller.ex:1296
+#: lib/pairings_engine_web/controllers/print_controller.ex:1786
+#: lib/pairings_engine_web/controllers/print_controller.ex:1829
 #: lib/pairings_engine_web/live/badge_studio_live.ex:747
 #: lib/pairings_engine_web/live/live_round_live.ex:912
 #: lib/pairings_engine_web/live/live_round_live.ex:947
@@ -3286,8 +3286,8 @@ msgstr "%{name} openen"
 #: lib/pairings_engine_web/controllers/print_controller.ex:546
 #: lib/pairings_engine_web/controllers/print_controller.ex:620
 #: lib/pairings_engine_web/controllers/print_controller.ex:793
-#: lib/pairings_engine_web/controllers/print_controller.ex:1007
-#: lib/pairings_engine_web/controllers/print_controller.ex:1576
+#: lib/pairings_engine_web/controllers/print_controller.ex:1010
+#: lib/pairings_engine_web/controllers/print_controller.ex:1579
 #: lib/pairings_engine_web/live/players_live.ex:3278
 #, elixir-autogen, elixir-format
 msgid "Opponent"
@@ -3321,7 +3321,7 @@ msgstr "Betaald"
 msgid "Pair"
 msgstr "Paren"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2080
+#: lib/pairings_engine_web/controllers/print_controller.ex:2083
 #, elixir-autogen, elixir-format
 msgid "Paired by OpenPairings using %{engine} · many thanks to Tom Wuyts for his valuable feedback."
 msgstr "Gepaard door OpenPairings met %{engine} · met dank aan Tom Wuyts voor zijn waardevolle feedback."
@@ -3402,11 +3402,11 @@ msgstr "Plaatskaartjes"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:790
 #: lib/pairings_engine_web/controllers/print_controller.ex:846
-#: lib/pairings_engine_web/controllers/print_controller.ex:1005
+#: lib/pairings_engine_web/controllers/print_controller.ex:1008
 #: lib/pairings_engine_web/live/badge_studio_live.ex:611
 #: lib/pairings_engine_web/live/categories_live.ex:963
 #: lib/pairings_engine_web/live/live_round_live.ex:878
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:458
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:488
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3577
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3607
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3854
@@ -3431,7 +3431,7 @@ msgstr "Speler niet gevonden"
 #: lib/pairings_engine_web/live/badge_studio_live.ex:174
 #: lib/pairings_engine_web/live/categories_live.ex:771
 #: lib/pairings_engine_web/live/extra_points_live.ex:230
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:441
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:468
 #: lib/pairings_engine_web/live/players_live.ex:2346
 #: lib/pairings_engine_web/live/tools_norms_live.ex:968
 #: lib/pairings_engine_web/live/tournaments_live.ex:2490
@@ -3469,10 +3469,10 @@ msgstr "Vorige"
 msgid "Print"
 msgstr "Afdrukken"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1293
-#: lib/pairings_engine_web/controllers/print_controller.ex:1460
-#: lib/pairings_engine_web/controllers/print_controller.ex:1782
-#: lib/pairings_engine_web/controllers/print_controller.ex:1827
+#: lib/pairings_engine_web/controllers/print_controller.ex:1296
+#: lib/pairings_engine_web/controllers/print_controller.ex:1463
+#: lib/pairings_engine_web/controllers/print_controller.ex:1785
+#: lib/pairings_engine_web/controllers/print_controller.ex:1830
 #: lib/pairings_engine_web/live/live_round_live.ex:911
 #: lib/pairings_engine_web/live/live_round_live.ex:946
 #: lib/pairings_engine_web/live/standings_live.ex:834
@@ -3482,7 +3482,7 @@ msgstr "Afdrukken"
 msgid "Rank"
 msgstr "Plaats"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2135
+#: lib/pairings_engine_web/controllers/print_controller.ex:2138
 #, elixir-autogen, elixir-format
 msgid "Rate of play: %{value}"
 msgstr "Speeltempo: %{value}"
@@ -3540,19 +3540,19 @@ msgstr "Herstellen"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:547
 #: lib/pairings_engine_web/controllers/print_controller.ex:709
-#: lib/pairings_engine_web/controllers/print_controller.ex:1420
+#: lib/pairings_engine_web/controllers/print_controller.ex:1423
 #: lib/pairings_engine_web/live/live_round_live.ex:763
 #: lib/pairings_engine_web/live/pairings_live.ex:4114
 #, elixir-autogen, elixir-format
 msgid "Result"
 msgstr "Resultaat"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1614
+#: lib/pairings_engine_web/controllers/print_controller.ex:1617
 #, elixir-autogen, elixir-format
 msgid "Result cards - round %{n}"
 msgstr "Resultaatkaartjes - ronde %{n}"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1666
+#: lib/pairings_engine_web/controllers/print_controller.ex:1669
 #, elixir-autogen, elixir-format
 msgid "Result:"
 msgstr "Resultaat:"
@@ -3570,10 +3570,10 @@ msgstr "Ronde %{n}"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:686
 #: lib/pairings_engine_web/controllers/print_controller.ex:736
-#: lib/pairings_engine_web/controllers/print_controller.ex:1021
-#: lib/pairings_engine_web/controllers/print_controller.ex:1453
-#: lib/pairings_engine_web/controllers/print_controller.ex:1594
-#: lib/pairings_engine_web/controllers/print_controller.ex:1633
+#: lib/pairings_engine_web/controllers/print_controller.ex:1024
+#: lib/pairings_engine_web/controllers/print_controller.ex:1456
+#: lib/pairings_engine_web/controllers/print_controller.ex:1597
+#: lib/pairings_engine_web/controllers/print_controller.ex:1636
 #, elixir-autogen, elixir-format
 msgid "Round %{n} has not been paired yet"
 msgstr "Ronde %{n} is nog niet gepaard"
@@ -3584,17 +3584,17 @@ msgstr "Ronde %{n} is nog niet gepaard"
 msgid "Round %{n} has not been paired yet, so there is nothing to explain."
 msgstr "Ronde %{n} is nog niet gepaard, dus er valt niets te verklaren."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2007
+#: lib/pairings_engine_web/controllers/print_controller.ex:2010
 #, elixir-autogen, elixir-format
 msgid "Round %{round} · Board %{board}"
 msgstr "Ronde %{round} · bord %{board}"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2180
+#: lib/pairings_engine_web/controllers/print_controller.ex:2183
 #, elixir-autogen, elixir-format
 msgid "Round date: %{value}"
 msgstr "Rondedatum: %{value}"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:2183
+#: lib/pairings_engine_web/controllers/print_controller.ex:2186
 #, elixir-autogen, elixir-format
 msgid "Round dates: %{from} - %{to}"
 msgstr "Rondedata: %{from} - %{to}"
@@ -3653,15 +3653,15 @@ msgid "Scan the QR, or open %[url] on the phone and enter the code."
 msgstr "Scan de QR, of open %[url] op de telefoon en voer de code in."
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:548
-#: lib/pairings_engine_web/controllers/print_controller.ex:1154
-#: lib/pairings_engine_web/controllers/print_controller.ex:1234
+#: lib/pairings_engine_web/controllers/print_controller.ex:1157
+#: lib/pairings_engine_web/controllers/print_controller.ex:1237
 #: lib/pairings_engine_web/live/live_round_live.ex:951
 #: lib/pairings_engine_web/live/standings_live.ex:1032
 #, elixir-autogen, elixir-format
 msgid "Score"
 msgstr "Score"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1645
+#: lib/pairings_engine_web/controllers/print_controller.ex:1648
 #, elixir-autogen, elixir-format
 msgid "Score sheets - round %{n}"
 msgstr "Notatiebriefjes - ronde %{n}"
@@ -3679,7 +3679,7 @@ msgstr "Puntentelling"
 msgid "Settings"
 msgstr "Instellingen"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1294
+#: lib/pairings_engine_web/controllers/print_controller.ex:1297
 #, elixir-autogen, elixir-format
 msgid "Sex"
 msgstr "Geslacht"
@@ -3689,7 +3689,7 @@ msgstr "Geslacht"
 msgid "Shown on printed documents (place cards, and any other print page that has a logo slot - see %[print]). Only raster images (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this image is embedded straight back into pages the app serves. Capped at 2 MB."
 msgstr "Wordt getoond op afgedrukte documenten (plaatskaartjes, en elke andere afdrukpagina met een logoplaats - zie %[print]). Enkel rasterafbeeldingen (PNG, JPEG, GIF, WebP) worden aanvaard - SVG wordt geweigerd, omdat het scripts kan bevatten en deze afbeelding rechtstreeks in pagina's van de app wordt opgenomen. Maximaal 2 MB."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1901
+#: lib/pairings_engine_web/controllers/print_controller.ex:1904
 #, elixir-autogen, elixir-format
 msgid "Sign"
 msgstr "Handtekening"
@@ -3725,7 +3725,7 @@ msgstr "Standaard %{std} · Rapid %{rapid} · Blitz %{blitz}"
 msgid "Standings"
 msgstr "Stand"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1059
+#: lib/pairings_engine_web/controllers/print_controller.ex:1062
 #: lib/pairings_engine_web/live/standings_live.ex:637
 #, elixir-autogen, elixir-format
 msgid "Standings after round %{n}"
@@ -3779,7 +3779,7 @@ msgstr "Het FIDE-toernooi-ID hierboven wordt gebruikt telkens wanneer geen enkel
 msgid "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
 msgstr "De hoofdarbiter, de hulparbiters en de e-mailadressen van de organisator en de hoofdarbiter bewerk je op de pagina %[norms], want daar dienen ze voor - de formulieren IT3, FA1 en IA1 worden eruit opgebouwd. (De %[name] van de organisator staat hierboven, onder Algemeen.)"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1130
+#: lib/pairings_engine_web/controllers/print_controller.ex:1133
 #, elixir-autogen, elixir-format
 msgid "The rank column below is the arbiter's hand-set order, not the computed tiebreak order."
 msgstr "De plaatskolom hieronder is de door de arbiter handmatig ingestelde volgorde, niet de berekende tiebreakvolgorde."
@@ -3878,7 +3878,7 @@ msgid "Tools"
 msgstr "Hulpmiddelen"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:623
-#: lib/pairings_engine_web/controllers/print_controller.ex:1244
+#: lib/pairings_engine_web/controllers/print_controller.ex:1247
 #: lib/pairings_engine_web/live/players_live.ex:3316
 #: lib/pairings_engine_web/live/standings_live.ex:870
 #, elixir-autogen, elixir-format
@@ -3954,8 +3954,8 @@ msgstr "Bezig met bijwerken…"
 msgid "Uploaded file says: %{hint} - no confident FIDE match, please search or type it in."
 msgstr "Het geüploade bestand zegt: %{hint} - geen zekere FIDE-match, zoek of typ het zelf in."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1153
-#: lib/pairings_engine_web/controllers/print_controller.ex:1233
+#: lib/pairings_engine_web/controllers/print_controller.ex:1156
+#: lib/pairings_engine_web/controllers/print_controller.ex:1236
 #: lib/pairings_engine_web/live/live_round_live.ex:949
 #: lib/pairings_engine_web/live/standings_live.ex:1028
 #, elixir-autogen, elixir-format
@@ -3986,18 +3986,18 @@ msgstr "Wanneer"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:708
 #: lib/pairings_engine_web/controllers/print_controller.ex:765
-#: lib/pairings_engine_web/controllers/print_controller.ex:948
-#: lib/pairings_engine_web/controllers/print_controller.ex:974
-#: lib/pairings_engine_web/controllers/print_controller.ex:986
-#: lib/pairings_engine_web/controllers/print_controller.ex:1405
-#: lib/pairings_engine_web/controllers/print_controller.ex:1550
-#: lib/pairings_engine_web/controllers/print_controller.ex:1660
-#: lib/pairings_engine_web/controllers/print_controller.ex:1667
-#: lib/pairings_engine_web/controllers/print_controller.ex:1677
-#: lib/pairings_engine_web/controllers/print_controller.ex:1882
+#: lib/pairings_engine_web/controllers/print_controller.ex:951
+#: lib/pairings_engine_web/controllers/print_controller.ex:977
+#: lib/pairings_engine_web/controllers/print_controller.ex:989
+#: lib/pairings_engine_web/controllers/print_controller.ex:1408
+#: lib/pairings_engine_web/controllers/print_controller.ex:1553
+#: lib/pairings_engine_web/controllers/print_controller.ex:1663
+#: lib/pairings_engine_web/controllers/print_controller.ex:1670
+#: lib/pairings_engine_web/controllers/print_controller.ex:1680
+#: lib/pairings_engine_web/controllers/print_controller.ex:1885
 #: lib/pairings_engine_web/live/live_round_live.ex:762
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:395
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:417
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:410
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:438
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1340
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2997
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3369
@@ -4047,7 +4047,7 @@ msgstr "gearchiveerd"
 msgid "branched"
 msgstr "vertakt"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:980
+#: lib/pairings_engine_web/controllers/print_controller.ex:983
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3014
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3119
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3481
@@ -4095,7 +4095,7 @@ msgstr "geen federatie"
 msgid "none"
 msgstr "geen"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1886
+#: lib/pairings_engine_web/controllers/print_controller.ex:1889
 #, elixir-autogen, elixir-format
 msgid "other:"
 msgstr "andere:"
@@ -7418,7 +7418,7 @@ msgstr "Akkoord en publiceren"
 msgid "Asking the results site who runs it..."
 msgstr "Navragen wie de uitslagensite beheert..."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:303
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:312
 #: lib/pairings_engine_web/public_consent.ex:185
 #, elixir-autogen, elixir-format
 msgid "Close"
@@ -9135,7 +9135,7 @@ msgstr "%{team} een plaats omlaag gezet."
 msgid "%{team} moved up."
 msgstr "%{team} een plaats omhoog gezet."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1438
+#: lib/pairings_engine_web/controllers/print_controller.ex:1441
 #, elixir-autogen, elixir-format
 msgid "- no player -"
 msgstr "- geen speler -"
@@ -9190,9 +9190,9 @@ msgstr "Bordvolgorde van %{team}"
 msgid "Board statistics"
 msgstr "Bordstatistieken"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:973
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:416
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:440
+#: lib/pairings_engine_web/controllers/print_controller.ex:976
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:436
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:466
 #: lib/pairings_engine_web/live/pairings_live.ex:3944
 #: lib/pairings_engine_web/live/settings_export_live.ex:674
 #: lib/pairings_engine_web/live/standings_live.ex:1220
@@ -9272,7 +9272,7 @@ msgstr "Vergrendeld: ronde 1 is gepaard."
 msgid "Match"
 msgstr "Wedstrijd"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1390
+#: lib/pairings_engine_web/controllers/print_controller.ex:1393
 #, elixir-autogen, elixir-format
 msgid "Match %{n}"
 msgstr "Wedstrijd %{n}"
@@ -9400,7 +9400,7 @@ msgstr "Ploegen gerangschikt op rating."
 msgid "Performance rating over games played"
 msgstr "Performance over de gespeelde partijen"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1461
+#: lib/pairings_engine_web/controllers/print_controller.ex:1464
 #: lib/pairings_engine_web/live/standings_live.ex:1158
 #, elixir-autogen, elixir-format
 msgid "Played"
@@ -9431,7 +9431,7 @@ msgstr "Hernoemen"
 msgid "Renamed team %{previous} to %{team}."
 msgstr "Ploeg %{previous} hernoemd naar %{team}."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1345
+#: lib/pairings_engine_web/controllers/print_controller.ex:1348
 #, elixir-autogen, elixir-format
 msgid "Round %{n} has no team matches"
 msgstr "Ronde %{n} heeft geen ploegenwedstrijden"
@@ -9457,7 +9457,7 @@ msgstr "Korte naam"
 msgid "Take %{player} off %{team}"
 msgstr "%{player} uit %{team} halen"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1460
+#: lib/pairings_engine_web/controllers/print_controller.ex:1463
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2494
 #: lib/pairings_engine_web/live/pairings_live.ex:3947
 #: lib/pairings_engine_web/live/standings_live.ex:1157
@@ -9497,7 +9497,7 @@ msgstr "Naam van de ploeg"
 msgid "Team pairings (latest round)"
 msgstr "Ploegenparingen (laatste ronde)"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1358
+#: lib/pairings_engine_web/controllers/print_controller.ex:1361
 #, elixir-autogen, elixir-format
 msgid "Team pairings - round %{n}"
 msgstr "Ploegenparingen - ronde %{n}"
@@ -9508,7 +9508,7 @@ msgstr "Ploegenparingen - ronde %{n}"
 msgid "Team standings"
 msgstr "Ploegenstand"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1482
+#: lib/pairings_engine_web/controllers/print_controller.ex:1485
 #, elixir-autogen, elixir-format
 msgid "Team standings after round %{n}"
 msgstr "Ploegenstand na ronde %{n}"
@@ -9579,7 +9579,7 @@ msgstr "%{player} uit ploeg %{team} gehaald."
 msgid "Updated team %{team}."
 msgstr "Ploeg %{team} bijgewerkt."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1461
+#: lib/pairings_engine_web/controllers/print_controller.ex:1464
 #: lib/pairings_engine_web/live/standings_live.ex:1160
 #, elixir-autogen, elixir-format
 msgid "W-D-L"
@@ -9595,7 +9595,7 @@ msgstr "Gewonnen - gelijk - verloren"
 msgid "Working"
 msgstr "Berekening"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1373
+#: lib/pairings_engine_web/controllers/print_controller.ex:1376
 #: lib/pairings_engine_web/live/pairings_live.ex:3965
 #, elixir-autogen, elixir-format
 msgid "does not play this round"
@@ -9681,7 +9681,7 @@ msgstr "Dit Zwitserse ploegentoernooi paart speler per speler"
 msgid "not paired"
 msgstr "niet gepaard"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1368
+#: lib/pairings_engine_web/controllers/print_controller.ex:1371
 #: lib/pairings_engine_web/live/pairings_live.ex:3967
 #, elixir-autogen, elixir-format
 msgid "pairing-allocated bye, scored as a drawn match"
@@ -10404,7 +10404,7 @@ msgstr "Zwitsers (Dutch), rondetoernooi, Keizer & ploegentoernooien"
 msgid "TRF-2026, TRF, SWAR & PGN import / export, plus FIDE & KBSB rating lists"
 msgstr "TRF-2026, TRF, SWAR & PGN import / export, plus FIDE- & KBSB-ratinglijsten"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1306
+#: lib/pairings_engine_web/controllers/print_controller.ex:1309
 #: lib/pairings_engine_web/live/standings_live.ex:854
 #: lib/pairings_engine_web/live/standings_live.ex:1025
 #, elixir-autogen, elixir-format
@@ -11442,7 +11442,7 @@ msgid_plural "Recorded %{count} boards without a result in round %{round} as pos
 msgstr[0] "%{count} bord zonder resultaat in ronde %{round} genoteerd als uitgestelde partij, om de volgende ronde te paren."
 msgstr[1] "%{count} borden zonder resultaat in ronde %{round} genoteerd als uitgestelde partijen, om de volgende ronde te paren."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1574
+#: lib/pairings_engine_web/controllers/print_controller.ex:1577
 #: lib/pairings_engine_web/live/settings_export_live.ex:673
 #: lib/pairings_engine_web/live/settings_export_live.ex:782
 #, elixir-autogen, elixir-format
@@ -11991,7 +11991,7 @@ msgstr "(voorlopig)"
 msgid "A calendar file (.ics) for the agreed date"
 msgstr "Een agendabestand (.ics) voor de afgesproken datum"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1578
+#: lib/pairings_engine_web/controllers/print_controller.ex:1581
 #, elixir-autogen, elixir-format
 msgid "Agreed date"
 msgstr "Afgesproken datum"
@@ -12083,7 +12083,7 @@ msgstr "mei"
 msgid "Moved the postponed game on board %{board} of round %{round} from %{from} to %{to}."
 msgstr "Verplaatste de uitgestelde partij op bord %{board} van ronde %{round} van %{from} naar %{to}."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1530
+#: lib/pairings_engine_web/controllers/print_controller.ex:1533
 #, elixir-autogen, elixir-format
 msgid "No postponed game is still to be played."
 msgstr "Er moet geen uitgestelde partij meer gespeeld worden."
@@ -12108,7 +12108,7 @@ msgstr "oktober"
 msgid "One slip per player of every postponed game still to be played: round, board, opponent, agreed date and venue."
 msgstr "Eén briefje per speler van elke uitgestelde partij die nog gespeeld moet worden: ronde, bord, tegenstander, afgesproken datum en speelzaal."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1570
+#: lib/pairings_engine_web/controllers/print_controller.ex:1573
 #, elixir-autogen, elixir-format
 msgid "Postponed game"
 msgstr "Uitgestelde partij"
@@ -12118,7 +12118,7 @@ msgstr "Uitgestelde partij"
 msgid "Postponed game: %{white} - %{black}"
 msgstr "Uitgestelde partij: %{white} - %{black}"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1539
+#: lib/pairings_engine_web/controllers/print_controller.ex:1542
 #, elixir-autogen, elixir-format
 msgid "Postponed games - notices for the players"
 msgstr "Uitgestelde partijen - briefjes voor de spelers"
@@ -12176,22 +12176,22 @@ msgstr "Die partij is niet meer uitgesteld."
 msgid "That game is not a postponed game still to be played with an agreed date."
 msgstr "Die partij is geen uitgestelde partij die nog gespeeld moet worden met een afgesproken datum."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1525
+#: lib/pairings_engine_web/controllers/print_controller.ex:1528
 #, elixir-autogen, elixir-format
 msgid "That game is not a postponed game still to be played."
 msgstr "Die partij is geen uitgestelde partij die nog gespeeld moet worden."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1582
+#: lib/pairings_engine_web/controllers/print_controller.ex:1585
 #, elixir-autogen, elixir-format
 msgid "Until it is played the game counts provisionally in the standings. Hand the result to the arbiter as soon as it is known."
 msgstr "Tot ze gespeeld is, telt de partij voorlopig mee in de stand. Geef het resultaat aan de arbiter zodra het bekend is."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1579
+#: lib/pairings_engine_web/controllers/print_controller.ex:1582
 #, elixir-autogen, elixir-format
 msgid "Venue"
 msgstr "Speelzaal"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1577
+#: lib/pairings_engine_web/controllers/print_controller.ex:1580
 #, elixir-autogen, elixir-format
 msgid "Your colour"
 msgstr "Jouw kleur"
@@ -12206,7 +12206,7 @@ msgstr "geen datum"
 msgid "no date agreed yet"
 msgstr "nog geen datum afgesproken"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1558
+#: lib/pairings_engine_web/controllers/print_controller.ex:1561
 #, elixir-autogen, elixir-format
 msgid "still to be agreed with the arbiter"
 msgstr "nog af te spreken met de arbiter"
@@ -13796,172 +13796,172 @@ msgstr "Dat bestand kon niet worden geüpload. Los het probleem hierboven op en 
 msgid "Uploading…"
 msgstr "Bezig met uploaden…"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:253
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:570
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:259
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:605
 #, elixir-autogen, elixir-format
 msgid "%{count} games still open - the next-round preview is available when %{max} or fewer remain."
 msgstr "Nog %{count} partijen bezig - de voorvertoning van de volgende ronde is beschikbaar zodra er nog %{max} of minder open zijn."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:243
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:250
 #, elixir-autogen, elixir-format
 msgid "1 game still open: see which boards of the next round are already certain."
 msgid_plural "%{count} games still open: see which boards of the next round are already certain."
 msgstr[0] "Nog 1 partij bezig: bekijk welke borden van de volgende ronde al vastliggen."
 msgstr[1] "Nog %{count} partijen bezig: bekijk welke borden van de volgende ronde al vastliggen."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:501
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:536
 #, elixir-autogen, elixir-format
 msgid "1 pair fixed, board may shift"
 msgid_plural "%{count} pairs fixed, board may shift"
 msgstr[0] "1 paar vast, bord kan nog verschuiven"
 msgstr[1] "%{count} paren vast, bord kan nog verschuiven"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:507
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:542
 #, elixir-autogen, elixir-format
 msgid "1 pair fixed, colours open"
 msgid_plural "%{count} pairs fixed, colours open"
 msgstr[0] "1 paar vast, kleuren nog open"
 msgstr[1] "%{count} paren vast, kleuren nog open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:513
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:548
 #, elixir-autogen, elixir-format
 msgid "1 player open"
 msgid_plural "%{count} players open"
 msgstr[0] "1 speler open"
 msgstr[1] "%{count} spelers open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:324
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:332
 #, elixir-autogen, elixir-format
 msgid "A result or the field changed - updating…"
 msgstr "Er is een resultaat of iets aan het deelnemersveld gewijzigd - bijwerken…"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:497
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:532
 #, elixir-autogen, elixir-format
 msgid "Board %{boards} fixed"
 msgid_plural "Boards %{boards} fixed"
 msgstr[0] "Bord %{boards} vast"
 msgstr[1] "Borden %{boards} vast"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:478
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:513
 #, elixir-autogen, elixir-format
 msgid "Bye: %{name}, whatever the results."
 msgstr "Bye: %{name}, wat de resultaten ook worden."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:480
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:515
 #, elixir-autogen, elixir-format
 msgid "Bye: open - %{names} (decided by %{games})."
 msgstr "Bye: open - %{names} (hangt af van %{games})."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:459
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:490
 #, elixir-autogen, elixir-format
 msgid "Could meet"
 msgstr "Mogelijke tegenstanders"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:460
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:492
 #, elixir-autogen, elixir-format
 msgid "Decided by"
 msgstr "Hangt af van"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:388
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:401
 #, elixir-autogen, elixir-format
 msgid "Fixed boards"
 msgstr "Vaste borden"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:370
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:382
 #, elixir-autogen, elixir-format
 msgid "From %{outcomes} outcomes of 1 open game (%{games})."
 msgid_plural "From %{outcomes} outcomes of %{count} open games (%{games})."
 msgstr[0] "Uit %{outcomes} mogelijke uitslagen van 1 open partij (%{games})."
 msgstr[1] "Uit %{outcomes} mogelijke uitslagen van %{count} open partijen (%{games})."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:379
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:392
 #, elixir-autogen, elixir-format
 msgid "In 1 outcome the round cannot be paired at all; it is left out of the comparison."
 msgid_plural "In %{count} outcomes the round cannot be paired at all; they are left out of the comparison."
 msgstr[0] "Bij 1 uitslag kan de ronde helemaal niet gepaard worden; die telt niet mee in de vergelijking."
 msgstr[1] "Bij %{count} uitslagen kan de ronde helemaal niet gepaard worden; die tellen niet mee in de vergelijking."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:1004
+#: lib/pairings_engine_web/controllers/print_controller.ex:1007
 #, elixir-autogen, elixir-format
 msgid "Name cards - fixed boards, by name"
 msgstr "Naamkaartjes - vaste borden, op naam"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:944
+#: lib/pairings_engine_web/controllers/print_controller.ex:947
 #, elixir-autogen, elixir-format
 msgid "No board is fixed yet."
 msgstr "Er ligt nog geen bord vast."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:317
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:326
 #, elixir-autogen, elixir-format
 msgid "No preview needed: every result of the round is in, or too many are missing."
 msgstr "Geen voorvertoning nodig: alle resultaten van de ronde zijn binnen, of er ontbreken er te veel."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:518
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:553
 #, elixir-autogen, elixir-format
 msgid "Nothing is certain yet."
 msgstr "Er ligt nog niets vast."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:928
+#: lib/pairings_engine_web/controllers/print_controller.ex:931
 #, elixir-autogen, elixir-format
 msgid "Nothing is saved: the round is paired as usual once the last result is in."
 msgstr "Er wordt niets opgeslagen: de ronde wordt zoals gewoonlijk gepaard zodra het laatste resultaat binnen is."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:454
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:483
 #, elixir-autogen, elixir-format
 msgid "Open - depends on the results"
 msgstr "Open - hangt af van de resultaten"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:411
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:430
 #, elixir-autogen, elixir-format
 msgid "Pair and colours fixed, board may shift"
 msgstr "Paar en kleuren vast, bord kan nog verschuiven"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:436
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:461
 #, elixir-autogen, elixir-format
 msgid "Pair fixed, colours open"
 msgstr "Paar vast, kleuren nog open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:350
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
 #, elixir-autogen, elixir-format
 msgid "Paired %{done} of %{total} variants"
 msgstr "%{done} van %{total} varianten gepaard"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:972
+#: lib/pairings_engine_web/controllers/print_controller.ex:975
 #, elixir-autogen, elixir-format
 msgid "Pairs already fixed, board not yet"
 msgstr "Paren die al vastliggen, bord nog niet"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:916
+#: lib/pairings_engine_web/controllers/print_controller.ex:919
 #, elixir-autogen, elixir-format
 msgid "Preview - not the pairing."
 msgstr "Voorvertoning - niet de paring."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:285
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:292
 #, elixir-autogen, elixir-format
 msgid "Preview - nothing is saved"
 msgstr "Voorvertoning - er wordt niets opgeslagen"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:240
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:246
 #, elixir-autogen, elixir-format
 msgid "Preview next round"
 msgstr "Volgende ronde voorvertonen"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:281
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:287
 #, elixir-autogen, elixir-format
 msgid "Preview of round %{n}"
 msgstr "Voorvertoning van ronde %{n}"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:282
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:288
 #, elixir-autogen, elixir-format
 msgid "Preview of the next round"
 msgstr "Voorvertoning van de volgende ronde"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:295
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:303
 #, elixir-autogen, elixir-format
 msgid "Print fixed boards"
 msgstr "Vaste borden afdrukken"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:357
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:368
 #, elixir-autogen, elixir-format
 msgid "Reading the tournament…"
 msgstr "Toernooi inlezen…"
@@ -13971,7 +13971,7 @@ msgstr "Toernooi inlezen…"
 msgid "Round %{n} - preview of the fixed boards"
 msgstr "Ronde %{n} - voorvertoning van de vaste borden"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:577
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:613
 #, elixir-autogen, elixir-format
 msgid "The next round cannot be paired in any outcome: %{reason}"
 msgstr "De volgende ronde kan bij geen enkele uitslag gepaard worden: %{reason}"
@@ -13981,76 +13981,76 @@ msgstr "De volgende ronde kan bij geen enkele uitslag gepaard worden: %{reason}"
 msgid "The next-round preview is not up to date. Open it on the Pairings page, wait until it has finished, then print again."
 msgstr "De voorvertoning van de volgende ronde is niet actueel. Open ze op de pagina Paringen, wacht tot ze klaar is en druk dan opnieuw af."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:566
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:601
 #, elixir-autogen, elixir-format
 msgid "The preview could not be worked out."
 msgstr "De voorvertoning kon niet berekend worden."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:582
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:618
 #, elixir-autogen, elixir-format
 msgid "The preview is not available for this round."
 msgstr "De voorvertoning is voor deze ronde niet beschikbaar."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:309
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:318
 #, elixir-autogen, elixir-format
 msgid "Worked out by pairing the next round for every possible result of the games still open, exactly as the real pairing will. Only the boards that come out the same whatever happens are certain. The round itself is paired as usual once the last result is in."
 msgstr "Berekend door de volgende ronde te paren voor elke mogelijke uitslag van de partijen die nog bezig zijn, precies zoals de echte paring dat zal doen. Alleen de borden die hoe dan ook hetzelfde uitkomen liggen vast. De ronde zelf wordt zoals gewoonlijk gepaard zodra het laatste resultaat binnen is."
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:919
+#: lib/pairings_engine_web/controllers/print_controller.ex:922
 #, elixir-autogen, elixir-format
 msgid "Worked out while 1 game of round %{round} was still being played (%{games}): only the boards that come out the same whatever its result are listed."
 msgid_plural "Worked out while %{count} games of round %{round} were still being played (%{games}): only the boards that come out the same whatever their results are listed."
 msgstr[0] "Berekend terwijl 1 partij van ronde %{round} nog bezig was (%{games}): alleen de borden die bij elke uitslag hetzelfde uitkomen staan hier."
 msgstr[1] "Berekend terwijl %{count} partijen van ronde %{round} nog bezig waren (%{games}): alleen de borden die bij elke uitslag hetzelfde uitkomen staan hier."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:537
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:572
 #, elixir-autogen, elixir-format
 msgid "about %{m} min left"
 msgstr "nog ongeveer %{m} min"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:535
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:570
 #, elixir-autogen, elixir-format
 msgid "about %{s} s left"
 msgstr "nog ongeveer %{s} s"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:554
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:589
 #, elixir-autogen, elixir-format
 msgid "and %{count} more"
 msgstr "en nog %{count}"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:912
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:375
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:562
+#: lib/pairings_engine_web/controllers/print_controller.ex:915
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:387
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:597
 #, elixir-autogen, elixir-format
 msgid "board %{b}"
 msgstr "bord %{b}"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:523
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:558
 #, elixir-autogen, elixir-format
 msgid "bye fixed"
 msgstr "bye vast"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:524
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:559
 #, elixir-autogen, elixir-format
 msgid "bye open"
 msgstr "bye open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:389
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:402
 #, elixir-autogen, elixir-format
 msgid "cards can go out"
 msgstr "kaartjes kunnen al klaargezet worden"
 
-#: lib/pairings_engine_web/controllers/print_controller.ex:956
+#: lib/pairings_engine_web/controllers/print_controller.ex:959
 #, elixir-autogen, elixir-format
 msgid "colours open"
 msgstr "kleuren open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:546
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:581
 #, elixir-autogen, elixir-format
 msgid "no board"
 msgstr "geen bord"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:545
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:580
 #, elixir-autogen, elixir-format
 msgid "the bye"
 msgstr "de bye"

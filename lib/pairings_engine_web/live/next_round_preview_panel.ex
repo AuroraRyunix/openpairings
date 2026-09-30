@@ -245,7 +245,7 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
             >
               <.icon name="hero-eye-micro" /> {gettext("Preview next round")}
             </button>
-            
+
             <span class="hint">
               {ngettext(
                 "1 game still open: see which boards of the next round are already certain.",
@@ -287,11 +287,11 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
             do: gettext("Preview of round %{n}", n: @preview.next_round),
             else: gettext("Preview of the next round")}
         </h2>
-        
+
         <span id="next-round-preview-label" class="badge nrp-badge">
           {gettext("Preview - nothing is saved")}
         </span>
-        
+
         <div class="nrp-head-actions">
           <a
             :if={@preview && !@state.running? && !@state.stale?}
@@ -302,7 +302,7 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           >
             <.icon name="hero-printer-micro" /> {gettext("Print fixed boards")}
           </a>
-          
+
           <button
             id="next-round-preview-close"
             type="button"
@@ -313,13 +313,13 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           </button>
         </div>
       </header>
-      
+
       <p class="hint nrp-explain">
         {gettext(
           "Worked out by pairing the next round for every possible result of the games still open, exactly as the real pairing will. Only the boards that come out the same whatever happens are certain. The round itself is paired as usual once the last result is in."
         )}
       </p>
-      
+
       <%= cond do %>
         <% not match?({:available, _}, @state.availability) -> %>
           <p id="next-round-preview-done" class="nrp-status">
@@ -335,11 +335,11 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           </p>
         <% true -> %>
       <% end %>
-      
+
       <p :if={@state.error} id="next-round-preview-error" class="error-note" role="alert">
         {error_text(@state.error)}
       </p>
-      
+
       <.results
         :if={@preview && match?({:available, _}, @state.availability)}
         preview={@preview}
@@ -359,7 +359,7 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           <span id="next-round-preview-count">
             {gettext("Paired %{done} of %{total} variants", done: done, total: total)}
           </span>
-          
+
           <span :if={eta_ms} id="next-round-preview-eta" class="hint">
             · {time_left(eta_ms)}
           </span>
@@ -377,7 +377,7 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
     ~H"""
     <div id="next-round-preview-results" class="nrp-results">
       <p id="next-round-preview-summary" class="nrp-summary">{summary(@preview)}</p>
-      
+
       <p class="hint">
         {ngettext(
           "From %{outcomes} outcomes of 1 open game (%{games}).",
@@ -387,7 +387,7 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           games: Enum.map_join(@preview.games, ", ", &gettext("board %{b}", b: &1.label))
         )}
       </p>
-      
+
       <p :if={@preview.failed > 0} id="next-round-preview-failures" class="error-note">
         {ngettext(
           "In 1 outcome the round cannot be paired at all; it is left out of the comparison.",
@@ -395,119 +395,119 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           @preview.failed
         )}
       </p>
-      
+
       <details :if={@preview.fixed != []} id="next-round-preview-fixed" class="nrp-group" open>
         <summary>
           <strong>{gettext("Fixed boards")}</strong>
           <span class="hint">{gettext("cards can go out")}</span>
         </summary>
-        
+
         <table class="pe-table nrp-table">
           <thead>
             <tr>
               <th class="num">{gettext("Board")}</th>
-              
+
               <th>{gettext("White")}</th>
-              
+
               <th>{gettext("Black")}</th>
             </tr>
           </thead>
-          
+
           <tbody>
             <tr :for={row <- @preview.fixed} id={"nrp-fixed-#{row.white}"}>
               <td class="num">{row.label}</td>
-              
+
               <td>{name(@preview, row.white)}</td>
-              
+
               <td>{name(@preview, row.black)}</td>
             </tr>
           </tbody>
         </table>
       </details>
-      
+
       <details :if={@preview.shifting != []} id="next-round-preview-shifting" class="nrp-group">
         <summary>
           <strong>{gettext("Pair and colours fixed, board may shift")}</strong>
         </summary>
-        
+
         <table class="pe-table nrp-table">
           <thead>
             <tr>
               <th class="num">{gettext("Boards")}</th>
-              
+
               <th>{gettext("White")}</th>
-              
+
               <th>{gettext("Black")}</th>
             </tr>
           </thead>
-          
+
           <tbody>
             <tr :for={row <- @preview.shifting} id={"nrp-shifting-#{row.white}"}>
               <td class="num">{NextRoundPreview.label_ranges(row.labels)}</td>
-              
+
               <td>{name(@preview, row.white)}</td>
-              
+
               <td>{name(@preview, row.black)}</td>
             </tr>
           </tbody>
         </table>
       </details>
-      
+
       <details
         :if={@preview.colours_open != []}
         id="next-round-preview-colours-open"
         class="nrp-group"
       >
         <summary><strong>{gettext("Pair fixed, colours open")}</strong></summary>
-        
+
         <table class="pe-table nrp-table">
           <thead>
             <tr>
               <th class="num">{gettext("Boards")}</th>
-              
+
               <th>{gettext("Players")}</th>
             </tr>
           </thead>
-          
+
           <tbody>
             <tr :for={row <- @preview.colours_open} id={"nrp-colours-#{hd(row.players)}"}>
               <td class="num">{NextRoundPreview.label_ranges(row.labels)}</td>
-              
+
               <td>{Enum.map_join(row.players, " – ", &name(@preview, &1))}</td>
             </tr>
           </tbody>
         </table>
       </details>
-      
+
       <details :if={@preview.open != []} id="next-round-preview-open-players" class="nrp-group">
         <summary><strong>{gettext("Open - depends on the results")}</strong></summary>
-        
+
         <table class="pe-table nrp-table">
           <thead>
             <tr>
               <th>{gettext("Player")}</th>
-              
+
               <th>{gettext("Could meet")}</th>
-              
+
               <th>{gettext("Decided by")}</th>
             </tr>
           </thead>
-          
+
           <tbody>
             <tr
               :for={row <- Enum.sort_by(@preview.open, &name(@preview, &1.player))}
               id={"nrp-open-#{row.player}"}
             >
               <td>{name(@preview, row.player)}</td>
-              
+
               <td class="nrp-wrap">{opponents(@preview, row.opponents)}</td>
-              
+
               <td>{games(@preview, row.depends_on)}</td>
             </tr>
           </tbody>
         </table>
       </details>
-      
+
       <p :if={@preview.bye.status != :none} id="next-round-preview-bye" class="nrp-bye">
         <%= if @preview.bye.status == :fixed do %>
           {gettext("Bye: %{name}, whatever the results.", name: name(@preview, @preview.bye.holder))}
