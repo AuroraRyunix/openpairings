@@ -310,12 +310,11 @@ defmodule PairingsEngine.MixProject do
       # a diff and in review. mix.lock still records the resolved commit, so
       # this is no less exact than a SHA was; it is only easier to read.
       #
-      # DEVELOPMENT ONLY (branch bye-preference): the engine's bye
-      # preferences live on Ainalrami's unreleased `bye-preference` branch, so
-      # this points at a local checkout of it. Switch back to a
-      # `github: ..., tag: "v..."` pin of the release that carries them
-      # before this branch is released.
-      {:ainalrami, path: "../openpair-byepref"}
+      # Until Ainalrami 0.35.0 is tagged: a SHA pin of its main, which
+      # carries the bye preferences and the slow-spots work. Replace it with
+      # `tag: "v0.35.0"` when that release is cut.
+      {:ainalrami,
+       github: "AuroraRyunix/Ainalrami", ref: "ebda358ff999f9f3a3a3474fcab7b721b4f5e2d3"}
     ]
   end
 

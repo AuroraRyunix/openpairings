@@ -44,6 +44,12 @@ Each entry is tagged so a version can be skimmed:
   keeps the stored ones but ignores them when pairing, and the Players and
   Pairings pages say whose are being ignored. The bye exclusion is
   unchanged.
+- [Performance] **Ainalrami's main (the coming 0.35.0): the slow rounds on
+  large fields are gone.** Rounds of big opens that took seconds - a
+  600-player round 2 took 2.9 s, a 1,001-player round 2 over 30 s - now
+  pair in about a tenth of a second or less, with every pairing identical to
+  0.34.0 on 447,152 compared rounds. It also carries the engine side of the
+  bye preferences above.
 
 ## [0.70.0] - 2026-09-28
 
