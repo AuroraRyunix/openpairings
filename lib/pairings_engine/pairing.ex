@@ -274,8 +274,9 @@ defmodule PairingsEngine.Pairing do
 
   defp draw_initial_colour_before_round_one(tournament, _next_number), do: tournament
 
-  defp max_pairable_round(%Tournament{swiss_match_format: true, rounds_count: n}), do: n - 1
-  defp max_pairable_round(%Tournament{rounds_count: n}), do: n
+  @doc false
+  def max_pairable_round(%Tournament{swiss_match_format: true, rounds_count: n}), do: n - 1
+  def max_pairable_round(%Tournament{rounds_count: n}), do: n
 
   # Calls `module.pair_next_round(tournament)` (module dispatched at runtime
   # so the compiler doesn't over-narrow the result type to today's single
@@ -429,6 +430,118 @@ defmodule PairingsEngine.Pairing do
     )
   end
 
+  ## ---------- the next-round preview ----------
+  #
+  # See `PairingsEngine.NextRoundPreview`. Two calls: `preview_context/1`
+  # reads, once, everything the real pairing would read from the database;
+  # `preview_round/2` then pairs the next round in memory for one set of
+  # results for the open games, through `plan_round/4` - the function the
+  # real pairing runs - and returns its boards. Nothing is written, ever:
+  # a late entrant's pairing number is handed out in memory only, and
+  # `save_plan/3` is never called.
+
+  @doc """
+  What pairing round `paired + 1` of an individual Swiss would read, read
+  once for the preview. `{:ok, context}` or `{:error, reason}`, the reason
+  one of `:not_individual_swiss`, `:read_only`, `:no_round`,
+  `:all_rounds_paired` and `:too_few_players` - the cases in which the real
+  "pair next round" would refuse whatever the results.
+  """
+  def preview_context(%Tournament{} = tournament) do
+    tournament = %{tournament | bye_exclusion_override: nil}
+    paired = paired_rounds_count(tournament.id)
+    next_number = paired + 1
+    active = active_players(tournament.id)
+
+    cond do
+      tournament.pairing_system != "swiss" or Tournament.team?(tournament) ->
+        {:error, :not_individual_swiss}
+
+      Tournaments.ensure_writable(tournament) != :ok ->
+        {:error, :read_only}
+
+      paired == 0 ->
+        {:error, :no_round}
+
+      next_number > max_pairable_round(tournament) ->
+        {:error, :all_rounds_paired}
+
+      length(eligible_from(active, next_number)) < 2 ->
+        {:error, :too_few_players}
+
+      true ->
+        # `dispatch_swiss/1` numbers a player who has none yet
+        # (`ensure_pairing_numbers/2`) before it reads the history; here
+        # the numbers go into the history's roster in memory instead.
+        history =
+          tournament
+          |> build_shared_history()
+          |> with_pairing_numbers(new_pairing_numbers(tournament, active))
+
+        {:ok,
+         %{
+           tournament: tournament,
+           round_number: paired,
+           next_number: next_number,
+           active: active,
+           history: history
+         }}
+    end
+  end
+
+  @doc """
+  The next round as `pair_next_round/2` would pair it once the open games of
+  `context.round_number` had the given results - `results` is
+  `%{pairing_id => result code}` - without writing anything.
+
+  `{:ok, boards}`, the boards as `plan_boards/1` numbers them (`{board,
+  white, black}`, players as structs, `black` nil for the pairing-allocated
+  bye), or the `{:error, reason}` the real pairing would have returned.
+  """
+  def preview_round(context, results) when is_map(results) do
+    history =
+      context.history
+      |> with_results(context.round_number, results)
+      |> then(&precompute_games(context.tournament, &1))
+
+    run = %{history: history, preview?: true}
+
+    case plan_round(context.tournament, context.next_number, context.active, run) do
+      {:ok, plan} -> {:ok, plan_boards(plan)}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp with_results(history, round_number, results) do
+    rounds =
+      Enum.map(history.rounds, fn
+        %Round{number: ^round_number} = round ->
+          pairings =
+            Enum.map(round.pairings, fn pairing ->
+              case Map.fetch(results, pairing.id) do
+                {:ok, result} -> %{pairing | result: result}
+                :error -> pairing
+              end
+            end)
+
+          %{round | pairings: pairings}
+
+        round ->
+          round
+      end)
+
+    %{history | rounds: rounds}
+  end
+
+  defp with_pairing_numbers(history, numbers) do
+    roster =
+      Enum.reduce(numbers, history.full_roster, fn {player, number}, roster ->
+        Map.put(roster, player.id, %{player | pairing_number: number})
+      end)
+
+    %{history | full_roster: roster}
+  end
+
   ## ---------- pairing numbers ----------
 
   @doc """
@@ -444,6 +557,20 @@ defmodule PairingsEngine.Pairing do
   duplicating this logic - see that module's `do_pair/4`.
   """
   def ensure_pairing_numbers(tournament, players) do
+    tournament
+    |> new_pairing_numbers(players)
+    |> Enum.each(fn {player, number} ->
+      {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
+    end)
+
+    tournament
+  end
+
+  # The numbers `ensure_pairing_numbers/2` would hand out, as
+  # `[{player, number}]`, without writing them - the next-round preview
+  # (`preview_context/1`) numbers a late entrant in memory exactly as the
+  # real pairing will on disk.
+  defp new_pairing_numbers(tournament, players) do
     if Enum.any?(players, &is_nil(&1.pairing_number)) do
       max_existing = highest_pairing_number(tournament.id)
 
@@ -451,12 +578,9 @@ defmodule PairingsEngine.Pairing do
       |> Enum.filter(&is_nil(&1.pairing_number))
       |> initial_order()
       |> Enum.with_index(max_existing + 1)
-      |> Enum.each(fn {player, number} ->
-        {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
-      end)
+    else
+      []
     end
-
-    tournament
   end
 
   @doc """
@@ -506,7 +630,32 @@ defmodule PairingsEngine.Pairing do
   # rather than independently re-evaluating `absent_for_round?/2` for
   # `next_number + 1` - a deliberate scope limitation, see
   # `create_mirrored_leg/4`.
+  #
+  # Split in two since the next-round preview: `plan_round/4` works out the
+  # round - who plays whom, on which board - and writes nothing;
+  # `save_plan/3` writes it. The preview (`preview_round/2`) runs the very
+  # same `plan_round/4` over a history with the open games' results filled
+  # in, and never calls `save_plan/3`.
+  #
+  # `@pair_run` is how the real pairing runs `plan_round/4`: its history
+  # read from the database, and the round's deviation facts worked out (a
+  # second engine run each, only when their setting is in play) for the
+  # record it saves. The preview hands in its own history and skips those:
+  # they are facts about the saved round's account, not about who plays
+  # whom.
+  @pair_run %{history: nil, preview?: false}
+
   defp do_pair(tournament, next_number, active) do
+    case plan_round(tournament, next_number, active, @pair_run) do
+      {:ok, plan} -> save_plan(plan, tournament, next_number)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp run_history(%{history: nil}, tournament), do: pairing_history(tournament)
+  defp run_history(%{history: history}, _tournament), do: history
+
+  defp plan_round(tournament, next_number, active, run) do
     # A late entrant is dropped here, before the absent/present split, and
     # so lands in NEITHER list: not sent to the engine, and not given an
     # absentee bye row either. They are not absent - they have not joined
@@ -540,8 +689,10 @@ defmodule PairingsEngine.Pairing do
     # no-show gets paired and forfeits - so "requested a bye" and "marked
     # absent" are one thing wearing two names, and they score through one
     # value and one allowance.
-    round_absentees = round_specific ++ absent_players(tournament.id, next_number)
-
+    # The absentees themselves - `round_specific` plus the whole-tournament
+    # ones - are only needed to write their bye rows, so `save_plan/3` reads
+    # the latter (`round_absentees/3`); the preview never asks.
+    #
     # Players requesting an absence for this specific round get a bye row
     # instead of being sent to the engine, so the
     # pairing engine never considers them for this round. Computed once over
@@ -554,11 +705,70 @@ defmodule PairingsEngine.Pairing do
     # functions. Running it here, before JaVaFo is even invoked, would
     # permanently commit these bye rows even if JaVaFo then failed, bricking
     # the round on retry (UNIQUE(player_id, round) violation).
-    if tournament.pair_by_category do
-      do_pair_by_category(tournament, players, next_number, round_absentees)
-    else
-      do_pair_single(tournament, players, next_number, round_absentees)
+    result =
+      if tournament.pair_by_category do
+        do_pair_by_category(tournament, players, next_number, run)
+      else
+        do_pair_single(tournament, players, next_number, run)
+      end
+
+    case result do
+      {:ok, plan} -> {:ok, Map.put(plan, :round_specific, round_specific)}
+      {:error, _reason} = error -> error
     end
+  end
+
+  defp round_absentees(tournament, next_number, round_specific),
+    do: round_specific ++ absent_players(tournament.id, next_number)
+
+  # Writes what `plan_round/4` worked out: the Round, its boards
+  # (`plan_boards/1`, the one numbering the preview shows too) and the bye
+  # rows of the round's absentees, in one transaction.
+  defp save_plan(%{kind: :single} = plan, tournament, next_number) do
+    round_absentees = round_absentees(tournament, next_number, plan.round_specific)
+
+    plan
+    |> plan_boards()
+    |> create_round(
+      tournament,
+      next_number,
+      round_absentees,
+      pending_payload(tournament, next_number, plan.sections)
+    )
+    |> with_deferred(plan.sections)
+  end
+
+  defp save_plan(%{kind: :categories} = plan, tournament, next_number) do
+    round_absentees = round_absentees(tournament, next_number, plan.round_specific)
+    insert_category_round(tournament, plan, next_number, round_absentees)
+  end
+
+  @doc false
+  # The boards of a planned round, in board order: `{board, white, black}`,
+  # players as structs, `black` nil for a pairing-allocated bye. Board
+  # numbers run 1.. in the engine's order; per category they continue from
+  # one category to the next, in `tournament.categories` order, a
+  # one-player category's automatic bye taking a board of its own.
+  def plan_boards(%{kind: :single, pairs: pairs, by_rank: by_rank}) do
+    pairs
+    |> Enum.with_index(1)
+    |> Enum.map(fn {{w, b}, board} ->
+      {board, Map.fetch!(by_rank, w), if(b == 0, do: nil, else: Map.fetch!(by_rank, b))}
+    end)
+  end
+
+  def plan_boards(%{kind: :categories, groups: groups}) do
+    {boards, _next} =
+      Enum.flat_map_reduce(groups, 1, fn
+        {_category_name, :bye, player}, board ->
+          {[{board, player, nil}], board + 1}
+
+        {_category_name, :paired, pairs, by_rank, _explanation}, board ->
+          boards = plan_boards(%{kind: :single, pairs: pairs, by_rank: by_rank})
+          {Enum.map(boards, fn {n, w, b} -> {n + board - 1, w, b} end), board + length(pairs)}
+      end)
+
+    boards
   end
 
   # `players` here is `next_number`'s round-specific ELIGIBLE subset of
@@ -596,14 +806,14 @@ defmodule PairingsEngine.Pairing do
   # JaVaFo's output pairs (local ranks) are translated back to real players
   # via the inverse map in `create_round/5`. Board numbering (JaVaFo's output
   # *order*, not its rank values) is completely unaffected by this.
-  defp do_pair_single(tournament, players, next_number, round_absentees) do
+  defp do_pair_single(tournament, players, next_number, run) do
     # The same tournament-wide history the per-category path has always
     # built, which this path had not. Without it, `order_for_pairing/3` and
     # then `trf_player_rows/3` each fell through to their own
     # `build_shared_history/1` - three queries and a full roster walk, twice
     # over, for one answer. `shared_history.full_roster` is the same set
     # `full_roster_players/1` was re-querying.
-    shared_history = pairing_history(tournament)
+    shared_history = run_history(run, tournament)
 
     full_roster =
       shared_history.full_roster
@@ -632,22 +842,18 @@ defmodule PairingsEngine.Pairing do
         next_number
       )
 
-    emit_trf_built(tournament.id, next_number, nil, trf)
+    unless run.preview?, do: emit_trf_built(tournament.id, next_number, nil, trf)
     tournament = with_bye_exclusions(tournament, players, local_rank_by_player_id, next_number)
 
-    case run_engine(tournament, trf, next_number, nil, 0, soft) do
+    case run_engine(tournament, trf, next_number, nil, 0, soft, run) do
       {:ok, pairs, deferred} ->
-        sections = [{nil, deferred, player_by_local_rank}]
-
-        pairs
-        |> create_round(
-          tournament,
-          player_by_local_rank,
-          next_number,
-          round_absentees,
-          pending_payload(tournament, next_number, sections)
-        )
-        |> with_deferred(sections)
+        {:ok,
+         %{
+           kind: :single,
+           pairs: pairs,
+           by_rank: player_by_local_rank,
+           sections: [{nil, deferred, player_by_local_rank}]
+         }}
 
       {:error, _message} = error ->
         bye_exclusion_error(error, player_by_local_rank)
@@ -676,7 +882,7 @@ defmodule PairingsEngine.Pairing do
   # open ONE transaction and write the Round + every category's pairings,
   # in category-list order, boards numbered continuously - the single
   # combined pairing sheet that's the whole point of doing this natively.
-  defp do_pair_by_category(tournament, players, next_number, round_absentees) do
+  defp do_pair_by_category(tournament, players, next_number, run) do
     groups = category_groups(tournament, players)
 
     # Tournament-wide history (every round/pairing, every bye, the full
@@ -685,7 +891,7 @@ defmodule PairingsEngine.Pairing do
     # the same three queries (see `games_per_player/2`'s doc). Safe to
     # compute now: no DB round row exists yet at this point (see this
     # function's own moduledoc above for why that ordering matters).
-    shared_history = pairing_history(tournament)
+    shared_history = run_history(run, tournament)
 
     # The local contiguous rank map (and the row set that goes with it) now
     # spans the FULL frozen roster, exactly as in `do_pair_single/4` - every
@@ -708,13 +914,11 @@ defmodule PairingsEngine.Pairing do
            next_number,
            shared_history,
            full_roster,
-           local_rank_by_player_id
+           local_rank_by_player_id,
+           run
          ) do
-      {:ok, group_results} ->
-        insert_category_round(tournament, group_results, next_number, round_absentees)
-
-      {:error, _reason} = error ->
-        error
+      {:ok, group_results} -> {:ok, %{kind: :categories, groups: group_results}}
+      {:error, _reason} = error -> error
     end
   end
 
@@ -732,7 +936,8 @@ defmodule PairingsEngine.Pairing do
          next_number,
          shared_history,
          full_roster,
-         local_rank_by_player_id
+         local_rank_by_player_id,
+         run
        ) do
     result =
       groups
@@ -746,7 +951,8 @@ defmodule PairingsEngine.Pairing do
                next_number,
                shared_history,
                full_roster,
-               local_rank_by_player_id
+               local_rank_by_player_id,
+               run
              ) do
           {:ok, group_result} -> {:cont, {:ok, [group_result | acc]}}
           {:error, _reason} = error -> {:halt, error}
@@ -769,7 +975,8 @@ defmodule PairingsEngine.Pairing do
          _next_number,
          _shared_history,
          _full_roster,
-         _local_rank_by_player_id
+         _local_rank_by_player_id,
+         _run
        ) do
     {:ok, {category_name, :bye, player}}
   end
@@ -782,7 +989,8 @@ defmodule PairingsEngine.Pairing do
          next_number,
          shared_history,
          full_roster,
-         local_rank_by_player_id
+         local_rank_by_player_id,
+         run
        ) do
     eligible_ids = MapSet.new(group_players, & &1.id)
     by_id = Map.new(full_roster, &{&1.id, &1})
@@ -809,12 +1017,12 @@ defmodule PairingsEngine.Pairing do
         next_number
       )
 
-    emit_trf_built(tournament.id, next_number, category_name, trf)
+    unless run.preview?, do: emit_trf_built(tournament.id, next_number, category_name, trf)
 
     tournament =
       with_bye_exclusions(tournament, group_players, local_rank_by_player_id, next_number)
 
-    case run_engine(tournament, trf, next_number, category_name, index, soft) do
+    case run_engine(tournament, trf, next_number, category_name, index, soft, run) do
       {:ok, pairs, explanation} ->
         {:ok, {category_name, :paired, pairs, player_by_local_rank, explanation}}
 
@@ -962,7 +1170,9 @@ defmodule PairingsEngine.Pairing do
   # category's JaVaFo call - the `Repo.transaction/1` wrapper here exists
   # for ordinary DB-write atomicity (Round + N Pairings as one unit), not to
   # guard against a JaVaFo failure (that's already been ruled out).
-  defp insert_category_round(tournament, group_results, next_number, round_absentees) do
+  defp insert_category_round(tournament, plan, next_number, round_absentees) do
+    group_results = plan.groups
+
     # One section per category that the engine actually paired. A 1-player
     # group's automatic bye never reaches an engine, so it contributes none.
     sections =
@@ -1001,27 +1211,11 @@ defmodule PairingsEngine.Pairing do
 
       insert_round_absentee_byes(tournament, next_number, round_absentees)
 
-      {_final_board, any_bye?} =
-        Enum.reduce(group_results, {1, false}, fn group_result, {board_offset, any_bye?} ->
-          case group_result do
-            {_category_name, :bye, player} ->
-              Repo.insert!(%Pairing{
-                round_id: round.id,
-                board: board_offset,
-                white_player_id: player.id,
-                black_player_id: nil,
-                result: "bye"
-              })
-
-              {board_offset + 1, true}
-
-            {_category_name, :paired, pairs, player_by_local_rank, _explanation} ->
-              {:ok, boards_used, bye?} =
-                insert_category_pairings(round, pairs, player_by_local_rank, board_offset)
-
-              {board_offset + boards_used, any_bye? or bye?}
-          end
-        end)
+      # Every category's boards, numbered on from one category to the next
+      # (`plan_boards/1`).
+      boards = plan_boards(plan)
+      Enum.each(boards, &insert_board(round, &1))
+      any_bye? = Enum.any?(boards, fn {_board, _white, black} -> is_nil(black) end)
 
       # A pairing-allocated bye (from any category's JaVaFo output, or a
       # 1-player group's automatic bye) awards points immediately without
@@ -1308,31 +1502,16 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
-  # Translates one category's parsed JaVaFo output (local starting ranks)
-  # back to real players via `player_by_local_rank`, inserting each pairing
-  # at a board number continuing from `board_offset` - the mechanism that
-  # merges every category's pairs into one continuously-numbered board
-  # sequence within the shared Round. Mirrors `create_round/5`'s row shape
-  # exactly (including the `b == 0` pairing-allocated bye shape).
-  defp insert_category_pairings(round, pairs, player_by_local_rank, board_offset) do
-    bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
-
-    pairs
-    |> Enum.with_index(board_offset)
-    |> Enum.each(fn {{w, b}, board} ->
-      white = Map.fetch!(player_by_local_rank, w)
-      black = if b == 0, do: nil, else: Map.fetch!(player_by_local_rank, b)
-
-      Repo.insert!(%Pairing{
-        round_id: round.id,
-        board: board,
-        white_player_id: white.id,
-        black_player_id: black && black.id,
-        result: if(b == 0, do: "bye", else: "")
-      })
-    end)
-
-    {:ok, length(pairs), bye?}
+  # One board of a planned round (`plan_boards/1`); a board without a Black
+  # is the pairing-allocated bye, written with its result already set.
+  defp insert_board(round, {board, white, black}) do
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: board,
+      white_player_id: white.id,
+      black_player_id: black && black.id,
+      result: if(black, do: "", else: "bye")
+    })
   end
 
   defp insert_round_absentee_byes(_tournament, _round_number, []), do: :ok
@@ -1386,7 +1565,7 @@ defmodule PairingsEngine.Pairing do
   #     `insert_category_pairings/4` are untouched and cannot tell which
   #     engine answered.
 
-  defp run_engine(tournament, trf, round_number, category_name, category_index, soft)
+  defp run_engine(tournament, trf, round_number, category_name, category_index, soft, run)
 
   defp run_engine(
          %Tournament{pairing_engine: "ainalrami"} = tournament,
@@ -1394,14 +1573,15 @@ defmodule PairingsEngine.Pairing do
          round_number,
          category_name,
          _category_index,
-         soft
+         soft,
+         run
        ) do
-    run_ainalrami(tournament, trf, round_number, category_name, soft)
+    run_ainalrami(tournament, trf, round_number, category_name, soft, run)
   end
 
   # JaVaFo has no "rather not": `soft` is dropped here, on purpose and in the
   # open. The Settings page says as much beside the control.
-  defp run_engine(tournament, trf, round_number, category_name, category_index, _soft) do
+  defp run_engine(tournament, trf, round_number, category_name, category_index, _soft, _run) do
     case run_javafo(tournament, trf, round_number, category_name, category_index) do
       {:ok, pairs} -> {:ok, pairs, nil}
       {:error, _message} = error -> error
@@ -2340,7 +2520,7 @@ defmodule PairingsEngine.Pairing do
     |> then(&precompute_games(tournament, &1))
   end
 
-  defp run_ainalrami(tournament, trf, round_number, category_name, soft) do
+  defp run_ainalrami(tournament, trf, round_number, category_name, soft, run) do
     case ainalrami_unsupported_extensions(trf) do
       [] ->
         parsed = Ainalrami.Trf.parse(trf)
@@ -2359,8 +2539,15 @@ defmodule PairingsEngine.Pairing do
         # written from them the moment it is saved
         # (`record_pairing_deviations/2`, `PairingsLive`). Each is a second
         # pairing run, and each only runs when its setting is in play.
-        soft_moved? = soft_pairs_moved?(parsed.players, raw_pairs, engine_opts, tournament)
-        passed_over = bye_passed_over(parsed.players, raw_pairs, engine_opts, tournament)
+        #
+        # A preview (`preview_round/2`) keeps no record, so it skips both.
+        {soft_moved?, passed_over} =
+          if run.preview? do
+            {false, []}
+          else
+            {soft_pairs_moved?(parsed.players, raw_pairs, engine_opts, tournament),
+             bye_passed_over(parsed.players, raw_pairs, engine_opts, tournament)}
+          end
 
         # Everything else about the round's account - the brackets
         # (`explain_round/3`, a second call because it analyses a pairing
@@ -3014,18 +3201,19 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
+  # `boards` is `plan_boards/1`'s: `{board, white, black}`, `black` nil for
+  # the pairing-allocated bye.
   defp create_round(
-         pairs,
+         boards,
          tournament,
-         player_by_local_rank,
          next_number,
          round_absentees,
          explanation
        ) do
-    pairing_allocated_bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
+    pairing_allocated_bye? = Enum.any?(boards, fn {_board, _white, black} -> is_nil(black) end)
 
     paired_players =
-      for {w, b} <- pairs, rank <- [w, b], rank != 0, do: Map.fetch!(player_by_local_rank, rank)
+      for {_board, white, black} <- boards, player <- [white, black], player != nil, do: player
 
     Repo.transaction(fn ->
       published_at = Tournaments.compute_published_at(tournament, next_number)
@@ -3041,21 +3229,7 @@ defmodule PairingsEngine.Pairing do
           virtual_points: virtual_points_used(tournament, paired_players)
         })
 
-      leg1_pairings =
-        pairs
-        |> Enum.with_index(1)
-        |> Enum.map(fn {{w, b}, board} ->
-          white = Map.fetch!(player_by_local_rank, w)
-          black = if b == 0, do: nil, else: Map.fetch!(player_by_local_rank, b)
-
-          Repo.insert!(%Pairing{
-            round_id: round.id,
-            board: board,
-            white_player_id: white.id,
-            black_player_id: black && black.id,
-            result: if(b == 0, do: "bye", else: "")
-          })
-        end)
+      leg1_pairings = Enum.map(boards, &insert_board(round, &1))
 
       insert_round_absentee_byes(tournament, next_number, round_absentees)
 
