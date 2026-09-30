@@ -33,8 +33,10 @@ Each entry is tagged so a version can be skimmed:
   again a moment after a result is entered, and "Print fixed boards" prints
   them with a list by name for the name cards. Above six open games it says
   how many are still open. The round itself is paired as usual once the
-  last result is in. Six open games take about 1.5 minutes on a 200-player
-  field and far longer on 600 players on this engine version.
+  last result is in. Measured on four cores with Ainalrami 0.34.0: one,
+  three and six open games take 0.8 s, 4 s and 1.7 min on a 200-player
+  field, and 4 s, 31 s and about 14 min on 600 players; the server's
+  two cores use one.
 
 ## [0.70.0] - 2026-09-28
 
