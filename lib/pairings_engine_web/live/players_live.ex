@@ -18,6 +18,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
   alias PairingsEngine.LateEntry
+  alias PairingsEngineWeb.RegistrationQueue
 
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
@@ -163,7 +164,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        missing_setup: Tournament.missing_setup_fields(tournament)
      )
      |> assign_postponed_open()
-     |> assign_players()}
+     |> assign_players()
+     |> RegistrationQueue.assign_queue()}
   end
 
   # The tournament's main page carries a small card with every postponed
@@ -206,7 +208,8 @@ defmodule PairingsEngineWeb.PlayersLive do
            missing_setup: Tournament.missing_setup_fields(tournament)
          )
          |> assign_postponed_open()
-         |> assign_players()}
+         |> assign_players()
+         |> RegistrationQueue.assign_queue()}
     end
   end
 
@@ -548,6 +551,13 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   @impl true
+  # The entries waiting from the results site's form: Accept and Discard are
+  # handled by `PairingsEngineWeb.RegistrationQueue`, the same code the
+  # Registrations page uses, so both create exactly what they show.
+  def handle_event(event, params, socket) when event in ["accept", "discard"] do
+    RegistrationQueue.handle_event(event, params, socket)
+  end
+
   def handle_event("add", _params, socket) do
     if Tournament.setup_complete?(socket.assigns.tournament) do
       {:noreply,
@@ -2076,6 +2086,47 @@ defmodule PairingsEngineWeb.PlayersLive do
           </button>
         </div>
       </div>
+
+      <%!-- Entries from the results site's form, waiting for a decision. Shown
+            while the form is open or anything is still waiting, so an arbiter
+            at the registration desk sees a new entry on the page they are
+            already on - the poll brings them in every minute and a broadcast
+            re-renders this. The Registrations page has the fetch button, the
+            decided entries and the longer explanation. --%>
+      <section
+        :if={@queue != [] or (@tournament.registration_open and @tournament.publish_to_openresults)}
+        id="registration-queue-card"
+        class="card reg-queue-card"
+        aria-labelledby="registration-queue-title"
+      >
+        <div class="reg-queue-head">
+          <h2 id="registration-queue-title">
+            {ngettext(
+              "%{count} entry waiting from the results site",
+              "%{count} entries waiting from the results site",
+              length(@queue)
+            )}
+          </h2>
+          <.link
+            id="review-entries-link"
+            class="pe-btn"
+            navigate={~p"/t/#{@tournament.id}/registrations"}
+          >
+            {gettext("All entries")}
+          </.link>
+        </div>
+
+        <p :if={@queue == []} class="hint" style="margin: 4px 0 0">
+          {gettext(
+            "The entry form is open. New entries appear here within a minute; nobody is added until you accept them."
+          )}
+        </p>
+
+        <p :if={@queue_error} class="error-note" role="alert">{@queue_error}</p>
+        <p :if={@queue_note} class="ok-note">{@queue_note}</p>
+
+        <RegistrationQueue.pending_list :if={@queue != []} queue={@queue} compact />
+      </section>
 
       <section
         :if={@postponed_open != []}

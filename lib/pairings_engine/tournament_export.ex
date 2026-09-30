@@ -135,6 +135,15 @@ defmodule PairingsEngine.TournamentExport do
   #     server this machine happens to be configured for - which is not the
   #     one the exporter was pointing at, and may not be one the exporter
   #     knows exists.
+  #   registration_opens_at, registration_closes_at,
+  #   registration_max_players, registration_list_public
+  #     The entry form's window, cap and entry-list switch (2026-09-30). Inert
+  #     on their own - `registration_open` above is what opens the form, and
+  #     it stays off on the new row - but they belong with it rather than with
+  #     the display preferences: a window is a pair of dates in one edition of
+  #     an event, and a copy restored or duplicated next year with last
+  #     year's closing time would open onto a form that is already shut. An
+  #     arbiter who opens the form on the copy sets them there.
   #   deleted_at, archived_at
   #     Lifecycle state of *that* row. An import is always a live,
   #     editable tournament.
@@ -210,6 +219,8 @@ defmodule PairingsEngine.TournamentExport do
     id user_id inserted_at updated_at public_slug
     public_slug_minted_at public_slug_server public_slug_published_at
     registration_open publish_to_openresults deleted_at archived_at
+    registration_opens_at registration_closes_at registration_max_players
+    registration_list_public
     swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim

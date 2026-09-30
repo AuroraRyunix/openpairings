@@ -143,6 +143,62 @@ symmetric: an entry that should not have been taken lands in a queue an
 arbiter reads and rejects, while a form that is shut when it should be open
 turns a real person away and tells nobody.
 
+### The workflow, end to end (rebuilt 2026-09-30)
+
+Before the split (2026-08-09 to 2026-08-29) the form was this app's own
+`/p/:slug/register`: a player found themselves on the FIDE list, and the
+entry became a player at once, marked absent. The split moved the form to
+OpenResults and left the pieces unconnected in practice - the results site
+took its link down as unfinished, the review page here was reachable only
+from Settings, and the form had no window, no cap and no national ID. What
+it is now:
+
+1. **The arbiter prepares the form** on Settings > Results site: *Open it*
+   (`registration_open`, off by default per tournament), and optionally an
+   opening and closing time, a maximum number of players, and whether the
+   form may list who has entered (`registration_opens_at`, `_closes_at`,
+   `_max_players`, `_list_public`, saved together by
+   `Tournaments.set_registration_settings/2`). The times are typed in the
+   browser's own time zone and stored in UTC - the page's `.UtcDateTime`
+   hook converts both ways, because the browser is the only party that
+   knows the arbiter's zone.
+2. **The settings travel out in the snapshot**, as `tournament.registration`
+   beside `registration_open` - see OpenResults'
+   `docs/snapshot-schema.md`, "The entry form's own settings". `taken` is the
+   players plus the entries waiting here for a decision; it is a count, and
+   no part of an undecided entry ever travels in a snapshot.
+3. **The results site enforces them** by its own clock: the form is shut
+   before the window, after it, and once the field is full (counting entries
+   that arrived after the last publish, so a closed laptop cannot be
+   oversubscribed). It links the form from every tournament page again,
+   honeypots it (non-silently: a filled trap returns the form with
+   everything typed and says why) and rate-limits it per address.
+4. **Entries travel back through the existing channel**: the pull
+   (`Registrations.pull/1`, every minute by `Registrations.Poll` and on the
+   button) asks the token-gated `GET /api/tournaments/:slug/registrations`
+   with the ingest token or this installation's key, plus the tournament
+   key. No new endpoint, and nothing on the results site can write here.
+5. **The arbiter decides on the Players page.** A queue card
+   (`PairingsEngineWeb.RegistrationQueue`, shared with the Registrations
+   page) shows each entry as the player it would become - prefilled from the
+   FIDE list and, with the Belgian lookup on, the KBSB list
+   (`Registrations.Review.proposal/3`) - with possible duplicates (same FIDE
+   ID, national ID or name as a player; same email as another waiting
+   entry) and the email. Accept creates exactly what is shown, absent;
+   Discard creates nothing and the entry stays discarded.
+
+The entry form's FIDE search is the other half of the channel: OpenResults
+proxies it to `GET /internal/fide/search` here with the ingest token. Since
+2026-09-30 it answers from the KBSB list too (member number and club, and
+Belgian club players the FIDE list does not have). It still works only where
+both apps share a host - see TODO.
+
+**Not built, on purpose:** confirmation e-mails to entrants, entry fees and
+payment, and player self-service (a player's own bye requests from a phone).
+The review queue keeps every entry's server id and the player it became
+(`openresults_registrations.player_id`), which is the handle self-service
+would need.
+
 ## Where the links come from
 
 `PairingsEngineWeb.PublicLink` is the only module that answers "where does

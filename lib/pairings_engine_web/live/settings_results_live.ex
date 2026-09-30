@@ -67,7 +67,16 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        consent: nil
      )
      |> assign_public_state()
-     |> assign_ranking_tiebreaks()}
+     |> assign_ranking_tiebreaks()
+     |> assign_registration_form()}
+  end
+
+  # The entry form's window, cap and entry-list switch - a real form rather
+  # than the toggles around it, because a date, a time and a number are
+  # typed, and saved together.
+  defp assign_registration_form(socket, changeset \\ nil) do
+    changeset = changeset || Tournament.registration_changeset(socket.assigns.tournament, %{})
+    assign(socket, registration_form: to_form(changeset, as: :registration_settings))
   end
 
   # Where this tournament is in public mode's steps, re-read whenever
@@ -97,7 +106,8 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
          socket
          |> assign(tournament: tournament)
          |> assign_public_state()
-         |> assign_ranking_tiebreaks()}
+         |> assign_ranking_tiebreaks()
+         |> assign_registration_form()}
     end
   end
 
@@ -526,6 +536,44 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
+  # The window arrives as UTC instants - the page's `.UtcDateTime` hook turns
+  # what the arbiter typed in their own time zone into one - and an empty box
+  # clears that end of the window. Nothing here opens the form: that is
+  # "Open it" above, so a window can be prepared before anybody can reach it.
+  def handle_event("save_registration_settings", %{"registration_settings" => params}, socket) do
+    attrs =
+      Map.take(params, [
+        "registration_opens_at",
+        "registration_closes_at",
+        "registration_max_players",
+        "registration_list_public"
+      ])
+
+    case Tournaments.set_registration_settings(socket.assigns.tournament, attrs) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "registration.settings", %{
+          opens_at: iso(tournament.registration_opens_at),
+          closes_at: iso(tournament.registration_closes_at),
+          max_players: tournament.registration_max_players,
+          list_public: tournament.registration_list_public
+        })
+
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> assign_registration_form()
+         |> put_flash(:info, gettext("Entry form settings saved."))}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign_registration_form(socket, Map.put(changeset, :action, :validate))}
+
+      {:error, reason} when is_atom(reason) ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  def handle_event("save_registration_settings", _params, socket), do: {:noreply, socket}
+
   ## ---------- the address, and taking it down ----------
 
   # `Publishing.rotate_address/1` rather than `Tournaments.rotate_public_slug/1`
@@ -859,6 +907,74 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     <span class={["state-pill", @on? && "is-on"]}>{if @on?, do: @on, else: @off}</span>
     """
   end
+
+  # A moment in the arbiter's own time zone, stored and sent as UTC.
+  #
+  # The browser is the only party here that knows the arbiter's time zone -
+  # the server is quite possibly in another one, and this app carries no
+  # zone database - so the `.UtcDateTime` hook converts both ways: the stored
+  # instant into the local box when the page loads, and the local box into
+  # the hidden UTC field that is actually submitted. Per date, through the
+  # browser's own `Date`, so a closing time on the far side of a summer-time
+  # change still lands on the hour the arbiter typed.
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+
+  defp utc_datetime_field(assigns) do
+    ~H"""
+    <%!-- The same markup `<.input>` renders, so it lines up in the grid
+          beside the number field; `<.input>` itself cannot carry the hidden
+          twin the hook writes to. --%>
+    <div class="fieldset mb-2" id={"#{@field.id}-wrap"} phx-hook=".UtcDateTime">
+      <label for={"#{@field.id}-local"}>
+        <span class="label mb-1">{@label}</span>
+        <input
+          type="datetime-local"
+          id={"#{@field.id}-local"}
+          class={["w-full input", @field.errors != [] && "input-error"]}
+        />
+      </label>
+      <input type="hidden" id={@field.id} name={@field.name} value={utc_value(@field.value)} />
+      <p :for={msg <- Enum.map(@field.errors, &translate_error/1)} class="text-error">{msg}</p>
+    </div>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".UtcDateTime">
+      export default {
+        mounted() {
+          this.local = this.el.querySelector('input[type="datetime-local"]');
+          this.utc = this.el.querySelector('input[type="hidden"]');
+          this.onInput = () => {
+            const value = this.local.value;
+            const at = value ? new Date(value) : null;
+            this.utc.value = at && !isNaN(at) ? at.toISOString() : "";
+          };
+          this.local.addEventListener("input", this.onInput);
+          this.local.addEventListener("change", this.onInput);
+          this.show();
+        },
+        updated() { this.show(); },
+        destroyed() {
+          this.local.removeEventListener("input", this.onInput);
+          this.local.removeEventListener("change", this.onInput);
+        },
+        show() {
+          const at = this.utc.value ? new Date(this.utc.value) : null;
+          if (!at || isNaN(at)) { this.local.value = ""; return; }
+          const pad = (n) => String(n).padStart(2, "0");
+          this.local.value =
+            at.getFullYear() + "-" + pad(at.getMonth() + 1) + "-" + pad(at.getDate()) +
+            "T" + pad(at.getHours()) + ":" + pad(at.getMinutes());
+        }
+      };
+    </script>
+    """
+  end
+
+  defp iso(%DateTime{} = at), do: DateTime.to_iso8601(at)
+  defp iso(_unset), do: nil
+
+  defp utc_value(%DateTime{} = at), do: DateTime.to_iso8601(at)
+  defp utc_value(value) when is_binary(value), do: value
+  defp utc_value(_unset), do: ""
 
   defp listed?(tournament), do: tournament.public_listed != false
 
@@ -1301,6 +1417,55 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             </a>
           </div>
         </div>
+
+        <.form
+          for={@registration_form}
+          id="registration-settings-form"
+          phx-submit="save_registration_settings"
+          class="set-field solo"
+          style="margin-top: 14px"
+        >
+          <span class="set-label">{gettext("When, and how many")}</span>
+          <p class="hint" style="margin: 4px 0 8px">
+            {gettext(
+              "All optional. The results site opens and closes the form at these times by its own clock, even while this computer is off, and stops taking entries once the players plus the entries waiting for you reach the maximum. Times are in your computer's time zone."
+            )}
+          </p>
+
+          <div class="form-grid">
+            <.utc_datetime_field
+              field={@registration_form[:registration_opens_at]}
+              label={gettext("Opens")}
+            />
+            <.utc_datetime_field
+              field={@registration_form[:registration_closes_at]}
+              label={gettext("Closes")}
+            />
+            <.input
+              field={@registration_form[:registration_max_players]}
+              type="number"
+              min="1"
+              label={gettext("Maximum players")}
+            />
+          </div>
+
+          <.input
+            field={@registration_form[:registration_list_public]}
+            type="checkbox"
+            label={gettext("Show who has entered on the entry form")}
+          />
+          <p class="hint" style="margin: 2px 0 8px">
+            {gettext(
+              "Lists the players already on your entry list, with the columns the public page shows. Entries you have not decided on appear only as a count, and email addresses never."
+            )}
+          </p>
+
+          <div class="actions">
+            <button type="submit" id="save-registration-settings" class="pe-btn">
+              {gettext("Save")}
+            </button>
+          </div>
+        </.form>
 
         <div class="actions" style="margin-top: 14px">
           <.link class="pe-btn" navigate={~p"/t/#{@tournament.id}/registrations"}>

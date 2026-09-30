@@ -211,9 +211,16 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert has_element?(lv, "#auto-publish-1", "Pairings once paired")
       assert has_element?(lv, "#auto-publish-2", "+ results live")
       assert has_element?(lv, "#auto-publish-3", "+ standings when the round is finished")
-      # No delay to set without the pairings step, and no Save button at all.
+      # No delay to set without the pairings step, and no Save button for it.
+      # The one submit button on the page is the entry form's settings card,
+      # a different card with its own form.
       refute has_element?(lv, "#publish-delay-form")
-      refute html =~ ~s|type="submit"|
+
+      submits =
+        html |> LazyHTML.from_document() |> LazyHTML.query(~s|[type="submit"]|) |> Enum.count()
+
+      assert submits == 1
+      assert has_element?(lv, ~s|#registration-settings-form [type="submit"]|)
     end
 
     test "each stop saves its step at once, and is audited", %{conn: conn, scope: scope} do

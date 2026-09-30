@@ -17,6 +17,39 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Entries from the results site wait on the Players page.**
+  While the entry form is open, or anything is still waiting, the Players
+  page shows a card with every new entry - within a minute of it being
+  sent - and Accept and Discard on each, so the registration desk no longer
+  has to go looking under Settings. Each entry is shown as the player it
+  would become: the rating, title and federation from the FIDE list when
+  the entry's FIDE ID is on it (with a note when the entry claimed a
+  different rating, or when the list has that FIDE ID under another name),
+  and - with the Belgian player lookup on - the member number, national
+  rating and club from the KBSB list. Accept creates exactly that player,
+  marked not yet arrived. The Registrations page shows the same queue.
+- [Feature] **Possible duplicates are flagged before you accept.** An entry
+  with the same FIDE ID, national ID or name (ignoring order, case and
+  accents) as a player already entered, or the same email address as
+  another waiting entry, says so on the entry. A duplicate FIDE ID still
+  cannot be accepted; the rest is for you to judge.
+- [Feature] **The entry form can open and close on time, and cap the
+  field.** Settings > Results site > Entry form takes an opening time, a
+  closing time (both in your computer's time zone) and a maximum number of
+  players; the results site applies them by its own clock, even while this
+  computer is off, and counts the entries waiting for you towards the
+  maximum. A switch lets the form list who has entered - your entry list,
+  with the columns the public page shows; undecided entries only as a count
+  and email addresses never. None of these opens the form; "Open it" still
+  does. Changes are in the Audit log.
+- [Feature] **National ID on entries.** The results site's entry form asks
+  for the member number at the player's own federation, and its FIDE search
+  now also finds Belgian club players who are not on the FIDE list, filling
+  in their member number and club from this computer's KBSB list.
+- [Change] **The entry form's settings are not carried by an export,** like
+  "Open it" itself: a copy of a tournament starts with its entry form
+  closed and without last edition's dates.
+
 ## [0.70.0] - 2026-09-28
 
 - [Security] **Mint 1.11.0.** The HTTP client underneath the app's outbound

@@ -400,6 +400,17 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "public_pages.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
     "public_pages.link_rotated" => [%{"published" => true}],
     "registration.toggled" => [%{"open" => true}, %{"open" => false}],
+    "registration.settings" => [
+      %{
+        "opens_at" => "2026-10-01T08:00:00Z",
+        "closes_at" => "2026-10-20T22:00:00Z",
+        "max_players" => 60,
+        "list_public" => true
+      },
+      %{"opens_at" => nil, "closes_at" => nil, "max_players" => nil, "list_public" => false},
+      # A crafted row: a time that is not a time still renders.
+      %{"opens_at" => "soon", "max_players" => "many"}
+    ],
     "openresults.toggled" => [%{"enabled" => true}, %{"enabled" => false}],
     "openresults.listed" => [%{"listed" => true}, %{"listed" => false}],
     "openresults.auto_publish" => [

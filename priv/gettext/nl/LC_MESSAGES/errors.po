@@ -92,3 +92,10 @@ msgstr "moet groter dan of gelijk aan %{number} zijn"
 
 msgid "must be equal to %{number}"
 msgstr "moet gelijk zijn aan %{number}"
+
+## From Tournament.registration_changeset/2 - the entry form's window and cap
+msgid "must be after the opening time"
+msgstr "moet na het openingstijdstip liggen"
+
+msgid "must be a whole number of players, at least 1"
+msgstr "moet een geheel aantal spelers zijn, minstens 1"
