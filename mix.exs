@@ -314,7 +314,7 @@ defmodule PairingsEngine.MixProject do
       # carries the bye preferences and the slow-spots work. Replace it with
       # `tag: "v0.35.0"` when that release is cut.
       {:ainalrami,
-       github: "AuroraRyunix/Ainalrami", ref: "ebda358ff999f9f3a3a3474fcab7b721b4f5e2d3"}
+       github: "AuroraRyunix/Ainalrami", ref: "827b0fff11f5c833db7ecc2daa9db0d67123774b"}
     ]
   end
 
