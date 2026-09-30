@@ -135,6 +135,21 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   games - and finalising that file marks it sent too. The warnings and the
   VCL questions they answer are listed in `PairingsEngine.PostponedGames`.
 
+- **Next-round preview** - while the last games of a Swiss round are still
+  being played (six or fewer open), "Preview next round" on the Pairings
+  page pairs the next round for every combination of their results (1-0,
+  ½-½, 0-1: up to 729 outcomes) through exactly the code the real pairing
+  runs - same options, same board numbering - and saves nothing. Each board
+  is then **fixed** (same players, colours and board in every outcome: the
+  name cards can go out), **fixed but may shift** (the board range is
+  shown), **fixed with colours open**, or **open** (who a player could meet,
+  and which open games decide it); the bye is fixed or open. It works in the
+  background with a progress bar and an estimate of the time left, updates
+  itself when a result is entered, and prints the fixed boards with a list
+  by name for the name cards. Above six open games it says how many are
+  still open. Individual Swiss only; a large field takes minutes for six
+  open games (see `PairingsEngine.NextRoundPreview`).
+
 ## Scoring, standings & tiebreaks
 
 - **FIDE C.07 tiebreaks** (1 Mar 2026 regulations): BH, BHC1, BHC2, MBH, SB,
@@ -223,7 +238,8 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 Player list, player cards, pairing lists (optional absentees section), 
 standings, Swiss cross table, round-robin players×players cross table,
 result cards (8 per A4, alignment test print, stack-cut imposition), and
-folded place cards (chevalets) with field toggles - all per-round where it
+folded place cards (chevalets) with field toggles, and the next-round
+preview's fixed boards with a name-card list - all per-round where it
 makes sense, all reachable from the page they belong to. Tournaments can
 carry a logo (stored in the database, shown on printed documents).
 

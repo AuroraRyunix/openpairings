@@ -17,6 +17,25 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Next-round preview: which boards are already certain while
+  the last games are still being played.** With six or fewer games of a
+  Swiss round still open, the Pairings page offers "Preview next round". It
+  pairs the next round for every possible result of those games (1-0, ½-½
+  and 0-1 each - 729 outcomes for six) exactly as "Pair round" will, with
+  the same requested byes, withdrawals, late entrants, forbidden pairs,
+  acceleration, bye exclusions, soft rules and board numbering, and saves
+  nothing. It then shows the boards that come out the same in every outcome
+  (same players, same colours, same board: their name cards can go out),
+  the pairs that are certain but may still move board or swap colours, and
+  for everybody else who they could meet and which open games decide it,
+  and whether the bye is decided. It runs in the background with a progress
+  bar ("Paired 212 of 729 variants", and the time left), works itself out
+  again a moment after a result is entered, and "Print fixed boards" prints
+  them with a list by name for the name cards. Above six open games it says
+  how many are still open. The round itself is paired as usual once the
+  last result is in. Six open games take about 1.5 minutes on a 200-player
+  field and far longer on 600 players on this engine version.
+
 ## [0.70.0] - 2026-09-28
 
 - [Security] **Mint 1.11.0.** The HTTP client underneath the app's outbound

@@ -3567,6 +3567,40 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-account-failed p { margin: 0 0 8px; }
 .pe-account-status { font-size: 0.85em; color: var(--text-soft); display: inline-flex; gap: 6px; align-items: center; }
 
+/* ---------- next-round preview (Pairings page) ---------- */
+
+.nrp-offer {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 0 0 14px;
+}
+.nrp-offer .pe-btn { display: inline-flex; align-items: center; gap: 6px; }
+.nrp-panel { border-left: 3px solid var(--accent); transition: opacity 0.2s ease; }
+.nrp-panel.is-updating .nrp-results { opacity: 0.55; }
+.nrp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
+.nrp-head h2 { margin: 0; }
+.nrp-badge { background: var(--accent-soft); color: var(--accent); }
+.nrp-head-actions { margin-left: auto; display: flex; gap: 8px; }
+.nrp-head-actions .pe-btn { display: inline-flex; align-items: center; gap: 6px; }
+.nrp-explain { margin: 0 0 12px; max-width: 72ch; }
+.nrp-status { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: var(--text-soft); }
+.nrp-progress progress { width: min(280px, 50vw); accent-color: var(--accent); }
+.nrp-spinner {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  animation: conn-pulse 1.8s ease-in-out infinite;
+}
+.nrp-results { transition: opacity 0.2s ease; }
+.nrp-summary { font-weight: 600; margin: 0 0 4px; }
+.nrp-group { margin-top: 12px; }
+.nrp-group > summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; padding: 6px 0; }
+.nrp-group > summary:hover strong { color: var(--accent); }
+.nrp-table { margin-top: 6px; }
+.nrp-table td.nrp-wrap { white-space: normal; }
+.nrp-bye { margin: 12px 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  .nrp-spinner { animation: none; }
+  .nrp-panel, .nrp-results { transition: none; }
+}
+
 /* One "why him and not me", worked out when opened: the question is a
    disclosure button in the panel's own voice (bold, like the questions
    above it on older rounds), the chevron turning as it opens. */

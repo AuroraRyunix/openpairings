@@ -37,7 +37,7 @@ defmodule PairingsEngine.NextRoundPreview do
 
   import Ecto.Query
 
-  alias PairingsEngine.{PairingDisplay, Repo, Tournaments}
+  alias PairingsEngine.{PairingDisplay, Repo, StandingsCache, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
@@ -48,6 +48,9 @@ defmodule PairingsEngine.NextRoundPreview do
   # and must stay responsive while it works, so one fewer than there are,
   # and never more than four.
   @max_concurrency 4
+
+  # The shortest time between two progress reports (`run/2`).
+  @progress_interval_ms 100
 
   @doc "The most open games the preview enumerates (`3^n` outcomes)."
   def max_open_games, do: @max_open_games
@@ -135,13 +138,21 @@ defmodule PairingsEngine.NextRoundPreview do
               select: {f.player_a_id, f.player_b_id, f.soft}
           )
 
-        :erlang.phash2({Map.delete(t, :__meta__), forbidden})
+        :erlang.phash2({
+          StandingsCache.version(tournament_id),
+          Map.delete(t, :__meta__),
+          forbidden
+        })
     end
   end
 
   @doc """
   Works the preview out. `opts[:progress]`, if given, is called as
-  `progress.(done, total)` as outcomes finish (about fifty times in all).
+  `progress.(done, total)`: once with `done = 0` as soon as the number of
+  outcomes is known, then as outcomes finish - at most once per
+  `opts[:progress_interval_ms]` (default #{@progress_interval_ms}), and
+  always for the last one - so a page showing it is told at most ten times
+  a second however fast the outcomes come.
 
   `{:ok, preview}` - see `classify/3` for its shape, plus `:round`,
   `:next_round`, `:games` (the open games), `:players`
@@ -152,6 +163,7 @@ defmodule PairingsEngine.NextRoundPreview do
   """
   def run(%Tournament{} = tournament, opts \\ []) do
     progress = Keyword.get(opts, :progress, fn _done, _total -> :ok end)
+    interval = Keyword.get(opts, :progress_interval_ms, @progress_interval_ms)
     started = System.monotonic_time(:millisecond)
     fingerprint = fingerprint(tournament.id)
 
@@ -160,19 +172,18 @@ defmodule PairingsEngine.NextRoundPreview do
          :ok <- check_count(length(games)) do
       worlds = worlds(length(games))
       total = length(worlds)
-      step = max(1, div(total, 50))
       player_ids = context.active |> Enum.map(& &1.id) |> Enum.sort()
+      progress.(0, total)
 
-      outcomes =
+      {outcomes, _last} =
         worlds
         |> Task.async_stream(&pair_world(context, games, &1),
           max_concurrency: concurrency(),
           timeout: :infinity
         )
         |> Stream.with_index(1)
-        |> Enum.map(fn {{:ok, outcome}, done} ->
-          if rem(done, step) == 0 or done == total, do: progress.(done, total)
-          outcome
+        |> Enum.map_reduce(nil, fn {{:ok, outcome}, done}, last ->
+          {outcome, throttled(progress, done, total, last, interval)}
         end)
 
       with {:ok, classified} <- classify(length(games), player_ids, outcomes) do
@@ -186,6 +197,19 @@ defmodule PairingsEngine.NextRoundPreview do
            elapsed_ms: System.monotonic_time(:millisecond) - started
          })}
       end
+    end
+  end
+
+  # Reports `done` when the last report is `interval` ms old, or it is the
+  # last outcome. Returns when it last reported.
+  defp throttled(progress, done, total, last, interval) do
+    now = System.monotonic_time(:millisecond)
+
+    if done == total or is_nil(last) or now - last >= interval do
+      progress.(done, total)
+      now
+    else
+      last
     end
   end
 

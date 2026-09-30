@@ -254,6 +254,26 @@ defmodule PairingsEngine.NextRoundPreviewTest do
                nil
     end
 
+    test "progress is reported at the start, throttled in between, and at the end" do
+      t = plain_tournament(12)
+      pair!(t)
+      finish_some(t, 3)
+      test = self()
+
+      assert {:ok, _preview} =
+               NextRoundPreview.run(reload(t),
+                 progress: fn done, total -> send(test, {:progress, done, total}) end,
+                 progress_interval_ms: 60_000
+               )
+
+      # 27 outcomes, and a minute between reports: the start, the first
+      # outcome, and the last.
+      assert_received {:progress, 0, 27}
+      assert_received {:progress, 1, 27}
+      assert_received {:progress, 27, 27}
+      refute_received {:progress, _, _}
+    end
+
     test "a fixed board of the preview is on that board whatever the results" do
       t = plain_tournament(20)
       pair!(t)
