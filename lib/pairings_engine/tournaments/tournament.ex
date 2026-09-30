@@ -941,6 +941,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     #     is called, from the players' `no_bye` settings.
     field :bye_exclusion_override, :integer, virtual: true
     field :engine_bye_exclusions, {:array, :integer}, virtual: true, default: []
+    # The players' bye preferences for the run under way, as the engine
+    # takes them - `[{rank, :want_hard | :want_soft | :avoid_soft}]` - set
+    # beside `engine_bye_exclusions` and never stored. Empty on a
+    # FIDE-rated tournament (docs/pairing-systems.md, "Bye preferences").
+    field :engine_bye_preferences, {:array, :any}, virtual: true, default: []
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team

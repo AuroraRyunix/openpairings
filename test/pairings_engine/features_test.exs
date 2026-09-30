@@ -7,13 +7,18 @@ defmodule PairingsEngine.FeaturesTest do
   alias PairingsEngine.Features
 
   describe "the catalogue" do
-    test "every entry names a federation that ships a pack" do
+    test "every entry names a federation that ships a pack, or none" do
       codes = MapSet.new(Features.federations(), & &1.code)
 
-      for feature <- Features.catalogue() do
+      for feature <- Features.catalogue(), feature.federation != nil do
         assert feature.federation in codes,
                "#{feature.key} belongs to #{feature.federation}, which is not in federations/0"
       end
+    end
+
+    test "bye preferences are their own switch, in no federation's pack" do
+      assert Features.general() |> Enum.map(& &1.key) == ["bye_preferences"]
+      refute "bye_preferences" in Enum.map(Features.catalogue_for("BEL"), & &1.key)
     end
 
     test "keys are unique and match the catalogue's order" do

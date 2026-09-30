@@ -63,6 +63,27 @@ defmodule PairingsEngine.Tournaments.Player do
     # it is `no_bye_rounds` being blank or not, and exists so the form can
     # be told "certain rounds" before any round has been typed.
     field :no_bye_scope, :string, virtual: true
+
+    # A PREFERENCE for the pairing-allocated bye - also an organiser's wish,
+    # not FIDE's (docs/pairing-systems.md, "Bye preferences"):
+    #
+    #   ""           none
+    #   "want_hard"  must get it, if a legal round gives it to them
+    #   "want_soft"  rather gets it: decides among the players on the bye
+    #                score, never lifts the bye to a higher score
+    #   "avoid_soft" rather not: someone else on the bye score takes it if
+    #                anyone can
+    #
+    # The fourth setting, "must not get it", is `no_bye` above - the same
+    # rule, kept in its own columns so tournaments that already use it pair
+    # exactly as before. `bye_preference_rounds` is `no_bye_rounds`' twin.
+    # Only Ainalrami honours it, and never on a FIDE-rated tournament
+    # (`fide_homologated`): the pairing ignores a stored one there and the
+    # player form does not offer it (`PairingsEngine.Pairing`'s
+    # `bye_preference_ranks/4`).
+    field :bye_preference, :string, default: ""
+    field :bye_preference_rounds, :string, default: ""
+    field :bye_preference_scope, :string, virtual: true
     # SWAR XtPts
     field :extra_points, :float, default: 0.0
     # The pairing-pool OVERRIDE, not "the player's category". A player can
@@ -158,7 +179,10 @@ defmodule PairingsEngine.Tournaments.Player do
       :fixed_board,
       :no_bye,
       :no_bye_rounds,
-      :no_bye_scope
+      :no_bye_scope,
+      :bye_preference,
+      :bye_preference_rounds,
+      :bye_preference_scope
     ])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
@@ -174,6 +198,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_team_in_tournament()
     |> normalize_absent_rounds()
     |> normalize_no_bye()
+    |> normalize_bye_preference()
     |> normalize_categories()
     |> sync_special_table()
     |> validate_fide_id_range()
@@ -332,6 +357,155 @@ defmodule PairingsEngine.Tournaments.Player do
       do: changeset,
       else: put_change(changeset, :no_bye_rounds, "")
   end
+
+  @bye_preferences ~w(want_hard want_soft avoid_soft)
+
+  @doc "The stored bye preferences other than none, strongest want first."
+  def bye_preferences, do: @bye_preferences
+
+  # The bye preference, by the same rules as `normalize_no_bye/1`: its rounds
+  # in the absent rounds' canonical form, cleared when the scope is "all" or
+  # the preference is none. And one more, because the two settings live
+  # side by side on the form: a player cannot be kept from the bye and want
+  # it in the same round - the exclusion would win silently, so the form
+  # says so instead.
+  defp normalize_bye_preference(changeset) do
+    changeset =
+      changeset
+      |> update_change(:bye_preference, &(&1 || ""))
+      |> validate_inclusion(:bye_preference, ["" | @bye_preferences])
+
+    changeset =
+      case fetch_change(changeset, :bye_preference_rounds) do
+        {:ok, value} ->
+          case parse_absent_rounds_input(to_string(value || "")) do
+            {:ok, canonical} ->
+              put_change(changeset, :bye_preference_rounds, canonical)
+
+            :error ->
+              add_error(
+                changeset,
+                :bye_preference_rounds,
+                "must be round numbers or ranges, e.g. \"3,5\" or \"2-4\" " <>
+                  "(comma, semicolon, colon, period and \"-\" ranges are all accepted)"
+              )
+          end
+
+        :error ->
+          changeset
+      end
+
+    changeset =
+      cond do
+        get_field(changeset, :bye_preference) in [nil, ""] ->
+          clear_bye_preference_rounds(changeset)
+
+        get_field(changeset, :bye_preference_scope) == "all" ->
+          clear_bye_preference_rounds(changeset)
+
+        get_field(changeset, :bye_preference_scope) == "rounds" and
+            get_field(changeset, :bye_preference_rounds) in [nil, ""] ->
+          add_error(
+            changeset,
+            :bye_preference_rounds,
+            "needs the rounds, e.g. \"3,5\" or \"2-4\""
+          )
+
+        true ->
+          changeset
+      end
+
+    validate_bye_settings_agree(changeset)
+  end
+
+  defp clear_bye_preference_rounds(changeset) do
+    if get_field(changeset, :bye_preference_rounds) in [nil, ""],
+      do: changeset,
+      else: put_change(changeset, :bye_preference_rounds, "")
+  end
+
+  defp validate_bye_settings_agree(changeset) do
+    player = %{
+      no_bye: get_field(changeset, :no_bye) == true,
+      no_bye_rounds: get_field(changeset, :no_bye_rounds) || "",
+      bye_preference: get_field(changeset, :bye_preference) || "",
+      bye_preference_rounds: get_field(changeset, :bye_preference_rounds) || ""
+    }
+
+    case bye_settings_clash(player) do
+      nil ->
+        changeset
+
+      :all ->
+        add_error(
+          changeset,
+          :bye_preference,
+          "cannot want the pairing-allocated bye while excluded from it - " <>
+            "untick the exclusion or give the two different rounds"
+        )
+
+      rounds ->
+        add_error(
+          changeset,
+          :bye_preference,
+          "cannot want the pairing-allocated bye in rounds where it is excluded from it " <>
+            "(#{Enum.join(rounds, ", ")})"
+        )
+    end
+  end
+
+  @doc """
+  Where a player's "must not get the bye" (`no_bye`) and a WANT for the bye
+  overlap: nil when they do not, `:all` when both cover every round, else
+  the rounds both name. A soft "rather not" beside an exclusion is only
+  redundant, and is not a clash.
+  """
+  def bye_settings_clash(%{no_bye: true, bye_preference: pref} = player)
+      when pref in ["want_hard", "want_soft"] do
+    case {player.no_bye_rounds, player.bye_preference_rounds} do
+      {a, b} when a in [nil, ""] and b in [nil, ""] ->
+        :all
+
+      {a, b} when a in [nil, ""] ->
+        parse_absent_rounds(b)
+
+      {a, b} when b in [nil, ""] ->
+        parse_absent_rounds(a)
+
+      {a, b} ->
+        a |> parse_absent_rounds() |> Enum.filter(&(&1 in parse_absent_rounds(b)))
+    end
+    |> case do
+      [] -> nil
+      other -> other
+    end
+  end
+
+  def bye_settings_clash(_player), do: nil
+
+  @doc """
+  The player's bye preference in `round_number` as the engine names it
+  (`:want_hard`, `:want_soft`, `:avoid_soft`), or nil - every round when
+  `bye_preference_rounds` is blank, else only those rounds. Not a FIDE
+  rule; whether the tournament may use it at all is the caller's question.
+  """
+  def bye_preference_for_round(%{bye_preference: pref} = player, round_number)
+      when pref in @bye_preferences do
+    rounds = Map.get(player, :bye_preference_rounds)
+
+    applies? =
+      if rounds in [nil, ""],
+        do: is_integer(round_number),
+        else: round_number in parse_absent_rounds(rounds)
+
+    if applies?, do: preference_atom(pref)
+  end
+
+  def bye_preference_for_round(_player, _round_number), do: nil
+
+  defp preference_atom("want_hard"), do: :want_hard
+  defp preference_atom("want_soft"), do: :want_soft
+  defp preference_atom("avoid_soft"), do: :avoid_soft
 
   @doc """
   Whether `player` must not receive the pairing-allocated bye in

@@ -978,6 +978,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       :forfeit_win -> gettext("not allowed a bye - won a game by forfeit")
       :full_point_bye -> gettext("not allowed a bye - already had a full-point bye")
       :organiser_exclusion -> gettext("not allowed a bye - organiser exclusion, not a FIDE rule")
+      :bye_preference -> gettext("not allowed a bye - bye preference, not a FIDE rule")
       _ -> gettext("not allowed a bye")
     end
   end
@@ -4017,6 +4018,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </p>
           </div>
 
+          <%!-- The players' bye preferences (not a FIDE rule): whether
+                they changed who got the bye, and why any was not applied. --%>
+          <.bye_preference_account
+            :if={section.bye_preference}
+            record={section.bye_preference}
+            names={section.bye_preference_names}
+          />
+
           <div :if={section.bye} class="pe-why-me">
             <p class="pe-why-me-head">
               <strong>{gettext("Why the bye went to %{name}", name: section.bye.holder.name)}</strong>
@@ -4059,6 +4068,30 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </p>
       </div>
     </Layouts.app>
+    """
+  end
+
+  attr :record, :map, required: true
+  attr :names, :map, required: true
+
+  # What the players' bye preferences did in the round - the same sentences
+  # as the Pairings page's notice (`PairingsEngineWeb.ByePreferenceText`).
+  defp bye_preference_account(assigns) do
+    {moved, notes} =
+      PairingsEngineWeb.ByePreferenceText.account(assigns.record, &Map.get(assigns.names, &1))
+
+    assigns = assign(assigns, moved: moved, notes: notes)
+
+    ~H"""
+    <div :if={@moved || @notes != []} id="bye-preference-account" class="pe-why-me">
+      <p :if={@moved} class="pe-why-me-head"><strong>{@moved}</strong></p>
+      <p :for={note <- @notes}>{note}</p>
+      <p class="hint">
+        {gettext(
+          "Not a FIDE rule: where the preferences changed the round, a FIDE-endorsed program would have paired it differently, and a FIDE checker cannot replay it."
+        )}
+      </p>
+    </div>
     """
   end
 end

@@ -53,7 +53,12 @@ defmodule PairingsEngine.RoundExplanation do
         # order they would have had it, and whose exclusion was lifted to
         # pair the round at all. Empty/nil for every other round.
         bye_passed_over: names(section["bye_passed_over"], by_id),
-        bye_exclusion_lifted: player(section["bye_exclusion_lifted"], by_id)
+        bye_exclusion_lifted: player(section["bye_exclusion_lifted"], by_id),
+        # The players' bye preferences (not a FIDE rule), as stored: what
+        # they did to the bye and why any was not applied. nil for a round
+        # that had none. The words are `PairingsEngineWeb.ByePreferenceText`'s.
+        bye_preference: section["bye_preference"],
+        bye_preference_names: preference_names(section["bye_preference"], by_id)
       }
     end)
     |> Enum.reject(&(&1.brackets == []))
@@ -206,7 +211,7 @@ defmodule PairingsEngine.RoundExplanation do
   end
 
   @outcomes ~w(same worse better tie incomparable impossible ineligible)
-  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye organiser_exclusion)
+  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye organiser_exclusion bye_preference)
 
   # One "why him and not me" record - a float's or the bye's - with the
   # subject resolved under `subject_key` (`:floater` or `:holder`).
@@ -369,6 +374,17 @@ defmodule PairingsEngine.RoundExplanation do
     end
   end
 
+  # `%{player_id => name}` for every player a bye preference record names.
+  defp preference_names(%{} = record, by_id) do
+    ids =
+      [record["bye"], record["fide_bye"]] ++
+        Enum.flat_map(record["outcomes"] || [], &[&1["player"], &1["holder"]])
+
+    for id <- ids, p = player(id, by_id), into: %{}, do: {id, p.name}
+  end
+
+  defp preference_names(_record, _by_id), do: %{}
+
   defp names(ids, by_id),
     do: (ids || []) |> Enum.map(&player(&1, by_id)) |> Enum.reject(&is_nil/1)
 
@@ -388,6 +404,26 @@ defmodule PairingsEngine.RoundExplanation do
     |> Enum.filter(fn
       %{explanation: %{"sections" => sections}} ->
         Enum.any?(sections, &((&1["bye_passed_over"] || []) != []))
+
+      _ ->
+        false
+    end)
+    |> Enum.map(& &1.number)
+  end
+
+  @doc """
+  The numbers of the rounds whose stored account says the players' bye
+  preferences (not a FIDE rule) changed the round. Like
+  `bye_exclusion_rounds/1`, these are rounds a FIDE checker replaying the
+  TRF cannot reproduce; a round the preferences did not change is not
+  listed.
+  """
+  def bye_preference_rounds(tournament_id) do
+    tournament_id
+    |> PairingsEngine.Tournaments.list_rounds()
+    |> Enum.filter(fn
+      %{explanation: %{"sections" => sections}} ->
+        Enum.any?(sections, &match?(%{"bye_preference" => %{"moved" => true}}, &1))
 
       _ ->
         false

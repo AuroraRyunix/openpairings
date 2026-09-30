@@ -2311,9 +2311,51 @@ defmodule PairingsEngine.Tournaments do
     player
     |> Player.changeset(attrs)
     |> guard_pairing_number_freeze(player)
+    |> guard_second_bye_want(player)
     |> Repo.update()
     |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
   end
+
+  # "Must get the pairing-allocated bye" for rounds after the one where the
+  # player already had it asks for a second one, which FIDE's rule C2
+  # forbids. Refused when the setting is changed, naming the round; a stored
+  # one that became impossible (the player got the bye because of it) does
+  # not block unrelated edits - the pairing refuses the round instead.
+  defp guard_second_bye_want(changeset, %Player{id: id, tournament_id: tid, name: name})
+       when not is_nil(id) do
+    changed? =
+      Ecto.Changeset.changed?(changeset, :bye_preference) or
+        Ecto.Changeset.changed?(changeset, :bye_preference_rounds)
+
+    if changed? and Ecto.Changeset.get_field(changeset, :bye_preference) == "want_hard" do
+      case PairingsEngine.Pairing.first_pairing_allocated_bye(tid, id) do
+        nil ->
+          changeset
+
+        round ->
+          rounds = Ecto.Changeset.get_field(changeset, :bye_preference_rounds)
+
+          later? =
+            rounds in [nil, ""] or
+              Enum.any?(Player.parse_absent_rounds(rounds), &(&1 > round))
+
+          if later?,
+            do:
+              Ecto.Changeset.add_error(
+                changeset,
+                :bye_preference,
+                "cannot be \"must get it\" for rounds after round #{round}: " <>
+                  "#{Ecto.Changeset.get_field(changeset, :name) || name} already had the " <>
+                  "pairing-allocated bye in round #{round}, and FIDE rule C2 allows no second one"
+              ),
+            else: changeset
+      end
+    else
+      changeset
+    end
+  end
+
+  defp guard_second_bye_want(changeset, _player), do: changeset
 
   # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while
   # the "List of Participants" is still effectively open (late entries,

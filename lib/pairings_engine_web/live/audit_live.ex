@@ -109,7 +109,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
         pairing.match_forfeit_withdrawn pairing.board_attached
         pairing.missing_recorded_postponed pairing.postponed_date_set
-        pairing.bye_exclusion_overridden pairing.bye_passed_over)},
+        pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -464,6 +464,18 @@ defmodule PairingsEngineWeb.AuditLive do
       length(names),
       round: value(d, "round"),
       names: Enum.map_join(names, ", ", &text/1)
+    )
+  end
+
+  # What the players' bye preferences (not a FIDE rule) did in a round -
+  # `PairingsLive`'s `log_bye_preferences/2`, which stores the sentences
+  # themselves, as they read at the time.
+  def describe("pairing.bye_preference", d) do
+    notes = d |> Map.get("notes", []) |> List.wrap() |> Enum.map_join(" ", &text/1)
+
+    gettext("Round %{round}, bye preferences (organiser's wish, not a FIDE rule): %{notes}",
+      round: value(d, "round"),
+      notes: notes
     )
   end
 

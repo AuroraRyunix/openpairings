@@ -49,6 +49,13 @@ defmodule PairingsEngine.Features do
   federation to `federations/0`. Nothing else in this module, on the
   settings page, or in the gates at the call sites needs to know the
   difference - they all iterate the catalogue.
+
+  ## Features that belong to no federation
+
+  An entry with `federation: nil` is an optional feature any arbiter may
+  want - today only the players' bye preferences. The same rule applies to
+  it: it owns the entrance, never the stored value. `general/0` lists them;
+  the settings page shows them as their own group above the packs.
   """
 
   # The catalogue carries the words an arbiter reads, so it has to be
@@ -164,9 +171,27 @@ defmodule PairingsEngine.Features do
           gettext(
             "Adds \"Exclude from the pairing-allocated bye\" to a player's details, for every round or chosen rounds. Not a FIDE rule: the Swiss pairings then differ from FIDE-endorsed programs, and a FIDE checker cannot replay those rounds. Ainalrami engine only."
           )
+      },
+      # Not a federation's: any organiser may want a player to get, or not
+      # get, the pairing-allocated bye. Not a FIDE rule either, so it is
+      # off until switched on, and never offered on a FIDE-rated
+      # tournament (docs/pairing-systems.md, "Bye preferences").
+      %{
+        key: "bye_preferences",
+        federation: nil,
+        label: gettext("Bye preferences"),
+        description:
+          gettext(
+            "Adds a pairing-allocated bye preference to a player's details - must get it, rather gets it, or rather not - for every round or chosen rounds. Not a FIDE rule: a round it changes is recorded as not paired by the FIDE rules. Never on a FIDE-rated tournament. Ainalrami engine only."
+          )
       }
     ]
   end
+
+  @doc """
+  The optional features that belong to no federation, in catalogue order.
+  """
+  def general, do: Enum.filter(catalogue(), &is_nil(&1.federation))
 
   @doc """
   The features belonging to one federation code, in catalogue order.

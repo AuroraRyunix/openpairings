@@ -309,7 +309,13 @@ defmodule PairingsEngine.MixProject do
       # `v0.4.0` here against a v0.10.0 upstream is visible at a glance, in
       # a diff and in review. mix.lock still records the resolved commit, so
       # this is no less exact than a SHA was; it is only easier to read.
-      {:ainalrami, github: "AuroraRyunix/Ainalrami", tag: "v0.34.0"}
+      #
+      # DEVELOPMENT ONLY (branch bye-preference): the engine's bye
+      # preferences live on Ainalrami's unreleased `bye-preference` branch, so
+      # this points at a local checkout of it. Switch back to a
+      # `github: ..., tag: "v..."` pin of the release that carries them
+      # before this branch is released.
+      {:ainalrami, path: "../openpair-byepref"}
     ]
   end
 
