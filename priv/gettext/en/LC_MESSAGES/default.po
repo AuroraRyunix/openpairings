@@ -2721,8 +2721,8 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/print_controller.ex:1681
 #: lib/pairings_engine_web/controllers/print_controller.ex:1886
 #: lib/pairings_engine_web/live/live_round_live.ex:764
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:412
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:440
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:417
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:445
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1341
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2998
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3377
@@ -2743,7 +2743,7 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/print_controller.ex:1420
 #: lib/pairings_engine_web/controllers/print_controller.ex:1578
 #: lib/pairings_engine_web/live/live_round_live.ex:761
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:408
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:413
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2996
 #: lib/pairings_engine_web/live/pairings_live.ex:4110
 #: lib/pairings_engine_web/live/settings_export_live.ex:783
@@ -3414,7 +3414,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/badge_studio_live.ex:611
 #: lib/pairings_engine_web/live/categories_live.ex:963
 #: lib/pairings_engine_web/live/live_round_live.ex:878
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:488
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:493
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3577
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3607
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3854
@@ -3439,7 +3439,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/badge_studio_live.ex:174
 #: lib/pairings_engine_web/live/categories_live.ex:771
 #: lib/pairings_engine_web/live/extra_points_live.ex:230
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:468
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:473
 #: lib/pairings_engine_web/live/players_live.ex:2346
 #: lib/pairings_engine_web/live/tools_norms_live.ex:968
 #: lib/pairings_engine_web/live/tournaments_live.ex:2490
@@ -4004,8 +4004,8 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/print_controller.ex:1680
 #: lib/pairings_engine_web/controllers/print_controller.ex:1885
 #: lib/pairings_engine_web/live/live_round_live.ex:762
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:410
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:438
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:415
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:443
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1340
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2997
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3369
@@ -7426,7 +7426,7 @@ msgstr ""
 msgid "Asking the results site who runs it..."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:312
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:317
 #: lib/pairings_engine_web/public_consent.ex:185
 #, elixir-autogen, elixir-format
 msgid "Close"
@@ -9199,8 +9199,8 @@ msgid "Board statistics"
 msgstr ""
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:976
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:436
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:466
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:441
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:471
 #: lib/pairings_engine_web/live/pairings_live.ex:3944
 #: lib/pairings_engine_web/live/settings_export_live.ex:674
 #: lib/pairings_engine_web/live/standings_live.ex:1220
@@ -13804,8 +13804,8 @@ msgstr ""
 msgid "Uploading…"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:259
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:605
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:264
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:610
 #, elixir-autogen, elixir-format
 msgid "%{count} games still open - the next-round preview is available when %{max} or fewer remain."
 msgstr ""
@@ -13817,72 +13817,72 @@ msgid_plural "%{count} games still open: see which boards of the next round are 
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:536
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:541
 #, elixir-autogen, elixir-format
 msgid "1 pair fixed, board may shift"
 msgid_plural "%{count} pairs fixed, board may shift"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:542
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:547
 #, elixir-autogen, elixir-format
 msgid "1 pair fixed, colours open"
 msgid_plural "%{count} pairs fixed, colours open"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:548
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:553
 #, elixir-autogen, elixir-format
 msgid "1 player open"
 msgid_plural "%{count} players open"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:332
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:337
 #, elixir-autogen, elixir-format
 msgid "A result or the field changed - updating…"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:532
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:537
 #, elixir-autogen, elixir-format
 msgid "Board %{boards} fixed"
 msgid_plural "Boards %{boards} fixed"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:513
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:518
 #, elixir-autogen, elixir-format
 msgid "Bye: %{name}, whatever the results."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:515
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:520
 #, elixir-autogen, elixir-format
 msgid "Bye: open - %{names} (decided by %{games})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:490
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:495
 #, elixir-autogen, elixir-format
 msgid "Could meet"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:492
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:497
 #, elixir-autogen, elixir-format
 msgid "Decided by"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:401
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:406
 #, elixir-autogen, elixir-format
 msgid "Fixed boards"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:382
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:387
 #, elixir-autogen, elixir-format
 msgid "From %{outcomes} outcomes of 1 open game (%{games})."
 msgid_plural "From %{outcomes} outcomes of %{count} open games (%{games})."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:392
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:397
 #, elixir-autogen, elixir-format
 msgid "In 1 outcome the round cannot be paired at all; it is left out of the comparison."
 msgid_plural "In %{count} outcomes the round cannot be paired at all; they are left out of the comparison."
@@ -13899,12 +13899,12 @@ msgstr ""
 msgid "No board is fixed yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:326
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:331
 #, elixir-autogen, elixir-format
 msgid "No preview needed: every result of the round is in, or too many are missing."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:553
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:558
 #, elixir-autogen, elixir-format
 msgid "Nothing is certain yet."
 msgstr ""
@@ -13914,22 +13914,22 @@ msgstr ""
 msgid "Nothing is saved: the round is paired as usual once the last result is in."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:483
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:488
 #, elixir-autogen, elixir-format
 msgid "Open - depends on the results"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:430
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:435
 #, elixir-autogen, elixir-format
 msgid "Pair and colours fixed, board may shift"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:461
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:466
 #, elixir-autogen, elixir-format
 msgid "Pair fixed, colours open"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:365
 #, elixir-autogen, elixir-format
 msgid "Paired %{done} of %{total} variants"
 msgstr ""
@@ -13944,7 +13944,7 @@ msgstr ""
 msgid "Preview - not the pairing."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:292
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:297
 #, elixir-autogen, elixir-format
 msgid "Preview - nothing is saved"
 msgstr ""
@@ -13954,22 +13954,22 @@ msgstr ""
 msgid "Preview next round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:287
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:292
 #, elixir-autogen, elixir-format
 msgid "Preview of round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:288
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:293
 #, elixir-autogen, elixir-format
 msgid "Preview of the next round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:303
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:308
 #, elixir-autogen, elixir-format
 msgid "Print fixed boards"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:368
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:373
 #, elixir-autogen, elixir-format
 msgid "Reading the tournament…"
 msgstr ""
@@ -13979,7 +13979,7 @@ msgstr ""
 msgid "Round %{n} - preview of the fixed boards"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:613
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:618
 #, elixir-autogen, elixir-format
 msgid "The next round cannot be paired in any outcome: %{reason}"
 msgstr ""
@@ -13989,17 +13989,17 @@ msgstr ""
 msgid "The next-round preview is not up to date. Open it on the Pairings page, wait until it has finished, then print again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:601
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:606
 #, elixir-autogen, elixir-format
 msgid "The preview could not be worked out."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:618
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:623
 #, elixir-autogen, elixir-format
 msgid "The preview is not available for this round."
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:318
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:323
 #, elixir-autogen, elixir-format
 msgid "Worked out by pairing the next round for every possible result of the games still open, exactly as the real pairing will. Only the boards that come out the same whatever happens are certain. The round itself is paired as usual once the last result is in."
 msgstr ""
@@ -14011,39 +14011,39 @@ msgid_plural "Worked out while %{count} games of round %{round} were still being
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:572
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:577
 #, elixir-autogen, elixir-format
 msgid "about %{m} min left"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:570
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:575
 #, elixir-autogen, elixir-format
 msgid "about %{s} s left"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:589
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:594
 #, elixir-autogen, elixir-format
 msgid "and %{count} more"
 msgstr ""
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:915
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:387
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:597
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:392
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:602
 #, elixir-autogen, elixir-format
 msgid "board %{b}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:558
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:563
 #, elixir-autogen, elixir-format
 msgid "bye fixed"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:559
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:564
 #, elixir-autogen, elixir-format
 msgid "bye open"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:402
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:407
 #, elixir-autogen, elixir-format
 msgid "cards can go out"
 msgstr ""
@@ -14053,12 +14053,17 @@ msgstr ""
 msgid "colours open"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:581
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:586
 #, elixir-autogen, elixir-format
 msgid "no board"
 msgstr ""
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:580
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:585
 #, elixir-autogen, elixir-format
 msgid "the bye"
+msgstr ""
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:260
+#, elixir-autogen, elixir-format
+msgid "The next-round preview is available with the built-in engine (Ainalrami)."
 msgstr ""

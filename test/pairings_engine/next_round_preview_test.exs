@@ -171,6 +171,24 @@ defmodule PairingsEngine.NextRoundPreviewTest do
       assert NextRoundPreview.run(reload(t)) == {:error, {:too_many, 7}}
     end
 
+    test "not with JaVaFo: one JVM per outcome" do
+      t = plain_tournament(10, %{pairing_engine: "javafo"})
+      # Paired by Ainalrami here, so no JVM is needed for the test itself.
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [pairing_engine: "ainalrami"]
+      )
+
+      pair!(t)
+      finish_some(t, 3)
+
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [pairing_engine: "javafo"]
+      )
+
+      assert NextRoundPreview.availability(reload(t)) == :javafo
+      assert NextRoundPreview.run(reload(t)) == {:error, :javafo}
+    end
+
     test "not for the last round of the schedule, nor a read-only or team event" do
       t = plain_tournament(8, %{rounds_count: 1})
       pair!(t)
@@ -267,11 +285,11 @@ defmodule PairingsEngine.NextRoundPreviewTest do
                )
 
       # 27 outcomes, and a minute between reports: the start, the first
-      # outcome, and the last.
-      assert_received {:progress, 0, 27}
-      assert_received {:progress, 1, 27}
-      assert_received {:progress, 27, 27}
-      refute_received {:progress, _, _}
+      # batch of outcomes done, and the last.
+      reports = collect_progress([])
+      assert List.first(reports) == {0, 27}
+      assert List.last(reports) == {27, 27}
+      assert length(reports) == 3
     end
 
     test "a fixed board of the preview is on that board whatever the results" do
@@ -289,6 +307,14 @@ defmodule PairingsEngine.NextRoundPreviewTest do
       for fixed <- preview.fixed, real <- boards do
         assert {fixed.label, fixed.white, fixed.black} in real
       end
+    end
+  end
+
+  defp collect_progress(acc) do
+    receive do
+      {:progress, done, total} -> collect_progress([{done, total} | acc])
+    after
+      0 -> Enum.reverse(acc)
     end
   end
 
@@ -318,26 +344,46 @@ defmodule PairingsEngine.NextRoundPreviewTest do
   # results entered and the round really paired - which must agree board
   # for board, label and colours included - then unpaired and the results
   # taken back, for the next outcome.
+  #
+  # Both of the preview's ways to the engine are held to the real pairing:
+  # the TRF built and read per outcome, and the field parsed once from the
+  # first outcome and re-ranked per outcome (`Pairing.preview_base/2`) -
+  # whose field must also be exactly what the engine would read off that
+  # outcome's TRF.
   defp assert_every_outcome_matches(t) do
     {:ok, context} = Engine.preview_context(reload(t))
     games = NextRoundPreview.open_games(t.id, context.round_number)
+    [first | _] = worlds = NextRoundPreview.worlds(length(games))
+    fast = Engine.preview_base(context, NextRoundPreview.world_results(games, first))
+    single_pool? = not context.tournament.pair_by_category
 
-    for world <- NextRoundPreview.worlds(length(games)) do
-      results =
-        games
-        |> Enum.zip(world)
-        |> Map.new(fn {g, o} -> {g.id, Enum.at(NextRoundPreview.outcomes(), o)} end)
+    assert fast.base != nil or not single_pool?
 
-      {:ok, boards} = Engine.preview_round(context, results)
-      seats = NextRoundPreview.seats(boards)
+    for world <- worlds do
+      results = NextRoundPreview.world_results(games, world)
 
-      preview =
-        for {_board, white, black} <- boards do
-          {white_seat_label(seats, white.id), white.id, black && black.id}
+      if single_pool? do
+        [reranked, read] = Engine.preview_fields(fast, results)
+        assert reranked == read, "outcome #{inspect(world)}: the re-ranked field differs"
+      end
+
+      previews =
+        for ctx <- [context, fast] do
+          {:ok, boards} = Engine.preview_round(ctx, results)
+          seats = NextRoundPreview.seats(boards)
+
+          boards
+          |> Enum.map(fn {_board, white, black} ->
+            {white_seat_label(seats, white.id), white.id, black && black.id}
+          end)
+          |> Enum.sort()
         end
 
-      assert real_pairing(t, games, results) == Enum.sort(preview),
-             "outcome #{inspect(world)} differs"
+      real = real_pairing(t, games, results)
+
+      for preview <- previews do
+        assert real == preview, "outcome #{inspect(world)} differs"
+      end
     end
   end
 

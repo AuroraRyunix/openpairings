@@ -6,6 +6,7 @@ defmodule PairingsEngineWeb.NextRoundPreviewLiveTest do
   """
   use PairingsEngineWeb.ConnCase, async: false
 
+  import Ecto.Query
   import Phoenix.LiveViewTest
 
   alias PairingsEngine.{NextRoundPreview, Repo, Tournaments}
@@ -93,6 +94,22 @@ defmodule PairingsEngineWeb.NextRoundPreviewLiveTest do
 
     refute has_element?(lv, "#next-round-preview-open")
     assert has_element?(lv, "#next-round-preview-too-many", "8 games still open")
+  end
+
+  test "with JaVaFo it says the preview needs the built-in engine", %{conn: conn, scope: scope} do
+    t = tournament(scope, 10)
+    leave_open(t, 2)
+    # Paired by Ainalrami above, so no JVM is needed; the engine is locked
+    # once a round is paired, so it is switched in the row.
+    Repo.update_all(
+      from(x in PairingsEngine.Tournaments.Tournament, where: x.id == ^t.id),
+      set: [pairing_engine: "javafo"]
+    )
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+    assert has_element?(lv, "#next-round-preview-javafo")
+    refute has_element?(lv, "#next-round-preview-open")
   end
 
   test "not offered once every result is in", %{conn: conn, scope: scope} do

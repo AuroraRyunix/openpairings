@@ -2713,8 +2713,8 @@ msgstr "Terug"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1681
 #: lib/pairings_engine_web/controllers/print_controller.ex:1886
 #: lib/pairings_engine_web/live/live_round_live.ex:764
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:412
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:440
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:417
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:445
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1341
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2998
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3377
@@ -2735,7 +2735,7 @@ msgstr "Zwart"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1420
 #: lib/pairings_engine_web/controllers/print_controller.ex:1578
 #: lib/pairings_engine_web/live/live_round_live.ex:761
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:408
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:413
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2996
 #: lib/pairings_engine_web/live/pairings_live.ex:4110
 #: lib/pairings_engine_web/live/settings_export_live.ex:783
@@ -3406,7 +3406,7 @@ msgstr "Plaatskaartjes"
 #: lib/pairings_engine_web/live/badge_studio_live.ex:611
 #: lib/pairings_engine_web/live/categories_live.ex:963
 #: lib/pairings_engine_web/live/live_round_live.ex:878
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:488
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:493
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3577
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3607
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3854
@@ -3431,7 +3431,7 @@ msgstr "Speler niet gevonden"
 #: lib/pairings_engine_web/live/badge_studio_live.ex:174
 #: lib/pairings_engine_web/live/categories_live.ex:771
 #: lib/pairings_engine_web/live/extra_points_live.ex:230
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:468
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:473
 #: lib/pairings_engine_web/live/players_live.ex:2346
 #: lib/pairings_engine_web/live/tools_norms_live.ex:968
 #: lib/pairings_engine_web/live/tournaments_live.ex:2490
@@ -3996,8 +3996,8 @@ msgstr "Wanneer"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1680
 #: lib/pairings_engine_web/controllers/print_controller.ex:1885
 #: lib/pairings_engine_web/live/live_round_live.ex:762
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:410
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:438
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:415
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:443
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1340
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2997
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3369
@@ -7418,7 +7418,7 @@ msgstr "Akkoord en publiceren"
 msgid "Asking the results site who runs it..."
 msgstr "Navragen wie de uitslagensite beheert..."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:312
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:317
 #: lib/pairings_engine_web/public_consent.ex:185
 #, elixir-autogen, elixir-format
 msgid "Close"
@@ -9191,8 +9191,8 @@ msgid "Board statistics"
 msgstr "Bordstatistieken"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:976
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:436
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:466
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:441
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:471
 #: lib/pairings_engine_web/live/pairings_live.ex:3944
 #: lib/pairings_engine_web/live/settings_export_live.ex:674
 #: lib/pairings_engine_web/live/standings_live.ex:1220
@@ -13796,8 +13796,8 @@ msgstr "Dat bestand kon niet worden geüpload. Los het probleem hierboven op en 
 msgid "Uploading…"
 msgstr "Bezig met uploaden…"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:259
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:605
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:264
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:610
 #, elixir-autogen, elixir-format
 msgid "%{count} games still open - the next-round preview is available when %{max} or fewer remain."
 msgstr "Nog %{count} partijen bezig - de voorvertoning van de volgende ronde is beschikbaar zodra er nog %{max} of minder open zijn."
@@ -13809,72 +13809,72 @@ msgid_plural "%{count} games still open: see which boards of the next round are 
 msgstr[0] "Nog 1 partij bezig: bekijk welke borden van de volgende ronde al vastliggen."
 msgstr[1] "Nog %{count} partijen bezig: bekijk welke borden van de volgende ronde al vastliggen."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:536
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:541
 #, elixir-autogen, elixir-format
 msgid "1 pair fixed, board may shift"
 msgid_plural "%{count} pairs fixed, board may shift"
 msgstr[0] "1 paar vast, bord kan nog verschuiven"
 msgstr[1] "%{count} paren vast, bord kan nog verschuiven"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:542
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:547
 #, elixir-autogen, elixir-format
 msgid "1 pair fixed, colours open"
 msgid_plural "%{count} pairs fixed, colours open"
 msgstr[0] "1 paar vast, kleuren nog open"
 msgstr[1] "%{count} paren vast, kleuren nog open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:548
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:553
 #, elixir-autogen, elixir-format
 msgid "1 player open"
 msgid_plural "%{count} players open"
 msgstr[0] "1 speler open"
 msgstr[1] "%{count} spelers open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:332
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:337
 #, elixir-autogen, elixir-format
 msgid "A result or the field changed - updating…"
 msgstr "Er is een resultaat of iets aan het deelnemersveld gewijzigd - bijwerken…"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:532
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:537
 #, elixir-autogen, elixir-format
 msgid "Board %{boards} fixed"
 msgid_plural "Boards %{boards} fixed"
 msgstr[0] "Bord %{boards} vast"
 msgstr[1] "Borden %{boards} vast"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:513
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:518
 #, elixir-autogen, elixir-format
 msgid "Bye: %{name}, whatever the results."
 msgstr "Bye: %{name}, wat de resultaten ook worden."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:515
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:520
 #, elixir-autogen, elixir-format
 msgid "Bye: open - %{names} (decided by %{games})."
 msgstr "Bye: open - %{names} (hangt af van %{games})."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:490
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:495
 #, elixir-autogen, elixir-format
 msgid "Could meet"
 msgstr "Mogelijke tegenstanders"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:492
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:497
 #, elixir-autogen, elixir-format
 msgid "Decided by"
 msgstr "Hangt af van"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:401
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:406
 #, elixir-autogen, elixir-format
 msgid "Fixed boards"
 msgstr "Vaste borden"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:382
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:387
 #, elixir-autogen, elixir-format
 msgid "From %{outcomes} outcomes of 1 open game (%{games})."
 msgid_plural "From %{outcomes} outcomes of %{count} open games (%{games})."
 msgstr[0] "Uit %{outcomes} mogelijke uitslagen van 1 open partij (%{games})."
 msgstr[1] "Uit %{outcomes} mogelijke uitslagen van %{count} open partijen (%{games})."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:392
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:397
 #, elixir-autogen, elixir-format
 msgid "In 1 outcome the round cannot be paired at all; it is left out of the comparison."
 msgid_plural "In %{count} outcomes the round cannot be paired at all; they are left out of the comparison."
@@ -13891,12 +13891,12 @@ msgstr "Naamkaartjes - vaste borden, op naam"
 msgid "No board is fixed yet."
 msgstr "Er ligt nog geen bord vast."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:326
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:331
 #, elixir-autogen, elixir-format
 msgid "No preview needed: every result of the round is in, or too many are missing."
 msgstr "Geen voorvertoning nodig: alle resultaten van de ronde zijn binnen, of er ontbreken er te veel."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:553
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:558
 #, elixir-autogen, elixir-format
 msgid "Nothing is certain yet."
 msgstr "Er ligt nog niets vast."
@@ -13906,22 +13906,22 @@ msgstr "Er ligt nog niets vast."
 msgid "Nothing is saved: the round is paired as usual once the last result is in."
 msgstr "Er wordt niets opgeslagen: de ronde wordt zoals gewoonlijk gepaard zodra het laatste resultaat binnen is."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:483
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:488
 #, elixir-autogen, elixir-format
 msgid "Open - depends on the results"
 msgstr "Open - hangt af van de resultaten"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:430
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:435
 #, elixir-autogen, elixir-format
 msgid "Pair and colours fixed, board may shift"
 msgstr "Paar en kleuren vast, bord kan nog verschuiven"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:461
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:466
 #, elixir-autogen, elixir-format
 msgid "Pair fixed, colours open"
 msgstr "Paar vast, kleuren nog open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:365
 #, elixir-autogen, elixir-format
 msgid "Paired %{done} of %{total} variants"
 msgstr "%{done} van %{total} varianten gepaard"
@@ -13936,7 +13936,7 @@ msgstr "Paren die al vastliggen, bord nog niet"
 msgid "Preview - not the pairing."
 msgstr "Voorvertoning - niet de paring."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:292
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:297
 #, elixir-autogen, elixir-format
 msgid "Preview - nothing is saved"
 msgstr "Voorvertoning - er wordt niets opgeslagen"
@@ -13946,22 +13946,22 @@ msgstr "Voorvertoning - er wordt niets opgeslagen"
 msgid "Preview next round"
 msgstr "Volgende ronde voorvertonen"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:287
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:292
 #, elixir-autogen, elixir-format
 msgid "Preview of round %{n}"
 msgstr "Voorvertoning van ronde %{n}"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:288
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:293
 #, elixir-autogen, elixir-format
 msgid "Preview of the next round"
 msgstr "Voorvertoning van de volgende ronde"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:303
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:308
 #, elixir-autogen, elixir-format
 msgid "Print fixed boards"
 msgstr "Vaste borden afdrukken"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:368
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:373
 #, elixir-autogen, elixir-format
 msgid "Reading the tournament…"
 msgstr "Toernooi inlezen…"
@@ -13971,7 +13971,7 @@ msgstr "Toernooi inlezen…"
 msgid "Round %{n} - preview of the fixed boards"
 msgstr "Ronde %{n} - voorvertoning van de vaste borden"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:613
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:618
 #, elixir-autogen, elixir-format
 msgid "The next round cannot be paired in any outcome: %{reason}"
 msgstr "De volgende ronde kan bij geen enkele uitslag gepaard worden: %{reason}"
@@ -13981,17 +13981,17 @@ msgstr "De volgende ronde kan bij geen enkele uitslag gepaard worden: %{reason}"
 msgid "The next-round preview is not up to date. Open it on the Pairings page, wait until it has finished, then print again."
 msgstr "De voorvertoning van de volgende ronde is niet actueel. Open ze op de pagina Paringen, wacht tot ze klaar is en druk dan opnieuw af."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:601
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:606
 #, elixir-autogen, elixir-format
 msgid "The preview could not be worked out."
 msgstr "De voorvertoning kon niet berekend worden."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:618
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:623
 #, elixir-autogen, elixir-format
 msgid "The preview is not available for this round."
 msgstr "De voorvertoning is voor deze ronde niet beschikbaar."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:318
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:323
 #, elixir-autogen, elixir-format
 msgid "Worked out by pairing the next round for every possible result of the games still open, exactly as the real pairing will. Only the boards that come out the same whatever happens are certain. The round itself is paired as usual once the last result is in."
 msgstr "Berekend door de volgende ronde te paren voor elke mogelijke uitslag van de partijen die nog bezig zijn, precies zoals de echte paring dat zal doen. Alleen de borden die hoe dan ook hetzelfde uitkomen liggen vast. De ronde zelf wordt zoals gewoonlijk gepaard zodra het laatste resultaat binnen is."
@@ -14003,39 +14003,39 @@ msgid_plural "Worked out while %{count} games of round %{round} were still being
 msgstr[0] "Berekend terwijl 1 partij van ronde %{round} nog bezig was (%{games}): alleen de borden die bij elke uitslag hetzelfde uitkomen staan hier."
 msgstr[1] "Berekend terwijl %{count} partijen van ronde %{round} nog bezig waren (%{games}): alleen de borden die bij elke uitslag hetzelfde uitkomen staan hier."
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:572
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:577
 #, elixir-autogen, elixir-format
 msgid "about %{m} min left"
 msgstr "nog ongeveer %{m} min"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:570
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:575
 #, elixir-autogen, elixir-format
 msgid "about %{s} s left"
 msgstr "nog ongeveer %{s} s"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:589
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:594
 #, elixir-autogen, elixir-format
 msgid "and %{count} more"
 msgstr "en nog %{count}"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:915
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:387
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:597
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:392
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:602
 #, elixir-autogen, elixir-format
 msgid "board %{b}"
 msgstr "bord %{b}"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:558
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:563
 #, elixir-autogen, elixir-format
 msgid "bye fixed"
 msgstr "bye vast"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:559
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:564
 #, elixir-autogen, elixir-format
 msgid "bye open"
 msgstr "bye open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:402
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:407
 #, elixir-autogen, elixir-format
 msgid "cards can go out"
 msgstr "kaartjes kunnen al klaargezet worden"
@@ -14045,12 +14045,17 @@ msgstr "kaartjes kunnen al klaargezet worden"
 msgid "colours open"
 msgstr "kleuren open"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:581
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:586
 #, elixir-autogen, elixir-format
 msgid "no board"
 msgstr "geen bord"
 
-#: lib/pairings_engine_web/live/next_round_preview_panel.ex:580
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:585
 #, elixir-autogen, elixir-format
 msgid "the bye"
 msgstr "de bye"
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:260
+#, elixir-autogen, elixir-format
+msgid "The next-round preview is available with the built-in engine (Ainalrami)."
+msgstr "De voorvertoning van de volgende ronde is beschikbaar met de ingebouwde engine (Ainalrami)."

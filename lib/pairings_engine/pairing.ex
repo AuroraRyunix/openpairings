@@ -443,9 +443,15 @@ defmodule PairingsEngine.Pairing do
   @doc """
   What pairing round `paired + 1` of an individual Swiss would read, read
   once for the preview. `{:ok, context}` or `{:error, reason}`, the reason
-  one of `:not_individual_swiss`, `:read_only`, `:no_round`,
+  one of `:not_individual_swiss`, `:javafo`, `:read_only`, `:no_round`,
   `:all_rounds_paired` and `:too_few_players` - the cases in which the real
-  "pair next round" would refuse whatever the results.
+  "pair next round" would refuse whatever the results, and JaVaFo, whose
+  one JVM per outcome the preview does not offer.
+
+  Everything that does not depend on the open games' results is worked out
+  here, once: the history with every player's games (`precompute_games/2`),
+  and the numbers a late entrant is about to get. `preview_base/2` adds the
+  engine's field as parsed, so that each outcome only re-ranks it.
   """
   def preview_context(%Tournament{} = tournament) do
     tournament = %{tournament | bye_exclusion_override: nil}
@@ -456,6 +462,9 @@ defmodule PairingsEngine.Pairing do
     cond do
       tournament.pairing_system != "swiss" or Tournament.team?(tournament) ->
         {:error, :not_individual_swiss}
+
+      tournament.pairing_engine != "ainalrami" ->
+        {:error, :javafo}
 
       Tournaments.ensure_writable(tournament) != :ok ->
         {:error, :read_only}
@@ -477,6 +486,7 @@ defmodule PairingsEngine.Pairing do
           tournament
           |> build_shared_history()
           |> with_pairing_numbers(new_pairing_numbers(tournament, active))
+          |> then(&precompute_games(tournament, &1))
 
         {:ok,
          %{
@@ -484,7 +494,8 @@ defmodule PairingsEngine.Pairing do
            round_number: paired,
            next_number: next_number,
            active: active,
-           history: history
+           history: history,
+           base: nil
          }}
     end
   end
@@ -498,18 +509,81 @@ defmodule PairingsEngine.Pairing do
   white, black}`, players as structs, `black` nil for the pairing-allocated
   bye), or the `{:error, reason}` the real pairing would have returned.
   """
-  def preview_round(context, results) when is_map(results) do
-    history =
-      context.history
-      |> with_results(context.round_number, results)
-      |> then(&precompute_games(context.tournament, &1))
+  def preview_round(context, results, opts \\ []) when is_map(results) do
+    history = outcome_history(context, results)
 
-    run = %{history: history, preview?: true}
+    # With a base (`preview_base/2`) the engine's field is the base's,
+    # re-ranked for this outcome; `text: true` builds and parses the TRF
+    # instead, as the real pairing does - the tests compare the two.
+    base = if Keyword.get(opts, :text, false), do: nil, else: context.base
+    run = %{history: history, preview?: true, base: base}
 
     case plan_round(context.tournament, context.next_number, context.active, run) do
       {:ok, plan} -> {:ok, plan_boards(plan)}
       {:error, _reason} = error -> error
     end
+  end
+
+  @doc """
+  `context` with the engine's field of one outcome, `results`, parsed
+  once: the players as `Ainalrami.Trf.parse/1` reads them off the TRF the
+  real pairing builds, with their ranks. `preview_round/2` then re-ranks
+  it for each outcome (`rerank_field/4`) instead of writing and reading a
+  whole TRF again - about 0.1 s per outcome on 600 players, more than the
+  engine itself takes.
+
+  A tournament paired by category keeps the TRF path: its field is one
+  file per category.
+  """
+  def preview_base(context, results) when is_map(results) do
+    run = %{history: outcome_history(context, results), preview?: true, base: :capture}
+
+    case plan_round(context.tournament, context.next_number, context.active, run) do
+      {:ok, %{kind: :base, base: base}} -> %{context | base: base}
+      _other -> context
+    end
+  end
+
+  @doc false
+  # The engine's field for one outcome, both ways - for the test that holds
+  # `rerank_field/4` to what `Ainalrami.Trf.parse/1` reads off the real TRF.
+  def preview_fields(context, results) do
+    history = outcome_history(context, results)
+
+    [context.base, :capture]
+    |> Enum.map(fn base ->
+      run = %{history: history, preview?: true, base: base, field_only?: true}
+
+      case plan_round(context.tournament, context.next_number, context.active, run) do
+        {:ok, %{kind: :field, field: field}} -> field
+        other -> other
+      end
+    end)
+  end
+
+  # The history of one outcome: the open games' results filled in, and the
+  # games of the players who played them walked again - nobody else's
+  # games depend on the results, so theirs are the context's.
+  defp outcome_history(context, results) do
+    history = with_results(context.history, context.round_number, results)
+
+    changed =
+      history.rounds
+      |> Enum.find(&(&1.number == context.round_number))
+      |> then(&((&1 && &1.pairings) || []))
+      |> Enum.filter(&Map.has_key?(results, &1.id))
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.reject(&is_nil/1)
+      |> Map.new(&{&1, Map.fetch!(history.full_roster, &1)})
+
+    games =
+      Map.merge(
+        history.games,
+        walk_games(context.tournament, Map.delete(history, :games), changed)
+      )
+
+    %{history | games: games}
+    |> Map.put(:changed, MapSet.new(Map.keys(changed)))
   end
 
   defp with_results(history, round_number, results) do
@@ -830,8 +904,24 @@ defmodule PairingsEngine.Pairing do
     player_by_local_rank =
       Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-    trf =
-      javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids, shared_history)
+    # The engine's input: the TRF, or - for a preview outcome with a base in
+    # hand - the base's parsed field re-ranked (`preview_base/2`).
+    input =
+      case run do
+        %{base: %{} = base} ->
+          {:parsed,
+           rerank_field(base, tournament, full_roster, local_rank_by_player_id, shared_history)}
+
+        _ ->
+          {:trf,
+           javafo_input(
+             tournament,
+             full_roster,
+             local_rank_by_player_id,
+             eligible_ids,
+             shared_history
+           )}
+      end
 
     soft =
       soft_pairs(
@@ -842,10 +932,20 @@ defmodule PairingsEngine.Pairing do
         next_number
       )
 
-    unless run.preview?, do: emit_trf_built(tournament.id, next_number, nil, trf)
+    with {:trf, trf} <- input,
+         false <- run.preview?,
+         do: emit_trf_built(tournament.id, next_number, nil, trf)
+
     tournament = with_bye_exclusions(tournament, players, local_rank_by_player_id, next_number)
 
-    case run_engine(tournament, trf, next_number, nil, 0, soft, run) do
+    case Map.get(run, :base) == :capture or Map.get(run, :field_only?, false) do
+      true -> preview_field(input, local_rank_by_player_id, run)
+      false -> run_single_engine(tournament, input, next_number, soft, run, player_by_local_rank)
+    end
+  end
+
+  defp run_single_engine(tournament, input, next_number, soft, run, player_by_local_rank) do
+    case run_engine(tournament, input, next_number, nil, 0, soft, run) do
       {:ok, pairs, deferred} ->
         {:ok,
          %{
@@ -1022,7 +1122,7 @@ defmodule PairingsEngine.Pairing do
     tournament =
       with_bye_exclusions(tournament, group_players, local_rank_by_player_id, next_number)
 
-    case run_engine(tournament, trf, next_number, category_name, index, soft, run) do
+    case run_engine(tournament, {:trf, trf}, next_number, category_name, index, soft, run) do
       {:ok, pairs, explanation} ->
         {:ok, {category_name, :paired, pairs, player_by_local_rank, explanation}}
 
@@ -1565,23 +1665,34 @@ defmodule PairingsEngine.Pairing do
   #     `insert_category_pairings/4` are untouched and cannot tell which
   #     engine answered.
 
-  defp run_engine(tournament, trf, round_number, category_name, category_index, soft, run)
+  # `input` is `{:trf, text}`, or `{:parsed, field}` - a preview outcome's
+  # field re-ranked from its base (`rerank_field/5`), which only Ainalrami
+  # takes.
+  defp run_engine(tournament, input, round_number, category_name, category_index, soft, run)
 
   defp run_engine(
          %Tournament{pairing_engine: "ainalrami"} = tournament,
-         trf,
+         input,
          round_number,
          category_name,
          _category_index,
          soft,
          run
        ) do
-    run_ainalrami(tournament, trf, round_number, category_name, soft, run)
+    run_ainalrami(tournament, input, round_number, category_name, soft, run)
   end
 
   # JaVaFo has no "rather not": `soft` is dropped here, on purpose and in the
   # open. The Settings page says as much beside the control.
-  defp run_engine(tournament, trf, round_number, category_name, category_index, _soft, _run) do
+  defp run_engine(
+         tournament,
+         {:trf, trf},
+         round_number,
+         category_name,
+         category_index,
+         _soft,
+         _run
+       ) do
     case run_javafo(tournament, trf, round_number, category_name, category_index) do
       {:ok, pairs} -> {:ok, pairs, nil}
       {:error, _message} = error -> error
@@ -2520,11 +2631,9 @@ defmodule PairingsEngine.Pairing do
     |> then(&precompute_games(tournament, &1))
   end
 
-  defp run_ainalrami(tournament, trf, round_number, category_name, soft, run) do
-    case ainalrami_unsupported_extensions(trf) do
-      [] ->
-        parsed = Ainalrami.Trf.parse(trf)
-
+  defp run_ainalrami(tournament, input, round_number, category_name, soft, run) do
+    case ainalrami_field(input) do
+      {:ok, parsed} ->
         engine_opts = ainalrami_opts(tournament, parsed, soft)
 
         # `engine_opts` verbatim, NOT a second list spelling out the same
@@ -2567,7 +2676,7 @@ defmodule PairingsEngine.Pairing do
 
         {:ok, Enum.map(raw_pairs, &ainalrami_bye_to_zero/1), deferred}
 
-      codes ->
+      {:unsupported, codes} ->
         {:error, ainalrami_unsupported_message(codes, category_name)}
     end
   rescue
@@ -2626,6 +2735,112 @@ defmodule PairingsEngine.Pairing do
       )
 
       {:error, {:pairing_crashed, round_number, category_name}}
+  end
+
+  # The field the engine pairs: the TRF read back, unless it carries an
+  # extension Ainalrami would not act on - or a preview outcome's field,
+  # already read (`rerank_field/5`).
+  defp ainalrami_field({:trf, trf}) do
+    case ainalrami_unsupported_extensions(trf) do
+      [] -> {:ok, Ainalrami.Trf.parse(trf)}
+      codes -> {:unsupported, codes}
+    end
+  end
+
+  defp ainalrami_field({:parsed, parsed}), do: {:ok, parsed}
+
+  ## ---------- the preview's field, re-ranked per outcome ----------
+
+  # What `preview_base/2` keeps (`base: :capture`) and what
+  # `preview_fields/2` compares (`field_only?`): the field as parsed, and
+  # the ranks it was parsed under. Never reaches the engine.
+  defp preview_field(input, rank_by_id, run) do
+    case ainalrami_field(input) do
+      {:ok, parsed} ->
+        id_by_rank = Map.new(rank_by_id, fn {id, rank} -> {rank, id} end)
+
+        field = %{
+          parsed: parsed,
+          id_by_rank: id_by_rank,
+          players_by_id: Map.new(parsed.players, &{Map.fetch!(id_by_rank, &1.rank), &1})
+        }
+
+        if Map.get(run, :field_only?, false),
+          do: {:ok, %{kind: :field, field: parsed}},
+          else: {:ok, %{kind: :base, base: field}}
+
+      {:unsupported, _codes} ->
+        {:error, :unsupported}
+    end
+  end
+
+  # One outcome's field from the base's: every player renumbered to this
+  # outcome's rank (the field is ordered by score, so the results move
+  # people), every opponent likewise, and the players who played an open
+  # game given its result and their new score - exactly what
+  # `Ainalrami.Trf.parse/1` would read off this outcome's TRF, which
+  # `preview_fields/2`'s test holds it to. The forbidden pairs are worked
+  # out again from the new ranks, as `engine_trf/6` does.
+  defp rerank_field(base, tournament, roster, rank_by_id, history) do
+    round_index = length(history.rounds) - 1
+
+    players =
+      base.players_by_id
+      |> Enum.map(fn {id, player} ->
+        rank = Map.fetch!(rank_by_id, id)
+
+        # The rows carry no standings, so the file's rank column is the
+        # starting rank again (`Ainalrami.Trf`'s fallback) - the new one.
+        player = %{
+          player
+          | rank: rank,
+            final_rank: rank,
+            games: Enum.map(player.games, &rerank_game(&1, base.id_by_rank, rank_by_id))
+        }
+
+        if MapSet.member?(history.changed, id),
+          do: with_outcome(player, Map.fetch!(history.games, id), round_index, tournament),
+          else: player
+      end)
+      |> Enum.sort_by(& &1.rank)
+
+    forbidden =
+      forbidden_pairs(tournament.id, roster, rank_by_id, history.forbidden_pairings) ++
+        exclusion_pairs(tournament, roster, rank_by_id, history.forbidden_pairings)
+
+    parsed_tournament =
+      if forbidden == [],
+        do: Map.delete(base.parsed.tournament, :forbidden_pairs),
+        else: Map.put(base.parsed.tournament, :forbidden_pairs, forbidden)
+
+    %{base.parsed | players: players, tournament: parsed_tournament}
+  end
+
+  defp rerank_game(%{opponent_rank: nil} = game, _id_by_rank, _rank_by_id), do: game
+
+  defp rerank_game(%{opponent_rank: rank} = game, id_by_rank, rank_by_id),
+    do: %{game | opponent_rank: Map.fetch!(rank_by_id, Map.fetch!(id_by_rank, rank))}
+
+  # A player of an open game: its result, as the TRF spells it, and the
+  # score the file would carry - written with one decimal and read back,
+  # as `Ainalrami.Trf` does.
+  defp with_outcome(player, row_games, round_index, tournament) do
+    result = Enum.at(row_games, round_index).result
+
+    games =
+      List.update_at(player.games, round_index, fn game ->
+        %{game | result: if(result in [nil, ""], do: nil, else: result)}
+      end)
+
+    points =
+      row_games
+      |> player_points(tournament)
+      |> Kernel./(1)
+      |> :erlang.float_to_binary(decimals: 1)
+      |> Float.parse()
+      |> elem(0)
+
+    %{player | games: games, points: points}
   end
 
   defp no_legal_pairing(e, tournament, round_number, category_name) do

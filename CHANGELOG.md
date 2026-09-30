@@ -32,11 +32,12 @@ Each entry is tagged so a version can be skimmed:
   bar ("Paired 212 of 729 variants", and the time left), works itself out
   again a moment after a result is entered, and "Print fixed boards" prints
   them with a list by name for the name cards. Above six open games it says
-  how many are still open. The round itself is paired as usual once the
-  last result is in. Measured on four cores with Ainalrami 0.34.0: one,
-  three and six open games take 0.8 s, 4 s and 1.7 min on a 200-player
-  field, and 4 s, 31 s and about 14 min on 600 players; the server's
-  two cores use one.
+  how many are still open, and with JaVaFo that the preview needs the
+  built-in engine. The round itself is paired as usual once the last
+  result is in. The field the engine reads is built once and only
+  re-ranked per outcome, so the engine is most of the work: six open games
+  on 600 players take about 14 s on one core with the upcoming faster
+  Ainalrami (the server uses one), 6 s on four.
 
 ## [0.70.0] - 2026-09-28
 

@@ -254,6 +254,11 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
               )}
             </span>
           </div>
+        <% @state.availability == :javafo -> %>
+          <p id="next-round-preview-javafo" class="nrp-offer hint">
+            <.icon name="hero-eye-slash-micro" />
+            {gettext("The next-round preview is available with the built-in engine (Ainalrami).")}
+          </p>
         <% match?({:too_many, _}, @state.availability) -> %>
           <p id="next-round-preview-too-many" class="nrp-offer hint">
             <.icon name="hero-eye-slash-micro" /> {gettext(

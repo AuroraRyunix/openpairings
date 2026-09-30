@@ -74,10 +74,22 @@ defmodule PairingsEngine.NextRoundPreview do
     * `{:available, k}` - an individual Swiss whose latest round has `k`
       open games (`1..max_open_games/0`), with a next round to pair;
     * `{:too_many, k}` - the same, with more open games than the cap;
+    * `:javafo` - the same, paired by JaVaFo: one JVM per outcome, so the
+      preview is offered with the built-in engine only;
     * `:unavailable` - anything else: no open game, no next round in the
       schedule, not an individual Swiss, or read-only.
   """
   def availability(%Tournament{} = t) do
+    case open_games_state(t) do
+      {tag, _k} when tag in [:available, :too_many] and t.pairing_engine != "ainalrami" ->
+        :javafo
+
+      state ->
+        state
+    end
+  end
+
+  defp open_games_state(t) do
     with true <- individual_swiss?(t),
          :ok <- Tournaments.ensure_writable(t),
          paired when paired > 0 <- Engine.paired_rounds_count(t.id),
@@ -175,15 +187,25 @@ defmodule PairingsEngine.NextRoundPreview do
       player_ids = context.active |> Enum.map(& &1.id) |> Enum.sort()
       progress.(0, total)
 
-      {outcomes, _last} =
+      # The engine's field parsed once, from the first outcome's TRF; every
+      # outcome then only re-ranks it (`Pairing.preview_base/2`).
+      context = Engine.preview_base(context, world_results(games, hd(worlds)))
+
+      # In chunks: each task is handed the context, which is the whole
+      # history, so one task per outcome copied it 729 times. A chunk is
+      # small enough for the progress to move steadily.
+      chunk = max(1, div(total, concurrency() * 16))
+
+      {outcomes, {_done, _last}} =
         worlds
-        |> Task.async_stream(&pair_world(context, games, &1),
+        |> Enum.chunk_every(chunk)
+        |> Task.async_stream(fn worlds -> Enum.map(worlds, &pair_world(context, games, &1)) end,
           max_concurrency: concurrency(),
           timeout: :infinity
         )
-        |> Stream.with_index(1)
-        |> Enum.map_reduce(nil, fn {{:ok, outcome}, done}, last ->
-          {outcome, throttled(progress, done, total, last, interval)}
+        |> Enum.flat_map_reduce({0, nil}, fn {:ok, chunk_outcomes}, {done, last} ->
+          done = done + length(chunk_outcomes)
+          {chunk_outcomes, {done, throttled(progress, done, total, last, interval)}}
         end)
 
       with {:ok, classified} <- classify(length(games), player_ids, outcomes) do
@@ -226,13 +248,16 @@ defmodule PairingsEngine.NextRoundPreview do
   def worlds(0), do: [[]]
   def worlds(k), do: for(o <- 0..2, rest <- worlds(k - 1), do: [o | rest])
 
-  defp pair_world(context, games, world) do
-    results =
-      games
-      |> Enum.zip(world)
-      |> Map.new(fn {game, outcome} -> {game.id, Enum.at(@outcomes, outcome)} end)
+  @doc false
+  # `%{pairing_id => result}` for one outcome of `games`.
+  def world_results(games, world) do
+    games
+    |> Enum.zip(world)
+    |> Map.new(fn {game, outcome} -> {game.id, Enum.at(@outcomes, outcome)} end)
+  end
 
-    case Engine.preview_round(context, results) do
+  defp pair_world(context, games, world) do
+    case Engine.preview_round(context, world_results(games, world)) do
       {:ok, boards} -> {:ok, seats(boards)}
       {:error, reason} -> {:error, reason}
     end

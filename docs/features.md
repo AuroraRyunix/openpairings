@@ -147,8 +147,9 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   background with a progress bar and an estimate of the time left, updates
   itself when a result is entered, and prints the fixed boards with a list
   by name for the name cards. Above six open games it says how many are
-  still open. Individual Swiss only; a large field takes minutes for six
-  open games (see `PairingsEngine.NextRoundPreview`).
+  still open. Individual Swiss on the built-in engine (Ainalrami) only; the
+  engine's field is built once and re-ranked per outcome, so six open games
+  on 600 players take seconds (see `PairingsEngine.NextRoundPreview`).
 
 ## Scoring, standings & tiebreaks
 
