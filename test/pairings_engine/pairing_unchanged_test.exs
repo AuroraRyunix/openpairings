@@ -5,7 +5,7 @@ defmodule PairingsEngine.PairingUnchangedTest do
   pipeline apart into "work out the round" and "save it" must not change a
   single thing the real pairing writes.
 
-  `test/fixtures/next_round_preview/golden.exs` was produced by these very
+  `test/fixtures/next_round_preview/golden.term` was produced by these very
   scenarios on the code BEFORE that refactor (0.70.0, commit 9b09d89). Each
   test replays its scenario and compares everything the pairing wrote -
   pairing numbers, boards, frozen board labels, results of byes, bye rows,
@@ -20,7 +20,7 @@ defmodule PairingsEngine.PairingUnchangedTest do
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments.Tournament
 
-  @golden_path Path.expand("../fixtures/next_round_preview/golden.exs", __DIR__)
+  @golden_path Path.expand("../fixtures/next_round_preview/golden.term", __DIR__)
 
   test "a single-pool Swiss with most options on pairs exactly as before" do
     check(:options, options_scenario())
