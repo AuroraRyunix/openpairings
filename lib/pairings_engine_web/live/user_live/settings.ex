@@ -1062,6 +1062,30 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               </div>
 
               <form id="features-form" phx-change="save_features">
+                <%!-- Optional features no federation owns. --%>
+                <div :if={Features.general() != []} class="acct-fed" id="features-general">
+                  <div class="fed-head">
+                    <div class="fed-title">
+                      <h3>{gettext("Pairing options")}</h3>
+                      <p class="hint">
+                        {gettext(
+                          "Organisers' rules that are not FIDE's, for any federation. Off until you switch them on."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="fed-switches">
+                    <.setting_toggle
+                      :for={feature <- Features.general()}
+                      name={"feature[#{feature.key}]"}
+                      label={feature.label}
+                      hint={feature.description}
+                      checked={feature.key in @enabled_features}
+                    />
+                  </div>
+                </div>
+
                 <div :for={federation <- Features.federations()} class="acct-fed">
                   <div class="fed-head">
                     <span class="fed-code">{federation.code}</span>

@@ -32,9 +32,12 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
     legal round, and recorded in the round's explanation, the audit trail
     and the TRF export's notes. See
     [`pairing-systems.md`](pairing-systems.md).
-  - **Bye preferences** (Ainalrami only, never on a FIDE-rated tournament) -
+  - **Bye preferences** (its own switch, off by default; Ainalrami only,
+    never on a FIDE-rated tournament) -
     per player, for all or certain rounds: "must get" the pairing-allocated
-    bye (if a legal pairing allows; otherwise paired normally and said why),
+    bye (if a legal pairing allows; otherwise paired normally and said why -
+    but a second pairing-allocated bye, which FIDE's rule C2 forbids, is
+    refused when saved and when pairing),
     "rather gets it" or "rather not" (decide among the players on the bye
     score, never lifting it to a higher score). Not FIDE rules: warned on
     the player form, and a round they change is recorded in its

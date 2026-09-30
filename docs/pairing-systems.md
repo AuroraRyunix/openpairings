@@ -189,7 +189,7 @@ program pairs, and a FIDE checker replaying the TRF will not reproduce it.
 
 | setting | what it does | what it never does |
 |---|---|---|
-| **Must get it** (`want_hard`) | whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - as long as the rest can still be paired under the absolute criteria | break C1/C3, a forbidden pairing, or C2 (a player who already had a pairing-allocated bye, won by forfeit or had a full-point bye does not get a second one) |
+| **Must get it** (`want_hard`) | whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - as long as the rest can still be paired under the absolute criteria | break C1/C3, a forbidden pairing, or C2 - see "A second pairing-allocated bye" below |
 | **Rather gets it** (`want_soft`) | among the players on the score that gets the bye, this one gets it | lift the bye to a higher score, or leave the round unpairable |
 | **Rather not** (`avoid_soft`) | another player on the score that gets the bye takes it, if any can | the same |
 | **Must not get it** | the bye exclusion above, unchanged | - |
@@ -205,10 +205,15 @@ as the criteria allow around that choice. The tournament's "weak" position
 for pair wishes does not apply to them: below C21 there is practically
 never a choice of bye holder left to make.
 
-**Where it is.** In a player's details, under the exclusion: "Pairing-allocated
+**Where it is.** Behind its own switch, "Bye preferences", in the account's
+features under "Pairing options" - off by default, and in no federation's
+pack (`Features.general/0`); the bye exclusion stays in the BEL pack. With
+it on, a player's details have, under the exclusion, "Pairing-allocated
 bye preference", then "All rounds" or "Certain rounds" typed like the
-absences (`players.bye_preference`, `players.bye_preference_rounds`). Not
-behind the BEL pack - nothing about it is Belgian. Every time one is chosen
+absences (`players.bye_preference`, `players.bye_preference_rounds`). Like
+every switch it owns the entrance only: a player who already has a
+preference keeps the control, and the preference keeps pairing, with the
+switch off. Every time one is chosen
 the form says it is not a FIDE rule and what the chosen one does; the
 players list tags such a player "bye: must", "bye: rather" or "bye: rather
 not". Swiss with Ainalrami only; with JaVaFo a stored one gets a one-line
@@ -223,6 +228,18 @@ Untick it and they apply again. (The exclusion is unchanged by this: it
 keeps working on a FIDE-homologated tournament, with its stronger warning,
 as it always did.)
 
+**A second pairing-allocated bye.** FIDE's rule C2 gives nobody a second
+pairing-allocated bye (nor one after a forfeit win or a full-point bye),
+and "must get it" never overrides that - nor is it silently skipped.
+Setting "must get it" for rounds after the one where the player already had
+the bye is refused when the player is saved, naming that round. A stored
+one that became impossible - typically "must get it, all rounds" once it
+has given the player the bye - makes the Pairings page refuse to pair the
+round it would apply to: nothing is paired, and the page names the player,
+the round of their earlier bye and rule C2, and asks for the preference to
+be changed first (Ainalrami's `RefusedError`). "Rather gets it" for such a
+player is only reported, and the round paired.
+
 **Conflicts.** Wanting the bye in a round where the player is excluded
 from it is refused when the player is saved, naming the rounds. In the
 engine (`Ainalrami.ByePreference`, which a TRF-driven or CLI caller can
@@ -230,8 +247,13 @@ also reach): for one player, an exclusion beats any want, "must get"
 beats "rather not", "rather gets" and "rather not" cancel out; across
 players, "must get" goes first - with two of them the FIDE criteria choose
 between them - then "rather gets", then "rather not". On an even field
-there is no bye to give; a player not in the round, or one C2 rules out,
-is skipped. Every case is reported, not silently dropped.
+there is no bye to give, and a player not in the round is skipped - both
+reported, not silently dropped.
+
+**"Why not me".** On the explanation page's "why the bye went to X", a
+player a bye preference kept from the bye reads "not allowed a bye - bye
+preference, not a FIDE rule", never "organiser exclusion", which stays the
+bye exclusion's.
 
 **What the engine does.** `Pairing.with_bye_exclusions/4` also collects the
 round's preferences (`bye_preference_ranks/4`) and Ainalrami resolves them

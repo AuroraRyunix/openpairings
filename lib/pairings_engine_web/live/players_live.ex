@@ -38,6 +38,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   @lookup_feature "bel_player_lookup"
   @club_feature "bel_club_sync"
   @bye_exclusions_feature "bel_bye_exclusions"
+  # Its own switch, in no federation's pack (`PairingsEngine.Features.general/0`).
+  @bye_preferences_feature "bye_preferences"
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
@@ -156,6 +158,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
        bel_bye_exclusions?:
          Features.enabled?(socket.assigns.current_scope, @bye_exclusions_feature),
+       bye_preferences?:
+         Features.enabled?(socket.assigns.current_scope, @bye_preferences_feature),
        sort_col: nil,
        sort_dir: nil,
        cat_filter: nil,
@@ -1677,8 +1681,10 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # Whether the player form offers a bye preference, and how:
   #
-  #   :hidden     - not a Swiss the Dutch engine pairs player by player, or
-  #                 JaVaFo pairs it and this player has none stored;
+  #   :hidden     - not a Swiss the Dutch engine pairs player by player,
+  #                 the "Bye preferences" switch is off and this player has
+  #                 none stored, or JaVaFo pairs it and this player has none
+  #                 stored;
   #   :javafo     - JaVaFo pairs it and this player has one stored, which
   #                 JaVaFo will not read: said in one line;
   #   :fide_rated - the tournament is FIDE-rated, where the preferences are
@@ -1686,13 +1692,17 @@ defmodule PairingsEngineWeb.PlayersLive do
   #                 (and kept, not deleted);
   #   :on         - offered, with the warning that it is not a FIDE rule.
   #
-  # Not behind the BEL pack's switch: unlike the exclusion, nothing about it
-  # is Belgian. "Must not get the bye" stays the exclusion's tickbox above.
-  defp bye_preference_mode(tournament, form) do
+  # Behind its own switch ("Bye preferences", in no federation's pack); the
+  # call site passes `enabled?` as "switch on, or a preference stored", so a
+  # stored one stays visible with the switch off - the pack rule
+  # (`PairingsEngine.Features`). "Must not get the bye" stays the exclusion's
+  # tickbox above, behind the BEL pack's switch.
+  defp bye_preference_mode(tournament, form, enabled?) do
     stored? = form["bye_preference"] not in [nil, ""]
 
     cond do
       tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :hidden
+      not enabled? -> :hidden
       tournament.fide_homologated -> if(stored?, do: :fide_rated, else: :hidden)
       tournament.pairing_engine == "javafo" -> if(stored?, do: :javafo, else: :hidden)
       true -> :on
@@ -2723,6 +2733,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         players={@players}
         bel_lookup?={@bel_lookup?}
         bel_bye_exclusions?={@bel_bye_exclusions? or @editing_player.no_bye}
+        bye_preferences?={@bye_preferences? or @editing_player.bye_preference not in [nil, ""]}
       />
       <.player_card_modal
         :if={@card_player_id}
@@ -3012,6 +3023,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # so it sees only what its caller hands it.
   attr :bel_lookup?, :boolean, default: false
   attr :bel_bye_exclusions?, :boolean, default: false
+  # "Switch on, or a preference stored" - the same shape as the exclusion's.
+  attr :bye_preferences?, :boolean, default: false
 
   defp player_edit_modal(assigns) do
     assigns =
@@ -3334,7 +3347,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
           <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
           <.bye_preference_fields
-            mode={bye_preference_mode(@tournament, @form)}
+            mode={bye_preference_mode(@tournament, @form, @bye_preferences?)}
             form={@form}
             tournament={@tournament}
           />

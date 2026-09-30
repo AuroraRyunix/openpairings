@@ -11,7 +11,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
 
   alias PairingsEngine.{Audit, Repo, Tournaments}
 
-  setup :register_and_log_in_user
+  setup [:register_and_log_in_user, :enable_federation_features]
 
   defp tournament(scope, attrs \\ %{}) do
     {:ok, t} =
@@ -169,6 +169,71 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
         refute has_element?(lv, "#player-bye-preference")
         refute has_element?(lv, "#player-bye-preference-marker-#{p.id}")
       end
+    end
+  end
+
+  describe "its own switch" do
+    test "off: not offered; a stored preference stays visible", %{
+      conn: conn,
+      scope: scope,
+      user: user
+    } do
+      {:ok, _} = PairingsEngine.Features.set_enabled(user, ["bel_bye_exclusions"])
+
+      t = tournament(scope)
+      p = player(t, "Anna")
+      lv = open_edit(conn, t, p)
+      refute has_element?(lv, "#player-bye-preference-select")
+      # The exclusion's own switch is on and unaffected.
+      assert has_element?(lv, "#player-no-bye-toggle")
+
+      stored = player(t, "Cleo", %{"bye_preference" => "avoid_soft"})
+      lv = open_edit(conn, t, stored)
+      assert has_element?(lv, "#player-bye-preference-select")
+      assert has_element?(lv, "#player-bye-preference-marker-#{stored.id}")
+    end
+
+    test "is its own switch on the account's features page", %{conn: conn, user: user} do
+      {:ok, _} = PairingsEngine.Features.set_enabled(user, [])
+      {:ok, lv, _html} = live(conn, ~p"/users/features")
+      assert has_element?(lv, "#features-general", "Bye preferences")
+
+      lv
+      |> form("#features-form", %{"feature" => %{"bye_preferences" => "true"}})
+      |> render_change()
+
+      assert PairingsEngine.Accounts.get_user!(user.id).features == ["bye_preferences"]
+    end
+  end
+
+  describe "a second pairing-allocated bye" do
+    test "the Pairings page refuses the round and names the player and the round of their bye",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      [_a, _b, _c, _d, e] = five(t, %{})
+
+      {:ok, _} =
+        Tournaments.update_player(e, %{
+          "bye_preference" => "want_hard",
+          "bye_preference_scope" => "all"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "pair", %{})
+      render(lv)
+      [r1] = Tournaments.list_rounds(t.id)
+
+      for p <- Repo.preload(r1, :pairings).pairings, p.black_player_id do
+        {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = render_click(lv, "pair", %{})
+
+      assert html =~
+               "Round 2 was not paired: E must get the pairing-allocated bye, but already had it in round 1"
+
+      assert length(Tournaments.list_rounds(t.id)) == 1
     end
   end
 

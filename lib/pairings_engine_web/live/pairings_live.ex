@@ -1978,6 +1978,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply,
          assign(socket, error: nil, bye_exclusion_block: bye_exclusion_block(socket, info))}
 
+      {:error, {:bye_preference_refused, info}} ->
+        {:noreply, assign(socket, error: bye_preference_refusal(socket, info))}
+
       {:error, reason} ->
         {:noreply, assign(socket, error: error_text(reason))}
     end
@@ -2069,6 +2072,45 @@ defmodule PairingsEngineWeb.PairingsLive do
       override: player.(info.override),
       category: info[:category]
     }
+  end
+
+  # A "must get the bye" that FIDE's rule C2 forbids - the player already had
+  # a pairing-allocated bye (or a forfeit win, or a full-point bye): nothing
+  # was paired, and this says who, since when, and what to change.
+  defp bye_preference_refusal(socket, info) do
+    tid = socket.assigns.tournament.id
+
+    info.players
+    |> Enum.map(fn p ->
+      name = player_name(tid, p.player_id) || "-"
+
+      case p.reason do
+        :forfeit_win ->
+          gettext(
+            "Round %{round} was not paired: %{name} must get the pairing-allocated bye, but already won a game without playing it in round %{earlier} - FIDE rule C2 then allows no pairing-allocated bye. Change %{name}'s bye preference first.",
+            round: info.round,
+            name: name,
+            earlier: p.round
+          )
+
+        :full_point_bye ->
+          gettext(
+            "Round %{round} was not paired: %{name} must get the pairing-allocated bye, but already had a full-point bye in round %{earlier} - FIDE rule C2 then allows no pairing-allocated bye. Change %{name}'s bye preference first.",
+            round: info.round,
+            name: name,
+            earlier: p.round
+          )
+
+        _pairing_bye ->
+          gettext(
+            "Round %{round} was not paired: %{name} must get the pairing-allocated bye, but already had it in round %{earlier} - FIDE rule C2 allows no second one. Change %{name}'s bye preference first.",
+            round: info.round,
+            name: name,
+            earlier: p.round
+          )
+      end
+    end)
+    |> Enum.join(" ")
   end
 
   # What the organiser's bye exclusions did in the round just paired, for

@@ -978,6 +978,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       :forfeit_win -> gettext("not allowed a bye - won a game by forfeit")
       :full_point_bye -> gettext("not allowed a bye - already had a full-point bye")
       :organiser_exclusion -> gettext("not allowed a bye - organiser exclusion, not a FIDE rule")
+      :bye_preference -> gettext("not allowed a bye - bye preference, not a FIDE rule")
       _ -> gettext("not allowed a bye")
     end
   end

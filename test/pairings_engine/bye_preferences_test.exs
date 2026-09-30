@@ -271,6 +271,90 @@ defmodule PairingsEngine.ByePreferencesTest do
     end
   end
 
+  describe "a second pairing-allocated bye (FIDE rule C2)" do
+    defp results(round) do
+      for p <- Repo.preload(round, :pairings, force: true).pairings, p.black_player_id do
+        {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+    end
+
+    test "must get it for rounds after the player's bye is refused when saved, naming the round" do
+      t = tournament()
+      players = roster(t, %{})
+      p5 = List.last(players)
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      assert bye_holder(round) == p5.id
+
+      assert {:error, cs} = Tournaments.update_player(Repo.reload!(p5), pref("want_hard"))
+      assert {msg, _} = cs.errors[:bye_preference]
+      assert msg =~ "after round 1"
+      assert msg =~ "P5 already had the pairing-allocated bye in round 1"
+      assert msg =~ "C2"
+
+      assert {:error, _} = Tournaments.update_player(Repo.reload!(p5), pref("want_hard", "3"))
+
+      # Rounds up to the bye itself, and the soft settings, are fine.
+      assert {:ok, _} = Tournaments.update_player(Repo.reload!(p5), pref("want_hard", "1"))
+      assert {:ok, _} = Tournaments.update_player(Repo.reload!(p5), pref("want_soft"))
+    end
+
+    test "a round where a stored one would apply is not paired, with the player and round named" do
+      t = tournament()
+      players = roster(t, %{5 => pref("want_hard")})
+      p5 = List.last(players)
+
+      # Round 1: the preference is what FIDE would do anyway; P5 gets the bye.
+      assert {:ok, r1} = Pairing.pair_next_round(t)
+      assert bye_holder(r1) == p5.id
+      results(r1)
+
+      assert {:error, {:bye_preference_refused, info}} = Pairing.pair_next_round(Repo.reload!(t))
+      assert info.round == 2
+      assert [%{player_id: id, reason: :pairing_bye, round: 1}] = info.players
+      assert id == p5.id
+      assert Tournaments.get_round(t.id, 2) == nil
+
+      # "Rather gets it" is only reported, and the round paired.
+      {:ok, _} = Tournaments.update_player(Repo.reload!(p5), pref("want_soft"))
+      assert {:ok, _r2} = Pairing.pair_next_round(Repo.reload!(t))
+    end
+  end
+
+  describe "why not me" do
+    test "players a preference kept from the bye are labelled bye preference, not organiser exclusion" do
+      t = tournament()
+
+      [p1, _p2, _p3, _p4, p5] =
+        roster(t, %{1 => pref("want_hard"), 2 => %{"no_bye" => "true", "no_bye_scope" => "all"}})
+
+      assert {:ok, _round} = Pairing.pair_next_round(t)
+
+      {:ok, field} = Pairing.engine_field(Repo.reload!(t), 1)
+      {:ok, pairs} = Pairing.field_pairs(field)
+      rank = &field.local_rank_by_player_id[&1]
+
+      assert field.opts[:bye_preference_exclusions] ==
+               Enum.sort(for r <- 1..5, r not in [rank.(p1.id), 2], do: r)
+
+      alternatives = Ainalrami.Alternatives.bye_alternatives(field.players, pairs, field.opts)
+      reasons = Map.new(alternatives.candidates, &{&1.rank, Map.get(&1, :reason)})
+      assert reasons[rank.(p5.id)] == :bye_preference
+      assert reasons[2] == :organiser_exclusion
+
+      stored = %{
+        "bye/0" => %{
+          "holder" => p1.id,
+          "candidates" => [
+            %{"player" => p5.id, "outcome" => "ineligible", "reason" => "bye_preference"}
+          ]
+        }
+      }
+
+      %{"bye/0" => answer} = RoundExplanation.answers(stored, Tournaments.list_players(t.id))
+      assert [%{reason: :bye_preference}] = answer.candidates
+    end
+  end
+
   describe "backups and duplicates" do
     test "the fields travel in the export envelope" do
       assert :bye_preference in TournamentExport.player_fields()

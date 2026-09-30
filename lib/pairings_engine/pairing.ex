@@ -907,6 +907,36 @@ defmodule PairingsEngine.Pairing do
 
   def ignored_bye_preferences(_tournament), do: []
 
+  @doc """
+  The round in which `player_id` first received the pairing-allocated bye
+  in `tournament_id`, or nil - the fact FIDE's rule C2 turns into "no
+  second one", which a "must get the bye" preference for a later round
+  would ask for.
+  """
+  def first_pairing_allocated_bye(tournament_id, player_id) do
+    from_boards =
+      Repo.one(
+        from p in PairingsEngine.Tournaments.Pairing,
+          join: r in Round,
+          on: r.id == p.round_id,
+          where:
+            r.tournament_id == ^tournament_id and p.white_player_id == ^player_id and
+              is_nil(p.black_player_id) and p.result == "bye",
+          select: min(r.number)
+      )
+
+    from_byes =
+      Repo.one(
+        from b in "byes",
+          where:
+            b.tournament_id == ^tournament_id and b.player_id == ^player_id and
+              b.type == "pairing-allocated",
+          select: min(b.round)
+      )
+
+    [from_boards, from_byes] |> Enum.reject(&is_nil/1) |> Enum.min(fn -> nil end)
+  end
+
   # The engine names excluded players by rank; the page needs players.
   defp bye_exclusion_error({:error, {:bye_exclusions, info}}, player_by_local_rank) do
     id = fn rank -> player_by_local_rank |> Map.fetch!(rank) |> Map.fetch!(:id) end
@@ -918,6 +948,14 @@ defmodule PairingsEngine.Pairing do
         | excluded: Enum.map(info.excluded, id),
           override: info.override && id.(info.override)
       }}}
+  end
+
+  defp bye_exclusion_error({:error, {:bye_preference_refused, info}}, player_by_local_rank) do
+    id = fn rank -> player_by_local_rank |> Map.fetch!(rank) |> Map.fetch!(:id) end
+
+    {:error,
+     {:bye_preference_refused,
+      %{info | players: Enum.map(info.players, &Map.put(&1, :player_id, id.(&1.rank)))}}}
   end
 
   defp bye_exclusion_error(error, _player_by_local_rank), do: error
@@ -1733,7 +1771,10 @@ defmodule PairingsEngine.Pairing do
          %{
            round: round,
            players: parsed.players,
-           opts: ainalrami_opts(tournament, parsed, soft),
+           opts:
+             tournament
+             |> ainalrami_opts(parsed, soft)
+             |> preference_labels(preference, organiser),
            organiser_exclusions: organiser,
            player_by_local_rank: player_by_local_rank,
            local_rank_by_player_id: local_rank_by_player_id,
@@ -2259,9 +2300,20 @@ defmodule PairingsEngine.Pairing do
 
     %{
       players: parsed.players,
-      opts: ainalrami_opts(tournament, parsed, soft),
+      opts:
+        tournament |> ainalrami_opts(parsed, soft) |> preference_labels(preference, organiser),
       organiser_exclusions: organiser
     }
+  end
+
+  # The players a bye preference, not the organiser, kept from the bye: the
+  # engine then says `:bye_preference` for them in "why not me" rather than
+  # `:organiser_exclusion` (Ainalrami's `:bye_preference_exclusions`).
+  defp preference_labels(opts, preference, organiser) do
+    case Enum.uniq(preference) -- organiser do
+      [] -> opts
+      ranks -> Keyword.put(opts, :bye_preference_exclusions, Enum.sort(ranks))
+    end
   end
 
   defp recomputed_account(tournament, round, section, rebuilt) do
@@ -2511,6 +2563,15 @@ defmodule PairingsEngine.Pairing do
     # impossible: handed back as data, so the page can name the players and
     # offer to pair without one of them (`bye_exclusion_error/2` turns the
     # engine's ranks into players on the way up).
+    # A "must get the bye" for a player FIDE's rule C2 rules out - a second
+    # pairing-allocated bye: nothing is paired, and the page names the
+    # player and the round of their earlier bye
+    # (`bye_exclusion_error/2` turns the ranks into players).
+    e in Ainalrami.ByePreference.RefusedError ->
+      {:error,
+       {:bye_preference_refused,
+        %{players: e.players, round: round_number, category: category_name}}}
+
     e in Ainalrami.Pairing.NoValidPairingError ->
       if Map.get(e, :reason) == :bye_exclusions do
         {:error,

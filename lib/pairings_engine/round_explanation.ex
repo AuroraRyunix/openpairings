@@ -211,7 +211,7 @@ defmodule PairingsEngine.RoundExplanation do
   end
 
   @outcomes ~w(same worse better tie incomparable impossible ineligible)
-  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye organiser_exclusion)
+  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye organiser_exclusion bye_preference)
 
   # One "why him and not me" record - a float's or the bye's - with the
   # subject resolved under `subject_key` (`:floater` or `:holder`).
