@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-10-01
+
 - [Feature] **Bye preferences: "must get", "rather gets" and "rather not"
   the pairing-allocated bye, per player, for every round or chosen rounds**
   (the fourth, "must not get it", is the existing bye exclusion). Behind
@@ -44,12 +46,15 @@ Each entry is tagged so a version can be skimmed:
   keeps the stored ones but ignores them when pairing, and the Players and
   Pairings pages say whose are being ignored. The bye exclusion is
   unchanged.
-- [Performance] **Ainalrami's main (the coming 0.35.0): the slow rounds on
-  large fields are gone.** Rounds of big opens that took seconds - a
-  600-player round 2 took 2.9 s, a 1,001-player round 2 over 30 s - now
-  pair in about a tenth of a second or less, with every pairing identical to
-  0.34.0 on 447,152 compared rounds. It also carries the engine side of the
-  bye preferences above.
+- [Performance] **Ainalrami 0.35.0: the slow rounds on large fields are
+  gone.** Rounds of big opens that took seconds - a 600-player round 2
+  took 2.9 s, a 1,001-player round 2 over 30 s - now pair in about a tenth
+  of a second or less, and so do the rare slow last rounds: the 30 slowest
+  of 3,000 sampled positions went from 22.5 s in all to 4.2 s on one core
+  (the worst from 5.2 s to 1.0 s). A median round of 100-1,000 players
+  pairs in under 50 ms on one core. Every pairing is identical to 0.34.0's
+  on 447,152 compared rounds. It also carries the engine side of the bye
+  preferences above.
 - [Feature] **Next-round preview: which boards are already certain while
   the last games are still being played.** With six or fewer games of a
   Swiss round still open, the Pairings page offers "Preview next round". It
@@ -70,8 +75,8 @@ Each entry is tagged so a version can be skimmed:
   built-in engine. The round itself is paired as usual once the last
   result is in. The field the engine reads is built once and only
   re-ranked per outcome, so the engine is most of the work: six open games
-  on 600 players take about 14 s on one core with the upcoming faster
-  Ainalrami (the server uses one), 6 s on four.
+  on 600 players take about 14 s on one core with Ainalrami 0.35.0 (the
+  server uses one), 6 s on four.
 - [Feature] **Hall display settings and an announcement for the screen in
   the playing hall.** Settings -> OpenResults has a new "Hall display" card
   for the results site's full-screen page for a TV or projector: choose which
