@@ -129,6 +129,7 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/print/placecards", PrintController, :place_cards
     get "/t/:id/print/pairings", PrintController, :pairing_list
     get "/t/:id/print/pairings-alpha", PrintController, :pairing_alpha
+    get "/t/:id/print/next-round-preview", PrintController, :next_round_preview
     get "/t/:id/print/standings", PrintController, :standings
     get "/t/:id/print/results", PrintController, :result_cards
     get "/t/:id/print/scoresheets", PrintController, :score_sheets

@@ -47,6 +47,8 @@ defmodule PairingsEngine.Application do
       # Computed standings, until the data behind them changes - see its
       # moduledoc. Before anything that could ask for standings.
       PairingsEngine.StandingsCache,
+      # The latest next-round preview per tournament, for the print view.
+      PairingsEngine.NextRoundPreview.Cache,
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,

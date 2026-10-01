@@ -50,6 +50,28 @@ Each entry is tagged so a version can be skimmed:
   pair in about a tenth of a second or less, with every pairing identical to
   0.34.0 on 447,152 compared rounds. It also carries the engine side of the
   bye preferences above.
+- [Feature] **Next-round preview: which boards are already certain while
+  the last games are still being played.** With six or fewer games of a
+  Swiss round still open, the Pairings page offers "Preview next round". It
+  pairs the next round for every possible result of those games (1-0, ½-½
+  and 0-1 each - 729 outcomes for six) exactly as "Pair round" will, with
+  the same requested byes, withdrawals, late entrants, forbidden pairs,
+  acceleration, bye exclusions and preferences, soft rules and board
+  numbering, and saves nothing. It then shows the boards that come out
+  the same in every outcome
+  (same players, same colours, same board: their name cards can go out),
+  the pairs that are certain but may still move board or swap colours, and
+  for everybody else who they could meet and which open games decide it,
+  and whether the bye is decided. It runs in the background with a progress
+  bar ("Paired 212 of 729 variants", and the time left), works itself out
+  again a moment after a result is entered, and "Print fixed boards" prints
+  them with a list by name for the name cards. Above six open games it says
+  how many are still open, and with JaVaFo that the preview needs the
+  built-in engine. The round itself is paired as usual once the last
+  result is in. The field the engine reads is built once and only
+  re-ranked per outcome, so the engine is most of the work: six open games
+  on 600 players take about 14 s on one core with the upcoming faster
+  Ainalrami (the server uses one), 6 s on four.
 
 ## [0.70.0] - 2026-09-28
 

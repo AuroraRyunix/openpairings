@@ -21,6 +21,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngineWeb.NextRoundPreviewPanel
   alias PairingsEngineWeb.Postponed
   alias PairingsEngineWeb.UploadGuard
 
@@ -136,6 +137,7 @@ defmodule PairingsEngineWeb.PairingsLive do
        max_file_size: 2_000_000,
        progress: &handle_upload_progress/3
      )
+     |> NextRoundPreviewPanel.init()
      |> refresh()}
   end
 
@@ -216,6 +218,14 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The next-round preview's own messages - see `NextRoundPreviewPanel`.
+  def handle_info({:next_round_preview, message}, socket),
+    do: {:noreply, NextRoundPreviewPanel.handle_info(message, socket)}
+
+  @impl true
+  def handle_async(:next_round_preview, result, socket),
+    do: {:noreply, NextRoundPreviewPanel.handle_async(result, socket)}
+
   defp refresh(socket, opts \\ []) do
     %{tournament: t, round_number: n} = socket.assigns
     paired = Engine.paired_rounds_count(t.id)
@@ -265,6 +275,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         unattached_boards: unattached_boards(t, round)
       )
       |> put_explanation_state(round)
+      |> NextRoundPreviewPanel.refresh()
 
     if Keyword.get(opts, :keep_gesture, false) do
       socket
@@ -386,6 +397,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp format_match_score(n), do: n
 
   @impl true
+  def handle_event("next_round_preview_open", params, socket),
+    do: {:noreply, NextRoundPreviewPanel.handle_event("open", params, socket)}
+
+  def handle_event("next_round_preview_close", params, socket),
+    do: {:noreply, NextRoundPreviewPanel.handle_event("close", params, socket)}
+
   def handle_event("select_round", %{"number" => number}, socket) do
     {:noreply,
      socket
@@ -3681,6 +3698,18 @@ defmodule PairingsEngineWeb.PairingsLive do
           </details>
         </div>
       </div>
+
+      <%!-- Which boards of the next round are already certain while the last
+            games are still being played - worked out, never saved. Beside
+            the round being played and the round about to be paired. --%>
+      <NextRoundPreviewPanel.panel
+        state={@next_round_preview}
+        tournament={@tournament}
+        show={
+          @setup_complete and !@tournament.archived_at and
+            @round_number in [@paired_rounds, @next_pairable]
+        }
+      />
 
       <div :if={@error} class="error-note" style="display: block">
         <details open={String.length(@error) <= 160}>

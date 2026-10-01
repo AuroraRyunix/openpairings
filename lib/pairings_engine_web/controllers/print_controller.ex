@@ -33,6 +33,10 @@ defmodule PairingsEngineWeb.PrintController do
       paired or the tournament has no team matches.
     * `GET /t/:id/print/team-standings?round=n` - team standings (match
       points and the team tie-breaks) after round `n`, or current.
+    * `GET /t/:id/print/next-round-preview` - the next round's boards that
+      are already certain while games of the current round are still being
+      played, and a list by name for name cards; the preview the Pairings
+      page worked out, 409 when it is not current.
     * `GET /t/:id/print/postponed` - a notice per player of every open
       postponed game (round, board, opponent, colour, agreed date, venue);
       `?game=<pairing id>` for one game, 404 if it is not open.
@@ -852,6 +856,162 @@ defmodule PairingsEngineWeb.PrintController do
   defp bye_type_label("requested-zero"), do: gettext("requested zero-point bye")
   defp bye_type_label("absent"), do: gettext("absent")
   defp bye_type_label(other), do: other
+
+  @next_round_preview_css """
+  .nrp-warning { border: 2px solid #000; padding: 8px 12px; margin: 0 0 14px; font-size: 13px; }
+  .nrp-warning strong { text-transform: uppercase; letter-spacing: 0.04em; }
+  .nrp-summary { font-size: 13px; margin: 0 0 14px; }
+  h2 { font-size: 15px; margin: 22px 0 8px; }
+  .nrp-cards { page-break-before: always; }
+  .nrp-cards td.board { font-size: 16px; font-weight: bold; }
+  .muted { color: #666; }
+  """
+
+  @doc """
+  `GET /t/:id/print/next-round-preview` - the next round's boards that are
+  already certain while the last games of the current round are still
+  being played (`PairingsEngine.NextRoundPreview`): the fixed boards, the
+  pairs that are fixed but not yet on a board, and a list by name for
+  putting out name cards. Prints the preview the Pairings page worked out,
+  from `PairingsEngine.NextRoundPreview.Cache`, and only while it is
+  current - 409 when a result, a player or a setting has changed since (or
+  it was never worked out), because a stale list of "certain" boards is
+  worse than none.
+  """
+  def next_round_preview(conn, %{"id" => id}) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    fingerprint = PairingsEngine.NextRoundPreview.fingerprint(tournament.id)
+
+    case PairingsEngine.NextRoundPreview.Cache.get(tournament.id, fingerprint) do
+      nil ->
+        send_resp(
+          conn,
+          409,
+          gettext(
+            "The next-round preview is not up to date. Open it on the Pairings page, wait until it has finished, then print again."
+          )
+        )
+
+      preview ->
+        print_page(
+          conn,
+          tournament,
+          tournament.name,
+          gettext("Round %{n} - preview of the fixed boards", n: preview.next_round),
+          next_round_preview_body(preview),
+          @next_round_preview_css
+        )
+    end
+  end
+
+  defp next_round_preview_body(preview) do
+    name = fn id -> preview.players |> Map.get(id, %{name: "?"}) |> Map.fetch!(:name) end
+
+    rating = fn id ->
+      preview.players |> Map.get(id, %{}) |> Map.get(:rating, 0) |> blank_zero()
+    end
+
+    games =
+      Enum.map_join(preview.games, ", ", &gettext("board %{b}", b: &1.label))
+
+    warning =
+      "<p id=\"nrp-print-warning\" class=\"nrp-warning\"><strong>" <>
+        gettext("Preview - not the pairing.") <>
+        "</strong> " <>
+        esc(
+          ngettext(
+            "Worked out while 1 game of round %{round} was still being played (%{games}): only the boards that come out the same whatever its result are listed.",
+            "Worked out while %{count} games of round %{round} were still being played (%{games}): only the boards that come out the same whatever their results are listed.",
+            length(preview.games),
+            round: preview.round,
+            games: games
+          )
+        ) <>
+        " " <>
+        esc(gettext("Nothing is saved: the round is paired as usual once the last result is in.")) <>
+        "</p>"
+
+    summary =
+      "<p class=\"nrp-summary\">#{esc(PairingsEngineWeb.NextRoundPreviewPanel.summary(preview))}</p>"
+
+    fixed_rows =
+      Enum.map_join(preview.fixed, "", fn row ->
+        "<tr><td class=\"num\">#{esc(row.label)}</td>" <>
+          "<td><strong>#{esc(name.(row.white))}</strong></td><td class=\"num\">#{rating.(row.white)}</td>" <>
+          "<td><strong>#{esc(name.(row.black))}</strong></td><td class=\"num\">#{rating.(row.black)}</td></tr>"
+      end)
+
+    fixed =
+      case preview.fixed do
+        [] ->
+          "<p>#{esc(gettext("No board is fixed yet."))}</p>"
+
+        _ ->
+          "<table id=\"nrp-print-fixed\"><thead><tr><th class=\"num\">#{gettext("Board")}</th>" <>
+            "<th>#{gettext("White")}</th><th class=\"num\">Elo</th>" <>
+            "<th>#{gettext("Black")}</th><th class=\"num\">Elo</th></tr></thead>" <>
+            "<tbody>#{fixed_rows}</tbody></table>"
+      end
+
+    pairs =
+      Enum.map(preview.shifting, &{&1.labels, &1.white, &1.black, nil}) ++
+        Enum.map(preview.colours_open, fn %{players: [a, b], labels: labels} ->
+          {labels, a, b, gettext("colours open")}
+        end)
+
+    pairs_section =
+      case pairs do
+        [] ->
+          ""
+
+        pairs ->
+          rows =
+            Enum.map_join(pairs, "", fn {labels, a, b, note} ->
+              "<tr><td class=\"num\">#{esc(PairingsEngine.NextRoundPreview.label_ranges(labels))}</td>" <>
+                "<td>#{esc(name.(a))}</td><td>#{esc(name.(b))}</td>" <>
+                "<td class=\"muted\">#{esc(note)}</td></tr>"
+            end)
+
+          "<h2>#{esc(gettext("Pairs already fixed, board not yet"))}</h2>" <>
+            "<table id=\"nrp-print-pairs\"><thead><tr><th class=\"num\">#{gettext("Boards")}</th>" <>
+            "<th>#{gettext("White")}</th><th>#{gettext("Black")}</th><th></th></tr></thead>" <>
+            "<tbody>#{rows}</tbody></table>"
+      end
+
+    fixed_bye =
+      if preview.bye.status == :fixed,
+        do: [{name.(preview.bye.holder), "", gettext("bye"), ""}],
+        else: []
+
+    cards =
+      (Enum.flat_map(preview.fixed, fn row ->
+         [
+           {name.(row.white), row.label, gettext("White"), name.(row.black)},
+           {name.(row.black), row.label, gettext("Black"), name.(row.white)}
+         ]
+       end) ++ fixed_bye)
+      |> Enum.sort_by(&String.downcase(elem(&1, 0)))
+
+    cards_section =
+      case cards do
+        [] ->
+          ""
+
+        cards ->
+          rows =
+            Enum.map_join(cards, "", fn {player, board, colour, opponent} ->
+              "<tr><td><strong>#{esc(player)}</strong></td><td class=\"num board\">#{esc(board)}</td>" <>
+                "<td>#{esc(colour)}</td><td>#{esc(opponent)}</td></tr>"
+            end)
+
+          "<section class=\"nrp-cards\"><h2>#{esc(gettext("Name cards - fixed boards, by name"))}</h2>" <>
+            "<table id=\"nrp-print-cards\"><thead><tr><th>#{gettext("Player")}</th>" <>
+            "<th class=\"num\">#{gettext("Board")}</th><th>#{gettext("Colour")}</th>" <>
+            "<th>#{gettext("Opponent")}</th></tr></thead><tbody>#{rows}</tbody></table></section>"
+      end
+
+    warning <> summary <> fixed <> pairs_section <> cards_section
+  end
 
   def standings(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
