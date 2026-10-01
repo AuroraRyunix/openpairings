@@ -104,6 +104,9 @@ send a round. The hand-off file carries the sent-games record
 the return merges the other machine's record into this one's. If a game
 went out with its real result from either copy, it is never offered for
 the postponed-games file afterwards, even if this copy had sent it as `?`.
+The sends' receipts (`"sent_receipts"`, see
+[`import-export.md`](import-export.md), "The sent receipt") travel and
+merge the same way, so both machines show the same codes.
 
 Every authenticated tournament page shows a banner while the lock is on,
 rendered once in the layout (`PairingsEngineWeb.Layouts`) rather than

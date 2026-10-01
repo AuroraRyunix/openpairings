@@ -156,12 +156,12 @@ defmodule PairingsEngineWeb.ExportController do
           tournament,
           meta.rounds,
           fn fresh -> TrfExport.export(fresh, meta.rounds) end,
-          acknowledged: acknowledged
+          [acknowledged: acknowledged] ++ sender(conn)
         )
       end
 
     case result do
-      {:ok, %{marked: marked, file: text}} ->
+      {:ok, %{marked: marked, file: text, receipts: receipts}} ->
         # The rounds are sent now: the Export page's round table (and the
         # Pairings page's sent-round warnings) reload on this.
         Tournaments.broadcast_tournament_change(tournament.id, :results)
@@ -174,7 +174,10 @@ defmodule PairingsEngineWeb.ExportController do
           tournament.id,
           conn.assigns.current_scope,
           "trf.finalised",
-          Map.merge(%{rounds: meta.rounds, marked: marked}, ambiguous_details(ambiguous))
+          Map.merge(
+            %{rounds: meta.rounds, marked: marked, receipts: Enum.map(receipts, & &1.code)},
+            ambiguous_details(ambiguous)
+          )
         )
 
         conn
@@ -267,6 +270,18 @@ defmodule PairingsEngineWeb.ExportController do
 
   defp pgn_boards(_value), do: nil
 
+  # Who sends, for the receipt (`PairingsEngine.SentReceipts`): the label
+  # the audit trail shows, and the account.
+  defp sender(conn) do
+    case conn.assigns[:current_scope] do
+      %{user: %PairingsEngine.Accounts.User{} = user} ->
+        [sent_by: PairingsEngine.Accounts.User.display_label(user), sent_by_id: user.id]
+
+      _ ->
+        []
+    end
+  end
+
   defp ambiguous_details([]), do: %{}
 
   defp ambiguous_details(ambiguous),
@@ -353,14 +368,19 @@ defmodule PairingsEngineWeb.ExportController do
     opts = postponed_opts(params)
 
     if params["finalise"] == "true" do
-      case PostponedGames.send_late_games(tournament, &TrfExport.postponed_export(&1, opts)) do
-        {:ok, text, games} ->
+      case PostponedGames.send_late_games(
+             tournament,
+             &TrfExport.postponed_export(&1, opts),
+             sender(conn)
+           ) do
+        {:ok, text, games, receipt} ->
           Tournaments.broadcast_tournament_change(tournament.id, :results)
 
           Audit.log(tournament.id, conn.assigns.current_scope, "trf.postponed_sent", %{
             games: length(games),
             name: PostponedGames.report_name(tournament),
-            period: games |> hd() |> PostponedGames.late_period() |> Date.to_iso8601()
+            period: games |> hd() |> PostponedGames.late_period() |> Date.to_iso8601(),
+            receipt: receipt.code
           })
 
           send_postponed_file(conn, tournament, games, text, copy: false)

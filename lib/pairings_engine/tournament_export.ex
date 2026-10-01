@@ -545,7 +545,10 @@ defmodule PairingsEngine.TournamentExport do
       # copy made from this file must know it, or it would send the same
       # rounds again (audit 2026-10-01, F5). `TournamentImport` adds it to
       # the new copy's record.
-      "sent_games" => PairingsEngine.PostponedGames.export_records(t.id)
+      "sent_games" => PairingsEngine.PostponedGames.export_records(t.id),
+      # The receipts of those sends (`SentReceipts.export_receipts/1`): a
+      # copy shows the same codes, and tells the same drift.
+      "sent_receipts" => PairingsEngine.SentReceipts.export_receipts(t.id)
     }
     |> put_handoff_blocks(t, Keyword.get(opts, :include_handoff, false))
   end

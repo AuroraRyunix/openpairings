@@ -479,6 +479,14 @@ defmodule PairingsEngine.TournamentImport do
 
     PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
 
+    # And the receipts of those sends; a send the file has no receipt for
+    # (a backup older than receipts) gets one marked as sent before them.
+    PairingsEngine.SentReceipts.merge_receipts(
+      tournament.id,
+      list(t_data, "sent_receipts"),
+      if(handoff?, do: "handoff", else: "import")
+    )
+
     # A copy of an event that may have been reported from somewhere else
     # sends nothing until an arbiter confirms it is the copy that reports.
     # Not a hand-off: there the other copy is locked and this one is meant

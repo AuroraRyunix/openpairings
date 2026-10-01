@@ -23,6 +23,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.NextRoundPreviewPanel
   alias PairingsEngineWeb.Postponed
+  alias PairingsEngineWeb.SentReceipt
   alias PairingsEngineWeb.UploadGuard
 
   @results [
@@ -270,6 +271,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         # warnings pairing the next round comes with.
         postponed_open: postponed_open,
         pairing_warnings: PostponedGames.pairing_warnings(t, postponed_open),
+        # The round's sent receipt and anything changed since it was sent
+        # (`PairingsEngine.SentReceipts`); nil for a round not sent.
+        round_receipt: PairingsEngine.SentReceipts.round_status(t.id, n),
         team_matches: team_matches(t, round),
         teams_by_id: teams_by_id(t),
         unattached_boards: unattached_boards(t, round)
@@ -3397,6 +3401,9 @@ defmodule PairingsEngineWeb.PairingsLive do
             end}
           </span>
 
+          <%!-- Sent for rating: when, and the receipt's code. --%>
+          <SentReceipt.stamp receipt={@round_receipt && @round_receipt.receipt} id="round-receipt" />
+
           <%!-- The round's engine account is worked out after the click
                 (PairingsEngine.ExplanationJobs). Quiet, because the round is
                 saved and final; it goes away when the account is in. --%>
@@ -3698,6 +3705,10 @@ defmodule PairingsEngineWeb.PairingsLive do
           </details>
         </div>
       </div>
+
+      <%!-- The round changed since it was sent: the rating officer holds
+            the old version. Named, never re-sent. --%>
+      <SentReceipt.drift_warning status={@round_receipt} id="round-receipt-drift" />
 
       <%!-- Which boards of the next round are already certain while the last
             games are still being played - worked out, never saved. Beside
