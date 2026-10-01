@@ -56,18 +56,33 @@ defmodule PairingsEngineWeb.ExportController do
   """
   def trf(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    dialect = trf_dialect(params["dialect"])
+    meta = TrfExport.export_meta(tournament, params["rounds"])
 
-    case TrfExport.export(tournament, params["rounds"], dialect: trf_dialect(params["dialect"])) do
-      {:ok, text} ->
-        meta = TrfExport.export_meta(tournament, params["rounds"])
-
+    # Every download here is a COPY - only "Send" (`trf_send/2`) hands out
+    # the file for rating - and says so, in its name and, in the TRF26
+    # dialect, in a `###` line of its own (`TrfExport.export/3`, audit F7).
+    with :ok <- engine_dialect_allowed(tournament, dialect, meta.rounds),
+         {:ok, text} <-
+           TrfExport.export(tournament, params["rounds"], dialect: dialect, copy: true) do
+      conn
+      |> put_resp_content_type("text/plain")
+      |> put_resp_header(
+        "content-disposition",
+        "attachment; filename=\"#{copy_filename(trf_filename(tournament, meta))}\""
+      )
+      |> send_resp(200, text)
+    else
+      {:error, {:open_postponed_in_engine_dialect, rounds}} ->
         conn
-        |> put_resp_content_type("text/plain")
-        |> put_resp_header(
-          "content-disposition",
-          "attachment; filename=\"#{trf_filename(tournament, meta)}\""
+        |> put_flash(
+          :error,
+          gettext(
+            "No file: round %{rounds} has a postponed game still to be played, and the older TRF spelling can only write it as a draw. Download the TRF26 file instead, which writes it as unknown (?).",
+            rounds: Enum.join(rounds, ", ")
+          )
         )
-        |> send_resp(200, text)
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
 
       {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
         conn
@@ -76,23 +91,77 @@ defmodule PairingsEngineWeb.ExportController do
     end
   end
 
+  # The older (`?dialect=javafo`) spelling has no unknown result, so an open
+  # postponed game would go out as a plain draw - a result that never
+  # happened. That URL is linked from nowhere, but it is a URL: it refuses
+  # rather than write it.
+  defp engine_dialect_allowed(_tournament, :trf26, _rounds), do: :ok
+
+  defp engine_dialect_allowed(tournament, :engine, rounds) do
+    open =
+      tournament
+      |> PostponedGames.open_games()
+      |> Enum.map(& &1.round)
+      |> Enum.filter(&(&1 in rounds))
+      |> Enum.uniq()
+
+    if open == [], do: :ok, else: {:error, {:open_postponed_in_engine_dialect, open}}
+  end
+
+  # `S_123_club_r1-3.trf` -> `S_123_club_r1-3_COPY-NOT-FOR-RATING.trf`: a
+  # copy cannot be mistaken for the file that was sent by its name either.
+  defp copy_filename(filename) do
+    String.replace_suffix(filename, ".trf", "") <>
+      "_" <> gettext("COPY-NOT-FOR-RATING") <> ".trf"
+  end
+
   @doc """
-  POST /t/:id/export/trf - the TRF26 export "for sending". With
-  `finalise=true` (the "Finalise results for TRF sending" box) every board
-  of the exported rounds is marked as sent once the file is built
-  (`PostponedGames.finalise/2`): its result is semi-frozen from then on, and
-  an open postponed game in it went out as `?` for good - its real result
-  goes in the postponed-games file. Refused, with nothing marked and no file,
-  while a round in it has a board with no result.
+  POST /t/:id/export/trf - the TRF26 file "for sending". With
+  `finalise=true` (what the Export page's "Send…" posts) the file is built
+  and every board of its rounds marked as sent in one write transaction
+  (`PostponedGames.send_rounds/4`): its result is semi-frozen from then on,
+  and an open postponed game in it went out as `?` for good - its real
+  result goes in the postponed-games file. Two requests for the same round
+  cannot both get a file: the second is refused (audit F1).
+
+  Refused, with nothing marked and no file, while a round in it has a board
+  with no result, was already sent, or belongs to a copy that is locked
+  (handed off, archived) or imported and not yet confirmed as the copy that
+  reports. A round sent before with games it no longer holds goes out only
+  with `acknowledged=round_sent_before`.
+
+  Without `finalise=true` it is a copy, named and marked as one.
   """
   def trf_send(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    finalise? = params["finalise"] == "true"
 
-    with {:ok, text} <- TrfExport.export(tournament, params["rounds"]),
-         meta = TrfExport.export_meta(tournament, params["rounds"]),
-         {:ok, marked} <- maybe_finalise(tournament, meta.rounds, finalise?) do
-      if finalise? do
+    if params["finalise"] == "true" do
+      send_trf(conn, tournament, params)
+    else
+      trf(conn, Map.delete(params, "dialect"))
+    end
+  end
+
+  defp send_trf(conn, tournament, params) do
+    meta = TrfExport.export_meta(tournament, params["rounds"])
+
+    acknowledged =
+      if params["acknowledged"] == "round_sent_before", do: [:round_sent_before], else: []
+
+    result =
+      if tournament.send_confirmation_needed do
+        {:error, :copy_not_confirmed}
+      else
+        PostponedGames.send_rounds(
+          tournament,
+          meta.rounds,
+          fn fresh -> TrfExport.export(fresh, meta.rounds) end,
+          acknowledged: acknowledged
+        )
+      end
+
+    case result do
+      {:ok, %{marked: marked, file: text}} ->
         # The rounds are sent now: the Export page's round table (and the
         # Pairings page's sent-round warnings) reload on this.
         Tournaments.broadcast_tournament_change(tournament.id, :results)
@@ -105,49 +174,84 @@ defmodule PairingsEngineWeb.ExportController do
           tournament.id,
           conn.assigns.current_scope,
           "trf.finalised",
-          Map.merge(
-            %{rounds: meta.rounds, marked: marked},
-            ambiguous_details(ambiguous)
-          )
+          Map.merge(%{rounds: meta.rounds, marked: marked}, ambiguous_details(ambiguous))
         )
-      end
 
-      conn
-      |> put_resp_content_type("text/plain")
-      |> put_resp_header(
-        "content-disposition",
-        "attachment; filename=\"#{trf_filename(tournament, meta)}\""
-      )
-      |> send_resp(200, text)
-    else
-      {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
         conn
-        |> put_flash(:error, "Could not export TRF: #{message}")
-        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
-
-      {:error, {:already_sent, rounds}} ->
-        conn
-        |> put_flash(
-          :error,
-          gettext(
-            "Not finalised, and no file: round %{rounds} was already finalised and sent. Sending it again would send its games twice. Choose only rounds not sent yet, or untick the box to download a copy.",
-            rounds: Enum.join(rounds, ", ")
-          )
+        |> put_resp_content_type("text/plain")
+        |> put_resp_header(
+          "content-disposition",
+          "attachment; filename=\"#{trf_filename(tournament, meta)}\""
         )
-        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
+        |> send_resp(200, text)
 
-      {:error, {:blank_results, rounds}} ->
+      {:error, reason} ->
         conn
-        |> put_flash(
-          :error,
-          gettext(
-            "Not finalised, and no file: round %{rounds} still has boards without a result. Enter them (or record them as postponed) first.",
-            rounds: Enum.join(rounds, ", ")
-          )
-        )
+        |> put_flash(:error, send_error_text(reason))
         |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
     end
   end
+
+  # Why "Send…" handed out no file. Each one says that nothing was marked:
+  # an arbiter must never wonder whether a refused send half-happened.
+  defp send_error_text(%Ainalrami.Trf.ValidationError{message: message}),
+    do: "Could not export TRF: #{message}"
+
+  defp send_error_text({:already_sent, rounds}),
+    do:
+      gettext(
+        "Not sent, and no file: round %{rounds} was already sent. Sending it again would send its games twice. Choose only rounds not sent yet, or download a copy.",
+        rounds: Enum.join(rounds, ", ")
+      )
+
+  defp send_error_text({:blank_results, rounds}),
+    do:
+      gettext(
+        "Not sent, and no file: round %{rounds} still has boards without a result. Enter them (or record them as postponed) first.",
+        rounds: Enum.join(rounds, ", ")
+      )
+
+  defp send_error_text({:needs_acknowledgement, _ids}),
+    do:
+      gettext(
+        "Not sent, and no file: a round in it was sent before with other games. Tick it again and confirm to send it anyway."
+      )
+
+  defp send_error_text(:already_sent),
+    do:
+      gettext(
+        "Not sent, and no file: a game in it was already sent in a postponed-games file. Sending it again would send it twice."
+      )
+
+  defp send_error_text(:copy_not_confirmed),
+    do:
+      gettext(
+        "Not sent, and no file: this tournament was imported from a file, and its rounds may already have been sent from the copy it came from. Confirm on this page that this copy is the one that reports first."
+      )
+
+  defp send_error_text(:handed_off),
+    do:
+      gettext(
+        "Not sent, and no file: this tournament is handed off to another machine, which is the one that sends its results now."
+      )
+
+  defp send_error_text(:archived),
+    do: gettext("Not sent, and no file: this tournament is archived.")
+
+  defp send_error_text(:nothing_to_send),
+    do: gettext("There is no postponed game to send: none was played after its round was sent.")
+
+  defp send_error_text(:played_on_missing),
+    do:
+      gettext(
+        "Not sent, and no file: a game in it has no date played, so its rating period is unknown. Set the date first."
+      )
+
+  defp send_error_text({:mixed_periods, _periods}),
+    do:
+      gettext(
+        "Not sent, and no file: the games were played in more than one rating period. Send one period at a time."
+      )
 
   # "1-4", "1,3,5" - the same forgiving range grammar the absent-rounds field
   # reads. Blank or unreadable = every board.
@@ -168,25 +272,37 @@ defmodule PairingsEngineWeb.ExportController do
   defp ambiguous_details(ambiguous),
     do: %{ambiguous_players: Enum.map(ambiguous, &hd(&1.names))}
 
-  defp maybe_finalise(_tournament, _rounds, false), do: {:ok, 0}
-  defp maybe_finalise(tournament, rounds, true), do: PostponedGames.finalise(tournament, rounds)
-
   @doc """
-  GET /t/:id/export/postponed-trf - the postponed-games TRF: games sent as
-  `?` in a finalised report and played since, packed into extra rounds
-  (`TrfExport.postponed_export/1`). A preview: nothing is marked.
+  GET /t/:id/export/postponed-trf - a COPY of the postponed-games TRF: games
+  sent as `?` in a finalised report and played since, packed into extra
+  rounds (`TrfExport.postponed_export/2`), reported as a tournament of its
+  own, one rating period per file (`period=2026-09-01`). Nothing is marked,
+  and the file and its name say it is a copy.
 
-  POST with `finalise=true` marks the games in the file as sent, so no later
-  file carries them again.
+  POST with `finalise=true` sends it: the file is built and its games are
+  marked as sent in one write transaction (`PostponedGames.send_late_games/2`),
+  so no later file carries them again and two requests racing cannot both
+  get one (audit F2).
   """
   def postponed_trf(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    send_postponed_trf(conn, tournament, false, postponed_opts(params))
+    opts = postponed_opts(params)
+
+    case TrfExport.postponed_export(tournament, [copy: true] ++ opts) do
+      {:ok, text, games} ->
+        send_postponed_file(conn, tournament, games, text, copy: true)
+
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, send_error_text(reason))
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
+    end
   end
 
   # `games=12,15,40` - the pairing ids ticked on the Export page (absent =
   # every sendable game); `dates=2026-10-01,,2026-10-08` - one date per extra
-  # round, blank for the default. Anything unreadable is left out rather than
+  # round, blank for the default; `period=2026-09-01` - the rating period
+  # (month) the file is for. Anything unreadable is left out rather than
   # guessed.
   defp postponed_opts(params) do
     games =
@@ -221,48 +337,87 @@ defmodule PairingsEngineWeb.ExportController do
           []
       end
 
-    [games: games, dates: dates]
+    period =
+      with value when is_binary(value) <- params["period"],
+           {:ok, date} <- Date.from_iso8601(String.trim(value)) do
+        Date.beginning_of_month(date)
+      else
+        _ -> nil
+      end
+
+    [games: games, dates: dates, period: period]
   end
 
   def postponed_trf_send(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    send_postponed_trf(conn, tournament, params["finalise"] == "true", postponed_opts(params))
-  end
+    opts = postponed_opts(params)
 
-  defp send_postponed_trf(conn, tournament, finalise?, opts) do
-    case TrfExport.postponed_export(tournament, opts) do
-      {:ok, text, games} ->
-        if finalise? do
-          PostponedGames.mark_late_games_sent(tournament, games)
+    if params["finalise"] == "true" do
+      case PostponedGames.send_late_games(tournament, &TrfExport.postponed_export(&1, opts)) do
+        {:ok, text, games} ->
           Tournaments.broadcast_tournament_change(tournament.id, :results)
 
           Audit.log(tournament.id, conn.assigns.current_scope, "trf.postponed_sent", %{
-            games: length(games)
+            games: length(games),
+            name: PostponedGames.report_name(tournament),
+            period: games |> hd() |> PostponedGames.late_period() |> Date.to_iso8601()
           })
-        end
 
-        conn
-        |> put_resp_content_type("text/plain")
-        |> put_resp_header(
-          "content-disposition",
-          "attachment; filename=\"#{tournament_slug(tournament)}-postponed.trf\""
-        )
-        |> send_resp(200, text)
+          send_postponed_file(conn, tournament, games, text, copy: false)
 
-      {:error, :nothing_to_send} ->
-        conn
-        |> put_flash(
-          :error,
-          gettext("There is no postponed game to send: none was played after its round was sent.")
-        )
-        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
-
-      {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
-        conn
-        |> put_flash(:error, "Could not export TRF: #{message}")
-        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
+        {:error, reason} ->
+          conn
+          |> put_flash(:error, send_error_text(reason))
+          |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
+      end
+    else
+      postponed_trf(conn, params)
     end
   end
+
+  defp send_postponed_file(conn, tournament, games, text, copy: copy?) do
+    name = postponed_filename(tournament, games)
+
+    conn
+    |> put_resp_content_type("text/plain")
+    |> put_resp_header(
+      "content-disposition",
+      "attachment; filename=\"#{if copy?, do: copy_filename(name), else: name}\""
+    )
+    |> send_resp(200, text)
+  end
+
+  # The postponed-games file is a tournament of its own, and its name says
+  # which: `<X>_<its FIDE ID>_<its name>_<YYYY-MM>.trf`, the month being its
+  # rating period - the main report's convention, with its own ID and name.
+  defp postponed_filename(tournament, games) do
+    period =
+      case games do
+        [game | _] ->
+          case PostponedGames.late_period(game) do
+            %Date{} = date -> Calendar.strftime(date, "%Y-%m")
+            nil -> nil
+          end
+
+        [] ->
+          nil
+      end
+
+    [
+      standard_prefix(tournament.standard),
+      blank_to_nil(tournament.postponed_fide_tournament_id),
+      tournament_slug(%{tournament | name: PostponedGames.report_name(tournament)}),
+      period
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join("_")
+    |> Kernel.<>(".trf")
+  end
+
+  defp blank_to_nil(value) when is_binary(value),
+    do: if(String.trim(value) == "", do: nil, else: String.trim(value))
+
+  defp blank_to_nil(_value), do: nil
 
   @doc """
   GET /t/:id/export/postponed/:pairing_id/calendar - an `.ics` calendar file

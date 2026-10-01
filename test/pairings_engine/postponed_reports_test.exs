@@ -256,10 +256,15 @@ defmodule PairingsEngine.PostponedReportsTest do
         assert line |> String.slice(80, 4) |> String.trim() == "0.5"
       end
 
-      # Byte for byte the report that was sent, but for the generator stamp.
+      # Byte for byte the report that was sent, but for the generator stamp
+      # and the `###` line every later download of a sent round carries:
+      # "COPY - NOT FOR RATING" (audit 2026-10-01, F7). Before that the two
+      # were identical, and nothing in a copy said not to send it again.
       strip = fn text ->
-        text |> String.split("\r\n") |> Enum.reject(&(&1 =~ ~r/^0[0-9][0-9] /))
+        text |> String.split("\r\n") |> Enum.reject(&(&1 =~ ~r/^(0[0-9][0-9]|###) /))
       end
+
+      assert later =~ "### COPY - NOT FOR RATING"
 
       assert strip.(later) -- strip.(before) == []
     end
@@ -348,7 +353,15 @@ defmodule PairingsEngine.PostponedReportsTest do
       snapshot
     end
 
-    test "going back to before a round was paired never makes it sendable again" do
+    # Changed deliberately with the postponed-games audit (2026-10-01). This
+    # test used to end "round 1 still counts as sent" for ANY re-pairing -
+    # which also meant a round re-paired with OTHER games could never be
+    # sent at all, its new games stuck unreported forever. A round is now
+    # sent when a game in it was sent: re-paired into the very same games
+    # (as here: same players, same colours), it is still refused, because
+    # they ARE the games already sent; re-paired into other games, see the
+    # next test.
+    test "going back to before a round was paired never makes its sent games sendable again" do
       {t, _players} = tournament()
       before = snapshot!(t)
       round1 = pair!(t)
@@ -371,12 +384,50 @@ defmodule PairingsEngine.PostponedReportsTest do
 
       refute Tournaments.get_round(t.id, 1)
 
-      # Paired and played again, round 1 still counts as sent.
+      # Paired again into the same two games: they were sent, so the round
+      # still counts as sent.
       round1 = pair!(t)
       for p <- round1.pairings, do: result!(p, "0-1")
 
       assert {:error, {:already_sent, [1]}} = PostponedGames.finalise(Repo.reload!(t), [1])
       assert PostponedGames.sent_rounds(Repo.reload!(t)) == [1]
+    end
+
+    test "a round re-paired with other games after a restore can be sent, once, after a warning" do
+      {t, _players} = tournament()
+      before = snapshot!(t)
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      {:ok, _} =
+        Snapshots.restore(Repo.reload!(t), before.id, nil, acknowledged: [:sent_games_changed])
+
+      # Carol's rating corrected before pairing again: the round now pairs
+      # Alice-Bob and Carol-Dave, games that were never sent.
+      carol = Enum.find(Tournaments.list_players(t.id), &(&1.name == "Carol"))
+      {:ok, _} = Tournaments.update_player(carol, %{fide_rating: 1950})
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "0-1")
+
+      assert PostponedGames.sent_rounds(Repo.reload!(t)) == []
+      assert PostponedGames.sent_before_rounds(Repo.reload!(t)) == [1]
+
+      assert [%{round: 1, state: :ready, sent_before: true}] =
+               PostponedGames.trf_round_states(Repo.reload!(t))
+
+      # Round 1 is reported a second time, with other games: said first.
+      assert {:error, {:needs_acknowledgement, [:round_sent_before]}} =
+               PostponedGames.finalise(Repo.reload!(t), [1])
+
+      assert {:ok, 2} =
+               PostponedGames.finalise(Repo.reload!(t), [1], acknowledged: [:round_sent_before])
+
+      # And those games, once sent, are refused like any other.
+      assert PostponedGames.sent_rounds(Repo.reload!(t)) == [1]
+
+      assert {:error, {:already_sent, [1]}} =
+               PostponedGames.finalise(Repo.reload!(t), [1], acknowledged: [:round_sent_before])
     end
 
     test "a restore that keeps the sent games needs no warning and keeps them marked" do

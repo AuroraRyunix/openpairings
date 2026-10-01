@@ -310,7 +310,7 @@ defmodule PairingsEngine.Handoff do
   # a `DBConnection` crash on the very next query. `record_origin/4` picks up
   # the pieces instead.
   defp import_one(data, scope) do
-    case TournamentImport.import(data, scope) do
+    case TournamentImport.import(data, scope, handoff: true) do
       {:ok, [tournament]} -> {:ok, tournament}
       {:ok, _many} -> {:error, :not_one_tournament}
       {:error, reason} -> {:error, reason}
@@ -687,7 +687,15 @@ defmodule PairingsEngine.Handoff do
           Snapshots.wipe_contents(tournament.id)
           restored = TournamentImport.restore_into!(tournament, entry)
           # What went to the federation from either machine stays on record
-          # and on the boards (`PostponedGames.reapply_sent_marks/1`).
+          # and on the boards: the other machine's record of what it sent
+          # joins this one's (`PostponedGames.merge_records/3`), then the
+          # marks follow the record (`PostponedGames.reapply_sent_marks/1`).
+          PairingsEngine.PostponedGames.merge_records(
+            tournament.id,
+            List.wrap(entry["sent_games"]),
+            "handoff"
+          )
+
           PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
 
           case Tournaments.take_back(restored, token) do

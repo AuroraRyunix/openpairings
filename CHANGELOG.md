@@ -17,6 +17,57 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Two "Send…" clicks for the same round can no longer both send
+  it.** The check "already sent?" and the marking were two steps, so a
+  double click, a second tab or a co-arbiter could each get a file for the
+  same round. Sending now builds the file and records every game in one
+  write transaction, and the database keeps one record per game sent: the
+  second request gets "Not sent, and no file". The same holds for the
+  postponed-games file. Records already in the database are kept as they
+  are; a game recorded as sent twice before this release stays on record
+  (the upgrade logs it) and keeps blocking.
+- [Fix] **A copy handed off to another machine can no longer send.**
+  "Send…" now refuses on a locked (handed-off or archived) copy, for rounds
+  and for the postponed-games file. And a game sent as `?` from one copy
+  and with its result from the other is never offered for the
+  postponed-games file afterwards: that would have been its third send.
+- [Fix] **A restore no longer makes a sent game sendable again after a
+  player's FIDE ID or name changed.** Each game now keeps an identity of
+  its own through restores, backups and hand-offs, and the record of what
+  was sent follows it. The restore warning no longer says a sent game would
+  be taken away when it is still there, and a game sent as `?` keeps its
+  `?` - so it is still offered for the postponed-games file once played.
+- [Fix] **A round restored to before it was paired, and paired again with
+  other games, can be sent.** It used to count as sent forever, so its new
+  games could never be reported. Sending it now warns first that the round
+  goes to the rating officer a second time; paired again into the very same
+  games, it still counts as sent.
+- [Fix] **A copy of a tournament remembers what was sent.** The JSON backup
+  now carries the record of sent games, and an import keeps it. A
+  tournament imported from a backup, TRF or `.swar` file of an event that
+  may already have been reported (a FIDE tournament ID, something sent, or
+  results in a TRF/`.swar`) sends nothing until an arbiter confirms on
+  Settings, Export that this copy is the one that reports.
+- [Fix] **Correcting the result of a late game no longer moves the date it
+  was played to today.** The date - which decides the FIDE rating period -
+  is set when the game is first played and kept; changing it is the
+  separate "Save date" on Settings, Export, now recorded in the audit
+  trail.
+- [Change] **Copies are named and marked as copies.** "Download a copy" and
+  "All rounds" end in `COPY-NOT-FOR-RATING` (`KOPIE-NIET-VOOR-RATING` in
+  Dutch) and say so in a `###` comment line inside, which TRF readers skip;
+  only "Send…" hands out the file for rating. The older TRF spelling
+  (`?dialect=javafo`) refuses a round with an open postponed game instead
+  of writing it as a draw.
+- [Change] **The postponed-games file is reported as a tournament of its
+  own.** Late games are reported to FIDE as a separate tournament, so the
+  file has its own name (by default the event's name + "postponed games" /
+  "uitgestelde partijen", editable), its own FIDE tournament ID, start and
+  end dates from the days its games were played, only those games, and one
+  file per FIDE rating period (month). The main round reports still write
+  an open postponed game as `?`; `docs/import-export.md` documents why that
+  is assumed not to be rated.
+
 ## [0.70.0] - 2026-09-28
 
 - [Security] **Mint 1.11.0.** The HTTP client underneath the app's outbound

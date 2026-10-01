@@ -210,7 +210,24 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"rounds" => [1, 2], "marked" => 12},
       %{"rounds" => [1], "marked" => 4, "ambiguous_players" => ["Jan Peeters"]}
     ],
-    "trf.postponed_sent" => [%{"games" => 1}, %{"games" => 3}],
+    "trf.postponed_sent" => [
+      %{"games" => 1},
+      %{"games" => 3},
+      %{
+        "games" => 2,
+        "name" => "Clubkampioenschap uitgestelde partijen",
+        "period" => "2026-09-01"
+      }
+    ],
+    "trf.copy_confirmed" => [%{"source" => "json"}, %{"source" => "trf"}],
+    "trf.postponed_report_set" => [
+      %{"name" => "Club postponed games", "fide_tournament_id" => "777001"},
+      %{"name" => nil, "fide_tournament_id" => nil}
+    ],
+    "pairing.played_on_set" => [
+      %{"round" => 2, "board" => 4, "from" => "2026-10-05", "to" => "2026-10-04"},
+      %{"round" => 2, "board" => 4, "from" => nil, "to" => "2026-10-04"}
+    ],
     "pairing.bye_exclusion_overridden" => [
       %{"round" => 5, "player_id" => 12, "player_name" => "Anna Peeters"}
     ],

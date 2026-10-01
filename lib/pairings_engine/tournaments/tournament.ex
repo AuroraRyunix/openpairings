@@ -926,6 +926,20 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :postponed_requester_outcome, :string, default: "draw"
     field :postponed_opponent_outcome, :string, default: "draw"
 
+    # The postponed-games file is reported to FIDE as a tournament of its
+    # own (`PairingsEngine.TrfExport.postponed_export/2`): its own name -
+    # nil for the default, the event's name + "postponed games" - and its
+    # own FIDE tournament ID, separate from `fide_tournament_id`.
+    field :postponed_report_name, :string
+    field :postponed_fide_tournament_id, :string
+
+    # Set on a copy imported from a file of an event that may already have
+    # been reported from elsewhere (`"json"`, `"trf"`, `"swar"`): nothing
+    # is sent from this copy until an arbiter confirms it is the one that
+    # reports (`Tournaments.confirm_sending/2`). Not cast, not exported -
+    # only an import sets it and only that confirmation clears it.
+    field :send_confirmation_needed, :string
+
     # Bye exclusions for ONE pairing run - never stored (docs/pairing-systems.md,
     # "Bye exclusions"). They ride on the struct because it is the one value
     # every layer of `PairingsEngine.Pairing` already passes down, from
@@ -976,6 +990,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :postponed_games,
       :postponed_requester_outcome,
       :postponed_opponent_outcome,
+      :postponed_report_name,
+      :postponed_fide_tournament_id,
       :tiebreaks,
       :acceleration,
       :status,
@@ -1038,6 +1054,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:soft_position, @soft_positions)
     |> validate_inclusion(:postponed_requester_outcome, ~w(win draw loss))
     |> validate_inclusion(:postponed_opponent_outcome, ~w(win draw loss))
+    |> validate_length(:postponed_report_name, max: 200)
+    |> validate_length(:postponed_fide_tournament_id, max: 40)
     |> validate_inclusion(:initial_colour, @initial_colours)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)

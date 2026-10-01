@@ -94,6 +94,17 @@ alongside the archived check - refuses every write with `{:error,
 exporting all keep working, because it is the record of an event still
 running somewhere else.
 
+Sending results to the rating officer is a write, and is refused too:
+"Send…" for a round and for the postponed-games file check the lock
+inside the transaction that records the send (`PostponedGames.send_rounds/4`,
+`send_late_games/2`). Downloads stay possible, as copies. Before 2026-10-01
+they did not check it, so the locked copy and the other machine could both
+send a round. The hand-off file carries the sent-games record
+(`"sent_games"`), so the receiving machine knows what was already sent, and
+the return merges the other machine's record into this one's. If a game
+went out with its real result from either copy, it is never offered for
+the postponed-games file afterwards, even if this copy had sent it as `?`.
+
 Every authenticated tournament page shows a banner while the lock is on,
 rendered once in the layout (`PairingsEngineWeb.Layouts`) rather than
 per-page, so it can never be forgotten on one:

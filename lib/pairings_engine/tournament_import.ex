@@ -59,8 +59,8 @@ defmodule PairingsEngine.TournamentImport do
   format/version tag, or an invalid record anywhere inside it rolls the
   whole import back and comes back as `{:error, _}`, not a crash.
   """
-  def import(data, %Scope{} = scope) do
-    case import_with_notes(data, scope) do
+  def import(data, %Scope{} = scope, opts \\ []) do
+    case import_with_notes(data, scope, opts) do
       {:ok, tournaments, _notes} -> {:ok, tournaments}
       {:error, reason} -> {:error, reason}
     end
@@ -72,7 +72,9 @@ defmodule PairingsEngine.TournamentImport do
   identity left behind because another tournament here already has it
   (`unique_swar_guid/1`).
   """
-  def import_with_notes(data, %Scope{} = scope) when is_map(data) do
+  def import_with_notes(data, scope, opts \\ [])
+
+  def import_with_notes(data, %Scope{} = scope, opts) when is_map(data) do
     cond do
       Map.get(data, "format") != @format ->
         {:error, "This file is not an OpenPairings export (unrecognized format)."}
@@ -84,11 +86,11 @@ defmodule PairingsEngine.TournamentImport do
         {:error, "This export file contains no tournaments to import."}
 
       true ->
-        do_import(Map.fetch!(data, "tournaments"), scope)
+        do_import(Map.fetch!(data, "tournaments"), scope, opts)
     end
   end
 
-  def import_with_notes(_invalid, %Scope{}),
+  def import_with_notes(_invalid, %Scope{}, _opts),
     do: {:error, "This file is not a valid OpenPairings export."}
 
   ## ---------- reading the file ----------
@@ -170,10 +172,10 @@ defmodule PairingsEngine.TournamentImport do
   # (after the transaction commits, so the query sees the imported data;
   # outside `with_broadcast_suppressed`, so a real status change still
   # broadcasts) rather than trust the imported `status` field.
-  defp do_import(tournaments, scope) do
+  defp do_import(tournaments, scope, opts) do
     result =
       Tournaments.with_broadcast_suppressed(fn ->
-        Repo.transaction(fn -> Enum.map(tournaments, &import_tournament!(&1, scope)) end)
+        Repo.transaction(fn -> Enum.map(tournaments, &import_tournament!(&1, scope, opts)) end)
       end)
 
     case result do
@@ -402,11 +404,11 @@ defmodule PairingsEngine.TournamentImport do
 
   ## ---------- per-tournament import (runs inside the transaction) ----------
 
-  defp import_tournament!(t_data, _scope) when not is_map(t_data) do
+  defp import_tournament!(t_data, _scope, _opts) when not is_map(t_data) do
     Repo.rollback("Malformed tournament entry in export file.")
   end
 
-  defp import_tournament!(t_data, scope) do
+  defp import_tournament!(t_data, scope, opts) do
     {t_attrs, notes} =
       t_data
       |> fetch_map!("tournament")
@@ -461,9 +463,27 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, list(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, list(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
-    # Rounds the file says were sent to the federation go on this copy's
-    # sent-games record too, so a restore here cannot make them sendable.
+    # What the file says was sent to the rating officer goes on this copy's
+    # sent-games record: the file's own record of it (`"sent_games"`, audit
+    # 2026-10-01 F5), and the sent marks on its boards. So neither this copy
+    # nor a restore here can send those games again.
+    handoff? = Keyword.get(opts, :handoff, false)
+
+    PairingsEngine.PostponedGames.merge_records(
+      tournament.id,
+      list(t_data, "sent_games"),
+      if(handoff?, do: "handoff", else: "import")
+    )
+
     PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
+
+    # A copy of an event that may have been reported from somewhere else
+    # sends nothing until an arbiter confirms it is the copy that reports.
+    # Not a hand-off: there the other copy is locked and this one is meant
+    # to carry on (`PairingsEngine.Handoff`).
+    unless handoff?,
+      do: Tournaments.require_send_confirmation_if_reported(tournament.id, "json")
+
     tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
 
     # Last, and after the players, because an audit row's `details` can
@@ -758,7 +778,11 @@ defmodule PairingsEngine.TournamentImport do
           finalised_open: truthy(Map.get(pr, "finalised_open")),
           postponed_reported_at: parse_datetime(Map.get(pr, "postponed_reported_at")),
           agreed_date: parse_date(Map.get(pr, "agreed_date")),
-          agreed_date_log: agreed_date_log(Map.get(pr, "agreed_date_log"))
+          agreed_date_log: agreed_date_log(Map.get(pr, "agreed_date_log")),
+          # The game's identity, kept (`PostponedGames`); a payload written
+          # before it existed leaves it to the database, which gives a new
+          # one.
+          game_uid: game_uid(Map.get(pr, "game_uid"))
         )
         |> insert!()
       end)
@@ -786,6 +810,9 @@ defmodule PairingsEngine.TournamentImport do
       end
     end)
   end
+
+  defp game_uid(value) when is_binary(value) and byte_size(value) in 1..64, do: value
+  defp game_uid(_value), do: nil
 
   # The envelope's `"openresults"` block, kept as an OFFER rather than acted
   # on. It holds the key that can publish to and delete a tournament already

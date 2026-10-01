@@ -3,15 +3,16 @@ defmodule PairingsEngine.PostponedAuditTest do
   Audit of postponed games and the routes a game takes to a rating body
   (2026-10-01). The rule under audit: no game is ever sent for rating twice.
 
-  Tests tagged `:postponed_audit` FAIL on purpose: each proves a way the
-  current code lets a game (or a whole round) go out a second time, or go
-  out wrong. They are excluded from the default run (see
-  `test/test_helper.exs`); run them with
+  The tests named F1-F7 each proved, when the audit was written, a way the
+  code let a game (or a whole round) go out a second time, or go out wrong.
+  They failed on purpose then, behind a `:postponed_audit` tag the default
+  run excluded; each was fixed on branch `postponed-fixes` and the tag
+  removed, so they run with everything else and guard the fix. The F4
+  test's warning check was changed with its fix: it pinned the old,
+  untruthful warning (see the comment there).
 
-      mix test --only postponed_audit
-
-  The untagged tests pass and stay as regression guards for the most
-  dangerous scenarios that are closed today.
+  The tests named GUARD stay as regression guards for the most dangerous
+  scenarios that were already closed.
 
   Generated data only: no .swar fixtures, no real players.
   """
@@ -153,7 +154,6 @@ defmodule PairingsEngine.PostponedAuditTest do
   end
 
   describe "F1 - two Send… requests for the same round at once" do
-    @tag :postponed_audit
     test "both finalise round 1: the round is sent twice and recorded twice" do
       {t, _players} = tournament()
       round1 = pair!(t)
@@ -193,7 +193,6 @@ defmodule PairingsEngine.PostponedAuditTest do
   end
 
   describe "F2 - two sends of the postponed-games file at once" do
-    @tag :postponed_audit
     test "both carry the late game, and both are recorded as sent" do
       {t, _players, postponed} = late_game_ready!()
 
@@ -217,7 +216,6 @@ defmodule PairingsEngine.PostponedAuditTest do
   ## ---------- the copy left behind by a hand-off ----------
 
   describe "F3 - the locked copy left behind by a hand-off" do
-    @tag :postponed_audit
     test "can still finalise (send) a round - the other machine can send it too" do
       {t, _players} = tournament()
       all_results!(pair!(t))
@@ -228,7 +226,6 @@ defmodule PairingsEngine.PostponedAuditTest do
       assert {:error, _} = PostponedGames.finalise(locked, [1])
     end
 
-    @tag :postponed_audit
     test "can still mark a postponed-games file as sent" do
       {t, _players, _postponed} = late_game_ready!()
       {:ok, locked} = Tournaments.hand_off(Repo.reload!(t), "Arbiter laptop")
@@ -246,7 +243,6 @@ defmodule PairingsEngine.PostponedAuditTest do
       snapshot
     end
 
-    @tag :postponed_audit
     test "makes a late game already sent in the postponed-games file sendable again" do
       {t, players, postponed} = late_game_ready!()
       played = snapshot!(t)
@@ -259,11 +255,13 @@ defmodule PairingsEngine.PostponedAuditTest do
       :ok = PostponedGames.mark_late_games_sent(Repo.reload!(t), games)
       assert PostponedGames.sendable_late_games(Repo.reload!(t)) == []
 
-      # Rolling back to the snapshot taken after the game was played: the
-      # warning says the sent game would be "taken away" (restored: nil) -
-      # it is not, it is still there under Ann's old key.
-      assert [%{kind: "postponed", restored: nil}] =
-               Snapshots.sent_conflicts(Repo.reload!(t), played.id)
+      # Rolling back to the snapshot taken after the game was played. Before
+      # the fix the warning said the sent game would be "taken away"
+      # (`[%{kind: "postponed", restored: nil}]`, which this line asserted)
+      # - untrue, it is still there under Ann's old key. The game is now
+      # found by its identity, and the warning says what really happens:
+      # nothing sent is lost or changed.
+      assert Snapshots.sent_conflicts(Repo.reload!(t), played.id) == []
 
       {:ok, _} =
         Snapshots.restore(Repo.reload!(t), played.id, nil, acknowledged: [:sent_games_changed])
@@ -281,7 +279,6 @@ defmodule PairingsEngine.PostponedAuditTest do
   ## ---------- a copy of the tournament that forgot what it sent ----------
 
   describe "F5 - an imported copy of an event that already sent a round" do
-    @tag :postponed_audit
     test "a backup taken before sending, imported, sends the same round again" do
       {t, _players} = tournament(fide_tournament_id: "424242")
       all_results!(pair!(t))
@@ -313,7 +310,6 @@ defmodule PairingsEngine.PostponedAuditTest do
   ## ---------- the rating period of a late game ----------
 
   describe "F6 - correcting the result of a late game" do
-    @tag :postponed_audit
     test "moves the date it was played to today, and with it the rating period" do
       {t, _players, postponed} = late_game_ready!(~D[2026-09-20])
       assert Repo.reload!(postponed).played_on == ~D[2026-09-20]
@@ -332,7 +328,6 @@ defmodule PairingsEngine.PostponedAuditTest do
   ## ---------- a copy nobody can tell from the file that was sent ----------
 
   describe "F7 - Download a copy / All rounds (TRF) after a round was sent" do
-    @tag :postponed_audit
     test "is byte-for-byte the file that was sent: nothing says it must not be sent again" do
       {t, _players} = tournament()
       all_results!(pair!(t))

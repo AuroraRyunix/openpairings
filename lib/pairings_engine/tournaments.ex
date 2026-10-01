@@ -4594,10 +4594,34 @@ defmodule PairingsEngine.Tournaments do
         %{played_on: nil}
 
       Results.postponed?(pairing.result) or not is_nil(pairing.provisional_white) ->
-        %{played_on: Keyword.get(opts, :played_on) || Date.utc_today()}
+        played_on_attrs(pairing, opts)
 
       true ->
         %{}
+    end
+  end
+
+  # When a once-postponed game was played. Stamped when the game is first
+  # played - it goes from postponed (or from a cleared board) to a result -
+  # and then kept: correcting a typo in its result a week later must not
+  # move the game to the day of the correction, and with it, possibly, into
+  # another FIDE rating period (audit 2026-10-01, F6). A date given in
+  # `opts[:played_on]` is always taken; `set_played_on/2` is the one place
+  # to change it on its own. Read from the board as stored, not from the
+  # struct the caller holds, which can be older.
+  defp played_on_attrs(pairing, opts) do
+    stored = Repo.get(Pairing, pairing.id) || pairing
+
+    cond do
+      date = Keyword.get(opts, :played_on) ->
+        %{played_on: date}
+
+      not PairingsEngine.Results.postponed?(stored.result) and stored.result not in ["", nil] and
+          not is_nil(stored.played_on) ->
+        %{}
+
+      true ->
+        %{played_on: Date.utc_today()}
     end
   end
 
@@ -4655,6 +4679,138 @@ defmodule PairingsEngine.Tournaments do
           |> tap_ok(fn updated ->
             broadcast_tournament_change(round_tournament_id(updated.round_id), :results)
           end)
+      end
+    end
+  end
+
+  @doc """
+  Called by an import (`source`: `"json"`, `"trf"` or `"swar"`) on the
+  tournament it just created, inside its transaction: when the event may
+  already have been reported to the rating officer from somewhere else,
+  the copy is set to send nothing until an arbiter confirms it is the one
+  that reports (`Tournament.send_confirmation_needed`, `confirm_sending/2`).
+  A copy that forgot what the original sent would otherwise send the same
+  rounds again (audit 2026-10-01, F5).
+
+  "May already have been reported", for an event with at least one round:
+
+    * it has a FIDE identity - a FIDE tournament ID (main, per round range,
+      or the postponed-games file's) or is marked FIDE-homologated;
+    * or something in it is recorded or marked as sent;
+    * or, for a TRF or `.swar` file, a game in it has a result: a TRF is a
+      rating report by nature, and SWAR reports its own rounds; neither
+      carries this app's record of what went out.
+
+  Never cleared here; returns `:ok`.
+  """
+  def require_send_confirmation_if_reported(tournament_id, source)
+      when source in ~w(json trf swar) do
+    t = Repo.get!(Tournament, tournament_id)
+    present? = fn value -> is_binary(value) and String.trim(value) != "" end
+
+    fide? =
+      present?.(t.fide_tournament_id) or (t.fide_id_ranges || []) != [] or
+        present?.(t.postponed_fide_tournament_id) or t.fide_homologated == true
+
+    boards =
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id
+
+    sent? =
+      Repo.exists?(
+        from s in PairingsEngine.Tournaments.TrfSentGame, where: s.tournament_id == ^tournament_id
+      ) or
+        Repo.exists?(
+          from [p, _r] in boards,
+            where: not is_nil(p.finalised_at) or not is_nil(p.postponed_reported_at)
+        )
+
+    unplayed = ["" | PairingsEngine.Results.postponed_codes()]
+
+    played? =
+      source != "json" and
+        Repo.exists?(from [p, _r] in boards, where: p.result not in ^unplayed)
+
+    if Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id) and
+         (fide? or sent? or played?) do
+      t |> Ecto.Changeset.change(send_confirmation_needed: source) |> Repo.update!()
+    end
+
+    :ok
+  end
+
+  @doc """
+  Confirms that this copy of an imported tournament is the one that
+  reports to the rating officer (`Tournament.send_confirmation_needed`):
+  sending is possible again. Recorded in the audit trail as
+  `"trf.copy_confirmed"`, naming the kind of file the copy came from.
+  `{:ok, tournament}`, or `{:error, :handed_off | :archived}`.
+  """
+  def confirm_sending(%Tournament{} = tournament, scope \\ nil) do
+    with :ok <- ensure_writable(tournament.id) do
+      fresh = Repo.get!(Tournament, tournament.id)
+
+      if is_nil(fresh.send_confirmation_needed) do
+        {:ok, fresh}
+      else
+        {:ok, updated} =
+          fresh |> Ecto.Changeset.change(send_confirmation_needed: nil) |> Repo.update()
+
+        PairingsEngine.Audit.log(updated.id, scope, "trf.copy_confirmed", %{
+          "source" => fresh.send_confirmation_needed
+        })
+
+        broadcast_tournament_change(updated.id, :tournament)
+        {:ok, updated}
+      end
+    end
+  end
+
+  @doc """
+  Sets the postponed-games file's own name and FIDE tournament ID - it is
+  reported as a tournament of its own (`TrfExport.postponed_export/2`). A
+  blank name goes back to the default. Audited as
+  `"trf.postponed_report_set"`.
+  """
+  def update_postponed_report(%Tournament{} = tournament, attrs, scope \\ nil) do
+    with :ok <- ensure_writable(tournament.id) do
+      fresh = Repo.get!(Tournament, tournament.id)
+
+      clean = fn key ->
+        case Map.get(attrs, key) do
+          value when is_binary(value) ->
+            if String.trim(value) == "", do: nil, else: String.trim(value)
+
+          _ ->
+            nil
+        end
+      end
+
+      changeset =
+        fresh
+        |> Ecto.Changeset.change(
+          postponed_report_name: clean.("postponed_report_name"),
+          postponed_fide_tournament_id: clean.("postponed_fide_tournament_id")
+        )
+        |> Ecto.Changeset.validate_length(:postponed_report_name, max: 200)
+        |> Ecto.Changeset.validate_length(:postponed_fide_tournament_id, max: 40)
+
+      case Repo.update(changeset) do
+        {:ok, updated} ->
+          if changeset.changes != %{} do
+            PairingsEngine.Audit.log(updated.id, scope, "trf.postponed_report_set", %{
+              "name" => updated.postponed_report_name,
+              "fide_tournament_id" => updated.postponed_fide_tournament_id
+            })
+          end
+
+          broadcast_tournament_change(updated.id, :tournament)
+          {:ok, updated}
+
+        {:error, changeset} ->
+          {:error, changeset}
       end
     end
   end
