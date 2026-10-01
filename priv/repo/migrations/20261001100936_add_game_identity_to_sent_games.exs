@@ -110,7 +110,7 @@ defmodule PairingsEngine.Repo.Migrations.AddGameIdentityToSentGames do
 
     sent =
       repo.all(
-        from s in "trf_sent_games",
+        from(s in "trf_sent_games",
           order_by: [s.sent_at, s.id],
           select: %{
             id: s.id,
@@ -120,6 +120,7 @@ defmodule PairingsEngine.Repo.Migrations.AddGameIdentityToSentGames do
             black_key: s.black_key,
             kind: s.kind
           }
+        )
       )
 
     tournament_ids = sent |> Enum.map(& &1.tournament_id) |> Enum.uniq()
@@ -160,18 +161,20 @@ defmodule PairingsEngine.Repo.Migrations.AddGameIdentityToSentGames do
   defp boards_by_key(repo, tournament_id) do
     players =
       repo.all(
-        from p in "players",
+        from(p in "players",
           where: p.tournament_id == ^tournament_id,
           select: {p.id, %{fide_id: p.fide_id, name: p.name}}
+        )
       )
       |> Map.new()
 
     repo.all(
-      from p in "pairings",
+      from(p in "pairings",
         join: r in "rounds",
         on: p.round_id == r.id,
         where: r.tournament_id == ^tournament_id,
         select: {r.number, p.white_player_id, p.black_player_id, p.game_uid}
+      )
     )
     |> Enum.group_by(
       fn {round, w, b, _uid} -> {round, key(players[w]), key(players[b])} end,
@@ -181,5 +184,7 @@ defmodule PairingsEngine.Repo.Migrations.AddGameIdentityToSentGames do
 
   defp key(nil), do: nil
   defp key(%{fide_id: id}) when is_integer(id) and id > 0, do: "fide:#{id}"
-  defp key(%{name: name}), do: "name:" <> (name |> to_string() |> String.trim() |> String.downcase())
+
+  defp key(%{name: name}),
+    do: "name:" <> (name |> to_string() |> String.trim() |> String.downcase())
 end
