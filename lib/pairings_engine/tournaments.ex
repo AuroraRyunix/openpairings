@@ -1151,6 +1151,32 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Saves the entry form's window, cap and entry-list switch.
+
+  None of these opens the form - `set_registration_open/2` does - so they are
+  safe to set ahead of time, and an arbiter can prepare the whole form before
+  anyone can reach it. Like that switch they reach the results site only in
+  the snapshot, so a publish is enqueued on the way out.
+
+  `attrs` may carry `registration_opens_at` / `registration_closes_at` as
+  ISO 8601 instants (what the settings page sends, converted to UTC in the
+  browser) or as `DateTime`s; a blank string clears one.
+  """
+  @spec set_registration_settings(Tournament.t(), map()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()} | {:error, atom()}
+  def set_registration_settings(%Tournament{} = tournament, attrs) when is_map(attrs) do
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Tournament.registration_changeset(attrs)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
+    end
+  end
+
+  @doc """
   Shows or hides `tournament` in the results site's index.
 
   Enqueues a publish on both edges: this only reaches anybody by riding along

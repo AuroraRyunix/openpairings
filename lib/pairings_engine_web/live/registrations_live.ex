@@ -30,8 +30,9 @@ defmodule PairingsEngineWeb.RegistrationsLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Audit, Publishing, Registrations, Tournaments}
+  alias PairingsEngine.{Publishing, Registrations, Tournaments}
   alias PairingsEngine.Registrations.Registration
+  alias PairingsEngineWeb.RegistrationQueue
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -77,7 +78,13 @@ defmodule PairingsEngineWeb.RegistrationsLive do
       {:ok, %{new: new, total: total}} ->
         {:noreply,
          socket
-         |> assign(error: nil, note: pull_note(new, total), last_pull: DateTime.utc_now())
+         |> assign(
+           error: nil,
+           note: pull_note(new, total),
+           last_pull: DateTime.utc_now(),
+           queue_error: nil,
+           queue_note: nil
+         )
          |> load_entries()}
 
       {:error, message} ->
@@ -88,57 +95,12 @@ defmodule PairingsEngineWeb.RegistrationsLive do
     end
   end
 
-  def handle_event("accept", %{"id" => id}, socket) do
-    with_entry(socket, id, fn registration ->
-      case Registrations.accept(registration) do
-        {:ok, player} ->
-          Audit.log(
-            socket.assigns.tournament.id,
-            socket.assigns.current_scope,
-            "registration.accepted",
-            %{player_name: player.name, player_id: player.id}
-          )
-
-          {:noreply,
-           socket
-           |> assign(
-             error: nil,
-             note:
-               "Added #{player.name} to the entry list, marked not yet arrived." <>
-                 bye_note(registration)
-           )
-           |> load_entries()}
-
-        {:error, message} ->
-          {:noreply, assign(socket, error: "Could not accept this entry: #{message}.", note: nil)}
-      end
-    end)
-  end
-
-  def handle_event("discard", %{"id" => id}, socket) do
-    with_entry(socket, id, fn registration ->
-      case Registrations.discard(registration) do
-        {:ok, discarded} ->
-          Audit.log(
-            socket.assigns.tournament.id,
-            socket.assigns.current_scope,
-            "registration.discarded",
-            %{player_name: Registration.name(discarded)}
-          )
-
-          {:noreply,
-           socket
-           |> assign(
-             error: nil,
-             note: "Turned down #{Registration.name(discarded)}. No player was created."
-           )
-           |> load_entries()}
-
-        {:error, message} ->
-          {:noreply,
-           assign(socket, error: "Could not discard this entry: #{message}.", note: nil)}
-      end
-    end)
+  # Accept and Discard live in `PairingsEngineWeb.RegistrationQueue`, shared
+  # with the Players page's queue so both screens create exactly what they
+  # show.
+  def handle_event(event, params, socket) when event in ["accept", "discard"] do
+    {:noreply, socket} = RegistrationQueue.handle_event(event, params, socket)
+    {:noreply, socket |> assign(error: nil, note: nil) |> load_entries()}
   end
 
   def handle_event("restore", %{"id" => id}, socket) do
@@ -171,12 +133,9 @@ defmodule PairingsEngineWeb.RegistrationsLive do
   end
 
   defp load_entries(socket) do
-    id = socket.assigns.tournament.id
-
-    assign(socket,
-      pending: Registrations.pending(id),
-      decided: Registrations.decided(id)
-    )
+    socket
+    |> RegistrationQueue.assign_queue()
+    |> assign(decided: Registrations.decided(socket.assigns.tournament.id))
   end
 
   defp pull_note(0, 0), do: "Nothing has been submitted for this tournament yet."
@@ -184,63 +143,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
   defp pull_note(1, _total), do: "1 new entry."
   defp pull_note(new, _total), do: "#{new} new entries."
 
-  # Said at the moment of accepting rather than left on the entry, because
-  # this is the one thing about an accepted entry an arbiter may want to
-  # undo, and the rounds are no longer on screen afterwards.
-  defp bye_note(registration) do
-    case Registrations.requested_rounds(registration) do
-      [] -> ""
-      rounds -> " They asked to sit out round #{Enum.join(rounds, ", ")}."
-    end
-  end
-
-  ## ---------- reading an entry ----------
-
-  defp field(registration, key) do
-    case registration |> Registration.player_data() |> Map.get(key) do
-      value when is_binary(value) ->
-        case String.trim(value) do
-          "" -> nil
-          trimmed -> trimmed
-        end
-
-      value when is_integer(value) ->
-        Integer.to_string(value)
-
-      _absent ->
-        nil
-    end
-  end
-
-  # One line of everything the entry claims about the player, minus the
-  # email - that gets its own line, because it is the one field here that is
-  # personal data and burying it in a comma-separated run would make it easy
-  # to paste somewhere it must not go.
-  defp details(registration) do
-    [
-      field(registration, "rating"),
-      field(registration, "federation"),
-      field(registration, "club"),
-      field(registration, "fide_id") && "FIDE #{field(registration, "fide_id")}",
-      field(registration, "birth_year") && "b. #{field(registration, "birth_year")}"
-    ]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" · ")
-  end
-
-  defp received_label(nil), do: "unknown"
-  defp received_label(at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
-
-  # Rounds asked for that this tournament does not have. Shown rather than
-  # quietly dropped: "rounds 3 and 9" in a seven-round event means the
-  # person misread something, and the arbiter should see that before the
-  # request silently becomes "round 3".
-  defp impossible_rounds(registration, tournament) do
-    Enum.reject(
-      Registrations.requested_rounds(registration),
-      &(&1 >= 1 and &1 <= (tournament.rounds_count || 0))
-    )
-  end
+  defp received_label(at), do: RegistrationQueue.received_label(at)
 
   @impl true
   def render(assigns) do
@@ -304,72 +207,18 @@ defmodule PairingsEngineWeb.RegistrationsLive do
       </div>
 
       <div :if={@tournament.publish_to_openresults} class="card">
-        <h2>{gettext("Waiting for a decision")} ({length(@pending)})</h2>
+        <h2>{gettext("Waiting for a decision")} ({length(@queue)})</h2>
 
-        <p :if={@pending == []} class="hint" style="margin-bottom: 0">
+        <p :if={@queue == []} class="hint" style="margin-bottom: 0">
           {gettext("Nothing is waiting. Fetch above to check the results site again.")}
         </p>
 
-        <div :for={registration <- @pending} class="set-field solo" style="margin-top: 14px">
-          <span class="set-label">{Registration.name(registration)}</span>
+        <p :if={@queue_error} class="error-note" role="alert">{@queue_error}</p>
+        <p :if={@queue_note} class="ok-note">{@queue_note}</p>
 
-          <p :if={details(registration) != ""} class="hint" style="margin: 2px 0 0">
-            {details(registration)}
-          </p>
+        <RegistrationQueue.pending_list queue={@queue} />
 
-          <p :if={Registration.email(registration)} class="hint" style="margin: 2px 0 0">
-            {Registration.email(registration)}
-          </p>
-
-          <p
-            :if={Registrations.requested_rounds(registration) != []}
-            class="hint"
-            style="margin: 2px 0 0"
-          >
-            {gettext("Asked to sit out round")} {Enum.join(
-              Registrations.requested_rounds(registration),
-              ", "
-            )}
-          </p>
-
-          <%!-- A request this tournament cannot honour is called out rather
-                than quietly trimmed on accept. --%>
-          <p
-            :if={impossible_rounds(registration, @tournament) != []}
-            class="error-note"
-            style="margin: 2px 0 0"
-          >
-            {gettext("This tournament has no round")} {Enum.join(
-              impossible_rounds(registration, @tournament),
-              ", "
-            )} - {gettext("that part of the request will be dropped.")}
-          </p>
-
-          <p class="hint" style="margin: 2px 0 0">
-            {gettext("Submitted")} {received_label(registration.received_at)}
-          </p>
-
-          <div class="actions" style="margin-top: 8px; gap: 10px">
-            <button
-              type="button"
-              class="pe-btn primary"
-              phx-click="accept"
-              phx-value-id={registration.id}
-            >
-              {gettext("Accept")}
-            </button>
-            <button
-              type="button"
-              class="pe-btn danger-link"
-              phx-click="discard"
-              phx-value-id={registration.id}
-            >
-              {gettext("Discard")}
-            </button>
-          </div>
-        </div>
-
-        <p :if={@pending != []} class="hint" style="margin-bottom: 0">
+        <p :if={@queue != []} class="hint" style="margin-bottom: 0">
           {gettext(
             "Accepting adds the player marked not yet arrived, exactly as the form on this machine does. Filling in a web form is an intention to play, not an arrival - clear the flag on the Players page when they turn up."
           )}

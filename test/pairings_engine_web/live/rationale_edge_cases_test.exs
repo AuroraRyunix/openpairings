@@ -203,7 +203,8 @@ defmodule PairingsEngineWeb.RationaleEdgeCasesTest do
     "categories_ranked_separately.toggled",
     "public_pages.toggled",
     "public_pages.link_rotated",
-    "registration.toggled"
+    "registration.toggled",
+    "registration.settings"
   ]
 
   test "the audit page renders every action code with empty details", %{

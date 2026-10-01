@@ -211,12 +211,13 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert has_element?(lv, "#auto-publish-1", "Pairings once paired")
       assert has_element?(lv, "#auto-publish-2", "+ results live")
       assert has_element?(lv, "#auto-publish-3", "+ standings when the round is finished")
-      # No delay to set without the pairings step, and no Save button at all.
+      # No delay to set without the pairings step, and no Save button for it.
       refute has_element?(lv, "#publish-delay-form")
-      # Scoped to this card: the hall display card below has a Save button of
-      # its own, on purpose (each save enqueues a publish).
+      # Scoped to this card: the hall display card and the entry form's
+      # settings card below each have a Save button of their own, on purpose.
       refute has_element?(lv, "#auto-publish-card [type=submit]")
       assert html =~ "auto-publish-card"
+      assert has_element?(lv, ~s|#registration-settings-form [type="submit"]|)
     end
 
     test "each stop saves its step at once, and is audited", %{conn: conn, scope: scope} do

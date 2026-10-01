@@ -459,8 +459,23 @@ Still open, and each needs a decision rather than typing:
 
 ### OpenResults
 
-Nothing open. The entry form is unfinished and unlinked, parked by the
-maintainer.
+- ~~**The entry form is unfinished and unlinked**~~ - **rebuilt
+  2026-09-30 on the `registration` branches of both repos** (unmerged):
+  the form is linked again, has a window, a cap, a national ID, a
+  non-silent honeypot and an optional public entry list; entries are
+  reviewed in a queue on the Players page, prefilled from the FIDE and
+  KBSB lists, with duplicates flagged. See `docs/public-pages.md`,
+  "The workflow, end to end". Open decisions for the maintainer:
+  - **Confirmation e-mails to entrants** (received / accepted / turned
+    down): which sender and provider, and whether at all. Nothing sends
+    today; the decision points are `Registrations.accept/2` and
+    `discard/1`.
+  - **Entry fees**: whether the form should state a fee, and whether
+    payment belongs anywhere near it. `Player.paid` exists and accepting
+    leaves it at its default ("not paid").
+  - **Pending entries on the public list**: shown only as a count now.
+    Listing them by name (as some sites do, marked "unconfirmed") would put
+    unchecked, possibly abusive names on a public page.
 
 ### Operational - the maintainer's, not the code's
 

@@ -36,6 +36,7 @@ defmodule PairingsEngineWeb.FideLookupController do
   use PairingsEngineWeb, :controller
 
   alias PairingsEngine.{Fide, Publishing, RateLimit}
+  alias PairingsEngine.Federations.BEL.{Member, Members}
 
   require Logger
 
@@ -48,9 +49,7 @@ defmodule PairingsEngineWeb.FideLookupController do
          :ok <- within_rate_limit(conn) do
       query = params |> Map.get("q", "") |> to_string()
 
-      json(conn, %{
-        "players" => query |> Fide.search() |> Enum.take(@limit) |> Enum.map(&row(&1, params))
-      })
+      json(conn, %{"players" => candidates(query, params)})
     else
       :unauthorized ->
         conn |> put_status(:unauthorized) |> json(%{"error" => "unauthorized"})
@@ -77,8 +76,56 @@ defmodule PairingsEngineWeb.FideLookupController do
       "birth_year" => player.birth_year,
       "rating" => Fide.rating_for_tempo(player, Map.get(params, "tempo"))
     }
+    |> with_national()
   end
 
+  # The FIDE list first, each match joined to its national (KBSB/FRBE) row
+  # when the national list cross-references it; then national-only members
+  # the FIDE list does not have - a Belgian club player with no FIDE ID is
+  # the ordinary case, and before 2026-09-30 the search could not find them
+  # at all. The national list is whatever this machine last synced, and
+  # empty on a machine that never has, which simply leaves the FIDE half.
+  defp candidates(query, params) do
+    fide = query |> Fide.search() |> Enum.take(@limit) |> Enum.map(&row(&1, params))
+    known = MapSet.new(fide, & &1["fide_id"])
+
+    national =
+      query
+      |> Members.search()
+      |> Enum.reject(&(is_integer(&1.fide_id) and MapSet.member?(known, &1.fide_id)))
+      |> Enum.reject(&(&1.died == true))
+      |> Enum.map(&national_row/1)
+
+    Enum.take(fide ++ national, @limit)
+  end
+
+  defp national_row(%Member{} = member) do
+    %{
+      "fide_id" => member.fide_id,
+      "national_id" => member.national_id,
+      "name" => Member.full_name(member),
+      "federation" => blank_to_nil(member.federation),
+      "birth_year" => member.birth_year,
+      "club" => blank_to_nil(member.club_name),
+      "rating" => member.national_rating
+    }
+  end
+
+  # The national columns a FIDE match gains when the national list knows it.
+  defp with_national(row) do
+    case Members.find_by_fide_id(row["fide_id"]) do
+      %Member{} = member ->
+        Map.merge(row, %{
+          "national_id" => member.national_id,
+          "club" => blank_to_nil(member.club_name)
+        })
+
+      nil ->
+        row
+    end
+  end
+
+  defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(value), do: value
 

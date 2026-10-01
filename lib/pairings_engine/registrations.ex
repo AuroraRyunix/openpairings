@@ -71,7 +71,7 @@ defmodule PairingsEngine.Registrations do
 
   alias PairingsEngine.{Publishing, Repo, Tournaments}
   alias PairingsEngine.Publishing.Failure
-  alias PairingsEngine.Registrations.Registration
+  alias PairingsEngine.Registrations.{Registration, Review}
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
   @doc """
@@ -93,7 +93,15 @@ defmodule PairingsEngine.Registrations do
   def pull(%Tournament{} = tournament) do
     with :ok <- ensure_available(tournament),
          {:ok, entries} <- fetch(tournament) do
-      {:ok, store(tournament, entries)}
+      counts = store(tournament, entries)
+
+      # Something arrived: the Players page's queue should show it without a
+      # reload, and the results site's count of places taken should include
+      # it - the broadcast enqueues the publish that carries that count.
+      if counts.new > 0,
+        do: Tournaments.broadcast_tournament_change(tournament.id, :registrations)
+
+      {:ok, counts}
     end
   end
 
@@ -225,25 +233,30 @@ defmodule PairingsEngine.Registrations do
   The player lands **absent**, which is not a detail: the person filled in a
   web form, and the arbiter marks them present when they actually walk in.
 
+  Prefilled from the lists this machine holds - the FIDE list, and the
+  national (KBSB/FRBE) list when `opts[:national_list]` is true - exactly as
+  `PairingsEngine.Registrations.Review.proposal/3` describes and as the
+  review screen shows before the button is pressed.
+
   Returns `{:ok, player}` or `{:error, message}` in words. Words rather than
   atoms because every reason this can fail - a duplicate FIDE ID, a blank
   name from a broken form, an archived tournament - is something the arbiter
   reads and acts on, and there is exactly one caller to phrase them for.
   """
-  @spec accept(Registration.t()) :: {:ok, Player.t()} | {:error, String.t()}
-  def accept(%Registration{} = registration) do
+  @spec accept(Registration.t(), keyword()) :: {:ok, Player.t()} | {:error, String.t()}
+  def accept(%Registration{} = registration, opts \\ []) do
     case reload(registration) do
-      %Registration{status: "pending"} = fresh -> do_accept(fresh)
+      %Registration{status: "pending"} = fresh -> do_accept(fresh, opts)
       %Registration{status: status} -> {:error, already_decided(status)}
       nil -> {:error, "that entry is no longer here"}
     end
   end
 
-  defp do_accept(%Registration{} = registration) do
+  defp do_accept(%Registration{} = registration, opts) do
     tournament = Repo.get(Tournament, registration.tournament_id)
 
     with :ok <- ensure_available(tournament),
-         {:ok, player} <- accept_pending(registration, tournament) do
+         {:ok, player} <- accept_pending(registration, tournament, opts) do
       {:ok, player}
     else
       {:error, :duplicate_fide_id} ->
@@ -334,7 +347,7 @@ defmodule PairingsEngine.Registrations do
   # told about - the same shape every other bulk write here avoids (see
   # `ResultsImport.write_all/2`, `SwarImport`, `TrfImport`). So the writes are
   # suppressed and the one broadcast is sent after the commit, for real.
-  defp accept_pending(%Registration{id: id} = registration, tournament) do
+  defp accept_pending(%Registration{id: id} = registration, tournament, opts) do
     result =
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
@@ -348,7 +361,10 @@ defmodule PairingsEngine.Registrations do
             Repo.rollback(lost_the_race(id))
           end
 
-          case Tournaments.create_player(tournament.id, player_attrs(registration, tournament)) do
+          case Tournaments.create_player(
+                 tournament.id,
+                 player_attrs(registration, tournament, opts)
+               ) do
             {:ok, player} ->
               Repo.update_all(from(r in Registration, where: r.id == ^id),
                 set: [player_id: player.id]
@@ -390,6 +406,11 @@ defmodule PairingsEngine.Registrations do
           decided_at: if(status == "pending", do: nil, else: DateTime.utc_now())
         })
         |> Repo.update!()
+
+      # Other screens on this tournament (the Players page's queue) and the
+      # results site's count of places taken both follow the queue - and the
+      # broadcast is what enqueues the publish that carries the new count.
+      Tournaments.broadcast_tournament_change(tournament.id, :registrations)
 
       {:ok, updated}
     end
@@ -742,79 +763,11 @@ defmodule PairingsEngine.Registrations do
 
   ## ---------- accepting ----------
 
-  # A hand-written allowlist, never the payload's player object as it stands.
-  # The email is the reason: it is the one field in this whole feature that
-  # must not travel onward, and an allowlist makes "not published" the
-  # default for anything the public form adds later, rather than something
-  # somebody has to remember to exclude. `PairingsEngine.Snapshot`'s
-  # `player_row/1` is the same decision at the other end of the system.
-  defp player_attrs(%Registration{} = registration, %Tournament{} = tournament) do
-    player = Registration.player_data(registration)
-
-    %{
-      "name" => trimmed(player["name"]),
-      "title" => trimmed(player["title"]),
-      "fide_id" => whole_number(player["fide_id"]),
-      # The contract has one `rating`; this app has `fide_rating` and
-      # `national_rating`. It goes to `fide_rating` because it arrives beside
-      # `fide_id`, `federation` and `title` in a FIDE-shaped object, and
-      # because `Player.rating/1` falls back to the national field rather
-      # than the other way round. An arbiter who knows better moves it - and
-      # they see the number on the review page before accepting, which is
-      # the reason this is safe to decide here at all.
-      "fide_rating" => whole_number(player["rating"]),
-      "federation" => trimmed(player["federation"]),
-      "club" => trimmed(player["club"]),
-      # Not in the registration contract. Accepted if it turns up because
-      # the form on this machine already collects it (it is what tells two
-      # players with the same name apart), and ignoring a field the sender
-      # bothered to send would be the additive rule working backwards.
-      "birth_year" => whole_number(player["birth_year"]),
-      "absent_rounds" => requested_byes(player["requested_byes"], tournament),
-      # See the moduledoc: a web form is an intention, not an arrival.
-      "absent" => true
-    }
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new()
+  # What the entry becomes - see `Review.proposal/3`, which the review
+  # screen also shows, so the arbiter accepts exactly what they read.
+  defp player_attrs(%Registration{} = registration, %Tournament{} = tournament, opts) do
+    Review.proposal(registration, tournament, opts).attrs
   end
-
-  # `requested_byes` becomes `absent_rounds`, which is this app's ONLY
-  # mechanism for a bye a player asked for in advance. That is worth
-  # stating, because it looks like a missing feature and is not: a
-  # `requested_bye_type` column was added and dropped again on 2026-08-25
-  # (see the two migrations) once it became clear there is only one
-  # question here. You know a player is absent before a round is paired
-  # only because they told you, and an unannounced no-show is paired and
-  # forfeits on the board - so every absence the pairing sees is an
-  # announced one, valued by `abs_value` with its `abs_nbfois` /
-  # `abs_jusque` caps. There is no second kind to record.
-  #
-  # Every value is re-derived from the round count rather than trusted, for
-  # the same reason `Tournaments.register_public_player/2` clamps: "1-999"
-  # is a perfectly well-formed request from a form with no login behind it.
-  defp requested_byes(rounds, %Tournament{} = tournament) when is_list(rounds) do
-    last = tournament.rounds_count || 0
-
-    rounds
-    |> Enum.map(&round_number/1)
-    |> Enum.filter(&(is_integer(&1) and &1 >= 1 and &1 <= last))
-    |> Enum.uniq()
-    |> Enum.sort()
-    |> Enum.join(",")
-  end
-
-  defp requested_byes(_absent_or_wrong_shape, _tournament), do: ""
-
-  defp round_number(value) when is_integer(value), do: value
-
-  defp round_number(value) when is_binary(value) do
-    case Integer.parse(value) do
-      {number, ""} -> number
-      _not_a_number -> nil
-    end
-  end
-
-  defp round_number(_value), do: nil
 
   @doc """
   The rounds an entry asked to sit out, as a sorted list of numbers.
@@ -829,7 +782,7 @@ defmodule PairingsEngine.Registrations do
     case registration |> Registration.player_data() |> Map.get("requested_byes") do
       rounds when is_list(rounds) ->
         rounds
-        |> Enum.map(&round_number/1)
+        |> Enum.map(&Review.round_number/1)
         |> Enum.filter(&is_integer/1)
         |> Enum.uniq()
         |> Enum.sort()
@@ -840,37 +793,6 @@ defmodule PairingsEngine.Registrations do
   end
 
   ## ---------- odds and ends ----------
-
-  # Rating, FIDE ID and birth year land in `:integer` columns, and Ecto's
-  # cast refuses a float or a numeric string outright. The contract says
-  # these are numbers and they normally are - but the sender is a web form,
-  # and a form that posts `"1804"` or `1804.0` would otherwise produce an
-  # entry the arbiter cannot accept AT ALL, with no way out but discarding
-  # it and typing the player in by hand. Coercing is the same tolerance the
-  # server applies on the way in, one column further along.
-  #
-  # Anything that is not a number at all becomes nil and the field is simply
-  # not set, which is what "not known" already means everywhere else here.
-  defp whole_number(value) when is_integer(value), do: value
-  defp whole_number(value) when is_float(value), do: trunc(value)
-
-  defp whole_number(value) when is_binary(value) do
-    case value |> String.trim() |> Integer.parse() do
-      {number, ""} -> number
-      _not_a_whole_number -> nil
-    end
-  end
-
-  defp whole_number(_value), do: nil
-
-  defp trimmed(value) when is_binary(value) do
-    case String.trim(value) do
-      "" -> nil
-      trimmed -> trimmed
-    end
-  end
-
-  defp trimmed(_not_a_string), do: nil
 
   defp normalize_id(id) when is_integer(id), do: id
 

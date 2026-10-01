@@ -182,4 +182,54 @@ defmodule PairingsEngineWeb.FideLookupControllerTest do
       assert Fide.search("De Vos") |> Enum.map(& &1.fide_id) == [2_503_014]
     end
   end
+
+  describe "the national list beside it" do
+    # Added 2026-09-30: the entry form fills in the member number and the
+    # club too, and finds a Belgian club player who is not on the FIDE list
+    # at all - the ordinary case the FIDE-only search could not.
+    setup do
+      Repo.insert!(%PairingsEngine.Federations.BEL.Member{
+        national_id: "12345",
+        last_name: "De Vos",
+        first_name: "Ilse",
+        fide_id: 2_503_014,
+        club_name: "KGSRL",
+        federation: "BEL"
+      })
+
+      Repo.insert!(%PairingsEngine.Federations.BEL.Member{
+        national_id: "-777",
+        last_name: "Clubspeler",
+        first_name: "Karel",
+        club_name: "Brugse SK",
+        national_rating: 1450,
+        birth_year: 1970
+      })
+
+      :ok
+    end
+
+    test "a FIDE match carries its national ID and club", %{conn: conn} do
+      conn = conn |> authed() |> get(~p"/internal/fide/search", q: "De Vos")
+
+      assert [%{"fide_id" => 2_503_014, "national_id" => "12345", "club" => "KGSRL"}] =
+               json_response(conn, 200)["players"]
+    end
+
+    test "a member the FIDE list does not have is found by name", %{conn: conn} do
+      conn = conn |> authed() |> get(~p"/internal/fide/search", q: "Clubspeler")
+
+      assert [player] = json_response(conn, 200)["players"]
+      assert player["name"] == "Clubspeler, Karel"
+      assert player["national_id"] == "-777"
+      assert player["rating"] == 1450
+      assert player["fide_id"] == nil
+    end
+
+    test "and by their member number, the G licence's minus included", %{conn: conn} do
+      conn = conn |> authed() |> get(~p"/internal/fide/search", q: "-777")
+
+      assert [%{"national_id" => "-777"}] = json_response(conn, 200)["players"]
+    end
+  end
 end

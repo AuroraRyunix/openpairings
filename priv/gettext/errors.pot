@@ -107,3 +107,10 @@ msgstr ""
 
 msgid "must be equal to %{number}"
 msgstr ""
+
+## From Tournament.registration_changeset/2 - the entry form's window and cap
+msgid "must be after the opening time"
+msgstr ""
+
+msgid "must be a whole number of players, at least 1"
+msgstr ""

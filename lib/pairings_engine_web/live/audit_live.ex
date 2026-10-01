@@ -122,7 +122,7 @@ defmodule PairingsEngineWeb.AuditLive do
         openresults.kept_withdrawn
         openresults.claim_adopted openresults.claim_discarded openresults.public_consent_given
         openresults.public_consent_declined public_pages.toggled public_pages.link_rotated
-        registration.toggled swar.published swar.publish_failed)},
+        registration.toggled registration.settings swar.published swar.publish_failed)},
     {"standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
         standings.manual_ranking_disabled standings.manual_reseeded
         standings.extra_points_applied standings.extra_points_reduced
@@ -1230,6 +1230,33 @@ defmodule PairingsEngineWeb.AuditLive do
       else: gettext("Closed the public registration form.")
   end
 
+  # The window, the cap and the entry-list switch, saved together from one
+  # form - so one sentence, naming what they were set to rather than which
+  # of them moved, which the details do not record.
+  def describe("registration.settings", d) do
+    limits =
+      [
+        d["opens_at"] && gettext("opens %{at}", at: audit_instant(d["opens_at"])),
+        d["closes_at"] && gettext("closes %{at}", at: audit_instant(d["closes_at"])),
+        is_integer(d["max_players"]) &&
+          gettext("at most %{count} players", count: d["max_players"])
+      ]
+      |> Enum.filter(&is_binary/1)
+
+    base =
+      case limits do
+        [] -> gettext("Set the entry form to take entries without a time window or a limit")
+        _ -> gettext("Set the entry form: %{limits}", limits: Enum.join(limits, ", "))
+      end
+
+    list =
+      if truthy?(d["list_public"]),
+        do: gettext("who has entered is shown on the form."),
+        else: gettext("who has entered is not shown on the form.")
+
+    base <> "; " <> list
+  end
+
   # ---------- the results site (Settings > Results site) ----------
 
   # Turning it off stops sending; it does not take down what was already
@@ -1855,6 +1882,11 @@ defmodule PairingsEngineWeb.AuditLive do
 
   defp as_list(v) when is_list(v), do: v
   defp as_list(_v), do: []
+
+  # An instant from an audit row's details, as it was stored: an ISO 8601
+  # UTC instant, which says its own zone ("...Z") in any language - or, in a
+  # crafted row, whatever is there.
+  defp audit_instant(value), do: to_string(value)
 
   defp truthy?(true), do: true
   defp truthy?("true"), do: true

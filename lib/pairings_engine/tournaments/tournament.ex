@@ -387,6 +387,25 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # an existing tournament inherits on upgrade.
     field :registration_open, :boolean, default: false
 
+    # The entry form's own settings, added 2026-09-30. Like the flag above
+    # they are enforced only on the results site, by riding along in the
+    # snapshot (`tournament.registration`), and none of them opens the form -
+    # that is still `registration_open`. Set together through
+    # `registration_changeset/2` and `Tournaments.set_registration_settings/2`,
+    # never by `changeset/2`.
+    #
+    # The window, in UTC. Either end may be missing; the results site judges
+    # it by its own clock, so it opens and shuts on time while this machine
+    # is off.
+    field :registration_opens_at, :utc_datetime
+    field :registration_closes_at, :utc_datetime
+    # The size of the field: the form stops taking entries once the players
+    # plus the entries waiting here for a decision reach it. nil = no cap.
+    field :registration_max_players, :integer
+    # Whether the form page may list who has entered. Off by default: it puts
+    # names on a page the arbiter did not otherwise choose.
+    field :registration_list_public, :boolean, default: false
+
     # Whether this tournament is published to OpenResults at all. Toggled by
     # Tournaments.set_publish_to_openresults/2, and NOT cast by changeset/2
     # for the same reason as the three fields above: an ordinary settings
@@ -959,6 +978,41 @@ defmodule PairingsEngine.Tournaments.Tournament do
     has_many :rounds, PairingsEngine.Tournaments.Round
 
     timestamps(type: :utc_datetime)
+  end
+
+  @doc """
+  The entry form's window, cap and entry-list switch - and nothing else.
+
+  Its own changeset because `changeset/2` deliberately does not cast any of
+  the entry form's settings (see `registration_open`): these four are saved
+  from their own card on the Results settings page, through
+  `Tournaments.set_registration_settings/2`.
+  """
+  def registration_changeset(tournament, attrs) do
+    tournament
+    |> cast(attrs, [
+      :registration_opens_at,
+      :registration_closes_at,
+      :registration_max_players,
+      :registration_list_public
+    ])
+    |> validate_number(:registration_max_players,
+      greater_than: 0,
+      less_than_or_equal_to: 10_000,
+      message: "must be a whole number of players, at least 1"
+    )
+    |> validate_window()
+  end
+
+  defp validate_window(changeset) do
+    opens = get_field(changeset, :registration_opens_at)
+    closes = get_field(changeset, :registration_closes_at)
+
+    if opens && closes && DateTime.compare(closes, opens) != :gt do
+      add_error(changeset, :registration_closes_at, "must be after the opening time")
+    else
+      changeset
+    end
   end
 
   def changeset(tournament, attrs) do

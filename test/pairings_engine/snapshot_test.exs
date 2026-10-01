@@ -606,6 +606,9 @@ defmodule PairingsEngine.SnapshotTest do
                "match_format" => false,
                "fide_rated" => true,
                "registration_open" => true,
+               # No window, no cap and no list set: only the count travels, and
+               # nothing in it reads as a restriction.
+               "registration" => %{"taken" => 10, "list_public" => false},
                "listed" => true,
                "display" => PairingsEngine.PublicDisplay.resolve(nil),
                "hall" => %{

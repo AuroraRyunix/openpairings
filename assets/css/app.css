@@ -2383,6 +2383,19 @@ a.pending-chip:hover {
 .agreed-date-log ol { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 2px; }
 
 /* The Players page's card: one tappable row per game. */
+/* Entries from the results site's form, on the Players page and the
+   Registrations page (`PairingsEngineWeb.RegistrationQueue`). The same warn
+   rule as the postponed card below: something is waiting on the arbiter. */
+.reg-queue-card { display: block; margin: 12px 0; border-left: 3px solid var(--warn); }
+.reg-queue-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.reg-queue-head h2 { margin: 0; }
+.reg-entry { margin-top: 14px; }
+.reg-entry .reg-line { margin: 2px 0 0; }
+.reg-entry .badge { margin-left: 6px; vertical-align: 1px; }
+.reg-source { font-style: italic; }
+.reg-duplicates { list-style: none; margin: 6px 0 0; padding: 6px 10px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+.reg-duplicates li + li { margin-top: 2px; }
+
 .postponed-overview { display: block; margin: 12px 0; border-left: 3px solid var(--warn); }
 .postponed-overview-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .postponed-overview-game {

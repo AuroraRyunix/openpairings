@@ -289,6 +289,13 @@ defmodule PairingsEngine.Snapshot do
       # tells nobody.
       "registration_open" => t.registration_open,
 
+      # Added 2026-09-30: the form's window, the size of the field and
+      # whether the form may list who has entered - see OpenResults'
+      # docs/snapshot-schema.md, "The entry form's own settings". Enforced
+      # there, by the server's clock, so the window opens and shuts on time
+      # while this machine is off.
+      "registration" => registration_row(t),
+
       # Added 2026-08-29. Whether the results site lists this tournament on
       # its front page, as opposed to serving it only to somebody who has the
       # address. Absent means listed - which is what publishing meant before
@@ -1127,6 +1134,36 @@ defmodule PairingsEngine.Snapshot do
   # A missing key and a null mean the same thing to the reader: not known. A
   # blank string does not - it would render as an empty column rather than as
   # an absent one.
+  # Keys only for what the arbiter set, so an unrestricted form sends
+  # `%{"taken" => n, "list_public" => false}` and nothing that reads as a
+  # restriction. `taken` counts the entry list plus the entries waiting here
+  # for a decision: both are places a newcomer is behind. A count, never a
+  # name - an undecided entry is a stranger's claim, and no part of one
+  # travels in a snapshot.
+  defp registration_row(%Tournament{} = t) do
+    %{
+      "opens_at" => iso_instant(t.registration_opens_at),
+      "closes_at" => iso_instant(t.registration_closes_at),
+      "max_players" => t.registration_max_players,
+      "taken" => places_taken(t),
+      "list_public" => t.registration_list_public == true
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp places_taken(%Tournament{id: id}) when is_integer(id),
+    do:
+      PairingsEngine.Tournaments.count_players(id) +
+        PairingsEngine.Registrations.pending_count(id)
+
+  defp places_taken(%Tournament{}), do: nil
+
+  defp iso_instant(%DateTime{} = at),
+    do: at |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+  defp iso_instant(_unset), do: nil
+
   defp blank_to_nil(nil), do: nil
 
   defp blank_to_nil(value) when is_binary(value) do
