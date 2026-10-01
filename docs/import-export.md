@@ -148,6 +148,19 @@ export writes them in FIDE's own spelling:
     its note beside the export buttons.)
     On import, a `?` comes back as a postponed game.
 
+    **A known assumption: `?` is not rated.** The round's report writes the
+    open game as TRF26's unknown result - the official TRF26 way, `?` in
+    the `001` record, valued by `X` in `162` - and its real result goes to
+    FIDE once, later, in the postponed-games file (below). That is only
+    right if FIDE's rating server does not rate a `?` as the draw `X` says
+    it is worth: TRF26 defines `?` as an unknown result, not a game result,
+    and `X` exists so the points column adds up, so the app assumes an
+    unknown result is not rated. FIDE has not answered the question. If it
+    ever rated `?` at `X`, such a game would be rated twice - as a draw in
+    the round's report and with its real result in the postponed-games
+    file - and the fix would be to leave the open game out of the round's
+    report instead.
+
 `?dialect=javafo` on the download URL asks for the older spelling instead -
 `XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what JaVaFo,
 bbpPairings and older checkers read. The file the app builds for its own
@@ -163,6 +176,57 @@ its own printed Rank column) and real-world testing showed Swiss-Manager
 keeping rows in original starting-rank order, same as this app - TRF's
 "Rank" column (086-089) is where final-standing order belongs, not physical
 row position.
+
+### Sending for rating, copies, and the postponed-games file
+
+Only one download is the file for rating: "Send…" on Settings, Export
+(`POST /t/:id/export/trf` with `finalise=true`). It builds the file and
+records every game in it as sent in one write transaction
+(`PostponedGames.send_rounds/4`), so the file exists only if the record
+landed. The record (`trf_sent_games`) has a unique index - one `"sent"`
+record per game per kind of file - and a second request for the same round
+is refused with no file, however the two interleave. A copy that is locked
+(handed off to another machine, archived) sends nothing.
+
+Every other TRF download is a **copy**: "Download a copy", "All rounds",
+the postponed-games file's "Download a copy", and a `POST` without
+`finalise=true`. A copy's name ends `_COPY-NOT-FOR-RATING` (translated: in
+Dutch `_KOPIE-NIET-VOOR-RATING`), and in the TRF26 spelling its text carries
+a comment line after the header records:
+
+```
+### COPY - NOT FOR RATING. Round 1 of this file already went to the rating officer: ...
+```
+
+`###` is the comment form VCL4THP asks a program to write its own notes in
+(`docs/design-fide-mode.md`, section 4); `Ainalrami.Trf.parse/1` skips it,
+so a copy reads exactly as the file sent. No TRF record is added or
+changed. Any download of a round already sent carries the line, whatever
+route produced it. The older spelling (`?dialect=javafo`) carries no
+comment line - it is read by pairing programs - and refuses to write a
+round with an open postponed game at all: it has no `?` and would have to
+write a draw that never happened.
+
+**The postponed-games file is a tournament of its own.** Late games are
+reported in practice as a separate FIDE tournament ("Clubkampioenschap
+25-26 uitgestelde partijen"), so that is what the file is: its `012` name
+is the tournament's postponed-games name (default the event's name +
+" postponed games", in Dutch " uitgestelde partijen", editable on Settings,
+Export), its FIDE tournament ID is its own (`postponed_fide_tournament_id`,
+in the file name like the main report's: `<X>_<its ID>_<its name>_<YYYY-MM>.trf`),
+its `042`/`052` dates are the first and last day its games were played,
+and it carries only those games. FIDE rates month by month, so one file
+holds one rating period: a file mixing two months is refused, and the page
+offers one file per month. A game with no date played belongs to no period
+and waits until it has one.
+
+**Which game a record is about.** Every board has a `game_uid`, given by
+the database when the board is created and carried by every export,
+snapshot and hand-off file. A sent record names the game by it, so a
+restore that recreates the board under a new id - after a player's FIDE
+ID was filled in, or a name corrected - still knows it. Records older than
+the identity, and records of games no longer in the tournament, are
+matched by round and players as before.
 
 ### Where the export controls live
 
@@ -190,9 +254,10 @@ socket.
       "teams":   [{ "id": 7, "name": "Team A", "captain": "..." }],
       "players": [{ "id": 42, "name": "...", "team_id": 7, "norm_data": {...}, /* every Player field except tournament_id/timestamps */ }],
       "rounds":  [{ "id": 3, "number": 1, "date": "...", "status": "finished",
-                    "pairings": [{ "board": 1, "result": "1-0", "white_player_id": 42, "black_player_id": 43 }] }],
+                    "pairings": [{ "board": 1, "result": "1-0", "white_player_id": 42, "black_player_id": 43, "game_uid": "5acd..." }] }],
       "byes":               [{ "player_id": 42, "round": 2, "type": "pairing-allocated" }],
       "forbidden_pairings":  [{ "player_a_id": 42, "player_b_id": 43 }],
+      "sent_games":          [{ "round": 1, "game_uid": "5acd...", "kind": "report", "sent_as": "1-0", "sent_at": "...", "white_key": "fide:...", "black_key": "name:...", "origin": "sent" }],
       "audit_log":           [{ "action": "tournament.settings_updated", "details": {"changed_fields": {}}, "inserted_at": "...", "actor": "arbiter@example.com" }],  // only with include_handoff: true - see below
       "collaborators":       [{ "email": "co-arbiter@example.com", "role": "editor" }]  // only with include_handoff: true - see below
     }
@@ -207,6 +272,21 @@ only lets sibling records within the same envelope point at the right team/
 player (a pairing's `white_player_id`, a bye's `player_id`, ...). The owning
 user is never included: who exported a tournament has no bearing on who can
 import it.
+
+`"sent_games"` is the tournament's record of what it sent to the rating
+officer (see "Sending for rating" above). A restore ignores it - the record
+is never rolled back - but an import adds it to the new copy's record, as
+sends another copy made, so a backup taken after round 1 was sent cannot
+send round 1 again. A copy cannot know what the original sent after the
+file was made, though: a tournament imported from a backup, TRF or
+`.swar` file of an event that may already have been reported (it has a FIDE
+tournament ID or is FIDE-homologated, something in it was sent, or - for a
+TRF or `.swar` - a game in it has a result) sends nothing until an arbiter
+confirms on Settings, Export that this copy is the one that reports
+(`send_confirmation_needed`, audited as `trf.copy_confirmed`). That flag is
+the import's, never the file's, and nothing clears it on its own. A
+hand-off is the exception: the other copy is locked while this one carries
+on.
 
 A team tournament's matches travel too: each round carries a `"matches"`
 list (`id`, match number, the two team ids) and each pairing a `"match_id"`
@@ -230,7 +310,9 @@ as the database holds it. A few of the tournament's fields are held back
 - **State that belongs to this machine** - `deleted_at`, `archived_at`,
   `swar_uploaded_at`, `swar_published_at`, `logo_data`,
   `logo_content_type`, `head_snapshot_id`, `openresults_key`,
-  `openresults_claim`, and the public-address and hand-off bookkeeping.
+  `openresults_claim`, the public-address and hand-off bookkeeping, and
+  `send_confirmation_needed` (whether this copy was confirmed as the one
+  that reports - decided by each import, see "Sending for rating" above).
 
 The SWAR bookkeeping **does** travel: `swar_guid` (the tournament's identity
 in SWAR and on the federation's results site), `swar_settings` (the imported

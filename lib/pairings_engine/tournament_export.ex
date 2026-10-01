@@ -101,6 +101,7 @@ defmodule PairingsEngine.TournamentExport do
     fide_compliance_lost_round
     public_listed public_display public_hidden_tiebreaks public_hall
     postponed_games postponed_requester_outcome postponed_opponent_outcome
+    postponed_report_name postponed_fide_tournament_id
     swar_guid swar_settings swar_category_type swar_category_axis2
   )a
 
@@ -164,6 +165,12 @@ defmodule PairingsEngine.TournamentExport do
   #     unlocking. The hand-off flow moves a release token exactly once, in
   #     its own envelope block, and `PairingsEngine.Handoff` is the only thing
   #     that writes this column.
+  #   send_confirmation_needed
+  #     Whether THIS copy, imported from a file, has been confirmed as the
+  #     one that reports. Decided by the import that makes a copy, from the
+  #     file, never carried by it: a backup of a confirmed copy must still
+  #     ask when it is imported elsewhere, and a restore must not undo a
+  #     confirmation an arbiter gave.
   #   swar_uploaded_at, swar_published_at
   #     This machine's own record of when it last sent this tournament's
   #     results page to the federation and when that was last confirmed
@@ -225,6 +232,7 @@ defmodule PairingsEngine.TournamentExport do
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
     handed_off_at handed_off_to handoff_token handoff_origin
+    send_confirmation_needed
   )a
 
   @doc false
@@ -530,7 +538,14 @@ defmodule PairingsEngine.TournamentExport do
       "players" => Enum.map(Tournaments.list_players(t.id), &player_map/1),
       "rounds" => Enum.map(rounds_with_pairings(t.id), &round_map/1),
       "byes" => byes(t.id),
-      "forbidden_pairings" => forbidden_pairings(t.id)
+      "forbidden_pairings" => forbidden_pairings(t.id),
+      # What this tournament sent to the rating officer (the sent-games
+      # record, `PostponedGames.export_records/1`). Not tournament content -
+      # a restore leaves the record alone and ignores this block - but a
+      # copy made from this file must know it, or it would send the same
+      # rounds again (audit 2026-10-01, F5). `TournamentImport` adds it to
+      # the new copy's record.
+      "sent_games" => PairingsEngine.PostponedGames.export_records(t.id)
     }
     |> put_handoff_blocks(t, Keyword.get(opts, :include_handoff, false))
   end
@@ -665,7 +680,11 @@ defmodule PairingsEngine.TournamentExport do
       "agreed_date" => p.agreed_date && Date.to_iso8601(p.agreed_date),
       "agreed_date_log" => p.agreed_date_log || [],
       "white_player_id" => p.white_player_id,
-      "black_player_id" => p.black_player_id
+      "black_player_id" => p.black_player_id,
+      # The game's identity for life (`PostponedGames`, "Which game a record
+      # is about"): written back on import and restore, so the sent-games
+      # record still knows the game whatever happened to its players.
+      "game_uid" => p.game_uid
     }
   end
 

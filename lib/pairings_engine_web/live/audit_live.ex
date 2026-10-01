@@ -108,7 +108,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
         pairing.match_forfeit_withdrawn pairing.board_attached
-        pairing.missing_recorded_postponed pairing.postponed_date_set
+        pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
@@ -128,7 +128,8 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.extra_points_applied standings.extra_points_reduced
         standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf import.json trf.finalised trf.postponed_sent)},
+    {"imports", ~w(import.swar import.trf import.json trf.finalised trf.postponed_sent
+        trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
     {"tournament",
@@ -862,12 +863,47 @@ defmodule PairingsEngineWeb.AuditLive do
         rounds: shown(d["rounds"])
       )
 
+  def describe("trf.postponed_sent", %{"name" => name} = d) when is_binary(name),
+    do:
+      ngettext(
+        "Sent %{count} postponed game in a postponed-games TRF, reported as the separate tournament %{name}.",
+        "Sent %{count} postponed games in a postponed-games TRF, reported as the separate tournament %{name}.",
+        count(d, "games"),
+        name: name
+      )
+
   def describe("trf.postponed_sent", d),
     do:
       ngettext(
         "Sent %{count} postponed game in a postponed-games TRF.",
         "Sent %{count} postponed games in a postponed-games TRF.",
         count(d, "games")
+      )
+
+  # An imported copy confirmed as the one that reports
+  # (`Tournaments.confirm_sending/2`): until then it could send nothing.
+  def describe("trf.copy_confirmed", _d),
+    do:
+      gettext(
+        "Confirmed that this imported copy is the one that sends the results to the rating officer."
+      )
+
+  def describe("trf.postponed_report_set", d),
+    do:
+      gettext(
+        "Set what the postponed-games file is reported as: name %{name}, FIDE tournament ID %{id}.",
+        name: shown(d["name"]),
+        id: shown(d["fide_tournament_id"])
+      )
+
+  def describe("pairing.played_on_set", d),
+    do:
+      gettext(
+        "Changed the date the postponed game on board %{board} of round %{round} was played from %{from} to %{to}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        from: shown(d["from"]),
+        to: shown(d["to"])
       )
 
   def describe("import.json", d),

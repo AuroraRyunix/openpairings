@@ -91,20 +91,36 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       postponed_open: PostponedGames.open_games(t),
       trf_rounds: rounds,
       trf_selected: selected,
+      postponed_report_form: postponed_report_form(t),
       bye_exclusion_rounds: PairingsEngine.RoundExplanation.bye_exclusion_rounds(t.id),
       bye_preference_rounds: PairingsEngine.RoundExplanation.bye_preference_rounds(t.id)
     )
     |> assign_postponed()
   end
 
+  # The postponed-games file's own identity: it is reported as a tournament
+  # of its own (`TrfExport.postponed_export/2`).
+  defp postponed_report_form(t) do
+    to_form(
+      %{
+        "postponed_report_name" => t.postponed_report_name || "",
+        "postponed_fide_tournament_id" => t.postponed_fide_tournament_id || ""
+      },
+      as: :postponed_report
+    )
+  end
+
   # The ticked rounds as the export routes read them, "1,2,5".
   defp trf_rounds_param(selected), do: selected |> Enum.sort() |> Enum.join(",")
 
   # Why "Send" cannot go ahead with this selection, or nil when it can.
-  defp trf_send_blocker(rounds, selected) do
+  defp trf_send_blocker(rounds, selected, tournament) do
     chosen = Enum.filter(rounds, &MapSet.member?(selected, &1.round))
 
     cond do
+      tournament.send_confirmation_needed ->
+        gettext("Confirm above that this copy is the one that reports first.")
+
       chosen == [] ->
         gettext("Tick the rounds to send.")
 
@@ -151,6 +167,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
   defp trf_state_label(%{state: :sent}), do: gettext("Sent")
 
+  defp trf_state_label(%{state: :ready, sent_before: true}),
+    do: gettext("Ready - this round was sent before with other games")
+
   defp trf_state_label(%{state: :ready, postponed: p}) when p > 0,
     do:
       ngettext(
@@ -184,7 +203,22 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     t = socket.assigns.tournament
 
     if t.postponed_games do
-      sendable = PostponedGames.sendable_late_games(t)
+      all_sendable = PostponedGames.sendable_late_games(t)
+      periods = rating_periods(all_sendable)
+
+      # One file per FIDE rating period (`TrfExport.postponed_export/2`):
+      # the period the arbiter picked while it still has games, otherwise
+      # the oldest one. Games with no date played belong to none.
+      dated = for %{period: %{period: date}} <- periods, do: date
+
+      period =
+        if socket.assigns[:late_period] in dated,
+          do: socket.assigns[:late_period],
+          else: List.first(dated)
+
+      sendable =
+        Enum.filter(all_sendable, &(period && PostponedGames.late_period(&1) == period))
+
       ids = MapSet.new(sendable, & &1.pairing.id)
       seen = socket.assigns[:late_seen] || MapSet.new()
 
@@ -203,7 +237,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       |> assign(
         postponed_all: PostponedGames.all_games(t),
         late_sendable: sendable,
-        late_periods: rating_periods(sendable),
+        late_sendable_count: length(all_sendable),
+        late_periods: periods,
+        late_period: period,
         late_selected: selected,
         late_seen: ids,
         late_dates: socket.assigns[:late_dates] || %{}
@@ -213,7 +249,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       assign(socket,
         postponed_all: [],
         late_sendable: [],
+        late_sendable_count: 0,
         late_periods: [],
+        late_period: nil,
         late_selected: MapSet.new(),
         late_seen: MapSet.new(),
         late_dates: %{},
@@ -275,6 +313,39 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   end
 
   defp late_ids_param(selected), do: selected |> Enum.sort() |> Enum.join(",")
+
+  defp period_date(%{period: %{period: date}}), do: date
+  defp period_date(%{period: nil}), do: nil
+
+  # What the postponed-games file is reported as, in one line.
+  defp postponed_report_summary(tournament) do
+    case tournament.postponed_fide_tournament_id do
+      id when is_binary(id) and id != "" ->
+        gettext("Reported as %{name}, FIDE tournament ID %{id}.",
+          name: PostponedGames.report_name(tournament),
+          id: id
+        )
+
+      _ ->
+        gettext("Reported as %{name}. No FIDE tournament ID set for it yet.",
+          name: PostponedGames.report_name(tournament)
+        )
+    end
+  end
+
+  defp copy_unconfirmed_text(source) do
+    file =
+      case source do
+        "trf" -> gettext("a TRF file")
+        "swar" -> gettext("a SWAR file")
+        _ -> gettext("a JSON backup")
+      end
+
+    gettext(
+      "This tournament was imported from %{file} of an event that may already have been reported to the rating officer from somewhere else. What was sent after that file was made is not known here, so nothing can be sent from this copy until you confirm it is the one that reports. If rounds were sent from the other copy, do not send them again from here.",
+      file: file
+    )
+  end
 
   # One entry per extra round: the date set for it, or blank for the default.
   defp late_dates_param(packed, dates) do
@@ -340,11 +411,27 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     end
   end
 
-  defp trf_send_confirm(selected) do
-    gettext(
-      "Send round %{rounds}? The file downloads, and every result in it is marked as sent: changing one afterwards asks for confirmation, and these rounds cannot be sent a second time.",
-      rounds: trf_rounds_param(selected) |> String.replace(",", ", ")
-    )
+  defp trf_send_confirm(selected, rounds) do
+    send =
+      gettext(
+        "Send round %{rounds}? The file downloads, and every result in it is marked as sent: changing one afterwards asks for confirmation, and these rounds cannot be sent a second time.",
+        rounds: trf_rounds_param(selected) |> String.replace(",", ", ")
+      )
+
+    case sent_before_selected(rounds, selected) do
+      [] ->
+        send
+
+      before ->
+        gettext(
+          "Round %{rounds} was sent before, with games it no longer holds (the tournament was restored to before it was paired). The rating officer already has that file: sending this one reports the round a second time, with other games.",
+          rounds: Enum.join(before, ", ")
+        ) <> " " <> send
+    end
+  end
+
+  defp sent_before_selected(rounds, selected) do
+    for %{sent_before: true, round: n} <- rounds, MapSet.member?(selected, n), do: n
   end
 
   @impl true
@@ -411,7 +498,27 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     with %{pairing: pairing} <-
            Enum.find(socket.assigns.postponed_all, &(to_string(&1.pairing.id) == id)),
          {:ok, date} <- Date.from_iso8601(date),
-         {:ok, _} <- Tournaments.set_played_on(pairing, date) do
+         {:ok, updated} <- Tournaments.set_played_on(pairing, date) do
+      # The date decides the game's rating period: who moved it, and from
+      # what, is on record (audit 2026-10-01, F6).
+      if updated.played_on != pairing.played_on do
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "pairing.played_on_set",
+          %{
+            "round" =>
+              Enum.find_value(
+                socket.assigns.postponed_all,
+                &(&1.pairing.id == pairing.id && &1.round)
+              ),
+            "board" => pairing.display_board || pairing.board,
+            "from" => pairing.played_on && Date.to_iso8601(pairing.played_on),
+            "to" => Date.to_iso8601(updated.played_on)
+          }
+        )
+      end
+
       {:noreply, socket |> put_flash(:info, gettext("Date saved.")) |> assign_postponed()}
     else
       {:error, :already_sent} ->
@@ -427,6 +534,51 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
       _ ->
         {:noreply, put_flash(socket, :error, gettext("That is not a date."))}
+    end
+  end
+
+  def handle_event("select_late_period", %{"period" => period}, socket) do
+    case Date.from_iso8601(period) do
+      {:ok, date} ->
+        {:noreply,
+         socket
+         |> assign(late_period: date, late_selected: nil, late_seen: nil, late_dates: %{})
+         |> assign_postponed()}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("save_postponed_report", %{"postponed_report" => attrs}, socket) do
+    case Tournaments.update_postponed_report(
+           socket.assigns.tournament,
+           attrs,
+           socket.assigns.current_scope
+         ) do
+      {:ok, tournament} ->
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> put_flash(:info, gettext("Saved."))
+         |> assign_trf_state()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  def handle_event("confirm_sending", _params, socket) do
+    case Tournaments.confirm_sending(socket.assigns.tournament, socket.assigns.current_scope) do
+      {:ok, tournament} ->
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> put_flash(:info, gettext("Confirmed: this copy sends the results from now on."))
+         |> assign_trf_state()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
@@ -655,7 +807,39 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           {gettext(
             "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or send them: sending marks their results as sent, so a round is never sent twice and a sent result asks for confirmation before it changes."
           )}
+          {gettext(
+            "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
+          )}
         </p>
+
+        <%!-- An imported copy of an event that may already have been
+              reported elsewhere (`Tournament.send_confirmation_needed`):
+              nothing is sent until an arbiter says this is the copy that
+              reports. Never cleared on its own. --%>
+        <div
+          :if={@tournament.send_confirmation_needed}
+          id="trf-copy-unconfirmed"
+          class="card"
+          role="alert"
+          style="display: block; margin: 0 0 12px; border-left: 3px solid var(--danger)"
+        >
+          <p style="margin-top: 0">
+            {copy_unconfirmed_text(@tournament.send_confirmation_needed)}
+          </p>
+          <button
+            type="button"
+            id="trf-confirm-copy"
+            class="pe-btn"
+            phx-click="confirm_sending"
+            data-confirm={
+              gettext(
+                "Confirm that this copy is the one that sends this tournament's results to the rating officer, and that no round in it was sent from anywhere else? A round sent twice is rated twice."
+              )
+            }
+          >
+            {gettext("This copy reports: allow sending")}
+          </button>
+        </div>
 
         <p :if={@trf_rounds == []} class="hint" id="trf-no-rounds">
           {gettext("No round is paired yet.")}
@@ -705,7 +889,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             </table>
           </div>
 
-          <% blocker = trf_send_blocker(@trf_rounds, @trf_selected) %>
+          <% blocker = trf_send_blocker(@trf_rounds, @trf_selected, @tournament) %>
           <div class="actions" style="align-items: center">
             <a
               id="trf-download-copy"
@@ -717,7 +901,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               aria-disabled={to_string(MapSet.size(@trf_selected) == 0)}
               target="_blank"
             >
-              {gettext("Download a copy")}
+              {gettext("Download a copy (not for rating)")}
             </a>
 
             <%!-- The TRF an arbiter SENDS - to the federation's rating office.
@@ -734,12 +918,20 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             >
               <input type="hidden" name="rounds" value={trf_rounds_param(@trf_selected)} />
               <input type="hidden" name="finalise" value="true" />
+              <%!-- A round sent before with other games goes again only with
+                    this, after the confirmation below said so. --%>
+              <input
+                :if={sent_before_selected(@trf_rounds, @trf_selected) != []}
+                type="hidden"
+                name="acknowledged"
+                value="round_sent_before"
+              />
               <button
                 type="submit"
                 id="trf-send"
                 class="pe-btn primary"
                 disabled={not is_nil(blocker)}
-                data-confirm={is_nil(blocker) && trf_send_confirm(@trf_selected)}
+                data-confirm={is_nil(blocker) && trf_send_confirm(@trf_selected, @trf_rounds)}
               >
                 {gettext("Send…")}
               </button>
@@ -753,7 +945,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               href={~p"/t/#{@tournament.id}/export/trf"}
               target="_blank"
             >
-              {gettext("All rounds (TRF)")}
+              {gettext("All rounds (TRF copy, not for rating)")}
             </a>
           </div>
 
@@ -841,16 +1033,52 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 rounds, so each game is sent exactly once. --%>
           <div id="trf-late-games" class="trf-late">
             <h3>{gettext("Postponed-games file")}</h3>
-            <p :if={@late_sendable == []} id="postponed-trf-empty" class="hint" style="margin: 0">
+
+            <%!-- Reported as a tournament of its own, as late games are in
+                  practice: its own name, FIDE tournament ID and dates, one
+                  file per rating period. --%>
+            <div id="postponed-report-identity" class="postponed-report-identity">
+              <p class="hint" style="margin: 0 0 8px">
+                {gettext(
+                  "The postponed-games file is reported to FIDE as a separate tournament: its own name and its own FIDE tournament ID (not this tournament's), dated from the first to the last day its games were played, with only those games, and one file per rating period."
+                )}
+              </p>
+              <.form
+                for={@postponed_report_form}
+                id="postponed-report-form"
+                phx-submit="save_postponed_report"
+                class="postponed-report-form"
+              >
+                <.input
+                  field={@postponed_report_form[:postponed_report_name]}
+                  type="text"
+                  label={gettext("Tournament name of the postponed-games file")}
+                  placeholder={PostponedGames.default_report_name(@tournament)}
+                />
+                <.input
+                  field={@postponed_report_form[:postponed_fide_tournament_id]}
+                  type="text"
+                  label={gettext("Its FIDE tournament ID")}
+                />
+                <button type="submit" id="postponed-report-save" class="pe-btn">
+                  {gettext("Save")}
+                </button>
+              </.form>
+              <p id="postponed-report-summary" class="hint" style="margin: 4px 0 0">
+                {postponed_report_summary(@tournament)}
+              </p>
+            </div>
+
+            <p :if={@late_sendable_count == 0} id="postponed-trf-empty" class="hint" style="margin: 0">
               {gettext("Nothing to send: no postponed game was played after its round was sent.")}
             </p>
 
-            <div :if={@late_sendable != []}>
+            <div :if={@late_sendable_count > 0}>
               <p class="hint" style="margin: 0 0 8px">
                 {ngettext(
                   "%{count} postponed game played since its round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
                   "%{count} postponed games played since their round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
-                  length(@late_sendable)
+                  @late_sendable_count
                 )}
               </p>
 
@@ -859,8 +1087,22 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                     enforced or ever marked overdue. --%>
               <div id="postponed-rating-periods" class="rating-periods">
                 <ul>
-                  <li :for={period <- @late_periods} id={rating_period_id(period)}>
+                  <li
+                    :for={period <- @late_periods}
+                    id={rating_period_id(period)}
+                    class={[period_date(period) == @late_period && "is-current"]}
+                  >
                     {rating_period_text(period)}
+                    <button
+                      :if={period_date(period) && period_date(period) != @late_period}
+                      type="button"
+                      class="pe-btn"
+                      id={rating_period_id(period) <> "-select"}
+                      phx-click="select_late_period"
+                      phx-value-period={Date.to_iso8601(period_date(period))}
+                    >
+                      {gettext("Make this file")}
+                    </button>
                   </li>
                 </ul>
                 <p class="hint">
@@ -869,6 +1111,14 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   )}
                 </p>
               </div>
+
+              <p :if={@late_period} id="postponed-trf-period" class="hint" style="margin: 8px 0">
+                <strong>
+                  {gettext("This file: games played in %{month}.",
+                    month: Postponed.month_text(@late_period)
+                  )}
+                </strong>
+              </p>
 
               <ul class="late-games">
                 <li :for={%{round: round, pairing: p} <- @late_sendable}>
@@ -922,11 +1172,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   class={["pe-btn", @late_packed == [] && "is-disabled"]}
                   href={
                     @late_packed != [] &&
-                      ~p"/t/#{@tournament.id}/export/postponed-trf?#{[games: late_ids_param(@late_selected), dates: late_dates_param(@late_packed, @late_dates)]}"
+                      ~p"/t/#{@tournament.id}/export/postponed-trf?#{[games: late_ids_param(@late_selected), dates: late_dates_param(@late_packed, @late_dates), period: @late_period && Date.to_iso8601(@late_period)]}"
                   }
                   target="_blank"
                 >
-                  {gettext("Download a copy")}
+                  {gettext("Download a copy (not for rating)")}
                 </a>
                 <.form
                   for={%{}}
@@ -937,6 +1187,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   style="margin: 0"
                 >
                   <input type="hidden" name="finalise" value="true" />
+                  <input
+                    type="hidden"
+                    name="period"
+                    value={@late_period && Date.to_iso8601(@late_period)}
+                  />
                   <input type="hidden" name="games" value={late_ids_param(@late_selected)} />
                   <input
                     type="hidden"
@@ -947,11 +1202,12 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                     type="submit"
                     id="trf-late-send"
                     class="pe-btn primary"
-                    disabled={@late_packed == []}
+                    disabled={@late_packed == [] or not is_nil(@tournament.send_confirmation_needed)}
                     data-confirm={
                       @late_packed != [] &&
                         gettext(
-                          "Send the postponed-games file? The file downloads, and the ticked games are marked as sent, so they are never sent again."
+                          "Send the postponed-games file as the separate tournament %{name}? The file downloads, and the ticked games are marked as sent, so they are never sent again.",
+                          name: PostponedGames.report_name(@tournament)
                         )
                     }
                   >

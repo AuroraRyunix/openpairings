@@ -138,7 +138,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       [disposition] = get_resp_header(conn, "content-disposition")
       assert disposition =~ "attachment"
-      assert disposition =~ "S_export-ctrl-test_r1-2.trf"
+      assert disposition =~ "S_export-ctrl-test_r1-2_COPY-NOT-FOR-RATING.trf"
 
       body = response(conn, 200)
       parsed = Trf.parse(body)
@@ -220,6 +220,10 @@ defmodule PairingsEngineWeb.ExportControllerTest do
     end
 
     ## ---------- filename convention: <X>_<fideid>_<slug>_<rounds>.trf ----------
+    #
+    # This GET is a copy - only "Send" (`trf_send/2`) hands out the file for
+    # rating - so since the postponed-games audit (2026-10-01, F7) its name
+    # ends `_COPY-NOT-FOR-RATING`, and the convention is the part before it.
 
     test "filename defaults to the S (standard) prefix, no FIDE ID segment, and covers all paired rounds",
          %{
@@ -231,7 +235,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
 
       [disposition] = get_resp_header(conn, "content-disposition")
-      assert disposition =~ "S_export-ctrl-test_r1-2.trf"
+      assert disposition =~ "S_export-ctrl-test_r1-2_COPY-NOT-FOR-RATING.trf"
     end
 
     test "filename uses the B/R prefix for blitz/rapid tournaments", %{conn: conn, scope: scope} do
@@ -242,14 +246,14 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
       [disposition] = get_resp_header(conn, "content-disposition")
-      assert disposition =~ "B_export-ctrl-test_r1-2.trf"
+      assert disposition =~ "B_export-ctrl-test_r1-2_COPY-NOT-FOR-RATING.trf"
 
       {:ok, tournament} =
         PairingsEngine.Tournaments.update_tournament(tournament, %{"standard" => "rapid"})
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
       [disposition] = get_resp_header(conn, "content-disposition")
-      assert disposition =~ "R_export-ctrl-test_r1-2.trf"
+      assert disposition =~ "R_export-ctrl-test_r1-2_COPY-NOT-FOR-RATING.trf"
     end
 
     test "filename includes the resolved FIDE ID and narrows the rounds descriptor with ?rounds=",
@@ -266,7 +270,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf?rounds=1")
       [disposition] = get_resp_header(conn, "content-disposition")
-      assert disposition =~ "S_12345_export-ctrl-test_r1.trf"
+      assert disposition =~ "S_12345_export-ctrl-test_r1_COPY-NOT-FOR-RATING.trf"
     end
   end
 

@@ -647,6 +647,14 @@ So the current behaviour of a `###` line is: **silently ignored on read,
 and lost on any re-write.** Ignored is safe. Lost is a real limitation and
 section 4.5 is about it.
 
+Since 2026-10-01 the app writes one `###` line of its own: every TRF
+download that is not the file sent for rating says `### COPY - NOT FOR
+RATING ...` (`TrfExport.mark_copy/2`, postponed-games audit F7). It is
+inserted after the header records by post-processing the serialized text -
+the approach 4.2 argues against for the FIDE-mode line, accepted here
+because it is one fixed line, written in one place, that no reader acts on.
+When `Ainalrami.Trf` gains `tournament[:comments]`, it moves there.
+
 ### 4.2 Which module writes it
 
 **Ainalrami, not OpenPairings.** Add `tournament[:comments]` (a list of

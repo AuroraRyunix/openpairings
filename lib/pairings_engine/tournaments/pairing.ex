@@ -59,6 +59,14 @@ defmodule PairingsEngine.Tournaments.Pairing do
     field :agreed_date, :date
     field :agreed_date_log, {:array, :map}, default: []
 
+    # The game's identity for life (`PairingsEngine.PostponedGames`): random,
+    # given by the database on insert (a trigger, so no insert path can
+    # forget it), carried by every export, snapshot and hand-off, and written
+    # back by a restore - so a sent game is still the same game after its row
+    # is recreated, whatever happened to its players' names or FIDE IDs.
+    # Never cast.
+    field :game_uid, :string
+
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player

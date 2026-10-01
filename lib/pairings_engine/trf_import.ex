@@ -403,8 +403,15 @@ defmodule PairingsEngine.TrfImport do
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
           case do_import(data, scope) do
-            {:ok, tournament, warnings} -> {tournament, warnings}
-            {:error, reason} -> Repo.rollback(reason)
+            {:ok, tournament, warnings} ->
+              # A file of an event that may already have been reported:
+              # nothing is sent from this copy until an arbiter confirms
+              # it is the one that reports (audit 2026-10-01, F5).
+              :ok = Tournaments.require_send_confirmation_if_reported(tournament.id, "trf")
+              {tournament, warnings}
+
+            {:error, reason} ->
+              Repo.rollback(reason)
           end
         end)
       end)

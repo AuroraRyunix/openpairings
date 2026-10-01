@@ -129,23 +129,42 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   the postponed-games file says which FIDE rating period each played game
   falls in and to send it before the end of that month. OpenResults gets
   the agreed date (`postponed_date`) to show "Postponed, to be played ...".
-- **TRF for sending** - Settings, Export's "Export TRF for sending" has a
-  "Finalise results for TRF sending" box: ticked, the download marks every
-  result of the exported rounds as sent. A sent result changes only after a
-  confirmation; a sent round cannot be finalised again or unpaired, and a
-  hand edit to who played whom in it - or to a player's absence in it, on
-  the Players page - needs a warning ticked, so no game is
-  sent twice. What was sent is also kept in a record a restore or a
-  hand-off return does not replace: the marks come back afterwards, and a
-  restore that would take a sent game away warns first. The record names a
-  player with no FIDE ID by name, so two such players with the same name
-  cannot be told apart in it: the Pairings page warns beside sending, and a
-  restore or return warns when one of them has a sent game. A game still open when its round is sent goes out as
-  `?` and stays `?` in every later report; once played it goes in the
-  **postponed-games TRF** in the Postponed games part of Settings, Export instead - extra
-  rounds, packed so nobody plays twice in a round, only the players of those
-  games - and finalising that file marks it sent too. The warnings and the
-  VCL questions they answer are listed in `PairingsEngine.PostponedGames`.
+- **TRF for sending** - Settings, Export's "Send…" downloads the file for
+  the rating officer and marks every result of its rounds as sent, in one
+  step: a sent result changes only after a confirmation; a sent round cannot
+  be sent again or unpaired, and a hand edit to who played whom in it - or
+  to a player's absence in it, on the Players page - needs a warning
+  ticked, so no game is sent twice. Two "Send…" clicks at once (a second
+  tab, a co-arbiter) cannot both get a file: the database holds one record
+  per game sent and refuses the second. A copy left behind by a hand-off,
+  and an archived tournament, send nothing.
+  What was sent is also kept in a record a restore or a hand-off return
+  does not replace: the marks come back afterwards, and a restore that
+  would take a sent game away warns first. Each game keeps an identity of
+  its own through every restore, backup and hand-off, so a FIDE ID filled
+  in or a name corrected later never makes a sent game look unsent (or an
+  open one lose its `?`). A round restored to before it was paired and
+  paired again with other games can be sent - after a warning that it
+  reports the round a second time; paired into the same games, it stays
+  sent. A JSON backup carries the record; a tournament imported from a
+  backup, TRF or `.swar` file of an event that may already have been
+  reported sends nothing until an arbiter confirms, on Settings, Export,
+  that this copy is the one that reports.
+  "Download a copy" and "All rounds" are copies: the file name ends
+  `COPY-NOT-FOR-RATING` (`KOPIE-NIET-VOOR-RATING` in Dutch) and the file
+  says so in a `###` comment line. A game still open when its round is sent
+  goes out as `?` and stays `?` in every later report; once played it goes
+  in the **postponed-games file** in the Postponed games part of Settings,
+  Export instead - reported to FIDE as a **separate tournament** with its
+  own name (by default the event's name + "postponed games", "uitgestelde
+  partijen" in Dutch, editable) and its own FIDE tournament ID, dated from
+  the first to the last day its games were played, one file per rating
+  period (month) - extra rounds, packed so nobody plays twice in a round,
+  only the players of those games; sending that file marks it sent too.
+  The date a late game was played is set when it is first played and kept
+  through corrections of its result; changing it is a separate, audited
+  step. The warnings and the VCL questions they answer are listed in
+  `PairingsEngine.PostponedGames`.
 
 - **Next-round preview** - while the last games of a Swiss round are still
   being played (six or fewer open), "Preview next round" on the Pairings

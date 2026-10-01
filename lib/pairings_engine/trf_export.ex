@@ -42,10 +42,81 @@ defmodule PairingsEngine.TrfExport do
   """
   def export(tournament, rounds_spec \\ nil, opts \\ []) do
     with :ok <- ensure_round_dates(tournament, rounds_spec) do
-      {:ok, build(tournament, rounds_spec, opts)}
+      text =
+        tournament
+        |> build(rounds_spec, opts)
+        |> mark_copy(copy_comments(tournament, rounds_spec, opts))
+
+      {:ok, text}
     end
   rescue
     e in ValidationError -> {:error, e}
+  end
+
+  ## ---------- a copy is marked as one ----------
+  #
+  # A file downloaded as a copy, and any file carrying a round already sent
+  # for rating, says so in its own text (audit 2026-10-01, F7): before this
+  # the "Download a copy" and "All rounds" files were byte for byte the file
+  # that went to the rating officer, and nothing in one told anybody not to
+  # send it again.
+  #
+  # The mark is TRF's comment line, `###` - the form FIDE's VCL4THP asks a
+  # pairing program to write its own notes in (`docs/design-fide-mode.md`,
+  # section 4), which `Ainalrami.Trf.parse/1` skips, so the file stays a
+  # valid TRF that reads exactly as before. No record of the format is
+  # invented or changed: the tournament's name, dates and results are left
+  # alone. English and ASCII only, like every other line in a file that
+  # leaves the building. Only in the TRF26 dialect: the older spelling is
+  # read by pairing programs, and its filename already says COPY.
+  #
+  # `copy: true` (the download routes that are not "Send") marks it always;
+  # without it, it is marked when a round in it was already sent - never the
+  # case for the file "Send" hands out, which is built before its rounds are
+  # marked (`PostponedGames.send_rounds/4`).
+  defp copy_comments(tournament, rounds_spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      paired = Pairing.paired_rounds_count(tournament.id)
+      rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+      sent = Enum.filter(PairingsEngine.PostponedGames.sent_rounds(tournament), &(&1 in rounds))
+
+      cond do
+        sent != [] ->
+          [
+            "COPY - NOT FOR RATING. " <>
+              String.capitalize(describe_rounds(sent)) <>
+              " of this file already went to the rating officer: sending this file " <>
+              "again would rate those games twice."
+          ]
+
+        Keyword.get(opts, :copy, false) ->
+          [
+            "COPY - NOT FOR RATING. Downloaded as a copy: results are sent with " <>
+              "OpenPairings' Send, which records what went out."
+          ]
+
+        true ->
+          []
+      end
+    else
+      []
+    end
+  end
+
+  @doc """
+  Puts `comments` into the TRF `text` as `###` comment lines, after the
+  header records and before the players - where a reader opening the file
+  sees them first.
+  """
+  def mark_copy(text, []), do: text
+
+  def mark_copy(text, comments) do
+    {head, rest} =
+      text
+      |> String.split("\r\n")
+      |> Enum.split_while(&(&1 != "" and not String.starts_with?(&1, "001")))
+
+    Enum.join(head ++ Enum.map(comments, &("### " <> &1)) ++ rest, "\r\n")
   end
 
   # SWAR parity #23 (manual standings override) is deliberately NOT
@@ -331,15 +402,33 @@ defmodule PairingsEngine.TrfExport do
   under their own starting ranks, so every opponent reference is the same
   number it is in the main report.
 
+  ## A tournament of its own
+
+  The file is reported to FIDE as a separate tournament - the way late
+  games are reported in practice ("Clubkampioenschap 25-26 uitgestelde
+  partijen"): its `012` name is `PostponedGames.report_name/1` (the
+  arbiter's, or the event's name + "postponed games"), its `042`/`052`
+  start and end dates are the first and last day its games were played,
+  and its FIDE tournament ID is its own (`postponed_fide_tournament_id`,
+  in the filename like the main report's). It carries only its games, and
+  the games of one FIDE rating period only (`PostponedGames.rating_period/1`,
+  a calendar month): one file per period, never two periods in one.
+
   Returns `{:ok, text, games}` - the games it carries, for the caller to
-  mark as sent - or `{:error, :nothing_to_send}` /
-  `{:error, %ValidationError{}}`. Before it returns a file it reads it back
-  and checks it says exactly what was meant: every game once, nobody twice
-  in a round, the result each board holds. A file that fails that is not
-  returned at all.
+  mark as sent - or `{:error, :nothing_to_send}`,
+  `{:error, {:mixed_periods, [period]}}` (the chosen games were played in
+  more than one rating period: choose one with `period:`),
+  `{:error, :played_on_missing}` (a chosen game has no date played, so its
+  rating period is unknown) or `{:error, %ValidationError{}}`. Before it
+  returns a file it reads it back and checks it says exactly what was
+  meant: every game once, nobody twice in a round, the result each board
+  holds. A file that fails that is not returned at all.
 
-  Options, both from the Export page's postponed-games part:
+  Options, from the Export page's postponed-games part:
 
+    * `period:` - the first day of the rating period (month) to send;
+      only that period's games are considered. nil (the default) takes
+      every chosen game, which must then share one period.
     * `games:` - the pairing ids to send now; the others wait for a later
       file. nil (the default) sends every sendable game. Ids that are not
       sendable are ignored.
@@ -349,24 +438,43 @@ defmodule PairingsEngine.TrfExport do
   """
   def postponed_export(tournament, opts \\ []) do
     chosen = Keyword.get(opts, :games)
+    period = Keyword.get(opts, :period)
 
     games =
       tournament
       |> PairingsEngine.PostponedGames.sendable_late_games()
       |> Enum.filter(&(is_nil(chosen) or &1.pairing.id in chosen))
+      |> Enum.filter(&(is_nil(period) or PairingsEngine.PostponedGames.late_period(&1) == period))
 
-    case games do
-      [] ->
+    periods = games |> Enum.map(&PairingsEngine.PostponedGames.late_period/1) |> Enum.uniq()
+
+    cond do
+      games == [] ->
         {:error, :nothing_to_send}
 
-      games ->
+      nil in periods ->
+        {:error, :played_on_missing}
+
+      length(periods) > 1 ->
+        {:error, {:mixed_periods, Enum.sort(periods, Date)}}
+
+      true ->
         rounds = games |> Enum.map(& &1.pairing) |> PairingsEngine.PostponedGames.pack()
         text = build_postponed(tournament, rounds, Keyword.get(opts, :dates, []))
         :ok = verify_postponed!(text, rounds)
-        {:ok, text, games}
+        {:ok, mark_copy(text, postponed_copy_comments(opts)), games}
     end
   rescue
     e in ValidationError -> {:error, e}
+  end
+
+  defp postponed_copy_comments(opts) do
+    if Keyword.get(opts, :copy, false),
+      do: [
+        "COPY - NOT FOR RATING. Downloaded as a copy: the postponed-games file is sent " <>
+          "with OpenPairings' Send, which records what went out."
+      ],
+      else: []
   end
 
   @doc """
@@ -422,14 +530,17 @@ defmodule PairingsEngine.TrfExport do
       |> Enum.with_index()
       |> Enum.map(fn {games, i} -> Enum.at(set_dates, i) || postponed_round_date(games) end)
 
+    # Its own tournament: dated by the games it carries (see `postponed_export/2`).
+    played = rounds |> List.flatten() |> Enum.map(& &1.played_on) |> Enum.reject(&is_nil/1)
+
     Trf.serialize(
       %{
         tournament: %{
-          name: tournament.name,
+          name: PairingsEngine.PostponedGames.report_name(tournament),
           city: tournament.city,
           federation: Federation.normalize(tournament.federation),
-          start_date: tournament.start_date,
-          end_date: tournament.end_date,
+          start_date: iso(Enum.min(played, Date, fn -> nil end)),
+          end_date: iso(Enum.max(played, Date, fn -> nil end)),
           number_of_rated_players: Enum.count(rows, &((&1.fide_rating || 0) > 0)),
           type: tournament.type,
           chief_arbiter: chief_arbiter_line(tournament),
@@ -778,6 +889,9 @@ defmodule PairingsEngine.TrfExport do
   defp officials(tournament), do: tournament.officials || %{}
 
   defp present?(v), do: v not in [nil, ""]
+
+  defp iso(nil), do: nil
+  defp iso(%Date{} = date), do: Date.to_iso8601(date)
 
   defp blank_to_nil(v) when v in [nil, ""], do: nil
   defp blank_to_nil(v), do: v
