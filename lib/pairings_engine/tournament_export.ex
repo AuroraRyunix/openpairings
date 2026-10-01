@@ -99,7 +99,7 @@ defmodule PairingsEngine.TournamentExport do
     publish_mode publish_delay_minutes standings_through
     manual_ranking manual_ranking_stale
     fide_compliance_lost_round
-    public_listed public_display public_hidden_tiebreaks
+    public_listed public_display public_hidden_tiebreaks public_hall
     postponed_games postponed_requester_outcome postponed_opponent_outcome
     swar_guid swar_settings swar_category_type swar_category_axis2
   )a
@@ -122,9 +122,9 @@ defmodule PairingsEngine.TournamentExport do
   #     Sharing must be an explicit opt-in per tournament, never inherited
   #     from a file someone was handed. Both default off on the new row.
   #
-  #     `public_listed`, `public_display` and `public_hidden_tiebreaks` are
-  #     exported rather than excluded, and the line between them is what the
-  #     field can DO on its own. These three are inert until somebody
+  #     `public_listed`, `public_display`, `public_hidden_tiebreaks` and
+  #     `public_hall` are exported rather than excluded, and the line between
+  #     them is what the field can DO on its own. These four are inert until somebody
   #     publishes - they describe how a page should look, not whether there
   #     is one - so carrying them cannot leak anything, and they are a real
   #     judgement about this event ("no clubs on the open web", "Buchholz

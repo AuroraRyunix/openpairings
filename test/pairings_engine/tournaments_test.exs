@@ -2201,6 +2201,53 @@ defmodule PairingsEngine.TournamentsTest do
 
   ## ---------- Logo (SWAR parity #14-16) ----------
 
+  describe "set_hall_display/2" do
+    defp hall_tournament(attrs \\ %{}) do
+      Repo.insert!(struct(%Tournament{name: "Hall Test", type: "swiss", rounds_count: 5}, attrs))
+    end
+
+    test "stores what differs from the defaults, enqueues a publish and broadcasts" do
+      tournament = hall_tournament(%{publish_to_openresults: true})
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, updated} =
+               Tournaments.set_hall_display(tournament, %{
+                 "standings" => "false",
+                 "page_seconds" => "25",
+                 "announcement" => "Prize giving at 18:00."
+               })
+
+      assert Repo.reload!(updated).public_hall == %{
+               "standings" => false,
+               "page_seconds" => 25,
+               "announcement" => "Prize giving at 18:00."
+             }
+
+      assert PairingsEngine.Publishing.queued(tournament.id)
+      tournament_id = tournament.id
+      assert_receive {:tournament_changed, ^tournament_id, :settings}
+    end
+
+    test "an invalid value is a changeset error and nothing is written" do
+      tournament = hall_tournament()
+
+      assert {:error, %Ecto.Changeset{} = changeset} =
+               Tournaments.set_hall_display(tournament, %{"page_seconds" => "121"})
+
+      assert Keyword.has_key?(changeset.errors, :page_seconds)
+      assert Repo.reload!(tournament).public_hall == nil
+    end
+
+    test "an archived tournament is refused" do
+      {:ok, archived} = Tournaments.archive_tournament(hall_tournament())
+
+      assert Tournaments.set_hall_display(archived, %{"names" => "false"}) ==
+               {:error, :archived}
+
+      assert Repo.reload!(archived).public_hall == nil
+    end
+  end
+
   describe "set_logo/2, clear_logo/1 and detect_image_type/1" do
     # 1x1 transparent PNG - real signature bytes, not a fake/truncated stub.
     @tiny_png Base.decode64!(

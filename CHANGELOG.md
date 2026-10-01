@@ -72,6 +72,20 @@ Each entry is tagged so a version can be skimmed:
   re-ranked per outcome, so the engine is most of the work: six open games
   on 600 players take about 14 s on one core with the upcoming faster
   Ainalrami (the server uses one), 6 s on four.
+- [Feature] **Hall display settings and an announcement for the screen in
+  the playing hall.** Settings -> OpenResults has a new "Hall display" card
+  for the results site's full-screen page for a TV or projector: choose which
+  views it cycles through (the round's pairings, a list to find your board by
+  name, the results as they come in, the top of the standings), how many
+  seconds each page stays up and how many places of the standings it shows,
+  and whether it holds on the pairings until the first result of a new round
+  is in. Type an announcement ("Round 5 starts at 14:00", up to 500
+  characters, line breaks kept) and press Save: it reaches the hall screen
+  with the publish that follows at once. Once the tournament is published the
+  card shows the hall display's address and an "Open the hall display"
+  button. These only change what the hall screen cycles through - what
+  spectators may see is still decided by "What the public page shows" and
+  each round's level. The settings travel in backups and restore points.
 
 ## [0.70.0] - 2026-09-28
 

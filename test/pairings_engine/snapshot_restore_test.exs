@@ -103,13 +103,15 @@ defmodule PairingsEngine.SnapshotRestoreTest do
 
       captured_display = %{"club" => false, "rating" => false}
       captured_hidden = ["BH", "SB"]
+      captured_hall = %{"results" => false, "announcement" => "Round 2 at 10:00."}
 
       t =
         t
         |> Ecto.Changeset.change(
           public_listed: true,
           public_display: captured_display,
-          public_hidden_tiebreaks: captured_hidden
+          public_hidden_tiebreaks: captured_hidden,
+          public_hall: captured_hall
         )
         |> Repo.update!()
 
@@ -121,7 +123,8 @@ defmodule PairingsEngine.SnapshotRestoreTest do
       |> Ecto.Changeset.change(
         public_listed: false,
         public_display: %{},
-        public_hidden_tiebreaks: []
+        public_hidden_tiebreaks: [],
+        public_hall: nil
       )
       |> Repo.update!()
 
@@ -130,6 +133,7 @@ defmodule PairingsEngine.SnapshotRestoreTest do
       assert restored.public_listed == true
       assert restored.public_display == captured_display
       assert restored.public_hidden_tiebreaks == captured_hidden
+      assert restored.public_hall == captured_hall
     end
 
     test "byes and forbidden pairings are restored, not left behind" do

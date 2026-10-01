@@ -28,7 +28,16 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   import PairingsEngineWeb.Components.ConnectionStatus
 
-  alias PairingsEngine.{Audit, PublicDisplay, Publishing, Standings, Tiebreaks, Tournaments}
+  alias PairingsEngine.{
+    Audit,
+    HallDisplay,
+    PublicDisplay,
+    Publishing,
+    Standings,
+    Tiebreaks,
+    Tournaments
+  }
+
   alias PairingsEngine.Publishing.Installation
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.{PublicConsent, PublicLink}
@@ -67,7 +76,8 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        consent: nil
      )
      |> assign_public_state()
-     |> assign_ranking_tiebreaks()}
+     |> assign_ranking_tiebreaks()
+     |> assign_hall_form()}
   end
 
   # Where this tournament is in public mode's steps, re-read whenever
@@ -93,11 +103,18 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         # Re-derived, not carried: the tie-break selection is edited on
         # another settings page, and a broadcast from there has to move the
         # checkboxes here.
-        {:noreply,
-         socket
-         |> assign(tournament: tournament)
-         |> assign_public_state()
-         |> assign_ranking_tiebreaks()}
+        # The hall form is re-derived only when its own settings changed
+        # (another tab saved them): any other broadcast - a result entered
+        # elsewhere - must not throw away an announcement being typed.
+        hall_changed? = tournament.public_hall != socket.assigns.tournament.public_hall
+
+        socket =
+          socket
+          |> assign(tournament: tournament)
+          |> assign_public_state()
+          |> assign_ranking_tiebreaks()
+
+        {:noreply, if(hall_changed?, do: assign_hall_form(socket), else: socket)}
     end
   end
 
@@ -500,6 +517,43 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
+  ## ---------- the hall display ----------
+
+  # Saved on submit, never per keystroke: every save enqueues a publish, and
+  # an announcement typed letter by letter would send one per letter.
+  def handle_event("save_hall", %{"hall" => params}, socket) do
+    case Tournaments.set_hall_display(socket.assigns.tournament, params) do
+      {:ok, tournament} ->
+        hall = HallDisplay.resolve(tournament.public_hall)
+
+        # The settings, and whether there is an announcement - not its text,
+        # which is on the results site for anyone to read and has no business
+        # in the audit trail as well.
+        Audit.log(
+          tournament.id,
+          socket.assigns.current_scope,
+          "openresults.hall",
+          hall
+          |> Map.delete("announcement")
+          |> Map.put("announcement", Map.has_key?(hall, "announcement"))
+        )
+
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> assign_hall_form()
+         |> put_flash(:info, gettext("Hall display saved."))}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, hall_form: to_form(changeset, as: :hall))}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  def handle_event("save_hall", _params, socket), do: {:noreply, socket}
+
   ## ---------- the entry form ----------
 
   def handle_event("toggle_registration", _params, socket) do
@@ -888,6 +942,14 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   defp hidden_count(tournament), do: PublicDisplay.hidden_count(tournament.public_display)
 
+  defp hall_min(key), do: HallDisplay.range(key).first
+  defp hall_max(key), do: HallDisplay.range(key).last
+
+  defp assign_hall_form(socket) do
+    changeset = HallDisplay.changeset(socket.assigns.tournament.public_hall)
+    assign(socket, hall_form: to_form(changeset, as: :hall))
+  end
+
   # The address the imported key is authority over, as one string an arbiter
   # can compare against what they know. The endpoint is whatever the machine
   # that exported the file was pointing at, which is not necessarily this
@@ -1243,6 +1305,105 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             )}
           <% end %>
         </p>
+      </div>
+
+      <%!-- The results site's hall display: a full-screen page for a TV or
+            projector in the playing hall. Preferences for that screen only -
+            it shows nothing the card above keeps off the public page.
+            Saved with the button rather than as it is typed, because every
+            save enqueues a publish. --%>
+      <div class="card" id="hall-display-card">
+        <h2>{gettext("Hall display")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "A full-screen page on the results site for a TV or projector in the playing hall. It cycles through the round's pairings, a list to find your board by name, the results, the standings and your announcement - and shows only what spectators can already see."
+          )}
+        </p>
+
+        <div :if={PublicLink.public?(@tournament)} class="set-field solo">
+          <span class="set-label">{gettext("Its address")}</span>
+          <p style="margin: 6px 0 0">
+            <code id="hall-display-url">{PublicLink.url(@tournament, :hall)}</code>
+          </p>
+          <div class="actions" style="margin-top: 6px">
+            <a
+              id="hall-display-open"
+              class="pe-btn"
+              href={PublicLink.url(@tournament, :hall)}
+              target="_blank"
+              rel="noopener"
+            >
+              {gettext("Open the hall display")}
+            </a>
+          </div>
+        </div>
+
+        <p :if={not PublicLink.public?(@tournament)} class="hint">
+          {gettext("Its address appears here once this tournament is published.")}
+        </p>
+
+        <.form for={@hall_form} id="hall-display-form" class="hall-form" phx-submit="save_hall">
+          <div class="display-group-head">
+            <strong>{gettext("What it cycles through")}</strong>
+          </div>
+          <div class="hall-views">
+            <.input field={@hall_form[:pairings]} type="checkbox" label={gettext("Pairings")} />
+            <.input
+              field={@hall_form[:names]}
+              type="checkbox"
+              label={gettext("Find your board")}
+            />
+            <.input field={@hall_form[:results]} type="checkbox" label={gettext("Results")} />
+            <.input field={@hall_form[:standings]} type="checkbox" label={gettext("Standings")} />
+          </div>
+
+          <div class="hall-numbers">
+            <.input
+              field={@hall_form[:page_seconds]}
+              type="number"
+              label={gettext("Seconds per page")}
+              min={hall_min(:page_seconds)}
+              max={hall_max(:page_seconds)}
+              step="1"
+              inputmode="numeric"
+            />
+            <.input
+              field={@hall_form[:standings_top]}
+              type="number"
+              label={gettext("Standings: how many places")}
+              min={hall_min(:standings_top)}
+              max={hall_max(:standings_top)}
+              step="1"
+              inputmode="numeric"
+            />
+          </div>
+
+          <.input
+            field={@hall_form[:hold_new_round]}
+            type="checkbox"
+            label={gettext("Hold on the pairings until the first result of a new round is in")}
+          />
+
+          <.input
+            field={@hall_form[:announcement]}
+            type="textarea"
+            label={gettext("Announcement")}
+            rows="3"
+          />
+          <p class="hint hall-hint">
+            {gettext(
+              "Shown on the hall screen after the next publish. Up to %{max} characters; leave empty for none.",
+              max: HallDisplay.max_announcement()
+            )}
+          </p>
+
+          <div class="actions">
+            <button type="submit" id="hall-display-save" class="pe-btn primary">
+              {gettext("Save")}
+            </button>
+          </div>
+        </.form>
       </div>
 
       <div class="card">

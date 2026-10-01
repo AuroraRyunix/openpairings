@@ -82,6 +82,26 @@ Hiding a column is a display rule, not an access rule - except for
 `player_cards`, which OpenResults enforces in its controller as well as its
 markup, because a link is a courtesy and a bookmarked URL is not.
 
+## The hall display
+
+OpenResults serves a full-screen page for a TV or projector in the playing
+hall at `/t/:slug/hall`. The "Hall display" card on Settings -> OpenResults
+configures it, and **`public_hall`** stores the answer - which views the page
+cycles through (pairings, the alphabetical "find your board" list, results,
+standings), `page_seconds` (5-120), `standings_top` (3-50), `hold_new_round`,
+and the arbiter's `announcement` (plain text, up to 500 characters, trimmed,
+CRLF made LF). See `PairingsEngine.HallDisplay`.
+
+The snapshot carries it as `tournament.hall`, resolved like `display`: every
+key with its default filled in, and `announcement` omitted when there is
+none. Nil in the database means every default. The form saves on its Save
+button rather than per keystroke, because each save enqueues a publish -
+that is what gets a new announcement onto the screen straight away.
+
+These are preferences for the hall screen, never a gate: a view switched on
+here still shows only what `display` and the round levels make public, and
+OpenResults enforces those on its own.
+
 ## The slug is an address, not a secret door
 
 `public_slug` is a random 12-byte token rather than the sequential numeric
@@ -155,9 +175,9 @@ Links are **absolute**, because they point at another host and half of them
 end up on a QR code, in a printed footer, or pasted into an email.
 
 Targets are deliberately **coarse**. A published tournament gets its front
-page (`/t/:slug`) and the reader navigates from there; only registration,
-which is a distinct destination rather than a view of the same thing, is
-addressed directly. Deep-linking into OpenResults' route shape would tie the
+page (`/t/:slug`) and the reader navigates from there; only registration
+and the hall display (`/t/:slug/hall`), which are distinct destinations
+rather than views of the same thing, are addressed directly. Deep-linking into OpenResults' route shape would tie the
 two apps together far more tightly than the snapshot contract does, and a
 route rename over there would break links already printed on paper here.
 

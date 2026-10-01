@@ -427,6 +427,28 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       # Written before tie-breaks could be hidden (2026-08-30).
       %{"hidden" => ["dates"]}
     ],
+    "openresults.hall" => [
+      %{
+        "pairings" => true,
+        "names" => true,
+        "results" => true,
+        "standings" => true,
+        "standings_top" => 10,
+        "page_seconds" => 15,
+        "hold_new_round" => true,
+        "announcement" => false
+      },
+      %{
+        "pairings" => false,
+        "names" => false,
+        "results" => false,
+        "standings" => false,
+        "standings_top" => 20,
+        "page_seconds" => 30,
+        "hold_new_round" => false,
+        "announcement" => true
+      }
+    ],
     "openresults.taken_down" => [%{"slug" => "k3v9x2"}],
     "openresults.kept_withdrawn" => [
       %{"slug" => "k3v9x2", "kind" => "taken_down", "taken_down_at" => "2026-09-13T10:02:11Z"},

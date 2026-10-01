@@ -635,6 +635,49 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.public_hidden_tiebreaks == ["BH", "SB"]
     end
 
+    test "public_hall survives the round trip, and a file without it or with junk gets the defaults" do
+      owner = user_scope()
+      importer = user_scope()
+
+      hall = %{
+        "names" => false,
+        "page_seconds" => 30,
+        "announcement" => "Round 3 at 14:00.\nNo phones."
+      }
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Hall Round Trip",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id,
+          public_hall: hall
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      assert Repo.reload!(imported).public_hall == hall
+
+      for junk <- [:absent, "not a map", 42] do
+        envelope =
+          update_in(
+            TournamentExport.export_tournament(original),
+            ["tournaments", Access.at(0), "tournament"],
+            fn t ->
+              if junk == :absent,
+                do: Map.delete(t, "public_hall"),
+                else: Map.put(t, "public_hall", junk)
+            end
+          )
+
+        assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+        imported = Repo.reload!(imported)
+
+        refute imported.public_hall
+        assert PairingsEngine.HallDisplay.resolve(imported.public_hall)["page_seconds"] == 15
+      end
+    end
+
     test "a backup written before public_display existed keeps the defaults" do
       owner = user_scope()
       importer = user_scope()

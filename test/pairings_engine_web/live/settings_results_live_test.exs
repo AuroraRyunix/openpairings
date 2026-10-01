@@ -213,7 +213,10 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert has_element?(lv, "#auto-publish-3", "+ standings when the round is finished")
       # No delay to set without the pairings step, and no Save button at all.
       refute has_element?(lv, "#publish-delay-form")
-      refute html =~ ~s|type="submit"|
+      # Scoped to this card: the hall display card below has a Save button of
+      # its own, on purpose (each save enqueues a publish).
+      refute has_element?(lv, "#auto-publish-card [type=submit]")
+      assert html =~ "auto-publish-card"
     end
 
     test "each stop saves its step at once, and is audited", %{conn: conn, scope: scope} do
@@ -635,6 +638,152 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       refute html =~ ~s|name="display[name]"|
       refute html =~ ~s|name="display[result]"|
       assert html =~ "they are the tournament"
+    end
+  end
+
+  describe "the hall display card" do
+    setup do
+      Publishing.put_endpoint("https://openresults.example/")
+      Publishing.put_token("s3cret")
+      Req.Test.set_req_test_to_shared(%{})
+      :ok
+    end
+
+    defp hall_params(overrides) do
+      Map.merge(
+        %{
+          "pairings" => "true",
+          "names" => "true",
+          "results" => "true",
+          "standings" => "true",
+          "standings_top" => "10",
+          "page_seconds" => "15",
+          "hold_new_round" => "true",
+          "announcement" => ""
+        },
+        overrides
+      )
+    end
+
+    test "renders the form with the defaults, and no address before publishing", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(lv, "#hall-display-card")
+      assert has_element?(lv, "#hall-display-form")
+      assert has_element?(lv, "#hall-display-save")
+
+      assert has_element?(
+               lv,
+               "#hall-display-form input[type=checkbox][name='hall[names]'][checked]"
+             )
+
+      assert has_element?(lv, "#hall-display-form input[name='hall[page_seconds]'][value='15']")
+      assert has_element?(lv, "#hall-display-form textarea[name='hall[announcement]']")
+      refute has_element?(lv, "#hall-display-open")
+    end
+
+    test "the hall address is offered once the tournament is public", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      url = "https://openresults.example/t/#{tournament.public_slug}/hall"
+      assert has_element?(lv, "#hall-display-open[href='#{url}']")
+      assert has_element?(lv, "#hall-display-url", url)
+    end
+
+    test "saving stores the settings, enqueues a publish and is audited", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+      Repo.delete_all(PairingsEngine.Publishing.QueueEntry)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      lv
+      |> form("#hall-display-form",
+        hall:
+          hall_params(%{
+            "standings" => "false",
+            "page_seconds" => "30",
+            "announcement" => "Round 5 starts at 14:00.\r\nNo phones."
+          })
+      )
+      |> render_submit()
+
+      hall = Tournaments.get_tournament!(tournament.id) |> Snapshot.build()
+      hall = hall["tournament"]["hall"]
+
+      assert hall["standings"] == false
+      assert hall["page_seconds"] == 30
+      assert hall["announcement"] == "Round 5 starts at 14:00.\nNo phones."
+      assert Publishing.queued(tournament.id)
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "openresults.hall")
+      assert log.details["page_seconds"] == 30
+      # Whether there is one, never the text itself.
+      assert log.details["announcement"] == true
+    end
+
+    test "an out-of-range number is an inline error and nothing is saved", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      lv
+      |> form("#hall-display-form", hall: hall_params(%{"page_seconds" => "3"}))
+      |> render_submit()
+
+      assert has_element?(lv, "#hall-display-form input[name='hall[page_seconds]'][aria-invalid]")
+      assert has_element?(lv, "#hall-display-form input[name='hall[page_seconds]'][value='3']")
+      assert Tournaments.get_tournament!(tournament.id).public_hall == nil
+      assert Audit.list_for_tournament(tournament.id, action: "openresults.hall") == []
+    end
+
+    test "a too-long announcement is an inline error and nothing is saved", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      lv
+      |> form("#hall-display-form",
+        hall: hall_params(%{"announcement" => String.duplicate("x", 501)})
+      )
+      |> render_submit()
+
+      assert has_element?(
+               lv,
+               "#hall-display-form textarea[name='hall[announcement]'][aria-invalid]"
+             )
+
+      assert Tournaments.get_tournament!(tournament.id).public_hall == nil
+    end
+
+    test "an archived tournament refuses the change", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      {:ok, _archived} = Tournaments.archive_tournament(tournament)
+
+      html =
+        lv
+        |> form("#hall-display-form", hall: hall_params(%{"names" => "false"}))
+        |> render_submit()
+
+      assert html =~ "archived"
+      assert Tournaments.get_tournament!(tournament.id).public_hall == nil
     end
   end
 

@@ -608,8 +608,100 @@ defmodule PairingsEngine.SnapshotTest do
                "registration_open" => true,
                "listed" => true,
                "display" => PairingsEngine.PublicDisplay.resolve(nil),
+               "hall" => %{
+                 "pairings" => true,
+                 "names" => true,
+                 "results" => true,
+                 "standings" => true,
+                 "standings_top" => 10,
+                 "page_seconds" => 15,
+                 "hold_new_round" => true
+               },
                "categories" => ~w(A B)
              }
+    end
+
+    test "the hall display settings travel resolved, the announcement only when set" do
+      {tournament, _} = swiss_fixture()
+
+      {:ok, tournament} =
+        Tournaments.set_hall_display(tournament, %{
+          "pairings" => "true",
+          "names" => "false",
+          "results" => "true",
+          "standings" => "false",
+          "standings_top" => "20",
+          "page_seconds" => "30",
+          "hold_new_round" => "false",
+          "announcement" => " Round 4 starts at 14:00.\r\nNo phones in the hall. "
+        })
+
+      assert Snapshot.build(tournament)["tournament"]["hall"] == %{
+               "pairings" => true,
+               "names" => false,
+               "results" => true,
+               "standings" => false,
+               "standings_top" => 20,
+               "page_seconds" => 30,
+               "hold_new_round" => false,
+               "announcement" => "Round 4 starts at 14:00.\nNo phones in the hall."
+             }
+
+      {:ok, tournament} = Tournaments.set_hall_display(tournament, %{"announcement" => ""})
+      hall = Snapshot.build(tournament)["tournament"]["hall"]
+
+      refute Map.has_key?(hall, "announcement")
+      # Everything else stays as it was saved.
+      assert hall["page_seconds"] == 30
+      assert hall["names"] == false
+    end
+
+    # The contract as OpenResults documents it (docs/snapshot-schema.md,
+    # `tournament.hall`): exactly these keys, these types and these ranges,
+    # `announcement` a non-blank string of at most 500 characters or absent.
+    # Checked against whatever is stored - defaults, edits, and junk an
+    # imported file could carry - because the reader over there falls back
+    # to defaults on anything else, silently.
+    test "tournament.hall always matches OpenResults' documented schema" do
+      {tournament, _} = swiss_fixture()
+
+      booleans = ~w(pairings names results standings hold_new_round)
+      ranges = %{"standings_top" => 3..50, "page_seconds" => 5..120}
+
+      stored = [
+        nil,
+        %{},
+        %{"names" => false, "page_seconds" => 60, "announcement" => "Prize giving at 18:00"},
+        %{"page_seconds" => 1, "standings_top" => "lots", "pairings" => "no"},
+        %{"announcement" => String.duplicate("x", 501)},
+        %{"announcement" => "   "},
+        %{"unknown_key" => true}
+      ]
+
+      for public_hall <- stored do
+        hall = Snapshot.build(%{tournament | public_hall: public_hall})["tournament"]["hall"]
+
+        keys = hall |> Map.delete("announcement") |> Map.keys() |> Enum.sort()
+
+        assert keys == Enum.sort(booleans ++ Map.keys(ranges)),
+               "keys for #{inspect(public_hall)}: #{inspect(Map.keys(hall))}"
+
+        for key <- booleans, do: assert(is_boolean(hall[key]))
+        for {key, range} <- ranges, do: assert(is_integer(hall[key]) and hall[key] in range)
+
+        case Map.fetch(hall, "announcement") do
+          {:ok, text} ->
+            assert is_binary(text) and String.trim(text) != ""
+            assert String.length(text) <= 500
+
+          :error ->
+            :ok
+        end
+      end
+
+      assert Snapshot.build(%{tournament | public_hall: Enum.at(stored, 2)})["tournament"]["hall"][
+               "announcement"
+             ] == "Prize giving at 18:00"
     end
 
     test "players are referenced by pairing number, never by database id" do
