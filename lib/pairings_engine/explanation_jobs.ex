@@ -373,6 +373,12 @@ defmodule PairingsEngine.ExplanationJobs do
         {:ok, payload} when is_map(payload) ->
           store(round_id, fingerprint, Map.put(payload, "job", fingerprint))
 
+        # The round is no longer pending (it finished, or was re-paired,
+        # while this was being asked for): nothing is owed and nothing to
+        # mark failed.
+        {:error, :not_pending} ->
+          :stale
+
         {:error, reason} ->
           Logger.warning(
             "The engine's account of round #{round_id} (tournament #{tournament_id}) " <>

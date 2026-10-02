@@ -17,6 +17,28 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A TRF file with one unreadable round no longer loses the
+  warnings of the others.** The import checks each round of a Dutch-system
+  file against the FIDE pairing rules. A round whose game entries do not add
+  up to a pairing (Alpha's line says it played Bravo, Bravo's says Charlie,
+  so Bravo is seated twice) is now reported by itself - "round 1 could not
+  be checked against the FIDE pairing rules" - and every other round is
+  still checked. Before, an engine that refuses such a pairing took the
+  whole pass down with it, so a rematch in round 2 went unreported because
+  round 1 was malformed. A player whose line simply ends before a round is
+  treated as not playing it, rather than as a board missing from it.
+- [Fix] **Nothing is asked of the engine about boards that are not a round.**
+  Ainalrami's explanation calls now refuse a pairing that leaves a player
+  out, names one twice or names one the round does not have (they used to
+  read a missing player as a bye). So the explanation page's "what if" and
+  "no-show" questions only accept players seated in the round (a rostered
+  player whose board was removed by hand used to crash the page), and a
+  hand-edited round whose boards are no longer a complete pairing has no
+  account worked out for it. A round's account asked for in the instant the
+  round finishes is dropped quietly instead of logging a failure. Team Swiss
+  rounds, decided team against team, were never given an individual account
+  and still are not.
+
 ## [0.71.0] - 2026-10-01
 
 - [Feature] **Bye preferences: "must get", "rather gets" and "rather not"

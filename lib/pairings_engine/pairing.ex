@@ -2098,21 +2098,55 @@ defmodule PairingsEngine.Pairing do
 
   @doc """
   The boards of `field.round` as played, in the engine's rank space:
-  `{white, black}`, the pairing-allocated bye as `{player, nil}`. A board
-  with an empty white seat has nothing to explain and is dropped.
+  `{white, black}`, the pairing-allocated bye as `{player, nil}`.
+
+  `:error` when the boards are not a complete pairing of the players seated
+  in the round - a board with an empty white seat, a player on two boards,
+  a seat nobody in the field holds, more byes than the round can have, as a
+  hand-edited round can be. Ainalrami refuses to explain such a thing (a
+  player left out of it used to be read as a player given the bye), so it
+  is not handed over: there is no account of boards that are not a round.
   """
   def field_pairs(field) do
+    rank = &Map.get(field.local_rank_by_player_id, &1)
+    boards = Enum.sort_by(field.round.pairings, & &1.board)
+
+    seated =
+      boards
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(rank)
+
     pairs =
-      field.round.pairings
-      |> Enum.sort_by(& &1.board)
-      |> Enum.flat_map(fn p ->
-        white = Map.get(field.local_rank_by_player_id, p.white_player_id)
-        black = p.black_player_id && Map.get(field.local_rank_by_player_id, p.black_player_id)
+      Enum.flat_map(boards, fn p ->
+        white = rank.(p.white_player_id)
+        black = p.black_player_id && rank.(p.black_player_id)
 
         if white, do: [{white, black}], else: []
       end)
 
-    if pairs == [], do: :error, else: {:ok, pairs}
+    if pairs != [] and not Enum.any?(seated, &is_nil/1) and complete_pairing?(pairs, seated),
+      do: {:ok, pairs},
+      else: :error
+  end
+
+  @doc """
+  Whether `pairs` (`{white, black}`, the bye `{rank, nil}`) is a complete
+  pairing of `active` (a list of ranks): every one of them exactly once and
+  nobody else, nobody against themselves, and exactly the byes that many
+  players have - one if odd, none if even. The terms
+  `Ainalrami.Pairing.explain_round/3` and the `Ainalrami.Alternatives`
+  questions hold a supplied pairing to.
+  """
+  def complete_pairing?(pairs, active) do
+    seated = Enum.flat_map(pairs, fn {a, b} -> if is_nil(b), do: [a], else: [a, b] end)
+    byes = Enum.count(pairs, fn {_a, b} -> is_nil(b) end)
+    expected = Enum.uniq(active)
+
+    Enum.all?(pairs, fn {a, b} -> a != b end) and
+      length(seated) == length(Enum.uniq(seated)) and
+      Enum.sort(seated) == Enum.sort(expected) and
+      byes == rem(length(expected), 2)
   end
 
   @doc """
@@ -2524,25 +2558,35 @@ defmodule PairingsEngine.Pairing do
   """
   def recompute_explanation(%Tournament{} = tournament, round_number) do
     case tournament.id |> Tournaments.get_round(round_number) |> Repo.preload(:pairings) do
-      %Round{explanation: %{"job" => _, "sections" => sections}} = round ->
+      # Pending only. A finished account keeps its "job" too, and a page
+      # that read the round while it was pending can ask for this just as
+      # the job finishes: the finished sections carry no "field" to rebuild
+      # the round from, so there would be nothing to explain and no pending
+      # record left for the answer to be written to.
+      %Round{explanation: %{"status" => "pending", "job" => _, "sections" => sections}} =
+          round ->
         {_history, _roster, _rank_by_id, by_rank} =
           rebuilt = field_before(tournament, round_number)
 
         accounts =
-          Enum.map(sections, fn section ->
-            {section["category"], recomputed_account(tournament, round, section, rebuilt),
-             by_rank}
+          Enum.reduce_while(sections, {:ok, []}, fn section, {:ok, acc} ->
+            case recomputed_account(tournament, round, section, rebuilt) do
+              {:ok, account} -> {:cont, {:ok, [{section["category"], account, by_rank} | acc]}}
+              {:error, _} = error -> {:halt, error}
+            end
           end)
 
-        case explanation_payload(accounts) do
-          nil ->
-            {:error, :nothing_to_explain}
+        with {:ok, accounts} <- accounts do
+          case explanation_payload(Enum.reverse(accounts)) do
+            nil ->
+              {:error, :nothing_to_explain}
 
-          payload ->
-            {:ok,
-             payload
-             |> Map.put("origin", "recomputed")
-             |> Map.put("paired_by", tournament.pairing_engine)}
+            payload ->
+              {:ok,
+               payload
+               |> Map.put("origin", "recomputed")
+               |> Map.put("paired_by", tournament.pairing_engine)}
+          end
         end
 
       _ ->
@@ -2625,16 +2669,26 @@ defmodule PairingsEngine.Pairing do
         end
       end)
 
-    deferred_account(%{
-      players: input.players,
-      pairs: pairs,
-      opts: input.opts,
-      organiser_exclusions: input.organiser_exclusions,
-      lifted: section["bye_exclusion_lifted"],
-      soft_pairs_moved: section["soft_pairs_moved"] == true,
-      bye_passed_over: section |> Map.get("bye_passed_over", []) |> Enum.flat_map(rank),
-      bye_preference_json: section["bye_preference"]
-    })
+    ranks = field |> Enum.map(&Map.get(rank_by_id, &1)) |> Enum.uniq()
+
+    # The boards as they stand have to be this section's round: a board
+    # edited since (a seat emptied, a player moved to another board) leaves
+    # a pairing the engine will not explain, so say so instead of asking.
+    if ranks != [] and nil not in ranks and complete_pairing?(pairs, ranks) do
+      {:ok,
+       deferred_account(%{
+         players: input.players,
+         pairs: pairs,
+         opts: input.opts,
+         organiser_exclusions: input.organiser_exclusions,
+         lifted: section["bye_exclusion_lifted"],
+         soft_pairs_moved: section["soft_pairs_moved"] == true,
+         bye_passed_over: section |> Map.get("bye_passed_over", []) |> Enum.flat_map(rank),
+         bye_preference_json: section["bye_preference"]
+       })}
+    else
+      {:error, :boards_changed}
+    end
   end
 
   # The account of one engine run, from what the click kept in memory

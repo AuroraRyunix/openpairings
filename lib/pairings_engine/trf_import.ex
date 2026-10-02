@@ -61,7 +61,10 @@ defmodule PairingsEngine.TrfImport do
   text:}`, one per thing the file said that this app could not apply
   exactly, or `%{kind: :illegal_round, round:, reason:, players:}` - one
   per pairing in the file that breaks an absolute rule of the Dutch system
-  (`verification_warnings/2`). None of the three stops the import.
+  (`verification_warnings/2`), or `%{kind: :round_unverified, round:,
+  reason:}` - a round whose entries do not make a pairing (a player seated
+  twice, say), which is reported instead of judged while the other rounds
+  are still checked. None of the four stops the import.
   Returns `{:error, reason}` on a parse
   failure or an invalid file; never raises. `reason` is either a
   `Ainalrami.Trf.ValidationError` struct, a `{:parse_failed, message}`
@@ -1620,10 +1623,70 @@ defmodule PairingsEngine.TrfImport do
         pairs ->
           data.players
           |> state_before_round(round, point_system)
-          |> round_violations(pairs, opts)
-          |> Enum.map(&warning(&1, round, names))
+          |> verify_round(pairs, opts, round, names)
       end
     end)
+  end
+
+  # ONE ROUND AT A TIME, in both directions. The engine refuses a pairing
+  # that is not a pairing of the round's field (a player twice, a player
+  # missing, a rank the round does not have, a bye count the field cannot
+  # have), and the file is exactly where such a "pairing" can come from: a
+  # one-sided game entry (Alpha's line says it played Bravo in round 1,
+  # Bravo's says Charlie) reads as Bravo seated twice. Handing that to the
+  # engine would raise, and since the pass as a whole is rescued, one
+  # unreadable round would take every OTHER round's findings with it.
+  #
+  # So a round whose entries do not make a pairing is not given to the
+  # engine at all; it is reported as a round that could not be checked
+  # (`pairing_problem/2`), and the rest are verified as usual. The rescue
+  # is the backstop for whatever else the engine may object to, and is
+  # per round for the same reason.
+  defp verify_round(pre_round, pairs, opts, round, names) do
+    case pairing_problem(pre_round, pairs) do
+      nil ->
+        try do
+          pre_round
+          |> round_violations(pairs, opts)
+          |> Enum.map(&warning(&1, round, names))
+        rescue
+          # Type only, as in `verification_warnings/2`: the message can
+          # quote a player.
+          e ->
+            SafeError.log_crash("TRF import verification of round #{round}", e, __STACKTRACE__)
+            [unverified_warning(round, :engine_refused)]
+        end
+
+      problem ->
+        [unverified_warning(round, problem)]
+    end
+  end
+
+  defp unverified_warning(round, reason),
+    do: %{kind: :round_unverified, round: round, reason: reason}
+
+  # Whether `pairs` is a pairing of `pre_round`'s field, by the same terms
+  # the engine's `explain_round/3` holds it to (and which v0.35.0 left
+  # unchecked): every player active this round exactly once, no other
+  # rank, nobody against themselves, and exactly the byes the field has -
+  # one if it is odd, none if it is even. Returns nil if it is, otherwise
+  # why it is not. `Trf.rounds_played/1` and `length(games) <= played` are
+  # the engine's own definition of "active".
+  defp pairing_problem(pre_round, pairs) do
+    played = Trf.rounds_played(pre_round)
+    active = for p <- pre_round, length(p.games) <= played, into: MapSet.new(), do: p.rank
+
+    seated = Enum.flat_map(pairs, fn {a, b} -> if is_nil(b), do: [a], else: [a, b] end)
+    byes = Enum.count(pairs, fn {_a, b} -> is_nil(b) end)
+
+    cond do
+      Enum.any?(pairs, fn {a, b} -> a == b end) -> :self_pair
+      length(seated) != length(Enum.uniq(seated)) -> :player_twice
+      not Enum.all?(seated, &MapSet.member?(active, &1)) -> :player_not_in_round
+      length(seated) != MapSet.size(active) -> :player_missing
+      byes != rem(MapSet.size(active), 2) -> :bye_count
+      true -> nil
+    end
   end
 
   # Every absolute-criteria breach in one round: the pairs
@@ -1732,6 +1795,8 @@ defmodule PairingsEngine.TrfImport do
   # the same reason `points_warnings/3` recomputes them: that column is
   # self-reported, sometimes stale, and here it would put a player in the
   # wrong bracket and so change which pairs the criteria are asked about.
+  @absent_game %{opponent_rank: nil, colour: nil, result: "-"}
+
   defp state_before_round(players, round, point_system) do
     points = point_system || Trf.default_point_system()
 
@@ -1740,7 +1805,12 @@ defmodule PairingsEngine.TrfImport do
 
       games =
         case Enum.at(player.games, round - 1) do
-          nil -> earlier
+          # No entry at all: the line ends before this round (a player who
+          # left, a late entrant's blank). They were not in the pairing, and
+          # the engine now holds a pairing to covering every ACTIVE player,
+          # so say so with an unplayed entry instead of leaving them in
+          # the field to be mistaken for a bye.
+          nil -> earlier ++ List.duplicate(@absent_game, round - length(earlier))
           game -> if Trf.participated_in_pairing?(game), do: earlier, else: earlier ++ [game]
         end
 

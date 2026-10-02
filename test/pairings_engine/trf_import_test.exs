@@ -431,7 +431,11 @@ defmodule PairingsEngine.TrfImportTest do
     assert {:ok, tournament, warnings} =
              TrfImport.import_text(forfeit_and_bye_trf(), user_scope())
 
-    assert warnings == []
+    # No notice about the file's own contents. Round 1 here is every bye
+    # code at once plus a dangling reference, which is not a pairing the
+    # round check can read, so it says so (`:round_unverified`) - that is
+    # not what this test is about.
+    assert Enum.reject(warnings, &(&1.kind == :round_unverified)) == []
 
     players = Tournaments.list_players(tournament.id)
     alpha = Enum.find(players, &(&1.name == "Alpha"))
@@ -581,7 +585,11 @@ defmodule PairingsEngine.TrfImportTest do
       Trf.serialize(%{tournament: %{name: "Whole Vocabulary", type: "swiss"}, players: players})
 
     assert {:ok, tournament, warnings} = TrfImport.import_text(trf, user_scope())
-    assert warnings == []
+
+    # One round holding every code at once, dangling references and all, is
+    # not a pairing the round check can read; it says so and that is not
+    # what this test is about.
+    assert Enum.reject(warnings, &(&1.kind == :round_unverified)) == []
 
     imported = Tournaments.list_players(tournament.id)
 
@@ -1254,6 +1262,51 @@ defmodule PairingsEngine.TrfImportTest do
              ["Alpha, Player", "Bravo, Player"],
              ["Charlie, Player", "Delta, Player"]
            ]
+  end
+
+  # Round 1 here is not a pairing at all: Alpha's entry says it played
+  # Bravo, but Bravo's and Charlie's entries say Bravo played Charlie, so
+  # Bravo is seated twice (Delta holds a pre-recorded half-point bye). The
+  # engine refuses to judge a pairing like that, and one round it refuses
+  # must not cost the file the findings of the others: round 2 here
+  # rematches Bravo and Charlie, and has to be reported all the same.
+  defp malformed_round_fixture do
+    %{
+      1 => [game(2, "w", "="), game(4, "w", "=")],
+      2 => [game(3, "b", "="), game(3, "b", "=")],
+      3 => [game(2, "w", "="), game(2, "w", "=")],
+      4 => [%{opponent_rank: nil, colour: nil, result: "H"}, game(1, "b", "=")]
+    }
+  end
+
+  test "a round whose entries are not a pairing is reported, and the other rounds are still checked" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(malformed_round_fixture()), user_scope())
+
+    assert [%{round: 1, reason: reason}] = Enum.filter(warnings, &(&1.kind == :round_unverified))
+    assert reason == :player_twice
+
+    assert [finding] = illegal_rounds(warnings)
+    assert finding.round == 2
+    assert finding.reason == :rematch
+    assert Enum.sort(finding.players) == ["Bravo, Player", "Charlie, Player"]
+  end
+
+  test "a player whose line stops before a round is out of that round, not a missing board" do
+    # Delta's line ends after round 1, so round 2 has no entry for Delta at
+    # all. That is a player who left, not a field of four with a board
+    # missing: round 2 is Alpha v Charlie with Bravo given the bye.
+    games = %{
+      1 => [game(2, "w", "="), game(3, "b", "=")],
+      2 => [game(1, "b", "="), pairing_bye()],
+      3 => [game(4, "w", "="), game(1, "w", "=")],
+      4 => [game(3, "b", "=")]
+    }
+
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(games), user_scope())
+
+    assert Enum.filter(warnings, &(&1.kind in [:round_unverified, :illegal_round])) == []
   end
 
   # The control the test above needs to mean anything: the same four
