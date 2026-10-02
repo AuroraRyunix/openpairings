@@ -70,6 +70,18 @@ which is the exact bug this feature closes.
   > players in GA are assigned one virtual point in the first three rounds,
   > and half virtual point in the next two rounds.
 
+* **Order inside a score group.** The rows handed to the engine are numbered
+  in pairing order, and the engine takes a row's number as its rank inside
+  a score group (C.04.3 A.2: score, then pairing number). So the rows are
+  sorted by game points **plus the round's virtual points**
+  (`order_for_pairing/4`), not by game points alone. Until 2026-10-02 they
+  were sorted by game points, which ranked a Group-B player above a
+  Group-A player on the same pairing score whenever the Group-B player had
+  more game points; `PairingsEngine.BakuOrderTest` is the smallest
+  tournament that shows it, and `PairingsEngine.BakuReferenceTest`
+  compares random Baku tournaments with bbpPairings and Ainalrami on a
+  file numbered by pairing number.
+
 See `PairingsEngine.Pairing.accelerations/3` for the implementation and its
 full doc comment. It returns each Group-A player's virtual-point history
 and `Ainalrami.Trf.serialize/2` writes the `XXA` lines from it - the column

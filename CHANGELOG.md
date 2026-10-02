@@ -70,6 +70,33 @@ Each entry is tagged so a version can be skimmed:
   round finishes is dropped quietly instead of logging a failure. Team Swiss
   rounds, decided team against team, were never given an individual account
   and still are not.
+- [Fix] **Baku acceleration: accelerated rounds are paired in the right
+  order within each score group.** The engine was handed the players
+  ordered by game points instead of game points plus the round's virtual
+  points (FIDE C.04.7), and it takes that order as the ranking inside a
+  score group. So whenever a Group-A player and a Group-B player ended up
+  on the same pairing score with different game points, the Group-B player
+  was treated as the higher-ranked one, and the group's halves, floaters
+  and colours could come out different from what FIDE's rules give.
+  Affected: Swiss tournaments with Baku acceleration on, rounds 2 up to the
+  last accelerated round (the first half of the rounds, rounded up); round
+  1 and every round after the accelerated ones were right, and
+  tournaments without Baku (extra points included) were not affected.
+  Both engines were affected. Checked on 60 random Baku tournaments: 124
+  of their 396 rounds were paired differently from bbpPairings and
+  Ainalrami given the same games and virtual points; with the fix, 0 of
+  396, and 0 of 884 rounds in 140 more. **Rounds already paired are not
+  changed** - nothing re-pairs a saved round, and the next round is paired
+  from the games as they were played. In a running tournament that is
+  still in its accelerated rounds, the next round is paired correctly; a
+  round paired but not yet played can be deleted and paired again to get
+  the correct pairing (it may come out different). A round paired before
+  the upgrade will not match a FIDE checker replaying the tournament
+  report, and its "what if?" and rebuilt explanations now judge it against
+  the correct order, so they may say the engine would have paired it
+  differently. Virtual points still never count in the standings, the
+  tie-breaks or the scores of any export (the tournament report carries
+  them only as its acceleration records).
 
 ## [0.71.0] - 2026-10-01
 

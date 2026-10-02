@@ -49,7 +49,7 @@ defmodule PairingsEngine.PairingSharedHistoryTest do
 
     # Measured on this exact fixture: 43 queries before, 35 after. This
     # path used to fall through to `build_shared_history/1` from BOTH
-    # `order_for_pairing/3` and `trf_player_rows/3`, so its three history
+    # `order_for_pairing/4` and `trf_player_rows/3`, so its three history
     # queries appeared twice, plus a `full_roster_players/1` read of rows
     # the history already had, plus two extra `active_players/1` reads.
     #

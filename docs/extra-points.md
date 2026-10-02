@@ -66,7 +66,7 @@ of a match-format round each record what they were paired with
 
 A player whose whole history is zero gets no `XXA` line, so a tournament
 where nobody holds extra points hands the engine exactly the file it always
-did. `order_for_pairing/3` sorts the rows by points plus this round's extra
+did. `order_for_pairing/4` sorts the rows by points plus this round's extra
 points too, as SWAR sorts its `.trn` by its own standings.
 
 Virtual points go to one decimal in `XXA` (`Ainalrami.Trf`'s

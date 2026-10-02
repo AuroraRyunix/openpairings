@@ -1172,7 +1172,7 @@ defmodule PairingsEngine.PairingTest do
     # NOT asserting the exact same rank *numbers* as round 1: JaVaFo's
     # input (and so each Group-A member's emitted XXA rank) is now ordered
     # by CURRENT STANDINGS, not the fixed `pairing_number` - see
-    # `order_for_pairing/3`. Once round-1 results are in, a Group-A member
+    # `order_for_pairing/4`. Once round-1 results are in, a Group-A member
     # who won ends up ranked ahead of one who didn't, so the specific
     # numbers legitimately shift round to round. What must still hold is
     # the actual invariant this test is about: the round-specific absence
@@ -1771,7 +1771,7 @@ defmodule PairingsEngine.PairingTest do
     # withdrawn opponent must survive intact.
     #
     # The opponent-rank column now holds their CURRENT-STANDINGS-based local
-    # rank for this pairing run (see `order_for_pairing/3`), not their raw
+    # rank for this pairing run (see `order_for_pairing/4`), not their raw
     # `pairing_number` - deliberately no longer the same number across
     # rounds. What this test actually protects against is the "0000"/"F"
     # bye-rewrite regression, so it only needs to confirm the column holds
@@ -1839,7 +1839,7 @@ defmodule PairingsEngine.PairingTest do
 
     # See the identical note in the non-category version of this test above:
     # the opponent-rank column is now a current-standings-based local rank
-    # (`order_for_pairing/3`), not the raw `pairing_number` - only "not a
+    # (`order_for_pairing/4`), not the raw `pairing_number` - only "not a
     # 0000 bye-rewrite" is the actual regression being guarded against here.
     opponent_rank_column = String.slice(anchor_line, 91, 4) |> String.trim()
     assert opponent_rank_column != "0000" and opponent_rank_column != ""
@@ -1847,7 +1847,7 @@ defmodule PairingsEngine.PairingTest do
     assert String.at(anchor_line, 98) == "1"
   end
 
-  # Regression test for `order_for_pairing/3`'s pairing_number tie-break
+  # Regression test for `order_for_pairing/4`'s pairing_number tie-break
   # (see its own doc comment for the full story: a real SWAR-export
   # comparison on a 125-player tournament surfaced two clusters of players
   # tied on BOTH score and rating that pair-by-category's round-2+ input
@@ -1860,12 +1860,12 @@ defmodule PairingsEngine.PairingTest do
   # standings tie: two players (Y, pairing_number 2; X, pairing_number 5)
   # who both win their round-1 games against different opponents, landing
   # them on identical points AND identical rating going into round 2.
-  # `order_for_pairing/3`'s sort key is `{-points, -rating, pairing_number}`,
+  # `order_for_pairing/4`'s sort key is `{-points, -rating, pairing_number}`,
   # so once score and rating are exhausted, the fix requires Y (the lower
   # pairing_number) to sort - and so get a lower JaVaFo-visible local rank,
   # physically ahead in the TRF row order - before X.
   @tag :javafo
-  test "order_for_pairing/3: players tied on both score and rating break the tie by pairing_number" do
+  test "order_for_pairing/4: players tied on both score and rating break the tie by pairing_number" do
     tournament =
       Repo.insert!(%Tournament{
         name: "Tie Break",

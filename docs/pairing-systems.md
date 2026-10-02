@@ -23,7 +23,8 @@ handicap mode while the handicap is counted (the score groups are then the
 standings' own totals). Each round records the virtual points it was paired
 with (`rounds.virtual_points`), because the engine needs the full per-round
 history to judge floats, and the row order handed to the engine
-(`order_for_pairing/3`) sorts by points plus this round's extra points.
+(`order_for_pairing/4`) sorts by points plus this round's virtual points,
+Baku's and extra points alike.
 Baku and extra points in the pairing are mutually exclusive.
 
 *Which* engine runs is a second, independent setting - `pairing_engine`,
