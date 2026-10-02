@@ -1438,6 +1438,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     messages =
       trf_illegal_round_message(Map.get(grouped, :illegal_round, [])) ++
+        trf_unverified_message(Map.get(grouped, :round_unverified, [])) ++
         trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
         trf_points_message(Map.get(grouped, :points, [])) ++
         Enum.map(Map.get(grouped, :note, []), & &1.text)
@@ -1501,6 +1502,22 @@ defmodule PairingsEngineWeb.TournamentsLive do
         Enum.map_join(listed, "; ", &illegal_round_detail/1) <>
         more <>
         ". The rounds were imported exactly as the file records them."
+    ]
+  end
+
+  # A round the check could not make sense of - its game entries do not
+  # add up to a pairing (a player seated twice, say) - so it was imported
+  # as the file records it but not judged. Said once, with the rounds.
+  defp trf_unverified_message([]), do: []
+
+  defp trf_unverified_message(warnings) do
+    rounds = warnings |> Enum.map(& &1.round) |> Enum.uniq() |> Enum.sort()
+    label = if length(rounds) == 1, do: "round", else: "rounds"
+
+    [
+      "Imported, but #{label} #{Enum.join(rounds, ", ")} could not be checked against the FIDE " <>
+        "pairing rules: the file's game entries for #{if length(rounds) == 1, do: "that round", else: "those rounds"} " <>
+        "do not describe a complete pairing (for example a game one player lists and the other does not)."
     ]
   end
 

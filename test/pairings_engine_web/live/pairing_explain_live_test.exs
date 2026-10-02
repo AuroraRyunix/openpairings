@@ -1638,6 +1638,32 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ ~s(id="what-if-result")
     end
 
+    # A player on the roster who the round did not seat (his board was taken
+    # off it by hand) is not in its pairing, so a swap with him would hand
+    # the engine a pairing of players the round does not have. Refused before
+    # it asks, for both questions.
+    test "a player the round did not seat is refused, not judged", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, round} = Pairing.pair_next_round(t)
+      [board1, _, _, board4] = Enum.sort_by(Repo.preload(round, :pairings).pairings, & &1.board)
+      Repo.delete!(board4)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      html =
+        render_submit(lv, "what_if", %{
+          "a" => to_string(board1.white_player_id),
+          "b" => to_string(board4.white_player_id),
+          "mode" => "swap"
+        })
+
+      assert html =~ "Pick two different players who were seated in this round"
+      refute html =~ ~s(id="what-if-result")
+
+      html = render_submit(lv, "no_show", %{"player" => to_string(board4.white_player_id)})
+      assert html =~ "Pick a player who was seated in this round"
+    end
+
     test "an Ainalrami round quotes the engine, with the criteria that scored", %{
       conn: conn,
       scope: scope

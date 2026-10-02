@@ -517,8 +517,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
          {:ok, field} <-
            Engine.engine_field(socket.assigns.tournament, socket.assigns.round_number),
          {:ok, actual} <- actual_pairs(field),
-         {:ok, ra} <- rank_of(field, a),
-         {:ok, rb} <- rank_of(field, b) do
+         {:ok, ra} <- rank_of(field, actual, a),
+         {:ok, rb} <- rank_of(field, actual, b) do
       base = %{
         a: field.player_by_local_rank[ra],
         b: field.player_by_local_rank[rb],
@@ -563,7 +563,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
          {:ok, field} <-
            Engine.engine_field(socket.assigns.tournament, socket.assigns.round_number),
          {:ok, actual} <- actual_pairs(field),
-         {:ok, rank} <- rank_of(field, id) do
+         {:ok, rank} <- rank_of(field, actual, id) do
       result =
         try do
           Ainalrami.Alternatives.no_show(field.players, actual, rank, field.opts)
@@ -763,10 +763,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp parse_id(_), do: :error
 
-  defp rank_of(field, player_id) do
-    case Map.get(field.local_rank_by_player_id, player_id) do
-      nil -> :error
-      rank -> {:ok, rank}
+  # The rank of a player SEATED in the round: on one of its boards (or
+  # holding its bye). A rostered player the round did not seat is not in the
+  # pairing, and a swap that moved somebody into it would hand the engine a
+  # pairing of players the round does not have.
+  defp rank_of(field, actual, player_id) do
+    with rank when not is_nil(rank) <- Map.get(field.local_rank_by_player_id, player_id),
+         true <- Enum.any?(actual, fn {white, black} -> rank in [white, black] end) do
+      {:ok, rank}
+    else
+      _ -> :error
     end
   end
 
