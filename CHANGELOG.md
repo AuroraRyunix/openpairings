@@ -145,6 +145,28 @@ Each entry is tagged so a version can be skimmed:
 - [Verified] **The VCL4THP tracker, second pass.** Every answer on the
   path checked against the code, with file and line in the notes:
   `mix pairings.vcl`, docs/vcl4thp-tracker.md.
+- [Performance] **"Pair round" comes back sooner on large fields, and the
+  page is free again the moment it does.** On one core (the two-core
+  server busy elsewhere), a 1,000-player round 9 went from about 2.7
+  seconds of server work before the boards appeared, and 0.7 seconds more
+  after, to about 1.1 seconds and nothing after; a 200-player round 9
+  from 0.6 seconds to 0.2. Where the time went: every reader of a round
+  decoded its stored engine account - the largest thing in the database -
+  although only the explanation page looks at it (the standings, the
+  pairing history, the backup taken before pairing, the round's publish
+  control, which ran on every render); the boards were written one row
+  and one label update at a time; each player's history was found by
+  scanning every board of every round; the page then reloaded everything
+  a second time on its own pairing's broadcast; and the result menus sent
+  the same sixteen labels again for every board. All of that is gone.
+  Nothing the click writes or shows changed: a test pairs three
+  tournaments through the page and compares the boards, labels, byes,
+  standings, TRF, backup, public snapshot, audit trail and board list
+  with what 0.71.0 produced, field for field. Storing a round's
+  explanation after the click no longer counts as a change to the
+  tournament's data, so it no longer throws away the standings just
+  worked out. `PAIR_TIMING=1` logs how long each stage of a click took
+  (see docs/deployment.md).
 
 ## [0.71.0] - 2026-10-01
 

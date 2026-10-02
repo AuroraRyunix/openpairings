@@ -129,6 +129,8 @@ defmodule PairingsEngine.Application do
       # for why this single call site can never fail the boot that already
       # succeeded.
       PairingsEngine.BrowserLauncher.maybe_open()
+      # Off unless `PAIR_TIMING` asks for it - see the module.
+      PairingsEngine.PairTiming.maybe_attach()
       ok
     end
   end

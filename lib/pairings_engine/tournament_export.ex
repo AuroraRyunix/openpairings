@@ -748,8 +748,10 @@ defmodule PairingsEngine.TournamentExport do
   defp collaborator_map(collaborator), do: struct_fields(collaborator, @collaborator_fields)
 
   defp rounds_with_pairings(tournament_id) do
+    # `explanation` is one of the `@round_excluded` fields, and by far the
+    # heaviest column read here: not loaded (`Round.without_explanation/1`).
     Repo.all(
-      from r in Round,
+      from r in Round.without_explanation(),
         where: r.tournament_id == ^tournament_id,
         order_by: r.number,
         preload: [

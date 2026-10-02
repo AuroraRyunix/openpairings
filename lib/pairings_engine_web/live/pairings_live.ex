@@ -20,6 +20,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   }
 
   alias PairingsEngine.Pairing, as: Engine
+  alias PairingsEngine.PairTiming
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.NextRoundPreviewPanel
   alias PairingsEngineWeb.Postponed
@@ -177,7 +178,29 @@ defmodule PairingsEngineWeb.PairingsLive do
     {:noreply, put_explanation_state(socket, socket.assigns.round_number)}
   end
 
-  def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
+  def handle_info({:tournament_changed, _tournament_id, hint}, socket) do
+    PairTiming.span(:echo, fn -> tournament_changed(hint, socket) end)
+  end
+
+  # The team Swiss pairing task's reply - see `do_pair_team_swiss_async/1`.
+  # `tournament.id` is checked against the CURRENT tournament - if the
+  # arbiter has since navigated to a different tournament's Pairings page in
+  # the same LiveView (impossible today, this LiveView is mounted per `:id`,
+  # but cheap insurance against a future navigate_to that reuses the
+  # process) a stray reply is dropped rather than misapplied.
+  def handle_info({:team_pairing_result, tournament_id, result}, socket) do
+    if socket.assigns.tournament.id == tournament_id do
+      apply_pair_result(assign(socket, pairing_in_progress: false), result)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # The next-round preview's own messages - see `NextRoundPreviewPanel`.
+  def handle_info({:next_round_preview, message}, socket),
+    do: {:noreply, NextRoundPreviewPanel.handle_info(message, socket)}
+
+  defp tournament_changed(hint, socket) do
     case Tournaments.get_authorized_tournament(
            socket.assigns.current_scope,
            socket.assigns.tournament.id
@@ -201,27 +224,36 @@ defmodule PairingsEngineWeb.PairingsLive do
         # arbiter's OWN completed action (every other `refresh()` call
         # site, still defaulting to reset) clears it - that's the point
         # where the gesture is genuinely done, not a bystander update.
-        {:noreply, socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)}
+        if already_current?(hint, tournament, socket) do
+          {:noreply, socket}
+        else
+          {:noreply,
+           PairTiming.span(:refresh, fn ->
+             socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)
+           end)}
+        end
     end
   end
 
-  # The team Swiss pairing task's reply - see `do_pair_team_swiss_async/1`.
-  # `tournament.id` is checked against the CURRENT tournament - if the
-  # arbiter has since navigated to a different tournament's Pairings page in
-  # the same LiveView (impossible today, this LiveView is mounted per `:id`,
-  # but cheap insurance against a future navigate_to that reuses the
-  # process) a stray reply is dropped rather than misapplied.
-  def handle_info({:team_pairing_result, tournament_id, result}, socket) do
-    if socket.assigns.tournament.id == tournament_id do
-      apply_pair_result(assign(socket, pairing_in_progress: false), result)
-    else
-      {:noreply, socket}
-    end
+  # The page's own "Pair round" click comes back to it as a `:rounds`
+  # broadcast, like to every other open page - after `refresh/2` already
+  # reloaded everything from the very data the broadcast is about. On a
+  # 1,000-player round that second reload, and the re-render it caused, kept
+  # this process busy for most of a second after the boards appeared.
+  #
+  # Skipped only when provably nothing changed since the last refresh: the
+  # tournament row is the one on the page, and the tournament's data version
+  # (which the database moves with every write to its players, rounds,
+  # pairings and byes - see `PairingsEngine.StandingsCache`) is the one that
+  # refresh read. Every `:rounds` broadcast follows such a write, so one sent
+  # for anybody else's action always reloads, as before.
+  defp already_current?(:rounds, tournament, socket) do
+    tournament == socket.assigns.tournament and
+      socket.assigns[:refreshed_version] != nil and
+      PairingsEngine.StandingsCache.version(tournament.id) == socket.assigns.refreshed_version
   end
 
-  # The next-round preview's own messages - see `NextRoundPreviewPanel`.
-  def handle_info({:next_round_preview, message}, socket),
-    do: {:noreply, NextRoundPreviewPanel.handle_info(message, socket)}
+  defp already_current?(_hint, _tournament, _socket), do: false
 
   @impl true
   def handle_async(:next_round_preview, result, socket),
@@ -229,6 +261,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp refresh(socket, opts \\ []) do
     %{tournament: t, round_number: n} = socket.assigns
+    # Read first: a write landing while this reloads moves it again, and
+    # the broadcast that write sends then reloads (`already_current?/3`).
+    version = PairingsEngine.StandingsCache.version(t.id)
     paired = Engine.paired_rounds_count(t.id)
     postponed_open = PostponedGames.open_games(t)
     missing_setup = Tournament.missing_setup_fields(t)
@@ -237,6 +272,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     socket =
       assign(socket,
+        refreshed_version: version,
         round: round,
         # What the players' bye preferences did in this round, and the
         # stored ones a FIDE-rated tournament is ignoring.
@@ -462,28 +498,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("pair", params, socket) do
-    socket = assign(socket, pair_acknowledged: acknowledged(params), bye_exclusion_block: nil)
-
-    cond do
-      # Belt and braces beside the button's own `disabled` - a second "pair"
-      # event that reached the mailbox before the first one's task replied
-      # (e.g. a double-click landing faster than the DOM patch that disables
-      # the button) must not start a second search for the same round.
-      socket.assigns.pairing_in_progress ->
-        {:noreply, socket}
-
-      not Tournament.setup_complete?(socket.assigns.tournament) ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "Finish the tournament setup before pairing - missing: " <>
-             missing_setup_summary(socket.assigns.missing_setup)
-         )}
-
-      true ->
-        do_pair(socket)
-    end
+    PairTiming.span(:click, fn -> pair_clicked(params, socket) end)
   end
 
   # "Pair anyway, ignoring the exclusion for X": the same pairing run with
@@ -1898,6 +1913,31 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp blank_dash(""), do: "the empty seat"
   defp blank_dash(name), do: name
 
+  defp pair_clicked(params, socket) do
+    socket = assign(socket, pair_acknowledged: acknowledged(params), bye_exclusion_block: nil)
+
+    cond do
+      # Belt and braces beside the button's own `disabled` - a second "pair"
+      # event that reached the mailbox before the first one's task replied
+      # (e.g. a double-click landing faster than the DOM patch that disables
+      # the button) must not start a second search for the same round.
+      socket.assigns.pairing_in_progress ->
+        {:noreply, socket}
+
+      not Tournament.setup_complete?(socket.assigns.tournament) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Finish the tournament setup before pairing - missing: " <>
+             missing_setup_summary(socket.assigns.missing_setup)
+         )}
+
+      true ->
+        do_pair(socket)
+    end
+  end
+
   defp do_pair(socket) do
     cond do
       socket.assigns.tournament.pairing_system == "round_robin" ->
@@ -1907,21 +1947,33 @@ defmodule PairingsEngineWeb.PairingsLive do
         do_pair_team_swiss_async(socket)
 
       true ->
-        Snapshots.capture(
-          socket.assigns.tournament,
-          "pairing.round_paired",
-          socket.assigns.current_scope,
-          summary: "Before pairing round #{socket.assigns.round_number}"
-        )
+        PairTiming.span(:snapshot, fn ->
+          Snapshots.capture(
+            socket.assigns.tournament,
+            "pairing.round_paired",
+            socket.assigns.current_scope,
+            summary: "Before pairing round #{socket.assigns.round_number}"
+          )
+        end)
+
+        result =
+          PairTiming.span(:pair, fn ->
+            Engine.pair_next_round(socket.assigns.tournament,
+              acknowledged: socket.assigns.pair_acknowledged
+            )
+          end)
 
         socket
         |> assign(recorded_missing: missing_to_record(socket))
-        |> apply_pair_result(
-          Engine.pair_next_round(socket.assigns.tournament,
-            acknowledged: socket.assigns.pair_acknowledged
-          )
-        )
+        |> apply_pair_result(result)
     end
+  end
+
+  defp fresh_tournament(socket) do
+    Tournaments.get_authorized_tournament(
+      socket.assigns.current_scope,
+      socket.assigns.tournament.id
+    ) || socket.assigns.tournament
   end
 
   # The postponed-game warnings the arbiter confirmed on the button they
@@ -1985,12 +2037,28 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp apply_pair_result(socket, result) do
     case result do
       {:ok, round} ->
-        socket = note_recorded_missing(socket)
-        log_round_paired(socket, round.number)
-        log_bye_exclusions(socket, round.number)
-        log_bye_preferences(socket, round.number)
-        log_compliance_loss(socket, round.number)
-        {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
+        socket =
+          PairTiming.span(:audit, fn ->
+            socket = note_recorded_missing(socket)
+            log_round_paired(socket, round.number)
+            log_bye_exclusions(socket, round.number)
+            log_bye_preferences(socket, round.number)
+            log_compliance_loss(socket, round.number)
+            socket
+          end)
+
+        # The tournament as the pairing left it - its status, its
+        # compliance stamp, its restore point - rather than as the page
+        # loaded it: shown now, instead of once this page's own broadcast
+        # comes back and reloads it (which `already_current?/3` now skips).
+        socket =
+          assign(socket,
+            tournament: fresh_tournament(socket),
+            round_number: round.number,
+            error: nil
+          )
+
+        {:noreply, PairTiming.span(:refresh, fn -> refresh(socket) end)}
 
       {:error, %Ecto.Changeset{}} ->
         {:noreply, assign(socket, error: "Could not save the round")}
@@ -2142,11 +2210,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp log_bye_exclusions(socket, round_number) do
     t = socket.assigns.tournament
 
-    sections =
-      case Tournaments.get_round(t.id, round_number) do
-        %{explanation: %{"sections" => sections}} -> sections
-        _ -> []
-      end
+    sections = round_sections(t.id, round_number)
 
     name = fn id ->
       case id && Tournaments.get_player(t.id, id) do
@@ -2200,9 +2264,11 @@ defmodule PairingsEngineWeb.PairingsLive do
     :ok
   end
 
+  # The round's account, without its boards: the audit rows above need its
+  # sections and nothing else.
   defp round_sections(tournament_id, round_number) do
-    case Tournaments.get_round(tournament_id, round_number) do
-      %{explanation: %{"sections" => sections}} when is_list(sections) -> sections
+    case Tournaments.get_round_explanation(tournament_id, round_number) do
+      %{"sections" => sections} when is_list(sections) -> sections
       _ -> []
     end
   end
@@ -2281,11 +2347,62 @@ defmodule PairingsEngineWeb.PairingsLive do
     )
   end
 
-  # The result select's options for `pairing`. The two postponed codes only
-  # when the tournament allows postponed games; the unnamed `*` - recorded at
-  # pairing time or read from a TRF, never offered - only on the board that
-  # holds it, so the select shows what is stored rather than its first option.
-  defp results(tournament, pairing) do
+  # The result select's options, written out as markup: the same options,
+  # labels and order as `result_choices/2`, which a test holds this to.
+  #
+  # They used to be a comprehension over `result_choices/2`, which made
+  # every option's value, label and selection a dynamic of its own - 45 of
+  # them per board, the same strings on every board, sent again on every
+  # board of every round (about 40 KB of the 480 KB a 1,000-player round's
+  # board list came to as JSON), and evaluated again on every render.
+  # Written out, they are static markup sent once, and a board's options
+  # cost one flag each.
+  attr :result, :string, required: true
+  attr :postponed_games, :boolean, default: false
+
+  defp result_options(assigns) do
+    assigns =
+      assign(assigns, :held?, held_postponed?(assigns.result, assigns.postponed_games))
+
+    ~H"""
+    <option value="" selected={@result == ""}>…</option>
+    <option value="1-0" selected={@result == "1-0"}>1-0</option>
+    <option value="1/2-1/2" selected={@result == "1/2-1/2"}>½-½</option>
+    <option value="0-1" selected={@result == "0-1"}>0-1</option>
+    <option value="1/2-0" selected={@result == "1/2-0"}>
+      ½-0 (asymmetric - disciplinary point adjustment)
+    </option>
+    <option value="0-1/2" selected={@result == "0-1/2"}>
+      0-½ (asymmetric - disciplinary point adjustment)
+    </option>
+    <option value="1-0FF" selected={@result == "1-0FF"}>1-0 FF (White wins by forfeit)</option>
+    <option value="0-1FF" selected={@result == "0-1FF"}>0-1 FF (Black wins by forfeit)</option>
+    <option value="0-0FF" selected={@result == "0-0FF"}>0-0 FF (double forfeit)</option>
+    <option value="0-0" selected={@result == "0-0"}>0-0 (both lose, game played)</option>
+    <option value="1-0U" selected={@result == "1-0U"}>1-0 (played, not rated)</option>
+    <option value="0-1U" selected={@result == "0-1U"}>0-1 (played, not rated)</option>
+    <option value="1/2-1/2U" selected={@result == "1/2-1/2U"}>½-½ (played, not rated)</option>
+    <%= if @postponed_games do %>
+      <option value="*W" selected={@result == "*W"}>{gettext("* postponed by White")}</option>
+      <option value="*B" selected={@result == "*B"}>{gettext("* postponed by Black")}</option>
+    <% end %>
+    <option :if={@held?} value={@result} selected>{gettext("* postponed")}</option>
+    """
+  end
+
+  # The unnamed `*`, or a named postponement the tournament no longer
+  # offers: shown as what it is rather than as the select's first option.
+  defp held_postponed?(result, postponed_games),
+    do: result == "*" or (PairingsEngine.Results.postponed?(result) and not postponed_games)
+
+  @doc false
+  # The result select's options for `pairing`, as `{code, label}`. The two
+  # postponed codes only when the tournament allows postponed games; the
+  # unnamed `*` - recorded at pairing time or read from a TRF, never
+  # offered - only on the board that holds it, so the select shows what is
+  # stored rather than its first option. `result_options/1` is the markup;
+  # this is what it must say (`pairings_live_result_options_test.exs`).
+  def result_choices(tournament, pairing) do
     offered =
       Enum.flat_map(@results, fn
         {"*W", :postponed_white} ->
@@ -2303,10 +2420,9 @@ defmodule PairingsEngineWeb.PairingsLive do
       end)
 
     held =
-      if pairing.result == "*" or
-           (PairingsEngine.Results.postponed?(pairing.result) and not tournament.postponed_games),
-         do: [{pairing.result, gettext("* postponed")}],
-         else: []
+      if held_postponed?(pairing.result, tournament.postponed_games),
+        do: [{pairing.result, gettext("* postponed")}],
+        else: []
 
     offered ++ held
   end
@@ -4442,13 +4558,10 @@ defmodule PairingsEngineWeb.PairingsLive do
                         data-refused={@write_refused_nonce}
                         disabled={!is_nil(@tournament.archived_at)}
                       >
-                        <option
-                          :for={{value, label} <- results(@tournament, pairing)}
-                          value={value}
-                          selected={pairing.result == value}
-                        >
-                          {label}
-                        </option>
+                        <.result_options
+                          result={pairing.result}
+                          postponed_games={@tournament.postponed_games}
+                        />
                       </select>
                     </form>
                 <% end %>

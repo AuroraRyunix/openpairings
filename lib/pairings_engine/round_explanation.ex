@@ -400,15 +400,15 @@ defmodule PairingsEngine.RoundExplanation do
   """
   def bye_exclusion_rounds(tournament_id) do
     tournament_id
-    |> PairingsEngine.Tournaments.list_rounds()
+    |> PairingsEngine.Tournaments.list_round_accounts()
     |> Enum.filter(fn
-      %{explanation: %{"sections" => sections}} ->
+      {_number, %{"sections" => sections}} ->
         Enum.any?(sections, &((&1["bye_passed_over"] || []) != []))
 
       _ ->
         false
     end)
-    |> Enum.map(& &1.number)
+    |> Enum.map(&elem(&1, 0))
   end
 
   @doc """
@@ -420,15 +420,15 @@ defmodule PairingsEngine.RoundExplanation do
   """
   def bye_preference_rounds(tournament_id) do
     tournament_id
-    |> PairingsEngine.Tournaments.list_rounds()
+    |> PairingsEngine.Tournaments.list_round_accounts()
     |> Enum.filter(fn
-      %{explanation: %{"sections" => sections}} ->
+      {_number, %{"sections" => sections}} ->
         Enum.any?(sections, &match?(%{"bye_preference" => %{"moved" => true}}, &1))
 
       _ ->
         false
     end)
-    |> Enum.map(& &1.number)
+    |> Enum.map(&elem(&1, 0))
   end
 
   @doc """
