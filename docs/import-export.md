@@ -361,6 +361,29 @@ naming one of them, both remapped on import like player ids. Teams carry
 their seeding order and frozen pairing number. See
 [`team-tournaments.md`](team-tournaments.md).
 
+### Writing a version 1 file by hand (required vs optional)
+
+The shape above is what OpenPairings itself writes. A file written by
+another tool needs much less - everything not listed as required may be
+left out and takes the same default a tournament created in the app gets.
+
+| Where | Required | Notes |
+|---|---|---|
+| envelope | `"format": "openpairings-export"`, `"version": 1`, `"tournaments"`: a non-empty array | `exported_at` is optional and not read. |
+| each entry of `tournaments` | `"tournament"`: an object | `teams`, `players`, `rounds`, `byes`, `forbidden_pairings`, `sent_games`, `sent_receipts`, `openresults`, `audit_log`, `collaborators` are all optional; absent means empty. |
+| `tournament` | `name` (string) | `type` defaults to `swiss` (else `roundrobin`, `team-swiss`, `team-roundrobin`), `rounds_count` to 9 - give both. Every other Tournament field is optional. `status` is not trusted: it is re-derived from what was imported, so `"setup"` with no rounds is fine. |
+| each entry of `players` | an object with `name` | `id` is only needed when something else in the file points at the player (a pairing, a bye). `birth_date` (`YYYY-MM-DD`), `national_id` (string), `fide_id` (integer) are optional. |
+| each entry of `rounds` | an object with `number` | `pairings` is optional; a pairing names its players by the file's player `id`s. |
+
+Keys OpenPairings does not know (`club_number`, `affiliated`,
+`organizer_club_number`, `event_code`, ...) are ignored, never an error.
+Each entry of `teams`, `players`, `rounds`, a round's `pairings` and
+`matches`, `byes` and `forbidden_pairings` must be a JSON object; anything
+else is refused as *entry N of "players" is not a JSON object*. A value the
+schema refuses is reported with the record it is in - *Could not import
+player entry 2 (id 2): birth_date is invalid*, *Could not import the
+"tournament" block: name is invalid* - and nothing is saved.
+
 ### What does not travel
 
 The backup carries the tournament as an arbiter configured it, not the row

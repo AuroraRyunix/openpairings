@@ -17,6 +17,26 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Importing a file no longer sticks at 0%.** Since 0.70.0 every
+  upload box - JSON backup, SWAR, TRF, hand-off, hand-off return, results
+  CSV, tournament logo and the arbiter tools' file parser - kept its button
+  disabled until the file had arrived, but the file only started to travel
+  when that button was pressed, so the box showed "0%" forever and nothing
+  ever reached the server. Files now upload as soon as they are chosen, and
+  the button waits only for a file that is really on its way.
+- [Fix] **A refused file says why.** A file of the wrong type or over the
+  size limit showed a stuck "0%" and a disabled button with no reason; it
+  now shows the reason in words beside the box (for example *Only .json
+  files are accepted here.*), leaves the button pressable, and closing the
+  dialog forgets the file.
+- [Fix] **An import that fails on the server shows an error in the
+  dialog** instead of silently reloading the page. A backup whose
+  `players` (or `rounds`, `teams`, ...) list holds something other than an
+  object used to crash the page; it is now refused with the entry it is
+  in, and a refused field names its record (*Could not import player
+  entry 2 (id 2): birth_date is invalid*). The minimum a hand-written
+  version 1 backup needs is now documented in `docs/import-export.md`.
+
 ## [0.72.0] - 2026-10-02
 
 **Arbiters, read this before upgrading.** Four fixes below change how

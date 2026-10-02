@@ -78,6 +78,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
      )
      |> assign_collaborators()
      |> allow_upload(:logo,
+       auto_upload: true,
        accept: ~w(.png .jpg .jpeg .gif .webp),
        max_entries: 1,
        max_file_size: 2_000_000,
@@ -784,7 +785,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               <% else %>
                 <span :for={entry <- @uploads.logo.entries} class="dropzone-file">
                   {entry.client_name}
-                  <span :if={!entry.done?} class="hint">{entry.progress}%</span>
+                  <span :if={entry.valid? and not entry.done?} class="hint">{entry.progress}%</span>
                 </span>
               <% end %>
             </div>
@@ -805,7 +806,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               type="submit"
               class="pe-btn primary"
               phx-disable-with={gettext("Uploading…")}
-              disabled={@uploads.logo.entries == [] or Enum.any?(@uploads.logo.entries, &(!&1.done?))}
+              disabled={@uploads.logo.entries == [] or UploadGuard.in_flight?(@uploads.logo)}
             >
               {gettext("Upload logo")}
             </button>

@@ -287,11 +287,11 @@ defmodule PairingsEngine.TournamentImport do
       |> Ecto.Changeset.change(pairing_state(t_attrs, tournament.initial_colour_drawn))
       |> update!()
 
-    team_map = import_teams!(tournament, list(entry, "teams"))
-    player_map = import_players!(tournament, list(entry, "players"), team_map)
-    import_rounds!(tournament, list(entry, "rounds"), player_map, team_map)
-    import_byes!(tournament, list(entry, "byes"), player_map)
-    import_forbidden_pairings!(tournament, list(entry, "forbidden_pairings"), player_map)
+    team_map = import_teams!(tournament, records!(entry, "teams"))
+    player_map = import_players!(tournament, records!(entry, "players"), team_map)
+    import_rounds!(tournament, records!(entry, "rounds"), player_map, team_map)
+    import_byes!(tournament, records!(entry, "byes"), player_map)
+    import_forbidden_pairings!(tournament, records!(entry, "forbidden_pairings"), player_map)
 
     tournament
     |> PairingsEngine.TeamSwiss.settle_mode()
@@ -458,13 +458,13 @@ defmodule PairingsEngine.TournamentImport do
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil))
-      |> insert!()
+      |> insert!("the \"tournament\" block")
 
-    team_map = import_teams!(tournament, list(t_data, "teams"))
-    player_map = import_players!(tournament, list(t_data, "players"), team_map)
-    import_rounds!(tournament, list(t_data, "rounds"), player_map, team_map)
-    import_byes!(tournament, list(t_data, "byes"), player_map)
-    import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
+    team_map = import_teams!(tournament, records!(t_data, "teams"))
+    player_map = import_players!(tournament, records!(t_data, "players"), team_map)
+    import_rounds!(tournament, records!(t_data, "rounds"), player_map, team_map)
+    import_byes!(tournament, records!(t_data, "byes"), player_map)
+    import_forbidden_pairings!(tournament, records!(t_data, "forbidden_pairings"), player_map)
     # What the file says was sent to the rating officer goes on this copy's
     # sent-games record: the file's own record of it (`"sent_games"`, audit
     # 2026-10-01 F5), and the sent marks on its boards. So neither this copy
@@ -670,7 +670,7 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   defp import_players!(tournament, players, team_map) do
-    Map.new(players, fn p ->
+    Map.new(Enum.with_index(players, 1), fn {p, n} ->
       attrs = Map.put(p, "team_id", Map.get(team_map, Map.get(p, "team_id")))
 
       new_player =
@@ -695,7 +695,7 @@ defmodule PairingsEngine.TournamentImport do
         # restore with `special_table` flipped to false, losing the flag that
         # keeps them on their table.
         |> Ecto.Changeset.change(special_table: !!Map.get(p, "special_table"))
-        |> insert!()
+        |> insert!(player_label(p, n))
 
       {Map.get(p, "id"), new_player.id}
     end)
@@ -722,22 +722,22 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   defp import_rounds!(tournament, rounds, player_map, team_map) do
-    Enum.each(rounds, fn r ->
+    Enum.each(Enum.with_index(rounds, 1), fn {r, n} ->
       new_round =
         %Round{tournament_id: tournament.id}
         |> Round.changeset(r)
         |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
         |> Ecto.Changeset.change(publish_cap: coerce_int(Map.get(r, "publish_cap")))
         |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
-        |> insert!()
+        |> insert!("round entry #{n}")
 
-      pairings = list(r, "pairings")
+      pairings = records!(r, "pairings")
 
       # A team round's matches first, so the boards can point at the new
       # rows. A match whose id a pairing names but the payload does not carry
       # leaves that pairing without a match rather than dangling.
       match_map =
-        Map.new(list(r, "matches"), fn m ->
+        Map.new(records!(r, "matches"), fn m ->
           new_match =
             insert!(%PairingsEngine.Tournaments.Match{
               round_id: new_round.id,
@@ -794,7 +794,7 @@ defmodule PairingsEngine.TournamentImport do
           # one.
           game_uid: game_uid(Map.get(pr, "game_uid"))
         )
-        |> insert!()
+        |> insert!("a pairing of round entry #{n}")
       end)
 
       # The frozen labels ARE the record of what the printed sheets said,
@@ -1256,6 +1256,23 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
+  # A record list the import walks with `Map.get/2`: absent (or not a list)
+  # is still an empty list, as `list/2` reads it, but an element that is not
+  # a JSON object used to raise `BadMapError` straight out of the transaction
+  # - and out of the LiveView consuming the upload with it. Refused here, by
+  # key and position, so whoever wrote the file can find the line.
+  defp records!(data, key) do
+    records = list(data, key)
+
+    case Enum.find_index(records, &(not is_map(&1))) do
+      nil ->
+        records
+
+      index ->
+        Repo.rollback("Could not import: entry #{index + 1} of \"#{key}\" is not a JSON object.")
+    end
+  end
+
   defp list(data, key) do
     case Map.get(data, key) do
       l when is_list(l) -> l
@@ -1286,6 +1303,26 @@ defmodule PairingsEngine.TournamentImport do
 
       {:error, changeset} ->
         Repo.rollback("Could not import: " <> changeset_error_text(changeset))
+    end
+  end
+
+  # The same, saying which record of the file was refused - "birth_date is
+  # invalid" alone leaves the writer of a six-player file guessing which
+  # player, and of a backup with hundreds, hopeless.
+  defp insert!(changeset, where) do
+    case Repo.insert(changeset) do
+      {:ok, record} ->
+        record
+
+      {:error, changeset} ->
+        Repo.rollback("Could not import #{where}: " <> changeset_error_text(changeset))
+    end
+  end
+
+  defp player_label(p, n) do
+    case Map.get(p, "id") do
+      id when is_integer(id) or is_binary(id) -> "player entry #{n} (id #{id})"
+      _ -> "player entry #{n}"
     end
   end
 
