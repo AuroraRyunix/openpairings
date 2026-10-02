@@ -78,7 +78,9 @@ defmodule PairingsEngineWeb.PostponedSendingTest do
       sent = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
       assert disposition(sent) =~ "_r1.trf"
       refute disposition(sent) =~ "COPY"
-      refute response(sent, 200) =~ "###"
+      # The file sent carries its receipt as its only comment line.
+      refute response(sent, 200) =~ "### COPY"
+      assert response(sent, 200) =~ ~r/### SENT FOR RATING\. Receipt R1-[0-9A-F]{4}: round 1/
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#trf-download-copy", "not for rating")

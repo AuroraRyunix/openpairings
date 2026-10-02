@@ -2284,6 +2284,43 @@ button.pe-btn, .pe-btn {
 .trf-state.is-playing .trf-state-mark { background: transparent; border: 2px solid var(--text-soft); }
 .trf-state.is-sent { color: var(--success); }
 .trf-row.is-sent td { color: var(--text-soft); }
+.trf-row.is-changed td { color: var(--danger); }
+
+/* The sent receipt (`PairingsEngineWeb.SentReceipt`): a quiet stamp on a
+   sent round, its code in tabular figures so two codes compare at a
+   glance; and the loud red warning when the round changed since. */
+.receipt-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: help;
+}
+.receipt-stamp.is-before { color: var(--text-soft); font-style: italic; }
+.round-bar .receipt-stamp {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--success) 40%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  transition: background 0.15s ease;
+}
+.round-bar .receipt-stamp:hover { background: color-mix(in srgb, var(--success) 15%, transparent); }
+.receipt-drift {
+  margin: 10px 0 12px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-left: 4px solid var(--danger);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  color: var(--text);
+}
+.receipt-drift-title { display: block; color: var(--danger); font-size: 15px; }
+.receipt-drift-list { margin: 6px 0; padding-left: 20px; display: grid; gap: 3px; }
+.receipt-drift-note { margin: 0; font-size: 13px; color: var(--text-soft); }
+.receipt-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
 .trf-late {
   margin-top: 16px;
   padding: 12px 14px;

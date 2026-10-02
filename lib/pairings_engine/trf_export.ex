@@ -80,6 +80,9 @@ defmodule PairingsEngine.TrfExport do
       rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
       sent = Enum.filter(PairingsEngine.PostponedGames.sent_rounds(tournament), &(&1 in rounds))
 
+      # Each round's receipt follows the mark: whose copy this is
+      # ("copy of R5-7F2A"), or that the round was never sent
+      # (`PairingsEngine.SentReceipts.copy_lines/2`).
       cond do
         sent != [] ->
           [
@@ -87,12 +90,14 @@ defmodule PairingsEngine.TrfExport do
               String.capitalize(describe_rounds(sent)) <>
               " of this file already went to the rating officer: sending this file " <>
               "again would rate those games twice."
+            | PairingsEngine.SentReceipts.copy_lines(tournament.id, rounds)
           ]
 
         Keyword.get(opts, :copy, false) ->
           [
             "COPY - NOT FOR RATING. Downloaded as a copy: results are sent with " <>
               "OpenPairings' Send, which records what went out."
+            | PairingsEngine.SentReceipts.copy_lines(tournament.id, rounds)
           ]
 
         true ->
@@ -472,7 +477,9 @@ defmodule PairingsEngine.TrfExport do
     if Keyword.get(opts, :copy, false),
       do: [
         "COPY - NOT FOR RATING. Downloaded as a copy: the postponed-games file is sent " <>
-          "with OpenPairings' Send, which records what went out."
+          "with OpenPairings' Send, which records what went out.",
+        # Only games not sent in a postponed-games file yet are offered.
+        "Postponed games in this file: never sent."
       ],
       else: []
   end

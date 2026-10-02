@@ -17,6 +17,31 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A sent receipt for every round sent for rating.** Each
+  "Send…" now stores a receipt: a fingerprint of exactly what went out
+  (every game's identity, both players, the colours, the result as the file
+  wrote it, the round, and the file's own bytes), who sent it and when, and
+  a short code to quote - `R5·7F2A` for round 5, `P·9C01` for a
+  postponed-games file. The round shows it on the Pairings page ("Sent
+  03-10-2026 14:02 UTC · R5·7F2A") and on Settings, Export; the audit trail
+  names it; and the file sent carries it in a `###` comment line, which TRF
+  readers skip - no record of the file is added or changed. Every copy
+  says whose copy it is ("copy of R5-7F2A, not for rating") or that the
+  round was never sent. Backups, imports and hand-offs carry the receipts
+  like the record of sent games. It only shows: whether a game may be sent
+  is still decided by that record and the locked send, as in 0.71.0.
+- [Feature] **"Changed since sent": a round that no longer matches what
+  went to the rating officer is shown in red.** After a result correction,
+  a postponed game played but not yet in a postponed-games file, a
+  player's FIDE ID or name changed, colours swapped, or a game removed or
+  added, the round on the Pairings page and on Settings, Export reads
+  "Changed since sent (R5·7F2A) — the rating body has the old version" and
+  lists each change. Nothing is ever sent again on its own. Rounds sent
+  before this version get a receipt marked "sent before receipts" - no
+  code, because the file was not kept - and their changes are still
+  detected from the record of sent games. See docs/import-export.md, "The
+  sent receipt".
+
 ## [0.71.0] - 2026-10-01
 
 - [Feature] **Bye preferences: "must get", "rather gets" and "rather not"

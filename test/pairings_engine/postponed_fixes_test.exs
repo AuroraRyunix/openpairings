@@ -355,7 +355,7 @@ defmodule PairingsEngine.PostponedFixesTest do
       assert september.pairing.played_on == ~D[2026-09-28]
       assert text =~ "052 2026/09/28"
 
-      {:ok, _text, [_]} =
+      {:ok, _text, [_], _receipt} =
         PostponedGames.send_late_games(
           Repo.reload!(t),
           &TrfExport.postponed_export(&1, period: ~D[2026-09-01])

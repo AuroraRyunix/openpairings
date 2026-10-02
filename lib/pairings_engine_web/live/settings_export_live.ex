@@ -29,6 +29,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   }
 
   alias PairingsEngineWeb.Postponed
+  alias PairingsEngineWeb.SentReceipt
   alias PairingsEngine.Federations.BEL.{SwarExport, SwarUpload}
 
   @impl true
@@ -85,7 +86,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         chosen -> MapSet.intersection(chosen, numbers)
       end
 
+    # Each sent round's receipt, and any round (or postponed-games file)
+    # that changed since it was sent (`PairingsEngine.SentReceipts`).
+    receipts = PairingsEngine.SentReceipts.statuses(t.id)
+
     assign(socket,
+      receipt_reports: receipts.reports,
+      receipt_postponed: receipts.postponed,
+      receipt_drift:
+        ((receipts.reports |> Enum.sort_by(&elem(&1, 0)) |> Enum.map(&elem(&1, 1))) ++
+           receipts.postponed)
+        |> Enum.filter(&(&1.changes != [])),
       sent_rounds: PostponedGames.sent_rounds(t),
       ambiguous_players: PostponedGames.ambiguous_players(t.id),
       postponed_open: PostponedGames.open_games(t),
@@ -160,6 +171,20 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     ]
     |> Enum.filter(& &1)
     |> Enum.join(" · ")
+  end
+
+  defp receipt_of(reports, round) do
+    case Map.get(reports, round) do
+      %{receipt: receipt} -> receipt
+      nil -> nil
+    end
+  end
+
+  defp receipt_changed?(reports, round) do
+    case Map.get(reports, round) do
+      %{changes: [_ | _]} -> true
+      _ -> false
+    end
   end
 
   defp trf_state_label(%{state: :sent, sent_at: %DateTime{} = at}),
@@ -848,6 +873,14 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         <div :if={@trf_rounds != []}>
           <p id="trf-summary" class="trf-summary">{trf_summary(@trf_rounds)}</p>
 
+          <%!-- A sent round or postponed-games file that changed since: the
+                rating officer has the old version. Named, never re-sent. --%>
+          <SentReceipt.drift_warning
+            :for={status <- @receipt_drift}
+            status={status}
+            id={"trf-receipt-drift-#{status.receipt.id}"}
+          />
+
           <div class="card-table-wrap">
             <table class="pe-table trf-rounds" id="trf-rounds">
               <thead>
@@ -864,7 +897,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 <tr
                   :for={r <- @trf_rounds}
                   id={"trf-round-#{r.round}"}
-                  class={["trf-row", trf_state_class(r)]}
+                  class={[
+                    "trf-row",
+                    trf_state_class(r),
+                    receipt_changed?(@receipt_reports, r.round) && "is-changed"
+                  ]}
                 >
                   <td class="trf-tick">
                     <input
@@ -881,7 +918,14 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   <td>
                     <span class={["trf-state", trf_state_class(r)]}>
                       <span class="trf-state-mark" aria-hidden="true"></span>
-                      {trf_state_label(r)}
+                      <%= if r.state == :sent and receipt_of(@receipt_reports, r.round) do %>
+                        <SentReceipt.stamp
+                          receipt={receipt_of(@receipt_reports, r.round)}
+                          id={"trf-receipt-#{r.round}"}
+                        />
+                      <% else %>
+                        {trf_state_label(r)}
+                      <% end %>
                     </span>
                   </td>
                 </tr>
@@ -1068,6 +1112,19 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 {postponed_report_summary(@tournament)}
               </p>
             </div>
+
+            <%!-- Every postponed-games file sent, with its receipt. --%>
+            <ul :if={@receipt_postponed != []} id="postponed-receipts" class="receipt-list">
+              <li :for={%{receipt: receipt} <- @receipt_postponed}>
+                <SentReceipt.stamp receipt={receipt} id={"postponed-receipt-#{receipt.id}"} />
+                <span :if={receipt.period} class="hint">
+                  · {Postponed.month_text(receipt.period)}
+                </span>
+                <span :if={receipt.games} class="hint">
+                  · {ngettext("%{count} game", "%{count} games", length(receipt.games))}
+                </span>
+              </li>
+            </ul>
 
             <p :if={@late_sendable_count == 0} id="postponed-trf-empty" class="hint" style="margin: 0">
               {gettext("Nothing to send: no postponed game was played after its round was sent.")}

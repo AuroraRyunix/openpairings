@@ -698,6 +698,13 @@ defmodule PairingsEngine.Handoff do
 
           PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
 
+          # The other machine's receipts join this one's the same way.
+          PairingsEngine.SentReceipts.merge_receipts(
+            tournament.id,
+            List.wrap(entry["sent_receipts"]),
+            "handoff"
+          )
+
           case Tournaments.take_back(restored, token) do
             {:ok, unlocked} ->
               # The marks just re-applied cannot tell apart two players

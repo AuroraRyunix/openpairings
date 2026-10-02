@@ -44,7 +44,7 @@ defmodule PairingsEngine.PostponedGames do
   import Ecto.Query
   use Gettext, backend: PairingsEngineWeb.Gettext
 
-  alias PairingsEngine.{Repo, Results}
+  alias PairingsEngine.{Repo, Results, SentReceipts}
   alias PairingsEngine.Tournaments.{Pairing, Round, Tournament, TrfSentGame}
 
   # One entry per warning. `vcl` is the VCL4THP v13 question it answers;
@@ -663,7 +663,11 @@ defmodule PairingsEngine.PostponedGames do
   of the fresh tournament returning `{:ok, text}` or `{:error, _}`; nil for
   none), marks every board as sent and records each game - all in one write
   transaction, so the file exists only if the record landed and the record
-  lands only if the file was built. Returns `{:ok, %{marked: n, file: text}}`.
+  lands only if the file was built. Then the send's receipts are recorded,
+  one per round, and their `###` lines put into the file
+  (`PairingsEngine.SentReceipts`). Returns
+  `{:ok, %{marked: n, file: text, receipts: [%SentReceipt{}]}}`. `opts` may
+  name who sends (`sent_by:` a label, `sent_by_id:`) for the receipt.
 
   Refused, writing nothing and building nothing:
 
@@ -700,8 +704,13 @@ defmodule PairingsEngine.PostponedGames do
                :ok <- confirmed_copy(fresh, rounds),
                :ok <- round_send_check(fresh.id, rounds, acknowledged),
                {:ok, file} <- build_file(build, fresh),
-               {:ok, marked} <- record_round_send(fresh.id, rounds) do
-            %{marked: marked, file: file}
+               {:ok, marked} <- record_round_send(fresh.id, rounds),
+               # The receipt, once the record landed: what went out, and
+               # its `###` line in the file (`SentReceipts`). It decides
+               # nothing about whether the send may happen.
+               {:ok, receipts, file} <-
+                 SentReceipts.record_rounds(fresh.id, rounds, file, receipt_opts(opts)) do
+            %{marked: marked, file: file, receipts: receipts}
           else
             {:error, reason} -> Repo.rollback(reason)
           end
@@ -710,6 +719,9 @@ defmodule PairingsEngine.PostponedGames do
       )
     end
   end
+
+  # Who sent it, for the receipt (`SentReceipts.record_rounds/4`).
+  defp receipt_opts(opts), do: Keyword.take(opts, [:sent_by, :sent_by_id])
 
   defp build_file(nil, _tournament), do: {:ok, nil}
 
@@ -1156,11 +1168,20 @@ defmodule PairingsEngine.PostponedGames do
   `{:error, :copy_not_confirmed}` on an imported copy nobody has confirmed
   yet (`finalise/3`).
   """
-  def mark_late_games_sent(%Tournament{id: tournament_id}, games) do
+  def mark_late_games_sent(%Tournament{id: tournament_id}, games, opts \\ []) do
     Repo.transaction(
       fn ->
-        case record_late_send(Repo.get!(Tournament, tournament_id), games) do
-          :ok -> :ok
+        with :ok <- record_late_send(Repo.get!(Tournament, tournament_id), games),
+             {:ok, _receipts, nil} <-
+               SentReceipts.record_late(
+                 tournament_id,
+                 games,
+                 late_period_of(games),
+                 nil,
+                 receipt_opts(opts)
+               ) do
+          :ok
+        else
           {:error, reason} -> Repo.rollback(reason)
         end
       end,
@@ -1176,18 +1197,28 @@ defmodule PairingsEngine.PostponedGames do
   Sends a postponed-games file: `build` (a function of the fresh tournament
   returning `TrfExport.postponed_export/2`'s `{:ok, text, games}`) builds it
   and its games are marked as sent, in one write transaction - so only the
-  request whose record lands gets a file. Returns `{:ok, text, games}`, or
-  `build`'s error, or `mark_late_games_sent/2`'s.
+  request whose record lands gets a file. Its receipt is recorded and its
+  `###` line put into the file (`PairingsEngine.SentReceipts`). Returns
+  `{:ok, text, games, %SentReceipt{}}`, or `build`'s error, or
+  `mark_late_games_sent/2`'s. `opts` as `send_rounds/4`'s.
   """
-  def send_late_games(%Tournament{id: tournament_id}, build) do
+  def send_late_games(%Tournament{id: tournament_id}, build, opts \\ []) do
     Repo.transaction(
       fn ->
         fresh = Repo.get!(Tournament, tournament_id)
 
         with :ok <- late_send_allowed(fresh),
              {:ok, text, games} <- build.(fresh),
-             :ok <- record_late_send(fresh, games) do
-          {text, games}
+             :ok <- record_late_send(fresh, games),
+             {:ok, [receipt], text} <-
+               SentReceipts.record_late(
+                 fresh.id,
+                 games,
+                 late_period_of(games),
+                 text,
+                 receipt_opts(opts)
+               ) do
+          {text, games, receipt}
         else
           {:error, reason} -> Repo.rollback(reason)
         end
@@ -1195,10 +1226,13 @@ defmodule PairingsEngine.PostponedGames do
       mode: :immediate
     )
     |> case do
-      {:ok, {text, games}} -> {:ok, text, games}
+      {:ok, {text, games, receipt}} -> {:ok, text, games, receipt}
       {:error, reason} -> {:error, reason}
     end
   end
+
+  defp late_period_of([game | _]), do: late_period(game)
+  defp late_period_of([]), do: nil
 
   defp late_send_allowed(%Tournament{} = tournament) do
     with :ok <- PairingsEngine.Tournaments.ensure_writable(tournament) do

@@ -228,6 +228,71 @@ ID was filled in, or a name corrected - still knows it. Records older than
 the identity, and records of games no longer in the tournament, are
 matched by round and players as before.
 
+**The sent receipt.** Every send - a round's report or a postponed-games
+file - also stores a receipt (`trf_sent_receipts`,
+`PairingsEngine.SentReceipts`): proof a person can see of exactly what went
+out, and what the tournament is compared with afterwards. It guards nothing
+and replaces nothing: the sent-games record, its unique index and the
+locked send still decide whether a send may happen; the receipt is written
+inside that same transaction, after the record landed.
+
+* **Fingerprint.** A SHA-256 over the kind of file, its round (or rating
+  period), every game as sent - its `game_uid`, its round, both players'
+  FIDE ID and name (so the colours too) and the result as the file wrote
+  it (`?` for an open postponed game) - ordered by identity, and the
+  SHA-256 of the file's bytes as built. The same games, round and file
+  always give the same fingerprint. Board numbers are not in it: a TRF has
+  none. The receipt also keeps the games themselves, who sent it, when,
+  and `final_sha256`, the hash of the bytes handed out.
+* **Code.** `R5·7F2A` - the round and the fingerprint's first four hex
+  digits - or `P·9C01` for a postponed-games file; six or eight digits when
+  four would repeat a code the tournament already has. The Pairings page
+  shows it beside a sent round ("Sent 03-10-2026 14:02 UTC · R5·7F2A",
+  who sent it and the hashes in its tooltip), Settings, Export in the round
+  table and under the postponed-games file, and the audit trail in the
+  `trf.finalised` / `trf.postponed_sent` row.
+* **In the file.** The file "Send…" hands out carries one comment line per
+  receipt after the header records, ASCII like every other line, so the
+  dot is a hyphen there:
+
+  ```
+  ### SENT FOR RATING. Receipt R5-7F2A: round 5, sent 2026-10-03 14:02 UTC with OpenPairings.
+  ```
+
+  The fingerprint covers the file as it was before that line (it holds the
+  code, which cannot be inside what it is cut from); `final_sha256` covers
+  it with the line. No TRF record is added or changed, and
+  `Ainalrami.Trf.parse/1` reads the file exactly as without it.
+* **Copies.** Every copy ("Download a copy", "All rounds") says per round
+  whose copy it is, next to its `COPY - NOT FOR RATING` line:
+  `### Round 5: copy of R5-7F2A (sent ...), not for rating.`,
+  `### Round 6: never sent.`, or `sent before receipts`; a round that
+  changed since it was sent adds that this copy is not what the rating
+  officer has. A postponed-games copy says its games were never sent.
+* **Drift.** The latest receipt of each round, and every postponed-games
+  receipt, is compared with the tournament as it is now. A result
+  corrected, a postponed game sent as `?` and played since but not yet in a
+  postponed-games file, a player's FIDE ID or name changed, colours
+  swapped, a game removed or one added: the round (on the Pairings page)
+  and Settings, Export show a red "Changed since sent (R5·7F2A) — the
+  rating body has the old version" listing each change. Nothing is ever
+  sent again on its own; the round stays sent, and the correction goes to
+  the rating officer. A game whose late result went out in a
+  postponed-games file is that file's receipt's business, not its round's.
+* **Sends before receipts.** No file sent before receipts existed was
+  kept, so no code can be computed for one truthfully. The migration gives
+  each such send a receipt marked "sent before receipts": no code, no
+  fingerprint, and the games the sent-games record names (identity,
+  players' keys, result as sent) - so a change to them is still detected.
+  A round known sent only from its boards' marks (sent before the
+  sent-games record existed) has no games on its receipt and shows no
+  drift. A copy imported from a backup older than receipts gets the same.
+* **Copies of the tournament.** The JSON backup carries the receipts
+  (`"sent_receipts"`), and an import or a hand-off return adds them like
+  the sent-games record (`origin` `"import"` / `"handoff"`), so a copy
+  shows the same codes and tells the same drift. A restore never touches
+  them.
+
 ### Where the export controls live
 
 Settings, Export (`/t/:id/settings/export`) has an "Export TRF (all rounds)" link
@@ -258,6 +323,7 @@ socket.
       "byes":               [{ "player_id": 42, "round": 2, "type": "pairing-allocated" }],
       "forbidden_pairings":  [{ "player_a_id": 42, "player_b_id": 43 }],
       "sent_games":          [{ "round": 1, "game_uid": "5acd...", "kind": "report", "sent_as": "1-0", "sent_at": "...", "white_key": "fide:...", "black_key": "name:...", "origin": "sent" }],
+      "sent_receipts":       [{ "kind": "report", "round": 1, "code": "R1·7F2A", "fingerprint": "7f2a...", "file_sha256": "...", "final_sha256": "...", "games": [{ "game_uid": "5acd...", "sent_as": "1-0", ... }], "status": "receipt", "origin": "sent", "sent_at": "...", "sent_by": "arbiter@example.com" }],
       "audit_log":           [{ "action": "tournament.settings_updated", "details": {"changed_fields": {}}, "inserted_at": "...", "actor": "arbiter@example.com" }],  // only with include_handoff: true - see below
       "collaborators":       [{ "email": "co-arbiter@example.com", "role": "editor" }]  // only with include_handoff: true - see below
     }
@@ -274,7 +340,8 @@ user is never included: who exported a tournament has no bearing on who can
 import it.
 
 `"sent_games"` is the tournament's record of what it sent to the rating
-officer (see "Sending for rating" above). A restore ignores it - the record
+officer (see "Sending for rating" above), and `"sent_receipts"` the
+receipts of those sends, travelling the same way. A restore ignores it - the record
 is never rolled back - but an import adds it to the new copy's record, as
 sends another copy made, so a backup taken after round 1 was sent cannot
 send round 1 again. A copy cannot know what the original sent after the

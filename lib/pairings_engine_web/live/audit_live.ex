@@ -856,29 +856,38 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("trf.finalised", d),
     do:
-      ngettext(
-        "Exported a TRF for sending (rounds %{rounds}) and marked %{count} result as sent.",
-        "Exported a TRF for sending (rounds %{rounds}) and marked %{count} results as sent.",
-        count(d, "marked"),
-        rounds: shown(d["rounds"])
-      )
+      sentences([
+        ngettext(
+          "Exported a TRF for sending (rounds %{rounds}) and marked %{count} result as sent.",
+          "Exported a TRF for sending (rounds %{rounds}) and marked %{count} results as sent.",
+          count(d, "marked"),
+          rounds: shown(d["rounds"])
+        ),
+        receipts_text(d["receipts"])
+      ])
 
   def describe("trf.postponed_sent", %{"name" => name} = d) when is_binary(name),
     do:
-      ngettext(
-        "Sent %{count} postponed game in a postponed-games TRF, reported as the separate tournament %{name}.",
-        "Sent %{count} postponed games in a postponed-games TRF, reported as the separate tournament %{name}.",
-        count(d, "games"),
-        name: name
-      )
+      sentences([
+        ngettext(
+          "Sent %{count} postponed game in a postponed-games TRF, reported as the separate tournament %{name}.",
+          "Sent %{count} postponed games in a postponed-games TRF, reported as the separate tournament %{name}.",
+          count(d, "games"),
+          name: name
+        ),
+        receipts_text(d["receipt"])
+      ])
 
   def describe("trf.postponed_sent", d),
     do:
-      ngettext(
-        "Sent %{count} postponed game in a postponed-games TRF.",
-        "Sent %{count} postponed games in a postponed-games TRF.",
-        count(d, "games")
-      )
+      sentences([
+        ngettext(
+          "Sent %{count} postponed game in a postponed-games TRF.",
+          "Sent %{count} postponed games in a postponed-games TRF.",
+          count(d, "games")
+        ),
+        receipts_text(d["receipt"])
+      ])
 
   # An imported copy confirmed as the one that reports
   # (`Tournaments.confirm_sending/2`): until then it could send nothing.
@@ -1844,6 +1853,23 @@ defmodule PairingsEngineWeb.AuditLive do
   ## ---------- detail helpers (details use string keys after JSON round-trip) ----------
 
   defp sentences(list), do: list |> Enum.reject(&is_nil/1) |> Enum.join(" ")
+
+  # The sent receipt's codes (`PairingsEngine.SentReceipts`), on a send
+  # recorded since receipts exist; nothing on an older row.
+  defp receipts_text(code) when is_binary(code), do: receipts_text([code])
+
+  defp receipts_text([_ | _] = codes) do
+    codes = Enum.filter(codes, &is_binary/1)
+
+    if codes == [],
+      do: nil,
+      else:
+        ngettext("Receipt %{codes}.", "Receipts %{codes}.", length(codes),
+          codes: Enum.join(codes, ", ")
+        )
+  end
+
+  defp receipts_text(_none), do: nil
 
   # `field before → after; field before → after`. The field is the schema's
   # identifier and the glue is punctuation, so nothing in here is a word to
