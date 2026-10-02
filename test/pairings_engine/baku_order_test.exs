@@ -15,6 +15,11 @@ defmodule PairingsEngine.BakuOrderTest do
   game points (1 and 3 hold 0.5, 5 and 6 hold 1.0) the rows went 5, 6, 1, 3,
   and the engine - which takes a row's position as its starting rank -
   paired that bracket as if 5 and 6 were the higher-ranked players.
+
+  Since 2026-10-02 the rows are numbered by pairing number, which is what
+  the engine is meant to read as the starting rank, and the virtual points
+  ride on Group A's rows as `XXA`: the engine orders the bracket 1, 3, 5, 6
+  itself.
   """
 
   use PairingsEngine.DataCase, async: true
@@ -81,20 +86,25 @@ defmodule PairingsEngine.BakuOrderTest do
     %{tournament: tournament, pn: pn}
   end
 
-  test "an accelerated round numbers the engine's rows by game points plus virtual points",
+  # The rows are numbered by pairing number (`Pairing.in_pairing_number_order/1`)
+  # and the virtual points ride on Group A's rows as `XXA`, so the engine's
+  # own C.04.3 A.2 order - score with virtual points, then TPN - is 1, 3, 5,
+  # 6 for that bracket. The fix this test was written for numbered the rows
+  # by score plus virtual points instead; numbering by TPN fixes the same
+  # round (below) without departing from the TPN for anyone.
+  test "an accelerated round numbers the engine's rows by pairing number",
        %{tournament: tournament, pn: pn} do
     {:ok, _round2} = Pairing.pair_next_round(tournament)
 
     by_name = Map.new(Tournaments.list_players(tournament.id), &{&1.name, pn[&1.id]})
+    players = Process.get({:trf, 2}) |> Trf.parse() |> Map.fetch!(:players)
 
-    order =
-      Process.get({:trf, 2})
-      |> Trf.parse()
-      |> Map.fetch!(:players)
-      |> Enum.sort_by(& &1.rank)
-      |> Enum.map(&by_name[&1.name])
+    assert players |> Enum.sort_by(& &1.rank) |> Enum.map(&by_name[&1.name]) == Enum.to_list(1..8)
 
-    assert order == [2, 1, 3, 5, 6, 4, 7, 8]
+    accelerated =
+      for p <- players, Enum.any?(Map.get(p, :accelerations) || [], &(&1 > 0)), do: p.rank
+
+    assert Enum.sort(accelerated) == [1, 2, 3, 4]
   end
 
   # The round bbpPairings (`--dutch`) and Ainalrami both pair from a file

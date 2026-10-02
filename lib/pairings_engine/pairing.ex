@@ -900,8 +900,8 @@ defmodule PairingsEngine.Pairing do
   # *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, run) do
     # The same tournament-wide history the per-category path has always
-    # built, which this path had not. Without it, `order_for_pairing/4` and
-    # then `trf_player_rows/3` each fell through to their own
+    # built, which this path had not. Without it, the old standings ordering
+    # and then `trf_player_rows/3` each fell through to their own
     # `build_shared_history/1` - three queries and a full roster walk, twice
     # over, for one answer. `shared_history.full_roster` is the same set
     # `full_roster_players/1` was re-querying.
@@ -910,7 +910,7 @@ defmodule PairingsEngine.Pairing do
     full_roster =
       shared_history.full_roster
       |> Map.values()
-      |> order_for_pairing(tournament, shared_history, next_number)
+      |> in_pairing_number_order()
 
     eligible_ids = MapSet.new(players, & &1.id)
 
@@ -1027,7 +1027,7 @@ defmodule PairingsEngine.Pairing do
     full_roster =
       shared_history.full_roster
       |> Map.values()
-      |> order_for_pairing(tournament, shared_history, next_number)
+      |> in_pairing_number_order()
 
     local_rank_by_player_id =
       full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
@@ -2103,7 +2103,7 @@ defmodule PairingsEngine.Pairing do
         full_roster =
           history.full_roster
           |> Map.values()
-          |> order_for_pairing(tournament, history, round_number)
+          |> in_pairing_number_order()
 
         seated =
           round.pairings
@@ -2698,7 +2698,7 @@ defmodule PairingsEngine.Pairing do
     full_roster =
       history.full_roster
       |> Map.values()
-      |> order_for_pairing(tournament, history, round_number)
+      |> in_pairing_number_order()
 
     rank_by_id = full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
     by_id = Map.new(full_roster, &{&1.id, &1})
@@ -3133,8 +3133,9 @@ defmodule PairingsEngine.Pairing do
   end
 
   # One outcome's field from the base's: every player renumbered to this
-  # outcome's rank (the field is ordered by score, so the results move
-  # people), every opponent likewise, and the players who played an open
+  # outcome's rank (the pairing number since the ranks stopped following
+  # the standings, so normally unchanged - kept so a rank map that differs
+  # still holds), every opponent likewise, and the players who played an open
   # game given its result and their new score - exactly what
   # `Ainalrami.Trf.parse/1` would read off this outcome's TRF, which
   # `preview_fields/2`'s test holds it to. The forbidden pairs are worked
@@ -4010,24 +4011,12 @@ defmodule PairingsEngine.Pairing do
     trf_players =
       if rank_by_player_id do
         # `remap_trf_rows_to_local_ranks/2` only rewrites each row's `:rank`
-        # field - it preserves `trf_players`' own list order (still whatever
-        # `trf_player_rows/3` sorted by, the player's raw `pairing_number`).
-        # `Trf.serialize/1` writes rows in list order verbatim, with no sort
-        # of its own - so without this re-sort, the TRF's PHYSICAL row order
-        # stays pairing_number-based even when the caller asked for a
-        # different (e.g. current-standings) rank assignment via
-        # `rank_by_player_id`. JaVaFo's Dutch-system pairing engine expects
-        # its input in current-standings order (score desc, then rating
-        # desc) - when a score bracket has more than one structurally-equal
-        # way to pair, it falls back to input order as an implicit
-        # tie-break, so a mismatched physical order can produce a
-        # genuinely different (each still locally "valid") pairing.
-        # Confirmed against a real tournament: SWAR (which also runs
-        # JaVaFo, always re-sorting into standings order first) produced a
-        # different round-2 pairing than this app from identical round-1
-        # data; rebuilding the TRF input in standings order reproduced
-        # SWAR's pairing exactly. See `do_pair_single/4`'s
-        # `local_rank_by_player_id` for where that order is decided.
+        # field - it preserves `trf_players`' own list order, and
+        # `Trf.serialize/1` writes rows in list order verbatim. The rows go
+        # in rank order so the file reads in the order its ranks say. The
+        # pairing runs number by pairing number (`in_pairing_number_order/1`,
+        # which says why the rank must be the TPN); a caller passing another
+        # map still gets a file whose rows follow it.
         trf_players
         |> remap_trf_rows_to_local_ranks(rank_by_player_id)
         |> Enum.sort_by(& &1.rank)
@@ -4511,6 +4500,15 @@ defmodule PairingsEngine.Pairing do
   # becoming a loss.
   @bye_kinds ~w(requested-half requested-zero absent pairing-allocated zero)
 
+  # A round with no board and no `byes` row: before the player joined (and
+  # not counted as an absence - `PairingsEngine.LateEntry`), or after they
+  # withdrew. The crosstable has no record for it, so it is worth nothing.
+  # It went to `bye_points/4`'s catch-all and was scored as a LOSS, which
+  # only shows when a loss is worth something: in a 3-2-1 event a player
+  # joining in round 3 entered it with two points the standings did not
+  # give them, and was paired in the wrong score group.
+  defp game_points(%{points_kind: "zero"}, _t, _absences), do: 0.0
+
   # A bye knows what kind it is; ask the crosstable's own rule.
   defp game_points(%{points_kind: kind} = g, t, absences) when kind in @bye_kinds,
     do: Standings.bye_points(kind, t, Map.get(g, :round), absences)
@@ -4546,94 +4544,30 @@ defmodule PairingsEngine.Pairing do
     base + Standings.presence_points_for_code(t, g.result)
   end
 
-  # Orders `players` the way JaVaFo's Dutch-system engine expects its input:
-  # current standings, score descending then rating descending - NOT
-  # `pairing_number` (a fixed, initial-seed order `full_roster_players/1`'s
-  # own DB query returns, correct for a downloadable/archival TRF file per
-  # the TRF16 convention, but wrong for feeding a live pairing run). See the
-  # re-sort in `javafo_input/4` for the other half of this fix (physical row
-  # order in the generated TRF) and its full rationale.
+  # The engine's starting ranks: the roster in pairing-number order, so each
+  # player's rank in the file IS their pairing number (TPN) - contiguous
+  # 1..N, which every pairing number is unless a numbered player was
+  # deleted, and then still in the same order.
   #
-  # `shared_history`, when given, avoids re-querying rounds/byes/roster
-  # `games_per_player/2` already fetched once for this pairing run - same
-  # sharing `do_pair_by_category/3` already does elsewhere.
-  # Feeds JaVaFo current-standings order (score desc, then rating desc -
-  # see this function's own commit history for why that matters at all).
-  # `pairing_number` as a third key is the fix a real SWAR export
-  # comparison surfaced: two players tied on BOTH score and rating had no
-  # tie-break here at all, so `Enum.sort_by/2`'s stability silently fell
-  # through to whichever order the INPUT list happened to already be in.
-  # For round 2+ that input is `build_shared_history/1`'s `full_roster`
-  # `Map.values/1` - an unordered map with no `order_by` on its own
-  # query - so the fallback order was essentially DB id / insertion
-  # order: not wrong by any rule, but not a rule either, and not
-  # reproducible the way a tie-break needs to be.
+  # The Dutch rules order a score group by score and then by TPN (C.04.3
+  # A.2), Baku's and acceleration-mode extra points included in the score
+  # (the `XXA` lines); and 5.2.5's initial-colour parity is taken on the
+  # TPN. Both read the starting rank, so the rank has to be the TPN. From
+  # 2026-08-03 until this change it was the standings position instead
+  # (score plus virtual points, then rating, then pairing number), after a
+  # comparison with SWAR. Within a score group that is rating order, which
+  # is the TPN order for a field numbered by rating at the start - but not
+  # for a late entrant (numbered after the field) or a player whose rating
+  # changed, and 5.2.5's parity then flipped colours on boards between
+  # players with no game yet. Found 2026-10-02 by pairing through "Pair
+  # round" and comparing with bbpPairings and Ainalrami on a file numbered
+  # by pairing number.
   #
-  # Found by pairing the same real, in-progress tournament twice: once
-  # live in OpenPairings, once by exporting to `.swar` (see
-  # `PairingsEngine.Federations.BEL.SwarExport`) and continuing it in a real SWAR
-  # install. 57 of 61 round-7 boards matched exactly; the 4 that didn't
-  # were two clusters of players tied on BOTH score and rating (one pair
-  # unrated 0 vs 0, one pair rated 1775 vs 1775) - precisely the case
-  # this function left undefined. `SwarExport`'s own tie-break for the
-  # identical situation is deliberately name-based (matching what real
-  # SWAR does - see `SwarExport.assign_ranks/1`), which is principled but
-  # different from whatever this function's silent fallback happened to
-  # produce; two different-but-plausible tie-breaks for the same
-  # genuinely-tied pair is exactly what a criss-cross mismatch looks
-  # like. `pairing_number` is FIDE's own prescribed fallback (the
-  # starting rank number, Art. 1.14) once score and rating are both
-  # exhausted, so it's the fix here - not name, to keep this engine's own
-  # rule independent of anyone's SWAR-export tie-break choice.
-  # No default: both pairing paths now build the run's shared history up
-  # front and pass it. The nil default was the single-pool path silently
-  # rebuilding it, which is what item 6 of the sweep was about.
-  #
-  # Virtual points are part of the score here too, Baku's (C.04.7) and
-  # extra points that feed the pairing alike: the engine brackets on points
-  # plus `round_number`'s virtual points, and the rows must go in that
-  # order, because their position IS the starting rank the engine is handed
-  # and the engine orders each bracket by score and then by that rank
-  # (C.04.3 A.2). SWAR's rows likewise go in its standings order (points
-  # plus `ExtraPts`) before it writes the `.trn`.
-  #
-  # Baku's used to be left out. In an accelerated round that numbered a
-  # Group-B player above a Group-A player on the same pairing score whenever
-  # the Group-B player had more game points - so the engine, rightly
-  # trusting the file, took the lower-seeded player for the higher-ranked
-  # one, and the bracket's S1/S2 split, its floaters and its colours came
-  # out wrong. Measured 2026-10-02 against bbpPairings and Ainalrami on a
-  # file numbered by pairing number: 124 of 396 rounds over 60 random Baku
-  # tournaments differed, every one in rounds 2-5, none after.
-  defp order_for_pairing(players, tournament, shared_history, round_number) do
-    by_id = Map.new(players, &{&1.id, &1})
-    games = games_per_player(tournament, by_id, shared_history)
-    extra? = Tournament.extra_points_pairing?(tournament)
-    baku = baku_points_for_round(tournament, players, round_number)
-
-    Enum.sort_by(players, fn p ->
-      points = player_points(Map.get(games, p.id, []), tournament)
-      points = if extra?, do: points + virtual_value(p.extra_points), else: points
-      points = points + Map.get(baku, p.id, 0.0)
-      {-points, -Player.rating(p), p.pairing_number}
-    end)
-  end
-
-  # Each Group-A player's Baku virtual points for `round_number` alone - the
-  # last entry of the history `accelerations/3` writes as `XXA`, from the
-  # same roster, so the order and the file can never disagree on who is in
-  # Group A. `%{}` for a tournament without Baku.
-  defp baku_points_for_round(
-         %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
-         players,
-         round_number
-       ) do
-    tournament
-    |> accelerations(players, round_number)
-    |> Map.new(fn {id, history} -> {id, List.last(history)} end)
-  end
-
-  defp baku_points_for_round(_tournament, _players, _round_number), do: %{}
+  # Baku's Group B can no longer be numbered above Group A on the same
+  # pairing score: Group A is the top `2 * ceil(n / 4)` pairing numbers, so
+  # by TPN it is always ahead - the case the standings order had to add the
+  # virtual points for.
+  defp in_pairing_number_order(players), do: Enum.sort_by(players, & &1.pairing_number)
 
   # Every player who ever received a pairing_number, regardless of current
   # active/absent/forfeit/withdrawn status - the full frozen roster. Used to
@@ -4858,7 +4792,53 @@ defmodule PairingsEngine.Pairing do
           end
         end)
 
-      {player_id, number_absences(games)}
+      {player_id, games |> number_absences() |> Enum.map(&code_unplayed(&1, tournament))}
+    end
+  end
+
+  @unplayed_kinds ~w(requested-half requested-zero absent zero)
+
+  # An unplayed round (not the pairing-allocated bye, which is always `U`)
+  # gets the TRF letter for what it is WORTH - the value `player_points/2`
+  # adds to the score column - so the letters and the score agree, as TRF
+  # and every pairing program reading it require: `Z` for nothing, `H` for a
+  # draw's worth, `F` for a win's (`unplayed_code/2`).
+  #
+  # Every unplayed round used to be written `Z` and the engine told a `Z` is
+  # worth the absence value: a round before joining or after withdrawing
+  # (worth nothing), an absence paid half a point or a full one, and a
+  # capped absence all the same letter at one value. The file contradicted
+  # its own score column (bbpPairings refuses it: "the score does not match
+  # the game results"), and a full-point absence the engine could not see
+  # as one left the pairing-allocated bye to the wrong player.
+  defp code_unplayed(%{points_kind: kind} = game, tournament) when kind in @unplayed_kinds do
+    value = game_points(game, tournament, Map.get(game, :absence_number))
+    %{game | result: unplayed_code(value, tournament)}
+  end
+
+  defp code_unplayed(game, _tournament), do: game
+
+  @doc """
+  The TRF letter for a round the player did not play and was not given the
+  pairing-allocated bye in, from what the round is worth under
+  `tournament`'s point system (`Tournament.engine_point_system/1`, which
+  values the letters the same way): `Z` for nothing, `H` for a draw's
+  worth, `F` for a win's.
+
+  A value that is none of those - an absence paid half a point in a 3-1-0
+  event, a 3-2-1 event's zero-point bye or capped absence worth the loss's
+  presence point - has no letter of its own in TRF. It is written `Z`;
+  the score column still carries the exact total, which is what the engine
+  brackets by.
+  """
+  def unplayed_code(value, tournament) do
+    points = Tournament.engine_point_system(tournament)
+
+    cond do
+      value == 0 -> "Z"
+      value == points.draw -> "H"
+      value == points.win -> "F"
+      true -> "Z"
     end
   end
 
@@ -4959,7 +4939,7 @@ defmodule PairingsEngine.Pairing do
   # `games_per_player/3` walks every round looking for each player's pairing
   # - O(players x rounds x boards) - and produces the same map every time it
   # is asked, because the roster and the rounds are fixed for the whole run.
-  # It was being run once by `order_for_pairing/4` and then again by
+  # It was being run once by the old standings ordering and then again by
   # `trf_player_rows/3` ONCE PER CATEGORY. Threading the history removed the
   # queries; this removes the walk.
   defp precompute_games(tournament, history) do

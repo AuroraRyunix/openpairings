@@ -144,7 +144,9 @@ defmodule PairingsEngine.LateEntryTest do
 
       row = t |> Pairing.trf_player_rows(players) |> Enum.find(&(&1.id == late.id))
       assert row.points == 1.5
-      assert Enum.map(row.games, & &1.result) == ~w(Z Z Z)
+      # Half a point each: `H`, the letter for what they are worth (a `Z`
+      # would read as nothing, against the 1.5 beside it).
+      assert Enum.map(row.games, & &1.result) == ~w(H H H)
     end
   end
 
@@ -503,7 +505,7 @@ defmodule PairingsEngine.LateEntryTest do
         |> Enum.find(&(String.starts_with?(&1, "001") and &1 =~ "Late Entrant"))
 
       assert line |> String.slice(80, 4) |> String.trim() == "1.5"
-      assert length(Regex.scan(~r/0000 - Z/, line)) == 3
+      assert length(Regex.scan(~r/0000 - H/, line)) == 3
     end
 
     test "the SWAR file keeps the rounds before joining as SWAR's own absences" do

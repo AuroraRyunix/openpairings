@@ -642,7 +642,12 @@ defmodule PairingsEngine.TrfImport do
     zero = system[:zero_point_bye]
     loss = system[:loss] || Trf.default_point_system().loss
 
-    if is_nil(zero) or zero == loss, do: attrs, else: Map.put(attrs, :abs_value, zero)
+    # A zero `Z` is TRF's own meaning and what this app's export writes since
+    # absences paying something go out as `H`/`F` (`Pairing.unplayed_code/2`)
+    # - not an absence setting, even where a loss is worth something.
+    if is_nil(zero) or zero == loss or zero == 0,
+      do: attrs,
+      else: Map.put(attrs, :abs_value, zero)
   end
 
   # TRF26's `362`, a team event's own point system: `W`/`D`/`L` are match

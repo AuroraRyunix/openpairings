@@ -2843,7 +2843,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "A half-point bye is an absence with absence points at 1/2 (standings.ex:662,674-680); written as Z with 162 Z=0.5."
+   "note": "A half-point bye is an absence with absence points at 1/2 (standings.ex:662,674-680); written as H, the half-point bye, by Pairing.unplayed_code/2 (it was Z with 162 Z=0.5 until 2026-10-02)."
   },
   {
    "q": 173,

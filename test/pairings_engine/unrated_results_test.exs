@@ -193,10 +193,17 @@ defmodule PairingsEngine.UnratedResultsTest do
                Ainalrami.Trf.default_point_system()
     end
 
-    test "a sat-out round carries the tournament's absence value" do
+    # A `Z` is worth nothing, TRF's own meaning: an absence paying half a
+    # point is written `H` instead (`Pairing.unplayed_code/2`), so the letter
+    # and the score column agree. It used to be `Z` worth the absence value,
+    # which also valued every round before joining or after withdrawing.
+    test "a zero-point bye is worth nothing, whatever an absence pays" do
       t = %Tournament{points_win: 1.0, points_draw: 0.5, points_loss: 0.0, abs_value: 0.5}
 
-      assert Tournament.engine_point_system(t).zero_point_bye == 0.5
+      assert Tournament.engine_point_system(t).zero_point_bye == 0.0
+      assert PairingsEngine.Pairing.unplayed_code(0.5, t) == "H"
+      assert PairingsEngine.Pairing.unplayed_code(1.0, t) == "F"
+      assert PairingsEngine.Pairing.unplayed_code(0.0, t) == "Z"
     end
   end
 

@@ -17,6 +17,53 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The pairing engine is told each player's pairing number as their
+  starting rank.** Since 0.18.0 the file "Pair round" hands the engine
+  numbered the players by the current standings (score, then rating)
+  instead of by pairing number, which the Dutch rules order a score group
+  by and take 5.2.5's colour parity from. Two things came out wrong. A
+  late entrant - numbered after the field - was placed in their score
+  group by rating, so the boards and the bye around them could differ
+  (found on rounds 2 and 3 of test tournaments). And on a board of two
+  players with no game yet (both had a bye or an absence, or joined late),
+  the colours could be the other way round, in any Swiss tournament from
+  round 2 on. Baku acceleration stays fixed: Group A is the top pairing
+  numbers and its virtual points are in the file. **After upgrading:** no
+  saved round changes - rounds already paired keep their boards and
+  colours. From the next round on the pairing follows the pairing numbers,
+  so a round deleted and paired again can come out differently, and "why
+  not me" on an old round is now judged on the pairing numbers.
+- [Fix] **An unplayed round is written with the letter for what it is
+  worth.** Since 0.18.0 every unplayed round went to the engine as `Z`
+  while the engine was told a `Z` is worth the absence value: a round
+  before a player joined or after they withdrew, an absence paying half a
+  point or a full one and a capped absence were all one letter at one
+  value. The file contradicted its own score column, and the engine could
+  give the pairing-allocated bye to the wrong player (it read a late
+  entrant on zero as having scored a point without playing). Now an
+  absence worth a draw is `H`, one worth a win is `F`, and a round worth
+  nothing - before joining, after withdrawing, an unpaid absence - is `Z`
+  worth 0, as in TRF. Only tournaments that pay points for an absence
+  (`abs_value`, e.g. "absent = ½") or for a loss were affected; standings
+  and tie-breaks were always right. **After upgrading:** saved rounds do
+  not change. The FIDE/TRF export now writes such absences as `H` or `F`
+  and declares a zero-point bye worth 0 (it was the absence value), and
+  pre-announced absences in the export follow the same rule. An absence
+  paying a value that is neither a draw's nor a win's (half a point in a
+  3-1-0 event, a 3-2-1 presence point) still has no letter of its own and
+  is written `Z`; the score column stays exact.
+- [Fix] **With a loss worth points, the rounds before a player joined no
+  longer count as losses.** In a tournament where a loss pays something
+  (3-2-1 and similar point systems), a late entrant's rounds before
+  joining - and a withdrawn player's rounds after leaving - were scored as
+  losses in the file sent to the engine and in the TRF export's score
+  column, while the standings rightly gave 0. A late entrant was paired in
+  a score group above their own (a player joining in round 3 entered it
+  with two points the standings did not give them). They now score 0, or
+  what the late-entry rule awards when "rounds before joining count as
+  absences" is on (`late_entry_absences`, unchanged). **After upgrading:**
+  saved rounds do not change; standings do not change; the TRF export's
+  totals for those players drop to what the standings show.
 - [Feature] **A sent receipt for every round sent for rating.** Each
   "Send…" now stores a receipt: a fingerprint of exactly what went out
   (every game's identity, both players, the colours, the result as the file

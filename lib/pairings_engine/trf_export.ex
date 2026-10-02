@@ -17,7 +17,7 @@ defmodule PairingsEngine.TrfExport do
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
-  alias PairingsEngine.{Federation, Pairing, TeamStandings, Tournaments}
+  alias PairingsEngine.{Federation, Pairing, Standings, TeamStandings, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
@@ -992,35 +992,39 @@ defmodule PairingsEngine.TrfExport do
         |> Tournaments.list_byes_from_round(paired + 1)
         |> Enum.group_by(& &1.player_id)
 
-      Enum.map(rows, fn row -> Map.update!(row, :games, &(&1 ++ future_bye_games(byes, row))) end)
+      Enum.map(rows, fn row ->
+        Map.update!(row, :games, &(&1 ++ future_bye_games(byes, row, tournament)))
+      end)
     else
       rows
     end
   end
 
-  defp future_bye_games(byes, row) do
+  defp future_bye_games(byes, row, tournament) do
     case Map.get(byes, row.id, []) do
       [] ->
         []
 
       granted ->
-        by_round = Map.new(granted, &{&1.round, &1.type})
+        by_round = Map.new(granted, &{&1.round, &1})
         last = granted |> Enum.map(& &1.round) |> Enum.max()
         blank = %{opponent_rank: nil, colour: nil, result: nil}
 
         for round <- (length(row.games) + 1)..last//1 do
           case Map.get(by_round, round) do
             nil -> blank
-            type -> %{opponent_rank: nil, colour: nil, result: future_bye_code(type)}
+            bye -> %{opponent_rank: nil, colour: nil, result: future_bye_code(bye, tournament)}
           end
         end
     end
   end
 
-  # `absent` is a zero-point bye by any reader's reading: the player is not
-  # playing and scores nothing for it.
-  defp future_bye_code("requested-half"), do: "H"
-  defp future_bye_code(_zero), do: "Z"
+  # The letter for what the bye will be worth, as the played rounds are
+  # written (`Pairing.unplayed_code/2`): an absence the tournament pays half
+  # a point or a full one for is `H` or `F`. It was always `Z`, whatever it
+  # paid.
+  defp future_bye_code(bye, tournament),
+    do: bye |> Standings.bye_points_for_row(tournament) |> Pairing.unplayed_code(tournament)
 
   # `players.extra_points` - the administrative bonus or penalty the
   # standings add on top of the game points (SWAR's "XtPts"). TRF's own

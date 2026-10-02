@@ -2027,22 +2027,27 @@ defmodule PairingsEngine.Tournaments.Tournament do
   it is pairing a different tournament. Until this existed, a tournament set
   to 3-1-0 was scored by us at 3-1-0 and paired by the engine at 1/half/0.
 
-  One limitation, stated rather than hidden, and it is really one limitation
-  wearing two hats: TRF has a single letter, `Z`, for three different things
-  this app scores differently - a requested zero-point bye
-  (`presence_value || points_loss`), an absence (`abs_value`, capped by
-  `abs_jusque` and `abs_nbfois`), and a round with no row at all
-  (`points_loss`). A per-result map cannot express that, so `zero_point_bye`
-  is set to the absence value, which is the one people actually configure,
-  and a capped absence or a 3-2-1 requested bye is passed at a value the
-  crosstable would not agree with.
+  An unplayed round is written with the TRF letter for what it is worth
+  (`Pairing.unplayed_code/2`): `Z` for nothing - a zero-point bye, an
+  absence that pays nothing, a round before the player joined or after
+  they withdrew - `H` for a draw's worth and `F` for a win's. So
+  `zero_point_bye` is 0, TRF's own meaning of `Z`, and the letters in the
+  file add up to its score column.
 
-  It degrades gracefully rather than silently: the score the engine BRACKETS
-  by comes from the file's own score column (`Pairing.player_points/2`),
-  which is exact in all three cases. This map is only consulted where a
-  per-round value is needed - reconstructing what a player had before round
-  N, and deciding float direction - so the error is bounded to those. It is
-  a gap, not a design.
+  Until 2026-10-02 every unplayed round was written `Z` and
+  `zero_point_bye` was the absence value (`abs_value`, else the loss): a
+  round before joining or after withdrawing, an absence paid half a point
+  or a full one and a capped absence were all one letter at one value, so
+  the file contradicted its own score column whenever they differed.
+
+  What is left: a value that is none of 0, a draw's or a win's - an absence
+  paid half a point in a 3-1-0 event, a 3-2-1 event's zero-point bye or
+  capped absence worth the loss's presence point - has no letter and is
+  written `Z`. The score the engine BRACKETS by comes from the file's own
+  score column (`Pairing.player_points/2`), which is exact; this map is only
+  consulted where a per-round value is needed - reconstructing what a
+  player had before round N, and deciding float direction - so the error is
+  bounded to those.
   """
   def engine_point_system(%__MODULE__{} = t) do
     loss = t.points_loss || 0.0
@@ -2059,8 +2064,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
       # A forfeit loss pays an ordinary loss here; the TRF code is what marks
       # it unplayed, not the value.
       forfeit_loss: loss,
-      # TRF `Z` - a round the player sat out. See the cap note above.
-      zero_point_bye: t.abs_value || loss
+      # TRF `Z` - an unplayed round worth nothing. An absence that pays
+      # something is written `H` or `F` instead (see above).
+      zero_point_bye: 0.0
     }
   end
 

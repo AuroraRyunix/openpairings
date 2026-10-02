@@ -277,7 +277,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-02
 |---|---|---|---|---|---|
 | 170 | Withdrawal shown in the standings? | N | gap | -7% | Costs 7%. No withdrawn marker on the standings page or print (standings_live.ex:916-924; print_controller.ex:1027-1066). |
 | 171 | Non-zero score for an unpaired player? | Y | met | ok | Absences score abs_value, the PAB bye_value (standings.ex:644-680). |
-| 172 | Half-point bye? | Y | met | ok | A half-point bye is an absence with absence points at 1/2 (standings.ex:662,674-680); written as Z with 162 Z=0.5. |
+| 172 | Half-point bye? | Y | met | ok | A half-point bye is an absence with absence points at 1/2 (standings.ex:662,674-680); written as H, the half-point bye, by Pairing.unplayed_code/2 (it was Z with 162 Z=0.5 until 2026-10-02). |
 | 173 | Two or more half-point byes? | Y | met | ok | Unlimited unless abs_nbfois caps it (standings.ex:674-691). |
 | 174 | Level-3 on the second and later half-point bye? | N | gap | -15% | Costs 15%. A second paid absence raises no warning (tournaments.ex update_player; players_live.ex:3353). |
 | 175 | Players can be marked ineligible for half-point byes? | N | gap | -7% | Costs 7%. No half-point-bye-ineligible flag (player.ex:53-61). Routes to Q177. |

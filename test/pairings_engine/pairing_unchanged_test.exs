@@ -10,7 +10,11 @@ defmodule PairingsEngine.PairingUnchangedTest do
   `:options` rounds 2-5 were regenerated on 2026-10-02 for the Baku fix
   (`Pairing.order_for_pairing/4`): that scenario is Baku-accelerated, its
   rounds 2-3 were paired in game-point order, and rounds 4-5 follow from
-  them; round 1 and the `:categories` scenario did not change. Each
+  them; round 1 and the `:categories` scenario did not change. Regenerated
+  again the same day when the engine's starting ranks became the pairing
+  numbers: only `:options` round 4's account changed, its two bye
+  exclusions now listed in pairing-number order (the boards are the
+  same). Each
   test replays its scenario and compares everything the pairing wrote -
   pairing numbers, boards, frozen board labels, results of byes, bye rows,
   recorded virtual points and the round's account - with ids replaced by
