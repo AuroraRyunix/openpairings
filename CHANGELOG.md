@@ -17,6 +17,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The results snapshot now carries the point system and the points
+  of every game.** `tournament.scoring` holds the win, draw, loss, bye and
+  forfeit values and the presence point; each board carries `points` (what
+  each seat scored, as the standings score it) and a postponed board also
+  `postponed_as` (how each seat's game counts until it is played). The results
+  site used to read points off the result token as 1, a half and 0, which
+  disagreed with this app under a 3-1-0 system, a presence point or a
+  postponed game valued as a win or a loss. Old readers ignore the new keys.
+
 ## [0.71.0] - 2026-10-01
 
 - [Feature] **Bye preferences: "must get", "rather gets" and "rather not"
