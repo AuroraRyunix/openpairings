@@ -239,6 +239,10 @@ defmodule PairingsEngine.StandingsCacheTest do
     end
 
     test "scoring and tie-break settings", %{t: t} do
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, t} = Tournaments.leave_fide_mode(t)
+
       {before, grid_before, _, now} =
         changes(t, fn t ->
           {:ok, t} =

@@ -2446,6 +2446,15 @@ a.pending-chip:hover {
 }
 .archived-banner > span:first-child { flex: 1; min-width: 220px; }
 
+/* "Not in FIDE mode" on every page of a tournament that has left it
+   (VCL4THP Q46). A state worth knowing, not a warning: one muted line. */
+.fide-mode-strip {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.fide-mode-strip a { margin-left: 4px; }
+
 /* The in-app update notice - see PairingsEngineWeb.UpdateNotice and
    PairingsEngine.Updates. Same rounded-card shape as .archived-banner
    rather than the root layout's sticky .deploy-banner/.site-notice bars:

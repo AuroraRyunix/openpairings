@@ -287,6 +287,9 @@ defmodule PairingsEngineWeb.TeamsLiveTest do
     end
 
     test "the Scoring page sets match points", %{conn: conn, tournament: t} do
+      # Rounds are paired, so FIDE mode freezes the match points
+      # (fide_mode_locks_test.exs); this test is about the page.
+      {:ok, t} = Tournaments.leave_fide_mode(t)
       {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/settings/scoring")
       assert html =~ "Match points for a won match"
 

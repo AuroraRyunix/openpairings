@@ -86,7 +86,13 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       :abs_value in Tournaments.locked_fields(socket.assigns.tournament) and
         :abs_scoring not in socket.assigns.unlocked_fields
 
-    assign(socket, abs_scoring_locked?: locked?)
+    # FIDE mode freezes the scoring system and the bye's value once the
+    # first round is paired (`Tournaments.fide_locked_fields/1`); there is
+    # no Unlock for those, only Settings -> FIDE.
+    assign(socket,
+      abs_scoring_locked?: locked?,
+      fide_locked: Tournaments.fide_locked_fields(socket.assigns.tournament)
+    )
   end
 
   @impl true
@@ -254,6 +260,13 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
         <div class="card">
           <h2>{gettext("Points")}</h2>
 
+          <.fide_lock_note
+            id="points-fide-lock"
+            tournament={@tournament}
+            fide_locked={@fide_locked}
+            fields={[:points_win, :bye_value]}
+          />
+
           <.setting_group>
             <.setting_field label={gettext("Points for a win")}>
               <input
@@ -261,6 +274,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 step="0.5"
                 name="tournament[points_win]"
                 value={@tournament.points_win}
+                disabled={:points_win in @fide_locked}
               />
             </.setting_field>
 
@@ -270,6 +284,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 step="0.5"
                 name="tournament[points_draw]"
                 value={@tournament.points_draw}
+                disabled={:points_draw in @fide_locked}
               />
             </.setting_field>
 
@@ -279,6 +294,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 step="0.5"
                 name="tournament[points_loss]"
                 value={@tournament.points_loss}
+                disabled={:points_loss in @fide_locked}
               />
             </.setting_field>
 
@@ -288,6 +304,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 step="0.5"
                 name="tournament[bye_value]"
                 value={@tournament.bye_value}
+                disabled={:bye_value in @fide_locked}
               />
             </.setting_field>
           </.setting_group>
@@ -295,6 +312,13 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
         <div :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)} class="card">
           <h2>{gettext("Match points")}</h2>
+
+          <.fide_lock_note
+            id="match-points-fide-lock"
+            tournament={@tournament}
+            fide_locked={@fide_locked}
+            fields={[:team_match_points_win]}
+          />
 
           <p class="subtitle" style="margin: 0 0 8px">
             {gettext(
@@ -310,6 +334,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 min="0"
                 name="tournament[team_match_points_win]"
                 value={@tournament.team_match_points_win}
+                disabled={:team_match_points_win in @fide_locked}
               />
             </.setting_field>
 
@@ -320,6 +345,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 min="0"
                 name="tournament[team_match_points_draw]"
                 value={@tournament.team_match_points_draw}
+                disabled={:team_match_points_draw in @fide_locked}
               />
             </.setting_field>
 
@@ -330,6 +356,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 min="0"
                 name="tournament[team_match_points_loss]"
                 value={@tournament.team_match_points_loss}
+                disabled={:team_match_points_loss in @fide_locked}
               />
             </.setting_field>
           </.setting_group>

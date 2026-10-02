@@ -91,13 +91,20 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp assign_pairing_locks(socket) do
     tournament = socket.assigns.tournament
 
+    # FIDE mode's locks are not opened by Unlock (`Tournaments.fide_locked_fields/1`),
+    # so they are added back after the unlocked ones are taken out.
+    fide_locked = Tournaments.fide_locked_fields(tournament)
+
     locked =
       tournament
       |> Tournaments.locked_fields()
       |> MapSet.new()
       |> MapSet.difference(socket.assigns.unlocked_fields)
+      |> MapSet.union(MapSet.new(fide_locked))
 
     assign(socket,
+      fide_locked: fide_locked,
+      acceleration_locked?: :acceleration in fide_locked,
       paired_rounds: Pairing.paired_rounds_count(tournament.id),
       pairing_system_locked?: :pairing_system in locked,
       pairing_engine_locked?: :pairing_engine in locked,
@@ -508,6 +515,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # because `locked_hint_message/1` requires a specific `warning` and each
   # field breaks a different thing - see `Tournaments.locked_fields/1`'s
   # moduledoc for the reasoning each one is paraphrasing.
+  # Where the way out of a FIDE-mode lock is, for `locked_hint_message/1`;
+  # nil keeps its ordinary Unlock button.
+  defp fide_path(tournament, fide_locked, field) do
+    if field in fide_locked, do: ~p"/t/#{tournament.id}/settings/fide"
+  end
+
   defp pairing_system_warning,
     do:
       gettext(
@@ -590,6 +603,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 field={:pairing_system}
                 locked_hint={@locked_hint}
                 warning={pairing_system_warning()}
+                fide_path={fide_path(@tournament, @fide_locked, :pairing_system)}
               />
             </.setting_field>
 
@@ -715,6 +729,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 field={:rr_cycles}
                 locked_hint={@locked_hint}
                 warning={rr_cycles_warning()}
+                fide_path={fide_path(@tournament, @fide_locked, :rr_cycles)}
               />
             </.setting_field>
 
@@ -749,7 +764,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               label={gettext("Acceleration")}
               hint={gettext("Swiss only - round robin and Keizer ignore this setting")}
             >
-              <select name="tournament[acceleration]">
+              <select name="tournament[acceleration]" disabled={@acceleration_locked?}>
                 <option value="none" selected={@tournament.acceleration == "none"}>
                   {gettext("None")}
                 </option>
@@ -758,6 +773,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   {gettext("Baku acceleration (FIDE C.04.7)")}
                 </option>
               </select>
+              <.fide_lock_note
+                id="acceleration-fide-lock"
+                tournament={@tournament}
+                fide_locked={@fide_locked}
+                fields={[:acceleration]}
+              />
               <span
                 :if={
                   @tournament.extra_points_mode == "acceleration" or @tournament.count_extra_points

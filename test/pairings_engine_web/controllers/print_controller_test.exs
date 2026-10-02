@@ -1596,6 +1596,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     test "shows the player's own tiebreak values, one line, in the tournament's configured order",
          %{conn: conn, scope: scope} do
       {tournament, %{a: a}} = fixture(scope)
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, tournament} = Tournaments.leave_fide_mode(tournament)
 
       {:ok, tournament} =
         Tournaments.update_tournament(tournament, %{"tiebreaks" => ["BH", "SB"]})
@@ -1615,6 +1618,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       scope: scope
     } do
       {tournament, %{a: a}} = fixture(scope)
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, tournament} = Tournaments.leave_fide_mode(tournament)
       {:ok, tournament} = Tournaments.update_tournament(tournament, %{"tiebreaks" => []})
 
       html = get(conn, ~p"/t/#{tournament.id}/print/card/#{a.id}") |> html_response(200)

@@ -617,6 +617,57 @@ cause attached.
 - **Any change to pairing behaviour.** This is observation and reporting.
 - **Anything touching `fide_homologated`.** See 7.4, which now has an answer.
 
+### 3.8 Pass 2, 2026-10-02: FIDE mode now stops things
+
+Sections 3.1-3.7 describe a FIDE mode that observes and reports and never
+refuses. The VCL4THP v13 and TEC Manual drafts (on disk since 2026-08-25,
+see `vcl4thp/tracker.json`) changed that, for two reasons. The checklist
+fails a program on which, *in FIDE mode*, the rounds, the scoring, the
+bye's value, the pairing system, the acceleration or the tie-break list can
+change once the event is under way, or any round before the one preceding
+the last played can be edited. And the manual's Level 5 is "rejected in FIDE
+mode, or allowed only after leaving it" - so refusing is a recognised answer,
+not a policy of ours. What was built:
+
+- **Three scoring departures** in `Compliance` (`:draws_outscore_win`,
+  `:bye_above_win`, `:bye_not_a_game_score`; Q74, Q81, Q83). The 2017
+  checklist reasoning in 3.2 still holds for scoring in general: 3-1-0, a
+  bye worth a draw or nothing, a bye of 2 under 3-1-0 all stay in. Only
+  scores no game can give leave.
+- **`Compliance.fide_mode?/1`**: compliant now *and* never left. The locks
+  read this, so a tournament that once left stays unlocked (Q45).
+- **`Tournaments.fide_locked_fields/1`**: rounds, `rr_cycles`, the scoring
+  (team match points included), the bye's value, acceleration,
+  `pairing_system` and `tiebreaks`, frozen once round 1 is paired, and the
+  `:unlock` option does not open them (`{:error, :locked_in_fide_mode}`). A
+  round robin's `rounds_count` is left out: it is derived, and `rr_cycles`
+  is the lock that matters there.
+- **`Tournaments.ensure_round_editable/2`** (C.04.2:4.3, Q189-Q191): in
+  FIDE mode only the round before the last played, and later ones, can be
+  changed. Checked in `update_pairing_result/3` (a postponed game's result
+  exempt, Q162), in every hand edit through `sent_round_gate/2`, in the team
+  forfeit decisions, and in `delete_player/1` (a player who played a closed
+  round is withdrawn instead).
+- **One explicit way out**: `Tournaments.leave_fide_mode/1` behind a
+  two-step confirmation on Settings -> FIDE, the second step listing the
+  consequences and answered the opposite way round (TEC's Level 4). It
+  stamps `fide_compliance_lost_round` like any other exit.
+- **The `###` line** (Q44): `TrfExport` writes `### FIDE mode exited @ Round
+  N` (or "before Round 1 was paired") after the header in the TRF26 dialect.
+  Post-processed like the copy mark (4.1), not in Ainalrami - the pin cannot
+  move in this pass.
+- **The permanent indication** (Q46): one muted line on every page of a
+  tournament not in FIDE mode, in `Layouts.app`.
+
+**What section 3.5 said and no longer holds:** "it does not argue and it
+does not block". The notice still does not block; the locks do. An arbiter
+who needs one of the frozen settings changed leaves FIDE mode first, on
+purpose, and the report says so.
+
+**Still open (VCL4THP Q43):** the other ways out - saving a departing
+setting, and a pairing that soft rules, extra points or a bye exclusion
+moved - still have no Level-4 confirmation. See the tracker for the plan.
+
 ---
 
 ## 4. The `###` TRF comment

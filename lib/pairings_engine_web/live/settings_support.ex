@@ -243,14 +243,76 @@ defmodule PairingsEngineWeb.SettingsSupport do
   attr :locked_hint, :atom, default: nil
   attr :warning, :string, required: true
 
+  attr :fide_path, :string,
+    default: nil,
+    doc:
+      "Settings -> FIDE, when FIDE mode holds this field (`Tournaments.fide_locked_fields/1`): no Unlock then, only the way out"
+
   def locked_hint_message(assigns) do
     ~H"""
     <div :if={@locked_hint == @field} class="hint locked-hint-msg">
-      <p style="margin: 0 0 8px">{@warning}</p>
-      <button type="button" class="pe-btn tonal" phx-click="unlock_field" phx-value-field={@field}>
-        {gettext("Unlock")}
-      </button>
+      <%= if @fide_path do %>
+        <p style="margin: 0">
+          <.fide_lock_text fide_path={@fide_path} />
+        </p>
+      <% else %>
+        <p style="margin: 0 0 8px">{@warning}</p>
+        <button
+          type="button"
+          class="pe-btn tonal"
+          phx-click="unlock_field"
+          phx-value-field={@field}
+        >
+          {gettext("Unlock")}
+        </button>
+      <% end %>
     </div>
+    """
+  end
+
+  @doc """
+  The line under a setting FIDE mode holds once round 1 is paired
+  (`PairingsEngine.Tournaments.fide_locked_fields/1`) - for the pages whose
+  controls have no click-to-explain overlay. Renders nothing unless one of
+  `fields` is in `fide_locked`.
+
+  It says why and gives the one way out, and has no Unlock button: VCL4THP
+  wants these refused in FIDE mode (TEC's Level 5), and leaving FIDE mode is
+  its own deliberate act on Settings -> FIDE.
+  """
+  attr :id, :string, required: true
+  attr :tournament, :map, required: true
+  attr :fide_locked, :list, required: true
+  attr :fields, :list, required: true
+
+  def fide_lock_note(assigns) do
+    assigns =
+      Phoenix.Component.assign(
+        assigns,
+        :locked?,
+        Enum.any?(assigns.fields, &(&1 in assigns.fide_locked))
+      )
+
+    ~H"""
+    <p :if={@locked?} id={@id} class="hint fide-lock-note">
+      <.fide_lock_text fide_path={~p"/t/#{@tournament.id}/settings/fide"} />
+    </p>
+    """
+  end
+
+  attr :fide_path, :string, required: true
+
+  defp fide_lock_text(assigns) do
+    ~H"""
+    <.rich_text text={
+      gettext(
+        "Locked in FIDE mode: the FIDE rules do not let this change once the first round is paired. To change it anyway, %[leave] first. That is for good, and the FIDE report says from which round."
+      )
+    }>
+      <:part name="leave">
+        <.link navigate={@fide_path}>{gettext("leave FIDE mode")}</.link>
+      </:part>
+    </.rich_text>
     """
   end
 
@@ -410,7 +472,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
     <p :if={@show_compliant and @departures == [] and is_nil(@tournament.fide_compliance_lost_round)}>
       {gettext(
-        "This tournament is set up the way the FIDE pairing rules describe. There is nothing to switch on: that is what a new tournament gets, and only changing a setting can take it away."
+        "This tournament is in FIDE mode: set up the way the FIDE pairing rules describe. There is nothing to switch on: that is what a new tournament gets. Changing a setting the rules do not allow takes it out, and so does leaving FIDE mode below."
       )}
     </p>
 
@@ -420,7 +482,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     >
       {compliance_lost_line(@tournament.fide_compliance_lost_round)}
       {gettext(
-        "The settings match the FIDE rules again, but that is a fact about this tournament's history and it stands."
+        "Its settings match the FIDE rules, but there is no way back into FIDE mode: that is a fact about this tournament's history and it stands."
       )}
     </p>
     """
@@ -430,11 +492,10 @@ defmodule PairingsEngineWeb.SettingsSupport do
   # tournament is not FIDE-paired from the moment it is created. "In round 0"
   # would read as a bug, so it gets its own sentence.
   defp compliance_lost_line(0),
-    do:
-      gettext("Recorded: this stopped matching the FIDE rules before the first round was paired.")
+    do: gettext("Recorded: this tournament left FIDE mode before the first round was paired.")
 
   defp compliance_lost_line(round),
-    do: gettext("Recorded: this stopped matching the FIDE rules in round %{round}.", round: round)
+    do: gettext("Recorded: this tournament left FIDE mode in round %{round}.", round: round)
 
   @doc """
   The one-line label for a compliance setting - the link text in
@@ -454,6 +515,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   def compliance_setting_label(:postponed_opponent_outcome),
     do: gettext("Postponed game, for the opponent")
+
+  def compliance_setting_label(:points_draw), do: gettext("Points for a draw")
+  def compliance_setting_label(:bye_value), do: gettext("Pairing-allocated bye")
 
   @doc """
   What one `PairingsEngine.Compliance` code means, in an arbiter's words.
@@ -487,6 +551,24 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "A postponed game counts as something other than a draw for the opponent. FIDE allows only a draw until the game is played. A draw puts this back."
       )
 
+  def compliance_message(:draws_outscore_win),
+    do:
+      gettext(
+        "Two draws are worth more than a win and a loss together. A game cannot give more than a win does (Laws of Chess 10.2), so FIDE does not accept this scoring. A draw worth at most half of a win plus a loss puts this back."
+      )
+
+  def compliance_message(:bye_above_win),
+    do:
+      gettext(
+        "The pairing-allocated bye is worth more than a win, which no game can give (Laws of Chess 10.2). A bye worth a win, a draw or a loss puts this back."
+      )
+
+  def compliance_message(:bye_not_a_game_score),
+    do:
+      gettext(
+        "With the standard 1, ½, 0 scoring, the pairing-allocated bye is worth something a game cannot give. A bye worth 1, ½ or 0 puts this back."
+      )
+
   def compliance_message(:mirrored_second_leg),
     do:
       gettext(
@@ -502,7 +584,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
     do: ~p"/t/#{tournament.id}/categories"
 
   def compliance_setting_path(tournament, setting)
-      when setting in [:postponed_requester_outcome, :postponed_opponent_outcome],
+      when setting in [
+             :postponed_requester_outcome,
+             :postponed_opponent_outcome,
+             :points_draw,
+             :bye_value
+           ],
       do: ~p"/t/#{tournament.id}/settings/scoring"
 
   # pairing_system and swiss_match_format both live on the Options page.
@@ -728,6 +815,33 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(%Ecto.Changeset{} = changeset) do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
+
+  def error_text(:locked_in_fide_mode),
+    do:
+      gettext(
+        "Not saved: this setting is locked in FIDE mode once the first round is paired. Leave FIDE mode under Settings, FIDE to change it."
+      )
+
+  def error_text(:locked_after_pairing),
+    do:
+      gettext(
+        "Not saved: a setting that is locked once the first round is paired was changed. Unlock it first."
+      )
+
+  def error_text(:not_in_fide_mode),
+    do: gettext("This tournament is not in FIDE mode, so there is nothing to leave.")
+
+  def error_text(:round_closed_in_fide_mode),
+    do:
+      gettext(
+        "Not saved: in FIDE mode only the last two rounds played can be changed (C.04.2:4.3). A mistake found later is corrected after the tournament, for the rating report only."
+      )
+
+  def error_text(:player_in_closed_round),
+    do:
+      gettext(
+        "Not deleted: this player played in a round that FIDE mode no longer lets change, and deleting them would empty their seat there. Withdraw them instead."
+      )
 
   def error_text(:archived),
     do: gettext("This tournament is archived - unarchive it to make changes.")

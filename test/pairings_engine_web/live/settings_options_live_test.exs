@@ -640,6 +640,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
          %{conn: conn, scope: scope} do
       tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
       pair_round_robin_round_1(tournament)
+      # Outside FIDE mode: in it, the pairing system cannot be unlocked at all
+      # (fide_mode_live_test.exs). What is tested here is the Unlock itself.
+      {:ok, _} = PairingsEngine.Tournaments.leave_fide_mode(Repo.reload!(tournament))
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
       assert html =~ ~r/name="tournament\[pairing_system\][^>]*disabled/
@@ -675,6 +678,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     } do
       tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
       pair_round_robin_round_1(tournament)
+      # Outside FIDE mode: in it, the pairing system cannot be unlocked at all
+      # (fide_mode_live_test.exs). What is tested here is the Unlock itself.
+      {:ok, _} = PairingsEngine.Tournaments.leave_fide_mode(Repo.reload!(tournament))
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
@@ -703,6 +709,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     } do
       tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
       pair_round_robin_round_1(tournament)
+      # Outside FIDE mode: in it, the pairing system cannot be unlocked at all
+      # (fide_mode_live_test.exs). What is tested here is the Unlock itself.
+      {:ok, _} = PairingsEngine.Tournaments.leave_fide_mode(Repo.reload!(tournament))
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 

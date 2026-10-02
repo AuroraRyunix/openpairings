@@ -17,6 +17,55 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **In FIDE mode, the event's terms are fixed once the first
+  round is paired.** The number of rounds (a round robin's cycles), the
+  scoring, the pairing-allocated bye's value, the acceleration, the
+  pairing system and the tie-break list can no longer be changed, and
+  there is no Unlock for them: FIDE's draft checklist for pairing programs
+  (VCL4THP) fails a program that allows it. The Settings pages show them
+  disabled and say why. A tournament that has left FIDE mode keeps the
+  old round-1 lock with its Unlock.
+- [Change] **In FIDE mode, only the last two rounds played can be
+  corrected** (C.04.2:4.3): with round 7 played, rounds 6 and 7 and any
+  round in progress. A result, a hand edit or a team forfeit decision in
+  an earlier round is refused and says why, and a player who played in
+  such a round is withdrawn rather than deleted. The result of a postponed
+  game can still be entered in any round.
+- [Change] **Scores no game can give take a tournament out of FIDE
+  mode**: two draws worth more than a win and a loss, a bye worth more
+  than a win, or, with 1-½-0 scoring, a bye of anything but 1, ½ or 0.
+  3-1-0, a bye worth a draw or nothing, and a bye of 2 under 3-1-0 stay in.
+  The Scoring page names the setting, as it does for the others.
+- [Feature] **Leave FIDE mode, on purpose.** Settings, FIDE has a "Leave
+  FIDE mode" button behind two confirmations, the second listing what it
+  costs: it is for good, the report says from which round, and the locked
+  settings and earlier rounds open up. It is the way to change a setting
+  FIDE mode holds.
+- [Feature] **The FIDE report says when a tournament left FIDE mode.** The
+  TRF26 export carries a `### FIDE mode exited @ Round N` comment line, or
+  "before Round 1 was paired", whichever way it left.
+- [Feature] **Every page of a tournament not in FIDE mode says so**, in
+  one quiet line linking to Settings, FIDE.
+- [Fix] **Standings with games still without a result say they are not
+  final**, on the page and on paper, as they already did for an open
+  postponed game; before, "Standings after round N" printed with no
+  warning while boards were blank.
+- [Fix] **The FIDE report's rank column is the player's place.** The TRF26
+  export wrote the starting rank in the 001 record's rank column (86-89)
+  as well, so the pairing checker FIDE's testers run (`ainalrami -c`) read
+  nearly every place as one the tie-breaks do not give. It now carries the
+  place in the standings after the file's last round. A file of chosen
+  rounds that does not start at round 1 keeps the old column.
+- [Fix] **Tie-breaks in the FIDE report are in C.07's spelling**: `202`
+  says BH/C1, BH/C2, BH/M1 and ARO/C1, not this app's BHC1, BHC2, MBH and
+  AROC1, which a checker could not read - so the standings of most files
+  could not be checked at all. Both spellings are read on import.
+- [Fix] The KBSB player search on the FIDE page said "matricule" in
+  English; it says "national ID".
+- [Verified] **The VCL4THP tracker, second pass.** Every answer on the
+  path checked against the code, with file and line in the notes:
+  `mix pairings.vcl`, docs/vcl4thp-tracker.md.
+
 ## [0.71.0] - 2026-10-01
 
 - [Feature] **Bye preferences: "must get", "rather gets" and "rather not"

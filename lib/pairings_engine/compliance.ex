@@ -26,19 +26,23 @@ defmodule PairingsEngine.Compliance do
 
   ## What is deliberately NOT here
 
-  The list below is three entries long, and that is the finding rather than
-  an omission. Every candidate setting was checked against what FIDE
-  actually says, and most of them came back "FIDE requires this to be
-  configurable" or "FIDE's own report format has a record for it":
+  The list below is short, and that is the finding rather than an omission.
+  Every candidate setting was checked against what FIDE actually says, and
+  most of them came back "FIDE requires this to be configurable" or "FIDE's
+  own report format has a record for it":
 
-    * **Scoring values** (`points_win`/`points_draw`/`points_loss`,
+    * **Scoring values in general** (`points_win`/`points_draw`/`points_loss`,
       `bye_value`, `abs_value` and its two caps, `presence_value`).
       `VCL.16` requires the pairing-allocated bye value to be configurable
       and `VCL.17` requires half-point byes to be assignable; `VCL.12`
       requires the TRF16 export to stay analyzable "even under a non-default
       scoring system", which is the checklist *assuming* non-default scoring
-      exists. A rule that fired on these would contradict the checklist we
-      are being measured against.
+      exists, and VCL4THP v13 asks for 3-1-0 and custom systems outright
+      (Q71-Q73). What v13 does fail is narrower: scores no game can give
+      (Q74, Q81, Q83). Those three are entries below; the rest of scoring
+      is not. That scoring and the bye's value cannot CHANGE once the event
+      is under way (Q75, Q85) is a lock, not a departure -
+      `Tournaments.fide_locked_fields/1`.
     * **Extra points** (`count_extra_points`). TRF26 has a dedicated `299`
       record for "points assigned outside the scoring system - a bonus or a
       penalty an arbiter added by hand", and FIDE's own wording for it
@@ -67,9 +71,11 @@ defmodule PairingsEngine.Compliance do
       tournament's own regulations choose among them and announce them in
       advance. FIDE mandates no particular selection. An empty list is
       already refused by `Tournament.missing_setup_fields/1`, which blocks
-      pairing outright.
+      pairing outright. Changing the list once the event is under way is
+      what VCL4THP fails (Q200/Q201), and that is a FIDE-mode lock.
     * **Acceleration** (`acceleration`). Baku is FIDE's own, C.04.7. Both
-      values are FIDE's.
+      values are FIDE's. Removing or changing it after round 1 (Q109/Q110)
+      is a FIDE-mode lock, like the tie-breaks.
     * **Pairing engine** (`pairing_engine`). JaVaFo is the FIDE-endorsed
       one; Ainalrami is not endorsed yet, and implements the edition of
       C.04.3 in force since 1 February 2026 where JaVaFo implements the 2017
@@ -103,17 +109,20 @@ defmodule PairingsEngine.Compliance do
       with FIDE.
 
   The line that survived all of that: **a departure is a setting that
-  changes who plays whom, away from what a FIDE pairing system produces.**
-  All three below do exactly that, all three are frozen after the first
-  round is paired (`Tournaments.locked_fields/1`), and all three default off.
+  changes who plays whom, or what a game is worth, away from what the FIDE
+  rules allow.** The first three below change who plays whom; the postponed
+  outcomes and the three scoring entries change what a game is worth. All of
+  them default to the FIDE value.
 
-  ## The Levels
+  ## The Levels, and what FIDE mode refuses
 
-  VCL4THP v13's Level 1-5 warning scale is not public and is not modelled
-  here. When the definitions arrive, a level is one more key on each entry
-  in `@departures` - the mechanism underneath does not change. Do not invent
-  a severity scale in the meantime; a guessed level is worse than none,
-  because the levels are what verification reads.
+  The TEC Manual draft that came with VCL4THP v13 defines five warning
+  levels; Level 5 is "rejected in FIDE mode, or allowed only after leaving
+  it". This module still carries no level per entry - a departure is the
+  act of leaving, which the draft puts at Level 4. What FIDE mode refuses
+  outright lives in `Tournaments` (`fide_locked_fields/1`,
+  `ensure_round_editable/2`) and reads `fide_mode?/1` below; the one
+  explicit way out is `Tournaments.leave_fide_mode/1`.
   """
 
   alias PairingsEngine.Tournaments.Tournament
@@ -124,9 +133,10 @@ defmodule PairingsEngine.Compliance do
   # `pairing_system` has two.
   #
   # The table holds only what a module attribute can hold; the actual test
-  # per setting is `departed?/2` below, one clause each, so the two cannot
-  # drift: a setting listed here with no clause is a FunctionClauseError on
-  # the first call rather than a rule that silently never fires.
+  # per entry is `departed?/2` below, one clause per code, so the two cannot
+  # drift: a code listed here with no clause is a FunctionClauseError on
+  # the first call rather than a rule that silently never fires. Keyed by
+  # code rather than setting because `bye_value` carries two.
   @departures [
     %{
       setting: :pairing_system,
@@ -152,6 +162,24 @@ defmodule PairingsEngine.Compliance do
       setting: :postponed_opponent_outcome,
       code: :postponed_opponent_not_draw,
       restore_to: ["draw"]
+    },
+    # The three scoring entries below are relations between values, not one
+    # bad value, so their `restore_to` is worked out per tournament
+    # (`restore_to/2`): the values listed are each one that would do.
+    %{
+      setting: :points_draw,
+      code: :draws_outscore_win,
+      restore_to: :computed
+    },
+    %{
+      setting: :bye_value,
+      code: :bye_above_win,
+      restore_to: :computed
+    },
+    %{
+      setting: :bye_value,
+      code: :bye_not_a_game_score,
+      restore_to: :computed
     }
   ]
 
@@ -180,15 +208,26 @@ defmodule PairingsEngine.Compliance do
   """
   @spec check(Tournament.t()) :: [departure()]
   def check(%Tournament{} = tournament) do
-    for entry <- @departures, departed?(entry.setting, tournament) do
+    for entry <- @departures, departed?(entry.code, tournament) do
       %{
         setting: entry.setting,
         code: entry.code,
         value: Map.get(tournament, entry.setting),
-        restore_to: entry.restore_to
+        restore_to: restore_to(entry, tournament)
       }
     end
   end
+
+  defp restore_to(%{restore_to: :computed, code: :draws_outscore_win}, t),
+    do: [(win(t) + loss(t)) / 2]
+
+  defp restore_to(%{restore_to: :computed, code: :bye_above_win}, t),
+    do: Enum.uniq([win(t), draw(t), loss(t)])
+
+  defp restore_to(%{restore_to: :computed, code: :bye_not_a_game_score}, _t),
+    do: [1.0, 0.5, 0.0]
+
+  defp restore_to(%{restore_to: values}, _t), do: values
 
   # Keizer is not a FIDE pairing system. C.04.3 defines the Dutch Swiss and
   # C.05 Annex 1 the round-robin Berger tables; nothing in the handbook
@@ -197,7 +236,8 @@ defmodule PairingsEngine.Compliance do
   # system a standard invocation activates to be one the program is endorsed
   # for, and no program can be endorsed for a system FIDE has not written
   # down.
-  defp departed?(:pairing_system, t), do: t.pairing_system not in ["swiss", "round_robin"]
+  defp departed?(:non_fide_pairing_system, t),
+    do: t.pairing_system not in ["swiss", "round_robin"]
 
   # Each category is paired completely independently - its own engine run and
   # its own pairing-allocated bye - and the results are merged into one
@@ -206,14 +246,14 @@ defmodule PairingsEngine.Compliance do
   # the same score never meet if they are in different categories, which is
   # not a thing C.04.3 can produce. Running the sections as separate
   # tournaments is the compliant way to do the same thing.
-  defp departed?(:pair_by_category, t), do: swiss?(t) and t.pair_by_category == true
+  defp departed?(:categories_paired_separately, t), do: swiss?(t) and t.pair_by_category == true
 
   # The second leg of a match is inserted as an exact colour-reversed mirror
   # of the first, with no pairing decision behind it at all (see
   # `Pairing.do_pair/2`). Half the rounds in the tournament were therefore not
   # paired by C.04.3, and a checker fed the TRF would say so about every
   # even-numbered one.
-  defp departed?(:swiss_match_format, t), do: swiss?(t) and t.swiss_match_format == true
+  defp departed?(:mirrored_second_leg, t), do: swiss?(t) and t.swiss_match_format == true
 
   # A postponed game counts as a draw until it is played - VCL4THP Q167 fails
   # a program that allows any other provisional score. A club may still want
@@ -221,19 +261,53 @@ defmodule PairingsEngine.Compliance do
   # (they are then paired higher up), and that is a legitimate club rule,
   # but not a FIDE one. Only while the tournament allows postponed games at
   # all: with them off, the two values are never read.
-  defp departed?(:postponed_requester_outcome, t),
+  defp departed?(:postponed_requester_not_draw, t),
     do: t.postponed_games == true and t.postponed_requester_outcome not in [nil, "draw"]
 
-  defp departed?(:postponed_opponent_outcome, t),
+  defp departed?(:postponed_opponent_not_draw, t),
     do: t.postponed_games == true and t.postponed_opponent_outcome not in [nil, "draw"]
 
-  # Both booleans above are inert unless the tournament actually pairs Swiss
+  # Scoring. VCL4THP v13 fails a program on which, in FIDE mode, two draws
+  # can be worth more than a win plus a loss (Q74), a pairing-allocated bye
+  # can be worth more than a win (Q81), or a bye can be anything but 1, ½
+  # or 0 under the standard 1-½-0 scoring (Q83) - Laws of Chess 10.2: a
+  # player's score is one a game can give. Each of those is still a club's
+  # right; it just is not a FIDE event any more, so they are departures
+  # rather than refusals. Other scoring - 3-1-0, a bye worth a draw, a bye
+  # of 2 under 3-1-0 (Q84) - stays in.
+  #
+  # The bye's value is what a pairing-allocated bye actually pays, SWAR
+  # 3-2-1's presence bonus included (`Tournament.engine_point_system/1`).
+  # Keizer is left out: it is already a departure, and its own scoring is
+  # not FIDE's to judge, so a second line about it would be noise.
+  defp departed?(:draws_outscore_win, t),
+    do: fide_system?(t) and 2 * draw(t) > win(t) + loss(t)
+
+  defp departed?(:bye_above_win, t),
+    do: fide_system?(t) and bye(t) > win(t)
+
+  defp departed?(:bye_not_a_game_score, t),
+    do: fide_system?(t) and standard_scoring?(t) and bye(t) not in [1.0, 0.5, 0.0]
+
+  # The two Swiss-only booleans above are inert unless the tournament actually pairs Swiss
   # - their own schema comments say "never read otherwise", the same
   # tolerance `acceleration` gets. Reporting a departure that no round will
   # ever act on is the cry-wolf failure this module is written to avoid: an
   # arbiter who learns one entry is noise stops reading the others.
   defp swiss?(%Tournament{pairing_system: "swiss"}), do: true
   defp swiss?(%Tournament{}), do: false
+
+  defp fide_system?(%Tournament{pairing_system: system}), do: system in ["swiss", "round_robin"]
+
+  defp standard_scoring?(t), do: win(t) == 1.0 and draw(t) == 0.5 and loss(t) == 0.0
+
+  defp win(t), do: number(t.points_win, 1.0)
+  defp draw(t), do: number(t.points_draw, 0.5)
+  defp loss(t), do: number(t.points_loss, 0.0)
+  defp bye(t), do: Tournament.engine_point_system(t).pairing_allocated_bye * 1.0
+
+  defp number(value, _default) when is_number(value), do: value * 1.0
+  defp number(_nil, default), do: default
 
   @doc """
   Whether `tournament`'s settings still describe a FIDE-handled event.
@@ -249,6 +323,20 @@ defmodule PairingsEngine.Compliance do
   def compliant?(%Tournament{} = tournament), do: check(tournament) == []
 
   @doc """
+  Whether `tournament` is in FIDE mode: its settings are compliant now AND
+  it has never left - `fide_compliance_lost_round` is nil.
+
+  This is the state VCL4THP's questions are asked in, so it is the one the
+  FIDE-mode locks read (`Tournaments.fide_locked_fields/1`,
+  `Tournaments.ensure_round_editable/2`). There is no way back in once it
+  is false: the record is never cleared (Q45), and settings put back
+  afterwards do not make an event that once left a FIDE-handled one again.
+  """
+  @spec fide_mode?(Tournament.t()) :: boolean()
+  def fide_mode?(%Tournament{} = tournament),
+    do: is_nil(tournament.fide_compliance_lost_round) and compliant?(tournament)
+
+  @doc """
   The schema fields that have a FIDE-compliance dimension at all.
 
   Used by the Settings pages to decide whether a page hosts anything worth
@@ -257,7 +345,11 @@ defmodule PairingsEngine.Compliance do
   another.
   """
   @spec settings() :: [atom()]
-  def settings, do: Enum.map(@departures, & &1.setting)
+  def settings, do: @departures |> Enum.map(& &1.setting) |> Enum.uniq()
+
+  @doc "Every departure code, one per entry - `bye_value` has two."
+  @spec codes() :: [atom()]
+  def codes, do: Enum.map(@departures, & &1.code)
 
   @doc """
   The departures `after_tournament` has that `before` did not - what a save

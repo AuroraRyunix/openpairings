@@ -8,6 +8,11 @@ defmodule PairingsEngine.SettingsLockTest do
   These were previously enforced only by the Settings LiveViews, which meant
   any other caller went straight through. The tests here are specifically
   about the *context* refusing, not about disabled inputs.
+
+  The tournaments here have left FIDE mode (`fide_compliance_lost_round: 0`),
+  so what is tested is the round-1 lock and its Unlock. In FIDE mode several
+  of these fields cannot be unlocked at all; that is
+  `fide_mode_locks_test.exs`.
   """
   use PairingsEngine.DataCase, async: true
 
@@ -28,7 +33,13 @@ defmodule PairingsEngine.SettingsLockTest do
   defp tournament(attrs \\ %{}) do
     Repo.insert!(
       struct(
-        %Tournament{name: "Locks", type: "swiss", rounds_count: 5, tiebreaks: ~w(BH)},
+        %Tournament{
+          name: "Locks",
+          type: "swiss",
+          rounds_count: 5,
+          tiebreaks: ~w(BH),
+          fide_compliance_lost_round: 0
+        },
         attrs
       )
     )

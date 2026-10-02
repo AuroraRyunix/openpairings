@@ -1,7 +1,7 @@
 {
  "checklist": "VCL4THP",
  "version": "13 (FIDE TEC draft, 2026-08-25)",
- "reviewed": "2026-09-24",
+ "reviewed": "2026-10-02",
  "questions": [
   {
    "q": 1,
@@ -128,8 +128,8 @@
     "next": 9
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Confirm the Windows build opens in English, not the OS/browser language."
+   "status": "met",
+   "note": "English is the base locale and the fallback for every language but Dutch (lib/pairings_engine_web/locale.ex:39-44,73-75). The desktop build opens the system browser and follows its Accept-Language, so a Dutch browser opens in Dutch; English is one click away (Q9)."
   },
   {
    "q": 9,
@@ -145,7 +145,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Language menu in the header."
+   "note": "Language picker in the top bar of every page (lib/pairings_engine_web/components/layouts.ex:250,846-871; router.ex:232), and a per-account language. Off our path while Q8 is YES."
   },
   {
    "q": 10,
@@ -161,8 +161,8 @@
     "next": 11
    },
    "answer": "N",
-   "status": "check",
-   "note": "Needs a sweep: SWAR terms, federation names, any untranslated help text. YES costs 10%."
+   "status": "met",
+   "note": "No non-English UI text found in the English catalogue. One placeholder said 'matricule'; it now says 'national ID' (fide_live.ex:784). The opt-in Belgian SWAR results-page export is Dutch by design: a federation upload document, not interface (federations/bel/swar_publish.ex:487-491)."
   },
   {
    "q": 11,
@@ -178,7 +178,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "No manual exists. Planned: in-app help + PDF from one source, with a coverage check."
+   "note": "No user manual and no in-app help: docs/ is developer material, nothing links to it, no /help route."
   },
   {
    "q": 12,
@@ -194,7 +194,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Comes with the manual: a ? link on every page."
+   "note": "Comes with the manual: a help link on every page. Off our path while Q11 is NO."
   },
   {
    "q": 13,
@@ -211,7 +211,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Comes with the manual: PDF per release."
+   "note": "Comes with the manual: a PDF per release. Off our path while Q11 is NO."
   },
   {
    "q": 14,
@@ -227,7 +227,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "FAIL today - verification would stop here. Minimum: ratings, setup incl. tie-breaks, byes, pairings, printouts."
+   "note": "FAIL - verification stops here. No English manual of the essential functions (rating lists, setup incl. tie-breaks, byes, pairings, printouts); docs/printing.md and docs/pairing-systems.md are developer notes the app does not link."
   },
   {
    "q": 15,
@@ -244,7 +244,7 @@
    },
    "answer": "Y",
    "status": "check",
-   "note": "Only reached with a partial manual; costs 5%. Aim for complete instead."
+   "note": "Only reached with a partial manual; costs 5%. The commitment is the maintainer's to make. Aim for a complete manual instead."
   },
   {
    "q": 16,
@@ -307,8 +307,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "ainalrami -c and -g exist. Needs public download + written instructions for FIDE (the form has a box for them)."
+   "status": "met",
+   "note": "ainalrami -c (checker) and -g (generator) in the public Apache-2.0 repository (deps/ainalrami/lib/ainalrami/cli.ex:339-349,1464-1526; README.md:222-229). No release binaries: clone, mix escript.build. The form's textbox text (how to get and run them) is still to write."
   },
   {
    "q": 20,
@@ -323,8 +323,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "ainalrami -c (Apache-2.0). Same distribution point as Q19."
+   "status": "met",
+   "note": "ainalrami <file> -c, free, exit codes 0 match / 1 differs / 2 not replayable (cli.ex:348-349,927-940). Built from source."
   },
   {
    "q": 21,
@@ -339,8 +339,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. -c now also checks the standings: with a 202/212 list and final ranks (001 cols 86-89) it ranks by C.07 2026 (Ainalrami.Tiebreaks) and reports every player whose rank the list does not give. Values checked against TieBreakServer (docs/finding-tiebreakserver-2026-09.md). A team file's team ranks are not in 013 records, so -c says so and skips them."
+   "status": "met",
+   "note": "Shipped in Ainalrami 0.30.0, pinned 0.35.0: reads TRF26 (202/212, 192, 250/260), replays every round, and re-ranks by the file's tie-break list, naming every wrong rank in columns 86-89 (cli.ex:948-974,1102-1145,1223-1245). Our own TRF26 exports now pass it, pairings and standings (test/pairings_engine/trf_checker_round_trip_test.exs) - except Baku tournaments, see Q106. Limits: individual colour differences are noted, not counted; a round robin exits 2 (not replayed)."
   },
   {
    "q": 22,
@@ -356,7 +356,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "ainalrami -g."
+   "note": "ainalrami -g (cli.ex:339-340,428-475)."
   },
   {
    "q": 23,
@@ -388,8 +388,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. Players, rounds, full/half/zero bye %, forfeit-win and double-forfeit %, odd results (1/2-0, 0-1/2, 0-0) %, BAM, and --tie-breaks (writes 202 and the final ranks)."
+   "status": "met",
+   "note": "Shipped in Ainalrami 0.30.0: --players, --rounds, --full-bye-pct, --half-bye-pct, --zero-bye-pct, --forfeit-win-pct, --double-forfeit-pct, --odd-results-pct, --acceleration=baku, --tie-breaks (cli.ex:432-458,1510-1525; generator.ex:450-534). Percentages, not per round (optional)."
   },
   {
    "q": 25,
@@ -403,9 +403,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "Y",
-   "status": "met",
-   "note": "Random players 10-60, rounds 5-11 (generator.ex)."
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL on a strict reading. Players, rounds and ratings are random when unset, but unset byes, forfeits, odd results, Baku and the tie-break list always fall back to none/0 (generator.ex:73,80,412,433-448,496-504,541), and the help text says unset options are random (cli.ex:1510). Fix in Ainalrami: draw them at random, keep a flag for the old corpus defaults."
   },
   {
    "q": 26,
@@ -438,8 +438,8 @@
     "penalty": 10
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --ratings=2400,2350,... gives each TPN its rating."
+   "status": "met",
+   "note": "--ratings=2400,2350,... per TPN (cli.ex:236-257; generator.ex:414-419). Ainalrami 0.30.0."
   },
   {
    "q": 28,
@@ -455,8 +455,8 @@
     "penalty": 3
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --rating-range=MIN-MAX, or --rating-top/--rating-step[/--rating-sigma]."
+   "status": "met",
+   "note": "--rating-range=LOW-HIGH, or --rating-top/--rating-step/--rating-sigma (cli.ex:259-279; generator.ex:421-425). Ainalrami 0.30.0."
   },
   {
    "q": 29,
@@ -473,7 +473,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "1400-2700 uniform."
+   "note": "Uniform 1400..2700 from the seeded RNG when no rating option is given (generator.ex:412)."
   },
   {
    "q": 30,
@@ -488,8 +488,8 @@
     "next": 31
    },
    "answer": "N",
-   "status": "met",
-   "note": "Fresh random seed each run unless --seed is given."
+   "status": "gap",
+   "note": "Our answer is NO, but at risk: without --seed the seed is :erlang.unique_integer (generator.ex:66-67), a per-VM counter - eight fresh runs gave seeds 2690-2700, 2690 three times, so two -g runs can write identical files and a tester would answer YES (FAIL). Fix in Ainalrami: seed from :crypto.strong_rand_bytes."
   },
   {
    "q": 31,
@@ -504,8 +504,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. With --tie-breaks the file carries the list (202) and each player's final rank by it; pairings as before."
+   "status": "met",
+   "note": "Every round is paired by the engine; with --tie-breaks the file carries 202 and final ranks by Ainalrami.Tiebreaks (generator.ex:114-129,541-558). The generator writes the engine dialect (XXR), not TRF26."
   },
   {
    "q": 32,
@@ -520,9 +520,9 @@
     "next": 33,
     "penalty": 5
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Built on Ainalrami branch `tiebreaks` (2026-09-24), not released yet - check again once it is. --results=fide [--draw-rate] draws each result from the FIDE rating table's expected score; uniform stays the default, so the answer depends on the reading of 'follow'."
+   "answer": "N",
+   "status": "gap",
+   "note": "--results=fide [--draw-rate] draws results from the rating table, but it is opt-in (uniform by default) and uses the uncapped table, not the 400-point rule (generator.ex:433-448,466-490), so wide rating gaps drift. Costs 5%. Fix in Ainalrami."
   },
   {
    "q": 33,
@@ -538,7 +538,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Pairings, both ways against bbpPairings (Ainalrami v0.33.0, docs/validation.md): Ainalrami-generated tournaments paired by bbpPairings, ~2.5 billion pairings; bbpPairings-generated tournaments paired by Ainalrami, 50,045 tournaments (158 more set aside where bbpPairings' own generator found no legal pairing), 499,816 rounds, 28,964,816 pairings, 0 composition and 0 colour disagreements (25,842,761 colour boards). Tie-breaks, both ways against TieBreakServer: Ainalrami-generated 50,060 tournaments ~29M values and TieBreakServer-generated 50,000 tournaments ~50M values, 0 unexplained; team events 2,200."
+   "note": "Pairings both ways against bbpPairings and tie-breaks both ways against TieBreakServer, over 50,000 tournaments each way (deps/ainalrami/docs/validation.md:17,20,24,1429-1440,1592-1606)."
   },
   {
    "q": 34,
@@ -552,9 +552,9 @@
     "outcome": "ok",
     "next": 40
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Pairings: direction 1 (Ainalrami-generated, ~2.5 billion pairings) 2 disagreements, both bbpPairings' own [C2] defect; direction 2 (bbpPairings-generated, 28,964,816 pairings) 0 composition and 0 colour. Tie-breaks: 0 unexplained either way (Q33). Ainalrami v0.33.0 docs/validation.md."
+   "answer": "Y",
+   "status": "met",
+   "note": "YES: pairings differ twice (bbpPairings' own [C2] defect), but tie-breaks differ 147,873 times in direction 1 and 2,039 in direction 2, every one classified as a TieBreakServer finding (A-D) or a reading difference (validation.md:17,1605-1606; docs/finding-tiebreakserver-2026-09.md). Routes through Q35-Q39."
   },
   {
    "q": 35,
@@ -569,8 +569,8 @@
     "next": 36
    },
    "answer": "N",
-   "status": "check",
-   "note": "Only reached if Q34 is YES."
+   "status": "met",
+   "note": "No group of discrepancies was traced to our engines (validation.md; finding-tiebreakserver-2026-09.md)."
   },
   {
    "q": 36,
@@ -584,9 +584,9 @@
     "outcome": "ok",
     "next": 40
    },
-   "answer": "N",
-   "status": "check",
-   "note": ""
+   "answer": "Y",
+   "status": "met",
+   "note": "Yes: bbpPairings' [C2] defect, Gacrux's 5.2.5 and TieBreakServer's findings A-D."
   },
   {
    "q": 37,
@@ -602,8 +602,8 @@
     "penalty": 25
    },
    "answer": "Y",
-   "status": "met",
-   "note": "Gacrux 5.2.5 reported to TEC (2026-09-08 letter)."
+   "status": "check",
+   "note": "Gacrux 5.2.5 went to TEC in the 2026-09-08 letter. No record in the repository that TieBreakServer's findings A-D or bbpPairings' [C2] were sent to TEC or the authors - send them and keep the proof, or this is NO (25%)."
   },
   {
    "q": 38,
@@ -617,9 +617,9 @@
     "outcome": "ok",
     "next": 40
    },
-   "answer": "N",
-   "status": "check",
-   "note": ""
+   "answer": "Y",
+   "status": "met",
+   "note": "Yes: some tie-break differences are readings, not errors (e.g. STD), per finding-tiebreakserver-2026-09.md."
   },
   {
    "q": 39,
@@ -635,8 +635,8 @@
     "penalty": 50
    },
    "answer": "Y",
-   "status": "met",
-   "note": "TEC letter 2026-09-08."
+   "status": "check",
+   "note": "Only covered if the tie-break reading differences go to TEC; the 2026-09-08 letter predates them. NO costs 50%."
   },
   {
    "q": 40,
@@ -652,7 +652,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Derived, default, no switch (PairingsEngine.Compliance)."
+   "note": "Every departing setting ships at the FIDE value (compliance.ex @departures) and a new tournament is Swiss. Caveat: an account can set Keizer as its own default (user_live/settings.ex:939); those tournaments start outside FIDE mode, stamped round 0."
   },
   {
    "q": 41,
@@ -684,7 +684,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Changing a departing setting leaves it."
+   "note": "Three ways out: saving a departing setting (tournaments.ex stamp_compliance_loss), a pairing moved by soft rules, extra points or a bye exclusion (pairing.ex record_pairing_deviations), and Leave FIDE mode on Settings > FIDE (tournaments.ex:928)."
   },
   {
    "q": 43,
@@ -700,7 +700,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "FAIL. The save goes through and a notice appears afterwards; no two-step confirmation spelling out the consequence."
+   "note": "FAIL. Only the explicit way out has TEC's Level-4 two-step confirmation (settings_fide_live.ex:85-131,179). Saving a departing setting saves at once and the notice follows; a pairing moved by soft rules, extra points or a bye exclusion leaves with an inline note only."
   },
   {
    "q": 44,
@@ -715,9 +715,9 @@
     "next": 45,
     "penalty": 30
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 30%. Round is stored (fide_compliance_lost_round) but no ### is written (design doc Phase 3)."
+   "answer": "Y",
+   "status": "met",
+   "note": "The TRF26 export writes '### FIDE mode exited @ Round N' (or 'before Round 1 was paired') after the header whenever fide_compliance_lost_round is set (trf_export.ex:118; test/pairings_engine/fide_mode_locks_test.exs)."
   },
   {
    "q": 45,
@@ -733,7 +733,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "The recorded round is never cleared."
+   "note": "fide_compliance_lost_round is never cleared, a restore only moves it earlier (tournament_import.ex earliest_compliance_loss), and Compliance.fide_mode?/1 needs it nil (compliance.ex:326). Caveat: a JSON backup import takes the file's value."
   },
   {
    "q": 46,
@@ -748,9 +748,9 @@
     "next": 47,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Notice on three settings pages only; Q46 wants it always visible. Costs 3%."
+   "answer": "Y",
+   "status": "met",
+   "note": "Every page of a tournament not in FIDE mode carries a 'Not in FIDE mode' line linking to Settings > FIDE (layouts.ex:444; fide_mode_live_test.exs)."
   },
   {
    "q": 47,
@@ -767,7 +767,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "TRF16 parser tolerates TRF06-vintage files (Ainalrami trf.ex)."
+   "note": "One parser covers TRF06-era files; old-style byes are read as byes (deps/ainalrami/lib/ainalrami/trf.ex:2005-2010; trf_import.ex:1136-1147)."
   },
   {
    "q": 48,
@@ -783,8 +783,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 3%. Verify what the import warnings say for a TRF06 file."
+   "status": "gap",
+   "note": "Costs 3%. A TRF06 file brings no 162/192/202/142, so scoring, system, tie-breaks and length take defaults silently, and old byes are converted silently; the version is not reported (trf_import.ex:539-570,587-589,1136-1147)."
   },
   {
    "q": 49,
@@ -801,7 +801,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "TrfImport."
+   "note": "TrfImport.import_text/2 over Ainalrami.Trf.parse (trf_import.ex:71-76)."
   },
   {
    "q": 50,
@@ -817,8 +817,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%. Same check."
+   "status": "gap",
+   "note": "Costs 7%. Without 162/192/202/212/142 the import defaults silently; notes exist only for rule widening, future full-point byes, whole-field 299 and non-Baku acceleration (trf_import.ex:539-570,686-736)."
   },
   {
    "q": 51,
@@ -834,7 +834,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Findings are warnings, not refusals (trf_import.ex)."
+   "note": "Defects are imported: dangling opponents become byes, a wrong points column is a warning, illegal rounds are imported as recorded (trf_import.ex:1136-1147,1437-1458,1498-1504)."
   },
   {
    "q": 52,
@@ -849,9 +849,9 @@
     "next": 54,
     "penalty": 70
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Warnings channel exists; confirm it covers every adjustment. NO costs 70%."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 70%. Not reported: dangling opponents turned into byes, F/U byes merged, unknown tie-breaks dropped, round-robin cycles over 2 clamped, unknown 192 codes ignored, deputies over 4 dropped, 362 P/A ignored, 299 switching on counted extra points (which leaves FIDE mode at the next pairing), a crashed verification pass swallowed (trf_import.ex:714-736,755,1136-1147,1294-1296,1534-1540)."
   },
   {
    "q": 53,
@@ -868,7 +868,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Refusal messages with line detail."
+   "note": "Off our path (Q51 YES). A refused file shows why: parse error, duplicate ranks, several 012 lines, validation text (trf_import.ex:149-157,318-396)."
   },
   {
    "q": 54,
@@ -884,7 +884,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "verification_warnings/2 re-pairs and compares (trf_import_test.exs)."
+   "note": "Every imported round is replayed: explain_round, Alternatives.violations, bye_eligibility (trf_import.ex:1530-1533,1584-1653). Limits: absolute criteria only, Dutch files only."
   },
   {
    "q": 55,
@@ -901,7 +901,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Warning yes, ### no. Costs 30%."
+   "note": "Costs 30%. The findings arrive as a flash after the tournament is committed: no confirm/cancel, no ###, nothing stored (tournaments_live.ex:1272-1279,1423-1449)."
   },
   {
    "q": 56,
@@ -916,8 +916,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Likely (derived from settings); confirm an imported file's settings never start outside it."
+   "status": "met",
+   "note": "No import sets a departing setting (trf_import.ex:539-570,686-712). Risk: positive 299 records switch on counted extra points, and the next pairing then leaves FIDE mode (pairing.ex record_pairing_deviations)."
   },
   {
    "q": 57,
@@ -931,9 +931,9 @@
     "outcome": "ok",
     "next": 62
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "Not locked. Easiest fix: lock it in FIDE mode (then NO) - or Level-4 + ### + re-check."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode the number of rounds (and a round robin's cycles) cannot change once round 1 is paired, and Unlock does not open it (tournaments.ex:894 @fide_locked, ensure_unlocked/3:1036; fide_mode_locks_test.exs). Leaving FIDE mode first is the way to change it."
   },
   {
    "q": 58,
@@ -947,9 +947,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL on the current path."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: the change cannot happen in FIDE mode (Q57), so YES by the legend."
   },
   {
    "q": 59,
@@ -964,9 +964,9 @@
     "next": 60,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": ""
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: cannot happen in FIDE mode (Q57)."
   },
   {
    "q": 60,
@@ -980,9 +980,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL on the current path."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: cannot happen in FIDE mode (Q57)."
   },
   {
    "q": 61,
@@ -998,9 +998,9 @@
     "next": 62,
     "penalty": 30
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "gap",
-   "note": ""
+   "note": "Off our path: cannot happen in FIDE mode (Q57). YES itself costs 7% if reached."
   },
   {
    "q": 62,
@@ -1016,8 +1016,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "check",
-   "note": "e.g. fewer players than rounds. Costs 3%."
+   "status": "gap",
+   "note": "Costs 3%. The setup checklist checks name, rounds, dates and tie-breaks, never players against rounds (tournament.ex:1803-1812); the arbiter learns at the first round that cannot pair."
   },
   {
    "q": 63,
@@ -1031,9 +1031,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Swap and pool-pairing tools exist; confirm they cover a whole round."
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL (was YES). When the engine finds no legal pairing nothing is paired and no round exists (pairing.ex:3052-3061); swaps and pool pairing work only inside an existing round (tournaments.ex pair_from_pool), so such a tournament cannot be finished."
   },
   {
    "q": 64,
@@ -1049,7 +1049,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "swap_players_in_round, swap_seated_with_pool_player, pool pairing."
+   "note": "Swap seats or colours, substitute from the pool, vacate/fill a seat, award a bye, pair two pool players, delete an empty last board - each confirmed as a board diff (tournaments.ex swap_players_in_round, pair_from_pool; pairings_live.ex:638-804)."
   },
   {
    "q": 65,
@@ -1065,7 +1065,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "FAIL. Edits are individual; no defined session (publishing could serve as the implicit end)."
+   "note": "FAIL. Each hand edit is its own staged gesture; there is no session with an end at which a check could run (pairings_live.ex:1303-1352)."
   },
   {
    "q": 66,
@@ -1081,8 +1081,8 @@
     "penalty": 25
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 25%."
+   "status": "gap",
+   "note": "Costs 25%. The confirm modals show the board diff only; no check for a rematch, a prohibited pair, PAB eligibility, three same colours or an imbalance over 2 (pairings_live.ex:1354-1546)."
   },
   {
    "q": 67,
@@ -1098,8 +1098,8 @@
     "penalty": 10
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 10%."
+   "status": "gap",
+   "note": "Costs 10%. No comparison with the colour each player was due (pairings_live.ex:1354-1387)."
   },
   {
    "q": 68,
@@ -1115,7 +1115,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "FAIL."
+   "note": "FAIL. No checker runs after hand edits; the explanation page only notes the boards diverged (round_explanation.ex:434-464)."
   },
   {
    "q": 69,
@@ -1132,7 +1132,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Costs 30%."
+   "note": "Costs 30%. No warning, no ###, nothing stamped (trf_export.ex)."
   },
   {
    "q": 70,
@@ -1148,7 +1148,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Tournament defaults."
+   "note": "1 / 0.5 / 0, bye 1 by default (tournament.ex:106-109)."
   },
   {
    "q": 71,
@@ -1165,7 +1165,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "points_win/draw/loss."
+   "note": "Free win/draw/loss values on Settings > Scoring (settings_scoring_live.ex:257-291)."
   },
   {
    "q": 72,
@@ -1182,7 +1182,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "3-1-0 can be typed in; standings read the values live (standings.ex:1154-1156)."
   },
   {
    "q": 73,
@@ -1198,7 +1198,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "Any value per result (tournament.ex:1045-1048)."
   },
   {
    "q": 74,
@@ -1212,9 +1212,9 @@
     "outcome": "ok",
     "next": 75
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL. No validation. Fix: make it a departure from FIDE mode in Compliance (then NO in FIDE mode)."
+   "answer": "N",
+   "status": "met",
+   "note": "Two draws worth more than a win plus a loss is a Compliance departure (:draws_outscore_win, compliance.ex:273): saving it takes the tournament out of FIDE mode, so in FIDE mode it cannot be set (fide_mode_locks_test.exs)."
   },
   {
    "q": 75,
@@ -1228,9 +1228,9 @@
     "outcome": "ok",
     "next": 79
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "Not locked. Fix: lock in FIDE mode (then NO -> skip to Q79)."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode the scoring (team match points included) cannot change once round 1 is paired; no Unlock (tournaments.ex:894, ensure_unlocked/3; settings_scoring_live.ex disabled inputs; fide_mode_locks_test.exs)."
   },
   {
    "q": 76,
@@ -1244,9 +1244,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL on the current path."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: cannot happen in FIDE mode (Q75)."
   },
   {
    "q": 77,
@@ -1262,9 +1262,9 @@
     "next": 78,
     "penalty": 30
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "gap",
-   "note": ""
+   "note": "Off our path: cannot happen in FIDE mode (Q75). YES itself costs 7% if reached."
   },
   {
    "q": 78,
@@ -1280,7 +1280,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Standings are always recomputed from results."
+   "note": "Points are worked out from the stored results with the current values on every read (standings.ex:644-663,1154-1156; standings_cache.ex keyed by the tournament)."
   },
   {
    "q": 79,
@@ -1296,7 +1296,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "bye_value default = win."
+   "note": "bye_value, 1.0 by default (tournament.ex:109; standings.ex:655)."
   },
   {
    "q": 80,
@@ -1313,7 +1313,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "Its own input on Settings > Scoring (settings_scoring_live.ex:284-291)."
   },
   {
    "q": 81,
@@ -1327,9 +1327,9 @@
     "outcome": "next",
     "next": 82
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL. No validation. Fix: departure or validation."
+   "answer": "N",
+   "status": "met",
+   "note": "A bye worth more than a win is a departure (:bye_above_win, compliance.ex:276), so not in FIDE mode (fide_mode_locks_test.exs)."
   },
   {
    "q": 82,
@@ -1346,7 +1346,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "0 or any value below a win is allowed (settings_scoring_live.ex:285-290)."
   },
   {
    "q": 83,
@@ -1360,9 +1360,9 @@
     "outcome": "ok",
     "next": 84
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL. Fix: departure or validation."
+   "answer": "N",
+   "status": "met",
+   "note": "Under 1-1/2-0 a bye other than 1, 1/2 or 0 is a departure (:bye_not_a_game_score, compliance.ex:279) (fide_mode_locks_test.exs)."
   },
   {
    "q": 84,
@@ -1379,7 +1379,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Free value."
+   "note": "Free value: 2 under 3-1-0 stays in FIDE mode (fide_mode_locks_test.exs)."
   },
   {
    "q": 85,
@@ -1393,9 +1393,9 @@
     "outcome": "ok",
     "next": 89
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "Not locked. Fix: lock in FIDE mode."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode the bye's value (and SWAR presence points on it) cannot change once round 1 is paired; no Unlock (tournaments.ex:894; fide_mode_locks_test.exs)."
   },
   {
    "q": 86,
@@ -1409,9 +1409,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL on the current path."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: cannot happen in FIDE mode (Q85)."
   },
   {
    "q": 87,
@@ -1427,9 +1427,9 @@
     "next": 88,
     "penalty": 30
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "gap",
-   "note": ""
+   "note": "Off our path: cannot happen in FIDE mode (Q85). YES itself costs 7% if reached."
   },
   {
    "q": 88,
@@ -1445,7 +1445,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Recomputed from results."
+   "note": "Every PAB is scored at the current value on every read (standings.ex:655,1055-1101)."
   },
   {
    "q": 89,
@@ -1462,7 +1462,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Round robin, Keizer, team Swiss."
+   "note": "Round robin (Berger), team round robin, team Swiss C.04.6; Keizer leaves FIDE mode (tournament.ex:5,14)."
   },
   {
    "q": 90,
@@ -1479,7 +1479,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Team Swiss C.04.6."
+   "note": "Team Swiss C.04.6 through Ainalrami.TeamPairing (team_swiss.ex). The only individual Swiss is the Dutch."
   },
   {
    "q": 91,
@@ -1494,8 +1494,8 @@
     "next": 93
    },
    "answer": "Y",
-   "status": "check",
-   "note": "No program has a C.04.6 TAPC yet; confirm how FIDE reads this."
+   "status": "met",
+   "note": "C.04.6 can be selected and no program is known to hold a C.04.6 TAPC; YES only routes to Q92."
   },
   {
    "q": 92,
@@ -1511,7 +1511,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "C.04.6 is in the Handbook; Keizer is not Swiss."
+   "note": "Every Swiss selectable in FIDE mode is in the Handbook (Dutch, C.04.6); Keizer is not a Swiss and leaves FIDE mode."
   },
   {
    "q": 93,
@@ -1525,9 +1525,9 @@
     "outcome": "ok",
     "next": 94
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL. Locked after round 1 but unlockable. Fix: no unlock in FIDE mode."
+   "answer": "N",
+   "status": "met",
+   "note": "pairing_system freezes with round 1 and in FIDE mode Unlock does not open it (tournaments.ex:894, ensure_unlocked/3; settings_options_live.ex locked_hint_message with fide_path; fide_mode_live_test.exs)."
   },
   {
    "q": 94,
@@ -1544,7 +1544,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "'Round robin (Berger)' is a FIDE pairing system here (compliance.ex)."
   },
   {
    "q": 95,
@@ -1558,9 +1558,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "Y",
-   "status": "check",
-   "note": ""
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL (was YES). Round-robin numbers are frozen at the first pairing by rating then name (round_robin.ex:389-393; pairing.ex:633-660); no page sets them and there is no draw-of-lots entry. Only a TRF or SWAR import can set them."
   },
   {
    "q": 96,
@@ -1576,7 +1576,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "RoundRobin module."
+   "note": "Circle-method Berger tables, single and double, checked against C.05 Annex 1 and SWAR's generator (round_robin.ex:8-45,256-270)."
   },
   {
    "q": 97,
@@ -1609,8 +1609,8 @@
     "next": 99
    },
    "answer": "N",
-   "status": "check",
-   "note": "If NO -> Q99 costs 3-10%."
+   "status": "met",
+   "note": "Cycle 2 is cycle 1 with colours reversed, same order; no option for the last-two-rounds swap (round_robin.ex:256-270). Routes to Q99."
   },
   {
    "q": 99,
@@ -1626,9 +1626,9 @@
     "next": 100,
     "penalty": 10
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Costs 3% (10% if NO)."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 10%. The last two rounds of cycle 1 are never reversed for an even field (round_robin.ex:264-269), so three same colours in a row can happen across the cycle boundary."
   },
   {
    "q": 100,
@@ -1644,8 +1644,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "NO costs 7%."
+   "status": "gap",
+   "note": "Costs 7%. A round-robin round cannot be generated by hand; Pair always builds the Berger schedule (pairings_live.ex:1897-1900)."
   },
   {
    "q": 101,
@@ -1661,8 +1661,8 @@
     "penalty": 15
    },
    "answer": "N",
-   "status": "check",
-   "note": "Only if Q100 YES."
+   "status": "met",
+   "note": "Off our path while Q100 is NO; hand edits are not checked for meeting everyone once/twice (costs 15% if reached)."
   },
   {
    "q": 102,
@@ -1678,8 +1678,8 @@
     "penalty": 7
    },
    "answer": "Y",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Round robins are always generated from Berger tables, so the non-Berger case cannot arise (round_robin.ex:256-270)."
   },
   {
    "q": 103,
@@ -1694,8 +1694,8 @@
     "next": null
    },
    "answer": "N",
-   "status": "check",
-   "note": "FAIL if NO. Needs checking."
+   "status": "gap",
+   "note": "FAIL. Nothing removes the results of a round-robin player who completed under 50% of games; their games count for everyone's score and tie-breaks (standings.ex:141-161; round_robin.ex:459-463)."
   },
   {
    "q": 104,
@@ -1710,8 +1710,8 @@
     "next": null
    },
    "answer": "N",
-   "status": "check",
-   "note": "Several listed codes (BWG, REP, KS/L*) may be missing."
+   "status": "gap",
+   "note": "Present: DE, BPG, SB, WIN, KS. Missing from the catalogue and the bridge: BWG, REP, STD, SB/C1, SB/C2, RTNG, RTNG/R, TPN, TPN/R, KS/L1, KS/L2, KS/L-1, KS/L-2 (tiebreaks.ex:31-150; standings/ainalrami_bridge.ex:44-58). Ainalrami computes them all. The draft gives NO no outcome, only that all must be implemented: treat as a failure."
   },
   {
    "q": 105,
@@ -1726,8 +1726,8 @@
     "next": 106
    },
    "answer": "N",
-   "status": "check",
-   "note": "FAIL if YES. Needs checking."
+   "status": "met",
+   "note": "Buchholz-type codes can be picked but standings drop them for a round robin and say why (standings.ex:153-160; tiebreaks.ex:174-185); FB/AOB do not exist. They still appear in the TRF's 202 list."
   },
   {
    "q": 106,
@@ -1741,9 +1741,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "Y",
-   "status": "met",
-   "note": "Ainalrami C.04.7."
+   "answer": "N",
+   "status": "gap",
+   "note": "FAIL (was YES). In the accelerated rounds the app orders each bracket by game points, then rating, then TPN, without the virtual points (pairing.ex order_for_pairing:4444), so a group-A player who lost sits below a group-B player who won in the same pairing-score bracket - C.04.7 ranks by pairing score, then TPN. Measured 2026-10-02: in 7 of 7 random Baku tournaments rounds 2-3 differ from `ainalrami -c`'s replay of our own TRF; adding round R's virtual points to that order made 10 of 10 match. Group A itself is right (2*ceil(n/4) by TPN, pairing.ex:4106-4136); see Q111 for late entrants."
   },
   {
    "q": 107,
@@ -1758,8 +1758,8 @@
     "next": 109
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Only none/Baku in FIDE mode; extra points as acceleration is a departure (pairing.ex pairing_deviations)."
   },
   {
    "q": 108,
@@ -1774,8 +1774,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Only if Q107 YES."
+   "status": "met",
+   "note": "Off our path (Q107 NO): no other method in FIDE mode."
   },
   {
    "q": 109,
@@ -1789,9 +1789,9 @@
     "outcome": "ok",
     "next": 110
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "FAIL if YES. Not in locked_fields. Fix: lock in FIDE mode."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode acceleration freezes with round 1, no Unlock (tournaments.ex:894; settings_options_live.ex disabled select; fide_mode_locks_test.exs)."
   },
   {
    "q": 110,
@@ -1805,9 +1805,9 @@
     "outcome": "ok",
     "next": 111
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "FAIL if YES. Same fix."
+   "answer": "N",
+   "status": "met",
+   "note": "Same lock as Q109."
   },
   {
    "q": 111,
@@ -1822,9 +1822,9 @@
     "next": null,
     "penalty": 35
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "NO costs 35%."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 35%. Every active player gets a TPN at round 1, round-1 byes and late entrants included, and all count towards the Baku group size (pairing.ex:235-237,4115-4124,4479-4485), against the SPP's 2026-08-27 reading of C.04.2:2.4."
   },
   {
    "q": 112,
@@ -1839,9 +1839,9 @@
     "next": 114,
     "penalty": 15
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Audit log covers most; map it to the seven PIBE types."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 15% (was YES). The audit trail records the raw acts (result changes with their round, confirmed postponed non-draws, every hand edit, settings diffs) but nothing is identified as a PIBE, import findings are not stored, and no checker runs on hand edits (pairings_live.ex:953-972; tournaments_live.ex:1272-1277)."
   },
   {
    "q": 113,
@@ -1858,7 +1858,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Costs 7%."
+   "note": "Off our path while Q112 is NO; no PIBE is written as ###."
   },
   {
    "q": 114,
@@ -1873,9 +1873,9 @@
     "next": 115,
     "penalty": 3
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Snapshots/restore."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 3%. Restore points are taken before pairing, unpairing, a match forfeit, a CSV import and a hand-off, not before a correction, a postponed result, a hand edit or a settings change (pairings_live.ex:525,1209-1214,1906-1911)."
   },
   {
    "q": 115,
@@ -1891,8 +1891,8 @@
     "penalty": 10
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 10%."
+   "status": "gap",
+   "note": "Costs 10%. Hand edits and postponed non-draws are confirmed first; a previous-round correction and an import are not (pairings_live.ex:953-972; tournaments_live.ex:1272-1277)."
   },
   {
    "q": 116,
@@ -1908,8 +1908,8 @@
     "penalty": 12
    },
    "answer": "Y",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "fide_rating is the official rating (TRF 001); the pairing rating is fide_rating, or national_rating when there is none (player.ex:12-16,728-736). Weak YES: a FIDE-rated player cannot get a separate tournament rating."
   },
   {
    "q": 117,
@@ -1925,8 +1925,8 @@
     "penalty": 18
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 18%."
+   "status": "gap",
+   "note": "Costs 18%. Only the FIDE list and the KBSB list, each from a fixed source; no custom list (fide/sync.ex:35,51-53)."
   },
   {
    "q": 118,
@@ -1941,9 +1941,9 @@
     "next": 119,
     "penalty": 12
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Costs 12%."
+   "answer": "Y",
+   "status": "met",
+   "note": "rating_for_tempo falls back to the standard rating when rapid or blitz is missing - the Effective Rapid/Blitz lists (fide.ex:133-141; rating_refresh.ex:83)."
   },
   {
    "q": 119,
@@ -1959,7 +1959,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "FIDE and KBSB lists synced (Fide.Sync, KBSB roster)."
+   "note": "FIDE list from ratings.fide.com, KBSB list from the federation's public file (fide/sync.ex:1-5,35; federations/bel/sync.ex:77)."
   },
   {
    "q": 120,
@@ -1974,8 +1974,8 @@
     "next": null
    },
    "answer": "N",
-   "status": "check",
-   "note": "Only if Q119 NO or Q121 NO."
+   "status": "met",
+   "note": "Off our path. No list of unknown origin can be imported."
   },
   {
    "q": 121,
@@ -1991,8 +1991,8 @@
     "penalty": 7
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Standard/rapid/blitz: confirm all three are synced."
+   "status": "met",
+   "note": "The combined players_list.zip brings standard, rapid and blitz in one sync (fide/sync.ex:103-135; fide/fide_player.ex:9-11)."
   },
   {
    "q": 122,
@@ -2007,8 +2007,8 @@
     "next": null
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Off our path (only from Q120 YES)."
   },
   {
    "q": 123,
@@ -2024,8 +2024,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%."
+   "status": "gap",
+   "note": "Costs 7%. One list per rate of play, no sequence (std has no rapid/blitz fallback) (fide.ex:135-141)."
   },
   {
    "q": 124,
@@ -2040,8 +2040,8 @@
     "next": 125
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "No sequence to define; routes to Q125 (fide.ex:133-141)."
   },
   {
    "q": 125,
@@ -2056,8 +2056,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "One FIDE list per tournament, picked by its rate of play, plus the national fallback (fide.ex:135-141; player.ex:728-736)."
   },
   {
    "q": 126,
@@ -2073,8 +2073,8 @@
     "penalty": 12
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 12%."
+   "status": "met",
+   "note": "Off our path (only from Q123 YES)."
   },
   {
    "q": 127,
@@ -2091,7 +2091,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Autofill on player entry."
+   "note": "Picking a FIDE search result fills the rating for the tournament's rate of play (players_live.ex:645-670; fide.ex:135)."
   },
   {
    "q": 128,
@@ -2107,8 +2107,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%."
+   "status": "gap",
+   "note": "Costs 7%. The add-player results show only the standard rating, and nothing flags a missing main-list rating (players_live.ex:2412-2423)."
   },
   {
    "q": 129,
@@ -2124,8 +2124,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%."
+   "status": "gap",
+   "note": "Off our path while Q128 is NO; other-list ratings are display-only in the edit dialog."
   },
   {
    "q": 130,
@@ -2140,8 +2140,8 @@
     "next": 131
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "No automatic minimum rating (player.ex:13,728-736); routes to Q131."
   },
   {
    "q": 131,
@@ -2158,7 +2158,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "Free FIDE and national rating inputs on the add form (players_live.ex:2460,2484)."
   },
   {
    "q": 132,
@@ -2175,7 +2175,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "Editable in the edit dialog at any time (players_live.ex:3194,3199)."
   },
   {
    "q": 133,
@@ -2191,8 +2191,8 @@
     "penalty": 50
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Rating refresh (docs/rating-refresh.md). NO costs 50%."
+   "status": "met",
+   "note": "Refresh ratings re-looks-up every player by FIDE ID and proposes each difference (rating_refresh.ex:60-88)."
   },
   {
    "q": 134,
@@ -2208,8 +2208,8 @@
     "penalty": 18
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 18%."
+   "status": "gap",
+   "note": "Costs 18%. No source list, list date or manual marker is stored per rating (player.ex:12-16)."
   },
   {
    "q": 135,
@@ -2225,8 +2225,8 @@
     "penalty": 18
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 18%."
+   "status": "gap",
+   "note": "Costs 18%. The FIDE sync runs only from the admin's button; no scheduler (fide_live.ex:327-333)."
   },
   {
    "q": 136,
@@ -2242,8 +2242,8 @@
     "penalty": 7
    },
    "answer": "Y",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "One sync replaces standard, rapid and blitz together (fide_live.ex:327-333)."
   },
   {
    "q": 137,
@@ -2259,8 +2259,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%."
+   "status": "gap",
+   "note": "Costs 7%. The check uses the latest synced list, whatever the start date; the list period is not recorded (rating_refresh.ex:60-91)."
   },
   {
    "q": 138,
@@ -2276,8 +2276,8 @@
     "penalty": 1
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 1%."
+   "status": "gap",
+   "note": "Off our path (Q137 NO skips it). No switch for consistency checks."
   },
   {
    "q": 139,
@@ -2292,8 +2292,8 @@
     "next": 140
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Nothing runs a check after a sync (fide/sync.ex:209-224); routes to Q140."
   },
   {
    "q": 140,
@@ -2309,8 +2309,8 @@
     "next": 141
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Costs 25%."
+   "status": "gap",
+   "note": "Costs 25%. The check runs only when the arbiter presses Refresh ratings (players_live.ex:983-986)."
   },
   {
    "q": 141,
@@ -2326,8 +2326,8 @@
     "penalty": 18
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 18%."
+   "status": "gap",
+   "note": "Costs 18%. The check never compares the local list's date with FIDE's before running (players_live.ex:983-986)."
   },
   {
    "q": 142,
@@ -2342,8 +2342,8 @@
     "next": 143
    },
    "answer": "Y",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Each affected player with old and new values (players_live.ex:2829-2858)."
   },
   {
    "q": 143,
@@ -2359,8 +2359,8 @@
     "next": 144
    },
    "answer": "N",
-   "status": "check",
-   "note": "YES costs 18%."
+   "status": "met",
+   "note": "Nothing is written until Apply (players_live.ex:992-1004)."
   },
   {
    "q": 144,
@@ -2376,8 +2376,8 @@
     "penalty": 12
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 12%."
+   "status": "gap",
+   "note": "Costs 12%. Apply takes every proposal; no subset (players_live.ex:992-995)."
   },
   {
    "q": 145,
@@ -2388,12 +2388,13 @@
     "next": 146
    },
    "no": {
-    "outcome": "next",
-    "next": 146
+    "outcome": "penalty",
+    "next": 146,
+    "penalty": 117
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "gap",
+   "note": "Costs 117% - the draft prices each missing method: FIDE 70, NRO 30, NIDOF 7, HBFN 7, OTHER 3. Only FIDON exists, hard-coded: FIDE rating if any, else national (player.ex:727-736; pairing.ex:670)."
   },
   {
    "q": 146,
@@ -2408,9 +2409,9 @@
     "next": 147,
     "penalty": 15
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Costs 15% if NO."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 15%. Equal ratings are ordered by name only; the FIDE title is not used (pairing.ex:670)."
   },
   {
    "q": 147,
@@ -2425,9 +2426,9 @@
     "next": 155,
     "penalty": 7
    },
-   "answer": "Y",
-   "status": "check",
-   "note": ""
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 7%. No page sets a TPN; numbers are issued at round 1 and frozen (player.ex:166; pairing.ex:633-658). Routes to Q155."
   },
   {
    "q": 148,
@@ -2442,8 +2443,8 @@
     "next": 149
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Off our path (Q147 NO); there is no TPN exchange."
   },
   {
    "q": 149,
@@ -2459,9 +2460,9 @@
     "next": 150,
     "penalty": 35
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Costs 35%."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path; vacuous - no exchange exists."
   },
   {
    "q": 150,
@@ -2476,9 +2477,9 @@
     "next": 151,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Costs 15%."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path; vacuous - no exchange exists."
   },
   {
    "q": 151,
@@ -2494,7 +2495,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "Refused after 4 rounds (guard_pairing_number_freeze)."
+   "note": "Off our path. Changing a number after round 4 is paired is refused (tournaments.ex guard_pairing_number_freeze)."
   },
   {
    "q": 152,
@@ -2511,7 +2512,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "Not reached."
+   "note": "Off our path (Q151 NO)."
   },
   {
    "q": 153,
@@ -2526,9 +2527,9 @@
     "next": 156,
     "penalty": 60
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "NO costs 60%."
+   "answer": "N",
+   "status": "gap",
+   "note": "Off our path today (Q147 NO); no regeneration exists, and NO costs 60% if reached."
   },
   {
    "q": 154,
@@ -2543,9 +2544,9 @@
     "next": 155,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Costs 15%."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path; vacuous."
   },
   {
    "q": 155,
@@ -2561,8 +2562,8 @@
     "penalty": 7
    },
    "answer": "Y",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Vacuous: no regeneration and no arbiter-set tie order to keep (pairing.ex:670)."
   },
   {
    "q": 156,
@@ -2577,9 +2578,9 @@
     "next": 157,
     "penalty": 18
    },
-   "answer": "Y",
-   "status": "met",
-   "note": "First-ever assignment always allowed (C.04.2.B.3)."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 18%. A late entrant always gets the next free number, never the TPN their rating gives (pairing.ex:647-658,687-693)."
   },
   {
    "q": 157,
@@ -2594,8 +2595,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Per tournament, off by default (Settings, Scoring: tournaments.postponed_games). On, the result lists offer \"postponed by White\" / \"postponed by Black\" (*W, *B; * when nobody is named, from a TRF ? or record-missing), shown as \"postponed\" (uitgesteld). Enterable on the Pairings page, the phone and a results CSV (PairingsEngine.Results)."
+   "status": "met",
+   "note": "With postponed games on (Settings > Scoring), *W/*B on the Pairings page, the phone and CSV (results.ex:105-113,152; tournaments.ex update_pairing_result)."
   },
   {
    "q": 158,
@@ -2610,8 +2611,8 @@
     "next": 161
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A round pairs with a postponed game open (it counts provisionally, a draw by default). With blank boards, a second button records them as postponed first; the ordinary one still refuses (Pairing.pair_next_round/2)."
+   "status": "met",
+   "note": "An open * never blocks pairing; blank boards block the normal button and a second one records them as * and pairs (pairing.ex:154-183,422-430)."
   },
   {
    "q": 159,
@@ -2626,8 +2627,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Blank two-player boards of the last round are recorded as * before pairing, once confirmed (PostponedGames.record_missing/2); put back if the pairing then fails. A vacated seat still blocks."
+   "status": "met",
+   "note": "Confirmed blank two-player boards of the last round are written as * before pairing, and put back if the pairing fails (postponed_games.ex:244-258,349-377)."
   },
   {
    "q": 160,
@@ -2643,8 +2644,8 @@
     "penalty": 10
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A confirmation before recording (warning :missing_results_recorded_as_adjourned) and a notice plus audit row after. No Level attached: the Levels are not defined yet (design-fide-mode Phase 0/4)."
+   "status": "met",
+   "note": "A confirmation before, enforced on the server, then a notice and an audit row (pairings_live.ex:3480-3510; postponed_games.ex:56). Stronger than Level 2."
   },
   {
    "q": 161,
@@ -2659,8 +2660,8 @@
     "next": 162
    },
    "answer": "N",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Standings page, printed standings, team standings and cross tables carry a not-final banner while a * is open; the tournament stays running, not finished (Tournaments.refresh_status!/1); the OpenResults snapshot says provisional."
+   "status": "met",
+   "note": "Standings shown or printed while a game has no result, or a * is open, say they are not final (Tournaments.count_missing_results/2 tournaments.ex:5185; components/postponed.ex:399; print_controller.ex postponed_banner; fide_mode_live_test.exs). Was split: blanks used to print with no warning."
   },
   {
    "q": 162,
@@ -2675,8 +2676,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Any time, in any round: every open game is listed on the Pairings page with a button to its round, and the one write path (Tournaments.update_pairing_result/3) has no round restriction."
+   "status": "met",
+   "note": "A postponed game's result can be entered and corrected in any round; it is exempt from FIDE mode's round window (tournaments.ex:4778 ensure_result_round_open; fide_mode_locks_test.exs)."
   },
   {
    "q": 163,
@@ -2692,8 +2693,8 @@
     "penalty": 15
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A confirmation before a result that is not a draw replaces * (warning :adjourned_non_draw_result), enforced in Tournaments.update_pairing_result/3 for every writer. No Level attached yet (Phase 0/4)."
+   "status": "met",
+   "note": "Replacing * with a non-draw is refused until confirmed, for every writer (postponed_games.ex:302-320; pairings_live.ex:921-929)."
   },
   {
    "q": 164,
@@ -2709,8 +2710,8 @@
     "penalty": 10
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. The TRF26 export writes the game as ? for both players (TrfExport). A game still open when its round's report was finalised for sending stays ? in every later report; its played result goes in the separate postponed-games TRF (extra rounds, nobody twice in a round), so no game is sent twice. The engine/TRF16 spelling keeps =, with the provisional points, which is what a pairing program reads."
+   "status": "met",
+   "note": "Open * is written as ? on both players' 001 lines in the TRF26 export (trf_export.ex)."
   },
   {
    "q": 165,
@@ -2726,8 +2727,8 @@
     "penalty": 3
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. ? in the 001 record, and X in the 162 record at the draw value; the points column scores ? at X whatever the tournament counts it as, so the file adds up from itself. Ainalrami's writer refuses ?, so TrfExport patches it in after serializing."
+   "status": "met",
+   "note": "? in 001, and 162's X at the draw value so the points column adds up (trf_export.ex)."
   },
   {
    "q": 166,
@@ -2742,9 +2743,9 @@
     "next": 167,
     "penalty": 10
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. ? imports as a postponed game (*), with a notice, instead of a blank (TrfImport). Our own export round-trips."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 10%. Only ? becomes *; any other unknown code is refused by Ainalrami's parser (trf_import.ex:1074-1075; deps/ainalrami/lib/ainalrami/trf.ex:83-88,1958-1961)."
   },
   {
    "q": 167,
@@ -2759,8 +2760,8 @@
     "next": 168
    },
    "answer": "N",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Draw for both is the default (tournaments.postponed_requester_outcome / postponed_opponent_outcome, stamped on each game when postponed, so a later change affects only new ones). Win or loss can be set, but only as a Compliance departure that takes the tournament out of FIDE mode (:postponed_requester_not_draw, :postponed_opponent_not_draw). One path reads it: Standings.pairing_records/4, the tie-breaks, the engine's TRF, Keizer and team matches."
+   "status": "met",
+   "note": "Draw by default; win or loss only as a departure (compliance.ex :postponed_*_not_draw)."
   },
   {
    "q": 168,
@@ -2776,8 +2777,8 @@
     "penalty": 20
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. A confirmation when a * from a round before the last paired one is open (warning :adjourned_older_round_open), enforced in Pairing.pair_next_round/2. No Level attached yet (Phase 0/4)."
+   "status": "met",
+   "note": "A confirmation naming the open games before pairing, enforced on the server (postponed_games.ex:261-273; pairing.ex:154-166)."
   },
   {
    "q": 169,
@@ -2791,9 +2792,9 @@
     "outcome": "ok",
     "next": null
    },
-   "answer": "N",
-   "status": "check",
-   "note": "Built on branch postponed-games (2026-09-24), not verified yet. Final standings: see Q161; the KBSB upload says \"Voorlopige stand\". The TRF export is not refused: it writes ? (FIDE's own unknown-result mark, not final by construction) and the Pairings page says the export is not final. Downloading with \"Finalise results for TRF sending\" marks the rounds sent; a sent round is never finalised again or unpaired, and a sent result changes only after a confirmation (:finalised_result_changed). Needs a reading of whether marking is enough."
+   "answer": "Y",
+   "status": "gap",
+   "note": "FAIL on the draft's reading. With a * open the TRF26 can be downloaded and finalised for sending (the game goes out as ?) and standings are produced, marked not final (postponed_games.ex:726-774; trf_export.ex). This is the project's design for games played after the event (reported as their own FIDE tournament); see the open questions."
   },
   {
    "q": 170,
@@ -2808,9 +2809,9 @@
     "next": 171,
     "penalty": 7
    },
-   "answer": "Y",
-   "status": "check",
-   "note": ""
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 7%. No withdrawn marker on the standings page or print (standings_live.ex:916-924; print_controller.ex:1027-1066)."
   },
   {
    "q": 171,
@@ -2826,7 +2827,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Byes."
+   "note": "Absences score abs_value, the PAB bye_value (standings.ex:644-680)."
   },
   {
    "q": 172,
@@ -2842,7 +2843,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "A half-point bye is an absence with absence points at 1/2 (standings.ex:662,674-680); written as Z with 162 Z=0.5."
   },
   {
    "q": 173,
@@ -2858,7 +2859,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "Unlimited unless abs_nbfois caps it (standings.ex:674-691)."
   },
   {
    "q": 174,
@@ -2874,8 +2875,8 @@
     "penalty": 15
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 15%."
+   "status": "gap",
+   "note": "Costs 15%. A second paid absence raises no warning (tournaments.ex update_player; players_live.ex:3353)."
   },
   {
    "q": 175,
@@ -2891,8 +2892,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%."
+   "status": "gap",
+   "note": "Costs 7%. No half-point-bye-ineligible flag (player.ex:53-61). Routes to Q177."
   },
   {
    "q": 176,
@@ -2908,8 +2909,8 @@
     "next": 177
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Off our path (Q175 NO)."
   },
   {
    "q": 177,
@@ -2924,9 +2925,9 @@
     "next": 180,
     "penalty": 7
    },
-   "answer": "Y",
-   "status": "check",
-   "note": ""
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 7%. No full-point bye: a vacancy bye is stored and exported as a PAB (tournaments.ex award_bye_for_vacancy; pairing.ex:4960-4964). Routes to Q180."
   },
   {
    "q": 178,
@@ -2942,8 +2943,8 @@
     "penalty": 7
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 7%."
+   "status": "met",
+   "note": "Off our path (Q177 NO)."
   },
   {
    "q": 179,
@@ -2959,8 +2960,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%."
+   "status": "met",
+   "note": "Off our path (Q177 NO); costs 3% once a full-point bye exists without a ### line."
   },
   {
    "q": 180,
@@ -2976,7 +2977,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Results table."
+   "note": "1/2-0, 0-1/2 and 0-0 can be entered (results.ex:94-99,152)."
   },
   {
    "q": 181,
@@ -2992,7 +2993,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "Only codes in the Results table are accepted; 1-1 and 1-1/2 do not exist (results.ex:89-114)."
   },
   {
    "q": 182,
@@ -3008,7 +3009,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "No drawn forfeit code (results.ex:96-98)."
   },
   {
    "q": 183,
@@ -3024,7 +3025,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "Only 1-0FF, 0-1FF and 0-0FF (results.ex:96-98,152)."
   },
   {
    "q": 184,
@@ -3040,7 +3041,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "No code mixes a played result with a forfeit (results.ex:89-114)."
   },
   {
    "q": 185,
@@ -3057,7 +3058,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "1-0U, 0-1U, 1/2-1/2U."
+   "note": "1-0U, 0-1U, 1/2-1/2U, exported as W/L/D (results.ex:100-102,261-265)."
   },
   {
    "q": 186,
@@ -3073,7 +3074,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": ""
+   "note": "One classification table drives standings, tie-breaks, engine input, export and import (results.ex:89-114)."
   },
   {
    "q": 187,
@@ -3088,9 +3089,9 @@
     "next": 189,
     "penalty": 7
    },
-   "answer": "Y",
-   "status": "check",
-   "note": ""
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 7%. Individual Swiss boards come in the engine's output order, not sorted by C.04.2:3.6 (pairing.ex:826-832); only team Swiss sorts (team_swiss.ex:213-235)."
   },
   {
    "q": 188,
@@ -3105,9 +3106,9 @@
     "next": 189,
     "penalty": 3
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Costs 3% if NO."
+   "answer": "N",
+   "status": "met",
+   "note": "Off our path (Q187 NO). Include Baku's virtual points when Q187 is built, or this costs 3%."
   },
   {
    "q": 189,
@@ -3121,9 +3122,9 @@
     "outcome": "next",
     "next": 190
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL. update_pairing_result only checks writability. Fix: only the last and second-to-last round in FIDE mode."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode only the round before the last played, and later ones, can be changed: results, hand edits, team forfeit decisions, and deleting a player who played a closed round are refused (Tournaments.ensure_round_editable/2 tournaments.ex:5168, sent_round_gate/2:5116, ensure_result_round_open/2:4778; team_matches.ex:153; fide_mode_locks_test.exs)."
   },
   {
    "q": 190,
@@ -3139,7 +3140,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Must stay possible."
+   "note": "The round before the last played stays open (tournaments.ex:5168; fide_mode_locks_test.exs)."
   },
   {
    "q": 191,
@@ -3153,9 +3154,9 @@
     "outcome": "ok",
     "next": 192
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL. Same fix."
+   "answer": "N",
+   "status": "met",
+   "note": "Rounds before the second-to-last played are closed in FIDE mode (tournaments.ex:5168; fide_mode_locks_test.exs)."
   },
   {
    "q": 192,
@@ -3172,7 +3173,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Costs 15%."
+   "note": "Costs 15%. No rating-only correction: a board has one result for standings, pairing and TRF (tournaments/pairing.ex)."
   },
   {
    "q": 193,
@@ -3189,7 +3190,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": ""
+   "note": "Off our path while Q192 is NO."
   },
   {
    "q": 194,
@@ -3206,7 +3207,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "add_forbidden_pairing/4."
+   "note": "Prohibited pairs and club/federation exclusions for the whole tournament, written as 260 (tournaments.ex add_forbidden_pairing; trf_export.ex). No per-round prohibition."
   },
   {
    "q": 195,
@@ -3222,7 +3223,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "FAIL. Allowed any time. Disputed with TEC (2026-09-08 letter, B.6) - needs their answer or a lock."
+   "note": "FAIL. Prohibitions can be added at any time (tournaments.ex add_forbidden_pairing). Disputed: our 2026-09-08 letter (docs/tec-feedback-2026-09.md:179-193, B.6) argues C.05:5.2 binds the organiser, not the software. See the open questions."
   },
   {
    "q": 196,
@@ -3238,7 +3239,7 @@
    },
    "answer": "Y",
    "status": "gap",
-   "note": "FAIL. Same."
+   "note": "FAIL. Same: added after a round with no warning; the club/federation exclusion settings are not frozen either."
   },
   {
    "q": 197,
@@ -3254,8 +3255,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 3%."
+   "status": "gap",
+   "note": "Costs 3%. Player status is active or withdrawn; no expelled flag (player.ex:19,189)."
   },
   {
    "q": 198,
@@ -3271,8 +3272,8 @@
     "penalty": 2
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 2%."
+   "status": "gap",
+   "note": "Costs 2%. Every player is ranked; no exclusion from the standings (standings.ex:248,289-298)."
   },
   {
    "q": 199,
@@ -3287,8 +3288,8 @@
     "next": null
    },
    "answer": "N",
-   "status": "check",
-   "note": "We have BH, cuts, MBH, SB, DE, WIN/WON, BPG, PS, KS, ARO, AROC1; several listed codes likely missing."
+   "status": "gap",
+   "note": "12 of the 39 can be selected: ARO, ARO/C1, BH, BH/C1, BH/C2, BH/M1, BPG, DE, PS, SB, WIN, WON. Missing: AOB, AOB/F, APPO, APRO, ARO/C2, ARO/M1, ARO/M2, BH/M2, BWG, DE/P, FB, FB/C1, FB/C2, FB/M1, FB/M2, PS/C1, PS/C2, PTP, REP, RTNG, RTNG/R, SB/C1, SB/C2, STD, TPN, TPN/R, TPR (tiebreaks.ex:32-155; ainalrami_bridge.ex:44-57). Ainalrami computes all of them. The draft gives NO no outcome, only that all must be implemented: treat as a failure."
   },
   {
    "q": 200,
@@ -3302,9 +3303,9 @@
     "outcome": "ok",
     "next": 203
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "Not locked."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode the tie-break list freezes with round 1, no Unlock (tournaments.ex:894; settings_tournament_live.ex disabled editor; fide_mode_locks_test.exs)."
   },
   {
    "q": 201,
@@ -3318,9 +3319,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL. Fix: lock in FIDE mode, or Level-4 + ###."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: cannot happen in FIDE mode (Q200)."
   },
   {
    "q": 202,
@@ -3335,9 +3336,9 @@
     "next": 203,
     "penalty": 5
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 5%."
+   "answer": "Y",
+   "status": "met",
+   "note": "Off our path: cannot happen in FIDE mode (Q200)."
   },
   {
    "q": 203,
@@ -3352,9 +3353,9 @@
     "next": 207,
     "penalty": 15
    },
-   "answer": "Y",
-   "status": "met",
-   "note": "Shared places."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 15% (was YES). Players still level after C.07 are ordered by rating, name and id and numbered 1..N, so no shared place is ever shown (standings.ex:289-298,463-473)."
   },
   {
    "q": 204,
@@ -3370,8 +3371,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%."
+   "status": "met",
+   "note": "Off our path (Q203 NO). No drawing of lots for tied places."
   },
   {
    "q": 205,
@@ -3388,7 +3389,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Manual standings order."
+   "note": "Manual ranking: reseed from the computed order and move players (tournaments.ex:2812-2930)."
   },
   {
    "q": 206,
@@ -3404,7 +3405,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "Not reached."
+   "note": "No drawing of lots exists to repeat."
   },
   {
    "q": 207,
@@ -3420,8 +3421,8 @@
     "penalty": 10
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 10%."
+   "status": "gap",
+   "note": "Costs 10%. No externally calculated tie-break values (tiebreaks.ex:32-155)."
   },
   {
    "q": 208,
@@ -3436,9 +3437,9 @@
     "next": 210,
     "penalty": 32
    },
-   "answer": "Y",
-   "status": "check",
-   "note": "Referenced in the code; confirm."
+   "answer": "N",
+   "status": "gap",
+   "note": "Costs 32%. With any unrated player, ARO and ARO/C1 are dropped for the whole event; no handling method (standings.ex:61-63,141-161). Ainalrami's /U<rating> is not wired in."
   },
   {
    "q": 209,
@@ -3454,8 +3455,8 @@
     "penalty": 10
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 10%."
+   "status": "gap",
+   "note": "Off our path while Q208 is NO."
   },
   {
    "q": 210,
@@ -3471,8 +3472,8 @@
     "penalty": 40
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 40%."
+   "status": "gap",
+   "note": "Costs 40%. No flag for a tournament over 30 days, one rating per player (player.ex:13-15). Routes to Q217."
   },
   {
    "q": 211,
@@ -3488,8 +3489,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "gap",
+   "note": "Off our path (Q210 NO)."
   },
   {
    "q": 212,
@@ -3505,8 +3506,8 @@
     "penalty": 35
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 35%."
+   "status": "gap",
+   "note": "Off our path (Q210 NO)."
   },
   {
    "q": 213,
@@ -3522,8 +3523,8 @@
     "penalty": 10
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Off our path (Q210 NO)."
   },
   {
    "q": 214,
@@ -3539,8 +3540,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "met",
+   "note": "Off our path (Q210 NO)."
   },
   {
    "q": 215,
@@ -3556,8 +3557,8 @@
     "penalty": 18
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "gap",
+   "note": "Off our path (Q210 NO)."
   },
   {
    "q": 216,
@@ -3573,8 +3574,8 @@
     "penalty": 10
    },
    "answer": "N",
-   "status": "check",
-   "note": ""
+   "status": "gap",
+   "note": "Off our path (Q210 NO)."
   },
   {
    "q": 217,
@@ -3591,7 +3592,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Costs 30% while the ### comments are missing."
+   "note": "Costs 30%. Since 2026-10-02 the rank column (86-89) is the place, not the starting rank, and 202 uses C.07's spelling (BH/C1, BH/M1, ARO/C1) - before, `ainalrami -c` called nearly every place wrong or could not check the standings at all (trf_export.ex with_final_ranks, tie_break_codes; trf_checker_round_trip_test.exs). Still not written: 152 (the initial colour drawn by lot), 212, 172, 330, scoped 299, 222 for DELAY or free text; no ### for corrections or late prohibitions (trf_export.ex). The FIDE-mode exit line is written (Q44)."
   },
   {
    "q": 218,
@@ -3608,7 +3609,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "No setting turns warnings off (postponed_games.ex:54-79; features.ex:108-180)."
   },
   {
    "q": 219,
@@ -3625,7 +3626,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "Confirmations are enforced in the write path; no switch skips them (postponed_games.ex:328-337)."
   },
   {
    "q": 220,
@@ -3641,7 +3642,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "No setting disables a confirmation (postponed_games.ex:328-337)."
   },
   {
    "q": 221,
@@ -3658,7 +3659,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": ""
+   "note": "The warnings are fixed in code (postponed_games.ex:54-79)."
   },
   {
    "q": 222,
@@ -3674,8 +3675,8 @@
     "penalty": 15
    },
    "answer": "N",
-   "status": "check",
-   "note": "Costs 15%."
+   "status": "gap",
+   "note": "Costs 15%. No Chess960: no variant setting and no draw of the start position."
   },
   {
    "q": 223,
