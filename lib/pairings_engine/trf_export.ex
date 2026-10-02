@@ -45,7 +45,9 @@ defmodule PairingsEngine.TrfExport do
       text =
         tournament
         |> build(rounds_spec, opts)
-        |> mark_copy(copy_comments(tournament, rounds_spec, opts))
+        |> mark_copy(
+          copy_comments(tournament, rounds_spec, opts) ++ fide_mode_comments(tournament, opts)
+        )
 
       {:ok, text}
     end
@@ -105,6 +107,24 @@ defmodule PairingsEngine.TrfExport do
       end
     else
       []
+    end
+  end
+
+  ## ---------- leaving FIDE mode is in the file ----------
+  #
+  # VCL4THP Q44: once a tournament has left FIDE mode, its report says so,
+  # and from which round, so whoever checks it knows where the pairings stop
+  # being the pairing system's own. `fide_compliance_lost_round` is that
+  # round - the number of rounds that existed when it happened, 0 for before
+  # the first was paired - and nothing ever clears it, so neither does this.
+  # Written in the style of the TEC manual draft's PIBE lines
+  # (`### <Type> @ Round N`); the draft fixes no wording for this one.
+  # TRF26 only, like the copy mark: the engines read the other spelling.
+  defp fide_mode_comments(%Tournament{} = tournament, opts) do
+    case {Keyword.get(opts, :dialect, :trf26), tournament.fide_compliance_lost_round} do
+      {:trf26, 0} -> ["FIDE mode exited before Round 1 was paired"]
+      {:trf26, round} when is_integer(round) -> ["FIDE mode exited @ Round #{round}"]
+      _ -> []
     end
   end
 
@@ -258,6 +278,7 @@ defmodule PairingsEngine.TrfExport do
       # left them out altogether; TRF26 wants them (`250`) for pairing.
       |> then(&Pairing.accelerated_rows(tournament, &1, players, length(rounds)))
       |> append_future_byes(tournament, rounds, paired)
+      |> with_final_ranks(tournament, rounds, dialect)
 
     last_round = Enum.reduce(trf_players, length(rounds), &max(length(&1.games), &2))
 
@@ -269,6 +290,41 @@ defmodule PairingsEngine.TrfExport do
     |> serialize(trf_players, players, rounds, last_round, point_system, dialect)
     |> mark_unknown(unknown)
   end
+
+  # The rank column of the 001 record (86-89) is the player's place in the
+  # standings after the file's last round - not the starting rank in 5-8,
+  # which is what the opponent columns refer to and which stays the TPN. The
+  # two had been written alike, so a pairing checker reading the file
+  # (`ainalrami -c`, what FIDE's testers run - VCL4THP Q21, Q217) reported
+  # nearly every place as one the tie-breaks do not give. The place is
+  # `Standings`' C.07 order over the rounds in the file; a hand-set order
+  # (docs/manual-standings.md) stays out of the report, as before.
+  #
+  # TRF26 only: the engine dialect is what a pairing program reads, byte for
+  # byte the input both engines get. Not for a team event, whose places are
+  # the teams' (`team_records/2`), nor for Keizer, which has its own ladder
+  # and no FIDE tie-breaks. Nor for a file of chosen rounds that does not
+  # start at round 1: its places would be computed from games it leaves out.
+  defp with_final_ranks(rows, tournament, rounds, :trf26) do
+    if Tournament.team?(tournament) or tournament.pairing_system == "keizer" or
+         rounds == [] or rounds != Enum.to_list(1..Enum.max(rounds)) do
+      rows
+    else
+      place =
+        tournament
+        |> PairingsEngine.Standings.standings(through_round: Enum.max(rounds))
+        |> Map.new(&{&1.player.id, &1.rank})
+
+      Enum.map(rows, fn row ->
+        case Map.fetch(place, row.id) do
+          {:ok, rank} -> Map.put(row, :final_rank, rank)
+          :error -> row
+        end
+      end)
+    end
+  end
+
+  defp with_final_ranks(rows, _tournament, _rounds, _dialect), do: rows
 
   defp serialize(tournament, trf_players, players, rounds, last_round, point_system, dialect) do
     Trf.serialize(
@@ -827,13 +883,20 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
-  # The configured tie-breaks are FIDE's own C.07 codes (`Tiebreaks`), so
-  # they go out as they are; anything that is not a code shape is dropped
-  # rather than let the writer refuse the file over it.
+  # The configured tie-breaks in C.07's own spelling. Four of this app's
+  # codes are spelt its own way (BHC1, BHC2, MBH, AROC1 for BH/C1, BH/C2,
+  # BH/M1, ARO/C1 - `AinalramiBridge.codes/0`), and until 2026-10-02 they
+  # went out as they were: a pairing checker reading the file could not
+  # check its standings at all ("BHC1 is not a tie-break code"), and BHC1
+  # leads the default Swiss list. Anything that is not a code shape is
+  # dropped rather than let the writer refuse the file over it.
   defp tie_break_codes(t) do
+    c07 = PairingsEngine.Standings.AinalramiBridge.codes()
+
     (t.tiebreaks || [])
     |> Enum.map(&String.upcase(to_string(&1)))
-    |> Enum.filter(&Regex.match?(~r/^[A-Z][A-Z0-9]*$/, &1))
+    |> Enum.map(&Map.get(c07, &1, &1))
+    |> Enum.filter(&Regex.match?(~r"^[A-Z][A-Z0-9]*(/[A-Z0-9][A-Z0-9+.-]*)*$", &1))
   end
 
   # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.

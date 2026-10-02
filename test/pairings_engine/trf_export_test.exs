@@ -643,10 +643,12 @@ defmodule PairingsEngine.TrfExportTest do
   describe "TRF26 - the file FIDE reads" do
     test "carries 192, 202 and 222 in FIDE's spelling, and none of the engines'" do
       {tournament, _} = fixture()
+      # Rounds are paired, so FIDE mode freezes the tie-break list; set it
+      # the way an arbiter must, before the first round.
+      tournament = Repo.update!(Ecto.Changeset.change(tournament, tiebreaks: ~w(BH SB)))
 
       {:ok, tournament} =
         Tournaments.update_tournament(tournament, %{
-          "tiebreaks" => ["BH", "SB"],
           "rate_of_play" => "90min/end+30sec/move from move 1"
         })
 

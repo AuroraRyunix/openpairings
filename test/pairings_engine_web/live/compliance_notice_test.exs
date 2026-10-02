@@ -58,15 +58,20 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
             postponed_games: true,
             postponed_requester_outcome: "win",
             postponed_opponent_outcome: "loss"
-          }
+          },
+          # Two draws worth more than a win and a loss, and a bye worth more
+          # than a win.
+          %Tournament{pairing_system: "swiss", points_draw: 0.75, bye_value: 1.5},
+          # Standard scoring with a bye no game can give.
+          %Tournament{pairing_system: "swiss", bye_value: 0.25}
         ]
         |> Enum.flat_map(&Enum.map(Compliance.check(&1), fn d -> d.code end))
         |> MapSet.new()
 
       all_codes = MapSet.union(codes, swiss_codes)
 
-      assert MapSet.size(all_codes) == length(Compliance.settings()),
-             "every setting in Compliance.settings/0 must be reachable as a departure"
+      assert MapSet.size(all_codes) == length(Compliance.codes()),
+             "every code in Compliance.codes/0 must be reachable as a departure"
 
       for code <- all_codes do
         message = SettingsSupport.compliance_message(code)

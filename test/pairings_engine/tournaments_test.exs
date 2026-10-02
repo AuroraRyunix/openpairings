@@ -1989,8 +1989,15 @@ defmodule PairingsEngine.TournamentsTest do
     #   R2: A beats C, B beats D
     #   R3: A beats B, C beats D
     defp manual_ranking_fixture do
+      # Outside FIDE mode: these tests correct round 1 with round 3 played,
+      # which FIDE mode refuses (C.04.2:4.3, fide_mode_locks_test.exs).
       tournament =
-        Repo.insert!(%Tournament{name: "Manual Ranking Test", type: "swiss", rounds_count: 3})
+        Repo.insert!(%Tournament{
+          name: "Manual Ranking Test",
+          type: "swiss",
+          rounds_count: 3,
+          fide_compliance_lost_round: 0
+        })
 
       [a, b, c, d] =
         for {name, rating} <- [{"A", 2000}, {"B", 1800}, {"C", 1700}, {"D", 1600}] do

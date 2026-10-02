@@ -866,7 +866,92 @@ defmodule PairingsEngine.Tournaments do
       # freezes with round 1 like the rest of the pairing shape.
       base = base ++ [:initial_colour]
 
-      if paired >= rr_implied_limit, do: [:rr_cycles | base], else: base
+      base = if paired >= rr_implied_limit, do: [:rr_cycles | base], else: base
+
+      Enum.uniq(base ++ fide_locked_fields(tournament, paired))
+    end
+  end
+
+  # What VCL4THP v13 says a program in FIDE mode must not let change once the
+  # tournament is under way, each with the question that fails it:
+  #
+  #   * `rounds_count`, and a round robin's `rr_cycles`, which is its round
+  #     count by another name - Q57/Q58 (C.04.1:1, the number of rounds is
+  #     announced beforehand).
+  #   * the scoring system, team match points included - Q75/Q76.
+  #   * the pairing-allocated bye's value, and the SWAR 3-2-1 presence points
+  #     that ride on it - Q85/Q86.
+  #   * `acceleration` - Q109/Q110 (removed or changed after round 1).
+  #   * `pairing_system` - Q93. Already frozen with the round-1 list above,
+  #     but there an arbiter can click "Unlock"; in FIDE mode they cannot.
+  #   * `tiebreaks` - Q200/Q201 (announced before the start, C.07).
+  #
+  # TEC's own scale calls this Level 5: refused in FIDE mode, or allowed only
+  # after leaving it. So these are not unlockable while the tournament is in
+  # FIDE mode (`ensure_unlocked/3`), and leaving it is one deliberate act on
+  # Settings -> FIDE (`leave_fide_mode/3`) - after which each of them is an
+  # ordinary round-1 lock again, or no lock at all.
+  @fide_locked ~w(rounds_count rr_cycles points_win points_draw points_loss
+                  team_match_points_win team_match_points_draw team_match_points_loss
+                  bye_value presence_value presence_on_allocated_bye
+                  acceleration pairing_system tiebreaks)a
+
+  @doc """
+  The settings `tournament` cannot change at all while it is in FIDE mode
+  (`PairingsEngine.Compliance.fide_mode?/1`) and a round is paired - a
+  subset of `locked_fields/1` that the `:unlock` option does not open.
+  Empty outside FIDE mode and before round 1.
+  """
+  @spec fide_locked_fields(Tournament.t()) :: [atom()]
+  def fide_locked_fields(%Tournament{} = tournament),
+    do: fide_locked_fields(tournament, PairingsEngine.Pairing.paired_rounds_count(tournament.id))
+
+  @doc """
+  Takes `tournament` out of FIDE mode, for good: records the round under
+  way in `fide_compliance_lost_round`, which nothing ever clears (VCL4THP
+  Q45), so every FIDE-mode lock (`fide_locked_fields/1`,
+  `ensure_round_editable/2`) is off from now on and the TRF says from which
+  round (`TrfExport`, Q44).
+
+  The one explicit way out. The page that calls it asks twice first - TEC's
+  Level 4, the second step spelling out what this costs (Q43); this
+  function does not ask, it only refuses what cannot be done:
+  `{:error, :not_in_fide_mode}` when there is nothing to leave, and the
+  archive/hand-off refusals of `ensure_writable/1`.
+
+  Written with a guarded `update_all` rather than a changeset, the way the
+  pairing stamps a deviation (`Pairing.record_pairing_deviations/2`): the
+  column is deliberately not cast, so no settings form can write it.
+  """
+  @spec leave_fide_mode(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, :not_in_fide_mode | :archived | :handed_off}
+  def leave_fide_mode(%Tournament{} = tournament) do
+    with :ok <- ensure_writable(tournament),
+         true <- PairingsEngine.Compliance.fide_mode?(tournament) || {:error, :not_in_fide_mode} do
+      round = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+      Repo.update_all(
+        from(t in Tournament,
+          where: t.id == ^tournament.id and is_nil(t.fide_compliance_lost_round)
+        ),
+        set: [fide_compliance_lost_round: round]
+      )
+
+      updated = Repo.reload!(tournament)
+      broadcast_tournament_change(updated.id, :settings)
+      {:ok, updated}
+    end
+  end
+
+  # A round robin's `rounds_count` is not a choice: `RoundRobin` writes it
+  # from the frozen field and `rr_cycles` (`ensure_correct_rounds_count/2`),
+  # so the lock that matters there is `rr_cycles`, and locking the derived
+  # value would only refuse the program's own correction.
+  defp fide_locked_fields(tournament, paired) do
+    cond do
+      paired == 0 or not PairingsEngine.Compliance.fide_mode?(tournament) -> []
+      tournament.pairing_system == "round_robin" -> @fide_locked -- [:rounds_count]
+      true -> @fide_locked
     end
   end
 
@@ -946,20 +1031,36 @@ defmodule PairingsEngine.Tournaments do
   where the write does, not in whichever template happened to render an
   "Unlock" button.
   """
-  @spec ensure_unlocked(Tournament.t(), map(), keyword()) :: :ok | {:error, :locked_after_pairing}
+  @spec ensure_unlocked(Tournament.t(), map(), keyword()) ::
+          :ok | {:error, :locked_after_pairing | :locked_in_fide_mode}
   def ensure_unlocked(%Tournament{} = tournament, attrs, opts \\ []) when is_map(attrs) do
-    unlocked = opts |> Keyword.get(:unlock, []) |> MapSet.new()
-    locked = tournament |> locked_fields() |> Enum.reject(&(&1 in unlocked))
+    fide_locked = fide_locked_fields(tournament)
 
-    changed? =
-      Enum.any?(locked, fn field ->
-        case fetch_attr(attrs, field) do
-          :error -> false
-          {:ok, value} -> changes_value?(tournament, field, value)
-        end
-      end)
+    # `:unlock` never opens a FIDE-mode lock - see `fide_locked_fields/1`.
+    unlocked =
+      opts
+      |> Keyword.get(:unlock, [])
+      |> MapSet.new()
+      |> MapSet.difference(MapSet.new(fide_locked))
 
-    if changed?, do: {:error, :locked_after_pairing}, else: :ok
+    changed =
+      tournament
+      |> locked_fields()
+      |> Enum.reject(&(&1 in unlocked))
+      |> Enum.filter(&changes_attr?(tournament, attrs, &1))
+
+    cond do
+      changed == [] -> :ok
+      Enum.any?(changed, &(&1 in fide_locked)) -> {:error, :locked_in_fide_mode}
+      true -> {:error, :locked_after_pairing}
+    end
+  end
+
+  defp changes_attr?(tournament, attrs, field) do
+    case fetch_attr(attrs, field) do
+      :error -> false
+      {:ok, value} -> changes_value?(tournament, field, value)
+    end
   end
 
   defp fetch_attr(attrs, field) do
@@ -2442,10 +2543,36 @@ defmodule PairingsEngine.Tournaments do
   defp guard_pairing_number_freeze(changeset, %Player{}), do: changeset
 
   def delete_player(%Player{} = player) do
-    with :ok <- ensure_writable(player.tournament_id) do
+    with :ok <- ensure_writable(player.tournament_id),
+         :ok <- ensure_no_closed_rounds(player) do
       Repo.delete(player)
       |> tap_ok(fn deleted -> broadcast_tournament_change(deleted.tournament_id, :players) end)
     end
+  end
+
+  # Deleting a player empties their seat in every round they played (the
+  # foreign key nilifies it), which changes who played whom in rounds FIDE
+  # mode has closed (`ensure_round_editable/2`). In FIDE mode such a player
+  # is withdrawn, not deleted.
+  defp ensure_no_closed_rounds(%Player{} = player) do
+    with %Tournament{} = tournament <- Repo.get(Tournament, player.tournament_id),
+         true <- PairingsEngine.Compliance.fide_mode?(tournament),
+         [_ | _] = rounds <- player_round_numbers(player),
+         true <- Enum.min(rounds) < last_played_round(tournament.id) - 1 do
+      {:error, :player_in_closed_round}
+    else
+      _ -> :ok
+    end
+  end
+
+  defp player_round_numbers(%Player{id: id}) do
+    from(p in Pairing,
+      join: r in Round,
+      on: r.id == p.round_id,
+      where: p.white_player_id == ^id or p.black_player_id == ^id,
+      select: r.number
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -4630,6 +4757,7 @@ defmodule PairingsEngine.Tournaments do
 
     with :ok <- ensure_writable(tournament_id),
          %Tournament{} = tournament <- Repo.get(Tournament, tournament_id),
+         :ok <- ensure_result_round_open(tournament, pairing),
          :ok <- ensure_postponed_allowed(tournament, result),
          :ok <-
            pairing
@@ -4640,6 +4768,19 @@ defmodule PairingsEngine.Tournaments do
         result,
         postponed_attrs(tournament, pairing, result, opts)
       )
+    end
+  end
+
+  # The FIDE-mode round window (`ensure_round_editable/2`), for results. A
+  # postponed game is the exception, while it is open and after it has been
+  # played (`provisional_white` stays set): its result is entered whenever
+  # the game is played, in whatever round it belongs to (VCL4THP Q162).
+  defp ensure_result_round_open(tournament, %Pairing{} = pairing) do
+    if PairingsEngine.Results.postponed?(pairing.result) or not is_nil(pairing.provisional_white) do
+      :ok
+    else
+      number = Repo.one(from r in Round, where: r.id == ^pairing.round_id, select: r.number)
+      ensure_round_editable(tournament, number)
     end
   end
 
@@ -4968,11 +5109,116 @@ defmodule PairingsEngine.Tournaments do
   # file - so it waits for `acknowledged: [:sent_round_changed]` in `opts`,
   # which the Pairings page asks for with a warning of its own. The round
   # stays marked as sent either way, so it is never sent a second time.
+  #
+  # Every hand edit of a round goes through here, so the FIDE-mode round
+  # window (`ensure_round_editable/2`) is checked here too, first: a round
+  # FIDE mode has closed is refused outright, sent or not.
   defp sent_round_gate(%Round{} = round, opts) do
-    if :sent_round_changed not in Keyword.get(opts, :acknowledged, []) and
-         PostponedGames.round_sent?(round.tournament_id, round.number),
-       do: {:error, {:needs_acknowledgement, [:sent_round_changed]}},
+    cond do
+      refusal = round_closed(round.tournament_id, round.number) ->
+        refusal
+
+      :sent_round_changed not in Keyword.get(opts, :acknowledged, []) and
+          PostponedGames.round_sent?(round.tournament_id, round.number) ->
+        {:error, {:needs_acknowledgement, [:sent_round_changed]}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp round_closed(tournament_id, round_number) do
+    case ensure_round_editable(tournament_id, round_number) do
+      :ok -> nil
+      refusal -> refusal
+    end
+  end
+
+  ## ---------- the FIDE-mode round window (C.04.2:4.3) ----------
+
+  @doc """
+  `:ok` unless FIDE mode has closed round `round_number` of the tournament
+  (a `%Tournament{}` or its id) to changes: `{:error,
+  :round_closed_in_fide_mode}`.
+
+  C.04.2:4.3 lets a wrong result, pairing or colour be corrected only in the
+  round immediately before the last one played; a mistake found later is
+  corrected after the tournament, for the rating report only. VCL4THP fails
+  a program on which, in FIDE mode, any earlier round can still be changed
+  (Q189, Q191), and wants the one before the last played kept open (Q190).
+  So the window is every round from the one before the last played round
+  on: with round 7 played and round 8 paired, rounds 6, 7 and 8. A round is
+  played once every two-player board in it has a result (a postponed game's
+  `*` counts as one); before any is, nothing is closed.
+
+  Outside FIDE mode (`Compliance.fide_mode?/1`) nothing is closed. The
+  result of a postponed game is not this function's business: VCL4THP Q162
+  wants it enterable at any time, and `update_pairing_result/3` exempts it
+  before asking.
+  """
+  @spec ensure_round_editable(Tournament.t() | integer(), integer()) ::
+          :ok | {:error, :round_closed_in_fide_mode}
+  def ensure_round_editable(tournament_id, round_number) when is_integer(tournament_id) do
+    case Repo.get(Tournament, tournament_id) do
+      nil -> :ok
+      tournament -> ensure_round_editable(tournament, round_number)
+    end
+  end
+
+  def ensure_round_editable(%Tournament{} = tournament, round_number) do
+    if PairingsEngine.Compliance.fide_mode?(tournament) and
+         round_number < last_played_round(tournament.id) - 1,
+       do: {:error, :round_closed_in_fide_mode},
        else: :ok
+  end
+
+  @doc """
+  How many two-player boards of `tournament_id` have no result yet, in
+  every paired round or, given `through_round`, in the rounds up to it. A
+  postponed game's `*` is a result here - it has its own banner.
+
+  Standings shown or printed while this is above zero are not final
+  (VCL4THP Q161): they carry the same kind of banner an open postponed game
+  gives them.
+  """
+  @spec count_missing_results(integer(), integer() | nil) :: non_neg_integer()
+  def count_missing_results(tournament_id, through_round \\ nil) do
+    query =
+      from(p in Pairing,
+        join: r in Round,
+        on: r.id == p.round_id,
+        where:
+          r.tournament_id == ^tournament_id and not is_nil(p.white_player_id) and
+            not is_nil(p.black_player_id) and (is_nil(p.result) or p.result == ""),
+        select: count(p.id)
+      )
+
+    query = if through_round, do: where(query, [_p, r], r.number <= ^through_round), else: query
+    Repo.one(query)
+  end
+
+  @doc """
+  The highest round number of `tournament_id` in which every two-player
+  board has a result (`*` included) - 0 when there is none. Byes and empty
+  seats are not games and do not hold a round open.
+  """
+  @spec last_played_round(integer()) :: non_neg_integer()
+  def last_played_round(tournament_id) do
+    open_boards =
+      from(p in Pairing,
+        where:
+          p.round_id == parent_as(:round).id and not is_nil(p.white_player_id) and
+            not is_nil(p.black_player_id) and (is_nil(p.result) or p.result == ""),
+        select: 1
+      )
+
+    from(r in Round,
+      as: :round,
+      where: r.tournament_id == ^tournament_id and not exists(open_boards),
+      select: max(r.number)
+    )
+    |> Repo.one()
+    |> Kernel.||(0)
   end
 
   defp sent_round_refused(round, opts) do

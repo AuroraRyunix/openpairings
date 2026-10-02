@@ -917,9 +917,12 @@ defmodule PairingsEngine.RoundRobinTest do
   ## opening Settings mid-event and finding "double round robin" refused
   ## while switching it was still perfectly safe.
 
+  # Outside FIDE mode (`fide_compliance_lost_round: 0`): in FIDE mode the
+  # cycle count is the round count by another name and freezes with round 1
+  # (`Tournaments.fide_locked_fields/1`, fide_mode_locks_test.exs).
   describe "rr_cycles locking boundary - odd player count (N=5)" do
     test "single cycle: stays unlocked through round 4 of 5, locks once round 5 (all of cycle 1) is paired" do
-      tournament = round_robin_tournament(rr_cycles: 1)
+      tournament = round_robin_tournament(rr_cycles: 1, fide_compliance_lost_round: 0)
       for i <- 1..5, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
 
       for expected_round <- 1..4 do
@@ -936,7 +939,7 @@ defmodule PairingsEngine.RoundRobinTest do
     end
 
     test "double cycle: stays unlocked through round 9 of 10, locks once round 10 (the whole implied schedule) is paired" do
-      tournament = round_robin_tournament(rr_cycles: 2)
+      tournament = round_robin_tournament(rr_cycles: 2, fide_compliance_lost_round: 0)
       for i <- 1..5, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
 
       for expected_round <- 1..9 do
@@ -996,7 +999,8 @@ defmodule PairingsEngine.RoundRobinTest do
       rounds_count: Keyword.get(attrs, :rounds_count, 9),
       pairing_system: "round_robin",
       rr_cycles: Keyword.fetch!(attrs, :rr_cycles),
-      rr_match_format: Keyword.get(attrs, :rr_match_format, false)
+      rr_match_format: Keyword.get(attrs, :rr_match_format, false),
+      fide_compliance_lost_round: Keyword.get(attrs, :fide_compliance_lost_round)
     })
   end
 

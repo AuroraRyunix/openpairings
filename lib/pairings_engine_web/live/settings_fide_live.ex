@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Audit, Compliance, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -34,7 +34,10 @@ defmodule PairingsEngineWeb.SettingsFideLive do
        note: nil,
        error: nil,
        dirty: false,
-       stale: false
+       stale: false,
+       # The two-step "Leave FIDE mode" (TEC's Level 4): nil, then :warn,
+       # then :consequences. Only a confirm sent from :consequences leaves.
+       leave_step: nil
      )}
   end
 
@@ -84,6 +87,59 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     {:noreply, assign(socket, rows: List.delete_at(socket.assigns.rows, index))}
   end
 
+  ## ---------- leaving FIDE mode: two steps, then for good ----------
+  #
+  # VCL4THP Q43 wants the way out of FIDE mode behind TEC's Level-4 warning:
+  # a first message saying the act is not compliant, then a second one that
+  # spells out what it costs, answered the opposite way round from the first
+  # (there "continue", here "no, do not stay"). The server holds the step,
+  # so a confirm that skips the first message is ignored.
+  def handle_event("leave_fide_start", _params, socket),
+    do: {:noreply, assign(socket, leave_step: :warn)}
+
+  def handle_event("leave_fide_continue", _params, %{assigns: %{leave_step: :warn}} = socket),
+    do: {:noreply, assign(socket, leave_step: :consequences)}
+
+  def handle_event("leave_fide_continue", _params, socket), do: {:noreply, socket}
+
+  def handle_event("leave_fide_cancel", _params, socket),
+    do: {:noreply, assign(socket, leave_step: nil)}
+
+  def handle_event(
+        "leave_fide_confirm",
+        _params,
+        %{assigns: %{leave_step: :consequences}} = socket
+      ) do
+    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+
+    case Tournaments.leave_fide_mode(base) do
+      {:ok, tournament} ->
+        Audit.log(
+          tournament.id,
+          socket.assigns.current_scope,
+          "tournament.fide_compliance_lost",
+          %{
+            setting: "fide_mode",
+            code: "left_by_arbiter",
+            round: tournament.fide_compliance_lost_round
+          }
+        )
+
+        {:noreply,
+         assign(socket,
+           tournament: tournament,
+           leave_step: nil,
+           note: gettext("This tournament has left FIDE mode."),
+           error: nil
+         )}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, leave_step: nil, error: error_text(reason), note: nil)}
+    end
+  end
+
+  def handle_event("leave_fide_confirm", _params, socket), do: {:noreply, socket}
+
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
@@ -127,6 +183,99 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
   defp parse_rows_param(_), do: []
 
+  attr :step, :atom, required: true
+
+  defp leave_fide_mode(assigns) do
+    ~H"""
+    <div id="leave-fide-mode" style="margin-top: 12px">
+      <p class="hint" style="margin: 0 0 8px">
+        {gettext(
+          "In FIDE mode, once the first round is paired, the number of rounds, the scoring, the bye's value, the acceleration, the pairing system and the tie-breaks are locked, and only the last two rounds played can be corrected. Leaving FIDE mode opens them."
+        )}
+      </p>
+
+      <button
+        :if={is_nil(@step)}
+        id="leave-fide-start"
+        type="button"
+        class="pe-btn"
+        phx-click="leave_fide_start"
+      >
+        {gettext("Leave FIDE mode…")}
+      </button>
+
+      <div :if={@step == :warn} id="leave-fide-warn" class="pe-modal-warn" role="alertdialog">
+        <p style="margin: 0 0 8px">
+          <strong>{gettext("This is not compliant with the FIDE regulations.")}</strong>
+          {gettext(
+            "A tournament outside FIDE mode can be changed in ways the FIDE pairing rules do not allow. Do you want to continue?"
+          )}
+        </p>
+        <div class="actions">
+          <button
+            id="leave-fide-continue"
+            type="button"
+            class="pe-btn"
+            phx-click="leave_fide_continue"
+          >
+            {gettext("Yes, continue")}
+          </button>
+          <button
+            id="leave-fide-cancel"
+            type="button"
+            class="pe-btn primary"
+            phx-click="leave_fide_cancel"
+          >
+            {gettext("Cancel")}
+          </button>
+        </div>
+      </div>
+
+      <div
+        :if={@step == :consequences}
+        id="leave-fide-consequences"
+        class="pe-modal-warn"
+        role="alertdialog"
+      >
+        <p style="margin: 0 0 6px"><strong>{gettext("What leaving FIDE mode does:")}</strong></p>
+        <ul style="margin: 0 0 8px; padding-left: 20px">
+          <li>{gettext("It is for good: this tournament can never return to FIDE mode.")}</li>
+          <li>
+            {gettext(
+              "The FIDE report (TRF) says from which round the tournament was no longer in FIDE mode, so whoever checks it knows where to look harder."
+            )}
+          </li>
+          <li>
+            {gettext(
+              "The locked settings and every earlier round can then be changed, and the program no longer stops a change the FIDE rules forbid."
+            )}
+          </li>
+          <li>{gettext("Every page of this tournament will say it is not in FIDE mode.")}</li>
+        </ul>
+        <p style="margin: 0 0 8px"><strong>{gettext("Stay in FIDE mode?")}</strong></p>
+        <div class="actions">
+          <button
+            id="leave-fide-stay"
+            type="button"
+            class="pe-btn primary"
+            phx-click="leave_fide_cancel"
+          >
+            {gettext("Yes, stay in FIDE mode")}
+          </button>
+          <button
+            id="leave-fide-confirm"
+            type="button"
+            class="pe-btn danger"
+            phx-click="leave_fide_confirm"
+          >
+            {gettext("No, leave FIDE mode")}
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -159,6 +308,8 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
           )}
         </p>
+
+        <.leave_fide_mode :if={Compliance.fide_mode?(@tournament)} step={@leave_step} />
       </div>
 
       <form id="fide-settings-form" phx-submit="save" phx-change="validate">

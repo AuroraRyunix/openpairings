@@ -781,7 +781,7 @@ defmodule PairingsEngineWeb.FideLive do
             value={@kbsb_query}
             phx-debounce="250"
             autocomplete="off"
-            placeholder={gettext("Start typing a last name or matricule…")}
+            placeholder={gettext("Start typing a last name or national ID…")}
             class="pe-input"
           />
           <div :if={@kbsb_results != []} class="search-results">

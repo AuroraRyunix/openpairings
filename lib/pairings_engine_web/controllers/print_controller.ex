@@ -1078,12 +1078,23 @@ defmodule PairingsEngineWeb.PrintController do
       |> PairingsEngine.PostponedGames.open_games()
       |> Enum.count(&(is_nil(requested_round) or &1.round <= requested_round))
 
-    if open == 0 do
-      ""
-    else
-      ~s(<div id="postponed-not-final" style="border: 2px solid #000; padding: 8px 12px; margin-bottom: 14px; font-size: 12.5px;"><strong>) <>
-        esc(PairingsEngineWeb.Postponed.not_final_text(open)) <> "</strong></div>"
-    end
+    missing = PairingsEngine.Tournaments.count_missing_results(tournament.id, requested_round)
+
+    banner(open, "postponed-not-final", &PairingsEngineWeb.Postponed.not_final_text/1) <>
+      banner(
+        missing,
+        "missing-results-not-final",
+        &PairingsEngineWeb.Postponed.missing_results_text/1
+      )
+  end
+
+  # Boards with no result at all make a sheet as unfinal as an open postponed
+  # game does (VCL4THP Q161) - the same box, its own sentence.
+  defp banner(0, _id, _text), do: ""
+
+  defp banner(count, id, text) do
+    ~s(<div id="#{id}" style="border: 2px solid #000; padding: 8px 12px; margin-bottom: 14px; font-size: 12.5px;"><strong>) <>
+      esc(text.(count)) <> "</strong></div>"
   end
 
   # Each entry's open postponed games in the rounds the sheet covers, as

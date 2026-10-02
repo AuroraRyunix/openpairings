@@ -227,6 +227,7 @@ defmodule PairingsEngineWeb.Postponed do
           length(@games)
         )}
       </strong>
+
       <p :if={@note} class="hint postponed-guard-note">{@note}</p>
       <.game_links tournament={@tournament} games={@games} id={@id} />
     </div>
@@ -247,6 +248,7 @@ defmodule PairingsEngineWeb.Postponed do
         >
           {game_text(game)}
         </.link>
+
         <span :if={game.pairing.agreed_date} class="hint">
           · {agreed_text(game.pairing.agreed_date)}
         </span>
@@ -378,6 +380,30 @@ defmodule PairingsEngineWeb.Postponed do
       name when is_binary(name) ->
         name
     end)
+  end
+
+  @doc """
+  What a standings view says while `count` games of the rounds it covers
+  have no result at all (VCL4THP Q161): not final, like an open postponed
+  game, and for the same reason.
+  """
+  def missing_results_text(count) do
+    ngettext(
+      "Not final: a game in these rounds has no result yet.",
+      "Not final: %{count} games in these rounds have no result yet.",
+      count
+    )
+  end
+
+  @doc "The page form of `missing_results_text/1`. Renders nothing at zero."
+  attr :count, :integer, required: true
+
+  def missing_results_banner(assigns) do
+    ~H"""
+    <div :if={@count > 0} id="missing-results-not-final" class="card postponed-guard" role="status">
+      <strong>{missing_results_text(@count)}</strong>
+    </div>
+    """
   end
 
   @doc """

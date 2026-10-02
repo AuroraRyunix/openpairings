@@ -64,6 +64,9 @@ defmodule PairingsEngine.TeamStandingsTest do
 
     test "match points follow the configured values" do
       t = worked_example()
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, t} = Tournaments.leave_fide_mode(t)
 
       {:ok, t} =
         Tournaments.update_tournament(t, %{team_match_points_win: 3, team_match_points_draw: 1})

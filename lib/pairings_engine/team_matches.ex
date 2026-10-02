@@ -64,6 +64,7 @@ defmodule PairingsEngine.TeamMatches do
 
     cond do
       refusal = Tournaments.write_refused(t.id) -> refusal
+      refusal = round_closed(t, match) -> refusal
       is_nil(match.team_b_id) -> {:error, :bye_match}
       winner_team_id not in [match.team_a_id, match.team_b_id] -> {:error, :not_in_match}
       not is_nil(match.forfeited_to_team_id) -> {:error, :already_forfeited}
@@ -105,6 +106,9 @@ defmodule PairingsEngine.TeamMatches do
       refusal = Tournaments.write_refused(t.id) ->
         refusal
 
+      refusal = round_closed(t, match) ->
+        refusal
+
       is_nil(match.forfeited_to_team_id) ->
         {:error, :not_forfeited}
 
@@ -142,6 +146,18 @@ defmodule PairingsEngine.TeamMatches do
       end)
 
   def played_before_decision?(_match), do: false
+
+  # A forfeit decision rewrites every board of the match, so FIDE mode's
+  # round window (`Tournaments.ensure_round_editable/2`, C.04.2:4.3) holds
+  # for it as for any other result.
+  defp round_closed(%Tournament{} = t, %Match{round_id: round_id}) do
+    number = Repo.one(from r in Round, where: r.id == ^round_id, select: r.number)
+
+    case number && Tournaments.ensure_round_editable(t, number) do
+      {:error, _} = refusal -> refusal
+      _ok -> nil
+    end
+  end
 
   defp match_boards(%Match{} = match) do
     Repo.all(from p in Pairing, where: p.match_id == ^match.id, order_by: p.board)

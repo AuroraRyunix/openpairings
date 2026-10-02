@@ -1090,6 +1090,9 @@ defmodule PairingsEngine.SnapshotTest do
       # unrated player - so it decided nothing and hiding it is not
       # withholding. The flag must not cry wolf.
       {tournament, _} = swiss_fixture()
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, tournament} = Tournaments.leave_fide_mode(tournament)
       {:ok, tournament} = Tournaments.update_tournament(tournament, %{tiebreaks: ~w(BHC1 ARO)})
 
       ticked = %{"BHC1" => "true"}
@@ -1134,6 +1137,9 @@ defmodule PairingsEngine.SnapshotTest do
 
     test "a code the tournament no longer uses is forgotten, not remembered" do
       {tournament, _} = swiss_fixture()
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, tournament} = Tournaments.leave_fide_mode(tournament)
       {:ok, hidden} = Tournaments.set_public_display(tournament, all_shown(), %{"BH" => "true"})
       assert "SB" in hidden.public_hidden_tiebreaks
 

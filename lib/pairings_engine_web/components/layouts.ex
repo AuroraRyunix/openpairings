@@ -437,6 +437,15 @@ defmodule PairingsEngineWeb.Layouts do
         </.link>
       </div>
 
+      <%!-- VCL4THP Q46: while a tournament is not in FIDE mode, every one
+            of its pages says so - not only the settings that took it out.
+            One quiet line rather than a banner: a Keizer club evening is
+            never in FIDE mode and nothing is wrong with it. --%>
+      <p :if={not_in_fide_mode?(@tournament)} id="not-fide-mode" class="fide-mode-strip">
+        {gettext("Not in FIDE mode.")}
+        <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("What that means")}</.link>
+      </p>
+
       {render_slot(@inner_block)}
     </main>
 
@@ -562,6 +571,14 @@ defmodule PairingsEngineWeb.Layouts do
   end
 
   defp handoff_destination(_), do: gettext("another copy")
+
+  # Pure (`Compliance.fide_mode?/1` reads only the struct), so it costs a
+  # render nothing. Anything that is not a whole tournament - no tournament
+  # at all, or a page that passes a partial map - shows nothing.
+  defp not_in_fide_mode?(%PairingsEngine.Tournaments.Tournament{} = tournament),
+    do: not PairingsEngine.Compliance.fide_mode?(tournament)
+
+  defp not_in_fide_mode?(_other), do: false
 
   # Same format as every other timestamp shown to an arbiter (snapshots,
   # registrations, round publication) - explicitly UTC, because the machine

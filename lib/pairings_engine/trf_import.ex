@@ -731,9 +731,21 @@ defmodule PairingsEngine.TrfImport do
   # would be a standings column that silently never fills.
   defp tiebreak_attrs(nil), do: %{}
 
+  #
+  # C.07 spells four of them differently from this app (BH/C1 for BHC1 -
+  # `AinalramiBridge.codes/0`), and that is how this app's own export writes
+  # them, so they are read back to the app's codes. The app's own spelling
+  # is still read, for files exported before 2026-10-02.
   defp tiebreak_attrs(codes) do
     known = MapSet.new(Tiebreaks.catalogue(), & &1.code)
-    kept = Enum.filter(codes, &MapSet.member?(known, &1))
+
+    ours =
+      Map.new(PairingsEngine.Standings.AinalramiBridge.codes(), fn {code, c07} -> {c07, code} end)
+
+    kept =
+      codes
+      |> Enum.map(&Map.get(ours, &1, &1))
+      |> Enum.filter(&MapSet.member?(known, &1))
 
     if kept == [], do: %{}, else: %{tiebreaks: kept}
   end

@@ -166,6 +166,9 @@ defmodule PairingsEngine.TeamIoTest do
     test "teams, their order and the matches survive export and import, and so do the standings" do
       owner = user_scope()
       t = played_example(owner)
+      # Rounds are paired, so FIDE mode freezes this (fide_mode_locks_test.exs);
+      # this test is about something else.
+      {:ok, t} = Tournaments.leave_fide_mode(t)
       {:ok, t} = Tournaments.update_tournament(t, %{team_match_points_win: 3.0})
 
       envelope = TournamentExport.export_tournament(t)

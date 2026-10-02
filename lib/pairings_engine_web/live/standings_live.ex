@@ -362,6 +362,9 @@ defmodule PairingsEngineWeb.StandingsLive do
       # Open postponed games: the standings count each as a draw and are not
       # final until they are played (VCL4THP Q161, Q169).
       postponed_open_count: length(postponed_open),
+      # Boards with no result at all: the standings are not final either
+      # (VCL4THP Q161), whether or not postponed games are in use.
+      missing_results_count: Tournaments.count_missing_results(tournament.id),
       # Listed under the banner, each a link to where its result is entered,
       # and marked beside the players still to play one ("1 pending") - a
       # provisional place must not be read as a final one, above all when
@@ -711,6 +714,8 @@ defmodule PairingsEngineWeb.StandingsLive do
           </label>
         </form>
       </div>
+
+      <PairingsEngineWeb.Postponed.missing_results_banner count={@missing_results_count} />
 
       <PairingsEngineWeb.Postponed.not_final_banner
         count={@postponed_open_count}

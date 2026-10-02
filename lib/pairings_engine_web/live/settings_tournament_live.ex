@@ -64,6 +64,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        owner?: owner?,
        page_title: "#{tournament.name} · Settings",
        tiebreaks: tournament.tiebreaks,
+       fide_locked: Tournaments.fide_locked_fields(tournament),
        note: nil,
        error: nil,
        dirty: false,
@@ -111,7 +112,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       tournament ->
         {:noreply,
          socket
-         |> assign(tournament: tournament, tiebreaks: tournament.tiebreaks, stale: false)
+         |> assign(
+           tournament: tournament,
+           tiebreaks: tournament.tiebreaks,
+           fide_locked: Tournaments.fide_locked_fields(tournament),
+           stale: false
+         )
          |> assign_collaborators()}
     end
   end
@@ -162,7 +168,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   ## ---------- Save ----------
 
   def handle_event("save", %{"tournament" => params}, socket) do
-    params = Map.put(params, "tiebreaks", socket.assigns.tiebreaks)
+    # A tie-break list FIDE mode holds (`Tournaments.fide_locked_fields/1`)
+    # is not sent at all, so the rest of the page still saves.
+    params =
+      if :tiebreaks in socket.assigns.fide_locked,
+        do: params,
+        else: Map.put(params, "tiebreaks", socket.assigns.tiebreaks)
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
@@ -174,6 +185,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
          assign(socket,
            tournament: tournament,
            tiebreaks: tournament.tiebreaks,
+           fide_locked: Tournaments.fide_locked_fields(tournament),
            note: "Saved.",
            error: nil,
            dirty: false,
@@ -460,8 +472,16 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 value={@tournament.rounds_count}
                 min="1"
                 max="30"
+                disabled={:rounds_count in @fide_locked}
               />
             </.setting_field>
+
+            <.fide_lock_note
+              id="rounds-fide-lock"
+              tournament={@tournament}
+              fide_locked={@fide_locked}
+              fields={[:rounds_count]}
+            />
           </.setting_group>
         </div>
 
@@ -510,106 +530,121 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             )}
           </p>
 
-          <%!-- A div, not <.setting_field>: that renders a <label>, which would
+          <.fide_lock_note
+            id="tiebreaks-fide-lock"
+            tournament={@tournament}
+            fide_locked={@fide_locked}
+            fields={[:tiebreaks]}
+          />
+
+          <%!-- A disabled fieldset disables every control inside it, the
+                move/remove buttons and the presets included. --%>
+          <fieldset
+            id="tiebreak-editor"
+            disabled={:tiebreaks in @fide_locked}
+            style="border: 0; padding: 0; margin: 0; min-width: 0"
+          >
+            <%!-- A div, not <.setting_field>: that renders a <label>, which would
                 make the "Preset" text toggle whichever radio it wrapped. --%>
-          <div class="set-field solo">
-            <span class="set-label">{gettext("Preset")}</span>
-            <div class="radio-row">
-              <label>
-                <input
-                  type="radio"
-                  name="tb_preset_display"
-                  phx-click="tb_preset"
-                  phx-value-key="personel"
-                  checked={tb_preset_match(@tiebreaks) == "personel"}
-                /> {gettext("Custom")}
-              </label>
+            <div class="set-field solo">
+              <span class="set-label">{gettext("Preset")}</span>
+              <div class="radio-row">
+                <label>
+                  <input
+                    type="radio"
+                    name="tb_preset_display"
+                    phx-click="tb_preset"
+                    phx-value-key="personel"
+                    checked={tb_preset_match(@tiebreaks) == "personel"}
+                  /> {gettext("Custom")}
+                </label>
 
-              <label :for={{key, label, _methods} <- tb_presets()}>
-                <input
-                  type="radio"
-                  name="tb_preset_display"
-                  phx-click="tb_preset"
-                  phx-value-key={key}
-                  checked={tb_preset_match(@tiebreaks) == key}
-                /> {label}
-              </label>
-            </div>
-          </div>
-
-          <ol class="tb-list">
-            <li :for={{code, i} <- Enum.with_index(@tiebreaks)}>
-              <span class="tb-order">{i + 1}.</span>
-              <div>
-                <div class="tb-name">{tb_name(code)}</div>
-
-                <div class="tb-desc">{tb_desc(code)}</div>
+                <label :for={{key, label, _methods} <- tb_presets()}>
+                  <input
+                    type="radio"
+                    name="tb_preset_display"
+                    phx-click="tb_preset"
+                    phx-value-key={key}
+                    checked={tb_preset_match(@tiebreaks) == key}
+                  /> {label}
+                </label>
               </div>
+            </div>
 
-              <%!-- Three glyphs, each named for the tiebreak it acts on: a
+            <ol class="tb-list">
+              <li :for={{code, i} <- Enum.with_index(@tiebreaks)}>
+                <span class="tb-order">{i + 1}.</span>
+                <div>
+                  <div class="tb-name">{tb_name(code)}</div>
+
+                  <div class="tb-desc">{tb_desc(code)}</div>
+                </div>
+
+                <%!-- Three glyphs, each named for the tiebreak it acts on: a
                     screen reader tabbing down this list otherwise hears "up
                     arrow" eleven times with nothing to say which row it is. --%>
-              <div class="tb-buttons">
-                <button
-                  type="button"
-                  class="pe-btn"
-                  title={gettext("Move up")}
-                  aria-label={gettext("Move %{tiebreak} up", tiebreak: tb_name(code))}
-                  disabled={i == 0}
-                  phx-click="tb_up"
-                  phx-value-index={i}
-                >
-                  ↑
-                </button>
+                <div class="tb-buttons">
+                  <button
+                    type="button"
+                    class="pe-btn"
+                    title={gettext("Move up")}
+                    aria-label={gettext("Move %{tiebreak} up", tiebreak: tb_name(code))}
+                    disabled={i == 0}
+                    phx-click="tb_up"
+                    phx-value-index={i}
+                  >
+                    ↑
+                  </button>
 
-                <button
-                  type="button"
-                  class="pe-btn"
-                  title={gettext("Move down")}
-                  aria-label={gettext("Move %{tiebreak} down", tiebreak: tb_name(code))}
-                  disabled={i == length(@tiebreaks) - 1}
-                  phx-click="tb_down"
-                  phx-value-index={i}
-                >
-                  ↓
-                </button>
+                  <button
+                    type="button"
+                    class="pe-btn"
+                    title={gettext("Move down")}
+                    aria-label={gettext("Move %{tiebreak} down", tiebreak: tb_name(code))}
+                    disabled={i == length(@tiebreaks) - 1}
+                    phx-click="tb_down"
+                    phx-value-index={i}
+                  >
+                    ↓
+                  </button>
 
-                <button
-                  type="button"
-                  class="pe-btn"
-                  title={gettext("Remove")}
-                  aria-label={gettext("Remove %{tiebreak}", tiebreak: tb_name(code))}
-                  phx-click="tb_remove"
-                  phx-value-code={code}
-                >
-                  ✕
-                </button>
-              </div>
-            </li>
-          </ol>
+                  <button
+                    type="button"
+                    class="pe-btn"
+                    title={gettext("Remove")}
+                    aria-label={gettext("Remove %{tiebreak}", tiebreak: tb_name(code))}
+                    phx-click="tb_remove"
+                    phx-value-code={code}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            </ol>
 
-          <p :if={@tiebreaks == []} class="hint">
-            {gettext("No tiebreaks selected - tied players will share a rank.")}
-          </p>
+            <p :if={@tiebreaks == []} class="hint">
+              {gettext("No tiebreaks selected - tied players will share a rank.")}
+            </p>
 
-          <div class="actions" style="flex-wrap: wrap">
-            <select
-              phx-change="tb_add"
-              name="code"
-              style="width: auto"
-              class="pe-select"
-              aria-label={gettext("Add a tiebreak…")}
-            >
-              <option value="">{gettext("Add a tiebreak…")}</option>
+            <div class="actions" style="flex-wrap: wrap">
+              <select
+                phx-change="tb_add"
+                name="code"
+                style="width: auto"
+                class="pe-select"
+                aria-label={gettext("Add a tiebreak…")}
+              >
+                <option value="">{gettext("Add a tiebreak…")}</option>
 
-              <option :for={tb <- available_tiebreaks(@tiebreaks, @tournament.type)} value={tb.code}>
-                {tb.name}
-              </option>
-            </select>
-            <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
-              "Reset to FIDE default"
-            )}</button>
-          </div>
+                <option :for={tb <- available_tiebreaks(@tiebreaks, @tournament.type)} value={tb.code}>
+                  {tb.name}
+                </option>
+              </select>
+              <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
+                "Reset to FIDE default"
+              )}</button>
+            </div>
+          </fieldset>
         </div>
 
         <div class="actions form-actions">
