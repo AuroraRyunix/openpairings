@@ -24,6 +24,17 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
 
   Run with `WRITE_PAIR_CLICK_GOLDEN=1` only to regenerate it from a version
   known to be right.
+
+  Regenerated once since, on the 0.72 integration, for what the merged
+  branches change on purpose and nothing else: every export gains
+  `sent_receipts` (the sent receipt), the public snapshot gains
+  `tournament.scoring` and each board's `points` (snapshot points), the TRF
+  writes the 2026 tie-break codes, the final rank in the 001 record and the
+  "FIDE mode exited" comment (VCL4THP pass 2), and the Baku scenario
+  (`:options`) pairs rounds 2-4 in the corrected Baku order (the Baku fix).
+  Regenerated with the Baku fix reverted, the file differed from 0.71.0's
+  by the first three only, and from this one by the `:options` scenario
+  only, from its round 2 on.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
