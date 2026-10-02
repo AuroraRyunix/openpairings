@@ -661,6 +661,7 @@ server.
 | `DEPLOY_NOTICE_TOKEN` | no | shared secret for the pre-restart warning below. Unset means the endpoint refuses everything, so the only cost of omitting it is no banner |
 | `BACKUP_DIR` / `BACKUP_RETENTION` / `PAIRINGS_BACKUP_PASSPHRASE` / `PAIRINGS_BACKUP_PASSPHRASE_PREVIOUS` / `PAIRINGS_REGISTRATION_RETENTION_DAYS` | no | see "Backups" above |
 | `DNS_CLUSTER_QUERY` | no | multi-node clustering, unused in this single-node deployment |
+| `PAIR_TIMING` | no | `1` logs, at info level, how long each stage of a "Pair round" click took (`pair timing: engine 41.3 ms`, one line per stage - see `PairingsEngine.PairTiming` and docs/architecture.md, "What the click costs"). Off by default; costs nothing when off |
 | `KEYCLOAK_CLIENT_ID` | no | 02cloud SSO client id (`openpairings`). Omit to disable SSO entirely |
 | `KEYCLOAK_CLIENT_SECRET` | no | the confidential client's secret - **treat like `SECRET_KEY_BASE`** |
 | `KEYCLOAK_ISSUER` | no | defaults to `https://auth.zerotwo.cloud/realms/zerotwo` |

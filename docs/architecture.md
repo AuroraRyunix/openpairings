@@ -242,6 +242,37 @@ app has exactly one TRF implementation, and it lives in the engine - see
 internal steps (full-roster scoping, scratch-file lifecycle, acceleration,
 match-format legs) - this diagram is intentionally the high-level version.
 
+### What the click costs, and where
+
+Each stage between the click and the page coming back is a telemetry span,
+`[:pairings_engine, :pair_click, stage]` (`PairingsEngine.PairTiming`):
+the restore point taken first, then inside `pair_next_round/2` the
+postponed-game checks, loading the roster and history, building the
+engine's input, the engine call, saving the round, the compliance stamp,
+the broadcast, the derived status and handing the account to its job;
+then the audit rows and the page's reload. `PAIR_TIMING=1` logs them;
+`test/bench/pair_click_stages_bench_test.exs` drives the real page on
+generated 50- to 1,000-player events and prints them with the render, the
+diff size and what runs after the reply. Measured 2026-10-02, 0.71.0 and
+this version back to back on one desktop with one scheduler (`+S 1`, the
+two-core server with the other core busy); server time before the reply
+(the handler and the render), and how long the page then stayed busy
+with its own broadcast:
+
+| field, round | 0.71.0 | now | busy after, 0.71.0 | now |
+|---|---|---|---|---|
+| 200 players, round 2 | 316 ms | 179 ms | 19 ms | 5 ms |
+| 200 players, round 9 | 634 ms | 228 ms | 156 ms | 2 ms |
+| 1,000 players, round 2 | 1,756 ms | 879 ms | 176 ms | 12 ms |
+| 1,000 players, round 9 | 2,657 ms | 1,066 ms | 719 ms | 7 ms | Most
+of what was saved was JSON: every reader of a round decoded its stored
+engine account, though only the explanation page reads it. Readers that do
+not now ask for the round without it (`Round.without_explanation/1`;
+`Tournaments.list_rounds/1` is one of them). The boards are written in a
+few multi-row inserts with their frozen labels already on them, the
+history walk indexes each round's boards once, and the result menus are
+static markup instead of sixteen dynamic labels per board.
+
 An Ainalrami round is saved with a *pending* engine account; the account
 itself (the brackets and the float/bye alternatives, most of the work on a
 large field) is worked out after the click by `ExplanationJobs`, a
@@ -291,7 +322,15 @@ behind it, nor can a tournament created with a deleted one's id. The
 tournament's own settings are not in the trigger set: standings are
 computed from the struct handed in, and the struct is in the key - a
 settings change, or a struct changed in memory (the tie-break gate does
-this), is a different entry.
+this), is a different entry. Two exceptions, both because they are not
+standings data: an update that changes nothing on a round but its engine
+account (`rounds.explanation`, written after the pairing click by
+`ExplanationJobs` and again for each question opened) leaves the version
+alone (migration `DataVersionIgnoresRoundAccounts`; any other column of
+the round, with or without the account, still moves it), and the
+tournament's bookkeeping - `status`, `head_snapshot_id` and its
+timestamps, which every pairing click changes - is left out of the key's
+struct.
 
 **Bounds.** One ETS table owned by the `StandingsCache` process: only the
 current version's entries per tournament, at most 24 of them (least

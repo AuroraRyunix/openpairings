@@ -134,7 +134,14 @@ defmodule PairingsEngine.StandingsCache do
 
   # Associations can be anything a caller happened to preload, and the
   # metadata says nothing about the settings; neither is part of what the
-  # standings are computed from.
+  # standings are computed from. Nor is the tournament's bookkeeping: its
+  # derived `status`, its timestamps and the restore-point HEAD
+  # (`head_snapshot_id`), which every "Pair round" click moves. Keeping those
+  # in the key made the Pairings page's struct from before the click and
+  # the fresh one its broadcast reloads two different tournaments, and the
+  # same standings were replayed twice for the one click.
+  @bookkeeping [:status, :head_snapshot_id, :inserted_at, :updated_at]
+
   defp fingerprint(tournament, variant) do
     :crypto.hash(
       :sha256,
@@ -145,7 +152,7 @@ defmodule PairingsEngine.StandingsCache do
   defp settings(%mod{} = struct) do
     dropped =
       if function_exported?(mod, :__schema__, 1),
-        do: [:__meta__ | mod.__schema__(:associations)],
+        do: [:__meta__ | mod.__schema__(:associations)] ++ @bookkeeping,
         else: []
 
     {mod, struct |> Map.from_struct() |> Map.drop(dropped)}

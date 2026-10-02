@@ -300,7 +300,8 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       render_click(lv, "pair", %{})
       render(lv)
       [round] = Tournaments.list_rounds(t.id)
-      refute Enum.any?(round.explanation["sections"], &Map.has_key?(&1, "bye_preference"))
+      explanation = Tournaments.get_round_explanation(t.id, round.number)
+      refute Enum.any?(explanation["sections"], &Map.has_key?(&1, "bye_preference"))
       refute has_element?(lv, "#bye-preference-notice")
     end
 

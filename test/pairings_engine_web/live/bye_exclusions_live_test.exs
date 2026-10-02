@@ -190,7 +190,7 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
 
       refute has_element?(lv, "#bye-exclusion-block")
       assert [round] = Tournaments.list_rounds(t.id)
-      [section] = round.explanation["sections"]
+      [section] = Tournaments.get_round_explanation(t.id, round.number)["sections"]
       assert section["bye_exclusion_lifted"] == lowest.id
 
       row =

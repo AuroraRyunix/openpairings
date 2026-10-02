@@ -555,8 +555,10 @@ defmodule PairingsEngine.Standings do
   # still pushed into the query for the ordinary single-horizon call, where
   # narrowing in SQL beats reading rounds only to discard them.
   defp round_data(tournament, through_round) do
+    # Not the rounds' engine accounts: nothing here reads them, and they
+    # are most of what a round weighs (`Round.without_explanation/1`).
     rounds_query =
-      from r in Round,
+      from r in Round.without_explanation(),
         where: r.tournament_id == ^tournament.id,
         order_by: r.number,
         preload: [pairings: []]

@@ -3420,6 +3420,19 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  @doc """
+  Round `number`'s stored engine account (`Round.explanation`), or nil -
+  the one column, for a caller that wants nothing else. `get_round/2`
+  would bring every board and both players of each along with it.
+  """
+  def get_round_explanation(tournament_id, number) do
+    Repo.one(
+      from r in Round,
+        where: r.tournament_id == ^tournament_id and r.number == ^number,
+        select: r.explanation
+    )
+  end
+
   ## ---------- Public pairings publish delay ----------
   #
   # When a round's pairings reach the public by themselves - the first step
@@ -4607,8 +4620,30 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.all()
   end
 
+  @doc """
+  `tournament_id`'s rounds, in order, WITHOUT their engine accounts
+  (`explanation` is nil - see `Round.without_explanation/1`). Every caller
+  wants numbers, dates and publish state; the Pairings page's publish
+  control alone called this several times per render, and on a large
+  event decoding every round's account was most of that page's render.
+  `list_round_accounts/1` is the one that brings them.
+  """
   def list_rounds(tournament_id) do
-    Repo.all(from r in Round, where: r.tournament_id == ^tournament_id, order_by: r.number)
+    Repo.all(
+      from r in Round.without_explanation(),
+        where: r.tournament_id == ^tournament_id,
+        order_by: r.number
+    )
+  end
+
+  @doc "`{number, explanation}` for each of `tournament_id`'s rounds, in order."
+  def list_round_accounts(tournament_id) do
+    Repo.all(
+      from r in Round,
+        where: r.tournament_id == ^tournament_id,
+        order_by: r.number,
+        select: {r.number, r.explanation}
+    )
   end
 
   @doc """

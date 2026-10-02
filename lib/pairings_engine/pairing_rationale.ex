@@ -545,7 +545,7 @@ defmodule PairingsEngine.PairingRationale do
   defp colour_history(tournament_id, through) do
     rounds =
       Repo.all(
-        from r in Round,
+        from r in Round.without_explanation(),
           where: r.tournament_id == ^tournament_id and r.number <= ^through,
           order_by: r.number,
           preload: [pairings: []]

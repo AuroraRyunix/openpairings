@@ -1,6 +1,7 @@
 defmodule PairingsEngine.Tournaments.Round do
   use Ecto.Schema
   import Ecto.Changeset
+  require Ecto.Query
 
   schema "rounds" do
     field :number, :integer
@@ -82,6 +83,23 @@ defmodule PairingsEngine.Tournaments.Round do
     # A team round's matches (`PairingsEngine.TeamRoundRobin`); none for an
     # individual round.
     has_many :matches, PairingsEngine.Tournaments.Match
+  end
+
+  @doc """
+  `query` (all rounds by default) selecting every column but `explanation`.
+
+  A round's engine account is the largest thing in the database - every
+  bracket of a 1,000-player round, as JSON - and every reader that only
+  wants the boards and scores was decoding it anyway, once per round per
+  load: on a nine-round event most of the time the standings, the pairing
+  history and the "Pair round" click spent reading rounds went on JSON
+  nobody looked at. The rounds this returns have `explanation: nil`, so
+  only a caller that never reads it may use it; one that does uses a plain
+  `Round` query, as before.
+  """
+  def without_explanation(query \\ __MODULE__) do
+    fields = __schema__(:fields) -- [:explanation]
+    Ecto.Query.select(query, [r], struct(r, ^fields))
   end
 
   def changeset(round, attrs) do
