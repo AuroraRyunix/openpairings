@@ -17,7 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
-- [Fix] **Importing a file no longer sticks at 0%.** Since 0.70.0 every
+- [Fix] **Imports were stuck at 0% since 0.70.0 - every upload: JSON backup, SWAR, TRF, hand-off, results CSV, logo, tools - fixed.** Since 0.70.0 every
   upload box - JSON backup, SWAR, TRF, hand-off, hand-off return, results
   CSV, tournament logo and the arbiter tools' file parser - kept its button
   disabled until the file had arrived, but the file only started to travel
@@ -36,6 +36,12 @@ Each entry is tagged so a version can be skimmed:
   in, and a refused field names its record (*Could not import player
   entry 2 (id 2): birth_date is invalid*). The minimum a hand-written
   version 1 backup needs is now documented in `docs/import-export.md`.
+- [Fix] **The Advanced and Settings menus work on a phone** - they sat
+  inside the sideways-scrolling tab strip with a fixed-position panel,
+  which touch browsers clip or misplace, and tapping the page did not
+  close them on iOS. The panel now hangs from the bar itself and scrolls
+  inside when long, a tap anywhere outside closes it (also on the round
+  menus on the Pairings page), and choosing an item closes it.
 
 ## [0.72.0] - 2026-10-02
 
