@@ -552,6 +552,9 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 8px 24px;
+  /* A landscape phone's notch - see `.page`. */
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -891,7 +894,17 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .topbar .app-version:hover { background: none; color: var(--text); text-decoration: underline; }
 .app-version-short { display: none; }
 
-.page { width: 100%; margin: 0 auto; padding: 28px 32px 64px; }
+.page {
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 32px 64px;
+  /* Clear of a phone's notch and rounded corners in landscape, and of the
+     home bar at the bottom - the root layout's `viewport-fit=cover` lets the
+     page run edge to edge, this keeps the content inside. */
+  padding-left: max(32px, env(safe-area-inset-left, 0px));
+  padding-right: max(32px, env(safe-area-inset-right, 0px));
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+}
 
 .page h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; }
 .page h2 { font-size: 18px; font-weight: 650; }
@@ -3482,7 +3495,12 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   }
 
   /* ---- page shell ---- */
-  .page { padding: 18px 14px 48px; }
+  .page {
+    padding: 18px 14px 48px;
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
 
   /* Page headers and action rows used to be given `flex-wrap: wrap` here.
      They now carry it unconditionally - the reason they need it is the
@@ -6277,4 +6295,207 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
 @media (min-width: 1281px) and (max-width: 1399px) {
   .topbar { gap: 20px; }
   .account-menu > summary { max-width: 18ch; }
+}
+
+/* ---------- phones and touch screens ----------
+   An arbiter walks the hall with a phone: results in, pairings and
+   standings checked, the next-round preview and the registrations queue
+   looked at between rounds. Everything below is additive - a desk with a
+   mouse and a wide window matches none of it.
+
+     (pointer: coarse)   a finger: targets at least 44px, fields at 16px
+     max-width: 768px    a phone or a small tablet: the one-tap results
+     max-width: 640px    a phone held upright: a board is a card */
+
+/* Hidden on a desk, where the select and the 1/2/3 keys are quicker. */
+.result-quick { display: none; }
+
+/* The preview's tables sit in plain cards, and a wide one was clipped by
+   the body's `overflow-x: hidden` rather than scrolled. */
+.nrp-group { overflow-x: auto; }
+
+@media (max-width: 768px), (pointer: coarse) {
+  .result-quick {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .result-quick-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 0;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+  }
+
+  .result-quick-btn:active { transform: scale(0.97); }
+
+  /* The result on file, filled - the confirmation that the tap landed. */
+  .result-quick-btn[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  /* Between the tap and the server's answer. */
+  .result-quick-btn.phx-click-loading { opacity: 0.55; }
+
+  .result-quick-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-quick-btn { transition: none; }
+  .result-quick-btn:active { transform: none; }
+}
+
+@media (pointer: coarse) {
+  /* iOS zooms the whole page in on a field under 16px and leaves it there.
+     `:not()` rather than a bare `input`, so a checkbox keeps its size and the
+     mobile screen's large code box keeps its own. */
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .mobile-code-input),
+  select:not([multiple]),
+  textarea:not([hidden]),
+  .agreed-date-form input[type="date"] {
+    font-size: 16px;
+  }
+
+  .pe-btn,
+  .pe-dropdown-panel > a,
+  .pe-dropdown-panel > button,
+  .ctx-menu > button,
+  .ctx-menu > a,
+  .pe-select,
+  .topbar-menu > summary,
+  .account-menu > summary,
+  .theme-picker-trigger,
+  .accent-picker-trigger,
+  .pub-pill {
+    min-height: 44px;
+  }
+
+  .pub-pill { min-width: 44px; justify-content: center; }
+
+  .pe-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* A landscape phone is wider than the 768px phone block, and the base
+     card clips a table rather than scrolling it. */
+  .table-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* A finger cannot hover, so nothing may wait for it. */
+  .swap-target { cursor: pointer; }
+}
+
+@media (max-width: 768px) {
+  .pairings-board-table .pairing-result { width: 180px; }
+
+  /* The standings scroll sideways; the rank and the name stay put. */
+  #standings-table .pe-table tr > :first-child,
+  #standings-table .pe-table tr > :nth-child(2) {
+    position: sticky;
+    z-index: 1;
+    background: var(--surface);
+  }
+
+  #standings-table .pe-table tr > :first-child {
+    left: 0;
+    min-width: 3rem;
+  }
+
+  #standings-table .pe-table tr > :nth-child(2) {
+    left: 3rem;
+    box-shadow: inset -1px 0 var(--border);
+  }
+}
+
+@media (max-width: 640px) {
+  /* A board as a card: its number, then White and Black on their own
+     lines, then the result buttons across the full width - the table's
+     four columns put the names off the screen. The header row stays for a
+     screen reader and goes from view. */
+  .pairings-board-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pairings-board-table tbody tr:has(> td.pairing-result) {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    grid-template-areas:
+      "board white"
+      "board black"
+      "result result";
+    gap: 4px 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pairings-board-table tbody tr:has(> td.pairing-result) > td {
+    width: auto;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .pairings-board-table tbody tr:has(> td.pairing-result) > td:first-child {
+    grid-area: board;
+    align-self: center;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .pairings-board-table .pairing-white { grid-area: white; }
+  .pairings-board-table .pairing-black { grid-area: black; }
+
+  .pairings-board-table .pairing-result {
+    grid-area: result;
+    margin-top: 6px;
+  }
+
+  /* Which colour each line is, not by position alone: a light and a dark
+     square, as on a scoresheet. */
+  .pairings-board-table .pairing-white::before,
+  .pairings-board-table .pairing-black::before {
+    content: "";
+    display: inline-block;
+    width: 0.75em;
+    height: 0.75em;
+    margin-right: 8px;
+    border: 1.5px solid var(--text);
+    border-radius: 2px;
+    vertical-align: -0.05em;
+  }
+
+  .pairings-board-table .pairing-white::before { background: var(--surface); }
+  .pairings-board-table .pairing-black::before { background: var(--text); }
+
+  .pairings-board-table .swap-target { margin: 0; }
+
+  .pairings-board-table .confirm-clear-result,
+  .pairings-board-table .confirm-postponed {
+    max-width: none;
+    white-space: normal;
+  }
 }

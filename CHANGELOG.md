@@ -17,6 +17,40 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **One-tap results on a phone.** On a phone or any touch
+  screen, every board on the Pairings page carries three large buttons -
+  1-0, ½-½, 0-1 - above its result select, the result on file shown
+  pressed. A tap writes the result in place, through the same checks as
+  the select (clearing still asks first, a postponed game's non-draw still
+  asks first); tapping the pressed one again writes nothing and logs
+  nothing. The select stays for forfeits and the rest. A desk with a mouse
+  sees no change.
+- [Change] **A board is a card on a phone held upright.** Below 640px the
+  pairing list shows each board as its number, White and Black on their
+  own lines with a light or dark square, and the result buttons across the
+  width - the four-column table put the names and the result off the
+  screen. The standings keep the rank and name pinned while the other
+  columns scroll sideways.
+- [Fix] **Swapping, marking absent and awarding a bye work on an iPhone.**
+  The seat menu opened only on a right-click or a long press, and iOS sends
+  neither, so on an iPhone or iPad there was no way to reach it. On a touch
+  screen a tap on a seat now opens its menu; a mouse click is unchanged.
+- [Fix] **Typing in a field no longer zooms the page on an iPhone.** Every
+  text field and dropdown was 15px, under the 16px below which iOS zooms in
+  on focus and stays zoomed; on a touch screen they are 16px.
+- [Change] **Touch targets of at least 44px on a touch screen**: buttons
+  (the registrations queue's Discard was about 30px, the standings' move
+  buttons about 26px), menu items, the top bar's menus and pickers, and
+  selects.
+- [Fix] **Wide tables scroll instead of being clipped on a landscape
+  phone and in the next-round preview.** A table card only scrolled below
+  768px, and a landscape phone is wider than that; the preview's tables
+  were in plain cards that never scrolled. The page body hides sideways
+  overflow, so the far columns were simply not there.
+- [Change] **Notches and rounded corners**: the page and the top bar keep
+  clear of a phone's safe area (`viewport-fit=cover`). Zoom is never
+  disabled.
+
 - [Fix] **The pairing engine is told each player's pairing number as their
   starting rank.** Since 0.18.0 the file "Pair round" hands the engine
   numbered the players by the current standings (score, then rating)

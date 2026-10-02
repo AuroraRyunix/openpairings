@@ -909,6 +909,12 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         {:noreply, assign(socket, confirm_clear_pairing_id: pairing.id)}
 
+      # The result already on file, sent again - a second tap on the pressed
+      # one-tap button. Nothing to write, and nothing to put in the audit
+      # log as a "change".
+      %{result: ^result} when result not in ["", nil] ->
+        {:noreply, socket}
+
       pairing ->
         previous = pairing.result
 
@@ -2389,6 +2395,11 @@ defmodule PairingsEngineWeb.PairingsLive do
     <option :if={@held?} value={@result} selected>{gettext("* postponed")}</option>
     """
   end
+
+  # The one-tap results on a phone: code, label, and the word in each
+  # button's id.
+  defp quick_results,
+    do: [{"1-0", "1-0", "white"}, {"1/2-1/2", "½-½", "draw"}, {"0-1", "0-1", "black"}]
 
   # The unnamed `*`, or a named postponement the tournament no longer
   # offers: shown as what it is rather than as the select's first option.
@@ -4356,7 +4367,7 @@ defmodule PairingsEngineWeb.PairingsLive do
              IS a round: with none paired, the table has nothing but the
              "not paired yet" placeholder row and no round to publish. --%>
         <table
-          class="pe-table"
+          class="pe-table pairings-board-table"
           id={"pairings-table-#{@round_number}"}
           phx-hook=".PairingMenu"
           data-scope={@round && "round"}
@@ -4538,6 +4549,40 @@ defmodule PairingsEngineWeb.PairingsLive do
                           screen reader says about which game this is. Focus comes
                           back here when the clear-confirmation box above closes
                           (`refocus_result`). --%>
+                    <%!-- One tap per result, for an arbiter walking the hall with a
+                          phone: the three results that are nearly every game,
+                          each a 44px button, the one on file pressed. The same
+                          "result" event the select sends, so every guard and
+                          confirmation below applies unchanged; the select under
+                          them keeps the forfeits and the rest. Shown only on a
+                          narrow or touch screen (`.result-quick` in app.css) -
+                          a desk keeps the select and the 1/2/3 keys. --%>
+                    <div
+                      class="result-quick"
+                      id={"result-quick-#{pairing.id}"}
+                      role="group"
+                      aria-label={
+                        gettext("Result, board %{board}: %{white} against %{black}",
+                          board: display_board,
+                          white: player_name(pairing.white_player),
+                          black: player_name(pairing.black_player)
+                        )
+                      }
+                    >
+                      <button
+                        :for={{code, label, slot} <- quick_results()}
+                        type="button"
+                        id={"result-quick-#{pairing.id}-#{slot}"}
+                        class="result-quick-btn"
+                        phx-click="result"
+                        phx-value-pairing-id={pairing.id}
+                        phx-value-result={code}
+                        aria-pressed={to_string(pairing.result == code)}
+                        disabled={!is_nil(@tournament.archived_at)}
+                      >
+                        {label}
+                      </button>
+                    </div>
                     <form phx-change="result" id={"result-form-#{pairing.id}"}>
                       <input type="hidden" name="pairing-id" value={pairing.id} />
                       <select
@@ -5274,9 +5319,29 @@ defmodule PairingsEngineWeb.PairingsLive do
               this.openMenu(seat.closest("[data-scope]"), box.left, box.bottom, true);
             };
 
+            // A finger has no right button, and iOS sends no `contextmenu`
+            // for a long press - so on a touch screen a tap on a seat that is
+            // not armed opens its menu, at the tap. An armed seat's tap is
+            // still the click that completes the swap (its `phx-click`), and
+            // a mouse click is unchanged everywhere.
+            this.touchAt = 0;
+            this.onPointerDown = (e) => {
+              this.touchAt = e.pointerType === "touch" || e.pointerType === "pen" ? Date.now() : 0;
+            };
+            this.onClick = (e) => {
+              if (Date.now() - this.touchAt > 800) return;
+              this.touchAt = 0;
+              const seat = e.target.closest("[data-seat]");
+              if (!seat || seat.hasAttribute("data-armed") || !this.el.contains(seat)) return;
+              const target = seat.closest("[data-scope]");
+              if (target) this.openMenu(target, e.clientX, e.clientY, false);
+            };
+
             this.el.addEventListener("contextmenu", this.onContextMenu);
             this.el.addEventListener("keydown", this.onKeydown);
             this.el.addEventListener("keyup", this.onKeyup);
+            this.el.addEventListener("pointerdown", this.onPointerDown);
+            this.el.addEventListener("click", this.onClick);
 
             // After an applied hand edit the confirmation closes and
             // `DialogFocus` puts focus back where the edit started - a frame
@@ -5302,6 +5367,8 @@ defmodule PairingsEngineWeb.PairingsLive do
             this.el.removeEventListener("contextmenu", this.onContextMenu);
             this.el.removeEventListener("keydown", this.onKeydown);
             this.el.removeEventListener("keyup", this.onKeyup);
+            this.el.removeEventListener("pointerdown", this.onPointerDown);
+            this.el.removeEventListener("click", this.onClick);
           }
         }
       </script>
