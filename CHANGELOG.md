@@ -17,6 +17,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A round without a date keeps its place in the schedule.** A
+  blank or null entry in a tournament's round dates was dropped when they
+  were saved, so every later date moved up a round: a 7-round event known
+  only by its first and last day (`["2026-10-18", null, null, null, null,
+  null, "2026-10-25"]`) came back with 2026-10-25 on round 2 and rounds 3
+  to 7 blank. Ecto removes blank strings from inside a list field it casts,
+  and every writer of the round dates went through that cast: the JSON
+  import (an OpenPairings backup with a gap in its dates, or an envelope
+  from another program such as the KBSB dataplatform's registration
+  export), the SWAR import, and saving the Dates page with a round left
+  empty. A blank now means "no date for that round" and stays on its own
+  round; a null is stored as a blank. The start and end dates are still
+  the earliest and latest dated rounds. A schedule without gaps saves and
+  imports exactly as before. Dates already shifted by an earlier save or
+  import are not moved back; correct them on the Dates page.
+
 ## [0.72.0] - 2026-10-02
 
 **Arbiters, read this before upgrading.** Four fixes below change how

@@ -215,6 +215,101 @@ defmodule PairingsEngine.TournamentImportTest do
     assert imported_team.tournament_id == imported.id
   end
 
+  describe "round dates with gaps stay on their own rounds" do
+    # A blank or null entry in `round_dates` means "no date for that round".
+    # The import used to compact them away, so a 7-round event known only by
+    # its first and last day came back with the last day on round 2.
+    defp with_round_dates(envelope, rounds_count, dates) do
+      update_in(envelope, ["tournaments"], fn tournaments ->
+        Enum.map(tournaments, fn entry ->
+          update_in(entry, ["tournament"], fn t ->
+            Map.merge(t, %{"rounds_count" => rounds_count, "round_dates" => dates})
+          end)
+        end)
+      end)
+    end
+
+    defp import_with_dates(rounds_count, dates) do
+      envelope =
+        user_scope()
+        |> fixture()
+        |> TournamentExport.export_tournament()
+        |> with_round_dates(rounds_count, dates)
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, user_scope())
+      Repo.get!(Tournament, imported.id)
+    end
+
+    test "first and last day only, as nulls" do
+      imported =
+        import_with_dates(7, ["2026-10-18", nil, nil, nil, nil, nil, "2026-10-25"])
+
+      assert imported.round_dates == ["2026-10-18", "", "", "", "", "", "2026-10-25"]
+      assert imported.start_date == "2026-10-18"
+      assert imported.end_date == "2026-10-25"
+    end
+
+    test "first and last day only, as empty strings" do
+      imported = import_with_dates(7, ["2026-10-18", "", "", "", "", "", "2026-10-25"])
+
+      assert imported.round_dates == ["2026-10-18", "", "", "", "", "", "2026-10-25"]
+      assert imported.start_date == "2026-10-18"
+      assert imported.end_date == "2026-10-25"
+    end
+
+    test "a gap in the middle" do
+      imported =
+        import_with_dates(5, ["2026-10-18", "2026-10-19", "", nil, "2026-10-22"])
+
+      assert imported.round_dates == ["2026-10-18", "2026-10-19", "", "", "2026-10-22"]
+      assert imported.start_date == "2026-10-18"
+      assert imported.end_date == "2026-10-22"
+    end
+
+    test "all blank" do
+      imported = import_with_dates(3, [nil, "", nil])
+
+      assert imported.round_dates == ["", "", ""]
+      assert imported.start_date == ""
+      assert imported.end_date == ""
+    end
+
+    test "a schedule without gaps imports as before" do
+      dates = ["2026-10-18", "2026-10-19", "2026-10-20"]
+      imported = import_with_dates(3, dates)
+
+      assert imported.round_dates == dates
+      assert imported.start_date == "2026-10-18"
+      assert imported.end_date == "2026-10-20"
+    end
+
+    test "export -> import keeps every date on its own round, gaps included" do
+      owner = user_scope()
+
+      original =
+        owner
+        |> fixture()
+        |> Ecto.Changeset.change(
+          rounds_count: 7,
+          round_dates: ["2026-10-18", "", "2026-10-20", "", "", "", "2026-10-25"]
+        )
+        |> Repo.update!()
+
+      envelope = TournamentExport.export_tournament(original)
+      [entry] = envelope["tournaments"]
+
+      assert entry["tournament"]["round_dates"] ==
+               ["2026-10-18", "", "2026-10-20", "", "", "", "2026-10-25"]
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, user_scope())
+      imported = Repo.get!(Tournament, imported.id)
+
+      assert imported.round_dates == original.round_dates
+      assert imported.start_date == "2026-10-18"
+      assert imported.end_date == "2026-10-25"
+    end
+  end
+
   test "a forbidden pairing that is a wish stays a wish through the round trip" do
     owner = user_scope()
     importer = user_scope()
