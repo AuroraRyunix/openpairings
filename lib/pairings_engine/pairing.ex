@@ -882,7 +882,7 @@ defmodule PairingsEngine.Pairing do
   # *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, run) do
     # The same tournament-wide history the per-category path has always
-    # built, which this path had not. Without it, `order_for_pairing/3` and
+    # built, which this path had not. Without it, `order_for_pairing/4` and
     # then `trf_player_rows/3` each fell through to their own
     # `build_shared_history/1` - three queries and a full roster walk, twice
     # over, for one answer. `shared_history.full_roster` is the same set
@@ -892,7 +892,7 @@ defmodule PairingsEngine.Pairing do
     full_roster =
       shared_history.full_roster
       |> Map.values()
-      |> order_for_pairing(tournament, shared_history)
+      |> order_for_pairing(tournament, shared_history, next_number)
 
     eligible_ids = MapSet.new(players, & &1.id)
 
@@ -1003,7 +1003,7 @@ defmodule PairingsEngine.Pairing do
     full_roster =
       shared_history.full_roster
       |> Map.values()
-      |> order_for_pairing(tournament, shared_history)
+      |> order_for_pairing(tournament, shared_history, next_number)
 
     local_rank_by_player_id =
       full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
@@ -2007,7 +2007,9 @@ defmodule PairingsEngine.Pairing do
         history = history_before(tournament, round_number)
 
         full_roster =
-          history.full_roster |> Map.values() |> order_for_pairing(tournament, history)
+          history.full_roster
+          |> Map.values()
+          |> order_for_pairing(tournament, history, round_number)
 
         seated =
           round.pairings
@@ -2556,7 +2558,9 @@ defmodule PairingsEngine.Pairing do
     history = history_before(tournament, round_number)
 
     full_roster =
-      history.full_roster |> Map.values() |> order_for_pairing(tournament, history)
+      history.full_roster
+      |> Map.values()
+      |> order_for_pairing(tournament, history, round_number)
 
     rank_by_id = full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
     by_id = Map.new(full_roster, &{&1.id, &1})
@@ -4436,22 +4440,51 @@ defmodule PairingsEngine.Pairing do
   # front and pass it. The nil default was the single-pool path silently
   # rebuilding it, which is what item 6 of the sweep was about.
   #
-  # Extra points that feed the pairing are part of the score here too: the
-  # engine brackets on points plus this round's virtual points, and the rows
-  # go in that order, as SWAR's go in its standings order (points plus
-  # `ExtraPts`) before it writes the `.trn`. Baku's are not added - its
-  # order has always been the game-point one, and is left as it was.
-  defp order_for_pairing(players, tournament, shared_history) do
+  # Virtual points are part of the score here too, Baku's (C.04.7) and
+  # extra points that feed the pairing alike: the engine brackets on points
+  # plus `round_number`'s virtual points, and the rows must go in that
+  # order, because their position IS the starting rank the engine is handed
+  # and the engine orders each bracket by score and then by that rank
+  # (C.04.3 A.2). SWAR's rows likewise go in its standings order (points
+  # plus `ExtraPts`) before it writes the `.trn`.
+  #
+  # Baku's used to be left out. In an accelerated round that numbered a
+  # Group-B player above a Group-A player on the same pairing score whenever
+  # the Group-B player had more game points - so the engine, rightly
+  # trusting the file, took the lower-seeded player for the higher-ranked
+  # one, and the bracket's S1/S2 split, its floaters and its colours came
+  # out wrong. Measured 2026-10-02 against bbpPairings and Ainalrami on a
+  # file numbered by pairing number: 124 of 396 rounds over 60 random Baku
+  # tournaments differed, every one in rounds 2-5, none after.
+  defp order_for_pairing(players, tournament, shared_history, round_number) do
     by_id = Map.new(players, &{&1.id, &1})
     games = games_per_player(tournament, by_id, shared_history)
     extra? = Tournament.extra_points_pairing?(tournament)
+    baku = baku_points_for_round(tournament, players, round_number)
 
     Enum.sort_by(players, fn p ->
       points = player_points(Map.get(games, p.id, []), tournament)
       points = if extra?, do: points + virtual_value(p.extra_points), else: points
+      points = points + Map.get(baku, p.id, 0.0)
       {-points, -Player.rating(p), p.pairing_number}
     end)
   end
+
+  # Each Group-A player's Baku virtual points for `round_number` alone - the
+  # last entry of the history `accelerations/3` writes as `XXA`, from the
+  # same roster, so the order and the file can never disagree on who is in
+  # Group A. `%{}` for a tournament without Baku.
+  defp baku_points_for_round(
+         %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
+         players,
+         round_number
+       ) do
+    tournament
+    |> accelerations(players, round_number)
+    |> Map.new(fn {id, history} -> {id, List.last(history)} end)
+  end
+
+  defp baku_points_for_round(_tournament, _players, _round_number), do: %{}
 
   # Every player who ever received a pairing_number, regardless of current
   # active/absent/forfeit/withdrawn status - the full frozen roster. Used to
@@ -4757,7 +4790,7 @@ defmodule PairingsEngine.Pairing do
   # `games_per_player/3` walks every round looking for each player's pairing
   # - O(players x rounds x boards) - and produces the same map every time it
   # is asked, because the roster and the rounds are fixed for the whole run.
-  # It was being run once by `order_for_pairing/3` and then again by
+  # It was being run once by `order_for_pairing/4` and then again by
   # `trf_player_rows/3` ONCE PER CATEGORY. Threading the history removed the
   # queries; this removes the walk.
   defp precompute_games(tournament, history) do

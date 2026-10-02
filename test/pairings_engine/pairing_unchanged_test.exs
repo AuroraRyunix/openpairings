@@ -6,7 +6,11 @@ defmodule PairingsEngine.PairingUnchangedTest do
   single thing the real pairing writes.
 
   `test/fixtures/next_round_preview/golden.term` was produced by these very
-  scenarios on the code BEFORE that refactor (0.70.0, commit 9b09d89). Each
+  scenarios on the code BEFORE that refactor (0.70.0, commit 9b09d89). Its
+  `:options` rounds 2-5 were regenerated on 2026-10-02 for the Baku fix
+  (`Pairing.order_for_pairing/4`): that scenario is Baku-accelerated, its
+  rounds 2-3 were paired in game-point order, and rounds 4-5 follow from
+  them; round 1 and the `:categories` scenario did not change. Each
   test replays its scenario and compares everything the pairing wrote -
   pairing numbers, boards, frozen board labels, results of byes, bye rows,
   recorded virtual points and the round's account - with ids replaced by
