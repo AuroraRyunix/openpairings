@@ -620,6 +620,15 @@ defmodule PairingsEngine.SnapshotTest do
                  "page_seconds" => 15,
                  "hold_new_round" => true
                },
+               "scoring" => %{
+                 "win" => 1.0,
+                 "draw" => 0.5,
+                 "loss" => 0.0,
+                 "bye" => 1.0,
+                 "forfeit_win" => 1.0,
+                 "forfeit_loss" => 0.0,
+                 "presence" => nil
+               },
                "categories" => ~w(A B)
              }
     end

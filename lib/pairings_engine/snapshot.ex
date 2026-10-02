@@ -315,10 +315,32 @@ defmodule PairingsEngine.Snapshot do
       # announcement. Resolved like `display`; `announcement` is omitted when
       # there is none. Preferences for that screen only - it never widens what
       # `display` and the round levels make public.
-      "hall" => HallDisplay.resolve(t.public_hall)
+      "hall" => HallDisplay.resolve(t.public_hall),
+
+      # Added 2026-10-02. What this tournament's point system pays, so a
+      # reader that shows a figure beside a result can say what it is worth.
+      # `boards[].points` and `byes[].points` carry the per-game figures
+      # themselves; nothing needs to be added up from these.
+      "scoring" => scoring_row(t)
     }
     |> put_tournament_categories(t)
     |> put_team_event(t)
+  end
+
+  # The point system as OpenPairings applies it (`Standings`): the outcome
+  # values, what a pairing-allocated bye pays, the forfeit values (a forfeit
+  # win scores as a win, a forfeit loss as a loss) and the SWAR 3-2-1
+  # presence point (`null` when the tournament has none).
+  defp scoring_row(%Tournament{} = t) do
+    %{
+      "win" => t.points_win,
+      "draw" => t.points_draw,
+      "loss" => t.points_loss,
+      "bye" => Standings.bye_points("pairing-allocated", t),
+      "forfeit_win" => t.points_win,
+      "forfeit_loss" => t.points_loss,
+      "presence" => t.presence_value
+    }
   end
 
   # Added with team pages. Absent means an individual tournament, which is
@@ -519,7 +541,7 @@ defmodule PairingsEngine.Snapshot do
       # them, not because none were entered. Absent means true: an older
       # publisher sent every result it had.
       "results_public" => results_public?,
-      "boards" => boards(visible, nos, results_public?),
+      "boards" => boards(visible, nos, results_public?, t, round.number),
       "byes" => byes(round, visible, t, nos, results_public?)
     }
 
@@ -721,7 +743,7 @@ defmodule PairingsEngine.Snapshot do
   #
   # So the label travels too, and the rows travel in the order the arbiter
   # sees them, because the order is half of the disagreement.
-  defp boards(pairings, nos, results_public?) do
+  defp boards(pairings, nos, results_public?, %Tournament{} = t, round_number) do
     pairings
     |> Enum.filter(&(&1.white_player_id && &1.black_player_id))
     # Both seats must resolve to a published `no`. `publishable_players/1`
@@ -748,7 +770,48 @@ defmodule PairingsEngine.Snapshot do
         "result" => if(results_public?, do: result_token(p.result))
       }
       |> maybe_put_postponed(p, results_public?)
+      |> maybe_put_points(p, round_number, t, results_public?)
     end)
+  end
+
+  # Added 2026-10-02. What each seat scored on this board, as OpenPairings
+  # scores it - `Standings.pairing_award/3`, the arithmetic the standings and
+  # the pairing list's score column already run, presence points included. The
+  # results site adds these up for a running score instead of reading points
+  # off the result token, which only holds for a 1/1-2/0 tournament: a 3-1-0
+  # tournament, a presence point, a postponed game valued as a win or a loss
+  # all score differently. A postponed board carries what it is credited with
+  # while it waits (`postponed_as` says why). Withheld with the result, and
+  # absent for a board with no result and no postponement - there is nothing
+  # to score yet, which is not the same as a score of zero.
+  defp maybe_put_points(row, pairing, round_number, %Tournament{} = t, true = _results_public?) do
+    if is_nil(row["result"]) and not Results.postponed?(pairing.result) do
+      row
+    else
+      award = Standings.pairing_award(pairing, round_number, t)
+
+      row
+      |> Map.put("points", %{
+        "white" => Map.get(award, pairing.white_player_id, 0.0),
+        "black" => Map.get(award, pairing.black_player_id, 0.0)
+      })
+      |> maybe_put_postponed_as(pairing)
+    end
+  end
+
+  defp maybe_put_points(row, _pairing, _round_number, _t, _results_public?), do: row
+
+  # What each seat of a postponed game counts as until it is played - the
+  # outcome frozen on the board when it was postponed, `draw` when none was.
+  defp maybe_put_postponed_as(row, pairing) do
+    if Results.postponed?(pairing.result) do
+      Map.put(row, "postponed_as", %{
+        "white" => pairing |> Standings.provisional_outcome(true) |> Atom.to_string(),
+        "black" => pairing |> Standings.provisional_outcome(false) |> Atom.to_string()
+      })
+    else
+      row
+    end
   end
 
   # Added with postponed games (VCL4THP Q157-169). A postponed game has no
