@@ -115,6 +115,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
        pending_parse_files?: false
      )
      |> allow_upload(:files,
+       auto_upload: true,
        accept: :any,
        max_entries: @max_entries,
        max_file_size: @max_file_size,
@@ -918,7 +919,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <% else %>
               <span :for={entry <- @uploads.files.entries} class="dropzone-file">
                 {entry.client_name}
-                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
+                <span :if={entry.valid? and not entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
@@ -946,7 +947,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             type="submit"
             class="pe-btn primary"
             phx-disable-with={gettext("Parsing…")}
-            disabled={@uploads.files.entries == [] or Enum.any?(@uploads.files.entries, &(!&1.done?))}
+            disabled={@uploads.files.entries == [] or UploadGuard.in_flight?(@uploads.files)}
           >
             {gettext("Parse files")}
           </button>

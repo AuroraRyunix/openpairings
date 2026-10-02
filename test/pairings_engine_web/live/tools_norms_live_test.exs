@@ -616,8 +616,9 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     input = file_input(lv, "#tools-upload-form", :files, entries)
 
-    assert {:error, errors} = render_upload(input, "file1.trf")
-    assert Enum.any?(errors, fn [_ref, reason] -> reason == :too_many_files end)
+    # The box auto-uploads (see `UploadGuard.in_flight?/1`), so the refusal
+    # comes back as the rendered upload error, not as a preflight error tuple.
+    assert render_upload(input, "file1.trf") =~ "Too many files - 10 at a time, max"
   end
 
   # Production crashed on exactly this shape of race on the SWAR import

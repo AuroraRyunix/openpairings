@@ -134,6 +134,7 @@ defmodule PairingsEngineWeb.PairingsLive do
        confirm: nil
      )
      |> allow_upload(:results_csv,
+       auto_upload: true,
        accept: :any,
        max_entries: 1,
        max_file_size: 2_000_000,
@@ -3977,13 +3978,13 @@ defmodule PairingsEngineWeb.PairingsLive do
             <% else %>
               <span :for={entry <- @uploads.results_csv.entries} class="dropzone-file">
                 {entry.client_name}
-                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
+                <span :if={entry.valid? and not entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
         </div>
 
-        <p :for={err <- upload_errors(@uploads.results_csv)} class="error-note">{inspect(err)}</p>
+        <p :for={msg <- UploadGuard.error_messages(@uploads.results_csv)} class="error-note">{msg}</p>
 
         <div :if={@import_errors} class="error-note" style="display: block">
           <strong>{gettext("Nothing was saved - fix these and try again:")}</strong>
@@ -3997,7 +3998,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             type="submit"
             class="pe-btn primary"
             phx-disable-with={gettext("Importing…")}
-            disabled={Enum.any?(@uploads.results_csv.entries, &(!&1.done?))}
+            disabled={UploadGuard.in_flight?(@uploads.results_csv)}
           >
             {gettext("Import")}
           </button>
