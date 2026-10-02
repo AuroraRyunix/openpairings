@@ -17,40 +17,57 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
-- [Feature] **One-tap results on a phone.** On a phone or any touch
-  screen, every board on the Pairings page carries three large buttons -
-  1-0, ½-½, 0-1 - above its result select, the result on file shown
-  pressed. A tap writes the result in place, through the same checks as
-  the select (clearing still asks first, a postponed game's non-draw still
-  asks first); tapping the pressed one again writes nothing and logs
-  nothing. The select stays for forfeits and the rest. A desk with a mouse
-  sees no change.
-- [Change] **A board is a card on a phone held upright.** Below 640px the
-  pairing list shows each board as its number, White and Black on their
-  own lines with a light or dark square, and the result buttons across the
-  width - the four-column table put the names and the result off the
-  screen. The standings keep the rank and name pinned while the other
-  columns scroll sideways.
-- [Fix] **Swapping, marking absent and awarding a bye work on an iPhone.**
-  The seat menu opened only on a right-click or a long press, and iOS sends
-  neither, so on an iPhone or iPad there was no way to reach it. On a touch
-  screen a tap on a seat now opens its menu; a mouse click is unchanged.
-- [Fix] **Typing in a field no longer zooms the page on an iPhone.** Every
-  text field and dropdown was 15px, under the 16px below which iOS zooms in
-  on focus and stays zoomed; on a touch screen they are 16px.
-- [Change] **Touch targets of at least 44px on a touch screen**: buttons
-  (the registrations queue's Discard was about 30px, the standings' move
-  buttons about 26px), menu items, the top bar's menus and pickers, and
-  selects.
-- [Fix] **Wide tables scroll instead of being clipped on a landscape
-  phone and in the next-round preview.** A table card only scrolled below
-  768px, and a landscape phone is wider than that; the preview's tables
-  were in plain cards that never scrolled. The page body hides sideways
-  overflow, so the far columns were simply not there.
-- [Change] **Notches and rounded corners**: the page and the top bar keep
-  clear of a phone's safe area (`viewport-fit=cover`). Zoom is never
-  disabled.
+## [0.72.0] - 2026-10-02
 
+**Arbiters, read this before upgrading.** Four fixes below change how
+the next round is paired in some tournaments. None of them changes a saved
+round: boards, colours, results and standings already on record stay as
+they are, and nothing re-pairs a round by itself.
+
+* **Baku acceleration** - affected: Swiss tournaments with Baku on,
+  rounds 2 up to the last accelerated round. A round paired before the
+  upgrade will not match a FIDE checker replaying the report.
+* **Pairing numbers as starting ranks** - affected: any Swiss tournament
+  from round 2 on with a late entrant, or with two players who have not
+  played yet meeting on one board.
+* **Unplayed rounds written with the right letter** - affected:
+  tournaments that pay points for an absence or for a loss.
+* **Rounds before joining no longer losses** - affected: tournaments
+  where a loss pays points, with a late entrant or a withdrawal.
+
+In an affected tournament, a round that is paired but not yet played can
+be deleted and paired again to get the corrected pairing - it may come out
+different from the one on the wall. For the last two, the FIDE/TRF export
+of an affected tournament changes as their entries describe. The details of
+each are in the first four entries.
+
+- [Fix] **Baku acceleration: accelerated rounds are paired in the right
+  order within each score group.** The engine was handed the players
+  ordered by game points instead of game points plus the round's virtual
+  points (FIDE C.04.7), and it takes that order as the ranking inside a
+  score group. So whenever a Group-A player and a Group-B player ended up
+  on the same pairing score with different game points, the Group-B player
+  was treated as the higher-ranked one, and the group's halves, floaters
+  and colours could come out different from what FIDE's rules give.
+  Affected: Swiss tournaments with Baku acceleration on, rounds 2 up to the
+  last accelerated round (the first half of the rounds, rounded up); round
+  1 and every round after the accelerated ones were right, and
+  tournaments without Baku (extra points included) were not affected.
+  Both engines were affected. Checked on 60 random Baku tournaments: 124
+  of their 396 rounds were paired differently from bbpPairings and
+  Ainalrami given the same games and virtual points; with the fix, 0 of
+  396, and 0 of 884 rounds in 140 more. **Rounds already paired are not
+  changed** - nothing re-pairs a saved round, and the next round is paired
+  from the games as they were played. In a running tournament that is
+  still in its accelerated rounds, the next round is paired correctly; a
+  round paired but not yet played can be deleted and paired again to get
+  the correct pairing (it may come out different). A round paired before
+  the upgrade will not match a FIDE checker replaying the tournament
+  report, and its "what if?" and rebuilt explanations now judge it against
+  the correct order, so they may say the engine would have paired it
+  differently. Virtual points still never count in the standings, the
+  tie-breaks or the scores of any export (the tournament report carries
+  them only as its acceleration records).
 - [Fix] **The pairing engine is told each player's pairing number as their
   starting rank.** Since 0.18.0 the file "Pair round" hands the engine
   numbered the players by the current standings (score, then rating)
@@ -98,6 +115,48 @@ Each entry is tagged so a version can be skimmed:
   absences" is on (`late_entry_absences`, unchanged). **After upgrading:**
   saved rounds do not change; standings do not change; the TRF export's
   totals for those players drop to what the standings show.
+- [Performance] **Ainalrami 0.36.0: the same pairings, its matcher and
+  its file writer faster.** The weighted matcher a hard bracket falls back
+  to is 1.24-1.32x faster per call, and the TRF writer about five times
+  faster on large fields; every call and every file is held identical to
+  0.35.0's. It also checks a pairing handed to its explanation calls (the
+  fix above about boards that are not a round). Checked before release
+  against Gacrux and bbpPairings on about 11.6 million rounds; every
+  disagreement judged against the rules found this engine's pairing
+  legal (Ainalrami's docs/validation.md, "Release check for 0.36.0").
+- [Feature] **One-tap results on a phone.** On a phone or any touch
+  screen, every board on the Pairings page carries three large buttons -
+  1-0, ½-½, 0-1 - above its result select, the result on file shown
+  pressed. A tap writes the result in place, through the same checks as
+  the select (clearing still asks first, a postponed game's non-draw still
+  asks first); tapping the pressed one again writes nothing and logs
+  nothing. The select stays for forfeits and the rest. A desk with a mouse
+  sees no change.
+- [Change] **A board is a card on a phone held upright.** Below 640px the
+  pairing list shows each board as its number, White and Black on their
+  own lines with a light or dark square, and the result buttons across the
+  width - the four-column table put the names and the result off the
+  screen. The standings keep the rank and name pinned while the other
+  columns scroll sideways.
+- [Fix] **Swapping, marking absent and awarding a bye work on an iPhone.**
+  The seat menu opened only on a right-click or a long press, and iOS sends
+  neither, so on an iPhone or iPad there was no way to reach it. On a touch
+  screen a tap on a seat now opens its menu; a mouse click is unchanged.
+- [Fix] **Typing in a field no longer zooms the page on an iPhone.** Every
+  text field and dropdown was 15px, under the 16px below which iOS zooms in
+  on focus and stays zoomed; on a touch screen they are 16px.
+- [Change] **Touch targets of at least 44px on a touch screen**: buttons
+  (the registrations queue's Discard was about 30px, the standings' move
+  buttons about 26px), menu items, the top bar's menus and pickers, and
+  selects.
+- [Fix] **Wide tables scroll instead of being clipped on a landscape
+  phone and in the next-round preview.** A table card only scrolled below
+  768px, and a landscape phone is wider than that; the preview's tables
+  were in plain cards that never scrolled. The page body hides sideways
+  overflow, so the far columns were simply not there.
+- [Change] **Notches and rounded corners**: the page and the top bar keep
+  clear of a phone's safe area (`viewport-fit=cover`). Zoom is never
+  disabled.
 - [Feature] **A sent receipt for every round sent for rating.** Each
   "Send…" now stores a receipt: a fingerprint of exactly what went out
   (every game's identity, both players, the colours, the result as the file
@@ -151,33 +210,6 @@ Each entry is tagged so a version can be skimmed:
   round finishes is dropped quietly instead of logging a failure. Team Swiss
   rounds, decided team against team, were never given an individual account
   and still are not.
-- [Fix] **Baku acceleration: accelerated rounds are paired in the right
-  order within each score group.** The engine was handed the players
-  ordered by game points instead of game points plus the round's virtual
-  points (FIDE C.04.7), and it takes that order as the ranking inside a
-  score group. So whenever a Group-A player and a Group-B player ended up
-  on the same pairing score with different game points, the Group-B player
-  was treated as the higher-ranked one, and the group's halves, floaters
-  and colours could come out different from what FIDE's rules give.
-  Affected: Swiss tournaments with Baku acceleration on, rounds 2 up to the
-  last accelerated round (the first half of the rounds, rounded up); round
-  1 and every round after the accelerated ones were right, and
-  tournaments without Baku (extra points included) were not affected.
-  Both engines were affected. Checked on 60 random Baku tournaments: 124
-  of their 396 rounds were paired differently from bbpPairings and
-  Ainalrami given the same games and virtual points; with the fix, 0 of
-  396, and 0 of 884 rounds in 140 more. **Rounds already paired are not
-  changed** - nothing re-pairs a saved round, and the next round is paired
-  from the games as they were played. In a running tournament that is
-  still in its accelerated rounds, the next round is paired correctly; a
-  round paired but not yet played can be deleted and paired again to get
-  the correct pairing (it may come out different). A round paired before
-  the upgrade will not match a FIDE checker replaying the tournament
-  report, and its "what if?" and rebuilt explanations now judge it against
-  the correct order, so they may say the engine would have paired it
-  differently. Virtual points still never count in the standings, the
-  tie-breaks or the scores of any export (the tournament report carries
-  them only as its acceleration records).
 - [Change] **In FIDE mode, the event's terms are fixed once the first
   round is paired.** The number of rounds (a round robin's cycles), the
   scoring, the pairing-allocated bye's value, the acceleration, the

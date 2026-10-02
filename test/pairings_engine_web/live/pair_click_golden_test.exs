@@ -169,6 +169,9 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
     t = reload(t)
     names = player_names(t)
     {:ok, trf} = TrfExport.export(t)
+    # The program line names the release; a version bump is not a change
+    # the click made.
+    trf = String.replace(trf, ~r/^182 OpenPairings v\S+/m, "182 OpenPairings")
 
     %{
       written: snapshot(t),
