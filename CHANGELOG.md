@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.72.1] - 2026-10-02
+
 - [Fix] **Imports were stuck at 0% since 0.70.0 - every upload: JSON backup, SWAR, TRF, hand-off, results CSV, logo, tools - fixed.** Since 0.70.0 every
   upload box - JSON backup, SWAR, TRF, hand-off, hand-off return, results
   CSV, tournament logo and the arbiter tools' file parser - kept its button
