@@ -17,6 +17,13 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+* **[Fix] The Advanced and Settings menus work on a phone** - they sat
+  inside the sideways-scrolling tab strip with a fixed-position panel,
+  which touch browsers clip or misplace, and tapping the page did not
+  close them on iOS. The panel now hangs from the bar itself and scrolls
+  inside when long, a tap anywhere outside closes it (also on the round
+  menus on the Pairings page), and choosing an item closes it.
+
 ## [0.72.0] - 2026-10-02
 
 **Arbiters, read this before upgrading.** Four fixes below change how

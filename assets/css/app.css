@@ -2219,6 +2219,8 @@ button.pe-btn, .pe-btn {
      of its header row, and a panel opened rightwards ran off the page. */
   right: 0;
   max-width: calc(100vw - 24px);
+  max-height: 70vh;
+  overflow-y: auto;
   z-index: 50;
   min-width: 220px;
   display: flex;
@@ -3475,24 +3477,37 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
     white-space: nowrap;
   }
 
-  /* the tab strip scrolls horizontally on mobile, which clips an
-     absolutely-positioned dropdown panel - anchor it to the viewport
-     instead so it always renders in full.
+  /* The tab strip scrolls horizontally on a phone, and a scroll container
+     clips every descendant whose containing block passes through it. The
+     panel used to be `position: fixed` inside it to escape that, which is
+     the shape touch browsers get wrong (a fixed box inside a scrolling,
+     composited strip is clipped or mispositioned on iOS Safari, so the
+     menu "did not open"). Instead the BAR is the containing block: it is
+     not a scroller, so an absolute panel anchored to it is never clipped,
+     scrolls with the page, and spans the bar's width whichever tab opened
+     it. `position: static` on the menu hands the anchoring up to the bar.
 
-     Matches `.topbar-menu[open] > .topbar-menu-panel`'s own specificity
-     (two classes) rather than the bare `.topbar-menu-panel` this used to be
-     - a single-class selector here would lose the `position` tug-of-war to
-     that rule regardless of appearing later in the file, since a browser
-     only falls back to source order when specificity is tied. */
+     Same specificity as `.topbar-menu[open] > .topbar-menu-panel` (two
+     classes and an attribute), later in the file, so this wins. Tall
+     panels scroll inside themselves instead of running off a short phone. */
+  .topbar { position: relative; }
+  .topbar-menu { position: static; }
+
   .topbar-menu[open] > .topbar-menu-panel {
-    position: fixed;
+    position: absolute;
     top: auto;
     left: 12px;
     right: 12px;
     margin-top: 4px;
     min-width: 0;
     width: auto;
+    max-width: none;
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
+
+  .topbar-menu-item { padding: 12px 14px; }
 
   /* ---- page shell ---- */
   .page {

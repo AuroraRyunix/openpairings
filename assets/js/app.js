@@ -1340,13 +1340,28 @@ if (process.env.NODE_ENV === "development") {
 // Delegated at the document rather than bound per element: these live in a
 // layout that LiveView re-renders, and a per-element listener would have to
 // be re-attached every patch.
-document.addEventListener("click", (e) => {
+//
+// `pointerdown` as well as `click`, for touch: iOS Safari does not deliver
+// `click` to the document for a tap on an element that is not itself
+// clickable (plain page text, a card), so a menu opened on a phone could
+// only be closed by tapping its own button again. `pointerdown` fires for
+// every tap on every element. `click` stays for the rest (keyboard
+// activation, assistive technology), and picking an item closes the menu
+// too, since a `patch` link keeps the same layout (and so the open menu).
+const closeTopbarMenus = (e) => {
   document.querySelectorAll('details[name="topbar-popover"][open]').forEach((menu) => {
     // Not `menu.contains(e.target)` alone: a click on the summary is what
     // toggles it, and closing here as well would fight that and leave the
     // menu unopenable.
     if (!menu.contains(e.target)) { menu.open = false }
   })
+}
+document.addEventListener("pointerdown", closeTopbarMenus)
+document.addEventListener("click", closeTopbarMenus)
+document.addEventListener("click", (e) => {
+  const item = e.target.closest && e.target.closest(".topbar-menu-item")
+  const menu = item && item.closest('details[name="topbar-popover"]')
+  if (menu) { menu.open = false }
 })
 
 // ---- which theme and accent are on ----

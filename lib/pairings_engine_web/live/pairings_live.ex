@@ -2372,26 +2372,41 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     ~H"""
     <option value="" selected={@result == ""}>…</option>
+
     <option value="1-0" selected={@result == "1-0"}>1-0</option>
+
     <option value="1/2-1/2" selected={@result == "1/2-1/2"}>½-½</option>
+
     <option value="0-1" selected={@result == "0-1"}>0-1</option>
+
     <option value="1/2-0" selected={@result == "1/2-0"}>
       ½-0 (asymmetric - disciplinary point adjustment)
     </option>
+
     <option value="0-1/2" selected={@result == "0-1/2"}>
       0-½ (asymmetric - disciplinary point adjustment)
     </option>
+
     <option value="1-0FF" selected={@result == "1-0FF"}>1-0 FF (White wins by forfeit)</option>
+
     <option value="0-1FF" selected={@result == "0-1FF"}>0-1 FF (Black wins by forfeit)</option>
+
     <option value="0-0FF" selected={@result == "0-0FF"}>0-0 FF (double forfeit)</option>
+
     <option value="0-0" selected={@result == "0-0"}>0-0 (both lose, game played)</option>
+
     <option value="1-0U" selected={@result == "1-0U"}>1-0 (played, not rated)</option>
+
     <option value="0-1U" selected={@result == "0-1U"}>0-1 (played, not rated)</option>
+
     <option value="1/2-1/2U" selected={@result == "1/2-1/2U"}>½-½ (played, not rated)</option>
+
     <%= if @postponed_games do %>
       <option value="*W" selected={@result == "*W"}>{gettext("* postponed by White")}</option>
+      
       <option value="*B" selected={@result == "*B"}>{gettext("* postponed by Black")}</option>
     <% end %>
+
     <option :if={@held?} value={@result} selected>{gettext("* postponed")}</option>
     """
   end
@@ -2751,6 +2766,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           do: gettext("Round %{n}: what spectators see", n: @round.number),
           else: gettext("Spectators see:")}
       </span>
+      
       <div
         id={"#{@id}-radios"}
         class="pe-level-track"
@@ -2781,15 +2797,16 @@ defmodule PairingsEngineWeb.PairingsLive do
           <.icon name={stop.icon} class="pe-level-icon" />
           <span class="pe-level-text">{stop.label}</span>
         </button>
+        
         <%!-- Why a stop cannot be chosen. The `title` is a hover tooltip,
               which reaches nobody on a keyboard or a screen reader; these
               are what the stops' and the group's `aria-describedby` read. --%>
         <span :for={stop <- @stops} :if={stop.why} id={"#{stop.id}-why"} hidden>{stop.why}</span>
       </div>
     </div>
+
     <p :if={@note} id={"#{@id}-note"} class="pe-level-note">
-      <.icon name="hero-information-circle-micro" class="pe-level-note-icon" />
-      <span>{@note}</span>
+      <.icon name="hero-information-circle-micro" class="pe-level-note-icon" /> <span>{@note}</span>
     </p>
     """
   end
@@ -2979,7 +2996,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <span class="board-seat-colour" aria-label={gettext("White")}>W</span>
         <span class="board-seat-name" title={seat_text(@white)}>{seat_text(@white)}</span>
       </div>
-
+      
       <div
         class={["board-seat", @black_changed? && @changed_class]}
         style={seat_color_style(@color_by_name, @black)}
@@ -3253,7 +3270,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Swap with…")}
             </button>
-
+            
             <button
               type="button"
               role="menuitem"
@@ -3271,7 +3288,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Swap with a player on a board…")}
             </button>
-
+            
             <button
               :if={@vacancies > 0}
               type="button"
@@ -3281,7 +3298,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Put in an empty seat")}{if @vacancies > 1, do: "…", else: ""}
             </button>
-
+            
             <button
               type="button"
               role="menuitem"
@@ -3300,7 +3317,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Award a bye to the remaining player")}
             </button>
-
+            
             <button
               :if={@fully_vacant?}
               type="button"
@@ -3310,7 +3327,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {if @pairing_hidden?, do: "Unhide this board", else: "Hide this board"}
             </button>
-
+            
             <button
               :if={@deletable?}
               type="button"
@@ -3348,7 +3365,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             "Pairings", so the name stands alone; the links that sat beside
             it - the public page and the local view - are in More. --%>
       <h1 id="pairings-title" class="pairings-title">{@tournament.name}</h1>
-
+      
       <%!-- Every postponed game still to be played, whichever round is on
             screen (VCL4THP Q162): its result can be entered at any time, and
             this is where it is found. Each one opens its own round. --%>
@@ -3367,6 +3384,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             {gettext("Print notices")}
           </a>
         </div>
+        
         <ul class="postponed-games-list">
           <li
             :for={game <- @postponed_open}
@@ -3381,6 +3399,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 {Postponed.agreed_text(game.pairing.agreed_date)}
               </span>
             </div>
+            
             <div class="postponed-game-actions">
               <form
                 id={"agreed-date-form-#{game.pairing.id}"}
@@ -3404,6 +3423,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   {gettext("Save date")}
                 </button>
               </form>
+              
               <a
                 id={"postponed-notice-#{game.pairing.id}"}
                 class="pe-btn"
@@ -3412,6 +3432,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Notice")}
               </a>
+              
               <a
                 :if={game.pairing.agreed_date}
                 id={"postponed-ics-#{game.pairing.id}"}
@@ -3421,6 +3442,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Calendar")}
               </a>
+              
               <button
                 :if={game.round != @round_number}
                 type="button"
@@ -3432,6 +3454,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 {gettext("Go to round %{n}", n: game.round)}
               </button>
             </div>
+            
             <details
               :if={(game.pairing.agreed_date_log || []) != []}
               id={"agreed-date-log-#{game.pairing.id}"}
@@ -3444,17 +3467,18 @@ defmodule PairingsEngineWeb.PairingsLive do
                   length(game.pairing.agreed_date_log)
                 )}
               </summary>
+              
               <ol>
                 <li :for={entry <- game.pairing.agreed_date_log}>
-                  <% {change, meta} = Postponed.date_log_parts(entry) %>
-                  <strong>{change}</strong> <span :if={meta != ""} class="hint">{meta}</span>
+                  <% {change, meta} = Postponed.date_log_parts(entry) %> <strong>{change}</strong>
+                  <span :if={meta != ""} class="hint">{meta}</span>
                 </li>
               </ol>
             </details>
           </li>
         </ul>
       </div>
-
+      
       <%!-- The setup gaps, one line each: what is missing, each item a link
             to the settings page that fills it in. The blocking one first
             (pairing waits for it), the FIDE-report one only once pairing is
@@ -3466,7 +3490,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           <.setup_links tournament={@tournament} items={@missing_setup} />
         </span>
       </p>
-
+      
       <p
         :if={@setup_complete and @recommended_missing != []}
         id="setup-recommended"
@@ -3478,7 +3502,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           <.setup_links tournament={@tournament} items={@recommended_missing} />
         </span>
       </p>
-
+      
       <%!-- The round bar: which round, how it stands, and everything to do
             with it. The picker and the status on the left, the round's
             actions on the right; below about 900px the actions wrap onto a
@@ -3506,12 +3530,12 @@ defmodule PairingsEngineWeb.PairingsLive do
               {round_label(n, @tournament)}
             </button>
           </div>
-
+          
           <%!-- The selected picker button says which round this is; the
                 heading keeps the page's outline for a screen reader, and
                 spells out a match format's "M1·2" as "Match 1, game 2". --%>
           <h2 id="round-heading" class="sr-only">{round_heading(@round_number, @tournament)}</h2>
-
+          
           <span id="round-status" class={["badge", "round-status", @round == nil && "muted"]}>
             {cond do
               @round == nil ->
@@ -3527,10 +3551,8 @@ defmodule PairingsEngineWeb.PairingsLive do
                 "finished"
             end}
           </span>
-
-          <%!-- Sent for rating: when, and the receipt's code. --%>
+           <%!-- Sent for rating: when, and the receipt's code. --%>
           <SentReceipt.stamp receipt={@round_receipt && @round_receipt.receipt} id="round-receipt" />
-
           <%!-- The round's engine account is worked out after the click
                 (PairingsEngine.ExplanationJobs). Quiet, because the round is
                 saved and final; it goes away when the account is in. --%>
@@ -3540,11 +3562,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-account-status"
             navigate={~p"/t/#{@tournament.id}/pairings/#{@round_number}/explain"}
           >
-            <span class="pe-account-dot" aria-hidden="true"></span>
-            {gettext("Working out the explanation…")}
+            <span class="pe-account-dot" aria-hidden="true"></span> {gettext(
+              "Working out the explanation…"
+            )}
           </.link>
         </div>
-
+        
         <div id="round-actions" class="round-bar-actions">
           <%!-- `display: contents`: the control is a flex item of this row
                 like its neighbours, and the note it may carry wraps onto a
@@ -3552,6 +3575,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           <div :if={@round != nil} id="round-publish-group" class="pe-level-slot">
             <.publish_level tournament={@tournament} round={@round} />
           </div>
+          
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
@@ -3604,7 +3628,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"
             end}
           </button>
-
+          
           <%!-- The last round still has boards without a result, and every
                 one of them has two players: pairing can record them as
                 postponed and go ahead (VCL4THP Q159), once the arbiter has
@@ -3642,7 +3666,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             {gettext("Record missing results as postponed and pair round %{n}", n: @round_number)}
           </button>
-
+          
           <%!-- Everything for this round that is not entering results: what
                 to print, and a "More" menu for the rest - PGN, a results CSV,
                 and unpairing, last and apart. Native <details> menus, so every
@@ -3657,6 +3681,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             phx-mounted={JS.ignore_attributes(["open"])}
           >
             <summary class="pe-btn">{gettext("Print")}</summary>
+            
             <div class="pe-dropdown-panel" role="menu">
               <a
                 role="menuitem"
@@ -3666,6 +3691,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Pairings")}
               </a>
+              
               <a
                 role="menuitem"
                 href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
@@ -3678,7 +3704,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Pairings, with absentees section")}
               </a>
-              <hr />
+               <hr />
               <a
                 role="menuitem"
                 id={"print-results-#{@round_number}"}
@@ -3687,6 +3713,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Result cards")}
               </a>
+              
               <a
                 role="menuitem"
                 href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
@@ -3699,6 +3726,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Result cards: test print (first 3)")}
               </a>
+              
               <a
                 role="menuitem"
                 href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
@@ -3713,7 +3741,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               </a>
             </div>
           </details>
-
+          
           <%!-- There even before a round is paired: the local view and the
                 public page are not about one round, and More is where they
                 live now. --%>
@@ -3724,6 +3752,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             phx-mounted={JS.ignore_attributes(["open"])}
           >
             <summary class="pe-btn">{gettext("More")}</summary>
+            
             <div class="pe-dropdown-panel" role="menu">
               <%!-- "Live" reads as "live to the public", and this is the
                     opposite: the LOCAL view, the screen in the venue and the
@@ -3740,6 +3769,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Local view & phone QR")}
               </a>
+              
               <a
                 :if={PublicLink.public?(@tournament)}
                 role="menuitem"
@@ -3750,11 +3780,13 @@ defmodule PairingsEngineWeb.PairingsLive do
               >
                 {gettext("Public page")}
               </a>
+              
               <%= if @round != nil do %>
                 <hr />
                 <span class="pe-dropdown-label">
                   {gettext("PGN (metadata only - no moves are recorded)")}
                 </span>
+                
                 <a
                   role="menuitem"
                   id={"export-pgn-#{@round_number}"}
@@ -3763,6 +3795,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 >
                   {gettext("This round")}
                 </a>
+                
                 <a
                   role="menuitem"
                   href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}&board=1"}
@@ -3775,12 +3808,15 @@ defmodule PairingsEngineWeb.PairingsLive do
                 >
                   {gettext("This round, with board numbers")}
                 </a>
+                
                 <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
                   {gettext("All rounds")}
                 </a>
+                
                 <a role="menuitem" href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
                   {gettext("All rounds, with board numbers")}
                 </a>
+                
                 <%!-- A range of boards, e.g. the top boards for a broadcast:
                     the numbers printed on the pairing sheet. --%>
                 <form
@@ -3805,7 +3841,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                     {gettext("This round, these boards")}
                   </button>
                 </form>
-                <hr :if={!@tournament.archived_at} />
+                 <hr :if={!@tournament.archived_at} />
                 <button
                   :if={!@tournament.archived_at}
                   type="button"
@@ -3815,7 +3851,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 >
                   {gettext("Import results (CSV)")}
                 </button>
-                <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
+                 <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
                 <button
                   :if={@round_number == @paired_rounds && !@tournament.archived_at}
                   type="button"
@@ -3832,11 +3868,10 @@ defmodule PairingsEngineWeb.PairingsLive do
           </details>
         </div>
       </div>
-
+      
       <%!-- The round changed since it was sent: the rating officer holds
             the old version. Named, never re-sent. --%>
       <SentReceipt.drift_warning status={@round_receipt} id="round-receipt-drift" />
-
       <%!-- Which boards of the next round are already certain while the last
             games are still being played - worked out, never saved. Beside
             the round being played and the round about to be paired. --%>
@@ -3848,14 +3883,13 @@ defmodule PairingsEngineWeb.PairingsLive do
             @round_number in [@paired_rounds, @next_pairable]
         }
       />
-
       <div :if={@error} class="error-note" style="display: block">
         <details open={String.length(@error) <= 160}>
           <summary style="cursor: pointer">{error_summary(@error)}</summary>
-          <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 0">{@error}</pre>
+           <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 0">{@error}</pre>
         </details>
       </div>
-
+      
       <%!-- The players' bye preferences (not a FIDE rule): what they did
             to the pairing-allocated bye in the round on screen. --%>
       <div
@@ -3867,7 +3901,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <p :for={line <- @bye_preference_notice} style="margin: 0 0 4px">{line}</p>
       </div>
-
+      
       <%!-- A FIDE-rated tournament does not apply bye preferences; stored
             ones are kept, and the arbiter is told they are being ignored. --%>
       <div
@@ -3877,15 +3911,14 @@ defmodule PairingsEngineWeb.PairingsLive do
         role="note"
         style="display: block; margin: 8px 0"
       >
-        <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong>
-        {ngettext(
+        <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong> {ngettext(
           "%{names} has a bye preference, which is not applied when pairing a FIDE-rated tournament. It is kept, and applies again if the tournament stops being FIDE-rated.",
           "%{names} have bye preferences, which are not applied when pairing a FIDE-rated tournament. They are kept, and apply again if the tournament stops being FIDE-rated.",
           length(@ignored_bye_preferences),
           names: Enum.join(@ignored_bye_preferences, ", ")
         )}
       </div>
-
+      
       <%!-- The organiser's bye exclusions left no legal round. Not a FIDE
             rule, so the page names who is excluded and offers the one way
             out it knows works: lift one player's exclusion for this round
@@ -3898,23 +3931,23 @@ defmodule PairingsEngineWeb.PairingsLive do
         style="display: block"
       >
         <p style="margin: 0 0 6px">
-          <strong>{gettext("This round cannot be paired with the bye exclusions as they stand.")}</strong>
-          {ngettext(
+          <strong>{gettext("This round cannot be paired with the bye exclusions as they stand.")}</strong> {ngettext(
             "Every legal pairing gives the pairing-allocated bye to the player excluded from it:",
             "Every legal pairing gives the pairing-allocated bye to one of the %{count} players excluded from it:",
             length(@bye_exclusion_block.excluded)
-          )}
-          {Enum.map_join(@bye_exclusion_block.excluded, ", ", & &1.name)}{if(
+          )} {Enum.map_join(@bye_exclusion_block.excluded, ", ", & &1.name)}{if(
             @bye_exclusion_block.category,
             do: " (#{@bye_exclusion_block.category})"
           )}.
         </p>
+        
         <p :if={@bye_exclusion_block.override} style="margin: 0 0 8px">
           {gettext(
             "Nothing was paired. Pairing anyway lifts %{name}'s exclusion for this round only - they get the bye - and the audit trail records it.",
             name: @bye_exclusion_block.override.name
           )}
         </p>
+        
         <button
           :if={@bye_exclusion_block.override}
           id="pair-ignoring-bye-exclusion"
@@ -3930,7 +3963,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           )}
         </button>
       </div>
-
+      
       <form
         :if={@importing_results}
         id="results-csv-import-form"
@@ -3942,7 +3975,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <h3 style="margin-top: 0">
           {gettext("Import results (CSV) - round %{n}", n: @round_number)}
         </h3>
-
+        
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -3950,17 +3983,25 @@ defmodule PairingsEngineWeb.PairingsLive do
             )
           }>
             <:part name="format"><code>board,result</code></:part>
+            
             <:part name="semicolon"><code>;</code></:part>
+            
             <:part name="win"><code>1-0</code></:part>
+            
             <:part name="loss"><code>0-1</code></:part>
+            
             <:part name="draw"><code>1/2-1/2</code></:part>
+            
             <:part name="equals"><code>=</code></:part>
+            
             <:part name="both_lose"><code>0-0</code></:part>
+            
             <:part name="ff_win"><code>1-0FF</code>/<code>0-1FF</code></:part>
+            
             <:part name="double_ff"><code>0-0FF</code></:part>
           </.rich_text>
         </p>
-
+        
         <div
           class={["dropzone", @uploads.results_csv.entries != [] && "has-file"]}
           phx-drop-target={@uploads.results_csv.ref}
@@ -3976,22 +4017,21 @@ defmodule PairingsEngineWeb.PairingsLive do
               <span class="hint">{gettext("or drag and drop it here")}</span>
             <% else %>
               <span :for={entry <- @uploads.results_csv.entries} class="dropzone-file">
-                {entry.client_name}
-                <span :if={!entry.done?} class="hint">{entry.progress}%</span>
+                {entry.client_name} <span :if={!entry.done?} class="hint">{entry.progress}%</span>
               </span>
             <% end %>
           </div>
         </div>
-
+        
         <p :for={err <- upload_errors(@uploads.results_csv)} class="error-note">{inspect(err)}</p>
-
+        
         <div :if={@import_errors} class="error-note" style="display: block">
           <strong>{gettext("Nothing was saved - fix these and try again:")}</strong>
           <ul style="margin: 6px 0 0">
             <li :for={err <- @import_errors}>{import_error_text(err)}</li>
           </ul>
         </div>
-
+        
         <div class="actions">
           <button
             type="submit"
@@ -4001,12 +4041,13 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             {gettext("Import")}
           </button>
+          
           <button type="button" class="pe-btn" phx-click="toggle_import_results">
             {gettext("Cancel")}
           </button>
         </div>
       </form>
-
+      
       <div :if={@swap_first} class="swap-banner" phx-window-keydown="cancel_swap" phx-key="escape">
         <span class="swap-banner-dot"></span>
         <span id="swap-banner-text">
@@ -4018,9 +4059,10 @@ defmodule PairingsEngineWeb.PairingsLive do
             <:part name="name"><strong>{@swap_first.name}</strong></:part>
           </.rich_text>
         </span>
+        
         <button type="button" class="pe-btn" phx-click="cancel_swap">{gettext("Cancel (Esc)")}</button>
       </div>
-
+      
       <div
         :if={@pool_first}
         class="swap-banner"
@@ -4033,9 +4075,10 @@ defmodule PairingsEngineWeb.PairingsLive do
             <:part name="name"><strong>{@pool_first.name}</strong></:part>
           </.rich_text>
         </span>
+        
         <button type="button" class="pe-btn" phx-click="cancel_pool_pair">{gettext("Cancel (Esc)")}</button>
       </div>
-
+      
       <div
         :if={@seat_pick}
         class="swap-banner"
@@ -4046,7 +4089,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <span>{gettext("Which empty seat should they take? Click one below.")}</span>
         <button type="button" class="pe-btn" phx-click="cancel_seat_pick">{gettext("Cancel (Esc)")}</button>
       </div>
-      <.pairing_menu :if={@menu} menu={@menu} round={@round} tournament={@tournament} />
+       <.pairing_menu :if={@menu} menu={@menu} round={@round} tournament={@tournament} />
       <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
         <div
           class="pe-modal-card pe-modal-wide"
@@ -4061,14 +4104,15 @@ defmodule PairingsEngineWeb.PairingsLive do
         >
           <header class="pe-modal-head">
             <h2 id="hand-edit-title">{@confirm.title}</h2>
-
+            
             <p>{@confirm.subtitle}</p>
           </header>
-
+          
           <div class="pe-modal-body">
             <div id="confirm-board-diffs" class="board-diff-group" phx-hook=".SwapArrows">
               <div :for={c <- @confirm.changes} class="board-diff">
                 <div class="board-diff-num">{gettext("Board %{n}", n: c.board)}</div>
+                
                 <.board_card
                   seats={c.before}
                   state="before"
@@ -4076,6 +4120,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   color_by_name={@confirm[:colors] || %{}}
                 />
                 <div class="board-diff-arrow">→</div>
+                
                 <.board_card
                   seats={c.after}
                   state="after"
@@ -4083,6 +4128,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   color_by_name={@confirm[:colors] || %{}}
                 />
               </div>
+              
               <%!-- The "not playing list" row a `:swap_pool` substitution adds
                     alongside its board row - see `confirm_for/2`'s comment on
                     `bench:`. Inside the same `#confirm-board-diffs` container
@@ -4090,32 +4136,35 @@ defmodule PairingsEngineWeb.PairingsLive do
                     together. --%>
               <div :if={@confirm[:bench]} class="board-diff board-diff-bench">
                 <div class="board-diff-num">{gettext("Not playing list")}</div>
+                
                 <.bench_card
                   name={@confirm.bench.before}
                   state="before"
                   color_by_name={@confirm[:colors] || %{}}
                 />
                 <div class="board-diff-arrow">→</div>
+                
                 <.bench_card
                   name={@confirm.bench.after}
                   state="after"
                   color_by_name={@confirm[:colors] || %{}}
                 />
               </div>
+              
               <%!-- Filled in by the .SwapArrows hook; phx-update="ignore" so
                     LiveView leaves the generated SVG alone on re-render. --%>
               <div id="swap-arrows-layer" class="swap-arrows-layer" phx-update="ignore"></div>
             </div>
-
+            
             <label :if={@confirm.kind == :pool_pair} class="board-number-field">
               <span>{gettext("Table number")}</span>
               <form id="confirm-board-form" phx-change="set_confirm_board">
                 <input type="number" name="board" value={@confirm.board} min="1" />
               </form>
             </label>
-
+            
             <p :if={@confirm.note} class="pe-modal-note">{@confirm.note}</p>
-
+            
             <p
               :if={match?({:ok, _}, @confirm[:team_note])}
               id="confirm-team-note"
@@ -4124,7 +4173,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {elem(@confirm.team_note, 1)}
             </p>
-
+            
             <p
               :if={match?({:warn, _}, @confirm[:team_note])}
               id="confirm-team-note"
@@ -4133,7 +4182,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {elem(@confirm.team_note, 1)}
             </p>
-
+            
             <p
               :if={Enum.any?(@confirm.changes, &Map.get(&1, :result_will_clear?))}
               class="pe-modal-warn"
@@ -4142,7 +4191,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 "A recorded result will be cleared - it described a game between players who are no longer both on that board."
               )}
             </p>
-
+            
             <%!-- The loudest thing in the dialog: the federation already has
                   this round. --%>
             <div
@@ -4158,23 +4207,23 @@ defmodule PairingsEngineWeb.PairingsLive do
                   n: @round_number
                 )}
               </strong>
+              
               <p style="margin: 6px 0 0">
                 {gettext(
                   "This changes who played whom here only: the file that was sent keeps the old pairing, and the tournament will no longer agree with it. The round stays marked as sent and is not sent again. Only go on to correct a real mistake, and tell the rating officer."
                 )}
               </p>
-
+              
               <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
                 <input
                   type="checkbox"
                   id="confirm-sent-ack"
                   checked={@confirm.sent_ack}
                   phx-click="toggle_sent_ack"
-                />
-                {gettext("I understand - change the sent round %{n} anyway", n: @round_number)}
+                /> {gettext("I understand - change the sent round %{n} anyway", n: @round_number)}
               </label>
             </div>
-
+            
             <div :if={@confirm.frozen} class="pe-modal-warn">
               <strong>
                 {gettext("You're changing round %{n}, not the current round (round %{current}).",
@@ -4182,18 +4231,19 @@ defmodule PairingsEngineWeb.PairingsLive do
                   current: @paired_rounds
                 )}
               </strong>
-
+              
               <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
-                <input type="checkbox" checked={@confirm.frozen_ack} phx-click="toggle_frozen_ack" />
-                {gettext("I understand - apply this to round %{n} anyway", n: @round_number)}
+                <input type="checkbox" checked={@confirm.frozen_ack} phx-click="toggle_frozen_ack" /> {gettext(
+                  "I understand - apply this to round %{n} anyway", n: @round_number)}
               </label>
             </div>
           </div>
-
+          
           <footer class="pe-modal-foot">
             <button type="button" class="pe-btn" phx-click="cancel_confirm">
               {gettext("Cancel")}
             </button>
+            
             <button
               type="button"
               class="pe-btn primary pe-modal-go"
@@ -4208,27 +4258,39 @@ defmodule PairingsEngineWeb.PairingsLive do
           </footer>
         </div>
       </div>
-
+      
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
           <caption>{gettext("Matches - round %{n}", n: @round_number)}</caption>
+          
           <thead>
             <tr>
               <th scope="col" class="num">{gettext("Match")}</th>
+              
               <th scope="col" class="num">{gettext("Boards")}</th>
+              
               <th scope="col">{gettext("Team (White on board 1)")}</th>
+              
               <th scope="col" class="num">{gettext("Game points")}</th>
+              
               <th scope="col">{gettext("Team")}</th>
+              
               <th scope="col" class="num">{gettext("Match points")}</th>
+              
               <th scope="col">{gettext("Forfeit by decision")}</th>
             </tr>
           </thead>
+          
           <tbody>
             <tr :for={m <- @team_matches} id={"team-match-#{m.match_id}"}>
               <td class="num">{m.number}</td>
+              
               <td class="num">{match_board_range(m.boards)}</td>
+              
               <td><strong>{match_team_name(@teams_by_id, m.team_a_id)}</strong></td>
+              
               <td :if={m.bye?} class="num">-</td>
+              
               <td :if={!m.bye?} class="num">
                 {format_match_score(m.gp_a)} - {format_match_score(m.gp_b)}<span
                   :if={m.postponed_boards > 0}
@@ -4236,16 +4298,23 @@ defmodule PairingsEngineWeb.PairingsLive do
                   id={"match-pending-#{m.match_id}"}
                 >, {Postponed.boards_pending_text(m.postponed_boards)}</span>
               </td>
+              
               <td :if={m.bye? and is_nil(m.mp_a)}><em>{gettext("does not play this round")}</em></td>
+              
               <td :if={m.bye? and not is_nil(m.mp_a)}>
                 <em>{gettext("pairing-allocated bye, scored as a drawn match")}</em>
               </td>
+              
               <td :if={!m.bye?}><strong>{match_team_name(@teams_by_id, m.team_b_id)}</strong></td>
+              
               <td :if={m.bye? and is_nil(m.mp_a)} class="num">-</td>
+              
               <td :if={m.bye? and not is_nil(m.mp_a)} class="num">{format_match_score(m.mp_a)}</td>
+              
               <td :if={!m.bye? and m.complete?} class="num">
                 {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
               </td>
+              
               <%!-- A match with a postponed board is not complete: its score
                     is the provisional one the next round is paired with, the
                     postponed boards counting as draws. --%>
@@ -4257,16 +4326,20 @@ defmodule PairingsEngineWeb.PairingsLive do
                 {format_match_score(m.mp_a)} - {format_match_score(m.mp_b)}
                 <span class="hint">{gettext("(provisional)")}</span>
               </td>
+              
               <td :if={!m.bye? and !m.scored?} class="num">
                 <span class="hint">{gettext("in progress")}</span>
               </td>
+              
               <td :if={m.bye?}>-</td>
+              
               <td :if={!m.bye? and not is_nil(m.forfeited_to)}>
                 <span id={"match-decision-#{m.match_id}"}>
                   {gettext("Forfeited to %{team} by decision",
                     team: match_team_name(@teams_by_id, m.forfeited_to)
                   )}
                 </span>
+                
                 <button
                   type="button"
                   class="pe-btn"
@@ -4284,6 +4357,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   {gettext("Withdraw the decision")}
                 </button>
               </td>
+              
               <td :if={!m.bye? and is_nil(m.forfeited_to)}>
                 <button
                   :for={team_id <- [m.team_a_id, m.team_b_id]}
@@ -4314,7 +4388,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </tbody>
         </table>
       </div>
-
+      
       <div
         :if={@unattached_boards != []}
         id="unattached-boards"
@@ -4329,6 +4403,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             length(@unattached_boards)
           )}
         </h2>
+        
         <ul>
           <li :for={u <- @unattached_boards} id={"unattached-board-#{u.pairing.id}"}>
             {gettext("Board %{board}: %{white} - %{black}.",
@@ -4356,7 +4431,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </li>
         </ul>
       </div>
-
+      
       <div class="card table-card">
         <%!-- `data-scope="round"` sits on the table itself, not one more
              row or cell, so a right-click anywhere on the board that
@@ -4382,21 +4457,21 @@ defmodule PairingsEngineWeb.PairingsLive do
           <thead>
             <tr>
               <th class="num">{gettext("Board")}</th>
-
+              
               <th class="pairing-white">{gettext("White")}</th>
-
+              
               <th class="pairing-result">{gettext("Result")}</th>
-
+              
               <th class="pairing-black">{gettext("Black")}</th>
             </tr>
           </thead>
-
+          
           <tbody>
             <tr :if={@round == nil}>
               <td colspan="4">
                 <div class="empty">
                   <p><strong>{gettext("This round has not been paired yet.")}</strong></p>
-
+                  
                   <p class="hint">
                     <%= cond do %>
                       <% @tournament.archived_at -> %>
@@ -4419,7 +4494,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         )}
                     <% end %>
                   </p>
-
+                  
                   <%!-- A postponed game in the last round counts as a draw for
                         this pairing (VCL4THP Q158, Q167) - said beside the
                         button, not asked: nothing is unusual about it. --%>
@@ -4434,7 +4509,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 </div>
               </td>
             </tr>
-
+            
             <tr
               :for={
                 %{pairing: pairing, board: display_board} <-
@@ -4443,7 +4518,6 @@ defmodule PairingsEngineWeb.PairingsLive do
               id={"pairing-row-#{pairing.id}"}
             >
               <td class="num" phx-no-format>{display_board}<.no_team :if={no_team?(@unattached_boards, pairing)} /></td>
-
               <td class="pairing-white">
                 <.seat_cell
                   player={pairing.white_player}
@@ -4455,7 +4529,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   scores={@scores}
                 />
               </td>
-
+              
               <td class="pairing-result">
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
@@ -4477,6 +4551,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                             pairing
                           )}
                         </span>
+                        
                         <span
                           :if={:finalised_result_changed in @confirm_postponed.ids}
                           id={"confirm-finalised-#{pairing.id}"}
@@ -4488,7 +4563,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                           )}
                         </span>
                       </span>
-
+                      
                       <button
                         type="button"
                         class="pe-btn primary"
@@ -4499,7 +4574,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                       >
                         {gettext("Enter %{result}", result: @confirm_postponed.result)}
                       </button>
-
+                      
                       <button
                         type="button"
                         class="pe-btn"
@@ -4522,7 +4597,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                           result: pairing.result
                         )}
                       </span>
-
+                      
                       <button
                         type="button"
                         class="pe-btn danger-link"
@@ -4532,7 +4607,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                       >
                         {gettext("Yes, clear it")}
                       </button>
-
+                      
                       <button
                         type="button"
                         class="pe-btn"
@@ -4583,6 +4658,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         {label}
                       </button>
                     </div>
+                    
                     <form phx-change="result" id={"result-form-#{pairing.id}"}>
                       <input type="hidden" name="pairing-id" value={pairing.id} />
                       <select
@@ -4611,7 +4687,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                     </form>
                 <% end %>
               </td>
-
+              
               <td class="pairing-black">
                 <.seat_cell
                   player={pairing.black_player}
@@ -4627,7 +4703,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </tbody>
         </table>
       </div>
-
+      
       <%!-- The initial colour is what round 1 was paired from (C.04.3 Art.
             5.1), so it is said under round 1's table and nowhere else. --%>
       <p
@@ -4637,7 +4713,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         {initial_colour_text(@tournament)}
       </p>
-
+      
       <%!-- Hidden rows never render in the table above (see `display_rows/1`),
            so this is their only reachable management surface: unhide them,
            or (only on the round's actual last board) delete them for
@@ -4647,20 +4723,19 @@ defmodule PairingsEngineWeb.PairingsLive do
            longer has a display label anyone sees anywhere else. --%>
       <div :if={@hidden_pairings != []} class="card table-card" style="margin-top: 16px">
         <h3 style="margin-top: 0">{gettext("Hidden boards")}</h3>
-
+        
         <p class="hint">
           {gettext(
             "Fully-vacated boards hidden from this round's table, prints, live view and public page. Hiding never renumbers anything else - un-hide any time to bring a row back exactly as it was."
           )}
         </p>
-
+        
         <ul class="pool-list">
           <li
             :for={pairing <- @hidden_pairings}
             style="display: flex; align-items: center; gap: 8px"
           >
             <span>{gettext("Board %{n}", n: pairing.board)}</span>
-
             <button
               type="button"
               class="pe-btn"
@@ -4669,7 +4744,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Unhide")}
             </button>
-
+            
             <button
               :if={last_board?(@round, pairing)}
               type="button"
@@ -4682,7 +4757,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </li>
         </ul>
       </div>
-
+      
       <div
         :if={@round != nil and @round_pool != []}
         class="card pool-panel"
@@ -4691,14 +4766,14 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <div class="pool-head">
           <h3>{gettext("Not playing round %{n}", n: @round_number)}</h3>
-
+          
           <p class="hint">
             {gettext(
               "Right-click anyone here to put them in an empty seat, swap them onto a board, or pair two of them together."
             )}
           </p>
         </div>
-
+        
         <ul class="pool-list">
           <li
             :for={entry <- @round_pool}
@@ -4735,7 +4810,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {player_label(entry.player)}
             </span>
-            <span class="pool-chip-tag">{pool_tag(entry, @tournament, @absent_counts)}</span>
+             <span class="pool-chip-tag">{pool_tag(entry, @tournament, @absent_counts)}</span>
             <span
               :if={
                 (@swap_first && @swap_first.id == entry.player.id) ||
@@ -4748,7 +4823,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </li>
         </ul>
       </div>
-
+      
       <script :type={Phoenix.LiveView.ColocatedHook} name=".BlindResultEntry">
         // SWAR-style "blind" result entry: with a board's result <select>
         // focused, typing 1 / 2 / 3 sets that board's result (white win /
@@ -4949,7 +5024,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           }
         }
       </script>
-
+      
       <script :type={Phoenix.LiveView.ColocatedHook} name=".SwapArrows">
         // Draws one curved arrow per player SHOWN in the confirm modal, not
         // only the ones who moved: from where they sit in the "before" card
@@ -5206,7 +5281,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           }
         }
       </script>
-
+      
       <script :type={Phoenix.LiveView.ColocatedHook} name=".PairingMenu">
         // Opens the hand-editing menu where the pointer is. There's no
         // native phx-contextmenu binding, so this half needs JS; the
@@ -5372,7 +5447,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           }
         }
       </script>
-
+      
       <script :type={Phoenix.LiveView.ColocatedHook} name=".HandEditMenu">
         // The hand-edit menu itself, rendered by the server. Opened from the
         // keyboard (`data-keyboard`) it takes focus on its first item; Up,
@@ -5438,7 +5513,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           }
         }
       </script>
-
+      
       <script :type={Phoenix.LiveView.ColocatedHook} name=".PublishLevel">
         // The round's "Spectators see:" radio group (`publish_level/1`). One tab stop
         // - the chosen level - and the arrow keys, Home and End move focus
@@ -5484,9 +5559,10 @@ defmodule PairingsEngineWeb.PairingsLive do
           }
         }
       </script>
-
+      
       <script :type={Phoenix.LiveView.ColocatedHook} name=".RoundMenu">
-        // A <details> menu that closes like a menu: on a click outside it,
+        // A <details> menu that closes like a menu: on a tap or click outside it
+        // (pointerdown: iOS sends no mouse events for a tap on plain page),
         // on Escape (focus back to its button), and once an item is chosen.
         export default {
           mounted() {
@@ -5495,7 +5571,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               this.el.open = false;
               if (refocus) this.el.querySelector("summary").focus();
             };
-            this.onDocMousedown = (e) => {
+            this.onDocPointerdown = (e) => {
               if (!this.el.contains(e.target)) this.close(false);
             };
             this.onKeydown = (e) => {
@@ -5504,12 +5580,14 @@ defmodule PairingsEngineWeb.PairingsLive do
             this.onClick = (e) => {
               if (e.target.closest("[role=menuitem]")) this.close(false);
             };
-            document.addEventListener("mousedown", this.onDocMousedown);
+            document.addEventListener("pointerdown", this.onDocPointerdown);
             this.el.addEventListener("keydown", this.onKeydown);
             this.el.addEventListener("click", this.onClick);
           },
           destroyed() {
-            document.removeEventListener("mousedown", this.onDocMousedown);
+            document.removeEventListener("pointerdown", this.onDocPointerdown)
+            this.el.removeEventListener("keydown", this.onKeydown);
+            this.el.removeEventListener("click", this.onClick);
           }
         }
       </script>
