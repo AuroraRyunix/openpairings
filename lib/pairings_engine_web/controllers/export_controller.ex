@@ -120,9 +120,11 @@ defmodule PairingsEngineWeb.ExportController do
   `finalise=true` (what the Export page's "Send…" posts) the file is built
   and every board of its rounds marked as sent in one write transaction
   (`PostponedGames.send_rounds/4`): its result is semi-frozen from then on,
-  and an open postponed game in it went out as `?` for good - its real
-  result goes in the postponed-games file. Two requests for the same round
-  cannot both get a file: the second is refused (audit F1).
+  and an open postponed game in it went out as not played for good - its
+  real result goes in the postponed-games file. The file is
+  `TrfExport.export/3`'s `for: :rating`: only TRF records, no ruler, legend
+  or comment line, and no `?`. Two requests for the same round cannot both
+  get a file: the second is refused (audit F1).
 
   Refused, with nothing marked and no file, while a round in it has a board
   with no result, was already sent, or belongs to a copy that is locked
@@ -155,7 +157,7 @@ defmodule PairingsEngineWeb.ExportController do
         PostponedGames.send_rounds(
           tournament,
           meta.rounds,
-          fn fresh -> TrfExport.export(fresh, meta.rounds) end,
+          fn fresh -> TrfExport.export(fresh, meta.rounds, for: :rating) end,
           [acknowledged: acknowledged] ++ sender(conn)
         )
       end
@@ -289,7 +291,7 @@ defmodule PairingsEngineWeb.ExportController do
 
   @doc """
   GET /t/:id/export/postponed-trf - a COPY of the postponed-games TRF: games
-  sent as `?` in a finalised report and played since, packed into extra
+  sent unplayed in a finalised report and played since, packed into extra
   rounds (`TrfExport.postponed_export/2`), reported as a tournament of its
   own, one rating period per file (`period=2026-09-01`). Nothing is marked,
   and the file and its name say it is a copy.

@@ -70,6 +70,22 @@ Each entry is tagged so a version can be skimmed:
   the earliest and latest dated rounds. A schedule without gaps saves and
   imports exactly as before. Dates already shifted by an earlier save or
   import are not moved back; correct them on the Dates page.
+- [Change] **The TRF sent for rating holds only records, and never an
+  unknown result.** The files "Send…" hands out (a round's report and the
+  postponed-games file) now look like the FIDE files SWAR sends, which the
+  FRBE→FIDE path accepts: no column ruler, no `DDD` legend line and no
+  comment line - no `###` receipt line, no "FIDE mode exited" note. The
+  receipt's code and the file's hash stay in the app. A postponed game whose
+  result is not known when its round is sent is written as not played for
+  both players, `0000 - Z` (TRF26's zero-point bye, "Not rated"; SWAR writes
+  the same for a round a player was not paired in), instead of `?` with `X`
+  in a `162` record: it counts zero in the points column, the rank column
+  follows the file's own games, and the game is rated once, with its
+  result, in the postponed-games file after it is played. Nothing then
+  depends on how FIDE's rating server would read a `?`. Copies, the TRF26
+  and engine downloads and the file the pairing engine and checker read are
+  unchanged (they keep `?` and `X`); ½-0, a played 0-0 and a double forfeit
+  are written as before.
 
 ## [0.73.1] - 2026-10-03
 

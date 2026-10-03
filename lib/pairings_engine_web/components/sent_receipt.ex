@@ -61,7 +61,7 @@ defmodule PairingsEngineWeb.SentReceipt do
 
   def change_text(%{type: :postponed_played} = c) do
     gettext(
-      "%{where} (%{game}): sent as ? (postponed), played since: %{now}. Not yet sent in a postponed-games file.",
+      "%{where} (%{game}): sent while postponed, played since: %{now}. Not yet sent in a postponed-games file.",
       where: where(c),
       game: game(c),
       now: result(c.now)

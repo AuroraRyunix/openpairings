@@ -209,8 +209,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp trf_state_label(%{state: :ready, postponed: p}) when p > 0,
     do:
       ngettext(
-        "Ready - %{count} postponed game goes out as unknown",
-        "Ready - %{count} postponed games go out as unknown",
+        "Ready - %{count} postponed game goes out as not played, rated later",
+        "Ready - %{count} postponed games go out as not played, rated later",
         p
       )
 
@@ -434,10 +434,12 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         )
 
       pairing.finalised_open and PairingsEngine.Results.postponed?(pairing.result) ->
-        gettext("in its round's report as ? - its result goes in the postponed-games file")
+        gettext(
+          "in its round's report as not played - its result goes in the postponed-games file"
+        )
 
       pairing.finalised_open ->
-        gettext("in its round's report as ? - ready for the postponed-games file")
+        gettext("in its round's report as not played - ready for the postponed-games file")
 
       pairing.finalised_at ->
         gettext("sent in its round's report, with its result")
@@ -1098,7 +1100,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             </table>
           </div>
 
-          <%!-- The postponed-games file: games that went out as ? in their
+          <%!-- The postponed-games file: games that went out unplayed in their
                 round's report and were played since. Its own file, as extra
                 rounds, so each game is sent exactly once. --%>
           <div id="trf-late-games" class="trf-late">

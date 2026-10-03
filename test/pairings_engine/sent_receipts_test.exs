@@ -84,8 +84,8 @@ defmodule PairingsEngine.SentReceiptsTest do
     do: Enum.find(round.pairings, &(player.id in [&1.white_player_id, &1.black_player_id]))
 
   # Round 1 paired and played (`results` per board, default 1-0), then sent
-  # with a file; returns the tournament, its players, the round, the file as
-  # built (before its receipt line) and the send's answer.
+  # with a file for rating; returns the tournament, its players, the round,
+  # the file as built and the send's answer.
   defp sent_round!(results \\ nil) do
     {t, players} = tournament()
     round1 = pair!(t)
@@ -100,7 +100,7 @@ defmodule PairingsEngine.SentReceiptsTest do
         Repo.reload!(t),
         [1],
         fn fresh ->
-          {:ok, text} = TrfExport.export(fresh, [1])
+          {:ok, text} = TrfExport.export(fresh, [1], for: :rating)
           send(me, {:built, text})
           {:ok, text}
         end,
@@ -170,16 +170,15 @@ defmodule PairingsEngine.SentReceiptsTest do
   end
 
   describe "the file sent" do
-    test "carries the receipt as a ### line and still parses as the same TRF" do
+    test "goes out as built: the receipt is not written into it" do
       {_t, _players, _round, built, %{receipts: [receipt], file: file}} = sent_round!()
 
-      line = "### SENT FOR RATING. Receipt #{SentReceipts.file_code(receipt.code)}: round 1"
-      assert file =~ line
-      refute built =~ "###"
-
-      # Only a comment line was added: every record reads exactly as before.
-      assert file |> String.replace(~r/### [^\r\n]*\r\n/, "") == built
-      assert Ainalrami.Trf.parse(file) == Ainalrami.Trf.parse(built)
+      # A file for rating holds only records (SWAR's accepted files do too):
+      # the receipt's code stays in the app, with the file's hash.
+      assert file == built
+      refute file =~ "###"
+      refute file =~ SentReceipts.file_code(receipt.code)
+      assert receipt.final_sha256 == receipt.file_sha256
       assert length(Ainalrami.Trf.parse(file).players) == 4
     end
 
@@ -197,7 +196,9 @@ defmodule PairingsEngine.SentReceiptsTest do
 
       assert receipt.kind == "postponed" and receipt.period == ~D[2026-09-01]
       assert receipt.code =~ ~r/^P·[0-9A-F]{4}$/
-      assert text =~ "### SENT FOR RATING. Receipt #{SentReceipts.file_code(receipt.code)}"
+      refute text =~ "###"
+      refute text =~ "DDD"
+      assert receipt.final_sha256 == SentReceipts.sha256(text)
       assert %{players: [_ | _]} = Ainalrami.Trf.parse(text)
     end
   end

@@ -11640,13 +11640,13 @@ msgstr "bord %{board}: dit toernooi laat geen uitgestelde partijen toe - zet ze 
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:437
 #, elixir-autogen, elixir-format
-msgid "in its round's report as ? - its result goes in the postponed-games file"
-msgstr "als ? in het verslag van haar ronde - het resultaat komt in het bestand met uitgestelde partijen"
+msgid "in its round's report as not played - its result goes in the postponed-games file"
+msgstr "als niet gespeeld in het verslag van haar ronde - het resultaat komt in het bestand met uitgestelde partijen"
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:440
 #, elixir-autogen, elixir-format
-msgid "in its round's report as ? - ready for the postponed-games file"
-msgstr "als ? in het verslag van haar ronde - klaar voor het bestand met uitgestelde partijen"
+msgid "in its round's report as not played - ready for the postponed-games file"
+msgstr "als niet gespeeld in het verslag van haar ronde - klaar voor het bestand met uitgestelde partijen"
 
 #: lib/pairings_engine_web/components/sent_receipt.ex:109
 #: lib/pairings_engine_web/components/sent_receipt.ex:110
@@ -11811,10 +11811,10 @@ msgstr "Er is nog geen ronde gepaard."
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:211
 #, elixir-autogen, elixir-format
-msgid "Ready - %{count} postponed game goes out as unknown"
-msgid_plural "Ready - %{count} postponed games go out as unknown"
-msgstr[0] "Klaar - %{count} uitgestelde partij gaat mee als onbekend"
-msgstr[1] "Klaar - %{count} uitgestelde partijen gaan mee als onbekend"
+msgid "Ready - %{count} postponed game goes out as not played, rated later"
+msgid_plural "Ready - %{count} postponed games go out as not played, rated later"
+msgstr[0] "Klaar - %{count} uitgestelde partij gaat mee als niet gespeeld, later verrekend"
+msgstr[1] "Klaar - %{count} uitgestelde partijen gaan mee als niet gespeeld, later verrekend"
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:217
 #, elixir-autogen, elixir-format
@@ -14848,8 +14848,8 @@ msgstr "%{where} (%{game}): verstuurd als %{was}, nu %{now}."
 
 #: lib/pairings_engine_web/components/sent_receipt.ex:63
 #, elixir-autogen, elixir-format
-msgid "%{where} (%{game}): sent as ? (postponed), played since: %{now}. Not yet sent in a postponed-games file."
-msgstr "%{where} (%{game}): verstuurd als ? (uitgesteld), sindsdien gespeeld: %{now}. Nog niet verstuurd in een bestand met uitgestelde partijen."
+msgid "%{where} (%{game}): sent while postponed, played since: %{now}. Not yet sent in a postponed-games file."
+msgstr "%{where} (%{game}): verstuurd terwijl uitgesteld, sindsdien gespeeld: %{now}. Nog niet verstuurd in een bestand met uitgestelde partijen."
 
 #: lib/pairings_engine_web/components/sent_receipt.ex:89
 #, elixir-autogen, elixir-format

@@ -53,13 +53,15 @@ defmodule PairingsEngineWeb.SentReceiptLiveTest do
     {response(sent, 200), receipt}
   end
 
-  test "the file sent carries its receipt line, and parses", %{conn: conn, scope: scope} do
+  test "the file sent is the one the receipt hashes, and parses", %{conn: conn, scope: scope} do
     t = tournament(scope)
     {text, receipt} = send!(conn, t)
 
     assert receipt.code =~ ~r/^R1·[0-9A-F]{4}$/
     assert receipt.sent_by
-    assert text =~ "### SENT FOR RATING. Receipt #{SentReceipts.file_code(receipt.code)}: round 1"
+    # Only records in a file for rating: the receipt stays in the app.
+    refute text =~ "###"
+    assert receipt.final_sha256 == SentReceipts.sha256(text)
     assert %{players: [_, _, _, _]} = Ainalrami.Trf.parse(text)
 
     copy = get(conn, ~p"/t/#{t.id}/export/trf?rounds=1")
