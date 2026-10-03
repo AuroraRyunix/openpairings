@@ -789,7 +789,9 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           white: p.white_player_id,
           black: p.black_player_id,
           result: p.result,
-          finalised_open: p.finalised_open
+          finalised_open: p.finalised_open,
+          prov_white: p.provisional_white,
+          prov_black: p.provisional_black
         }
     )
   end
@@ -1448,12 +1450,13 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           if rec.gp != nil and abs(rec.gp - gp) < 0.001,
             do: bump(acc, :gp310_ok),
             else:
-              Map.update(
-                acc,
-                :mism,
-                ["GP T#{rec.number} #{inspect(rec.gp)}/#{gp}"],
-                &["GP T#{rec.number} #{inspect(rec.gp)}/#{gp}" | &1]
-              )
+              (fn ->
+                 x =
+                   "GP T#{rec.number} #{inspect(rec.gp)}/#{gp} " <>
+                     inspect(gp_by_round(t, team, rec, rows, rounds, values, pab))
+
+                 Map.update(acc, :mism, [x], &[x | &1])
+               end).()
         end
       end)
 
@@ -1468,7 +1471,9 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         else:
           fail(
             st,
-            "#{tag}: 310 MP/GP are not the file's games (#{length(mism)}, 310/file): " <>
+            "#{tag}: 310 MP/GP are not the file's games " <>
+              "(#{if rounds == Enum.to_list(1..Enum.max(rounds)), do: "from round 1", else: "partial"}, " <>
+              "#{length(mism)}, 310/file [{round, app, file}]): " <>
               Enum.join(Enum.take(Enum.reverse(mism), 4), ", ")
           )
 
@@ -1506,6 +1511,53 @@ defmodule PairingsEngine.TeamFlowValidationTest do
             bump(st, :pab320_ok)
         end
     end
+  end
+
+  # A team's game points round by round, the app's (`TeamStandings`) and
+  # the file's, where they differ.
+  defp gp_by_round(t, team, rec, rows, rounds, values, pab) do
+    ms =
+      for m <- PairingsEngine.TeamStandings.matches(t, through_round: Enum.max(rounds)),
+          m.round in rounds,
+          team.id in [m.team_a_id, m.team_b_id],
+          into: %{},
+          do: {m.round, m}
+
+    app = Map.new(ms, fn {r, m} -> {r, if(m.team_a_id == team.id, do: m.gp_a, else: m.gp_b)} end)
+
+    rounds
+    |> Enum.with_index(1)
+    |> Enum.flat_map(fn {r, col} ->
+      file =
+        rec.players
+        |> Enum.map(&get_in(rows, [&1, :blocks, col]))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.map(&Map.get(values, &1.code, 0.0))
+        |> Enum.sum()
+
+      file = if pab && Enum.at(pab.teams, col - 1) == rec.number, do: file + pab.gp, else: file
+      a = Map.get(app, r, 0.0)
+
+      boards =
+        case ms[r] do
+          nil ->
+            []
+
+          m ->
+            for b <- m.boards,
+                do:
+                  {b.board, b.pairing.result, b.pairing.provisional_white, b.a_points, b.b_points}
+        end
+
+      codes =
+        Enum.map(rec.players, &((get_in(rows, [&1, :blocks, col]) || %{}) |> Map.get(:code)))
+
+      side = if ms[r] && ms[r].team_a_id == team.id, do: :a, else: :b
+
+      if abs(a - file) < 0.001,
+        do: [],
+        else: [{r, a, file, side, boards, codes, ms[r] && ms[r].forfeited_to}]
+    end)
   end
 
   # Each team's match points, worked out from the file's boards: per round,
@@ -1703,7 +1755,6 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     values = point_values(full)
     team_of = for rec <- recs, r <- rec.players, into: %{}, do: {r, rec.number}
     numbers = t.id |> Tournaments.list_teams() |> Map.new(&{&1.id, &1.pairing_number})
-    by_pairing = Map.new(games, &{&1.id, &1})
     players = Tournaments.list_players(t.id) |> Map.new(&{&1.id, &1.pairing_number})
 
     # Decisions taken after play: the file shows only forfeits, the app
@@ -1715,6 +1766,7 @@ defmodule PairingsEngine.TeamFlowValidationTest do
 
     paired = st.paired_rounds
     last = Enum.max(paired, fn -> 0 end)
+    Process.put(:team_flow_debug, {games, players, st.open_at_pair})
 
     # Per round and team, read from the file, as it stood when round
     # `at` was paired: boards still open (postponed) then count as the
@@ -1723,14 +1775,23 @@ defmodule PairingsEngine.TeamFlowValidationTest do
       open = Map.get(st.open_at_pair, at, MapSet.new())
 
       for r <- 1..last//1, into: %{} do
+        # A game the report writes as `?` (sent before it was played) was
+        # its real result for the engine once played; while still open,
+        # the provisional outcome frozen on the board.
         override =
-          for id <- open,
-              g = by_pairing[id],
+          for g <- games,
               g.round == r,
-              side <- [g.white, g.black],
-              side != nil,
-              into: %{},
-              do: {players[side], "="}
+              g.white && g.black,
+              MapSet.member?(open, g.id) or g.finalised_open,
+              {side, prov, i} <- [{g.white, g.prov_white, 0}, {g.black, g.prov_black, 1}],
+              into: %{} do
+            code =
+              if MapSet.member?(open, g.id),
+                do: Map.get(%{"win" => "1", "loss" => "0"}, prov, "="),
+                else: @codes |> Map.get(g.result, {"=", "="}) |> elem(i)
+
+            {players[side], code}
+          end
 
         per_team =
           for rec <- recs, into: %{} do
@@ -1910,8 +1971,34 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           st,
           "r#{r}: engine input differs from the report: field #{inspect(Enum.map(got, & &1.tpn))} vs " <>
             "#{inspect(Enum.map(want, & &1.tpn))}, absent #{inspect(got_absent)} vs #{inspect(want_absent)}, " <>
-            "teams (engine, file) #{inspect(Enum.take(diffs, 4))}"
+            "teams (engine, file) #{inspect(Enum.take(diffs, 4))}" <> debug_boards(r, diffs, recs)
         )
+    end
+  end
+
+  # The boards before round `r` of the first team that differs, as the
+  # database holds them now: {round, result, sent as ?, provisional, open
+  # when round r was paired}.
+  defp debug_boards(_r, [], _recs), do: ""
+
+  defp debug_boards(r, [{tpn, _} | _], recs) do
+    case Process.get(:team_flow_debug) do
+      {games, players, open_at_pair} ->
+        ranks = recs |> Enum.find(%{players: []}, &(&1.number == tpn)) |> Map.get(:players)
+        open = Map.get(open_at_pair, r, MapSet.new())
+
+        rows =
+          for g <- games,
+              g.round < r,
+              players[g.white] in ranks or players[g.black] in ranks,
+              do:
+                {g.round, players[g.white], players[g.black], g.result, g.finalised_open,
+                 {g.prov_white, g.prov_black}, MapSet.member?(open, g.id)}
+
+        " boards of T#{tpn}: " <> inspect(Enum.sort(rows), limit: :infinity)
+
+      _ ->
+        ""
     end
   end
 
