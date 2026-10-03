@@ -812,8 +812,15 @@ defmodule PairingsEngineWeb.SettingsSupport do
   arbiter meeting a refusal needs to know what is true and what to do about
   it, and both fit in one line.
   """
-  def error_text(%Ecto.Changeset{} = changeset) do
-    Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+  # A new team tournament with Keizer (`Tournament.validate_no_team_keizer/1`)
+  # gets its own sentence; every other changeset its field errors.
+  def error_text(%Ecto.Changeset{errors: errors}) do
+    if Enum.any?(errors, fn {_field, {_msg, opts}} -> opts[:validation] == :team_keizer end),
+      do:
+        gettext(
+          "Keizer cannot pair team against team, so a team tournament cannot use it. Choose Swiss (FIDE's team Swiss, C.04.6) or Round robin."
+        ),
+      else: Enum.map_join(errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
 
   def error_text(:locked_in_fide_mode),
@@ -836,6 +843,71 @@ defmodule PairingsEngineWeb.SettingsSupport do
       gettext(
         "Not saved: in FIDE mode only the last two rounds played can be changed (C.04.2:4.3). A mistake found later is corrected after the tournament, for the rating report only."
       )
+
+  # ---- team workflow (docs/team-tournaments.md) ----
+
+  def error_text(:roster_locked_in_fide_mode),
+    do:
+      gettext(
+        "Not changed: in FIDE mode the teams' rosters and board orders are fixed once round 1 is paired. A new player can still be added at the bottom of a team, as a reserve."
+      )
+
+  def error_text(:match_started),
+    do:
+      gettext(
+        "Not changed: this match already has a result. Line-ups and home and away can only change before the first result of the match is entered."
+      )
+
+  def error_text(:not_home_and_away),
+    do:
+      gettext(
+        "Home and away only exist with league-style board colours (Teams - Matches - Board colours)."
+      )
+
+  def error_text(:games_played),
+    do:
+      gettext(
+        "Not recorded: a game of this match was played, so it is not a match neither team turned up for. Forfeit it to one team instead."
+      )
+
+  def error_text(:gap),
+    do:
+      gettext(
+        "Not saved: a line-up fills the boards from board 1 down. A team short of players leaves the bottom boards empty, not one in the middle."
+      )
+
+  def error_text(:no_players),
+    do:
+      gettext(
+        "Not saved: neither team has a player on any board. A match neither team plays is a double forfeit."
+      )
+
+  def error_text({:board_order, upper, lower}),
+    do:
+      gettext(
+        "Not saved: %{lower} is above %{upper} in the team's board order, so %{lower} must play on a higher board than %{upper}. A line-up keeps the roster's order; players may only be left out.",
+        upper: upper.name,
+        lower: lower.name
+      )
+
+  def error_text({:unavailable, player}),
+    do:
+      gettext(
+        "Not saved: %{player} cannot play this round (withdrawn, absent or not yet started).",
+        player: player.name
+      )
+
+  def error_text({:twice, player}),
+    do: gettext("Not saved: %{player} is on two boards.", player: player.name)
+
+  def error_text({:not_on_team, _id}),
+    do: gettext("Not saved: a player in the line-up is not on that team.")
+
+  def error_text(:already_withdrawn), do: gettext("This team has already withdrawn.")
+
+  def error_text(:not_withdrawn), do: gettext("This team has not withdrawn.")
+
+  def error_text(:bad_round), do: gettext("Choose a round of this tournament.")
 
   def error_text(:player_in_closed_round),
     do:

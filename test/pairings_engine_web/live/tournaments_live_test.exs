@@ -1121,10 +1121,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
   describe "the Team tournament checkbox says what it actually does" do
     # With Swiss it is FIDE's team Swiss (C.04.6, `PairingsEngine.TeamSwiss`,
-    # since 0.62.0). Only Keizer has no team system, and pairs player by
-    # player - unlabelled, that is a SILENT trap: the round it produces looks
-    # like a perfectly good pairing, so there is nothing to notice until
-    # someone checks the boards against the teams.
+    # since 0.62.0). Only Keizer has no team system: it would pair player by
+    # player, a SILENT trap - the round looks like a perfectly good pairing -
+    # so a new team tournament cannot be Keizer, and the form says so.
     test "Swiss pairs team against team, and says so", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/")
 
@@ -1140,7 +1139,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       refute has_element?(lv, "#new-team-keizer-hint")
     end
 
-    test "Keizer warns that it still pairs player by player", %{conn: conn} do
+    test "Keizer with Team is refused, and says what to choose instead", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "New tournament") |> render_click()
 
@@ -1148,8 +1147,8 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       |> element("form[phx-change='pairing_system_picked']")
       |> render_change(%{"tournament" => %{"pairing_system" => "keizer", "team" => "true"}})
 
-      assert has_element?(lv, "#new-team-keizer-hint", "Reporting only")
-      assert has_element?(lv, "#new-team-keizer-hint", "player by player")
+      assert has_element?(lv, "#new-team-keizer-hint", "cannot pair team against team")
+      assert has_element?(lv, "#new-team-keizer-hint", "Choose Swiss")
       refute has_element?(lv, "#new-team-swiss-hint")
     end
 
@@ -1162,7 +1161,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
         |> element("form[phx-change='pairing_system_picked']")
         |> render_change(%{"tournament" => %{"pairing_system" => "swiss"}})
 
-      refute html =~ "Reporting only"
+      refute html =~ "cannot pair team against team"
     end
   end
 

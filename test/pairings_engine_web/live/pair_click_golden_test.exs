@@ -40,6 +40,17 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   `tournament.baku_group_a_last` (12 in the Baku `:options` scenario, nil in
   the others). With that key taken out the regenerated file was identical to
   the one before, boards and TRFs included.
+
+  Regenerated again on the team-workflow branch (2026-10-03), checked to
+  differ by exactly two things: every export gains the new team-workflow
+  keys (`team_history` per player, the tournament's team settings, all at
+  their defaults), and each TRF gains its `152` initial-colour line - the
+  rest of every capture, the pairings included, is unchanged.
+
+  With both branches merged (integrate-073) it was regenerated once more on
+  the merged code and checked against 0.72's file: every JSON export gains
+  `tournament.baku_group_a_last` and the team-workflow keys, each TRF gains
+  its `152` line, and nothing else changes - no board, no pairing.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

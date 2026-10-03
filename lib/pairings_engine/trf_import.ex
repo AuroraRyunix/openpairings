@@ -470,7 +470,11 @@ defmodule PairingsEngine.TrfImport do
               team_rebuild_context(data.tournament, team_ids_by_number)
             )
 
-      tournament = PairingsEngine.TeamSwiss.settle_mode(tournament)
+      tournament =
+        tournament
+        |> PairingsEngine.TeamSwiss.settle_mode()
+        |> import_team_pab(data.tournament)
+
       notes = notes ++ match_notes
 
       warnings =
@@ -568,7 +572,7 @@ defmodule PairingsEngine.TrfImport do
     }
     |> Map.merge(scoring_attrs(t[:point_system]))
     |> Map.merge(system_attrs(t[:type_code]))
-    |> Map.merge(tiebreak_attrs(t[:tie_breaks]))
+    |> Map.merge(tiebreak_attrs(t[:tie_breaks], infer_type(t[:type])))
     |> Map.merge(team_scoring_attrs(t[:team_point_system]))
   end
 
@@ -654,10 +658,40 @@ defmodule PairingsEngine.TrfImport do
   # points, which this app already has fields for
   # (`team_match_points_win/draw/loss`, 2/1/0 by default -
   # `PairingsEngine.TeamStandings.match_points/3`). `P` (a pairing-allocated
-  # bye's match points) and `A` (a match lost by forfeit's) have no field of
-  # their own here: this app scores a team Swiss bye at the draw's match
-  # points regardless (C.04.6 Art. 1.4, `PairingsEngine.TeamStandings.score_match/4`),
-  # and a match lost by forfeit is a plain loss, so neither is imported.
+  # bye's match points) is read by `import_team_pab/2` once the tournament
+  # is a team Swiss; `A` (a match lost by forfeit's) has no field of its
+  # own: a match lost by forfeit is a plain loss here.
+  # A team Swiss's pairing-allocated bye value (C.04.6 Art. 1.4 lets the
+  # regulations set it): `320`'s match and game points, else `362`'s `P` for
+  # the match points. Stored only where it differs from a drawn match's -
+  # the default, which `Tournament.team_pab_value/2` works out from the
+  # scoring - so a file that says "a draw" imports as the default setting.
+  defp import_team_pab(%Tournament{} = t, file) do
+    if Tournament.team_swiss?(t) do
+      pab = file[:team_pab] || %{}
+      point_system = file[:team_point_system] || %{}
+      mp = pab[:match_points] || point_system[:pab]
+      gp = pab[:game_points]
+
+      {draw_mp, draw_gp} =
+        Tournament.team_pab_value(
+          %{t | team_pab_match_points: nil, team_pab_game_points: nil},
+          max(t.team_boards || 1, 1)
+        )
+
+      attrs =
+        [
+          team_pab_match_points: if(is_number(mp) and mp != draw_mp, do: mp * 1.0),
+          team_pab_game_points: if(is_number(gp) and gp != draw_gp, do: gp * 1.0)
+        ]
+        |> Enum.reject(fn {_field, value} -> is_nil(value) end)
+
+      if attrs == [], do: t, else: t |> Ecto.Changeset.change(attrs) |> Repo.update!()
+    else
+      t
+    end
+  end
+
   defp team_scoring_attrs(nil), do: %{}
 
   defp team_scoring_attrs(system) do
@@ -734,18 +768,30 @@ defmodule PairingsEngine.TrfImport do
   # are taken as they are and the rest are dropped - a tie-break this
   # installation does not implement, listed as though it were configured,
   # would be a standings column that silently never fills.
-  defp tiebreak_attrs(nil), do: %{}
+  defp tiebreak_attrs(nil, _type), do: %{}
 
   #
   # C.07 spells four of them differently from this app (BH/C1 for BHC1 -
   # `AinalramiBridge.codes/0`), and that is how this app's own export writes
   # them, so they are read back to the app's codes. The app's own spelling
-  # is still read, for files exported before 2026-10-02.
-  defp tiebreak_attrs(codes) do
+  # is still read, for files exported before 2026-10-02. A team event's
+  # codes are read back through team standings' own C.07 spellings too
+  # (MPTS is MP, BC is BB, SB:MP is SB - `TeamStandings.c07_codes/0`), which
+  # is how this app writes a team report since 2026-10-03.
+  defp tiebreak_attrs(codes, type) do
     known = MapSet.new(Tiebreaks.catalogue(), & &1.code)
 
-    ours =
+    individual =
       Map.new(PairingsEngine.Standings.AinalramiBridge.codes(), fn {code, c07} -> {c07, code} end)
+
+    ours =
+      if type in ~w(team-swiss team-roundrobin),
+        do:
+          Map.merge(
+            individual,
+            Map.new(PairingsEngine.TeamStandings.c07_codes(), fn {code, c07} -> {c07, code} end)
+          ),
+        else: individual
 
     kept =
       codes

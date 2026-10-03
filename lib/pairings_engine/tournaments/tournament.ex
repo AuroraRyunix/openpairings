@@ -31,6 +31,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # is a sanity bound on a form field, not a regulation.
   @max_team_boards 20
   @team_types ~w(team-swiss team-roundrobin)
+  # Who has White on which board of a team match (docs/team-tournaments.md,
+  # "Board colours"): "fide" - the team the pairing names first has White on
+  # the odd boards, as FIDE's team events lay down (Chess Olympiad 2026
+  # regulations Art. 4.1, World Team Rapid & Blitz 2026 Art. 4.1.1.5);
+  # "home" - league style, the home team has White on the odd boards and the
+  # arbiter can swap home and away before a match starts.
+  @team_board_colours ~w(fide home)
   # How far the automation moves each round's public level for the arbiter
   # (Settings -> OpenResults, "Automatically:") - since 2026-09-28 one
   # cumulative ladder, the same four levels as the per-round control on the
@@ -678,6 +685,26 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :team_match_points_draw, :float, default: 1.0
     field :team_match_points_loss, :float, default: 0.0
 
+    # Board colours in a team match: see `@team_board_colours`. Locked once
+    # round 1 is paired (`Tournaments.locked_fields/1`).
+    field :team_board_colours, :string, default: "fide"
+
+    # A team Swiss pairing-allocated bye's value (C.04.6 Art. 1.4: "as many
+    # match points and game points as are rewarded for a draw, unless the
+    # regulations of the team competition state otherwise"). nil - a drawn
+    # match's points, worked out from the current scoring - is the FIDE
+    # default and what every existing tournament has. A FIDE-mode lock once
+    # round 1 is paired, like the individual bye's value (VCL4THP Q85).
+    field :team_pab_match_points, :float
+    field :team_pab_game_points, :float
+
+    # A team round robin: a team that withdraws having played fewer than half
+    # its matches has them taken out of the team standings (FIDE General
+    # Regulations for Competitions 6.6, the rule for a player who withdraws
+    # from a round robin). Off by default: the results stand, as they always
+    # have and as they do for an individual round robin here.
+    field :team_withdrawal_annul, :boolean, default: false
+
     # Swiss (teams) only: how its rounds are paired. "teams" - team against
     # team under C.04.6 (`PairingsEngine.TeamSwiss`); "players" - player by
     # player on the individual Swiss path, which is how every team Swiss was
@@ -1099,6 +1126,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :team_match_points_win,
       :team_match_points_draw,
       :team_match_points_loss,
+      :team_board_colours,
+      :team_pab_match_points,
+      :team_pab_game_points,
+      :team_withdrawal_annul,
       :initial_colour,
       :pair_by_category,
       :club_exclusion,
@@ -1141,6 +1172,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_number(:team_match_points_win, greater_than_or_equal_to: 0)
     |> validate_number(:team_match_points_draw, greater_than_or_equal_to: 0)
     |> validate_number(:team_match_points_loss, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:team_board_colours, @team_board_colours)
+    |> validate_number(:team_pab_match_points, greater_than_or_equal_to: 0)
+    |> validate_number(:team_pab_game_points, greater_than_or_equal_to: 0)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
     |> validate_length(:swar_guid, max: 200)
     |> validate_format(:swar_guid, @safe_swar_guid,
@@ -1976,6 +2010,56 @@ defmodule PairingsEngine.Tournaments.Tournament do
   classified as a team event (it has a Teams page and a TRF team section).
   """
   def paired_as_teams?(t), do: team_round_robin?(t) or team_swiss?(t)
+
+  @doc "The values `team_board_colours` takes."
+  def team_board_colours, do: @team_board_colours
+
+  @doc """
+  Whether a match's first-named team (`team_a`) is its HOME team: league
+  style board colours (`team_board_colours` "home"). The colours on the
+  boards are the same either way - `team_a` has White on the odd boards -
+  but the home team can be swapped before a match starts
+  (`PairingsEngine.TeamMatches.swap_home/2`).
+  """
+  def home_and_away?(%{team_board_colours: "home"}), do: true
+  def home_and_away?(_), do: false
+
+  @doc """
+  Keizer has no team system: it pairs individuals. A NEW team tournament
+  with Keizer is refused (docs/team-tournaments.md, "Keizer"); one that
+  already exists keeps working, paired player by player. Adds an error on
+  `:pairing_system` when the changeset would make a team Keizer and either
+  creates the tournament or changes its type or system.
+  """
+  def validate_no_team_keizer(%Ecto.Changeset{} = changeset) do
+    new? = is_nil(changeset.data.id)
+
+    touched? =
+      new? or Map.has_key?(changeset.changes, :type) or
+        Map.has_key?(changeset.changes, :pairing_system)
+
+    if touched? and get_field(changeset, :type) in @team_types and
+         get_field(changeset, :pairing_system) == "keizer" do
+      add_error(
+        changeset,
+        :pairing_system,
+        "Keizer cannot pair team against team. Choose Swiss or Round robin for a team tournament.",
+        validation: :team_keizer
+      )
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  The match points and game points a team Swiss pairing-allocated bye pays,
+  `{mp, gp}` for a match on `boards` boards: the tournament's own values
+  where set, otherwise a drawn match's (C.04.6 Art. 1.4).
+  """
+  def team_pab_value(%__MODULE__{} = t, boards) do
+    {t.team_pab_match_points || t.team_match_points_draw,
+     t.team_pab_game_points || Float.round(boards * t.points_draw / 1, 1)}
+  end
 
   @doc "The values `initial_colour` takes: drawn by lot, or set by the arbiter."
   def initial_colours, do: @initial_colours

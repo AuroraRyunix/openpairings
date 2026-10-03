@@ -17,6 +17,8 @@ defmodule PairingsEngine.TrfExport do
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
+  import Ecto.Query, only: [from: 2]
+
   alias PairingsEngine.{Federation, Pairing, Standings, TeamStandings, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
@@ -369,6 +371,12 @@ defmodule PairingsEngine.TrfExport do
           # `162` a point system other than 1/half/0, `260` the prohibited
           # pairings - explicit ones and those by club or federation.
           type_code: tournament_type_code(tournament),
+          # C.04.3 Art. 5.1 / C.04.6 Art. 4.1: the initial colour drawn by
+          # lot (or set by the arbiter), when one is on record - `152` in a
+          # TRF26 report, `XXC white1`/`black1` in the engine dialect, the
+          # spelling JaVaFo reads. Nothing when there is none (a round robin,
+          # or an event paired before the draw was stored), as before.
+          initial_colour: initial_colour_code(tournament),
           tie_breaks: tie_break_codes(tournament),
           time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
           point_system: point_system,
@@ -377,14 +385,16 @@ defmodule PairingsEngine.TrfExport do
             Pairing.forbidden_pairs(tournament.id, players) ++
               Pairing.exclusion_pairs(tournament, players),
           team_point_system: team_point_system(tournament, dialect),
-          team_pab: team_pab(tournament, rounds, dialect)
+          team_pab: team_pab(tournament, rounds, dialect),
+          forfeited_matches: team_double_forfeits(tournament, rounds, dialect)
         },
         players: trf_players,
-        teams: team_records(tournament, players, trf_players, dialect)
+        teams: team_records(tournament, players, trf_players, dialect, rounds)
       },
       # `:trf26` for the file an arbiter uploads; `:engine` on request, for
       # a pairing program that reads the older `XX*`/`BB*` spelling.
       dialect: dialect,
+      xxc: dialect == :engine,
       column_legend: true,
       # This file leaves the building - it is what an arbiter submits to
       # FIDE - so it must survive a byte-oriented reader. See
@@ -739,26 +749,66 @@ defmodule PairingsEngine.TrfExport do
   # was: the `082` header was already written as 0, and no team record
   # appears. The individual games stay on the `001` lines exactly as before;
   # the team section only says who played for whom.
-  defp team_records(tournament, players, trf_players, dialect) do
+  #
+  # A player moved to another team mid-event (allowed outside FIDE mode,
+  # `Tournaments.set_player_team/3`) is listed under the team they PLAYED
+  # for in the exported rounds (`Player.team_history`), not the team they
+  # are on now: the record says who played for whom. A `310` lists a player
+  # once, so one who played for two teams goes under the one they played
+  # the most rounds for (the later on a tie); such a player is appended
+  # after the team's own roster. Every other player is listed exactly as
+  # before.
+  defp team_records(tournament, players, trf_players, dialect, rounds) do
     if Tournament.team?(tournament) do
       exported = MapSet.new(trf_players, & &1.rank)
       teams = Tournaments.list_teams(tournament.id)
       numbered? = dialect == :trf26 and teams != [] and Enum.all?(teams, & &1.pairing_number)
 
+      # The match points and game points the file's OWN rounds earned, and
+      # the rank after its last round. A file from round 1 is the standings
+      # through its last round (`TeamStandings.standings/2`, the Team
+      # standings page); a file of chosen rounds that does not start at
+      # round 1 - a round sent on its own - carries what its rounds earned,
+      # added up from the same scored matches, and no rank: a place after
+      # games the file leaves out is not the file's to state (the same rule
+      # as the `001` rank, `with_final_ranks/4`). Before 2026-10-03 every
+      # file carried the whole event's figures, whatever rounds it held.
+      from_one? = rounds != [] and rounds == Enum.to_list(1..Enum.max(rounds))
+
       standings_by_id =
-        if numbered?,
-          do: Map.new(TeamStandings.standings(tournament), &{&1.team.id, &1}),
-          else: %{}
+        cond do
+          not numbered? or rounds == [] ->
+            %{}
+
+          from_one? ->
+            tournament
+            |> TeamStandings.standings(through_round: Enum.max(rounds))
+            |> Map.new(&{&1.team.id, &1})
+
+          true ->
+            Map.merge(
+              Map.new(teams, &{&1.id, %{mp: 0.0, gp: 0.0}}),
+              file_round_totals(tournament, rounds)
+            )
+        end
+
+      played_for = played_for(tournament, rounds)
+      team_of = fn p -> Map.get(played_for, p.id, p.team_id) end
 
       Enum.map(teams, fn team ->
-        ranks =
+        {own, former} =
           players
-          |> Enum.filter(&(&1.team_id == team.id))
-          |> Tournaments.sort_roster()
+          |> Enum.filter(&(team_of.(&1) == team.id))
+          |> Enum.split_with(&(&1.team_id == team.id))
+
+        ranks =
+          (Tournaments.sort_roster(own) ++ Enum.sort_by(former, & &1.pairing_number))
           |> Enum.map(& &1.pairing_number)
           |> Enum.filter(&MapSet.member?(exported, &1))
 
         base = %{name: team.name, player_ranks: ranks}
+
+        base = if numbered?, do: Map.put(base, :number, team.pairing_number), else: base
 
         case Map.get(standings_by_id, team.id) do
           nil ->
@@ -766,10 +816,9 @@ defmodule PairingsEngine.TrfExport do
 
           entry ->
             Map.merge(base, %{
-              number: team.pairing_number,
               match_points: entry.mp,
               game_points: entry.gp,
-              final_rank: entry.rank
+              final_rank: Map.get(entry, :rank)
             })
         end
       end)
@@ -778,22 +827,123 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
+  # `%{team_id => %{mp:, gp:}}`: what each team's matches in `rounds` scored
+  # - match points of every scored match (a team Swiss bye's included), game
+  # points board by board - for a file of chosen rounds (`team_records/5`).
+  defp file_round_totals(tournament, rounds) do
+    wanted = MapSet.new(rounds)
+
+    sides =
+      tournament
+      |> TeamStandings.matches()
+      |> Enum.filter(&MapSet.member?(wanted, &1.round))
+      |> Enum.flat_map(fn m ->
+        [{m.team_a_id, m.mp_a, m.gp_a}] ++
+          if(m.team_b_id, do: [{m.team_b_id, m.mp_b, m.gp_b}], else: [])
+      end)
+
+    sides
+    |> Enum.group_by(&elem(&1, 0))
+    |> Map.new(fn {team_id, rows} ->
+      {team_id,
+       %{
+         mp: rows |> Enum.map(&(elem(&1, 1) || 0.0)) |> Enum.sum() |> Float.round(1),
+         gp: rows |> Enum.map(&elem(&1, 2)) |> Enum.sum() |> Float.round(1)
+       }}
+    end)
+  end
+
+  # `%{player_id => team_id}` for the players who played for a team other
+  # than the one they are on now in `rounds`: a player moved between teams
+  # after playing (`Player.team_history`, outside FIDE mode only), under the
+  # team they were on in the most of the exported rounds they sat at a board
+  # in, the later on a tie. Empty when nobody moved.
+  defp played_for(tournament, rounds) do
+    moved =
+      tournament.id
+      |> Tournaments.list_players()
+      |> Enum.filter(&((&1.team_history || []) != []))
+
+    if moved == [] do
+      %{}
+    else
+      wanted = MapSet.new(rounds)
+      seated = seated_rounds(tournament.id, wanted)
+
+      for player <- moved,
+          played = Map.get(seated, player.id, []),
+          played != [],
+          {team, _} =
+            played
+            |> Enum.group_by(&Tournaments.team_in_round(player, &1))
+            |> Enum.max_by(fn {_team, rs} -> {length(rs), Enum.max(rs)} end),
+          team != player.team_id,
+          into: %{},
+          do: {player.id, team}
+    end
+  end
+
+  # `%{player_id => [round]}`: the rounds in `wanted` each player sat at a board.
+  defp seated_rounds(tournament_id, wanted) do
+    PairingsEngine.Repo.all(
+      from p in PairingsEngine.Tournaments.Pairing,
+        join: r in assoc(p, :round),
+        where: r.tournament_id == ^tournament_id,
+        select: {r.number, p.white_player_id, p.black_player_id}
+    )
+    |> Enum.filter(fn {n, _, _} -> MapSet.member?(wanted, n) end)
+    |> Enum.flat_map(fn {n, w, b} -> [{w, n}, {b, n}] end)
+    |> Enum.reject(fn {id, _} -> is_nil(id) end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+  end
+
+  # TRF26's `330` for each match this app recorded as a DOUBLE forfeit
+  # (`PairingsEngine.TeamMatches.double_forfeit/2`): type `--`, both teams
+  # lost by forfeit, the team with White on board 1 named first. Its boards
+  # are on the `001` lines too (`-` against each other); the record says
+  # what the boards alone cannot - that the match itself was a double
+  # forfeit, lost by both, rather than a drawn 0-0. Round position is the
+  # file's own column, as for `320`.
+  defp team_double_forfeits(tournament, rounds, dialect) do
+    if dialect == :trf26 and Tournament.paired_as_teams?(tournament) do
+      numbers = tournament.id |> Tournaments.list_teams() |> Map.new(&{&1.id, &1.pairing_number})
+      position = rounds |> Enum.with_index(1) |> Map.new()
+
+      for m <- TeamStandings.matches(tournament),
+          m.double_forfeit?,
+          column = Map.get(position, m.round),
+          column != nil,
+          numbers[m.team_a_id] && numbers[m.team_b_id] do
+        %{type: "--", round: column, white: numbers[m.team_a_id], black: numbers[m.team_b_id]}
+      end
+    else
+      []
+    end
+  end
+
   # TRF26's `362`: a team event's own match-point values - this app's
-  # `team_match_points_win/draw/loss` (2/1/0 by default). `P` and `A` (a
-  # pairing-allocated bye's match points, and a match lost by forfeit's) are
-  # not separate settings in this app - a team Swiss bye always pays a
-  # draw's match points (C.04.6 Art. 1.4, `PairingsEngine.TeamStandings.score_match/4`)
-  # and a match lost by forfeit an ordinary loss's - so neither is written;
-  # a reader with no `362` `P`/`A` of its own already falls back to a win's
-  # and a loss's, the same fallback this app relies on reading one back
-  # (`PairingsEngine.TrfImport.team_scoring_attrs/1`).
+  # `team_match_points_win/draw/loss` (2/1/0 by default) - and, for a team
+  # Swiss, `P`: the pairing-allocated bye's match points
+  # (`Tournament.team_pab_value/2` - the tournament's own value, else a
+  # draw's, C.04.6 Art. 1.4). `320` carries the same number with the bye's
+  # game points; `P` is what a reader with no `320` falls back on. `A` (a
+  # match lost by forfeit) is not written: this app scores such a match, a
+  # double forfeit included, as an ordinary loss, which is the value a
+  # reader with no `A` already uses (`PairingsEngine.TrfImport`).
   defp team_point_system(tournament, dialect) do
     if dialect == :trf26 and Tournament.team?(tournament) do
-      %{
+      base = %{
         win: tournament.team_match_points_win,
         draw: tournament.team_match_points_draw,
         loss: tournament.team_match_points_loss
       }
+
+      if Tournament.team_swiss?(tournament) do
+        {pab, _gp} = Tournament.team_pab_value(tournament, max(tournament.team_boards || 1, 1))
+        Map.put(base, :pab, pab)
+      else
+        base
+      end
     end
   end
 
@@ -826,11 +976,11 @@ defmodule PairingsEngine.TrfExport do
           |> Enum.drop_while(&(&1 == 0))
           |> Enum.reverse()
 
-        boards = max(tournament.team_boards || 1, 1)
+        {mp, gp} = Tournament.team_pab_value(tournament, max(tournament.team_boards || 1, 1))
 
         %{
-          match_points: tournament.team_match_points_draw,
-          game_points: Float.round(boards * tournament.points_draw, 1),
+          match_points: mp,
+          game_points: Float.round(gp / 1, 1),
           teams: teams_by_round
         }
       end
@@ -890,13 +1040,30 @@ defmodule PairingsEngine.TrfExport do
   # check its standings at all ("BHC1 is not a tie-break code"), and BHC1
   # leads the default Swiss list. Anything that is not a code shape is
   # dropped rather than let the writer refuse the file over it.
+  #
+  # A tournament paired as teams writes its codes in the C.07 spelling team
+  # standings compute them under (`TeamStandings.c07_codes/0`: MP is MPTS,
+  # BB is BC, SB is SB:MP ...). Until 2026-10-03 a team report carried the app's
+  # own MP/GP/BB, which no checker reads, so `ainalrami -c` could not check
+  # the standings of any team file.
   defp tie_break_codes(t) do
-    c07 = PairingsEngine.Standings.AinalramiBridge.codes()
+    c07 =
+      if Tournament.paired_as_teams?(t),
+        do: TeamStandings.c07_codes(),
+        else: PairingsEngine.Standings.AinalramiBridge.codes()
 
     (t.tiebreaks || [])
     |> Enum.map(&String.upcase(to_string(&1)))
     |> Enum.map(&Map.get(c07, &1, &1))
-    |> Enum.filter(&Regex.match?(~r"^[A-Z][A-Z0-9]*(/[A-Z0-9][A-Z0-9+.-]*)*$", &1))
+    |> Enum.filter(&Regex.match?(~r"^[A-Z][A-Z0-9]*(:[A-Z]{2})?(/[A-Z0-9][A-Z0-9+.-]*)*$", &1))
+  end
+
+  defp initial_colour_code(tournament) do
+    case Tournament.effective_initial_colour(tournament) do
+      "white" -> "w"
+      "black" -> "b"
+      _ -> nil
+    end
   end
 
   # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.

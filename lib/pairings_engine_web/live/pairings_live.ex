@@ -1116,6 +1116,43 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # Neither team turned up: both lose the match by forfeit
+  # (`TeamMatches.double_forfeit/2`). Same restore point and audit as a
+  # forfeit to one team, and withdrawn the same way.
+  def handle_event("double_forfeit_match", %{"match-id" => match_id}, socket) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    case find_match(socket, match_id) do
+      nil ->
+        {:noreply, refresh(socket)}
+
+      match ->
+        Snapshots.capture(t, "pairing.match_double_forfeited", socket.assigns.current_scope,
+          summary:
+            "Before recording match #{match.board} of round #{round_number} as a double forfeit"
+        )
+
+        case TeamMatches.double_forfeit(t, match) do
+          {:ok, _} ->
+            teams = socket.assigns.teams_by_id
+
+            Audit.log(t.id, socket.assigns.current_scope, "pairing.match_double_forfeited", %{
+              round: round_number,
+              match: match.board,
+              team_a: match_team_name(teams, match.team_a_id),
+              team_b: match_team_name(teams, match.team_b_id)
+            })
+
+            text = gettext("Match %{match}: double forfeit recorded.", match: match.board)
+            {:noreply, socket |> assign(error: nil) |> refresh() |> announce(text)}
+
+          {:error, reason} ->
+            {:noreply,
+             socket |> put_flash(:error, error_text(reason)) |> assign(error: nil) |> refresh()}
+        end
+    end
+  end
+
   def handle_event("withdraw_match_forfeit", %{"match-id" => match_id}, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
 
@@ -1131,7 +1168,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             Audit.log(t.id, socket.assigns.current_scope, "pairing.match_forfeit_withdrawn", %{
               round: round_number,
               match: match.board,
-              winner: match_team_name(teams, match.forfeited_to_team_id)
+              winner:
+                if(match.double_forfeit,
+                  do: nil,
+                  else: match_team_name(teams, match.forfeited_to_team_id)
+                ),
+              double_forfeit: match.double_forfeit
             })
 
             text = gettext("Decision on match %{match} withdrawn.", match: match.board)
@@ -4285,7 +4327,17 @@ defmodule PairingsEngineWeb.PairingsLive do
           
           <tbody>
             <tr :for={m <- @team_matches} id={"team-match-#{m.match_id}"}>
-              <td class="num">{m.number}</td>
+              <td class="num">
+                {m.number}
+                <.link
+                  :if={!m.bye?}
+                  id={"match-lineups-#{m.match_id}"}
+                  navigate={~p"/t/#{@tournament.id}/pairings/#{@round_number}/matches/#{m.match_id}"}
+                  class="hint"
+                >
+                  {gettext("Line-ups")}
+                </.link>
+              </td>
               
               <td class="num">{match_board_range(m.boards)}</td>
               
@@ -4360,7 +4412,46 @@ defmodule PairingsEngineWeb.PairingsLive do
                 </button>
               </td>
               
-              <td :if={!m.bye? and is_nil(m.forfeited_to)}>
+              <td :if={!m.bye? and m.double_forfeit?}>
+                <span id={"match-decision-#{m.match_id}"}>
+                  {gettext("Double forfeit: both teams lost")}
+                </span>
+                <button
+                  type="button"
+                  class="pe-btn"
+                  phx-click="withdraw_match_forfeit"
+                  phx-value-match-id={m.match_id}
+                  aria-describedby={"match-decision-#{m.match_id}"}
+                  data-confirm={
+                    gettext(
+                      "Withdraw the decision? The boards of match %{match} get back the results they had before it.",
+                      match: m.number
+                    )
+                  }
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Withdraw the decision")}
+                </button>
+              </td>
+
+              <td :if={!m.bye? and is_nil(m.forfeited_to) and !m.double_forfeit?}>
+                <button
+                  type="button"
+                  class="pe-btn"
+                  id={"double-forfeit-#{m.match_id}"}
+                  phx-click="double_forfeit_match"
+                  phx-value-match-id={m.match_id}
+                  aria-label={gettext("Match %{match}: neither team turned up", match: m.number)}
+                  data-confirm={
+                    gettext(
+                      "Record match %{match} as a double forfeit? Neither team turned up: every board becomes a forfeit loss for both players, and both teams lose the match. The decision can be withdrawn.",
+                      match: m.number
+                    )
+                  }
+                  disabled={!is_nil(@tournament.archived_at) or m.boards == []}
+                >
+                  {gettext("Neither team")}
+                </button>
                 <button
                   :for={team_id <- [m.team_a_id, m.team_b_id]}
                   type="button"

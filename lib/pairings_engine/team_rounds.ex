@@ -14,9 +14,15 @@ defmodule PairingsEngine.TeamRounds do
   board-1 colour is the one the pairing system decides - a Berger table's
   "White" number, or the team Article 4 of C.04.6 gives White - and that team
   is written as `team_a`. That the colours then alternate board by board, the
-  first team taking the odd boards, is the convention of FIDE team
-  competitions such as the Olympiad regulations - recalled from memory, not
-  read from a local copy; `docs/team-tournaments.md` says so too.
+  first team taking the odd boards, is the rule of FIDE team events: Chess
+  Olympiad 2026 regulations Art. 4.1, "the teams ranked first in the pairing
+  list shall have the white pieces on the odd-numbered boards", and the same
+  sentence in the 2026 World Team Rapid & Blitz regulations (Art. 4.1.1.5).
+  With league-style colours (`tournaments.team_board_colours` "home")
+  `team_a` is the home team, and the arbiter can swap home and away before
+  the match starts (`PairingsEngine.TeamMatches.swap_home/2`); `team_a`
+  still has White on the odd boards. See `docs/team-tournaments.md`, "Board
+  colours".
 
   ## Line-ups
 
@@ -186,9 +192,13 @@ defmodule PairingsEngine.TeamRounds do
     end)
   end
 
-  # Individual pairing numbers for everyone about to sit at a board, team by
-  # team then board by board, continuing after the highest number issued.
-  defp ensure_player_numbers(tournament, players_in_order) do
+  @doc """
+  Individual pairing numbers for everyone about to sit at a board, team by
+  team then board by board, continuing after the highest number issued.
+  Returns the players, numbered. Also used by a line-up change
+  (`TeamMatches.set_lineups/4`), which can seat a reserve for the first time.
+  """
+  def ensure_player_numbers(tournament, players_in_order) do
     missing = Enum.filter(players_in_order, &is_nil(&1.pairing_number))
 
     if missing == [] do

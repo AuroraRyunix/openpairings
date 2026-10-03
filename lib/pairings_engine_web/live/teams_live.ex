@@ -14,7 +14,8 @@ defmodule PairingsEngineWeb.TeamsLive do
 
   import PairingsEngineWeb.SettingsSupport, only: [error_text: 1]
 
-  alias PairingsEngine.{Audit, Tournaments}
+  alias PairingsEngine.{Audit, TeamStandings, Tournaments}
+  alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Team, Tournament}
 
   @impl true
@@ -65,8 +66,35 @@ defmodule PairingsEngineWeb.TeamsLive do
       unassigned: players |> Enum.reject(& &1.team_id) |> Enum.sort_by(& &1.name),
       frozen?: Tournaments.teams_frozen?(t.id),
       boards_locked?: :team_boards in Tournaments.locked_fields(t),
+      colours_locked?: :team_board_colours in Tournaments.locked_fields(t),
+      roster_locked?: Tournaments.roster_locked?(t),
+      roster_warning?: Tournaments.roster_change_warning?(t),
+      seated: Tournaments.seated_player_ids(t.id),
+      withdraw_from: withdraw_defaults(t, teams),
       writable?: Tournaments.ensure_writable(t) == :ok
     )
+  end
+
+  # The round a withdrawal starts from by default, per team: the first round
+  # its match has no complete result in, else the next round to pair - never
+  # past the last round. Only worked out once round 1 is paired.
+  defp withdraw_defaults(t, teams) do
+    if Tournaments.teams_frozen?(t.id) and Tournament.paired_as_teams?(t) do
+      matches = TeamStandings.matches(t)
+      next = min(Engine.paired_rounds_count(t.id) + 1, t.rounds_count)
+
+      Map.new(teams, fn team ->
+        open =
+          matches
+          |> Enum.filter(&(team.id in [&1.team_a_id, &1.team_b_id] and not &1.scored?))
+          |> Enum.map(& &1.round)
+          |> Enum.min(fn -> next end)
+
+        {team.id, min(open, next)}
+      end)
+    else
+      %{}
+    end
   end
 
   ## ---------- events ----------
@@ -217,14 +245,21 @@ defmodule PairingsEngineWeb.TeamsLive do
     end
   end
 
-  def handle_event("save_boards", %{"tournament" => %{"team_boards" => boards}}, socket) do
+  def handle_event("save_boards", %{"tournament" => params}, socket) when is_map(params) do
     base = socket.assigns.tournament
+    attrs = Map.take(params, ~w(team_boards team_board_colours))
 
-    case Tournaments.update_tournament(base, %{"team_boards" => boards}) do
+    case Tournaments.update_tournament(base, attrs) do
       {:ok, tournament} ->
-        if tournament.team_boards != base.team_boards do
+        changed =
+          for field <- [:team_boards, :team_board_colours],
+              Map.get(base, field) != Map.get(tournament, field),
+              into: %{},
+              do: {Atom.to_string(field), [Map.get(base, field), Map.get(tournament, field)]}
+
+        if changed != %{} do
           Audit.log(tournament.id, socket.assigns.current_scope, "tournament.settings_updated", %{
-            changed_fields: %{"team_boards" => [base.team_boards, tournament.team_boards]}
+            changed_fields: changed
           })
         end
 
@@ -236,6 +271,56 @@ defmodule PairingsEngineWeb.TeamsLive do
 
       {:error, reason} ->
         {:noreply, fail(socket, reason)}
+    end
+  end
+
+  # A team withdraws from round `from` on: every player withdrawn, its later
+  # matches already paired forfeited to the opponents
+  # (`Tournaments.withdraw_team/3`). A restore point first, as for any
+  # action that rewrites several results at once.
+  def handle_event("withdraw_team", %{"team_id" => id, "from_round" => from}, socket) do
+    t = socket.assigns.tournament
+
+    with %Team{} = team <- team(socket, id),
+         {from, ""} <- Integer.parse(to_string(from)) do
+      PairingsEngine.Snapshots.capture(t, "team.withdrawn", socket.assigns.current_scope,
+        summary: "Before withdrawing #{team.name}"
+      )
+
+      case Tournaments.withdraw_team(t, team, from) do
+        {:ok, %{forfeited: forfeited}} ->
+          Audit.log(t.id, socket.assigns.current_scope, "team.withdrawn", %{
+            team_name: team.name,
+            from_round: from,
+            matches_forfeited: length(forfeited)
+          })
+
+          {:noreply,
+           socket
+           |> ok(gettext("%{team} withdrawn from round %{round}.", team: team.name, round: from))
+           |> load()}
+
+        {:error, reason} ->
+          {:noreply, fail(socket, reason)}
+      end
+    else
+      nil -> {:noreply, socket}
+      _ -> {:noreply, fail(socket, :bad_round)}
+    end
+  end
+
+  def handle_event("reinstate_team", %{"team_id" => id}, socket) do
+    t = socket.assigns.tournament
+
+    with %Team{} = team <- team(socket, id),
+         {:ok, _} <- Tournaments.reinstate_team(t, team) do
+      Audit.log(t.id, socket.assigns.current_scope, "team.reinstated", %{team_name: team.name})
+
+      {:noreply,
+       socket |> ok(gettext("%{team} is back in the event.", team: team.name)) |> load()}
+    else
+      nil -> {:noreply, socket}
+      {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
 
@@ -278,6 +363,12 @@ defmodule PairingsEngineWeb.TeamsLive do
 
   defp moved_player_note(player, "down"),
     do: gettext("%{player} moved to a lower board.", player: player.name)
+
+  defp roster_confirm,
+    do:
+      gettext(
+        "Round 1 is paired. Change the roster anyway? Rounds paired from now on use the new order; the TRF report lists one board order per team."
+      )
 
   defp rating(player) do
     case Player.rating(player) do
@@ -364,17 +455,32 @@ defmodule PairingsEngineWeb.TeamsLive do
                 disabled={@boards_locked? or !@writable?}
               />
             </label>
+            <label class="field">
+              <span>{gettext("Board colours")}</span>
+              <select
+                id="team-board-colours"
+                name="tournament[team_board_colours]"
+                disabled={@colours_locked? or !@writable?}
+              >
+                <option value="fide" selected={@tournament.team_board_colours == "fide"}>
+                  {gettext("FIDE: the team named first has White on the odd boards")}
+                </option>
+                <option value="home" selected={@tournament.team_board_colours == "home"}>
+                  {gettext("League: the home team has White on the odd boards")}
+                </option>
+              </select>
+            </label>
             <p class="hint">
               {gettext(
-                "Board 1 of the first-named team plays White, and colours alternate down the boards. Match points for a won, drawn and lost match are set under Settings - Scoring."
+                "Board 1 of the first-named team plays White, and colours alternate down the boards - the rule of FIDE team events. With league colours the first-named team is the home team, and home and away can be swapped on a match's page before it starts. Match points for a won, drawn and lost match are set under Settings - Scoring."
               )}
             </p>
             <button
-              :if={!@boards_locked? and @writable?}
+              :if={!(@boards_locked? and @colours_locked?) and @writable?}
               type="submit"
               class="pe-btn primary"
             >
-              {gettext("Save boards per match")}
+              {gettext("Save match settings")}
             </button>
             <p :if={@boards_locked?} class="hint">
               {gettext("Locked: round 1 has been paired.")}
@@ -401,6 +507,24 @@ defmodule PairingsEngineWeb.TeamsLive do
               <button type="submit" class="pe-btn primary">{gettext("Add team")}</button>
             </div>
           </form>
+        </div>
+
+        <div :if={@roster_locked?} id="roster-locked-note" class="card">
+          <h2>{gettext("Rosters are fixed")}</h2>
+          <p class="hint">
+            {gettext(
+              "FIDE mode: round 1 is paired, so each team's board order is fixed, as FIDE team events require. Players cannot move up or down, change team or leave a team they have played for. A new player can still be added at the bottom of a team, as a reserve."
+            )}
+          </p>
+        </div>
+
+        <div :if={@roster_warning?} id="roster-change-warning" class="card" role="note">
+          <h2 class="pe-modal-warn">{gettext("Round 1 is paired")}</h2>
+          <p class="hint">
+            {gettext(
+              "Rosters and board orders can still change, because this tournament is not in FIDE mode - but FIDE team events fix them before the start. A change affects the line-ups of rounds paired from now on; rounds already played keep who played for whom. The TRF report lists one board order per team, so a reordered team's earlier rounds may not rebuild as matches when the file is imported again."
+            )}
+          </p>
         </div>
 
         <div class="card">
@@ -440,6 +564,64 @@ defmodule PairingsEngineWeb.TeamsLive do
           <p :if={team.captain != ""} class="hint">
             {gettext("Captain: %{name}", name: team.captain)}
           </p>
+
+          <div :if={team.withdrawn_from_round} id={"team-withdrawn-#{team.id}"} class="actions">
+            <span class="badge">
+              {gettext("Withdrawn from round %{round}", round: team.withdrawn_from_round)}
+            </span>
+            <button
+              :if={@writable?}
+              id={"reinstate-team-#{team.id}"}
+              type="button"
+              class="pe-btn"
+              phx-click="reinstate_team"
+              phx-value-team_id={team.id}
+              data-confirm={
+                gettext(
+                  "Bring %{team} back into the event? Its players are no longer withdrawn, and the forfeits the withdrawal gave its later matches are withdrawn.",
+                  team: team.name
+                )
+              }
+            >
+              {gettext("Reinstate")}
+            </button>
+          </div>
+
+          <form
+            :if={
+              @writable? and is_nil(team.withdrawn_from_round) and
+                Map.has_key?(@withdraw_from, team.id)
+            }
+            id={"withdraw-team-#{team.id}"}
+            phx-submit="withdraw_team"
+            class="actions"
+          >
+            <input type="hidden" name="team_id" value={team.id} />
+            <label class="field" style="margin: 0">
+              <span>{gettext("Withdraw %{team} from round", team: team.name)}</span>
+              <select name="from_round">
+                <option
+                  :for={r <- 1..@tournament.rounds_count//1}
+                  value={r}
+                  selected={r == @withdraw_from[team.id]}
+                >
+                  {r}
+                </option>
+              </select>
+            </label>
+            <button
+              type="submit"
+              class="pe-btn danger"
+              data-confirm={
+                gettext(
+                  "Withdraw %{team}? All its players are withdrawn, and its matches already paired from that round on are forfeited to the opponents.",
+                  team: team.name
+                )
+              }
+            >
+              {gettext("Withdraw team")}
+            </button>
+          </form>
 
           <div :if={@writable?} class="actions">
             <button
@@ -535,32 +717,38 @@ defmodule PairingsEngineWeb.TeamsLive do
                 <td class="num">{rating(player)}</td>
                 <td :if={@writable?} style="text-align: right; white-space: nowrap">
                   <button
+                    :if={!@roster_locked?}
                     type="button"
                     class="pe-btn"
                     phx-click="move_player"
                     phx-value-player_id={player.id}
                     phx-value-direction="up"
+                    data-confirm={@roster_warning? && roster_confirm()}
                     disabled={board == 1}
                     aria-label={gettext("Move %{player} to a higher board", player: player.name)}
                   >
                     ↑
                   </button>
                   <button
+                    :if={!@roster_locked?}
                     type="button"
                     class="pe-btn"
                     phx-click="move_player"
                     phx-value-player_id={player.id}
                     phx-value-direction="down"
+                    data-confirm={@roster_warning? && roster_confirm()}
                     disabled={board == length(roster)}
                     aria-label={gettext("Move %{player} to a lower board", player: player.name)}
                   >
                     ↓
                   </button>
                   <button
+                    :if={!@roster_locked? or !MapSet.member?(@seated, player.id)}
                     type="button"
                     class="pe-btn"
                     phx-click="remove_player"
                     phx-value-player_id={player.id}
+                    data-confirm={@roster_warning? && roster_confirm()}
                     aria-label={
                       gettext("Take %{player} off %{team}", player: player.name, team: team.name)
                     }

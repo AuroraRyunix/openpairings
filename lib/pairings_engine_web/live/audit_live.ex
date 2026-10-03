@@ -99,7 +99,7 @@ defmodule PairingsEngineWeb.AuditLive do
         player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
-        team.board_order_changed team.seeding_changed)},
+        team.board_order_changed team.seeding_changed team.withdrawn team.reinstated)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.results_imported pairing.players_swapped pairing.player_substituted
@@ -107,7 +107,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
-        pairing.match_forfeit_withdrawn pairing.board_attached
+        pairing.match_forfeit_withdrawn pairing.board_attached pairing.match_double_forfeited
+        pairing.lineup_changed pairing.match_home_swapped
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
@@ -303,6 +304,18 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("team.board_order_changed", d),
     do: gettext("Moved %{player} to a lower board.", player: name(d, "player_name"))
+
+  def describe("team.withdrawn", d),
+    do:
+      gettext(
+        "Withdrew team %{team} from round %{round}: its players were withdrawn and %{count} of its later matches forfeited to the opponents.",
+        team: name(d, "team_name"),
+        round: value(d, "from_round"),
+        count: value(d, "matches_forfeited")
+      )
+
+  def describe("team.reinstated", d),
+    do: gettext("Brought team %{team} back into the event.", team: name(d, "team_name"))
 
   def describe("team.seeding_changed", %{"by_rating" => true}),
     do: gettext("Ordered the teams by rating.")
@@ -605,6 +618,48 @@ defmodule PairingsEngineWeb.AuditLive do
         round: value(d, "round"),
         winner: name(d, "winner"),
         loser: name(d, "loser")
+      )
+
+  def describe("pairing.match_forfeit_withdrawn", %{"double_forfeit" => true} = d),
+    do:
+      gettext(
+        "Withdrew the double forfeit of match %{match} of round %{round}; its boards got back the results they had before.",
+        match: value(d, "match"),
+        round: value(d, "round")
+      )
+
+  def describe("pairing.match_double_forfeited", d),
+    do:
+      gettext(
+        "Recorded match %{match} of round %{round} (%{a} - %{b}) as a double forfeit: neither team turned up, both lost the match.",
+        match: value(d, "match"),
+        round: value(d, "round"),
+        a: name(d, "team_a"),
+        b: name(d, "team_b")
+      )
+
+  def describe("pairing.lineup_changed", d),
+    do:
+      gettext(
+        "Changed the line-ups of match %{match} of round %{round}: %{a} %{after_a} (was %{before_a}); %{b} %{after_b} (was %{before_b}).",
+        match: value(d, "match"),
+        round: value(d, "round"),
+        a: name(d, "team_a"),
+        b: name(d, "team_b"),
+        after_a: lineup_text(d["after_a"]),
+        before_a: lineup_text(d["before_a"]),
+        after_b: lineup_text(d["after_b"]),
+        before_b: lineup_text(d["before_b"])
+      )
+
+  def describe("pairing.match_home_swapped", d),
+    do:
+      gettext(
+        "Made %{home} the home team of match %{match} of round %{round}, against %{away}; every board's colours were swapped.",
+        home: name(d, "home"),
+        away: name(d, "away"),
+        match: value(d, "match"),
+        round: value(d, "round")
       )
 
   def describe("pairing.match_forfeit_withdrawn", d),
@@ -1905,6 +1960,13 @@ defmodule PairingsEngineWeb.AuditLive do
       other -> text(other)
     end
   end
+
+  # A line-up as stored by `MatchLive`: names board by board, nil for an
+  # empty seat.
+  defp lineup_text(names) when is_list(names),
+    do: names |> Enum.map(&if(&1 in [nil, ""], do: "-", else: text(&1))) |> Enum.join(", ")
+
+  defp lineup_text(_), do: "?"
 
   defp value(d, key) do
     case d[key] do

@@ -47,11 +47,13 @@ defmodule PairingsEngine.TeamMatchInference do
   boards, which two-or-more-empties would otherwise leave ambiguous - to the
   side its type names, the same way `PairingsEngine.TeamMatches.forfeit_match/3`
   awards one an arbiter decides: every board becomes that side's forfeit
-  win. A double forfeit (`330`'s `--`) has no side to award it to and this
-  app has no way to record "both teams lost", so it is left exactly as
-  unmatched boards would be without a `330` line at all. Either record is
-  read only where the boards themselves are silent; a team or a pair the
-  boards already answer is unaffected.
+  win. A double forfeit (`330`'s `--`), in either system, marks the match
+  between its two teams as one both lost by forfeit (`Match.double_forfeit`,
+  what `PairingsEngine.TeamMatches.double_forfeit/2` records): the match the
+  boards rebuilt, when no game of it was played, or - for two teams with no
+  board at all - a match with no boards. Otherwise the records are read only
+  where the boards themselves are silent; a team or a pair the boards
+  already answer is unaffected.
 
   ## What an ambiguous round means
 
@@ -488,14 +490,17 @@ defmodule PairingsEngine.TeamMatchInference do
   defp apply_declared_forfeits(_t, result, _round_number, nil, _ctx), do: result
 
   defp apply_declared_forfeits(t, result, round_number, trf, ctx) do
-    if swiss?(t) do
-      forfeits =
-        (trf.forfeited_matches || [])
-        |> Enum.filter(&(&1.round == round_number))
-        |> Enum.map(&resolve_declared_forfeit(&1, trf.team_ids_by_number))
-        |> Enum.reject(&is_nil/1)
+    forfeits =
+      (trf.forfeited_matches || [])
+      |> Enum.filter(&(&1.round == round_number))
+      |> Enum.map(&resolve_declared_forfeit(&1, trf.team_ids_by_number))
+      |> Enum.reject(&is_nil/1)
 
-      Enum.reduce(forfeits, result, fn {white_id, black_id, winner_id}, acc ->
+    {doubles, singles} = Enum.split_with(forfeits, &match?({_, _, :double}, &1))
+    result = Enum.reduce(doubles, result, &apply_double_forfeit(&1, &2, ctx))
+
+    if swiss?(t) do
+      Enum.reduce(singles, result, fn {white_id, black_id, winner_id}, acc ->
         if white_id in acc.empties and black_id in acc.empties do
           match = %{team_a: white_id, team_b: black_id, boards: [], forfeited_to: winner_id}
 
@@ -519,6 +524,51 @@ defmodule PairingsEngine.TeamMatchInference do
     end
   end
 
+  # A `330` `--`: the match between the two teams, rebuilt from boards none
+  # of which was played, becomes a double forfeit; two teams with no board
+  # at all get a match with no boards that both lost. A match with a game
+  # played is left as its boards say.
+  defp apply_double_forfeit({white_id, black_id, :double}, acc, ctx) do
+    pair = MapSet.new([white_id, black_id])
+    names = "#{team(ctx, white_id)} - #{team(ctx, black_id)}"
+
+    case Enum.find_index(acc.matches, &(MapSet.new([&1.team_a, &1.team_b]) == pair)) do
+      nil ->
+        if white_id in acc.empties and black_id in acc.empties do
+          match = %{team_a: white_id, team_b: black_id, boards: [], double_forfeit: true}
+
+          %{
+            acc
+            | matches: [match | acc.matches],
+              empties: acc.empties -- [white_id, black_id],
+              notes:
+                acc.notes ++
+                  [
+                    "#{names} has no boards; the file's 330 record says both teams lost it by forfeit"
+                  ]
+          }
+        else
+          acc
+        end
+
+      index ->
+        match = Enum.at(acc.matches, index)
+
+        if Enum.any?(match.boards, fn {_k, _w, _b, result} ->
+             PairingsEngine.Results.played?(result)
+           end) do
+          acc
+        else
+          %{
+            acc
+            | matches: List.replace_at(acc.matches, index, Map.put(match, :double_forfeit, true)),
+              notes:
+                acc.notes ++ ["the file's 330 record says both teams lost #{names} by forfeit"]
+          }
+        end
+    end
+  end
+
   defp resolve_declared_forfeit(%{type: type, white: white, black: black}, by_number) do
     with {:ok, white_id} <- fetch_team_by_number(by_number, white),
          {:ok, black_id} <- fetch_team_by_number(by_number, black),
@@ -538,16 +588,15 @@ defmodule PairingsEngine.TeamMatchInference do
 
   # `330`'s `type`: `+-`/`-+` (also spelled `10`/`01` or `WL`/`LW`, `WZ`/`ZW`)
   # name the side that won by forfeit, the same codes `Ainalrami.Tiebreaks.Team`
-  # reads. `--` (`00`, `LL`, `ZZ`) is a double forfeit - no side to award it
-  # to, and this app's `Match` has one `forfeited_to_team_id`, not two losers
-  # - so it is left unhandled here, same as a type this app does not
-  # recognize at all.
+  # reads. `--` (`00`, `LL`, `ZZ`) is a double forfeit - both teams lost -
+  # answered as `:double`. A type this app does not recognize is skipped.
   defp declared_forfeit_winner(type, white_id, black_id) do
     type = (type || "") |> String.trim() |> String.upcase()
 
     cond do
       type in ~w(+- 10 WL WZ) -> {:ok, white_id}
       type in ~w(-+ 01 LW ZW) -> {:ok, black_id}
+      type in ~w(-- 00 LL ZZ) -> {:ok, :double}
       true -> :error
     end
   end
@@ -608,7 +657,8 @@ defmodule PairingsEngine.TeamMatchInference do
             board: match_no,
             team_a_id: m.team_a,
             team_b_id: m.team_b,
-            forfeited_to_team_id: Map.get(m, :forfeited_to)
+            forfeited_to_team_id: Map.get(m, :forfeited_to),
+            double_forfeit: Map.get(m, :double_forfeit, false)
           })
 
         for {k, white, black, result} <- m.boards do

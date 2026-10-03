@@ -19,6 +19,12 @@ defmodule PairingsEngine.Tournaments.Player do
     field :status, :string, default: "active"
     field :start_round, :integer, default: 1
     field :board_order, :integer
+    # The teams this player was on before a move between teams made after
+    # they had played (`Tournaments.set_player_team/3`, outside FIDE mode
+    # only): `[%{"team_id" => id, "through_round" => n}]`, oldest first - on
+    # that team through round n. Read by the TRF report, which lists a
+    # player under the team they played for. Never cast.
+    field :team_history, {:array, :map}, default: []
     field :pairing_number, :integer
 
     # nopaid | paid | gratis (SWAR §5.20)

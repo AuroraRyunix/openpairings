@@ -289,6 +289,7 @@ defmodule PairingsEngine.TournamentImport do
 
     team_map = import_teams!(tournament, records!(entry, "teams"))
     player_map = import_players!(tournament, records!(entry, "players"), team_map)
+    remap_team_withdrawals!(records!(entry, "teams"), team_map, player_map)
     import_rounds!(tournament, records!(entry, "rounds"), player_map, team_map)
     import_byes!(tournament, records!(entry, "byes"), player_map)
     import_forbidden_pairings!(tournament, records!(entry, "forbidden_pairings"), player_map)
@@ -469,6 +470,7 @@ defmodule PairingsEngine.TournamentImport do
 
     team_map = import_teams!(tournament, records!(t_data, "teams"))
     player_map = import_players!(tournament, records!(t_data, "players"), team_map)
+    remap_team_withdrawals!(records!(t_data, "teams"), team_map, player_map)
     import_rounds!(tournament, records!(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, records!(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, records!(t_data, "forbidden_pairings"), player_map)
@@ -668,12 +670,44 @@ defmodule PairingsEngine.TournamentImport do
         # they were exported has neither, and a nil seed sorts by name.
         |> Ecto.Changeset.change(
           seed: coerce_int(Map.get(t, "seed")),
-          pairing_number: coerce_int(Map.get(t, "pairing_number"))
+          pairing_number: coerce_int(Map.get(t, "pairing_number")),
+          withdrawn_from_round: coerce_int(Map.get(t, "withdrawn_from_round"))
         )
         |> insert!()
 
       {Map.get(t, "id"), new_team.id}
     end)
+  end
+
+  # A withdrawn team's `withdrawal_player_ids` name players by their ids in
+  # the payload; they become the new rows' ids once the players exist.
+  defp remap_team_withdrawals!(teams, team_map, player_map) do
+    for t <- teams,
+        ids = Map.get(t, "withdrawal_player_ids"),
+        is_list(ids) and ids != [],
+        team_id = Map.get(team_map, Map.get(t, "id")),
+        team_id != nil do
+      remapped = ids |> Enum.map(&Map.get(player_map, &1)) |> Enum.reject(&is_nil/1)
+
+      Repo.update_all(from(x in Team, where: x.id == ^team_id),
+        set: [withdrawal_player_ids: remapped]
+      )
+    end
+
+    :ok
+  end
+
+  defp team_history(p, team_map) do
+    case Map.get(p, "team_history") do
+      list when is_list(list) ->
+        for %{"team_id" => old, "through_round" => through} <- list,
+            new = Map.get(team_map, old),
+            new != nil,
+            do: %{"team_id" => new, "through_round" => coerce_int(through)}
+
+      _ ->
+        []
+    end
   end
 
   defp import_players!(tournament, players, team_map) do
@@ -702,6 +736,8 @@ defmodule PairingsEngine.TournamentImport do
         # restore with `special_table` flipped to false, losing the flag that
         # keeps them on their table.
         |> Ecto.Changeset.change(special_table: !!Map.get(p, "special_table"))
+        # Not cast either; its team ids are the payload's, remapped.
+        |> Ecto.Changeset.change(team_history: team_history(p, team_map))
         |> insert!(player_label(p, n))
 
       {Map.get(p, "id"), new_player.id}
@@ -752,7 +788,8 @@ defmodule PairingsEngine.TournamentImport do
               team_a_id: Map.get(team_map, Map.get(m, "team_a_id")),
               team_b_id: Map.get(team_map, Map.get(m, "team_b_id")),
               forfeited_to_team_id: Map.get(team_map, Map.get(m, "forfeited_to_team_id")),
-              forfeit_previous_results: forfeit_previous_results(m)
+              forfeit_previous_results: forfeit_previous_results(m),
+              double_forfeit: truthy(Map.get(m, "double_forfeit"))
             })
 
           {Map.get(m, "id"), new_match.id}

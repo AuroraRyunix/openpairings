@@ -24,7 +24,7 @@ defmodule PairingsEngine.TiebreaksTest do
 
     test "the team-only breaks are exactly the ones individual standings cannot calculate" do
       team_only = for %{code: code, scope: :team} <- Tiebreaks.catalogue(), do: code
-      assert Enum.sort(team_only) == ~w(BB EMGSB GP MP)
+      assert Enum.sort(team_only) == ~w(BB BBE BH:GP EDE EGGSB EGMSB EMGSB GP MP SSSC TBR)
 
       for %{code: code} <- Tiebreaks.catalogue() do
         assert Tiebreaks.individual_calculable?(code) == code not in team_only

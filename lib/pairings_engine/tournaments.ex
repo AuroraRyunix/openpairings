@@ -676,6 +676,7 @@ defmodule PairingsEngine.Tournaments do
 
     %Tournament{tiebreaks: Tiebreaks.fide_defaults(type)}
     |> Tournament.changeset(attrs)
+    |> Tournament.validate_no_team_keizer()
     |> stamp_compliance_loss(0)
     |> Repo.insert()
     |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
@@ -687,6 +688,7 @@ defmodule PairingsEngine.Tournaments do
 
     %Tournament{tiebreaks: Tiebreaks.fide_defaults(type), user_id: scope.user.id}
     |> Tournament.changeset(attrs)
+    |> Tournament.validate_no_team_keizer()
     |> stamp_compliance_loss(0)
     |> Repo.insert()
     |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
@@ -703,6 +705,7 @@ defmodule PairingsEngine.Tournaments do
          :ok <- ensure_unlocked(tournament, attrs, opts) do
       tournament
       |> Tournament.changeset(attrs)
+      |> Tournament.validate_no_team_keizer()
       |> stamp_compliance_loss(fn ->
         PairingsEngine.Pairing.paired_rounds_count(tournament.id)
       end)
@@ -859,7 +862,12 @@ defmodule PairingsEngine.Tournaments do
       # the first round like the pairing shape does. Only for team events:
       # the field is inert everywhere else, and an individual tournament's
       # list stays exactly what it was.
-      base = if Tournament.team?(tournament), do: base ++ [:team_boards], else: base
+      # The board-colour convention decided who sat with White on every
+      # board already played, so it freezes with them.
+      base =
+        if Tournament.team?(tournament),
+          do: base ++ [:team_boards, :team_board_colours],
+          else: base
 
       # The initial colour decided round 1's boards (C.04.3 5.2.5, C.04.6
       # 4.3.1) and every later "both have yet to play" board after it, so it
@@ -894,6 +902,7 @@ defmodule PairingsEngine.Tournaments do
   @fide_locked ~w(rounds_count rr_cycles points_win points_draw points_loss
                   team_match_points_win team_match_points_draw team_match_points_loss
                   bye_value presence_value presence_on_allocated_bye
+                  team_pab_match_points team_pab_game_points
                   acceleration pairing_system tiebreaks)a
 
   @doc """
@@ -3222,9 +3231,63 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Whether the rosters and board orders are locked: FIDE mode
+  (`PairingsEngine.Compliance.fide_mode?/1`) once round 1 is paired
+  (`teams_frozen?/1`). A FIDE team event fixes each team's board order
+  before it starts (Chess Olympiad 2026 regulations Art. 4.17.6, "the list
+  of fixed board orders"; World Team Rapid & Blitz 2026 Art. 4.2.1: "a
+  board order, which cannot be changed and remains fixed throughout the
+  tournament"). While locked a player already on a team cannot be moved up
+  or down, to another team or off the team - except one who has not sat at
+  a board yet, who can be taken off again - and a NEW player can still be
+  added, at the bottom of a team's order, as a reserve.
+
+  Outside FIDE mode nothing is locked; `roster_change_warning?/1` says when
+  a change deserves a warning instead.
+  """
+  def roster_locked?(%Tournament{} = tournament),
+    do: PairingsEngine.Compliance.fide_mode?(tournament) and teams_frozen?(tournament.id)
+
+  @doc """
+  Whether a roster or board-order change should come with a warning: round 1
+  is paired and the tournament is not in FIDE mode, so the change is allowed
+  but alters what later rounds field, and the TRF lists one board order.
+  """
+  def roster_change_warning?(%Tournament{} = tournament),
+    do: teams_frozen?(tournament.id) and not PairingsEngine.Compliance.fide_mode?(tournament)
+
+  @doc "The ids of every player who has sat at a board of the tournament, as a MapSet."
+  def seated_player_ids(tournament_id) do
+    from(p in Pairing,
+      join: r in assoc(p, :round),
+      where: r.tournament_id == ^tournament_id,
+      select: [p.white_player_id, p.black_player_id]
+    )
+    |> Repo.all()
+    |> List.flatten()
+    |> Enum.reject(&is_nil/1)
+    |> MapSet.new()
+  end
+
+  @doc "Whether `player` has sat at any board of their tournament."
+  def seated_anywhere?(%Player{id: id, tournament_id: tournament_id}) do
+    Repo.exists?(
+      from p in Pairing,
+        join: r in assoc(p, :round),
+        where: r.tournament_id == ^tournament_id,
+        where: p.white_player_id == ^id or p.black_player_id == ^id
+    )
+  end
+
+  @doc """
   Puts `player` on `team` (a `%Team{}`, or nil to take them off their team),
   at the bottom of the new roster. The old roster closes the gap, so board
   order stays 1..n on both.
+
+  While the rosters are locked (`roster_locked?/1`) only a player on no team
+  can be put on one - at the bottom, as a reserve - and only a player who
+  has not sat at a board can be taken off: anything else is
+  `{:error, :roster_locked_in_fide_mode}`.
   """
   def set_player_team(%Tournament{} = tournament, %Player{} = player, team) do
     new_team_id = team && team.id
@@ -3242,6 +3305,10 @@ defmodule PairingsEngine.Tournaments do
       player.team_id == new_team_id ->
         {:ok, player}
 
+      not is_nil(player.team_id) and roster_locked?(tournament) and
+          (not is_nil(new_team_id) or seated_anywhere?(player)) ->
+        {:error, :roster_locked_in_fide_mode}
+
       true ->
         result =
           Repo.transaction(fn ->
@@ -3250,7 +3317,11 @@ defmodule PairingsEngine.Tournaments do
 
             updated =
               player
-              |> Ecto.Changeset.change(team_id: new_team_id, board_order: board_order)
+              |> Ecto.Changeset.change(
+                team_id: new_team_id,
+                board_order: board_order,
+                team_history: team_history_after_move(player)
+              )
               |> Repo.update!()
 
             if player.team_id, do: renumber_roster(tournament.id, player.team_id)
@@ -3261,10 +3332,37 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  # A player leaving a team they have played for keeps a record of it: on
+  # that team through the last round paired. Moves before they played, or
+  # a second move within the same round, leave no entry - the boards
+  # already say who they played for.
+  defp team_history_after_move(%Player{team_id: nil} = player), do: player.team_history || []
+
+  defp team_history_after_move(%Player{} = player) do
+    history = player.team_history || []
+    through = PairingsEngine.Pairing.paired_rounds_count(player.tournament_id)
+    last = history |> List.last() |> then(&(&1 && &1["through_round"]))
+
+    if through >= 1 and through != last and seated_anywhere?(player),
+      do: history ++ [%{"team_id" => player.team_id, "through_round" => through}],
+      else: history
+  end
+
+  @doc """
+  The team `player` was on in round `round`: the first `team_history`
+  entry that reaches that round, else their team now.
+  """
+  def team_in_round(%Player{} = player, round) do
+    Enum.find_value(player.team_history || [], player.team_id, fn entry ->
+      if entry["through_round"] >= round, do: entry["team_id"]
+    end)
+  end
+
   @doc """
   Moves a player one board up (`:up`, towards board 1) or down in their
   team's order. A no-op at either end. The roster is renumbered 1..n on the
-  way, so a roster with gaps or unset orders comes out tidy.
+  way, so a roster with gaps or unset orders comes out tidy. Refused with
+  `{:error, :roster_locked_in_fide_mode}` while `roster_locked?/1`.
   """
   def move_player_board(%Tournament{} = tournament, %Player{} = player, direction)
       when direction in [:up, :down] do
@@ -3274,6 +3372,9 @@ defmodule PairingsEngine.Tournaments do
 
       is_nil(player.team_id) or player.tournament_id != tournament.id ->
         {:error, :not_found}
+
+      roster_locked?(tournament) ->
+        {:error, :roster_locked_in_fide_mode}
 
       true ->
         roster = team_roster(tournament.id, player.team_id)
@@ -3401,6 +3502,134 @@ defmodule PairingsEngine.Tournaments do
       from t in Team,
         where: t.tournament_id == ^tournament_id and not is_nil(t.pairing_number)
     )
+  end
+
+  @doc """
+  Withdraws `team` from the event as of round `from_round`, in one action
+  (docs/team-tournaments.md, "A team that withdraws"):
+
+    * every player of its roster still in the event is withdrawn the way a
+      single player is (`forfeit`), so no later round fields them - a team
+      Swiss leaves the team out of the pairing from then on, and a round
+      robin round paired later gives each of its boards to the opponent;
+    * every match of the team already paired for round `from_round` or later
+      that has no result yet is forfeited by decision to its opponent
+      (`PairingsEngine.TeamMatches.forfeit_match/3`) - the rounds a team
+      round robin's *Pair all* wrote in advance. A match in a round FIDE mode
+      has closed (`ensure_round_editable/2`) is left as it is.
+
+  `from_round` is the first round the team does not play. A team round robin
+  set to annul a withdrawal under half its matches (`team_withdrawal_annul`)
+  then leaves the team's matches out of the standings
+  (`PairingsEngine.TeamStandings.annulled_team_ids/2`). Returns
+  `{:ok, %{team: team, forfeited: [match]}}`; `reinstate_team/2` undoes it.
+  """
+  def withdraw_team(%Tournament{} = tournament, %Team{} = team, from_round) do
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      team.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      not is_nil(team.withdrawn_from_round) ->
+        {:error, :already_withdrawn}
+
+      not is_integer(from_round) or from_round < 1 or from_round > tournament.rounds_count ->
+        {:error, :bad_round}
+
+      true ->
+        players = Enum.reject(team_roster(tournament.id, team.id), & &1.forfeit)
+        ids = Enum.map(players, & &1.id)
+
+        {:ok, team} =
+          Repo.transaction(fn ->
+            Repo.update_all(from(p in Player, where: p.id in ^ids), set: [forfeit: true])
+
+            team
+            |> Ecto.Changeset.change(
+              withdrawn_from_round: from_round,
+              withdrawal_player_ids: ids
+            )
+            |> Repo.update!()
+          end)
+
+        forfeited =
+          for {match, opponent_id} <- open_team_matches(tournament, team, from_round),
+              {:ok, updated} <-
+                [PairingsEngine.TeamMatches.forfeit_match(tournament, match, opponent_id)],
+              do: updated
+
+        invalidate_manual_ranking(tournament.id)
+        broadcast_tournament_change(tournament.id, :players)
+        {:ok, %{team: team, forfeited: forfeited}}
+    end
+  end
+
+  # The team's matches in round `from_round` or later that nobody has
+  # started (`TeamMatches.lineup_open?/1`), each with the opponent's id.
+  defp open_team_matches(tournament, team, from_round) do
+    from(m in Match,
+      join: r in assoc(m, :round),
+      where: r.tournament_id == ^tournament.id and r.number >= ^from_round,
+      where: not is_nil(m.team_b_id),
+      where: m.team_a_id == ^team.id or m.team_b_id == ^team.id,
+      order_by: [r.number, m.board]
+    )
+    |> Repo.all()
+    |> Enum.filter(&PairingsEngine.TeamMatches.lineup_open?/1)
+    |> Enum.map(fn m -> {m, if(m.team_a_id == team.id, do: m.team_b_id, else: m.team_a_id)} end)
+  end
+
+  @doc """
+  Undoes `withdraw_team/3`: the players it withdrew are back in the event,
+  and the forfeit decisions it took on the team's later matches are
+  withdrawn (`TeamMatches.withdraw_forfeit/2`), so those boards are as they
+  were. A decision on a match whose round FIDE mode has closed stays.
+  `{:error, :not_withdrawn}` for a team still in the event.
+  """
+  def reinstate_team(%Tournament{} = tournament, %Team{} = team) do
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      team.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      is_nil(team.withdrawn_from_round) ->
+        {:error, :not_withdrawn}
+
+      true ->
+        decided =
+          from(m in Match,
+            join: r in assoc(m, :round),
+            where: r.tournament_id == ^tournament.id and r.number >= ^team.withdrawn_from_round,
+            where: m.team_a_id == ^team.id or m.team_b_id == ^team.id,
+            where: not is_nil(m.forfeited_to_team_id) and m.forfeited_to_team_id != ^team.id
+          )
+          |> Repo.all()
+          |> Enum.reject(&PairingsEngine.TeamMatches.played_before_decision?/1)
+
+        Enum.each(decided, &PairingsEngine.TeamMatches.withdraw_forfeit(tournament, &1))
+
+        ids = team.withdrawal_player_ids || []
+
+        {:ok, team} =
+          Repo.transaction(fn ->
+            Repo.update_all(
+              from(p in Player, where: p.id in ^ids and p.tournament_id == ^tournament.id),
+              set: [forfeit: false]
+            )
+
+            team
+            |> Ecto.Changeset.change(withdrawn_from_round: nil, withdrawal_player_ids: [])
+            |> Repo.update!()
+          end)
+
+        invalidate_manual_ranking(tournament.id)
+        broadcast_tournament_change(tournament.id, :players)
+        {:ok, team}
+    end
   end
 
   @doc """

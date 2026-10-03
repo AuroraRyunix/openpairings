@@ -35,8 +35,65 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] New tournament: ticking "Team tournament" with Swiss no longer says
   "Reporting only ... still paired player by player". That note dated from
   before 0.62.0; Swiss plus Team has paired team against team by FIDE's team
-  Swiss (C.04.6) since then, and the hint now says so. Only Keizer, which has
-  no team system, keeps the "Reporting only" warning.
+  Swiss (C.04.6) since then, and the hint now says so. Keizer, which has no
+  team system, is refused for a new team tournament (below).
+- [Feature] Team events: line-ups per round, entered after the pairing is
+  published. Each match's page (the "Line-ups" link in the Pairings page's
+  match list) has one select per board for each team, starting from the
+  roster minus anyone unavailable that round. Players can be left out and
+  reserves moved up, but a line-up keeps the roster's board order (the FIDE
+  team events' fixed board order). Saving rewrites the match's boards; it is
+  allowed until the match's first result, and recorded in the audit trail.
+- [Change] Team events in FIDE mode: once round 1 is paired the rosters and
+  board orders are fixed - nobody moves up or down, changes team or leaves a
+  team they played for. A new player can still be added at the bottom of a
+  team, as a reserve. Outside FIDE mode every change is still allowed, with
+  a warning.
+- [Fix] TRF: a player moved to another team after playing (outside FIDE
+  mode) was listed in the `310` record under their new team, also for the
+  rounds they played for the old one. The move is now recorded, and the
+  report lists the player under the team they played for.
+- [Feature] Team events: a board-colours setting (Teams, Matches). FIDE's
+  rule - the team named first has White on the odd boards - stays the
+  default; it is now cited from the Olympiad 2026 regulations instead of
+  memory. "League" makes the first-named team the home team, and home and
+  away can be swapped on a match's page before it starts. Existing
+  tournaments keep exactly their colours.
+- [Feature] Team events: withdraw a team in one action (Teams page): all its
+  players are withdrawn, and its matches already paired for later rounds
+  are forfeited to the opponents. Reinstate undoes it. A team round robin
+  can take a team that played fewer than half its matches out of the team
+  standings (Settings, Scoring; FIDE General Regulations for Competitions
+  6.6); off by default.
+- [Feature] Team events: a double forfeit ("Neither team" in the match list):
+  both teams lose the match by forfeit. Written to the TRF as a `330` record
+  of type `--`, and read back from one on import.
+- [Feature] Team tie-breaks: Buchholz cuts and median, Buchholz on game
+  points, the extended Sonneborn-Bergers on game points (EGMSB, EGGSB),
+  Extended Direct Encounter, Top Board Results, Bottom Board Elimination and
+  SSSC (C.07 Articles 12-13). The FIDE default set is unchanged.
+- [Feature] Team Swiss: the pairing-allocated bye's match and game points can
+  be set (Settings, Scoring) when the regulations say other than a draw
+  (C.04.6 Art. 1.4). Written to the TRF (`362` `P`, `320`) and read back on
+  import.
+- [Change] New tournament: a team tournament can no longer be Keizer, which
+  has no team system and paired it player by player. Existing ones keep
+  working.
+- [Fix] Team standings counted game points from rounds not yet played: a
+  team round robin's "Pair all" writes the forfeit on a short team's empty
+  seat in every round at once. Standings, board statistics, the TRF and
+  OpenResults now count a round once it is the current round or earlier.
+- [Fix] TRF of a team event: the `202` tie-breaks are written in C.07's
+  spelling (MPTS, GPTS, BC, SB:MP ...) so a checker such as `ainalrami -c` can
+  check the team standings; and the `310` match and game points are those of
+  the file's own rounds (a file from round 1: the standings after its last
+  round, with the rank; a round sent on its own: what that round earned, no
+  rank), not the whole event's.
+- [Fix] TRF: the initial colour drawn by lot is now written (`152`, or
+  `XXC` in the engine file) whenever one is on record - for individual
+  events too. Apart from that new line, individual reports are unchanged.
+- [Change] Publishing a team event to OpenResults adds the boards per match,
+  each board's place in its match and a double-forfeit flag (additive).
 - [Feature] Settings, Export: the TRF section announces a "Rating validator
   (YAML)" export, marked Soon. The button is a placeholder and does nothing
   yet.

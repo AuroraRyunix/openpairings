@@ -63,13 +63,26 @@ defmodule PairingsEngine.TeamMatches do
     boards = match_boards(match)
 
     cond do
-      refusal = Tournaments.write_refused(t.id) -> refusal
-      refusal = round_closed(t, match) -> refusal
-      is_nil(match.team_b_id) -> {:error, :bye_match}
-      winner_team_id not in [match.team_a_id, match.team_b_id] -> {:error, :not_in_match}
-      not is_nil(match.forfeited_to_team_id) -> {:error, :already_forfeited}
-      boards == [] -> {:error, :no_boards}
-      true -> do_forfeit(t, match, boards, winner_team_id)
+      refusal = Tournaments.write_refused(t.id) ->
+        refusal
+
+      refusal = round_closed(t, match) ->
+        refusal
+
+      is_nil(match.team_b_id) ->
+        {:error, :bye_match}
+
+      winner_team_id not in [match.team_a_id, match.team_b_id] ->
+        {:error, :not_in_match}
+
+      not is_nil(match.forfeited_to_team_id) or match.double_forfeit ->
+        {:error, :already_forfeited}
+
+      boards == [] ->
+        {:error, :no_boards}
+
+      true ->
+        do_forfeit(t, match, boards, winner_team_id)
     end
   end
 
@@ -96,6 +109,59 @@ defmodule PairingsEngine.TeamMatches do
   end
 
   @doc """
+  Records a DOUBLE forfeit: neither team turned up, so both lose the match by
+  forfeit. Every board becomes `0-0FF` - a forfeit loss for both seats - the
+  match is marked `double_forfeit`, and the boards' previous results are kept
+  as for `forfeit_match/3`, so `withdraw_forfeit/2` puts them back.
+
+  Scored by `PairingsEngine.TeamStandings` as a lost match for both teams:
+  the loss's match points and no game points to either (TRF-2026 record
+  `330`, type `--`; Ainalrami's reading T8 of C.07). It is not a meeting and
+  gives neither team a colour (C.04.2 Art. 3.5, C.04.6 Art. 1.6.1): no game
+  was played. `{:error, reason}` as `forfeit_match/3`.
+  """
+  def double_forfeit(%Tournament{} = t, %Match{} = match) do
+    boards = match_boards(match)
+
+    cond do
+      refusal = Tournaments.write_refused(t.id) ->
+        refusal
+
+      refusal = round_closed(t, match) ->
+        refusal
+
+      is_nil(match.team_b_id) ->
+        {:error, :bye_match}
+
+      not is_nil(match.forfeited_to_team_id) or match.double_forfeit ->
+        {:error, :already_forfeited}
+
+      boards == [] ->
+        {:error, :no_boards}
+
+      # Neither team turned up: a match in which a game was played is not
+      # one. (Forfeiting a played match to one side is `forfeit_match/3`.)
+      Enum.any?(boards, &(&1.result != "" and Results.played?(&1.result))) ->
+        {:error, :games_played}
+
+      true ->
+        Repo.transaction(fn ->
+          Enum.each(boards, fn p ->
+            p |> Pairing.changeset(%{result: "0-0FF"}) |> Repo.update!()
+          end)
+
+          match
+          |> Ecto.Changeset.change(
+            double_forfeit: true,
+            forfeit_previous_results: Map.new(boards, &{Integer.to_string(&1.board), &1.result})
+          )
+          |> Repo.update!()
+        end)
+        |> finish(t.id)
+    end
+  end
+
+  @doc """
   Withdraws a forfeit decision: the boards get back the results they had
   before it, and the match is decided on its boards again. A board added to
   the match after the decision keeps whatever it holds. `{:error,
@@ -109,7 +175,7 @@ defmodule PairingsEngine.TeamMatches do
       refusal = round_closed(t, match) ->
         refusal
 
-      is_nil(match.forfeited_to_team_id) ->
+      is_nil(match.forfeited_to_team_id) and not match.double_forfeit ->
         {:error, :not_forfeited}
 
       true ->
@@ -122,7 +188,11 @@ defmodule PairingsEngine.TeamMatches do
           end
 
           match
-          |> Ecto.Changeset.change(forfeited_to_team_id: nil, forfeit_previous_results: nil)
+          |> Ecto.Changeset.change(
+            forfeited_to_team_id: nil,
+            forfeit_previous_results: nil,
+            double_forfeit: false
+          )
           |> Repo.update!()
         end)
         |> finish(t.id)
@@ -171,6 +241,267 @@ defmodule PairingsEngine.TeamMatches do
   end
 
   defp finish({:error, _} = error, _tournament_id), do: error
+
+  ## ---------- line-ups ----------
+
+  @doc """
+  The two line-ups of `match` as they stand on its boards: `%{a: [player_id
+  | nil], b: [player_id | nil]}`, one entry per board of the match (board 1
+  first), nil for an empty seat.
+  """
+  def lineups(%Tournament{} = t, %Match{} = match) do
+    per_match = max(t.team_boards || 1, 1)
+    by_k = Map.new(match_boards(match), &{rem(&1.board - 1, per_match) + 1, &1})
+
+    {a, b} =
+      1..per_match
+      |> Enum.map(fn k ->
+        case Map.get(by_k, k) do
+          nil ->
+            {nil, nil}
+
+          p ->
+            if TeamRounds.team_a_white?(k),
+              do: {p.white_player_id, p.black_player_id},
+              else: {p.black_player_id, p.white_player_id}
+        end
+      end)
+      |> Enum.unzip()
+
+    %{a: a, b: b}
+  end
+
+  @doc """
+  Whether `match`'s line-ups may still change: no result has been entered on
+  it. A board one team could not fill carries its forfeit result from the
+  moment it is written (`TeamRounds.match_boards/3`), so only a board with
+  two players counts; a match forfeited by decision, or a double forfeit,
+  has started in the sense that matters.
+  """
+  def lineup_open?(%Match{} = match) do
+    is_nil(match.forfeited_to_team_id) and not match.double_forfeit and
+      not Enum.any?(match_boards(match), fn p ->
+        p.white_player_id && p.black_player_id && p.result not in ["", nil]
+      end)
+  end
+
+  @doc """
+  The line-up a team plays with by default in round `number`: its roster in
+  board order minus anyone unavailable that round, cut to the match size -
+  what the pairing seats (`TeamRounds.lineup/3`), padded with nil.
+  """
+  def default_lineup(%Tournament{} = t, team_id, number) do
+    per_match = max(t.team_boards || 1, 1)
+
+    t.id
+    |> Tournaments.team_roster(team_id)
+    |> TeamRounds.lineup(number, per_match)
+    |> Enum.map(& &1.id)
+    |> pad(per_match)
+  end
+
+  defp pad(ids, n), do: Enum.take(ids ++ List.duplicate(nil, n), n)
+
+  @doc """
+  Sets both line-ups of `match` and rewrites its boards to match: `lineup_a`
+  and `lineup_b` are each a list of player ids (or nil for an empty seat),
+  board 1 first, for `team_a` and `team_b`.
+
+  Allowed until the first result of the match is entered (`lineup_open?/1`),
+  and in FIDE mode only while the round is still open
+  (`Tournaments.ensure_round_editable/2`). Each line-up must be:
+
+    * players of that team, each available for the round
+      (`TeamRounds.available?/2`), none twice - `{:error, {:not_on_team,
+      id}}`, `{:error, {:unavailable, player}}`, `{:error, {:twice, player}}`;
+    * filled from board 1 down with no gap - a team short of players
+      forfeits the BOTTOM boards - `{:error, :gap}`;
+    * in the roster's board order: a player listed lower may not sit above
+      one listed higher (the fixed board order of FIDE team events: Chess
+      Olympiad 2026 regulations Art. 4.17.6, World Team Rapid & Blitz 2026
+      Art. 4.2.1, Asian Team Championships Art. 4.2.3-4.2.4) -
+      `{:error, {:board_order, upper, lower}}`.
+
+  At least one team must field a player (`{:error, :no_players}`; a match
+  neither team plays is a double forfeit, `double_forfeit/2`). Boards are
+  seated as the pairing seats them (`TeamRounds.match_boards/3`): a seat one
+  team cannot fill is the other side's forfeit win, a board neither fills is
+  removed. Returns `{:ok, match}`.
+  """
+  def set_lineups(%Tournament{} = t, %Match{} = match, lineup_a, lineup_b) do
+    per_match = max(t.team_boards || 1, 1)
+    number = round_number(match)
+
+    cond do
+      refusal = Tournaments.write_refused(t.id) ->
+        refusal
+
+      refusal = round_closed(t, match) ->
+        refusal
+
+      not Tournament.paired_as_teams?(t) ->
+        {:error, :not_team}
+
+      is_nil(match.team_b_id) ->
+        {:error, :bye_match}
+
+      not lineup_open?(match) ->
+        {:error, :match_started}
+
+      true ->
+        with {:ok, a} <- check_lineup(t, match.team_a_id, lineup_a, number, per_match),
+             {:ok, b} <- check_lineup(t, match.team_b_id, lineup_b, number, per_match),
+             :ok <- if(a == [] and b == [], do: {:error, :no_players}, else: :ok) do
+          Repo.transaction(fn -> rewrite_boards(t, match, a, b, per_match) end)
+          |> finish(t.id)
+        end
+    end
+  end
+
+  defp round_number(%Match{round_id: round_id}),
+    do: Repo.one(from r in Round, where: r.id == ^round_id, select: r.number)
+
+  # The players of one line-up, board 1 first, with the trailing empty seats
+  # dropped - or the reason it cannot be played.
+  defp check_lineup(t, team_id, ids, number, per_match) do
+    ids = ids |> Enum.take(per_match) |> pad(per_match)
+    {seated, rest} = Enum.split_while(ids, &(not is_nil(&1)))
+
+    roster = Tournaments.team_roster(t.id, team_id)
+    by_id = Map.new(roster, &{&1.id, &1})
+    position = roster |> Enum.with_index() |> Map.new(fn {p, i} -> {p.id, i} end)
+
+    unavailable =
+      Enum.find_value(seated, fn id ->
+        player = Map.get(by_id, id)
+        if player && not TeamRounds.available?(player, number), do: player
+      end)
+
+    out_of_order =
+      seated
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.find(fn [x, y] -> Map.get(position, x, 0) > Map.get(position, y, 0) end)
+
+    duplicate = seated |> Enum.frequencies() |> Enum.find(fn {_id, n} -> n > 1 end)
+
+    cond do
+      Enum.any?(rest, &(not is_nil(&1))) ->
+        {:error, :gap}
+
+      stranger = Enum.find(seated, &(not Map.has_key?(by_id, &1))) ->
+        {:error, {:not_on_team, stranger}}
+
+      duplicate ->
+        {:error, {:twice, Map.fetch!(by_id, elem(duplicate, 0))}}
+
+      unavailable ->
+        {:error, {:unavailable, unavailable}}
+
+      out_of_order ->
+        [upper, lower] = out_of_order
+        {:error, {:board_order, Map.fetch!(by_id, upper), Map.fetch!(by_id, lower)}}
+
+      true ->
+        {:ok, Enum.map(seated, &Map.fetch!(by_id, &1))}
+    end
+  end
+
+  defp rewrite_boards(t, match, lineup_a, lineup_b, per_match) do
+    numbered =
+      t
+      |> TeamRounds.ensure_player_numbers(lineup_a ++ lineup_b)
+      |> Map.new(&{&1.id, &1})
+
+    lineup_a = Enum.map(lineup_a, &Map.fetch!(numbered, &1.id))
+    lineup_b = Enum.map(lineup_b, &Map.fetch!(numbered, &1.id))
+
+    existing = Map.new(match_boards(match), &{rem(&1.board - 1, per_match) + 1, &1})
+
+    wanted =
+      lineup_a
+      |> TeamRounds.match_boards(lineup_b, per_match)
+      |> Map.new(fn {k, w, b, result} -> {k, {w, b, result}} end)
+
+    for k <- 1..per_match do
+      case {Map.get(existing, k), Map.get(wanted, k)} do
+        {nil, nil} ->
+          :ok
+
+        {%Pairing{} = p, nil} ->
+          Repo.delete!(p)
+
+        {nil, {white, black, result}} ->
+          %Pairing{
+            round_id: match.round_id,
+            match_id: match.id,
+            board: (match.board - 1) * per_match + k,
+            white_player_id: white && white.id,
+            black_player_id: black && black.id,
+            result: result
+          }
+          |> Repo.insert!()
+          |> Tournaments.freeze_new_pairing_display_board!()
+
+        {%Pairing{} = p, {white, black, result}} ->
+          p
+          |> Ecto.Changeset.change(
+            white_player_id: white && white.id,
+            black_player_id: black && black.id,
+            result: result
+          )
+          |> Repo.update!()
+      end
+    end
+
+    Repo.reload!(match)
+  end
+
+  @doc """
+  League-style board colours (`Tournament.home_and_away?/1`): makes the away
+  team the home team. `team_a` is always the team with White on the odd
+  boards, so the two teams change places on the match and every board's two
+  seats swap. Only before the match has a result (`lineup_open?/1`).
+  """
+  def swap_home(%Tournament{} = t, %Match{} = match) do
+    cond do
+      refusal = Tournaments.write_refused(t.id) ->
+        refusal
+
+      refusal = round_closed(t, match) ->
+        refusal
+
+      not Tournament.home_and_away?(t) ->
+        {:error, :not_home_and_away}
+
+      is_nil(match.team_b_id) ->
+        {:error, :bye_match}
+
+      not lineup_open?(match) ->
+        {:error, :match_started}
+
+      true ->
+        Repo.transaction(fn ->
+          for p <- match_boards(match) do
+            p
+            |> Ecto.Changeset.change(
+              white_player_id: p.black_player_id,
+              black_player_id: p.white_player_id,
+              result: flip(p.result)
+            )
+            |> Repo.update!()
+          end
+
+          match
+          |> Ecto.Changeset.change(team_a_id: match.team_b_id, team_b_id: match.team_a_id)
+          |> Repo.update!()
+        end)
+        |> finish(t.id)
+    end
+  end
+
+  defp flip("1-0FF"), do: "0-1FF"
+  defp flip("0-1FF"), do: "1-0FF"
+  defp flip(result), do: result
 
   ## ---------- boards added by hand ----------
 

@@ -324,13 +324,21 @@ defmodule PairingsEngine.TeamMatchInferenceTest do
       assert Enum.any?(texts, &(&1 =~ "the file's 330 record forfeits it to One"))
     end
 
-    test "an unresolvable 330 (a double forfeit) is left exactly as it would be without one" do
+    test "a 330 double forfeit for two teams with no board is a match both lost" do
       data = trf26_forfeit_data([%{type: "--", round: 1, white: 2, black: 3}])
       {:ok, imported, warnings} = data |> Trf.serialize() |> TrfImport.import_text()
 
-      refute Tournament.paired_as_teams?(imported)
+      assert Tournament.paired_as_teams?(imported)
+      teams = imported.id |> Tournaments.list_teams() |> Map.new(&{&1.name, &1})
+      round = Tournaments.get_round(imported.id, 1)
+      match = Enum.find(Tournaments.list_matches(round.id), &(&1.team_b_id == teams["Two"].id))
+
+      assert match.team_a_id == teams["One"].id
+      assert match.double_forfeit
+      assert is_nil(match.forfeited_to_team_id)
+
       texts = note_texts(warnings)
-      assert Enum.any?(texts, &(&1 =~ "does not say which of them had the pairing-allocated bye"))
+      assert Enum.any?(texts, &(&1 =~ "both teams lost it by forfeit"))
     end
 
     test "exports a 362, a 320 bye and 310 team numbers, ranks, match and game points" do

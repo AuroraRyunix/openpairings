@@ -174,6 +174,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
         absent_counts_as_vur late_entry_absences team_match_points_win team_match_points_draw team_match_points_loss
+        team_pab_match_points team_pab_game_points team_withdrawal_annul
         postponed_games postponed_requester_outcome postponed_opponent_outcome))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
@@ -360,6 +361,79 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
               />
             </.setting_field>
           </.setting_group>
+
+          <div
+            :if={PairingsEngine.Tournaments.Tournament.team_swiss?(@tournament)}
+            id="team-pab-settings"
+          >
+            <h3>{gettext("Pairing-allocated bye")}</h3>
+            <p class="subtitle" style="margin: 0 0 8px">
+              {gettext(
+                "FIDE's team Swiss gives the team left out of an odd round the points of a drawn match, unless the competition's regulations say otherwise (C.04.6 Art. 1.4). Leave these empty for a drawn match's points."
+              )}
+            </p>
+            <.setting_group>
+              <.setting_field label={gettext("Match points for the bye")}>
+                <input
+                  id="team-pab-match-points"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  name="tournament[team_pab_match_points]"
+                  value={@tournament.team_pab_match_points}
+                  placeholder={to_string(@tournament.team_match_points_draw)}
+                  disabled={:team_pab_match_points in @fide_locked}
+                />
+              </.setting_field>
+              <.setting_field label={gettext("Game points for the bye")}>
+                <input
+                  id="team-pab-game-points"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  name="tournament[team_pab_game_points]"
+                  value={@tournament.team_pab_game_points}
+                  placeholder={
+                    @tournament
+                    |> PairingsEngine.Tournaments.Tournament.team_pab_value(
+                      max(@tournament.team_boards || 1, 1)
+                    )
+                    |> elem(1)
+                    |> to_string()
+                  }
+                  disabled={:team_pab_game_points in @fide_locked}
+                />
+              </.setting_field>
+            </.setting_group>
+          </div>
+
+          <div
+            :if={PairingsEngine.Tournaments.Tournament.team_round_robin?(@tournament)}
+            id="team-withdrawal-settings"
+          >
+            <h3>{gettext("A team that withdraws")}</h3>
+            <input type="hidden" name="tournament[team_withdrawal_annul]" value="false" />
+            <label class="field field-check">
+              <input
+                id="team-withdrawal-annul"
+                type="checkbox"
+                name="tournament[team_withdrawal_annul]"
+                value="true"
+                checked={@tournament.team_withdrawal_annul}
+                style="width: auto"
+              />
+              <span>
+                {gettext(
+                  "Take its matches out of the team standings when it played fewer than half of them"
+                )}
+              </span>
+            </label>
+            <p class="hint">
+              {gettext(
+                "FIDE's rule for a player who withdraws from a round robin (General Regulations for Competitions 6.6): under 50% played, the results stay in the table for rating but do not count in the final ranking. Off by default: the results stand, as for an individual round robin here. The games always stay for the rating report."
+              )}
+            </p>
+          </div>
         </div>
 
         <div class="card">
