@@ -23,6 +23,11 @@ defmodule PairingsEngine.TeamFlowValidationTest do
   team), forfeits by decision (before and after play, sometimes withdrawn),
   board forfeits, unrated games, postponed games, odd fields (the team PAB,
   the Berger bye), several match-point systems and every initial colour.
+  Teams absent as a team for a round (`Tournaments.set_team_absent/4`), in
+  both kinds of event. About 30% of the events have optional line-ups
+  (`team_lineups` "optional"): half of those with no players on any team,
+  the rest with some teams empty; results go on boards nobody sits at, or
+  on the match as one score (`TeamMatches.set_match_score/4`).
 
   Checked, with this file's own fixed-column reading - never the app's
   builder:
@@ -48,6 +53,13 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     * `ainalrami -c` on the full report, exit 0: a team Swiss re-paired
       round by round, a team round robin compared with the Berger tables,
       and the standings re-ranked.
+
+  With optional line-ups the report cannot carry a board nobody sits at, so
+  what is read from the file's games above is read from the database's
+  boards instead, with this file's own scoring: the `310` match and game
+  points, the `330` forfeits, and the history the engine input is compared
+  with. `ainalrami -c` is not run on such a report (it re-ranks from the
+  file's games).
 
   TEAM_FLOW_COUNT (unset: skipped), TEAM_FLOW_FIRST, TEAM_FLOW_DUMP=dir.
   """
@@ -188,7 +200,18 @@ defmodule PairingsEngine.TeamFlowValidationTest do
 
     {mw, md, ml} = Enum.random(@mp_systems)
     {win, draw, loss} = if chance(90), do: {1.0, 0.5, 0.0}, else: {2.0, 1.0, 0.0}
-    postponed? = chance(30)
+    optional? = chance(30)
+
+    empty =
+      cond do
+        not optional? -> :none
+        chance(50) -> :all
+        true -> :some
+      end
+
+    # Postponed games are for events with players; an optional event's
+    # boards nobody sits at have no one to postpone them.
+    postponed? = not optional? and chance(30)
     colour = Enum.random(~w(lot lot white black))
 
     start = Date.new!(2026, 8, between(1, 28))
@@ -206,6 +229,7 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         "rounds_count" => rounds,
         "pairing_engine" => "ainalrami",
         "team_boards" => boards,
+        "team_lineups" => if(optional?, do: "optional", else: "required"),
         "team_match_points_win" => mw,
         "team_match_points_draw" => md,
         "team_match_points_loss" => ml,
@@ -229,6 +253,12 @@ defmodule PairingsEngine.TeamFlowValidationTest do
       boards: boards,
       dates: dates,
       postponed?: postponed?,
+      optional?: optional?,
+      empty: empty,
+      # {team id, round}: absent as a team
+      team_absent: MapSet.new(),
+      # team id => the first round it could play
+      team_start: %{},
       next_team: 1,
       next_player: 1,
       # team id => player ids, board order as this test keeps it
@@ -241,7 +271,11 @@ defmodule PairingsEngine.TeamFlowValidationTest do
       paired_rounds: [],
       sent_files: [],
       late_files: [],
-      stats: %{"kind_#{kind}": 1},
+      stats:
+        if(optional?,
+          do: %{"kind_#{kind}": 1, "lineups_optional_#{empty}": 1},
+          else: %{"kind_#{kind}": 1}
+        ),
       failures: []
     }
 
@@ -275,15 +309,21 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     k = st.next_team
     {:ok, team} = Tournaments.create_team(tournament(st), %{"name" => "Team #{k} S#{st.seed}"})
 
-    # Mostly a full side with reserves; now and then too few players.
+    # Mostly a full side with reserves; now and then too few players. With
+    # optional line-ups, no players at all: every team, or some of them.
     size =
-      if chance(10),
-        do: between(1, max(st.boards - 1, 1)),
-        else: st.boards + between(0, 3)
+      cond do
+        st.empty == :all -> 0
+        st.empty == :some and chance(35) -> 0
+        chance(10) -> between(1, max(st.boards - 1, 1))
+        true -> st.boards + between(0, 3)
+      end
 
     st = %{st | next_team: k + 1, roster: Map.put(st.roster, team.id, [])}
     st = %{st | team_order: st.team_order ++ [team.id]}
-    Enum.reduce(1..size, st, fn _, acc -> add_player(acc, team.id, start_round) end)
+    st = %{st | team_start: Map.put(st.team_start, team.id, start_round)}
+    st = if size == 0, do: bump(st, :empty_teams), else: st
+    Enum.reduce(1..size//1, st, fn _, acc -> add_player(acc, team.id, start_round) end)
   end
 
   defp add_player(st, team_id, start_round) do
@@ -315,8 +355,8 @@ defmodule PairingsEngine.TeamFlowValidationTest do
 
   # The Teams page's arrows, before round 1.
   defp shuffle_boards(st) do
-    Enum.reduce(st.roster, st, fn {team_id, _}, acc ->
-      if chance(50) do
+    Enum.reduce(st.roster, st, fn {team_id, ids}, acc ->
+      if ids != [] and chance(50) do
         Enum.reduce(1..between(1, 3), acc, fn _, acc2 ->
           ids = acc2.roster[team_id]
           id = Enum.random(ids)
@@ -365,12 +405,47 @@ defmodule PairingsEngine.TeamFlowValidationTest do
       (a.withdrawn_from == nil or a.withdrawn_from > r)
   end
 
-  defp lineup(st, team_id, r),
-    do:
-      st.roster
-      |> Map.fetch!(team_id)
-      |> Enum.filter(&available?(st, &1, r))
-      |> Enum.take(st.boards)
+  defp lineup(st, team_id, r) do
+    if team_absent?(st, team_id, r),
+      do: [],
+      else:
+        st.roster
+        |> Map.fetch!(team_id)
+        |> Enum.filter(&available?(st, &1, r))
+        |> Enum.take(st.boards)
+  end
+
+  defp team_absent?(st, team_id, r), do: MapSet.member?(st.team_absent, {team_id, r})
+
+  # The Teams page's "Absent as a team in round": a round not yet paired.
+  defp mark_team_absent(st, team_id, r) do
+    t = tournament(st)
+    team = Tournaments.get_team(st.tid, team_id)
+
+    case Tournaments.set_team_absent(t, team, r, true) do
+      {:ok, _} ->
+        %{st | team_absent: MapSet.put(st.team_absent, {team_id, r})} |> bump(:team_absences)
+
+      other ->
+        fail(st, "r#{r}: marking a team absent refused: #{inspect(other)}")
+    end
+  end
+
+  # Who plays round `r` as this test sees it: with optional line-ups every
+  # team not absent as a team, players or not; otherwise a team with a
+  # player to field.
+  defp able_teams(st, r) do
+    if st.optional?,
+      do:
+        for(
+          {id, _} <- st.roster,
+          Map.get(st.team_start, id, 1) <= r,
+          not team_absent?(st, id, r),
+          into: MapSet.new(),
+          do: id
+        ),
+      else: for({id, l} <- st.lineups[r], l != [], into: MapSet.new(), do: id)
+  end
 
   defp active_players(st, r) do
     for {id, a} <- st.avail, a.withdrawn_from == nil or a.withdrawn_from > r, do: id
@@ -466,6 +541,11 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         st
       end
 
+    st =
+      if chance(15),
+        do: mark_team_absent(st, Enum.random(Map.keys(st.roster)), r),
+        else: st
+
     if chance(45) do
       ids = active_players(st, r)
 
@@ -498,6 +578,11 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         if chance(12),
           do: bump(mark_absent(acc, id, between(1, acc.rounds)), :absence_rounds),
           else: acc
+      end)
+
+    st =
+      Enum.reduce(Map.keys(st.roster), st, fn id, acc ->
+        if chance(12), do: mark_team_absent(acc, id, between(1, acc.rounds)), else: acc
       end)
 
     expected =
@@ -554,10 +639,26 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     |> Enum.reduce(st, fn match, acc ->
       winner = Enum.random([match.team_a_id, match.team_b_id])
 
+      unseated =
+        round.pairings
+        |> Enum.filter(&(&1.match_id == match.id))
+        |> Enum.all?(
+          &(is_nil(&1.white_player_id) and is_nil(&1.black_player_id) and &1.result == "")
+        )
+
       cond do
         chance(4) ->
           # Forfeited by decision before a game was played.
           decide(acc, t, match, winner, :before)
+
+        acc.optional? and unseated and chance(35) ->
+          # Only the match's result is known: one score for the match.
+          a = between(0, 2 * acc.boards) / 2
+
+          case TeamMatches.set_match_score(t, match, a, acc.boards - a) do
+            {:ok, _} -> bump(acc, :match_scores)
+            other -> fail(acc, "r#{r}: match score refused: #{inspect(other)}")
+          end
 
         true ->
           boards = Enum.filter(round.pairings, &(&1.match_id == match.id))
@@ -605,6 +706,28 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     cond do
       p.result not in [nil, ""] ->
         st
+
+      (p.white_player_id == nil or p.black_player_id == nil) and st.optional? ->
+        # A seat nobody was entered for: the board's result is entered all
+        # the same; a seated player who has since dropped out forfeits.
+        gone = fn id -> id != nil and not available?(st, id, r) end
+
+        result =
+          cond do
+            gone.(p.white_player_id) -> "0-1FF"
+            gone.(p.black_player_id) -> "1-0FF"
+            true -> pick_result(st)
+          end
+
+        case Tournaments.update_pairing_result(p, result, played_on: Enum.at(st.dates, r - 1)) do
+          {:ok, _} ->
+            if p.white_player_id == nil and p.black_player_id == nil,
+              do: bump(st, :empty_boards_entered),
+              else: bump(st, :half_empty_boards_entered)
+
+          {:error, reason} ->
+            fail(st, "r#{r}: result #{result} on an empty seat refused: #{inspect(reason)}")
+        end
 
       p.white_player_id == nil or p.black_player_id == nil ->
         fail(
@@ -766,7 +889,12 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     {:ok, full} = TrfExport.export(t, nil, copy: true)
     st = maybe_dump(st, dump, "full", full)
     st = if st.kind == :swiss, do: check_engine_input(st, t, full, games, matches), else: st
-    check_with_engine(st, t, full, dump, games, matches)
+
+    # `ainalrami -c` re-ranks from the file's games, which cannot carry a
+    # board nobody sits at.
+    if st.optional?,
+      do: bump(st, :engine_check_skipped_optional),
+      else: check_with_engine(st, t, full, dump, games, matches)
   end
 
   defp maybe_dump(st, nil, _tag, _text), do: st
@@ -810,7 +938,9 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           a: m.team_a_id,
           b: m.team_b_id,
           forfeited_to: m.forfeited_to_team_id,
-          previous: m.forfeit_previous_results
+          previous: m.forfeit_previous_results,
+          double_forfeit: m.double_forfeit,
+          match_score: m.match_score_a
         }
     )
   end
@@ -881,9 +1011,14 @@ defmodule PairingsEngine.TeamFlowValidationTest do
               Enum.sort(Map.keys(side_a)) == Enum.to_list(1..map_size(side_a)//1) and
                 Enum.sort(Map.keys(side_b)) == Enum.to_list(1..map_size(side_b)//1)
 
+            # Optional line-ups: every board of the match is there, seated
+            # or not.
+            board_count =
+              if acc.optional?, do: boards, else: max(length(want_a), length(want_b))
+
             acc =
               if got_a == want_a and got_b == want_b and gapless? and
-                   length(ms) == max(length(want_a), length(want_b)),
+                   length(ms) == board_count,
                  do: bump(acc, :lineups_ok),
                  else:
                    fail(
@@ -894,9 +1029,36 @@ defmodule PairingsEngine.TeamFlowValidationTest do
                    )
 
             # One-sided seats are the forfeit win of whoever is there,
-            # unless a decision gave the match to the empty side.
+            # unless a decision gave the match to the empty side. With
+            # optional line-ups an empty seat is a player not entered: its
+            # result is the one entered; a team absent as a team loses every
+            # board of the match by forfeit.
             Enum.reduce(ms, acc, fn g, a2 ->
+              out_a = team_absent?(a2, m.a, m.round)
+              out_b = team_absent?(a2, m.b, m.round)
+              k = g.board - (m.number - 1) * boards
+              a_white? = rem(k, 2) == 1
+
               cond do
+                a2.optional? and m.forfeited_to == nil and (out_a or out_b) ->
+                  want =
+                    cond do
+                      out_a and out_b -> "0-0FF"
+                      out_a == a_white? -> "0-1FF"
+                      true -> "1-0FF"
+                    end
+
+                  if g.result == want,
+                    do: bump(a2, :absent_team_boards_ok),
+                    else:
+                      fail(
+                        a2,
+                        "r#{m.round} board #{g.board}: a team absent as a team, result #{inspect(g.result)}, want #{want}"
+                      )
+
+                a2.optional? ->
+                  a2
+
                 g.white && g.black ->
                   a2
 
@@ -917,10 +1079,11 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         end
       end)
 
-    # Swiss: exactly the teams able to field a player are paired.
+    # Swiss: exactly the teams able to field a player are paired (with
+    # optional line-ups, every team not absent as a team).
     if st.kind == :swiss do
       Enum.reduce(st.paired_rounds, st, fn r, acc ->
-        able = for {id, l} <- acc.lineups[r], l != [], into: MapSet.new(), do: id
+        able = able_teams(acc, r)
 
         paired =
           for m <- matches, m.round == r, id <- [m.a, m.b], id != nil, into: MapSet.new(), do: id
@@ -1224,6 +1387,24 @@ defmodule PairingsEngine.TeamFlowValidationTest do
 
             {acc, seen |> MapSet.put({wr, col}) |> MapSet.put({br, col})}
 
+          is_nil(g.white) and is_nil(g.black) ->
+            # Nobody sits at it (optional line-ups): no game, no line.
+            {bump(acc, :empty_boards_not_in_file), seen}
+
+          acc.optional? ->
+            # Optional line-ups: one player and an empty seat is no game,
+            # and the player's column stays blank.
+            id = g.white || g.black
+            b = get_in(rows, [rank_of[id], :blocks, col])
+
+            if b == nil or (b.opp == nil and b.code == ""),
+              do: {bump(acc, :lone_seats_not_in_file), seen},
+              else:
+                {fail(
+                   acc,
+                   "#{tag}: r#{g.round}: lone seat of #{rank_of[id]} (#{g.result}) written #{inspect(b)}"
+                 ), seen}
+
           true ->
             # A seat only one team filled.
             {id, side} = if g.white, do: {g.white, 0}, else: {g.black, 1}
@@ -1231,7 +1412,7 @@ defmodule PairingsEngine.TeamFlowValidationTest do
             want = Map.get(@no_game, code, "?unexpected #{g.result}")
             b = get_in(rows, [rank_of[id], :blocks, col])
 
-            if (b && b.opp == nil) and b.code == want,
+            if b != nil and b.opp == nil and b.code == want,
               do: {bump(acc, :seat_forfeits_ok), MapSet.put(seen, {rank_of[id], col})},
               else:
                 {fail(
@@ -1448,6 +1629,16 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           byes = if pab, do: Enum.count(pab.teams, &(&1 == rec.number)), else: 0
           gp = gp_games + byes * ((pab && pab.gp) || 0.0)
 
+          # Optional line-ups: the boards nobody sits at are not in the
+          # file, so the totals come from the database's boards.
+          gp =
+            if st.optional?,
+              do:
+                db_totals(st, t, rounds, games, matches)
+                |> Map.get(team.id, {0.0, 0.0})
+                |> elem(1),
+              else: gp
+
           if rec.gp != nil and abs(rec.gp - gp) < 0.001,
             do: bump(acc, :gp310_ok),
             else:
@@ -1461,7 +1652,12 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         end
       end)
 
-    st = check_310_mp(st, tag, rows, recs, pab, values, text)
+    st =
+      if st.optional?,
+        do: check_310_mp_db(st, t, rounds, recs, teams, games, matches),
+        else: check_310_mp(st, t, rows, recs, pab, values, text)
+
+    st = if st.optional?, do: check_330(st, t, rounds, text, teams, games, matches), else: st
 
     # One line per file: the 310 totals (file / the file's own games).
     {mism, st} = Map.pop(st, :mism, [])
@@ -1564,9 +1760,31 @@ defmodule PairingsEngine.TeamFlowValidationTest do
   # Each team's match points, worked out from the file's boards: per round,
   # its game points against its opponent's (both teams' players' points),
   # 362's win/draw/loss; the bye 320's.
-  defp check_310_mp(st, _tag, rows, recs, pab, values, text) do
+  defp check_310_mp(st, t, rows, recs, pab, values, text) do
     mp = parse_362(text) || %{}
     team_of = for rec <- recs, r <- rec.players, into: %{}, do: {r, rec.number}
+
+    # A `330` decides its match outright: `+-` the team with White on board
+    # 1 won, `-+` the other, `--` both lost.
+    forfeited =
+      for line <- lines(text, "330"), reduce: %{} do
+        acc ->
+          int = fn from, len ->
+            line |> String.slice(from, len) |> String.trim() |> String.to_integer()
+          end
+
+          {col, w, b} = {int.(7, 3), int.(11, 3), int.(15, 3)}
+
+          {ow, ob} =
+            case String.slice(line, 4, 2) do
+              "+-" -> {"W", "L"}
+              "-+" -> {"L", "W"}
+              _ -> {"L", "L"}
+            end
+
+          acc |> Map.put({col, w}, ow) |> Map.put({col, b}, ob)
+      end
+
     cols = rows |> Enum.flat_map(fn {_, row} -> Map.keys(row.blocks) end) |> Enum.uniq()
 
     per_round =
@@ -1587,6 +1805,9 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           cond do
             bye? ->
               {sum + pab.mp, unk}
+
+            outcome = Map.get(forfeited, {col, rec.number}) ->
+              {sum + mp[outcome], unk}
 
             match?([_], me.opps) ->
               [o] = me.opps
@@ -1620,12 +1841,27 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           if rec.mp != nil and abs(rec.mp - sum) < 0.001,
             do: bump(acc, :mp310_ok),
             else:
-              Map.update(
-                acc,
-                :mism,
-                ["MP T#{rec.number} #{inspect(rec.mp)}/#{sum}"],
-                &["MP T#{rec.number} #{inspect(rec.mp)}/#{sum}" | &1]
-              )
+              (fn ->
+                 team =
+                   t.id
+                   |> Tournaments.list_teams()
+                   |> Enum.find(&(&1.pairing_number == rec.number))
+
+                 app =
+                   for m <- PairingsEngine.TeamStandings.matches(t),
+                       team && team.id in [m.team_a_id, m.team_b_id],
+                       do:
+                         {m.round, m.number, m.double_forfeit?,
+                          if(m.team_a_id == team.id, do: m.mp_a, else: m.mp_b),
+                          Enum.map(
+                            m.boards,
+                            &{&1.pairing.board, &1.pairing.white_player_id,
+                             &1.pairing.black_player_id, &1.pairing.result, &1.pairing.hidden}
+                          )}
+
+                 x = "MP T#{rec.number} #{inspect(rec.mp)}/#{sum} app #{inspect(app)}"
+                 Map.update(acc, :mism, [x], &[x | &1])
+               end).()
       end
     end)
   end
@@ -1768,6 +2004,7 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     paired = st.paired_rounds
     last = Enum.max(paired, fn -> 0 end)
     Process.put(:team_flow_debug, {games, players, st.open_at_pair})
+    db_history = if st.optional?, do: history_from_db(st, t, games, matches, numbers), else: nil
 
     # Per round and team, read from the file, as it stood when round
     # `at` was paired: boards still open (postponed) then count as the
@@ -1858,8 +2095,10 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           fail(acc, "r#{r}: no engine input was recorded")
 
         %{teams: given, opts: opts} ->
+          history = if st.optional?, do: db_history, else: history_at.(r)
+
           acc
-          |> compare_input(r, given, opts, history_at.(r), recs)
+          |> compare_input(r, given, opts, history, recs)
           |> compare_output(r, given, opts, matches, numbers)
       end
     end)
@@ -2034,6 +2273,210 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     do: sum1(for rr <- 1..(round - 1)//1, e = history[rr][n], do: Map.get(e, :mp) || 0.0)
 
   defp sum1(values), do: values |> Enum.sum() |> Kernel./(1) |> Float.round(1)
+
+  ## optional line-ups: what the database's boards say
+
+  # This file's own scoring of a stored board, from its result code and the
+  # board's place in its match: `{team A's points, team B's points}` with
+  # the tournament's points for a win, a draw and a loss.
+  @outcomes %{
+    "1-0" => {:win, :loss},
+    "0-1" => {:loss, :win},
+    "1/2-1/2" => {:draw, :draw},
+    "1-0FF" => {:win, :loss},
+    "0-1FF" => {:loss, :win},
+    "0-0FF" => {:loss, :loss},
+    "1-0U" => {:win, :loss},
+    "0-1U" => {:loss, :win},
+    "1/2-1/2U" => {:draw, :draw},
+    "0-0" => {:loss, :loss},
+    "1/2-0" => {:draw, :loss},
+    "0-1/2" => {:loss, :draw}
+  }
+
+  defp board_sides(st, t, m, g) do
+    value = fn
+      :win -> t.points_win
+      :draw -> t.points_draw
+      :loss -> t.points_loss
+    end
+
+    {w, b} = Map.fetch!(@outcomes, g.result)
+    k = g.board - (m.number - 1) * st.boards
+
+    if rem(k, 2) == 1,
+      do: {value.(w), value.(b)},
+      else: {value.(b), value.(w)}
+  end
+
+  # Per match: `%{a:, b:, gp_a:, gp_b:, mp_a:, mp_b:, played?:}`, a bye with
+  # `b: nil`. The bye of a team Swiss pays a drawn match (C.04.6 1.4); a
+  # round robin's nothing.
+  defp db_match(st, t, m, games) do
+    if m.b == nil do
+      if st.kind == :swiss,
+        do: %{a: m.a, b: nil, gp_a: st.boards * t.points_draw, mp_a: t.team_match_points_draw},
+        else: %{a: m.a, b: nil, gp_a: 0.0, mp_a: 0.0}
+    else
+      boards = Enum.filter(games, &(&1.match_id == m.id))
+      sides = Enum.map(boards, &board_sides(st, t, m, &1))
+      gp_a = sides |> Enum.map(&elem(&1, 0)) |> Enum.sum()
+      gp_b = sides |> Enum.map(&elem(&1, 1)) |> Enum.sum()
+
+      {mp_a, mp_b} =
+        cond do
+          m.double_forfeit -> {t.team_match_points_loss, t.team_match_points_loss}
+          gp_a > gp_b -> {t.team_match_points_win, t.team_match_points_loss}
+          gp_a < gp_b -> {t.team_match_points_loss, t.team_match_points_win}
+          true -> {t.team_match_points_draw, t.team_match_points_draw}
+        end
+
+      played? =
+        decided_after_play?(m) or Enum.any?(boards, &(&1.result in @played_results))
+
+      %{a: m.a, b: m.b, gp_a: gp_a, gp_b: gp_b, mp_a: mp_a, mp_b: mp_b, played?: played?}
+    end
+  end
+
+  # `%{team_id => {mp, gp}}` over `rounds`.
+  defp db_totals(st, t, rounds, games, matches) do
+    for m <- matches, m.round in rounds, reduce: %{} do
+      acc ->
+        d = db_match(st, t, m, games)
+
+        add = fn acc2, id, mp, gp ->
+          Map.update(acc2, id, {mp, gp}, fn {x, y} -> {x + mp, y + gp} end)
+        end
+
+        acc = add.(acc, d.a, d.mp_a, d.gp_a)
+        if d.b, do: add.(acc, d.b, d.mp_b, d.gp_b), else: acc
+    end
+  end
+
+  defp check_310_mp_db(st, t, rounds, recs, teams, games, matches) do
+    totals = db_totals(st, t, rounds, games, matches)
+    by_number = Map.new(teams, &{&1.pairing_number, &1.id})
+
+    Enum.reduce(recs, st, fn rec, acc ->
+      {mp, _gp} = Map.get(totals, by_number[rec.number], {0.0, 0.0})
+
+      if rec.mp != nil and abs(rec.mp - mp) < 0.001 do
+        bump(acc, :mp310_db_ok)
+      else
+        team_id = by_number[rec.number]
+
+        app =
+          for m <- PairingsEngine.TeamStandings.matches(t, through_round: Enum.max(rounds)),
+              m.round in rounds,
+              team_id in [m.team_a_id, m.team_b_id],
+              into: %{},
+              do: {m.round, {m.mp_a, m.mp_b, m.gp_a, m.gp_b, m.double_forfeit?}}
+
+        db =
+          for m <- matches,
+              m.round in rounds,
+              team_id in [m.a, m.b],
+              d = db_match(st, t, m, games),
+              into: %{},
+              do:
+                {m.round,
+                 {d.mp_a, Map.get(d, :mp_b), d.gp_a, Map.get(d, :gp_b), m.double_forfeit}}
+
+        diff = for {r, x} <- app, Map.get(db, r) != x, do: {r, x, Map.get(db, r)}
+        x = "MP T#{rec.number} #{inspect(rec.mp)}/#{mp} #{inspect(diff)}"
+        Map.update(acc, :mism, [x], &[x | &1])
+      end
+    end)
+  end
+
+  # Every match of the file's rounds won by forfeit with no game played is
+  # a `330` `+-`/`-+`; a double forfeit `--`.
+  defp check_330(st, t, rounds, text, teams, games, matches) do
+    numbers = Map.new(teams, &{&1.id, &1.pairing_number})
+    col_of = rounds |> Enum.with_index(1) |> Map.new()
+
+    want =
+      for m <- matches,
+          m.round in rounds,
+          m.b != nil,
+          d = db_match(st, t, m, games),
+          m.double_forfeit or (not d.played? and d.gp_a != d.gp_b),
+          into: MapSet.new() do
+        type =
+          cond do
+            m.double_forfeit -> "--"
+            d.gp_a > d.gp_b -> "+-"
+            true -> "-+"
+          end
+
+        {type, col_of[m.round], numbers[m.a], numbers[m.b]}
+      end
+
+    got =
+      for line <- lines(text, "330"), into: MapSet.new() do
+        int = fn from, len ->
+          line |> String.slice(from, len) |> String.trim() |> String.to_integer()
+        end
+
+        {String.slice(line, 4, 2), int.(7, 3), int.(11, 3), int.(15, 3)}
+      end
+
+    if got == want,
+      do: bump(st, :forfeits330_ok, MapSet.size(want)),
+      else:
+        fail(
+          st,
+          "rounds #{inspect(rounds, charlists: :as_lists)}: 330 #{inspect(MapSet.to_list(got))}, " <>
+            "the matches won by forfeit #{inspect(MapSet.to_list(want))}"
+        )
+  end
+
+  # `history_at`'s shape, from the database's boards: per round, per team
+  # number, `%{kind: :match | :bye | :out, ...}`.
+  defp history_from_db(st, t, games, matches, numbers) do
+    for r <- Enum.uniq(Enum.map(matches, & &1.round)), into: %{} do
+      in_round = Enum.filter(matches, &(&1.round == r))
+
+      per_team =
+        Enum.flat_map(in_round, fn m ->
+          d = db_match(st, t, m, games)
+
+          if m.b == nil do
+            [{numbers[m.a], %{kind: :bye, gp: d.gp_a, mp: d.mp_a}}]
+          else
+            ap? = decided_after_play?(m)
+
+            [
+              {numbers[m.a],
+               %{
+                 kind: :match,
+                 opp: numbers[m.b],
+                 gp: d.gp_a,
+                 opp_gp: d.gp_b,
+                 mp: d.mp_a,
+                 played?: d.played?,
+                 colour: :white,
+                 after_play?: ap?
+               }},
+              {numbers[m.b],
+               %{
+                 kind: :match,
+                 opp: numbers[m.a],
+                 gp: d.gp_b,
+                 opp_gp: d.gp_a,
+                 mp: d.mp_b,
+                 played?: d.played?,
+                 colour: :black,
+                 after_play?: ap?
+               }}
+            ]
+          end
+        end)
+        |> Map.new()
+
+      {r, per_team}
+    end
+  end
 
   ## ainalrami -c on the full report
 
