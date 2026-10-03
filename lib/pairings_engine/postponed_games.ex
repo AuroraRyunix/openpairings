@@ -404,8 +404,11 @@ defmodule PairingsEngine.PostponedGames do
   #     (`:finalised_result_changed`), and so does moving a player in or out
   #     of its round (`:sent_round_changed`).
   #   * `finalised_open` - it was an open postponed game at that moment, so
-  #     it went out as `?`. Every later main report writes it as `?` again,
-  #     so a file already sent never changes; its real result, once played,
+  #     it went out unplayed - recorded as `?`, written in the file for
+  #     rating as not played (`0000 - Z`, `TrfExport.export/3`'s
+  #     `for: :rating`; as `?` itself before that). Every later main report
+  #     writes it the same way again, so a file already sent never changes
+  #     and the game is never rated there; its real result, once played,
   #     goes in the postponed-games file (`sendable_late_games/1`), and
   #     `postponed_reported_at` records that it has been sent there - once.
   #
@@ -664,8 +667,8 @@ defmodule PairingsEngine.PostponedGames do
   none), marks every board as sent and records each game - all in one write
   transaction, so the file exists only if the record landed and the record
   lands only if the file was built. Then the send's receipts are recorded,
-  one per round, and their `###` lines put into the file
-  (`PairingsEngine.SentReceipts`). Returns
+  one per round (`PairingsEngine.SentReceipts`); the file is returned as
+  built, with no line added. Returns
   `{:ok, %{marked: n, file: text, receipts: [%SentReceipt{}]}}`. `opts` may
   name who sends (`sent_by:` a label, `sent_by_id:`) for the receipt.
 
@@ -705,9 +708,9 @@ defmodule PairingsEngine.PostponedGames do
                :ok <- round_send_check(fresh.id, rounds, acknowledged),
                {:ok, file} <- build_file(build, fresh),
                {:ok, marked} <- record_round_send(fresh.id, rounds),
-               # The receipt, once the record landed: what went out, and
-               # its `###` line in the file (`SentReceipts`). It decides
-               # nothing about whether the send may happen.
+               # The receipt, once the record landed: what went out
+               # (`SentReceipts`). It decides nothing about whether the
+               # send may happen, and adds nothing to the file.
                {:ok, receipts, file} <-
                  SentReceipts.record_rounds(fresh.id, rounds, file, receipt_opts(opts)) do
             %{marked: marked, file: file, receipts: receipts}
@@ -1197,8 +1200,8 @@ defmodule PairingsEngine.PostponedGames do
   Sends a postponed-games file: `build` (a function of the fresh tournament
   returning `TrfExport.postponed_export/2`'s `{:ok, text, games}`) builds it
   and its games are marked as sent, in one write transaction - so only the
-  request whose record lands gets a file. Its receipt is recorded and its
-  `###` line put into the file (`PairingsEngine.SentReceipts`). Returns
+  request whose record lands gets a file. Its receipt is recorded
+  (`PairingsEngine.SentReceipts`); the file goes out as built. Returns
   `{:ok, text, games, %SentReceipt{}}`, or `build`'s error, or
   `mark_late_games_sent/2`'s. `opts` as `send_rounds/4`'s.
   """

@@ -6,25 +6,37 @@ defmodule PairingsEngine.TrfFlowValidationTest do
   (the calls the LiveViews and the Export page make): create, players, late
   entries, withdrawals, announced absences, `Pairing.pair_next_round/2`,
   `update_pairing_result/3` (postponed games included, played later),
-  `PostponedGames.send_rounds/4` with the Export page's own builder, and
+  `PostponedGames.send_rounds/4` with the Export page's own builder (the file
+  for rating, `TrfExport.export/3` with `for: :rating`), and
   `PostponedGames.send_late_games/3` with `TrfExport.postponed_export/2`.
 
   Every file that was SENT is then checked against the database, with this
   file's own fixed-column reading of the `001` records and its own table of
   which stored result becomes which TRF code - never the app's builder:
 
+    * every file holds only records: no column ruler, no `DDD` legend, no
+      comment line (`###`), no `162` with `X`, and no `?` anywhere;
     * every stored game of the file's rounds is on both players' lines, in
       its round's column, opponent and colour and code right; nothing else is;
-    * the two sides of every game mirror each other (1/0, =/=, +/-, W/L, D/D,
-      ?/?), and asymmetric codes are counted separately;
-    * the points column adds up from the file's own `162` point system;
+      a game sent while postponed is NOT PLAYED there, `0000 - Z` on both
+      players' lines;
+    * the two sides of every game mirror each other (1/0, =/=, +/-, W/L,
+      D/D), and asymmetric codes are counted separately;
+    * the points column adds up from the file's own point system (`162`
+      when it is not 1/half/0);
     * `062`/`072`/`132`/`042`/`052` agree with the file;
     * across ALL files sent for one tournament, every rated game (1, 0, =)
       appears exactly once, and every game played after its round was sent
-      as `?` appears exactly once, in a postponed-games file;
+      unplayed appears exactly once, in a postponed-games file, and in no
+      round report;
     * sending a sent round again, and the same late games again, is refused;
-    * the full report passes Ainalrami's own checker (`ainalrami -c`): every
-      round re-paired and compared, the standings re-ranked.
+    * the files for rating that start at round 1 - the first one sent, and
+      one of every round as it stands at the end - pass Ainalrami's own
+      checker (`ainalrami -c`): every round re-paired and compared, the
+      standings re-ranked. Where a game in the file was postponed, the
+      pairing replay cannot agree (the engine paired around the game as the
+      draw it then was, and a game not played in the file leaves both
+      players out of their round), so only its standings check must pass.
 
   TRF_FLOW_COUNT (unset: skipped), TRF_FLOW_FIRST, TRF_FLOW_DUMP=dir,
   TRF_FLOW_BAKU_PCT (share of Baku-accelerated tournaments, default 15).
@@ -327,7 +339,7 @@ defmodule PairingsEngine.TrfFlowValidationTest do
       case PostponedGames.send_rounds(
              t,
              meta.rounds,
-             fn fresh -> TrfExport.export(fresh, meta.rounds) end,
+             fn fresh -> TrfExport.export(fresh, meta.rounds, for: :rating) end,
              acknowledged: [:round_sent_before]
            ) do
         {:ok, %{file: text}} ->
@@ -335,7 +347,7 @@ defmodule PairingsEngine.TrfFlowValidationTest do
 
           # Sending the same rounds again must be refused, building nothing.
           case PostponedGames.send_rounds(t, meta.rounds, fn f ->
-                 TrfExport.export(f, meta.rounds)
+                 TrfExport.export(f, meta.rounds, for: :rating)
                end) do
             {:error, {:already_sent, _}} ->
               bump(st, :resend_refused)
@@ -412,7 +424,7 @@ defmodule PairingsEngine.TrfFlowValidationTest do
 
     st = check_once(st, games, by_id)
     st = check_against_engine_input(st, t, dump)
-    check_with_engine(st, t, dump)
+    check_with_engine(st, t, games, dump)
   end
 
   defp maybe_dump(st, nil, _tag, _text), do: st
@@ -467,8 +479,7 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     "-" => "+",
     "W" => "L",
     "L" => "W",
-    "D" => "D",
-    "?" => "?"
+    "D" => "D"
   }
 
   # A double forfeit: both sides lose, unplayed.
@@ -598,8 +609,31 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     end
   end
 
+  # A file for rating holds only records - as SWAR's accepted FIDE files do.
+  defp check_only_records(st, tag, text) do
+    lines = text |> String.split(["\r\n", "\n"]) |> Enum.reject(&(&1 == ""))
+
+    cond do
+      bad = Enum.find(lines, &(not Regex.match?(~r/^\d{3}( |$)/, &1))) ->
+        fail(st, "#{tag}: a line that is not a record: #{inspect(bad)}")
+
+      text =~ "###" or text =~ "DDD" ->
+        fail(st, "#{tag}: a comment or legend line")
+
+      Enum.any?(lines, &(String.starts_with?(&1, "162") and &1 =~ "X")) ->
+        fail(st, "#{tag}: a 162 record with X")
+
+      Enum.any?(lines, &(String.starts_with?(&1, "001") and &1 =~ "?")) ->
+        fail(st, "#{tag}: an unknown result (?)")
+
+      true ->
+        bump(st, :only_records_ok)
+    end
+  end
+
   defp check_report(st, t, rounds, text, games, by_id) do
     st = bump(st, :files)
+    st = check_only_records(st, "rounds #{inspect(rounds)}", text)
 
     st =
       case parse_ok(text) do
@@ -631,6 +665,27 @@ defmodule PairingsEngine.TrfFlowValidationTest do
               else:
                 {fail(acc, "r#{g.round}: PAB of #{rank_of[g.white]} written as #{inspect(b)}"),
                  seen}
+
+          g.finalised_open ->
+            # Sent while postponed: not played in this file, for both
+            # players. It is rated in a postponed-games file instead.
+            wr = rank_of[g.white]
+            br = rank_of[g.black]
+            wb = get_in(rows, [wr, :blocks, col])
+            bb = get_in(rows, [br, :blocks, col])
+            not_played? = &(&1 != nil and &1.opp == nil and &1.code == "Z")
+
+            acc =
+              if not_played?.(wb) and not_played?.(bb),
+                do: bump(acc, :postponed_not_played_ok),
+                else:
+                  fail(
+                    acc,
+                    "r#{g.round}: #{wr}-#{br} sent while postponed, expected 0000 - Z on " <>
+                      "both lines, file has #{inspect(wb)} / #{inspect(bb)}"
+                  )
+
+            {acc, seen |> MapSet.put({wr, col}) |> MapSet.put({br, col})}
 
           true ->
             {wc, bc} = expected_codes(g)
@@ -761,15 +816,13 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     e -> {:error, Exception.message(e)}
   end
 
-  defp expected_codes(%{result: r, finalised_open: true}) when r in ["*", "*W", "*B"],
-    do: {"?", "?"}
-
-  defp expected_codes(%{finalised_open: true}), do: {"?", "?"}
-  defp expected_codes(%{result: r}) when r in ["*", "*W", "*B"], do: {"?", "?"}
-  defp expected_codes(%{result: r}), do: Map.get(@codes, r, {"?unexpected #{r}", "?"})
+  # A game still open at the end fails `check_once/3`; one sent while open
+  # is checked as not played above. Every other code is the table's.
+  defp expected_codes(%{result: r}), do: Map.get(@codes, r, {"unexpected #{r}", "-"})
 
   defp check_late(st, text, n) do
     st = bump(st, :late_files)
+    st = check_only_records(st, "postponed-games file", text)
     rows = parse_001(text)
 
     played =
@@ -823,8 +876,8 @@ defmodule PairingsEngine.TrfFlowValidationTest do
           b = name.(g.black)
 
           in_reports =
-            Enum.count(from_reports, fn {round, ww, bb, code} ->
-              round == g.round and ww == w and bb == b and code != "?"
+            Enum.count(from_reports, fn {round, ww, bb, _code} ->
+              round == g.round and ww == w and bb == b
             end)
 
           cond do
@@ -858,7 +911,7 @@ defmodule PairingsEngine.TrfFlowValidationTest do
       end)
 
     # The postponed-games files: per pair of players, exactly as many games
-    # as that pair has games sent as `?` and played since - a pair can meet
+    # as that pair has games sent unplayed and played since - a pair can meet
     # twice when one meeting was a forfeit.
     pair = fn a, b -> Enum.sort([a, b]) end
 
@@ -919,63 +972,87 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     end)
   end
 
-  # Ainalrami's own checker on the full report as it stands now. A game
-  # postponed and played later was paired around as the draw it then was,
-  # so a replay from final results cannot be expected to agree: only
-  # tournaments that never postponed a game are replayed.
-  defp check_with_engine(%{had_postponed: true} = st, _t, _dump),
-    do: bump(st, :engine_check_skipped_postponed)
+  # Ainalrami's own checker on files for rating that start at round 1: the
+  # first one sent (when it does), and one of every round as it stands at
+  # the end - what a single Send of the whole event would hand out now.
+  #
+  # A game postponed and played later was paired around as the draw it then
+  # was, and a game sent while postponed is not played in the file at all,
+  # so neither can be replayed as it was paired: for a file holding one,
+  # only the standings check must pass (the ranks follow the file's own
+  # games and tie-breaks). Every other file must pass the whole check.
+  defp check_with_engine(st, t, games, dump) do
+    {:ok, full} = TrfExport.export(t, nil, for: :rating)
+    paired = Pairing.paired_rounds_count(t.id)
 
-  defp check_with_engine(st, t, dump) do
-    {:ok, report} = TrfExport.export(t, nil, copy: true)
+    first =
+      for {rounds, text} <- Enum.take(st.sent_files, 1),
+          rounds == Enum.to_list(1..length(rounds)//1),
+          rounds != Enum.to_list(1..paired//1),
+          do: {"first-r1-#{length(rounds)}", rounds, text}
 
-    # The checker refuses a file with `?` in it (a postponed game sent as
-    # unknown): nothing after it can be replayed. Its engine spelling writes
-    # that game as the draw the app paired with, which it can replay.
-    {kind, built} =
-      if Regex.match?(~r/^001 .*\?/m, report),
-        do: {:engine, TrfExport.export(t, nil, dialect: :engine)},
-        else: {:trf26, {:ok, report}}
+    full_rounds = Enum.to_list(1..paired//1)
 
-    st = bump(st, :"engine_check_#{kind}")
+    Enum.reduce(first ++ [{"full", full_rounds, full}], st, fn {tag, rounds, text}, acc ->
+      postponed? =
+        Enum.any?(
+          games,
+          &(&1.round in rounds and &1.black != nil and was_postponed?(&1, acc.dates))
+        )
 
-    case built do
-      {:ok, text} ->
-        path =
-          Path.join(
-            System.tmp_dir!(),
-            "trfflow-#{st.seed}-#{System.unique_integer([:positive])}.trf"
-          )
+      acc = check_only_records(acc, "#{tag} rating file", text)
+      run_checker(acc, tag, text, postponed?, dump)
+    end)
+  end
 
-        File.write!(path, text)
+  # Postponed at some point: sent unplayed, or played on a later day than
+  # its round (`play_late_games/2` dates a late game after its round; an
+  # ordinary result is dated on the round's day).
+  defp was_postponed?(g, dates),
+    do: g.finalised_open or (g.played_on != nil and g.played_on != Enum.at(dates, g.round - 1))
 
-        output =
-          ExUnit.CaptureIO.capture_io(:stderr, fn ->
-            out =
-              ExUnit.CaptureIO.capture_io(fn ->
-                Process.put(:check_code, Ainalrami.CLI.run(["-c", path]))
-              end)
+  defp run_checker(st, tag, text, postponed?, dump) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "trfflow-#{st.seed}-#{tag}-#{System.unique_integer([:positive])}.trf"
+      )
 
-            IO.write(:stderr, out)
+    File.write!(path, text)
+
+    output =
+      ExUnit.CaptureIO.capture_io(:stderr, fn ->
+        out =
+          ExUnit.CaptureIO.capture_io(fn ->
+            Process.put(:check_code, Ainalrami.CLI.run(["-c", path]))
           end)
 
-        code = Process.get(:check_code)
+        IO.write(:stderr, out)
+      end)
 
-        File.rm(path)
+    code = Process.get(:check_code)
+    File.rm(path)
 
-        case code do
-          0 ->
-            bump(st, :engine_check_ok)
+    standings_ok? =
+      not (output =~ "do not follow") and not (output =~ "standings: cannot be checked")
 
-          _ ->
-            if dump,
-              do: File.write!(Path.join(dump, "s#{st.seed}-check.txt"), text <> "\n\n" <> output)
+    cond do
+      not postponed? and code == 0 ->
+        bump(st, :engine_check_ok)
 
-            fail(st, "ainalrami -c exit #{inspect(code)} on the full report")
-        end
+      postponed? and standings_ok? ->
+        bump(st, :engine_check_standings_ok)
 
-      {:error, e} ->
-        fail(st, "full report refused: #{inspect(e)}")
+      true ->
+        if dump,
+          do:
+            File.write!(Path.join(dump, "s#{st.seed}-#{tag}-check.txt"), text <> "\n\n" <> output)
+
+        fail(
+          st,
+          "ainalrami -c exit #{inspect(code)} on the #{tag} rating file" <>
+            if(postponed?, do: " (standings check failed)", else: "")
+        )
     end
   end
 end

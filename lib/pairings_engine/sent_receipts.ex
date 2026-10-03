@@ -22,10 +22,11 @@ defmodule PairingsEngine.SentReceipts do
     * the kind of file and its round (or rating period);
     * every game as sent, ordered by its identity (`game_uid`): its round,
       both players (FIDE ID and name, so colours are in it too) and the
-      result as the file wrote it (`"?"` for a postponed game still open);
-    * the SHA-256 of the file's bytes as built, before its own receipt line
-      was added (the line holds the code, which cannot be inside what it is
-      cut from).
+      result as sent (`"?"` for a postponed game still open, which the
+      file for rating writes as not played and the postponed-games file
+      rates later; it was written as `?` before that);
+    * the SHA-256 of the file's bytes (until the file for rating held only
+      records, a receipt line was added to it after hashing).
 
   Board numbers are not in it: a TRF has none. The same games, round and
   file always give the same fingerprint (`fingerprint/4`). The code is the
@@ -88,8 +89,10 @@ defmodule PairingsEngine.SentReceipts do
   defp fide_id(_), do: nil
 
   @doc """
-  The result a TRF writes for a stored result: `"?"` for a postponed game
-  still open, the stored code otherwise - the sent-games record's `sent_as`.
+  The sent-games record's `sent_as` for a stored result: `"?"` for a
+  postponed game still open - not rated in that send (the file for rating
+  writes it as not played, `0000 - Z`), its result going in the
+  postponed-games file - the stored code otherwise.
   """
   def as_written(result) do
     if Results.postponed?(result), do: "?", else: result || ""
@@ -157,8 +160,8 @@ defmodule PairingsEngine.SentReceipts do
 
   @doc """
   Records the receipts of one send of round reports - one per round in
-  `rounds` - and puts each one's `###` line into `file` (nil when the send
-  made no file). Run inside the send's write transaction, after the
+  `rounds` - for `file` (nil when the send made no file), which is returned
+  as it is: no line is added to a file for rating. Run inside the send's write transaction, after the
   sent-games record landed (`PostponedGames.send_rounds/4`): it reads the
   boards as they were sent. Returns `{:ok, receipts, file}`.
 
@@ -255,36 +258,14 @@ defmodule PairingsEngine.SentReceipts do
         {row, MapSet.put(taken, code)}
       end)
 
-    file = stamp(file, rows)
-    rows = Enum.map(rows, &Map.put(&1, :final_sha256, sha256(file)))
+    # The file goes out as built: a file sent for rating holds only TRF
+    # records, so the receipt is not written into it (it used to be, as a
+    # `###` line). Its code and the file's hash stay here, on the receipt.
+    rows = Enum.map(rows, &Map.put(&1, :final_sha256, file_sha))
 
     receipts = Enum.map(rows, &Repo.insert!(struct(SentReceipt, &1)))
     {:ok, receipts, file}
   end
-
-  @doc """
-  Puts one `###` line per receipt into a sent TRF, after the header records
-  (where `PairingsEngine.TrfExport.mark_copy/2` puts a copy's line). No TRF
-  record is added or changed; `Ainalrami.Trf.parse/1` skips the line.
-  """
-  def stamp(nil, _receipts), do: nil
-
-  def stamp(text, receipts) do
-    PairingsEngine.TrfExport.mark_copy(text, Enum.map(receipts, &stamp_line/1))
-  end
-
-  defp stamp_line(%{kind: "postponed"} = r) do
-    "SENT FOR RATING. Receipt #{file_code(r.code)}: postponed games" <>
-      period_part(r.period) <> ", sent #{at_text(r.sent_at)} with OpenPairings."
-  end
-
-  defp stamp_line(r) do
-    "SENT FOR RATING. Receipt #{file_code(r.code)}: round #{r.round}, " <>
-      "sent #{at_text(r.sent_at)} with OpenPairings."
-  end
-
-  defp period_part(%Date{} = d), do: " (rating period #{Calendar.strftime(d, "%Y-%m")})"
-  defp period_part(_), do: ""
 
   defp at_text(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
 

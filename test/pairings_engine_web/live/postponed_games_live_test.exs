@@ -271,13 +271,13 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       assert has_element?(lv, "#trf-download-copy[href$='rounds=1']")
       assert has_element?(lv, "#trf-send-blocker", "without a result")
 
-      # Every result in, one postponed: ready, and it goes out as unknown.
+      # Every result in, one postponed: ready, and it goes out as not played.
       [postponed, other] = boards(t, 1)
       set!(postponed, "*B")
       set!(other, "1-0")
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
-      assert has_element?(lv, "#trf-round-1.is-waiting", "unknown")
+      assert has_element?(lv, "#trf-round-1.is-waiting", "not played")
       assert has_element?(lv, "#trf-tick-1[checked]")
       assert has_element?(lv, "#trf-send-form input[name='rounds'][value='1']")
       refute has_element?(lv, "#trf-send[disabled]")
@@ -381,7 +381,9 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       set!(other, "1-0")
 
       sent = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
-      assert response(sent, 200) =~ "?"
+      # The file for rating writes the open game as not played, never `?`.
+      refute response(sent, 200) =~ ~r/^001 .*\?/m
+      assert response(sent, 200) =~ "0000 - Z"
       assert %{finalised_open: true} = Repo.reload!(postponed)
       assert %{finalised_open: false, finalised_at: %DateTime{}} = Repo.reload!(other)
 

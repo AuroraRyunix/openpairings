@@ -126,14 +126,17 @@ export writes them in FIDE's own spelling:
     column is game points by definition, so before this the bonus left the
     building nowhere at all. Written only when the tournament counts them.
   * **A column ruler + field-code legend** before the player rows, a
-    human-readability courtesy copied from Swiss-Manager.
+    human-readability courtesy copied from Swiss-Manager. Not in the file
+    sent for rating (below).
   * **`?`** - a postponed game still to be played (VCL4THP Q164-165),
     written for both players, with **`X`** in the `162` record at a draw's
     value, and scored at that value in the points column, so the file adds
     up from itself whatever the tournament counts a postponed game as. A
-    game written `?` in a report finalised for sending stays `?` in every
-    later report; its played result goes in the postponed-games TRF (the
-    Postponed games part of Settings, Export), never back into the round. A file carrying `?` is not a final report, and
+    game sent while still open stays `?` in every later copy; its played
+    result goes in the postponed-games TRF (the Postponed games part of
+    Settings, Export), never back into the round. **The file sent for
+    rating never carries `?`** - see "The file sent for rating" below. A
+    file carrying `?` is not a final report, and
     the Pairings page says so beside the export buttons while one is open.
     `Ainalrami.Trf.serialize/2` refuses `?`, so `TrfExport` writes the game
     as the draw the engine is handed and swaps the one character afterwards.
@@ -148,18 +151,11 @@ export writes them in FIDE's own spelling:
     its note beside the export buttons.)
     On import, a `?` comes back as a postponed game.
 
-    **A known assumption: `?` is not rated.** The round's report writes the
-    open game as TRF26's unknown result - the official TRF26 way, `?` in
-    the `001` record, valued by `X` in `162` - and its real result goes to
-    FIDE once, later, in the postponed-games file (below). That is only
-    right if FIDE's rating server does not rate a `?` as the draw `X` says
-    it is worth: TRF26 defines `?` as an unknown result, not a game result,
-    and `X` exists so the points column adds up, so the app assumes an
-    unknown result is not rated. FIDE has not answered the question. If it
-    ever rated `?` at `X`, such a game would be rated twice - as a draw in
-    the round's report and with its real result in the postponed-games
-    file - and the fix would be to leave the open game out of the round's
-    report instead.
+    Until the change described under "The file sent for rating" below, the
+    file sent for rating wrote the open game as `?` too, on the assumption
+    that FIDE's rating server does not rate a `?` at the draw `X` says it is
+    worth. FIDE never answered that question, so the file for rating no
+    longer asks it: it leaves the open game out of the round instead.
 
 `?dialect=javafo` on the download URL asks for the older spelling instead -
 `XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what JaVaFo,
@@ -180,7 +176,8 @@ row position.
 ### Sending for rating, copies, and the postponed-games file
 
 Only one download is the file for rating: "Send…" on Settings, Export
-(`POST /t/:id/export/trf` with `finalise=true`). It builds the file and
+(`POST /t/:id/export/trf` with `finalise=true`), and "Send…" for the
+postponed-games file. It builds the file and
 records every game in it as sent in one write transaction
 (`PostponedGames.send_rounds/4`), so the file exists only if the record
 landed. The record (`trf_sent_games`) has a unique index - one `"sent"`
@@ -206,6 +203,42 @@ route produced it. The older spelling (`?dialect=javafo`) carries no
 comment line - it is read by pairing programs - and refuses to write a
 round with an open postponed game at all: it has no `?` and would have to
 write a draw that never happened.
+
+**The file sent for rating.** Both files "Send…" hands out -
+`TrfExport.export/3` with `for: :rating`, and `TrfExport.postponed_export/2`
+without `copy: true` - look like the FIDE files SWAR sends, which the
+FRBE→FIDE path accepts (SWAR v6.65, `EnvoiFIDE.cpp`): **only records**. No
+column ruler, no `DDD` legend line and no comment line of any kind (`###`):
+no copy mark, no "FIDE mode exited" note, no receipt line. The other TRF26
+records (`142`, `152`, `162` for a point system other than 1/half/0, `192`,
+`202`, `222`, `250`, `260`, `299`) are written as in any TRF26 download.
+
+**And no unknown result.** A postponed game whose result is not known when
+its round is sent is written as **not played** in that file, for both
+players:
+
+```
+0000 - Z
+```
+
+- TRF26's zero-point bye, "Known absence from round - Not rated", the
+columns SWAR writes for a round a player was not paired in (`0000 - Z`;
+SWAR never writes an unknown result, it refuses to send a round with a
+result missing). So there is no `?`, and no `X` in a `162` record. The game
+counts zero in the points column (81-84) for both players, and the rank
+column (86-89) follows the file's own games: where a game was written this
+way, the places are taken from the file itself with its own tie-break list
+(`212`, or the score then `202`), by the same `Ainalrami.Tiebreaks` a
+checker reading the file uses; players still level keep the standings'
+order among themselves. Every later file for rating that holds the round
+writes the game the same way. Once played, it goes - with its result,
+exactly once - in the postponed-games file, a FIDE tournament of its own.
+So the game is never rated twice and never lost. A ½-0 is still `=`/`0`, a
+played 0-0 `0`/`0` and a double forfeit `-`/`-`.
+
+Every other file is unchanged by this: the copies, the TRF26 and engine
+downloads, and the file the app hands its own pairing engine (which pairs a
+postponed game as the draw it counts as) and `ainalrami -c` checks.
 
 **The postponed-games file is a tournament of its own.** Late games are
 reported in practice as a separate FIDE tournament ("Clubkampioenschap
@@ -238,8 +271,9 @@ inside that same transaction, after the record landed.
 
 * **Fingerprint.** A SHA-256 over the kind of file, its round (or rating
   period), every game as sent - its `game_uid`, its round, both players'
-  FIDE ID and name (so the colours too) and the result as the file wrote
-  it (`?` for an open postponed game) - ordered by identity, and the
+  FIDE ID and name (so the colours too) and the result as sent (`?` for
+  an open postponed game, which the file writes as not played) - ordered
+  by identity, and the
   SHA-256 of the file's bytes as built. The same games, round and file
   always give the same fingerprint. Board numbers are not in it: a TRF has
   none. The receipt also keeps the games themselves, who sent it, when,
@@ -251,18 +285,11 @@ inside that same transaction, after the record landed.
   who sent it and the hashes in its tooltip), Settings, Export in the round
   table and under the postponed-games file, and the audit trail in the
   `trf.finalised` / `trf.postponed_sent` row.
-* **In the file.** The file "Send…" hands out carries one comment line per
-  receipt after the header records, ASCII like every other line, so the
-  dot is a hyphen there:
-
-  ```
-  ### SENT FOR RATING. Receipt R5-7F2A: round 5, sent 2026-10-03 14:02 UTC with OpenPairings.
-  ```
-
-  The fingerprint covers the file as it was before that line (it holds the
-  code, which cannot be inside what it is cut from); `final_sha256` covers
-  it with the line. No TRF record is added or changed, and
-  `Ainalrami.Trf.parse/1` reads the file exactly as without it.
+* **Not in the file.** The file "Send…" hands out holds only records, so
+  the receipt is not written into it: `final_sha256` is the hash of the
+  file as built and handed out. (Before that change it carried a
+  `### SENT FOR RATING. Receipt R5-7F2A: ...` comment line.) In a copy the
+  code is written ASCII, with a hyphen for the dot.
 * **Copies.** Every copy ("Download a copy", "All rounds") says per round
   whose copy it is, next to its `COPY - NOT FOR RATING` line:
   `### Round 5: copy of R5-7F2A (sent ...), not for rating.`,
@@ -271,7 +298,7 @@ inside that same transaction, after the record landed.
   officer has. A postponed-games copy says its games were never sent.
 * **Drift.** The latest receipt of each round, and every postponed-games
   receipt, is compared with the tournament as it is now. A result
-  corrected, a postponed game sent as `?` and played since but not yet in a
+  corrected, a postponed game sent unplayed and played since but not yet in a
   postponed-games file, a player's FIDE ID or name changed, colours
   swapped, a game removed or one added: the round (on the Pairings page)
   and Settings, Export show a red "Changed since sent (R5·7F2A) — the

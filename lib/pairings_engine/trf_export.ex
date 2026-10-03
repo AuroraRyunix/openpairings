@@ -38,24 +38,51 @@ defmodule PairingsEngine.TrfExport do
   pairing programs read; the default is FIDE's TRF26 (see `Ainalrami.Trf`,
   "Two dialects").
 
+  `for: :rating` builds the file SENT FOR RATING (the Export page's "Send",
+  `PostponedGames.send_rounds/4`) - see "The file sent for rating" below.
+  Every other file (a copy, the engine's input, a TRF26 download) is built
+  without it and is unchanged by it.
+
   Returns `{:ok, text}`, or `{:error, %Ainalrami.Trf.ValidationError{}}`
   if the filtered result set fails `Trf`'s own legality validation (an
   unrecognized or mutually-inconsistent result code) - never raises.
+
+  ## The file sent for rating
+
+  Only real records, the way SWAR's accepted FIDE files are
+  (`EnvoiFIDE.cpp`): no column ruler, no `DDD` legend line and no comment
+  line (`###`) of any kind - no copy mark, no FIDE-mode note, no receipt.
+
+  And no unknown result. A postponed game whose result is not known when
+  its round is sent - or one already sent that way, whose result went or
+  goes in the postponed-games file (`finalised_open`) - is written as not
+  played, for both players: `0000 - Z`, TRF26's zero-point bye ("Known
+  absence from round - Not rated"), the same columns SWAR writes for a round
+  a player was not paired in. So no `?`, and no `X` in a `162` record. The
+  points column counts it as zero, and the rank column follows the file's
+  own games (`rerank/2`). The game itself is rated once, later, in the
+  postponed-games file (`postponed_export/2`), a FIDE tournament of its own.
   """
   def export(tournament, rounds_spec \\ nil, opts \\ []) do
     with :ok <- ensure_round_dates(tournament, rounds_spec) do
       text =
-        tournament
-        |> build(rounds_spec, opts)
-        |> mark_copy(
-          copy_comments(tournament, rounds_spec, opts) ++ fide_mode_comments(tournament, opts)
-        )
+        if rating?(opts) do
+          build(tournament, rounds_spec, Keyword.put(opts, :dialect, :trf26))
+        else
+          tournament
+          |> build(rounds_spec, opts)
+          |> mark_copy(
+            copy_comments(tournament, rounds_spec, opts) ++ fide_mode_comments(tournament, opts)
+          )
+        end
 
       {:ok, text}
     end
   rescue
     e in ValidationError -> {:error, e}
   end
+
+  defp rating?(opts), do: Keyword.get(opts, :for) == :rating
 
   ## ---------- a copy is marked as one ----------
   #
@@ -268,13 +295,14 @@ defmodule PairingsEngine.TrfExport do
     paired = Pairing.paired_rounds_count(tournament.id)
     rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
     dialect = Keyword.get(opts, :dialect, :trf26)
+    rating? = rating?(opts)
 
     players = Tournaments.list_players(tournament.id)
 
     trf_players =
       tournament
       |> Pairing.trf_player_rows(players)
-      |> Enum.map(&report_unknown(&1, dialect))
+      |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect)))
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
       # Baku virtual points for the rounds in the file. The report had
       # left them out altogether; TRF26 wants them (`250`) for pairing.
@@ -285,12 +313,19 @@ defmodule PairingsEngine.TrfExport do
     last_round = Enum.reduce(trf_players, length(rounds), &max(length(&1.games), &2))
 
     # Postponed games, as `{starting rank, column}` - see `mark_unknown/2`.
+    # None in a file for rating: `report_unknown(_, :rating)` wrote them as
+    # not played.
     unknown = if dialect == :trf26, do: postponed_columns(trf_players), else: []
     point_system = unknown_point_value(Tournament.engine_point_system(tournament), unknown)
 
-    tournament
-    |> serialize(trf_players, players, rounds, last_round, point_system, dialect)
-    |> mark_unknown(unknown)
+    text =
+      tournament
+      |> serialize(trf_players, players, rounds, last_round, point_system, dialect, rating?)
+      |> mark_unknown(unknown)
+
+    if rating? and Enum.any?(trf_players, &not_played_postponed?/1),
+      do: rerank(text, trf_players),
+      else: text
   end
 
   # The rank column of the 001 record (86-89) is the player's place in the
@@ -328,7 +363,16 @@ defmodule PairingsEngine.TrfExport do
 
   defp with_final_ranks(rows, _tournament, _rounds, _dialect), do: rows
 
-  defp serialize(tournament, trf_players, players, rounds, last_round, point_system, dialect) do
+  defp serialize(
+         tournament,
+         trf_players,
+         players,
+         rounds,
+         last_round,
+         point_system,
+         dialect,
+         rating?
+       ) do
     Trf.serialize(
       %{
         tournament: %{
@@ -395,7 +439,9 @@ defmodule PairingsEngine.TrfExport do
       # a pairing program that reads the older `XX*`/`BB*` spelling.
       dialect: dialect,
       xxc: dialect == :engine,
-      column_legend: true,
+      # The ruler and `DDD` legend are for a person reading the file; the
+      # file sent for rating holds only records, as SWAR's do.
+      column_legend: not rating?,
       # This file leaves the building - it is what an arbiter submits to
       # FIDE - so it must survive a byte-oriented reader. See
       # `Trf.serialize/2`'s `:ascii` option.
@@ -445,6 +491,39 @@ defmodule PairingsEngine.TrfExport do
     %{row | games: games}
   end
 
+  # The file sent for rating has no `?` either: a postponed game whose result
+  # is not known yet - or that went out that way before (`finalised_open`),
+  # its result now going in the postponed-games file - is not played in this
+  # file, for both players. `0000 - Z` is TRF26's "Known absence from round -
+  # Not rated" and what SWAR writes for a round a player was not paired in
+  # (`EnvoiFIDE.cpp`, `EcrireRondesFIDE`); worth zero (`points_kind:
+  # "zero"`), so the points column adds up from the file. The opponent and
+  # colour go, so nothing in this file can be rated as a game: the game is
+  # rated once, in the postponed-games file. The engine's own input
+  # (`Pairing.trf_game/4`) is untouched by this.
+  defp report_unknown(row, :rating) do
+    games =
+      Enum.map(row.games, fn game ->
+        if Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true do
+          Map.merge(game, %{
+            opponent_rank: nil,
+            opponent_id: nil,
+            colour: nil,
+            result: "Z",
+            points_kind: "zero",
+            postponed: false,
+            finalised_open: false,
+            provisional_points: nil,
+            not_played_postponed: true
+          })
+        else
+          game
+        end
+      end)
+
+    %{row | games: games}
+  end
+
   # The older spelling has no `?`: a postponed game stays the `=` a pairing
   # program reads. It is scored as that draw too, not at what the tournament
   # counts it as, so this file adds up from itself as well - a downloaded
@@ -462,11 +541,85 @@ defmodule PairingsEngine.TrfExport do
     %{row | games: games}
   end
 
+  defp not_played_postponed?(row),
+    do: Enum.any?(row.games, &(Map.get(&1, :not_played_postponed) == true))
+
+  # The rank column (86-89) of a file for rating that wrote a postponed game
+  # as not played. `with_final_ranks/4` took the places from the standings,
+  # which count the game as what it was given when it was postponed; the
+  # file counts zero for both players. So the places are taken again from
+  # the file itself, with its own tie-break list (`212`, or the score then
+  # `202`), by the same `Ainalrami.Tiebreaks` a checker reading the file
+  # uses (`ainalrami -c`, VCL4THP Q21). Players the tie-breaks leave level
+  # keep the standings' order among themselves (drawing of lots, C.07 4.2),
+  # numbered one after the other. A file without final ranks (a team event,
+  # Keizer, rounds not starting at 1) is left alone, and so is one whose
+  # list the tie-breaks cannot rank by: it keeps the standings' places.
+  defp rerank(text, trf_players) do
+    before = Map.new(trf_players, &{&1.rank, Map.get(&1, :final_rank)})
+
+    if Enum.all?(before, fn {_rank, place} -> place in [nil, 0] end) do
+      text
+    else
+      parsed = Trf.parse(text)
+
+      list =
+        case parsed.tournament do
+          %{standings_order: [_ | _] = order} -> order
+          %{tie_breaks: [_ | _] = codes} -> ["PTS" | codes]
+          _ -> ["PTS"]
+        end
+
+      case Ainalrami.Tiebreaks.rank(Ainalrami.Tiebreaks.Event.from_trf(parsed), list) do
+        {:ok, standings} -> write_places(text, places(standings, before))
+        {:error, _reason} -> text
+      end
+    end
+  end
+
+  defp places(standings, before) do
+    standings
+    |> Enum.group_by(& &1.rank)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.flat_map(fn {first, rows} ->
+      rows
+      |> Enum.sort_by(&{Map.get(before, &1.id) || 999_999, &1.id})
+      |> Enum.with_index(first)
+      |> Enum.map(fn {row, place} -> {row.id, place} end)
+    end)
+    |> Map.new()
+  end
+
+  defp write_places(text, places) do
+    text
+    |> String.split("\r\n")
+    |> Enum.map(fn
+      "001" <> _ = line when byte_size(line) >= 89 ->
+        rank = line |> binary_part(4, 4) |> String.trim() |> String.to_integer()
+
+        case Map.fetch(places, rank) do
+          {:ok, place} ->
+            binary_part(line, 0, 85) <>
+              String.pad_leading(Integer.to_string(place), 4) <>
+              binary_part(line, 89, byte_size(line) - 89)
+
+          :error ->
+            line
+        end
+
+      line ->
+        line
+    end)
+    |> Enum.join("\r\n")
+  end
+
   ## ---------- the postponed-games file ----------
 
   @doc """
-  The TRF26 file for postponed games that were sent as `?` in a report
-  marked as sent and have been played since (`PostponedGames.sendable_late_games/1`),
+  The TRF26 file for postponed games that went out unplayed in a report
+  marked as sent (`finalised_open`: as `0000 - Z` since the file for rating
+  stopped writing `?`, as `?` before) and have been played since
+  (`PostponedGames.sendable_late_games/1`),
   packed into as few extra rounds as possible with nobody twice in a round
   (`PostponedGames.pack/1`). Each round is dated by the latest date one of
   its games was played on. Only the players in those games are in the file,
@@ -506,6 +659,12 @@ defmodule PairingsEngine.TrfExport do
     * `dates:` - a date per extra round, in order, to report instead of the
       latest date its games were played on; a nil entry, or a list shorter
       than the rounds, keeps that default.
+    * `copy: true` - a copy to download (the Export page's link): marked
+      as one in `###` lines and given the column ruler. Without it this is
+      the file sent for rating (`PostponedGames.send_late_games/3`), which
+      holds only records - no ruler, no `DDD` legend, no comment line - as
+      `export/3`'s `for: :rating` does. It never holds a `?`: every game in
+      it has its result.
   """
   def postponed_export(tournament, opts \\ []) do
     chosen = Keyword.get(opts, :games)
@@ -531,7 +690,8 @@ defmodule PairingsEngine.TrfExport do
 
       true ->
         rounds = games |> Enum.map(& &1.pairing) |> PairingsEngine.PostponedGames.pack()
-        text = build_postponed(tournament, rounds, Keyword.get(opts, :dates, []))
+        copy? = Keyword.get(opts, :copy, false)
+        text = build_postponed(tournament, rounds, Keyword.get(opts, :dates, []), copy?)
         :ok = verify_postponed!(text, rounds)
         {:ok, mark_copy(text, postponed_copy_comments(opts)), games}
     end
@@ -561,7 +721,7 @@ defmodule PairingsEngine.TrfExport do
     |> Enum.max(Date, fn -> nil end)
   end
 
-  defp build_postponed(tournament, rounds, set_dates) do
+  defp build_postponed(tournament, rounds, set_dates, copy?) do
     roster = Pairing.full_roster_players(tournament.id) |> Map.new(&{&1.id, &1})
 
     ids =
@@ -629,7 +789,8 @@ defmodule PairingsEngine.TrfExport do
         players: rows
       },
       dialect: :trf26,
-      column_legend: true,
+      # Only a copy has the ruler: the file sent for rating holds only records.
+      column_legend: copy?,
       ascii: true
     )
   end

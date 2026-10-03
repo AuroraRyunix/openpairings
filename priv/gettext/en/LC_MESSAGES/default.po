@@ -11651,12 +11651,12 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:426
 #, elixir-autogen, elixir-format
-msgid "in its round's report as ? - its result goes in the postponed-games file"
+msgid "in its round's report as not played - its result goes in the postponed-games file"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:429
 #, elixir-autogen, elixir-format
-msgid "in its round's report as ? - ready for the postponed-games file"
+msgid "in its round's report as not played - ready for the postponed-games file"
 msgstr ""
 
 #: lib/pairings_engine_web/components/sent_receipt.ex:109
@@ -11822,8 +11822,8 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:200
 #, elixir-autogen, elixir-format
-msgid "Ready - %{count} postponed game goes out as unknown"
-msgid_plural "Ready - %{count} postponed games go out as unknown"
+msgid "Ready - %{count} postponed game goes out as not played, rated later"
+msgid_plural "Ready - %{count} postponed games go out as not played, rated later"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -14859,7 +14859,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/sent_receipt.ex:63
 #, elixir-autogen, elixir-format
-msgid "%{where} (%{game}): sent as ? (postponed), played since: %{now}. Not yet sent in a postponed-games file."
+msgid "%{where} (%{game}): sent while postponed, played since: %{now}. Not yet sent in a postponed-games file."
 msgstr ""
 
 #: lib/pairings_engine_web/components/sent_receipt.ex:89
