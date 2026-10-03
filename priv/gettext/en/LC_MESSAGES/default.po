@@ -15476,3 +15476,219 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "withdrawn, results not counted"
 msgstr ""
+
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:2022
+#, elixir-autogen, elixir-format
+msgid "Reporting only."
+msgstr ""
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:2028
+#, elixir-autogen, elixir-format
+msgid "player by player"
+msgstr ""
+
+#: lib/pairings_engine_web/live/teams_live.ex:368
+#, elixir-autogen, elixir-format
+msgid "Board 1 of the first-named team plays White, and colours alternate down the boards. Match points for a won, drawn and lost match are set under Settings - Scoring."
+msgstr ""
+
+#: lib/pairings_engine_web/live/teams_live.ex:377
+#, elixir-autogen, elixir-format
+msgid "Save boards per match"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairing_explain_live.ex:2909
+#, elixir-autogen, elixir-format
+msgid "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the field was given virtual points for pairing, which the engine added to their scores when it built the brackets. The scores shown here are game points without them, and the standings never count them."
+msgstr ""
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:2024
+#, elixir-autogen, elixir-format
+msgid "Keizer has no team system: this only marks the tournament as a team event on the FIDE report, and it is still paired %[how]. Choose Swiss or Round robin to pair team against team."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:257
+#, elixir-autogen, elixir-format
+msgid "%{team} has White on board 1"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:263
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:384
+#: lib/pairings_engine_web/live/team_sheets_live.ex:370
+#, elixir-autogen, elixir-format
+msgid "Bd"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:412
+#: lib/pairings_engine_web/live/print_live.ex:96
+#: lib/pairings_engine_web/live/standings_live.ex:1183
+#: lib/pairings_engine_web/live/team_sheets_live.ex:224
+#, elixir-autogen, elixir-format
+msgid "Board prizes"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:280
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:281
+#, elixir-autogen, elixir-format
+msgid "Captain %{team}"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:263
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:266
+#, elixir-autogen, elixir-format
+msgid "Col."
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:270
+#, elixir-autogen, elixir-format
+msgid "Each cell is the game points the row team scored against the column team; a dot is a match not yet played."
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:91
+#, elixir-autogen, elixir-format
+msgid "Each team's board order with ratings, FIDE IDs and federations."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:386
+#: lib/pairings_engine_web/live/team_sheets_live.ex:375
+#, elixir-autogen, elixir-format
+msgid "Fed."
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:78
+#, elixir-autogen, elixir-format
+msgid "Match result sheets (latest round)"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:220
+#, elixir-autogen, elixir-format
+msgid "Match result sheets - round %{n}"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:275
+#, elixir-autogen, elixir-format
+msgid "Match score"
+msgstr ""
+
+#: lib/pairings_engine_web/live/standings_live.ex:1169
+#: lib/pairings_engine_web/live/team_sheets_live.ex:210
+#, elixir-autogen, elixir-format
+msgid "Match sheets"
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:423
+#, elixir-autogen, elixir-format
+msgid "Minimum games"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:404
+#: lib/pairings_engine_web/live/team_sheets_live.ex:437
+#, elixir-autogen, elixir-format
+msgid "No board results yet."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:349
+#, elixir-autogen, elixir-format
+msgid "No such team"
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:546
+#, elixir-autogen, elixir-format
+msgid "One A4 sheet per match: both line-ups with colours and ratings, a box for each board's result, the match score, and lines for the captains and the arbiter. Results already entered are filled in. The Print button above prints every match of this round."
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:80
+#, elixir-autogen, elixir-format
+msgid "One A4 sheet per match: both line-ups with colours and ratings, result boxes, the match score, captain and arbiter signatures."
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:98
+#, elixir-autogen, elixir-format
+msgid "Per board number, the players ranked by percentage, points and performance."
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:311
+#, elixir-autogen, elixir-format
+msgid "Per round: the opponent's number and the colour of board 1 (w or b), the game points of the match, and the team's running match points."
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:537
+#, elixir-autogen, elixir-format
+msgid "Print sheet"
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:471
+#, elixir-autogen, elixir-format
+msgid "Ranked by percentage, then points, then performance. A player is listed under the board they sat at most often."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:286
+#, elixir-autogen, elixir-format
+msgid "Results are written from the first-named team's side: 1 - 0 is a win for %{team}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/standings_live.ex:1176
+#: lib/pairings_engine_web/live/team_sheets_live.ex:217
+#, elixir-autogen, elixir-format
+msgid "Rosters"
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:71
+#, elixir-autogen, elixir-format
+msgid "Round robin: team against team with the game points of each match. Swiss: per round the opponent, the colour of board 1, the match score and the running match points."
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:69
+#: lib/pairings_engine_web/live/team_sheets_live.ex:238
+#: lib/pairings_engine_web/live/team_sheets_live.ex:281
+#, elixir-autogen, elixir-format
+msgid "Team cross table"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:109
+#, elixir-autogen, elixir-format
+msgid "Team cross table after round %{n}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/print_live.ex:90
+#, elixir-autogen, elixir-format
+msgid "Team rosters"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:355
+#, elixir-autogen, elixir-format
+msgid "Team rosters - board order"
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:34
+#: lib/pairings_engine_web/live/team_sheets_live.ex:131
+#, elixir-autogen, elixir-format
+msgid "Team tables"
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:151
+#, elixir-autogen, elixir-format
+msgid "These tables fill in as the rounds are paired."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:454
+#, elixir-autogen, elixir-format
+msgid "This is not a team tournament"
+msgstr ""
+
+#: lib/pairings_engine_web/live/team_sheets_live.ex:41
+#, elixir-autogen, elixir-format
+msgid "This is not a team tournament."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:326
+#, elixir-autogen, elixir-format
+msgid "postponed"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/team_print_controller.ex:303
+#, elixir-autogen, elixir-format
+msgid "table %{n}"
+msgstr ""
+

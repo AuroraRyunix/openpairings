@@ -1024,6 +1024,12 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .pe-table tr:last-child td { border-bottom: none; }
 .pe-table tbody tr:hover { background: var(--surface-hover); }
 
+/* The diagonal of a team cross table: a team does not play itself. Hatched,
+   as the printed grid is, so it reads as "no result" and not as an error. */
+.pe-table td.team-cross-diag {
+  background-image: repeating-linear-gradient(45deg, var(--border) 0, var(--border) 1px, transparent 1px, transparent 6px);
+}
+
 .pe-table th.sortable { cursor: pointer; user-select: none; }
 .pe-table th.sortable:hover { color: var(--text); }
 
