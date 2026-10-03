@@ -88,6 +88,15 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/postponed", PostponedLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/standings", StandingsLive
+
+      # The team tables beside Standings (cross table, match sheets, rosters,
+      # board prizes): read-only views of a team event, so they sit with
+      # Standings in the signed-in session. A tournament that is not paired as
+      # teams is sent back to Standings by the LiveView.
+      live "/t/:id/team-sheets", TeamSheetsLive, :cross_table
+      live "/t/:id/team-sheets/match-sheets", TeamSheetsLive, :match_sheets
+      live "/t/:id/team-sheets/rosters", TeamSheetsLive, :rosters
+      live "/t/:id/team-sheets/board-prizes", TeamSheetsLive, :board_prizes
       live "/t/:id/history", HistoryLive
       live "/t/:id/audit", AuditLive, :index
       live "/t/:id/audit/explain", AuditLive, :explain
@@ -136,6 +145,10 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/print/crosstable", PrintController, :crosstable
     get "/t/:id/print/team-pairings", PrintController, :team_pairings
     get "/t/:id/print/team-standings", PrintController, :team_standings
+    get "/t/:id/print/team-crosstable", TeamPrintController, :cross_table
+    get "/t/:id/print/team-match-sheets", TeamPrintController, :match_sheets
+    get "/t/:id/print/team-rosters", TeamPrintController, :rosters
+    get "/t/:id/print/board-prizes", TeamPrintController, :board_prizes
     get "/t/:id/print/postponed", PrintController, :postponed_notices
 
     get "/t/:id/norms/it3", NormsController, :it3

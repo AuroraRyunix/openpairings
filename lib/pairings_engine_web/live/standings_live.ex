@@ -1153,6 +1153,37 @@ defmodule PairingsEngineWeb.StandingsLive do
       {dropped_reason_text(reason)}
     </p>
 
+    <div :if={@entries != []} id="team-sheets-links" class="round-picker" style="margin-bottom: 12px">
+      <.link
+        navigate={~p"/t/#{@tournament.id}/team-sheets"}
+        id="team-sheets-link-cross-table"
+        class="pe-btn filter-picker"
+      >
+        {gettext("Cross table")}
+      </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/team-sheets/match-sheets"}
+        id="team-sheets-link-match-sheets"
+        class="pe-btn filter-picker"
+      >
+        {gettext("Match sheets")}
+      </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/team-sheets/rosters"}
+        id="team-sheets-link-rosters"
+        class="pe-btn filter-picker"
+      >
+        {gettext("Rosters")}
+      </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/team-sheets/board-prizes"}
+        id="team-sheets-link-board-prizes"
+        class="pe-btn filter-picker"
+      >
+        {gettext("Board prizes")}
+      </.link>
+    </div>
+
     <div :if={@entries != []} id="team-standings" class="card table-card">
       <table class="pe-table">
         <caption class="sr-only">{gettext("Team standings")}</caption>
