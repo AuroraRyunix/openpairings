@@ -56,6 +56,12 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   0.73.0): every JSON export gains `tournament.rr_reverse_last_two` (false
   in every scenario). With that key taken out the regenerated file is equal,
   term for term, to 0.73.0's.
+
+  And for teams without players and the team rating (team-lineups-optional):
+  every JSON export gains `tournament.team_lineups` ("required"),
+  `team_rating_method` ("olympiad") and `teams_ordered_by_hand` (false).
+  With those three keys taken out the regenerated file is equal, term for
+  term, to the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

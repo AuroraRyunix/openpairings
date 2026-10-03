@@ -50,6 +50,7 @@ defmodule PairingsEngine.SnapshotFixtures do
   # changed. `mix pairings.snapshot_fixtures` promises byte-identical output
   # between two runs, which this pins at the source.
   @team_fixture_slug "team-roundrobin-fixture"
+  @team_optional_slug "team-lineups-optional-fixture"
 
   @doc """
   Where the OpenResults contract fixtures live: `OPENRESULTS_FIXTURES` if
@@ -83,7 +84,8 @@ defmodule PairingsEngine.SnapshotFixtures do
     [
       {"snapshot_swiss.json", :swiss_snapshot_tournament},
       {"snapshot_keizer.json", :keizer_snapshot_tournament},
-      {"snapshot_team_roundrobin.json", :team_snapshot_fixture_published}
+      {"snapshot_team_roundrobin.json", :team_snapshot_fixture_published},
+      {"snapshot_team_lineups_optional.json", :team_optional_fixture_published}
     ]
   end
 
@@ -203,6 +205,78 @@ defmodule PairingsEngine.SnapshotFixtures do
     {:ok, t} = Tournaments.publish_results(t, 1)
     {:ok, t} = Tournaments.publish_standings_through(t, 1)
     Tournaments.get_tournament!(t.id)
+  end
+
+  # A team round robin with optional line-ups (docs/team-tournaments.md,
+  # "Line-ups optional"): three of the four teams have no players at all,
+  # one of them a typed-in rating, one absent as a team in round 2. Round 1:
+  # a match decided by its score alone, and a match with one team's players
+  # against empty seats; round 2: the absent team's boards forfeited, the
+  # other match on boards nobody sits at. Both rounds published, results and
+  # standings included - what a results site must show without crashing on a
+  # match whose boards have no game to list.
+  def team_optional_fixture_published do
+    {t, teams} =
+      team_round_robin(
+        [
+          {"Antwerp Knights", []},
+          {"Brugse SK", [2150, 2000]},
+          {"Charleroi", []},
+          {"Deurne", []}
+        ],
+        boards: 2,
+        tiebreaks: ~w(MP GP DE BB SB),
+        start_date: "2026-09-01",
+        round_dates: ~w(2026-09-01 2026-09-08 2026-09-15),
+        city: "Gent",
+        federation: "BEL",
+        team_lineups: "optional",
+        public_slug: @team_optional_slug
+      )
+
+    by_name = Map.new(teams, &{&1.name, &1})
+    {:ok, _} = Tournaments.update_team(by_name["Charleroi"], %{"rating_override" => "1950"})
+    {:ok, _} = Tournaments.set_team_absent(t, Repo.reload!(by_name["Deurne"]), 2, true)
+
+    t = pair_all!(t)
+    {:ok, t} = Tournaments.leave_fide_mode(t)
+
+    for round <- [1, 2] do
+      for {match, boards} <- optional_matches(t, round) do
+        cond do
+          Enum.any?(boards, &(&1.result != "")) ->
+            :ok
+
+          Enum.all?(boards, &(is_nil(&1.white_player_id) and is_nil(&1.black_player_id))) and
+              round == 1 ->
+            {:ok, _} = PairingsEngine.TeamMatches.set_match_score(t, match, 1.5, 0.5)
+
+          true ->
+            boards
+            |> Enum.zip(["1-0", "1/2-1/2"])
+            |> Enum.each(fn {p, r} -> {:ok, _} = Tournaments.update_pairing_result(p, r) end)
+        end
+      end
+
+      {:ok, _} = Tournaments.publish_round_now(Tournaments.get_round(t.id, round))
+    end
+
+    t = Tournaments.get_tournament!(t.id)
+    {:ok, t} = Tournaments.publish_results(t, 1)
+    {:ok, t} = Tournaments.publish_results(t, 2)
+    {:ok, t} = Tournaments.publish_standings_through(t, 2)
+    Tournaments.get_tournament!(t.id)
+  end
+
+  defp optional_matches(t, number) do
+    round = Tournaments.get_round(t.id, number)
+
+    round.id
+    |> Tournaments.list_matches()
+    |> Enum.filter(& &1.team_b_id)
+    |> Enum.map(fn m ->
+      {m, round.pairings |> Enum.filter(&(&1.match_id == m.id)) |> Enum.sort_by(& &1.board)}
+    end)
   end
 
   # Nine rounds' worth of awkwardness in five: byes of three kinds, both

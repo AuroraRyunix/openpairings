@@ -4,7 +4,8 @@ defmodule Mix.Tasks.Pairings.SnapshotFixtures do
   @moduledoc """
   Regenerates the JSON fixtures the OpenResults repo tests its snapshot
   contract against (`snapshot_swiss.json`, `snapshot_keizer.json`,
-  `snapshot_team_roundrobin.json`), from the same builders
+  `snapshot_team_roundrobin.json`, `snapshot_team_lineups_optional.json`),
+  from the same builders
   `PairingsEngine.SnapshotTest`'s "the cross-repo contract fixtures" drift
   check uses.
 
