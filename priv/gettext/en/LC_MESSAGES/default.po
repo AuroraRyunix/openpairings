@@ -12582,7 +12582,7 @@ msgstr[1] ""
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2909
 #, elixir-autogen, elixir-format
-msgid "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the field was given virtual points for pairing, which the engine added to their scores when it built the brackets. The scores shown here are game points without them, and the standings never count them."
+msgid "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the starting list, as it stood when round 1 was paired, was given virtual points for pairing, which the engine added to their scores when it built the brackets. A player who joined later is never in that group. The scores shown here are game points without them, and the standings never count them."
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1285

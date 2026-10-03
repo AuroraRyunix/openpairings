@@ -12574,8 +12574,8 @@ msgstr[1] "Deze ronde werd gepaard op punten plus extra punten (handicap): de ex
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2909
 #, elixir-autogen, elixir-format
-msgid "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the field was given virtual points for pairing, which the engine added to their scores when it built the brackets. The scores shown here are game points without them, and the standings never count them."
-msgstr "Deze ronde werd gepaard met Baku-versnelling (FIDE C.04.7): de bovenste helft van het veld kreeg virtuele punten voor de paring, die de engine bij hun score optelde toen ze de scoregroepen vormde. De scores hier zijn partijpunten zonder die punten, en de stand telt ze nooit mee."
+msgid "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the starting list, as it stood when round 1 was paired, was given virtual points for pairing, which the engine added to their scores when it built the brackets. A player who joined later is never in that group. The scores shown here are game points without them, and the standings never count them."
+msgstr "Deze ronde werd gepaard met Baku-versnelling (FIDE C.04.7): de bovenste helft van de startlijst, zoals die was toen ronde 1 werd gepaard, kreeg virtuele punten voor de paring, die de engine bij hun score optelde toen ze de scoregroepen vormde. Een speler die later instapte, hoort nooit bij die groep. De scores hier zijn partijpunten zonder die punten, en de stand telt ze nooit mee."
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1285
 #, elixir-autogen, elixir-format
