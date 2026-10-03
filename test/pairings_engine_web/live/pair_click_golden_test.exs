@@ -35,6 +35,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   Regenerated with the Baku fix reverted, the file differed from 0.71.0's
   by the first three only, and from this one by the `:options` scenario
   only, from its round 2 on.
+
+  And once more for the frozen Baku Group A: every JSON export gains
+  `tournament.baku_group_a_last` (12 in the Baku `:options` scenario, nil in
+  the others). With that key taken out the regenerated file was identical to
+  the one before, boards and TRFs included.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
