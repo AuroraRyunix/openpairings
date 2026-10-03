@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.73.1] - 2026-10-03
+
 - [Fix] Teams: any team can be deleted again while it is in no round. A
   pairing that numbered the teams and then refused (too few teams, a team
   with nobody to field) kept the numbers with no round on the board, which
