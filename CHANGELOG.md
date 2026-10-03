@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-10-03
+
 - [Fix] **A team file sent for rating: the `310` match and game points
   follow the file's own games.** A postponed board is written `0000 - Z`
   in the file sent for rating, but the team record still counted it
