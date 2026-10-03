@@ -1025,6 +1025,21 @@ defmodule PairingsEngine.Standings do
     |> Map.new(&{&1.player_id, &1.points})
   end
 
+  @doc """
+  What a seat of `pairing` scores - `:white` or `:black` - whoever sits in
+  it, empty included: the points `pairing_award/3` would give a player in
+  that seat. A team event with optional line-ups scores an empty seat this
+  way (`PairingsEngine.TeamStandings`): the board's result is known, its
+  players are not. 0.0 for a board with no result.
+  """
+  def seat_points(%Pairing{} = pairing, round_number, tournament, colour)
+      when colour in [:white, :black] do
+    # Two stand-in ids no player can have, so the award is the seats'.
+    seated = %{pairing | white_player_id: -1, black_player_id: -2}
+    award = pairing_award(seated, round_number, tournament)
+    Map.get(award, if(colour == :white, do: -1, else: -2), 0.0)
+  end
+
   # Expands one stored pairing into records for both players.
   defp pairing_records(%Pairing{result: ""}, _round, _t, _presence?), do: []
 

@@ -112,7 +112,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       rr_reverse_last_two_locked?: :rr_reverse_last_two in locked,
       rr_match_format_locked?: :rr_match_format in locked,
       swiss_match_format_locked?: :swiss_match_format in locked,
-      initial_colour_locked?: :initial_colour in locked
+      initial_colour_locked?: :initial_colour in locked,
+      team_lineups_locked?: :team_lineups in locked
     )
   end
 
@@ -476,6 +477,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
     |> maybe_drop_locked("initial_colour", assigns.initial_colour_locked?)
+    |> maybe_drop_locked("team_lineups", assigns.team_lineups_locked?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -856,6 +858,73 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         </div>
 
         <.section_actions section="pairing" note={@note} error={@error} saved={@saved_section} />
+      </form>
+
+      <form
+        :if={Tournament.team?(@tournament)}
+        id="team-settings-form"
+        phx-submit="save"
+      >
+        <input type="hidden" name="section" value="teams" />
+        <div class="card">
+          <h2>{gettext("Teams")}</h2>
+
+          <.setting_group>
+            <.setting_field
+              label={gettext("Line-ups")}
+              hint={
+                gettext(
+                  "Required: a team plays only with players on its roster, and a board it cannot fill is the opponent's forfeit win. Optional: teams can be paired with no players entered - every match gets all its boards, a result goes on a board with nobody at it or on the match as one score, and a team sits a round out only when it is marked absent or withdrawn. Not FIDE-rated: a board without two players is not a game for the rating report."
+                )
+              }
+            >
+              <select
+                id="team-lineups"
+                name="tournament[team_lineups]"
+                disabled={@team_lineups_locked?}
+              >
+                <option value="required" selected={@tournament.team_lineups == "required"}>
+                  {gettext("Required (FIDE)")}
+                </option>
+                <option value="optional" selected={@tournament.team_lineups == "optional"}>
+                  {gettext("Optional: pair teams without players")}
+                </option>
+              </select>
+              <span :if={@team_lineups_locked?} class="hint">
+                {gettext("Locked: round 1 has been paired.")}
+              </span>
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Team rating for the order of the teams")}
+              hint={
+                gettext(
+                  "How the Teams page rates a team and orders the teams before round 1 (C.04.6 1.1.2 leaves this to the event's rules). A rating typed in for a team on the Teams page is always used instead."
+                )
+              }
+            >
+              <select id="team-rating-method" name="tournament[team_rating_method]">
+                <option value="olympiad" selected={@tournament.team_rating_method == "olympiad"}>
+                  {gettext("Olympiad: average of the highest-rated players, one per board (default)")}
+                </option>
+                <option
+                  value="first_boards"
+                  selected={@tournament.team_rating_method == "first_boards"}
+                >
+                  {gettext("Average of the first boards, in board order")}
+                </option>
+                <option value="roster" selected={@tournament.team_rating_method == "roster"}>
+                  {gettext("Average of the whole roster")}
+                </option>
+                <option value="manual" selected={@tournament.team_rating_method == "manual"}>
+                  {gettext("Typed in for each team")}
+                </option>
+              </select>
+            </.setting_field>
+          </.setting_group>
+        </div>
+
+        <.section_actions section="teams" note={@note} error={@error} saved={@saved_section} />
       </form>
 
       <form id="play-settings-form" phx-submit="save">

@@ -35,6 +35,24 @@ defmodule PairingsEngine.TeamRounds do
   A board one team cannot fill is a forfeit win for the other side's player
   (`1-0FF` / `0-1FF` by colour). A board neither team can fill is not
   created at all - there is no game and nobody to score.
+
+  A team absent or withdrawn as a team for the round
+  (`Tournaments.team_in_round?/2`) fields nobody. A match neither team
+  plays - both out as teams, or neither able to field a player - is a double
+  forfeit (`matches.double_forfeit`): both lose it, where it used to score
+  as a drawn match with no boards.
+
+  ## Line-ups optional
+
+  With `team_lineups` "optional" (`Tournament.team_lineups_optional?/1`) a
+  team plays whether or not it has players on its roster. Every match gets
+  all `team_boards` boards; a seat the roster cannot fill stays empty and
+  carries no result - nobody is known to have failed to turn up, the
+  players are simply not entered. The result goes on the board (or on the
+  match, `PairingsEngine.TeamMatches.set_match_score/4`) like any other.
+  Only a team that is absent or withdrawn as a team loses its boards: each
+  is the opponent's forfeit win, and a match both teams are out of is a
+  double forfeit (`0-0FF`, `matches.double_forfeit`).
   """
 
   import Ecto.Query
@@ -68,20 +86,50 @@ defmodule PairingsEngine.TeamRounds do
   moduledoc). A seat only one team fills is a forfeit win for the player who
   is there; a board neither team fills is left out. Pure.
   """
-  @spec match_boards([Player.t()], [Player.t()], pos_integer()) ::
+  @spec match_boards([Player.t()], [Player.t()], pos_integer(), keyword()) ::
           [{pos_integer(), Player.t() | nil, Player.t() | nil, String.t()}]
-  def match_boards(lineup_a, lineup_b, boards) do
+  def match_boards(lineup_a, lineup_b, boards, opts \\ []) do
+    optional? = Keyword.get(opts, :optional, false)
+    out = Keyword.get(opts, :out, :none)
+
     Enum.flat_map(1..boards, fn k ->
       a = Enum.at(lineup_a, k - 1)
       b = Enum.at(lineup_b, k - 1)
+      {white, black} = if team_a_white?(k), do: {a, b}, else: {b, a}
 
-      if a == nil and b == nil do
-        []
-      else
-        {white, black} = if team_a_white?(k), do: {a, b}, else: {b, a}
-        [{k, white, black, seat_result(white, black)}]
+      cond do
+        optional? ->
+          [{k, white, black, optional_result(out, team_a_white?(k))}]
+
+        a == nil and b == nil ->
+          []
+
+        true ->
+          [{k, white, black, seat_result(white, black)}]
       end
     end)
+  end
+
+  # An optional line-up's board: no result while both teams play - an empty
+  # seat is a player not entered, not one who failed to come - and the
+  # opponent's forfeit win on every board of a team out of the round.
+  defp optional_result(:none, _a_white?), do: ""
+  defp optional_result(:both, _a_white?), do: "0-0FF"
+  defp optional_result(:a, a_white?), do: if(a_white?, do: "0-1FF", else: "1-0FF")
+  defp optional_result(:b, a_white?), do: if(a_white?, do: "1-0FF", else: "0-1FF")
+
+  @doc """
+  Which side of a match between `team_a` and `team_b` is out of round
+  `number` as a team (`Tournaments.team_in_round?/2`): `:none`, `:a`, `:b`
+  or `:both`.
+  """
+  def teams_out(team_a, team_b, number) do
+    case {Tournaments.team_in_round?(team_a, number), Tournaments.team_in_round?(team_b, number)} do
+      {true, true} -> :none
+      {false, true} -> :a
+      {true, false} -> :b
+      {false, false} -> :both
+    end
   end
 
   @doc "Whether the first-named team has White on board `k` of a match."
@@ -116,10 +164,14 @@ defmodule PairingsEngine.TeamRounds do
   def create_round(%Tournament{} = tournament, teams, entries, number) do
     by_number = Map.new(teams, &{&1.pairing_number, &1})
     boards = tournament.team_boards
+    optional? = Tournament.team_lineups_optional?(tournament)
 
+    # A team out of the round as a team fields nobody.
     lineups =
       Map.new(teams, fn team ->
-        {team.id, lineup(Tournaments.team_roster(tournament.id, team.id), number, boards)}
+        if Tournaments.team_in_round?(team, number),
+          do: {team.id, lineup(Tournaments.team_roster(tournament.id, team.id), number, boards)},
+          else: {team.id, []}
       end)
 
     Repo.transaction(fn ->
@@ -153,16 +205,30 @@ defmodule PairingsEngine.TeamRounds do
         team_a = Map.fetch!(by_number, a)
         team_b = Map.fetch!(by_number, b)
 
+        out = teams_out(team_a, team_b, number)
+
+        # Neither team plays: both are out of the round as teams, or - with
+        # required line-ups - neither can field a single player. Neither
+        # turned up, so it is a double forfeit (both lose the match), not the
+        # drawn 0-0 a match without boards would otherwise score. With
+        # optional line-ups its boards are `0-0FF`; with required ones it
+        # has none.
+        nobody? =
+          out == :both or
+            (not optional? and Map.fetch!(lineups, team_a.id) == [] and
+               Map.fetch!(lineups, team_b.id) == [])
+
         match =
           Repo.insert!(%Match{
             round_id: round.id,
             board: match_no,
             team_a_id: team_a.id,
-            team_b_id: team_b.id
+            team_b_id: team_b.id,
+            double_forfeit: nobody?
           })
 
         Map.fetch!(lineups, team_a.id)
-        |> match_boards(Map.fetch!(lineups, team_b.id), boards)
+        |> match_boards(Map.fetch!(lineups, team_b.id), boards, optional: optional?, out: out)
         |> Enum.each(fn {k, white, black, result} ->
           Repo.insert!(%Pairing{
             round_id: round.id,

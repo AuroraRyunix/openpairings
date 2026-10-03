@@ -578,9 +578,10 @@ defmodule PairingsEngine.Snapshot do
     |> Tournaments.list_teams()
     |> Enum.filter(&Map.has_key?(team_nos, &1.id))
     |> Enum.map(fn team ->
+      full_roster = Tournaments.team_roster(t.id, team.id)
+
       roster =
-        t.id
-        |> Tournaments.team_roster(team.id)
+        full_roster
         |> Enum.filter(&Map.has_key?(nos, &1.id))
         |> Enum.map(&Map.fetch!(nos, &1.id))
 
@@ -597,7 +598,12 @@ defmodule PairingsEngine.Snapshot do
         # `arbiter`/`deputy` fields above - not a player record, so the
         # player-data allowlist in `player_row/2` does not apply to it.
         "captain" => blank_to_nil(team.captain),
-        "players" => roster
+        "players" => roster,
+        # Added 2026-10-03: the team's rating as the Teams page shows it
+        # (`Tournaments.team_rating/3` - the tournament's method, or the
+        # rating typed in for the team), a whole number, or null for none.
+        # Worked out here, never by a reader.
+        "rating" => Tournaments.team_rating_display(t, team, full_roster)
       }
     end)
     |> Enum.sort_by(& &1["no"])

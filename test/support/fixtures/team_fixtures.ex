@@ -14,6 +14,10 @@ defmodule PairingsEngine.TeamFixtures do
   created in that order (so seeded 1..N), each roster in the order given.
   Options: `:boards` (default 2), `:user_id`, `:tiebreaks`, `:rr_cycles`,
   and any other tournament attribute.
+
+  The order of creation stays the seeding order: the tournament counts as
+  ordered by hand (`teams_ordered_by_hand`), so pairing round 1 does not
+  seed by rating. Pass `teams_ordered_by_hand: false` to have it seeded.
   """
   def team_round_robin(teams, opts \\ []) do
     attrs =
@@ -26,7 +30,8 @@ defmodule PairingsEngine.TeamFixtures do
           team_boards: Keyword.get(opts, :boards, 2),
           tiebreaks: Keyword.get(opts, :tiebreaks, ~w(MP GP DE BB SB)),
           rr_cycles: Keyword.get(opts, :rr_cycles, 1),
-          user_id: Keyword.get(opts, :user_id)
+          user_id: Keyword.get(opts, :user_id),
+          teams_ordered_by_hand: true
         },
         Map.new(Keyword.drop(opts, [:boards, :tiebreaks, :rr_cycles, :user_id]))
       )

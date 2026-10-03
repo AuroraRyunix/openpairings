@@ -49,6 +49,9 @@ Downloads folder, not memory, unless the row says otherwise.
 | A double forfeit is lost by both teams | TRF-2026 record `330` `--`; Ainalrami's reading T8 of C.07 (see "A double forfeit") |
 | **"Olympiad Sonneborn-Berger" is opponent MP x game points scored** | **memory**; only used to describe EMGSB, whose definition is from the local C.07 |
 | Berger tables (C.05 Annex 1) | no local copy; the schedule reuses `PairingsEngine.RoundRobin`, which is pinned by tests to the published N=4 and N=6 tables |
+| Initial order of the teams: average rating of the four highest-rated players, then the fifth player's rating, then alphabetically | FIDE Olympiad Pairing Rules (effective 1 January 2022), Art. 3.1, local copy of the Handbook (D.II.02); the Olympiad's four is its number of boards (Olympiad 2026 regulations Art. 4.2.1). See "Team rating" |
+| A team shows up when at least one player is present; `330` for a match lost by forfeit | TRF-2026, "Forfeited matches" (local `TRF26.txt`) |
+| `310`'s columns 48-53 are the "Strength Factor" (the example fills it with the average rating) | TRF-2026, "Team Section (new record)" |
 
 ## Setting up
 
@@ -71,9 +74,11 @@ Downloads folder, not memory, unless the row says otherwise.
    is paired.
 5. **Order of the teams**: the order of the team cards becomes the teams'
    pairing numbers when round 1 is paired. Move teams with the arrows, or
-   *Order by rating* (the mean rating of each team's first *boards-per-match*
-   players, a missing board counting 0). C.04.6 Art. 1.1.2 leaves this to the
-   competition's rules or the Chief Arbiter, so nothing is applied on its own.
+   *Order by rating* (the team rating, see "Team rating": by default the
+   Olympiad's rule). C.04.6 Art. 1.1.2 leaves this to the competition's
+   rules or the Chief Arbiter. Teams nobody moved by hand are ordered by
+   rating when round 1 is paired; once a team is moved with the arrows, the
+   order stays the arbiter's.
 6. **Match points** (Settings - Scoring): 2 / 1 / 0 by default, FIDE's team
    scoring. A league that scores 3 / 1 / 0 changes them here.
 7. Tie-breaks (Settings - Tournament): a team tournament is offered the team
@@ -82,6 +87,156 @@ Downloads folder, not memory, unless the row says otherwise.
 Every action on the Teams page is a plain button, so it works from the
 keyboard, each one has a spoken name ("Move Anna to a higher board"), and the
 result is announced through a status line.
+
+## Team rating
+
+Each team card on the Teams page shows the team's rating, and *Order by
+rating* sorts by it. How it is worked out is Settings - Options - Teams -
+*Team rating for the order of the teams* (`tournaments.team_rating_method`,
+`Tournaments.team_rating/3`):
+
+| value | the team's rating |
+|---|---|
+| `"olympiad"` (default) | the average rating of its *boards-per-match* highest-rated players, whatever their board order |
+| `"first_boards"` | the average over the first *boards-per-match* places of its roster, in board order (the app's rule before 2026-10-03) |
+| `"roster"` | the average over its whole roster |
+| `"manual"` | a rating typed for the team, nothing else |
+
+A rating typed for a team (*Rename* on its card, *Team rating*;
+`teams.rating_override`) is used whenever it is set, whatever the method -
+so a team with no players can be seeded too. A player counts with
+`Player.rating/1`: the FIDE rating, the national one for a player without.
+
+**The Olympiad rule**, read 2026-10-03 from the local copy of the FIDE
+Handbook, *Olympiad Pairing Rules (effective from 1 January 2022, approved
+by Council on 27/10/2021)*, Art. 3.1: "The teams shall be ranked in the
+following order for the purpose of assigning an initial pairing number:
+3.1.1 Descending order of the average rating of its four highest-rated
+players; 3.1.2 The rating of the fifth player; 3.1.3 Alphabetically." The
+2026 Olympiad regulations (Art. 4.1) pair by those rules and make a team
+"four players plus one reserve" (Art. 4.2.1), so the four is the number of
+boards; here it is *boards-per-match*. What the rule leaves open:
+
+| Question | Answer here | Source |
+|---|---|---|
+| Which rating list | `Player.rating/1` (FIDE, else national) - the rating the app pairs individuals by | not in the rules: the 2021 revision says "the ratings to be used will be contained in the tournament specific rules" (*Olympiad Pairing Rules - Changes*, items 6-7) |
+| An unrated player | counts 0 | the 2021 revision dropped the old rule that gave an unrated player "an arbitrary rating equal to the FIDE rating floor", and nothing replaced it. Counting 0 is the app's convention, unchanged; **an open question** |
+| Fewer players than boards | averaged over the boards all the same, a missing player counting 0 | the rule averages four players; a team short of players ranks lower rather than being averaged over fewer |
+| A tie | the next-highest player's rating (the fifth with four boards), then the name (alphabetically), then the order of creation | Art. 3.1.2, 3.1.3 |
+
+**Seeding when round 1 is paired.** Pairing round 1 of a team event seeds
+the teams by rating first (`Tournaments.auto_seed_teams/1`, from
+`TeamSwiss` and `TeamRoundRobin`), unless the arbiter moved a team with the
+arrows (`tournaments.teams_ordered_by_hand`, set by
+`Tournaments.move_team/3`; *Order by rating* clears it). The upgrade marks
+every tournament that already had teams as ordered by hand, so no order
+set before it changes; a TRF import keeps the file's order the same way,
+and a JSON backup carries the flag (a file without it, from before, keeps
+its order).
+
+**Where it shows.** The Teams page; the published snapshot's
+`teams[].rating` (a whole number or null, additive since 2026-10-03); and
+TRF26's `310` record, whose columns 48-53 are the "Strength Factor" - the
+spec's own example fills it with each team's average rating. A TRF import
+keeps a strength factor that differs from the rating it works out as the
+team's typed-in rating. The `013` record has no such field.
+
+## Line-ups optional: teams without players
+
+Settings - Options - Teams - *Line-ups* (`tournaments.team_lineups`):
+
+- **Required** (`"required"`, the default and every tournament from before
+  the setting): as described everywhere else on this page - a team plays
+  with the players on its roster, and a board it cannot fill is the
+  opponent's forfeit win.
+- **Optional** (`"optional"`): teams can be paired with no players entered
+  at all. Not a FIDE procedure - a board without two players is no rated
+  game - but some leagues and school events only ever record team scores.
+
+It locks when round 1 is paired (`Tournaments.locked_fields/1`): the boards
+already written were laid out by it, and the empty seats score from their
+results only while it holds.
+
+With optional line-ups (`Tournament.team_lineups_optional?/1`):
+
+| | |
+|---|---|
+| Who plays | every team, unless it is absent or withdrawn **as a team** for the round (`TeamSwiss.split_field/3`): a team with no players is paired like any other |
+| The boards | every match gets all *boards-per-match* boards (`TeamRounds.match_boards/4`); the roster's available players sit from board 1 down as usual and the other seats stay empty, **with no result** - nobody failed to turn up, the players were simply not entered |
+| A team absent or withdrawn as a team | a team Swiss leaves it out of the round; a team round robin gives each of its boards to the opponent (`1-0FF`/`0-1FF`), and a match both teams miss is a double forfeit (`0-0FF`, `matches.double_forfeit`) |
+| Line-ups after pairing | the match page still sets them (`TeamMatches.set_lineups/4`); a gap is allowed, and both sides may be empty |
+| A board's result | entered on the Pairings page like any other, whether or not anyone sits there; an empty seat scores what the result gives its colour (`Standings.seat_points/4`) |
+| A round's completeness | every board of a match without a result holds the round open - for pairing the next round, for sending it, and for FIDE mode's round window (`Tournaments.last_played_round/1`) |
+
+### A match decided by its score
+
+When only the match result is known, the match page (*Line-ups* on the
+Pairings page's match list) takes it as one score - *Match score*, in
+boards: 2.5 and 1.5 for 2½-1½ (`TeamMatches.set_match_score/4`).
+
+**The design: the score is written onto the boards.** Each board of the
+match gets a result that adds up to the score - as many draws as the score
+allows and the difference as wins, the winning team's on the top boards
+(2½-1½ on four boards: a win on board 1, three draws; 3-1: wins on boards 1
+and 2, two draws; 2-2: four draws; `TeamMatches.score_results/3`) - and the
+match keeps the score as entered (`matches.match_score_a`/`_b`). Why this
+rather than a match-level result the scoring reads instead of the boards:
+
+- everything in the app reads a match from its boards - whether a round is
+  complete (pairing the next round, sending it, the FIDE-mode window), the
+  game and match points, the team standings and every team tie-break, the
+  TRF `310` totals, the board statistics, the prints, the published
+  snapshot. A score on the boards is read by all of them unchanged; a score
+  beside the boards would have needed a second path through each, and any
+  one forgotten would disagree with the others;
+- nothing is invented for anybody: the boards have no players, so the
+  results are on no player's record, in no board statistic and on no `001`
+  line;
+- the split is a convention, and it is the one that invents least. It
+  matters only to the tie-breaks that weigh boards (`BB`, `TBR`, `BBE`),
+  which read such a match as decided on its top boards. An event that ranks
+  by those should enter board results instead.
+
+Allowed only with optional line-ups, on a match nobody sits at and with no
+result yet; the score must be two multiples of ½ adding up to the number of
+boards. While it stands, a single board of the match cannot be changed
+(`{:error, :match_score_set}`) and the match cannot be forfeited by
+decision; *Withdraw the match score* blanks the boards again
+(`TeamMatches.clear_match_score/2`). The audit trail records both
+(`pairing.match_score_set`, `pairing.match_score_cleared`), with a restore
+point before the score is written.
+
+### The TRF report
+
+- A board without two players is no game: it is never on a `001` line. A
+  player sitting alone at a board (the other seat not entered) has that
+  round's column left blank - not the point without a game a required
+  line-up writes for a forfeit, which would also read as a bye for a round
+  not yet paired (`240`) once a file's last rounds had no game in them. The
+  result counts for the team in `310`.
+- The `310` record's match and game points are the team standings', so a
+  match decided by its score (or on boards nobody sits at) still gives its
+  teams their MP and GP there.
+- A match won by forfeit with no game played - a team absent as a team, or
+  a match forfeited by decision before play - is a `330` `+-` (the team with
+  White on board 1 won) or `-+`: its boards cannot say it, often having no
+  player at all. A double forfeit is a `330` `--`, as before. With required
+  line-ups nothing changes: those boards carry the present team's forfeit
+  wins on the `001` lines.
+- In FIDE mode the Export page warns, beside *Send*, when a match board has
+  an empty seat: its result counts for the teams but is no rated game.
+  Sending is not blocked.
+
+`ainalrami -c` cannot re-rank the teams of such a file from its games, and
+importing it cannot rebuild the matches nobody sat at.
+
+### Team absence
+
+*Absent as a team in round* on each team card (rounds not yet paired;
+`Tournaments.set_team_absent/4`, `teams.absent_rounds`) works with either
+setting: an absent team fields nobody that round
+(`Tournaments.team_in_round?/2`). A round already paired is changed on the
+Pairings page instead (a forfeit by decision).
 
 ## Pairing a team round robin
 
@@ -102,7 +257,9 @@ Each scheduled pairing becomes a **match** (`matches` table) and its boards:
   first *boards-per-match* of those play, so a reserve moves up.
 - **Unequal teams or a missing player.** A board only one team can fill is a
   forfeit win for the player who is there (`1-0FF` or `0-1FF`). A board
-  neither team can fill is not created.
+  neither team can fill is not created. A match neither team can field
+  anybody for is a double forfeit ("A double forfeit"): both lose it (before
+  2026-10-03 such a match, with no boards, scored as a draw).
 - **Board numbers** run on through the round: with four boards, match 1 is
   boards 1-4 and match 2 boards 5-8. Result entry, result slips and score
   sheets are unchanged.
@@ -143,6 +300,12 @@ White, `0-1FF` where it has Black), records the decision on the match, and
 keeps the results the boards had (`matches.forfeited_to_team_id`,
 `forfeit_previous_results`). A restore point is taken first and the audit
 trail records it. *Withdraw the decision* puts the old results back.
+
+A match awarded to a team with nobody seated at any of its boards is that
+team's win on match points (`TeamStandings`): with required line-ups its
+forfeit wins sit on empty seats, which score no game points, and the match
+used to come out a drawn 0-0. The TRF names it in a `330` record, since no
+`001` line can.
 
 | Question | Answer | Source |
 |---|---|---|
@@ -664,7 +827,9 @@ exclusion rules. See [`swar-import.md`](swar-import.md), "Team competitions".
 ## Backups, restore points, hand-off
 
 The JSON envelope carries the teams (including seeding order and pairing
-number), the tournament's match settings, each round's `"matches"`, and each
+number, a typed-in rating and the rounds absent as a team), the tournament's
+match settings (line-ups, the team rating method, whether the teams were
+ordered by hand), each round's `"matches"` (a match score included), and each
 board's `"match_id"`, remapped on import. A restore therefore brings back the
 same team standings.
 
@@ -730,6 +895,12 @@ shifts the others (`boards` stays the plain list it was) - and
 `matches[].double_forfeit: true` on a double forfeit, gated like the match
 points. A line-up change keeps a board's number, so these stay consistent
 with it.
+
+Also since 2026-10-03: `teams[].rating`, the team's rating as the Teams
+page shows it (see "Team rating"), or null. With optional line-ups a match's
+`boards`/`board_positions` list its empty boards too; they have no entry in
+the round's `boards` (which only ever lists boards with two players), and
+the match's `game_points` count their results.
 
 A match forfeited by decision carries `"forfeit_decision": {"to": <team
 no>}` (null for every other match), so the results site can say "Awarded to

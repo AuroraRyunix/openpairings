@@ -256,12 +256,24 @@ defmodule PairingsEngine.TeamRoundRobinTest do
       assert Repo.reload!(p1).board_order == nil
     end
 
-    test "seeding by rating averages each team's first boards" do
+    test "seeding by the first boards averages each team's first boards" do
+      {t, [weak, strong]} =
+        team_round_robin([{"Weak", [1500, 1500, 2800]}, {"Strong", [2000, 2000]}],
+          boards: 2,
+          team_rating_method: "first_boards"
+        )
+
+      {:ok, _} = Tournaments.seed_teams_by_rating(t)
+      assert Enum.map(Tournaments.list_teams(t.id), & &1.id) == [strong.id, weak.id]
+    end
+
+    test "seeding by the Olympiad rule takes the highest-rated players, wherever they sit" do
       {t, [weak, strong]} =
         team_round_robin([{"Weak", [1500, 1500, 2800]}, {"Strong", [2000, 2000]}], boards: 2)
 
       {:ok, _} = Tournaments.seed_teams_by_rating(t)
-      assert Enum.map(Tournaments.list_teams(t.id), & &1.id) == [strong.id, weak.id]
+      # (2800 + 1500) / 2 = 2150 against 2000.
+      assert Enum.map(Tournaments.list_teams(t.id), & &1.id) == [weak.id, strong.id]
     end
 
     test "a team from another tournament cannot take a player" do

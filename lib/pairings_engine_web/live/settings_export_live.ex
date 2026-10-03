@@ -99,6 +99,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         |> Enum.filter(&(&1.changes != [])),
       sent_rounds: PostponedGames.sent_rounds(t),
       ambiguous_players: PostponedGames.ambiguous_players(t.id),
+      # FIDE mode: boards of team matches without two players (optional
+      # line-ups) are no rated game - warned about beside sending, never
+      # blocked.
+      empty_board_rounds:
+        if(
+          PairingsEngine.Compliance.fide_mode?(t) and
+            PairingsEngine.Tournaments.Tournament.team_lineups_optional?(t) and
+            PairingsEngine.Tournaments.Tournament.paired_as_teams?(t),
+          do: PairingsEngine.TeamMatches.empty_board_rounds(t.id),
+          else: []
+        ),
       postponed_open: PostponedGames.open_games(t),
       trf_rounds: rounds,
       trf_selected: selected,
@@ -1312,6 +1323,28 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
         >
           {Postponed.ambiguous_players_text(@ambiguous_players)}
+        </div>
+
+        <%!-- FIDE mode, a team event with boards nobody sits at (optional
+              line-ups): their results count for the teams but are no rated
+              game, so the file does not carry them. It warns; sending still
+              works. --%>
+        <div
+          :if={@empty_board_rounds != []}
+          id="trf-empty-boards-warning"
+          class="card"
+          role="status"
+          style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
+        >
+          {gettext(
+            "FIDE mode: some boards of this event's team matches have an empty seat (%{rounds}). A board without two players is not a rated game: the file leaves it out of the players' games, while its result still counts in the team scores (record 310). Sending is not blocked - check this is what the rating officer expects.",
+            rounds:
+              Enum.map_join(@empty_board_rounds, ", ", fn {round, count} ->
+                ngettext("round %{round}: 1 board", "round %{round}: %{count} boards", count,
+                  round: round
+                )
+              end)
+          )}
         </div>
 
         <p

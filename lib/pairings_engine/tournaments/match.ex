@@ -24,6 +24,13 @@ defmodule PairingsEngine.Tournaments.Match do
   arbiter (`PairingsEngine.TeamMatches.double_forfeit/2`): every board
   `0-0FF`, both teams losing the match by forfeit. The previous board
   results are kept in `forfeit_previous_results` as for a decision.
+
+  `match_score_a` / `match_score_b` are a match decided by its score alone,
+  in a team event whose line-ups are optional
+  (`PairingsEngine.TeamMatches.set_match_score/4`): the score as entered,
+  in boards (2.5 and 1.5 for 2½-1½). The boards carry the results it was
+  written as, so everything that reads boards reads the match as usual;
+  these two say the boards came from a match score. Both nil otherwise.
   """
   use Ecto.Schema
 
@@ -31,6 +38,8 @@ defmodule PairingsEngine.Tournaments.Match do
     field :board, :integer
     field :forfeit_previous_results, :map
     field :double_forfeit, :boolean, default: false
+    field :match_score_a, :float
+    field :match_score_b, :float
 
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :team_a, PairingsEngine.Tournaments.Team

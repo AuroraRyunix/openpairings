@@ -1413,10 +1413,16 @@ defmodule PairingsEngine.TrfImport do
           |> Repo.update!()
         end)
 
+        keep_strength(tournament, created, Map.get(team, :strength))
+
         {Map.get(team, :number), created.id}
       end
       |> Enum.reject(fn {number, _id} -> is_nil(number) end)
       |> Map.new()
+
+    # The file's order of the teams is the order: pairing round 1 here keeps
+    # it rather than seeding by rating (`Tournaments.auto_seed_teams/1`).
+    tournament |> Ecto.Changeset.change(teams_ordered_by_hand: true) |> Repo.update!()
 
     notes =
       if team_system?(tournament) do
@@ -1435,6 +1441,22 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp import_teams(_tournament, _data, _players_by_rank), do: {[], %{}}
+
+  # A `310` strength factor (columns 48-53) is the team's rating
+  # (`PairingsEngine.TrfExport`). When it is not the rating this app works
+  # out from the roster it came with, it is kept as the team's typed-in
+  # rating, so the file's figure is what the team shows and exports again.
+  defp keep_strength(tournament, team, strength) when is_integer(strength) and strength > 0 do
+    team = Repo.reload!(team)
+
+    if Tournaments.team_rating_display(tournament, team) != strength and strength < 4000 do
+      team |> Ecto.Changeset.change(rating_override: strength) |> Repo.update!()
+    end
+
+    :ok
+  end
+
+  defp keep_strength(_tournament, _team, _strength), do: :ok
 
   defp team_system?(t),
     do:

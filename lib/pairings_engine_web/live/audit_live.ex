@@ -99,7 +99,8 @@ defmodule PairingsEngineWeb.AuditLive do
         player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
-        team.board_order_changed team.seeding_changed team.withdrawn team.reinstated)},
+        team.board_order_changed team.seeding_changed team.withdrawn team.reinstated
+        team.absence_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.results_imported pairing.players_swapped pairing.player_substituted
@@ -108,7 +109,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
         pairing.account_recomputed pairing.account_deepened pairing.match_forfeited
         pairing.match_forfeit_withdrawn pairing.board_attached pairing.match_double_forfeited
-        pairing.lineup_changed pairing.match_home_swapped
+        pairing.lineup_changed pairing.match_home_swapped pairing.match_score_set
+        pairing.match_score_cleared
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
@@ -316,6 +318,20 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("team.reinstated", d),
     do: gettext("Brought team %{team} back into the event.", team: name(d, "team_name"))
+
+  def describe("team.absence_changed", %{"absent" => true} = d),
+    do:
+      gettext("Marked team %{team} absent for round %{round}.",
+        team: name(d, "team_name"),
+        round: value(d, "round")
+      )
+
+  def describe("team.absence_changed", d),
+    do:
+      gettext("Marked team %{team} present for round %{round}.",
+        team: name(d, "team_name"),
+        round: value(d, "round")
+      )
 
   def describe("team.seeding_changed", %{"by_rating" => true}),
     do: gettext("Ordered the teams by rating.")
@@ -650,6 +666,28 @@ defmodule PairingsEngineWeb.AuditLive do
         before_a: lineup_text(d["before_a"]),
         after_b: lineup_text(d["after_b"]),
         before_b: lineup_text(d["before_b"])
+      )
+
+  def describe("pairing.match_score_set", d),
+    do:
+      gettext(
+        "Entered the score of match %{match} of round %{round}: %{a} %{score} %{b}, written onto its boards.",
+        match: value(d, "match"),
+        round: value(d, "round"),
+        a: name(d, "team_a"),
+        b: name(d, "team_b"),
+        score: value(d, "score")
+      )
+
+  def describe("pairing.match_score_cleared", d),
+    do:
+      gettext(
+        "Withdrew the score of match %{match} of round %{round} (%{a} %{score} %{b}); its boards are blank again.",
+        match: value(d, "match"),
+        round: value(d, "round"),
+        a: name(d, "team_a"),
+        b: name(d, "team_b"),
+        score: value(d, "score")
       )
 
   def describe("pairing.match_home_swapped", d),

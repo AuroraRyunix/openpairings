@@ -9,6 +9,11 @@ defmodule PairingsEngineWeb.TeamsLive do
   press away and a screen reader announces what each does ("Move Anna to a
   higher board"). The result of every action is read out through the
   `role="status"` line at the top.
+
+  Each team shows its rating (`Tournaments.team_rating/3`, by the
+  tournament's `team_rating_method`), which can be typed in by hand
+  (`teams.rating_override`), and the rounds it sits out as a team
+  (`Tournaments.set_team_absent/4`).
   """
   use PairingsEngineWeb, :live_view
 
@@ -72,7 +77,13 @@ defmodule PairingsEngineWeb.TeamsLive do
       seated: Tournaments.seated_player_ids(t.id),
       deletable: teams |> Enum.filter(&Tournaments.team_deletable?/1) |> MapSet.new(& &1.id),
       withdraw_from: withdraw_defaults(t, teams),
-      writable?: Tournaments.ensure_writable(t) == :ok
+      writable?: Tournaments.ensure_writable(t) == :ok,
+      ratings:
+        Map.new(teams, fn team ->
+          roster = Tournaments.sort_roster(Map.get(rosters, team.id, []))
+          {team.id, Tournaments.team_rating_display(t, team, roster)}
+        end),
+      paired: Engine.paired_rounds_count(t.id)
     )
   end
 
@@ -121,10 +132,14 @@ defmodule PairingsEngineWeb.TeamsLive do
       when is_map(params) do
     with %Team{} = team <- team(socket, id),
          {:ok, updated} <-
-           Tournaments.update_team(team, Map.take(params, ~w(name short_name captain))) do
+           Tournaments.update_team(
+             team,
+             Map.take(params, ~w(name short_name captain rating_override))
+           ) do
       Audit.log(socket.assigns.tournament.id, socket.assigns.current_scope, "team.updated", %{
         team_name: updated.name,
-        previous_name: team.name
+        previous_name: team.name,
+        rating_override: updated.rating_override
       })
 
       {:noreply, socket |> ok(gettext("Team %{name} saved.", name: updated.name)) |> load()}
@@ -163,6 +178,36 @@ defmodule PairingsEngineWeb.TeamsLive do
     else
       nil -> {:noreply, socket}
       {:error, reason} -> {:noreply, fail(socket, reason)}
+    end
+  end
+
+  def handle_event(
+        "set_team_absent",
+        %{"team_id" => id, "round" => round, "absent" => absent},
+        socket
+      ) do
+    t = socket.assigns.tournament
+    absent? = absent == "true"
+
+    with %Team{} = team <- team(socket, id),
+         {number, ""} <- Integer.parse(to_string(round)),
+         {:ok, _} <- Tournaments.set_team_absent(t, team, number, absent?) do
+      Audit.log(t.id, socket.assigns.current_scope, "team.absence_changed", %{
+        team_name: team.name,
+        round: number,
+        absent: absent?
+      })
+
+      note =
+        if absent?,
+          do: gettext("%{team} is absent in round %{round}.", team: team.name, round: number),
+          else: gettext("%{team} plays round %{round}.", team: team.name, round: number)
+
+      {:noreply, socket |> ok(note) |> load()}
+    else
+      nil -> {:noreply, socket}
+      {:error, reason} -> {:noreply, fail(socket, reason)}
+      _ -> {:noreply, fail(socket, :bad_round)}
     end
   end
 
@@ -377,6 +422,27 @@ defmodule PairingsEngineWeb.TeamsLive do
         "Round 1 is paired. Change the roster anyway? Rounds paired from now on use the new order; the TRF report lists one board order per team."
       )
 
+  defp team_rating_method_text("first_boards"),
+    do:
+      gettext(
+        "Team rating: the average rating of the players on its first boards, in board order (Settings - Options - Teams)."
+      )
+
+  defp team_rating_method_text("roster"),
+    do:
+      gettext(
+        "Team rating: the average rating of every player on its roster (Settings - Options - Teams)."
+      )
+
+  defp team_rating_method_text("manual"),
+    do: gettext("Team rating: typed in for each team, under Rename (Settings - Options - Teams).")
+
+  defp team_rating_method_text(_olympiad),
+    do:
+      gettext(
+        "Team rating: the average rating of its highest-rated players, one per board, as at the Chess Olympiad; the next player's rating, then the name, break a tie (Settings - Options - Teams). A rating typed in for a team is used instead."
+      )
+
   defp rating(player) do
     case Player.rating(player) do
       0 -> "-"
@@ -544,8 +610,11 @@ defmodule PairingsEngineWeb.TeamsLive do
                 ),
               else:
                 gettext(
-                  "The order below becomes the teams' pairing numbers when round 1 is paired. Set it by your competition's rules, or order the teams by the average rating of their first boards."
+                  "The order below becomes the teams' pairing numbers when round 1 is paired. Set it by your competition's rules with the arrows, or order the teams by rating. Teams nobody has moved by hand are ordered by rating when round 1 is paired."
                 )}
+          </p>
+          <p id="team-rating-method" class="hint">
+            {team_rating_method_text(@tournament.team_rating_method)}
           </p>
           <button
             :if={!@frozen? and @writable? and length(@teams) > 1}
@@ -570,6 +639,53 @@ defmodule PairingsEngineWeb.TeamsLive do
           </h2>
           <p :if={team.captain != ""} class="hint">
             {gettext("Captain: %{name}", name: team.captain)}
+          </p>
+          <p id={"team-rating-#{team.id}"} class="hint">
+            <%= case @ratings[team.id] do %>
+              <% nil -> %>
+                {gettext("Team rating: none")}
+              <% rating -> %>
+                {gettext("Team rating: %{rating}", rating: rating)}
+            <% end %>
+            <span :if={is_integer(team.rating_override)}>
+              {gettext("(typed in)")}
+            </span>
+          </p>
+
+          <div
+            :if={
+              @writable? and Tournament.paired_as_teams?(@tournament) and
+                @paired < @tournament.rounds_count
+            }
+            id={"team-absence-#{team.id}"}
+            class="actions"
+            role="group"
+            aria-label={gettext("Rounds %{team} sits out", team: team.name)}
+          >
+            <span class="hint">{gettext("Absent as a team in round:")}</span>
+            <button
+              :for={r <- (@paired + 1)..@tournament.rounds_count//1}
+              id={"team-absent-#{team.id}-#{r}"}
+              type="button"
+              class="pe-btn"
+              phx-click="set_team_absent"
+              phx-value-team_id={team.id}
+              phx-value-round={r}
+              phx-value-absent={to_string(!Team.absent_in?(team, r))}
+              aria-pressed={to_string(Team.absent_in?(team, r))}
+              aria-label={gettext("%{team} absent in round %{round}", team: team.name, round: r)}
+            >
+              {r}
+            </button>
+          </div>
+          <p
+            :if={(team.absent_rounds || []) != []}
+            id={"team-absent-rounds-#{team.id}"}
+            class="hint"
+          >
+            {gettext("Absent in rounds: %{rounds}",
+              rounds: Enum.join(team.absent_rounds, ", ")
+            )}
           </p>
 
           <div :if={team.withdrawn_from_round} id={"team-withdrawn-#{team.id}"} class="actions">
@@ -695,6 +811,17 @@ defmodule PairingsEngineWeb.TeamsLive do
               <label class="field">
                 <span>{gettext("Captain")}</span>
                 <input type="text" name="team[captain]" value={team.captain} maxlength="100" />
+              </label>
+              <label class="field">
+                <span>{gettext("Team rating (blank: worked out from the players)")}</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="3999"
+                  id={"team-rating-override-#{team.id}"}
+                  name="team[rating_override]"
+                  value={team.rating_override}
+                />
               </label>
               <div class="actions">
                 <button type="submit" class="pe-btn primary">{gettext("Save team")}</button>

@@ -903,6 +903,38 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text({:not_on_team, _id}),
     do: gettext("Not saved: a player in the line-up is not on that team.")
 
+  def error_text(:match_score_set),
+    do:
+      gettext(
+        "Not changed: this match was decided by its score. Withdraw the match score on the match's page first."
+      )
+
+  def error_text(:not_optional),
+    do:
+      gettext(
+        "A match score is for a team event whose line-ups are optional (Settings - Options - Teams)."
+      )
+
+  def error_text(:players_seated),
+    do:
+      gettext(
+        "Not saved: players sit at this match's boards. Enter each board's result instead, or empty the line-ups first."
+      )
+
+  def error_text(:bad_score),
+    do:
+      gettext(
+        "Not saved: a match score is two numbers in steps of a half that add up to the number of boards, such as 2.5 and 1.5 on four boards."
+      )
+
+  def error_text(:no_match_score), do: gettext("This match has no match score to withdraw.")
+
+  def error_text(:round_paired),
+    do:
+      gettext(
+        "That round is already paired. Change it on the Pairings page: forfeit the team's match by decision."
+      )
+
   def error_text(:already_withdrawn), do: gettext("This team has already withdrawn.")
 
   def error_text(:not_withdrawn), do: gettext("This team has not withdrawn.")

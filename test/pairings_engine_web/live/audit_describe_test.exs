@@ -71,6 +71,10 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"team_name" => "Brugse SK", "from_round" => 4, "matches_forfeited" => 2}
     ],
     "team.reinstated" => [%{"team_name" => "Brugse SK"}],
+    "team.absence_changed" => [
+      %{"team_name" => "Brugse SK", "round" => 3, "absent" => true},
+      %{"team_name" => "Brugse SK", "round" => 3, "absent" => false}
+    ],
     "team.seeding_changed" => [
       %{"by_rating" => true},
       %{"team_name" => "Brugse SK", "direction" => "up"},
@@ -302,6 +306,24 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     ],
     "pairing.match_double_forfeited" => [
       %{"round" => 3, "match" => 2, "team_a" => "Brugse SK", "team_b" => "KGSRL"}
+    ],
+    "pairing.match_score_set" => [
+      %{
+        "round" => 2,
+        "match" => 1,
+        "team_a" => "Brugse SK",
+        "team_b" => "KGSRL",
+        "score" => "2½-1½"
+      }
+    ],
+    "pairing.match_score_cleared" => [
+      %{
+        "round" => 2,
+        "match" => 1,
+        "team_a" => "Brugse SK",
+        "team_b" => "KGSRL",
+        "score" => "2½-1½"
+      }
     ],
     "pairing.lineup_changed" => [
       %{

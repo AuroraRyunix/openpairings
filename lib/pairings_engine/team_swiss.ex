@@ -39,8 +39,10 @@ defmodule PairingsEngine.TeamSwiss do
       against a team on a different score (Art. 1.5).
 
   A team is in the round's field when at least one of its players can sit at
-  a board that round (`TeamRounds.lineup/3`). A team that cannot field
-  anyone sits the round out: not paired, no match written. If it has played
+  a board that round (`TeamRounds.lineup/3`) - or, with optional line-ups,
+  whether or not it has players - and it is not absent or withdrawn as a
+  team (`split_field/3`). A team that cannot field anyone sits the round
+  out: not paired, no match written. If it has played
   (or had a bye) before, it is passed as `:absent`, so it keeps its place in
   Art. 4.3.1's arrival numbering.
 
@@ -120,13 +122,28 @@ defmodule PairingsEngine.TeamSwiss do
         {:error, "Round #{paired} still has missing results"}
 
       true ->
+        # Round 1 of an event whose teams were not ordered by hand: seeded
+        # by rating first (`Tournaments.auto_seed_teams/1`).
+        if next == 1, do: Tournaments.auto_seed_teams(tournament)
         ensure_team_numbers(tournament)
         teams = TeamRounds.numbered_teams(tournament.id)
         {field, _sitting_out} = split_field(tournament, teams, next)
 
         result =
-          if length(field) < 2 do
-            {:error, "At least two teams with a player available for round #{next} are needed"}
+          cond do
+            length(field) >= 2 ->
+              :pair
+
+            Tournament.team_lineups_optional?(tournament) ->
+              {:error, "At least two teams available for round #{next} are needed"}
+
+            true ->
+              {:error, "At least two teams with a player available for round #{next} are needed"}
+          end
+
+        result =
+          if result != :pair do
+            result
           else
             tournament =
               if next == 1, do: Tournaments.ensure_initial_colour(tournament), else: tournament
@@ -430,17 +447,23 @@ defmodule PairingsEngine.TeamSwiss do
   ## ---------- the field ----------
 
   @doc """
-  Splits the numbered `teams` into those that can field at least one player
-  in round `number` and those that cannot.
+  Splits the numbered `teams` into those that play round `number` and those
+  that do not. A team absent or withdrawn as a team
+  (`Tournaments.team_in_round?/2`) never plays; otherwise it plays when it
+  can field at least one player - or, with optional line-ups
+  (`Tournament.team_lineups_optional?/1`), whether or not it has players.
   """
   def split_field(%Tournament{} = tournament, teams, number) do
     boards = max(tournament.team_boards || 1, 1)
+    optional? = Tournament.team_lineups_optional?(tournament)
 
     Enum.split_with(teams, fn team ->
-      tournament.id
-      |> Tournaments.team_roster(team.id)
-      |> TeamRounds.lineup(number, boards)
-      |> Kernel.!=([])
+      Tournaments.team_in_round?(team, number) and
+        (optional? or
+           tournament.id
+           |> Tournaments.team_roster(team.id)
+           |> TeamRounds.lineup(number, boards)
+           |> Kernel.!=([]))
     end)
   end
 

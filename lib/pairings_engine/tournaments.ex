@@ -937,9 +937,12 @@ defmodule PairingsEngine.Tournaments do
       # list stays exactly what it was.
       # The board-colour convention decided who sat with White on every
       # board already played, so it freezes with them.
+      # Whether line-ups are required laid out every match already written
+      # (all its boards, or only the seated ones) and decides what an empty
+      # seat scores, so it freezes with them too.
       base =
         if Tournament.team?(tournament),
-          do: base ++ [:team_boards, :team_board_colours],
+          do: base ++ [:team_boards, :team_board_colours, :team_lineups],
           else: base
 
       # The initial colour decided round 1's boards (C.04.3 5.2.5, C.04.6
@@ -3568,22 +3571,30 @@ defmodule PairingsEngine.Tournaments do
         if index == nil or target < 0 or target >= length(teams) do
           {:ok, team}
         else
-          teams
-          |> List.replace_at(index, Enum.at(teams, target))
-          |> List.replace_at(target, Enum.at(teams, index))
-          |> write_seeds(tournament.id)
+          with {:ok, _} = ok <-
+                 teams
+                 |> List.replace_at(index, Enum.at(teams, target))
+                 |> List.replace_at(target, Enum.at(teams, index))
+                 |> write_seeds(tournament.id) do
+            # Ordered by hand: pairing round 1 keeps this order
+            # (`auto_seed_teams/1`).
+            set_ordered_by_hand(tournament, true)
+            ok
+          end
         end
     end
   end
 
   @doc """
-  Re-seeds every team by strength: the average rating of the players who
-  would sit on its `team_boards` boards, highest first, name breaking a tie.
-  An unrated player counts as 0, so a team missing ratings sorts lower rather
-  than being averaged over fewer boards. Same refusal as `move_team/3`.
+  Re-seeds every team by its rating (`team_rating/3`, the tournament's
+  `team_rating_method`), highest first; `team_seed_key/3` breaks a tie. Same
+  refusal as `move_team/3`. The order is no longer one set by hand
+  (`teams_ordered_by_hand` goes back to false), so pairing round 1 seeds by
+  rating again if the rosters change in the meantime.
 
   C.04.6 Art. 1.1.2 leaves the initial order of teams to the competition's
-  rules or the Chief Arbiter, so this is an offer, never applied on its own.
+  rules or the Chief Arbiter; the default rule is the Olympiad's (see
+  `team_rating/3`).
   """
   def seed_teams_by_rating(%Tournament{} = tournament) do
     cond do
@@ -3594,26 +3605,179 @@ defmodule PairingsEngine.Tournaments do
         {:error, :teams_frozen}
 
       true ->
-        tournament.id
-        |> list_teams()
-        |> Enum.sort_by(&{-team_rating(tournament, &1), &1.name, &1.id})
-        |> write_seeds(tournament.id)
+        with {:ok, _} = ok <- write_seeds(teams_by_rating(tournament), tournament.id) do
+          set_ordered_by_hand(tournament, false)
+          ok
+        end
     end
   end
 
   @doc """
-  The team's strength for seeding: the mean rating over its first
-  `team_boards` roster places, a missing board counting as 0. A float.
+  Seeds the teams by rating when round 1 of a team event is about to be
+  paired - unless the arbiter has ordered them by hand
+  (`teams_ordered_by_hand`, set by `move_team/3`) or the order is already
+  frozen. Called by `PairingsEngine.TeamSwiss` and
+  `PairingsEngine.TeamRoundRobin` before they number the teams. Returns the
+  tournament. A tournament that had teams before this existed counts as
+  ordered by hand (the migration), so its order is never changed under it.
   """
-  def team_rating(%Tournament{} = tournament, %Team{} = team) do
+  def auto_seed_teams(%Tournament{} = tournament) do
+    # Read fresh: the page that clicked "Pair" may hold the tournament from
+    # before the arbiter moved a team on the Teams page.
+    fresh = Repo.get(Tournament, tournament.id) || tournament
+
+    if Tournament.team?(fresh) and not fresh.teams_ordered_by_hand and
+         not teams_frozen?(fresh.id) do
+      _ = write_seeds(teams_by_rating(fresh), fresh.id)
+    end
+
+    tournament
+  end
+
+  defp teams_by_rating(tournament) do
+    tournament.id
+    |> list_teams()
+    |> Enum.map(fn team ->
+      roster = team_roster(tournament.id, team.id)
+      {team, team_seed_key(tournament, team, roster)}
+    end)
+    |> Enum.sort_by(&elem(&1, 1))
+    |> Enum.map(&elem(&1, 0))
+  end
+
+  defp set_ordered_by_hand(%Tournament{id: id}, value) do
+    Repo.update_all(from(t in Tournament, where: t.id == ^id),
+      set: [teams_ordered_by_hand: value]
+    )
+  end
+
+  @doc """
+  The sort key that seeds `team`: its rating, highest first, then - for the
+  Olympiad method - the rating of its next-highest player (the Olympiad
+  Pairing Rules Art. 3.1.2, "the rating of the fifth player" with four
+  boards), then the name (3.1.3, "alphabetically"), then the id.
+  """
+  def team_seed_key(%Tournament{} = tournament, %Team{} = team, roster) do
+    boards = max(tournament.team_boards || 1, 1)
+    rating = team_rating(tournament, team, roster)
+
+    next =
+      if tournament.team_rating_method == "olympiad" and is_nil(team.rating_override),
+        do: roster |> Enum.map(&Player.rating/1) |> Enum.sort(:desc) |> Enum.at(boards, 0),
+        else: 0
+
+    {-rating, -next, team.name, team.id}
+  end
+
+  @doc """
+  The team's rating for seeding, a float (0.0 when there is nothing to
+  average), by the tournament's `team_rating_method`. A rating typed for the
+  team (`teams.rating_override`) is used whenever it is set, whatever the
+  method. Each player counts with `Player.rating/1` - the FIDE rating, the
+  national one for a player without - and an unrated player counts as 0.
+  `roster` is the team's roster in board order when the caller has it.
+
+    * `"olympiad"` (the default) - the average rating of the team's
+      `team_boards` highest-rated players, whatever their board order: FIDE
+      Olympiad Pairing Rules (effective 1 January 2022), Art. 3.1: "The
+      teams shall be ranked in the following order for the purpose of
+      assigning an initial pairing number: 3.1.1 Descending order of the
+      average rating of its four highest-rated players; 3.1.2 The rating of
+      the fifth player; 3.1.3 Alphabetically". The Olympiad plays four boards
+      (Olympiad 2026 regulations Art. 4.2.1: "four players plus one
+      reserve"), so its four is the number of boards here. A team with fewer
+      players than boards averages over the boards all the same, a missing
+      player counting 0, as the rule averages four. The rules name no rating
+      list: the 2021 revision moved that to "the tournament specific rules",
+      and dropped the old rule that gave an unrated player the rating floor.
+    * `"first_boards"` - the average over the first `team_boards` places of
+      the roster in board order, a missing board counting 0 (the app's rule
+      until 2026-10-03).
+    * `"roster"` - the average over the whole roster.
+    * `"manual"` - only the typed rating; 0.0 for a team without one.
+  """
+  def team_rating(%Tournament{} = tournament, %Team{} = team, roster \\ nil) do
     boards = max(tournament.team_boards || 1, 1)
 
-    tournament.id
-    |> team_roster(team.id)
-    |> Enum.take(boards)
-    |> Enum.map(&Player.rating/1)
-    |> Enum.sum()
-    |> Kernel./(boards)
+    cond do
+      is_integer(team.rating_override) ->
+        team.rating_override * 1.0
+
+      tournament.team_rating_method == "manual" ->
+        0.0
+
+      true ->
+        ratings =
+          (roster || team_roster(tournament.id, team.id))
+          |> Enum.map(&Player.rating/1)
+
+        case tournament.team_rating_method do
+          "first_boards" ->
+            ratings |> Enum.take(boards) |> Enum.sum() |> Kernel./(boards)
+
+          "roster" ->
+            if ratings == [], do: 0.0, else: Enum.sum(ratings) / length(ratings)
+
+          _olympiad ->
+            ratings |> Enum.sort(:desc) |> Enum.take(boards) |> Enum.sum() |> Kernel./(boards)
+        end
+    end
+  end
+
+  @doc """
+  The team's rating as a whole number, for showing and for the TRF26 `310`
+  record's strength factor, or nil when there is none (0).
+  """
+  def team_rating_display(%Tournament{} = tournament, %Team{} = team, roster \\ nil) do
+    case round(team_rating(tournament, team, roster)) do
+      0 -> nil
+      n -> n
+    end
+  end
+
+  @doc """
+  Marks `team` absent (`absent? = true`) or present for round `number`
+  (`teams.absent_rounds`). An absent team is not paired in a team Swiss
+  round, and in a team round robin round its boards go to the opponent
+  (`PairingsEngine.TeamRounds`). Only for a round not yet paired: one
+  already on the board is changed on the Pairings page (a forfeit by
+  decision). `{:error, :round_paired}` or `{:error, :bad_round}` otherwise.
+  """
+  def set_team_absent(%Tournament{} = tournament, %Team{} = team, number, absent?) do
+    paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+    cond do
+      refusal = write_refused(tournament.id) ->
+        refusal
+
+      team.tournament_id != tournament.id ->
+        {:error, :not_found}
+
+      not is_integer(number) or number < 1 or number > tournament.rounds_count ->
+        {:error, :bad_round}
+
+      number <= paired ->
+        {:error, :round_paired}
+
+      true ->
+        rounds = team.absent_rounds || []
+        rounds = if absent?, do: Enum.uniq([number | rounds]), else: rounds -- [number]
+
+        team
+        |> Ecto.Changeset.change(absent_rounds: Enum.sort(rounds))
+        |> Repo.update()
+        |> tap_ok(fn _ -> broadcast_tournament_change(tournament.id, :players) end)
+    end
+  end
+
+  @doc """
+  Whether `team` plays round `number` as a team: not withdrawn from it
+  (`withdrawn_from_round`) and not absent for it (`absent_rounds`). Says
+  nothing about its players; `PairingsEngine.TeamRounds` decides who sits.
+  """
+  def team_in_round?(%Team{} = team, number) do
+    (is_nil(team.withdrawn_from_round) or number < team.withdrawn_from_round) and
+      not Team.absent_in?(team, number)
   end
 
   defp write_seeds(ordered, tournament_id) do
@@ -5155,6 +5319,7 @@ defmodule PairingsEngine.Tournaments do
     with :ok <- ensure_writable(tournament_id),
          %Tournament{} = tournament <- Repo.get(Tournament, tournament_id),
          :ok <- ensure_result_round_open(tournament, pairing),
+         :ok <- ensure_no_match_score(pairing),
          :ok <- ensure_postponed_allowed(tournament, result),
          :ok <-
            pairing
@@ -5179,6 +5344,22 @@ defmodule PairingsEngine.Tournaments do
       number = Repo.one(from r in Round, where: r.id == ^pairing.round_id, select: r.number)
       ensure_round_editable(tournament, number)
     end
+  end
+
+  # A board of a match decided by its score (`TeamMatches.set_match_score/4`)
+  # carries the result the score was written as; changing one board would
+  # leave the match saying one score and its boards another. Withdrawing the
+  # match score frees them.
+  defp ensure_no_match_score(%Pairing{match_id: nil}), do: :ok
+
+  defp ensure_no_match_score(%Pairing{match_id: match_id}) do
+    if Repo.exists?(
+         from m in Match,
+           where: m.id == ^match_id and not is_nil(m.match_score_a),
+           select: 1
+       ),
+       do: {:error, :match_score_set},
+       else: :ok
   end
 
   # A postponed code is written only where the tournament allows postponed
@@ -5580,13 +5761,16 @@ defmodule PairingsEngine.Tournaments do
   """
   @spec count_missing_results(integer(), integer() | nil) :: non_neg_integer()
   def count_missing_results(tournament_id, through_round \\ nil) do
+    optional? = lineups_optional?(tournament_id)
+
     query =
       from(p in Pairing,
         join: r in Round,
         on: r.id == p.round_id,
         where:
-          r.tournament_id == ^tournament_id and not is_nil(p.white_player_id) and
-            not is_nil(p.black_player_id) and (is_nil(p.result) or p.result == ""),
+          r.tournament_id == ^tournament_id and (is_nil(p.result) or p.result == "") and
+            ((not is_nil(p.white_player_id) and not is_nil(p.black_player_id)) or
+               (^optional? and not is_nil(p.match_id))),
         select: count(p.id)
       )
 
@@ -5597,15 +5781,21 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   The highest round number of `tournament_id` in which every two-player
   board has a result (`*` included) - 0 when there is none. Byes and empty
-  seats are not games and do not hold a round open.
+  seats are not games and do not hold a round open - except in a team event
+  whose line-ups are optional (`Tournament.team_lineups_optional?/1`),
+  where every board of a match is one whose result is awaited, seated or
+  not.
   """
   @spec last_played_round(integer()) :: non_neg_integer()
   def last_played_round(tournament_id) do
+    optional? = lineups_optional?(tournament_id)
+
     open_boards =
       from(p in Pairing,
         where:
-          p.round_id == parent_as(:round).id and not is_nil(p.white_player_id) and
-            not is_nil(p.black_player_id) and (is_nil(p.result) or p.result == ""),
+          p.round_id == parent_as(:round).id and (is_nil(p.result) or p.result == "") and
+            ((not is_nil(p.white_player_id) and not is_nil(p.black_player_id)) or
+               (^optional? and not is_nil(p.match_id))),
         select: 1
       )
 
@@ -5616,6 +5806,17 @@ defmodule PairingsEngine.Tournaments do
     )
     |> Repo.one()
     |> Kernel.||(0)
+  end
+
+  # Whether `tournament_id` is a team event with optional line-ups, read
+  # without loading the tournament.
+  defp lineups_optional?(tournament_id) do
+    Repo.exists?(
+      from t in Tournament,
+        where:
+          t.id == ^tournament_id and t.team_lineups == "optional" and
+            t.type in ["team-swiss", "team-roundrobin"]
+    )
   end
 
   defp sent_round_refused(round, opts) do

@@ -210,6 +210,7 @@ defmodule PairingsEngine.TeamStandings do
       forfeited_to: nil,
       double_forfeit?: false,
       played_before_decision?: false,
+      match_score: nil,
       scored?: true,
       complete?: true,
       postponed_boards: 0,
@@ -234,7 +235,7 @@ defmodule PairingsEngine.TeamStandings do
             do: {p.white_player_id, p.black_player_id},
             else: {p.black_player_id, p.white_player_id}
 
-        {a_points, b_points} = board_points(p, round.number, t, a_id, b_id)
+        {a_points, b_points} = board_points(p, round.number, t, {a_id, b_id}, k)
 
         %{
           board: k,
@@ -257,6 +258,7 @@ defmodule PairingsEngine.TeamStandings do
     {mp_a, mp_b} =
       cond do
         scored? and m.double_forfeit -> {t.team_match_points_loss, t.team_match_points_loss}
+        scored? and awarded_unseated?(m, board_rows) -> awarded_points(t, m)
         scored? -> match_points(t, gp_a, gp_b)
         true -> {nil, nil}
       end
@@ -272,7 +274,16 @@ defmodule PairingsEngine.TeamStandings do
       # team it was awarded to, and whether games had been played first.
       forfeited_to: m.forfeited_to_team_id,
       double_forfeit?: m.double_forfeit,
+      # Recorded by the arbiter (`TeamMatches.double_forfeit/2`, which keeps
+      # the boards' previous results), rather than written by the pairing
+      # for a match neither team plays (`TeamRounds`) - only the first is a
+      # result entered by hand (`reached/1`).
+      double_forfeit_decided?: m.double_forfeit and is_map(m.forfeit_previous_results),
       played_before_decision?: PairingsEngine.TeamMatches.played_before_decision?(m),
+      # A match decided by its score alone (`TeamMatches.set_match_score/4`),
+      # `{a, b}` as entered; its boards carry the results it was written as,
+      # which is what everything here adds up.
+      match_score: match_score(m),
       scored?: scored?,
       complete?: scored? and postponed_boards == 0,
       postponed_boards: postponed_boards,
@@ -284,18 +295,65 @@ defmodule PairingsEngine.TeamStandings do
     }
   end
 
+  # A match forfeited by decision (`TeamMatches.forfeit_match/3`) to a team
+  # with nobody seated at any of its boards: the forfeit wins the decision
+  # wrote are on empty seats, which score nothing with required line-ups,
+  # so the game points come out level and the match would read as a draw.
+  # The decision awarded the match: its match points go to that team (the
+  # TRF says so with a `330`, `PairingsEngine.TrfExport`). With optional
+  # line-ups the empty seats score their results and the game points decide
+  # it as usual.
+  defp awarded_unseated?(%Match{forfeited_to_team_id: nil}, _rows), do: false
+
+  defp awarded_unseated?(%Match{} = m, rows) do
+    side = if m.forfeited_to_team_id == m.team_a_id, do: :a_player_id, else: :b_player_id
+    rows != [] and Enum.all?(rows, &is_nil(Map.get(&1, side)))
+  end
+
+  defp awarded_points(t, %Match{} = m) do
+    if m.forfeited_to_team_id == m.team_a_id,
+      do: {t.team_match_points_win, t.team_match_points_loss},
+      else: {t.team_match_points_loss, t.team_match_points_win}
+  end
+
+  defp match_score(%Match{match_score_a: a, match_score_b: b}) when is_number(a) and is_number(b),
+    do: {a * 1.0, b * 1.0}
+
+  defp match_score(_match), do: nil
+
   # What the board paid each side, from the same function individual
   # standings add up. An empty seat scores nil for its side (nobody sat
   # there); the opposite player's forfeit win is in the award.
-  defp board_points(%{result: ""}, _round, _t, _a, _b), do: {nil, nil}
+  #
+  # With optional line-ups (`Tournament.team_lineups_optional?/1`) an empty
+  # seat is a player not entered, not nobody: it scores what the board's
+  # result gives its colour, exactly as a player in that seat would
+  # (`Standings.seat_points/4`).
+  defp board_points(%{result: ""}, _round, _t, _ids, _k), do: {nil, nil}
 
-  defp board_points(pairing, round_number, t, a_id, b_id) do
+  defp board_points(pairing, round_number, t, {a_id, b_id}, k) do
     award = Standings.pairing_award(pairing, round_number, t)
-    {side_points(award, a_id), side_points(award, b_id)}
+
+    if Tournament.team_lineups_optional?(t) do
+      {a_colour, b_colour} =
+        if PairingsEngine.TeamRounds.team_a_white?(k),
+          do: {:white, :black},
+          else: {:black, :white}
+
+      {seat_or_side(award, a_id, pairing, round_number, t, a_colour),
+       seat_or_side(award, b_id, pairing, round_number, t, b_colour)}
+    else
+      {side_points(award, a_id), side_points(award, b_id)}
+    end
   end
 
   defp side_points(_award, nil), do: 0.0
   defp side_points(award, id), do: Map.get(award, id, 0.0)
+
+  defp seat_or_side(_award, nil, pairing, round_number, t, colour),
+    do: Standings.seat_points(pairing, round_number, t, colour)
+
+  defp seat_or_side(award, id, _pairing, _round_number, _t, _colour), do: side_points(award, id)
 
   @doc """
   Match points for a finished match with game points `gp_a` against `gp_b`:
@@ -543,11 +601,19 @@ defmodule PairingsEngine.TeamStandings do
   end
 
   defp entered?(%{forfeited_to: winner}) when not is_nil(winner), do: true
-  defp entered?(%{double_forfeit?: true}), do: true
+  defp entered?(%{double_forfeit_decided?: true}), do: true
+  defp entered?(%{match_score: {_, _}}), do: true
 
+  # A board with two players and a result - or, with optional line-ups, a
+  # board nobody sits at that carries a played result: the pairing never
+  # writes one, so it was entered by hand.
   defp entered?(%{boards: boards}) do
     Enum.any?(boards, fn b ->
-      b.a_player_id && b.b_player_id && b.pairing.result not in ["", nil]
+      result = b.pairing.result
+
+      result not in ["", nil] and
+        ((b.a_player_id && b.b_player_id) ||
+           (is_nil(b.a_player_id) and is_nil(b.b_player_id) and Results.played?(result)))
     end)
   end
 

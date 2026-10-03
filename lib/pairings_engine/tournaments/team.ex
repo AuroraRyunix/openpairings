@@ -34,13 +34,25 @@ defmodule PairingsEngine.Tournaments.Team do
     # brings back exactly those and not one withdrawn on their own before.
     field :withdrawal_player_ids, {:array, :integer}, default: []
 
+    # A rating typed for the team by the arbiter: used for seeding and shown
+    # in place of the one worked out from the roster whenever it is set
+    # (`Tournaments.team_rating/2`), so a team with no players can be seeded
+    # too. nil - the default - works it out.
+    field :rating_override, :integer
+
+    # The rounds the team as a whole does not play (`Tournaments.
+    # set_team_absent/4`), ascending. A team Swiss leaves it out of those
+    # rounds' pairing; a team round robin gives each of its boards in those
+    # rounds to the opponent. Never cast.
+    field :absent_rounds, {:array, :integer}, default: []
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     has_many :players, PairingsEngine.Tournaments.Player
   end
 
   def changeset(team, attrs) do
     team
-    |> cast(attrs, [:name, :captain, :short_name])
+    |> cast(attrs, [:name, :captain, :short_name, :rating_override])
     |> update_change(:name, &trim/1)
     |> update_change(:short_name, &trim/1)
     |> update_change(:captain, &trim/1)
@@ -48,7 +60,14 @@ defmodule PairingsEngine.Tournaments.Team do
     |> validate_length(:name, min: 1, max: 100)
     |> validate_length(:short_name, max: 12)
     |> validate_length(:captain, max: 100)
+    |> validate_number(:rating_override, greater_than_or_equal_to: 0, less_than: 4000)
   end
+
+  @doc "Whether the team as a whole sits out round `number` (`absent_rounds`)."
+  def absent_in?(%__MODULE__{absent_rounds: rounds}, number) when is_list(rounds),
+    do: number in rounds
+
+  def absent_in?(_team, _number), do: false
 
   defp trim(value) when is_binary(value), do: String.trim(value)
   defp trim(value), do: value

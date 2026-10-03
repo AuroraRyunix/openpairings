@@ -99,6 +99,9 @@ defmodule PairingsEngine.TeamRoundRobin do
   # `rounds_count` to what their Berger table needs - the same three steps
   # `RoundRobin` takes over players, for the same reasons.
   defp prepare(tournament) do
+    # Before the first draw, teams nobody ordered by hand are seeded by
+    # rating (`Tournaments.auto_seed_teams/1`); a no-op once numbered.
+    Tournaments.auto_seed_teams(tournament)
     ensure_team_numbers(tournament)
     teams = TeamRounds.numbered_teams(tournament.id)
 

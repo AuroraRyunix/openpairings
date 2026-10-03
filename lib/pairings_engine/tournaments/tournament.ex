@@ -38,6 +38,15 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # "home" - league style, the home team has White on the odd boards and the
   # arbiter can swap home and away before a match starts.
   @team_board_colours ~w(fide home)
+  # Whether a team needs players to be paired (docs/team-tournaments.md,
+  # "Line-ups optional"): "required" - a team plays only with players on
+  # its roster, every board seated from it; "optional" - a team plays
+  # whether or not it has players, every match gets all its boards, empty
+  # seats included, and the results go on the boards or on the match.
+  @team_lineups ~w(required optional)
+  # How a team's rating is worked out for seeding (docs/team-tournaments.md,
+  # "Team rating"): see `PairingsEngine.Tournaments.team_rating/2`.
+  @team_rating_methods ~w(olympiad first_boards roster manual)
   # How far the automation moves each round's public level for the arbiter
   # (Settings -> OpenResults, "Automatically:") - since 2026-09-28 one
   # cumulative ladder, the same four levels as the per-round control on the
@@ -716,6 +725,23 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # have and as they do for an individual round robin here.
     field :team_withdrawal_annul, :boolean, default: false
 
+    # "required" (default, and every tournament from before the setting) or
+    # "optional": see `@team_lineups`. Locked once round 1 is paired
+    # (`Tournaments.locked_fields/1`): the boards already written were laid
+    # out by it, and the empty seats of an optional event score from their
+    # results only while it holds.
+    field :team_lineups, :string, default: "required"
+
+    # How a team's rating is worked out for seeding: see
+    # `@team_rating_methods` and `Tournaments.team_rating/2`. "olympiad" by
+    # default (the Olympiad Pairing Rules, Art. 3.1).
+    field :team_rating_method, :string, default: "olympiad"
+
+    # The arbiter has moved a team by hand (`Tournaments.move_team/3`), so
+    # pairing round 1 keeps the order rather than seeding the teams by
+    # rating (`Tournaments.auto_seed_teams/1`). Never cast.
+    field :teams_ordered_by_hand, :boolean, default: false
+
     # Swiss (teams) only: how its rounds are paired. "teams" - team against
     # team under C.04.6 (`PairingsEngine.TeamSwiss`); "players" - player by
     # player on the individual Swiss path, which is how every team Swiss was
@@ -1141,6 +1167,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :team_pab_match_points,
       :team_pab_game_points,
       :team_withdrawal_annul,
+      :team_lineups,
+      :team_rating_method,
       :initial_colour,
       :pair_by_category,
       :club_exclusion,
@@ -1185,6 +1213,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_number(:team_match_points_draw, greater_than_or_equal_to: 0)
     |> validate_number(:team_match_points_loss, greater_than_or_equal_to: 0)
     |> validate_inclusion(:team_board_colours, @team_board_colours)
+    |> validate_inclusion(:team_lineups, @team_lineups)
+    |> validate_inclusion(:team_rating_method, @team_rating_methods)
     |> validate_number(:team_pab_match_points, greater_than_or_equal_to: 0)
     |> validate_number(:team_pab_game_points, greater_than_or_equal_to: 0)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
@@ -2050,6 +2080,21 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @doc "The values `team_board_colours` takes."
   def team_board_colours, do: @team_board_colours
+
+  @doc "The values `team_lineups` takes."
+  def team_lineups_values, do: @team_lineups
+
+  @doc "The values `team_rating_method` takes."
+  def team_rating_methods, do: @team_rating_methods
+
+  @doc """
+  Whether a team event plays without players on its rosters
+  (`team_lineups` "optional"): a team is in a round unless it is absent or
+  withdrawn as a team, every match gets all its boards, empty seats
+  included, and an empty seat scores what its board's result gives it.
+  """
+  def team_lineups_optional?(%{team_lineups: "optional"} = t), do: team?(t)
+  def team_lineups_optional?(_), do: false
 
   @doc """
   Whether a match's first-named team (`team_a`) is its HOME team: league

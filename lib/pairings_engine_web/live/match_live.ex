@@ -10,6 +10,11 @@ defmodule PairingsEngineWeb.MatchLive do
   can change until the first result of the match is entered
   (`PairingsEngine.TeamMatches.set_lineups/4`, which checks the roster's
   board order and rewrites the match's boards).
+
+  With optional line-ups (`Tournament.team_lineups_optional?/1`) an empty
+  seat is a player not entered rather than a forfeit, and a match nobody
+  sits at can be decided by its score alone
+  (`PairingsEngine.TeamMatches.set_match_score/4`).
   """
   use PairingsEngineWeb, :live_view
 
@@ -89,7 +94,10 @@ defmodule PairingsEngineWeb.MatchLive do
         lineups: lineups,
         open?: TeamMatches.lineup_open?(match),
         writable?: Tournaments.ensure_writable(t) == :ok,
-        form: lineup_form(lineups)
+        form: lineup_form(lineups),
+        optional?: Tournament.team_lineups_optional?(t),
+        unseated?: Enum.all?(lineups.a ++ lineups.b, &is_nil/1),
+        score_form: to_form(%{"a" => "", "b" => ""}, as: :score)
       )
     else
       assign(socket, match: nil, page_title: gettext("Match not found"))
@@ -156,7 +164,84 @@ defmodule PairingsEngineWeb.MatchLive do
     end
   end
 
+  def handle_event("set_match_score", %{"score" => %{"a" => a, "b" => b}}, socket) do
+    %{tournament: t, match: match, round_number: number} = socket.assigns
+
+    with {:ok, score_a} <- parse_score(a),
+         {:ok, score_b} <- parse_score(b),
+         _ =
+           Snapshots.capture(t, "pairing.match_score_set", socket.assigns.current_scope,
+             summary: "Before entering the score of match #{match.board} of round #{number}"
+           ),
+         {:ok, _} <- TeamMatches.set_match_score(t, match, score_a, score_b) do
+      Audit.log(t.id, socket.assigns.current_scope, "pairing.match_score_set", %{
+        round: number,
+        match: match.board,
+        team_a: team_name(match.team_a),
+        team_b: team_name(match.team_b),
+        score: "#{format_score(score_a)}-#{format_score(score_b)}"
+      })
+
+      {:noreply,
+       socket
+       |> assign(note: gettext("Match score saved; the boards carry it."), error: nil)
+       |> load()}
+    else
+      {:error, reason} -> {:noreply, assign(socket, error: error_text(reason), note: nil)}
+    end
+  end
+
+  def handle_event("clear_match_score", _params, socket) do
+    %{tournament: t, match: match, round_number: number} = socket.assigns
+
+    case TeamMatches.clear_match_score(t, match) do
+      {:ok, _} ->
+        Audit.log(t.id, socket.assigns.current_scope, "pairing.match_score_cleared", %{
+          round: number,
+          match: match.board,
+          team_a: team_name(match.team_a),
+          team_b: team_name(match.team_b),
+          score: "#{format_score(match.match_score_a)}-#{format_score(match.match_score_b)}"
+        })
+
+        {:noreply,
+         socket |> assign(note: gettext("Match score withdrawn."), error: nil) |> load()}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: error_text(reason), note: nil)}
+    end
+  end
+
   def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  # "2.5", "2,5", "2½" and "2 1/2" all read as 2.5.
+  defp parse_score(value) do
+    text =
+      value
+      |> to_string()
+      |> String.trim()
+      |> String.replace(",", ".")
+      |> String.replace(~r/\s*(½|1\/2)$/u, ".5")
+
+    text = if String.starts_with?(text, "."), do: "0" <> text, else: text
+
+    case Float.parse(text) do
+      {n, ""} -> {:ok, n}
+      _ -> {:error, :bad_score}
+    end
+  end
+
+  defp format_score(nil), do: "-"
+
+  defp format_score(n) do
+    whole = trunc(n)
+
+    cond do
+      n == whole -> Integer.to_string(whole)
+      whole == 0 -> "½"
+      true -> "#{whole}½"
+    end
+  end
 
   defp save(socket, lineup_a, lineup_b, success) do
     %{tournament: t, match: match, round_number: number, lineups: before} = socket.assigns
@@ -196,9 +281,9 @@ defmodule PairingsEngineWeb.MatchLive do
   # One option per roster player, in board order; one who cannot play this
   # round is listed - so the select shows who is missing - and refused on
   # save with the reason.
-  defp options(roster, round_number) do
+  defp options(roster, round_number, optional?) do
     [
-      {gettext("(empty: forfeit)"), ""}
+      {if(optional?, do: gettext("(empty: not entered)"), else: gettext("(empty: forfeit)")), ""}
       | Enum.map(roster, fn p ->
           label =
             if TeamRounds.available?(p, round_number),
@@ -301,11 +386,84 @@ defmodule PairingsEngineWeb.MatchLive do
           </button>
         </div>
 
+        <div :if={@optional?} id="match-score" class="card">
+          <h2>{gettext("Match score")}</h2>
+          <%= if TeamMatches.match_score?(@match) do %>
+            <p id="match-score-set">
+              {gettext("Decided by its score: %{a} %{score_a} - %{score_b} %{b}",
+                a: team_name(@match.team_a),
+                b: team_name(@match.team_b),
+                score_a: format_score(@match.match_score_a),
+                score_b: format_score(@match.match_score_b)
+              )}
+            </p>
+            <p class="hint">
+              {gettext(
+                "Its boards carry the score as results - the winning team's wins on the top boards, the rest drawn - with no player on them, so no game goes to the rating report."
+              )}
+            </p>
+            <button
+              :if={@writable?}
+              id="clear-match-score"
+              type="button"
+              class="pe-btn"
+              phx-click="clear_match_score"
+              data-confirm={gettext("Withdraw the match score? Its boards are blank again.")}
+            >
+              {gettext("Withdraw the match score")}
+            </button>
+          <% else %>
+            <p class="hint">
+              {gettext(
+                "Only the result of the match is known? Enter it here, in boards (2.5 and 1.5 for 2½-1½). It is written onto the boards, which need no players. A match with players on its boards takes each board's result on the Pairings page instead."
+              )}
+            </p>
+            <.form
+              :if={@open? and @unseated? and @writable?}
+              for={@score_form}
+              id="match-score-form"
+              phx-submit="set_match_score"
+              class="actions"
+            >
+              <.input
+                field={@score_form[:a]}
+                type="text"
+                inputmode="decimal"
+                id="match-score-a"
+                label={team_name(@match.team_a)}
+                required
+              />
+              <.input
+                field={@score_form[:b]}
+                type="text"
+                inputmode="decimal"
+                id="match-score-b"
+                label={team_name(@match.team_b)}
+                required
+              />
+              <button type="submit" class="pe-btn primary" id="save-match-score">
+                {gettext("Save match score")}
+              </button>
+            </.form>
+            <p :if={!@unseated?} id="match-score-seated" class="hint">
+              {gettext("Players sit at this match's boards, so its result goes on each board.")}
+            </p>
+            <p :if={@unseated? and !@open?} class="hint">
+              {gettext("This match already has a result.")}
+            </p>
+          <% end %>
+        </div>
+
         <div class="card">
           <h2>{gettext("Line-ups")}</h2>
-          <p class="hint">
+          <p :if={!@optional?} class="hint">
             {gettext(
               "Who plays on which board. Each team plays in its roster's board order: players can be left out, and the players below them move up, but nobody plays above a player listed higher. A team short of players leaves its bottom boards empty, and the other team wins them by forfeit."
+            )}
+          </p>
+          <p :if={@optional?} id="lineups-optional-hint" class="hint">
+            {gettext(
+              "Line-ups are optional in this tournament: a board may stay empty, and its result is entered on the Pairings page all the same. Players who are entered keep their roster's board order."
             )}
           </p>
           <p :if={!@open?} id="lineups-closed" class="hint">
@@ -339,7 +497,7 @@ defmodule PairingsEngineWeb.MatchLive do
                       id={"lineup-a-#{k}"}
                       name={"lineup[a][#{k}]"}
                       value={@form.params["a"][Integer.to_string(k)]}
-                      options={options(@roster_a, @round_number)}
+                      options={options(@roster_a, @round_number, @optional?)}
                       disabled={!@open? or !@writable?}
                       aria-label={
                         gettext("Board %{board} for %{team}",
@@ -355,7 +513,7 @@ defmodule PairingsEngineWeb.MatchLive do
                       id={"lineup-b-#{k}"}
                       name={"lineup[b][#{k}]"}
                       value={@form.params["b"][Integer.to_string(k)]}
-                      options={options(@roster_b, @round_number)}
+                      options={options(@roster_b, @round_number, @optional?)}
                       disabled={!@open? or !@writable?}
                       aria-label={
                         gettext("Board %{board} for %{team}",

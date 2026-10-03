@@ -94,6 +94,7 @@ defmodule PairingsEngine.TournamentExport do
     keizer_top_value pair_by_category
     team_boards team_match_points_win team_match_points_draw team_match_points_loss
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
+    team_lineups team_rating_method teams_ordered_by_hand
     team_pairing_mode initial_colour initial_colour_drawn
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
@@ -244,7 +245,7 @@ defmodule PairingsEngine.TournamentExport do
   def excluded_tournament_fields, do: @excluded_tournament_fields
 
   @team_fields ~w(name captain short_name seed pairing_number withdrawn_from_round
-                  withdrawal_player_ids)a
+                  withdrawal_player_ids rating_override absent_rounds)a
 
   # A team's content: its names, its captain, where it stands in the seeding
   # order and, once the draw is frozen, its pairing number - the last two
@@ -642,7 +643,11 @@ defmodule PairingsEngine.TournamentExport do
       "team_b_id" => m.team_b_id,
       "forfeited_to_team_id" => m.forfeited_to_team_id,
       "forfeit_previous_results" => m.forfeit_previous_results,
-      "double_forfeit" => m.double_forfeit
+      "double_forfeit" => m.double_forfeit,
+      # A match decided by its score alone (`TeamMatches.set_match_score/4`):
+      # the score as entered; its boards carry the results.
+      "match_score_a" => m.match_score_a,
+      "match_score_b" => m.match_score_b
     }
   end
 

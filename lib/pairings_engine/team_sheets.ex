@@ -296,7 +296,9 @@ defmodule PairingsEngine.TeamSheets do
 
   defp sheet_row(b, pairings) do
     p = Map.fetch!(pairings, b.pairing.id)
-    a_white? = b.a_player_id == p.white_player_id
+    # By the board's place in the match, not by who sits there: a board with
+    # both seats empty (optional line-ups) has no player to tell by.
+    a_white? = PairingsEngine.TeamRounds.team_a_white?(b.board)
 
     {a_player, b_player} =
       if a_white?, do: {p.white_player, p.black_player}, else: {p.black_player, p.white_player}

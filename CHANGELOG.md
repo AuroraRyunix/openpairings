@@ -17,6 +17,44 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Team events without players.** Settings - Options - Teams -
+  *Line-ups*: *Optional* pairs teams whether or not they have players on
+  their rosters (the default, *Required*, is how every team event worked
+  before and stays FIDE's). Every match gets all its boards, the empty
+  seats with no result; a result goes on a board nobody sits at, or on the
+  match as one score from its page (2½-1½ - written onto the boards as wins
+  on the top boards and draws, so the standings, the tie-breaks, the TRF
+  and OpenResults read it like any other match). A team sits a round out
+  only when it is absent or withdrawn as a team. A board without two
+  players is no rated game: the TRF leaves it off the `001` lines, the
+  `310` still carries the match and game points, and a match won because
+  the other team was absent is a `330` record. In FIDE mode the Export page
+  warns before such rounds are sent; it does not block them. Not a FIDE
+  procedure. The setting locks when round 1 is paired.
+- [Feature] Teams page: a team can be marked **absent as a team** for any
+  round not yet paired - a team Swiss leaves it out, a team round robin
+  gives its boards to the opponent - with either line-up setting.
+- [Fix] Team round robin: a match neither team can field a single player
+  for (everybody absent on both sides) is a double forfeit - both teams
+  lose it, as when the arbiter records one - instead of scoring as a drawn
+  match with no boards. The TRF writes its `330` `--`.
+- [Fix] Team events: a match forfeited by decision to a team that had
+  nobody seated at any of its boards is that team's win. Its forfeit wins
+  sat on empty seats, which score nothing, so the match came out a drawn
+  0-0. The TRF names such a match in a `330` record, the only place it can
+  show.
+- [Change] **Team rating for the order of the teams: the Olympiad's rule
+  by default** - the average of a team's highest-rated players, one per
+  board, whatever their board order, then the next player's rating, then
+  the name (FIDE Olympiad Pairing Rules, Art. 3.1). Settings - Options -
+  Teams offers the first boards in board order (the rule until now), the
+  whole roster, or a rating typed for each team; a rating typed for a team
+  on the Teams page is always used, so a team with no players can be
+  seeded too. The Teams page shows each team's rating, OpenResults gets it
+  (`teams[].rating`), and the TRF writes it in the `310` record's strength
+  factor. Pairing round 1 now orders teams nobody moved by hand by rating
+  first; an order set with the arrows, and every tournament that already
+  had teams, keeps its order.
 - [Fix] **A round without a date keeps its place in the schedule.** A
   blank or null entry in a tournament's round dates was dropped when they
   were saved, so every later date moved up a round: a 7-round event known

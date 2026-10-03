@@ -78,6 +78,9 @@ defmodule PairingsEngine.TeamMatches do
       not is_nil(match.forfeited_to_team_id) or match.double_forfeit ->
         {:error, :already_forfeited}
 
+      match_score?(match) ->
+        {:error, :match_score_set}
+
       boards == [] ->
         {:error, :no_boards}
 
@@ -135,6 +138,9 @@ defmodule PairingsEngine.TeamMatches do
 
       not is_nil(match.forfeited_to_team_id) or match.double_forfeit ->
         {:error, :already_forfeited}
+
+      match_score?(match) ->
+        {:error, :match_score_set}
 
       boards == [] ->
         {:error, :no_boards}
@@ -242,6 +248,182 @@ defmodule PairingsEngine.TeamMatches do
 
   defp finish({:error, _} = error, _tournament_id), do: error
 
+  ## ---------- a match decided by its score ----------
+
+  @doc """
+  Decides `match` by its score alone: `score_a` to `score_b` in boards (2.5
+  and 1.5 for 2½-1½), for a team event whose line-ups are optional
+  (`Tournament.team_lineups_optional?/1`) and a match nobody sits at.
+
+  The score is written onto the match's boards as board results
+  (`score_results/3`), and kept on the match (`match_score_a`/`_b`) so the
+  pages can say the boards came from a match score. Everything that reads
+  boards - the round's completeness, game and match points, the team
+  standings and tie-breaks, the TRF `310` totals, the published snapshot -
+  then reads the match exactly as if its boards had been entered one by
+  one. No game is invented for anybody: the boards have no players, so the
+  results are on no player's record and no `001` line.
+
+  Refused with `{:error, reason}`:
+
+    * `:not_optional` - the tournament's line-ups are required;
+    * `:bye_match`;
+    * `:players_seated` - a board of the match has a player: enter that
+      board's result instead (or empty the line-ups first);
+    * `:match_started` - a board already has a result, or the match was
+      forfeited by decision;
+    * `:bad_score` - not two non-negative multiples of ½ adding up to the
+      number of boards;
+    * the writability and FIDE-mode round-window refusals.
+
+  Returns `{:ok, match}`. `clear_match_score/2` undoes it.
+  """
+  def set_match_score(%Tournament{} = t, %Match{} = match, score_a, score_b) do
+    boards = match_boards(match)
+    per_match = max(t.team_boards || 1, 1)
+
+    cond do
+      refusal = Tournaments.write_refused(t.id) ->
+        refusal
+
+      refusal = round_closed(t, match) ->
+        refusal
+
+      not Tournament.team_lineups_optional?(t) ->
+        {:error, :not_optional}
+
+      is_nil(match.team_b_id) ->
+        {:error, :bye_match}
+
+      Enum.any?(boards, &(&1.white_player_id || &1.black_player_id)) ->
+        {:error, :players_seated}
+
+      not is_nil(match.forfeited_to_team_id) or match.double_forfeit or
+        match_score?(match) or Enum.any?(boards, &(&1.result not in ["", nil])) ->
+        {:error, :match_started}
+
+      not valid_score?(score_a, score_b, per_match) ->
+        {:error, :bad_score}
+
+      true ->
+        results = score_results(score_a * 1.0, score_b * 1.0, per_match)
+        by_k = Map.new(boards, &{rem(&1.board - 1, per_match) + 1, &1})
+
+        Repo.transaction(fn ->
+          for {k, result} <- results do
+            case Map.get(by_k, k) do
+              nil ->
+                %Pairing{
+                  round_id: match.round_id,
+                  match_id: match.id,
+                  board: (match.board - 1) * per_match + k,
+                  result: result
+                }
+                |> Repo.insert!()
+                |> Tournaments.freeze_new_pairing_display_board!()
+
+              p ->
+                p |> Pairing.changeset(%{result: result}) |> Repo.update!()
+            end
+          end
+
+          match
+          |> Ecto.Changeset.change(match_score_a: score_a * 1.0, match_score_b: score_b * 1.0)
+          |> Repo.update!()
+        end)
+        |> finish(t.id)
+    end
+  end
+
+  @doc """
+  Withdraws a match score (`set_match_score/4`): the boards are blank again,
+  ready for a new score or their own results. `{:error, :no_match_score}`
+  for a match not decided by its score.
+  """
+  def clear_match_score(%Tournament{} = t, %Match{} = match) do
+    cond do
+      refusal = Tournaments.write_refused(t.id) ->
+        refusal
+
+      refusal = round_closed(t, match) ->
+        refusal
+
+      not match_score?(match) ->
+        {:error, :no_match_score}
+
+      true ->
+        Repo.transaction(fn ->
+          for p <- match_boards(match), is_nil(p.white_player_id), is_nil(p.black_player_id) do
+            p |> Pairing.changeset(%{result: ""}) |> Repo.update!()
+          end
+
+          match
+          |> Ecto.Changeset.change(match_score_a: nil, match_score_b: nil)
+          |> Repo.update!()
+        end)
+        |> finish(t.id)
+    end
+  end
+
+  defp valid_score?(a, b, per_match) when is_number(a) and is_number(b) do
+    half?(a) and half?(b) and a >= 0 and b >= 0 and a + b == per_match
+  end
+
+  defp valid_score?(_a, _b, _per_match), do: false
+
+  defp half?(x), do: x * 2 == Float.round(x * 2.0)
+
+  @doc """
+  The board results a match score is written as, `[{board_in_match,
+  result}]` for boards 1..`boards`: as many draws as the score allows, and
+  the difference as wins - the winning team's on the top boards. 2½-1½ on
+  four boards is a win for the first team on board 1 and three draws; 3-1 a
+  win on boards 1 and 2 and two draws; 2-2 four draws. Each result is from
+  White's side (`TeamRounds.team_a_white?/1`: the first team has White on
+  the odd boards). Pure.
+
+  The split is a convention, not a record of the games, and it is the one
+  that invents the least: a board result says nothing the score does not.
+  It matters only to the tie-breaks that weigh boards (`BB`, `TBR`, `BBE`),
+  which read it as the top boards having decided the match.
+  """
+  def score_results(score_a, score_b, boards) do
+    wins = abs(score_a - score_b) |> round()
+    a_wins? = score_a > score_b
+
+    for k <- 1..boards do
+      outcome = if k <= wins, do: if(a_wins?, do: :a, else: :b), else: :draw
+      {k, board_result(outcome, TeamRounds.team_a_white?(k))}
+    end
+  end
+
+  defp board_result(:draw, _a_white?), do: "1/2-1/2"
+  defp board_result(:a, true), do: "1-0"
+  defp board_result(:a, false), do: "0-1"
+  defp board_result(:b, true), do: "0-1"
+  defp board_result(:b, false), do: "1-0"
+
+  @doc """
+  The boards of `tournament_id`'s matches that are no game for the rating
+  report - at least one seat empty - per round: `[{round, count}]`, by
+  round. With optional line-ups these hold results the team scores count
+  but no `001` line carries (`PairingsEngine.TrfExport`), so the Export page
+  warns in FIDE mode before such a round is sent. Empty when every board of
+  every match has two players.
+  """
+  def empty_board_rounds(tournament_id) do
+    Repo.all(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and not is_nil(p.match_id),
+        where: is_nil(p.white_player_id) or is_nil(p.black_player_id),
+        group_by: r.number,
+        order_by: r.number,
+        select: {r.number, count(p.id)}
+    )
+  end
+
   ## ---------- line-ups ----------
 
   @doc """
@@ -274,16 +456,28 @@ defmodule PairingsEngine.TeamMatches do
   @doc """
   Whether `match`'s line-ups may still change: no result has been entered on
   it. A board one team could not fill carries its forfeit result from the
-  moment it is written (`TeamRounds.match_boards/3`), so only a board with
-  two players counts; a match forfeited by decision, or a double forfeit,
-  has started in the sense that matters.
+  moment it is written (`TeamRounds.match_boards/4`), so only a board with
+  two players counts - or, with optional line-ups, a board that carries a
+  played result although nobody sits at it, which only the arbiter writes;
+  a match forfeited by decision, a double forfeit, or a match decided by its
+  score (`set_match_score/4`) has started in the sense that matters.
   """
   def lineup_open?(%Match{} = match) do
     is_nil(match.forfeited_to_team_id) and not match.double_forfeit and
-      not Enum.any?(match_boards(match), fn p ->
-        p.white_player_id && p.black_player_id && p.result not in ["", nil]
-      end)
+      not match_score?(match) and
+      not Enum.any?(match_boards(match), &result_entered?/1)
   end
+
+  defp result_entered?(%Pairing{result: result}) when result in ["", nil], do: false
+
+  defp result_entered?(%Pairing{} = p),
+    do: (p.white_player_id && p.black_player_id && true) || Results.played?(p.result)
+
+  @doc "Whether `match` was decided by its score alone (`set_match_score/4`)."
+  def match_score?(%Match{match_score_a: a, match_score_b: b}),
+    do: is_number(a) and is_number(b)
+
+  def match_score?(_match), do: false
 
   @doc """
   The line-up a team plays with by default in round `number`: its roster in
@@ -349,9 +543,12 @@ defmodule PairingsEngine.TeamMatches do
         {:error, :match_started}
 
       true ->
+        optional? = Tournament.team_lineups_optional?(t)
+
         with {:ok, a} <- check_lineup(t, match.team_a_id, lineup_a, number, per_match),
              {:ok, b} <- check_lineup(t, match.team_b_id, lineup_b, number, per_match),
-             :ok <- if(a == [] and b == [], do: {:error, :no_players}, else: :ok) do
+             :ok <-
+               if(a == [] and b == [] and not optional?, do: {:error, :no_players}, else: :ok) do
           Repo.transaction(fn -> rewrite_boards(t, match, a, b, per_match) end)
           |> finish(t.id)
         end
@@ -363,9 +560,18 @@ defmodule PairingsEngine.TeamMatches do
 
   # The players of one line-up, board 1 first, with the trailing empty seats
   # dropped - or the reason it cannot be played.
+  #
+  # With optional line-ups an empty seat is a player not entered, so a gap is
+  # allowed: the line-up comes back as a list per board, nil for an empty
+  # seat, and only the seated players are checked.
   defp check_lineup(t, team_id, ids, number, per_match) do
     ids = ids |> Enum.take(per_match) |> pad(per_match)
-    {seated, rest} = Enum.split_while(ids, &(not is_nil(&1)))
+    optional? = Tournament.team_lineups_optional?(t)
+
+    {seated, rest} =
+      if optional?,
+        do: {Enum.reject(ids, &is_nil/1), []},
+        else: Enum.split_while(ids, &(not is_nil(&1)))
 
     roster = Tournaments.team_roster(t.id, team_id)
     by_id = Map.new(roster, &{&1.id, &1})
@@ -401,6 +607,9 @@ defmodule PairingsEngine.TeamMatches do
         [upper, lower] = out_of_order
         {:error, {:board_order, Map.fetch!(by_id, upper), Map.fetch!(by_id, lower)}}
 
+      optional? ->
+        {:ok, Enum.map(ids, &(&1 && Map.fetch!(by_id, &1)))}
+
       true ->
         {:ok, Enum.map(seated, &Map.fetch!(by_id, &1))}
     end
@@ -409,17 +618,21 @@ defmodule PairingsEngine.TeamMatches do
   defp rewrite_boards(t, match, lineup_a, lineup_b, per_match) do
     numbered =
       t
-      |> TeamRounds.ensure_player_numbers(lineup_a ++ lineup_b)
+      |> TeamRounds.ensure_player_numbers(Enum.reject(lineup_a ++ lineup_b, &is_nil/1))
       |> Map.new(&{&1.id, &1})
 
-    lineup_a = Enum.map(lineup_a, &Map.fetch!(numbered, &1.id))
-    lineup_b = Enum.map(lineup_b, &Map.fetch!(numbered, &1.id))
+    lineup_a = Enum.map(lineup_a, &(&1 && Map.fetch!(numbered, &1.id)))
+    lineup_b = Enum.map(lineup_b, &(&1 && Map.fetch!(numbered, &1.id)))
 
     existing = Map.new(match_boards(match), &{rem(&1.board - 1, per_match) + 1, &1})
 
+    # Optional line-ups keep every board, an empty seat with no result
+    # (`TeamRounds.match_boards/4`); required ones seat as the pairing does.
     wanted =
       lineup_a
-      |> TeamRounds.match_boards(lineup_b, per_match)
+      |> TeamRounds.match_boards(lineup_b, per_match,
+        optional: Tournament.team_lineups_optional?(t)
+      )
       |> Map.new(fn {k, w, b, result} -> {k, {w, b, result}} end)
 
     for k <- 1..per_match do

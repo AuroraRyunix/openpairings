@@ -386,7 +386,9 @@ defmodule PairingsEngine.TrfExport do
               Pairing.exclusion_pairs(tournament, players),
           team_point_system: team_point_system(tournament, dialect),
           team_pab: team_pab(tournament, rounds, dialect),
-          forfeited_matches: team_double_forfeits(tournament, rounds, dialect)
+          forfeited_matches:
+            team_double_forfeits(tournament, rounds, dialect) ++
+              team_unplayed_forfeits(tournament, rounds, dialect)
         },
         players: trf_players,
         teams: team_records(tournament, players, trf_players, dialect, rounds)
@@ -808,7 +810,18 @@ defmodule PairingsEngine.TrfExport do
 
         base = %{name: team.name, player_ranks: ranks}
 
-        base = if numbered?, do: Map.put(base, :number, team.pairing_number), else: base
+        # TRF26's `310` has a "Strength Factor" (columns 48-53) - its own
+        # example fills it with each team's average rating - and it carries
+        # the team's rating here (`Tournaments.team_rating/3`, by the
+        # tournament's method or as typed in). Left blank for a team with
+        # none. The `013` record has no such field.
+        base =
+          if numbered?,
+            do:
+              base
+              |> Map.put(:number, team.pairing_number)
+              |> Map.put(:strength, Tournaments.team_rating_display(tournament, team)),
+            else: base
 
         case Map.get(standings_by_id, team.id) do
           nil ->
@@ -921,6 +934,49 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
+  # TRF26's `330` `+-` / `-+` for a match won by forfeit whose `001` lines
+  # cannot say so: a match in which no game was played, one team won it
+  # (its match points), and that team has nobody seated in it. With optional
+  # line-ups (`Tournament.team_lineups_optional?/1`) that is any match the
+  # other team was absent or withdrawn from as a team, or that the arbiter
+  # forfeited before play; with required ones, a match forfeited by
+  # decision to a team that had nobody to seat. ("One or both teams didn't
+  # show up.") `+-` when the team with White on board 1 (team A) won, `-+`
+  # when team B did. A match whose winner has players at its boards carries
+  # their forfeit wins on the `001` lines, as before, and adds nothing.
+  defp team_unplayed_forfeits(tournament, rounds, dialect) do
+    if dialect == :trf26 and Tournament.paired_as_teams?(tournament) do
+      optional? = Tournament.team_lineups_optional?(tournament)
+      numbers = tournament.id |> Tournaments.list_teams() |> Map.new(&{&1.id, &1.pairing_number})
+      position = rounds |> Enum.with_index(1) |> Map.new()
+
+      for m <- TeamStandings.matches(tournament),
+          not m.bye?,
+          not m.double_forfeit?,
+          m.scored?,
+          not TeamStandings.match_played?(m),
+          m.mp_a != m.mp_b,
+          optional? or winner_unseated?(m),
+          column = Map.get(position, m.round),
+          column != nil,
+          numbers[m.team_a_id] && numbers[m.team_b_id] do
+        %{
+          type: if(m.mp_a > m.mp_b, do: "+-", else: "-+"),
+          round: column,
+          white: numbers[m.team_a_id],
+          black: numbers[m.team_b_id]
+        }
+      end
+    else
+      []
+    end
+  end
+
+  defp winner_unseated?(m) do
+    side = if m.mp_a > m.mp_b, do: :a_player_id, else: :b_player_id
+    Enum.all?(m.boards, &is_nil(Map.get(&1, side)))
+  end
+
   # TRF26's `362`: a team event's own match-point values - this app's
   # `team_match_points_win/draw/loss` (2/1/0 by default) - and, for a team
   # Swiss, `P`: the pairing-allocated bye's match points
@@ -957,10 +1013,11 @@ defmodule PairingsEngine.TrfExport do
   #
   # A team round robin's bye is the Berger bye, not a pairing-allocated one
   # (C.04.6 Art. 1.4 does not apply to it), so this app writes no `320` for
-  # it. Nor does it ever write a `330`: a match this app forfeits by decision
-  # (`PairingsEngine.TeamMatches.forfeit_match/3`) already has every board's
-  # own forfeit result on the `001` lines, which is what a `330` is for a
-  # match that has none of - so no match this app exports needs one.
+  # it. A match this app forfeits by decision
+  # (`PairingsEngine.TeamMatches.forfeit_match/3`) has every board's own
+  # forfeit result on the `001` lines; only one whose winner had nobody to
+  # seat - or any such match with optional line-ups - gets a `330`
+  # (`team_unplayed_forfeits/3`).
   defp team_pab(tournament, rounds, dialect) do
     if dialect == :trf26 and Tournament.team_swiss?(tournament) do
       teams = Tournaments.list_teams(tournament.id)
@@ -1156,7 +1213,22 @@ defmodule PairingsEngine.TrfExport do
 
   defp filter_player_games(player, rounds, tournament) do
     empty = %{opponent_rank: nil, colour: nil, result: nil}
-    games = Enum.map(rounds, &Enum.at(player.games, &1 - 1, empty))
+    optional? = Tournament.team_lineups_optional?(tournament)
+
+    # With optional line-ups a board with one player and an empty seat is
+    # no game - the opponent was not entered, not absent - so it leaves the
+    # player's column blank rather than a point without a game: its result
+    # counts for the team (`310`), and a match lost by the absent team is a
+    # `330`. (Written as `F`/`H`/`Z`, a run of such columns at the end of a
+    # file would also read as byes for rounds not yet paired - TRF26's
+    # `240` - since nobody in them had an opponent.)
+    games =
+      Enum.map(rounds, fn r ->
+        case Enum.at(player.games, r - 1, empty) do
+          %{points_kind: "game", opponent_id: nil} when optional? -> empty
+          game -> game
+        end
+      end)
 
     %{player | games: games, points: Pairing.player_points(games, tournament)}
   end

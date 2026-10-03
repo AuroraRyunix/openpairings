@@ -284,7 +284,9 @@ defmodule PairingsEngine.TournamentImport do
         public_hall: public_display_or_nil(Map.get(t_attrs, "public_hall")),
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
-      |> Ecto.Changeset.change(pairing_state(t_attrs, tournament.initial_colour_drawn))
+      |> Ecto.Changeset.change(
+        pairing_state(t_attrs, tournament.initial_colour_drawn, records!(entry, "teams") != [])
+      )
       |> update!()
 
     team_map = import_teams!(tournament, records!(entry, "teams"))
@@ -311,7 +313,12 @@ defmodule PairingsEngine.TournamentImport do
   # team Swiss pairing; nil is written and `TeamSwiss.settle_mode/1` decides
   # it from the rounds once they have landed - rounds without matches were
   # paired player by player.
-  defp pairing_state(t_attrs, fallback) do
+  #
+  # `teams_ordered_by_hand` is written by `Tournaments.move_team/3` only. A
+  # file without it predates automatic seeding: its teams' order, whatever
+  # made it, is kept (true when it has teams), as the migration did for the
+  # rows already in the database.
+  defp pairing_state(t_attrs, fallback, has_teams?) do
     drawn =
       case Map.fetch(t_attrs, "initial_colour_drawn") do
         {:ok, colour} when colour in ~w(white black) -> colour
@@ -331,7 +338,18 @@ defmodule PairingsEngine.TournamentImport do
     # (`Pairing.baku_group_a_last/2`).
     group_a_last = coerce_int(Map.get(t_attrs, "baku_group_a_last"))
 
-    [initial_colour_drawn: drawn, team_pairing_mode: mode, baku_group_a_last: group_a_last]
+    ordered_by_hand =
+      case Map.fetch(t_attrs, "teams_ordered_by_hand") do
+        {:ok, value} -> truthy(value)
+        :error -> has_teams?
+      end
+
+    [
+      initial_colour_drawn: drawn,
+      team_pairing_mode: mode,
+      baku_group_a_last: group_a_last,
+      teams_ordered_by_hand: ordered_by_hand
+    ]
   end
 
   # A file written before extra points had a mode carries no
@@ -465,7 +483,7 @@ defmodule PairingsEngine.TournamentImport do
         public_hall: public_display_or_nil(Map.get(t_attrs, "public_hall")),
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
-      |> Ecto.Changeset.change(pairing_state(t_attrs, nil))
+      |> Ecto.Changeset.change(pairing_state(t_attrs, nil, records!(t_data, "teams") != []))
       |> insert!("the \"tournament\" block")
 
     team_map = import_teams!(tournament, records!(t_data, "teams"))
@@ -671,13 +689,26 @@ defmodule PairingsEngine.TournamentImport do
         |> Ecto.Changeset.change(
           seed: coerce_int(Map.get(t, "seed")),
           pairing_number: coerce_int(Map.get(t, "pairing_number")),
-          withdrawn_from_round: coerce_int(Map.get(t, "withdrawn_from_round"))
+          withdrawn_from_round: coerce_int(Map.get(t, "withdrawn_from_round")),
+          absent_rounds: absent_rounds(Map.get(t, "absent_rounds"))
         )
         |> insert!()
 
       {Map.get(t, "id"), new_team.id}
     end)
   end
+
+  # A team's rounds out as a team: whole numbers, ascending; anything else in
+  # the list (or a payload from before the field) is dropped.
+  defp absent_rounds(list) when is_list(list),
+    do:
+      list
+      |> Enum.map(&coerce_int/1)
+      |> Enum.filter(&(is_integer(&1) and &1 > 0))
+      |> Enum.uniq()
+      |> Enum.sort()
+
+  defp absent_rounds(_), do: []
 
   # A withdrawn team's `withdrawal_player_ids` name players by their ids in
   # the payload; they become the new rows' ids once the players exist.
@@ -789,7 +820,9 @@ defmodule PairingsEngine.TournamentImport do
               team_b_id: Map.get(team_map, Map.get(m, "team_b_id")),
               forfeited_to_team_id: Map.get(team_map, Map.get(m, "forfeited_to_team_id")),
               forfeit_previous_results: forfeit_previous_results(m),
-              double_forfeit: truthy(Map.get(m, "double_forfeit"))
+              double_forfeit: truthy(Map.get(m, "double_forfeit")),
+              match_score_a: coerce_float(Map.get(m, "match_score_a")),
+              match_score_b: coerce_float(Map.get(m, "match_score_b"))
             })
 
           {Map.get(m, "id"), new_match.id}
@@ -1048,6 +1081,17 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   defp coerce_int(_), do: nil
+
+  defp coerce_float(n) when is_number(n), do: n * 1.0
+
+  defp coerce_float(n) when is_binary(n) do
+    case Float.parse(n) do
+      {parsed, ""} -> parsed
+      _ -> nil
+    end
+  end
+
+  defp coerce_float(_), do: nil
 
   defp coerce_round(round) when is_integer(round) and round > 0, do: round
 
