@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] Settings, Export: the TRF section announces a "Rating validator
+  (YAML)" export, marked Soon. The button is a placeholder and does nothing
+  yet.
+
 ## [0.72.1] - 2026-10-02
 
 - [Fix] **Imports were stuck at 0% since 0.70.0 - every upload: JSON backup, SWAR, TRF, hand-off, results CSV, logo, tools - fixed.** Since 0.70.0 every

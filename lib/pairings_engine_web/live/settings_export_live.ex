@@ -983,6 +983,21 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
             <span :if={blocker} id="trf-send-blocker" class="hint">{blocker}</span>
 
+            <%!-- Placeholder: a YAML file a rating officer's validator reads
+                  (what the report should contain, to check a TRF against).
+                  Not built yet - the button does nothing. --%>
+            <button
+              type="button"
+              id="trf-yaml-validator"
+              class="pe-btn"
+              disabled
+              aria-disabled="true"
+              title={gettext("Not available yet")}
+            >
+              {gettext("Rating validator (YAML)")}
+              <span class="badge muted">{gettext("Soon")}</span>
+            </button>
+
             <a
               class="trf-all-link"
               style="margin-left: auto"

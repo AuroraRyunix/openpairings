@@ -246,6 +246,16 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
   end
 
   describe "the TRF section's round table (Settings, Export)" do
+    test "the YAML rating validator is announced, disabled, and does nothing",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+
+      assert has_element?(lv, "#trf-yaml-validator[disabled]", "Rating validator (YAML)")
+      assert has_element?(lv, "#trf-yaml-validator .badge", "Soon")
+      refute has_element?(lv, "#trf-yaml-validator[phx-click]")
+    end
+
     test "shows each round's state, ticks what is ready, and blocks sending what cannot go",
          %{conn: conn, scope: scope} do
       t = tournament(scope)
