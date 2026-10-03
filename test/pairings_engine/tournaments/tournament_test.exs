@@ -247,6 +247,73 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
     end
   end
 
+  describe "round_dates stay positional" do
+    # Ecto drops blank strings from inside an array it casts by default,
+    # which moved every date after a gap onto an earlier round. A blank
+    # means "no date for that round" and keeps its place.
+    defp cast_dates(dates, rounds_count \\ 7) do
+      Tournament.changeset(%Tournament{}, %{
+        "name" => "T",
+        "rounds_count" => rounds_count,
+        "round_dates" => dates
+      })
+    end
+
+    test "first and last day only: the last day stays on the last round" do
+      changeset = cast_dates(["2026-10-18", "", "", "", "", "", "2026-10-25"])
+
+      assert Ecto.Changeset.get_field(changeset, :round_dates) ==
+               ["2026-10-18", "", "", "", "", "", "2026-10-25"]
+
+      assert Ecto.Changeset.get_field(changeset, :start_date) == "2026-10-18"
+      assert Ecto.Changeset.get_field(changeset, :end_date) == "2026-10-25"
+    end
+
+    test "nulls are blanks, stored as the empty string" do
+      changeset = cast_dates(["2026-10-18", nil, nil, nil, nil, nil, "2026-10-25"])
+
+      assert Ecto.Changeset.get_field(changeset, :round_dates) ==
+               ["2026-10-18", "", "", "", "", "", "2026-10-25"]
+    end
+
+    test "a gap in the middle keeps the later rounds where they are" do
+      changeset = cast_dates(["2026-10-18", "2026-10-19", "", " ", "2026-10-22"], 5)
+
+      assert Ecto.Changeset.get_field(changeset, :round_dates) ==
+               ["2026-10-18", "2026-10-19", "", "", "2026-10-22"]
+
+      assert Ecto.Changeset.get_field(changeset, :start_date) == "2026-10-18"
+      assert Ecto.Changeset.get_field(changeset, :end_date) == "2026-10-22"
+    end
+
+    test "start and end come from the dated rounds when the first and last are blank" do
+      changeset = cast_dates(["", "2026-10-19", "", "2026-10-21", ""], 5)
+
+      assert Ecto.Changeset.get_field(changeset, :round_dates) ==
+               ["", "2026-10-19", "", "2026-10-21", ""]
+
+      assert Ecto.Changeset.get_field(changeset, :start_date) == "2026-10-19"
+      assert Ecto.Changeset.get_field(changeset, :end_date) == "2026-10-21"
+    end
+
+    test "all blank: one blank per round, no start or end" do
+      changeset = cast_dates([nil, "", nil], 3)
+
+      assert Ecto.Changeset.get_field(changeset, :round_dates) == ["", "", ""]
+      assert Ecto.Changeset.get_field(changeset, :start_date) == ""
+      assert Ecto.Changeset.get_field(changeset, :end_date) == ""
+    end
+
+    test "a full schedule casts as before" do
+      dates = ["2026-10-18", "2026-10-19", "2026-10-20"]
+      changeset = cast_dates(dates, 3)
+
+      assert Ecto.Changeset.get_field(changeset, :round_dates) == dates
+      assert Ecto.Changeset.get_field(changeset, :start_date) == "2026-10-18"
+      assert Ecto.Changeset.get_field(changeset, :end_date) == "2026-10-20"
+    end
+  end
+
   defp find_missing(tournament, field) do
     Enum.find(Tournament.missing_setup_fields(tournament), fn {f, _msg} -> f == field end)
   end

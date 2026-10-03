@@ -1116,7 +1116,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :rate_of_play,
       :organizer_club_number,
       :swar_guid,
-      :round_dates,
       :categories,
       :swar_category_type,
       :swar_category_axis2,
@@ -1159,6 +1158,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :publish_mode,
       :publish_delay_minutes
     ])
+    |> cast_round_dates(attrs)
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
     |> validate_inclusion(:type, @types)
@@ -1208,6 +1208,31 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> pad_round_dates_to_rounds_count()
     |> derive_dates_from_round_dates()
   end
+
+  # `round_dates` is positional: entry i is round i+1's date, `""` when that
+  # round has none. So it is cast on its own, with no empty values. Under
+  # `cast/3`'s default `empty_values`, Ecto removes every blank string from
+  # INSIDE an array it casts, which compacted a schedule with gaps:
+  # ["2026-10-18", "", "", "", "", "", "2026-10-25"] became
+  # ["2026-10-18", "2026-10-25", "", ...] once padded, and the last round's
+  # date landed on round 2. Every writer went through here - the Dates page,
+  # the JSON import (whose own export writes the blanks), the SWAR import.
+  # A nil entry (a JSON null) is a blank too, and like a whitespace-only one
+  # is stored as the `""` every other blank is.
+  defp cast_round_dates(changeset, attrs) do
+    changeset = cast(changeset, attrs, [:round_dates], empty_values: [])
+
+    case get_change(changeset, :round_dates) do
+      dates when is_list(dates) ->
+        put_change(changeset, :round_dates, Enum.map(dates, &blank_round_date/1))
+
+      _ ->
+        changeset
+    end
+  end
+
+  defp blank_round_date(nil), do: ""
+  defp blank_round_date(date), do: String.trim(date)
 
   @doc """
   Pads (with `""`) or truncates `dates` to exactly `count` entries - the
