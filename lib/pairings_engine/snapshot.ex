@@ -354,8 +354,14 @@ defmodule PairingsEngine.Snapshot do
   # standings on the results site in place of its real ones.
   defp paired_as_teams?(t), do: Tournament.paired_as_teams?(t)
 
+  #
+  # `team_boards` (added 2026-10-03): how many boards one match is played
+  # on, so a reader can lay out a match - and number an empty seat - without
+  # inferring it from the boards that happen to be there.
   defp put_team_event(row, %Tournament{} = t) do
-    if paired_as_teams?(t), do: Map.put(row, "team_event", true), else: row
+    if paired_as_teams?(t),
+      do: row |> Map.put("team_event", true) |> Map.put("team_boards", t.team_boards),
+      else: row
   end
 
   # Added 2026-09-13. The tournament's own category vocabulary, in its own
@@ -617,6 +623,16 @@ defmodule PairingsEngine.Snapshot do
     # a match with no score beside team standings that count it.
     points_public? = results_public? and m.scored?
 
+    # Added 2026-10-03: each listed board's place inside its match, board 1
+    # to `tournament.team_boards`, from its own board number - so a hidden
+    # board never shifts the ones after it. `boards` stays the plain list it
+    # always was, for a reader that knows nothing of this field.
+    positions =
+      m.boards
+      |> Enum.reject(& &1.pairing.hidden)
+      |> Enum.sort_by(& &1.pairing.board)
+      |> Enum.map(&%{"board" => &1.pairing.board, "k" => &1.board})
+
     %{
       "number" => m.number,
       "team_a" => Map.get(team_nos, m.team_a_id),
@@ -627,12 +643,22 @@ defmodule PairingsEngine.Snapshot do
       # that convention to draw "Team A (White) 2-2 Team B".
       "board1_white_team" => not m.bye? && Map.get(team_nos, m.team_a_id),
       "boards" => boards,
+      "board_positions" => positions,
       "game_points" => if(results_public?, do: %{"a" => m.gp_a, "b" => m.gp_b}),
       "match_points" => if(points_public?, do: %{"a" => m.mp_a, "b" => m.mp_b}),
       "forfeit_decision" => if(points_public?, do: forfeit_decision_row(m, team_nos))
     }
     |> maybe_put_postponed_boards(m, results_public?)
+    |> maybe_put_double_forfeit(m, points_public?)
   end
+
+  # Added 2026-10-03: a match neither team turned up for, both losing it by
+  # forfeit (`TeamMatches.double_forfeit/2`) - `true`, travelling when the
+  # match points do; absent for every other match.
+  defp maybe_put_double_forfeit(row, %{double_forfeit?: true}, true = _points_public?),
+    do: Map.put(row, "double_forfeit", true)
+
+  defp maybe_put_double_forfeit(row, _m, _points_public?), do: row
 
   # How many of the match's boards are postponed, when any are: its points
   # are then provisional - the postponed boards count as draws - and the

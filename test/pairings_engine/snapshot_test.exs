@@ -1400,6 +1400,46 @@ defmodule PairingsEngine.SnapshotTest do
       assert Map.has_key?(snapshot, "team_standings")
     end
 
+    test "team_boards and each board's place in its match travel; a hidden board shifts nothing" do
+      {t, _teams} = team_snapshot_fixture()
+      snapshot = Snapshot.build(t)
+      assert snapshot["tournament"]["team_boards"] == t.team_boards
+
+      round1 = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
+
+      for match <- round1["matches"], not match["bye"] do
+        positions = match["board_positions"]
+        assert Enum.map(positions, & &1["board"]) == match["boards"]
+
+        for %{"board" => board, "k" => k} <- positions do
+          assert k == rem(board - 1, t.team_boards) + 1
+          assert board == (match["number"] - 1) * t.team_boards + k
+        end
+      end
+
+      # Hide the first board of a match: the others keep their places.
+      match = Enum.find(round1["matches"], &(length(&1["boards"]) > 1))
+      [first | rest] = match["board_positions"]
+      round = Tournaments.get_round(t.id, 1)
+      hidden = Enum.find(round.pairings, &(&1.board == first["board"]))
+
+      hidden |> Ecto.Changeset.change(hidden: true) |> Repo.update!()
+
+      again =
+        Snapshot.build(Repo.reload!(t))["rounds"]
+        |> Enum.find(&(&1["number"] == 1))
+        |> Map.fetch!("matches")
+        |> Enum.find(&(&1["number"] == match["number"]))
+
+      assert again["board_positions"] == rest
+      refute Map.has_key?(again, "double_forfeit")
+    end
+
+    test "an individual tournament carries no team_boards" do
+      tournament = SnapshotFixtures.swiss_snapshot_tournament()
+      refute Map.has_key?(Snapshot.build(tournament)["tournament"], "team_boards")
+    end
+
     test "a team Swiss already paired player by player publishes as an individual event" do
       # Flagged as a team event it would show empty team standings on the
       # results site in place of its real individual ones.
