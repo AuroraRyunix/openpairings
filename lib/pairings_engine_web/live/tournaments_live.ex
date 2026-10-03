@@ -1980,10 +1980,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
 
           <%!-- The checkbox makes this a team event. With "Round robin" it
-                pairs team against team (`PairingsEngine.TeamRoundRobin`); with
-                Swiss it is still only the FIDE classification, because C.04.6
-                is not wired in yet - and the hint below says so rather than
-                letting a round that looks valid pass as a team pairing. --%>
+                pairs team against team (`PairingsEngine.TeamRoundRobin`), with
+                Swiss by FIDE's team Swiss, C.04.6 (`PairingsEngine.TeamSwiss`,
+                since 0.62.0). Keizer has no team system: there the checkbox is
+                only the FIDE classification, and the hint below says so. --%>
           <label class="field field-check">
             <input
               type="checkbox"
@@ -2005,13 +2005,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </p>
 
         <p
-          :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") != "round_robin"}
+          :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") == "swiss"}
+          id="new-team-swiss-hint"
+          class="hint"
+        >
+          {gettext(
+            "A team Swiss (FIDE C.04.6): add the teams and their board orders on the Teams page, and every round pairs team against team by match points, board by board."
+          )}
+        </p>
+
+        <p
+          :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") == "keizer"}
+          id="new-team-keizer-hint"
           class="hint"
         >
           <strong>{gettext("Reporting only.")}</strong>
           <.rich_text text={
             gettext(
-              "This marks the tournament as a team event on the FIDE report. A team Swiss is still paired %[how] - the FIDE team Swiss system is not built yet, so boards will not respect team membership. Choose Round robin to pair team against team."
+              "Keizer has no team system: this only marks the tournament as a team event on the FIDE report, and it is still paired %[how]. Choose Swiss or Round robin to pair team against team."
             )
           }>
             <:part name="how"><em>{gettext("player by player")}</em></:part>

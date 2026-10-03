@@ -17,6 +17,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] New tournament: ticking "Team tournament" with Swiss no longer says
+  "Reporting only ... still paired player by player". That note dated from
+  before 0.62.0; Swiss plus Team has paired team against team by FIDE's team
+  Swiss (C.04.6) since then, and the hint now says so. Only Keizer, which has
+  no team system, keeps the "Reporting only" warning.
 - [Feature] Settings, Export: the TRF section announces a "Rating validator
   (YAML)" export, marked Soon. The button is a placeholder and does nothing
   yet.
