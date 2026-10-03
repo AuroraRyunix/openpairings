@@ -205,6 +205,35 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert html =~ "BH, SB"
     end
 
+    # Prod crash 2026-10-03: the FIDE ID ranges are a list of maps, and the
+    # diff joined the list with Enum.join/2, which calls to_string/1 on each
+    # map ("String.Chars not implemented"). Opening the change killed the
+    # History page.
+    test "a list of maps (the FIDE ID ranges) renders instead of crashing the page", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
+
+      Audit.log(tournament.id, scope, "tournament.settings_updated", %{
+        "changed_fields" => %{
+          "fide_id_ranges" => [
+            [],
+            [%{"fide_tournament_id" => "498788", "from_round" => 1, "to_round" => 2}]
+          ],
+          "officials" => [[%{"role" => "arbiter"}], [%{"role" => "arbiter"}, %{"x" => [1, 2]}]]
+        }
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
+
+      assert html =~ "fide id ranges"
+      assert html =~ "498788: rounds 1-2"
+      assert html =~ "not set"
+    end
+
     test "an action with no changed_fields renders prose only, no diff block", %{
       conn: conn,
       scope: scope

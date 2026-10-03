@@ -587,9 +587,28 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp value_label(""), do: {:empty, "blank"}
   defp value_label(true), do: {:value, "on"}
   defp value_label(false), do: {:value, "off"}
-  defp value_label(v) when is_list(v), do: {:value, Enum.join(v, ", ")}
-  defp value_label(v) when is_map(v), do: {:value, inspect(v)}
-  defp value_label(v), do: {:value, to_string(v)}
+  defp value_label([]), do: {:empty, "not set"}
+  defp value_label(v), do: {:value, item_text(v)}
+
+  # One recorded value as text. A list's items can be anything the settings
+  # store: the FIDE ID ranges are a list of maps, which `Enum.join/2` cannot
+  # print (it calls `to_string/1` on each item) and which took the whole
+  # History page down when such a change was opened. So no item is ever handed
+  # to `to_string/1` unless it has a `String.Chars` implementation.
+  defp item_text(v) when is_binary(v), do: v
+  defp item_text(true), do: "on"
+  defp item_text(false), do: "off"
+  defp item_text(nil), do: "-"
+  defp item_text(v) when is_list(v), do: Enum.map_join(v, ", ", &item_text/1)
+
+  defp item_text(%{"fide_tournament_id" => id, "from_round" => from, "to_round" => to})
+       when not is_map(id) and not is_list(id) do
+    "#{item_text(id)}: rounds #{item_text(from)}-#{item_text(to)}"
+  end
+
+  defp item_text(v) do
+    if String.Chars.impl_for(v), do: to_string(v), else: inspect(v)
+  end
 
   defp label_max, do: @label_max
 

@@ -17,6 +17,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] History page: opening the changes under a restore point crashed the page
+  (it had to reconnect) when one of them was a change to
+  the FIDE tournament ID ranges (Settings > FIDE). The ranges are a list of
+  entries, and the diff printed the list by converting each entry to text, which
+  an entry cannot be. It now reads like `498788: rounds 1-2`, and any other list
+  of structured values (officials, category rules) prints too instead of
+  crashing; an emptied list reads "not set". The Audit page already coped with
+  these values.
+
 ## [0.73.0] - 2026-10-03
 
 - [Fix] Baku acceleration with a late entrant: Group A (the players who get
