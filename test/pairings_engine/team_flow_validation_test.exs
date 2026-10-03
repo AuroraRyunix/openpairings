@@ -45,8 +45,9 @@ defmodule PairingsEngine.TeamFlowValidationTest do
       the app's `:team_pairing_module` for a recorder) against the history
       rebuilt from the final report: field, absent teams, MP, GP,
       opponents, colours, had the bye, won by forfeit, floated;
-    * `ainalrami -c` on the full report (team Swiss replayed; a round
-      robin is not replayable, so exit 2 with its standings checked).
+    * `ainalrami -c` on the full report, exit 0: a team Swiss re-paired
+      round by round, a team round robin compared with the Berger tables,
+      and the standings re-ranked.
 
   TEAM_FLOW_COUNT (unset: skipped), TEAM_FLOW_FIRST, TEAM_FLOW_DUMP=dir.
   """
@@ -2095,7 +2096,9 @@ defmodule PairingsEngine.TeamFlowValidationTest do
     code = Process.get(:check_code)
     File.rm(path)
 
-    if (st.kind == :swiss and code == 0) or (st.kind == :rr and code == 2) do
+    # Both kinds are replayed since Ainalrami's integrate-037: a team round
+    # robin against the Berger tables (C.05 Annex 1), colours included.
+    if code == 0 do
       bump(st, :"engine_check_ok_#{st.kind}")
     else
       limits = checker_limits(st, games, matches)
