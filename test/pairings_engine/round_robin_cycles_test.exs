@@ -311,7 +311,9 @@ defmodule PairingsEngine.RoundRobinCyclesTest do
 
       try do
         ExUnit.CaptureIO.capture_io(:stderr, fn ->
-          ExUnit.CaptureIO.capture_io(fn -> Process.put(:code, Ainalrami.CLI.run(["-c", path])) end)
+          ExUnit.CaptureIO.capture_io(fn ->
+            Process.put(:code, Ainalrami.CLI.run(["-c", path]))
+          end)
         end)
 
         Process.get(:code)

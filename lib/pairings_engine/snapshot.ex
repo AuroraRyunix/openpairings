@@ -590,7 +590,7 @@ defmodule PairingsEngine.Snapshot do
         # print a team by `short_name` whenever one is present, and the
         # arbiter's short name is a label for OpenPairings' own narrow
         # columns (the team tie-break working on the Standings page), not
-        # the team's public name. Sent until 0.73; a reader treats the
+        # the team's public name. Sent through 0.73.0; a reader treats the
         # absent key as no short name.
         "name" => team.name,
         # A captain's name is typed by the arbiter, like a tournament's own

@@ -3,7 +3,7 @@ defmodule PairingsEngine.Repo.Migrations.ReleaseStaleTeamNumbers do
   Gives back the pairing numbers a failed first pairing left on teams.
 
   A team event's teams are numbered when round 1 is paired, and the numbers
-  are released again when the last round is unpaired. Until 0.73 a pairing
+  are released again when the last round is unpaired. Through 0.73.0 a pairing
   that numbered the teams and then refused (too few teams, a team with
   nobody to field) kept the numbers although no round existed - which
   froze the Teams page's order and hid the Delete button of every team but

@@ -894,7 +894,7 @@ defmodule PairingsEngine.Tournaments do
       # round N is identical either way while N is inside cycle 1), and
       # `update_tournament/3` moves `rounds_count` with it. So a single cycle
       # played to the end can still become a double one: its second cycle is
-      # the same pairings, colours reversed (C.05). Until 0.73 the lock came
+      # the same pairings, colours reversed (C.05). Through 0.73.0 the lock came
       # as soon as the rounds paired reached what the CURRENT setting
       # implied, which refused exactly that - a two-team match of one round
       # could never be extended to two.

@@ -51,6 +51,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   the merged code and checked against 0.72's file: every JSON export gains
   `tournament.baku_group_a_last` and the team-workflow keys, each TRF gains
   its `152` line, and nothing else changes - no board, no pairing.
+
+  And for the double round robin's reversed rounds (team-fixes, after
+  0.73.0): every JSON export gains `tournament.rr_reverse_last_two` (false
+  in every scenario). With that key taken out the regenerated file is equal,
+  term for term, to 0.73.0's.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
