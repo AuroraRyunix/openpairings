@@ -26,7 +26,8 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     * the full report passes Ainalrami's own checker (`ainalrami -c`): every
       round re-paired and compared, the standings re-ranked.
 
-  TRF_FLOW_COUNT (unset: skipped), TRF_FLOW_FIRST, TRF_FLOW_DUMP=dir.
+  TRF_FLOW_COUNT (unset: skipped), TRF_FLOW_FIRST, TRF_FLOW_DUMP=dir,
+  TRF_FLOW_BAKU_PCT (share of Baku-accelerated tournaments, default 15).
   """
 
   use ExUnit.Case, async: false
@@ -126,7 +127,10 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     rounds = between(4, 9) |> min(n - 1)
     {win, draw, loss} = Enum.random(@systems)
     postponed? = chance(60)
-    baku? = chance(15)
+    # TRF_FLOW_BAKU_PCT raises (or lowers) the share of Baku-accelerated
+    # tournaments; the draw itself is the same one, so the default run is
+    # the run it always was.
+    baku? = chance(env_int("TRF_FLOW_BAKU_PCT", 15))
 
     # Rounds spread over two or three months, so late games cross a rating
     # period now and then.

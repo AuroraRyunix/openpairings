@@ -1408,10 +1408,15 @@ defmodule PairingsEngine.TrfImport do
       given == %{} ->
         {tournament, []}
 
-      baku_reproduces?(tournament, players_by_rank, given) ->
+      baku_reproduces?(tournament, players_by_rank, given, data.players) ->
         case Tournaments.update_tournament(tournament, %{"acceleration" => "baku"}) do
-          {:ok, updated} -> {updated, []}
-          {:error, _changeset} -> {tournament, []}
+          {:ok, updated} ->
+            {updated
+             |> Ecto.Changeset.change(baku_group_a_last: group_a_last(players_by_rank, given))
+             |> Repo.update!(), []}
+
+          {:error, _changeset} ->
+            {tournament, []}
         end
 
       true ->
@@ -1425,11 +1430,47 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
-  defp baku_reproduces?(tournament, players_by_rank, given) do
+  # Group A is the file's own: the players its virtual points went to, up
+  # to the last of them (C.04.7 1.3.2 keeps that player the last one all
+  # event). Not recounted over today's roster - a late entrant would make
+  # Group A bigger than the one the rounds in the file were paired with.
+  # Kept as the tournament's `baku_group_a_last`, so pairing on and every
+  # export use the same Group A.
+  defp group_a_last(players_by_rank, given) do
+    rank = given |> Map.keys() |> Enum.max()
+    Map.fetch!(players_by_rank, rank).pairing_number
+  end
+
+  # It must still be Baku's Group A: the top of the starting list with
+  # nobody skipped (what reproducing the points checks), and at least half
+  # of the field round 1 was paired from - `2 * ceil(N/4)` never falls below
+  # N/2, and late entrants only ever add to it.
+  defp baku_reproduces?(tournament, players_by_rank, given, file_players) do
     players = Map.values(players_by_rank)
     rounds = given |> Map.values() |> Enum.map(&length/1) |> Enum.max(fn -> 0 end)
     id_to_rank = Map.new(players_by_rank, fn {rank, player} -> {player.id, rank} end)
+    last = group_a_last(players_by_rank, given)
+    group_a = Enum.count(players, &(&1.pairing_number <= last))
 
+    in_round_one =
+      Enum.count(file_players, fn p ->
+        case p.games do
+          [game | _] -> Trf.participated_in_pairing?(game)
+          _ -> false
+        end
+      end)
+
+    2 * group_a >= in_round_one and
+      reproduces_given?(
+        %{tournament | baku_group_a_last: last},
+        players,
+        rounds,
+        id_to_rank,
+        given
+      )
+  end
+
+  defp reproduces_given?(tournament, players, rounds, id_to_rank, given) do
     %{tournament | acceleration: "baku"}
     |> PairingCtx.accelerations(players, rounds)
     |> Enum.reduce(%{}, fn {id, points}, acc ->

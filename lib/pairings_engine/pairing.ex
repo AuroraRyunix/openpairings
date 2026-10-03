@@ -238,6 +238,7 @@ defmodule PairingsEngine.Pairing do
           tournament
           |> draw_initial_colour_before_round_one(next_number)
           |> ensure_pairing_numbers(active)
+          |> freeze_baku_group_a(next_number)
           |> do_pair(next_number, active)
       end
 
@@ -284,6 +285,41 @@ defmodule PairingsEngine.Pairing do
     do: Tournaments.ensure_initial_colour(tournament)
 
   defp draw_initial_colour_before_round_one(tournament, _next_number), do: tournament
+
+  # C.04.7 1.2: Group A is decided before round 1, from the starting list -
+  # so it is fixed here, once the round-1 numbers are out, and every later
+  # round, export and preview reads it back (`baku_group_a_last/2`). Round 1
+  # always fixes it afresh: a round 1 that was unpaired and is paired again,
+  # perhaps over a different field, starts the event again. A later round
+  # finds it already fixed - or, for a tournament that switched Baku on
+  # after round 1 or was restored from a file older than the column, works
+  # it out from round 1 once and keeps it.
+  defp freeze_baku_group_a(
+         %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
+         next_number
+       ) do
+    tournament = if next_number == 1, do: %{tournament | baku_group_a_last: nil}, else: tournament
+
+    if is_nil(tournament.baku_group_a_last) do
+      last = baku_group_a_last(tournament, full_roster_players(tournament.id))
+
+      tournament
+      |> Ecto.Changeset.change(baku_group_a_last: last)
+      |> Repo.update!()
+    else
+      tournament
+    end
+  end
+
+  defp freeze_baku_group_a(tournament, _next_number), do: tournament
+
+  defp with_baku_group_a(
+         %Tournament{acceleration: "baku", pairing_system: "swiss", baku_group_a_last: nil} = t,
+         roster
+       ),
+       do: %{t | baku_group_a_last: baku_group_a_last(t, roster)}
+
+  defp with_baku_group_a(tournament, _roster), do: tournament
 
   @doc false
   def max_pairable_round(%Tournament{swiss_match_format: true, rounds_count: n}), do: n - 1
@@ -406,10 +442,12 @@ defmodule PairingsEngine.Pairing do
 
           # Nothing paired any more, so how a team Swiss is paired is open
           # again: an event that went player by player and is unpaired back
-          # to nothing pairs by teams from its new round 1.
+          # to nothing pairs by teams from its new round 1. And a Baku
+          # Group A was the round-1 field's, so the next round 1 decides it
+          # again (`freeze_baku_group_a/2`).
           Repo.update_all(
             from(t in Tournament, where: t.id == ^tournament_id),
-            set: [team_pairing_mode: nil]
+            set: [team_pairing_mode: nil, baku_group_a_last: nil]
           )
         end
 
@@ -498,6 +536,10 @@ defmodule PairingsEngine.Pairing do
           |> build_shared_history()
           |> with_pairing_numbers(new_pairing_numbers(tournament, active))
           |> then(&precompute_games(tournament, &1))
+
+        # Group A read once here rather than once per outcome, for the rare
+        # Baku event that has none stored yet (see `baku_group_a_last/2`).
+        tournament = with_baku_group_a(tournament, Map.values(history.full_roster))
 
         {:ok,
          %{
@@ -4232,10 +4274,11 @@ defmodule PairingsEngine.Pairing do
 
   Group A (the group that receives virtual points) is the top half of the
   field by starting rank (`pairing_number`), rounded up to the nearest even
-  number of players - FIDE's `2 * ceil(n/4)` - computed once from the
-  *whole* roster passed in (not just this round's active subset), since
-  starting rank is frozen for the tournament. Group B never receives
-  points.
+  number of players - FIDE's `2 * ceil(n/4)` - over the starting list round
+  1 was paired from, and fixed then for the whole event: every player
+  numbered up to `baku_group_a_last/2`. A late entrant is never in it, and
+  Group A does not grow when one joins (C.04.7 1.3.2). Group B never
+  receives points.
 
   "Accelerated rounds" are the first `ceil(rounds_count/2)` rounds. Within
   those, Group A gets 1.0 virtual point per round for the first half
@@ -4263,8 +4306,12 @@ defmodule PairingsEngine.Pairing do
     # here even for a pairing run that renumbers its rows locally. Which
     # NUMBER the resulting line carries is a separate question, and no
     # longer this function's: see the moduledoc.
-    group_a_size = 2 * ceil_div(length(ranked), 4)
-    group_a_ranks = ranked |> Enum.take(group_a_size) |> MapSet.new(& &1.pairing_number)
+    #
+    # Frozen at round 1 (`baku_group_a_last/2`), not counted over whoever
+    # holds a number today: a late entrant, numbered when they join, used to
+    # grow Group A part-way through - and be handed virtual points for
+    # rounds already played.
+    group_a_last = baku_group_a_last(tournament, ranked)
 
     accelerated_rounds = ceil_div(tournament.rounds_count, 2)
     first_stage_rounds = ceil_div(accelerated_rounds, 2)
@@ -4273,7 +4320,7 @@ defmodule PairingsEngine.Pairing do
       Enum.map(1..current_round, &virtual_points(&1, accelerated_rounds, first_stage_rounds))
 
     ranked
-    |> Enum.filter(&MapSet.member?(group_a_ranks, &1.pairing_number))
+    |> Enum.filter(&(group_a_last != nil and &1.pairing_number <= group_a_last))
     |> Map.new(&{&1.id, points})
   end
 
@@ -4366,6 +4413,80 @@ defmodule PairingsEngine.Pairing do
       %{}
     end
   end
+
+  @doc """
+  The pairing number of the last Group-A player of a Baku-accelerated
+  tournament (FIDE C.04.7) - Group A is every player numbered up to and
+  including it - or nil when there is nobody to put in it.
+
+  C.04.7 1.2 splits "the participants" before round 1: Group A is the first
+  half of them, rounded up to an even number, `2 * ceil(N/4)`. N is the
+  starting list round 1 is paired from: every player holding a pairing
+  number when round 1 is paired, which includes somebody absent from round
+  1 (a round-1 bye, or a later start round entered before the event began) -
+  they are on the list and hold a number in it - and excludes nobody else.
+  1.3.2 then keeps "the last GA-participant ... the same participant as in
+  the previous round": a late entrant (1.3.1) does not move the line. This
+  app numbers a late entrant after everybody already numbered, so a late
+  entrant is never in Group A.
+
+  Read from `tournament.baku_group_a_last` once round 1 has fixed it.
+  Before that - the round-1 pairing itself - it is worked out over
+  `players`. A tournament with a round 1 and nothing stored (Baku switched
+  on later, or restored from a file older than the column) gets the field
+  of its round 1: `players` numbered up to the highest number that sat at a
+  board or had a bye row in round 1 - the backfill's rule, see the
+  `AddBakuGroupALast` migration.
+  """
+  def baku_group_a_last(%{baku_group_a_last: last}, _players) when is_integer(last), do: last
+
+  def baku_group_a_last(tournament, players) do
+    numbers = players |> Enum.map(& &1.pairing_number) |> Enum.reject(&is_nil/1) |> Enum.sort()
+
+    numbers =
+      case round_one_highest_number(tournament) do
+        nil -> numbers
+        highest -> Enum.filter(numbers, &(&1 <= highest))
+      end
+
+    case numbers do
+      [] -> nil
+      _ -> Enum.at(numbers, min(2 * ceil_div(length(numbers), 4), length(numbers)) - 1)
+    end
+  end
+
+  # The highest pairing number that took part in round 1 - at a board, or
+  # with a bye/absence row - or nil when there is no round 1 (yet).
+  defp round_one_highest_number(%{id: id}) when is_integer(id) do
+    in_round_one =
+      from(g in PairingsEngine.Tournaments.Pairing,
+        join: r in Round,
+        on: r.id == g.round_id,
+        where: r.tournament_id == ^id and r.number == 1,
+        select: [g.white_player_id, g.black_player_id]
+      )
+      |> Repo.all()
+      |> List.flatten()
+
+    on_bye =
+      Repo.all(
+        from b in "byes", where: b.tournament_id == ^id and b.round == 1, select: b.player_id
+      )
+
+    case Enum.reject(in_round_one ++ on_bye, &is_nil/1) do
+      [] ->
+        nil
+
+      ids ->
+        Repo.one(
+          from p in Player,
+            where: p.tournament_id == ^id and p.id in ^ids,
+            select: max(p.pairing_number)
+        )
+    end
+  end
+
+  defp round_one_highest_number(_tournament), do: nil
 
   defp virtual_points(round, accelerated_rounds, _first_stage_rounds)
        when round > accelerated_rounds,
