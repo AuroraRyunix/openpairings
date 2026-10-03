@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-10-03
+
 - [Fix] Baku acceleration with a late entrant: Group A (the players who get
   virtual points) is now the top half of the starting list as it stood when
   round 1 was paired, for the whole event, as FIDE C.04.7 says. It used to be

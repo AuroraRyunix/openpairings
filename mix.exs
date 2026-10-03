@@ -4,7 +4,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.72.1",
+      version: "0.73.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -309,9 +309,7 @@ defmodule PairingsEngine.MixProject do
       # `v0.4.0` here against a v0.10.0 upstream is visible at a glance, in
       # a diff and in review. mix.lock still records the resolved commit, so
       # this is no less exact than a SHA was; it is only easier to read.
-      # Until v0.37.0 is tagged: the integrate-037 branch head.
-      {:ainalrami,
-       github: "AuroraRyunix/Ainalrami", ref: "8ad7517a9c9070aa54f0a9cfb69556f1023f7e40"}
+      {:ainalrami, github: "AuroraRyunix/Ainalrami", tag: "v0.37.0"}
     ]
   end
 
