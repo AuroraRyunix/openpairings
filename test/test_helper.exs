@@ -48,10 +48,12 @@
 #     .swar fixtures can never be committed (real personal data, see above),
 #     and - per the investigation below - javafo.jar can't be fetched
 #     reliably in CI either, so both are permanent, known gaps rather than
-#     regressions. `bbppairings` is deliberately NOT in that list: it is
-#     vendored for Linux, CI's runner is Linux, so it should never actually
-#     be missing there - if it ever is, that's a real regression worth
-#     failing the build over immediately, not losing a test to silently.
+#     regressions. `bbppairings` was deliberately NOT in that list while
+#     the vendored Linux binary ran on CI's runner. It no longer does (it is
+#     a 32-bit build needing a GLIBC_ABI_GNU_TLS version the runner's 32-bit
+#     libc lacks), so CI now lists it too; `BbpPairings.available?/0` checks
+#     that the binary starts, so a Windows or Linux checkout where it does
+#     run still runs those tests.
 #
 # javafo.jar fetch, investigated and rejected: rrweb.org/javafo/ has no
 # `<a href>` (or guessable filename - javafo.jar, JaVaFo.jar, JaVaFo2.zip all

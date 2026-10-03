@@ -45,12 +45,29 @@ defmodule PairingsEngine.Test.BbpPairings do
     end
   end
 
-  @doc "Whether a usable bbpPairings binary is vendored for the current OS - the gate `test_helper.exs` checks."
+  @doc """
+  Whether a usable bbpPairings binary is vendored for the current OS - the gate `test_helper.exs` checks.
+
+  Present is not enough: the vendored Linux build is a 32-bit executable that
+  needs a 32-bit C library with the `GLIBC_ABI_GNU_TLS` version, which GitHub's
+  ubuntu-24.04 runner does not have (installing `libc6-i386` is not enough), so
+  there it exists but cannot start. Run with no arguments it prints its banner
+  and exits 0; anything else means it cannot run here.
+  """
   def available? do
     case binary_path() do
       nil -> false
-      path -> File.exists?(path)
+      path -> File.exists?(path) and runs?(path)
     end
+  end
+
+  defp runs?(path) do
+    case System.cmd(path, [], stderr_to_stdout: true) do
+      {out, 0} -> String.starts_with?(out, "BBP Pairings")
+      _ -> false
+    end
+  rescue
+    _ -> false
   end
 
   @doc """
