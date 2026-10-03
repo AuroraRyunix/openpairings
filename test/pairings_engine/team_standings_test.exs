@@ -263,11 +263,11 @@ defmodule PairingsEngine.TeamStandingsTest do
     end
 
     test "codes team standings cannot calculate are dropped with a reason" do
-      t = worked_example(tiebreaks: ~w(MP BHC1 SB KS))
+      t = worked_example(tiebreaks: ~w(MP PS SB KS))
       assert TeamStandings.effective_tiebreaks(t) == ~w(MP SB)
 
       assert TeamStandings.dropped_tiebreaks_with_reasons(t) == [
-               {"BHC1", :not_calculable},
+               {"PS", :not_calculable},
                {"KS", :not_calculable}
              ]
     end
@@ -280,7 +280,7 @@ defmodule PairingsEngine.TeamStandingsTest do
       assert Tiebreaks.selectable() |> Enum.map(& &1.code) == individual
 
       assert Tiebreaks.selectable("team-roundrobin") |> Enum.map(& &1.code) ==
-               ~w(BH SB DE MP GP EMGSB BB)
+               ~w(BH BHC1 BHC2 MBH SB DE MP GP EMGSB BH:GP EGMSB EGGSB EDE TBR BBE SSSC BB)
     end
 
     test "individual standings still drop the team-only breaks" do

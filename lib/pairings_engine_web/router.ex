@@ -87,6 +87,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/pairings", PairingsLive
       live "/t/:id/postponed", PostponedLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
+      live "/t/:id/pairings/:round/matches/:match", MatchLive
       live "/t/:id/standings", StandingsLive
       live "/t/:id/history", HistoryLive
       live "/t/:id/audit", AuditLive, :index

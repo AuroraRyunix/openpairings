@@ -78,22 +78,41 @@ defmodule PairingsEngine.TeamStandings do
   alias PairingsEngine.{PlayerStats, Repo, Results, Standings, Tournaments}
   alias PairingsEngine.Tournaments.{Match, Player, Round, Tournament}
 
-  @supported ~w(MP GP DE BH SB EMGSB BB)
+  @supported ~w(MP GP DE BH BHC1 BHC2 MBH BH:GP SB EMGSB EGMSB EGGSB EDE TBR BBE SSSC BB)
 
   # Each code in Ainalrami's (C.07) spelling. BB ranks as Board Count; see
-  # the tie-breaks section below.
+  # the tie-breaks section below. The Buchholz cuts reuse the individual
+  # codes (BHC1 = BH/C1, MBH = BH/M1), on match points like BH; `BH:GP` is
+  # Buchholz on game points (C.07 Art. 13: "using teams MP or GP as the
+  # reference score").
   @c07 %{
     "MP" => "MPTS",
     "GP" => "GPTS",
     "DE" => "DE",
     "BH" => "BH:MP",
+    "BHC1" => "BH:MP/C1",
+    "BHC2" => "BH:MP/C2",
+    "MBH" => "BH:MP/M1",
+    "BH:GP" => "BH:GP",
     "SB" => "SB:MP",
     "EMGSB" => "EMGSB",
+    "EGMSB" => "EGMSB",
+    "EGGSB" => "EGGSB",
+    "EDE" => "EDE",
+    "TBR" => "TBR",
+    "BBE" => "BBE",
+    "SSSC" => "SSSC",
     "BB" => "BC"
   }
 
   @with_working ~w(BH SB EMGSB)
-  @buchholz ~w(BH)
+  @buchholz ~w(BH BHC1 BHC2 MBH BH:GP)
+
+  @doc """
+  This app's team tie-break codes in C.07's own spelling, as a TRF26 `202`
+  writes them (`PairingsEngine.TrfExport`) and Ainalrami computes them.
+  """
+  def c07_codes, do: @c07
 
   @doc "The tie-break codes team standings can calculate."
   def supported_codes, do: @supported
@@ -178,7 +197,7 @@ defmodule PairingsEngine.TeamStandings do
     # nothing - every team has one per cycle.
     {mp, gp} =
       if Tournament.team_swiss?(t),
-        do: {t.team_match_points_draw, round1(boards * t.points_draw)},
+        do: t |> Tournament.team_pab_value(boards) |> then(fn {mp, gp} -> {mp, round1(gp)} end),
         else: {nil, 0.0}
 
     %{
@@ -189,6 +208,7 @@ defmodule PairingsEngine.TeamStandings do
       team_b_id: nil,
       bye?: true,
       forfeited_to: nil,
+      double_forfeit?: false,
       played_before_decision?: false,
       scored?: true,
       complete?: true,
@@ -230,7 +250,16 @@ defmodule PairingsEngine.TeamStandings do
     postponed_boards = Enum.count(board_rows, &Results.postponed?(&1.pairing.result))
     gp_a = board_rows |> Enum.map(&(&1.a_points || 0.0)) |> Enum.sum() |> round1()
     gp_b = board_rows |> Enum.map(&(&1.b_points || 0.0)) |> Enum.sum() |> round1()
-    {mp_a, mp_b} = if scored?, do: match_points(t, gp_a, gp_b), else: {nil, nil}
+    # A double forfeit (`TeamMatches.double_forfeit/2`): both teams lost the
+    # match by forfeit - the loss's match points to each, although the game
+    # points are level at nothing (TRF-2026 `330` "--"; Ainalrami's reading
+    # T8 of C.07).
+    {mp_a, mp_b} =
+      cond do
+        scored? and m.double_forfeit -> {t.team_match_points_loss, t.team_match_points_loss}
+        scored? -> match_points(t, gp_a, gp_b)
+        true -> {nil, nil}
+      end
 
     %{
       round: round.number,
@@ -242,6 +271,7 @@ defmodule PairingsEngine.TeamStandings do
       # A decision to forfeit the match (`PairingsEngine.TeamMatches`): the
       # team it was awarded to, and whether games had been played first.
       forfeited_to: m.forfeited_to_team_id,
+      double_forfeit?: m.double_forfeit,
       played_before_decision?: PairingsEngine.TeamMatches.played_before_decision?(m),
       scored?: scored?,
       complete?: scored? and postponed_boards == 0,
@@ -300,8 +330,16 @@ defmodule PairingsEngine.TeamStandings do
   """
   def standings(%Tournament{} = t, opts \\ []) do
     teams = Tournaments.list_teams(t.id)
-    matches = matches(t, opts)
+    all_matches = t |> matches(opts) |> reached()
     codes = effective_tiebreaks(t)
+
+    # A team round robin may take a withdrawn team's matches out of the
+    # standings (`annulled_team_ids/2`): those matches then count for nobody,
+    # and the team is listed last.
+    annulled = annulled_team_ids(t, all_matches)
+
+    matches =
+      Enum.reject(all_matches, &(&1.team_a_id in annulled or &1.team_b_id in annulled))
 
     entries =
       Enum.map(teams, fn team ->
@@ -313,6 +351,7 @@ defmodule PairingsEngine.TeamStandings do
 
         %{
           team: team,
+          annulled?: team.id in annulled,
           records: records,
           # Every finished match's match points, and a team Swiss bye's
           # (a round robin's bye carries none).
@@ -328,13 +367,13 @@ defmodule PairingsEngine.TeamStandings do
           # games: its match points count them as draws until they are, so
           # its place is provisional. Display only - nothing ranks by it.
           pending_boards: records |> Enum.map(& &1.postponed_boards) |> Enum.sum(),
-          won: Enum.count(done, &(&1.gp > &1.opp_gp)),
-          drawn: Enum.count(done, &(&1.gp == &1.opp_gp)),
-          lost: Enum.count(done, &(&1.gp < &1.opp_gp))
+          won: Enum.count(done, &(&1.gp > &1.opp_gp and not &1.double_forfeit?)),
+          drawn: Enum.count(done, &(&1.gp == &1.opp_gp and not &1.double_forfeit?)),
+          lost: Enum.count(done, &(&1.gp < &1.opp_gp or &1.double_forfeit?))
         }
       end)
 
-    event = ainalrami_event(entries, matches, t)
+    event = entries |> Enum.reject(& &1.annulled?) |> ainalrami_event(matches, t)
 
     values =
       for code <- codes, Map.has_key?(@c07, code), code not in ~w(DE BB), into: %{} do
@@ -379,11 +418,47 @@ defmodule PairingsEngine.TeamStandings do
     # the rounds that are complete. Once the round is over the two agree.
     entries
     |> Enum.sort_by(fn e ->
-      {-e.mp, Map.get(places, e.team.id, 0), sort_number(e.team.pairing_number),
-       sort_number(e.team.seed), e.team.name, e.team.id}
+      {if(e.annulled?, do: 1, else: 0), -e.mp, Map.get(places, e.team.id, 0),
+       sort_number(e.team.pairing_number), sort_number(e.team.seed), e.team.name, e.team.id}
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
+  end
+
+  @doc """
+  The teams of a team round robin whose matches are taken out of the team
+  standings: withdrawn (`teams.withdrawn_from_round`) having played fewer
+  than half of their scheduled matches, when the tournament asks for it
+  (`team_withdrawal_annul`). FIDE General Regulations for Competitions 6.6,
+  for a player who withdraws from a round robin: under 50% played, the
+  results "shall remain in the tournament table (for rating purposes and
+  historical record)" but are not counted in the final ranking. Here the
+  games stay - they are individual games for rating - and only the team
+  table leaves them out. Empty for every other tournament.
+
+  "Played" is a match at least one game of which was played over the board
+  before the team withdrew; "scheduled" is every match the Berger table
+  gives the team: one per other team and cycle (two in match format).
+  """
+  def annulled_team_ids(%Tournament{} = t, matches) do
+    if Tournament.team_round_robin?(t) and t.team_withdrawal_annul do
+      teams = Tournaments.list_teams(t.id)
+      numbered = Enum.count(teams, & &1.pairing_number)
+      legs = if t.rr_match_format, do: 2, else: t.rr_cycles || 1
+      scheduled = max(numbered - 1, 0) * legs
+
+      for %{withdrawn_from_round: from} = team <- teams,
+          is_integer(from),
+          played =
+            Enum.count(matches, fn m ->
+              team.id in [m.team_a_id, m.team_b_id] and not m.bye? and m.round < from and
+                match_played?(m)
+            end),
+          played * 2 < scheduled,
+          do: team.id
+    else
+      []
+    end
   end
 
   defp sort_number(nil), do: {1, 0}
@@ -416,6 +491,7 @@ defmodule PairingsEngine.TeamStandings do
       scored?: m.scored?,
       complete?: m.complete?,
       postponed_boards: m.postponed_boards,
+      double_forfeit?: m.double_forfeit?,
       mp: mp,
       gp: gp,
       opp_gp: opp_gp,
@@ -424,6 +500,56 @@ defmodule PairingsEngine.TeamStandings do
   end
 
   defp played_records(entry), do: Enum.filter(entry.records, &(&1.scored? and not &1.bye?))
+
+  @doc """
+  The matches of the rounds the event has REACHED - what standings and
+  board statistics count. A team round robin's *Pair all* writes every
+  round at once, and a board one team cannot fill gets its forfeit result
+  the moment it is written (`TeamRounds.match_boards/3`), so a round not
+  yet played would otherwise already pay game points.
+
+  The rule: a round counts once it is the current round or earlier. The
+  current round is the later of the first round with a match still missing
+  a result (the one being played) and the last round with a result entered
+  by hand (a board with two players carrying a result, or a match decided
+  by the arbiter) - so a round entered early counts too. When every match
+  is complete, every round counts. A team Swiss pairs one round at a time,
+  so its current round is always its last paired one and nothing changes
+  for it; the pairing itself reads `matches/2`, never this.
+  """
+  def reached(matches) do
+    case current_round(matches) do
+      nil -> matches
+      current -> Enum.filter(matches, &(&1.round <= current))
+    end
+  end
+
+  defp current_round([]), do: nil
+
+  defp current_round(matches) do
+    first_open =
+      matches |> Enum.reject(& &1.scored?) |> Enum.map(& &1.round) |> Enum.min(fn -> nil end)
+
+    last_entered =
+      matches
+      |> Enum.filter(&entered?/1)
+      |> Enum.map(& &1.round)
+      |> Enum.max(fn -> 0 end)
+
+    case first_open do
+      nil -> nil
+      open -> max(open, last_entered)
+    end
+  end
+
+  defp entered?(%{forfeited_to: winner}) when not is_nil(winner), do: true
+  defp entered?(%{double_forfeit?: true}), do: true
+
+  defp entered?(%{boards: boards}) do
+    Enum.any?(boards, fn b ->
+      b.a_player_id && b.b_player_id && b.pairing.result not in ["", nil]
+    end)
+  end
 
   @doc """
   Whether a scored match (`matches/2`) was PLAYED: at least one of its games
@@ -676,6 +802,7 @@ defmodule PairingsEngine.TeamStandings do
 
     t
     |> matches(opts)
+    |> reached()
     |> Enum.flat_map(fn m ->
       Enum.flat_map(m.boards, fn b ->
         board_entries(b, m, players)

@@ -43,7 +43,10 @@ Downloads folder, not memory, unless the row says otherwise.
 | Board Count (C.07 Art. 12.1) | same |
 | Direct encounter, averaging repeated meetings (C.07 Art. 6, 6.1.2) | same |
 | Art. 16 unplayed-rounds management is for Swiss events only (Art. 15.3, 16) | same |
-| **Colours alternate down the boards, the first team taking the odd boards** | **memory** - the convention of FIDE team competitions such as the Olympiad regulations; no local copy was read |
+| Colours alternate down the boards, the first-named team taking the odd boards | Chess Olympiad 2026 regulations Art. 4.1 and the 2026 FIDE team championship regulations (see "Board colours"); read 2026-10-03, no longer from memory |
+| A team's board order is fixed; a line-up keeps it | Olympiad 2026 Art. 4.17.6, World Team Rapid & Blitz 2026 Art. 4.2.1, Asian Team Championships Art. 4.2.3-4.2.4 (see "Line-ups") |
+| A round robin player who withdraws under 50% played: results not counted in the ranking | FIDE General Regulations for Competitions Art. 6.6 (see "A team that withdraws") |
+| A double forfeit is lost by both teams | TRF-2026 record `330` `--`; Ainalrami's reading T8 of C.07 (see "A double forfeit") |
 | **"Olympiad Sonneborn-Berger" is opponent MP x game points scored** | **memory**; only used to describe EMGSB, whose definition is from the local C.07 |
 | Berger tables (C.05 Annex 1) | no local copy; the schedule reuses `PairingsEngine.RoundRobin`, which is pinned by tests to the published N=4 and N=6 tables |
 
@@ -193,7 +196,7 @@ before, it keeps its place in 4.3.1's numbering (Ainalrami's `:absent`).
 paired. A team added later is numbered after the highest number when it is
 first paired; nobody is renumbered.
 
-**The options are FIDE's defaults and not settable**: match points primary,
+**The pairing options are FIDE's defaults and not settable**: match points primary,
 game points breaking a first-team tie for colours, Type A colour preferences.
 
 **Match order** on the Pairings page follows C.04.2 Art. 3.6's recommended
@@ -287,7 +290,27 @@ the draw.
 - The bye of an odd round robin scores nothing and counts as no match.
 - A team Swiss's pairing-allocated bye scores a drawn match (C.04.6 1.4):
   the draw's match points, and the draw's points on every board as game
-  points.
+  points - "unless the regulations of the team competition state
+  otherwise". Settings - Scoring - *Pairing-allocated bye* sets other values
+  (`team_pab_match_points`, `team_pab_game_points`; empty is the draw,
+  `Tournament.team_pab_value/2`). The engine pairs with the scores the bye
+  gave, like every other score. Locked in FIDE mode once round 1 is paired,
+  like the individual bye's value (VCL4THP Q85).
+- A double forfeit is a lost match for both teams ("A double forfeit").
+
+**Only the rounds reached count** (`TeamStandings.reached/1`). A team round
+robin's *Pair all* writes every round at once, and a board one team cannot
+fill carries its forfeit result from that moment, so the later rounds
+already held game points before they were played. A round counts once it
+is the current round or earlier: the current round is the later of the
+first round with a match still missing a result and the last round with a
+result entered by hand (a board with two players, or a decision on a
+match); when every match is complete, all count. A team Swiss pairs one
+round at a time, so nothing changes for it, and its pairing reads every
+paired match as before. The Standings page, the team standings print, the
+TRF `310` records, the OpenResults snapshot and the board statistics all
+count this way; the Pairings page's match list still shows each round's
+own score.
 
 The Standings page of a tournament paired as teams shows the team table - rank, team,
 matches played, won-drawn-lost, MP and the tie-breaks - and board statistics
@@ -317,6 +340,24 @@ points the table ranks by first count every finished match.
 | `SB` | Sonneborn-Berger on the primary score: opponent's MP x MP scored against them | C.07 9.1 + 13 (= EMMSB, 13.2.1) |
 | `EMGSB` | opponent's MP x game points scored against them | C.07 13.2.2 |
 | `BB` | board points weighted by board: on B boards, a point on board k is worth B+1-k. Ranks as Board Count, which it equals for teams level on GP, and which 12.1 does not apply to teams that are not | C.07 12.1 |
+
+Since 2026-10-03 the catalogue also offers the team tie-breaks Ainalrami
+already computed (`TeamStandings.supported_codes/0`; FIDE's default set is
+unchanged):
+
+| Code | What | Rule |
+|---|---|---|
+| `BHC1`, `BHC2`, `MBH` | Buchholz cut 1, cut 2, median 1, on match points (C.07 `BH:MP/C1` ...). Not in a round robin | C.07 8.1-8.3 + 13 |
+| `BH:GP` | Buchholz on game points. Not in a round robin | C.07 8.1 + 13 |
+| `EGMSB` | opponent's game points x match points scored against them | C.07 13.2.3 |
+| `EGGSB` | opponent's game points x game points scored against them | C.07 13.2.4 |
+| `EDE` | Extended Direct Encounter for teams: direct encounter on MP, then on GP | C.07 13.3 |
+| `TBR` | Top Board Results | C.07 12.2 |
+| `BBE` | Bottom Board Elimination | C.07 12.3 |
+| `SSSC` | Scores and Schedule Strength Combination | C.07 13.4 |
+
+`EDE`, `TBR` and `BBE` order a tied group rather than give a value, like
+`DE`; the column shows the place they gave within the group.
 
 The Standings page has a *Working* disclosure per team that lists the parts
 BH, SB and EMGSB were added up from ("R2 BSK: 4"), in the same shape
@@ -351,19 +392,35 @@ played most often, for board prizes.
 
 `PairingsEngine.TrfExport` writes the team section in TRF-2026's own records:
 one `310` per team - its number (the team's `pairing_number`), name, match
-points, game points and final rank (`PairingsEngine.TeamStandings.standings/1`),
-and its players' starting ranks in board order, listing only players the file
-contains - a `362` for the tournament's own match-point values
-(`team_match_points_win/draw/loss`), and, for a team Swiss, a `320` naming the
-team given the pairing-allocated bye each round. The `082` header carries the
+points, game points and final rank after the file's last round
+(`PairingsEngine.TeamStandings.standings/2`), and its players' starting
+ranks in board order, listing only players the file contains - a `362` for
+the tournament's own match-point values (`team_match_points_win/draw/loss`,
+plus `P`, the bye's match points, for a team Swiss), and, for a team Swiss, a
+`320` naming the team given the pairing-allocated bye each round with the
+bye's match and game points. A file of chosen rounds that does not start at
+round 1 keeps the team numbers and rosters but leaves the match points, game
+points and rank out - they would count games the file does not carry (the
+same rule as the `001` rank). Before 2026-10-03 every file carried the whole
+event's figures, whatever rounds it held.
+
+The `202` tie-breaks of a team file are written in C.07's own spelling -
+`MPTS GPTS DE BC SB:MP` for FIDE's default - so `ainalrami -c` can check the
+team standings (before 2026-10-03 the app's own `MP GP DE BB SB` went out,
+which no checker reads); the import reads them back to the app's codes. The
+`152` header carries the initial colour drawn by lot (or set by the arbiter)
+whenever one is on record - for individual events too; the engine dialect
+writes it as JaVaFo's `XXC white1`/`black1`. The `082` header carries the
 team count. The individual games on the `001` lines are exactly what they
 would be for the same boards in an individual event; a board forfeited for
 want of a player has no opponent and goes out as the point without a game,
 the same record a vacated seat produces. An individual tournament's file is
-unchanged: `082 0` and no team records. This app never writes a `330`: a
-match it forfeits by decision (`PairingsEngine.TeamMatches.forfeit_match/3`)
-already has every board's own forfeit result on the `001` lines, which is
-what a `330` is for a match that has none of at all.
+unchanged: `082 0` and no team records. A match forfeited by decision to one
+team (`PairingsEngine.TeamMatches.forfeit_match/3`) needs no `330`: every
+board's own forfeit result is on the `001` lines. A **double forfeit** does:
+its boards' `-`/`-` would read as a drawn 0-0, so a `330` with type `--`
+says both teams lost it. A player moved between teams after playing is
+listed under the team they played for ("Rosters after round 1").
 
 Importing a TRF with a team section creates the teams and their board orders
 - from `310` records when the file has them, `013` otherwise - and then
@@ -397,16 +454,19 @@ doubt:
    unclear round - to the side its type names (`+-`/`-+`; also `10`/`01` or
    `WL`/`LW`, `WZ`/`ZW`), every board of it becoming that side's forfeit win,
    the same result `PairingsEngine.TeamMatches.forfeit_match/3` writes for an
-   arbiter's own decision. A double forfeit (`330`'s `--`) has no side to
-   award it to, and this app has no way to record a match both teams lost,
-   so it is left exactly as it would be with no `330` line at all.
+   arbiter's own decision. A double forfeit (`330`'s `--`), in either
+   system, marks the match between its two teams as lost by both
+   (`matches.double_forfeit`): the match the boards rebuilt, when none of
+   its games was played, or, for two teams with no board at all, a match
+   with no boards.
 
 A `362` record's match points (`W`/`D`/`L`) become
-`team_match_points_win/draw/loss`; its bye and forfeit-loss values (`P`/`A`)
-are not imported, because this app has no separate setting for either - a
-team Swiss bye always pays a draw's match points (C.04.6 Art. 1.4) and a
-match lost by forfeit an ordinary loss's, regardless of what a `362` `P`/`A`
-says.
+`team_match_points_win/draw/loss`. A team Swiss's bye value comes from the
+`320` record's match and game points, else the `362`'s `P` for the match
+points, and is stored only where it differs from a drawn match's
+(`TrfImport.import_team_pab/2`), so a file whose bye pays a draw imports
+with the default setting. `A` (a match lost by forfeit) is not imported:
+such a match is an ordinary loss here.
 
 Teams are numbered in the file's `310` (or `013`) order, boards per match is
 the largest match in the file, and match numbers follow the order the
@@ -434,6 +494,157 @@ C").
 
 A file whose type is not a team round robin or a team Swiss (a team section
 on an individual event) keeps its games as individual games and says so.
+
+## Board colours
+
+| Rule | Source |
+|---|---|
+| The team named first in the pairing has White on the odd boards, Black on the even ones | Chess Olympiad 2026 regulations (FIDE Handbook D.II, *Regulations for the Main Competition*) Art. 4.1: "The teams ranked first in the pairing list shall have the white pieces on the odd-numbered boards, the black pieces on the even-numbered boards"; the same sentence in the World Team Rapid & Blitz 2026 regulations Art. 4.1.1.5, the World Team Amateur Rapid Cup 2026 Art. 4.1.1.7 and the World Schools Team Championship Art. 3.4 |
+| A team's colour in a match is its board-1 colour | C.04.6 Art. 1.6.1 (local PDF) |
+
+C.04.6 itself does not say how colours run down the boards: its Article 1.6
+defines a team's colour by board 1 only. The alternation is the FIDE team
+events' own rule, quoted above - no longer from memory.
+
+*Teams - Matches - Board colours* (`tournaments.team_board_colours`):
+
+- **FIDE** (`"fide"`, the default and what every existing tournament has):
+  the team the pairing names first - the Berger table's "White" number, or
+  the team C.04.6 Article 4 gives White - has White on board 1 and every odd
+  board.
+- **League** (`"home"`): the first-named team is the **home team**, with
+  White on the odd boards - the usual league convention. The difference is
+  that home and away can be swapped: a match's page offers *Make B the home
+  team* until the match's first result is entered
+  (`TeamMatches.swap_home/2`), which swaps the two teams on the match and
+  every board's seats. In a team Swiss that overrides Article 4's choice for
+  that match; the teams' colour history then follows what was played (1.6.1).
+
+The setting locks when round 1 is paired (`Tournaments.locked_fields/1`):
+the boards already played were seated by it. Either way `team_a` always has
+White on the odd boards, so standings, the TRF import and printing read
+every match the same.
+
+## Line-ups
+
+| Rule | Source |
+|---|---|
+| Line-ups are handed in after the team pairing is published | World Team Rapid & Blitz 2026 Art. 4.1.1.6 (a captain has "at least ten minutes after the publication of team pairings to submit their team's composition"); Chess Olympiad 2026 Art. 4.17.6 (the technical panel produces the team pairings, then receives "team compositions for each round and produce[s] individual pairings") |
+| A team's board order is fixed for the event; a line-up keeps it - players can be left out, a lower-listed player never plays above a higher-listed one | Olympiad 2026 Art. 4.17.6 ("the list of fixed board orders"); World Team Rapid & Blitz 2026 Art. 4.2.1 ("a board order, which cannot be changed and remains fixed throughout the tournament"); Asian Team Championships (Handbook D.03.04) Art. 4.2.3-4.2.4: reserves play "on the bottom boards only", and a deviation "from the correct sequence" costs a game point |
+| No line-up handed in: the team plays its top players | World Team Rapid & Blitz 2026 Art. 4.1.1.6; World Schools Team Championship Art. 3.3 |
+
+Pairing a round seats each match from the rosters, as before: the roster
+in board order minus anyone unavailable that round, the first
+*boards-per-match* of them. That is the default line-up. The match's page
+(`/t/:id/pairings/:round/matches/:match`, the *Line-ups* link on the
+Pairings page's match list) shows both line-ups as one select per board and
+lets the arbiter change who plays (`TeamMatches.set_lineups/4`):
+
+- only players of that team, available that round, none twice;
+- filled from board 1 down: a team short of players leaves its **bottom**
+  boards empty, and the opponent wins them by forfeit (as when pairing);
+- **in the roster's board order** - refused otherwise, naming the two
+  players;
+- until the first result of the match is entered (a board with two players
+  and a result, or a decision on the match), and in FIDE mode only while
+  the round is open (C.04.2:4.3).
+
+Saving rewrites the match's boards: a board keeps its number, its seats
+change, a board neither team fills is removed, and a reserve sitting for the
+first time gets an individual pairing number. *Back to the rosters* puts the
+default line-ups back. A restore point is taken first, and the audit trail
+records both line-ups before and after (`pairing.lineup_changed`). A team
+round robin's *Pair all* still seats every round at that click; the line-ups
+of later rounds are changed when their turn comes.
+
+## Rosters after round 1
+
+*FIDE mode* (`Compliance.fide_mode?/1`) once round 1 is paired
+(`Tournaments.roster_locked?/1`): the board order is fixed, as the sources
+in "Line-ups" require.
+
+- A player on a team cannot move up or down, change team, or leave a team
+  they have played for (`{:error, :roster_locked_in_fide_mode}`). The Teams
+  page hides those buttons and says why.
+- A NEW player can still be added to a team, at the bottom of its order - a
+  reserve. One who has not sat at a board yet can be taken off again.
+
+*Outside FIDE mode* every change is allowed, with a warning on the page and
+a confirmation on each button: the change affects rounds paired from then
+on, and earlier rounds keep who played for whom.
+
+**History.** A player moved between teams after playing keeps a record
+(`players.team_history`: the team, through the last round paired). Team
+standings were never affected - they read the sides of the matches - but the
+TRF's `310` record lists each player once, under a team. It now lists them
+under the team they played for in the exported rounds, the one they played
+the most rounds for (the later on a tie), after that team's own roster
+(`TrfExport.team_records/5`). A file of round 1 only lists a player moved
+after round 1 under their round-1 team. The `310` record has one board
+order per team, so a team reordered mid-event (non-FIDE only) may not
+rebuild as matches for its earlier rounds when the file is imported again;
+the warning says so.
+
+## A team that withdraws
+
+*Withdraw team* on the Teams page, with the first round the team does not
+play (`Tournaments.withdraw_team/3`), in one action:
+
+- every player of its roster still in the event is withdrawn the way a
+  single player is (`forfeit`), so no later round fields them: a team Swiss
+  leaves the team out of the pairing (it keeps its place in 4.3.1's
+  numbering, `:absent`), and a round robin round paired later gives each of
+  its boards to the opponent;
+- every match of the team already paired for that round or later with no
+  result yet - a round robin's *Pair all* wrote them in advance - is
+  forfeited by decision to its opponent ("A match forfeited by decision").
+
+*Reinstate* undoes both (`Tournaments.reinstate_team/2`): the players it
+withdrew come back (`teams.withdrawal_player_ids`, so a player withdrawn on
+their own before stays withdrawn) and those decisions are withdrawn. A
+restore point is taken before a withdrawal; both are in the audit trail.
+
+**A team round robin and the 50% rule.** FIDE's General Regulations for
+Competitions, Art. 6.6, for a player who withdraws from a round robin: under
+50% of the games played, the results "remain in the tournament table (for
+rating purposes and historical record)" but are not counted in the final
+ranking; at 50% or more they stand and the rest are lost by default.
+Settings - Scoring - *A team that withdraws* applies that to a team
+(`team_withdrawal_annul`, `TeamStandings.annulled_team_ids/2`): a withdrawn
+team that played fewer than half its scheduled matches (one per other team
+and cycle; two in match format) has every one of its matches left out of the
+team standings - for all teams, tie-breaks included - and is listed last,
+marked *withdrawn, results not counted*. The individual games stay, for the
+rating report. **Off by default**: the results stand. That matches the
+individual round robin here, which has no such option yet (VCL4THP Q103 is
+open), so an existing event's standings do not change.
+
+## A double forfeit
+
+*Neither team* on the match list (`TeamMatches.double_forfeit/2`): neither
+team turned up. Every board becomes `0-0FF`, the match is marked
+`matches.double_forfeit`, and both teams **lose the match by forfeit**: the
+loss's match points to each and no game points. A match in which a game was
+played is refused (forfeit it to one team instead). *Withdraw the decision*
+puts the boards back.
+
+| Question | Answer | Source |
+|---|---|---|
+| Match points | a loss to both - not the draw two level game-point totals would give | TRF-2026 record `330`, type `--` ("both teams lost by forfeit"); Ainalrami's reading T8 of C.07 (`docs/conformance-c07-tiebreaks.md`): "if neither scored it is a double forfeit - no match points to either", the same as FIDE's TieBreakServer |
+| A meeting, a colour | no: no game was played | C.04.2 Art. 3.5, C.04.6 Art. 1.6.1 |
+| Article 16 | a forfeit loss (16.2.4) for both | C.07 Art. 15.1, 16 |
+| [C2], the bye | neither team won a match by forfeit | C.04.6 Art. 2.1.2 |
+
+The TRF report writes it as a `330` with type `--` beside its boards' `-`
+results; the import marks the match a double forfeit again ("TRF").
+
+## Keizer
+
+Keizer has no team system: it pairs individuals. A **new** team tournament
+cannot use it (`Tournament.validate_no_team_keizer/1`; the New tournament
+form says so as soon as both are chosen, and Settings refuses switching a
+team event to Keizer). A team Keizer created before this keeps working,
+paired player by player, and the Teams page still says *Not paired by team*.
 
 ## SWAR
 
@@ -478,6 +689,14 @@ the arbiter has published standings through, exactly like the individual
 table. Settings - OpenResults explains, for a team event, that publishing
 sends the team standings, matches and board statistics OpenPairings
 computed.
+
+Since 2026-10-03, additively: `tournament.team_boards` (boards per match),
+`matches[].board_positions` - each listed board as `{"board": n, "k": k}`,
+`k` its place in the match from its own number, so a hidden board never
+shifts the others (`boards` stays the plain list it was) - and
+`matches[].double_forfeit: true` on a double forfeit, gated like the match
+points. A line-up change keeps a board's number, so these stay consistent
+with it.
 
 A match forfeited by decision carries `"forfeit_decision": {"to": <team
 no>}` (null for every other match), so the results site can say "Awarded to

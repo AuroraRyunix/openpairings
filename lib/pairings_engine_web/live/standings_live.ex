@@ -1180,6 +1180,18 @@ defmodule PairingsEngineWeb.StandingsLive do
             <td class="num">{entry.rank}</td>
             <td>
               <strong>{entry.team.name}</strong>
+              <span
+                :if={Map.get(entry, :annulled?, false)}
+                id={"team-annulled-#{entry.team.id}"}
+                class="badge"
+                title={
+                  gettext(
+                    "Withdrew having played fewer than half its matches: its results do not count in the standings (FIDE General Regulations for Competitions 6.6)."
+                  )
+                }
+              >
+                {gettext("withdrawn, results not counted")}
+              </span>
               <PairingsEngineWeb.Postponed.pending_chip
                 count={Map.get(entry, :pending_boards, 0)}
                 id={"team-pending-#{entry.team.id}"}

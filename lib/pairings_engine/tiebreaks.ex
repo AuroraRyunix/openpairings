@@ -40,21 +40,21 @@ defmodule PairingsEngine.Tiebreaks do
     %{
       code: "BHC1",
       name: "Buchholz Cut-1",
-      scope: :individual,
+      scope: :both,
       available: true,
       description: "Buchholz minus the lowest-scoring opponent."
     },
     %{
       code: "BHC2",
       name: "Buchholz Cut-2",
-      scope: :individual,
+      scope: :both,
       available: true,
       description: "Buchholz minus the two lowest-scoring opponents."
     },
     %{
       code: "MBH",
       name: "Median Buchholz",
-      scope: :individual,
+      scope: :both,
       available: true,
       description: "Buchholz minus the highest and lowest-scoring opponents."
     },
@@ -144,6 +144,62 @@ defmodule PairingsEngine.Tiebreaks do
       available: true,
       description:
         "Team events: each opponent's match points times the game points scored against them (C.07 Art. 13.2.2)."
+    },
+    %{
+      code: "BH:GP",
+      name: "Buchholz on game points",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: the sum of the opponents' game points (C.07 Art. 8.1 with Art. 13, game points as the score)."
+    },
+    %{
+      code: "EGMSB",
+      name: "Extended Sonneborn-Berger, opponent's game points x match points scored",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: each opponent's game points times the match points scored against them (C.07 Art. 13.2.3)."
+    },
+    %{
+      code: "EGGSB",
+      name: "Extended Sonneborn-Berger, opponent's game points x game points scored",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: each opponent's game points times the game points scored against them (C.07 Art. 13.2.4)."
+    },
+    %{
+      code: "EDE",
+      name: "Extended Direct Encounter for teams",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: direct encounter on match points, then on game points, among the tied teams (C.07 Art. 13.3)."
+    },
+    %{
+      code: "TBR",
+      name: "Top Board Results",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: compares the tied teams' results board by board from board 1 down (C.07 Art. 12.2)."
+    },
+    %{
+      code: "BBE",
+      name: "Bottom Board Elimination",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: drops the lowest board's results one at a time until the tie is broken (C.07 Art. 12.3)."
+    },
+    %{
+      code: "SSSC",
+      name: "Scores and Schedule Strength Combination",
+      scope: :team,
+      available: true,
+      description:
+        "Team events: the secondary score plus a measure of the opponents' strength (C.07 Art. 13.4)."
     },
     %{
       code: "BB",

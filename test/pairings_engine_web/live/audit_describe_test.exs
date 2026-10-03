@@ -67,6 +67,10 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"player_name" => "Anna Peeters", "direction" => "up"},
       %{"player_name" => "Anna Peeters", "direction" => "down"}
     ],
+    "team.withdrawn" => [
+      %{"team_name" => "Brugse SK", "from_round" => 4, "matches_forfeited" => 2}
+    ],
+    "team.reinstated" => [%{"team_name" => "Brugse SK"}],
     "team.seeding_changed" => [
       %{"by_rating" => true},
       %{"team_name" => "Brugse SK", "direction" => "up"},
@@ -292,7 +296,28 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "pairing.match_forfeited" => [
       %{"round" => 3, "match" => 2, "winner" => "Brugse SK", "loser" => "Deurne"}
     ],
-    "pairing.match_forfeit_withdrawn" => [%{"round" => 3, "match" => 2, "winner" => "Brugse SK"}],
+    "pairing.match_forfeit_withdrawn" => [
+      %{"round" => 3, "match" => 2, "winner" => "Brugse SK"},
+      %{"round" => 3, "match" => 2, "winner" => nil, "double_forfeit" => true}
+    ],
+    "pairing.match_double_forfeited" => [
+      %{"round" => 3, "match" => 2, "team_a" => "Brugse SK", "team_b" => "KGSRL"}
+    ],
+    "pairing.lineup_changed" => [
+      %{
+        "round" => 3,
+        "match" => 2,
+        "team_a" => "Brugse SK",
+        "team_b" => "KGSRL",
+        "before_a" => ["Anna Peeters", "Bram Claes"],
+        "after_a" => ["Anna Peeters", nil],
+        "before_b" => ["Lena Wouters", "Tom Maes"],
+        "after_b" => ["Lena Wouters", "Tom Maes"]
+      }
+    ],
+    "pairing.match_home_swapped" => [
+      %{"round" => 3, "match" => 2, "home" => "KGSRL", "away" => "Brugse SK"}
+    ],
     "pairing.board_attached" => [%{"round" => 3, "from_board" => 9, "board" => 7}],
     "pairing.hidden" => [%{"pairing_id" => 41, "round" => 3, "board" => 12}],
     "pairing.unhidden" => [%{"pairing_id" => 41, "round" => 3, "board" => 12}],

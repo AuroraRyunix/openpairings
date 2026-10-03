@@ -19,12 +19,18 @@ defmodule PairingsEngine.Tournaments.Match do
   decision (`Tournaments.forfeit_match/3`), and `forfeit_previous_results`
   keeps the board results from before that decision, keyed by board number,
   so it can be withdrawn. Both nil for a match decided on its boards.
+
+  `double_forfeit` is a match neither team turned up for, recorded by the
+  arbiter (`PairingsEngine.TeamMatches.double_forfeit/2`): every board
+  `0-0FF`, both teams losing the match by forfeit. The previous board
+  results are kept in `forfeit_previous_results` as for a decision.
   """
   use Ecto.Schema
 
   schema "matches" do
     field :board, :integer
     field :forfeit_previous_results, :map
+    field :double_forfeit, :boolean, default: false
 
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :team_a, PairingsEngine.Tournaments.Team

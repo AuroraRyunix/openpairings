@@ -26,6 +26,14 @@ defmodule PairingsEngine.Tournaments.Team do
     # only by `PairingsEngine.TeamRoundRobin`, never cast.
     field :pairing_number, :integer
 
+    # The first round a withdrawn team does not play
+    # (`Tournaments.withdraw_team/3`); nil for a team still in the event.
+    # Never cast: only the withdrawal and its reversal write it.
+    field :withdrawn_from_round, :integer
+    # The players the withdrawal withdrew, so `Tournaments.reinstate_team/2`
+    # brings back exactly those and not one withdrawn on their own before.
+    field :withdrawal_player_ids, {:array, :integer}, default: []
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     has_many :players, PairingsEngine.Tournaments.Player
   end

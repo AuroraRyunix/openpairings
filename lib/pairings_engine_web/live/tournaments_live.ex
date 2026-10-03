@@ -1982,8 +1982,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <%!-- The checkbox makes this a team event. With "Round robin" it
                 pairs team against team (`PairingsEngine.TeamRoundRobin`), with
                 Swiss by FIDE's team Swiss, C.04.6 (`PairingsEngine.TeamSwiss`,
-                since 0.62.0). Keizer has no team system: there the checkbox is
-                only the FIDE classification, and the hint below says so. --%>
+                since 0.62.0). Keizer has no team system, so a new team
+                tournament cannot use it (`Tournament.validate_no_team_keizer/1`);
+                the hint below says so before the form is sent. --%>
           <label class="field field-check">
             <input
               type="checkbox"
@@ -2017,16 +2018,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p
           :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") == "keizer"}
           id="new-team-keizer-hint"
-          class="hint"
+          class="error-note"
+          role="alert"
         >
-          <strong>{gettext("Reporting only.")}</strong>
-          <.rich_text text={
-            gettext(
-              "Keizer has no team system: this only marks the tournament as a team event on the FIDE report, and it is still paired %[how]. Choose Swiss or Round robin to pair team against team."
-            )
-          }>
-            <:part name="how"><em>{gettext("player by player")}</em></:part>
-          </.rich_text>
+          {gettext(
+            "Keizer cannot pair team against team, so a team tournament cannot use it. Choose Swiss (FIDE's team Swiss, C.04.6) or Round robin."
+          )}
         </p>
 
         <div class="form-grid">
