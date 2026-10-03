@@ -717,7 +717,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "The TRF26 export writes '### FIDE mode exited @ Round N' (or 'before Round 1 was paired') after the header whenever fide_compliance_lost_round is set (trf_export.ex:118; test/pairings_engine/fide_mode_locks_test.exs)."
+   "note": "The TRF26 export writes '### FIDE mode exited @ Round N' (or 'before Round 1 was paired') after the header whenever fide_compliance_lost_round is set (trf_export.ex; test/pairings_engine/fide_mode_locks_test.exs) - in copies and TRF26 downloads, not in the file sent for rating, which holds only records by the arbiter's decision (SWAR parity)."
   },
   {
    "q": 45,
