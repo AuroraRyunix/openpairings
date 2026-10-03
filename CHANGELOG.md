@@ -52,6 +52,37 @@ Each entry is tagged so a version can be skimmed:
   results site and its hall screen printed the short name whenever a team
   had one; the short name now stays in OpenPairings, where it labels the
   team tie-break working on the Standings page.
+
+## [0.73.0] - 2026-10-03
+
+- [Fix] Baku acceleration with a late entrant: Group A (the players who get
+  virtual points) is now the top half of the starting list as it stood when
+  round 1 was paired, for the whole event, as FIDE C.04.7 says. It used to be
+  recounted every round over everybody with a pairing number, so a player who
+  joined later made Group A bigger part-way through - 36 players in round 1
+  have a Group A of 18, and a 37th joining in round 4 made it 20, the two
+  extra players even getting virtual points for rounds already played. Every
+  TRF exported afterwards wrote that bigger Group A into every round, so a
+  pairing checker replaying rounds 1 to 3 found pairings the file could not
+  explain. Only Baku tournaments that took a late entrant were affected. For
+  one that is running: rounds already paired never change; the next round,
+  and every export from now on, uses the round-1 Group A - including a
+  re-export of rounds already sent. Group A also travels with a TRF26 import
+  (its 250 records), a JSON backup or restore and a hand-off. Unpairing round
+  1 lets the next round 1 decide it again.
+- [Feature] **Team events print more: a cross table, match result sheets, rosters and board prizes.**
+  The Print page of a team round robin or team Swiss now also offers a
+  *Team cross table* (a round robin as a team-by-team grid of game points with
+  MP and GP; a Swiss as one row per team with, per round, the opponent's
+  number, the colour of board 1, the match score and the running match
+  points), *Match result sheets* (one A4 page per match: both line-ups with
+  colours and ratings, result boxes, the match score, and signature lines for
+  the captains and the arbiter, filled in where results are entered), *Team
+  rosters* (each team's board order with ratings, FIDE IDs and federations) and
+  *Board prizes* (per board number, ranked by percentage, points and
+  performance). The same four are tabs beside Standings (*Cross table*,
+  *Match sheets*, *Rosters*, *Board prizes*), each with its own Print button.
+  Nothing is scored differently: the numbers come from the team standings.
 - [Fix] New tournament: ticking "Team tournament" with Swiss no longer says
   "Reporting only ... still paired player by player". That note dated from
   before 0.62.0; Swiss plus Team has paired team against team by FIDE's team

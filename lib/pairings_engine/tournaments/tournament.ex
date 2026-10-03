@@ -205,6 +205,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :presence_on_allocated_bye, :boolean, default: false
     field :tiebreaks, {:array, :string}, default: []
     field :acceleration, :string, default: "none"
+
+    # Baku acceleration (FIDE C.04.7) only: the pairing number of the LAST
+    # Group-A player, fixed when round 1 is paired. C.04.7 1.2 splits the
+    # participants into GA and GB before round 1 - the first 2 * ceil(N/4) -
+    # and 1.3.2 keeps "the last GA-participant ... the same participant as
+    # in the previous round", so a late entrant never moves the line. This
+    # app numbers a late entrant after everybody already numbered, so Group A
+    # is exactly the players numbered 1..this value for the whole event.
+    #
+    # nil until round 1 of a Baku Swiss is paired (and again once round 1 is
+    # unpaired); `Pairing.baku_group_a_last/2` then works it out. Written by
+    # the pairing code and carried by import/restore, never cast.
+    field :baku_group_a_last, :integer
     field :status, :string, default: "setup"
 
     # standard | rapid | blitz (SWAR TournoiStd)

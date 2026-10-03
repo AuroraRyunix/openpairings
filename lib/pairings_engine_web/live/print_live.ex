@@ -63,6 +63,40 @@ defmodule PairingsEngineWeb.PrintLive do
           name: gettext("Team standings"),
           desc: gettext("Teams ranked by match points, with the team tie-breaks."),
           href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-standings")
+        },
+        %{
+          id: "print-team-crosstable",
+          name: gettext("Team cross table"),
+          desc:
+            gettext(
+              "Round robin: team against team with the game points of each match. Swiss: per round the opponent, the colour of board 1, the match score and the running match points."
+            ),
+          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-crosstable")
+        },
+        %{
+          id: "print-team-match-sheets",
+          name: gettext("Match result sheets (latest round)"),
+          desc:
+            gettext(
+              "One A4 sheet per match: both line-ups with colours and ratings, result boxes, the match score, captain and arbiter signatures."
+            ),
+          href:
+            if(rounds_paired > 0,
+              do: ~p"/t/#{tournament.id}/print/team-match-sheets?round=#{latest}"
+            )
+        },
+        %{
+          id: "print-team-rosters",
+          name: gettext("Team rosters"),
+          desc: gettext("Each team's board order with ratings, FIDE IDs and federations."),
+          href: ~p"/t/#{tournament.id}/print/team-rosters"
+        },
+        %{
+          id: "print-board-prizes",
+          name: gettext("Board prizes"),
+          desc:
+            gettext("Per board number, the players ranked by percentage, points and performance."),
+          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/board-prizes")
         }
       ]
     else

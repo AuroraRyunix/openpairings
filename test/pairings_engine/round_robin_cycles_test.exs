@@ -9,7 +9,7 @@ defmodule PairingsEngine.RoundRobinCyclesTest do
   import Ecto.Query
   import PairingsEngine.TeamFixtures
 
-  alias PairingsEngine.{Pairing, Repo, RoundRobin, Tournaments}
+  alias PairingsEngine.{Pairing, Repo, RoundRobin, Tournaments, TrfExport}
   alias PairingsEngine.Tournaments.{Match, Round, Tournament}
 
   @moduletag :capture_log
@@ -294,5 +294,58 @@ defmodule PairingsEngine.RoundRobinCyclesTest do
     end
 
     assert Repo.exists?(from r in Round, where: r.tournament_id == ^t.id and r.number == 6)
+  end
+
+  describe "the TRF of a double round robin with the reversed rounds" do
+    defp score_all(t) do
+      for r <- t.id |> Tournaments.list_rounds(),
+          p <- Tournaments.get_round(t.id, r.number).pairings,
+          p.white_player_id && p.black_player_id && p.result in [nil, ""] do
+        {:ok, _} = Tournaments.update_pairing_result(p, Enum.random(["1-0", "0-1", "1/2-1/2"]))
+      end
+    end
+
+    defp check(text) do
+      path = Path.join(System.tmp_dir!(), "rr-reverse-#{System.unique_integer([:positive])}.trf")
+      File.write!(path, text)
+
+      try do
+        ExUnit.CaptureIO.capture_io(:stderr, fn ->
+          ExUnit.CaptureIO.capture_io(fn -> Process.put(:code, Ainalrami.CLI.run(["-c", path])) end)
+        end)
+
+        Process.get(:code)
+      after
+        File.rm(path)
+      end
+    end
+
+    test "is FIDE_DOUBLEROUNDROBIN and passes ainalrami -c, 4-10 players" do
+      :rand.seed(:exsss, {7, 7, 7})
+
+      for n <- 4..10 do
+        t =
+          individual_rr(n,
+            rr_cycles: 2,
+            rr_reverse_last_two: true,
+            start_date: "2026-10-01",
+            end_date: "2026-10-20",
+            round_dates: for(d <- 1..20, do: "2026-10-#{String.pad_leading("#{d}", 2, "0")}")
+          )
+
+        {:ok, _} = RoundRobin.pair_all_rounds(t)
+        t = Repo.reload!(t)
+        score_all(t)
+
+        {:ok, text} = TrfExport.export(Repo.reload!(t))
+        assert text =~ ~r/^192 FIDE_DOUBLEROUNDROBIN\r?$/m
+        assert check(text) == 0, "#{n} players: ainalrami -c refused the report"
+
+        # The same boards called a plain double round robin are not the
+        # Berger table's - so the check above really read the order.
+        plain = String.replace(text, "192 FIDE_DOUBLEROUNDROBIN", "192 BERGER_ROUNDROBIN_G2")
+        assert check(plain) != 0, "#{n} players: the plain code passed too"
+      end
+    end
   end
 end

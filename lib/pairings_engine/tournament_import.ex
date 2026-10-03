@@ -300,8 +300,9 @@ defmodule PairingsEngine.TournamentImport do
     |> apply_legacy_immediate!(t_attrs)
   end
 
-  # The drawn initial colour and a team Swiss's pairing mode are written by
-  # the pairing code, never cast, so both import paths carry them by hand.
+  # The drawn initial colour, a team Swiss's pairing mode and a Baku Group A
+  # are written by the pairing code, never cast, so both import paths carry
+  # them by hand.
   #
   # A file without `initial_colour_drawn` predates the draw; `fallback` is
   # what to keep then - nil for a new row, the live value for a restore (a
@@ -324,7 +325,13 @@ defmodule PairingsEngine.TournamentImport do
         _ -> nil
       end
 
-    [initial_colour_drawn: drawn, team_pairing_mode: mode]
+    # A Baku Group A fixed at round 1 belongs to the rounds the file
+    # carries, so it comes with them. A file older than the column has none,
+    # and the pairing works it out from those rounds' round 1
+    # (`Pairing.baku_group_a_last/2`).
+    group_a_last = coerce_int(Map.get(t_attrs, "baku_group_a_last"))
+
+    [initial_colour_drawn: drawn, team_pairing_mode: mode, baku_group_a_last: group_a_last]
   end
 
   # A file written before extra points had a mode carries no

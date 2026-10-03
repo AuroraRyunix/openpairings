@@ -670,13 +670,39 @@ same team standings.
 
 ## Printing
 
-For a tournament paired as teams (a team round robin, or a team Swiss paired\nby teams) the Print page offers, above the individual documents:
+For a tournament paired as teams (a team round robin, or a team Swiss paired
+by teams) the Print page offers, above the individual documents:
 
 - **Team pairings** (`/t/:id/print/team-pairings?round=n`) - one table per
   match, headed "Match n: Team A - Team B (score)", with a line per board:
   board number, the first team's colour, both players with ratings, result.
 - **Team standings** (`/t/:id/print/team-standings?round=n`) - the team table
   after round n, or current.
+- **Team cross table** (`/t/:id/print/team-crosstable`) - a round robin as a
+  team x team grid of game points with MP, GP and rank; a Swiss as one row per
+  team with, per round, the opponent's team number, the colour of board 1
+  (`w`/`b`), the match's game points and the running match points.
+- **Match result sheets** (`/t/:id/print/team-match-sheets?round=n`) - one A4
+  page per match: both line-ups with colours and ratings, a result box per
+  board, the match score and signature lines for the captains and the arbiter.
+  Entered results are filled in (from the first team's side), the rest are
+  empty boxes. `&match=<id>` prints a single match.
+- **Team rosters** (`/t/:id/print/team-rosters`) - each team's board order with
+  rating, FIDE ID and federation. `?team=<id>` for one team.
+- **Board prizes** (`/t/:id/print/board-prizes`) - per board number, players
+  ranked by percentage, then points, then performance. `?min_games=n`.
+
+None of these scores anything: they read `TeamStandings` (matches, MP, GP,
+board statistics) through `PairingsEngine.TeamSheets`, so the paper agrees with
+the Standings page. See [`printing.md`](printing.md).
+
+### The team tables on screen
+
+Standings of a team event links to four tabs, `/t/:id/team-sheets`
+(`PairingsEngineWeb.TeamSheetsLive`): **Cross table**, **Match sheets** (a round
+picker, a "Print sheet" button per match), **Rosters** and **Board prizes**
+(with a minimum-games filter). Each has a Print button for its own document.
+A tournament that is not paired as teams is sent back to Standings.
 
 ## Publishing
 

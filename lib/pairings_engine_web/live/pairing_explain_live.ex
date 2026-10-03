@@ -2907,7 +2907,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         style="margin: 4px 0 12px"
       >
         {gettext(
-          "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the field was given virtual points for pairing, which the engine added to their scores when it built the brackets. The scores shown here are game points without them, and the standings never count them."
+          "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the starting list, as it stood when round 1 was paired, was given virtual points for pairing, which the engine added to their scores when it built the brackets. A player who joined later is never in that group. The scores shown here are game points without them, and the standings never count them."
         )}
       </p>
 

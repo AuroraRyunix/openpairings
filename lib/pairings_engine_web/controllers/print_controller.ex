@@ -633,10 +633,11 @@ defmodule PairingsEngineWeb.PrintController do
 
   # Same rule PlayersLive's Players Card popup already uses: integers as-is,
   # floats drop a trailing ".0" and trim to the decimals actually present.
-  defp format_num(nil), do: "-"
-  defp format_num(n) when is_integer(n), do: Integer.to_string(n)
+  @doc false
+  def format_num(nil), do: "-"
+  def format_num(n) when is_integer(n), do: Integer.to_string(n)
 
-  defp format_num(n) when is_float(n) do
+  def format_num(n) when is_float(n) do
     if n == Float.round(n, 0) do
       n |> trunc() |> Integer.to_string()
     else
@@ -1072,7 +1073,8 @@ defmodule PairingsEngineWeb.PrintController do
   # cannot be updated - so the paper says it, as loudly as manual ranking
   # does. Nothing at all when every game is in, so final standings print
   # exactly as they always did.
-  defp postponed_banner(tournament, requested_round) do
+  @doc false
+  def postponed_banner(tournament, requested_round) do
     open =
       tournament
       |> PairingsEngine.PostponedGames.open_games()
@@ -2028,7 +2030,8 @@ defmodule PairingsEngineWeb.PrintController do
   # (the caller falls back to the default), the same forgiving way `parse_limit`
   # below handles junk - `String.to_integer/1` here turned `?round=abc` into a
   # 500 instead.
-  defp parse_round(value) do
+  @doc false
+  def parse_round(value) do
     case value && Integer.parse(value) do
       {n, ""} when n > 0 -> n
       _ -> nil
@@ -2097,7 +2100,8 @@ defmodule PairingsEngineWeb.PrintController do
       ) <> ~s(</p>)
   end
 
-  defp print_page(conn, tournament, title, subtitle, body, extra_css \\ "") do
+  @doc false
+  def print_page(conn, tournament, title, subtitle, body, extra_css \\ "") do
     # These pages are assembled here rather than through the root layout, so
     # the auto-print trigger needs the response's CSP nonce spelled out (see
     # PairingsEngineWeb.CSP); without it the browser refuses to run it and the
@@ -2120,8 +2124,9 @@ defmodule PairingsEngineWeb.PrintController do
     |> send_resp(200, html)
   end
 
-  defp esc(nil), do: ""
-  defp esc(text), do: text |> html_escape() |> safe_to_string()
+  @doc false
+  def esc(nil), do: ""
+  def esc(text), do: text |> html_escape() |> safe_to_string()
 
   # Compact tournament-identity block shown near the top of every print
   # document, right below the `<h1>` name / subtitle `print_page/5` already
@@ -2131,7 +2136,8 @@ defmodule PairingsEngineWeb.PrintController do
   # every other blank field here). Reject-and-join so a tournament missing
   # some of this (very possible pre-Settings-completion) just shows less,
   # never an empty label or a stray separator.
-  defp tournament_info_html(tournament) do
+  @doc false
+  def tournament_info_html(tournament) do
     items =
       [
         if(tournament.federation != "",
@@ -2201,6 +2207,7 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
-  defp blank_zero(0), do: ""
-  defp blank_zero(n), do: to_string(n)
+  @doc false
+  def blank_zero(0), do: ""
+  def blank_zero(n), do: to_string(n)
 end
