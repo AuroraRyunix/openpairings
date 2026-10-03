@@ -57,7 +57,11 @@ Downloads folder, not memory, unless the row says otherwise.
    team - a name, an optional short name for narrow columns, an optional
    captain. The short name is OpenPairings' own: it labels the team
    tie-break working on the Standings page and is not published - the
-   results site shows the full name.
+   results site shows the full name. A team can be deleted while it is in
+   no round: before round 1, or in a team Swiss a team that has never
+   played (it sat every round out, or came later). One that is in a match
+   already paired, or in a team round robin's schedule, is withdrawn
+   instead.
 3. Register the players on the Players page as usual, then put each one on a
    team from its card on the Teams page. The order of a roster is the board
    order: board 1 first. The arrow buttons move a player up or down a board;

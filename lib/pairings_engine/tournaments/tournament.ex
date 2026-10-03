@@ -637,6 +637,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # not supported by this field yet. Locked in the UI once the tournament
     # has paired its first round, same as `pairing_system`/`rr_cycles`.
     field :rr_match_format, :boolean, default: false
+    # Round-robin, double cycle only: play the last two rounds of the first
+    # cycle in reverse order - FIDE C.05 Annex 1's recommendation, so nobody
+    # has the same colour three times running across the cycle boundary
+    # (`PairingsEngine.RoundRobin.schedule/4`). TRF26 calls the result
+    # FIDE_DOUBLEROUNDROBIN; without it a double round robin is
+    # BERGER_ROUNDROBIN_G2. Set for a new double round robin by the New
+    # tournament form, and when an event switches to two cycles before the
+    # swapped rounds are paired (`Tournaments.update_tournament/3`); false
+    # for everything created before it existed, and for imports that do not
+    # say so, so a schedule already under way never changes.
+    field :rr_reverse_last_two, :boolean, default: false
     # Keizer only: nil means "automatic" (2 x player count), computed by
     # PairingsEngine.Keizer.
     field :keizer_top_value, :integer
@@ -1107,6 +1118,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :pairing_engine,
       :rr_cycles,
       :rr_match_format,
+      :rr_reverse_last_two,
       :keizer_top_value,
       :swiss_match_format,
       :team_boards,

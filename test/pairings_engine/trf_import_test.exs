@@ -1220,6 +1220,23 @@ defmodule PairingsEngine.TrfImportTest do
     end
   end
 
+  describe "an individual double round robin's 192 code" do
+    test "FIDE_DOUBLEROUNDROBIN reverses the first cycle's last two rounds; BERGER_ does not" do
+      for {code, reversed?} <- [
+            {"FIDE_DOUBLEROUNDROBIN", true},
+            {"BERGER_DOUBLEROUNDROBIN", false},
+            {"BERGER_ROUNDROBIN_G2", false}
+          ] do
+        assert {:ok, imported, _warnings} =
+                 TrfImport.import_text(trf_with_type_code(code, %{type: "Round Robin"}))
+
+        assert imported.pairing_system == "round_robin"
+        assert imported.rr_cycles == 2, code
+        assert imported.rr_reverse_last_two == reversed?, code
+      end
+    end
+  end
+
   defp game(opponent, colour, result),
     do: %{opponent_rank: opponent, colour: colour, result: result}
 

@@ -155,7 +155,9 @@ defmodule PairingsEngineWeb.TeamsLiveTest do
       assert html =~ "Frozen: the order below became the teams&#39; pairing numbers"
       refute html =~ "Order by rating"
       refute html =~ ~s(aria-label="Move Weak up the order")
-      refute html =~ ~s(aria-label="Delete Weak")
+      # Still offered, but it no longer asks to confirm: Weak has played, so
+      # the click explains why it cannot go (`TeamFixesLiveTest`).
+      refute has_element?(lv, "#delete-team-#{weak.id}[data-confirm]")
     end
 
     test "boards per match saves before pairing and locks after", %{conn: conn, scope: scope} do

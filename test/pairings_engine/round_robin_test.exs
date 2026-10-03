@@ -899,50 +899,35 @@ defmodule PairingsEngine.RoundRobinTest do
 
   ## ---------- rr_cycles locking boundary, odd player counts ----------
   ##
-  ## `Tournaments.locked_fields/1` unlocks `rr_cycles` only while the
-  ## rounds already paired stay inside what the *current* rr_cycles
-  ## setting's schedule needs (`RoundRobin.total_rounds(count, rr_cycles)`
-  ## - see `test/pairings_engine/settings_lock_test.exs` for the even-N
-  ## case). It used to compute that limit as `(count_players - 1) *
-  ## rr_cycles`, which only equals a single cycle's length for an EVEN
-  ## player count; for odd N a cycle is `count_players` rounds (the
-  ## phantom-bye player makes `effective_n = count + 1`), so the old
-  ## formula undercounted by one cycle-length's worth of rounds per cycle.
-  ## Symptom: the shortfall is `rr_cycles` rounds every time, so it always
-  ## locked early rather than late - a single-cycle odd-N event locked
-  ## `rr_cycles` one round before its own schedule was even finished (round
-  ## N-1 of N, still inside cycle 1), and a double-cycle odd-N event locked
-  ## two rounds before ITS schedule finished (round 2(N-1) of the true
-  ## 2N-round schedule) - the arbiter-facing failure being an arbiter
-  ## opening Settings mid-event and finding "double round robin" refused
-  ## while switching it was still perfectly safe.
+  ## `Tournaments.locked_fields/1` locks `rr_cycles` once the second cycle
+  ## has started: before that, single/double only lengthens or shortens a
+  ## tail nobody has played (and `update_tournament/3` moves `rounds_count`
+  ## with it). A cycle is `RoundRobin.total_rounds(count, 1)` rounds - for an
+  ## odd count that is `count`, not `count - 1` (the phantom-bye player); an
+  ## older `(count - 1) * rr_cycles` limit locked odd-count events early.
 
   # Outside FIDE mode (`fide_compliance_lost_round: 0`): in FIDE mode the
   # cycle count is the round count by another name and freezes with round 1
   # (`Tournaments.fide_locked_fields/1`, fide_mode_locks_test.exs).
   describe "rr_cycles locking boundary - odd player count (N=5)" do
-    test "single cycle: stays unlocked through round 4 of 5, locks once round 5 (all of cycle 1) is paired" do
+    test "single cycle: stays unlocked through all 5 rounds - a second cycle can still follow" do
       tournament = round_robin_tournament(rr_cycles: 1, fide_compliance_lost_round: 0)
       for i <- 1..5, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
 
-      for expected_round <- 1..4 do
+      for expected_round <- 1..5 do
         assert {:ok, round} = Pairing.pair_next_round(tournament)
         assert round.number == expected_round
 
         refute :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament)),
                "round #{expected_round}/5 paired but rr_cycles already locked"
       end
-
-      assert {:ok, round5} = Pairing.pair_next_round(tournament)
-      assert round5.number == 5
-      assert :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament))
     end
 
-    test "double cycle: stays unlocked through round 9 of 10, locks once round 10 (the whole implied schedule) is paired" do
+    test "double cycle: stays unlocked through round 5 (cycle 1), locks once round 6 is paired" do
       tournament = round_robin_tournament(rr_cycles: 2, fide_compliance_lost_round: 0)
       for i <- 1..5, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
 
-      for expected_round <- 1..9 do
+      for expected_round <- 1..5 do
         assert {:ok, round} = Pairing.pair_next_round(tournament)
         assert round.number == expected_round
 
@@ -950,29 +935,29 @@ defmodule PairingsEngine.RoundRobinTest do
                "round #{expected_round}/10 paired but rr_cycles already locked"
       end
 
-      assert {:ok, round10} = Pairing.pair_next_round(tournament)
-      assert round10.number == 10
+      assert {:ok, round6} = Pairing.pair_next_round(tournament)
+      assert round6.number == 6
       assert :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament))
     end
 
     test "a latecomer who joins after the freeze (and is excluded from the schedule) does not un-derive an already-correct lock" do
-      # `locked_fields/1`'s implied-schedule-length calculation used to read
+      # `locked_fields/1`'s cycle length used to read
       # `Tournaments.count_players/1` - every row in the tournament's
       # `players` table, including someone who registers after round 1 was
       # paired. Round robin never reschedules around a latecomer (see
       # `RoundRobin`'s moduledoc: they never get a `pairing_number` and
-      # never appear in any round), so counting them here inflated the
-      # implied schedule length and read a finished, fully-paired 4-player
-      # cycle as still 1 round short of complete the moment a 5th player -
-      # never scheduled at all - registered.
-      tournament = round_robin_tournament(rr_cycles: 1)
+      # never appear in any round), so counting them lengthened the implied
+      # cycle and read a schedule already in its second cycle as still in
+      # its first the moment a 5th player - never scheduled at all -
+      # registered.
+      tournament = round_robin_tournament(rr_cycles: 2, fide_compliance_lost_round: 0)
       for i <- 1..4, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
 
-      for _ <- 1..3, do: {:ok, _} = Pairing.pair_next_round(tournament)
+      for _ <- 1..4, do: {:ok, _} = Pairing.pair_next_round(tournament)
       tournament = Repo.reload!(tournament)
 
       assert :rr_cycles in Tournaments.locked_fields(tournament),
-             "sanity: 4 players, single cycle, all 3 rounds paired - already locked"
+             "sanity: 4 players, double cycle, round 4 (cycle 2) paired - already locked"
 
       insert_player(tournament, "Latecomer", fide_rating: 2500)
       tournament = Repo.reload!(tournament)

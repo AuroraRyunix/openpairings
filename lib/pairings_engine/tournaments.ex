@@ -706,6 +706,7 @@ defmodule PairingsEngine.Tournaments do
       tournament
       |> Tournament.changeset(attrs)
       |> Tournament.validate_no_team_keizer()
+      |> follow_round_robin_shape(tournament)
       |> stamp_compliance_loss(fn ->
         PairingsEngine.Pairing.paired_rounds_count(tournament.id)
       end)
@@ -714,6 +715,91 @@ defmodule PairingsEngine.Tournaments do
         broadcast_tournament_change(updated.id, :settings)
         broadcast_tournament_list(updated)
       end)
+    end
+  end
+
+  # A round robin's length is not a free choice (`RoundRobin`'s
+  # `ensure_correct_rounds_count/2`): once its field is frozen, a change of
+  # cycles or match format moves `rounds_count` in the same save, so the
+  # Pairings page offers the rounds the new schedule adds straight away -
+  # it used to wait for a pairing click the page would not offer, because
+  # every round of the old length was already paired. Refused, on the
+  # cycles field, when the new length is above the app's maximum or below
+  # the rounds already paired.
+  #
+  # Switching an individual round robin to two cycles also decides
+  # `rr_reverse_last_two` (FIDE C.05 Annex 1's reversed last two rounds of
+  # the first cycle), unless the same save sets it: on while round m-1 of
+  # the first cycle is still unpaired, off once it is - a round already on
+  # the board is never re-cut. Back to one cycle turns it off.
+  defp follow_round_robin_shape(changeset, %Tournament{} = before) do
+    shape_changed? =
+      Ecto.Changeset.changed?(changeset, :rr_cycles) or
+        Ecto.Changeset.changed?(changeset, :rr_match_format)
+
+    if Ecto.Changeset.get_field(changeset, :pairing_system) == "round_robin" and shape_changed? do
+      paired = PairingsEngine.Pairing.paired_rounds_count(before.id)
+      size = if paired > 0, do: RoundRobin.frozen_schedule_size(before), else: 0
+
+      changeset
+      |> default_reverse_last_two(before, paired, size)
+      |> follow_rounds_count(paired, size)
+    else
+      changeset
+    end
+  end
+
+  defp default_reverse_last_two(changeset, before, paired, size) do
+    explicit? = Map.has_key?(changeset.params || %{}, "rr_reverse_last_two")
+
+    cond do
+      explicit? or not Ecto.Changeset.changed?(changeset, :rr_cycles) or Tournament.team?(before) ->
+        changeset
+
+      Ecto.Changeset.get_field(changeset, :rr_cycles) == 2 ->
+        cycle = RoundRobin.total_rounds(max(size, 2), 1)
+
+        Ecto.Changeset.put_change(
+          changeset,
+          :rr_reverse_last_two,
+          paired == 0 or paired < cycle - 1
+        )
+
+      true ->
+        Ecto.Changeset.put_change(changeset, :rr_reverse_last_two, false)
+    end
+  end
+
+  defp follow_rounds_count(changeset, _paired, size) when size < 2, do: changeset
+
+  defp follow_rounds_count(changeset, paired, size) do
+    rounds =
+      RoundRobin.rounds_needed(size, %{
+        rr_cycles: Ecto.Changeset.get_field(changeset, :rr_cycles),
+        rr_match_format: Ecto.Changeset.get_field(changeset, :rr_match_format)
+      })
+
+    cond do
+      rounds > Tournament.max_rounds() ->
+        Ecto.Changeset.add_error(
+          changeset,
+          :rr_cycles,
+          "would need %{count} rounds, above the %{max}-round maximum",
+          count: rounds,
+          max: Tournament.max_rounds()
+        )
+
+      rounds < paired ->
+        Ecto.Changeset.add_error(
+          changeset,
+          :rr_cycles,
+          "would end the schedule after round %{count}, but %{paired} rounds are already paired",
+          count: rounds,
+          paired: paired
+        )
+
+      true ->
+        Ecto.Changeset.put_change(changeset, :rounds_count, rounds)
     end
   end
 
@@ -802,49 +888,36 @@ defmodule PairingsEngine.Tournaments do
     if paired == 0 do
       []
     else
-      # A round robin's cycle count only locks once the rounds already paired
-      # reach what the current setting implies the schedule needs - before
-      # that, switching single/double is still harmless (see
-      # `RoundRobin.schedule/3`: round N is identical either way while N is
-      # inside cycle 1).
+      # A round robin's cycle count only locks once the second cycle has
+      # started - before that, switching single/double only lengthens or
+      # shortens a tail nobody has played yet (see `RoundRobin.schedule/4`:
+      # round N is identical either way while N is inside cycle 1), and
+      # `update_tournament/3` moves `rounds_count` with it. So a single cycle
+      # played to the end can still become a double one: its second cycle is
+      # the same pairings, colours reversed (C.05). Until 0.73 the lock came
+      # as soon as the rounds paired reached what the CURRENT setting
+      # implied, which refused exactly that - a two-team match of one round
+      # could never be extended to two.
       #
       # A single cycle's length is `RoundRobin.total_rounds(count, 1)`, NOT
       # `count - 1` - that only holds for an even player count. For an odd
       # count the phantom-bye player makes `effective_n = count + 1`, so a
-      # cycle is `count` rounds long (see `RoundRobin.schedule/3`'s
-      # moduledoc). The even-only `count - 1` undercounted every odd-count
-      # cycle by exactly one round, so the old `(count - 1) * rr_cycles`
-      # limit was `rr_cycles` rounds short of the real one - locking the
-      # field that many rounds too early: a single-cycle odd-count event
-      # (5 players, say) locked at round 4 of its own 5-round schedule,
-      # still inside cycle 1, and a double-cycle one locked at round 8 of
-      # its true 10-round schedule, 2 rounds early. `max(..., 2)` keeps the
-      # old floor-of-one-round behaviour for a 0/1-player edge case
+      # cycle is `count` rounds long (see `RoundRobin.schedule/4`'s
+      # moduledoc). `max(..., 2)` keeps a floor for a 0/1-player edge case
       # (`total_rounds/2` needs at least 2 to mean anything).
       #
       # `count` itself has to be the FROZEN schedule size
-      # (`PairingsEngine.Pairing.full_roster_players/1` - the same query
-      # `RoundRobin.frozen_players/1` uses to build the Berger table), not
-      # `count_players/1`'s live total. A round robin never reschedules
-      # around a player who joins after the freeze (see
-      # `RoundRobin`'s moduledoc, "Freezing pairing numbers") - they never
-      # get a `pairing_number` and never appear in any round - so counting
-      # them here inflates the implied schedule length and can un-derive an
-      # already-correct lock: a 4-player single cycle (3 rounds, fully
-      # paired) reads as needing 5 rounds the moment a 5th, never-scheduled
-      # player registers, reporting `rr_cycles` open again although nothing
-      # about the 4-player schedule on the board changed.
+      # (`RoundRobin.frozen_schedule_size/1` - the same set the Berger table
+      # is built from), not `count_players/1`'s live total. A round robin
+      # never reschedules around a player who joins after the freeze, so
+      # counting them would lengthen the implied cycle and un-derive an
+      # already-correct lock the moment a never-scheduled latecomer
+      # registered.
       #
-      # A team round robin's Berger table is over TEAMS, so its schedule size
-      # is the frozen team count (`PairingsEngine.TeamRoundRobin`).
-      frozen_count =
-        if Tournament.team_round_robin?(tournament) do
-          tournament.id |> list_teams() |> Enum.count(&(&1.pairing_number != nil))
-        else
-          tournament.id |> PairingsEngine.Pairing.full_roster_players() |> length()
-        end
-
-      rr_implied_limit = RoundRobin.total_rounds(max(frozen_count, 2), 1) * tournament.rr_cycles
+      # `rr_reverse_last_two` decides which pairing round m-1 of the first
+      # cycle gets (m the cycle's length), so it locks once that round is
+      # paired.
+      cycle = RoundRobin.total_rounds(max(RoundRobin.frozen_schedule_size(tournament), 2), 1)
 
       # `pairing_engine` belongs here for the same reason `pairing_system`
       # does, one level down: JaVaFo and Ainalrami are two independent Dutch
@@ -874,7 +947,8 @@ defmodule PairingsEngine.Tournaments do
       # freezes with round 1 like the rest of the pairing shape.
       base = base ++ [:initial_colour]
 
-      base = if paired >= rr_implied_limit, do: [:rr_cycles | base], else: base
+      base = if paired > cycle, do: [:rr_cycles | base], else: base
+      base = if paired >= cycle - 1, do: [:rr_reverse_last_two | base], else: base
 
       Enum.uniq(base ++ fide_locked_fields(tournament, paired))
     end
@@ -3207,16 +3281,27 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Deletes a team; its players stay in the tournament without a team.
 
-  Refused with `{:error, :team_scheduled}` once the team has a pairing
-  number: its matches are on the board, and deleting it would leave them
-  pointing at nobody. Unpair the rounds first.
+  Allowed whenever the team is in no round: before round 1, or - in a team
+  Swiss - a team that has sat every round out, or was added after the last
+  round paired. Its pairing number, if it had one, is simply not used
+  again, as with a player deleted from an individual Swiss. Refused with:
+
+    * `{:error, :team_played}` - the team is in a match of some round
+      (played, paired or a bye): those matches would be left pointing at
+      nobody. Withdraw the team instead, or unpair those rounds;
+    * `{:error, :team_scheduled}` - a team round robin under way: the
+      Berger table was drawn over every numbered team, so taking one out
+      would change the schedule of the rounds still to come.
   """
   def delete_team(%Team{} = team) do
     cond do
       refusal = write_refused(team.tournament_id) ->
         refusal
 
-      not is_nil(team.pairing_number) ->
+      team_in_a_match?(team) ->
+        {:error, :team_played}
+
+      not is_nil(team.pairing_number) and team_round_robin_under_way?(team.tournament_id) ->
         {:error, :team_scheduled}
 
       true ->
@@ -3228,6 +3313,54 @@ defmodule PairingsEngine.Tournaments do
         end)
         |> tap_ok(fn _ -> broadcast_tournament_change(team.tournament_id, :players) end)
     end
+  end
+
+  @doc """
+  Whether `team` can be deleted right now (`delete_team/1` would not refuse
+  it for what the team has played or is scheduled for). The Teams page asks
+  this to decide which Delete buttons confirm and which explain.
+  """
+  def team_deletable?(%Team{} = team) do
+    not team_in_a_match?(team) and
+      not (not is_nil(team.pairing_number) and team_round_robin_under_way?(team.tournament_id))
+  end
+
+  defp team_in_a_match?(%Team{id: id}) do
+    Repo.exists?(
+      from m in Match,
+        where: m.team_a_id == ^id or m.team_b_id == ^id or m.forfeited_to_team_id == ^id
+    )
+  end
+
+  defp team_round_robin_under_way?(tournament_id) do
+    case Repo.get(Tournament, tournament_id) do
+      %Tournament{} = t ->
+        Tournament.team_round_robin?(t) and
+          Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id)
+
+      nil ->
+        false
+    end
+  end
+
+  @doc """
+  Gives the teams' pairing numbers back when no round exists - the state
+  unpairing the last round leaves (`PairingsEngine.Pairing.delete_round/2`).
+  Called by the team pairing paths when a pairing that numbered the teams
+  then refused: a draw that never happened must not freeze the Teams page's
+  order, nor hide its Delete buttons.
+  """
+  def release_team_numbers_if_unpaired(tournament_id) do
+    unless Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id) do
+      Repo.update_all(
+        from(t in Team,
+          where: t.tournament_id == ^tournament_id and not is_nil(t.pairing_number)
+        ),
+        set: [pairing_number: nil]
+      )
+    end
+
+    :ok
   end
 
   @doc """

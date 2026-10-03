@@ -249,11 +249,24 @@ defmodule PairingsEngine.RoundRobin do
   every round of the schedule has already been returned - the same reason,
   with the same meaning, that `PairingsEngine.Pairing.pair_next_round/1`
   gives for a finished tournament of any system.
+
+  Option `:reverse_last_two?` - FIDE C.05 Annex 1's recommendation for a
+  double round robin ("it is recommended to reverse the order of the last
+  two rounds of the first cycle"), `tournaments.rr_reverse_last_two`: rounds
+  `m - 1` and `m` of the first cycle (`m` the cycle's length) are played in
+  each other's place, so a player who would otherwise have the same colour
+  in the first cycle's last round and the second cycle's first two does
+  not. The second cycle is the table's own order, colours reversed - TRF26's
+  FIDE_DOUBLEROUNDROBIN, and `Ainalrami.Berger.round/4`'s construction.
+  Ignored for a single cycle and for a cycle shorter than two rounds;
+  without it the schedule is exactly what it always was.
   """
-  @spec schedule(pos_integer(), pos_integer(), pos_integer()) ::
+  @spec schedule(pos_integer(), pos_integer(), pos_integer(), keyword()) ::
           {:ok, [{:pairing, pos_integer(), pos_integer()} | {:bye, pos_integer()}]}
           | {:error, {:all_rounds_paired, pos_integer()}}
-  def schedule(player_count, cycles, round_number) when player_count >= 2 do
+  def schedule(player_count, cycles, round_number, opts \\ [])
+
+  def schedule(player_count, cycles, round_number, opts) when player_count >= 2 do
     effective_n = if rem(player_count, 2) == 0, do: player_count, else: player_count + 1
     dummy_number = if rem(player_count, 2) == 1, do: effective_n, else: nil
     cycle_length = effective_n - 1
@@ -266,9 +279,43 @@ defmodule PairingsEngine.RoundRobin do
       r = Integer.mod(round_number - 1, cycle_length)
       reverse_colours? = rem(cycle_index, 2) == 1
 
+      r =
+        if Keyword.get(opts, :reverse_last_two?, false) and cycles >= 2 and cycle_index == 0 and
+             cycle_length >= 2,
+           do: swap_last_two(r, cycle_length),
+           else: r
+
       {:ok, round_matches(effective_n, dummy_number, r, reverse_colours?)}
     end
   end
+
+  defp swap_last_two(r, cycle_length) when r == cycle_length - 1, do: cycle_length - 2
+  defp swap_last_two(r, cycle_length) when r == cycle_length - 2, do: cycle_length - 1
+  defp swap_last_two(r, _cycle_length), do: r
+
+  @doc """
+  The size of the Berger table a round robin under way runs over: its
+  numbered teams for a team round robin, else the largest of its frozen
+  players' groups (`schedule_groups/2`). 0 before anything is frozen.
+  """
+  def frozen_schedule_size(%Tournament{} = tournament) do
+    if Tournament.team_round_robin?(tournament) do
+      length(PairingsEngine.TeamRounds.numbered_teams(tournament.id))
+    else
+      tournament
+      |> schedule_groups(frozen_players(tournament.id))
+      |> Enum.map(&length/1)
+      |> Enum.max(fn -> 0 end)
+    end
+  end
+
+  @doc """
+  The rounds a round robin of `size` needs with these settings - one cycle,
+  two, or match format (`match_total_rounds/1`). `settings` is anything
+  with `rr_cycles` and `rr_match_format`.
+  """
+  def rounds_needed(size, %{rr_match_format: true}), do: match_total_rounds(size)
+  def rounds_needed(size, %{rr_cycles: cycles}), do: total_rounds(size, cycles || 1)
 
   @doc "Total number of rounds the full schedule needs for `player_count` players over `cycles` cycles."
   def total_rounds(player_count, cycles) do
@@ -522,7 +569,9 @@ defmodule PairingsEngine.RoundRobin do
     if tournament.rr_match_format do
       match_schedule(count, next_number)
     else
-      schedule(count, tournament.rr_cycles, next_number)
+      schedule(count, tournament.rr_cycles, next_number,
+        reverse_last_two?: tournament.rr_reverse_last_two == true
+      )
     end
   end
 

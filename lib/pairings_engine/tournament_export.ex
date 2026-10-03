@@ -89,7 +89,8 @@ defmodule PairingsEngine.TournamentExport do
     categories category_rules category_prizes categories_enabled
     categories_ranked_separately event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
-    pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
+    pairing_system pairing_engine rr_cycles rr_match_format rr_reverse_last_two
+    swiss_match_format
     keizer_top_value pair_by_category
     team_boards team_match_points_win team_match_points_draw team_match_points_loss
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul

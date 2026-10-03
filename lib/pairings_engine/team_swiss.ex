@@ -124,14 +124,22 @@ defmodule PairingsEngine.TeamSwiss do
         teams = TeamRounds.numbered_teams(tournament.id)
         {field, _sitting_out} = split_field(tournament, teams, next)
 
-        if length(field) < 2 do
-          {:error, "At least two teams with a player available for round #{next} are needed"}
-        else
-          tournament =
-            if next == 1, do: Tournaments.ensure_initial_colour(tournament), else: tournament
+        result =
+          if length(field) < 2 do
+            {:error, "At least two teams with a player available for round #{next} are needed"}
+          else
+            tournament =
+              if next == 1, do: Tournaments.ensure_initial_colour(tournament), else: tournament
 
-          pair_round(tournament, teams, field, next)
-        end
+            pair_round(tournament, teams, field, next)
+          end
+
+        # A refused round 1 leaves no draw behind: the numbers just handed
+        # out would otherwise freeze the Teams page with no round on it.
+        if match?({:error, _}, result),
+          do: Tournaments.release_team_numbers_if_unpaired(tournament.id)
+
+        result
     end
   end
 
@@ -179,6 +187,9 @@ defmodule PairingsEngine.TeamSwiss do
       # round number, for the message) travels up to
       # `PairingsEngineWeb.SettingsSupport.error_text/1`, which is where the
       # English/Dutch wording lives - never rendered here.
+      {:error, reason} when reason in [:no_legal_pairing, :no_legal_bye] ->
+        {:error, {:team_pairing, too_few_teams(reason, length(teams), number), number}}
+
       {:error, reason} ->
         {:error, {:team_pairing, reason, number}}
     end
@@ -201,6 +212,24 @@ defmodule PairingsEngine.TeamSwiss do
       )
 
       {:error, {:team_pairing, :pairing_crashed, number}}
+  end
+
+  @doc """
+  The most rounds a team Swiss with `count` teams can have before every
+  round must repeat a meeting: `count - 1` - every other team once - or
+  `count` with an odd number of teams, where each team also sits out once
+  with the pairing-allocated bye. Neither may happen twice (C.04.1, C.04.6
+  Art. 1.4).
+  """
+  def max_rounds(count) when count < 2, do: 0
+  def max_rounds(count) when rem(count, 2) == 0, do: count - 1
+  def max_rounds(count), do: count
+
+  # The engine's refusal, said for what it nearly always means when the
+  # round is past `max_rounds/1`: the event has more rounds than its teams
+  # have opponents. Within the limit the engine's own reason stands.
+  defp too_few_teams(reason, count, number) do
+    if number > max_rounds(count), do: {:too_few_teams, count, max_rounds(count)}, else: reason
   end
 
   defp initial_colour(tournament) do

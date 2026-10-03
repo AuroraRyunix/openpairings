@@ -109,6 +109,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       pairing_system_locked?: :pairing_system in locked,
       pairing_engine_locked?: :pairing_engine in locked,
       rr_cycles_locked?: :rr_cycles in locked,
+      rr_reverse_last_two_locked?: :rr_reverse_last_two in locked,
       rr_match_format_locked?: :rr_match_format in locked,
       swiss_match_format_locked?: :swiss_match_format in locked,
       initial_colour_locked?: :initial_colour in locked
@@ -165,7 +166,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # send. `String.to_existing_atom/1` on an unguarded param is a crafted
   # event away from an `ArgumentError` that takes the sender's socket down
   # with it, and the atom table is not the caller's to grow either.
-  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format initial_colour)
+  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_reverse_last_two rr_match_format swiss_match_format initial_colour)
 
   def handle_event("locked_hint", %{"field" => field}, socket)
       when field in @locked_fields do
@@ -471,6 +472,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
     |> maybe_drop_locked("pairing_engine", assigns.pairing_engine_locked?)
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
+    |> maybe_drop_locked("rr_reverse_last_two", assigns.rr_reverse_last_two_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
     |> maybe_drop_locked("initial_colour", assigns.initial_colour_locked?)
@@ -543,6 +545,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     do:
       gettext(
         "This decides how long the round-robin schedule is supposed to run for. Rounds already paired came from the schedule the current setting implies; changing it now doesn't rewrite what already happened, so the cycle count and the rounds actually on the board can end up disagreeing about how long this tournament is."
+      )
+
+  defp rr_reverse_last_two_warning,
+    do:
+      gettext(
+        "This decides which pairing the second-to-last round of the first cycle gets. That round is already paired, so changing it now would make the rest of the schedule disagree with the rounds on the board."
       )
 
   defp rr_match_format_warning,
@@ -712,7 +720,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </span>
             </.setting_field>
 
-            <.setting_field label={gettext("Cycles")}>
+            <.setting_field
+              label={gettext("Cycles")}
+              hint={
+                gettext(
+                  "Round robin only - a Swiss plays the number of rounds set under Settings - Tournament, and never pairs the same opponents twice."
+                )
+              }
+            >
               <div class="locked-wrap">
                 <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
                   <option
@@ -732,6 +747,28 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 fide_path={fide_path(@tournament, @fide_locked, :rr_cycles)}
               />
             </.setting_field>
+
+            <.setting_toggle
+              :if={
+                @tournament.pairing_system == "round_robin" and @tournament.rr_cycles == 2 and
+                  !Tournament.team?(@tournament)
+              }
+              name="tournament[rr_reverse_last_two]"
+              label={
+                gettext("Play the last two rounds of the first cycle in reverse order (FIDE C.05)")
+              }
+              hint={
+                gettext(
+                  "FIDE's recommendation for a double round robin: nobody then has the same colour three times running where the two cycles meet. Exported to the TRF as FIDE_DOUBLEROUNDROBIN."
+                )
+              }
+              checked={@tournament.rr_reverse_last_two}
+              disabled={@rr_reverse_last_two_locked?}
+              field={:rr_reverse_last_two}
+              locked?={@rr_reverse_last_two_locked?}
+              locked_hint={@locked_hint}
+              warning={rr_reverse_last_two_warning()}
+            />
 
             <.setting_toggle
               name="tournament[rr_match_format]"

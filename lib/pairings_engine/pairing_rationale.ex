@@ -747,10 +747,22 @@ defmodule PairingsEngine.PairingRationale do
         deterministic: true
       }
     else
+      cycle = div(round_number - 1, cycle_length) + 1
+      cycle_round = Integer.mod(round_number - 1, cycle_length) + 1
+
+      # The Berger table's round: FIDE C.05's reversed last two rounds of
+      # a double round robin's first cycle play each other's table rounds
+      # (`RoundRobin.schedule/4`).
+      cycle_round =
+        if tournament.rr_reverse_last_two and tournament.rr_cycles == 2 and cycle == 1 and
+             cycle_length >= 2 and cycle_round >= cycle_length - 1,
+           do: 2 * cycle_length - 1 - cycle_round,
+           else: cycle_round
+
       %{
         match_format: false,
-        cycle: div(round_number - 1, cycle_length) + 1,
-        cycle_round: Integer.mod(round_number - 1, cycle_length) + 1,
+        cycle: cycle,
+        cycle_round: cycle_round,
         total_cycles: tournament.rr_cycles,
         deterministic: true
       }

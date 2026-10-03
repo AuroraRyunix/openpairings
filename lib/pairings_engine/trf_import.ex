@@ -739,7 +739,13 @@ defmodule PairingsEngine.TrfImport do
         base in ~w(FIDE_DUTCH FIDE_DUTCH_2025 FIDE_DUTCH_2026) ->
           %{pairing_system: "swiss", pairing_engine: "ainalrami"}
 
-        base in ~w(FIDE_DOUBLEROUNDROBIN BERGER_DOUBLEROUNDROBIN
+        # The first cycle's last two rounds played in reverse order (FIDE
+        # C.05 Annex 1) - the schedule `RoundRobin.schedule/4` replays with
+        # `rr_reverse_last_two`.
+        base == "FIDE_DOUBLEROUNDROBIN" ->
+          %{pairing_system: "round_robin", rr_cycles: 2, rr_reverse_last_two: true}
+
+        base in ~w(BERGER_DOUBLEROUNDROBIN
                    FIDE_TEAM_DOUBLEROUNDROBIN BERGER_TEAM_DOUBLEROUNDROBIN) ->
           %{pairing_system: "round_robin", rr_cycles: 2}
 
