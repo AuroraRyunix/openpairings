@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] OpenResults: teams are published under their full name. The
+  results site and its hall screen printed the short name whenever a team
+  had one; the short name now stays in OpenPairings, where it labels the
+  team tie-break working on the Standings page.
 - [Fix] New tournament: ticking "Team tournament" with Swiss no longer says
   "Reporting only ... still paired player by player". That note dated from
   before 0.62.0; Swiss plus Team has paired team against team by FIDE's team

@@ -55,7 +55,9 @@ Downloads folder, not memory, unless the row says otherwise.
 1. Create the tournament with *Round robin* and *Team tournament* ticked.
 2. **Teams** (a tab next to Players, shown only for team tournaments): add each
    team - a name, an optional short name for narrow columns, an optional
-   captain.
+   captain. The short name is OpenPairings' own: it labels the team
+   tie-break working on the Standings page and is not published - the
+   results site shows the full name.
 3. Register the players on the Players page as usual, then put each one on a
    team from its card on the Teams page. The order of a roster is the board
    order: board 1 first. The arrow buttons move a player up or down a board;
