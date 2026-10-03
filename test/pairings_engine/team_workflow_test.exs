@@ -624,6 +624,30 @@ defmodule PairingsEngine.TeamWorkflowTest do
 
       assert String.slice(line, 54, 6) |> String.trim() |> String.to_float() == leader.mp
       assert Enum.any?(lines, &String.starts_with?(&1, "152 "))
+
+      # Round 2 sent on its own: what round 2 earned, and no rank.
+      {:ok, text} = TrfExport.export(dated!(t), [2])
+      round2 = TeamStandings.matches(t) |> Enum.filter(&(&1.round == 2))
+
+      for line <- String.split(text, "
+"),
+          String.starts_with?(line, "310") do
+        no = line |> String.slice(4, 3) |> String.trim() |> String.to_integer()
+        team = Enum.find(Tournaments.list_teams(t.id), &(&1.pairing_number == no))
+
+        {mp, gp} =
+          Enum.reduce(round2, {0.0, 0.0}, fn m, {mp, gp} ->
+            cond do
+              m.team_a_id == team.id -> {mp + (m.mp_a || 0.0), gp + m.gp_a}
+              m.team_b_id == team.id -> {mp + (m.mp_b || 0.0), gp + m.gp_b}
+              true -> {mp, gp}
+            end
+          end)
+
+        assert line |> String.slice(54, 6) |> String.trim() |> String.to_float() == mp
+        assert line |> String.slice(61, 6) |> String.trim() |> String.to_float() == gp
+        assert line |> String.slice(68, 3) |> String.trim() == ""
+      end
     end
   end
 end

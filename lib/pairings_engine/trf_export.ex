@@ -764,20 +764,33 @@ defmodule PairingsEngine.TrfExport do
       teams = Tournaments.list_teams(tournament.id)
       numbered? = dialect == :trf26 and teams != [] and Enum.all?(teams, & &1.pairing_number)
 
-      # The match points, game points and rank after the file's LAST round,
-      # and only for a file that starts at round 1 - the standings of a file
-      # of chosen rounds would count games it leaves out, the same rule as
-      # the `001` rank (`with_final_ranks/4`). Such a file keeps its team
-      # numbers and rosters.
+      # The match points and game points the file's OWN rounds earned, and
+      # the rank after its last round. A file from round 1 is the standings
+      # through its last round (`TeamStandings.standings/2`, the Team
+      # standings page); a file of chosen rounds that does not start at
+      # round 1 - a round sent on its own - carries what its rounds earned,
+      # added up from the same scored matches, and no rank: a place after
+      # games the file leaves out is not the file's to state (the same rule
+      # as the `001` rank, `with_final_ranks/4`). Before 2026-10-03 every
+      # file carried the whole event's figures, whatever rounds it held.
       from_one? = rounds != [] and rounds == Enum.to_list(1..Enum.max(rounds))
 
       standings_by_id =
-        if numbered? and from_one?,
-          do:
+        cond do
+          not numbered? or rounds == [] ->
+            %{}
+
+          from_one? ->
             tournament
             |> TeamStandings.standings(through_round: Enum.max(rounds))
-            |> Map.new(&{&1.team.id, &1}),
-          else: %{}
+            |> Map.new(&{&1.team.id, &1})
+
+          true ->
+            Map.merge(
+              Map.new(teams, &{&1.id, %{mp: 0.0, gp: 0.0}}),
+              file_round_totals(tournament, rounds)
+            )
+        end
 
       played_for = played_for(tournament, rounds)
       team_of = fn p -> Map.get(played_for, p.id, p.team_id) end
@@ -805,13 +818,39 @@ defmodule PairingsEngine.TrfExport do
             Map.merge(base, %{
               match_points: entry.mp,
               game_points: entry.gp,
-              final_rank: entry.rank
+              final_rank: Map.get(entry, :rank)
             })
         end
       end)
     else
       []
     end
+  end
+
+  # `%{team_id => %{mp:, gp:}}`: what each team's matches in `rounds` scored
+  # - match points of every scored match (a team Swiss bye's included), game
+  # points board by board - for a file of chosen rounds (`team_records/5`).
+  defp file_round_totals(tournament, rounds) do
+    wanted = MapSet.new(rounds)
+
+    sides =
+      tournament
+      |> TeamStandings.matches()
+      |> Enum.filter(&MapSet.member?(wanted, &1.round))
+      |> Enum.flat_map(fn m ->
+        [{m.team_a_id, m.mp_a, m.gp_a}] ++
+          if(m.team_b_id, do: [{m.team_b_id, m.mp_b, m.gp_b}], else: [])
+      end)
+
+    sides
+    |> Enum.group_by(&elem(&1, 0))
+    |> Map.new(fn {team_id, rows} ->
+      {team_id,
+       %{
+         mp: rows |> Enum.map(&(elem(&1, 1) || 0.0)) |> Enum.sum() |> Float.round(1),
+         gp: rows |> Enum.map(&elem(&1, 2)) |> Enum.sum() |> Float.round(1)
+       }}
+    end)
   end
 
   # `%{player_id => team_id}` for the players who played for a team other

@@ -399,10 +399,11 @@ the tournament's own match-point values (`team_match_points_win/draw/loss`,
 plus `P`, the bye's match points, for a team Swiss), and, for a team Swiss, a
 `320` naming the team given the pairing-allocated bye each round with the
 bye's match and game points. A file of chosen rounds that does not start at
-round 1 keeps the team numbers and rosters but leaves the match points, game
-points and rank out - they would count games the file does not carry (the
-same rule as the `001` rank). Before 2026-10-03 every file carried the whole
-event's figures, whatever rounds it held.
+round 1 (a round sent on its own) carries the match points and game points
+its own rounds earned, and no rank - a place after games the file does not
+carry is not the file's to state (the same rule as the `001` rank). Before
+2026-10-03 every file carried the whole event's figures, whatever rounds it
+held.
 
 The `202` tie-breaks of a team file are written in C.07's own spelling -
 `MPTS GPTS DE BC SB:MP` for FIDE's default - so `ainalrami -c` can check the

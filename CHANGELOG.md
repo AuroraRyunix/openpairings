@@ -70,9 +70,10 @@ Each entry is tagged so a version can be skimmed:
   OpenResults now count a round once it is the current round or earlier.
 - [Fix] TRF of a team event: the `202` tie-breaks are written in C.07's
   spelling (MPTS, GPTS, BC, SB:MP ...) so a checker such as `ainalrami -c` can
-  check the team standings; and a file of chosen rounds carries the `310`
-  match points, game points and rank after its own last round, not the whole
-  event's.
+  check the team standings; and the `310` match and game points are those of
+  the file's own rounds (a file from round 1: the standings after its last
+  round, with the rank; a round sent on its own: what that round earned, no
+  rank), not the whole event's.
 - [Fix] TRF: the initial colour drawn by lot is now written (`152`, or
   `XXC` in the engine file) whenever one is on record - for individual
   events too. Apart from that new line, individual reports are unchanged.
