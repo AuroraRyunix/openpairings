@@ -46,9 +46,13 @@ defmodule PairingsEngine.TeamRoundRobin do
   @doc "Pairs the next round of the team Berger schedule. Same contract as `RoundRobin.pair_next_round/1`."
   @spec pair_next_round(Tournament.t()) :: {:ok, Round.t()} | {:error, term()}
   def pair_next_round(%Tournament{} = tournament) do
-    with {:ok, tournament, teams} <- prepare(tournament) do
-      do_pair_next_round(tournament, teams)
+    tournament
+    |> prepare()
+    |> case do
+      {:ok, tournament, teams} -> do_pair_next_round(tournament, teams)
+      {:error, _} = error -> error
     end
+    |> release_numbers_on_refusal(tournament)
   end
 
   @doc """
@@ -57,10 +61,25 @@ defmodule PairingsEngine.TeamRoundRobin do
   """
   @spec pair_all_rounds(Tournament.t()) :: {:ok, pos_integer()} | {:error, term()}
   def pair_all_rounds(%Tournament{} = tournament) do
-    with {:ok, tournament, teams} <- prepare(tournament) do
-      pair_remaining(tournament, teams)
+    tournament
+    |> prepare()
+    |> case do
+      {:ok, tournament, teams} -> pair_remaining(tournament, teams)
+      {:error, _} = error -> error
     end
+    |> release_numbers_on_refusal(tournament)
   end
+
+  # `prepare/1` numbers the teams before anything can refuse (too few
+  # teams, a schedule past the round limit). A refusal with no round on the
+  # board gives the numbers back, as unpairing the last round does - a draw
+  # that never happened must not freeze the Teams page.
+  defp release_numbers_on_refusal({:error, _} = error, tournament) do
+    Tournaments.release_team_numbers_if_unpaired(tournament.id)
+    error
+  end
+
+  defp release_numbers_on_refusal(result, _tournament), do: result
 
   defp pair_remaining(tournament, teams) do
     case tournament |> do_pair_next_round(teams) |> RoundRobin.after_step() do

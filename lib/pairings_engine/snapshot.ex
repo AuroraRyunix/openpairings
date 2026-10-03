@@ -586,8 +586,13 @@ defmodule PairingsEngine.Snapshot do
 
       %{
         "no" => Map.fetch!(team_nos, team.id),
+        # The full name, and only it: the results site and its hall screen
+        # print a team by `short_name` whenever one is present, and the
+        # arbiter's short name is a label for OpenPairings' own narrow
+        # columns (the team tie-break working on the Standings page), not
+        # the team's public name. Sent through 0.73.0; a reader treats the
+        # absent key as no short name.
         "name" => team.name,
-        "short_name" => blank_to_nil(team.short_name),
         # A captain's name is typed by the arbiter, like a tournament's own
         # `arbiter`/`deputy` fields above - not a player record, so the
         # player-data allowlist in `player_row/2` does not apply to it.

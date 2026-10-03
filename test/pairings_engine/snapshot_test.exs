@@ -1440,6 +1440,19 @@ defmodule PairingsEngine.SnapshotTest do
       refute Map.has_key?(Snapshot.build(tournament)["tournament"], "team_boards")
     end
 
+    test "a team travels under its full name; the short name stays in OpenPairings" do
+      {t, teams} = team_snapshot_fixture()
+      brugge = Enum.find(teams, &(&1.name == "Brugse SK"))
+      {:ok, _} = Tournaments.update_team(brugge, %{"short_name" => "BSK"})
+
+      row =
+        t |> Snapshot.build() |> Map.fetch!("teams") |> Enum.find(&(&1["name"] == "Brugse SK"))
+
+      assert row
+      refute Map.has_key?(row, "short_name")
+      refute Jason.encode!(Snapshot.build(t)) =~ "BSK"
+    end
+
     test "a team Swiss already paired player by player publishes as an individual event" do
       # Flagged as a team event it would show empty team standings on the
       # results site in place of its real individual ones.
@@ -1470,7 +1483,7 @@ defmodule PairingsEngine.SnapshotTest do
       teams = snapshot["teams"]
       assert length(teams) == 4
       antwerp = Enum.find(teams, &(&1["name"] == "Antwerp Knights"))
-      assert antwerp["short_name"] == nil
+      refute Map.has_key?(antwerp, "short_name")
       assert antwerp["captain"] == "Jan Peeters"
       assert is_integer(antwerp["no"])
       # The whole squad: the 2 who sat at a board keep their issued numbers and

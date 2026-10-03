@@ -94,12 +94,12 @@ defmodule PairingsEngine.SettingsLockTest do
       refute :rr_cycles in Tournaments.locked_fields(t)
     end
 
-    test "rr_cycles locks once the paired rounds reach what the setting implies" do
+    test "rr_cycles stays open at the end of cycle 1 - a second cycle only extends it" do
       t = tournament(%{pairing_system: "round_robin", rr_cycles: 1})
       a = Repo.insert!(%Player{tournament_id: t.id, name: "A", pairing_number: 1})
       b = Repo.insert!(%Player{tournament_id: t.id, name: "B", pairing_number: 2})
 
-      # 2 players, single cycle => 1 round is the whole schedule.
+      # 2 players, single cycle => 1 round is the whole cycle.
       r = Repo.insert!(%Round{tournament_id: t.id, number: 1})
 
       Repo.insert!(%Pairing{
@@ -107,6 +107,19 @@ defmodule PairingsEngine.SettingsLockTest do
         board: 1,
         white_player_id: a.id,
         black_player_id: b.id,
+        result: "1-0"
+      })
+
+      refute :rr_cycles in Tournaments.locked_fields(Repo.reload!(t))
+
+      # Inside the second cycle it locks.
+      r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2})
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: b.id,
+        black_player_id: a.id,
         result: "1-0"
       })
 

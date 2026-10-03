@@ -513,6 +513,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       |> Map.merge(params)
       |> Map.put("type", derive_type(params["pairing_system"], params["team"]))
       |> seed_round_dates()
+      |> reverse_last_two_default()
 
     case Tournaments.create_tournament(socket.assigns.current_scope, params) do
       {:ok, tournament} ->
@@ -1715,6 +1716,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   defp parse_rounds_count(_), do: 0
+
+  # A new individual double round robin plays the last two rounds of its
+  # first cycle in reverse order - FIDE C.05 Annex 1's recommendation
+  # (`tournaments.rr_reverse_last_two`). Decided here, for the form, and not
+  # in the context: an import or a restored backup that does not carry the
+  # flag must keep the schedule it was paired from.
+  defp reverse_last_two_default(%{"type" => "roundrobin", "rr_cycles" => cycles} = params)
+       when cycles in ["2", 2],
+       do: Map.put_new(params, "rr_reverse_last_two", "true")
+
+  defp reverse_last_two_default(params), do: params
 
   defp derive_type("round_robin", "true"), do: "team-roundrobin"
   defp derive_type("round_robin", _team?), do: "roundrobin"

@@ -1022,14 +1022,35 @@ defmodule PairingsEngine.TrfExport do
     team? = t.type in ["team-swiss", "team-roundrobin"]
 
     cond do
-      team? and t.pairing_system == "round_robin" -> "BERGER_TEAM_ROUNDROBIN_G#{t.rr_cycles || 1}"
-      team? -> "FIDE_TEAM_TYPEA_MP_GP" <> baku
-      t.pairing_system == "keizer" -> "CUSTOM_SWISS"
-      t.pairing_system == "round_robin" and t.rr_match_format -> "CUSTOM_ROUNDROBIN"
-      t.pairing_system == "round_robin" -> "BERGER_ROUNDROBIN_G#{t.rr_cycles || 1}"
-      t.swiss_match_format -> "CUSTOM_SWISS"
-      t.pairing_engine == "javafo" -> "FIDE_DUTCH_2017" <> baku
-      true -> "FIDE_DUTCH_2025" <> baku
+      team? and t.pairing_system == "round_robin" ->
+        "BERGER_TEAM_ROUNDROBIN_G#{t.rr_cycles || 1}"
+
+      team? ->
+        "FIDE_TEAM_TYPEA_MP_GP" <> baku
+
+      t.pairing_system == "keizer" ->
+        "CUSTOM_SWISS"
+
+      t.pairing_system == "round_robin" and t.rr_match_format ->
+        "CUSTOM_ROUNDROBIN"
+
+      # FIDE C.05 Annex 1's double round robin, its first cycle's last two
+      # rounds reversed (`RoundRobin.schedule/4`) - the code TRF26's table
+      # gives that construction.
+      t.pairing_system == "round_robin" and t.rr_cycles == 2 and t.rr_reverse_last_two ->
+        "FIDE_DOUBLEROUNDROBIN"
+
+      t.pairing_system == "round_robin" ->
+        "BERGER_ROUNDROBIN_G#{t.rr_cycles || 1}"
+
+      t.swiss_match_format ->
+        "CUSTOM_SWISS"
+
+      t.pairing_engine == "javafo" ->
+        "FIDE_DUTCH_2017" <> baku
+
+      true ->
+        "FIDE_DUTCH_2025" <> baku
     end
   end
 

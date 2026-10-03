@@ -17,6 +17,42 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] Teams: any team can be deleted again while it is in no round. A
+  pairing that numbered the teams and then refused (too few teams, a team
+  with nobody to field) kept the numbers with no round on the board, which
+  froze the order of the teams and left the Delete button only on teams
+  added afterwards; the numbers are now given back, and an upgrade gives
+  back the ones such a refusal left. Every team shows Delete: a team in a
+  match already paired (or in a team round robin's schedule) is not
+  deleted, and the page says why and that it can be withdrawn instead. A
+  team Swiss team that never played - it sat every round out, or came
+  later - can be deleted after round 1.
+- [Fix] Round robins: two cycles can be chosen after the first cycle has
+  started, up to the start of the second one (outside FIDE mode, where the
+  number of rounds is fixed before the start). The number of rounds now
+  follows at once, so the Pairings page offers the second cycle - the same
+  pairings with colours reversed (FIDE C.05) - instead of reporting every
+  round paired. A two-team match of one round could not be extended at all.
+  Going back to one cycle is refused once the second cycle has a round.
+- [Fix] Team Swiss: a round that cannot be paired because every team has
+  already met every other says so - a Swiss with N teams has at most N-1
+  rounds (N with an odd number) - and points to a round robin with two
+  cycles, instead of the general "every pairing breaks an absolute
+  criterion". Settings - Options says the Cycles setting is for round
+  robins only; a Swiss never used it.
+- [Feature] Double round robins: the last two rounds of the first cycle
+  can be played in reverse order, FIDE C.05 Annex 1's recommendation, so
+  nobody has the same colour three times running where the cycles meet. On
+  for a new individual double round robin, and when an event switches to
+  two cycles before those rounds are paired; a setting under Settings -
+  Options. The TRF names it FIDE_DOUBLEROUNDROBIN, and a TRF with that code
+  imports with it on. Existing tournaments, imports without the code and
+  team round robins keep the plain Berger order.
+- [Fix] OpenResults: teams are published under their full name. The
+  results site and its hall screen printed the short name whenever a team
+  had one; the short name now stays in OpenPairings, where it labels the
+  team tie-break working on the Standings page.
+
 ## [0.73.0] - 2026-10-03
 
 - [Fix] Baku acceleration with a late entrant: Group A (the players who get

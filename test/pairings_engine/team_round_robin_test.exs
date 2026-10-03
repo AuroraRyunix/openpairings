@@ -217,7 +217,7 @@ defmodule PairingsEngine.TeamRoundRobinTest do
 
       assert {:error, :teams_frozen} = Tournaments.move_team(t, Repo.reload!(a), :up)
       assert {:error, :teams_frozen} = Tournaments.seed_teams_by_rating(t)
-      assert {:error, :team_scheduled} = Tournaments.delete_team(Repo.reload!(a))
+      assert {:error, :team_played} = Tournaments.delete_team(Repo.reload!(a))
     end
 
     test "unpairing every round gives the teams back to the Teams page" do

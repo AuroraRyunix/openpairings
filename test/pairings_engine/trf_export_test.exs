@@ -682,6 +682,14 @@ defmodule PairingsEngine.TrfExportTest do
       assert code.(pairing_system: "keizer") == "CUSTOM_SWISS"
       assert code.(swiss_match_format: true) == "CUSTOM_SWISS"
       assert code.(pairing_system: "round_robin", rr_cycles: 2) == "BERGER_ROUNDROBIN_G2"
+
+      # FIDE C.05 Annex 1's reversed last two rounds of the first cycle.
+      assert code.(pairing_system: "round_robin", rr_cycles: 2, rr_reverse_last_two: true) ==
+               "FIDE_DOUBLEROUNDROBIN"
+
+      assert code.(pairing_system: "round_robin", rr_cycles: 1, rr_reverse_last_two: true) ==
+               "BERGER_ROUNDROBIN_G1"
+
       assert code.(pairing_system: "round_robin", rr_match_format: true) == "CUSTOM_ROUNDROBIN"
       assert code.(type: "team-swiss") == "FIDE_TEAM_TYPEA_MP_GP"
       assert code.(type: "team-swiss", acceleration: "baku") == "FIDE_TEAM_TYPEA_MP_GP_BAKU"

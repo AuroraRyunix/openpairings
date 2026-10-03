@@ -70,6 +70,7 @@ defmodule PairingsEngineWeb.TeamsLive do
       roster_locked?: Tournaments.roster_locked?(t),
       roster_warning?: Tournaments.roster_change_warning?(t),
       seated: Tournaments.seated_player_ids(t.id),
+      deletable: teams |> Enum.filter(&Tournaments.team_deletable?/1) |> MapSet.new(& &1.id),
       withdraw_from: withdraw_defaults(t, teams),
       writable?: Tournaments.ensure_writable(t) == :ok
     )
@@ -339,7 +340,13 @@ defmodule PairingsEngineWeb.TeamsLive do
   defp refusal(:team_scheduled),
     do:
       gettext(
-        "This team is in the schedule. Unpair every round on the Pairings page before deleting it."
+        "This team is in the round-robin schedule, which was drawn over every team when round 1 was paired. Unpair every round on the Pairings page before deleting it, or withdraw it instead."
+      )
+
+  defp refusal(:team_played),
+    do:
+      gettext(
+        "This team is in a match already paired, so deleting it would leave that match without a team. Withdraw it instead, or unpair the rounds it is in first."
       )
 
   defp refusal(:teams_frozen),
@@ -648,14 +655,18 @@ defmodule PairingsEngineWeb.TeamsLive do
             >
               ↓
             </button>
+            <%!-- Offered on every team. One that has played (or a round robin's
+                 scheduled team) cannot go: its click skips the confirmation
+                 and the status line says why, and what to do instead. --%>
             <button
-              :if={is_nil(team.pairing_number)}
+              id={"delete-team-#{team.id}"}
               type="button"
               class="pe-btn danger"
               phx-click="delete_team"
               phx-value-team_id={team.id}
               data-confirm={
-                gettext("Delete %{team}? Its players stay in the tournament.", team: team.name)
+                MapSet.member?(@deletable, team.id) &&
+                  gettext("Delete %{team}? Its players stay in the tournament.", team: team.name)
               }
               aria-label={gettext("Delete %{team}", team: team.name)}
             >

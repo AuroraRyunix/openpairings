@@ -1021,6 +1021,19 @@ defmodule PairingsEngineWeb.SettingsSupport do
         round: round
       )
 
+  # The refusal above, past the most rounds the field allows
+  # (`PairingsEngine.TeamSwiss.max_rounds/1`): said as what it is - a Swiss
+  # cannot pair the same teams again - with the system that can.
+  def error_text({:team_pairing, {:too_few_teams, teams, max}, round}),
+    do:
+      ngettext(
+        "Round %{round} can't be paired: a Swiss with %{teams} teams can have at most %{count} round, because teams may not meet twice and after that every team has met every other one. For the teams to play each other again, make the event a round robin (Settings - Options): with two cycles each pair meets twice, colours reversed.",
+        "Round %{round} can't be paired: a Swiss with %{teams} teams can have at most %{count} rounds, because teams may not meet twice and after that every team has met every other one. For the teams to play each other again, make the event a round robin (Settings - Options): with two cycles each pair meets twice, colours reversed.",
+        max,
+        round: round,
+        teams: teams
+      )
+
   def error_text({:team_pairing, :no_legal_bye, round}),
     do:
       gettext(

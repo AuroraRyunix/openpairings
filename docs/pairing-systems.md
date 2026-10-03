@@ -439,6 +439,18 @@ derivation and citations). The whole computation is a **pure function** of
 the same result no matter when it's computed, which is the correctness
 property a fixed schedule depends on.
 
+**Double round robin.** The second cycle is the first one's table again,
+colours reversed. FIDE C.05 Annex 1 recommends reversing the order of the
+last two rounds of the FIRST cycle, so nobody has the same colour three
+times running where the cycles meet; `rr_reverse_last_two` does that
+(`RoundRobin.schedule/4`'s `:reverse_last_two?`, the same construction as
+`Ainalrami.Berger` and TRF26's `FIDE_DOUBLEROUNDROBIN`). It is on for a
+new individual double round robin and when an event switches to two cycles
+before round m-1 is paired, and written to the TRF as
+`FIDE_DOUBLEROUNDROBIN` (plain double round robins stay
+`BERGER_ROUNDROBIN_G2`). Tournaments created before it, imports that do not
+name that code, SWAR imports and team round robins keep the plain order.
+
 **Odd player counts.** A phantom player numbered N+1 is added to make the
 count even (FIDE's own rule: "where there is an odd number of players, the
 highest number counts as a bye"). Whichever real player is scheduled
@@ -596,10 +608,17 @@ condition and for the same reason one level down: JaVaFo and Ainalrami are
 two independent implementations of the Dutch system, and a round already on
 the board was decided by whichever one was configured at the time.
 
-`rr_cycles` (round robin only) locks separately once the number of paired
-rounds reaches what the *current* cycles setting implies a round-robin
-schedule needs - roughly `(player_count - 1) * rr_cycles` rounds. Before
-that point it stays editable.
+`rr_cycles` (round robin only) locks separately, once the second cycle has
+a round paired. Until then a change only lengthens or shortens rounds nobody
+has played, so a single cycle played to its end can still become a double
+one; `update_tournament/3` moves `rounds_count` in the same save, so the
+Pairings page offers the second cycle at once (and refuses going back to one
+cycle once the second has started). In FIDE mode the cycle count is the
+number of rounds by another name and freezes with round 1.
+
+`rr_reverse_last_two` (double round robin only) locks once round m-1 of the
+first cycle is paired (m the cycle's length) - see "Double round robin"
+below.
 
 `keizer_top_value` has no lock - it can be changed at any time, including
 mid-tournament, since it only affects how far down the Keizer list players
