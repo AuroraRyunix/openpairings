@@ -435,7 +435,7 @@ defmodule PairingsEngine.TrfExport do
               team_unplayed_forfeits(tournament, rounds, dialect)
         },
         players: trf_players,
-        teams: team_records(tournament, players, trf_players, dialect, rounds)
+        teams: team_records(tournament, players, trf_players, dialect, rounds, rating?)
       },
       # `:trf26` for the file an arbiter uploads; `:engine` on request, for
       # a pairing program that reads the older `XX*`/`BB*` spelling.
@@ -921,7 +921,7 @@ defmodule PairingsEngine.TrfExport do
   # the most rounds for (the later on a tie); such a player is appended
   # after the team's own roster. Every other player is listed exactly as
   # before.
-  defp team_records(tournament, players, trf_players, dialect, rounds) do
+  defp team_records(tournament, players, trf_players, dialect, rounds, rating?) do
     if Tournament.team?(tournament) do
       exported = MapSet.new(trf_players, & &1.rank)
       teams = Tournaments.list_teams(tournament.id)
@@ -938,10 +938,19 @@ defmodule PairingsEngine.TrfExport do
       # file carried the whole event's figures, whatever rounds it held.
       from_one? = rounds != [] and rounds == Enum.to_list(1..Enum.max(rounds))
 
+      # The file sent for rating writes a postponed board as not played
+      # (`0000 - Z`, `report_unknown(_, :rating)`), so a match that holds one
+      # counts only the boards the file does (`rating_round_totals/2`), and
+      # the rank - a place after games the file leaves out - is not stated.
+      rating_totals = if rating? and numbered?, do: rating_round_totals(tournament, rounds)
+
       standings_by_id =
         cond do
           not numbered? or rounds == [] ->
             %{}
+
+          rating_totals != nil ->
+            Map.merge(Map.new(teams, &{&1.id, %{mp: 0.0, gp: 0.0}}), rating_totals)
 
           from_one? ->
             tournament
@@ -1001,6 +1010,78 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
+  # `%{team_id => %{mp:, gp:}}` for the file sent for rating, or nil when none
+  # of its matches holds a postponed board (the ordinary figures then
+  # stand). A board written as not played - a postponed result, or one that
+  # went out open before (`finalised_open`) - adds nothing to either side's
+  # game points, and the match is decided by the boards the file does hold,
+  # the way a reader adds it up from the `001` lines: the win, draw or loss
+  # value of `TeamStandings.match_points/3` on the remaining boards' game
+  # points. A match with no board left in the file (all postponed) is no
+  # match in it: no match points, no game points; it is rated in the
+  # postponed-games file. Byes, matches decided by forfeit or score and
+  # matches with no postponed board keep their scored figures.
+  defp rating_round_totals(tournament, rounds) do
+    wanted = MapSet.new(rounds)
+
+    matches =
+      tournament
+      |> TeamStandings.matches()
+      |> Enum.filter(&MapSet.member?(wanted, &1.round))
+
+    if Enum.any?(matches, &(unplayed_boards(&1) != [])) do
+      matches
+      |> Enum.flat_map(fn m ->
+        {mp_a, gp_a, mp_b, gp_b} = rating_match_figures(tournament, m)
+        [{m.team_a_id, mp_a, gp_a}] ++ if(m.team_b_id, do: [{m.team_b_id, mp_b, gp_b}], else: [])
+      end)
+      |> sum_sides()
+    end
+  end
+
+  defp unplayed_boards(%{bye?: true}), do: []
+
+  defp unplayed_boards(m) do
+    Enum.filter(m.boards, fn b ->
+      PairingsEngine.Results.postponed?(b.pairing.result) or b.pairing.finalised_open == true
+    end)
+  end
+
+  defp rating_match_figures(tournament, m) do
+    out = unplayed_boards(m)
+
+    cond do
+      out == [] or m.double_forfeit? or m.forfeited_to != nil ->
+        {m.mp_a, m.gp_a, m.mp_b, m.gp_b}
+
+      length(out) == length(m.boards) ->
+        {0.0, 0.0, 0.0, 0.0}
+
+      true ->
+        kept = m.boards -- out
+
+        gp = fn key ->
+          kept |> Enum.map(&(Map.get(&1, key) || 0.0)) |> Enum.sum() |> Float.round(1)
+        end
+
+        {gp_a, gp_b} = {gp.(:a_points), gp.(:b_points)}
+        {mp_a, mp_b} = TeamStandings.match_points(tournament, gp_a, gp_b)
+        {mp_a, gp_a, mp_b, gp_b}
+    end
+  end
+
+  defp sum_sides(sides) do
+    sides
+    |> Enum.group_by(&elem(&1, 0))
+    |> Map.new(fn {team_id, rows} ->
+      {team_id,
+       %{
+         mp: rows |> Enum.map(&(elem(&1, 1) || 0.0)) |> Enum.sum() |> Float.round(1),
+         gp: rows |> Enum.map(&(elem(&1, 2) || 0.0)) |> Enum.sum() |> Float.round(1)
+       }}
+    end)
+  end
+
   # `%{team_id => %{mp:, gp:}}`: what each team's matches in `rounds` scored
   # - match points of every scored match (a team Swiss bye's included), game
   # points board by board - for a file of chosen rounds (`team_records/5`).
@@ -1016,15 +1097,7 @@ defmodule PairingsEngine.TrfExport do
           if(m.team_b_id, do: [{m.team_b_id, m.mp_b, m.gp_b}], else: [])
       end)
 
-    sides
-    |> Enum.group_by(&elem(&1, 0))
-    |> Map.new(fn {team_id, rows} ->
-      {team_id,
-       %{
-         mp: rows |> Enum.map(&(elem(&1, 1) || 0.0)) |> Enum.sum() |> Float.round(1),
-         gp: rows |> Enum.map(&elem(&1, 2)) |> Enum.sum() |> Float.round(1)
-       }}
-    end)
+    sum_sides(sides)
   end
 
   # `%{player_id => team_id}` for the players who played for a team other

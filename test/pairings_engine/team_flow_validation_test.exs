@@ -808,7 +808,7 @@ defmodule PairingsEngine.TeamFlowValidationTest do
       case PostponedGames.send_rounds(
              t,
              meta.rounds,
-             fn fresh -> TrfExport.export(fresh, meta.rounds) end,
+             fn fresh -> TrfExport.export(fresh, meta.rounds, for: :rating) end,
              acknowledged: [:round_sent_before]
            ) do
         {:ok, %{file: text}} ->
@@ -818,7 +818,7 @@ defmodule PairingsEngine.TeamFlowValidationTest do
           st = %{st | sent_files: st.sent_files ++ [{meta.rounds, text, teams}]}
 
           case PostponedGames.send_rounds(t, meta.rounds, fn f ->
-                 TrfExport.export(f, meta.rounds)
+                 TrfExport.export(f, meta.rounds, for: :rating)
                end) do
             {:error, {:already_sent, _}} ->
               bump(st, :resend_refused)
@@ -1371,13 +1371,31 @@ defmodule PairingsEngine.TeamFlowValidationTest do
             wb = get_in(rows, [wr, :blocks, col])
             bb = get_in(rows, [br, :blocks, col])
 
+            # The file sent for rating writes a postponed game (still open
+            # when it went out - `finalised_open` now) as not played, for
+            # both players: `0000 - Z`, no opponent, no colour.
+            unplayed? = g.finalised_open or g.result in ["*", "*W", "*B"]
+
             ok? =
-              wb != nil and bb != nil and wb.opp == br and bb.opp == wr and wb.colour == "w" and
-                bb.colour == "b" and wb.code == wc and bb.code == bc
+              if unplayed? do
+                wb != nil and bb != nil and wb.opp == nil and bb.opp == nil and wb.code == "Z" and
+                  bb.code == "Z"
+              else
+                wb != nil and bb != nil and wb.opp == br and bb.opp == wr and wb.colour == "w" and
+                  bb.colour == "b" and wb.code == wc and bb.code == bc
+              end
 
             acc =
               if ok?,
-                do: bump(acc, if(wc in @rated, do: :rated_games_ok, else: :other_games_ok)),
+                do:
+                  bump(
+                    acc,
+                    cond do
+                      unplayed? -> :postponed_not_played_ok
+                      wc in @rated -> :rated_games_ok
+                      true -> :other_games_ok
+                    end
+                  ),
                 else:
                   fail(
                     acc,

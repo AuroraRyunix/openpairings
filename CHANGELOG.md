@@ -17,6 +17,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A team file sent for rating: the `310` match and game points
+  follow the file's own games.** A postponed board is written `0000 - Z`
+  in the file sent for rating, but the team record still counted it
+  provisionally (a draw), so its match and game points disagreed with the
+  `001` lines. The `310` now counts only the boards the file holds: a
+  match with a postponed board is decided by the other boards, and a match
+  with every board postponed counts for nothing (it is rated in the
+  postponed-games file); the team's rank is then left blank, as for a file
+  of chosen rounds. The copy, the engine's input and the TRF26 download
+  are unchanged.
+
 - [Feature] **Team events without players.** Settings - Options - Teams -
   *Line-ups*: *Optional* pairs teams whether or not they have players on
   their rosters (the default, *Required*, is how every team event worked
