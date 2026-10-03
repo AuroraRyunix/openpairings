@@ -44,16 +44,17 @@ defmodule PairingsEngine.TeamRatingTest do
       assert t.team_rating_method == "olympiad"
       # 2400, 2300, 2200, 2000.
       assert rating(t, "A") == 2225.0
-      # Fewer players than boards: a missing player counts 0, over four.
-      assert rating(t, "B") == 1050.0
-      # Unrated players count 0.
-      assert rating(t, "C") == (2000 + 1900) / 4
+      # Fewer players than boards: a missing player counts as an unrated
+      # one, 1400, over four.
+      assert rating(t, "B") == (2100 + 2100 + 1400 + 1400) / 4
+      # Unrated players count 1400.
+      assert rating(t, "C") == (2000 + 1900 + 1400 + 1400) / 4
     end
 
     test "first boards: the first four in board order", %{t: t} do
       t = set_method(t, "first_boards")
       assert rating(t, "A") == (1800 + 2400 + 2000 + 2200) / 4
-      assert rating(t, "B") == 1050.0
+      assert rating(t, "B") == (2100 + 2100 + 1400 + 1400) / 4
     end
 
     test "roster: every player on the roster", %{t: t} do
@@ -100,6 +101,23 @@ defmodule PairingsEngine.TeamRatingTest do
 
       {:ok, _} = Tournaments.seed_teams_by_rating(t)
       assert order(t) == ~w(Top Zeta Alpha Beta)
+    end
+
+    test "the tie-break's reserve counts 1400 when unrated or missing" do
+      {t, _} =
+        team_round_robin(
+          [
+            {"Zed", [2000, 2000, 0]},
+            {"Yes", [2000, 2000, 1500]},
+            {"Abe", [2000, 2000]},
+            {"Low", [2000, 2000, 1300]}
+          ],
+          boards: 2
+        )
+
+      {:ok, _} = Tournaments.seed_teams_by_rating(t)
+      # Reserve 1500, then Abe and Zed level on 1400 (name), then 1300.
+      assert order(t) == ~w(Yes Abe Zed Low)
     end
 
     test "a team with no players can be seeded by a typed rating" do

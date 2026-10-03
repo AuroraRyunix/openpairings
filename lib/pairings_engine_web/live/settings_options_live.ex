@@ -921,6 +921,24 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </option>
               </select>
             </.setting_field>
+
+            <.setting_field
+              label={gettext("Rating of an unrated player")}
+              hint={
+                gettext(
+                  "What a player without a rating, and a board nobody sits at, count as in a team's rating. 1400 is the FIDE rating floor (Rating Regulations 2024 Art. 7.1.4; the World University Team Championship regulations Art. 5.2.4 give unrated players 1400; the Olympiad Pairing Rules of 2012 Art. 7 gave them the floor). C.04.6 leaves it to the event's rules. Seeds already set never change by themselves."
+                )
+              }
+            >
+              <input
+                id="team-unrated-rating"
+                type="number"
+                name="tournament[team_unrated_rating]"
+                value={@tournament.team_unrated_rating}
+                min="0"
+                max="4000"
+              />
+            </.setting_field>
           </.setting_group>
         </div>
 

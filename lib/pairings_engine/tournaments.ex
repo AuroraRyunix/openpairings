@@ -3663,7 +3663,11 @@ defmodule PairingsEngine.Tournaments do
 
     next =
       if tournament.team_rating_method == "olympiad" and is_nil(team.rating_override),
-        do: roster |> Enum.map(&Player.rating/1) |> Enum.sort(:desc) |> Enum.at(boards, 0),
+        do:
+          roster
+          |> Enum.map(&seed_rating(&1, tournament))
+          |> Enum.sort(:desc)
+          |> Enum.at(boards, unrated_rating(tournament)),
         else: 0
 
     {-rating, -next, team.name, team.id}
@@ -3674,8 +3678,21 @@ defmodule PairingsEngine.Tournaments do
   average), by the tournament's `team_rating_method`. A rating typed for the
   team (`teams.rating_override`) is used whenever it is set, whatever the
   method. Each player counts with `Player.rating/1` - the FIDE rating, the
-  national one for a player without - and an unrated player counts as 0.
-  `roster` is the team's roster in board order when the caller has it.
+  national one for a player without. A player with neither counts as the
+  tournament's `team_unrated_rating` (1400 by default), and so does a board
+  nobody sits at (a team with fewer players than boards): a short roster is
+  not ranked below a team that fields an unrated player. A team with no
+  players at all has nothing to average and rates 0.0 (typed rating
+  aside). `roster` is the team's roster in board order when the caller has it.
+
+  Where the 1400 comes from: the Olympiad Pairing Rules of 2012, Art. 7,
+  "Assign an arbitrary rating equal to the FIDE rating floor (minimum FIDE
+  rating) to team members who have no FIDE rating"; the 2021 rewrite left
+  this to the "tournament specific rules". The FIDE World University Team
+  Championship regulations Art. 5.2.4 give "1400 rating ... for unrated
+  players", and the Rating Regulations (1 March 2024) Art. 7.1.4 and 7.2.1
+  make 1400 the floor. C.04.6 leaves "managing unrated players" to the
+  competition's rules, hence a setting.
 
     * `"olympiad"` (the default) - the average rating of the team's
       `team_boards` highest-rated players, whatever their board order: FIDE
@@ -3687,13 +3704,11 @@ defmodule PairingsEngine.Tournaments do
       (Olympiad 2026 regulations Art. 4.2.1: "four players plus one
       reserve"), so its four is the number of boards here. A team with fewer
       players than boards averages over the boards all the same, a missing
-      player counting 0, as the rule averages four. The rules name no rating
-      list: the 2021 revision moved that to "the tournament specific rules",
-      and dropped the old rule that gave an unrated player the rating floor.
+      player counting as an unrated one. The rules name no rating list.
     * `"first_boards"` - the average over the first `team_boards` places of
-      the roster in board order, a missing board counting 0 (the app's rule
-      until 2026-10-03).
-    * `"roster"` - the average over the whole roster.
+      the roster in board order, a missing board counting as an unrated
+      player.
+    * `"roster"` - the average over the whole roster (no board is missing).
     * `"manual"` - only the typed rating; 0.0 for a team without one.
   """
   def team_rating(%Tournament{} = tournament, %Team{} = team, roster \\ nil) do
@@ -3707,22 +3722,40 @@ defmodule PairingsEngine.Tournaments do
         0.0
 
       true ->
-        ratings =
-          (roster || team_roster(tournament.id, team.id))
-          |> Enum.map(&Player.rating/1)
+        roster = roster || team_roster(tournament.id, team.id)
+        ratings = Enum.map(roster, &seed_rating(&1, tournament))
+        floor = unrated_rating(tournament)
 
-        case tournament.team_rating_method do
-          "first_boards" ->
-            ratings |> Enum.take(boards) |> Enum.sum() |> Kernel./(boards)
+        cond do
+          ratings == [] ->
+            0.0
 
-          "roster" ->
-            if ratings == [], do: 0.0, else: Enum.sum(ratings) / length(ratings)
+          tournament.team_rating_method == "roster" ->
+            Enum.sum(ratings) / length(ratings)
 
-          _olympiad ->
-            ratings |> Enum.sort(:desc) |> Enum.take(boards) |> Enum.sum() |> Kernel./(boards)
+          true ->
+            chosen =
+              if tournament.team_rating_method == "first_boards",
+                do: ratings,
+                else: Enum.sort(ratings, :desc)
+
+            chosen = Enum.take(chosen, boards)
+            (Enum.sum(chosen) + floor * (boards - length(chosen))) / boards
         end
     end
   end
+
+  # A player's rating for a team's rating: `Player.rating/1`, or the
+  # tournament's unrated value when the player has none.
+  defp seed_rating(player, tournament) do
+    case Player.rating(player) do
+      r when r > 0 -> r
+      _ -> unrated_rating(tournament)
+    end
+  end
+
+  defp unrated_rating(%Tournament{team_unrated_rating: r}) when is_integer(r) and r >= 0, do: r
+  defp unrated_rating(_), do: 1400
 
   @doc """
   The team's rating as a whole number, for showing and for the TRF26 `310`

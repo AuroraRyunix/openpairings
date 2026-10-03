@@ -94,7 +94,7 @@ defmodule PairingsEngine.TournamentExport do
     keizer_top_value pair_by_category
     team_boards team_match_points_win team_match_points_draw team_match_points_loss
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
-    team_lineups team_rating_method teams_ordered_by_hand
+    team_lineups team_rating_method team_unrated_rating teams_ordered_by_hand
     team_pairing_mode initial_colour initial_colour_drawn
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position

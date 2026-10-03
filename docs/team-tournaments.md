@@ -106,6 +106,12 @@ A rating typed for a team (*Rename* on its card, *Team rating*;
 `teams.rating_override`) is used whenever it is set, whatever the method -
 so a team with no players can be seeded too. A player counts with
 `Player.rating/1`: the FIDE rating, the national one for a player without.
+A player with neither, and a board nobody sits at, count as
+`tournaments.team_unrated_rating` (Settings - Options - Teams, *Rating of an
+unrated player*; 1400 by default). A team with no players at all rates 0
+(there is nothing to average), so it seeds last unless a rating is typed.
+A seed already stored never changes by itself: only *Order by rating* and
+the round-1 auto seeding use the value.
 
 **The Olympiad rule**, read 2026-10-03 from the local copy of the FIDE
 Handbook, *Olympiad Pairing Rules (effective from 1 January 2022, approved
@@ -120,9 +126,9 @@ boards; here it is *boards-per-match*. What the rule leaves open:
 | Question | Answer here | Source |
 |---|---|---|
 | Which rating list | `Player.rating/1` (FIDE, else national) - the rating the app pairs individuals by | not in the rules: the 2021 revision says "the ratings to be used will be contained in the tournament specific rules" (*Olympiad Pairing Rules - Changes*, items 6-7) |
-| An unrated player | counts 0 | the 2021 revision dropped the old rule that gave an unrated player "an arbitrary rating equal to the FIDE rating floor", and nothing replaced it. Counting 0 is the app's convention, unchanged; **an open question** |
-| Fewer players than boards | averaged over the boards all the same, a missing player counting 0 | the rule averages four players; a team short of players ranks lower rather than being averaged over fewer |
-| A tie | the next-highest player's rating (the fifth with four boards), then the name (alphabetically), then the order of creation | Art. 3.1.2, 3.1.3 |
+| An unrated player | counts `team_unrated_rating`, 1400 by default (the setting) | the Olympiad Pairing Rules of 2012, Art. 7: "Assign an arbitrary rating equal to the FIDE rating floor (minimum FIDE rating) to team members who have no FIDE rating"; the 2021 rewrite left it to the "tournament specific rules". The FIDE World University Team Championship regulations Art. 5.2.4: "1400 rating is assigned for unrated players". Rating Regulations (1 March 2024) Art. 7.1.4 / 7.2.1: 1400 is the floor. C.04.6 leaves "managing unrated players" to the competition's rules. Until then the app counted 0, which the arbiter rejected |
+| Fewer players than boards | averaged over the boards all the same, a missing player counting as an unrated one (the same value) | the rule averages four players. A short roster is therefore not ranked below a team that fields an unrated player, which a 0 would do. This is the app's choice, not a rule's. The `"manual"` override is untouched |
+| A tie | the next-highest player's rating (the fifth with four boards; an unrated or missing fifth counts the unrated value), then the name (alphabetically), then the order of creation | Art. 3.1.2, 3.1.3 |
 
 **Seeding when round 1 is paired.** Pairing round 1 of a team event seeds
 the teams by rating first (`Tournaments.auto_seed_teams/1`, from

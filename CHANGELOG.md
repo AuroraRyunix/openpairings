@@ -17,6 +17,20 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **An unrated player in a team's rating counts 1400, not 0, and
+  the value is a setting.** The team rating that seeds the teams (Olympiad,
+  first boards and whole-roster methods) gave a player without a rating 0,
+  and a board nobody sits at too. Both now count *Rating of an unrated
+  player* (Settings - Options - Teams, `team_unrated_rating`, 1400 by
+  default, 1400 for every existing tournament): the FIDE rating floor
+  (Rating Regulations 2024 Art. 7.1.4 and 7.2.1; the World University Team
+  Championship regulations Art. 5.2.4; the Olympiad Pairing Rules of 2012
+  Art. 7). A short roster is thus not ranked below a team with an unrated
+  player. The Olympiad tie-break on the fifth player's rating uses the same
+  value; a typed team rating is unchanged; a team with no players at all
+  still rates 0. Seeds already stored never change by themselves: only
+  *Order by rating* and the round-1 auto seeding use it.
+
 ## [0.74.0] - 2026-10-03
 
 - [Fix] **A team file sent for rating: the `310` match and game points

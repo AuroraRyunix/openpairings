@@ -737,6 +737,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # default (the Olympiad Pairing Rules, Art. 3.1).
     field :team_rating_method, :string, default: "olympiad"
 
+    # What a player without a rating, and a board nobody sits at, count as
+    # in a team's rating (`Tournaments.team_rating/3`): the FIDE rating
+    # floor, 1400 (Rating Regulations 2024 Art. 7.1.4, 7.2.1).
+    field :team_unrated_rating, :integer, default: 1400
+
     # The arbiter has moved a team by hand (`Tournaments.move_team/3`), so
     # pairing round 1 keeps the order rather than seeding the teams by
     # rating (`Tournaments.auto_seed_teams/1`). Never cast.
@@ -1169,6 +1174,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :team_withdrawal_annul,
       :team_lineups,
       :team_rating_method,
+      :team_unrated_rating,
       :initial_colour,
       :pair_by_category,
       :club_exclusion,
@@ -1215,6 +1221,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:team_board_colours, @team_board_colours)
     |> validate_inclusion(:team_lineups, @team_lineups)
     |> validate_inclusion(:team_rating_method, @team_rating_methods)
+    |> validate_number(:team_unrated_rating,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 4000
+    )
     |> validate_number(:team_pab_match_points, greater_than_or_equal_to: 0)
     |> validate_number(:team_pab_game_points, greater_than_or_equal_to: 0)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
