@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.74.1] - 2026-10-04
+
 - [Change] **An unrated player in a team's rating counts 1400, not 0, and
   the value is a setting.** The team rating that seeds the teams (Olympiad,
   first boards and whole-roster methods) gave a player without a rating 0,
