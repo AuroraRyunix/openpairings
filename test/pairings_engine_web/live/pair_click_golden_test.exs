@@ -35,6 +35,12 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   Regenerated with the Baku fix reverted, the file differed from 0.71.0's
   by the first three only, and from this one by the `:options` scenario
   only, from its round 2 on.
+
+  Regenerated again on the team-workflow branch (2026-10-03), checked to
+  differ by exactly two things: every export gains the new team-workflow
+  keys (`team_history` per player, the tournament's team settings, all at
+  their defaults), and each TRF gains its `152` initial-colour line - the
+  rest of every capture, the pairings included, is unchanged.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
