@@ -261,23 +261,23 @@ defmodule PairingsEngine.RoundRobinTest do
     test "refuses with a message instead of crashing" do
       # `ensure_correct_rounds_count/2` forces the derived schedule length
       # onto the tournament with a hard `{:ok, _} =` match, and
-      # `Tournament.changeset/2` caps rounds_count at 30. The two were
+      # `Tournament.changeset/2` caps rounds_count at `max_rounds/0` (99). The two were
       # written independently - the cap is a sanity bound on a Swiss round
       # picker, the derivation is however long a Berger table has to be - so
       # a big enough field made update_tournament/2 return an error tuple and
       # the match raised MatchError straight out of pair_next_round/1.
       #
-      # 32 players over two cycles is 62 rounds. Every other refusal in this
+      # 51 players over two cycles is 102 rounds. Every other refusal in this
       # module returns {:error, reason} for the LiveView to render; this one
       # took the process down.
       tournament = round_robin_tournament(rr_cycles: 2)
 
-      for n <- 1..32 do
+      for n <- 1..51 do
         insert_player(tournament, "P#{n}", fide_rating: 2400 - n)
       end
 
       assert {:error, message} = Pairing.pair_next_round(tournament)
-      assert message =~ "62 rounds"
+      assert message =~ "102 rounds"
       assert message =~ "#{Tournament.max_rounds()}"
     end
 
@@ -850,16 +850,16 @@ defmodule PairingsEngine.RoundRobinTest do
     end
 
     test "refuses a schedule longer than the round cap without pairing anything" do
-      # 32 players in two cycles need 62 rounds, above the 30-round maximum.
+      # 51 players in two cycles need 102 rounds, above the 99-round maximum.
       # The refusal has to arrive from the single up-front correction now
       # that the loop no longer re-runs it.
       tournament = round_robin_tournament(rr_cycles: 2, rounds_count: 9)
 
-      for n <- 1..32,
+      for n <- 1..51,
           do: insert_player(tournament, "P#{n}", fide_rating: 2000 - n)
 
       assert {:error, message} = RoundRobin.pair_all_rounds(tournament)
-      assert message =~ "needs 62 rounds"
+      assert message =~ "needs 102 rounds"
       assert Pairing.paired_rounds_count(tournament.id) == 0
     end
   end

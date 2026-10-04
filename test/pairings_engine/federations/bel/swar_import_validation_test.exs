@@ -366,7 +366,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
       }
 
       assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
-      assert message =~ "round number(s) outside 1-30"
+      assert message =~ "round number(s) outside 1-99"
       assert message =~ "2000000000"
 
       assert counts() == before
@@ -381,7 +381,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
       }
 
       assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
-      assert message =~ "outside 1-30"
+      assert message =~ "outside 1-99"
     end
 
     test "but an empty round zero - SWAR's own player-list template - imports with no rounds" do
@@ -411,12 +411,12 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
     end
 
     test "but a tournament as long as this app allows still imports" do
-      # 30 is `Tournament.max_rounds/0`, so this is the longest event that
+      # 99 is `Tournament.max_rounds/0`, so this is the longest event that
       # can exist here - the case the refusal above must not catch.
-      rounds = Enum.map(1..30, fn r -> %{round_nr: r, advers: 0, result: 0} end)
+      rounds = Enum.map(1..99, fn r -> %{round_nr: r, advers: 0, result: 0} end)
 
       opts = %{
-        nb_rounds: 30,
+        nb_rounds: 99,
         players: [
           %{ni: 1, name: "Long, One", rounds: rounds},
           %{ni: 2, name: "Long, Two", rounds: rounds}
@@ -424,7 +424,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
       }
 
       assert {:ok, tournament, _warnings} = import_synthetic!(opts)
-      assert tournament.rounds_count == 30
+      assert tournament.rounds_count == 99
     end
   end
 
