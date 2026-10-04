@@ -45,8 +45,7 @@ Each entry is tagged so a version can be skimmed:
   count is a 32-bit field; the longest TRF line at 99 rounds is 1,081
   bytes, under the import's 2,048-byte line bound).
 - [Verified] **G-licence players import like any other member.** KBSB's
-  players file lists them with a negative id and no club (for example
-  `-97170 Yin, Yiqian`). They are imported, found by name and by id, and
+  players file lists them with a negative id and no club. They are imported, found by name and by id, and
   keep their id through SWAR and TRF export; a test now holds this.
 
 ## [0.74.1] - 2026-10-04

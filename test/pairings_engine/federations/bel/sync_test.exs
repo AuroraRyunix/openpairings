@@ -215,12 +215,12 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
 
     test "a G-licence player (negative IdNumber, G = 1) is imported, found by name and by id" do
       # KBSB's players.sqlite carries G-licence holders with a negative
-      # IdNumber, no club and Affiliated = 0 - e.g. -97170 "Yin, Yiqian".
+      # IdNumber, no club and Affiliated = 0 - e.g. -12345.
       # They are as valid as any other member, so nothing may drop them.
       g_row =
         PairingsEngine.Federations.BEL.SqliteFile.to_member_row(%{
-          "IdNumber" => -97_170,
-          "Name" => "Yin, Yiqian",
+          "IdNumber" => -12_345,
+          "Name" => "Doe, Jane",
           "Sex" => "M",
           "Birthday" => "20150101",
           "Fed" => "BEL",
@@ -242,13 +242,13 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
 
       assert {:ok, %Sync{imported_rows: 5}} = Sync.import_rows(self(), rows, %Sync{})
 
-      member = PairingsEngine.Federations.BEL.Members.find_by_national_id("-97170")
-      assert member.last_name == "Yin"
-      assert member.first_name == "Yiqian"
+      member = PairingsEngine.Federations.BEL.Members.find_by_national_id("-12345")
+      assert member.last_name == "Doe"
+      assert member.first_name == "Jane"
       assert member.club_number == nil
 
-      assert ["-97170"] =
-               "Yiqian"
+      assert ["-12345"] =
+               "Jane"
                |> PairingsEngine.Federations.BEL.Members.search()
                |> Enum.map(& &1.national_id)
     end
