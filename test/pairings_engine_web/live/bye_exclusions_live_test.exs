@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
   @moduledoc """
-  "No pairing-allocated bye" on the pages: the player form (behind the BEL
-  pack's `bel_bye_exclusions` switch), the marker in the player list, the
+  "No pairing-allocated bye" on the pages: the player form (behind the
+  "Bye preferences" switch), the marker in the player list, the
   Pairings page's refusal with its "pair anyway" override, the round's
   explanation, and the note on the Export page. Ainalrami only, so no JVM.
   """

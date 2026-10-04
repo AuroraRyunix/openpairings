@@ -126,7 +126,8 @@ of the FIDE rules** - C.04.3 gives the bye to whoever its criteria select -
 so a round it changes differs from what a FIDE-endorsed program pairs, and
 a FIDE checker replaying the TRF will not reproduce it.
 
-**Where it is.** Behind the BEL pack's `bel_bye_exclusions` switch
+**Where it is.** Behind the "Bye preferences" switch (until 0.74.2 the BEL pack's own
+`bel_bye_exclusions`)
 (Features page, `PairingsEngine.Features`): with it on, a player's details
 have "Exclude from the pairing-allocated bye"; ticked, "All rounds" or
 "Certain rounds", the rounds typed exactly like the absences above it

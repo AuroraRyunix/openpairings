@@ -17,6 +17,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **One switch for the pairing-allocated bye.** "No
+  pairing-allocated bye for chosen players" (in the Belgian pack) and "Bye
+  preferences" (on its own) were two switches for one thing: never getting
+  the bye is the strongest of the same preferences, and no more Belgian.
+  The single "Bye preferences" switch in Settings - Features now shows both
+  controls on a player. An account that had the exclusion switched on keeps
+  it: it now has "Bye preferences" on. Stored exclusions and preferences
+  pair exactly as before.
+
 - [Change] **Up to 99 rounds.** The maximum was 30, which ruled out a
   weekly club event over a whole season (a "Koning van Waregem" needs at
   least 40). New tournament, Settings and the account defaults now accept

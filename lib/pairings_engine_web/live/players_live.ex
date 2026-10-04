@@ -157,8 +157,11 @@ defmodule PairingsEngineWeb.PlayersLive do
        club_refresh: nil,
        bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
+       # One switch for both since 0.74.2; the old Belgian key still counts
+       # for an account the migration has not reached (a restored backup).
        bel_bye_exclusions?:
-         Features.enabled?(socket.assigns.current_scope, @bye_exclusions_feature),
+         Features.enabled?(socket.assigns.current_scope, @bye_preferences_feature) or
+           Features.enabled?(socket.assigns.current_scope, @bye_exclusions_feature),
        bye_preferences?:
          Features.enabled?(socket.assigns.current_scope, @bye_preferences_feature),
        sort_col: nil,

@@ -178,14 +178,14 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       scope: scope,
       user: user
     } do
-      {:ok, _} = PairingsEngine.Features.set_enabled(user, ["bel_bye_exclusions"])
+      {:ok, _} = PairingsEngine.Features.set_enabled(user, [])
 
       t = tournament(scope)
       p = player(t, "Anna")
       lv = open_edit(conn, t, p)
       refute has_element?(lv, "#player-bye-preference-select")
-      # The exclusion's own switch is on and unaffected.
-      assert has_element?(lv, "#player-no-bye-toggle")
+      # One switch for both since 0.74.2: the exclusion is off with it.
+      refute has_element?(lv, "#player-no-bye-toggle")
 
       stored = player(t, "Cleo", %{"bye_preference" => "avoid_soft"})
       lv = open_edit(conn, t, stored)
