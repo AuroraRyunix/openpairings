@@ -17,6 +17,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **"Add player" searches the KBSB list too.** With the KBSB
+  player lookup switched on, the search box finds members of the national
+  list by name or national id (G-licences included), listed before the
+  FIDE hits. Picking one fills in the national id, rating, club and birth
+  year, and - when the member has a FIDE id - the FIDE title and rating
+  for the tournament's rate of play. A FIDE hit for a member already listed
+  is not shown twice. Without the lookup the box searches FIDE only, as
+  before.
+
 ## [0.74.2] - 2026-10-04
 
 - [Change] **Confirmation questions in the app's own look.** "Hide the

@@ -668,6 +668,71 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(value="1850")
       assert html =~ ~s(value="KSK Antwerpen")
     end
+
+    test "the search box also finds KBSB members, first, and a pick pulls the FIDE rating in", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      Repo.insert!(%FidePlayer{
+        fide_id: 555_555,
+        name: "Peeters, Jan",
+        federation: "BEL",
+        birth_year: 1990,
+        title: "FM",
+        standard_rating: 1900
+      })
+
+      Repo.update_all(
+        from(k in Member, where: k.national_id == "12345"),
+        set: [fide_id: 555_555]
+      )
+
+      # A G-licence member: negative id, no club, no FIDE id.
+      Repo.insert!(%Member{
+        national_id: "-12346",
+        last_name: "Peeters",
+        first_name: "Lotte",
+        national_rating: nil,
+        fide_id: nil,
+        club_number: nil,
+        club_name: "",
+        federation: "BEL",
+        birth_year: 2015
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "Peeters"})
+
+      assert has_element?(lv, "#kbsb-result-12345")
+      assert has_element?(lv, "#kbsb-result--12346")
+      # The FIDE row for the member already listed is not shown twice.
+      refute has_element?(lv, ~s(button[phx-click="pick"][phx-value-fide-id="555555"]))
+
+      html = render_click(lv, "pick_kbsb", %{"national-id" => "12345"})
+      assert html =~ ~s(value="12345")
+      assert html =~ ~s(value="1850")
+      assert html =~ ~s(value="555555")
+      assert html =~ ~s(value="1900")
+      assert html =~ ~s(value="KSK Antwerpen")
+
+      render_change(lv, "search", %{"q" => "-12346"})
+      html = render_click(lv, "pick_kbsb", %{"national-id" => "-12346"})
+      assert html =~ ~s(value="-12346")
+      assert html =~ "Peeters, Lotte"
+    end
+
+    test "without the KBSB lookup the box searches FIDE only", %{
+      conn: conn,
+      tournament: tournament,
+      user: user
+    } do
+      {:ok, _} = PairingsEngine.Features.set_enabled(user, [])
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "Peeters"})
+      refute has_element?(lv, "#kbsb-result-12345")
+    end
   end
 
   describe "KBSB autofill (edit modal)" do

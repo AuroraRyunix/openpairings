@@ -138,6 +138,9 @@ defmodule PairingsEngineWeb.PlayersLive do
        error: nil,
        query: "",
        results: [],
+       # KBSB members matching the add form's search, shown before the FIDE
+       # hits when the player lookup is on (see the "search" handler).
+       kbsb_results: [],
        form_values: %{},
        visible: @default_visible,
        editing_player: nil,
@@ -585,7 +588,14 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   def handle_event("done", _params, socket) do
     {:noreply,
-     assign(socket, adding: false, error: nil, form_values: %{}, query: "", results: [])}
+     assign(socket,
+       adding: false,
+       error: nil,
+       form_values: %{},
+       query: "",
+       results: [],
+       kbsb_results: []
+     )}
   end
 
   # Sent by the ColumnPrefs JS hook after reading localStorage.
@@ -637,9 +647,74 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   def handle_event("sort", _params, socket), do: {:noreply, socket}
 
+  # With the KBSB player lookup on, the same box also searches the national
+  # list (name or national id, G-licences included), and those hits come
+  # first: a Belgian arbiter adds Belgian club players. A FIDE hit for a
+  # member already listed is left out, since picking the member pulls the
+  # FIDE details in anyway.
   def handle_event("search", %{"q" => q}, socket) do
-    {:noreply, assign(socket, query: q, results: Fide.search(q))}
+    fide = Fide.search(q)
+
+    kbsb =
+      if socket.assigns.bel_lookup?, do: Members.search(q) |> Enum.take(10), else: []
+
+    covered = kbsb |> Enum.map(& &1.fide_id) |> Enum.reject(&is_nil/1) |> MapSet.new()
+
+    {:noreply,
+     assign(socket,
+       query: q,
+       kbsb_results: kbsb,
+       results: Enum.reject(fide, &MapSet.member?(covered, &1.fide_id))
+     )}
   end
+
+  # A national hit picked: the national details from the KBSB list, and,
+  # when the member has a FIDE id, the FIDE name, title, rating and sex from
+  # the FIDE list - the same values a FIDE pick would have given.
+  def handle_event("pick_kbsb", _params, %{assigns: %{bel_lookup?: false}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("pick_kbsb", %{"national-id" => national_id}, socket) do
+    case Enum.find(socket.assigns.kbsb_results, &(&1.national_id == national_id)) do
+      nil ->
+        {:noreply, socket}
+
+      kp ->
+        fp = kp.fide_id && Fide.get_player(kp.fide_id)
+
+        fide_values =
+          if fp,
+            do: %{
+              "title" => fp.title,
+              "fide_id" => fp.fide_id,
+              "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
+              "sex" => normalize_fide_sex(fp.sex)
+            },
+            else: %{"fide_id" => kp.fide_id}
+
+        values =
+          %{
+            "name" => Member.full_name(kp),
+            "national_id" => kp.national_id,
+            "national_rating" => kp.national_rating,
+            "federation" => kp.federation,
+            "club" => kp.club_name,
+            "club_number" => kp.club_number,
+            "birth_year" => kp.birth_year
+          }
+          |> Map.merge(fide_values)
+
+        {:noreply,
+         assign(socket,
+           query: "",
+           results: [],
+           kbsb_results: [],
+           form_values: Map.merge(socket.assigns.form_values, values)
+         )}
+    end
+  end
+
+  def handle_event("pick_kbsb", _params, socket), do: {:noreply, socket}
 
   # `fide-id` is a search-result row's id, echoed back in a `phx-value-*` -
   # so it is parsed rather than trusted. Anything that isn't a whole number
@@ -2399,7 +2474,9 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         <div class="field search-wrap">
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
-            {gettext("Search the FIDE database (name or FIDE ID)")}
+            {if @bel_lookup?,
+              do: gettext("Search the KBSB and FIDE lists (name, national ID or FIDE ID)"),
+              else: gettext("Search the FIDE database (name or FIDE ID)")}
           </span>
 
           <input
@@ -2412,7 +2489,20 @@ defmodule PairingsEngineWeb.PlayersLive do
             placeholder={gettext("Start typing a last name… e.g. Carlsen")}
             class="pe-input"
           />
-          <div :if={@results != []} class="search-results">
+          <div :if={@results != [] or @kbsb_results != []} class="search-results">
+            <button
+              :for={kp <- @kbsb_results}
+              id={"kbsb-result-#{kp.national_id}"}
+              type="button"
+              phx-click="pick_kbsb"
+              phx-value-national-id={kp.national_id}
+            >
+              <span>{Member.full_name(kp)}</span>
+              <span class="meta">
+                KBSB {kp.national_id} · {kp.national_rating || gettext("unrated")} · {kp.club_name ||
+                  "-"}{if kp.fide_id, do: " · FIDE #{kp.fide_id}"}
+              </span>
+            </button>
             <button
               :for={fp <- @results}
               type="button"
