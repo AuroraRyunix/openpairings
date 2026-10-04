@@ -97,7 +97,8 @@ defmodule PairingsEngineWeb.TeamLineupsLiveTest do
       lv |> element("#team-absent-#{a.id}-2") |> render_click()
       assert Repo.reload!(a).absent_rounds == [2]
       assert has_element?(lv, "#team-absent-#{a.id}-2[aria-pressed='true']")
-      assert has_element?(lv, "#team-absent-rounds-#{a.id}")
+      # The coloured button says it; the text line is only for paired rounds.
+      refute has_element?(lv, "#team-absent-rounds-#{a.id}")
       assert Enum.any?(Audit.list_for_tournament(t.id), &(&1.action == "team.absence_changed"))
 
       lv |> element("#team-absent-#{a.id}-2") |> render_click()

@@ -6520,3 +6520,25 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
     white-space: normal;
   }
 }
+
+/* The themed data-confirm box (assets/js/app.js, "data-confirm in the app's
+   own look") - the same card as .pe-modal-card, sized for one question. */
+dialog.pe-confirm {
+  width: min(440px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+}
+dialog.pe-confirm::backdrop { background: var(--scrim); }
+.pe-confirm-text { margin: 0 0 18px; font-size: 15px; line-height: 1.5; }
+.pe-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* A toggle button that is on (team absent in a round, and the like). */
+.pe-btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}

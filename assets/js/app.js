@@ -1484,3 +1484,65 @@ document.addEventListener("keydown", (e) => {
     menu.querySelector("summary")?.focus()
   })
 })
+
+// ---- data-confirm in the app's own look ----
+//
+// LiveView asks a `data-confirm` question with the browser's window.confirm(),
+// a grey system box that looks like nothing else here. This catches the click
+// first (capture phase), asks the same question in a themed <dialog>, and on
+// "OK" lets the click through once with the attribute set aside, so LiveView
+// runs exactly the event it would have run. <dialog>.showModal() gives the
+// focus trap, Escape (= Cancel) and the backdrop for free.
+const confirmWords = () =>
+  (document.documentElement.lang || "").startsWith("nl")
+    ? {ok: "OK", cancel: "Annuleren"}
+    : {ok: "OK", cancel: "Cancel"}
+
+const askThemed = (question) =>
+  new Promise((resolve) => {
+    const words = confirmWords()
+    const dialog = document.createElement("dialog")
+    dialog.className = "pe-confirm"
+    dialog.setAttribute("aria-label", question)
+    const text = document.createElement("p")
+    text.className = "pe-confirm-text"
+    text.textContent = question
+    const actions = document.createElement("div")
+    actions.className = "pe-confirm-actions"
+    const cancel = document.createElement("button")
+    cancel.type = "button"
+    cancel.className = "pe-btn"
+    cancel.textContent = words.cancel
+    const ok = document.createElement("button")
+    ok.type = "button"
+    ok.className = "pe-btn primary"
+    ok.textContent = words.ok
+    actions.append(cancel, ok)
+    dialog.append(text, actions)
+    document.body.append(dialog)
+
+    let answer = false
+    cancel.addEventListener("click", () => dialog.close())
+    ok.addEventListener("click", () => { answer = true; dialog.close() })
+    dialog.addEventListener("close", () => { dialog.remove(); resolve(answer) })
+    dialog.showModal()
+    cancel.focus()
+  })
+
+document.addEventListener("click", (e) => {
+  const el = e.target instanceof Element && e.target.closest("[data-confirm]")
+  if (!el || typeof HTMLDialogElement !== "function") { return }
+  const question = el.getAttribute("data-confirm")
+  if (!question) { return }
+
+  e.preventDefault()
+  e.stopImmediatePropagation()
+
+  askThemed(question).then((yes) => {
+    if (!yes || !el.isConnected) { return }
+    el.removeAttribute("data-confirm")
+    try { el.click() } finally {
+      if (el.isConnected && !el.hasAttribute("data-confirm")) { el.setAttribute("data-confirm", question) }
+    }
+  })
+}, true)

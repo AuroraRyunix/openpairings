@@ -678,13 +678,27 @@ defmodule PairingsEngineWeb.TeamsLive do
               {r}
             </button>
           </div>
+          <%!-- The buttons above are coloured for every round still to pair;
+                this line only lists the absences in rounds already paired,
+                which have no button any more. --%>
           <p
-            :if={(team.absent_rounds || []) != []}
+            :if={
+              past_absences(team, @paired, @writable? and Tournament.paired_as_teams?(@tournament)) !=
+                []
+            }
             id={"team-absent-rounds-#{team.id}"}
             class="hint"
           >
             {gettext("Absent in rounds: %{rounds}",
-              rounds: Enum.join(team.absent_rounds, ", ")
+              rounds:
+                Enum.join(
+                  past_absences(
+                    team,
+                    @paired,
+                    @writable? and Tournament.paired_as_teams?(@tournament)
+                  ),
+                  ", "
+                )
             )}
           </p>
 
@@ -927,5 +941,13 @@ defmodule PairingsEngineWeb.TeamsLive do
       <% end %>
     </Layouts.app>
     """
+  end
+
+  # The absences the "Absent in rounds" line lists: all of them when the round
+  # buttons are not shown (read-only, or not paired as teams), otherwise only
+  # those in rounds already paired - the buttons show the rest, coloured.
+  defp past_absences(team, paired, buttons_shown?) do
+    rounds = team.absent_rounds || []
+    if buttons_shown?, do: Enum.filter(rounds, &(&1 <= paired)), else: rounds
   end
 end

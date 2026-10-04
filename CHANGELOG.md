@@ -17,6 +17,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Confirmation questions in the app's own look.** "Hide the
+  public standings after round 1?" and every other "are you sure"
+  question was the browser's grey system box. It is now a dialog in the
+  app's colours (light and dark), with Cancel focused first; Escape
+  cancels. The questions and what OK does are unchanged.
+- [Change] **Teams page: a team's absent rounds are coloured.** Ticking
+  round 2 under "Absent as a team in round" fills that button in, instead
+  of only adding it to a list below. The line "Absent in rounds: ..." now
+  only lists rounds already paired, which no longer have a button.
+
 - [Change] **One switch for the pairing-allocated bye.** "No
   pairing-allocated bye for chosen players" (in the Belgian pack) and "Bye
   preferences" (on its own) were two switches for one thing: never getting
