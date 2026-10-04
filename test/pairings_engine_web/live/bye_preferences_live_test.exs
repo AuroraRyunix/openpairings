@@ -193,10 +193,13 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       assert has_element?(lv, "#player-bye-preference-marker-#{stored.id}")
     end
 
-    test "is its own switch on the account's features page", %{conn: conn, user: user} do
+    test "is a switch on the account's features page, in the Belgian pack", %{
+      conn: conn,
+      user: user
+    } do
       {:ok, _} = PairingsEngine.Features.set_enabled(user, [])
       {:ok, lv, _html} = live(conn, ~p"/users/features")
-      assert has_element?(lv, "#features-general", "Bye preferences")
+      assert has_element?(lv, "#features-form", "Bye preferences")
 
       lv
       |> form("#features-form", %{"feature" => %{"bye_preferences" => "true"}})

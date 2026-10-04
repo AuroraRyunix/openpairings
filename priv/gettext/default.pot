@@ -14014,7 +14014,7 @@ msgstr ""
 msgid "rather not the pairing-allocated bye"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:172
+#: lib/pairings_engine/features.ex:170
 #, elixir-autogen, elixir-format
 msgid "Bye preferences"
 msgstr ""
@@ -15984,7 +15984,7 @@ msgstr ""
 msgid "What a player without a rating, and a board nobody sits at, count as in a team's rating. 1400 is the FIDE rating floor (Rating Regulations 2024 Art. 7.1.4; the World University Team Championship regulations Art. 5.2.4 give unrated players 1400; the Olympiad Pairing Rules of 2012 Art. 7 gave them the floor). C.04.6 leaves it to the event's rules. Seeds already set never change by themselves."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:174
+#: lib/pairings_engine/features.ex:172
 #, elixir-autogen, elixir-format
 msgid "Adds the pairing-allocated bye to a player's details: exclude them from it, or a preference - must get it, rather gets it, or rather not - for every round or chosen rounds. Not a FIDE rule: a round it changes is recorded as not paired by the FIDE rules, and a FIDE checker cannot replay it. Preferences are never applied on a FIDE-rated tournament. Ainalrami engine only."
 msgstr ""

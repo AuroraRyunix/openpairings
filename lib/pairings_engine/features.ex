@@ -158,17 +158,15 @@ defmodule PairingsEngine.Features do
             "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
           )
       },
-      # Not a federation's: any organiser may want a player to get, or not
-      # get, the pairing-allocated bye. Not a FIDE rule either, so it is
-      # off until switched on (docs/pairing-systems.md, "Bye preferences").
-      # One switch for both controls since 0.74.2: the hard exclusion ("never
-      # the bye") used to be a separate Belgian switch, `bel_bye_exclusions`,
-      # although it is the strongest of the same preferences and no more
-      # Belgian than they are. Accounts that had it were moved onto this key
-      # by the MergeByeExclusionsIntoByePreferences migration.
+      # Last in the Belgian pack, below the federation's own switches: it is
+      # the Belgian clubs' and youth events' wish, and no FIDE rule (docs/
+      # pairing-systems.md, "Bye preferences"). Off until switched on. One
+      # switch for both controls since 0.74.2: the hard exclusion ("never the
+      # bye") used to be a separate switch, `bel_bye_exclusions`, which the
+      # MergeByeExclusionsIntoByePreferences migration moved onto this key.
       %{
         key: "bye_preferences",
-        federation: nil,
+        federation: "BEL",
         label: gettext("Bye preferences"),
         description:
           gettext(

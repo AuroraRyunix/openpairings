@@ -17,6 +17,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **"Bye preferences" sits last in the Belgian pack** on the
+  Features page, below the federation's own switches, instead of in a group
+  of its own above them. Same switch, same key: nothing is switched on or
+  off by the move.
+
 - [Feature] **"Add player" searches the KBSB list too.** With the KBSB
   player lookup switched on, the search box finds members of the national
   list by name or national id (G-licences included), listed before the

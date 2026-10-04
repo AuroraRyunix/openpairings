@@ -39,7 +39,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   @lookup_feature "bel_player_lookup"
   @club_feature "bel_club_sync"
   @bye_exclusions_feature "bel_bye_exclusions"
-  # Its own switch, in no federation's pack (`PairingsEngine.Features.general/0`).
+  # Its own switch, in the Belgian pack, last.
   @bye_preferences_feature "bye_preferences"
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)

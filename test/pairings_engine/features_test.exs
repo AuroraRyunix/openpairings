@@ -16,9 +16,9 @@ defmodule PairingsEngine.FeaturesTest do
       end
     end
 
-    test "bye preferences, the exclusion included, are one switch in no federation's pack" do
-      assert Features.general() |> Enum.map(& &1.key) == ["bye_preferences"]
-      refute "bye_preferences" in Enum.map(Features.catalogue_for("BEL"), & &1.key)
+    test "bye preferences, the exclusion included, are one switch, last in the Belgian pack" do
+      assert Features.general() == []
+      assert List.last(Features.catalogue_for("BEL")).key == "bye_preferences"
       refute "bel_bye_exclusions" in Features.keys()
     end
 
@@ -29,14 +29,15 @@ defmodule PairingsEngine.FeaturesTest do
       assert keys == Enum.uniq(keys)
     end
 
-    test "the six Belgian switches are all there" do
+    test "the seven Belgian switches are all there" do
       assert Features.catalogue_for("BEL") |> Enum.map(& &1.key) == [
                "bel_ratings_sync",
                "bel_player_lookup",
                "bel_club_sync",
                "bel_swar_import",
                "bel_swar_export",
-               "bel_swar_publish"
+               "bel_swar_publish",
+               "bye_preferences"
              ]
     end
 
