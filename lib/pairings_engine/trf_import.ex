@@ -203,7 +203,7 @@ defmodule PairingsEngine.TrfImport do
 
   # TRF16 gives the starting rank four columns (5-8), so no file can name
   # more than 9,999 players, and the longest player record this app writes
-  # for one of them is 91 + 10 x rounds bytes - 391 at
+  # for one of them is 91 + 10 x rounds bytes - 1,081 at
   # `Tournament.max_rounds/0`. The largest TRF16 that can exist is
   # therefore under 4 MB. The two upload inputs that accept a TRF already
   # stop at this number; stating it here binds every caller instead, which
@@ -227,7 +227,7 @@ defmodule PairingsEngine.TrfImport do
 
   # The longest line. TRF16 is a fixed-column format and its longest record
   # is a player's `001` line at 91 + 10 x rounds bytes, so 2,048 admits a
-  # 195-round event - six times `Tournament.max_rounds/0`, and longer than
+  # 195-round event - about twice `Tournament.max_rounds/0`, and longer than
   # any tournament that has been played. It also clears the two records
   # whose length is not fixed by the round count: a `013` team line (36 + 5
   # per member, so 402 members) and an `XXP` forbidden group (5 per player,

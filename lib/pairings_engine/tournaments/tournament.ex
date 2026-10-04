@@ -2280,7 +2280,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def engine_name(%{pairing_engine: "ainalrami"}), do: "Ainalrami"
   def engine_name(_swiss), do: "JaVaFo"
 
-  @max_rounds 30
+  @max_rounds 99
 
   @doc """
   The largest `rounds_count` this app accepts.

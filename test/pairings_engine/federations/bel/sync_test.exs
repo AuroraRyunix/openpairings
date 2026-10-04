@@ -213,6 +213,46 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       assert Repo.get(Member, "1").last_name == "Player 1"
     end
 
+    test "a G-licence player (negative IdNumber, G = 1) is imported, found by name and by id" do
+      # KBSB's players.sqlite carries G-licence holders with a negative
+      # IdNumber, no club and Affiliated = 0 - e.g. -97170 "Yin, Yiqian".
+      # They are as valid as any other member, so nothing may drop them.
+      g_row =
+        PairingsEngine.Federations.BEL.SqliteFile.to_member_row(%{
+          "IdNumber" => -97_170,
+          "Name" => "Yin, Yiqian",
+          "Sex" => "M",
+          "Birthday" => "20150101",
+          "Fed" => "BEL",
+          "Club" => 0,
+          "Affiliated" => 0,
+          "Elo" => nil,
+          "G" => 1,
+          "Died" => 0,
+          "FideId" => nil
+        })
+
+      # Same keys on every row, as a real import gives them (insert_all
+      # needs one shape).
+      others =
+        for n <- 1..4,
+            do: Map.merge(kbsb_row(to_string(n), "Player #{n}"), %{died: false, affiliated: true})
+
+      rows = [g_row | others]
+
+      assert {:ok, %Sync{imported_rows: 5}} = Sync.import_rows(self(), rows, %Sync{})
+
+      member = PairingsEngine.Federations.BEL.Members.find_by_national_id("-97170")
+      assert member.last_name == "Yin"
+      assert member.first_name == "Yiqian"
+      assert member.club_number == nil
+
+      assert ["-97170"] =
+               "Yiqian"
+               |> PairingsEngine.Federations.BEL.Members.search()
+               |> Enum.map(& &1.national_id)
+    end
+
     test "a re-import fully replaces the roster and leaves the FTS index matching it exactly" do
       Repo.insert_all(Member, [
         kbsb_row("1", "Old Alpha"),

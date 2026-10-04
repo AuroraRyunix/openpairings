@@ -592,7 +592,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   #   * no cap, with a value to pay - write the round count, which is
   #     "every round" and "every absence" in a tournament that long. It is
   #     the largest honest number rather than a sentinel, and it survives
-  #     the u8 because `rounds_count` is capped at 30.
+  #     the u8 because `rounds_count` is capped at `Tournament.max_rounds/0` (99).
   #
   # Whatever the branch, the result goes through `w_u8/1` (`<<v::8>>`), which
   # MASKS rather than fails: 256 came out as 0, i.e. "no round qualifies",

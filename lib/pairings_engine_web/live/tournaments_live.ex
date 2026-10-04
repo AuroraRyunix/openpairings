@@ -1974,7 +1974,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               name="tournament[rounds_count]"
               value={Map.get(@new_params, "rounds_count", "9")}
               min="1"
-              max="30"
+              max={Tournament.max_rounds()}
             />
           </label>
 

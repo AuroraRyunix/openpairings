@@ -480,7 +480,7 @@ defmodule PairingsEngine.RoundRobin do
           {:ok, updated} ->
             updated
 
-          # `Tournament.changeset/2` caps rounds_count at 30 - a sanity bound
+          # `Tournament.changeset/2` caps rounds_count at `max_rounds/0` - a sanity bound
           # on a Swiss field's round picker, written independently of
           # `total_rounds/2`, which derives whatever a Berger schedule
           # actually needs. A 32-player double round robin needs 62, so the

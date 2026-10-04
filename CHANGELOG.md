@@ -17,6 +17,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Up to 99 rounds.** The maximum was 30, which ruled out a
+  weekly club event over a whole season (a "Koning van Waregem" needs at
+  least 40). New tournament, Settings and the account defaults now accept
+  1 to 99; a round robin that needs more than 99 rounds is still refused
+  with the reason. The TRF and SWAR files have room for it (a SWAR round
+  count is a 32-bit field; the longest TRF line at 99 rounds is 1,081
+  bytes, under the import's 2,048-byte line bound).
+- [Verified] **G-licence players import like any other member.** KBSB's
+  players file lists them with a negative id and no club (for example
+  `-97170 Yin, Yiqian`). They are imported, found by name and by id, and
+  keep their id through SWAR and TRF export; a test now holds this.
+
 ## [0.74.1] - 2026-10-04
 
 - [Change] **An unrated player in a team's rating counts 1400, not 0, and

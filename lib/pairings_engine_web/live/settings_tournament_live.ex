@@ -472,7 +472,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 name="tournament[rounds_count]"
                 value={@tournament.rounds_count}
                 min="1"
-                max="30"
+                max={Tournament.max_rounds()}
                 disabled={:rounds_count in @fide_locked}
               />
             </.setting_field>
