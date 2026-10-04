@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.74.2] - 2026-10-04
+
 - [Change] **Confirmation questions in the app's own look.** "Hide the
   public standings after round 1?" and every other "are you sure"
   question was the browser's grey system box. It is now a dialog in the
