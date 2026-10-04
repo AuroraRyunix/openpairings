@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.74.3] - 2026-10-04
+
 - [Change] **"Bye preferences" sits last in the Belgian pack** on the
   Features page, below the federation's own switches, instead of in a group
   of its own above them. Same switch, same key: nothing is switched on or
