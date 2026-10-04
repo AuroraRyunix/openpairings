@@ -39,8 +39,7 @@ Each entry is tagged so a version can be skimmed:
   pair exactly as before.
 
 - [Change] **Up to 99 rounds.** The maximum was 30, which ruled out a
-  weekly club event over a whole season (a "Koning van Waregem" needs at
-  least 40). New tournament, Settings and the account defaults now accept
+  weekly club event over a whole season, which can need 40 or more. New tournament, Settings and the account defaults now accept
   1 to 99; a round robin that needs more than 99 rounds is still refused
   with the reason. The TRF and SWAR files have room for it (a SWAR round
   count is a 32-bit field; the longest TRF line at 99 rounds is 1,081
