@@ -17,6 +17,12 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A player's bye controls no longer vanish without a word.** With
+  "Bye preferences" switched on, a tournament where they cannot apply (a
+  FIDE-rated one, JaVaFo as the engine, a round robin, Keizer or a team
+  event) showed nothing at all on the player, which looked like the switch
+  not working. It now shows a one-line note saying why, and what to change.
+
 ## [0.74.3] - 2026-10-04
 
 - [Change] **"Bye preferences" sits last in the Belgian pack** on the

@@ -1645,8 +1645,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # is worse than an entrance left open.
   defp no_bye_mode(tournament, enabled?) do
     cond do
-      tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :hidden
       not enabled? -> :hidden
+      tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :not_swiss
       tournament.pairing_engine == "javafo" -> :javafo
       true -> :on
     end
@@ -1681,6 +1681,16 @@ defmodule PairingsEngineWeb.PlayersLive do
   # same look); and, every time it is on, the warning that this is not a
   # FIDE rule - a stronger one on a FIDE-homologated tournament.
   defp no_bye_fields(%{mode: :hidden} = assigns), do: ~H""
+
+  defp no_bye_fields(%{mode: :not_swiss} = assigns) do
+    ~H"""
+    <p id="player-no-bye-not-swiss" class="hint" style="grid-column: 1 / -1; margin: 0">
+      {gettext(
+        "Exclude from the pairing-allocated bye: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
+      )}
+    </p>
+    """
+  end
 
   defp no_bye_fields(%{mode: :javafo} = assigns) do
     ~H"""
@@ -1785,14 +1795,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   # stored one stays visible with the switch off - the pack rule
   # (`PairingsEngine.Features`). "Must not get the bye" stays the exclusion's
   # tickbox above, behind the BEL pack's switch.
-  defp bye_preference_mode(tournament, form, enabled?) do
-    stored? = form["bye_preference"] not in [nil, ""]
-
+  defp bye_preference_mode(tournament, _form, enabled?) do
+    # With the switch on, the control never just vanishes: when it cannot be
+    # used, a note says why (an arbiter who switched it on and finds nothing
+    # on the player cannot tell "not here" from "broken").
     cond do
-      tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :hidden
       not enabled? -> :hidden
-      tournament.fide_homologated -> if(stored?, do: :fide_rated, else: :hidden)
-      tournament.pairing_engine == "javafo" -> if(stored?, do: :javafo, else: :hidden)
+      tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :not_swiss
+      tournament.fide_homologated -> :fide_rated
+      tournament.pairing_engine == "javafo" -> :javafo
       true -> :on
     end
   end
@@ -1850,12 +1861,39 @@ defmodule PairingsEngineWeb.PlayersLive do
   # is not a FIDE rule, every time one is chosen.
   defp bye_preference_fields(%{mode: :hidden} = assigns), do: ~H""
 
+  defp bye_preference_fields(%{mode: :not_swiss} = assigns) do
+    ~H"""
+    <p id="player-bye-preference-not-swiss" class="hint" style="grid-column: 1 / -1; margin: 0">
+      {gettext(
+        "Bye preference: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
+      )}
+    </p>
+    """
+  end
+
   defp bye_preference_fields(%{mode: :javafo} = assigns) do
     ~H"""
     <p id="player-bye-preference-javafo" class="hint" style="grid-column: 1 / -1; margin: 0">
+      <%= if @form["bye_preference"] in [nil, ""] do %>
+        {gettext(
+          "Bye preference: not available - this tournament pairs with JaVaFo, which has no such option. Switch the tournament to the Ainalrami engine to use it."
+        )}
+      <% else %>
+        {gettext(
+          "Bye preference (%{what}): not applied - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it.",
+          what: bye_preference_label(@form["bye_preference"])
+        )}
+      <% end %>
+    </p>
+    """
+  end
+
+  defp bye_preference_fields(%{mode: :fide_rated, form: %{"bye_preference" => pref}} = assigns)
+       when pref in [nil, ""] do
+    ~H"""
+    <p id="player-bye-preference-ignored" class="hint" style="grid-column: 1 / -1; margin: 0">
       {gettext(
-        "Bye preference (%{what}): not applied - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it.",
-        what: bye_preference_label(@form["bye_preference"])
+        "Bye preference: not available - this tournament is FIDE-rated, and a preference is not a FIDE rule. The exclusion above is the only way to keep a player off the bye."
       )}
     </p>
     """

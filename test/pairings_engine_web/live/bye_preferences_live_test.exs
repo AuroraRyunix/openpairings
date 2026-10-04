@@ -124,15 +124,17 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       assert Repo.reload!(p).bye_preference == ""
     end
 
-    test "a FIDE-rated tournament does not offer it, and shows a stored one as ignored", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a FIDE-rated tournament says why it is not offered, and shows a stored one as ignored",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       t = tournament(scope, %{"fide_homologated" => "true"})
       plain = player(t, "Anna")
       lv = open_edit(conn, t, plain)
       refute has_element?(lv, "#player-bye-preference-select")
-      refute has_element?(lv, "#player-bye-preference-ignored")
+      # Switch on, so the note says why there is no control, never silence.
+      assert has_element?(lv, "#player-bye-preference-ignored", "FIDE-rated")
 
       t = tournament(scope)
       stored = player(t, "Bert", %{"bye_preference" => "want_hard"})
@@ -145,7 +147,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       assert Repo.reload!(stored).bye_preference == "want_hard"
     end
 
-    test "JaVaFo: nothing offered; a stored one gets a one-line reason", %{
+    test "JaVaFo: no control, a one-line reason; a stored one names its value", %{
       conn: conn,
       scope: scope
     } do
@@ -153,7 +155,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       p = player(t, "Anna")
       lv = open_edit(conn, t, p)
       refute has_element?(lv, "#player-bye-preference-select")
-      refute has_element?(lv, "#player-bye-preference-javafo")
+      assert has_element?(lv, "#player-bye-preference-javafo", "not available")
 
       q = player(t, "Bert", %{"bye_preference" => "want_soft"})
       lv = open_edit(conn, t, q)
