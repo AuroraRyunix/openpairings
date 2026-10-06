@@ -16005,7 +16005,7 @@ msgid "Exclude from the pairing-allocated bye: only for an individual Swiss tour
 msgstr ""
 
 #: lib/pairings_engine_web/live/players_live.ex:1895
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Bye preference: not available - this tournament is FIDE-rated, and a preference is not a FIDE rule. The exclusion above is the only way to keep a player off the bye."
 msgstr ""
 

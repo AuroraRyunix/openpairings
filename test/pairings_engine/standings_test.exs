@@ -330,10 +330,14 @@ defmodule PairingsEngine.StandingsTest do
       assert Standings.bye_points("pairing-allocated", t) == 2.0
     end
 
-    test "the flag never leaks into the other bye types" do
+    # A 3-2-1 zero-point bye is SWAR's LOST_BYE, the same code as the
+    # pairing bye, so it pays SW321_Bye plus the PreBye point too
+    # (Utils.cpp:1219, Classement.cpp:150-151). This used to expect 1.0 -
+    # `presence_value` alone, the guess from before the source was read.
+    test "the flag reaches a zero-point bye, which is SWAR's LOST_BYE, and nothing else" do
       t = scoring_tournament(presence_on_allocated_bye: true)
       assert Standings.bye_points("requested-half", t) == 1.0
-      assert Standings.bye_points("requested-zero", t) == 1.0
+      assert Standings.bye_points("requested-zero", t) == 3.0
       assert Standings.bye_points("absent", t) == 0.0
     end
 
