@@ -1503,7 +1503,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     for player <- players, into: %{} do
       {records, _absences} =
         Enum.map_reduce(rounds, 0, fn {number, pairings, byes}, absences ->
-          case round_record_for(player, number, pairings, byes, ni_by_player_id) do
+          case round_record_for(tournament, player, number, pairings, byes, ni_by_player_id) do
             :absent ->
               absences = absences + 1
               points = Standings.bye_points("absent", tournament, number, absences)
@@ -1518,7 +1518,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     end
   end
 
-  defp round_record_for(player, number, pairings, byes, ni_by_player_id) do
+  defp round_record_for(tournament, player, number, pairings, byes, ni_by_player_id) do
     pairing =
       Enum.find(pairings, &(&1.white_player_id == player.id or &1.black_player_id == player.id))
 
@@ -1530,12 +1530,18 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         # is the result bitmask (`:win_bye`, 0x0040) - table only matters
         # as a fallback for a result-less bye, so writing both is
         # belt-and-braces, not strictly required by the read side.
+        #
+        # A 3-2-1 tournament's bye is LOST_BYE (0x0010): that is what SWAR
+        # writes for the type (`ByeValue` forced to `PTS_0`, TOptions.cpp:566)
+        # and the only bye `ConvertPoint321` pays `SW321_Bye` for
+        # (Utils.cpp:1219) - a WIN_BYE there is worth 0. The import reads
+        # LOST_BYE on `TABLE_BYE` back as the pairing bye.
         %{
           round_nr: number,
           table: @table_bye,
           advers: 0,
           colour: 0,
-          result: 0x0040,
+          result: if(Standings.presence_scheme?(tournament), do: 0x0010, else: 0x0040),
           points: 1.0,
           played?: false
         }
@@ -1732,7 +1738,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         ),
       (not round_robin?(t) and custom_points?(t)) &&
         gettext(
-          "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values. OpenPairings cannot import a 3-2-1 file back yet."
+          "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values, scored by that type's rules - by SWAR, and by OpenPairings when it is imported back: a zero-point bye is worth the bye value, an absence nothing, and a 0-0 nothing."
         ),
       (not acceleration? and not t.count_extra_points and any_extra?) &&
         gettext(

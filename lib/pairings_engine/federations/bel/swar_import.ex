@@ -65,7 +65,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   Parses a raw `.swar` binary into a plain map mirroring the SWAR structure.
   Returns `{:ok, map}` or `{:error, reason}`.
   """
-  def parse(binary, opts \\ []) when is_binary(binary) do
+  def parse(binary) when is_binary(binary) do
     {version, rest} = read_str(binary)
     {guid, rest} = read_str(rest)
     {mac, rest} = read_str(rest)
@@ -77,15 +77,6 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     {categories, rest} = parse_categories(rest, version)
     {xtra_points, rest} = parse_xtra_points(rest)
     {players, rest} = parse_joueurs(rest, version)
-
-    # Refused unless the caller explicitly opts in. `allow_swiss321: true`
-    # exists so the parser, the SW321_* field mapping and the presence
-    # scoring stay under test while the feature is switched off - that
-    # machinery is correct as far as it goes and will be wanted back; see
-    # `swiss321?/1` for what is actually unresolved.
-    if swiss321?(tournoi) and not Keyword.get(opts, :allow_swiss321, false) do
-      throw(:swiss321_unsupported)
-    end
 
     {players, round_zero} = strip_round_zero(players)
 
@@ -132,15 +123,6 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     e ->
       kind = SafeError.log_crash("SWAR import", e, __STACKTRACE__)
       {:error, {:parse_failed, "the file could not be read (#{kind})"}}
-  catch
-    :swiss321_unsupported ->
-      {:error,
-       "This is a SWAR 3-2-1 tournament, which OpenPairings cannot import yet. " <>
-         "Its scoring works differently - a presence point for turning up, on top of " <>
-         "the result - and how SWAR values the two kinds of bye under that scheme is " <>
-         "not settled yet, so importing one would produce a standings table that looks " <>
-         "right and is wrong. Support is planned; every other SWAR tournament type " <>
-         "imports normally."}
   end
 
   # Every downstream step keys players by their SWAR `NI` (the internal
@@ -661,7 +643,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # tournament SWAR itself stores with it.
   def import_file(path, scope \\ nil, opts \\ []) do
     with {:ok, binary} <- File.read(path),
-         {:ok, data} <- parse(binary, opts),
+         {:ok, data} <- parse(binary),
          :ok <- check_importable(data),
          :ok <- check_team_mode(data, Path.basename(path), opts) do
       cache = build_fide_candidates_cache(data.players)
@@ -990,6 +972,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
           category_mode_warnings(data) ++
           tiebreak_warnings(data.tiebreaks || []) ++
           type_warnings(data) ++
+          swiss321_warnings(data) ++
           round_robin_bye_warnings(data) ++
           xtra_points_warnings(data) ++
           exclusion_warnings(data)
@@ -1125,6 +1108,44 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     else
       []
     end
+  end
+
+  # The SWAR 3-2-1 result codes this app has no equivalent for (see the
+  # comment on `swiss321?/1`): a WIN_BYE or DRAW_BYE (0 points in SWAR, plus
+  # presence - Utils.cpp:1206-1222, Classement.cpp:144-151), a DRAW_FF
+  # (the draw value without presence, which reads back as a played draw)
+  # and an absence carrying a result. SWAR's own 3-2-1 dialog writes none of
+  # them, so a real file rarely does; when one does, the arbiter is told
+  # which rounds to check rather than shown a total that silently differs.
+  defp swiss321_warnings(%{tournament: t} = data) do
+    if swiss321?(t) do
+      rounds =
+        for p <- data.players,
+            r <- p.rounds,
+            swiss321_unmatched?(r),
+            uniq: true,
+            do: r.round_nr
+
+      case Enum.sort(rounds) do
+        [] ->
+          []
+
+        rounds ->
+          [
+            gettext(
+              "This 3-2-1 file has rounds (%{rounds}) with a bye scored as a win or a draw, a draw by forfeit, or an absence with a result. SWAR scores those in a way OpenPairings has no equivalent for, so check those rounds' points against SWAR's own standings.",
+              rounds: Enum.join(rounds, ", ")
+            )
+          ]
+      end
+    else
+      []
+    end
+  end
+
+  defp swiss321_unmatched?(r) do
+    result_class(r.result) in [:win_bye, :draw_bye, :draw_ff] or
+      (r.table == @table_absent and result_class(r.result) not in [:none, :loss_bye])
   end
 
   defp any_pairing_allocated_bye?(data) do
@@ -2118,63 +2139,55 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
 
   defp create_exclusion_pairs(_tournament, _data, _players_by_ni), do: :ok
 
-  # `TOURNOI_TYPE.SWISS_321 == 3` (manual §5.1) is the flag for "this
-  # tournament's [TOURNOI] header carries custom win/draw/loss/bye point
-  # values" - SWAR's "3-2-1" scoring feature, which despite the name is a
-  # club-configurable point scale (win/draw/loss are independently settable
-  # ints), not literally fixed at 3/2/1. `SW321_Win/Nul/Los/Bye` are stored
-  # ×4 - this is what the format manual states explicitly for this field
-  # group (twice: in the field table and in "Known Quirks"), mirroring how
-  # the ordinary per-player `Points` field is ×2. A PREVIOUS version of this
-  # function used ÷8, which silently HALVED every configured point value
-  # relative to what the club actually set up (e.g. a real win worth 2.0
-  # points imported as 1.0) - this is the bug reported by KBSB: "players
-  # don't get the full 3-2-1 points from played games". The ÷8 divisor had
-  # been "verified" by checking that dividing the file's raw per-player
-  # `points` total by 8 reproduced `wins*1.0 + draws*0.5 + 0*losses`
-  # (SW321_Los happened to be 0 in the fixture) - but that check is
-  # circular: SW321_Los being 0 makes losses contribute nothing to the
-  # total regardless of the divisor chosen, so *any* divisor "passes" that
-  # check while only the ratio (2:1:0 here) is actually being tested, never
-  # the absolute scale. See docs/swar-import.md for the non-circular
-  # re-derivation (the manual's explicit ×4 annotation, cross-checked
-  # against multiple real players' totals via an independently-discovered
-  # formula involving `SW321_Pre`).
+  # `TOURNOI_TYPE.SWISS_321 == 3` (manual §5.1) is SWAR's 3-2-1 scheme
+  # (`IsSwiss321`): a club-configured scale for the result plus a separate
+  # presence point per round attended. Despite the name the values are the
+  # club's own; "3-2-1" is the common Win 2 / Draw 1 / Loss 0 + presence 1.
   #
-  # `SW321_Pre` ("presence points", manual §4.6 field 84) DOES appear in
-  # the real 3-2-1 fixture - every unpaired "LOST_BYE" round for every
-  # affected player is scored as `SW321_Pre` raw points (÷4), not
-  # `SW321_Bye` (no `WIN_BYE`/`DRAW_BYE` round occurs anywhere in the
-  # fixture, so `SW321_Bye`'s actual role is unconfirmed by this file).
-  # `Tournament.presence_value` now models this: SWAR's own result-code
-  # bitmask (manual §5.2, `RESULTATS_LOST`) files `LOST_BYE` under its
-  # generic "loss" category, but 3-2-1 mode pays it at `SW321_Pre`
-  # specifically, not at `SW321_Los`/`points_loss` - confirmed non-circularly
-  # against the real fixture (see above). `SW321_PreBye` (field 85, manual
-  # §5.16, present only in file version >= v6.03) is documented verbatim as
-  # "Add presence points for bye games" - i.e. a pairing-allocated bye
-  # (`WIN_BYE`) is paid `SW321_Bye + SW321_Pre` when it is set/nonzero.
-  # That option maps onto `Tournament.presence_on_allocated_bye` (a boolean
-  # flag consulted by `PairingsEngine.Standings.bye_points/2`, which adds
-  # `presence_value` on top of `bye_value` for a pairing-allocated bye when
-  # set) rather than being folded into `bye_value` here - an earlier version
-  # of this clause did fold it in (`bye_value: SW321_Bye/4 + SW321_Pre/4`),
-  # which produced the right totals but silently redefined `bye_value` away
-  # from the club's configured SW321_Bye, losing the distinction for
-  # display/editing.
-  # SWAR's `[TOURNOI].Type` 3 is the Belgian 3-2-1 club scheme (SWAR's own
-  # `IsSwiss321`). Import is refused for it - see `parse/1`.
+  # Every rule below is read off SWAR's own source (v6.65 FRBE):
   #
-  # `scoring_attrs/1`'s `type: 3` clause below, `Standings`' presence
-  # handling and the whole `swar_import_presence_test.exs` suite are
-  # deliberately LEFT IN PLACE and still tested. They are correct for
-  # everything they cover: the presence point is paid per round attended,
-  # verified against `GetPresentPtsUntilRound` in SWAR's own source. What is
-  # unsettled is only what a BYE is worth under the scheme, and only because
-  # `SW321_Bye`, `SW321_Pre` and `points_loss + presence` are all 1.0 in the
-  # single real fixture available, so it cannot distinguish them. One file
-  # with unequal values re-opens this in minutes; deleting the work would
-  # mean rediscovering it.
+  # * Scale. `SW321_Win/Nul/Los/Bye/Pre` are stored ×4: the options dialog
+  #   writes `4 * value` and reads back `/ 4` (TOptions.cpp:616-620,
+  #   698-702), and the HTML header prints `/ 4` (Html.cpp:730-734). A
+  #   previous version of this function used ÷8 and halved every value.
+  #   `SW321_PreBye` is a 0/1 flag (TOptions.cpp:703).
+  #
+  # * Result points. `ConvertPoint321` (Utils.cpp:1197-1222), which
+  #   `GetPointsUntilRound` uses for a 3-2-1 tournament (Classement.cpp:
+  #   102-105): WIN, WIN_FF pay `SW321_Win`; DRAW, DRAW_FF, DRAW_ZERO pay
+  #   `SW321_Nul`; LOST, LOST_FF, ZERO_DRAW pay `SW321_Los`; LOST_BYE pays
+  #   `SW321_Bye`; everything else - WIN_BYE, DRAW_BYE, ZERO_ZERO,
+  #   ZERO_ZEROFF, NO_RESULT (an absence) - pays 0. `AbsValue` is never
+  #   paid.
+  #
+  # * Presence. `GetPresentPtsUntilRound` (Classement.cpp:137-157) adds
+  #   `SW321_Pre` for a result in RESULTATS_NORMAUX, RESULTATS_WIN or
+  #   RESULTATS_SPECIAUX (Swar.h:227-247) - a game, a forfeit WIN, a 0-0,
+  #   a ½-0 - and another `SW321_Pre` for any bye result when
+  #   `SW321_PreBye` is set. A forfeit loss, a double forfeit and an
+  #   absence get none.
+  #
+  # * Total. The standings rank on `Points + ExtraPts + SpecialPts`
+  #   (Classement.cpp:1425), `SpecialPts` being the presence sum
+  #   (Classement.cpp:1389-1390); ExtraPts are zeroed for 3-2-1 on load.
+  #   The file stores only `Points`, so its presence never appears in it.
+  #
+  # * The bye. SWAR forces `ByeValue` to `PTS_0` for the type
+  #   (TOptions.cpp:566), so the pairing bye is LOST_BYE on `TABLE_BYE`
+  #   (PairingSwiss.cpp:73-79, 390-392): `SW321_Bye`, plus `SW321_Pre` with
+  #   PreBye. The one real fixture (test3-321.swar) has exactly those -
+  #   every unpaired LOST_BYE there is on table 4096 = `TABLE_BYE` - and its
+  #   absences are `TABLE_ABSENT` with no result (PairingSwiss.cpp:805-809),
+  #   worth nothing.
+  #
+  # Onto the model: points_win/draw/loss are Win/Nul/Los, `bye_value` is
+  # `SW321_Bye`, `presence_value` is `SW321_Pre` (its being set is what
+  # makes `Standings.presence_scheme?/1` true) and
+  # `presence_on_allocated_bye` is PreBye. `Standings` then pays a
+  # zero-point bye like the pairing bye, an absence nothing, and a 0-0 or
+  # 0-0FF nothing. WIN_BYE, DRAW_BYE and DRAW_FF, which a 3-2-1 file from
+  # SWAR's own dialog does not hold, have no equivalent here - see
+  # `swiss321_warnings/1`.
   defp swiss321?(%{type: 3}), do: true
   defp swiss321?(_), do: false
 
@@ -2910,7 +2923,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   end
 
   defp insert_round(tournament, round_number, entries, players_by_ni) do
-    {pairings, byes} = build_round(entries)
+    {pairings, byes} = build_round(entries, Standings.presence_scheme?(tournament))
 
     status = if Enum.any?(pairings, &(&1.result == "")), do: "playing", else: "finished"
 
@@ -2968,7 +2981,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # Entries without a real opponent become either a "bye" pairing
   # (pairing-allocated) or a row in the schemaless `byes` table (requested /
   # absent).
-  defp build_round(entries) do
+  defp build_round(entries, swiss321?) do
     by_ni = Map.new(entries, fn {p, r} -> {p.ni, {p, r}} end)
 
     {_visited, pairings, byes} =
@@ -2985,7 +2998,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
             nil ->
               visited = MapSet.put(visited, player.ni)
 
-              case single_sided(player, r) do
+              case single_sided(player, r, swiss321?) do
                 {:pairing, pairing} -> {visited, [pairing | pairings], byes}
                 {:bye, bye} -> {visited, pairings, [bye | byes]}
                 :nothing -> {visited, pairings, byes}
@@ -3043,8 +3056,17 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   # A player's [RONDE] entry with no real opponent: a pairing-allocated bye
   # becomes an actual "bye" Pairing row (board assigned afterwards); a
   # requested half/zero-point bye or an absence becomes a `byes` row.
-  defp single_sided(player, r) do
+  #
+  # A 3-2-1 file stores its pairing bye as `LOST_BYE` on `TABLE_BYE`: SWAR
+  # forces `ByeValue` to `PTS_0` for the type (TOptions.cpp:566), so
+  # `SetPlayerBye` writes `GetResultByeValue()` = `LOST_BYE`
+  # (PairingSwiss.cpp:73-79, 390-392). That is the pairing-allocated bye,
+  # and it imports as one, so the engine knows the player has had it.
+  defp single_sided(player, r, swiss321?) do
     case result_class(r.result) do
+      :loss_bye when swiss321? and r.table == @table_bye ->
+        {:pairing, %{board: nil, white_ni: player.ni, black_ni: nil, result: "bye"}}
+
       :win_bye ->
         {:pairing, %{board: nil, white_ni: player.ni, black_ni: nil, result: "bye"}}
 

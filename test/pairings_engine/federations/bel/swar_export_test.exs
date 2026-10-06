@@ -776,7 +776,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
           points_draw: 1.0
         })
 
-      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse(allow_swiss321: true)
+      {:ok, parsed} = t.id |> SwarExport.export() |> SwarImport.parse()
       assert parsed.tournament.type == 3
       assert parsed.tournament.sw321_win == 12
       assert Enum.any?(SwarExport.export_notes(t), &(&1 =~ "3-2-1"))

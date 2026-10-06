@@ -520,6 +520,12 @@ defmodule PairingsEngine.Standings do
     # `SwarImport.points_adjusted_warnings/3`.
     presence? = Keyword.get(opts, :presence, true)
 
+    # Without presence, a bye's `SW321_PreBye` presence point goes too: in
+    # SWAR it is part of `SpecialPts` (Classement.cpp:150-151), not of the
+    # stored `Points`.
+    tournament =
+      if presence?, do: tournament, else: Map.put(tournament, :presence_on_allocated_bye, false)
+
     # Every round's seats and rows, taken BEFORE the cut-off below: a join
     # round that is not set is worked out from the player's first row, which
     # may lie after it (`LateEntry.effective_start_round/4`).
@@ -655,15 +661,31 @@ defmodule PairingsEngine.Standings do
       # before. This is also the scoring rule for a real `Pairing` row with
       # `result: "bye"` - `pairing_records/3` below routes through here.
       "pairing-allocated" -> tournament.bye_value + allocated_bye_presence_bonus(tournament)
-      # SWAR 3-2-1 "presence points" (SW321_Pre) - distinct from an
-      # ordinary configured loss even though SWAR's own bitmask files
-      # LOST_BYE as a "loss". `presence_value` is nil for every
-      # tournament that isn't a 3-2-1 SWAR import, so this falls back to
-      # plain points_loss unchanged for everyone else.
-      "requested-zero" -> tournament.presence_value || tournament.points_loss
+      "requested-zero" -> requested_zero_points(tournament)
       "absent" -> absent_points(tournament, round, cumulative_absences)
       _ -> tournament.points_loss
     end
+  end
+
+  @doc """
+  Whether `tournament` is scored the SWAR 3-2-1 way: result points from the
+  club's own scale plus a separate presence point per round attended.
+  `presence_value` is set by the SWAR import for a `[TOURNOI].Type` 3 file
+  and by nothing else, so this is false for every tournament created here.
+  """
+  def presence_scheme?(tournament), do: is_number(Map.get(tournament, :presence_value))
+
+  # In a SWAR 3-2-1 tournament every bye is `LOST_BYE` (SWAR 6.65,
+  # Utils.cpp:1202-1204, and the forced `ByeValue = PTS_0` at
+  # TOptions.cpp:566), and `ConvertPoint321` pays it `SW321_Bye`
+  # (Utils.cpp:1219) whatever table it sits on - plus `SW321_Pre` when
+  # `SW321_PreBye` is set (`GetPresentPtsUntilRound`, Classement.cpp:150-151).
+  # So a zero-point bye there is worth exactly what a pairing-allocated one
+  # is. Everywhere else it is a loss.
+  defp requested_zero_points(tournament) do
+    if presence_scheme?(tournament),
+      do: tournament.bye_value + allocated_bye_presence_bonus(tournament),
+      else: tournament.points_loss
   end
 
   # SWAR `AbsValue` (manual §4.2 field 92) - the points paid for a plain
@@ -675,6 +697,11 @@ defmodule PairingsEngine.Standings do
   # paid `abs_value` at all - see `bye_points/4`'s doc for the two caps.
   defp absent_points(tournament, round, cumulative_absences) do
     cond do
+      # SWAR 3-2-1 never pays `AbsValue`: `GetPointsUntilRound` scores every
+      # round with `ConvertPoint321` (Classement.cpp:102-105), which gives an
+      # absence (`TABLE_ABSENT`, result `NO_RESULT`, PairingSwiss.cpp:805-809)
+      # nothing, and `GetPresentPtsUntilRound` gives it no presence point.
+      presence_scheme?(tournament) -> 0.0
       is_nil(tournament.abs_value) -> tournament.points_loss
       round_capped?(tournament, round) -> tournament.points_loss
       count_capped?(tournament, cumulative_absences) -> tournament.points_loss
@@ -1075,7 +1102,12 @@ defmodule PairingsEngine.Standings do
         # (SW321_PreBye) add-on. See that function's doc.
         {bye_points("pairing-allocated", t), 0.0}
       else
-        {outcome_points(t, w_outcome), outcome_points(t, b_outcome)}
+        if presence_scheme?(t) and pairing.result in ["0-0", "0-0FF"],
+          # SWAR 3-2-1: `ConvertPoint321` (Utils.cpp:1206-1222) lists
+          # ZERO_ZERO and ZERO_ZEROFF under no case, so both pay 0 - not
+          # `SW321_Los`. Elsewhere they are two losses.
+          do: {0.0, 0.0},
+          else: {outcome_points(t, w_outcome), outcome_points(t, b_outcome)}
       end
 
     postponed? = Results.postponed?(pairing.result)
@@ -1303,9 +1335,11 @@ defmodule PairingsEngine.Standings do
   # collect a point for turning up. A double forfeit (ZERO_ZEROFF) pays
   # neither.
   #
-  # Byes are deliberately NOT handled here - they score through
-  # `bye_points/2`, and their 3-2-1 treatment has open questions this pass
-  # did not settle (see docs/swar-import.md).
+  # (SWAR 6.65 Classement.cpp:137-157, masks in Swar.h:227-247.) A
+  # "1/2-0" is DRAW_ZERO/ZERO_DRAW, in SPECIAUX: both sides were there.
+  #
+  # Byes are not handled here - they score through `bye_points/4`, where
+  # the `SW321_PreBye` presence point is `allocated_bye_presence_bonus/1`.
   #
   # A postponed game (`"*"`) is a draw until it is played, and a 3-2-1 draw
   # is worth its presence point too - the Ainalrami bridge values every draw

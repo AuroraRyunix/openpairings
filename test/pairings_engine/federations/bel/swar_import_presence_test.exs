@@ -188,157 +188,278 @@ defmodule PairingsEngine.Federations.BEL.SwarImportPresenceTest do
     File.write!(path, binary)
 
     try do
-      SwarImport.import_file(path, nil, allow_swiss321: true)
+      SwarImport.import_file(path)
     after
       File.rm(path)
     end
   end
 
-  # SWAR result codes (manual §5.2): LOST_BYE (0x0010) - unpaired-but-present
-  # round, imported as a `byes` row with `type: "requested-zero"`.
-  @lost_bye 0x0010
-  # WIN_BYE (0x0040) - pairing-allocated bye, imported as a `Pairing` row
-  # with `result: "bye"`.
+  # SWAR result codes (Swar.h:227-247) and table sentinels (Swar.h:138-140).
+  @win 0x4000
+  @draw 0x2000
+  @lost 0x1000
+  @zero_zero 0x0400
+  @draw_zero 0x0200
+  @zero_draw 0x0100
   @win_bye 0x0040
+  @draw_bye 0x0020
+  @lost_bye 0x0010
+  @zero_zeroff 0x0008
+  @win_ff 0x0004
+  @draw_ff 0x0002
+  @lost_ff 0x0001
+  @table_bye 0x1000
+  @table_absent 0x4000
 
-  test "import_file/1 maps SW321_Pre onto tournament.presence_value, and a LOST_BYE round scores presence_value (not points_loss)" do
-    opts = %{
-      version: "v6.60",
-      type: 3,
-      # win=2.0, draw=1.0, loss=0.0, bye=2.0, presence=1.0 (raw ÷4)
-      sw321: {8, 4, 0, 8, 4},
-      prebye: 0,
-      players: [
-        %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @lost_bye, advers: 0}]}
-      ]
-    }
-
-    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
-
-    assert tournament.points_win == 2.0
-    assert tournament.points_draw == 1.0
-    assert tournament.points_loss == 0.0
-    assert tournament.presence_value == 1.0
-
-    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
-    entries = Standings.standings(tournament)
-    entry = Enum.find(entries, &(&1.player.id == player.id))
-
-    # Scored at presence_value (1.0), not at points_loss (0.0) - the bug
-    # this fixes: before presence_value existed, a "requested-zero" bye
-    # always fell through to points_loss regardless of SW321_Pre.
-    assert entry.points == 1.0
+  defp points_by_name(tournament, opts \\ []) do
+    tournament
+    |> Standings.standings(opts)
+    |> Map.new(&{&1.player.name, &1.points})
   end
 
-  test "import_file/1 maps nonzero SW321_PreBye onto presence_on_allocated_bye, and a WIN_BYE round scores bye_value + presence_value" do
-    opts = %{
-      version: "v6.60",
-      type: 3,
-      sw321: {8, 4, 0, 8, 4},
-      # SW321_PreBye nonzero ("Add presence points for bye games", manual §5.16)
-      prebye: 4,
-      players: [
-        %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
-      ]
-    }
+  # One side of a game: `table`, opponent, own result, colour.
+  defp game(round_nr, table, opponent, result, colour),
+    do: %{round_nr: round_nr, table: table, advers: opponent, result: result, color: colour}
 
-    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+  defp pairing_bye(round_nr),
+    do: %{round_nr: round_nr, table: @table_bye, advers: -1, result: @lost_bye}
 
-    # bye_value stays at plain SW321_Bye (8/4 = 2.0) - the PreBye add-on is
-    # the flag, applied by Standings.bye_points/2, not a fold into bye_value.
-    assert tournament.bye_value == 2.0
-    assert tournament.presence_on_allocated_bye == true
+  ## ---------- every result kind, against SWAR's own rules ----------
+  #
+  # Values chosen so that no two are equal: Win 3, Nul 2, Los 1, Bye 2.5,
+  # Pre 0.5 (raw x4: 12, 8, 4, 10, 2 - TOptions.cpp:698-702). A total can
+  # only come out right if every round is paid by the right rule.
+  #
+  # The rules, from SWAR 6.65's source:
+  #   result points - `ConvertPoint321` (Utils.cpp:1206-1222): WIN, WIN_FF
+  #     -> Win; DRAW, DRAW_FF, DRAW_ZERO -> Nul; LOST, LOST_FF, ZERO_DRAW ->
+  #     Los; LOST_BYE -> Bye; anything else (ZERO_ZERO, ZERO_ZEROFF, an
+  #     absence's NO_RESULT, WIN_BYE, DRAW_BYE) -> 0.
+  #   presence - `GetPresentPtsUntilRound` (Classement.cpp:137-157): + Pre
+  #     for NORMAUX | WIN | SPECIAUX; + Pre for any bye when PreBye is set.
+  #     So no presence for LOST_FF, ZERO_ZEROFF or an absence.
+  #   total - Points + SpecialPts (Classement.cpp:1389-1390, 1425).
+  @sw321 {12, 8, 4, 10, 2}
 
-    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
-    entries = Standings.standings(tournament)
-    entry = Enum.find(entries, &(&1.player.id == player.id))
-    # 8/4 (SW321_Bye) + 4/4 (SW321_Pre) = 3.0 - SWAR pays presence points ON
-    # TOP of the bye points for a pairing-allocated bye when PreBye is set.
-    assert entry.points == 3.0
-  end
-
-  test "import_file/1 reads SW321_PreBye as a flag, not as a particular number" do
-    # This test exists because of what `abs_value` cost, one field over in the
-    # same importer. That clause checked `== 5` on the strength of a stale
-    # `// 0 ou 5` comment; every synthetic fixture hardcoded 5, so it passed,
-    # and every REAL file with the box actually checked - raw byte 1 - was
-    # mapped to the opposite of what the club had configured.
-    #
-    # `prebye_set?/1` is correctly written as `!= 0`, and the real fixture
-    # carries 1 while the tests above carry 4. Nothing pinned that: tightening
-    # it to `== 1` or `== 4` would leave this whole file green and break the
-    # other encoding silently.
-    #
-    # So: several nonzero values, none of them privileged.
-    for raw <- [1, 2, 4, 5, 8, 255] do
-      opts = %{
-        version: "v6.60",
-        type: 3,
-        sw321: {8, 4, 0, 8, 4},
-        prebye: raw,
-        players: [
-          %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
+  defp every_kind_players do
+    [
+      # R1 WIN (3 + .5)              R2 ZERO_ZERO 0-0 (0 + .5)
+      %{ni: 1, name: "P1", rounds: [game(1, 1, 2, @win, 1), game(2, 1, 3, @zero_zero, 1)]},
+      # R1 LOST (1 + .5)             R2 ZERO_ZEROFF 0-0FF (0, no presence)
+      %{ni: 2, name: "P2", rounds: [game(1, 1, 1, @lost, -1), game(2, 2, 4, @zero_zeroff, 1)]},
+      # R1 DRAW (2 + .5)             R2 ZERO_ZERO (0 + .5)
+      %{ni: 3, name: "P3", rounds: [game(1, 2, 4, @draw, 1), game(2, 1, 1, @zero_zero, -1)]},
+      # R1 DRAW (2 + .5)             R2 ZERO_ZEROFF (0)
+      %{ni: 4, name: "P4", rounds: [game(1, 2, 3, @draw, -1), game(2, 2, 2, @zero_zeroff, -1)]},
+      # R1 DRAW_ZERO, the ½ of ½-0 (2 + .5)   R2 WIN_FF as Black (3 + .5)
+      %{
+        ni: 5,
+        name: "P5",
+        rounds: [game(1, 3, 6, @draw_zero, 1), game(2, 3, 6, @win_ff, -1)]
+      },
+      # R1 ZERO_DRAW, the 0 of ½-0 (1 + .5)   R2 LOST_FF as White (1, no presence)
+      %{
+        ni: 6,
+        name: "P6",
+        rounds: [game(1, 3, 5, @zero_draw, -1), game(2, 3, 5, @lost_ff, 1)]
+      },
+      # R1 WIN_FF (3 + .5)           R2 pairing bye LOST_BYE (2.5 [+ .5])
+      %{ni: 7, name: "P7", rounds: [game(1, 4, 8, @win_ff, 1), pairing_bye(2)]},
+      # R1 LOST_FF (1)               R2 LOST_BYE off the bye table (2.5 [+ .5])
+      %{
+        ni: 8,
+        name: "P8",
+        rounds: [
+          game(1, 4, 7, @lost_ff, -1),
+          %{round_nr: 2, table: 0, advers: 0, result: @lost_bye}
+        ]
+      },
+      # R1 pairing bye (2.5 [+ .5])  R2 WIN (3 + .5)
+      %{ni: 9, name: "P9", rounds: [pairing_bye(1), game(2, 4, 10, @win, 1)]},
+      # R1 absent: TABLE_ABSENT, NO_RESULT (0)   R2 LOST (1 + .5)
+      %{
+        ni: 10,
+        name: "P10",
+        rounds: [
+          %{round_nr: 1, table: @table_absent, advers: -1, result: 0},
+          game(2, 4, 9, @lost, -1)
         ]
       }
+    ]
+  end
 
-      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+  test "every result kind scores as SWAR scores it, PreBye off" do
+    {:ok, tournament, warnings} =
+      import_synthetic!(%{sw321: @sw321, prebye: 0, nb_rounds: 2, players: every_kind_players()})
+
+    assert tournament.points_win == 3.0
+    assert tournament.points_draw == 2.0
+    assert tournament.points_loss == 1.0
+    assert tournament.bye_value == 2.5
+    assert tournament.presence_value == 0.5
+    refute tournament.presence_on_allocated_bye
+
+    assert points_by_name(tournament) == %{
+             "P1" => 3.0 + 0.5 + (0.0 + 0.5),
+             "P2" => 1.0 + 0.5 + 0.0,
+             "P3" => 2.0 + 0.5 + (0.0 + 0.5),
+             "P4" => 2.0 + 0.5 + 0.0,
+             "P5" => 2.0 + 0.5 + (3.0 + 0.5),
+             "P6" => 1.0 + 0.5 + 1.0,
+             "P7" => 3.0 + 0.5 + 2.5,
+             "P8" => 1.0 + 2.5,
+             "P9" => 2.5 + (3.0 + 0.5),
+             "P10" => 0.0 + (1.0 + 0.5)
+           }
+
+    # Nothing here lacks an equivalent, so no 3-2-1 warning.
+    refute Enum.any?(warnings, &(is_binary(&1) and &1 =~ "3-2-1"))
+  end
+
+  test "every result kind scores as SWAR scores it, PreBye on: every bye gets the presence point" do
+    {:ok, tournament, _warnings} =
+      import_synthetic!(%{sw321: @sw321, prebye: 1, nb_rounds: 2, players: every_kind_players()})
+
+    assert tournament.presence_on_allocated_bye
+
+    points = points_by_name(tournament)
+    assert points["P7"] == 3.0 + 0.5 + (2.5 + 0.5)
+    assert points["P8"] == 1.0 + (2.5 + 0.5)
+    assert points["P9"] == 2.5 + 0.5 + (3.0 + 0.5)
+    # Nobody else had a bye, so nothing else moves.
+    assert points["P1"] == 4.0
+    assert points["P10"] == 1.5
+  end
+
+  test "result points alone are SWAR's stored Points: no presence, the bye's PreBye point included" do
+    {:ok, tournament, _warnings} =
+      import_synthetic!(%{sw321: @sw321, prebye: 1, nb_rounds: 2, players: every_kind_players()})
+
+    # `Points` (Classement.cpp:1385) holds only `ConvertPoint321`; the
+    # presence sum is `SpecialPts`, PreBye included.
+    assert points_by_name(tournament, presence: false) == %{
+             "P1" => 3.0,
+             "P2" => 1.0,
+             "P3" => 2.0,
+             "P4" => 2.0,
+             "P5" => 5.0,
+             "P6" => 2.0,
+             "P7" => 5.5,
+             "P8" => 3.5,
+             "P9" => 5.5,
+             "P10" => 1.0
+           }
+  end
+
+  test "a pairing bye (LOST_BYE on TABLE_BYE) imports as the pairing-allocated bye" do
+    {:ok, tournament, _warnings} =
+      import_synthetic!(%{sw321: @sw321, nb_rounds: 2, players: every_kind_players()})
+
+    byes =
+      for round <- PairingsEngine.Tournaments.list_rounds(tournament.id),
+          p <- PairingsEngine.Repo.preload(round, pairings: :white_player).pairings,
+          p.result == "bye",
+          do: {round.number, p.white_player.name}
+
+    assert Enum.sort(byes) == [{1, "P9"}, {2, "P7"}]
+  end
+
+  test "the engine's score column matches the standings for every result kind" do
+    {:ok, tournament, _warnings} =
+      import_synthetic!(%{sw321: @sw321, prebye: 1, nb_rounds: 2, players: every_kind_players()})
+
+    standings = points_by_name(tournament)
+
+    players = PairingsEngine.Tournaments.list_players(tournament.id)
+
+    for row <- PairingsEngine.Pairing.trf_player_rows(tournament, players) do
+      assert row.points == standings[row.name], row.name
+    end
+  end
+
+  test "a round trip through SWAR export keeps the SW321 fields, the type and every total" do
+    {:ok, tournament, _warnings} =
+      import_synthetic!(%{sw321: @sw321, prebye: 1, nb_rounds: 2, players: every_kind_players()})
+
+    binary = PairingsEngine.Federations.BEL.SwarExport.export(tournament.id)
+    {:ok, parsed} = SwarImport.parse(binary)
+
+    assert parsed.tournament.type == 3
+
+    assert {parsed.tournament.sw321_win, parsed.tournament.sw321_nul, parsed.tournament.sw321_los,
+            parsed.tournament.sw321_bye, parsed.tournament.sw321_pre} == @sw321
+
+    assert parsed.tournament.sw321_prebye == 1
+
+    path = Path.join(System.tmp_dir!(), "roundtrip-#{System.unique_integer([:positive])}.swar")
+    File.write!(path, binary)
+
+    try do
+      {:ok, again, _warnings} = SwarImport.import_file(path)
+      assert points_by_name(again) == points_by_name(tournament)
+    after
+      File.rm(path)
+    end
+  end
+
+  test "the codes SWAR's 3-2-1 dialog never writes import with a warning naming their rounds" do
+    players = [
+      %{ni: 1, name: "P1", rounds: [%{round_nr: 1, table: 0, advers: 0, result: @win_bye}]},
+      %{ni: 2, name: "P2", rounds: [%{round_nr: 1, table: 0, advers: 0, result: @draw_bye}]},
+      %{ni: 3, name: "P3", rounds: [game(1, 1, 4, @lost, 1), game(2, 1, 4, @draw_ff, 1)]},
+      %{ni: 4, name: "P4", rounds: [game(1, 1, 3, @win, -1), game(2, 1, 3, @draw_ff, -1)]}
+    ]
+
+    {:ok, _tournament, warnings} =
+      import_synthetic!(%{sw321: @sw321, nb_rounds: 2, players: players})
+
+    assert Enum.any?(warnings, &(is_binary(&1) and &1 =~ "3-2-1" and &1 =~ "(1, 2)"))
+  end
+
+  test "SW321_PreBye is read as a flag, not as a particular number" do
+    # `abs_value`, one field over, once checked `== 5` on the strength of a
+    # stale comment, and every real file with the box checked (raw 1) was
+    # read backwards. The real 3-2-1 fixture carries 1; SWAR writes 0/1
+    # (TOptions.cpp:703). Several nonzero values, none of them privileged.
+    for raw <- [1, 2, 4, 5, 8, 255] do
+      {:ok, tournament, _warnings} =
+        import_synthetic!(%{
+          sw321: {8, 4, 0, 8, 4},
+          prebye: raw,
+          players: [%{ni: 1, name: "Player, One", rounds: [pairing_bye(1)]}]
+        })
 
       assert tournament.presence_on_allocated_bye == true,
              "SW321_PreBye = #{raw} did not set the flag"
     end
   end
 
-  test "import_file/1 leaves presence_on_allocated_bye false when SW321_PreBye is zero, scoring a WIN_BYE at bye_value alone" do
-    opts = %{
-      version: "v6.60",
-      type: 3,
-      sw321: {8, 4, 0, 8, 4},
-      prebye: 0,
-      players: [
-        %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
-      ]
-    }
+  test "a pre-v6.03 file has no SW321_PreBye, so no bye presence point" do
+    {:ok, tournament, _warnings} =
+      import_synthetic!(%{
+        version: "v5.90",
+        sw321: {8, 4, 0, 8, 4},
+        players: [%{ni: 1, name: "Player, One", rounds: [pairing_bye(1)]}]
+      })
 
-    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
-
-    assert tournament.bye_value == 2.0
-    assert tournament.presence_on_allocated_bye == false
-
-    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
-    entries = Standings.standings(tournament)
-    entry = Enum.find(entries, &(&1.player.id == player.id))
-    # SW321_Bye (2.0) only - no presence add-on.
-    assert entry.points == 2.0
-  end
-
-  test "import_file/1 leaves presence_on_allocated_bye false when SW321_PreBye is absent (pre-v6.03 file)" do
-    opts = %{
-      # < v6.03 - SW321_PreBye isn't even present in the file format at this
-      # version, so it parses to `nil` regardless of what a caller might
-      # otherwise want to set.
-      version: "v5.90",
-      type: 3,
-      sw321: {8, 4, 0, 8, 4},
-      players: [
-        %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
-      ]
-    }
-
-    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
-
-    # 8/4 (SW321_Bye) only, and no flag - SW321_PreBye doesn't exist yet at
-    # this file version.
     assert tournament.bye_value == 2.0
     assert tournament.presence_value == 1.0
     assert tournament.presence_on_allocated_bye == false
+    assert points_by_name(tournament)["Player, One"] == 2.0
   end
+
+  test "a 3-2-1 file imports without being asked to" do
+    assert {:ok, tournament, _warnings} =
+             import_synthetic!(%{type: 3, sw321: {8, 4, 0, 8, 4}})
+
+    assert tournament.presence_value == 1.0
+  end
+
+  ## ---------- not a 3-2-1 file: none of it applies ----------
 
   test "import_file/1 never sets presence_on_allocated_bye for a non-3-2-1 tournament, even with SW321_PreBye bytes present" do
     opts = %{
       version: "v6.60",
-      # type != 3 - the whole 3-2-1 mapping (including the PreBye flag) must
-      # not fire at all, same regression guard as the presence_value test
-      # below.
       type: 0,
       sw321: {8, 4, 0, 8, 4},
       prebye: 4,
@@ -351,19 +472,13 @@ defmodule PairingsEngine.Federations.BEL.SwarImportPresenceTest do
 
     assert tournament.presence_on_allocated_bye == false
     assert tournament.presence_value == nil
-
-    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
-    entries = Standings.standings(tournament)
-    entry = Enum.find(entries, &(&1.player.id == player.id))
-    # Scores at the schema-default bye_value (1.0) with no presence add-on.
-    assert entry.points == 1.0
+    # The schema-default bye_value (1.0), no presence add-on.
+    assert points_by_name(tournament)["Player, One"] == 1.0
   end
 
   test "import_file/1 leaves presence_value nil and requested-zero byes at plain points_loss for a non-3-2-1 tournament" do
     opts = %{
       version: "v6.60",
-      # type != 3 - 3-2-1 mapping must not fire at all, same regression this
-      # guards for the ordinary points_win/points_draw/points_loss fields.
       type: 0,
       sw321: {8, 4, 0, 8, 4},
       players: [
@@ -375,50 +490,6 @@ defmodule PairingsEngine.Federations.BEL.SwarImportPresenceTest do
 
     assert tournament.presence_value == nil
     assert tournament.points_loss == 0.0
-
-    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
-    entries = Standings.standings(tournament)
-    entry = Enum.find(entries, &(&1.player.id == player.id))
-
-    # Unchanged behaviour: falls straight through to points_loss (0.0) since
-    # presence_value is nil.
-    assert entry.points == 0.0
-  end
-
-  describe "3-2-1 import is switched off" do
-    # Every test in this file passes `allow_swiss321: true`, which is the
-    # test-only door. The DEFAULT - what the app actually does - is to
-    # refuse, because the scoring is not fully settled: SWAR pays a presence
-    # point per round attended (verified against its own source, and modelled
-    # in Standings), but what a BYE is worth under the scheme is unresolved,
-    # and the only real fixture has SW321_Bye, SW321_Pre and
-    # points_loss + presence all equal to 1.0, so it cannot tell the
-    # candidate models apart.
-    #
-    # Importing anyway would produce a standings table that looks right and
-    # is wrong, which is the worst available outcome.
-    defp import_without_optin(opts) do
-      binary = build_swar_binary(opts)
-      path = Path.join(System.tmp_dir!(), "refuse-#{System.unique_integer([:positive])}.swar")
-      File.write!(path, binary)
-
-      try do
-        SwarImport.import_file(path)
-      after
-        File.rm(path)
-      end
-    end
-
-    test "a 3-2-1 file is refused by default, with an explanation" do
-      assert {:error, message} = import_without_optin(%{type: 3, sw321: {8, 4, 0, 8, 4}})
-
-      assert message =~ "3-2-1"
-      assert message =~ "cannot import yet"
-      assert message =~ "planned"
-    end
-
-    test "every other tournament type still imports" do
-      assert {:ok, _tournament, _warnings} = import_without_optin(%{type: 0})
-    end
+    assert points_by_name(tournament)["Player, One"] == 0.0
   end
 end

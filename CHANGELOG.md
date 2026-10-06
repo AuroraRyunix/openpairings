@@ -17,6 +17,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **SWAR 3-2-1 tournaments import.** A `.swar` file of SWAR's
+  "3-2-1" type was refused; it now imports, scored exactly as SWAR scores
+  it, by rules read off SWAR's own source: the club's win, draw and loss
+  values, a presence point for every round the player was there (a game, a
+  0-0, a ½-0, a forfeit win - not a forfeit loss, a double forfeit or an
+  absence), every bye worth the club's bye value plus, when the club ticks
+  it, a presence point, and an absence nothing. A pairing bye is worth 2
+  points under the usual settings, where the earlier, switched-off mapping
+  paid 1. The few codes SWAR's own 3-2-1 dialog never writes (a bye scored
+  as a win or a draw, a draw by forfeit) import with a warning naming the
+  rounds. Exporting a 3-2-1 tournament keeps its values, and a Swiss with
+  its own point values, which goes to SWAR as a 3-2-1 file, now imports
+  back. One difference stays: SWAR computes some tie-breaks (Koya among
+  them) on the 1, ½, 0 scale in a 3-2-1 event, where OpenPairings uses the
+  tournament's own points. Tournaments created here score as before.
+
 - [Fix] **A player's bye controls no longer vanish without a word.** With
   "Bye preferences" switched on, a tournament where they cannot apply (a
   FIDE-rated one, JaVaFo as the engine, a round robin, Keizer or a team

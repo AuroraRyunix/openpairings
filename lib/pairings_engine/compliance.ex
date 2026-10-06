@@ -103,10 +103,6 @@ defmodule PairingsEngine.Compliance do
       pairing in it is still a Berger pairing and everybody still meets
       everybody with the same colours. It changes the order of rounds, not
       who meets whom.
-    * **`allow_swiss321`** is not a tournament setting at all - it is an
-      option on `Federations.BEL.SwarImport.parse/2`, and the import is
-      refused without it for data-fidelity reasons that have nothing to do
-      with FIDE.
 
   The line that survived all of that: **a departure is a setting that
   changes who plays whom, or what a game is worth, away from what the FIDE

@@ -12230,17 +12230,17 @@ msgstr "Als individueel toernooi blijft elke partij bewaard - resultaten, kleure
 msgid "Import the games as an individual tournament"
 msgstr "De partijen importeren als individueel toernooi"
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:742
+#: lib/pairings_engine/federations/bel/swar_import.ex:724
 #, elixir-autogen, elixir-format
 msgid "This SWAR file is a kind of tournament OpenPairings does not know (type %{type}, saved by SWAR %{version}). It may be something a newer SWAR added - a team competition, for instance - so it has not been imported: read as an ordinary Swiss, its pairings and scores could come out wrong. Please report it and include the file, so that support can be added."
 msgstr "Dit SWAR-bestand is een soort toernooi dat OpenPairings niet kent (type %{type}, bewaard door SWAR %{version}). Het kan iets zijn wat een nieuwere SWAR heeft toegevoegd - een ploegencompetitie bijvoorbeeld - dus het is niet geïmporteerd: gelezen als een gewoon Zwitsers toernooi zouden de paringen en scores fout kunnen uitkomen. Meld het en voeg het bestand toe, zodat het ondersteund kan worden."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:782
+#: lib/pairings_engine/federations/bel/swar_import.ex:764
 #, elixir-autogen, elixir-format
 msgid "This SWAR file is a team competition in SWAR's team mode. SWAR keeps only the individual games in the file: which team each player plays for, the board order, the matches and the match points are kept outside it, so OpenPairings cannot rebuild the team event from it. You can import the games as an individual tournament, or set up the team tournament here: create it with Team tournament ticked and enter the teams on its Teams page."
 msgstr "Dit SWAR-bestand is een ploegencompetitie in de ploegenmodus van SWAR. SWAR bewaart in het bestand alleen de individuele partijen: voor welke ploeg elke speler speelt, de bordvolgorde, de wedstrijden en de matchpunten worden erbuiten bijgehouden, dus OpenPairings kan het ploegentoernooi er niet uit opbouwen. Je kunt de partijen importeren als individueel toernooi, of het ploegentoernooi hier opzetten: maak het aan met Ploegentoernooi aangevinkt en voer de ploegen in op de pagina Ploegen."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:2067
+#: lib/pairings_engine/federations/bel/swar_import.ex:2088
 #, elixir-autogen, elixir-format
 msgid "This SWAR file keeps players of the same club apart, and that rule has been carried over. SWAR tells clubs apart by club number, OpenPairings by club name, and in this file the two do not match for every player - a club spelled two ways, two clubs with one name, or players without a club number. Check the clubs on the Players page and the rule under Settings before pairing the next round."
 msgstr "Dit SWAR-bestand houdt spelers van dezelfde club uit elkaar, en die regel is overgenomen. SWAR onderscheidt clubs op clubnummer, OpenPairings op clubnaam, en in dit bestand komen die twee niet voor elke speler overeen - een club die op twee manieren gespeld is, twee clubs met één naam, of spelers zonder clubnummer. Controleer de clubs op de Spelers-pagina en de regel in de instellingen voor je de volgende ronde paart."
@@ -12250,12 +12250,12 @@ msgstr "Dit SWAR-bestand houdt spelers van dezelfde club uit elkaar, en die rege
 msgid "This is a team competition"
 msgstr "Dit is een ploegencompetitie"
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1811
+#: lib/pairings_engine/federations/bel/swar_export.ex:1817
 #, elixir-autogen, elixir-format
 msgid "A SWAR 7 file has one rating per player: the FIDE rating is written, and a national rating that differs from it is not."
 msgstr "Een SWAR 7-bestand heeft één rating per speler: de FIDE-rating wordt weggeschreven, een nationale rating die daarvan verschilt niet."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1703
+#: lib/pairings_engine/federations/bel/swar_export.ex:1709
 #, elixir-autogen, elixir-format
 msgid "Baku acceleration is not written: SWAR's own accelerated Swiss groups and scores players differently. The rounds already played are in the file as they are."
 msgstr "De Baku-versnelling wordt niet weggeschreven: het versnelde Zwitsers van SWAR zelf deelt spelers anders in groepen in en telt anders. De al gespeelde rondes staan in het bestand zoals ze zijn."
@@ -12275,22 +12275,22 @@ msgstr "Elke categorie krijgt haar eigen stand, genummerd vanaf 1, en een gelijk
 msgid "Each category is ranked on its own: the table lists the categories one after another, and the place is the player's place in their category."
 msgstr "Elke categorie heeft haar eigen rangschikking: de tabel toont de categorieën na elkaar, en de plaats is de plaats van de speler in zijn categorie."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1746
+#: lib/pairings_engine/federations/bel/swar_export.ex:1752
 #, elixir-autogen, elixir-format
 msgid "Extra points are not written for a round robin: SWAR discards them when it opens one."
 msgstr "Extra punten worden niet weggeschreven voor een gesloten toernooi: SWAR gooit ze weg wanneer het er een opent."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1717
+#: lib/pairings_engine/federations/bel/swar_export.ex:1723
 #, elixir-autogen, elixir-format
 msgid "Match format with categories paired separately goes to SWAR as its \"double rounds\" Swiss with separate categories."
 msgstr "Matchformaat met apart gepaarde categorieën gaat naar SWAR als zijn Zwitsers met \"dubbele rondes\" en aparte categorieën."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1738
+#: lib/pairings_engine/federations/bel/swar_export.ex:1744
 #, elixir-autogen, elixir-format
 msgid "Players' extra points are not written, because this tournament does not count them and SWAR always would."
 msgstr "De extra punten van de spelers worden niet weggeschreven, omdat dit toernooi ze niet meetelt en SWAR dat altijd zou doen."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1832
+#: lib/pairings_engine/federations/bel/swar_export.ex:1838
 #, elixir-autogen, elixir-format
 msgid "Postponed games are written as not played yet, which is what SWAR has for them; what they count as until then is not in the file."
 msgstr "Uitgestelde partijen worden weggeschreven als nog niet gespeeld, wat SWAR ervoor heeft; wat ze tot dan tellen, staat niet in het bestand."
@@ -12300,17 +12300,17 @@ msgstr "Uitgestelde partijen worden weggeschreven als nog niet gespeeld, wat SWA
 msgid "Rank each category separately"
 msgstr "Elke categorie apart rangschikken"
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1099
+#: lib/pairings_engine/federations/bel/swar_import.ex:1082
 #, elixir-autogen, elixir-format
 msgid "Round %{rounds} was not imported: nobody in it has a game, a bye or a result, which is how SWAR saves a round it has not paired yet. Pair it here."
 msgstr "Ronde %{rounds} is niet geïmporteerd: niemand heeft er een partij, een bye of een resultaat in, en zo bewaart SWAR een ronde die het nog niet gepaard heeft. Paar ze hier."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1828
+#: lib/pairings_engine/federations/bel/swar_export.ex:1834
 #, elixir-autogen, elixir-format
 msgid "SWAR has no \"played but not rated\" result: those games are written as ordinary rated results."
 msgstr "SWAR heeft geen resultaat \"gespeeld maar niet voor rating\": die partijen worden weggeschreven als gewone resultaten voor rating."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1695
+#: lib/pairings_engine/federations/bel/swar_export.ex:1701
 #, elixir-autogen, elixir-format
 msgid "SWAR has no Keizer system: the tournament is written as a Swiss, with its games and results. Its Keizer standings are not in the file."
 msgstr "SWAR heeft geen Keizersysteem: het toernooi wordt weggeschreven als een Zwitsers toernooi, met zijn partijen en resultaten. De Keizerstand staat niet in het bestand."
@@ -12320,22 +12320,22 @@ msgstr "SWAR heeft geen Keizersysteem: het toernooi wordt weggeschreven als een 
 msgid "SWAR has no soft pairing wishes: the pairs to avoid if possible, and the wish to keep clubmates apart in the first rounds, are not in the file."
 msgstr "SWAR kent geen zachte paringswensen: de paren die liefst vermeden worden, en de wens om clubgenoten in de eerste rondes uit elkaar te houden, staan niet in het bestand."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1699
+#: lib/pairings_engine/federations/bel/swar_export.ex:1705
 #, elixir-autogen, elixir-format
 msgid "SWAR has no team tournaments: the individual games are written, but the teams, the matches and the match points are not in the file."
 msgstr "SWAR heeft geen ploegentoernooien: de individuele partijen worden weggeschreven, maar de ploegen, de wedstrijden en de matchpunten staan niet in het bestand."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1797
+#: lib/pairings_engine/federations/bel/swar_export.ex:1803
 #, elixir-autogen, elixir-format
 msgid "SWAR has no tie-break for %{codes}: it is left out of the file's tie-break list, and SWAR will rank without it."
 msgstr "SWAR heeft geen weerstandspunten voor %{codes}: ze blijven uit de lijst in het bestand, en SWAR rangschikt zonder."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1712
+#: lib/pairings_engine/federations/bel/swar_export.ex:1718
 #, elixir-autogen, elixir-format
 msgid "SWAR has one setting for pairing and ranking each category on its own, and this tournament does only one of the two. The file switches it on, so SWAR will both pair and rank each category separately."
 msgstr "SWAR heeft één instelling om elke categorie apart te paren en te rangschikken, en dit toernooi doet maar één van de twee. Het bestand zet ze aan, dus SWAR zal elke categorie zowel apart paren als apart rangschikken."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1773
+#: lib/pairings_engine/federations/bel/swar_export.ex:1779
 #, elixir-autogen, elixir-format
 msgid "SWAR holds 16 categories; the ones after the 16th, and the players' places in them, are not in the file."
 msgstr "SWAR kent 16 categorieën; die na de 16de, en de plaats van de spelers erin, staan niet in het bestand."
@@ -12345,32 +12345,27 @@ msgstr "SWAR kent 16 categorieën; die na de 16de, en de plaats van de spelers e
 msgid "SWAR keeps clubmates apart by club number, and here the club numbers do not match the club names for every player (a club without a number, or one number for two names). The club rule is written as groups of player numbers whose members never meet, which keep exactly the same players apart - but a player added in SWAR later is in no group, and re-importing the file brings them back as forbidden pairs."
 msgstr "SWAR houdt clubgenoten uit elkaar op clubnummer, en hier komen de clubnummers niet voor elke speler overeen met de clubnamen (een club zonder nummer, of één nummer voor twee namen). De clubregel wordt weggeschreven als groepen spelersnummers waarvan de leden elkaar nooit ontmoeten, die precies dezelfde spelers uit elkaar houden - maar een speler die later in SWAR wordt toegevoegd, zit in geen enkele groep, en wie het bestand opnieuw importeert, krijgt ze terug als verboden paren."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1789
+#: lib/pairings_engine/federations/bel/swar_export.ex:1795
 #, elixir-autogen, elixir-format
 msgid "SWAR keeps five tie-breaks; the ones after the fifth are not in the file."
 msgstr "SWAR bewaart vijf weerstandspunten; die na de vijfde staan niet in het bestand."
-
-#: lib/pairings_engine/federations/bel/swar_export.ex:1734
-#, elixir-autogen, elixir-format
-msgid "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values. OpenPairings cannot import a 3-2-1 file back yet."
-msgstr "SWAR bewaart eigen puntwaarden enkel voor zijn type \"3-2-1\", dus het bestand is een 3-2-1-toernooi met de waarden van dit toernooi. OpenPairings kan een 3-2-1-bestand nog niet terug importeren."
 
 #: lib/pairings_engine/federations/bel/swar_export.ex:792
 #, elixir-autogen, elixir-format
 msgid "SWAR keeps one exclusion rule, and this tournament has more than one (club, federation or forbidden pairs). They are written as groups of player numbers whose members never meet, which keep exactly the same players apart - but a player added in SWAR later is in no group, and re-importing the file brings them back as forbidden pairs, not as club or federation rules."
 msgstr "SWAR bewaart één uitsluitingsregel, en dit toernooi heeft er meer dan één (club, federatie of verboden paren). Ze worden weggeschreven als groepen spelersnummers waarvan de leden elkaar nooit ontmoeten, die precies dezelfde spelers uit elkaar houden - maar een speler die later in SWAR wordt toegevoegd, zit in geen enkele groep, en wie het bestand opnieuw importeert, krijgt ze terug als verboden paren, niet als club- of federatieregels."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1730
+#: lib/pairings_engine/federations/bel/swar_export.ex:1736
 #, elixir-autogen, elixir-format
 msgid "SWAR scores a round robin 1, ½ and 0 only: this tournament's own point values are not in the file, and SWAR will score its games the usual way."
 msgstr "SWAR telt een gesloten toernooi enkel met 1, ½ en 0: de eigen puntwaarden van dit toernooi staan niet in het bestand, en SWAR zal de partijen op de gewone manier tellen."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1777
+#: lib/pairings_engine/federations/bel/swar_export.ex:1783
 #, elixir-autogen, elixir-format
 msgid "The conditions that fill a category automatically are not written: SWAR's categories are names, and every player goes with the category they are in now."
 msgstr "De voorwaarden die een categorie automatisch vullen, worden niet weggeschreven: de categorieën van SWAR zijn namen, en elke speler gaat mee met de categorie waarin hij nu zit."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1750
+#: lib/pairings_engine/federations/bel/swar_export.ex:1756
 #, elixir-autogen, elixir-format
 msgid "The extra-point bands are not written: SWAR's band table gives points to players at or above a rating, these to players below one. The points already given to players are."
 msgstr "De schijven voor extra punten worden niet weggeschreven: de tabel van SWAR geeft punten aan spelers vanaf een rating, deze aan spelers eronder. De punten die spelers al kregen, wel."
@@ -12380,32 +12375,32 @@ msgstr "De schijven voor extra punten worden niet weggeschreven: de tabel van SW
 msgid "The rule keeping players of the same federation apart is written as SWAR's own \"every nationality\" rule - which SWAR 6.65 does not apply (a known SWAR defect). If the tournament is continued in SWAR, check its pairings for compatriots."
 msgstr "De regel die spelers van dezelfde federatie uit elkaar houdt, wordt weggeschreven als de eigen regel \"elke nationaliteit\" van SWAR - die SWAR 6.65 niet toepast (een gekende fout in SWAR). Wordt het toernooi in SWAR voortgezet, controleer de paringen dan op landgenoten."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1707
+#: lib/pairings_engine/federations/bel/swar_export.ex:1713
 #, elixir-autogen, elixir-format
 msgid "The standings order set by hand is not written: SWAR ranks by its own tie-breaks."
 msgstr "De met de hand bepaalde volgorde van de stand wordt niet weggeschreven: SWAR rangschikt op zijn eigen weerstandspunten."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1006
+#: lib/pairings_engine/federations/bel/swar_import.ex:989
 #, elixir-autogen, elixir-format
 msgid "This SWAR file has a part after the player list that OpenPairings cannot read (%{bytes} bytes, saved by SWAR %{version}). The tournament has been imported without it. Every SWAR file checked so far ends with the player list, so this is probably something a newer SWAR stores - teams, for instance: check the tournament against SWAR before pairing, and please report it with the file so that support can be added."
 msgstr "Dit SWAR-bestand heeft na de spelerslijst een deel dat OpenPairings niet kan lezen (%{bytes} bytes, bewaard door SWAR %{version}). Het toernooi is zonder dat deel geïmporteerd. Elk SWAR-bestand dat tot nu toe is nagekeken, eindigt met de spelerslijst, dus dit is waarschijnlijk iets wat een nieuwere SWAR bewaart - ploegen bijvoorbeeld: vergelijk het toernooi met SWAR voor je paart, en meld het met het bestand erbij, zodat het ondersteund kan worden."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1019
+#: lib/pairings_engine/federations/bel/swar_import.ex:1002
 #, elixir-autogen, elixir-format
 msgid "This SWAR file is a player list to start tournaments from - its players have an empty round 0 and no rounds. It has been imported as a tournament with its players and no rounds: check its name, dates and settings before pairing round 1."
 msgstr "Dit SWAR-bestand is een spelerslijst om toernooien mee te beginnen - de spelers hebben een lege ronde 0 en geen rondes. Het is geïmporteerd als een toernooi met zijn spelers en zonder rondes: controleer de naam, de data en de instellingen voor je ronde 1 paart."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1037
+#: lib/pairings_engine/federations/bel/swar_import.ex:1020
 #, elixir-autogen, elixir-format
 msgid "This SWAR file is an accelerated Swiss. SWAR's acceleration adds points to groups of players by the size of the field; OpenPairings' acceleration is FIDE's Baku method, which works differently, so the tournament has been imported without acceleration. The rounds already played are unaffected; turn on Baku acceleration in Settings if you want it for the rest."
 msgstr "Dit SWAR-bestand is een versneld Zwitsers toernooi. De versnelling van SWAR geeft groepen spelers punten naargelang de grootte van het veld; de versnelling van OpenPairings is de Baku-methode van de FIDE, die anders werkt, dus het toernooi is zonder versnelling geïmporteerd. De al gespeelde rondes veranderen niet; zet de Baku-versnelling aan in de instellingen als je ze voor de rest wilt."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1783
+#: lib/pairings_engine/federations/bel/swar_import.ex:1804
 #, elixir-autogen, elixir-format
 msgid "This SWAR file pairs each category on its own, and plays every round twice (SWAR's \"double rounds\"). OpenPairings does not pair by category together with match format, so its categories are ranked separately but any further round is paired as one field. Check the pairings before publishing them."
 msgstr "Dit SWAR-bestand paart elke categorie apart, en speelt elke ronde twee keer (de \"dubbele rondes\" van SWAR). OpenPairings paart niet per categorie samen met het matchformaat, dus de categorieën worden apart gerangschikt maar elke volgende ronde wordt als één veld gepaard. Controleer de paringen voor je ze publiceert."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1045
+#: lib/pairings_engine/federations/bel/swar_import.ex:1028
 #, elixir-autogen, elixir-format
 msgid "This SWAR file plays every round twice (SWAR's \"double rounds\") but has an odd number of rounds, which match format cannot hold. It has been imported as an ordinary Swiss: any further round is paired on its own."
 msgstr "Dit SWAR-bestand speelt elke ronde twee keer (de \"dubbele rondes\" van SWAR) maar heeft een oneven aantal rondes, wat het matchformaat niet aankan. Het is geïmporteerd als een gewoon Zwitsers toernooi: elke volgende ronde wordt op zichzelf gepaard."
@@ -12455,7 +12450,7 @@ msgstr "Speelt mee vanaf ronde"
 msgid "On (the default) = a player who joins in round 4 is scored for rounds 1-3 as if absent: the points above, within both limits, and they use up the absences allowed. This is what SWAR does. Off = those rounds score nothing."
 msgstr "Aan (standaard) = een speler die in ronde 4 instapt, krijgt voor ronde 1-3 wat een afwezigheid oplevert: de punten hierboven, binnen beide grenzen, en ze tellen mee voor het aantal toegestane afwezigheden. Zo doet SWAR het ook. Uit = die rondes leveren niets op."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1818
+#: lib/pairings_engine/federations/bel/swar_export.ex:1824
 #, elixir-autogen, elixir-format
 msgid "Players who joined after round 1 are written as not having played the rounds before it: SWAR has no \"joined in round\"."
 msgstr "Spelers die na ronde 1 instapten, staan in het bestand als niet gespeeld in de rondes daarvoor: SWAR kent geen \"speelt mee vanaf ronde\"."
@@ -12565,7 +12560,7 @@ msgstr "Punten die een speler bovenop zijn partijpunten heeft (SWAR \"XtPts\"). 
 msgid "Remove half a point"
 msgstr "Een half punt afnemen"
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1754
+#: lib/pairings_engine/federations/bel/swar_export.ex:1760
 #, elixir-autogen, elixir-format
 msgid "SWAR holds four extra-point bands: the four with the highest ratings are written, the others are not. The points already given to players are."
 msgstr "SWAR kent vier schijven voor extra punten: de vier met de hoogste rating worden geschreven, de andere niet. De punten die spelers al kregen, wel."
@@ -12582,17 +12577,17 @@ msgid_plural "Set extra points for %{matched} of %{count} players."
 msgstr[0] "Extra punten ingesteld voor %{matched} van %{count} speler."
 msgstr[1] "Extra punten ingesteld voor %{matched} van %{count} spelers."
 
-#: lib/pairings_engine/federations/bel/swar_export.ex:1742
+#: lib/pairings_engine/federations/bel/swar_export.ex:1748
 #, elixir-autogen, elixir-format
 msgid "The acceleration points are written as SWAR's XtraPoints, which SWAR pairs with as this tournament does - but SWAR also counts them in its standings, which this tournament does not."
 msgstr "De versnellingspunten worden geschreven als de XtraPoints van SWAR, waarmee SWAR paart zoals dit toernooi - maar SWAR telt ze ook in zijn stand, wat dit toernooi niet doet."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1170
+#: lib/pairings_engine/federations/bel/swar_import.ex:1191
 #, elixir-autogen, elixir-format
 msgid "This file carries SWAR XtraPoints. They are imported as acceleration points, which is how SWAR uses them: every round they go to the pairing engine as virtual points, and they count in the standings (Settings, Extra points, where you can also take them off part-way). The rounds already in the file keep the virtual points SWAR paired them with."
 msgstr "Dit bestand bevat XtraPoints van SWAR. Ze worden geïmporteerd als versnellingspunten, zoals SWAR ze gebruikt: elke ronde gaan ze als virtuele punten naar de paringsengine, en ze tellen mee in de stand (Instellingen, Extra punten, waar je ze onderweg ook kunt afbouwen). De rondes die al in het bestand staan, houden de virtuele punten waarmee SWAR ze paarde."
 
-#: lib/pairings_engine/federations/bel/swar_import.ex:1177
+#: lib/pairings_engine/federations/bel/swar_import.ex:1198
 #, elixir-autogen, elixir-format
 msgid "This file carries a SWAR XtraPoints table, which SWAR uses to give players extra points for acceleration. No player has any yet, so nothing changes. The table is imported as the acceleration bands under Settings, Extra points: \"Apply bands to players\" there gives players their points, as SWAR's \"Assign\" does."
 msgstr "Dit bestand bevat een XtraPoints-tabel van SWAR, waarmee SWAR spelers extra punten voor versnelling geeft. Nog geen enkele speler heeft er, dus er verandert niets. De tabel wordt geïmporteerd als de versnellingsschijven onder Instellingen, Extra punten: \"Schijven toepassen op spelers\" daar geeft spelers hun punten, zoals \"Assign\" in SWAR."
@@ -16005,3 +16000,13 @@ msgstr "Uitsluiten van de door de paring toegekende bye: alleen voor een individ
 #, elixir-autogen, elixir-format
 msgid "Bye preference: not available - this tournament is FIDE-rated, and a preference is not a FIDE rule. The exclusion above is the only way to keep a player off the bye."
 msgstr "Byevoorkeur: niet beschikbaar - dit toernooi is FIDE-gerate en een voorkeur is geen FIDE-regel. De uitsluiting hierboven is de enige manier om een speler van de bye te houden."
+
+#: lib/pairings_engine/federations/bel/swar_import.ex:1135
+#, elixir-autogen, elixir-format
+msgid "This 3-2-1 file has rounds (%{rounds}) with a bye scored as a win or a draw, a draw by forfeit, or an absence with a result. SWAR scores those in a way OpenPairings has no equivalent for, so check those rounds' points against SWAR's own standings."
+msgstr "Dit 3-2-1-bestand heeft rondes (%{rounds}) met een bye die als winst of remise geldt, een remise bij forfait, of een afwezigheid met een uitslag. SWAR telt die op een manier waarvoor OpenPairings geen tegenhanger heeft; vergelijk de punten van die rondes met de eigen stand van SWAR."
+
+#: lib/pairings_engine/federations/bel/swar_export.ex:1740
+#, elixir-autogen, elixir-format
+msgid "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values, scored by that type's rules - by SWAR, and by OpenPairings when it is imported back: a zero-point bye is worth the bye value, an absence nothing, and a 0-0 nothing."
+msgstr "SWAR bewaart eigen puntwaarden enkel voor zijn type \"3-2-1\", dus het bestand is een 3-2-1-toernooi met de waarden van dit toernooi, geteld volgens de regels van dat type - door SWAR, en door OpenPairings wanneer het terug wordt ingelezen: een bye van nul punten is de byewaarde waard, een afwezigheid niets, en een 0-0 niets."

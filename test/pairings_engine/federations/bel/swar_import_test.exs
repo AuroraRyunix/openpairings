@@ -360,7 +360,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
   # lost on import.
   @tag :swar_fixture
   test "import_file/1 warns when the real fixture's points_adjusted disagrees with the recomputed total" do
-    {:ok, tournament, warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+    {:ok, tournament, warnings} = SwarImport.import_file(@test3_321)
 
     assert tournament.id
 
@@ -396,25 +396,19 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
   # each club sets its own win/draw/loss scale, and this fixture's club
   # happens to use 2/1/0. `SW321_Bye` (raw 4 → 1.0) and `SW321_Pre` (raw
   # 4 → 1.0) are also configured here, and this file's `SW321_PreBye` is
-  # nonzero (raw 1) - per the manual (§5.16, "Add presence points for bye
-  # games") that means a pairing-allocated bye pays `SW321_Bye + SW321_Pre`,
-  # modelled as `presence_on_allocated_bye: true` (consulted by
-  # `Standings.bye_points/2`) while `bye_value` stays at plain `SW321_Bye`.
-  # An earlier fix folded the sum into `bye_value` (2.0) instead - right
-  # totals, but it redefined `bye_value` away from the club's configured
-  # SW321_Bye. Note this fixture contains NO pairing-allocated bye at all
-  # (no WIN_BYE result, no TABLE_BYE table value, verified by scanning every
-  # [RONDE] entry), so the flag's scoring arithmetic can't be exercised
-  # against a real player's stored total here - that's covered by the
-  # synthetic-binary tests in swar_import_presence_test.exs. The behavioral
-  # check that CAN run on this file: "Descheemaeker, Tom" has two LOST_BYE
-  # rounds and two ordinary losses, and his real SWAR total (`points_raw /
-  # 4`, from his own file record) only reconciles once LOST_BYE rounds score
-  # at `presence_value` (not `points_loss`).
+  # nonzero (raw 1): every bye pays `SW321_Bye` plus a presence point
+  # (Classement.cpp:150-151), modelled as `presence_on_allocated_bye: true`
+  # while `bye_value` stays at plain `SW321_Bye`.
+  #
+  # Its byes are all LOST_BYE on table 4096 - `TABLE_BYE` (Swar.h:140) - so
+  # they are pairing byes, which is what SWAR writes for a 3-2-1 event
+  # (`ByeValue` forced to `PTS_0`, TOptions.cpp:566; PairingSwiss.cpp:390).
+  # An earlier comment here said the file had no `TABLE_BYE` at all; it has
+  # eight, and they import as pairing-allocated byes now.
 
   test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
     assert {:ok, tournament, _warnings} =
-             SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+             SwarImport.import_file(@test3_321)
 
     assert tournament.points_win == 2.0
     assert tournament.points_draw == 1.0
@@ -428,7 +422,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
   end
 
   test "import_file/1 reproduces SWAR's stored result-only total, and adds presence on top for the displayed score" do
-    {:ok, data} = SwarImport.parse(File.read!(@test3_321), allow_swiss321: true)
+    {:ok, data} = SwarImport.parse(File.read!(@test3_321))
     tom = Enum.find(data.players, &(&1.name == "Descheemaeker, Tom"))
     # Non-circular check: this player's own raw `Points` field (SWAR's
     # stored total, ÷4 like every other SW321_* field) is the ground truth
@@ -436,7 +430,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
     assert tom.points == 8
 
     assert {:ok, tournament, _warnings} =
-             SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+             SwarImport.import_file(@test3_321)
 
     [player] =
       Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
@@ -458,11 +452,54 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
 
     assert presence_free.points == 2.0
 
-    # The full total adds one presence point per round ATTENDED. He played
-    # two ordinary losses, so +2.0. This is the number a 3-2-1 standings
-    # table actually shows, and the reason the scheme is called 3-2-1 rather
-    # than 2-1-0.
-    assert entry.points == 4.0
+    # The full total adds one presence point per round attended - his two
+    # losses - and, with SW321_PreBye set, one per bye (Classement.cpp:
+    # 137-157): 2.0 + 2 * 1.0 + 2 * 1.0 = 6.0. This test used to expect
+    # 4.0, which paid the byes' presence point nowhere; the earlier guess
+    # scored each LOST_BYE at `SW321_Pre` alone, and Bye = Pre = 1.0 here
+    # hid it.
+    assert entry.points == 6.0
+  end
+
+  # Every player's total in the real file, against SWAR's own rules applied
+  # to the file's own records - written out here independently of the
+  # import: `ConvertPoint321` (Utils.cpp:1206-1222) for the result,
+  # `GetPresentPtsUntilRound` (Classement.cpp:137-157) for presence.
+  test "every player of the real 3-2-1 file totals what SWAR's rules give from the file's own records" do
+    {:ok, data} = SwarImport.parse(File.read!(@test3_321))
+    t = data.tournament
+    pre = t.sw321_pre
+
+    result_points = fn
+      code when code in [0x4000, 0x0004] -> t.sw321_win
+      code when code in [0x2000, 0x0002, 0x0200] -> t.sw321_nul
+      code when code in [0x1000, 0x0001, 0x0100] -> t.sw321_los
+      0x0010 -> t.sw321_bye
+      _ -> 0
+    end
+
+    presence = fn code ->
+      # NORMAUX 0xF000 | RESULTATS_WIN 0x4044 | SPECIAUX 0x0F00 (Swar.h:240-246)
+      played = if Bitwise.band(code, 0xFF44) != 0, do: pre, else: 0
+      bye = if Bitwise.band(code, 0x00F0) != 0 and t.sw321_prebye != 0, do: pre, else: 0
+      played + bye
+    end
+
+    expected =
+      Map.new(data.players, fn p ->
+        quarters = Enum.sum(for r <- p.rounds, do: result_points.(r.result) + presence.(r.result))
+        {p.name, quarters / 4}
+      end)
+
+    # The result part alone is the file's own stored `Points`.
+    for p <- data.players do
+      assert Enum.sum(for r <- p.rounds, do: result_points.(r.result)) == p.points, p.name
+    end
+
+    {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
+
+    actual = Map.new(Standings.standings(tournament), &{&1.player.name, &1.points})
+    assert actual == expected
   end
 
   test "import_file/1 leaves scoring at schema defaults for a standard (non-3-2-1) tournament" do
@@ -499,7 +536,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
   @tag :javafo
   test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
     assert {:ok, tournament, _warnings} =
-             SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+             SwarImport.import_file(@test3_321)
 
     assert {:ok, tournament} = Tournaments.update_tournament(tournament, %{rounds_count: 9})
 
@@ -689,7 +726,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
 
       path = c_reeks_with_deloof_fide_id_blanked!(tmp_dir)
 
-      {:ok, tournament, _warnings} = SwarImport.import_file(path, nil, allow_swiss321: true)
+      {:ok, tournament, _warnings} = SwarImport.import_file(path)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == 210_234
     end
@@ -715,7 +752,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
       assert [%{fide_id: 999_999, birth_year: 1960}] = candidates
 
       # And the non-interactive path leaves it unmatched too - nobody to ask.
-      {:ok, tournament, _warnings} = SwarImport.import_file(path, nil, allow_swiss321: true)
+      {:ok, tournament, _warnings} = SwarImport.import_file(path)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == nil
 

@@ -189,9 +189,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
     File.write!(path, binary)
 
     try do
-      # `allow_swiss321: true` because one case here is a type-3 file and
-      # 3-2-1 import is switched off by default - see SwarImport.swiss321?/1.
-      SwarImport.import_file(path, nil, allow_swiss321: true)
+      SwarImport.import_file(path)
     after
       File.rm(path)
     end
@@ -256,7 +254,13 @@ defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
     assert entry.points == 0.5
   end
 
-  test "an \"absent\" bye scores at abs_value for a 3-2-1 (type == 3) import too - the field is type-independent" do
+  # abs_value itself is mapped for every type (the export writes it back),
+  # but a 3-2-1 tournament never pays it: SWAR scores every 3-2-1 round with
+  # `ConvertPoint321` (Classement.cpp:102-105), which gives an absence -
+  # `TABLE_ABSENT`, no result - nothing, and no presence point either. This
+  # test used to expect 0.5, from before the 3-2-1 rules were read off the
+  # source.
+  test "an \"absent\" bye scores nothing in a 3-2-1 (type == 3) import, whatever abs_value says" do
     opts = %{
       type: 3,
       sw321: {8, 4, 0, 8, 4},
@@ -268,13 +272,11 @@ defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
 
     assert {:ok, tournament, _warnings} = import_synthetic!(opts)
     assert tournament.abs_value == 0.5
-    # Confirms abs_value is mapped even though this is a 3-2-1 import whose
-    # scoring_attrs/1 clause never touches it.
     assert tournament.points_loss == 0.0
 
     [player] = PairingsEngine.Tournaments.list_players(tournament.id)
     entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
-    assert entry.points == 0.5
+    assert entry.points == 0.0
   end
 
   ## ---------- SWAR's "Pt ABSENT" caps: AbsJusque (round cutoff) / AbsNbFois (count cap) ----------

@@ -123,12 +123,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :points_draw, :float, default: 0.5
     field :points_loss, :float, default: 0.0
     field :bye_value, :float, default: 1.0
-    # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points") - the
-    # points paid for an unpaired-but-present round, a distinct concept from
-    # an ordinary configured `points_loss`. nil (the default for every
-    # tournament not imported from a SWAR 3-2-1 file) means "unused": such
-    # rounds keep scoring at `points_loss` exactly as before this field
-    # existed. Only PairingsEngine.Federations.BEL.SwarImport writes a non-nil value.
+    # SWAR "3-2-1" `SW321_Pre` ("presence points") - paid on top of the
+    # result for every round the player was there (SWAR's
+    # `GetPresentPtsUntilRound`). Being set at all is what makes a tournament
+    # score the 3-2-1 way (`Standings.presence_scheme?/1`; the rules are in
+    # docs/swar-import.md). nil for every tournament not imported from a
+    # SWAR 3-2-1 file. Only PairingsEngine.Federations.BEL.SwarImport writes
+    # a non-nil value.
     field :presence_value, :float
     # SWAR `AbsValue` - the points paid for a player simply marked ABSENT
     # for a round (our `byes`-table `type: "absent"` row, from SWAR's
@@ -202,12 +203,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # a player's `start_round` rescores at once. See `PairingsEngine.LateEntry`.
     field :late_entry_absences, :boolean, default: true
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
-    # games") - when true, a pairing-allocated bye pays `presence_value` ON
-    # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
-    # round when this club option is on). Kept as a flag rather than folded
-    # into `bye_value` at import so `bye_value` keeps meaning exactly the
-    # club's configured SW321_Bye. Consulted only by
-    # `PairingsEngine.Standings.bye_points/2`'s "pairing-allocated" branch;
+    # games") - when true, a bye pays `presence_value` ON TOP of
+    # `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a LOST_BYE round when
+    # this club option is on). Kept as a flag rather than folded into
+    # `bye_value` at import so `bye_value` keeps meaning exactly the club's
+    # configured SW321_Bye. Consulted by `PairingsEngine.Standings.bye_points/4`;
     # false (the default for every tournament that isn't a SWAR 3-2-1
     # import) leaves scoring byte-identical to before this field existed.
     # Only PairingsEngine.Federations.BEL.SwarImport sets it true (type == 3 files only).

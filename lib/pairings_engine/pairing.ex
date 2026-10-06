@@ -4646,7 +4646,10 @@ defmodule PairingsEngine.Pairing do
     base =
       case g.result do
         r when r in ~w(1 + F W) -> t.points_win
-        "U" -> t.bye_value
+        # The pairing-allocated bye, with SWAR 3-2-1's PreBye presence
+        # point when the tournament pays one - `bye_points/4`'s rule, which
+        # the standings use. `t.bye_value` alone left that point out.
+        "U" -> Standings.bye_points("pairing-allocated", t)
         r when r in ~w(= H D) -> t.points_draw
         _ -> t.points_loss
       end
@@ -5181,6 +5184,15 @@ defmodule PairingsEngine.Pairing do
   defp provisional_points(%{result: result} = pairing, white?, tournament)
        when result in @postponed_codes,
        do: Standings.provisional_points(pairing, white?, tournament)
+
+  # A SWAR 3-2-1 "0-0" or "0-0FF" pays nothing (`ConvertPoint321`), which
+  # its TRF letter cannot say - `0` and `-` are worth a loss. The standings'
+  # own number goes with it, the same way as for a postponed game.
+  defp provisional_points(%{result: result} = pairing, white?, tournament)
+       when result in ["0-0", "0-0FF"] do
+    if Standings.presence_scheme?(tournament),
+      do: Standings.provisional_points(pairing, white?, tournament)
+  end
 
   defp provisional_points(_pairing, _white?, _tournament), do: nil
 

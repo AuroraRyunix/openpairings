@@ -581,8 +581,9 @@ and always have been (`federations/bel/swar_import.ex`'s
 `classify_unpaired/1`):
 
 - Requested: `type: "requested-half"` / `"requested-zero"` - scored at
-  `points_draw` / `presence_value || points_loss`, from SWAR's `ByeValue`
-  (or `SW321_Bye` for a 3-2-1 tournament).
+  `points_draw` / `points_loss`; in a 3-2-1 tournament a zero-point bye is
+  SWAR's LOST_BYE, worth `SW321_Bye` plus the PreBye presence point (see
+  "3-2-1 scoring" below).
 - Genuine absence: `type: "absent"` - scored at `abs_value`, subject to
   the `abs_jusque`/`abs_nbfois` caps just described. Never affected by
   `ByeValue`.
@@ -1138,81 +1139,98 @@ now *proven* rather than inferred (`TOptions.cpp` stores `4 * value`), and
 
 ## 3-2-1 scoring (`[TOURNOI].Type == SWISS_321`)
 
-SWAR's "3-2-1" tournament type (`Type == 3` in the on-disk `[TOURNOI]`
-header) lets a club configure its own win/draw/loss/bye point values
-instead of the fixed 1.0/0.5/0.0/1.0 every other tournament type uses. The
-importer previously read the four `SW321_Win/Nul/Los/Bye` fields (it always
-had - see `parse_tournoi/2`) but never mapped them onto the tournament,
-so a 3-2-1 import silently landed on the schema defaults regardless of
-what the club had configured.
+SWAR's "3-2-1" type (`Type == 3`, `IsSwiss321`) scores a game on the club's
+own scale and adds a separate presence point for every round the player
+was there. "3-2-1" is the common Win 2 / Draw 1 / Loss 0 plus presence 1;
+each club sets its own values. These files import like any other since
+the rules below were read off SWAR's own source (v6.65 FRBE, Latin-1;
+file:line references are to that tree). Before that the import refused
+them, because the one real fixture could not tell what a bye was worth.
 
-- **Guard.** The mapping only fires when `t.type == 3`
-  (`TOURNOI_TYPE.SWISS_321`, confirmed from the SWAR source-derived format
-  manual). Every other type leaves `points_win`/`points_draw`/
-  `points_loss`/`bye_value` at the `Tournament` schema defaults, exactly as
-  before - a standard import is unaffected.
-- **Scale: ÷4.** The format manual annotates `SW321_Win` as "×4 internally",
-  but do NOT lean on that alone: this manual is known to be wrong about
-  scaling elsewhere - it states the ordinary per-player `Points` field is
-  ×2, and that is false (verified ×4 against the real c-reeks file, where
-  `points_raw / 4` reproduces Deloof's actual 9.0 total). Treat the manual
-  as a hint, never as proof, on any scale question.
-  The load-bearing evidence for ÷4 is instead: the `SW321_*` fields are in
-  the **same scale as the per-player `Points` field** (see the exact
-  per-player formula below, which holds with no extra factor), and that
-  field is independently established as ×4 by the c-reeks anchor above.
-  Same scale + a real-world-anchored ×4 ⇒ ÷4, with no appeal to the
-  manual's own annotation.
-  A previous version of this mapping used ÷8, which silently **halved**
-  every point value the club had actually configured (e.g. a real 2.0-point
-  win imported as 1.0) - this was the KBSB-reported bug: "players don't get
-  the full 3-2-1 points from played games". The ÷8 divisor had passed a
-  check that looked rigorous but wasn't: dividing the file's raw per-player
-  `points` total by 8 reproduced `wins*1.0 + draws*0.5 + losses*0.0`
-  exactly - but `SW321_Los` is 0 in this fixture, so losses contribute 0
-  points under *any* divisor, and the check only ever verified the win:draw
-  *ratio* (2:1), never the absolute scale. Any divisor "passes" a ratio-only
-  check.
-  Non-circular re-derivation: `points_raw` for every player in the fixture
-  equals **exactly** `wins*SW321_Win + draws*SW321_Nul + losses*SW321_Los +
-  lost_byes*SW321_Pre` - no further scaling - checked across every player
-  with an unpaired bye. That formula is what proves the `SW321_*` fields
-  share the `Points` field's scale; combined with the c-reeks anchor that
-  `Points` is ×4, `points_raw / 4` is each player's real point total. E.g.
-  player `ni=39` ("Ghijselinck, Kris"): record 2 wins / 1 draw / 1 loss
-  (played) + 2 unpaired "LOST_BYE" rounds. Stored `points = 28`. Under this
-  club's actual configured scale (win=2.0, draw=1.0, loss=0.0, plus 1.0
-  presence point per unpaired bye): `2*2.0 + 1*1.0 + 1*0.0 + 2*1.0 = 7.0`,
-  and `28 / 4 = 7.0` - exact match. `SW321_Win/Nul/Los` in the real file are
-  configured to 8/4/0 raw → **2.0/1.0/0.0** real points - "3-2-1" is SWAR's
-  feature name, not a claim that the values are literally 3/2/1; each club
-  sets its own scale, and this club's happens to be 2/1/0. `SW321_Bye` is 4
-  raw → 1.0 real, diverging from the file's separate, unrelated `ByeValue`
-  field (→ 0.0 via `map_bye_value/1`) - an unpaired bye in this 3-2-1
-  tournament should score a full point, not zero.
-  Caveat: no `WIN_BYE`/`DRAW_BYE` round occurs anywhere in the fixture, so
-  `SW321_Bye`'s role is inferred from being part of the same field group
-  (same manual annotation, same serialization pattern) rather than
-  independently confirmed the way `SW321_Win/Nul/Los/Pre` are.
-- **`SW321_Pre` ("presence points") DOES appear in the real fixture**,
-  contrary to what an earlier version of this doc claimed. Every unpaired
-  "LOST_BYE" round for every affected player (e.g. `ni=10`, `ni=15`,
-  `ni=39`, `ni=43`) is scored as `SW321_Pre` raw points, not `SW321_Bye` -
-  see the worked example above.
+**Scale.** `SW321_Win/Nul/Los/Bye/Pre` are stored ×4: the options dialog
+writes `4 * value` and reads back `/ 4` (TOptions.cpp:616-620, 698-702), and
+the HTML header prints them `/ 4` (Html.cpp:730-734). `SW321_PreBye` is a
+0/1 checkbox (TOptions.cpp:703), absent before v6.03. A version of this
+mapping once used ÷8 and halved every value - the KBSB report "players
+don't get the full 3-2-1 points from played games".
 
-  **Modelled since 0.16.x, and the engine was told about it in 0.17.1.**
-  `Tournament.presence_value` holds the points and
-  `Tournament.presence_on_allocated_bye` (SWAR field 85, "add presence
-  points for bye games") says whether a pairing-allocated bye pays them ON
-  TOP of `bye_value`. `Standings.bye_points/4` adds the bonus, and
-  `Tournament.engine_point_system/1` passes the same total to the pairing
-  engine - which it did not until 0.17.1, so for a while the crosstable
-  and the pairing file disagreed about what a 3-2-1 allocated bye was
-  worth. An earlier version of this document described the mechanic as
-  "not modeled" and left it as a follow-up; that is no longer true.
-- Test fixture: `test/fixtures/test3-321.swar` (gitignored, real personal
-  data, same convention as `c-reeks.swar`/`problemski.swar`) - a real
-  club-championship file saved with 3-2-1 mode on.
+**Result points** - `ConvertPoint321` (Utils.cpp:1197-1222), used by
+`GetPoints` and `GetPointsUntilRound` (Classement.cpp:102-105) for a 3-2-1
+tournament:
+
+| SWAR result | points |
+|---|---|
+| WIN, WIN_FF | `SW321_Win` |
+| DRAW, DRAW_FF, DRAW_ZERO | `SW321_Nul` |
+| LOST, LOST_FF, ZERO_DRAW | `SW321_Los` |
+| LOST_BYE | `SW321_Bye` |
+| WIN_BYE, DRAW_BYE, ZERO_ZERO, ZERO_ZEROFF, NO_RESULT (an absence) | 0 |
+
+`AbsValue` is never paid: `GetSpecialAbsValue` is only reached from the
+non-3-2-1 branch of `GetPoints`.
+
+**Presence** - `GetPresentPtsUntilRound` (Classement.cpp:137-157), masks in
+Swar.h:227-247: `+SW321_Pre` for a result in RESULTATS_NORMAUX (WIN, DRAW,
+LOST), RESULTATS_WIN (WIN, WIN_BYE, WIN_FF) or RESULTATS_SPECIAUX
+(ZERO_ZERO, DRAW_ZERO, ZERO_DRAW); and another `+SW321_Pre` for any
+RESULTATS_BYE result when `SW321_PreBye` is set. So a forfeit loss, a
+forfeit draw, a double forfeit and an absence get none; a ½-0 gets it on
+both sides; a WIN_BYE with PreBye would get it twice.
+
+**Total.** The standings rank on `Points + ExtraPts + SpecialPts`
+(Classement.cpp:1425): `Points` is the result sum (1385), `SpecialPts` the
+presence sum (1389-1390), and `ExtraPts` is zeroed for 3-2-1 on load. The
+file stores `Points` only. The per-player sheet (Fiche.cpp:189-195) adds
+presence by a narrower test - no SPECIAUX - but that sheet is a display;
+the ranking uses `GetPresentPtsUntilRound`.
+
+**What the file holds.** SWAR forces `ByeValue` to `PTS_0` when the type is
+3-2-1 (TOptions.cpp:566), so the pairing bye `SetPlayerBye` writes is
+`GetResultByeValue()` = LOST_BYE on `TABLE_BYE` (PairingSwiss.cpp:73-79,
+381-394) - "in a 3-2-1 tournament the bye is always LOST_BYE" (the comment
+at Utils.cpp:1202-1204). An absence is `TABLE_ABSENT` with `NO_RESULT`
+(PairingSwiss.cpp:795-809): nothing, and no presence. The real fixture
+(`test/fixtures/test3-321.swar`, gitignored) agrees: its eight byes are all
+LOST_BYE on table 4096 (`TABLE_BYE`, Swar.h:140), and its absences are
+table 16384 with no result. Its `SW321_Bye`, `SW321_Pre` and PreBye are
+1.0, 1.0 and on, so each bye there is worth 2.0 - not the 1.0 an earlier
+guess (a LOST_BYE paid at `SW321_Pre` alone) gave. Its stored `Points`
+(result only) were right under both readings, which is why that guess
+survived.
+
+**Onto the model.** `points_win/draw/loss` are `SW321_Win/Nul/Los`,
+`bye_value` is `SW321_Bye`, `presence_value` is `SW321_Pre` and
+`presence_on_allocated_bye` is PreBye. `presence_value` being set is what
+`Standings.presence_scheme?/1` reads, so a tournament created here is
+scored exactly as before. For a 3-2-1 tournament:
+
+- a LOST_BYE on `TABLE_BYE` imports as the pairing-allocated bye, so the
+  engine knows the player has had it; any other LOST_BYE as a zero-point
+  bye. Both pay `bye_value` plus the PreBye presence point
+  (`Standings.bye_points/4`).
+- an absence pays nothing, whatever `abs_value` says.
+- "0-0" and "0-0FF" pay nothing, not `points_loss`; "0-0" earns presence,
+  "0-0FF" does not (`Standings.pairing_records/4`).
+- a forfeit pays presence to the winner only; "1/2-0" pays it to both.
+- the TRF score column the engine brackets by is the standings' own
+  number for each of these (`Pairing.player_points/2`).
+
+Three codes have no equivalent: WIN_BYE and DRAW_BYE (0 points plus
+presence) and DRAW_FF (the draw value without presence, which reads back
+as a played draw). SWAR's own dialog does not write them for a 3-2-1 event;
+a file that has them imports with a warning naming the rounds
+(`swiss321_warnings/1`), as does an absence that carries a result.
+
+`SwarImportPresenceTest` builds a file with all-different values (Win 3,
+Nul 2, Los 1, Bye 2.5, Pre 0.5) and every result kind, PreBye on and off,
+and checks each player's total against a hand computation from the rules
+above, the result-only part, the engine's score column, and a round trip
+through the export. `SwarImportTest` recomputes every player of the real
+fixture from its own records by the same rules.
+
+The export writes a 3-2-1 tournament's pairing bye as LOST_BYE, and a Swiss
+created here with its own point values as a 3-2-1 file; imported back, that
+file is scored by these rules, as SWAR scores it.
 
 ## Import and export: what goes where
 
@@ -1270,7 +1288,7 @@ can hold. What changed on the way:
 | `FideArbitre1/2` | `swar_settings` | no: a v7 file has one string there |
 | `FideRemarques` | `swar_settings` | yes (the export wrote the deputy arbiter there) |
 | `Type` | tournament type, pairing system, cycles, match format | the file's type while it still reads the same (an accelerated or American Swiss is a plain Swiss here); else round robin 4, 5 (match format) or 6 (two cycles), Swiss 0, 1 (match format) or 3 (points other than 1/½/0) |
-| `SW321_*` | 3-2-1 point values (the import refuses a 3-2-1 file) | the tournament's for a 3-2-1 file, else the file's own |
+| `SW321_*` | 3-2-1 point values and presence point (see "3-2-1 scoring") | the tournament's for a 3-2-1 file, else the file's own |
 | `TournoiStd` | standard | yes |
 | `ApparOrder` | initial colour (Swiss: 0 white, 1 black, 2 drawn by lot) | the initial colour, or the colour the lot drew; a round robin's as the file had it |
 | `ByeValue` | bye value (a round robin's forced to a point) | the file's while it agrees, else the tournament's |
@@ -1304,7 +1322,7 @@ What this app has that SWAR cannot hold is listed on the export page for the
 tournament at hand (`SwarExport.export_notes/1`): soft pairing wishes; more
 than one exclusion rule; Keizer; teams; Baku acceleration; a standings order
 set by hand; a round robin's own point values; other point values for a
-Swiss (written as SWAR's 3-2-1 type, which cannot be imported back yet);
+Swiss (written as SWAR's 3-2-1 type, and scored by its rules when imported back);
 a handicap the tournament does not count, and a handicap's bands; more than four acceleration bands;
 more than 16 categories, and the conditions that fill them; tie-breaks SWAR
 has no code for (WON, TPN and the team ones) and more than five; a national
@@ -1352,7 +1370,8 @@ above:
 - ranking categories separately without pairing them separately (or the
   reverse), which comes back as both;
 - a Swiss with its own point values, written as SWAR's 3-2-1 type, which
-  cannot be imported yet;
+  imports back as one and is scored by that type's rules (a zero-point bye
+  worth the bye value, an absence and a 0-0 nothing);
 - a handicap the tournament does not count, which is left out, and acceleration points kept out of the standings, which SWAR will count;
 - SWAR's player numbers: the export numbers players in seed order, so a
   file that went through here comes back to SWAR with the same players,
