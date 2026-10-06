@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.74.4] - 2026-10-06
+
 - [Feature] **SWAR 3-2-1 tournaments import.** A `.swar` file of SWAR's
   "3-2-1" type was refused; it now imports, scored exactly as SWAR scores
   it, by rules read off SWAR's own source: the club's win, draw and loss
