@@ -391,7 +391,7 @@ defmodule PairingsEngineWeb.PrintController do
     rows =
       players
       |> Enum.with_index(1)
-      |> Enum.map_join("", &player_list_row(&1, cols, current_round))
+      |> Enum.map_join("", &player_list_row(&1, cols, current_round, tournament))
 
     body =
       tournament_info_html(tournament) <>
@@ -445,12 +445,18 @@ defmodule PairingsEngineWeb.PrintController do
       ths.(before_name) <> "<th>#{gettext("Name")}</th>" <> ths.(after_name)
   end
 
-  defp player_list_row({p, i}, cols, current_round) do
+  defp player_list_row({p, i}, cols, current_round, tournament) do
     {before_name, after_name} = split_around_name(cols)
 
     tds = fn columns ->
-      Enum.map_join(columns, "", fn {key, _label, num?} ->
-        ~s(<td#{num_class(num?)}>#{player_list_value(key, p, current_round)}</td>)
+      Enum.map_join(columns, "", fn
+        # "Elo used" is the Tournament Rating, which needs the tournament's
+        # method (`Player.rating/2`).
+        {:elo_used, _label, num?} ->
+          ~s(<td#{num_class(num?)}>#{blank_zero(Player.rating(p, tournament))}</td>)
+
+        {key, _label, num?} ->
+          ~s(<td#{num_class(num?)}>#{player_list_value(key, p, current_round)}</td>)
       end)
     end
 
@@ -481,7 +487,6 @@ defmodule PairingsEngineWeb.PrintController do
   defp player_list_value(:fide_id, p, _current_round), do: esc(p.fide_id)
   defp player_list_value(:national_rating, p, _current_round), do: blank_zero(p.national_rating)
   defp player_list_value(:fide_rating, p, _current_round), do: blank_zero(p.fide_rating)
-  defp player_list_value(:elo_used, p, _current_round), do: blank_zero(Player.rating(p))
   defp player_list_value(:club, p, _current_round), do: esc(p.club)
   defp player_list_value(:status, p, _current_round), do: esc(p.status)
   defp player_list_value(:fixed_board, p, _current_round), do: blank_zero(p.fixed_board)

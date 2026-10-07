@@ -113,6 +113,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       rr_match_format_locked?: :rr_match_format in locked,
       swiss_match_format_locked?: :swiss_match_format in locked,
       initial_colour_locked?: :initial_colour in locked,
+      rating_method_locked?: :rating_method in locked,
+      initial_order_tiebreak_locked?: :initial_order_tiebreak in locked,
       team_lineups_locked?: :team_lineups in locked
     )
   end
@@ -167,7 +169,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # send. `String.to_existing_atom/1` on an unguarded param is a crafted
   # event away from an `ArgumentError` that takes the sender's socket down
   # with it, and the atom table is not the caller's to grow either.
-  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_reverse_last_two rr_match_format swiss_match_format initial_colour)
+  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_reverse_last_two rr_match_format swiss_match_format initial_colour rating_method initial_order_tiebreak)
 
   def handle_event("locked_hint", %{"field" => field}, socket)
       when field in @locked_fields do
@@ -477,6 +479,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
     |> maybe_drop_locked("initial_colour", assigns.initial_colour_locked?)
+    |> maybe_drop_locked("rating_method", assigns.rating_method_locked?)
+    |> maybe_drop_locked("initial_order_tiebreak", assigns.initial_order_tiebreak_locked?)
     |> maybe_drop_locked("team_lineups", assigns.team_lineups_locked?)
   end
 
@@ -535,6 +539,35 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     do:
       gettext(
         "JaVaFo and Ainalrami are two independent implementations of the pairing rules. A round already on the board was decided by whichever engine was configured at the time; switching now hands the new engine a history it did not produce, so every colour, float and rematch judgement from here on is made against a bracket shape the other engine chose."
+      )
+
+  # TRF26 record 172's codes, with what each means.
+  defp rating_method_label("FIDE"), do: gettext("FIDE rating only (FIDE)")
+  defp rating_method_label("NRO"), do: gettext("National rating only (NRO)")
+
+  defp rating_method_label("FIDON"),
+    do: gettext("FIDE rating, else national (FIDON)")
+
+  defp rating_method_label("NIDOF"),
+    do: gettext("National rating, else FIDE (NIDOF)")
+
+  defp rating_method_label("HBFN"),
+    do: gettext("Highest of FIDE, national and manual (HBFN)")
+
+  defp rating_method_label("OTHER"), do: gettext("Manual rating per player (OTHER)")
+
+  defp initial_order_tiebreak_label("name"), do: gettext("Alphabetically")
+  defp initial_order_tiebreak_label("fide_id"), do: gettext("FIDE ID, lowest first")
+  defp initial_order_tiebreak_label("age_older"), do: gettext("Oldest first")
+  defp initial_order_tiebreak_label("age_younger"), do: gettext("Youngest first")
+
+  defp late_entry_numbering_label("end"), do: gettext("After the field")
+  defp late_entry_numbering_label("rating"), do: gettext("By rating (FIDE)")
+
+  defp rating_method_warning,
+    do:
+      gettext(
+        "Round 1's pairing numbers were given by this setting. Changing it now renumbers nobody already numbered; it changes where a later late entrant is placed and, for the rating method, the rating the tie-breaks read."
       )
 
   defp initial_colour_warning,
@@ -720,6 +753,90 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span :if={initial_colour_status(@tournament)} id="initial-colour-status" class="hint">
                 {initial_colour_status(@tournament)}
               </span>
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Tournament rating")}
+              hint={
+                gettext(
+                  "The rating that ranks the players and so gives them their pairing numbers, and that the rating-based tie-breaks read. A manual rating is typed per player on the Players page."
+                )
+              }
+            >
+              <div class="locked-wrap">
+                <select
+                  id="rating-method-select"
+                  name="tournament[rating_method]"
+                  disabled={@rating_method_locked?}
+                >
+                  <option
+                    :for={value <- Tournament.rating_methods()}
+                    value={value}
+                    selected={@tournament.rating_method == value}
+                  >
+                    {rating_method_label(value)}
+                  </option>
+                </select>
+                <.locked_overlay field={:rating_method} locked?={@rating_method_locked?} />
+              </div>
+              <.locked_hint_message
+                field={:rating_method}
+                locked_hint={@locked_hint}
+                warning={rating_method_warning()}
+              />
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Equal rating and title")}
+              hint={
+                gettext(
+                  "How players level on rating and FIDE title are ordered for their pairing numbers. FIDE orders them alphabetically unless the tournament announced another rule."
+                )
+              }
+            >
+              <div class="locked-wrap">
+                <select
+                  id="initial-order-tiebreak-select"
+                  name="tournament[initial_order_tiebreak]"
+                  disabled={@initial_order_tiebreak_locked?}
+                >
+                  <option
+                    :for={value <- Tournament.initial_order_tiebreaks()}
+                    value={value}
+                    selected={@tournament.initial_order_tiebreak == value}
+                  >
+                    {initial_order_tiebreak_label(value)}
+                  </option>
+                </select>
+                <.locked_overlay
+                  field={:initial_order_tiebreak}
+                  locked?={@initial_order_tiebreak_locked?}
+                />
+              </div>
+              <.locked_hint_message
+                field={:initial_order_tiebreak}
+                locked_hint={@locked_hint}
+                warning={rating_method_warning()}
+              />
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Late entrants' pairing numbers")}
+              hint={
+                gettext(
+                  "Swiss only. By rating, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards."
+                )
+              }
+            >
+              <select id="late-entry-numbering-select" name="tournament[late_entry_numbering]">
+                <option
+                  :for={value <- Tournament.late_entry_numberings()}
+                  value={value}
+                  selected={@tournament.late_entry_numbering == value}
+                >
+                  {late_entry_numbering_label(value)}
+                </option>
+              </select>
             </.setting_field>
 
             <.setting_field

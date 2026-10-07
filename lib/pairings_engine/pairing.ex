@@ -530,11 +530,16 @@ defmodule PairingsEngine.Pairing do
       true ->
         # `dispatch_swiss/1` numbers a player who has none yet
         # (`ensure_pairing_numbers/2`) before it reads the history; here
-        # the numbers go into the history's roster in memory instead.
+        # the numbers go into the history's roster in memory instead - a
+        # late entrant's, and those of the players they move down - and
+        # Baku's line moves with them as it will on disk.
+        {numbers, group_a_last} = new_pairing_numbers(tournament, active)
+        tournament = %{tournament | baku_group_a_last: group_a_last}
+
         history =
           tournament
           |> build_shared_history()
-          |> with_pairing_numbers(new_pairing_numbers(tournament, active))
+          |> with_pairing_numbers(numbers)
           |> then(&precompute_games(tournament, &1))
 
         # Group A read once here rather than once per outcome, for the rare
@@ -673,46 +678,133 @@ defmodule PairingsEngine.Pairing do
 
   @doc """
   Assigns `pairing_number` to every player in `players` that doesn't have
-  one yet - highest rating first, name ascending as the tie-break (FIDE
-  C.04.2.B), continuing from the current max existing number - then leaves
-  them frozen forever (never reassigned once set). Returns `tournament`
-  unchanged, so it composes in a pipe the same way the Swiss path above
-  uses it.
+  one yet, in the initial order (`initial_order/2`: Tournament Rating, FIDE
+  title, then the tournament's last criterion - C.04.2 2.2), and returns
+  `tournament` - with `baku_group_a_last` moved if a late entrant was put
+  above Group A's last player - so it composes in a pipe the way the Swiss
+  path above uses it.
 
-  Exposed (not private) so `PairingsEngine.Keizer` can freeze pairing
-  numbers at its own first pairing exactly the same way, rather than
-  duplicating this logic - see that module's `do_pair/4`.
+  Before any number exists the field is numbered 1, 2, ... in that order. A
+  late entrant - somebody numbered when others already are - goes after the
+  highest number by default. With the Swiss tournament's
+  `late_entry_numbering` on `"rating"` they are given "an appropriate TPN"
+  instead (C.04.2 2.4; C.04.7 1.3.1: "accommodated in the pairing list
+  according to Article 2"): the number of the first numbered player they
+  outrank, everybody from there down moving one place. That is 2.5's "the
+  TPNs given at the start of the tournament are provisional".
+  Players already numbered keep their order among themselves, so no
+  earlier round's pairing changes meaning: the Dutch rules read the TPN
+  only for that order, and the round-1 colour parity is taken on a
+  numbering of the players who had arrived (the SPP ruling of 2026-08-27),
+  which the late entrant was not part of. Round robin and Keizer append
+  instead: a Berger schedule is fixed at its freeze, and Keizer is not
+  C.04.2's.
+
+  Exposed (not private) so `PairingsEngine.Keizer` and
+  `PairingsEngine.RoundRobin` freeze pairing numbers the same way.
   """
   def ensure_pairing_numbers(tournament, players) do
-    tournament
-    |> new_pairing_numbers(players)
-    |> Enum.each(fn {player, number} ->
-      {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
+    {numbers, group_a_last} = new_pairing_numbers(tournament, players)
+
+    Repo.transaction(fn ->
+      Enum.each(numbers, fn
+        # A player who already holds a number is only ever moved down by a
+        # late entrant above them. Written past `update_player/2`, whose
+        # round-4 freeze (C.04.2 2.3) is about correcting the ranking data,
+        # not about 2.4's late entries.
+        {%Player{pairing_number: old} = player, number} when is_integer(old) ->
+          Repo.update_all(from(p in Player, where: p.id == ^player.id),
+            set: [pairing_number: number]
+          )
+
+        {player, number} ->
+          {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
+      end)
     end)
 
-    tournament
-  end
-
-  # The numbers `ensure_pairing_numbers/2` would hand out, as
-  # `[{player, number}]`, without writing them - the next-round preview
-  # (`preview_context/1`) numbers a late entrant in memory exactly as the
-  # real pairing will on disk.
-  defp new_pairing_numbers(tournament, players) do
-    if Enum.any?(players, &is_nil(&1.pairing_number)) do
-      max_existing = highest_pairing_number(tournament.id)
-
-      players
-      |> Enum.filter(&is_nil(&1.pairing_number))
-      |> initial_order()
-      |> Enum.with_index(max_existing + 1)
+    if group_a_last != Map.get(tournament, :baku_group_a_last) do
+      tournament |> Ecto.Changeset.change(baku_group_a_last: group_a_last) |> Repo.update!()
     else
-      []
+      tournament
     end
   end
 
+  # The numbers `ensure_pairing_numbers/2` would hand out, as
+  # `{[{player, number}], baku_group_a_last}` - every player whose number is
+  # new or moves, and Group A's line after the move - without writing them:
+  # the next-round preview (`preview_context/1`) numbers a late entrant in
+  # memory exactly as the real pairing will on disk.
+  defp new_pairing_numbers(tournament, players) do
+    newcomers =
+      players |> Enum.filter(&is_nil(&1.pairing_number)) |> initial_order(tournament)
+
+    group_a_last = Map.get(tournament, :baku_group_a_last)
+
+    cond do
+      newcomers == [] ->
+        {[], group_a_last}
+
+      inserts_late_entrants?(tournament) ->
+        tournament.id
+        |> full_roster_players()
+        |> number_late_entrants(newcomers, tournament, group_a_last)
+
+      true ->
+        max_existing = highest_pairing_number(tournament.id)
+        {Enum.with_index(newcomers, max_existing + 1), group_a_last}
+    end
+  end
+
+  defp inserts_late_entrants?(
+         %Tournament{pairing_system: "swiss", late_entry_numbering: "rating"} = t
+       ),
+       do: not Tournament.team_swiss?(t)
+
+  defp inserts_late_entrants?(_tournament), do: false
+
   @doc """
-  The order pairing numbers are handed out in: highest rating first, name
-  ascending as the tie-break (FIDE C.04.2.B).
+  The pure core of a Swiss late entry (`ensure_pairing_numbers/2`):
+  `numbered` is the roster holding numbers, `newcomers` the players to
+  number, already in `initial_order/2`. Each newcomer, best first, takes the
+  number of the first numbered player (by number) they rank ahead of, and
+  every number from there on moves up one; one who outranks nobody goes
+  after the highest number. `group_a_last` (Baku's line, or nil) moves with
+  the player who holds it (C.04.7 1.3.2), so a newcomer put above it is in
+  Group A.
+
+  Returns `{[{player, number}], group_a_last}` with only the players whose
+  number is new or changed. With no numbered roster this is plain 1..N.
+  """
+  def number_late_entrants(numbered, newcomers, tournament, group_a_last) do
+    start = numbered |> Enum.sort_by(& &1.pairing_number) |> Enum.map(&{&1, &1.pairing_number})
+
+    {final, last} =
+      Enum.reduce(newcomers, {start, group_a_last}, fn newcomer, {list, last} ->
+        key = initial_order_key(newcomer, tournament)
+
+        case Enum.find(list, fn {p, _n} -> key < initial_order_key(p, tournament) end) do
+          nil ->
+            highest = list |> Enum.map(&elem(&1, 1)) |> Enum.max(fn -> 0 end)
+            {list ++ [{newcomer, highest + 1}], last}
+
+          {_p, at} ->
+            shifted = Enum.map(list, fn {p, n} -> if n >= at, do: {p, n + 1}, else: {p, n} end)
+            last = if is_integer(last) and at <= last, do: last + 1, else: last
+            {Enum.sort_by([{newcomer, at} | shifted], &elem(&1, 1)), last}
+        end
+      end)
+
+    changed = Enum.reject(final, fn {p, n} -> p.pairing_number == n end)
+    {changed, last}
+  end
+
+  @doc """
+  The order pairing numbers are handed out in (C.04.2 2.2): the Tournament
+  Rating highest first (`Player.rating/2` under the tournament's
+  `rating_method`), then the FIDE title (GM-IM-WGM-FM-WIM-CM-WFM-WCM-none),
+  then the tournament's `initial_order_tiebreak` - alphabetical unless the
+  arbiter chose another (2.2.3) - and the name and id last so the order is
+  always total.
 
   One definition, used by `ensure_pairing_numbers/2` when it issues the real
   numbers and by `PairingsEngine.Snapshot` when it numbers the field
@@ -720,7 +812,46 @@ defmodule PairingsEngine.Pairing do
   reads before the first round is the same order the numbers will actually
   come out in.
   """
-  def initial_order(players), do: Enum.sort_by(players, &{-Player.rating(&1), &1.name})
+  def initial_order(players, tournament),
+    do: Enum.sort_by(players, &initial_order_key(&1, tournament))
+
+  @doc "The sort key of `initial_order/2`: smaller ranks first."
+  def initial_order_key(%Player{} = player, tournament) do
+    {-Player.rating(player, tournament), Player.title_rank(player),
+     last_criterion(player, Map.get(tournament, :initial_order_tiebreak)), player.name || "",
+     player.id || 0}
+  end
+
+  # Unknown values go after known ones, so a player with no FIDE ID or no
+  # date of birth does not jump the queue.
+  defp last_criterion(%Player{fide_id: id}, "fide_id") when is_integer(id) and id > 0,
+    do: {0, id}
+
+  defp last_criterion(_player, "fide_id"), do: {1, 0}
+
+  defp last_criterion(player, "age_older") do
+    case birth_key(player) do
+      nil -> {1, 0}
+      days -> {0, days}
+    end
+  end
+
+  defp last_criterion(player, "age_younger") do
+    case birth_key(player) do
+      nil -> {1, 0}
+      days -> {0, -days}
+    end
+  end
+
+  defp last_criterion(_player, _name), do: {0, 0}
+
+  # A date of birth as a day number; a year alone counts as 1 July of it.
+  defp birth_key(%Player{birth_date: %Date{} = date}), do: Date.to_gregorian_days(date)
+
+  defp birth_key(%Player{birth_year: year}) when is_integer(year) and year > 0,
+    do: Date.to_gregorian_days(Date.new!(year, 7, 1))
+
+  defp birth_key(_player), do: nil
 
   # The highest number ever ISSUED in this tournament, over the whole roster.
   #
@@ -4276,9 +4407,10 @@ defmodule PairingsEngine.Pairing do
   field by starting rank (`pairing_number`), rounded up to the nearest even
   number of players - FIDE's `2 * ceil(n/4)` - over the starting list round
   1 was paired from, and fixed then for the whole event: every player
-  numbered up to `baku_group_a_last/2`. A late entrant is never in it, and
-  Group A does not grow when one joins (C.04.7 1.3.2). Group B never
-  receives points.
+  numbered up to `baku_group_a_last/2`. Group A does not grow at the bottom
+  when somebody joins (C.04.7 1.3.2); a late entrant numbered above its last
+  player (`late_entry_numbering` "rating") is in it, the line having moved
+  down with that player (`ensure_pairing_numbers/2`). Group B never receives points.
 
   "Accelerated rounds" are the first `ceil(rounds_count/2)` rounds. Within
   those, Group A gets 1.0 virtual point per round for the first half
@@ -4426,9 +4558,11 @@ defmodule PairingsEngine.Pairing do
   1 (a round-1 bye, or a later start round entered before the event began) -
   they are on the list and hold a number in it - and excludes nobody else.
   1.3.2 then keeps "the last GA-participant ... the same participant as in
-  the previous round": a late entrant (1.3.1) does not move the line. This
-  app numbers a late entrant after everybody already numbered, so a late
-  entrant is never in Group A.
+  the previous round". A late entrant (1.3.1) is numbered after the field,
+  or - `late_entry_numbering` "rating" - given the number their rating earns
+  (`ensure_pairing_numbers/2`); one put above that player moves the stored
+  line down one with them - and is in Group A, as 1.3.2's first note
+  foresees - and one put below it changes nothing.
 
   Read from `tournament.baku_group_a_last` once round 1 has fixed it.
   Before that - the round-1 pairing itself - it is worked out over
@@ -4436,7 +4570,9 @@ defmodule PairingsEngine.Pairing do
   on later, or restored from a file older than the column) gets the field
   of its round 1: `players` numbered up to the highest number that sat at a
   board or had a bye row in round 1 - the backfill's rule, see the
-  `AddBakuGroupALast` migration.
+  `AddBakuGroupALast` migration. That reading assumes nobody was numbered
+  in among round 1's players later; a late entrant put above one of them
+  in such a tournament is counted into the list.
   """
   def baku_group_a_last(%{baku_group_a_last: last}, _players) when is_integer(last), do: last
 

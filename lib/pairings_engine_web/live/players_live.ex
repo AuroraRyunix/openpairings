@@ -63,7 +63,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
     {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
     {"rnk", "Rnk", true,
-     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
+     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (tournament rating, then FIDE title, then the tie order set under Settings - Options) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
     {"cat", "Cat", false,
      "Prize categories (SWAR CATEGORIES) - every category this player is in, from the ones " <>
        "defined for this tournament on the Categories settings page, assigned by hand or by " <>
@@ -77,7 +77,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"national_rating", "Elo Nat", true, "National federation rating"},
     {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
     {"elo_used", "Elo used", true,
-     "The rating actually used for pairing/performance/tiebreak calculations - FIDE rating if the player has one, otherwise the national rating"},
+     "The tournament rating: the one that gives the pairing numbers and that the rating-based tiebreaks read, by the method set under Settings - Options (by default the FIDE rating, the national one for a player without)"},
     {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
     {"club", "Club", false, "Chess club"},
     {"games", "Ga", true, "Games played"},
@@ -477,15 +477,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     current_round = Standings.rounds_paired(tournament.id) + 1
 
     # "Rnk" - a live (unfrozen) re-derivation of the same rule
-    # `Pairing.ensure_pairing_numbers/2` uses to freeze `Nr`: highest rating
-    # first, ties broken by name. Recomputed over the currently registered
+    # `Pairing.ensure_pairing_numbers/2` uses to freeze `Nr`
+    # (`Pairing.initial_order/2`: Tournament Rating, title, then the
+    # tournament's last criterion). Recomputed over the currently registered
     # player list on every render, so it can drift from the frozen `nr` grid
-    # value above once ratings are corrected or players are added out of
-    # order after numbers were frozen.
+    # value above once ratings are corrected.
     live_seed_rank_by_id =
       players_by_id
       |> Map.values()
-      |> Enum.sort_by(&{-Player.rating(&1), &1.name})
+      |> PairingsEngine.Pairing.initial_order(tournament)
       |> Enum.with_index(1)
       |> Map.new(fn {player, idx} -> {player.id, idx} end)
 
@@ -530,7 +530,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         "cl" => entry.rank,
         "nr" => entry.player.pairing_number,
         "rnk" => Map.get(live_seed_rank_by_id, entry.player.id),
-        "elo_used" => Player.rating(entry.player),
+        "elo_used" => Player.rating(entry.player, tournament),
         # The tournament's OWN categories (see Tournament.categories), never a
         # derived age bracket - the arbiter defines the category set, so
         # nothing here may invent one they didn't create. Every category the
@@ -1511,7 +1511,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Tracked player fields whose before/after change is worth recording in the
   # audit trail - returns a `%{"field" => [before, after]}` map of only the
   # fields that actually changed (empty map when nothing tracked changed).
-  @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
+  @audited_player_fields ~w(name title sex fide_id fide_rating national_rating tournament_rating
     federation club club_number birth_year category categories status absent
     forfeit absent_rounds fixed_board start_round extra_points manual_rank no_bye
     no_bye_rounds bye_preference bye_preference_rounds)a
@@ -1591,6 +1591,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       "title" => p.title,
       "fide_id" => blank_or(p.fide_id),
       "fide_rating" => blank_or(p.fide_rating),
+      "tournament_rating" => blank_or(p.tournament_rating),
       "category" => p.category,
       "categories" => p.categories || [],
       "paid" => p.paid,
@@ -2617,6 +2618,17 @@ defmodule PairingsEngineWeb.PlayersLive do
             />
           </label>
 
+          <label :if={manual_rating?(@tournament)} class="field">
+            <span>{gettext("Tournament rating")}</span>
+            <input
+              type="number"
+              id="add-player-tournament-rating"
+              name="player[tournament_rating]"
+              value={@form_values["tournament_rating"]}
+              min="0"
+            />
+          </label>
+
           <label class="field">
             <span>{gettext("Federation")}</span>
             <input name="player[federation]" value={@form_values["federation"]} placeholder="BEL" />
@@ -3111,16 +3123,28 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp via_label(:name), do: "Name + year"
   defp via_label(_), do: ""
 
-  # `Player.rating/1`'s own FIDE-first-then-national logic, worked from the
-  # edit form's raw string values instead of a saved `%Player{}` - the form
-  # can hold an unsaved edit the stored struct doesn't have yet, and this is
-  # what "Elo used" in the registration dialog needs to reflect live as the
-  # arbiter types, not just after a save round-trip.
-  defp elo_used_from_form(form) do
-    fide = parse_rating(form["fide_rating"])
-    national = parse_rating(form["national_rating"])
-    if fide > 0, do: fide, else: if(national > 0, do: national, else: nil)
+  # The Tournament Rating (`Player.rating/2`, by the tournament's method),
+  # worked from the edit form's raw string values instead of a saved
+  # `%Player{}` - the form can hold an unsaved edit the stored struct doesn't
+  # have yet, and this is what "Elo used" in the registration dialog needs to
+  # reflect live as the arbiter types, not just after a save round-trip.
+  defp elo_used_from_form(form, tournament) do
+    player = %Player{
+      fide_rating: parse_rating(form["fide_rating"]),
+      national_rating: parse_rating(form["national_rating"]),
+      tournament_rating: parse_rating(form["tournament_rating"])
+    }
+
+    case Player.rating(player, tournament) do
+      rating when rating > 0 -> rating
+      _ -> nil
+    end
   end
+
+  # Only the HBFN and OTHER methods read a hand-typed tournament rating, so
+  # the box is offered only under them.
+  defp manual_rating?(%{rating_method: method}), do: method in ~w(HBFN OTHER)
+  defp manual_rating?(_tournament), do: false
 
   defp parse_rating(nil), do: 0
   defp parse_rating(""), do: 0
@@ -3216,7 +3240,10 @@ defmodule PairingsEngineWeb.PlayersLive do
         no_bye_mode(assigns.tournament, assigns.bel_bye_exclusions?)
       )
       |> Phoenix.Component.assign(:fide_player, Fide.get_player(assigns.form["fide_id"]))
-      |> Phoenix.Component.assign(:elo_used, elo_used_from_form(assigns.form))
+      |> Phoenix.Component.assign(
+        :elo_used,
+        elo_used_from_form(assigns.form, assigns.tournament)
+      )
       |> Phoenix.Component.assign(
         :late_note,
         LateEntry.note(
@@ -3345,6 +3372,17 @@ defmodule PairingsEngineWeb.PlayersLive do
               {gettext("Elo used (pairing/standings):")}
               <strong>{@elo_used || gettext("unrated")}</strong>
             </span>
+          </label>
+
+          <label :if={manual_rating?(@tournament)} class="field">
+            <span>{gettext("Tournament rating")}</span>
+            <input
+              type="number"
+              id="edit-player-tournament-rating"
+              name="player[tournament_rating]"
+              value={@form["tournament_rating"]}
+              min="0"
+            />
           </label>
 
           <label class="field">

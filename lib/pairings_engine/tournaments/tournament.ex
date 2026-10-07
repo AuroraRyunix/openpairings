@@ -79,6 +79,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # PairingsEngine.Pairing.soft_pairs/5 and docs/forbidden-pairings.md.
   @soft_positions ~w(strong weak)
   @initial_colours ~w(lot white black)
+  # The Tournament Rating methods of TRF26's record 172 (VCL4THP Q145) - see
+  # `PairingsEngine.Tournaments.Player.rating/2`.
+  @rating_methods ~w(FIDE NRO FIDON NIDOF HBFN OTHER)
+  # The last criterion of the initial order, after rating and title (C.04.2
+  # 2.2.3 "alphabetically, unless ... replaced by another one", VCL4THP Q146)
+  # - see `PairingsEngine.Pairing.initial_order/2`.
+  @initial_order_tiebreaks ~w(name fide_id age_older age_younger)
+  # A Swiss late entrant's pairing number: after the field, or the one their
+  # rating earns (C.04.2 2.4, VCL4THP Q156) - see
+  # `PairingsEngine.Pairing.ensure_pairing_numbers/2`.
+  @late_entry_numberings ~w(end rating)
 
   # `swar_guid` is minted by another program and imported verbatim from a
   # `.swar` file, and it is then used as a filename:
@@ -769,6 +780,25 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :initial_colour, :string, default: "lot"
     field :initial_colour_drawn, :string
 
+    # The Tournament Rating (TEC Manual: the rating that ranks the players and
+    # so gives them their pairing numbers, as against the Official Rating
+    # reported to FIDE). One of TRF26 record 172's methods; "FIDON" - the
+    # FIDE rating, the national one for a player without - is what this app
+    # always did. See `Player.rating/2`.
+    field :rating_method, :string, default: "FIDON"
+
+    # How players level on rating and FIDE title are ordered for their
+    # pairing numbers (C.04.2 2.2.3): alphabetically by default. See
+    # `PairingsEngine.Pairing.initial_order/2`.
+    field :initial_order_tiebreak, :string, default: "name"
+
+    # A Swiss late entrant's pairing number: "end" - after everybody already
+    # numbered, what this app always did - or "rating": the number their
+    # rating earns, everybody from there down moving one place (C.04.2 2.4
+    # "an appropriate TPN", 2.5, C.04.7 1.3.1). See
+    # `PairingsEngine.Pairing.ensure_pairing_numbers/2`.
+    field :late_entry_numbering, :string, default: "end"
+
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:
@@ -1176,6 +1206,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :team_rating_method,
       :team_unrated_rating,
       :initial_colour,
+      :rating_method,
+      :initial_order_tiebreak,
+      :late_entry_numbering,
       :pair_by_category,
       :club_exclusion,
       :club_exclusion_list,
@@ -1213,6 +1246,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_length(:postponed_report_name, max: 200)
     |> validate_length(:postponed_fide_tournament_id, max: 40)
     |> validate_inclusion(:initial_colour, @initial_colours)
+    |> validate_inclusion(:rating_method, @rating_methods)
+    |> validate_inclusion(:initial_order_tiebreak, @initial_order_tiebreaks)
+    |> validate_inclusion(:late_entry_numbering, @late_entry_numberings)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)
     |> validate_number(:team_match_points_win, greater_than_or_equal_to: 0)
@@ -2152,6 +2188,15 @@ defmodule PairingsEngine.Tournaments.Tournament do
     {t.team_pab_match_points || t.team_match_points_draw,
      t.team_pab_game_points || Float.round(boards * t.points_draw / 1, 1)}
   end
+
+  @doc "The Tournament Rating methods (TRF26 record 172), in the order they are offered."
+  def rating_methods, do: @rating_methods
+
+  @doc "The values `initial_order_tiebreak` takes; `\"name\"` is alphabetical."
+  def initial_order_tiebreaks, do: @initial_order_tiebreaks
+
+  @doc "The values `late_entry_numbering` takes."
+  def late_entry_numberings, do: @late_entry_numberings
 
   @doc "The values `initial_colour` takes: drawn by lot, or set by the arbiter."
   def initial_colours, do: @initial_colours
