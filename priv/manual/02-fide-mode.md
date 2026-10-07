@@ -56,26 +56,55 @@ the mode:
 - scoring in which a draw is worth more than a win, or the bye more than a
   win.
 
-The Settings pages say which settings do this, with a link to the setting. Nothing
-is refused. The setting that would take the tournament out of FIDE mode is
-simply marked, and the round in which it first happened is recorded for the
-report.
+The Settings pages say which settings do this, with a link to the setting.
+Nothing is refused, but while the tournament is in FIDE mode **the program
+always asks first** (see *Leaving FIDE mode* below). The round in which the
+tournament first left the mode is recorded for the report.
 
 Other organiser choices that change the pairing without being a FIDE rule
 (a bye exclusion or preference, "only if possible" pair wishes, extra points
 counted in the pairing) are also recorded for the round they changed, and the
-FIDE report lists those rounds. See [Byes and absences](05-byes-and-absences.md)
-and [Pairing a round](06-pairing.md).
+FIDE report lists those rounds. They ask the same question when a pairing
+would actually be moved by one of them. See
+[Byes and absences](05-byes-and-absences.md) and [Pairing a round](06-pairing.md).
 
 Things that FIDE's own regulations allow are not departures and do not
 change the mode: other point values for a win, draw and loss (as long as no
 game scores less than a lesser result), a half-point bye, extra points,
-the choice of tie-breaks, a hand-set standings order.
+the choice of tie-breaks, a hand-set standings order, and changing the
+boards of a round by hand ([Pairing a round](06-pairing.md): hand edits are
+a manual pairing alteration that the regulations foresee, so they do not end
+FIDE mode; a difference from the pairing checker is recorded in the report
+instead).
 
 ## Leaving FIDE mode
 
-Settings, **FIDE**, **Leave FIDE mode…** The program asks twice. The second
-question lists what leaving does:
+There are two ways out, and both ask the same two questions.
+
+- **On purpose:** Settings, **FIDE**, **Leave FIDE mode…**
+- **By an action that is not allowed in FIDE mode.** These are: saving a
+  Settings page (Options, Scoring) with a setting from the list above
+  (Keizer, the Swiss match format, postponed games counted differently, a
+  draw or the bye worth more than a win); switching on *Pair each category
+  independently* on the Categories page; and pressing a pair button when the
+  round, as it would be paired, is moved by a soft rule (an "only if
+  possible" wish), by a bye exclusion or a bye preference, or by extra points
+  counted in the pairing.
+
+Before anything is written the program shows the dialog *Leave FIDE mode?*
+in two steps (this is the double confirmation that the FIDE tournament
+handler checklist calls Level 4):
+
+1. *This is not compliant with the FIDE regulations.* It lists what takes
+   the tournament out of FIDE mode and asks whether to continue. **Yes,
+   continue** goes to the second question; **Cancel** (or `Escape`) closes
+   the dialog.
+2. *Stay in FIDE mode?* **Yes, stay in FIDE mode** closes the dialog;
+   **No, leave FIDE mode** carries out what you asked: the settings are
+   saved, the toggle is switched on, or the round is paired.
+
+Cancelling at either step changes nothing: the settings are not saved and
+the round is not paired. The second question lists what leaving does:
 
 - **It is for good.** The tournament can never return to FIDE mode, even if
   you set every setting back.
