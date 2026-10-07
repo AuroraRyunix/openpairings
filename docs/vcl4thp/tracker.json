@@ -2106,9 +2106,9 @@
     "next": 130,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. Search results show the standard rating only (players_live.ex:2554); after a pick the form hints the standard, rapid and blitz ratings (:3331-3337), but nothing flags a player missing from the main list."
+   "answer": "Y",
+   "status": "met",
+   "note": "The add-player search shows the main-list rating for the tournament's rate of play, or says there is none, plus the player's ratings in the other lists (players_live.ex #fide-result-<id>-other). Tests: players_live_test.exs. Picking one of those other ratings (Q129) is still not offered."
   },
   {
    "q": 129,
@@ -2207,9 +2207,9 @@
     "next": 135,
     "penalty": 18
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 18%. No source list, list date or manual marker is stored per rating (player.ex:12-16)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each FIDE rating keeps its source list and month (players.fide_rating_source, fide_rating_period, fide_rating_listed; migration 20261007090000); a rating typed by hand has no source and one changed by hand is flagged (Player.rating_manual?/1), shown on the player. Tests: rating_refresh_test.exs 'source of an applied rating (VCL4THP 134)', players_live_test.exs. Not covered: the national rating."
   },
   {
    "q": 135,
@@ -2224,9 +2224,9 @@
     "next": 136,
     "penalty": 18
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 18%. The FIDE sync runs only from the admin's button; no scheduler (fide_live.ex:327-333)."
+   "answer": "Y",
+   "status": "met",
+   "note": "While the program runs, Fide.AutoSync asks FIDE once a day whether a newer list exists (HEAD, Last-Modified) and runs the existing sync only then; on by default, switchable on Connections (meta.fide_auto_sync); silent and retried when offline (lib/pairings_engine/fide/auto_sync.ex). Tests: fide/auto_sync_test.exs, fide/freshness_test.exs."
   },
   {
    "q": 136,
@@ -2258,9 +2258,9 @@
     "next": 139,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. The check uses the latest synced list, whatever the start date; the list period is not recorded (rating_refresh.ex:60-91)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each sync records the list month (meta.fide_list_period); the check uses the list valid at the tournament's start, or the check date when the event runs over 30 days, and refuses to compare against a different month, saying why (RatingRefresh.dry_run). Tests: rating_refresh_test.exs 'which list the check uses (VCL4THP 137)'. Only the current list is kept, so an event that started in an earlier month is not compared."
   },
   {
    "q": 138,
@@ -2291,9 +2291,9 @@
     "outcome": "next",
     "next": 140
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Nothing runs a check after a sync (fide/sync.ex:209-224); routes to Q140."
+   "note": "After a list update the check runs at the first opportunity: opening Players or Pairings, or the update finishing while one is open, shows a notice when ratings on file differ from the list (RatingRefresh.notice/1, PairingsEngineWeb.RatingNotice, #rating-check-notice). Tests: rating_refresh_test.exs 'notice/1 (VCL4THP 140)', players_live_test.exs. Routes to Q141."
   },
   {
    "q": 140,
@@ -2308,9 +2308,9 @@
     "outcome": "ok",
     "next": 141
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "Costs 25%. The check runs only when the arbiter presses Refresh ratings (players_live.ex:983-986)."
+   "answer": "N",
+   "status": "met",
+   "note": "Off our path while Q139 is YES. The check also runs without being asked (the notice of Q139)."
   },
   {
    "q": 141,
@@ -2325,9 +2325,9 @@
     "next": 142,
     "penalty": 18
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 18%. The check never compares the local list's date with FIDE's before running (players_live.ex:983-986)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A requested check first asks FIDE whether the local list is current (Fide.Freshness.check/0); if stale, an administrator gets the update first and the check follows, others are told to ask an administrator; unreachable FIDE is said. Test: rating_refresh / players_live 'a requested check asks FIDE first'."
   },
   {
    "q": 142,
@@ -2375,9 +2375,9 @@
     "next": 145,
     "penalty": 12
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 12%. Apply takes every proposal; no subset (players_live.ex:992-995)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each proposed change has a checkbox (ticked by default) with select all; Apply selected writes only the ticked ones (RatingRefresh.select/2, apply/2; #rating-refresh-apply). Tests: players_live_test.exs 'choosing which proposals to apply'."
   },
   {
    "q": 145,
