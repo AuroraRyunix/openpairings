@@ -1,0 +1,15 @@
+const js = {}; export default js;
+const imp_nbxw623t = {}; export { imp_nbxw623t as hooks };
+import js_uu5zharvbyljsp5stn7tkwmbei from "./PairingsEngineWeb.BadgeStudioLive/854_hgvpvb3x5uxplsnieevq5wana4.js"; imp_nbxw623t["PairingsEngineWeb.BadgeStudioLive.PastePhoto"] = js_uu5zharvbyljsp5stn7tkwmbei;
+import js_uk2jfraqvgbvk34eqxghcxtj7m from "./PairingsEngineWeb.HelpLive/155_girtuvvxvl44idr4gp3gchcdii.js"; imp_nbxw623t["PairingsEngineWeb.HelpLive.Manual"] = js_uk2jfraqvgbvk34eqxghcxtj7m;
+import js_swyxabjeaftq5a44gmitphty4q from "./PairingsEngineWeb.LiveRoundLive/497_zq27fefi6gjwtxjema6zqpjexa.js"; imp_nbxw623t["PairingsEngineWeb.LiveRoundLive.BoardFit"] = js_swyxabjeaftq5a44gmitphty4q;
+import js_rshf4eaipfuyy5jm56aa7srpnm from "./PairingsEngineWeb.MobileResultsLive/501_skaunaz26csiw3dkpifxcjdiga.js"; imp_nbxw623t["PairingsEngineWeb.MobileResultsLive.KeepFocus"] = js_rshf4eaipfuyy5jm56aa7srpnm;
+import js_ltdv42zd6syhwimbyaarxpgisa from "./PairingsEngineWeb.PairingExplainLive/2760_dncdw5m7jkyjwx2nbxk36gayb4.js"; imp_nbxw623t["PairingsEngineWeb.PairingExplainLive.BracketMinimap"] = js_ltdv42zd6syhwimbyaarxpgisa;
+import js_nye74hfqqmfarlewxgiibxuoge from "./PairingsEngineWeb.PairingsLive/4930_7xfrj3z5evufbh2ymd3vz5ienu.js"; imp_nbxw623t["PairingsEngineWeb.PairingsLive.RoundMenu"] = js_nye74hfqqmfarlewxgiibxuoge;
+import js_2h4x3x4dqzdhiqofgyncqtzfly from "./PairingsEngineWeb.PairingsLive/4930_sxob2g6vfejittxi4vmphc6aia.js"; imp_nbxw623t["PairingsEngineWeb.PairingsLive.PublishLevel"] = js_2h4x3x4dqzdhiqofgyncqtzfly;
+import js_fzxtksl2fvlvmay3vfeczope7m from "./PairingsEngineWeb.PairingsLive/4930_wamiwu4bptkhw46px52dzri7gu.js"; imp_nbxw623t["PairingsEngineWeb.PairingsLive.HandEditMenu"] = js_fzxtksl2fvlvmay3vfeczope7m;
+import js_2eelxn6a34yt7xwaula6zovfmi from "./PairingsEngineWeb.PairingsLive/4930_yfpdvqx6suwnu5ycsdbkzsqiza.js"; imp_nbxw623t["PairingsEngineWeb.PairingsLive.PairingMenu"] = js_2eelxn6a34yt7xwaula6zovfmi;
+import js_nrnmdrd5zeeihsurud4xir2k2y from "./PairingsEngineWeb.PairingsLive/4930_ppkfasc7vfm3ziy73wlblnoxya.js"; imp_nbxw623t["PairingsEngineWeb.PairingsLive.SwapArrows"] = js_nrnmdrd5zeeihsurud4xir2k2y;
+import js_srlazusvqov44ja53x4cuabxpq from "./PairingsEngineWeb.PairingsLive/4930_qiklqw6rj4jdiajhi7yivdmgee.js"; imp_nbxw623t["PairingsEngineWeb.PairingsLive.BlindResultEntry"] = js_srlazusvqov44ja53x4cuabxpq;
+import js_5ewg2zjnzewxjdis3utcra72qu from "./PairingsEngineWeb.SettingsResultsLive/1084_cnagpc4giclu75xkccsvkcpr7y.js"; imp_nbxw623t["PairingsEngineWeb.SettingsResultsLive.SettingSlider"] = js_5ewg2zjnzewxjdis3utcra72qu;
+import js_zq6iyjjnb7wjh5c4w6arc634qe from "./PairingsEngineWeb.SettingsResultsLive/978_pps74mq2juoj5scwnopewrnrf4.js"; imp_nbxw623t["PairingsEngineWeb.SettingsResultsLive.UtcDateTime"] = js_zq6iyjjnb7wjh5c4w6arc634qe;

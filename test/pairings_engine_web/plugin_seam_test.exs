@@ -41,7 +41,9 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       end
     end
 
-    test "the home screen has no Plug-ins menu", %{conn: conn} do
+    test "the home screen has no Plug-ins menu", %{conn: conn, user: user} do
+      # An administrator, so a compiled-in plugin (hosted edition) would show.
+      {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
       {:ok, lv, _html} = live(conn, ~p"/")
       assert has_element?(lv, "#topbar-plugins") == not Enum.empty?(Plugins.compiled())
     end
