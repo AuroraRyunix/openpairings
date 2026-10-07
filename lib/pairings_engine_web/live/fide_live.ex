@@ -87,6 +87,7 @@ defmodule PairingsEngineWeb.FideLive do
       # make it permanent on the next save. It is the placeholder instead.
       publish_endpoint: Publishing.stored_endpoint() || "",
       publish_default_endpoint: Publishing.default_endpoint(),
+      publish_default_server: Publishing.default_public_server(),
       publish_public_base: Publishing.stored_public_base() || "",
       publish_token_set?: is_binary(Publishing.token()) and Publishing.token() != "",
       publish_configured?: Publishing.configured?(),
@@ -1016,7 +1017,7 @@ defmodule PairingsEngineWeb.FideLive do
               type="text"
               name="endpoint"
               value={@publish_endpoint}
-              placeholder={@publish_default_endpoint || "https://openresults.zerotwo.cloud"}
+              placeholder={@publish_default_endpoint || @publish_default_server}
               class="pe-input"
               autocomplete="off"
             />

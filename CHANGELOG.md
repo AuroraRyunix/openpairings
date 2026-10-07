@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] A hosted installation can now answer on a second web address while the first keeps working, and the old address can be set to forward visitors to the new one. Off until it is turned on; nothing changes for anyone before then.
+- [Change] The address of the public results site that a desktop copy publishes to, and that the publishing form suggests, can be set by the operator instead of being fixed in the build.
+
 - [Security] The "remember me" cookie is marked `Secure` and `HttpOnly`
   explicitly in production, like the session cookie, instead of relying on
   the request being recognised as https behind the proxy.

@@ -292,6 +292,16 @@ config :pairings_engine, :fide_photo_proxy,
 config :pairings_engine, :accounts,
   blocked_registration_domain: System.get_env("SSO_BLOCKED_REGISTRATION_DOMAIN")
 
+# The public OpenResults address a desktop copy publishes to when none is
+# stored, and the placeholder the publishing form suggests. Unset: the value
+# compiled into `PairingsEngine.Publishing`. Hosted installs store their own
+# address in the settings and are unaffected.
+if openresults_public_url = System.get_env("OPENRESULTS_PUBLIC_URL") do
+  config :pairings_engine,
+         :openresults_public_url,
+         String.trim_trailing(openresults_public_url, "/")
+end
+
 # Configure 02cloud SSO (Keycloak, auth.zerotwo.cloud, realm `zerotwo`).
 #
 # Unlike SMTP above, this is NOT required to boot - SSO is one login option
@@ -553,7 +563,48 @@ if config_env() == :prod do
       {listen_ip, [host: host, port: 443, scheme: "https"]}
     end
 
+  # Hostnames. PHX_HOST is the canonical one - every link the app builds uses
+  # it. During a domain move two more lists matter, both comma-separated and
+  # both empty by default, which keeps today's behaviour exactly:
+  #
+  #   * PHX_ALLOWED_HOSTS - further hosts whose pages may open the LiveView
+  #     websocket (`check_origin`). PHX_HOST is always allowed.
+  #   * PHX_REDIRECT_HOSTS - old hosts whose GET/HEAD requests are answered with
+  #     a 301 to PHX_HOST (`PairingsEngineWeb.Plugs.CanonicalHost`). Each is also
+  #     an allowed origin, so a page opened before the redirect started keeps
+  #     its socket.
+  #
+  # A host that does not look like a hostname stops the boot: a typo here
+  # would otherwise quietly refuse every websocket from the real site.
+  parse_hosts = fn variable ->
+    (System.get_env(variable) || "")
+    |> String.split(",")
+    |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn entry ->
+      if entry =~ ~r/\A[a-z0-9]([a-z0-9.-]*[a-z0-9])?\z/ do
+        entry
+      else
+        raise "#{variable} has an entry that is not a hostname: #{inspect(entry)}. " <>
+                "Use bare names separated by commas, e.g. old.example.org,www.example.org."
+      end
+    end)
+    |> Enum.uniq()
+  end
+
+  allowed_hosts = parse_hosts.("PHX_ALLOWED_HOSTS")
+  redirect_hosts = parse_hosts.("PHX_REDIRECT_HOSTS") -- [String.downcase(host)]
+
+  origin_hosts = Enum.uniq([host | allowed_hosts ++ redirect_hosts])
+
+  config :pairings_engine, :host_policy,
+    canonical: String.downcase(host),
+    redirect_hosts: redirect_hosts
+
   config :pairings_engine, PairingsEngineWeb.Endpoint,
+    # Only a server needs the list: local mode answers on loopback and keeps
+    # Phoenix's default check.
+    check_origin: if(local_mode?, do: true, else: Enum.map(origin_hosts, &("//" <> &1))),
     url: url_config,
     http: [
       # Loopback unless OPENPAIRINGS_LISTEN_IP says otherwise - see above.
