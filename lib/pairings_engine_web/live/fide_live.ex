@@ -46,6 +46,7 @@ defmodule PairingsEngineWeb.FideLive do
      |> assign(
        page_title: "Connections",
        status: FideSync.status(),
+       fide_auto_sync: PairingsEngine.Fide.AutoSync.enabled?(),
        kbsb?: kbsb?,
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
@@ -324,6 +325,17 @@ defmodule PairingsEngineWeb.FideLive do
     end
   end
 
+  # Machine-wide, so an administrator's, like the download itself.
+  def handle_event("toggle_fide_auto_sync", _params, socket) do
+    if socket.assigns.may_admin? do
+      on? = not PairingsEngine.Fide.AutoSync.enabled?()
+      PairingsEngine.Fide.AutoSync.put_enabled(on?)
+      {:noreply, assign(socket, fide_auto_sync: on?)}
+    else
+      {:noreply, put_flash(socket, :error, sync_restricted())}
+    end
+  end
+
   def handle_event("sync", _params, socket) do
     if socket.assigns.may_admin? do
       {:noreply, start_fide_sync(socket)}
@@ -588,6 +600,7 @@ defmodule PairingsEngineWeb.FideLive do
       active="fide"
     >
       <h1>{gettext("Connections")}</h1>
+
       <p class="subtitle">
         {gettext(
           "Everything this machine talks to: the FIDE and Belgian national (KBSB/FRBE) rating lists it looks players up in, and the results site it publishes to."
@@ -596,10 +609,12 @@ defmodule PairingsEngineWeb.FideLive do
 
       <div class="card">
         <h2>{gettext("FIDE database")}</h2>
+
         <p>
           <.rich_text text={gettext("%[count] players in the local database.")}>
             <:part name="count"><strong>{format_count(@status.player_count)}</strong></:part>
           </.rich_text>
+
           <%= if @status.last_sync do %>
             <.rich_text text={gettext("Last updated: %[when] (UTC).")}>
               <:part name="when"><strong>{@status.last_sync}</strong></:part>
@@ -616,10 +631,12 @@ defmodule PairingsEngineWeb.FideLive do
               style={percent(@status) && "width: #{percent(@status)}%"}
             />
           </div>
+
           <p class="ok-note">
             {if @status.progress != "", do: @status.progress, else: gettext("Working…")}
           </p>
         </div>
+
         <p :if={@status.status == :error} class="error-note">
           {gettext("Update failed:")} {@status.error}
         </p>
@@ -629,11 +646,27 @@ defmodule PairingsEngineWeb.FideLive do
             "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."
           )}
         </p>
+
         <p :if={!@may_admin?} class="hint">
           {gettext(
             "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
           )}
         </p>
+
+        <p class="hint">
+          <label>
+            <input
+              id="fide-auto-sync"
+              type="checkbox"
+              phx-click="toggle_fide_auto_sync"
+              checked={@fide_auto_sync}
+              disabled={!@may_admin?}
+            /> {gettext(
+              "Keep the list up to date automatically: once a day, while the program runs, it asks FIDE whether there is a newer list and downloads it only if there is (about once a month). Nothing happens while offline."
+            )}
+          </label>
+        </p>
+
         <div class="actions">
           <button
             class="pe-btn primary"
@@ -647,6 +680,7 @@ defmodule PairingsEngineWeb.FideLive do
               true -> gettext("Download rating list")
             end}
           </button>
+
           <button :if={busy?(@status) and @may_admin?} class="pe-btn" phx-click="cancel">
             {gettext("Cancel")}
           </button>
@@ -659,10 +693,12 @@ defmodule PairingsEngineWeb.FideLive do
             mention Belgium to somebody who does not work there. --%>
       <div :if={@kbsb?} class="card">
         <h2>{gettext("Belgian national rating list (KBSB/FRBE)")}</h2>
+
         <p>
           <.rich_text text={gettext("%[count] players in the local database.")}>
             <:part name="count"><strong>{format_count(@kbsb_status.player_count)}</strong></:part>
           </.rich_text>
+
           <%= if @kbsb_status.last_sync do %>
             <.rich_text text={gettext("Last updated: %[when] (UTC).")}>
               <:part name="when"><strong>{@kbsb_status.last_sync}</strong></:part>
@@ -685,13 +721,16 @@ defmodule PairingsEngineWeb.FideLive do
               style={percent(@kbsb_status) && "width: #{percent(@kbsb_status)}%"}
             />
           </div>
+
           <p class="ok-note">
             {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: gettext("Working…")}
           </p>
         </div>
+
         <p :if={@kbsb_status.status == :error} class="error-note">
           {gettext("Sync failed:")} {@kbsb_status.error}
         </p>
+
         <p
           :if={@kbsb_status.status == :done and @kbsb_status.outcome == :unchanged}
           class="ok-note"
@@ -700,6 +739,7 @@ defmodule PairingsEngineWeb.FideLive do
         >
           {gettext("Already up to date: KBSB's list has not changed since the last sync.")}
         </p>
+
         <p
           :if={@kbsb_status.status == :done and @kbsb_status.outcome == :imported}
           class="ok-note"
@@ -722,6 +762,7 @@ defmodule PairingsEngineWeb.FideLive do
               do: gettext("Syncing…"),
               else: gettext("Sync from KBSB")}
           </button>
+
           <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
             {gettext("Cancel")}
           </button>
@@ -729,6 +770,7 @@ defmodule PairingsEngineWeb.FideLive do
 
         <details :if={@may_admin?} style="margin-top: 12px">
           <summary>{gettext("Belgian rating list settings")}</summary>
+
           <form phx-submit="save_kbsb_urls" style="margin-top: 8px">
             <div class="field">
               <label for="kbsb-players-url">{gettext("Belgian rating list URL")}</label>
@@ -745,6 +787,7 @@ defmodule PairingsEngineWeb.FideLive do
                 )}
               </p>
             </div>
+
             <div class="field" style="margin-top: 8px">
               <label for="kbsb-clubs-url">{gettext("Belgian club names URL (optional)")}</label>
               <input
@@ -760,6 +803,7 @@ defmodule PairingsEngineWeb.FideLive do
                 )}
               </p>
             </div>
+
             <div class="actions" style="margin-top: 8px">
               <button type="submit" class="pe-btn">{gettext("Save")}</button>
             </div>
@@ -775,6 +819,7 @@ defmodule PairingsEngineWeb.FideLive do
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
             {gettext("Search the local KBSB database (national ID or last name)")}
           </span>
+
           <input
             type="text"
             name="q"
@@ -804,11 +849,13 @@ defmodule PairingsEngineWeb.FideLive do
             PairingsEngine.Features. --%>
       <div :if={@bel_swar_publish?} class="card">
         <h2>{gettext("SWAR results page")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "The \"Version\" tag every SWAR-compatible results page carries. The federation's public tournament list shows a \"Vers\" column built by extracting the vX.YY out of this exact string."
           )}
         </p>
+
         <form phx-submit="save_swar_version" class="field">
           <label for="swar_version">{gettext("Version")}</label>
           <input
@@ -867,14 +914,19 @@ defmodule PairingsEngineWeb.FideLive do
             <thead>
               <tr>
                 <th>{gettext("Taken")}</th>
+
                 <th class="num">{gettext("Size")}</th>
+
                 <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={backup <- Enum.take(@backups, 10)}>
                 <td>{Calendar.strftime(backup.created_at, "%Y-%m-%d %H:%M")} UTC</td>
+
                 <td class="num">{human_size(backup.size)}</td>
+
                 <td class="num">
                   <a
                     :if={@may_admin?}
@@ -906,6 +958,7 @@ defmodule PairingsEngineWeb.FideLive do
             nothing. --%>
       <div :if={@local_mode?} class="card">
         <h2>{gettext("Updates")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Checks GitHub for a newer OpenPairings release every few hours, and shows a banner at the top of every page when one is out. It only ever notifies - nothing is downloaded or installed automatically, because an update can change the pairing engine's version, and this decides when that happens, not a background timer."
@@ -937,11 +990,13 @@ defmodule PairingsEngineWeb.FideLive do
         <div style="margin-bottom: 14px">
           <.connection_status status={@connection} />
         </div>
+
         <p>
           {gettext(
             "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
           )}
         </p>
+
         <p>
           {gettext(
             "Set this once for the machine. Each tournament then has its own switch in its Settings, off until you turn it on."
@@ -997,6 +1052,7 @@ defmodule PairingsEngineWeb.FideLive do
             >
               {gettext("Register again")}
             </button>
+
             <button
               :if={match?({:rejected, _, "address_blocked", _}, @installation_state)}
               type="button"
@@ -1056,6 +1112,7 @@ defmodule PairingsEngineWeb.FideLive do
             <span class="hint" style="display: block">
               {gettext("Never shown once saved. Leave this empty to keep the one already stored.")}
             </span>
+
             <span :if={@public_mode?} class="hint" style="display: block">
               {gettext(
                 "Optional on this computer. A token from the operator of a results site takes over from this computer's own key as soon as it is saved."
@@ -1077,6 +1134,7 @@ defmodule PairingsEngineWeb.FideLive do
             >
               {gettext("Test connection")}
             </button>
+
             <button
               :if={@publish_token_set?}
               type="button"
@@ -1111,7 +1169,6 @@ defmodule PairingsEngineWeb.FideLive do
           </.rich_text>
         </p>
       </div>
-
       <PublicConsent.consent_dialog consent={@consent} />
     </Layouts.app>
     """
