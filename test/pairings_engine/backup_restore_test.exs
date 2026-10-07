@@ -136,11 +136,17 @@ defmodule PairingsEngine.BackupRestoreTest do
     end
   end
 
+  # Every migration the code has: the app's, and in the hosted edition its
+  # plug-ins' too (`PairingsEngine.Application.migration_paths/1`).
   defp migration_files do
-    Application.app_dir(:pairings_engine, "priv/repo/migrations")
-    |> File.ls!()
+    PairingsEngine.Repo
+    |> PairingsEngine.Application.migration_paths()
+    |> Enum.flat_map(&File.ls!/1)
     |> Enum.filter(&Regex.match?(~r/\A\d+_\w+\.exs\z/, &1))
   end
+
+  defp migrations(repo),
+    do: Ecto.Migrator.migrations(repo, PairingsEngine.Application.migration_paths(repo))
 
   test "the restored file matches its source table for table, the rating lists aside", %{dir: dir} do
     src = source(dir)
@@ -213,7 +219,7 @@ defmodule PairingsEngine.BackupRestoreTest do
       # The promise the moduledoc makes about emptying rather than dropping:
       # the file's history is the code's history, so nothing is pending and
       # nothing is unknown.
-      migrations = Ecto.Migrator.migrations(PairingsEngine.Repo)
+      migrations = migrations(PairingsEngine.Repo)
       assert length(migrations) == length(migration_files())
       assert Enum.all?(migrations, fn {status, _version, _name} -> status == :up end)
 
@@ -275,7 +281,7 @@ defmodule PairingsEngine.BackupRestoreTest do
 
     try do
       # The question a non-release boot now asks, of the restored file.
-      migrations = Ecto.Migrator.migrations(PairingsEngine.Repo)
+      migrations = migrations(PairingsEngine.Repo)
       assert {:error, message} = PairingsEngine.Application.migration_refusal(migrations)
       assert message =~ "1 migration(s) behind"
       assert message =~ to_string(newest)

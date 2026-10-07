@@ -6699,8 +6699,8 @@ dialog.pe-confirm::backdrop { background: var(--scrim); }
   white-space: nowrap;
 }
 .lineup-finding-violation .lineup-finding-tag {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-  color: var(--danger);
+  background: var(--danger);
+  color: var(--danger-ink);
 }
 .lineup-finding-warning .lineup-finding-tag {
   background: var(--warn-soft);

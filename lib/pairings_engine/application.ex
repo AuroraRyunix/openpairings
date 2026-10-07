@@ -280,8 +280,10 @@ defmodule PairingsEngine.Application do
 
   # The repo's own migrations, then any plugin's (`PairingsEngine.Plugins`).
   # Just the first in every build without a plugin - which is what
-  # `Ecto.Migrator.run/3` and `migrations/1` read by themselves.
-  defp migration_paths(repo),
+  # `Ecto.Migrator.run/3` and `migrations/1` read by themselves. Public for
+  # the tests that ask the same question of a restored file.
+  @doc false
+  def migration_paths(repo),
     do: [Ecto.Migrator.migrations_path(repo) | PairingsEngine.Plugins.migrations_paths()]
 
   # Split out from `run_migrations_for/2` so the retry/give-up decision -
