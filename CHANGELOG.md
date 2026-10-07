@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-10-07
+
 - [Change] **Plug-ins are for administrators only.** The Plug-ins menu, the
   installed plug-ins page, every plug-in page, a plug-in's tournament menu
   entries and its feature switches show only for an administrator.
