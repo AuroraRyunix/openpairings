@@ -73,7 +73,9 @@ defmodule PairingsEngine.TrfExport do
           |> build(rounds_spec, opts)
           |> mark_copy(
             copy_comments(tournament, rounds_spec, opts) ++
-              fide_mode_comments(tournament, opts) ++ import_pibe_comments(tournament, opts)
+              fide_mode_comments(tournament, opts) ++
+              import_pibe_comments(tournament, opts) ++
+              mpa_comments(tournament, rounds_spec, opts)
           )
         end
 
@@ -209,6 +211,32 @@ defmodule PairingsEngine.TrfExport do
   defp pibe_bye("forfeit_win"), do: "already won by forfeit"
   defp pibe_bye("full_point_bye"), do: "already had a full-point bye"
   defp pibe_bye(_), do: "not eligible"
+
+  ## ---------- manual pairing alterations are in the file ----------
+  #
+  # VCL4THP Q69 and Q113: a round whose boards were altered by hand and do
+  # not match the pairing checker's carries its MPA PIBE as a `###` line, in
+  # the TEC Manual's own shape (`MPA @ Round r: <checker's pairs> => <the
+  # round's>`, starting ranks; `PairingsEngine.ManualPairing`). One per
+  # round at most, in round order, for the rounds this file holds. TRF26
+  # only and never in the file sent for rating, like the FIDE-mode note.
+  defp mpa_comments(tournament, rounds_spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      paired = Pairing.paired_rounds_count(tournament.id)
+      rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+
+      PairingsEngine.Repo.all(
+        from r in PairingsEngine.Tournaments.Round,
+          where:
+            r.tournament_id == ^tournament.id and r.number in ^rounds and
+              not is_nil(r.mpa_pibe),
+          order_by: r.number,
+          select: r.mpa_pibe
+      )
+    else
+      []
+    end
+  end
 
   @doc """
   Puts `comments` into the TRF `text` as `###` comment lines, after the

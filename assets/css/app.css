@@ -2881,6 +2881,30 @@ a.pending-chip:hover {
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
 }
+/* A manual pairing alteration open on the round (PairingsLive, VCL4THP Q65):
+   the warn tone, with its Finish button at the end of the line - and under
+   the text on a phone. */
+.mpa-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  margin: 10px 0;
+}
+.mpa-banner > span { flex: 1 1 320px; }
+/* The pairing checker's boards beside the arbiter's, when finishing hand
+   edits; one column on a phone. */
+.mpa-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 18px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+.mpa-compare h3 { margin: 6px 0 4px; font-size: 13px; color: var(--text-soft); }
+.mpa-compare ol, .mpa-compare ul { margin: 0; padding-left: 20px; }
+.pe-modal-note code, .setup-line code { overflow-wrap: anywhere; }
 /* Same shape as `.actions`, and the same fix. This row is narrower than that
    one (`.pe-modal-card` caps at 560px, less 40px of padding) and its confirm
    button carries the longest label on the screen, so it has less room to

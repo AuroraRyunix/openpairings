@@ -1368,6 +1368,16 @@ defmodule PairingsEngineWeb.SettingsSupport do
         category: category_name
       )
 
+  # The engine's own words; tagged so the Pairings page can offer to pair
+  # the round by hand (`PairingsEngine.Pairing.create_round_by_hand/1`).
+  def error_text({:no_legal_pairing, text}) when is_binary(text), do: text
+
+  def error_text(:not_by_hand),
+    do:
+      gettext(
+        "Only an individual Swiss paired one round at a time can have a round created by hand."
+      )
+
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
 

@@ -342,7 +342,19 @@ defmodule PairingsEngine.TournamentExport do
     # loses only that: the round stays correctly hidden until its
     # `published_at`, and an arbiter who needs it live sooner already has
     # `publish_round_now/1` for exactly that.
-    :publish_due_at
+    :publish_due_at,
+    # A manual pairing alteration in progress (`PairingsEngine.ManualPairing`):
+    # in-flight state like `publish_due_at`. Its ids are DB player ids too,
+    # and an import that carried an open session would land the copy in the
+    # middle of somebody else's edit. A backup taken mid-session restores
+    # the boards as they were, with no session open.
+    :mpa_session,
+    # Carried outside the field list, like `virtual_points`: `round_map/1`
+    # writes it under `"mpa_pibe"` only when the round has one, so a
+    # tournament without a manual alteration exports exactly as before. It
+    # is the round's PIBE record, in starting ranks rather than ids, so it
+    # travels as it is.
+    :mpa_pibe
   ]
 
   @pairing_excluded [
@@ -630,6 +642,9 @@ defmodule PairingsEngine.TournamentExport do
       "matches" => Enum.map(round.matches, &match_map/1),
       "virtual_points" => round.virtual_points
     })
+    |> then(fn map ->
+      if round.mpa_pibe, do: Map.put(map, "mpa_pibe", round.mpa_pibe), else: map
+    end)
   end
 
   # A team match: which two teams, and its number in the round. `id` travels

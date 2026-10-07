@@ -661,6 +661,17 @@ not a policy of ours. What was built:
   and TRF26 downloads still carry it.
 - **The permanent indication** (Q46): one muted line on every page of a
   tournament not in FIDE mode, in `Layouts.app`.
+- **Hand edits stay in FIDE mode** (Q63-Q69): the regulations foresee an
+  arbiter changing pairings (C.04.2:4.4), so a hand edit is not an exit.
+  It is a manual pairing alteration (`PairingsEngine.ManualPairing`): a
+  session per round, opened by "Edit pairings by hand" or the first edit
+  and closed by "Finish hand edits"; each edit that breaks an absolute
+  criterion needs its own tick (Level 3); the end runs the pairing checker
+  and, when the round is not its pairing, asks again and records the MPA
+  PIBE, which the TRF26 export writes as `### MPA @ Round r: <checker's
+  boards> => <the round's>` (not in the file sent for rating). When the
+  engine finds no legal pairing, the round can be created empty and paired
+  this way.
 
 **What section 3.5 said and no longer holds:** "it does not argue and it
 does not block". The notice still does not block; the locks do. An arbiter

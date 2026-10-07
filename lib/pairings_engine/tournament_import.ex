@@ -801,6 +801,13 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
+  # A round's MPA PIBE line (`Round.mpa_pibe`): starting ranks, not ids, so
+  # it is carried as written. Anything but a non-empty string is no record.
+  defp mpa_pibe(%{"mpa_pibe" => line}) when is_binary(line) and line != "",
+    do: String.slice(line, 0, 2000)
+
+  defp mpa_pibe(_round), do: nil
+
   defp import_rounds!(tournament, rounds, player_map, team_map) do
     Enum.each(Enum.with_index(rounds, 1), fn {r, n} ->
       new_round =
@@ -809,6 +816,7 @@ defmodule PairingsEngine.TournamentImport do
         |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
         |> Ecto.Changeset.change(publish_cap: coerce_int(Map.get(r, "publish_cap")))
         |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
+        |> Ecto.Changeset.change(mpa_pibe: mpa_pibe(r))
         |> insert!("round entry #{n}")
 
       pairings = records!(r, "pairings")

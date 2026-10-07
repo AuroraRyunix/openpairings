@@ -209,7 +209,8 @@ write a draw that never happened.
 without `copy: true` - look like the FIDE files SWAR sends, which the
 FRBE→FIDE path accepts (SWAR v6.65, `EnvoiFIDE.cpp`): **only records**. No
 column ruler, no `DDD` legend line and no comment line of any kind (`###`):
-no copy mark, no "FIDE mode exited" note, no receipt line. The other TRF26
+no copy mark, no "FIDE mode exited" note, no manual-alteration (`### MPA @
+Round r: ...`) line, no receipt line. The other TRF26
 records (`142`, `152`, `162` for a point system other than 1/half/0, `192`,
 `202`, `222`, `250`, `260`, `299`) are written as in any TRF26 download.
 
