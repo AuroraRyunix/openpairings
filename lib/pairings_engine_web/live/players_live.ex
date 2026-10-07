@@ -148,6 +148,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_error: nil,
        edit_fide_conflicts: nil,
        edit_sent_rounds: [],
+       edit_half_rounds: [],
        # The join round worked out for the player in the dialog when theirs
        # is not set - `LateEntry.derived_start_round/2`.
        edit_derived_start: nil,
@@ -435,6 +436,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     rounds = to_string(player.absent_rounds)
 
     cond do
+      Player.expelled?(player) -> {0, {5, "E"}}
       player.forfeit -> {0, {4, "F"}}
       player.absent -> {0, {3, "A"}}
       rounds == "" -> {0, {0, ""}}
@@ -1157,6 +1159,7 @@ defmodule PairingsEngineWeb.PlayersLive do
            edit_error: nil,
            edit_fide_conflicts: nil,
            edit_sent_rounds: [],
+           edit_half_rounds: [],
            edit_derived_start: derived
          )}
     end
@@ -1171,7 +1174,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_form: %{},
        edit_error: nil,
        edit_fide_conflicts: nil,
-       edit_sent_rounds: []
+       edit_sent_rounds: [],
+       edit_half_rounds: []
      )}
   end
 
@@ -1195,7 +1199,8 @@ defmodule PairingsEngineWeb.PlayersLive do
      assign(socket,
        edit_form: params,
        edit_fide_conflicts: nil,
-       edit_sent_rounds: Tournaments.sent_absence_rounds(socket.assigns.editing_player, params)
+       edit_sent_rounds: Tournaments.sent_absence_rounds(socket.assigns.editing_player, params),
+       edit_half_rounds: Tournaments.second_half_bye_rounds(socket.assigns.editing_player, params)
      )}
   end
 
@@ -1320,7 +1325,16 @@ defmodule PairingsEngineWeb.PlayersLive do
     params = keep_derived_start(params, socket.assigns.edit_derived_start)
     sent = Tournaments.sent_absence_rounds(before, params)
     ack? = params["sent_ack"] == "true"
-    opts = if ack?, do: [acknowledged: [:sent_round_changed]], else: []
+    half_ack? = params["half_ack"] == "true"
+
+    opts =
+      [
+        acknowledged:
+          List.flatten([
+            if(ack?, do: [:sent_round_changed], else: []),
+            if(half_ack?, do: [:second_half_bye], else: [])
+          ])
+      ]
 
     case Tournaments.update_player(before, params, opts) do
       {:ok, player} ->
@@ -1331,9 +1345,13 @@ defmodule PairingsEngineWeb.PlayersLive do
             socket.assigns.tournament.id,
             socket.assigns.current_scope,
             "player.updated",
-            Map.merge(
+            Enum.reduce(
+              [
+                if(ack? and sent != [], do: %{confirmed: "sent_round_changed"}, else: %{}),
+                if(half_ack?, do: %{confirmed_second_half_bye: true}, else: %{})
+              ],
               %{player_id: player.id, player_name: player.name, changed_fields: changed},
-              if(ack? and sent != [], do: %{confirmed: "sent_round_changed"}, else: %{})
+              &Map.merge(&2, &1)
             )
           )
         end
@@ -1344,9 +1362,18 @@ defmodule PairingsEngineWeb.PlayersLive do
            editing_player: nil,
            edit_form: %{},
            edit_error: nil,
-           edit_fide_conflicts: nil
+           edit_fide_conflicts: nil,
+           edit_half_rounds: []
          )
          |> assign_players()}
+
+      {:error, {:needs_acknowledgement, [:second_half_bye]}} ->
+        {:noreply,
+         assign(socket,
+           edit_error: nil,
+           edit_form: params,
+           edit_half_rounds: Tournaments.second_half_bye_rounds(before, params)
+         )}
 
       {:error, {:needs_acknowledgement, _ids}} ->
         {:noreply,
@@ -1597,6 +1624,8 @@ defmodule PairingsEngineWeb.PlayersLive do
       "affiliated" => p.affiliated,
       "absent" => p.absent,
       "forfeit" => p.forfeit,
+      "status" => p.status,
+      "no_half_bye" => p.no_half_bye,
       "fixed_board" => blank_or(p.fixed_board),
       "absent_rounds" => p.absent_rounds,
       "start_round" => p.start_round || 1,
@@ -1721,8 +1750,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           name="player[no_bye]"
           value="true"
           checked={@on?}
-        />
-        {gettext("Exclude from the pairing-allocated bye")}
+        /> {gettext("Exclude from the pairing-allocated bye")}
       </label>
 
       <div :if={@on?} class="radio-row" id="player-no-bye-scope">
@@ -1733,9 +1761,9 @@ defmodule PairingsEngineWeb.PlayersLive do
             name="player[no_bye_scope]"
             value="all"
             checked={@scope == "all"}
-          />
-          {gettext("All rounds")}
+          /> {gettext("All rounds")}
         </label>
+
         <label>
           <input
             type="radio"
@@ -1743,8 +1771,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             name="player[no_bye_scope]"
             value="rounds"
             checked={@scope == "rounds"}
-          />
-          {gettext("Certain rounds")}
+          /> {gettext("Certain rounds")}
         </label>
       </div>
     </div>
@@ -1761,13 +1788,11 @@ defmodule PairingsEngineWeb.PlayersLive do
       role="note"
       style="grid-column: 1 / -1"
     >
-      <strong>{gettext("Not part of the FIDE rules.")}</strong>
-      {gettext(
+      <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
         "With this player kept from the pairing-allocated bye, the Swiss pairings will differ from what FIDE-endorsed programs produce, and a FIDE checker cannot replay the rounds it changes. The round's explanation and the audit trail record it."
       )}
       <p :if={@tournament.fide_homologated} id="player-no-bye-fide-warning" style="margin: 6px 0 0">
-        <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
-        {gettext(
+        <strong>{gettext("This tournament is FIDE-homologated.")}</strong> {gettext(
           "A round in which this moves the bye is not paired the way the FIDE rules require, and the tournament's FIDE record says so from that round on. Only use it if the rating officer has agreed."
         )}
       </p>
@@ -1907,8 +1932,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       role="note"
       style="grid-column: 1 / -1"
     >
-      <strong>{gettext("Bye preference ignored: this tournament is FIDE-rated.")}</strong>
-      {gettext(
+      <strong>{gettext("Bye preference ignored: this tournament is FIDE-rated.")}</strong> {gettext(
         "This player's stored preference (%{what}) is not applied while the tournament is FIDE-rated, and cannot be changed here. It is kept, and applies again if the tournament stops being FIDE-rated.",
         what: bye_preference_label(@form["bye_preference"])
       )}
@@ -1936,7 +1960,6 @@ defmodule PairingsEngineWeb.PlayersLive do
         options={bye_preference_options()}
         class="pe-select"
       />
-
       <div :if={@on?} class="radio-row" id="player-bye-preference-scope">
         <label>
           <input
@@ -1945,9 +1968,9 @@ defmodule PairingsEngineWeb.PlayersLive do
             name="player[bye_preference_scope]"
             value="all"
             checked={@scope == "all"}
-          />
-          {gettext("All rounds")}
+          /> {gettext("All rounds")}
         </label>
+
         <label>
           <input
             type="radio"
@@ -1955,8 +1978,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             name="player[bye_preference_scope]"
             value="rounds"
             checked={@scope == "rounds"}
-          />
-          {gettext("Certain rounds")}
+          /> {gettext("Certain rounds")}
         </label>
       </div>
     </div>
@@ -1979,8 +2001,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       role="note"
       style="grid-column: 1 / -1"
     >
-      <strong>{gettext("Not part of the FIDE rules.")}</strong>
-      {gettext(
+      <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
         "A bye preference makes the Swiss pairings differ from what FIDE-endorsed programs produce in any round it changes, and a FIDE checker cannot replay that round. The round's explanation and the audit trail record it."
       )}
       <span id="player-bye-preference-meaning">
@@ -2191,6 +2212,9 @@ defmodule PairingsEngineWeb.PlayersLive do
     rounds = to_string(player.absent_rounds)
 
     cond do
+      Player.expelled?(player) ->
+        "E"
+
       player.forfeit ->
         "F"
 
@@ -2230,6 +2254,9 @@ defmodule PairingsEngineWeb.PlayersLive do
     rounds = to_string(player.absent_rounds)
 
     cond do
+      Player.expelled?(player) ->
+        gettext("Presence, %{name}: expelled", name: name)
+
       player.forfeit ->
         gettext("Presence, %{name}: forfeited", name: name)
 
@@ -2431,6 +2458,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               length(@queue)
             )}
           </h2>
+
           <.link
             id="review-entries-link"
             class="pe-btn"
@@ -2447,8 +2475,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         </p>
 
         <p :if={@queue_error} class="error-note" role="alert">{@queue_error}</p>
-        <p :if={@queue_note} class="ok-note">{@queue_note}</p>
 
+        <p :if={@queue_note} class="ok-note">{@queue_note}</p>
         <RegistrationQueue.pending_list :if={@queue != []} queue={@queue} compact />
       </section>
 
@@ -2466,10 +2494,12 @@ defmodule PairingsEngineWeb.PlayersLive do
               length(@postponed_open)
             )}
           </h2>
+
           <.link navigate={~p"/t/#{@tournament.id}/pairings"} class="pe-btn">
             {gettext("Enter results")}
           </.link>
         </div>
+
         <ul class="postponed-overview-list">
           <li :for={game <- @postponed_open} id={"postponed-overview-#{game.pairing.id}"}>
             <.link
@@ -2482,11 +2512,13 @@ defmodule PairingsEngineWeb.PlayersLive do
                   board: game.pairing.display_board || game.pairing.board
                 )}
               </span>
+
               <span class="postponed-overview-players">
                 {postponed_name(game.pairing.white_player)} – {postponed_name(
                   game.pairing.black_player
                 )}
               </span>
+
               <span class={[
                 "postponed-overview-date",
                 is_nil(game.pairing.agreed_date) && "is-unset"
@@ -2541,6 +2573,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   "-"}{if kp.fide_id, do: " · FIDE #{kp.fide_id}"}
               </span>
             </button>
+
             <button
               :for={fp <- @results}
               type="button"
@@ -2637,7 +2670,6 @@ defmodule PairingsEngineWeb.PlayersLive do
                 pair, so a player registered with a name and no number would
                 immediately show up as a pending club change. --%>
           <input type="hidden" name="player[club_number]" value={@form_values["club_number"]} />
-
           <label class="field">
             <span>{gettext("Joins in round")}</span>
             <input
@@ -2691,8 +2723,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   handed "to set it for everyone at once." on its own has
                   nowhere to put it. The automatic wrapper cannot see this,
                   because it judges a run by how it STARTS and this one
-                  starts like a sentence and ends "or right-click the". --%>
-            {gettext(
+                  starts like a sentence and ends "or right-click the". --%> {gettext(
               "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
             )}
             <span id="players-grid-keys">
@@ -2703,8 +2734,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </p>
 
           <p :if={@cat_filter} class="hint" style="padding: 0 16px 8px">
-            <strong>{gettext("Showing only %{name}.", name: @cat_filter)}</strong>
-            {gettext(
+            <strong>{gettext("Showing only %{name}.", name: @cat_filter)}</strong> {gettext(
               "Ranks are still this player's rank in the whole tournament, not a position within the category."
             )}
             <button
@@ -2832,6 +2862,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   >
                     {p.player.name}
                   </strong>
+
                   <%!-- The organiser's "no pairing-allocated bye" (not a FIDE
                         rule), shown wherever it would act, whether or not
                         the feature's control is switched on: a stored
@@ -2845,6 +2876,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   >
                     {gettext("no bye")}
                   </span>
+
                   <span
                     :if={bye_preference_marker?(p.player, @tournament)}
                     id={"player-bye-preference-marker-#{p.player.id}"}
@@ -2911,6 +2943,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         fide_conflicts={@edit_fide_conflicts}
         editing_player_id={@editing_player.id}
         sent_rounds={@edit_sent_rounds}
+        half_rounds={@edit_half_rounds}
         derived_start={@edit_derived_start}
         players={@players}
         bel_lookup?={@bel_lookup?}
@@ -3004,6 +3037,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             {gettext("Apply")}
           </button>
+
           <button type="button" class="pe-btn" phx-click="close_rating_refresh">{gettext("Cancel")}</button>
         </div>
       </div>
@@ -3090,6 +3124,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             {gettext("Apply")}
           </button>
+
           <button type="button" class="pe-btn" phx-click="close_club_refresh">{gettext("Cancel")}</button>
         </div>
       </div>
@@ -3198,6 +3233,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :editing_player_id, :integer, default: nil
   # Rounds already sent whose absence the form changes (`:sent_round_changed`).
   attr :sent_rounds, :list, default: []
+  # Half-point bye rounds that would be a second or later one: the Level 3
+  # warning and the confirm on Save (VCL4THP Q174).
+  attr :half_rounds, :list, default: []
   # Leading rounds with nothing recorded, for a player starting in round 1.
   attr :derived_start, :any, default: nil
   attr :players, :list, default: []
@@ -3293,9 +3331,11 @@ defmodule PairingsEngineWeb.PlayersLive do
             </strong>
             {ngettext("- apply this?", "- apply these?", map_size(@fide_conflicts))}
           </span>
+
           <button type="button" class="pe-btn" phx-click="apply_fide_conflicts">
             {gettext("Yes")}
           </button>
+
           <button type="button" class="pe-btn" phx-click="reject_fide_conflicts">
             {gettext("No")}
           </button>
@@ -3341,6 +3381,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 )}
               </span>
             </span>
+
             <span class="hint" style="display: block">
               {gettext("Elo used (pairing/standings):")}
               <strong>{@elo_used || gettext("unrated")}</strong>
@@ -3386,8 +3427,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   name="player[categories][]"
                   value={c}
                   checked={c in form_categories(@form)}
-                />
-                {c}
+                /> {c}
               </label>
 
               <%!-- A category the player carries that the tournament no
@@ -3401,8 +3441,10 @@ defmodule PairingsEngineWeb.PlayersLive do
                 :for={c <- form_categories(@form) -- @tournament.categories}
                 class="check"
               >
-                <input type="checkbox" name="player[categories][]" value={c} checked />
-                {gettext("%{name} (not in list)", name: c)}
+                <input type="checkbox" name="player[categories][]" value={c} checked /> {gettext(
+                  "%{name} (not in list)",
+                  name: c
+                )}
               </label>
             </div>
           </div>
@@ -3526,14 +3568,12 @@ defmodule PairingsEngineWeb.PlayersLive do
                 )}
             <% end %>
           </p>
-
           <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
           <.bye_preference_fields
             mode={bye_preference_mode(@tournament, @form, @bye_preferences?)}
             form={@form}
             tournament={@tournament}
           />
-
           <%!-- The same warning and tick as a hand edit of a sent round on
                 the Pairings page: the federation already has that round. --%>
           <div
@@ -3549,11 +3589,13 @@ defmodule PairingsEngineWeb.PlayersLive do
                 n: Enum.join(@sent_rounds, ", ")
               )}
             </strong>
+
             <p style="margin: 6px 0 0">
               {gettext(
                 "This changes the player's absence there only: the file that was sent keeps the old one, and the tournament will no longer agree with it. The round stays marked as sent and is not sent again. Only go on to correct a real mistake, and tell the rating officer."
               )}
             </p>
+
             <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
               <input
                 type="checkbox"
@@ -3561,11 +3603,31 @@ defmodule PairingsEngineWeb.PlayersLive do
                 value="true"
                 id="player-sent-ack"
                 checked={@form["sent_ack"] == "true"}
-              />
-              {gettext("I understand - change the sent round %{n} anyway",
+              /> {gettext("I understand - change the sent round %{n} anyway",
                 n: Enum.join(@sent_rounds, ", ")
               )}
             </label>
+          </div>
+
+          <div
+            :if={@half_rounds != []}
+            class="pe-modal-warn"
+            id="player-half-bye-warning"
+            role="alert"
+            style="grid-column: 1 / -1; border-width: 2px; font-size: 1.05em"
+          >
+            <strong>
+              {gettext("⚠ Round %{n}: a second or later half-point bye for this player.",
+                n: Enum.join(@half_rounds, ", ")
+              )}
+            </strong>
+
+            <p style="margin: 6px 0 0">
+              {gettext(
+                "The rules (C.05:6.7.4) allow a player only one half-point bye in a tournament. Saving asks for your confirmation."
+              )}
+            </p>
+            <input type="hidden" name="player[half_ack]" value="true" />
           </div>
 
           <div class="field" style="grid-column: 1 / -1">
@@ -3604,6 +3666,34 @@ defmodule PairingsEngineWeb.PlayersLive do
             </label>
 
             <label>
+              <input type="hidden" name="player[no_half_bye]" value="false" />
+              <input
+                type="checkbox"
+                name="player[no_half_bye]"
+                id="player-no-half-bye"
+                value="true"
+                checked={@form["no_half_bye"] in [true, "true"]}
+              /> {gettext("Not eligible for half-point byes")}
+            </label>
+
+            <label>
+              <input
+                type="hidden"
+                name="player[status]"
+                value={
+                  if @form["status"] == "expelled", do: "active", else: @form["status"] || "active"
+                }
+              />
+              <input
+                type="checkbox"
+                name="player[status]"
+                id="player-expelled"
+                value="expelled"
+                checked={@form["status"] == "expelled"}
+              /> {gettext("Expelled")}
+            </label>
+
+            <label>
               <input type="hidden" name="player[forfeit]" value="false" />
               <input
                 type="checkbox"
@@ -3623,6 +3713,12 @@ defmodule PairingsEngineWeb.PlayersLive do
             class="pe-btn primary"
             id="player-edit-save"
             disabled={@sent_rounds != [] and @form["sent_ack"] != "true"}
+            data-confirm={
+              @half_rounds != [] &&
+                gettext(
+                  "This is a second or later half-point bye for this player (C.05:6.7.4). Save it anyway?"
+                )
+            }
           >
             {gettext("Save")}
           </button>
@@ -3741,6 +3837,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             {gettext("Print")}
           </a>
+
           <button type="button" class="pe-btn primary" phx-click="close_card">{gettext("Exit")}</button>
         </div>
       </div>

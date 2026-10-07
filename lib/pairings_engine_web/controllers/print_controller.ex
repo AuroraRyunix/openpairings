@@ -1112,6 +1112,13 @@ defmodule PairingsEngineWeb.PrintController do
     Enum.map(entries, &Map.put(&1, :pending, Map.get(pending, &1.player.id, 0)))
   end
 
+  # A withdrawn player is marked in the printed standings too (VCL4THP Q170).
+  defp status_note(player) do
+    if PairingsEngine.Tournaments.Player.withdrawn?(player),
+      do: " <span class=\"pending\">(#{esc(gettext("withdrawn"))})</span>",
+      else: ""
+  end
+
   defp pending_note(%{pending: n}) when is_integer(n) and n > 0,
     do: " <span class=\"pending\">(#{esc(PairingsEngineWeb.Postponed.pending_text(n))})</span>"
 
@@ -1277,7 +1284,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
       end)
 
-    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{pending_note(e)}</td>" <>
+    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{status_note(e.player)}#{pending_note(e)}</td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
@@ -1295,7 +1302,7 @@ defmodule PairingsEngineWeb.PrintController do
         do: "<td>#{esc(category_or_dash(categories_text(tournament, e.player)))}</td>",
         else: ""
 
-    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{pending_note(e)}</td>" <>
+    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{status_note(e.player)}#{pending_note(e)}</td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
@@ -1786,7 +1793,7 @@ defmodule PairingsEngineWeb.PrintController do
             "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
           end)
 
-        "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+        "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{status_note(e.player)}</td>" <>
           "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>#{round_cells}" <>
           "<td class=\"num\"><strong>#{e.points}</strong></td>#{extra_points_cells(tournament, e)}#{tb_cells}</tr>"
       end)

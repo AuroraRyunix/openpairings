@@ -2381,6 +2381,20 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  @doc """
+  `Tournament.setup_warnings/2` for the players still in the event (status
+  active), so a withdrawn player does not hide a setup that cannot finish.
+  """
+  def setup_warnings(%Tournament{} = tournament) do
+    active =
+      Repo.aggregate(
+        from(p in Player, where: p.tournament_id == ^tournament.id and p.status == "active"),
+        :count
+      )
+
+    Tournament.setup_warnings(tournament, active)
+  end
+
   def count_players(tournament_id) do
     Repo.aggregate(from(p in Player, where: p.tournament_id == ^tournament_id), :count)
   end
@@ -2499,9 +2513,34 @@ defmodule PairingsEngine.Tournaments do
   """
   def update_player(%Player{} = player, attrs, opts) do
     with :ok <- ensure_writable(player.tournament_id),
-         :ok <- sent_absence_gate(player, attrs, opts) do
+         :ok <- sent_absence_gate(player, attrs, opts),
+         :ok <- second_half_bye_gate(player, attrs, opts) do
       do_update_player(player, attrs)
     end
+  end
+
+  @doc """
+  The half-point bye rounds `attrs` would add to `player` as a second or
+  later one (C.05:6.7.4 allows one per tournament), `[]` when it adds none
+  or leaves `absent_rounds` alone. A save from the player dialog waits for
+  `acknowledged: [:second_half_bye]` when this is not empty - a Level 3
+  warning with explicit confirmation (VCL4THP Q174).
+  """
+  def second_half_bye_rounds(%Player{} = player, attrs) do
+    with {:ok, value} <- fetch_attr(attrs, :absent_rounds),
+         {:ok, canonical} <- Player.parse_absent_rounds_input(to_string(value || "")),
+         %Tournament{} = tournament <- Repo.get(Tournament, player.tournament_id) do
+      PairingsEngine.HalfByes.added_beyond_first(tournament, player, canonical)
+    else
+      _ -> []
+    end
+  end
+
+  defp second_half_bye_gate(player, attrs, opts) do
+    if :second_half_bye not in Keyword.get(opts, :acknowledged, []) and
+         second_half_bye_rounds(player, attrs) != [],
+       do: {:error, {:needs_acknowledgement, [:second_half_bye]}},
+       else: :ok
   end
 
   @doc """
@@ -2548,6 +2587,7 @@ defmodule PairingsEngine.Tournaments do
     |> Player.changeset(attrs)
     |> guard_pairing_number_freeze(player)
     |> guard_second_bye_want(player)
+    |> guard_half_bye_eligibility()
     |> Repo.update()
     |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
   end
@@ -2592,6 +2632,33 @@ defmodule PairingsEngine.Tournaments do
   end
 
   defp guard_second_bye_want(changeset, _player), do: changeset
+
+  # C.05:6.7.4: a player marked not eligible for a half-point bye gets none.
+  # Checked whenever the mark or the absent rounds change, so neither giving
+  # an ineligible player a half-point absence nor marking a player who has
+  # one goes through; the error names the rounds.
+  defp guard_half_bye_eligibility(changeset) do
+    touched? =
+      Ecto.Changeset.changed?(changeset, :no_half_bye) or
+        Ecto.Changeset.changed?(changeset, :absent_rounds)
+
+    with true <- touched? and Ecto.Changeset.get_field(changeset, :no_half_bye) == true,
+         %Tournament{} = t <- Repo.get(Tournament, changeset.data.tournament_id),
+         [_ | _] = rounds <-
+           PairingsEngine.HalfByes.half_rounds(
+             t,
+             Ecto.Changeset.get_field(changeset, :absent_rounds)
+           ) do
+      Ecto.Changeset.add_error(
+        changeset,
+        :absent_rounds,
+        "scores a half-point bye in round #{Enum.join(rounds, ", ")}, " <>
+          "and this player is marked not eligible for half-point byes (C.05:6.7.4)"
+      )
+    else
+      _ -> changeset
+    end
+  end
 
   # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while
   # the "List of Participants" is still effectively open (late entries,

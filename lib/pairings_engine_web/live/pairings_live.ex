@@ -301,6 +301,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         setup_complete: setup_complete,
         missing_setup: missing_setup,
         recommended_missing: Tournament.missing_recommended_fields(t),
+        setup_warnings: Tournaments.setup_warnings(t),
         can_pair:
           setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
         # Postponed games (VCL4THP Q157-169): every one still to be played,
@@ -2504,6 +2505,33 @@ defmodule PairingsEngineWeb.PairingsLive do
     Enum.map_join(missing, "; ", fn {_field, message} -> message end)
   end
 
+  defp setup_warning_text(%{code: :swiss_rounds} = w) do
+    gettext(
+      "With %{players} players a Swiss can have at most %{max} rounds without a rematch, but %{rounds} are set. A round that cannot be paired will have to be made by hand.",
+      players: w.players,
+      max: w.max,
+      rounds: w.rounds
+    )
+  end
+
+  defp setup_warning_text(%{code: :round_robin_short} = w) do
+    gettext(
+      "A round robin of %{players} players needs %{needed} rounds, but %{rounds} are set, so the schedule cannot be finished.",
+      players: w.players,
+      needed: w.needed,
+      rounds: w.rounds
+    )
+  end
+
+  defp setup_warning_text(%{code: :round_robin_long} = w) do
+    gettext(
+      "A round robin of %{players} players has only %{needed} rounds, but %{rounds} are set; the rounds after that have nobody left to pair.",
+      players: w.players,
+      needed: w.needed,
+      rounds: w.rounds
+    )
+  end
+
   # The on-page setup line's items: each `{field, message}` a link to the
   # page that fills it in, comma-separated on the one line.
   attr :tournament, Tournament, required: true
@@ -3534,6 +3562,23 @@ defmodule PairingsEngineWeb.PairingsLive do
         </span>
       </p>
 
+      <%!-- VCL4THP Q62: said before round 1 is paired, not at the round that
+            cannot be paired. It does not block: such an event can still be
+            paired by hand. --%>
+      <p
+        :for={warning <- @setup_warnings}
+        id={"setup-warning-#{warning.code}"}
+        class="setup-line is-blocking"
+      >
+        <.icon name="hero-exclamation-triangle-micro" class="setup-line-icon" />
+        <span>
+          {setup_warning_text(warning)}
+          <.link id="setup-warning-link" navigate={~p"/t/#{@tournament.id}/settings"}>
+            {gettext("Change the number of rounds")}
+          </.link>
+        </span>
+      </p>
+
       <p
         :if={@setup_complete and @recommended_missing != []}
         id="setup-recommended"
@@ -4418,6 +4463,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <span id={"match-decision-#{m.match_id}"}>
                   {gettext("Double forfeit: both teams lost")}
                 </span>
+
                 <button
                   type="button"
                   class="pe-btn"
@@ -4454,6 +4500,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 >
                   {gettext("Neither team")}
                 </button>
+
                 <button
                   :for={team_id <- [m.team_a_id, m.team_b_id]}
                   type="button"

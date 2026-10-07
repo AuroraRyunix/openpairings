@@ -218,6 +218,7 @@ defmodule PairingsEngineWeb.StandingsLive do
             else: gettext("Spectators see: nothing yet")}
         </span>
       </span>
+
       <.link
         id="standings-initial-change"
         class="spectator-status-link"
@@ -254,6 +255,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         <span aria-hidden="true">·</span>
         <span id="standings-spectator-text">{spectators_see_text(@level)}</span>
       </span>
+
       <.link
         id="standings-spectator-change"
         class="spectator-status-link"
@@ -550,6 +552,24 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
+  # A player who withdrew stays in the table with the points they scored;
+  # this says so beside the name, in the style of the team table's badge
+  # (VCL4THP Q170).
+  attr :player, :map, required: true
+
+  defp withdrawn_badge(assigns) do
+    ~H"""
+    <span
+      :if={Player.withdrawn?(@player)}
+      id={"player-withdrawn-#{@player.id}"}
+      class="badge"
+      title={gettext("Withdrew from the tournament; the points scored so far still count.")}
+    >
+      {gettext("withdrawn")}
+    </span>
+    """
+  end
+
   defp sex_display(sex) do
     case Player.sex_label(sex) do
       "" -> "-"
@@ -650,7 +670,6 @@ defmodule PairingsEngineWeb.StandingsLive do
             tournament={@tournament}
             round={@latest_complete_round_struct}
           />
-
           <%!-- Until a round is complete (`Tournaments.latest_complete_round/1`),
                 the entry list is the one set of standings no round's level
                 covers - its setting lives on Settings -> OpenResults. --%>
@@ -703,6 +722,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <option value="" selected={is_nil(@selected_category)}>
                 {gettext("All players")}
               </option>
+
               <option
                 :for={c <- @tournament.categories}
                 value={c}
@@ -714,15 +734,12 @@ defmodule PairingsEngineWeb.StandingsLive do
           </label>
         </form>
       </div>
-
       <PairingsEngineWeb.Postponed.missing_results_banner count={@missing_results_count} />
-
       <PairingsEngineWeb.Postponed.not_final_banner
         count={@postponed_open_count}
         tournament={@tournament}
         games={@postponed_open}
       />
-
       <.team_standings_section
         :if={@team?}
         tournament={@tournament}
@@ -732,15 +749,13 @@ defmodule PairingsEngineWeb.StandingsLive do
         teams_by_id={@teams_by_id}
         board_stats={@board_stats}
       />
-
       <div :if={!@keizer? and !@team?} class="card manual-ranking-card" style="margin-bottom: 12px">
         <div
           :if={@tournament.manual_ranking}
           class="manual-ranking-banner"
           style="margin-bottom: 8px; padding: 8px 12px; border: 2px solid var(--warn); border-radius: 6px;"
         >
-          <strong>{gettext("Manual ranking is ON.")}</strong>
-          {gettext(
+          <strong>{gettext("Manual ranking is ON.")}</strong> {gettext(
             "The rank column below reflects the arbiter's hand-set order, not the computed tiebreak order - this also applies on the public standings page, printed standings, and the TRF export."
           )}
           <span :if={@manual_incomplete?}>
@@ -911,8 +926,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
           <tbody>
             <tr :for={entry <- display_entries}>
-              <% place = Map.get(entry, :category_place) || entry.rank %>
-              <% prize? =
+              <% place = Map.get(entry, :category_place) || entry.rank %> <% prize? =
                 @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
               <td class={["num", prize? && "pe-cat-place is-prize"]}>
                 {place}<span :if={prize?} class="sr-only">{gettext(", prize place")}</span>
@@ -922,10 +936,11 @@ defmodule PairingsEngineWeb.StandingsLive do
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
+
                 <PairingsEngineWeb.Postponed.pending_chip
                   count={Map.get(@pending_by_player, entry.player.id, 0)}
                   id={"pending-#{entry.player.id}"}
-                />
+                /> <.withdrawn_badge player={entry.player} />
               </td>
 
               <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
@@ -1044,8 +1059,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
           <tbody>
             <tr :for={entry <- display_entries}>
-              <% place = Map.get(entry, :category_place) || entry.rank %>
-              <% prize? =
+              <% place = Map.get(entry, :category_place) || entry.rank %> <% prize? =
                 @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
               <td class={["num", prize? && "pe-cat-place is-prize"]}>
                 {place}<span :if={prize?} class="sr-only">{gettext(", prize place")}</span>
@@ -1055,10 +1069,11 @@ defmodule PairingsEngineWeb.StandingsLive do
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
+
                 <PairingsEngineWeb.Postponed.pending_chip
                   count={Map.get(@pending_by_player, entry.player.id, 0)}
                   id={"pending-#{entry.player.id}"}
-                />
+                /> <.withdrawn_badge player={entry.player} />
               </td>
 
               <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
@@ -1161,6 +1176,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       >
         {gettext("Cross table")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets/match-sheets"}
         id="team-sheets-link-match-sheets"
@@ -1168,6 +1184,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       >
         {gettext("Match sheets")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets/rosters"}
         id="team-sheets-link-rosters"
@@ -1175,6 +1192,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       >
         {gettext("Rosters")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets/board-prizes"}
         id="team-sheets-link-board-prizes"
@@ -1187,15 +1205,21 @@ defmodule PairingsEngineWeb.StandingsLive do
     <div :if={@entries != []} id="team-standings" class="card table-card">
       <table class="pe-table">
         <caption class="sr-only">{gettext("Team standings")}</caption>
+
         <thead>
           <tr>
             <th scope="col" class="num">{gettext("Rank")}</th>
+
             <th scope="col">{gettext("Team")}</th>
+
             <th scope="col" class="num" title={gettext("Matches played")}>{gettext("Played")}</th>
+
             <th scope="col" class="num" title={gettext("Won - drawn - lost")}>
               {gettext("W-D-L")}
             </th>
+
             <th scope="col" class="num" title={tb_name("MP")}>MP</th>
+
             <th
               :for={code <- Enum.reject(@tiebreaks, &(&1 == "MP"))}
               scope="col"
@@ -1206,9 +1230,11 @@ defmodule PairingsEngineWeb.StandingsLive do
             </th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={entry <- @entries}>
             <td class="num">{entry.rank}</td>
+
             <td>
               <strong>{entry.team.name}</strong>
               <span
@@ -1223,6 +1249,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               >
                 {gettext("withdrawn, results not counted")}
               </span>
+
               <PairingsEngineWeb.Postponed.pending_chip
                 count={Map.get(entry, :pending_boards, 0)}
                 id={"team-pending-#{entry.team.id}"}
@@ -1234,15 +1261,20 @@ defmodule PairingsEngineWeb.StandingsLive do
                     team: entry.team.name
                   )}</span>
                 </summary>
+
                 <p :for={{code, parts} <- entry.working} class="hint" style="margin: 2px 0">
                   <strong>{code}</strong>
                   = {if parts == [], do: "0", else: working_text(parts, @teams_by_id)}
                 </p>
               </details>
             </td>
+
             <td class="num">{entry.played}</td>
+
             <td class="num">{entry.won}-{entry.drawn}-{entry.lost}</td>
+
             <td class="num"><strong>{format_tb(entry.mp)}</strong></td>
+
             <td :for={code <- Enum.reject(@tiebreaks, &(&1 == "MP"))} class="num">
               {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
             </td>
@@ -1259,29 +1291,44 @@ defmodule PairingsEngineWeb.StandingsLive do
 
     <div :if={@board_stats != []} id="board-stats" class="card table-card">
       <h2 style="margin: 12px 12px 0">{gettext("Board statistics")}</h2>
+
       <table :for={{board, stats} <- stats_by_board(@board_stats)} class="pe-table">
         <caption>{gettext("Board %{n}", n: board)}</caption>
+
         <thead>
           <tr>
             <th scope="col">{gettext("Name")}</th>
+
             <th scope="col">{gettext("Team")}</th>
+
             <th scope="col" class="num">{gettext("Boards")}</th>
+
             <th scope="col" class="num">{gettext("Games")}</th>
+
             <th scope="col" class="num">Pts</th>
+
             <th scope="col" class="num">%</th>
+
             <th scope="col" class="num" title={gettext("Performance rating over games played")}>
               {gettext("Perf")}
             </th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={s <- stats}>
             <td><strong>{s.player.name}</strong></td>
+
             <td>{team_name(@teams_by_id, s.team_id)}</td>
+
             <td class="num">{Enum.join(s.boards, ", ")}</td>
+
             <td class="num">{s.games}</td>
+
             <td class="num">{format_tb(s.points)}</td>
+
             <td class="num">{if s.percentage, do: format_tb(s.percentage), else: "-"}</td>
+
             <td class="num">{s.performance || "-"}</td>
           </tr>
         </tbody>
