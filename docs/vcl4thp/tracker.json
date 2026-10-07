@@ -2925,9 +2925,9 @@
     "next": 180,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. No full-point bye: a vacancy bye is stored and exported as a PAB (award_bye_for_vacancy tournaments.ex:6188; pairing.ex:4963-4967,5278). Routes to Q180."
+   "answer": "Y",
+   "status": "met",
+   "note": "A full-point bye is its own kind (byes type 'full-point', never a PAB), given from a paired round's not-playing list (Tournaments.award_full_point_bye/3, withdraw_full_point_bye/3); scored as a win, sent to the engine as F so the player cannot get the PAB later, read from a TRF's F and 240 F. Tests: full_point_bye_test.exs, full_point_bye_live_test.exs."
   },
   {
    "q": 178,
@@ -2942,9 +2942,9 @@
     "next": 179,
     "penalty": 7
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Off our path (Q177 NO)."
+   "note": "Before a full-point bye is applied the confirmation shows a Level-2 notice that the pairing regulations do not describe it and it should stay exceptional (#confirm-level2). Test: full_point_bye_live_test.exs."
   },
   {
    "q": 179,
@@ -2959,9 +2959,9 @@
     "next": 180,
     "penalty": 3
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Off our path (Q177 NO); costs 3% once a full-point bye exists without a ### line."
+   "note": "The TRF26 report writes '### FPB @ Round r: n=FPB' and the 001 record '0000 - F' (trf_export.ex). Test: full_point_bye_test.exs 'written F, with a ### line'. Like every ### line, not in the file sent for rating; see docs/vcl4thp/questions.md."
   },
   {
    "q": 180,
@@ -3171,9 +3171,9 @@
     "next": 194,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 15%. No rating-only correction: a board has one result for standings, pairing and TRF (tournaments/pairing.ex)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A result found wrong after the next round is over can be corrected for the rating report only (C.04.2:4.3): pairings.rating_result beside the board's result, which pairings, engine input and standings keep using; the TRF report writes the corrected result (Tournaments.set_rating_correction/3, Pairing.rating_history/1; 'Correct for rating...' on the Pairings page). Tests: rating_correction_test.exs, rating_correction_live_test.exs."
   },
   {
    "q": 193,
@@ -3188,9 +3188,9 @@
     "next": 194,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path while Q192 is NO."
+   "answer": "Y",
+   "status": "met",
+   "note": "The TRF26 report adds '### Rating correction @ Round r: a-b: old => new (pairings and standings used old)' (trf_export.ex). Test: rating_correction_test.exs. Not in the file sent for rating, which carries the corrected 001 results; see docs/vcl4thp/questions.md."
   },
   {
    "q": 194,

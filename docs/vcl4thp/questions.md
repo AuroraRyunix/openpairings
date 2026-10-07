@@ -141,3 +141,20 @@ the options, and the exact question to answer. The tracker
   together with both checks (no penalty; a sizeable piece of work).
 - **Question:** Is a manual round-robin pairing mode (with the meet-once
   and colour checks) worth building, or do we accept the 7%?
+
+## Q179 / Q193 (and every `###` line) - in the file sent for rating?
+
+- **Asks:** a `###` comment in the post-tournament report for a full-point
+  bye (Q179) and for results that were used differently from the 001
+  records (Q193); the TEC manual also logs MPA, Import and other PIBEs as
+  `###` lines.
+- **Today:** all `###` lines (FIDE-mode exit, Import, MPA, FPB, rating
+  correction) are written in the TRF26 download and copies, never in the
+  file sent for rating, which holds records only (your rule of 2026-10-03).
+  The rating file does carry the corrected 001 results and the `F` byes.
+- **Options:** (a) keep the rating file records-only (the tracker counts
+  Q179/Q193 as met through the TRF26 report); (b) write the `###` lines into
+  the file sent for rating too, if FIDE's rating server accepts comment
+  lines (you confirmed it accepts TRF26).
+- **Question:** Does FIDE's rating server accept `###` lines in an uploaded
+  TRF26, and if so should the PIBE lines go into the file sent for rating?
