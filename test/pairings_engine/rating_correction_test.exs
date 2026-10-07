@@ -132,7 +132,12 @@ defmodule PairingsEngine.RatingCorrectionTest do
       {t, _} = event(2)
       {:ok, _} = Tournaments.set_rating_correction(board(t, 1, 1), "0-1")
 
-      {:ok, updated} = Tournaments.update_pairing_result(board(t, 1, 1), "1/2-1/2")
+      # A later round is paired, so this is a Correction PIBE, confirmed.
+      {:ok, updated} =
+        Tournaments.update_pairing_result(board(t, 1, 1), "1/2-1/2",
+          acknowledged: [:result_correction]
+        )
+
       assert updated.rating_result == nil
     end
   end

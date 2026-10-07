@@ -34,7 +34,7 @@ msgstr "Bezig met opnieuw verbinden"
 
 #: lib/pairings_engine_web/live/players_live.ex:3118
 #: lib/pairings_engine_web/live/players_live.ex:4421
-#: lib/pairings_engine_web/live/rating_lists_live.ex:285
+#: lib/pairings_engine_web/live/rating_lists_live.ex:290
 #, elixir-autogen, elixir-format
 msgid "Birth year"
 msgstr "Geboortejaar"
@@ -2775,7 +2775,7 @@ msgstr "Bye"
 #: lib/pairings_engine_web/live/players_live.ex:3886
 #: lib/pairings_engine_web/live/players_live.ex:4101
 #: lib/pairings_engine_web/live/players_live.ex:4745
-#: lib/pairings_engine_web/live/rating_lists_live.ex:312
+#: lib/pairings_engine_web/live/rating_lists_live.ex:317
 #: lib/pairings_engine_web/live/settings_support.ex:826
 #: lib/pairings_engine_web/live/tournaments_live.ex:1753
 #: lib/pairings_engine_web/live/tournaments_live.ex:2385
@@ -3054,7 +3054,7 @@ msgstr "FIDE identificeert elke functionaris via het FIDE-ID, dus een rapport wa
 #: lib/pairings_engine_web/live/norms_live.ex:1214
 #: lib/pairings_engine_web/live/norms_live.ex:1297
 #: lib/pairings_engine_web/live/players_live.ex:3113
-#: lib/pairings_engine_web/live/rating_lists_live.ex:283
+#: lib/pairings_engine_web/live/rating_lists_live.ex:288
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1231
 #: lib/pairings_engine_web/live/user_live/settings.ex:980
 #, elixir-autogen, elixir-format
@@ -3216,7 +3216,7 @@ msgstr "Master"
 #: lib/pairings_engine_web/live/players_live.ex:3266
 #: lib/pairings_engine_web/live/players_live.ex:4334
 #: lib/pairings_engine_web/live/rating_lists_live.ex:193
-#: lib/pairings_engine_web/live/rating_lists_live.ex:281
+#: lib/pairings_engine_web/live/rating_lists_live.ex:286
 #: lib/pairings_engine_web/live/standings_live.ex:928
 #: lib/pairings_engine_web/live/standings_live.ex:1138
 #: lib/pairings_engine_web/live/standings_live.ex:1408
@@ -3886,7 +3886,7 @@ msgstr "Tiebreaks"
 #: lib/pairings_engine_web/live/badge_studio_live.ex:894
 #: lib/pairings_engine_web/live/players_live.ex:3048
 #: lib/pairings_engine_web/live/players_live.ex:4396
-#: lib/pairings_engine_web/live/rating_lists_live.ex:284
+#: lib/pairings_engine_web/live/rating_lists_live.ex:289
 #: lib/pairings_engine_web/live/team_sheets_live.ex:377
 #, elixir-autogen, elixir-format
 msgid "Title"
@@ -10685,7 +10685,7 @@ msgstr "Instellingen van het evenement opgeslagen."
 
 #: lib/pairings_engine_web/live/badge_studio_live.ex:619
 #: lib/pairings_engine_web/live/badge_studio_live.ex:902
-#: lib/pairings_engine_web/live/rating_lists_live.ex:286
+#: lib/pairings_engine_web/live/rating_lists_live.ex:291
 #, elixir-autogen, elixir-format
 msgid "FIDE ID"
 msgstr "FIDE-ID"
@@ -16069,7 +16069,7 @@ msgid_plural "%{count} games in the file have no opponent (TRF06-style byes; rou
 msgstr[0] "%{count} partij in het bestand heeft geen tegenstander (een bye in TRF06-stijl; ronden %{rounds}): geïmporteerd als de bye die de punten aangeven - een vol punt als door de paring toegekende bye, een half of nul als bye van een half of nul punten."
 msgstr[1] "%{count} partijen in het bestand hebben geen tegenstander (byes in TRF06-stijl; ronden %{rounds}): geïmporteerd als de byes die hun punten aangeven - een vol punt als door de paring toegekende bye, een half of nul als bye van een half of nul punten."
 
-#: lib/pairings_engine_web/live/rating_lists_live.ex:264
+#: lib/pairings_engine_web/live/rating_lists_live.ex:269
 #, elixir-autogen, elixir-format
 msgid "%{count} player found in the file."
 msgid_plural "%{count} players found in the file."
@@ -16168,7 +16168,7 @@ msgstr "Een latere ronde werd al gepaard met het resultaat dat wordt verbeterd."
 msgid "A later round was already paired with the result of board %{board}. Correcting it has to be done by the arbiter, on the Pairings page."
 msgstr "Een latere ronde werd al gepaard met het resultaat van bord %{board}. Verbeteren moet de arbiter doen, op de pagina Paringen."
 
-#: lib/pairings_engine_web/live/rating_lists_live.ex:271
+#: lib/pairings_engine_web/live/rating_lists_live.ex:276
 #, elixir-autogen, elixir-format
 msgid "A list called %{name} exists (%{count} players). Loading replaces it."
 msgstr "Er bestaat al een lijst %{name} (%{count} spelers). Laden vervangt ze."
@@ -16188,7 +16188,8 @@ msgstr "Een rondetoernooi met %{players} spelers heeft maar %{needed} ronden, ma
 msgid "A round robin of %{players} players needs %{needed} rounds, but %{rounds} are set, so the schedule cannot be finished."
 msgstr "Een rondetoernooi met %{players} spelers heeft %{needed} ronden nodig, maar er zijn er %{rounds} ingesteld, dus het schema kan niet worden afgewerkt."
 
-#: lib/pairings_engine_web/live/settings_fide_live.ex:587
+#: lib/pairings_engine_web/live/settings_fide_live.ex:586
+#: lib/pairings_engine_web/live/settings_fide_live.ex:593
 #, elixir-autogen, elixir-format
 msgid "Add to the sequence"
 msgstr "Aan de volgorde toevoegen"
@@ -16228,7 +16229,7 @@ msgstr "Deze wijziging toepassen"
 msgid "Average rating of the rated players"
 msgstr "Gemiddelde rating van de spelers met rating"
 
-#: lib/pairings_engine_web/live/settings_fide_live.ex:599
+#: lib/pairings_engine_web/live/settings_fide_live.ex:605
 #, elixir-autogen, elixir-format
 msgid "Back to the default sequence"
 msgstr "Terug naar de standaardvolgorde"
@@ -16319,7 +16320,7 @@ msgstr "Aantal ronden wijzigen"
 msgid "Changed by hand; it was %{listed} on the %{list} list of %{period}."
 msgstr "Met de hand gewijzigd; het was %{listed} op de %{list}-lijst van %{period}."
 
-#: lib/pairings_engine_web/live/rating_lists_live.ex:250
+#: lib/pairings_engine_web/live/rating_lists_live.ex:255
 #, elixir-autogen, elixir-format
 msgid "Check the file"
 msgstr "Bestand controleren"
@@ -16355,7 +16356,7 @@ msgstr "Vergeleken met de FIDE-lijst van %{period} (geldig op %{date})."
 msgid "Confirmed over the warning that a later round had already been paired with the old result."
 msgstr "Bevestigd ondanks de waarschuwing dat een latere ronde al met het oude resultaat gepaard was."
 
-#: lib/pairings_engine_web/live/settings_fide_live.ex:606
+#: lib/pairings_engine_web/live/settings_fide_live.ex:612
 #, elixir-autogen, elixir-format
 msgid "Consistency checks"
 msgstr "Consistentiecontroles"
@@ -16383,7 +16384,7 @@ msgstr "Ronde %{n} aanmaken"
 #: lib/pairings_engine_web/live/audit_live.ex:738
 #, elixir-autogen, elixir-format
 msgid "Created round %{round} with no boards, to pair by hand: the pairing engine found no legal pairing."
-msgstr "Ronde %{round} aangemaakt zonder borden, om met de hand te paren: de paringsmotor vond geen reglementaire paring."
+msgstr "Ronde %{round} aangemaakt zonder borden, om handmatig te paren: de paringsmotor vond geen reglementaire paring."
 
 #: lib/pairings_engine_web/live/rating_lists_live.ex:210
 #, elixir-autogen, elixir-format
@@ -16697,7 +16698,7 @@ msgstr "Ik begrijp het - ronde %{n} aanmaken om met de hand te paren"
 msgid "I understand - keep my pairings and record the alteration"
 msgstr "Ik begrijp het - mijn paringen behouden en de wijziging vastleggen"
 
-#: lib/pairings_engine_web/live/rating_lists_live.ex:280
+#: lib/pairings_engine_web/live/rating_lists_live.ex:285
 #, elixir-autogen, elixir-format
 msgid "Id"
 msgstr "Id"
@@ -16773,16 +16774,17 @@ msgid "List name"
 msgstr "Naam van de lijst"
 
 #: lib/pairings_engine_web/live/rating_lists_live.ex:221
+#: lib/pairings_engine_web/live/rating_lists_live.ex:245
 #, elixir-autogen, elixir-format
 msgid "Load a list"
 msgstr "Een lijst laden"
 
-#: lib/pairings_engine_web/live/rating_lists_live.ex:309
+#: lib/pairings_engine_web/live/rating_lists_live.ex:314
 #, elixir-autogen, elixir-format
 msgid "Load the list"
 msgstr "De lijst laden"
 
-#: lib/pairings_engine_web/live/settings_fide_live.ex:602
+#: lib/pairings_engine_web/live/settings_fide_live.ex:608
 #, elixir-autogen, elixir-format
 msgid "Load your own rating list"
 msgstr "Eigen ratinglijst laden"
@@ -17037,7 +17039,7 @@ msgstr "Voor de rating: %{result}"
 
 #: lib/pairings_engine_web/live/players_live.ex:3607
 #: lib/pairings_engine_web/live/players_live.ex:3711
-#: lib/pairings_engine_web/live/rating_lists_live.ex:282
+#: lib/pairings_engine_web/live/rating_lists_live.ex:287
 #, elixir-autogen, elixir-format
 msgid "Rating"
 msgstr "Rating"
@@ -17211,7 +17213,7 @@ msgstr "Startnummers"
 msgid "Swiss only. By rating, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards."
 msgstr "Alleen Zwitsers. Volgens rating krijgt een speler die instapt nadat de nummers zijn toegekend het nummer dat zijn rating verdient, en schuift iedereen eronder één plaats op (FIDE C.04.2 2.4); de reeds gespeelde ronden behouden hun borden."
 
-#: lib/pairings_engine_web/live/settings_fide_live.ex:623
+#: lib/pairings_engine_web/live/settings_fide_live.ex:629
 #, elixir-autogen, elixir-format
 msgid "Switched off, nothing is checked on its own. The Refresh ratings button on the Players page still compares the ratings on file with the list when you ask."
 msgstr "Uitgeschakeld wordt er niets uit zichzelf gecontroleerd. De knop Ratings vernieuwen op de pagina Spelers vergelijkt de ratings nog steeds met de lijst wanneer je erom vraagt."
@@ -17231,7 +17233,7 @@ msgstr "Bye van een vol punt intrekken…"
 msgid "Team events"
 msgstr "Teamwedstrijden"
 
-#: lib/pairings_engine_web/live/settings_fide_live.ex:618
+#: lib/pairings_engine_web/live/settings_fide_live.ex:624
 #, elixir-autogen, elixir-format
 msgid "Tell me when the FIDE list gives a player a different rating or title"
 msgstr "Meld het me wanneer de FIDE-lijst een speler een andere rating of titel geeft"
@@ -17353,7 +17355,7 @@ msgstr "Het importeren paste iets aan dat deze pagina niet kan beschrijven (%{co
 msgid "The list changed meanwhile - try again."
 msgstr "De lijst is intussen gewijzigd - probeer opnieuw."
 
-#: lib/pairings_engine_web/live/rating_lists_live.ex:256
+#: lib/pairings_engine_web/live/rating_lists_live.ex:261
 #, elixir-autogen, elixir-format
 msgid "The list was not loaded:"
 msgstr "De lijst is niet geladen:"
@@ -17595,5 +17597,4 @@ msgstr "teruggetrokken, telt niet mee"
 #: lib/pairings_engine_web/live/players_live.ex:4640
 #, elixir-autogen, elixir-format
 msgid "⚠ Round %{n}: a second or later half-point bye for this player."
-
 msgstr "⚠ Ronde %{n}: een tweede of latere bye van een half punt voor deze speler."

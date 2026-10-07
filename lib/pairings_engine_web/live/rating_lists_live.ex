@@ -238,7 +238,12 @@ defmodule PairingsEngineWeb.RatingListsLive do
               disabled={!@may_admin?}
             />
           </label>
-          <.live_file_input upload={@uploads.csv} id="custom-list-file" disabled={!@may_admin?} />
+          <.live_file_input
+            upload={@uploads.csv}
+            id="custom-list-file"
+            disabled={!@may_admin?}
+            aria-label={gettext("Load a list")}
+          />
           <p :for={msg <- UploadGuard.error_messages(@uploads.csv)} class="error-note">{msg}</p>
           <div class="actions">
             <button

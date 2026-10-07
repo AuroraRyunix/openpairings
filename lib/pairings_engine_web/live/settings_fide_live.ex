@@ -578,7 +578,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           phx-submit="seq_add"
           style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"
         >
-          <select name="entry" id="rating-sequence-add-select" class="pe-input" style="width: auto">
+          <select
+            name="entry"
+            id="rating-sequence-add-select"
+            class="pe-input"
+            style="width: auto"
+            aria-label={gettext("Add to the sequence")}
+          >
             <option :for={{entry, _label} <- @addable} value={entry}>
               {entry_label(entry, @custom_names)}
             </option>

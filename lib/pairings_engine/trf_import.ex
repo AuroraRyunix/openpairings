@@ -1086,7 +1086,7 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp insert_round(tournament, round_number, entries, players_by_rank) do
-    {pairings, byes} = build_round(entries)
+    {pairings, byes} = build_round(entries, Tournament.team?(tournament))
 
     status = if Enum.any?(pairings, &(&1.result == "")), do: "playing", else: "finished"
 
@@ -1132,7 +1132,7 @@ defmodule PairingsEngine.TrfImport do
   # `Trf.validate_games!/2`) - this only needs to check the reference is
   # mutual at all before trusting it. A dangling/unresolvable playing code,
   # or a genuine TRF bye code (H/F/U/Z), falls through to `single_sided/2`.
-  defp build_round(entries) do
+  defp build_round(entries, team?) do
     by_rank = Map.new(entries, fn {p, g} -> {p.rank, {p, g}} end)
 
     {_visited, pairings, byes} =
@@ -1149,7 +1149,7 @@ defmodule PairingsEngine.TrfImport do
             nil ->
               visited = MapSet.put(visited, p.rank)
 
-              case single_sided(p, g) do
+              case single_sided(p, g, team?) do
                 {:pairing, item} -> {visited, [item | pairings], byes}
                 {:bye, item} -> {visited, pairings, [item | byes]}
               end
@@ -1310,9 +1310,13 @@ defmodule PairingsEngine.TrfImport do
     """
   end
 
-  defp single_sided(p, %{result: result}) do
+  # In a team event an `F` is how the export writes a board won against an
+  # empty seat (`Pairing.bye_safe_result/2`), not an arbiter's full-point
+  # bye - the board comes back as one, and `TeamMatchInference` puts it in
+  # its match.
+  defp single_sided(p, %{result: result}, team?) do
     case result do
-      "F" ->
+      "F" when not team? ->
         {:bye, %{rank: p.rank, type: "full-point"}}
 
       code when code in @single_sided_full ->
