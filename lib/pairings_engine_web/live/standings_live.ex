@@ -911,7 +911,8 @@ defmodule PairingsEngineWeb.StandingsLive do
 
           <tbody>
             <tr :for={entry <- display_entries}>
-              <% place = Map.get(entry, :category_place) || entry.rank %>
+              <% place =
+                Map.get(entry, :category_place) || Standings.shown_rank_label(entry, @tournament) %>
               <% prize? =
                 @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
               <td class={["num", prize? && "pe-cat-place is-prize"]}>

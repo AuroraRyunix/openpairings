@@ -1109,7 +1109,7 @@ defmodule PairingsEngine.Snapshot do
       entries
       |> Enum.map(fn e ->
         %{
-          "rank" => e.rank,
+          "rank" => Standings.shown_rank(e, t),
           "player" => Map.get(nos, e.player.id),
           # Game points, matching the "Pts" column of the public standings
           # page. `total` would silently fold in administrative extra points

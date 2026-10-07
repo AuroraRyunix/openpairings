@@ -57,11 +57,38 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
     "AROC1" => "ARO/C1"
   }
 
+  # The tie-breaks added for FIDE's checklist (VCL4THP Q104, Q199) are named
+  # as C.07 spells them, so the code stored in a tournament, the one in a
+  # TRF `202` line and Ainalrami's are the same string.
+  @c07_spelled ~w(AOB AOB/F APPO APRO ARO/C2 ARO/M1 ARO/M2 BH/M2 BWG DE/P FB FB/C1 FB/C2
+                  FB/M1 FB/M2 KS/L1 KS/L2 KS/L-1 KS/L-2 PS/C1 PS/C2 PTP REP RTNG RTNG/R
+                  SB/C1 SB/C2 STD TPN TPN/R TPR)
+
+  @codes Enum.reduce(@c07_spelled, @codes, &Map.put(&2, &1, &1))
+
   @doc "OpenPairings' tie-break codes, and the C.07 code each is."
   def codes, do: @codes
 
   @doc "C.07's spelling of an OpenPairings code."
   def c07_code(code), do: Map.fetch!(@codes, code)
+
+  @doc """
+  C.07's spelling of `code` for `tournament`: a rating-based tie-break
+  (Article 10) carries `/U<rating>` when the tournament says what an unrated
+  player counts as (`tiebreak_unrated_rating`), which is how Ainalrami - and
+  a checker reading the TRF - is told not to drop it.
+  """
+  def c07_code(code, tournament) do
+    c07 = c07_code(code)
+
+    case Map.get(tournament, :tiebreak_unrated_rating) do
+      n when is_integer(n) and n >= 0 ->
+        if PairingsEngine.Tiebreaks.rating_based?(code), do: c07 <> "/U#{n}", else: c07
+
+      _ ->
+        c07
+    end
+  end
 
   @doc """
   The event for `entries` (as `PairingsEngine.Standings` builds them) of

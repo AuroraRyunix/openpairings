@@ -1277,7 +1277,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
       end)
 
-    "<tr><td class=\"num\">#{rank_override || e.rank}</td><td><strong>#{esc(e.player.name)}</strong>#{pending_note(e)}</td>" <>
+    "<tr><td class=\"num\">#{rank_override || Standings.shown_rank_label(e, tournament)}</td><td><strong>#{esc(e.player.name)}</strong>#{pending_note(e)}</td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
@@ -1786,7 +1786,7 @@ defmodule PairingsEngineWeb.PrintController do
             "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
           end)
 
-        "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+        "<tr><td class=\"num\">#{Standings.shown_rank_label(e, tournament)}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
           "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>#{round_cells}" <>
           "<td class=\"num\"><strong>#{e.points}</strong></td>#{extra_points_cells(tournament, e)}#{tb_cells}</tr>"
       end)
@@ -1832,7 +1832,7 @@ defmodule PairingsEngineWeb.PrintController do
           "<td><strong>#{esc(row_entry.player.name)}</strong></td>#{cells}" <>
           "<td class=\"num\"><strong>#{row_entry.points}</strong></td>" <>
           extra_points_cells(tournament, row_entry) <>
-          "<td class=\"num\">#{row_entry.rank}</td></tr>"
+          "<td class=\"num\">#{Standings.shown_rank_label(row_entry, tournament)}</td></tr>"
       end)
 
     body =

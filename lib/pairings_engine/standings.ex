@@ -3,8 +3,11 @@ defmodule PairingsEngine.Standings do
   Standings and tiebreak calculation per the FIDE Tie-Break Regulations (C.07,
   in force from 1 March 2026).
 
-  Individual tiebreaks implemented: BH, BHC1, BHC2, MBH, SB, DE, WIN, WON,
-  BPG, PS, KS, ARO, AROC1. Team tiebreaks live in `PairingsEngine.TeamStandings`.
+  Individual tiebreaks implemented: every one of C.07 Articles 6-10 that
+  `PairingsEngine.Tiebreaks` catalogues (BH, FB, AOB, SB, DE, WIN, WON, BPG,
+  BWG, PS, KS, REP, STD, TPN, ARO, TPR, PTP, APRO, APPO, RTNG and their
+  cuts, medians and variants), all computed by Ainalrami. Team tiebreaks
+  live in `PairingsEngine.TeamStandings`.
 
   Unplayed rounds follow Article 16: an opponent's score is adjusted (trailing
   voluntarily-unplayed rounds count as draws), and the participant's own
@@ -58,10 +61,6 @@ defmodule PairingsEngine.Standings do
     end)
   end
 
-  # Rating-based tiebreaks, in C.07's sense. Only these two are implemented;
-  # anything added later that averages or compares ratings belongs here.
-  @rating_tiebreaks ~w(ARO AROC1)
-
   @doc """
   The tiebreaks that may actually be applied, which is not always the ones
   the arbiter configured.
@@ -92,6 +91,14 @@ defmodule PairingsEngine.Standings do
   Dropping the code is what the regulation says and is also the honest
   implementation. Substituting a number would be inventing the rule FIDE
   declined to write.
+
+  ## The rule the regulation asks the arbiter for
+
+  A tournament can carry that rule: `tiebreak_unrated_rating`, the rating an
+  unrated player counts as. With it set nothing is dropped for unrated
+  players - the rating-based tie-breaks are computed with `/U<rating>`
+  (`AinalramiBridge.c07_code/2`), the same code the TRF `202` line carries -
+  and it is the arbiter who has chosen the number, not this program.
   """
   def effective_tiebreaks(tournament),
     do: effective_tiebreaks(tournament, Tournaments.list_players(tournament.id))
@@ -144,15 +151,15 @@ defmodule PairingsEngine.Standings do
     not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
     unrated =
-      if unrated_present?(players) do
-        configured -- (configured -- @rating_tiebreaks)
+      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and unrated_present?(players) do
+        Enum.filter(configured, &Tiebreaks.rating_based?/1)
       else
         []
       end
 
     round_robin =
       if tournament.pairing_system == "round_robin",
-        do: Enum.filter(configured, &(&1 in ~w(BH BHC1 BHC2 MBH))),
+        do: Enum.filter(configured, &Tiebreaks.buchholz_based?/1),
         else: []
 
     Enum.map(not_calculable, &{&1, :not_calculable}) ++
@@ -295,8 +302,51 @@ defmodule PairingsEngine.Standings do
       {Map.get(places, e.player.id, 0), -Player.rating(e.player), e.player.name, e.player.id}
     end)
     |> Enum.with_index(1)
-    |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
+    |> Enum.map(fn {e, rank} ->
+      e |> Map.put(:rank, rank) |> Map.put(:place, Map.get(places, e.player.id, rank))
+    end)
+    |> mark_shared_places()
     |> put_category_places(tournament)
+  end
+
+  @doc """
+  The place C.07 gives `entry`, as a number: the first position of the group
+  of players the tie-break list leaves level (`:place`), so three players
+  level for second are all 2 and the next is 5. Every entry has one;
+  `shown_rank/2` says whether it is the one to show.
+  """
+  def place(entry), do: Map.get(entry, :place) || entry.rank
+
+  @doc """
+  The number a standings table shows in its place column: the C.07 place
+  when the tournament lets players level after the whole tie-break list
+  share it (`shared_places`), otherwise the position, as it always was. A
+  hand-set order (`manual_ranking`) is a position by definition and is
+  shown as one.
+  """
+  def shown_rank(entry, tournament) do
+    if Map.get(tournament, :shared_places) == true and not tournament.manual_ranking,
+      do: place(entry),
+      else: entry.rank
+  end
+
+  @doc """
+  `shown_rank/2` as text, with a `=` after a place somebody shares:
+  `"2="`. Unshared places, and every place of a tournament that does not
+  share, are the bare number.
+  """
+  def shown_rank_label(entry, tournament) do
+    rank = shown_rank(entry, tournament)
+
+    if rank == place(entry) and Map.get(entry, :place_shared?, false) and
+         Map.get(tournament, :shared_places) == true and not tournament.manual_ranking,
+       do: "#{rank}=",
+       else: "#{rank}"
+  end
+
+  defp mark_shared_places(entries) do
+    counts = Enum.frequencies_by(entries, & &1.place)
+    Enum.map(entries, &Map.put(&1, :place_shared?, Map.fetch!(counts, &1.place) > 1))
   end
 
   @doc """
@@ -1381,6 +1431,10 @@ defmodule PairingsEngine.Standings do
   # implementing direct encounter only for a score group in which everybody
   # had met everybody. Both are C.07's rules now.
 
+  # Direct encounter orders a tied group by its own games and has no value
+  # of its own (Ainalrami's `compute` leaves it out); `DE/P` counts forfeits.
+  @direct_encounter ~w(DE DE/P)
+
   defp compute_tiebreaks([], _tournament, _tiebreak_codes), do: []
 
   defp compute_tiebreaks(entries, tournament, tiebreak_codes) do
@@ -1391,10 +1445,10 @@ defmodule PairingsEngine.Standings do
     # not blank the others.
     values =
       for code <- tiebreak_codes,
-          code != "DE",
+          code not in @direct_encounter,
           Map.has_key?(AinalramiBridge.codes(), code),
           into: %{} do
-        c07 = AinalramiBridge.c07_code(code)
+        c07 = AinalramiBridge.c07_code(code, tournament)
 
         case Ainalrami.Tiebreaks.compute(event, [c07]) do
           {:ok, %{^c07 => %{} = map}} -> {code, map}
@@ -1405,14 +1459,18 @@ defmodule PairingsEngine.Standings do
     entries =
       Enum.map(entries, fn entry ->
         tiebreaks =
-          for code <- tiebreak_codes, code != "DE", into: %{} do
+          for code <- tiebreak_codes, code not in @direct_encounter, into: %{} do
             {code, as_float(get_in(values, [code, entry.player.id]))}
           end
 
         Map.put(entry, :tiebreaks, tiebreaks)
       end)
 
-    if "DE" in tiebreak_codes, do: add_direct_encounter(entries, tournament), else: entries
+    Enum.reduce(@direct_encounter, entries, fn code, entries ->
+      if code in tiebreak_codes,
+        do: add_direct_encounter(entries, tournament, code),
+        else: entries
+    end)
   end
 
   # Values were floats here before the switch, and screens format them as
@@ -1436,8 +1494,8 @@ defmodule PairingsEngine.Standings do
     codes =
       ranking_codes
       |> Enum.filter(&Map.has_key?(AinalramiBridge.codes(), &1))
-      |> Enum.reject(&(event.predetermined? and &1 in ~w(BH BHC1 BHC2 MBH)))
-      |> Enum.map(&AinalramiBridge.c07_code/1)
+      |> Enum.reject(&(event.predetermined? and Tiebreaks.buchholz_based?(&1)))
+      |> Enum.map(&AinalramiBridge.c07_code(&1, tournament))
 
     score = Map.new(entries, &{&1.player.id, ranking_score(&1, tournament)})
 
@@ -1480,7 +1538,9 @@ defmodule PairingsEngine.Standings do
   # cannot (6.2's reapplication to a subset, 6.3's Swiss rule). The KBSB
   # publication prints this number as its "OR" column.
 
-  defp add_direct_encounter(entries, tournament) do
+  defp add_direct_encounter(entries, tournament, code) do
+    forfeits? = code == "DE/P"
+
     entries
     |> Enum.group_by(&ranking_score(&1, tournament))
     |> Enum.flat_map(fn {_points, group} ->
@@ -1489,7 +1549,13 @@ defmodule PairingsEngine.Standings do
       all_met? =
         length(group) > 1 and
           Enum.all?(group, fn e ->
-            met = MapSet.new(e.games |> Enum.filter(& &1.played) |> Enum.map(& &1.opponent_id))
+            met =
+              MapSet.new(
+                e.games
+                |> Enum.filter(&de_game?(&1, forfeits?))
+                |> Enum.map(& &1.opponent_id)
+              )
+
             MapSet.subset?(MapSet.delete(ids, e.player.id), met)
           end)
 
@@ -1497,7 +1563,7 @@ defmodule PairingsEngine.Standings do
         value =
           if all_met? do
             e.games
-            |> Enum.filter(&(&1.played and &1.opponent_id in ids))
+            |> Enum.filter(&(de_game?(&1, forfeits?) and &1.opponent_id in ids))
             |> Enum.map(& &1.points)
             |> Enum.sum()
             |> round_f(1)
@@ -1505,8 +1571,13 @@ defmodule PairingsEngine.Standings do
             0.0
           end
 
-        put_in(e.tiebreaks["DE"], value)
+        put_in(e.tiebreaks[code], value)
       end)
     end)
   end
+
+  # A game that counts towards the DE column: played over the board, or, for
+  # DE/P, a forfeit against a scheduled opponent as well (Article 6.1.1).
+  defp de_game?(game, true), do: game.opponent_id != nil
+  defp de_game?(game, false), do: game.played
 end

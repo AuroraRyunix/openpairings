@@ -106,7 +106,7 @@ defmodule PairingsEngine.TiebreakWorking do
     # Article 8: no Buchholz in a round robin) costs only its own entry.
     from_ainalrami =
       for code <- codes, code in @from_ainalrami, into: %{} do
-        c07 = AinalramiBridge.c07_code(code)
+        c07 = AinalramiBridge.c07_code(code, tournament)
 
         case Ainalrami.Tiebreaks.working(event, [c07]) do
           {:ok, %{^c07 => parts}} -> {code, parts}

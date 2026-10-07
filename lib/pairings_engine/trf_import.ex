@@ -799,12 +799,31 @@ defmodule PairingsEngine.TrfImport do
           ),
         else: individual
 
+    # `ARO/U1500`: C.07 Article 10's rule for unrated players, written on the
+    # code (Ainalrami's spelling). The code is read without it and the rating
+    # becomes the tournament's `tiebreak_unrated_rating` - the first one
+    # named, as the setting is one number for all of them.
+    split = Enum.map(codes, &split_unrated/1)
+
     kept =
-      codes
-      |> Enum.map(&Map.get(ours, &1, &1))
+      split
+      |> Enum.map(fn {code, _unrated} -> Map.get(ours, code, code) end)
       |> Enum.filter(&MapSet.member?(known, &1))
 
-    if kept == [], do: %{}, else: %{tiebreaks: kept}
+    unrated = Enum.find_value(split, fn {_code, unrated} -> unrated end)
+
+    cond do
+      kept == [] -> %{}
+      unrated -> %{tiebreaks: kept, tiebreak_unrated_rating: unrated}
+      true -> %{tiebreaks: kept}
+    end
+  end
+
+  defp split_unrated(code) do
+    case Regex.run(~r{^(.*)/U(\d+)$}, code) do
+      [_, base, rating] -> {base, min(String.to_integer(rating), 4000)}
+      _ -> {code, nil}
+    end
   end
 
   # TRF16's 092/112 arbiter lines are "<FIDE id> <name>" when the id is

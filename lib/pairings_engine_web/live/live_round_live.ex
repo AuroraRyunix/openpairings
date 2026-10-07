@@ -919,7 +919,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           </thead>
           <tbody>
             <tr :for={entry <- @entries}>
-              <td class="num">{entry.rank}</td>
+              <td class="num">{Standings.shown_rank_label(entry, @tournament)}</td>
               <td>
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
