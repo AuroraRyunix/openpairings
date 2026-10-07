@@ -97,7 +97,19 @@ defmodule PairingsEngine.Plugins do
   """
   def tournament_menu_entries(_scope, nil), do: []
 
+  # Plug-ins are for administrators only, their tournament entries included.
   def tournament_menu_entries(scope, tournament) do
+    if admin?(scope), do: plugin_menu_entries(scope, tournament), else: []
+  end
+
+  @doc "Whether `scope`'s user may see and use plug-ins: administrators only."
+  def admin?(%{user: user}), do: PairingsEngine.Authz.may_administer?(user)
+  def admin?(_scope), do: false
+
+  @doc "Every feature key a plugin adds (`features/0`)."
+  def feature_keys, do: Enum.map(features(), & &1.key)
+
+  defp plugin_menu_entries(scope, tournament) do
     Enum.flat_map(all(), fn plugin ->
       if exports?(plugin, :tournament_menu_entries, 2),
         do:

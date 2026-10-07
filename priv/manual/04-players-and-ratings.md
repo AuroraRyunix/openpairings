@@ -258,8 +258,8 @@ are open, players can register themselves on the results site. The page
 ones, and each entry is accepted (it becomes a player) or discarded. An
 accepted entry can be put back.
 
-*Brief chapter section: the entry form is configured on the OpenResults settings
-page.*
+> [!NOTE]
+> The entry form itself is configured on the OpenResults settings page.
 
 ## Export of the player list
 

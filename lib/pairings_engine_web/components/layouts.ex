@@ -107,7 +107,9 @@ defmodule PairingsEngineWeb.Layouts do
       assign(
         assigns,
         :installed_plugins,
-        if(!assigns.tournament && assigns.current_scope,
+        if(
+          !assigns.tournament && assigns.current_scope &&
+            PairingsEngine.Authz.may_administer?(assigns.current_scope.user),
           do: PairingsEngine.Plugins.installed(),
           else: []
         )

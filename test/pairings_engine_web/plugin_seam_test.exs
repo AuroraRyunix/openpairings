@@ -83,6 +83,12 @@ defmodule PairingsEngineWeb.PluginSeamTest do
   end
 
   describe "with a plugin" do
+    # Plug-ins are for administrators only; this account is one.
+    setup %{user: user} do
+      {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
+      :ok
+    end
+
     setup do
       FakePlugin.register(
         candidates: [
@@ -102,6 +108,23 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       assert has_element?(lv, "#plugin-menu-fake", "9.9.9")
       assert has_element?(lv, "#plugin-menu-fake", "only in the test suite")
       assert has_element?(lv, "#plugin-menu-installed[href='/plugins']")
+    end
+
+    test "an arbiter who is not an administrator sees no Plug-ins menu and no plugin entry",
+         %{conn: conn, user: user, scope: scope} do
+      {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "owner")
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      refute has_element?(lv, "#topbar-plugins")
+
+      {t, _} =
+        team_round_robin([{"A", [2000]}, {"B", [1900]}],
+          name: "Fake series",
+          user_id: scope.user.id
+        )
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      refute has_element?(lv, "#plugin-menu-fake")
     end
 
     test "its routes are mounted under /p/<id>, with the plug-ins page" do

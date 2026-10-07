@@ -135,6 +135,6 @@ be imported again, with the matches rebuilt where the boards say it
 unambiguously. Team tournaments are published to OpenResults like others
 ([Publishing](14-publishing.md)).
 
-*Brief chapter: team events have more detailed rules for forfeits, line-ups and
-withdrawals than are listed here; the program explains each refusal in a
-message.*
+> [!NOTE]
+> Team events have more detailed rules for forfeits, line-ups and withdrawals
+> than are listed here. When the program refuses something, its message says why.

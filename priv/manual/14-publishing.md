@@ -110,8 +110,9 @@ carries a publishing key, you are asked whether to *Take over publishing it* or
 
 Team tournaments are published too, with team standings and matches.
 
-*Brief: the data that the results site shows is described on its own site; this
-manual describes only the part in OpenPairings.*
+> [!NOTE]
+> What the results site shows is described on that site; this manual covers only
+> the part in OpenPairings.
 
 ## Entries through the results site
 

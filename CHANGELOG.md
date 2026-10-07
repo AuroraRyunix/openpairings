@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Plug-ins are for administrators only.** The Plug-ins menu, the
+  installed plug-ins page, every plug-in page, a plug-in's tournament menu
+  entries and its feature switches show only for an administrator.
 - [Feature] **Announced boards.** The next-round preview can record that the
   name cards of its fixed boards are going out: **Announce fixed boards**, or
   print them with "these cards go out now" ticked. The Pairings page shows the

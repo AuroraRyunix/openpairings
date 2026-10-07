@@ -90,7 +90,6 @@ linked to a tournament imports its players and officials; press, VIP and staff
 badges are added by hand. See [Categories and norms](13-categories-and-norms.md)
 for the other tools under Advanced.
 
-*Brief: badges are described here in outline only.*
 
 ## Printing the FIDE forms
 

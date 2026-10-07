@@ -297,6 +297,18 @@ defmodule PairingsEngineWeb.UserLive.Settings do
       |> Enum.filter(fn {_key, value} -> value == "true" end)
       |> Enum.map(fn {key, _value} -> key end)
 
+    # A plug-in's switches are for administrators only; anyone else keeps
+    # whatever they had and cannot add one by crafting the form.
+    keys =
+      if PairingsEngine.Plugins.admin?(socket.assigns.current_scope),
+        do: keys,
+        else:
+          (keys -- PairingsEngine.Plugins.feature_keys()) ++
+            Enum.filter(
+              socket.assigns.user.features || [],
+              &(&1 in PairingsEngine.Plugins.feature_keys())
+            )
+
     case Features.set_enabled(socket.assigns.user, keys) do
       {:ok, user} ->
         {:noreply, socket |> assign_user(user) |> assign(saved: :features)}
@@ -1093,12 +1105,16 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                       <h3>{federation.name}</h3>
                       <p class="hint">{federation.summary}</p>
                     </div>
-                    <span class="fed-count">{on_count(federation.code, @enabled_features)}</span>
+                    <span class="fed-count">{on_count(
+                      federation.code,
+                      @enabled_features,
+                      @current_scope
+                    )}</span>
                   </div>
 
                   <div class="fed-switches">
                     <.setting_toggle
-                      :for={feature <- Features.catalogue_for(federation.code)}
+                      :for={feature <- visible_features(federation.code, @current_scope)}
                       name={"feature[#{feature.key}]"}
                       label={feature.label}
                       hint={feature.description}
@@ -1432,8 +1448,20 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
   # How much of a pack is switched on, so the card answers "what is my state
   # here" before anyone reads five labels. Reads fine at zero ("0 of 5 on").
-  defp on_count(code, enabled) do
-    keys = Enum.map(Features.catalogue_for(code), & &1.key)
+  # A federation's switches as this user sees them: a plug-in's only for an
+  # administrator.
+  defp visible_features(code, scope) do
+    if PairingsEngine.Plugins.admin?(scope),
+      do: Features.catalogue_for(code),
+      else:
+        Enum.reject(
+          Features.catalogue_for(code),
+          &(&1.key in PairingsEngine.Plugins.feature_keys())
+        )
+  end
+
+  defp on_count(code, enabled, scope) do
+    keys = Enum.map(visible_features(code, scope), & &1.key)
 
     gettext("%{on} of %{total} on",
       on: Enum.count(keys, &(&1 in enabled)),

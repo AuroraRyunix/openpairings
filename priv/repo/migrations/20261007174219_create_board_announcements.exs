@@ -31,8 +31,7 @@ defmodule PairingsEngine.Repo.Migrations.CreateBoardAnnouncements do
     create unique_index(:board_announcements, [:tournament_id, :round])
 
     create table(:announced_boards) do
-      add :announcement_id, references(:board_announcements, on_delete: :delete_all),
-        null: false
+      add :announcement_id, references(:board_announcements, on_delete: :delete_all), null: false
 
       add :label, :string, null: false
       add :white_player_id, :integer, null: false

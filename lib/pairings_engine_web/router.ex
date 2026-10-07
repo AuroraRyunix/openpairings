@@ -222,7 +222,10 @@ defmodule PairingsEngineWeb.Router do
           PairingsEngineWeb.DeployNotice,
           PairingsEngineWeb.PublishStatusHook,
           PairingsEngineWeb.UpdateNotice,
-          {PairingsEngineWeb.UserAuth, :require_authenticated}
+          {PairingsEngineWeb.UserAuth, :require_authenticated},
+          # Plug-ins are for administrators only (the menu, the overview and
+          # every plugin page): an arbiter without the role is sent home.
+          {PairingsEngineWeb.RequireRole, :admin}
         ] do
         for {path, live_module, action} <- plugin_routes do
           live path, live_module, action
