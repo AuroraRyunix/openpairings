@@ -73,9 +73,13 @@ players, dates and status, and these actions:
 | Hand off / Give back / Bring it back | See below. |
 | Leave | For a shared tournament that is not yours. |
 
-The **Recycle bin** lists deleted tournaments; **Restore** brings one back,
-**Delete permanently** removes it for good (after confirmation). A
-tournament with postponed games still open shows that the standings are
+The **Recycle bin** lists deleted tournaments; **Restore** brings one back.
+
+> [!WARNING]
+> **Delete permanently** removes a tournament from the bin for good (after
+> confirmation).
+
+A tournament with postponed games still open shows that the standings are
 provisional.
 
 ## Hand-off: moving a tournament between two computers
@@ -104,8 +108,11 @@ What does not: the restore points, the phones enrolled for result entry, and
 the collaborators, who arrive as pending invitations. A hand-off file can also
 be opened as an ordinary backup.
 
-While a tournament is handed off, **Send…** for the rating report is refused
-on the locked copy, so that only one machine can send.
+> [!WARNING]
+> While a tournament is handed off, **Send…** for the rating report is refused
+> on the locked copy, so that only one machine can send.
+
+![The tournament list with the Hand off action and a handed-off tournament marked read-only](screenshots/15-handoff-list.png "The Tournaments page with a hand-off")
 
 ## Backups and restore points
 
@@ -122,8 +129,9 @@ on the locked copy, so that only one machine can send.
 - Settings, **Export** and the Tournaments page **Export all (JSON)** are backups you
   keep wherever you want.
 
-Before an important event, make sure that a current backup exists and that you
-can find it.
+> [!TIP]
+> Before an important event, make sure that a current backup exists and that you
+> can find it.
 
 ## Connections (the administrator's page)
 

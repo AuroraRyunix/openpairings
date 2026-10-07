@@ -23,7 +23,7 @@ Details of the scoring are in [Standings and tie-breaks](08-standings-and-tiebre
 The presence cell of a player (column *Pr.*) shows and sets presence, as
 explained in [Players and rating lists](04-players-and-ratings.md):
 
-- Open the cell's menu (right-click, or `Space` with the keyboard) to set
+- Open the cell's menu (right-click, or <kbd>Space</kbd> with the keyboard) to set
   the player **Absent** or **Present**; in the registration form the
   checkbox **Absent** means absent for the whole event and the field **Absent at
   the rounds** takes the rounds to sit out, written `3,5` or `2-4` (commas,
@@ -37,6 +37,8 @@ explained in [Players and rating lists](04-players-and-ratings.md):
 - The menu on the header of the column marks everybody present or absent at
   once; use this at the start of the event or the start of a round.
 
+![The presence cell menu on the Players page with Absent and Present](screenshots/05-presence-cell-menu.png "Setting a player absent")
+
 An absent player is not paired in that round. Their absence is scored as set
 on the Scoring page (*Byes and absences*). The Pairings page and the printed
 pairing list (option *with absentees section*) list the players who are not
@@ -44,10 +46,13 @@ playing, with the value of the round for each.
 
 ### Half-point byes
 
-An absence that the Scoring page scores as a draw is a half-point bye. The
-rules (C.05:6.7.4) allow a player only one half-point bye in a tournament, and
-none to a player who received conditions or free entry. The program helps in
-two ways:
+An absence that the Scoring page scores as a draw is a half-point bye.
+
+> [!FIDE] C.05:6.7.4
+> The rules allow a player only one half-point bye in a tournament, and none
+> to a player who received conditions or free entry.
+
+The program helps in two ways:
 
 - When a save of the registration form would give a player a **second or
   later half-point bye**, the form shows a warning for the rounds concerned
@@ -59,25 +64,33 @@ two ways:
   player, and the box cannot be ticked for a player who already has one; the
   message names the rounds.
 
-Mark the absences **before** you pair the round. A player who turns up late
-can be marked present again and paired by hand (see below), or entered in the
-next round.
+> [!WARNING]
+> Mark the absences **before** you pair the round. A player who turns up late
+> can be marked present again and paired by hand (see below), or entered in the
+> next round.
 
 ## The pairing-allocated bye (odd number of players)
 
 If the number of players to be paired in a Swiss round is odd, one of them
-gets the pairing-allocated bye. The pairing engine selects the player by the
-rules of C.04.3: it is given to a player in the lowest score group in which a
-legal pairing of everybody else is still possible, and never to a player who
-has already had a pairing-allocated bye or has won a game by forfeit or been
-given a full-point bye. The player is shown on the Pairings page as a board
+gets the pairing-allocated bye.
+
+> [!FIDE] C.04.3
+> The pairing engine selects the player by the rules of C.04.3: the bye is
+> given to a player in the lowest score group in which a legal pairing of
+> everybody else is still possible, and never to a player who has already had
+> a pairing-allocated bye or has won a game by forfeit or been given a
+> full-point bye.
+
+The player is shown on the Pairings page as a board
 with *bye*, and the explanation page says why that player was chosen and
 what each other candidate would have cost
 ([Pairing a round](06-pairing.md)).
 
 The bye is scored as the **Pairing-allocated bye** value (Settings, Scoring):
 a win by default, but it can be set to a half point or to another value.
-The value cannot be changed after the first round in FIDE mode.
+
+> [!NOTE]
+> The value cannot be changed after the first round in FIDE mode.
 
 In a round robin with an odd number of players, each player sits out one round
 (the Berger table pairs the "highest number" against nobody). The program
@@ -90,6 +103,9 @@ In a paired round, the Pairings page lets you change who plays whom or who
 sits out. The *Hand edits* menu (right-click a player's name in the round)
 offers:
 
+![The Hand edits menu opened on a player's name in a paired round](screenshots/05-hand-edits-menu.png "The Hand edits menu")
+
+
 - **Mark absent for this round**: the player's seat is emptied and the
   player moves to the *Not playing* list;
 - **Pair with another player who isn't playing**: puts two players of the
@@ -100,12 +116,14 @@ offers:
   the player left alone on a board whose opponent was removed;
 - **Put in an empty seat**, **Swap with…**, **Delete this board**.
 - **Give a full-point bye…** (on a player of the *Not playing* list): the
-  player scores a win for the round without playing. A notice first says
-  that the pairing regulations do not describe full-point byes and that
-  they should stay exceptional. The FIDE report writes it as `F`, with a
-  `### FPB @ Round r` line, and the player cannot get the pairing-allocated
-  bye in a later round. **Take back the full-point bye…** makes the player
-  absent again.
+  player scores a win for the round without playing. The FIDE report writes
+  it as `F`, with a `### FPB @ Round r` line, and the player cannot get the
+  pairing-allocated bye in a later round. **Take back the full-point bye…**
+  makes the player absent again.
+
+> [!FIDE] Full-point byes
+> A notice first says that the pairing regulations do not describe full-point
+> byes and that they should stay exceptional.
 
 Every hand edit first shows a confirmation with the boards as they are now
 and as they will be, and warns, with a tick, when the bye would go to a
@@ -121,8 +139,13 @@ marked absent for it, scored by the Scoring page.*
 ## Organiser's bye preferences
 
 Some events want to keep a bye away from a player (a long journey), or
-want to give it to a particular player. These preferences are not FIDE rules.
-They are switched off by default. To use them turn on **Bye preferences**
+want to give it to a particular player.
+
+> [!FIDE] Departure from FIDE mode
+> These preferences are not FIDE rules. They are switched off by default, and
+> are not applied when the tournament is FIDE-homologated.
+
+To use them turn on **Bye preferences**
 on the Features page (Account menu, *Features*, Belgian pack). The player's
 form then offers *Exclude from the pairing-allocated bye* and *Pairing-allocated
 bye preference*, each for all rounds or certain rounds:
@@ -138,8 +161,8 @@ one who already had a bye: the engine never gives it to them. When no legal
 round can keep the bye away from every excluded player, the Pairings page says so and offers **Pair anyway,
 ignoring the exclusion for <name>**.
 
-All of these apply to the Ainalrami engine only (they are not given to JaVaFo),
-are not applied when the tournament is FIDE-homologated, and are recorded in
+All of these apply to the Ainalrami engine only (they are not given to JaVaFo)
+and are recorded in
 the round's explanation, the audit trail and the notes of the TRF export,
 because the round no longer is what a FIDE-endorsed program would pair.
 

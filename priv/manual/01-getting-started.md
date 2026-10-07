@@ -22,9 +22,10 @@ rating office:
 - It can publish a tournament to a public results site (OpenResults) so that
   players and spectators follow the event on their phones.
 
-By default a tournament is handled the way FIDE's pairing regulations say it
-must be. This is called FIDE mode and is described in
-[FIDE mode](02-fide-mode.md).
+> [!FIDE] FIDE mode
+> By default a tournament is handled the way FIDE's pairing regulations say it
+> must be. This is called FIDE mode and is described in
+> [FIDE mode](02-fide-mode.md).
 
 ## Two ways to run it
 
@@ -55,8 +56,9 @@ The `Setup.exe` next to it installs for yourself at once, without questions.
 After installing, start *OpenPairings* from the Start menu. A small window
 opens and your browser follows; closing that small window stops the program.
 
-If your antivirus removes the single-file download, use the *portable*
-release instead: unzip it and double-click `OpenPairings.exe` in the folder.
+> [!TIP]
+> If your antivirus removes the single-file download, use the *portable*
+> release instead: unzip it and double-click `OpenPairings.exe` in the folder.
 
 **Linux.** Download the portable archive and unzip it. Run `./openpairings.sh`
 (the file must be made executable once: `chmod +x openpairings.sh`). The
@@ -79,16 +81,24 @@ The tournaments are one database file in a folder of your user account:
 - macOS: `~/Library/Application Support/OpenPairings`.
 - Linux: `~/.local/share/OpenPairings`.
 
-Uninstalling the program leaves this data in place. The program writes a
+> [!NOTE]
+> Uninstalling the program leaves this data in place.
+
+The program writes a
 backup of its data about once a day (see "Backups" in
 [Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
 
 ### Updates
 
 A desktop copy checks, on start and every few hours, whether a newer release
-exists, and shows a notice at the top of the page. It never installs anything
-on its own and never in the middle of your decision: a new version can contain a newer pairing
-engine, so you choose the moment (not while a round is being played). On a
+exists, and shows a notice at the top of the page.
+
+> [!NOTE]
+> The program never installs anything on its own and never in the middle of
+> your decision: a new version can contain a newer pairing engine, so you
+> choose the moment (not while a round is being played).
+
+On a
 per-user Windows installation the notice has an *Install and restart* button;
 on the other installations it links to the release page. The check can be
 switched off on the Connections page.
@@ -97,6 +107,8 @@ switched off on the Connections page.
 
 Open the program. The first page is **Tournaments**: the list of your
 tournaments (empty at first), with *New tournament* and the import buttons.
+
+![The Tournaments page with a few tournaments listed and the New tournament and import buttons at the top](screenshots/01-tournaments-list.png "The Tournaments page")
 
 The bar at the top of every page has:
 
@@ -121,6 +133,8 @@ Inside a tournament the bar shows the tournament's own tabs:
 | Print | every printable document |
 | Advanced | Norms, History (restore points), Audit trail, Pairing rationale, Badges |
 | Settings | the tournament's settings (several pages) |
+
+![The tab bar inside a tournament, showing Players, Pairings, Standings, Print, Advanced and Settings](screenshots/01-tournament-tabs.png "The tournament's tabs")
 
 *Connections* (the rating lists, backups, publishing address) appears in the
 bar on the Tournaments page, for the administrator of the installation. On a
@@ -152,7 +166,14 @@ This manual is written in English only.
 ## Keyboard and accessibility
 
 Every action is a button or a link and can be reached with the keyboard.
-Result entry is designed for the keyboard (see [Results](07-results.md)); the
-player grid has its own key controls (see [Players and rating lists](04-players-and-ratings.md)).
+Result entry is designed for the keyboard (see [Results](07-results.md)): click
+the result field of the first board, then type <kbd>1</kbd> for a win for White,
+<kbd>2</kbd> for a draw and <kbd>3</kbd> for a win for Black; the arrow keys
+walk through the other values. The player grid has its own key controls (see
+[Players and rating lists](04-players-and-ratings.md)): <kbd>Ctrl</kbd>+<kbd>I</kbd>
+adds a player, the arrow keys move between the cells, <kbd>Space</kbd> or
+<kbd>Shift</kbd>+<kbd>F10</kbd> opens a cell's menu, and <kbd>Enter</kbd> or
+<kbd>Space</kbd> on a player's name opens the registration form.
+
 The program follows the colour scheme you choose; there are light and dark themes
 and a high-contrast mode on the live page.

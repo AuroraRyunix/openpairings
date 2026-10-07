@@ -10,6 +10,8 @@ cannot disturb a pairing session.
 Publishing is optional and off by default. Nothing is sent until you switch it
 on for a tournament.
 
+![The OpenResults settings page with the On the results site choice, Spectators see and Automatically](screenshots/14-openresults-settings.png "Settings, OpenResults")
+
 ## Connecting a results site
 
 **Connections** (top bar on the Tournaments page), section *Public results
@@ -32,8 +34,9 @@ Settings, **OpenResults**.
 | Link only | published, but not listed: anyone with the address can follow it. |
 | Listed | published and on the results site's front page. |
 
-*Link only is not privacy*: the address is long and cannot be guessed, but
-anyone who is sent it can pass it on.
+> [!WARNING] Link only is not privacy
+> The address is long and cannot be guessed, but
+> anyone who is sent it can pass it on.
 
 ### What the public sees, round by round
 
@@ -74,13 +77,15 @@ Without it the public sees only the list of players once a round is public.
 Switches choose which details a published page may show (ratings, titles,
 federations, clubs, categories, player cards, the standings page, the pairings
 pages, the columns of the standings, and which tie-breaks), and, separately,
-whether the working of the tie-breaks is published. Names, board numbers, results
-and places are always shown: a tournament that must not show them should not
-be published. A detail you hide is not sent to the results site at all. Hiding a
+whether the working of the tie-breaks is published. A detail you hide is not sent to the results site at all. Hiding a
 tie-break column does not change the order it decides, and the page says
 when the order used a tie-break that is hidden. The tie-break working
 answers a spectator's *why am I fourth* (the opponent of each round and its value).
 The *Rounds-present* column is public only if you tick it.
+
+> [!WARNING]
+> Names, board numbers, results and places are always shown: a tournament that
+> must not show them should not be published.
 
 ### The hall display
 
@@ -131,7 +136,10 @@ everybody else.
 
 ## If there is no network
 
-Publishing never blocks pairing or result entry. A send that does not arrive is
+> [!NOTE]
+> Publishing never blocks pairing or result entry.
+
+A send that does not arrive is
 kept and tried again with longer pauses; the status of the connection is shown
 as a small label in the top bar, and the page says what is wrong. The public
 page catches up to the hall when the connection is back.

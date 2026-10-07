@@ -17,89 +17,73 @@ defmodule PairingsEngine.Manual do
 
   ## Chapter files
 
-  `NN-slug.md`: `NN` sets the order and is never shown, `slug` is the
-  address (`/help/slug`). The first `# ` heading is the chapter's title.
-  A link to another chapter is written as an ordinary relative link to its
-  file (`[Printing](09-printing.md)`), which works on GitHub, and is turned
-  into `/help/printing` here. Every `##` and `###` heading gets an `id`
-  (its text, lower-cased, runs of other characters becoming one `-`), and `toc/1` lists the `##` headings of a chapter.
+  `NN-slug.md`: `NN` sets the order and is the chapter's number, `slug` is
+  the address (`/help/slug`). The first `# ` heading is the chapter's title.
+  What a chapter may contain beyond plain Markdown (callouts, steps,
+  keyboard keys, screenshots, links between chapters) is documented in
+  `PairingsEngine.Manual.Markup`, which does the rendering.
 
   ## What the renderer allows
 
   `PairingsEngine.Markdown`: a closed tag set, escaped text, safe link
-  schemes. Raw HTML in a chapter is shown as text, not run.
+  schemes. Raw HTML in a chapter is shown as text, not run (`<kbd>` aside,
+  which the Markup turns into a node of its own).
   """
 
   @manual_dir Path.expand("../../priv/manual", __DIR__)
-  @files @manual_dir |> Path.join("*.md") |> Path.wildcard() |> Enum.sort()
-  @files_hash :erlang.md5(@files)
+  @screenshot_dir Path.expand("../../priv/static/images/manual", __DIR__)
+
+  # `NN-slug.md` only: `SCREENSHOTS.md` beside the chapters is the list of
+  # screenshot slots, for whoever takes them, not a chapter.
+  list_files = fn dir ->
+    dir
+    |> Path.join("*.md")
+    |> Path.wildcard()
+    |> Enum.filter(&Regex.match?(~r/\A\d+-[a-z0-9-]+\.md\z/, Path.basename(&1)))
+    |> Enum.sort()
+  end
+
+  list_screenshots = fn dir -> dir |> Path.join("*") |> Path.wildcard() |> Enum.sort() end
+
+  @files list_files.(@manual_dir)
+  @files_hash :erlang.md5(:erlang.term_to_binary({@files, list_screenshots.(@screenshot_dir)}))
 
   for file <- @files, do: @external_resource(file)
 
+  # A chapter added or removed, or a screenshot dropped into
+  # `priv/static/images/manual/` (its figure stops being a placeholder).
   @doc false
-  def __mix_recompile__?,
-    do:
-      :erlang.md5(@manual_dir |> Path.join("*.md") |> Path.wildcard() |> Enum.sort()) !=
-        @files_hash
+  def __mix_recompile__? do
+    files =
+      @manual_dir
+      |> Path.join("*.md")
+      |> Path.wildcard()
+      |> Enum.filter(&Regex.match?(~r/\A\d+-[a-z0-9-]+\.md\z/, Path.basename(&1)))
+      |> Enum.sort()
 
-  # Built while the module is still being compiled (the chapter list below
-  # is computed then), so these are anonymous functions, not `def`s.
-  heading_id_fun = fn text ->
-    id =
-      text
-      |> String.downcase()
-      |> String.replace(~r/[^a-z0-9]+/, "-")
-      |> String.trim("-")
-
-    if id == "", do: "section", else: id
+    screenshots = @screenshot_dir |> Path.join("*") |> Path.wildcard() |> Enum.sort()
+    :erlang.md5(:erlang.term_to_binary({files, screenshots})) != @files_hash
   end
 
-  # `<h2>Some <code>text</code></h2>` -> the visible text, tags stripped.
-  strip_tags = fn html ->
-    html |> String.replace(~r/<[^>]*>/, "") |> String.replace("&amp;", "&")
-  end
-
-  add_ids = fn html ->
-    Regex.replace(~r{<h([23])>(.*?)</h\1>}s, html, fn _all, level, inner ->
-      ~s(<h#{level} id="#{heading_id_fun.(strip_tags.(inner))}">#{inner}</h#{level}>)
-    end)
-  end
-
-  chapter_links = fn html ->
-    Regex.replace(~r{href="(?:\d+-)?([a-z0-9-]+)\.md(#[^"]*)?"}, html, fn _all, slug, anchor ->
-      ~s(href="/help/#{slug}#{anchor}")
-    end)
-  end
-
-  @chapters (for file <- @files do
-               markdown = File.read!(file)
-               base = file |> Path.basename(".md")
+  @chapters (for {file, index} <- Enum.with_index(@files, 1) do
+               base = Path.basename(file, ".md")
                slug = Regex.replace(~r/^\d+-/, base, "")
 
-               title =
-                 case Regex.run(~r/^#\s+(.+)$/m, markdown) do
-                   [_, t] -> String.trim(t)
-                   _ -> slug
-                 end
+               rendered =
+                 file
+                 |> File.read!()
+                 |> PairingsEngine.Manual.Markup.chapter(index, screenshot_dir: @screenshot_dir)
 
-               body =
-                 markdown
-                 |> PairingsEngine.Markdown.to_html()
-                 # The page around it carries the title as its one <h1>.
-                 |> String.replace(~r{\A\s*<h1[^>]*>.*?</h1>}s, "")
-                 |> add_ids.()
-                 |> chapter_links.()
-
-               toc =
-                 for [_, inner] <- Regex.scan(~r{<h2[^>]*>(.*?)</h2>}s, body) do
-                   text = strip_tags.(inner)
-                   %{id: heading_id_fun.(text), text: text}
-                 end
-
-               %{slug: slug, title: title, html: body, toc: toc}
+               rendered
+               |> Map.put(:slug, slug)
+               |> Map.put(:number, index)
+               |> Map.put(:title, if(rendered.title == "", do: slug, else: rendered.title))
              end)
 
-  @doc "Every chapter, in reading order: `%{slug:, title:, html:, toc:}`."
+  @doc """
+  Every chapter, in reading order: `%{slug:, number:, title:, summary:, html:,
+  toc:, sections:, figures:}` (see `PairingsEngine.Manual.Markup.chapter/3`).
+  """
   def chapters, do: @chapters
 
   @doc "The chapter with this slug, or `nil`."
@@ -109,8 +93,11 @@ defmodule PairingsEngine.Manual do
   @doc "The slugs, in reading order."
   def slugs, do: Enum.map(@chapters, & &1.slug)
 
-  @doc "The `##` headings of a chapter, as `%{id:, text:}`."
+  @doc "The `##` and `###` headings of a chapter, as `%{id:, text:, level:}`."
   def toc(%{toc: toc}), do: toc
+
+  @doc "Every screenshot slot, as `{chapter, figure}`."
+  def figures, do: for(c <- @chapters, f <- c.figures, do: {c, f})
 
   @doc "The chapter before and after `slug`, as `{previous, next}` (each may be `nil`)."
   def neighbours(slug) do
@@ -121,5 +108,100 @@ defmodule PairingsEngine.Manual do
     else
       {nil, nil}
     end
+  end
+
+  @doc """
+  Searches the whole manual for `query`: every word of it (case-insensitive)
+  must occur in a section's heading or text. Best first: a match in the
+  heading outranks one in the text, and more occurrences outrank fewer.
+
+  Returns up to `limit` results, `%{chapter:, section_id:, heading:,
+  heading_parts:, snippet_parts:}`. The `_parts` lists are `{text, matched?}`
+  pieces, so the page can mark the matches without building HTML here.
+  """
+  def search(query, limit \\ 30) when is_binary(query) do
+    terms =
+      query
+      |> String.downcase()
+      |> String.split(~r/\s+/, trim: true)
+      |> Enum.filter(&(String.length(&1) >= 2))
+      |> Enum.uniq()
+
+    if terms == [] do
+      []
+    else
+      for chapter <- @chapters,
+          section <- chapter.sections,
+          heading = section.heading || chapter.title,
+          haystack = String.downcase(heading <> " " <> section.text),
+          Enum.all?(terms, &String.contains?(haystack, &1)) do
+        heading_down = String.downcase(heading)
+
+        score =
+          Enum.reduce(terms, 0, fn term, acc ->
+            acc + if(String.contains?(heading_down, term), do: 20, else: 0) +
+              min(occurrences(haystack, term), 10)
+          end)
+
+        %{
+          chapter: chapter,
+          section_id: section.id,
+          heading: heading,
+          heading_parts: highlight(heading, terms),
+          snippet_parts: highlight(snippet(section.text, terms), terms),
+          score: score
+        }
+      end
+      |> Enum.sort_by(&{-&1.score, &1.chapter.number})
+      |> Enum.take(limit)
+    end
+  end
+
+  defp occurrences(haystack, term), do: length(String.split(haystack, term)) - 1
+
+  # About 180 characters of the section around its first match.
+  defp snippet(text, terms) do
+    down = String.downcase(text)
+
+    first =
+      terms
+      |> Enum.map(fn term ->
+        case :binary.match(down, term) do
+          {at, _} -> at
+          :nomatch -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.min(fn -> 0 end)
+
+    # Byte offsets from :binary.match; step back to a character boundary
+    # by slicing on characters from the prefix's length.
+    start_char = down |> binary_part(0, first) |> String.length() |> Kernel.-(60) |> max(0)
+    piece = String.slice(text, start_char, 180)
+
+    # Start and end on whole words.
+    piece =
+      if start_char > 0, do: piece |> String.split(" ", parts: 2) |> List.last(), else: piece
+
+    piece =
+      if start_char + 180 < String.length(text),
+        do: piece |> String.split(" ") |> Enum.drop(-1) |> Enum.join(" "),
+        else: piece
+
+    prefix = if start_char > 0, do: "... ", else: ""
+    suffix = if start_char + 180 < String.length(text), do: " ...", else: ""
+    prefix <> String.trim(piece) <> suffix
+  end
+
+  defp highlight(text, terms) do
+    pattern =
+      terms
+      |> Enum.sort_by(&(-String.length(&1)))
+      |> Enum.map_join("|", &Regex.escape/1)
+
+    ~r/(#{pattern})/iu
+    |> Regex.split(text, include_captures: true)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn piece -> {piece, Enum.member?(terms, String.downcase(piece))} end)
   end
 end

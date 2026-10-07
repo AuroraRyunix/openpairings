@@ -29,12 +29,16 @@ the Settings pages are greyed out. There is no *Unlock* button for them in
 FIDE mode (outside FIDE mode the other settings that lock after round 1
 have one).
 
-FIDE mode also closes old rounds. A wrong result, pairing or colour can be
-corrected only in the last two rounds played (C.04.2 4.3). With round 7
-played and round 8 paired, rounds 6, 7 and 8 can be changed; round 5 and
-earlier are refused with the message that a mistake found later is corrected
-after the tournament, in the rating report only. The result of a postponed
-game can always be entered.
+FIDE mode also closes old rounds.
+
+> [!FIDE] C.04.2 4.3
+> A wrong result, pairing or colour can be corrected only in the last two
+> rounds played.
+
+With round 7 played and round 8 paired, rounds 6, 7 and 8 can be changed;
+round 5 and earlier are refused with the message that a mistake found later is
+corrected after the tournament, in the rating report only. The result of a
+postponed game can always be entered.
 
 In a team event, the teams' rosters and board orders are fixed once round 1
 is paired (a new player can still be added at the bottom of a team, as a
@@ -42,9 +46,12 @@ reserve).
 
 ## Settings that take a tournament out of FIDE mode
 
-A few settings change who plays whom, or what a game is worth, in a way the
-FIDE rules do not describe. Choosing one of them takes the tournament out of
-the mode:
+> [!FIDE] Departures from FIDE
+> A few settings change who plays whom, or what a game is worth, in a way the
+> FIDE rules do not describe. Choosing one of them takes the tournament out of
+> the mode.
+
+The settings are:
 
 - the pairing system **Keizer** (it is not a FIDE system);
 - **Pair each category independently**, which pairs each category as a
@@ -97,11 +104,13 @@ handler checklist calls Level 4):
 
 1. *This is not compliant with the FIDE regulations.* It lists what takes
    the tournament out of FIDE mode and asks whether to continue. **Yes,
-   continue** goes to the second question; **Cancel** (or `Escape`) closes
+   continue** goes to the second question; **Cancel** (or <kbd>Escape</kbd>) closes
    the dialog.
 2. *Stay in FIDE mode?* **Yes, stay in FIDE mode** closes the dialog;
    **No, leave FIDE mode** carries out what you asked: the settings are
    saved, the toggle is switched on, or the round is paired.
+
+![The Leave FIDE mode dialog at its first step, listing what takes the tournament out of FIDE mode](screenshots/02-leave-fide-mode-dialog.png "The first question of the Leave FIDE mode dialog")
 
 Cancelling at either step changes nothing: the settings are not saved and
 the round is not paired. The second question lists what leaving does:
@@ -118,9 +127,10 @@ the round is not paired. The second question lists what leaving does:
 - Every page of the tournament shows a line, *Not in FIDE mode*, with a link
   that explains what it means.
 
-Leave FIDE mode only for an event that nobody sends to FIDE: a club
-championship with its own rules, a Keizer evening, an event where you
-have to change something the rules forbid.
+> [!WARNING]
+> Leave FIDE mode only for an event that nobody sends to FIDE: a club
+> championship with its own rules, a Keizer evening, an event where you
+> have to change something the rules forbid.
 
 ## The FIDE page of the settings
 
@@ -132,3 +142,5 @@ preferences are not applied (they are not FIDE rules), and the tournament ID
 becomes a required field. The officials (chief arbiter, deputies) and the
 norm-related data are entered on the Tournament page; see
 [Tournament set-up](03-tournament-setup.md) and [Sending to FIDE](11-fide-report.md).
+
+![The FIDE page of the settings with the tournament ID, event code and the homologated tick box](screenshots/02-settings-fide-page.png "Settings, FIDE")

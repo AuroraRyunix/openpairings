@@ -17884,3 +17884,141 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Warning"
 msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:317
+#, elixir-autogen, elixir-format
+msgid "1 minute read"
+msgid_plural "%{count} minutes read"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/help_live.ex:352
+#, elixir-autogen, elixir-format
+msgid "Back to top"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:252
+#: lib/pairings_engine_web/live/help_live.ex:303
+#, elixir-autogen, elixir-format
+msgid "Breadcrumb"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:314
+#, elixir-autogen, elixir-format
+msgid "Chapter %{n}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:218
+#, elixir-autogen, elixir-format
+msgid "Chapter %{n}: %{title}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:219
+#, elixir-autogen, elixir-format
+msgid "Chapters"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:395
+#, elixir-autogen, elixir-format
+msgid "Everything the program does, from the first player to the FIDE report, written for the arbiter at the board. New here? Start with Getting started."
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:401
+#, elixir-autogen, elixir-format
+msgid "Getting started"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:166
+#, elixir-autogen, elixir-format
+msgid "Link copied"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:381
+#, elixir-autogen, elixir-format
+msgid "Next"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:291
+#, elixir-autogen, elixir-format
+msgid "Nothing in the manual matches every word. Try fewer or shorter words, or browse the chapters."
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:262
+#, elixir-autogen, elixir-format
+msgid "One section matches \"%{query}\"."
+msgid_plural "%{count} sections match \"%{query}\"."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/components/manual_link.ex:46
+#: lib/pairings_engine_web/components/manual_link.ex:47
+#, elixir-autogen, elixir-format
+msgid "Open the manual for this page"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:113
+#, elixir-autogen, elixir-format
+msgid "Preparing the tournament"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:404
+#, elixir-autogen, elixir-format
+msgid "Press"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:360
+#, elixir-autogen, elixir-format
+msgid "Previous and next chapter"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:115
+#, elixir-autogen, elixir-format
+msgid "Reports, teams and sharing"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:114
+#, elixir-autogen, elixir-format
+msgid "Round by round"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:439
+#, elixir-autogen, elixir-format
+msgid "Screenshot"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:255
+#, elixir-autogen, elixir-format
+msgid "Search"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:259
+#, elixir-autogen, elixir-format
+msgid "Search results"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:196
+#: lib/pairings_engine_web/live/help_live.ex:197
+#, elixir-autogen, elixir-format
+msgid "Search the manual"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:392
+#, elixir-autogen, elixir-format
+msgid "The OpenPairings user manual"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:176
+#, elixir-autogen, elixir-format
+msgid "The arbiter's handbook"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:168
+#: lib/pairings_engine_web/live/help_live.ex:175
+#, elixir-autogen, elixir-format
+msgid "User manual"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:404
+#, elixir-autogen, elixir-format
+msgid "to search"
+msgstr ""

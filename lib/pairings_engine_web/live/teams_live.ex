@@ -510,7 +510,9 @@ defmodule PairingsEngineWeb.TeamsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">{gettext("Teams")}</p>
+          <p class="subtitle" style="margin: 0">
+            {gettext("Teams")} <PairingsEngineWeb.Components.ManualLink.manual_link topic={:teams} />
+          </p>
         </div>
       </div>
 

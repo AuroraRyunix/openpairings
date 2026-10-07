@@ -23,11 +23,14 @@ the deputies with their FIDE IDs, the federation, the venue, the rate of play
 and the dates. The program reminds you of the recommended fields on the Players
 and Pairings pages; none of them blocks pairing.
 
-The Export page says which rounds were changed by a bye exclusion or a bye
-preference (organiser's rules, not FIDE's), because the TRF cannot record them
-and a checker replaying the file would pair those rounds differently
-([FIDE mode](02-fide-mode.md), [Byes and absences](05-byes-and-absences.md)). A
-TRF cannot be built until every round has a date.
+> [!FIDE] Bye exclusion and bye preference
+> The Export page says which rounds were changed by a bye exclusion or a bye
+> preference (organiser's rules, not FIDE's), because the TRF cannot record them
+> and a checker replaying the file would pair those rounds differently
+> ([FIDE mode](02-fide-mode.md), [Byes and absences](05-byes-and-absences.md)).
+
+> [!WARNING]
+> A TRF cannot be built until every round has a date.
 
 ## The Export page
 
@@ -40,6 +43,8 @@ paired round with its boards and its state:
 | *Ready to send* | Every board has a result. |
 | *Sent* | The round has been sent; the date and a receipt code are shown (for example `R5·7F2A`). |
 
+![The Export page, section TRF, with rounds in the states Being played, Ready to send and Sent](screenshots/11-export-trf-rounds.png "Rounds and their state on the Export page")
+
 Tick the rounds you want and press:
 
 - **Send…** - builds the file for the rating office and **marks every game in
@@ -50,12 +55,14 @@ Tick the rounds you want and press:
   rating)** - copies for your own use or another program. The file name ends
   `COPY-NOT-FOR-RATING` and the file says so in a `###` comment line.
 
+> [!WARNING]
+> A sent round cannot be sent again, and cannot be unpaired. A sent result can
+> be changed only after a confirmation; changing who played whom in a sent
+> round, or a player's absence in it, needs a tick *I understand - change the
+> sent round N anyway*. This protects against reporting a game twice.
+
 Rules that follow from this:
 
-- A sent round cannot be sent again, and cannot be unpaired. A sent result can
-  be changed only after a confirmation; changing who played whom in a sent
-  round, or a player's absence in it, needs a tick *I understand - change the
-  sent round N anyway*. This protects against reporting a game twice.
 - Two arbiters pressing **Send…** at the same moment cannot both get a file:
   the database keeps one record per game sent and refuses the second.
 - A copy that has been handed off to another machine, and an archived
@@ -85,9 +92,10 @@ The file for the rating office never contains `?`: a postponed game that is
 still open when its round is sent is written as **not played** for both players.
 This way the game is neither rated twice nor lost; see below.
 
-If the tournament has left FIDE mode, the copies say from which round in a
-`###` comment line. The file made by **Send…** is records only: no comment
-lines, no column ruler.
+> [!NOTE] Left FIDE mode
+> If the tournament has left FIDE mode, the copies say from which round in a
+> `###` comment line. The file made by **Send…** is records only: no comment
+> lines, no column ruler.
 
 ## Postponed games
 

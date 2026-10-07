@@ -2585,7 +2585,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-submit="import_trf_file"
         phx-change="validate_trf"
       >
-        <h2>{gettext("Import a TRF tournament")}</h2>
+        <h2>
+          {gettext("Import a TRF tournament")}
+          <PairingsEngineWeb.Components.ManualLink.manual_link topic={:trf_import} />
+        </h2>
 
         <p class="hint" style="margin-top: 0">
           <.rich_text text={

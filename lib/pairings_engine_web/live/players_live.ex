@@ -2754,6 +2754,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
           <p class="subtitle" style="margin: 0">
             {ngettext("%{count} player registered", "%{count} players registered", length(@players))}
+            <PairingsEngineWeb.Components.ManualLink.manual_link topic={:players} />
           </p>
         </div>
 

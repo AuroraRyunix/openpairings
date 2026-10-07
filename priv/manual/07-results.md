@@ -10,16 +10,19 @@ has a result field between the two players.
 Click the result field of the first board to give it focus (one click; the
 list does not open). Then type
 
-- `1` for a win for White (1-0),
-- `2` for a draw (½-½),
-- `3` for a win for Black (0-1).
+- <kbd>1</kbd> for a win for White (1-0),
+- <kbd>2</kbd> for a draw (½-½),
+- <kbd>3</kbd> for a win for Black (0-1).
 
-The result is saved and the focus moves to the next board, so that `131312`
+The result is saved and the focus moves to the next board, so that
+<kbd>1</kbd><kbd>3</kbd><kbd>1</kbd><kbd>3</kbd><kbd>1</kbd><kbd>2</kbd>
 fills in six boards without touching the mouse. The digits are read by
 physical key, so the top row and the numeric keypad both work on any keyboard
 layout. The arrow keys walk through the other values without saving every one
 on the way; a second click on the field opens the list, for the results that
 have no digit.
+
+![The results column of a round with the result list open on one board](screenshots/07-result-entry.png "Entering results on the Pairings page")
 
 ### With the mouse or a phone
 
@@ -52,9 +55,12 @@ it at once: a box asks *Clear the recorded result?* and you confirm with
 once and written to the audit trail, with the old and the new value.
 
 A result in a round that was already **sent to the rating office** is changed
-only after a confirmation. In FIDE mode a result can be changed only in the
-last two rounds played ([FIDE mode](02-fide-mode.md)); an earlier mistake is
-corrected after the tournament, in the report to the rating office.
+only after a confirmation.
+
+> [!FIDE]
+> In FIDE mode a result can be changed only in the
+> last two rounds played ([FIDE mode](02-fide-mode.md)); an earlier mistake is
+> corrected after the tournament, in the report to the rating office.
 
 ### Correcting a result for the rating report only
 
@@ -75,9 +81,11 @@ per board (comma or semicolon; an optional header line). The board number is
 the one printed on the pairing sheet. Accepted result words: `1-0`, `0-1`,
 `1/2-1/2` (also `½-½`, `0.5-0.5`, `=`), `½-0`, `0-½`, `0-0`, `X`,
 `1-0FF`, `0-1FF`, `0-0FF` (`+/-`, `-/+`, `-/-`), the unrated forms with `U`,
-and `*W`, `*B`. Boards not mentioned keep their result. **Nothing is saved
-unless every line is valid**: the page lists every problem (at most 50) and
-you fix the file and send it again.
+and `*W`, `*B`. Boards not mentioned keep their result.
+
+> [!NOTE]
+> **Nothing is saved unless every line is valid**: the page lists every problem
+> (at most 50) and you fix the file and send it again.
 
 ## Results from phones
 
@@ -105,10 +113,13 @@ is **postponed**. The tournament goes on.
 **Turn it on.** Settings, Scoring, *Postponed games*: **Allow postponed
 games**. With it off, no postponed result is offered anywhere. The same
 page sets what a postponed game counts as until it is played, for the player
-who postponed it and for the opponent: a draw for both by default (the FIDE
-rule). Any other value takes the tournament out of FIDE mode. The value is
+who postponed it and for the opponent: a draw for both by default. The value is
 saved on each game when it is postponed, so changing the setting later
 affects only new postponed games.
+
+> [!FIDE]
+> A draw for both players is the FIDE rule. Any other value takes the tournament
+> out of FIDE mode.
 
 **Record it.** Choose *postponed by White* or *postponed by Black* as the
 result of the board. Until the game is played it counts as the setting says

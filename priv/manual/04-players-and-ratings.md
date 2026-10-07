@@ -18,12 +18,15 @@ month). The program records which month's list it holds. Once a day, while it
 runs, it also asks FIDE whether a newer list exists and downloads it only
 if there is one (about once a month); nothing happens while offline. This is on
 by default and has a checkbox under Connections to switch it off. The page shows how many players the local database holds and when it
-was last updated. The download is large (about 40 MB) and replaces the whole
-local copy; it needs a connection to the FIDE rating site. On a desktop
+was last updated. On a desktop
 build you are the administrator of your own installation. On a server only the
 administrator may update it. A player who is not in the list has no FIDE
 rating (about two thirds of the rows in the list are unrated players): that
 means "no FIDE ID or no rating", not a failure of the download.
+
+> [!NOTE]
+> The download is large (about 40 MB) and replaces the whole local copy; it
+> needs a connection to the FIDE rating site.
 
 **The national rating list.** The Belgian list (KBSB/FRBE) is a built-in
 national list. It is part of the *Belgian pack* of features that is switched
@@ -93,13 +96,15 @@ or that it was entered by hand with no source list.
 Top bar, **Players**. At the top: the number of registered players and the
 buttons
 
-- **Add player** (also `Ctrl+I`),
+- **Add player** (also <kbd>Ctrl</kbd>+<kbd>I</kbd>),
 - **Refresh ratings**,
 - **Update clubs** (only with the Belgian feature on),
 - **Print player list** and **Print place cards**,
 - **Enter results**, which leads to the Pairings page.
 
 Below is the player grid: one row per player.
+
+![The Players page with the player grid and the buttons above it](screenshots/04-players-grid.png "The Players page")
 
 ### Adding a player
 
@@ -112,6 +117,8 @@ Press **Add player**. The form first offers a search box:
   FIDE ID, ratings, birth year and (Belgium) national ID and club.
 - Or fill the details in by hand below the search box.
 
+![The Add player form with the search box and the search results](screenshots/04-add-player-form.png "Adding a player")
+
 The form fields: full name (required), title, FIDE rating, national ID,
 national rating, federation, birth year, club, and further down the fixed
 table, the extra points, category assignments, registration status (*No Paid*,
@@ -123,10 +130,15 @@ different from what is on file, the form shows what FIDE says and asks
 *apply this?* for each difference.
 
 Register the players before round 1 is paired. Their **pairing numbers**
-(the starting ranks) are given when the first round is paired: highest
-tournament rating first, then FIDE title (GM, IM, WGM, FM, WIM, CM, WFM, WCM,
-no title), then the tournament's announced criterion (alphabetical by default;
-Settings, Options, *Equal rating and title*), as C.04.2 2 says. A player who
+(the starting ranks) are given when the first round is paired.
+
+> [!FIDE] C.04.2 2
+> The pairing numbers go to the highest tournament rating first, then FIDE
+> title (GM, IM, WGM, FM, WIM, CM, WFM, WCM, no title), then the tournament's
+> announced criterion (alphabetical by default; Settings, Options, *Equal
+> rating and title*).
+
+A player who
 is added later gets the next free number when the next round is paired, or, if
 the setting *Late entrants' pairing numbers* is *By rating*, the number their
 rating earns, with everybody below moving down one place (Swiss only).
@@ -136,8 +148,12 @@ numbers** on the Players page opens the list in pairing order. Two players with
 the same rating can **exchange** their numbers (the *Exchange* button between their rows) (to order them by another rule),
 and **Regenerate from ratings** renumbers everybody by the current ratings, keeping the
 order you gave to players of equal rating; use it to follow a rating change or
-to correct a mistake. Both are possible only until round 4 is paired
-(C.04.2); every change asks for your confirmation, a regeneration listing the
+to correct a mistake.
+
+> [!FIDE] C.04.2
+> Both are possible only until round 4 is paired.
+
+Every change asks for your confirmation, a regeneration listing the
 players whose number changes first. Rounds that were already paired used the
 old numbers, so a pairing checker will no longer reproduce them; the dialog
 says so. Each change is written to the audit trail.
@@ -160,29 +176,34 @@ the birth year, national and FIDE ID, both ratings, *Elo used*, the categories,
 the registration status (Paid), fixed table, extra points and the rounds-present
 column (*Rds*). The same columns can be shown on the Standings page.
 
-Some cells open a small menu (right-click, or `Space` / `Shift+F10` /
-the context-menu key on the keyboard): the presence cell sets a player present
+Some cells open a small menu (right-click, or <kbd>Space</kbd> /
+<kbd>Shift</kbd>+<kbd>F10</kbd> / the context-menu key on the keyboard): the presence cell sets a player present
 or absent, the *Paid* cell sets the registration status, the category cell
 assigns categories, and the header of the presence column sets everybody
 present or absent at once. The arrow keys move between the cells; the cell
 menu is announced to screen readers with a sentence that says what the letter
 in the cell means.
 
-**Presence cell.** `F` = forfeited / withdrawn; `A` = absent for the whole
-event; `A(3,5)` = sits out those rounds, and the round about to be paired is
-one of them (absent now); `a(3,5)` = has sat out those rounds, but is
-available in the round about to be paired.
+**Presence cell.** What the letters in the cell mean:
 
-Double-click a player's name (or press `Enter` or `Space` on it) to open the
+| Cell | Meaning |
+| --- | --- |
+| `F` | forfeited / withdrawn |
+| `A` | absent for the whole event |
+| `A(3,5)` | sits out those rounds, and the round about to be paired is one of them (absent now) |
+| `a(3,5)` | has sat out those rounds, but is available in the round about to be paired |
+
+Double-click a player's name (or press <kbd>Enter</kbd> or <kbd>Space</kbd> on it) to open the
 **Player registration** form. Right-click the name (or press the context-menu
 key) to open the **Players Card**: the player's opponents, colours and results
 round by round, with a print button and previous/next buttons.
 
 ### Removing a player
 
-**Remove** deletes a player. A player who has already played cannot be
-deleted in FIDE mode if the deletion would change a round that is no longer
-open; such a player is withdrawn instead (forfeit).
+> [!WARNING]
+> **Remove** deletes a player. A player who has already played cannot be
+> deleted in FIDE mode if the deletion would change a round that is no longer
+> open; such a player is withdrawn instead (forfeit).
 
 ## Refreshing ratings
 
@@ -213,8 +234,9 @@ all**: **Apply selected** writes only the ticked ones.
 **Update clubs** (Belgian pack) works the same way for the club and the club
 number, matching by national ID, then FIDE ID. It never blanks a club.
 
-Refresh the ratings before round 1 is paired. Changing a rating afterwards
-does not change the pairing numbers already given.
+> [!TIP]
+> Refresh the ratings before round 1 is paired. Changing a rating afterwards
+> does not change the pairing numbers already given.
 
 ## Late entries
 
