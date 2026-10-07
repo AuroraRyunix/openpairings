@@ -1234,7 +1234,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     })
   end
 
-  defp import_trf(conn, content) do
+  # Chooses the file and presses Import - which, for a file the import has
+  # anything to say about, stops at the review step (`#trf-review`).
+  defp submit_trf(conn, content) do
     {:ok, lv, _html} = live(conn, ~p"/")
     lv |> element("button", "Import TRF file") |> render_click()
 
@@ -1245,35 +1247,88 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
     render_upload(trf, "verified.trf")
     lv |> form("#trf-import-form", %{}) |> render_submit()
+    lv
+  end
+
+  defp import_trf(conn, content) do
+    lv = submit_trf(conn, content)
+    if has_element?(lv, "#trf-review"), do: lv |> element("#trf-review-confirm") |> render_click()
 
     {_to, flash} = assert_redirect(lv)
     flash
   end
 
+  defp tournaments_named(name),
+    do: Repo.aggregate(from(t in Tournament, where: t.name == ^name), :count)
+
   describe "TRF import: rounds that break a pairing rule" do
-    test "an illegal round is named in the flash, and the file still imports", %{conn: conn} do
-      info = import_trf(conn, two_round_trf(:illegal))["info"] || ""
+    test "an illegal round stops the import at a Level-3 review naming it; nothing exists until confirmed",
+         %{conn: conn} do
+      lv = submit_trf(conn, two_round_trf(:illegal))
 
       # An arbiter has to be able to act on this, which means the round,
       # both players and the rule - not "this file has a problem".
-      assert info =~ "round 2"
-      assert info =~ "Alpha, Player"
-      assert info =~ "Bravo, Player"
-      assert info =~ "had already met in round 1"
+      assert has_element?(lv, "#trf-review.trf-review-level3")
+      pibe = lv |> element("#trf-review-pibe") |> render()
+      assert pibe =~ "Round 2"
+      assert pibe =~ "Alpha, Player"
+      assert pibe =~ "Bravo, Player"
+      assert pibe =~ "had already met in round 1"
 
-      # Reported, not refused: the tournament is there with both rounds.
+      # The version and the TRF16 adjustments are on the same step.
+      assert lv |> element("#trf-review-version") |> render() =~ "TRF16"
+      assert has_element?(lv, "#trf-review-adjustments")
+
+      # Nothing is written before the arbiter confirms.
+      assert tournaments_named("Rematch Open") == 0
+
+      lv |> element("#trf-review-confirm") |> render_click()
+      {_to, _flash} = assert_redirect(lv)
+
+      # Imported as the file records it, with the PIBE kept and logged.
       tournament = last_tournament_named("Rematch Open")
       assert Repo.aggregate(where(Tournaments.Round, tournament_id: ^tournament.id), :count) == 2
+      assert [%{"round" => 2}] = tournament.import_findings["pibe"]
+
+      assert Repo.exists?(
+               from(a in PairingsEngine.Audit.AuditLog,
+                 where: a.tournament_id == ^tournament.id and a.action == "pibe.import"
+               )
+             )
+    end
+
+    test "Cancel on the review step imports nothing", %{conn: conn} do
+      lv = submit_trf(conn, two_round_trf(:illegal))
+      assert has_element?(lv, "#trf-review")
+
+      lv |> element("#trf-review-cancel") |> render_click()
+
+      refute has_element?(lv, "#trf-review")
+      assert tournaments_named("Rematch Open") == 0
     end
 
     # The control. Same panel, same upload, same roster, a legal round 2 -
-    # so a flash that still complained would be complaining about the
-    # fixture rather than about the pairing.
-    test "a legally paired file produces no such notice", %{conn: conn} do
-      flash = import_trf(conn, two_round_trf(:legal))
+    # so a Level-3 warning here would be about the fixture rather than
+    # about the pairing. The TRF16 adjustments are still shown to confirm.
+    test "a legally paired file is reviewed without a rule-break warning", %{conn: conn} do
+      lv = submit_trf(conn, two_round_trf(:legal))
 
-      refute (flash["info"] || "") =~ "pairing rule"
-      assert last_tournament_named("Rematch Open")
+      assert has_element?(lv, "#trf-review")
+      refute has_element?(lv, "#trf-review-pibe")
+      refute has_element?(lv, "#trf-review.trf-review-level3")
+
+      lv |> element("#trf-review-confirm") |> render_click()
+      {_to, _flash} = assert_redirect(lv)
+
+      tournament = last_tournament_named("Rematch Open")
+      assert tournament.import_findings["pibe"] == []
+      assert tournament.import_findings["version"] == "TRF16"
+    end
+
+    test "import_trf still lands on the tournament for a file confirmed straight through",
+         %{conn: conn} do
+      flash = import_trf(conn, two_round_trf(:legal))
+      assert (flash["info"] || "") =~ "Imported"
     end
   end
 end

@@ -1018,6 +1018,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # directly above.
     field :fide_compliance_lost_round, :integer
 
+    # What a TRF import changed to fit its file, the TRF version it read, and
+    # the file's rounds that broke a pairing rule (the TEC manual's Import
+    # PIBE) - `PairingsEngine.TrfImport.findings/1`. Written once, by the
+    # import that created the tournament, and never cast: like the field
+    # above, it is a record of what happened, not a setting. `TrfExport`
+    # writes its PIBE rounds as `### Import @ Round r` lines.
+    field :import_findings, :map
+
     # Per-tournament print logo (SWAR parity #14-16), stored as a DB blob so
     # backups/deploys carry it. Written only by Tournaments.set_logo/2 and
     # clear_logo/1 - NOT cast by changeset/2, same reasoning as deleted_at.

@@ -72,11 +72,63 @@ defmodule PairingsEngine.TrfImport do
   user-facing string.
   """
   def import_text(content, scope \\ nil) when is_binary(content) do
-    case build_structs_with_data(content) do
-      {:ok, {_tournament, _players, data}} -> run_import(data, scope)
+    case import_with_report(content, scope) do
+      {:ok, tournament, report} -> {:ok, tournament, report.warnings}
       {:error, reason} -> {:error, reason}
     end
   end
+
+  @doc """
+  Imports `content` exactly like `import_text/2`, and returns the whole
+  import report instead of the warnings alone: `{:ok, tournament, report}`.
+
+  `report` is `%{version:, adjustments:, warnings:}` - `version` the TRF
+  version the file was recognised as (`:trf06`, `:trf16` or `:trf26`,
+  `detect_version/2`), `adjustments` one `%{kind: :adjustment, code:}` map
+  (plus that code's own data) per thing this import changed, defaulted or
+  left out to fit the file into a tournament here (`adjustments/3`), and
+  `warnings` what `import_text/2` returns. The import stores the report's
+  record with the tournament (`Tournament.import_findings`, see
+  `findings/1`), so the rule breaks in it stay identified as an Import PIBE.
+  """
+  def import_with_report(content, scope \\ nil) when is_binary(content) do
+    case build_structs_with_data(content) do
+      {:ok, {_tournament, _players, data}} -> run_import(data, scope, :commit)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  The import report of `content` WITHOUT importing it: the whole import is
+  run, inside a transaction that is then rolled back, so every adjustment
+  and every finding is the one a real import of the file would make - but
+  nothing is kept and nothing is broadcast. Returns `{:ok, report}` (see
+  `import_with_report/2`) or `{:error, reason}` like `import_text/2`.
+
+  This is the review step VCL4THP asks for (items 48, 50, 52 and 55): the
+  arbiter is shown every adjustment, and every round that breaks a pairing
+  rule, BEFORE the tournament exists, and confirms or cancels.
+  """
+  def review(content, scope \\ nil) when is_binary(content) do
+    case build_structs_with_data(content) do
+      {:ok, {_tournament, _players, data}} ->
+        PairingsEngine.StandingsCache.bypass(fn -> run_import(data, scope, :dry_run) end)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc "Whether a report has anything to show the arbiter before the import."
+  def report_empty?(%{adjustments: [], warnings: []}), do: true
+  def report_empty?(_report), do: false
+
+  @doc """
+  Whether a report holds an Import PIBE: a round of the file that breaks a
+  pairing rule. That is the finding the import is confirmed against at
+  Level 3 (VCL4THP item 55), and the one written to the TRF as `###`.
+  """
+  def pibe?(%{warnings: warnings}), do: Enum.any?(warnings, &(&1[:kind] == :illegal_round))
 
   @doc """
   Parses `content` (a TRF16 file's raw text, same as `import_text/2`) and
@@ -113,6 +165,7 @@ defmodule PairingsEngine.TrfImport do
          decoded = decode_content(content),
          :ok <- check_single_document(decoded),
          {:ok, data} <- parse_trf(decoded),
+         data = Map.put(data, :trf_version, detect_version(decoded, data)),
          {:ok, tournament} <- build_tournament_struct(data),
          {:ok, players} <- build_player_structs(data.players) do
       {:ok, {tournament, players, data}}
@@ -401,17 +454,33 @@ defmodule PairingsEngine.TrfImport do
 
   ## ---------- transaction wrapper (mirrors SwarImport.run_import/2) ----------
 
-  defp run_import(data, scope) do
+  # `:dry_run` is `review/2`: the same import, rolled back once its report
+  # is known. Broadcasts are suppressed for the whole transaction either
+  # way, and a dry run never reaches the post-commit broadcasts below, so a
+  # tournament that never existed is never announced.
+  defp run_import(data, scope, mode) do
     result =
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
           case do_import(data, scope) do
-            {:ok, tournament, warnings} ->
+            {:ok, _tournament, report} when mode == :dry_run ->
+              Repo.rollback({:dry_run, report})
+
+            {:ok, tournament, report} ->
               # A file of an event that may already have been reported:
               # nothing is sent from this copy until an arbiter confirms
               # it is the one that reports (audit 2026-10-01, F5).
               :ok = Tournaments.require_send_confirmation_if_reported(tournament.id, "trf")
-              {tournament, warnings}
+
+              # What the import changed, and the rounds that broke a rule,
+              # kept with the tournament (VCL4THP item 112): the audit trail
+              # names them, and `TrfExport` writes the rule breaks as the
+              # TEC manual's `### Import @ Round r` lines.
+              tournament
+              |> Ecto.Changeset.change(import_findings: findings(report))
+              |> Repo.update!()
+
+              {tournament, report}
 
             {:error, reason} ->
               Repo.rollback(reason)
@@ -420,10 +489,13 @@ defmodule PairingsEngine.TrfImport do
       end)
 
     case result do
-      {:ok, {tournament, warnings}} ->
+      {:error, {:dry_run, report}} ->
+        {:ok, report}
+
+      {:ok, {tournament, report}} ->
         Tournaments.broadcast_tournament_change(tournament.id, :tournament)
         Tournaments.broadcast_user_tournaments(tournament.user_id)
-        {:ok, Tournaments.refresh_status!(tournament.id), warnings}
+        {:ok, Tournaments.refresh_status!(tournament.id), report}
 
       {:error, reason} ->
         {:error, reason}
@@ -482,7 +554,13 @@ defmodule PairingsEngine.TrfImport do
           unknown_result_warnings(data) ++
           notes ++ acceleration_notes ++ verification_warnings(data, paired)
 
-      {:ok, tournament, warnings}
+      report = %{
+        version: data.trf_version,
+        adjustments: adjustments(data, Repo.reload!(tournament), paired),
+        warnings: warnings
+      }
+
+      {:ok, tournament, report}
     end
   end
 
@@ -785,6 +863,14 @@ defmodule PairingsEngine.TrfImport do
   # (MPTS is MP, BC is BB, SB:MP is SB - `TeamStandings.c07_codes/0`), which
   # is how this app writes a team report since 2026-10-03.
   defp tiebreak_attrs(codes, type) do
+    {kept, _dropped} = split_tiebreaks(codes, type)
+    if kept == [], do: %{}, else: %{tiebreaks: kept}
+  end
+
+  # `{kept, dropped}`: the file's codes this app computes (in this app's
+  # spelling), and the ones it does not, as the file wrote them - which
+  # `adjustments/3` reports rather than letting them vanish.
+  defp split_tiebreaks(codes, type) do
     known = MapSet.new(Tiebreaks.catalogue(), & &1.code)
 
     individual =
@@ -799,12 +885,10 @@ defmodule PairingsEngine.TrfImport do
           ),
         else: individual
 
-    kept =
-      codes
-      |> Enum.map(&Map.get(ours, &1, &1))
-      |> Enum.filter(&MapSet.member?(known, &1))
+    {kept, dropped} =
+      Enum.split_with(codes, &MapSet.member?(known, Map.get(ours, &1, &1)))
 
-    if kept == [], do: %{}, else: %{tiebreaks: kept}
+    {Enum.map(kept, &Map.get(ours, &1, &1)), dropped}
   end
 
   # TRF16's 092/112 arbiter lines are "<FIDE id> <name>" when the id is
@@ -1665,15 +1749,29 @@ defmodule PairingsEngine.TrfImport do
   defp verification_warnings(_data, paired) when paired < 1, do: []
 
   defp verification_warnings(data, paired) do
-    if dutch_swiss?(data), do: illegal_round_warnings(data, paired), else: []
+    if dutch_swiss?(data), do: round_check().(data, paired), else: []
   rescue
     # Same reasoning as `build_structs_with_data/1`'s rescue above: this runs
     # over the imported players/rounds, so an exception's own message can
     # quote a player's name or other row data. Only the type is logged.
+    #
+    # Rescued, and SAID: a pass that crashed checked nothing, and returning
+    # no findings would read as "every round follows the rules" (VCL4THP
+    # item 52). The arbiter is told the rounds were not checked.
     e ->
       SafeError.log_crash("TRF import verification", e, __STACKTRACE__)
-      []
+      [%{kind: :verification_failed}]
   end
+
+  # The round check itself. Replaceable through the application environment
+  # (`:trf_import_round_check`, a 2-arity function) for one reason only: a
+  # test has to be able to make the pass crash, to show the crash is
+  # reported rather than swallowed - and no file the parser accepts makes
+  # it crash today. Nothing outside the tests sets it.
+  defp round_check,
+    do:
+      Application.get_env(:pairings_engine, :trf_import_round_check) ||
+        (&illegal_round_warnings/2)
 
   # The Dutch-system codes of TRF26's `192` (ETT26), and only those. The
   # `_BAKU` suffix is a note about acceleration, not a different system, so
@@ -1860,7 +1958,10 @@ defmodule PairingsEngine.TrfImport do
       kind: :illegal_round,
       round: round,
       reason: violation.reason,
-      players: Enum.map(violation.players, &player_name(names, &1))
+      players: Enum.map(violation.players, &player_name(names, &1)),
+      # The starting ranks too: the file's own numbers, which the import
+      # keeps as pairing numbers and the `### Import` line is written in.
+      ranks: violation.players
     }
 
     case violation do
@@ -1953,6 +2054,287 @@ defmodule PairingsEngine.TrfImport do
       }
     end)
   end
+
+  ## ---------- the TRF version, and every adjustment the import made ----------
+  #
+  # VCL4THP items 48, 50 and 52: whatever this import has to change, default
+  # or leave out to fit a file into a tournament here, the arbiter is told -
+  # for a TRF06 or TRF16 file, the TRF26 records it cannot have (scoring,
+  # system, tie-breaks, length), and for any file, the defects it was
+  # imported in spite of. Each is data (`%{kind: :adjustment, code:}` plus
+  # what that code needs), worded where it is shown
+  # (`PairingsEngineWeb.TournamentsLive`), like the warnings above.
+
+  # Records only TRF26 has (FIDE's TRF-2026; `Ainalrami.Trf`'s "Two
+  # dialects"). One of them makes the file a TRF26 file whatever else it
+  # carries.
+  @trf26_records ~w(152 162 172 182 192 202 212 222 240 250 260 299 300 310 320 330 352 362)
+
+  # TRF06 (Annexure-B, 2006) and TRF16 share every column; the one thing
+  # only a TRF06 file does is write a bye as a game against nobody, because
+  # the bye codes `F`/`H`/`U`/`Z` arrived with TRF16. So a file with such a
+  # bye and no bye code is a TRF06 file, and any other file without a TRF26
+  # record is read as TRF16 - which, for what is adjusted, is the same thing.
+  @doc false
+  def detect_version(text, data) do
+    codes =
+      text
+      |> String.split(["\r\n", "\n", "\r"])
+      |> MapSet.new(&String.slice(&1, 0, 3))
+
+    games = for p <- data.players, g <- p.games || [], do: g
+
+    cond do
+      Enum.any?(@trf26_records, &MapSet.member?(codes, &1)) ->
+        :trf26
+
+      Enum.any?(games, &(&1.result in @playing_codes and is_nil(&1.opponent_rank))) and
+          not Enum.any?(games, &(&1.result in Trf.bye_codes())) ->
+        :trf06
+
+      true ->
+        :trf16
+    end
+  end
+
+  @doc "How a detected version is written for the arbiter and in the record."
+  def version_label(:trf06), do: "TRF06"
+  def version_label(:trf16), do: "TRF16"
+  def version_label(:trf26), do: "TRF26"
+
+  defp adjustments(data, tournament, paired) do
+    t = data.tournament
+
+    List.flatten([
+      scoring_adjustment(t, tournament),
+      system_adjustments(t, tournament),
+      tiebreak_adjustments(t, tournament),
+      round_count_adjustments(data),
+      deputy_adjustment(t),
+      team_point_adjustments(t, tournament),
+      extra_points_adjustment(t, tournament),
+      round_entry_adjustments(data, paired),
+      unchecked_system_adjustment(data, paired)
+    ])
+  end
+
+  defp adjustment(code, fields),
+    do: Map.merge(%{kind: :adjustment, code: code}, Map.new(fields))
+
+  # No `162` (nor the engines' `BB*`): what a result is worth is this app's
+  # default, which decides every bracket from the next round on.
+  defp scoring_adjustment(%{point_system: system}, _tournament) when not is_nil(system), do: []
+
+  defp scoring_adjustment(_t, tournament),
+    do:
+      adjustment(:default_scoring,
+        win: tournament.points_win,
+        draw: tournament.points_draw,
+        loss: tournament.points_loss,
+        bye: tournament.bye_value
+      )
+
+  defp system_adjustments(t, tournament) do
+    system = [
+      pairing_system: tournament.pairing_system,
+      pairing_engine: tournament.pairing_engine
+    ]
+
+    case t[:type_code] do
+      nil ->
+        [adjustment(:default_system, system)]
+
+      code ->
+        base = String.replace_suffix(code, "_BAKU", "")
+
+        known? =
+          base in @dutch_type_codes or String.contains?(base, "ROUNDROBIN") or
+            String.contains?(base, "TEAM")
+
+        unknown =
+          if known?, do: [], else: [adjustment(:unknown_system_code, [type_code: code] ++ system)]
+
+        # `BERGER_ROUNDROBIN_Gn`: n cycles asked for, two at most here
+        # (`berger_cycles/1`).
+        clamped =
+          case Regex.run(~r/_G(\d+)$/, base) do
+            [_, n] ->
+              if String.to_integer(n) > 2,
+                do: [adjustment(:rr_cycles_clamped, requested: String.to_integer(n), used: 2)],
+                else: []
+
+            nil ->
+              []
+          end
+
+        unknown ++ clamped
+    end
+  end
+
+  defp tiebreak_adjustments(t, tournament) do
+    case t[:tie_breaks] do
+      nil ->
+        adjustment(:default_tiebreaks, tiebreaks: tournament.tiebreaks || [])
+
+      codes ->
+        case split_tiebreaks(codes, infer_type(t[:type])) do
+          {_kept, []} -> []
+          {_kept, dropped} -> adjustment(:tiebreaks_dropped, codes: dropped)
+        end
+    end
+  end
+
+  # `declared_rounds/1`'s two decisions, said: no `142`/`XXR` (the length is
+  # the games'), or one shorter than the games (the games win).
+  defp round_count_adjustments(data) do
+    from_games = rounds_from_data(data.players)
+
+    case data.tournament[:number_of_rounds] do
+      nil -> adjustment(:default_round_count, rounds: declared_rounds(data))
+      n when n < from_games -> adjustment(:round_count_raised, from: n, to: from_games)
+      _ -> []
+    end
+  end
+
+  # `deputy_officials/2` keeps four, the Options page's own number.
+  defp deputy_adjustment(t) do
+    case length(t[:deputy_arbiters] || []) do
+      n when n > 4 -> adjustment(:deputies_dropped, count: n - 4)
+      _ -> []
+    end
+  end
+
+  # `362`'s `A` (a match lost by forfeit) has no field here - such a match
+  # is a plain loss - and its `P` is read only for a team Swiss
+  # (`import_team_pab/2`). A typed `299` `W`/`D`/`L` (match points outside
+  # the scoring) is read by nothing.
+  defp team_point_adjustments(t, tournament) do
+    system = t[:team_point_system] || %{}
+    loss = system[:loss] || tournament.team_match_points_loss
+
+    [
+      if(is_number(system[:absent]) and system[:absent] != loss,
+        do: adjustment(:team_forfeit_points_ignored, points: system[:absent])
+      ),
+      if(is_number(system[:pab]) and not Tournament.team_swiss?(tournament),
+        do: adjustment(:team_pab_points_ignored, points: system[:pab])
+      ),
+      case t[:abnormal_match_points] || [] do
+        [] -> nil
+        records -> adjustment(:team_match_points_ignored, count: length(records))
+      end
+    ]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  # `import_extra_points/3` switches counting extra points ON - a setting
+  # that is not FIDE mode's, so the next pairing leaves FIDE mode. Said
+  # before it happens rather than discovered after.
+  defp extra_points_adjustment(t, tournament) do
+    players =
+      (t[:free_points] || [])
+      |> Enum.flat_map(& &1.ranks)
+      |> Enum.uniq()
+
+    if players != [] and tournament.count_extra_points,
+      do: adjustment(:extra_points_counted, players: length(players)),
+      else: []
+  end
+
+  # What `build_round/1` and `single_sided/2` did to a round entry that is
+  # not a plain game or a plain bye:
+  #
+  #   * a game against nobody (opponent 0000 with a playing code) - TRF06's
+  #     way of writing a bye - became the bye its points stand for;
+  #   * a game whose opponent does not name this player back (a defect)
+  #     became the same, and the opponent's own entry stands on its own;
+  #   * a full-point bye `F` became a pairing-allocated bye, the one
+  #     full-point no-game outcome this app has.
+  defp round_entry_adjustments(data, paired) do
+    found =
+      for round <- 1..paired//1,
+          entries = round_entries(data.players, round),
+          by_rank = Map.new(entries, fn {p, g} -> {p.rank, {p, g}} end),
+          {p, g} <- entries,
+          kind = round_entry_kind(p, g, by_rank),
+          not is_nil(kind),
+          do: {kind, round}
+
+    for {kind, rounds} <- Enum.group_by(found, &elem(&1, 0), &elem(&1, 1)),
+        do:
+          adjustment(kind,
+            count: length(rounds),
+            rounds: rounds |> Enum.uniq() |> Enum.sort()
+          )
+  end
+
+  defp round_entries(players, round) do
+    for p <- players,
+        game = Enum.at(p.games || [], round - 1),
+        game != nil,
+        game.result not in [nil, ""],
+        do: {p, game}
+  end
+
+  defp round_entry_kind(p, g, by_rank) do
+    cond do
+      g.result in @playing_codes and is_nil(g.opponent_rank) -> :old_style_byes
+      g.result in @game_codes and is_nil(mutual_opponent(p, g, by_rank)) -> :dangling_opponents
+      g.result == "F" -> :full_point_byes_merged
+      true -> nil
+    end
+  end
+
+  # Rounds that were paired by something other than the Dutch system are
+  # not checked (`dutch_swiss?/1`) - said, so "no findings" is not read as
+  # "checked and clean".
+  defp unchecked_system_adjustment(data, paired) do
+    if paired > 0 and not dutch_swiss?(data),
+      do: adjustment(:rounds_not_checked, type_code: data.tournament[:type_code]),
+      else: []
+  end
+
+  @doc """
+  The record an import keeps with its tournament (`Tournament.import_findings`),
+  JSON-shaped: the detected version, every adjustment, the rounds that broke
+  a pairing rule - the Import PIBE, one entry per round with what broke - and
+  the rounds that could not be checked at all.
+  """
+  def findings(%{version: version, adjustments: adjustments, warnings: warnings}) do
+    %{
+      "version" => version_label(version),
+      "adjustments" => Enum.map(adjustments, &json_map/1),
+      "pibe" =>
+        warnings
+        |> Enum.filter(&(&1[:kind] == :illegal_round))
+        |> Enum.group_by(& &1.round)
+        |> Enum.sort()
+        |> Enum.map(fn {round, items} ->
+          %{
+            "round" => round,
+            "items" =>
+              Enum.map(items, fn w ->
+                w
+                |> Map.take([:reason, :ranks, :met_in_round, :colour, :bye_reason])
+                |> json_map()
+              end)
+          }
+        end),
+      "unchecked_rounds" =>
+        for(%{kind: :round_unverified, round: r} <- warnings, uniq: true, do: r) |> Enum.sort(),
+      "verification_failed" => Enum.any?(warnings, &(&1[:kind] == :verification_failed))
+    }
+  end
+
+  defp json_map(map) do
+    map
+    |> Map.delete(:kind)
+    |> Map.new(fn {k, v} -> {to_string(k), json_value(v)} end)
+  end
+
+  defp json_value(v) when is_atom(v) and not is_nil(v) and not is_boolean(v), do: to_string(v)
+  defp json_value(v) when is_list(v), do: Enum.map(v, &json_value/1)
+  defp json_value(v), do: v
 
   defp changeset_error_text(changeset) do
     Enum.map_join(changeset.errors, "; ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
