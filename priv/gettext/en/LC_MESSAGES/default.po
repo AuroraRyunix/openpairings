@@ -16025,19 +16025,19 @@ msgid "SWAR keeps its own point values only for its \"3-2-1\" type, so the file 
 msgstr ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:226
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "%{count} postponed game still open:"
 msgid_plural "%{count} postponed games still open:"
 msgstr[0] ""
 msgstr[1] ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:185
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Check"
 msgstr ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:184
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Checking…"
 msgstr ""
 
@@ -16052,7 +16052,7 @@ msgid "Differs from the checker's pairing or standings."
 msgstr ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:173
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Download TRF copy"
 msgstr ""
 
@@ -16090,7 +16090,7 @@ msgid "Rating period inbox"
 msgstr ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:98
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Refresh"
 msgstr ""
 
@@ -16110,7 +16110,7 @@ msgid "no hash on record"
 msgstr ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:148
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "postponed games"
 msgstr ""
 
@@ -16122,6 +16122,6 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:233
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "round %{round}, board %{board}"
 msgstr ""

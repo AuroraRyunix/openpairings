@@ -111,6 +111,9 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       "/admin" ->
         ["/admin"]
 
+      "/admin/rating-inbox" ->
+        ["/admin/rating-inbox"]
+
       "/t/:id/pairings/:round/explain" ->
         ["/t/#{t}/pairings/2/explain", "/t/#{t}/pairings/1/explain"]
 

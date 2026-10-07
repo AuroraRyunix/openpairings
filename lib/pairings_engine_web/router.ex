@@ -190,7 +190,7 @@ defmodule PairingsEngineWeb.Router do
 
     # The rating period inbox's TRF copy of a sent round; admin-gated in the
     # controller, like the backup above (the page itself is in
-    # `live_session :administration`).
+    # the administration session).
     get "/admin/rating-inbox/receipts/:id/trf", RatingInboxController, :trf
   end
 
