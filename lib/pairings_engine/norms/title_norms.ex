@@ -127,8 +127,8 @@ defmodule PairingsEngine.Norms.TitleNorms do
   are only evaluated for players with `sex == "w"`.
 
   This is a *judgment aid* for the arbiter filling IT4 - the title claimed
-  on the report stays a manual field (appeals, exemptions and the
-  unmodelled event-type concessions are the arbiter's call); this module
+  on the report stays a manual field (appeals, 1.4.3 (d), 1.4.1 (c) and
+  1.4.3 (e) stay the arbiter's call); this module
   says what the numbers themselves support and exactly which requirement
   fails otherwise.
 
