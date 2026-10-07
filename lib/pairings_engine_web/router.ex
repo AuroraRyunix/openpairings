@@ -338,8 +338,8 @@ defmodule PairingsEngineWeb.Router do
   # removed on 2026-08-29 when publishing moved to OpenResults; the heading
   # outlived its routes. `public_slug` is still the address a tournament is
   # published under, it is just served by the other application now.
-  ## The changelog needs no account. It describes the application, not
-  # anybody's tournament, and it reads nothing but CHANGELOG.md from the repo
+  ## The changelog and the manual (`/help`) need no account. They describe the application, not
+  # anybody's tournament, and they read nothing but CHANGELOG.md and priv/manual from the repo
   # - there is no data behind it to protect. It was behind
   # `:require_authenticated_user` only because it was added next to the
   # tournament routes and inherited their pipeline.
@@ -362,6 +362,8 @@ defmodule PairingsEngineWeb.Router do
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
       live "/changelog", ChangelogLive
+      live "/help", HelpLive
+      live "/help/:chapter", HelpLive
     end
   end
 

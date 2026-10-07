@@ -18,6 +18,27 @@ defmodule PairingsEngineWeb.Layouts do
   # and other static content.
   embed_templates "layouts/*"
 
+  # The manual chapter for the tab being shown (`/help` for the rest).
+  @help_chapters %{
+    "players" => "players-and-ratings",
+    "pairings" => "pairing",
+    "standings" => "standings-and-tiebreaks",
+    "print" => "printing",
+    "settings" => "tournament-setup",
+    "categories" => "categories-and-norms",
+    "norms" => "categories-and-norms",
+    "teams" => "teams",
+    "live" => "publishing"
+  }
+
+  @doc false
+  def help_path(active) do
+    case Map.fetch(@help_chapters, active) do
+      {:ok, chapter} -> ~p"/help/#{chapter}"
+      :error -> ~p"/help"
+    end
+  end
+
   @doc """
   Renders your app layout.
 
@@ -279,6 +300,18 @@ defmodule PairingsEngineWeb.Layouts do
           aria-current={@active == "changelog" && "page"}
         >
           {gettext("Changelog")}
+        </.link>
+
+        <%!-- On every page, signed in or not: the manual needs no account
+              (`PairingsEngineWeb.HelpLive`). Inside a tournament it opens at
+              the chapter for the tab the arbiter is on (`help_path/1`). --%>
+        <.link
+          id="topbar-help"
+          navigate={help_path(@active)}
+          class={tab_class(@active == "help")}
+          aria-current={@active == "help" && "page"}
+        >
+          {gettext("Help")}
         </.link>
       </nav>
 

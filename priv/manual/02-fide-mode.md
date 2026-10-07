@@ -1,0 +1,105 @@
+# FIDE mode
+
+FIDE mode means that the tournament is handled the way FIDE's regulations
+for pairing and reporting say it must be handled. There is no switch to turn
+it on: **every new tournament is in FIDE mode**, and stays in it until the
+arbiter leaves it on purpose or changes a setting that the FIDE rules do not
+allow.
+
+## What FIDE mode gives you
+
+A new tournament starts with the settings the FIDE rules describe:
+
+- Swiss pairing by the FIDE Dutch system, round robin by Berger tables.
+- The initial colour drawn by lot (C.04.3 5.1), unless you set it yourself.
+- Scoring 1 - ½ - 0, with the pairing-allocated bye worth a win.
+- FIDE's default tie-breaks for the type of tournament (see
+  [Standings and tie-breaks](08-standings-and-tiebreaks.md)).
+- The rules of [Article 16 of C.07](08-standings-and-tiebreaks.md) for
+  games not played.
+
+## What FIDE mode refuses
+
+Once the first round is paired, FIDE mode **locks** the settings that decide
+what already happened. The locked settings are: the number of rounds (and
+the number of cycles of a round robin), the points for a win, draw and loss,
+the match points of a team event, the value of the pairing-allocated bye,
+the acceleration, the pairing system and the tie-break list. Their fields on
+the Settings pages are greyed out. There is no *Unlock* button for them in
+FIDE mode (outside FIDE mode the other settings that lock after round 1
+have one).
+
+FIDE mode also closes old rounds. A wrong result, pairing or colour can be
+corrected only in the last two rounds played (C.04.2 4.3). With round 7
+played and round 8 paired, rounds 6, 7 and 8 can be changed; round 5 and
+earlier are refused with the message that a mistake found later is corrected
+after the tournament, in the rating report only. The result of a postponed
+game can always be entered.
+
+In a team event, the teams' rosters and board orders are fixed once round 1
+is paired (a new player can still be added at the bottom of a team, as a
+reserve).
+
+## Settings that take a tournament out of FIDE mode
+
+A few settings change who plays whom, or what a game is worth, in a way the
+FIDE rules do not describe. Choosing one of them takes the tournament out of
+the mode:
+
+- the pairing system **Keizer** (it is not a FIDE system);
+- **Pair each category independently**, which pairs each category as a
+  separate tournament;
+- the **Swiss match format** (each pairing played twice in a row with colours
+  reversed);
+- **postponed games** counted as anything other than a draw for both
+  players;
+- scoring in which a draw is worth more than a win, or the bye more than a
+  win.
+
+The Settings pages say which settings do this, with a link to the setting. Nothing
+is refused. The setting that would take the tournament out of FIDE mode is
+simply marked, and the round in which it first happened is recorded for the
+report.
+
+Other organiser choices that change the pairing without being a FIDE rule
+(a bye exclusion or preference, "only if possible" pair wishes, extra points
+counted in the pairing) are also recorded for the round they changed, and the
+FIDE report lists those rounds. See [Byes and absences](05-byes-and-absences.md)
+and [Pairing a round](06-pairing.md).
+
+Things that FIDE's own regulations allow are not departures and do not
+change the mode: other point values for a win, draw and loss (as long as no
+game scores less than a lesser result), a half-point bye, extra points,
+the choice of tie-breaks, a hand-set standings order.
+
+## Leaving FIDE mode
+
+Settings, **FIDE**, **Leave FIDE mode…** The program asks twice. The second
+question lists what leaving does:
+
+- **It is for good.** The tournament can never return to FIDE mode, even if
+  you set every setting back.
+- The tournament records from which round it was not in FIDE mode, and the
+  TRF26 copies of the report say so in a comment line (`FIDE mode exited @
+  Round N`), so whoever checks the file knows where to look more closely. (The
+  file made by *Send…* contains records only, no comment lines; see
+  [Sending to FIDE](11-fide-report.md).)
+- The locked settings and the closed rounds can be changed afterwards, and the
+  program no longer stops a change that FIDE rules forbid.
+- Every page of the tournament shows a line, *Not in FIDE mode*, with a link
+  that explains what it means.
+
+Leave FIDE mode only for an event that nobody sends to FIDE: a club
+championship with its own rules, a Keizer evening, an event where you
+have to change something the rules forbid.
+
+## The FIDE page of the settings
+
+Settings, **FIDE** also holds the identifiers the report to FIDE needs: the
+FIDE tournament ID (one for the whole tournament, or a different one for
+ranges of rounds), the event code, and the box *This tournament is FIDE-homologated
+(rated/reportable)*. When that box is ticked, organiser-only bye
+preferences are not applied (they are not FIDE rules), and the tournament ID
+becomes a required field. The officials (chief arbiter, deputies) and the
+norm-related data are entered on the Tournament page; see
+[Tournament set-up](03-tournament-setup.md) and [Sending to FIDE](11-fide-report.md).
