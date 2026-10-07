@@ -16,7 +16,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   alias PairingsEngine.{
     Audit,
+    BoardAnnouncements,
     ManualPairing,
+    NextRoundPreview,
     PairingDisplay,
     PairingRationale,
     PostponedGames,
@@ -153,7 +155,17 @@ defmodule PairingsEngineWeb.PairingsLive do
        manual_round_offer: false,
        # The automatic rating check's notice (see
        # `PairingsEngineWeb.RatingNotice`) - worked out once, on opening.
-       rating_notice: nil
+       rating_notice: nil,
+       # Announced boards (`PairingsEngine.BoardAnnouncements`): the pending
+       # announcement, whether anything changed since (and the key it was
+       # last asked for), the viewed round's comparison with its pairing,
+       # the warning opened right after pairing, and a "Check again" run.
+       announcement: nil,
+       announcement_status: nil,
+       announcement_key: nil,
+       announcement_compare: nil,
+       announcement_mismatch: nil,
+       announcement_check: nil
      )
      |> allow_upload(:results_csv,
        auto_upload: true,
@@ -293,6 +305,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_async(:next_round_preview, result, socket),
     do: {:noreply, NextRoundPreviewPanel.handle_async(result, socket)}
 
+  def handle_async(:announcement_check, {:ok, result}, socket),
+    do: {:noreply, finish_announcement_check(socket, result)}
+
+  def handle_async(:announcement_check, {:exit, _reason}, socket),
+    do: {:noreply, finish_announcement_check(socket, {:error, :crashed})}
+
   defp refresh(socket, opts \\ []) do
     %{tournament: t, round_number: n} = socket.assigns
     # Read first: a write landing while this reloads moves it again, and
@@ -357,6 +375,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       )
       |> put_explanation_state(round)
       |> NextRoundPreviewPanel.refresh()
+      |> assign_announcements()
 
     if Keyword.get(opts, :keep_gesture, false) do
       socket
@@ -500,6 +519,107 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("next_round_preview_close", params, socket),
     do: {:noreply, NextRoundPreviewPanel.handle_event("close", params, socket)}
+
+  ## ---------- Announced boards (`PairingsEngine.BoardAnnouncements`) ----------
+  #
+  # The arbiter puts out the name cards of the boards the next-round preview
+  # found certain, and says so here: by announcing them, or by printing
+  # them with "these cards go out now" ticked. The announcement is then
+  # watched - something changing that could break it is said on the page,
+  # with "Check again" - and held to the real pairing once the round is
+  # paired. Never the other way round: the pairing is not changed to match.
+
+  def handle_event("next_round_preview_announce", _params, socket) do
+    if PairingsEngine.Features.enabled?(socket.assigns.current_scope, "next_round_preview"),
+      do: {:noreply, announce_from_preview(socket, "button")},
+      else: {:noreply, socket}
+  end
+
+  # The print link opens the print view in a new tab by itself; this only
+  # announces what it prints, when the box is ticked.
+  def handle_event("next_round_preview_print", _params, socket) do
+    if socket.assigns.next_round_preview.announce_on_print? and
+         PairingsEngine.Features.enabled?(socket.assigns.current_scope, "next_round_preview"),
+       do: {:noreply, announce_from_preview(socket, "print")},
+       else: {:noreply, socket}
+  end
+
+  def handle_event("next_round_preview_announce_on_print", params, socket),
+    do: {:noreply, NextRoundPreviewPanel.handle_event("announce_on_print", params, socket)}
+
+  def handle_event("announcement_withdraw", _params, socket) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+
+    case socket.assigns.announcement do
+      %{round: round} ->
+        case BoardAnnouncements.withdraw(t.id, round) do
+          {:ok, count} ->
+            Audit.log(t.id, scope, "pairing.announcement_withdrawn", %{
+              round: round,
+              boards: count
+            })
+
+            {:noreply,
+             socket
+             |> assign(announcement_check: nil)
+             |> put_flash(
+               :info,
+               gettext("The announcement for round %{n} is withdrawn.", n: round)
+             )
+             |> refresh()}
+
+          {:error, :none} ->
+            {:noreply, refresh(socket)}
+        end
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  # "Check again": the preview worked out afresh (the memo makes it quick
+  # when only results moved), then every announced board held to it. Also
+  # once the round's last result is in - its one outcome is the round as it
+  # will be paired.
+  def handle_event("announcement_check", _params, socket) do
+    if socket.assigns.announcement do
+      id = socket.assigns.tournament.id
+
+      {:noreply,
+       socket
+       |> assign(announcement_check: %{running?: true, result: nil, error: nil})
+       |> start_async(:announcement_check, fn ->
+         NextRoundPreview.run(Tournaments.get_tournament!(id), allow_complete: true)
+       end)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("announcement_acknowledge", _params, socket) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+    comparison = socket.assigns.announcement_mismatch || socket.assigns.announcement_compare
+
+    case comparison do
+      %{announcement: announcement, round_id: round_id, changed: changed} ->
+        {:ok, _} = BoardAnnouncements.acknowledge(announcement, round_id)
+
+        Audit.log(t.id, scope, "pairing.announcement_acknowledged", %{
+          round: announcement.round,
+          changed: length(changed)
+        })
+
+        {:noreply, socket |> assign(announcement_mismatch: nil) |> refresh()}
+
+      nil ->
+        {:noreply, assign(socket, announcement_mismatch: nil)}
+    end
+  end
+
+  # Closing the warning without acknowledging it: the banner on the round
+  # stays until the differences are acknowledged.
+  def handle_event("announcement_mismatch_close", _params, socket),
+    do: {:noreply, assign(socket, announcement_mismatch: nil)}
 
   def handle_event("select_round", %{"number" => number}, socket) do
     {:noreply,
@@ -2276,6 +2396,396 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp audit_action(:pool_fpb_withdraw), do: "pairing.full_point_bye_withdrawn"
   defp audit_action(:delete_pairing), do: "pairing.deleted"
 
+  ## ---------- Announced boards: the page's side ----------
+
+  # Announces the fixed boards of the preview on screen - only when it is a
+  # finished preview of the data as it is now.
+  defp announce_from_preview(socket, via) do
+    %{tournament: t, current_scope: scope, next_round_preview: state} = socket.assigns
+    preview = state.preview
+
+    current? =
+      preview != nil and !state.running? and !state.stale? and
+        preview.fingerprint == NextRoundPreview.fingerprint(t.id)
+
+    if current? do
+      case BoardAnnouncements.announce(t.id, preview, scope) do
+        {:ok, announcement, added, replaced} ->
+          if added != [] do
+            Audit.log(t.id, scope, "pairing.boards_announced", %{
+              round: announcement.round,
+              via: via,
+              boards: Enum.map(added, &BoardAnnouncements.audit_board/1),
+              replaced: Enum.map(replaced, &BoardAnnouncements.audit_board/1),
+              total: length(announcement.boards)
+            })
+          end
+
+          message =
+            case added do
+              [] ->
+                gettext("These boards of round %{n} were already announced.",
+                  n: announcement.round
+                )
+
+              added ->
+                ngettext(
+                  "1 board of round %{n} announced.",
+                  "%{count} boards of round %{n} announced.",
+                  length(added),
+                  n: announcement.round
+                )
+            end
+
+          socket |> assign(announcement_check: nil) |> put_flash(:info, message) |> refresh()
+
+        {:error, :nothing_fixed} ->
+          socket
+      end
+    else
+      put_flash(
+        socket,
+        :error,
+        gettext("The preview is not up to date. Wait until it has finished, then announce.")
+      )
+    end
+  end
+
+  # The pending announcement (the round about to be paired) and whether
+  # anything changed since, and the viewed round's comparison when it is
+  # paired and had boards announced. The status is asked again only when
+  # the data moved (`NextRoundPreview.fingerprint/1`) or the announcement did.
+  defp assign_announcements(socket) do
+    %{tournament: t, paired_rounds: paired, round_number: n, round: round} = socket.assigns
+    pending = BoardAnnouncements.get(t.id, paired + 1)
+
+    {status, key} =
+      case pending do
+        nil ->
+          {nil, nil}
+
+        pending ->
+          key =
+            {pending.id, pending.base, pending.round_results, NextRoundPreview.fingerprint(t.id)}
+
+          if key == socket.assigns.announcement_key,
+            do: {socket.assigns.announcement_status, key},
+            else: {BoardAnnouncements.status(t.id, pending), key}
+      end
+
+    compare = if round && n <= paired, do: BoardAnnouncements.compare(t.id, n, round)
+
+    assign(socket,
+      announcement: pending,
+      announcement_status: status,
+      announcement_key: key,
+      announcement_compare: compare
+    )
+  end
+
+  # Right after a round is paired: its announced boards held to it. Every
+  # comparison goes into the audit trail; a difference opens the warning.
+  defp compare_announcement(socket, round_number) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+
+    case BoardAnnouncements.compare(t.id, round_number) do
+      nil ->
+        socket
+
+      %{total: total, changed: changed} = comparison ->
+        Audit.log(t.id, scope, "pairing.announcement_compared", %{
+          round: round_number,
+          announced: total,
+          changed:
+            Enum.map(changed, fn c ->
+              %{
+                announced: BoardAnnouncements.audit_board(c.board),
+                actual: c.actual,
+                changes: Enum.map(c.changes, &Atom.to_string/1)
+              }
+            end)
+        })
+
+        case changed do
+          [] ->
+            put_flash(
+              socket,
+              :info,
+              ngettext(
+                "The announced board holds.",
+                "All %{count} announced boards hold.",
+                total
+              )
+            )
+
+          _ ->
+            assign(socket, announcement_mismatch: comparison)
+        end
+    end
+  end
+
+  defp finish_announcement_check(socket, {:ok, preview}) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+
+    if preview.games != [], do: NextRoundPreview.Cache.put(t.id, preview.fingerprint, preview)
+
+    case BoardAnnouncements.check(t.id, preview.next_round, preview) do
+      {:ok, %{uncertain: uncertain, certain: certain}} ->
+        Audit.log(t.id, scope, "pairing.announcement_checked", %{
+          round: preview.next_round,
+          still_certain: certain,
+          no_longer_certain: Enum.map(uncertain, &BoardAnnouncements.audit_board/1)
+        })
+
+        socket
+        |> assign(
+          announcement_check: %{
+            running?: false,
+            result: %{uncertain: length(uncertain), certain: certain},
+            error: nil
+          }
+        )
+        |> refresh()
+
+      {:error, :none} ->
+        socket |> assign(announcement_check: nil) |> refresh()
+    end
+  end
+
+  defp finish_announcement_check(socket, {:error, reason}) do
+    assign(socket,
+      announcement_check: %{running?: false, result: nil, error: announcement_check_error(reason)}
+    )
+  end
+
+  defp announcement_check_error({:too_many, count}),
+    do:
+      gettext(
+        "%{count} games are open - too many to check. Check again when %{max} or fewer remain.",
+        count: count,
+        max: NextRoundPreview.max_open_games()
+      )
+
+  defp announcement_check_error({:all_failed, reason}),
+    do:
+      gettext("The next round cannot be paired in any outcome: %{reason}",
+        reason: error_text(reason)
+      )
+
+  defp announcement_check_error(_reason),
+    do: gettext("The announced boards cannot be checked now: the next round cannot be previewed.")
+
+  @doc false
+  # What changed on one announced board, for the warning.
+  def announcement_change_text(changes) do
+    Enum.map_join(changes, ", ", fn
+      :opponent -> gettext("other opponent")
+      :colours -> gettext("colours swapped")
+      :board -> gettext("other board")
+      :not_paired -> gettext("not paired")
+    end)
+  end
+
+  @doc false
+  def announced_text(board),
+    do:
+      gettext("board %{b}: %{white} – %{black}",
+        b: board.label,
+        white: board.white_name,
+        black: board.black_name
+      )
+
+  @doc false
+  def actual_text(nil), do: gettext("not paired")
+
+  def actual_text(%{black: nil} = actual),
+    do: gettext("board %{b}: %{white}, bye", b: actual.label, white: actual.white)
+
+  def actual_text(actual),
+    do:
+      gettext("board %{b}: %{white} – %{black}",
+        b: actual.label,
+        white: actual.white,
+        black: actual.black
+      )
+
+  attr :announcement, :map, required: true
+  attr :status, :atom, default: nil
+  attr :check, :map, default: nil
+  attr :archived, :boolean, default: false
+
+  defp announcement_strip(assigns) do
+    assigns =
+      assign(assigns,
+        uncertain: Enum.filter(assigns.announcement.boards, & &1.uncertain),
+        last: Enum.max_by(assigns.announcement.boards, & &1.announced_at, DateTime, fn -> nil end)
+      )
+
+    ~H"""
+    <section
+      id="announced-boards"
+      class={["card ann-strip", @status == :changed && "is-changed"]}
+      aria-labelledby="announced-boards-title"
+    >
+      <div class="ann-head">
+        <.icon name="hero-megaphone-micro" class="ann-icon" />
+        <h2 id="announced-boards-title">
+          {ngettext(
+            "Round %{n}: 1 board announced",
+            "Round %{n}: %{count} boards announced",
+            length(@announcement.boards),
+            n: @announcement.round
+          )}
+        </h2>
+        <span :if={@last} class="hint" id="announced-boards-when">
+          {gettext("last at %{time}", time: Calendar.strftime(@last.announced_at, "%H:%M"))}{if @last.announced_by !=
+                                                                                                  "",
+                                                                                                do:
+                                                                                                  " · " <>
+                                                                                                    @last.announced_by}
+        </span>
+        <div class="ann-actions">
+          <button
+            :if={!@archived}
+            id="announcement-check"
+            type="button"
+            class="pe-btn"
+            phx-click="announcement_check"
+            disabled={@check && @check.running?}
+          >
+            <.icon name="hero-arrow-path-micro" /> {gettext("Check again")}
+          </button>
+          <button
+            :if={!@archived}
+            id="announcement-withdraw"
+            type="button"
+            class="pe-btn"
+            phx-click="announcement_withdraw"
+            data-confirm={
+              gettext(
+                "Withdraw the announcement? The cards already out stay out - this only stops the app watching them."
+              )
+            }
+          >
+            {gettext("Withdraw")}
+          </button>
+        </div>
+      </div>
+
+      <div :if={@status == :changed} id="announcement-changed" class="ann-warn" role="alert">
+        <.icon name="hero-exclamation-triangle-micro" />
+        <span>
+          <strong>{gettext("Something changed since these boards were announced.")}</strong>
+          {gettext(
+            "A result, a player or a setting moved, so the announced boards may no longer hold. Check again to see which are still certain."
+          )}
+        </span>
+      </div>
+
+      <p :if={@check && @check.running?} id="announcement-checking" class="nrp-status" role="status">
+        <span class="nrp-spinner" aria-hidden="true"></span> {gettext(
+          "Checking the announced boards…"
+        )}
+      </p>
+
+      <p :if={@check && @check.error} id="announcement-check-error" class="error-note" role="alert">
+        {@check.error}
+      </p>
+
+      <p
+        :if={@check && @check.result && @check.result.uncertain == 0}
+        id="announcement-check-ok"
+        class="ann-ok"
+        role="status"
+      >
+        <.icon name="hero-check-circle-micro" /> {ngettext(
+          "Checked: the announced board is still certain.",
+          "Checked: all %{count} announced boards are still certain.",
+          @check.result.certain
+        )}
+      </p>
+
+      <div :if={@uncertain != []} id="announcement-uncertain" class="ann-warn" role="alert">
+        <.icon name="hero-exclamation-triangle-micro" />
+        <span>
+          <strong>
+            {ngettext(
+              "1 announced board is no longer certain:",
+              "%{count} announced boards are no longer certain:",
+              length(@uncertain)
+            )}
+          </strong>
+          <ul class="ann-list">
+            <li :for={b <- @uncertain} id={"announcement-uncertain-#{b.id}"}>{announced_text(b)}</li>
+          </ul>
+          {gettext(
+            "Its cards may have to be taken back. The round is paired as usual; it is never changed to match an announcement."
+          )}
+        </span>
+      </div>
+
+      <details id="announced-boards-list" class="nrp-group">
+        <summary><strong>{gettext("Announced boards")}</strong></summary>
+        <table class="pe-table nrp-table">
+          <thead>
+            <tr>
+              <th class="num">{gettext("Board")}</th>
+              <th>{gettext("White")}</th>
+              <th>{gettext("Black")}</th>
+              <th>{gettext("Announced")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={b <- @announcement.boards} id={"announced-board-#{b.id}"}>
+              <td class="num">{b.label}</td>
+              <td>{b.white_name}</td>
+              <td>{b.black_name}</td>
+              <td class="hint">
+                {Calendar.strftime(b.announced_at, "%H:%M")}{if b.announced_by != "",
+                  do: " · " <> b.announced_by}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :comparison, :map, required: true
+
+  defp announcement_changes(assigns) do
+    ~H"""
+    <p class="ann-danger-lead">
+      {ngettext(
+        "1 of the %{total} announced boards of round %{n} is not what was announced.",
+        "%{count} of the %{total} announced boards of round %{n} are not what was announced.",
+        length(@comparison.changed),
+        total: @comparison.total,
+        n: @comparison.announcement.round
+      )}
+    </p>
+    <ul id={"#{@id}-list"} class="ann-danger-list">
+      <li :for={c <- @comparison.changed} id={"#{@id}-#{c.board.id}"}>
+        <span class="ann-was">
+          <span class="ann-tag">{gettext("Announced")}</span> {announced_text(c.board)}
+        </span>
+        <span class="ann-now">
+          <span class="ann-tag">{gettext("Paired")}</span> {actual_text(c.actual)}
+        </span>
+        <span class="ann-why">{announcement_change_text(c.changes)}</span>
+      </li>
+    </ul>
+    <p class="ann-danger-todo">
+      <strong>{gettext("What to do:")}</strong>
+      {gettext(
+        "take these name cards back and put out the ones of the pairing - print the pairing again. The pairing stands as it is: it is never changed to match an announcement."
+      )}
+    </p>
+    """
+  end
+
   ## ---------- Manual pairing alteration: helpers ----------
 
   defp implicit_mpa_start(socket, %{} = round) do
@@ -2781,7 +3291,8 @@ defmodule PairingsEngineWeb.PairingsLive do
             error: nil
           )
 
-        {:noreply, PairTiming.span(:refresh, fn -> refresh(socket) end)}
+        socket = PairTiming.span(:refresh, fn -> refresh(socket) end)
+        {:noreply, compare_announcement(socket, round.number)}
 
       {:error, %Ecto.Changeset{}} ->
         {:noreply, assign(socket, error: "Could not save the round")}
@@ -4441,6 +4952,54 @@ defmodule PairingsEngineWeb.PairingsLive do
         reasons={(@fide_gate && @fide_gate.reasons) || []}
       />
 
+      <%!-- Right after pairing: announced boards that did not come out as
+            announced. Information only - see `BoardAnnouncements`. --%>
+      <div
+        :if={@announcement_mismatch}
+        class="pe-modal ann-modal"
+        phx-window-keydown="announcement_mismatch_close"
+        phx-key="escape"
+      >
+        <div
+          class="pe-modal-card pe-modal-wide ann-modal-card"
+          id="announced-mismatch-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="announced-mismatch-title"
+          tabindex="-1"
+          phx-hook="DialogFocus"
+          data-dialog
+        >
+          <header class="pe-modal-head ann-modal-head">
+            <h2 id="announced-mismatch-title">
+              <.icon name="hero-exclamation-triangle" class="ann-danger-icon" />
+              {gettext("Announced boards changed")}
+            </h2>
+          </header>
+          <div class="pe-modal-body">
+            <.announcement_changes id="announced-mismatch" comparison={@announcement_mismatch} />
+          </div>
+          <footer class="pe-modal-foot">
+            <button
+              type="button"
+              id="announced-mismatch-close"
+              class="pe-btn"
+              phx-click="announcement_mismatch_close"
+            >
+              {gettext("Later")}
+            </button>
+            <button
+              type="button"
+              id="announced-mismatch-acknowledge"
+              class="pe-btn ann-danger-btn pe-modal-go"
+              phx-click="announcement_acknowledge"
+            >
+              {gettext("I am re-printing these cards")}
+            </button>
+          </footer>
+        </div>
+      </div>
+
       <%!-- Every postponed game still to be played, whichever round is on
             screen (VCL4THP Q162): its result can be entered at any time, and
             this is where it is found. Each one opens its own round. --%>
@@ -5004,6 +5563,61 @@ defmodule PairingsEngineWeb.PairingsLive do
       <%!-- The round changed since it was sent: the rating officer holds
             the old version. Named, never re-sent. --%>
       <SentReceipt.drift_warning status={@round_receipt} id="round-receipt-drift" />
+      <%!-- Boards of the round about to be paired whose name cards are out
+            (`PairingsEngine.BoardAnnouncements`): watched until the round
+            is paired. --%>
+      <.announcement_strip
+        :if={
+          @announcement != nil and @round_number in [@paired_rounds, @next_pairable] and
+            is_nil(@tournament.archived_at)
+        }
+        announcement={@announcement}
+        status={@announcement_status}
+        check={@announcement_check}
+        archived={!is_nil(@tournament.archived_at)}
+      />
+      <%!-- The round on screen was paired after boards of it were announced:
+            each one held to the pairing. A difference is unmissable until
+            acknowledged; the pairing itself is never changed to match. --%>
+      <%= if @announcement_compare do %>
+        <%= cond do %>
+          <% @announcement_compare.changed != [] and !@announcement_compare.acknowledged? -> %>
+            <section id="announced-changed" class="ann-danger" role="alert">
+              <h2 class="ann-danger-title">
+                <.icon name="hero-exclamation-triangle" class="ann-danger-icon" />
+                {gettext("Announced boards changed - re-print these cards")}
+              </h2>
+              <.announcement_changes id="announced-changed" comparison={@announcement_compare} />
+              <button
+                id="announcement-acknowledge"
+                type="button"
+                class="pe-btn ann-danger-btn"
+                phx-click="announcement_acknowledge"
+              >
+                {gettext("I am re-printing these cards")}
+              </button>
+            </section>
+          <% @announcement_compare.changed != [] -> %>
+            <details id="announced-changed-ack" class="ann-ack-note">
+              <summary>
+                <.icon name="hero-exclamation-triangle-micro" /> {ngettext(
+                  "1 announced board differed from the pairing (acknowledged).",
+                  "%{count} announced boards differed from the pairing (acknowledged).",
+                  length(@announcement_compare.changed)
+                )}
+              </summary>
+              <.announcement_changes id="announced-changed-ack" comparison={@announcement_compare} />
+            </details>
+          <% true -> %>
+            <p id="announced-hold" class="ann-ok" role="status">
+              <.icon name="hero-check-circle-micro" /> {ngettext(
+                "The announced board holds.",
+                "All %{count} announced boards hold.",
+                @announcement_compare.total
+              )}
+            </p>
+        <% end %>
+      <% end %>
       <%!-- Which boards of the next round are already certain while the last
             games are still being played - worked out, never saved. Beside
             the round being played and the round about to be paired. --%>

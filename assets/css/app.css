@@ -4333,6 +4333,98 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   .nrp-panel, .nrp-results { transition: none; }
 }
 
+/* Announced boards (PairingsLive, `BoardAnnouncements`): the strip for the
+   round about to be paired, its "something changed" warning, and - once
+   the round is paired - the danger banner and dialog for every board that
+   did not come out as announced. Colours from the theme tokens, so both
+   themes and the high-contrast one hold; one column on a phone. */
+.nrp-announce-on-print {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 0 10px; font-size: 13px; cursor: pointer;
+}
+.ann-strip { border-left: 3px solid var(--accent); transition: border-color 0.2s ease; }
+.ann-strip.is-changed { border-left-color: var(--warn); }
+.ann-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.ann-head h2 { margin: 0; font-size: 16px; }
+.ann-icon { color: var(--accent); }
+.ann-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.ann-actions .pe-btn { display: inline-flex; align-items: center; gap: 6px; }
+.ann-warn {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 12px 0 0; padding: 9px 11px; border-radius: 7px;
+  font-size: 13px; line-height: 1.5;
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+}
+.ann-warn > .hero-exclamation-triangle-micro { flex: none; margin-top: 3px; color: var(--warn); }
+.ann-list { margin: 4px 0 6px; padding-left: 18px; }
+.ann-ok {
+  display: flex; align-items: center; gap: 6px;
+  margin: 10px 0; color: var(--text-soft); font-size: 14px;
+}
+.ann-ok .hero-check-circle-micro { color: var(--accent); }
+
+.ann-danger {
+  margin: 12px 0 16px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: var(--danger);
+  color: var(--danger-ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 30%, transparent);
+  animation: ann-pulse 1.6s ease-in-out 3;
+}
+.ann-danger-title {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 8px; font-size: 22px; line-height: 1.25; text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.ann-danger-icon { width: 28px; height: 28px; flex: none; }
+.ann-danger-lead { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+.ann-danger-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.ann-danger-list li {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px 14px;
+  padding: 8px 10px; border-radius: 8px;
+  background: color-mix(in srgb, var(--danger-ink) 12%, transparent);
+  font-size: 14px;
+}
+.ann-tag {
+  display: inline-block; min-width: 72px; margin-right: 4px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85;
+}
+.ann-was { text-decoration: line-through; text-decoration-thickness: 1px; }
+.ann-now { font-weight: 700; }
+.ann-why { grid-column: 1 / -1; font-size: 12px; opacity: 0.9; }
+.ann-danger-todo { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+.ann-danger .ann-danger-btn,
+.ann-danger-btn {
+  background: var(--danger-ink); color: var(--danger); border-color: var(--danger-ink);
+  font-weight: 700;
+}
+.ann-danger .ann-danger-btn:hover { filter: brightness(0.95); }
+/* In the dialog the button stands on the card, not on the red. */
+.ann-modal-card .ann-danger-btn { background: var(--danger); color: var(--danger-ink); border-color: var(--danger); }
+.ann-modal-card .ann-danger-btn:hover { background: var(--danger-hover); }
+.ann-modal-card { border: 3px solid var(--danger); }
+.ann-modal-head { background: var(--danger); color: var(--danger-ink); }
+.ann-modal-head h2 { display: flex; align-items: center; gap: 10px; font-size: 21px; }
+.ann-modal-card .ann-danger-list li { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.ann-ack-note { margin: 10px 0; font-size: 13px; color: var(--text-soft); }
+.ann-ack-note > summary { cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.ann-ack-note .ann-danger-list li { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+@keyframes ann-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 30%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--danger) 10%, transparent); }
+}
+@media (max-width: 640px) {
+  .ann-danger { padding: 14px; }
+  .ann-danger-title { font-size: 18px; }
+  .ann-actions { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ann-danger { animation: none; }
+  .ann-strip { transition: none; }
+}
+
 /* One "why him and not me", worked out when opened: the question is a
    disclosure button in the panel's own voice (bold, like the questions
    above it on older rounds), the chevron turning as it opens. */

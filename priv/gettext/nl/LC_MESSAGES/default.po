@@ -18014,3 +18014,262 @@ msgstr "Handleiding"
 #, elixir-autogen, elixir-format
 msgid "to search"
 msgstr "om te zoeken"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2561
+#, elixir-autogen, elixir-format
+msgid "%{count} games are open - too many to check. Check again when %{max} or fewer remain."
+msgstr "%{count} partijen zijn nog bezig - te veel om te controleren. Controleer opnieuw als er %{max} of minder over zijn."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5576
+#, elixir-autogen, elixir-format
+msgid "1 announced board differed from the pairing (acknowledged)."
+msgid_plural "%{count} announced boards differed from the pairing (acknowledged)."
+msgstr[0] "1 aangekondigd bord week af van de paring (gezien)."
+msgstr[1] "%{count} aangekondigde borden weken af van de paring (gezien)."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2688
+#, elixir-autogen, elixir-format
+msgid "1 announced board is no longer certain:"
+msgid_plural "%{count} announced boards are no longer certain:"
+msgstr[0] "1 aangekondigd bord staat niet meer vast:"
+msgstr[1] "%{count} aangekondigde borden staan niet meer vast:"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2429
+#, elixir-autogen, elixir-format
+msgid "1 board of round %{n} announced."
+msgid_plural "%{count} boards of round %{n} announced."
+msgstr[0] "1 bord van ronde %{n} aangekondigd."
+msgstr[1] "%{count} borden van ronde %{n} aangekondigd."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2735
+#, elixir-autogen, elixir-format
+msgid "1 of the %{total} announced boards of round %{n} is not what was announced."
+msgid_plural "%{count} of the %{total} announced boards of round %{n} are not what was announced."
+msgstr[0] "1 van de %{total} aangekondigde borden van ronde %{n} is niet wat werd aangekondigd."
+msgstr[1] "%{count} van de %{total} aangekondigde borden van ronde %{n} zijn niet wat werd aangekondigd."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2657
+#, elixir-autogen, elixir-format
+msgid "A result, a player or a setting moved, so the announced boards may no longer hold. Check again to see which are still certain."
+msgstr "Een uitslag, een speler of een instelling veranderde, dus de aangekondigde borden kloppen misschien niet meer. Controleer opnieuw om te zien welke nog vaststaan."
+
+#: lib/pairings_engine_web/live/audit_live.ex:653
+#, elixir-autogen, elixir-format
+msgid "Acknowledged that 1 announced board of round %{round} differs from the pairing."
+msgid_plural "Acknowledged that %{count} announced boards of round %{round} differ from the pairing."
+msgstr[0] "Gezien dat 1 aangekondigd bord van ronde %{round} afwijkt van de paring."
+msgstr[1] "Gezien dat %{count} aangekondigde borden van ronde %{round} afwijken van de paring."
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:327
+#, elixir-autogen, elixir-format
+msgid "Announce fixed boards"
+msgstr "Vaste borden aankondigen"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2709
+#: lib/pairings_engine_web/live/pairings_live.ex:2746
+#, elixir-autogen, elixir-format
+msgid "Announced"
+msgstr "Aangekondigd"
+
+#: lib/pairings_engine_web/live/audit_live.ex:587
+#, elixir-autogen, elixir-format
+msgid "Announced 1 board of round %{round}: %{boards}."
+msgid_plural "Announced %{count} boards of round %{round}: %{boards}."
+msgstr[0] "1 bord van ronde %{round} aangekondigd: %{boards}."
+msgstr[1] "%{count} borden van ronde %{round} aangekondigd: %{boards}."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2702
+#, elixir-autogen, elixir-format
+msgid "Announced boards"
+msgstr "Aangekondigde borden"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4948
+#, elixir-autogen, elixir-format
+msgid "Announced boards changed"
+msgstr "Aangekondigde borden gewijzigd"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5561
+#, elixir-autogen, elixir-format
+msgid "Announced boards changed - re-print these cards"
+msgstr "Aangekondigde borden gewijzigd - druk deze kaartjes opnieuw af"
+
+#: lib/pairings_engine_web/live/audit_live.ex:594
+#, elixir-autogen, elixir-format
+msgid "By printing the fixed boards."
+msgstr "Door de vaste borden af te drukken."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2638
+#, elixir-autogen, elixir-format
+msgid "Check again"
+msgstr "Opnieuw controleren"
+
+#: lib/pairings_engine_web/live/audit_live.ex:615
+#, elixir-autogen, elixir-format
+msgid "Checked the announced boards of round %{round}: all still certain."
+msgstr "De aangekondigde borden van ronde %{round} gecontroleerd: alle staan nog vast."
+
+#: lib/pairings_engine_web/live/audit_live.ex:620
+#, elixir-autogen, elixir-format
+msgid "Checked the announced boards of round %{round}; no longer certain: %{boards}."
+msgstr "De aangekondigde borden van ronde %{round} gecontroleerd; niet meer zeker: %{boards}."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2677
+#, elixir-autogen, elixir-format
+msgid "Checked: the announced board is still certain."
+msgid_plural "Checked: all %{count} announced boards are still certain."
+msgstr[0] "Gecontroleerd: het aangekondigde bord staat nog vast."
+msgstr[1] "Gecontroleerd: alle %{count} aangekondigde borden staan nog vast."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2664
+#, elixir-autogen, elixir-format
+msgid "Checking the announced boards…"
+msgstr "De aangekondigde borden worden gecontroleerd…"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4969
+#: lib/pairings_engine_web/live/pairings_live.ex:5570
+#, elixir-autogen, elixir-format
+msgid "I am re-printing these cards"
+msgstr "Ik druk deze kaartjes opnieuw af"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2697
+#, elixir-autogen, elixir-format
+msgid "Its cards may have to be taken back. The round is paired as usual; it is never changed to match an announcement."
+msgstr "Die kaartjes moeten misschien terug. De ronde wordt gewoon gepaard; ze wordt nooit aangepast aan een aankondiging."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4961
+#, elixir-autogen, elixir-format
+msgid "Later"
+msgstr "Later"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2749
+#, elixir-autogen, elixir-format
+msgid "Paired"
+msgstr "Gepaard"
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:372
+#, elixir-autogen, elixir-format
+msgid "Printing announces them: these cards go out now"
+msgstr "Afdrukken kondigt ze aan: deze kaartjes gaan nu de zaal in"
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:325
+#, elixir-autogen, elixir-format
+msgid "Record that these boards' name cards are going out now"
+msgstr "Vastleggen dat de naamkaartjes van deze borden nu de zaal in gaan"
+
+#: lib/pairings_engine_web/live/audit_live.ex:596
+#, elixir-autogen, elixir-format
+msgid "Replaced: %{boards}."
+msgstr "Vervangen: %{boards}."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2618
+#, elixir-autogen, elixir-format
+msgid "Round %{n}: 1 board announced"
+msgid_plural "Round %{n}: %{count} boards announced"
+msgstr[0] "Ronde %{n}: 1 bord aangekondigd"
+msgstr[1] "Ronde %{n}: %{count} borden aangekondigd"
+
+#: lib/pairings_engine_web/live/audit_live.ex:638
+#, elixir-autogen, elixir-format
+msgid "Round %{round} paired: %{changed} of %{count} announced boards differ - %{boards}."
+msgstr "Ronde %{round} gepaard: %{changed} van %{count} aangekondigde borden wijken af - %{boards}."
+
+#: lib/pairings_engine_web/live/audit_live.ex:630
+#, elixir-autogen, elixir-format
+msgid "Round %{round} paired: the announced board holds."
+msgid_plural "Round %{round} paired: all %{count} announced boards hold."
+msgstr[0] "Ronde %{round} gepaard: het aangekondigde bord klopt."
+msgstr[1] "Ronde %{round} gepaard: alle %{count} aangekondigde borden kloppen."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2656
+#, elixir-autogen, elixir-format
+msgid "Something changed since these boards were announced."
+msgstr "Er veranderde iets sinds deze borden werden aangekondigd."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2512
+#: lib/pairings_engine_web/live/pairings_live.ex:5586
+#, elixir-autogen, elixir-format
+msgid "The announced board holds."
+msgid_plural "All %{count} announced boards hold."
+msgstr[0] "Het aangekondigde bord klopt."
+msgstr[1] "Alle %{count} aangekondigde borden kloppen."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2571
+#, elixir-autogen, elixir-format
+msgid "The announced boards cannot be checked now: the next round cannot be previewed."
+msgstr "De aangekondigde borden kunnen nu niet gecontroleerd worden: van de volgende ronde is geen voorbeeld te maken."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:565
+#, elixir-autogen, elixir-format
+msgid "The announcement for round %{n} is withdrawn."
+msgstr "De aankondiging voor ronde %{n} is ingetrokken."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2446
+#, elixir-autogen, elixir-format
+msgid "The preview is not up to date. Wait until it has finished, then announce."
+msgstr "Het voorbeeld is niet bijgewerkt. Wacht tot het klaar is en kondig dan aan."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2424
+#, elixir-autogen, elixir-format
+msgid "These boards of round %{n} were already announced."
+msgstr "Deze borden van ronde %{n} waren al aangekondigd."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2755
+#, elixir-autogen, elixir-format
+msgid "What to do:"
+msgstr "Wat te doen:"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2648
+#, elixir-autogen, elixir-format
+msgid "Withdraw"
+msgstr "Intrekken"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2646
+#, elixir-autogen, elixir-format
+msgid "Withdraw the announcement? The cards already out stay out - this only stops the app watching them."
+msgstr "De aankondiging intrekken? De kaartjes die al liggen blijven liggen - de app houdt ze alleen niet meer in het oog."
+
+#: lib/pairings_engine_web/live/audit_live.ex:605
+#, elixir-autogen, elixir-format
+msgid "Withdrew the announcement of round %{round} (1 board)."
+msgid_plural "Withdrew the announcement of round %{round} (%{count} boards)."
+msgstr[0] "De aankondiging van ronde %{round} ingetrokken (1 bord)."
+msgstr[1] "De aankondiging van ronde %{round} ingetrokken (%{count} borden)."
+
+#: lib/pairings_engine_web/live/audit_live.ex:2185
+#: lib/pairings_engine_web/live/audit_live.ex:2198
+#: lib/pairings_engine_web/live/pairings_live.ex:2586
+#: lib/pairings_engine_web/live/pairings_live.ex:2595
+#, elixir-autogen, elixir-format
+msgid "board %{b}: %{white} – %{black}"
+msgstr "bord %{b}: %{white} – %{black}"
+
+#: lib/pairings_engine_web/live/audit_live.ex:2195
+#: lib/pairings_engine_web/live/pairings_live.ex:2592
+#, elixir-autogen, elixir-format
+msgid "board %{b}: %{white}, bye"
+msgstr "bord %{b}: %{white}, bye"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2578
+#, elixir-autogen, elixir-format
+msgid "colours swapped"
+msgstr "kleuren omgewisseld"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2626
+#, elixir-autogen, elixir-format
+msgid "last at %{time}"
+msgstr "laatst om %{time}"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2579
+#, elixir-autogen, elixir-format
+msgid "other board"
+msgstr "ander bord"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2577
+#, elixir-autogen, elixir-format
+msgid "other opponent"
+msgstr "andere tegenstander"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2756
+#, elixir-autogen, elixir-format
+msgid "take these name cards back and put out the ones of the pairing - print the pairing again. The pairing stands as it is: it is never changed to match an announcement."
+msgstr "haal deze naamkaartjes terug en leg die van de paring - druk de paring opnieuw af. De paring blijft zoals ze is: ze wordt nooit aangepast aan een aankondiging."

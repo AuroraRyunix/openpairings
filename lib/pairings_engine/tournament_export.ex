@@ -491,11 +491,18 @@ defmodule PairingsEngine.TournamentExport do
   #     Entries are collected by a form on a server the importer does not
   #     necessarily reach, and queued publishes are in-flight work for that
   #     same server - neither is content of the event.
+  #   board_announcements, announced_boards
+  #     Name cards put out in one hall before a round was paired
+  #     (`PairingsEngine.BoardAnnouncements`): a record of what is on the
+  #     tables there, kept to warn that arbiter when the pairing differs.
+  #     A copy on another machine has no such cards to warn about.
   @excluded_tables [
     :mobile_enrollments,
     :tournament_snapshots,
     :openresults_registrations,
-    :publish_queue
+    :publish_queue,
+    :board_announcements,
+    :announced_boards
   ]
 
   @doc false

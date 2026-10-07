@@ -18022,3 +18022,262 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "to search"
 msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2561
+#, elixir-autogen, elixir-format
+msgid "%{count} games are open - too many to check. Check again when %{max} or fewer remain."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5576
+#, elixir-autogen, elixir-format
+msgid "1 announced board differed from the pairing (acknowledged)."
+msgid_plural "%{count} announced boards differed from the pairing (acknowledged)."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2688
+#, elixir-autogen, elixir-format
+msgid "1 announced board is no longer certain:"
+msgid_plural "%{count} announced boards are no longer certain:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2429
+#, elixir-autogen, elixir-format
+msgid "1 board of round %{n} announced."
+msgid_plural "%{count} boards of round %{n} announced."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2735
+#, elixir-autogen, elixir-format
+msgid "1 of the %{total} announced boards of round %{n} is not what was announced."
+msgid_plural "%{count} of the %{total} announced boards of round %{n} are not what was announced."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2657
+#, elixir-autogen, elixir-format
+msgid "A result, a player or a setting moved, so the announced boards may no longer hold. Check again to see which are still certain."
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:653
+#, elixir-autogen, elixir-format
+msgid "Acknowledged that 1 announced board of round %{round} differs from the pairing."
+msgid_plural "Acknowledged that %{count} announced boards of round %{round} differ from the pairing."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:327
+#, elixir-autogen, elixir-format
+msgid "Announce fixed boards"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2709
+#: lib/pairings_engine_web/live/pairings_live.ex:2746
+#, elixir-autogen, elixir-format
+msgid "Announced"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:587
+#, elixir-autogen, elixir-format
+msgid "Announced 1 board of round %{round}: %{boards}."
+msgid_plural "Announced %{count} boards of round %{round}: %{boards}."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2702
+#, elixir-autogen, elixir-format
+msgid "Announced boards"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4948
+#, elixir-autogen, elixir-format
+msgid "Announced boards changed"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5561
+#, elixir-autogen, elixir-format
+msgid "Announced boards changed - re-print these cards"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:594
+#, elixir-autogen, elixir-format
+msgid "By printing the fixed boards."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2638
+#, elixir-autogen, elixir-format
+msgid "Check again"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:615
+#, elixir-autogen, elixir-format
+msgid "Checked the announced boards of round %{round}: all still certain."
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:620
+#, elixir-autogen, elixir-format
+msgid "Checked the announced boards of round %{round}; no longer certain: %{boards}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2677
+#, elixir-autogen, elixir-format
+msgid "Checked: the announced board is still certain."
+msgid_plural "Checked: all %{count} announced boards are still certain."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2664
+#, elixir-autogen, elixir-format
+msgid "Checking the announced boards…"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4969
+#: lib/pairings_engine_web/live/pairings_live.ex:5570
+#, elixir-autogen, elixir-format
+msgid "I am re-printing these cards"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2697
+#, elixir-autogen, elixir-format
+msgid "Its cards may have to be taken back. The round is paired as usual; it is never changed to match an announcement."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4961
+#, elixir-autogen, elixir-format
+msgid "Later"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2749
+#, elixir-autogen, elixir-format
+msgid "Paired"
+msgstr ""
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:372
+#, elixir-autogen, elixir-format
+msgid "Printing announces them: these cards go out now"
+msgstr ""
+
+#: lib/pairings_engine_web/live/next_round_preview_panel.ex:325
+#, elixir-autogen, elixir-format
+msgid "Record that these boards' name cards are going out now"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:596
+#, elixir-autogen, elixir-format
+msgid "Replaced: %{boards}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2618
+#, elixir-autogen, elixir-format
+msgid "Round %{n}: 1 board announced"
+msgid_plural "Round %{n}: %{count} boards announced"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:638
+#, elixir-autogen, elixir-format
+msgid "Round %{round} paired: %{changed} of %{count} announced boards differ - %{boards}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:630
+#, elixir-autogen, elixir-format
+msgid "Round %{round} paired: the announced board holds."
+msgid_plural "Round %{round} paired: all %{count} announced boards hold."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2656
+#, elixir-autogen, elixir-format
+msgid "Something changed since these boards were announced."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2512
+#: lib/pairings_engine_web/live/pairings_live.ex:5586
+#, elixir-autogen, elixir-format
+msgid "The announced board holds."
+msgid_plural "All %{count} announced boards hold."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2571
+#, elixir-autogen, elixir-format
+msgid "The announced boards cannot be checked now: the next round cannot be previewed."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:565
+#, elixir-autogen, elixir-format
+msgid "The announcement for round %{n} is withdrawn."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2446
+#, elixir-autogen, elixir-format
+msgid "The preview is not up to date. Wait until it has finished, then announce."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2424
+#, elixir-autogen, elixir-format
+msgid "These boards of round %{n} were already announced."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2755
+#, elixir-autogen, elixir-format
+msgid "What to do:"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2648
+#, elixir-autogen, elixir-format
+msgid "Withdraw"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2646
+#, elixir-autogen, elixir-format
+msgid "Withdraw the announcement? The cards already out stay out - this only stops the app watching them."
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:605
+#, elixir-autogen, elixir-format
+msgid "Withdrew the announcement of round %{round} (1 board)."
+msgid_plural "Withdrew the announcement of round %{round} (%{count} boards)."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:2185
+#: lib/pairings_engine_web/live/audit_live.ex:2198
+#: lib/pairings_engine_web/live/pairings_live.ex:2586
+#: lib/pairings_engine_web/live/pairings_live.ex:2595
+#, elixir-autogen, elixir-format
+msgid "board %{b}: %{white} – %{black}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:2195
+#: lib/pairings_engine_web/live/pairings_live.ex:2592
+#, elixir-autogen, elixir-format
+msgid "board %{b}: %{white}, bye"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2578
+#, elixir-autogen, elixir-format
+msgid "colours swapped"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2626
+#, elixir-autogen, elixir-format
+msgid "last at %{time}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2579
+#, elixir-autogen, elixir-format
+msgid "other board"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2577
+#, elixir-autogen, elixir-format
+msgid "other opponent"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2756
+#, elixir-autogen, elixir-format
+msgid "take these name cards back and put out the ones of the pairing - print the pairing again. The pairing stands as it is: it is never changed to match an announcement."
+msgstr ""

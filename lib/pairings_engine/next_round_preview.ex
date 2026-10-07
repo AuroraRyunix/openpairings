@@ -38,6 +38,7 @@ defmodule PairingsEngine.NextRoundPreview do
   import Ecto.Query
 
   alias PairingsEngine.{PairingDisplay, Repo, StandingsCache, Tournaments}
+  alias PairingsEngine.NextRoundPreview.Memo
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
@@ -51,6 +52,24 @@ defmodule PairingsEngine.NextRoundPreview do
 
   # The shortest time between two progress reports (`run/2`).
   @progress_interval_ms 100
+
+  # What a round row and a board carry that the pairing never reads: when
+  # and how far a round is published, and what entering a result writes
+  # next to the result itself (the result goes into the memo's key).
+  @round_bookkeeping [
+    :__meta__,
+    :tournament,
+    :pairings,
+    :matches,
+    :explanation,
+    :status,
+    :published_at,
+    :publish_due_at,
+    :results_public,
+    :publish_cap
+  ]
+  @pairing_assocs [:__meta__, :round, :white_player, :black_player]
+  @result_fields [:result, :corrected_from, :rating_result]
 
   @doc "The most open games the preview enumerates (`3^n` outcomes)."
   def max_open_games, do: @max_open_games
@@ -160,66 +179,190 @@ defmodule PairingsEngine.NextRoundPreview do
 
   @doc """
   Works the preview out. `opts[:progress]`, if given, is called as
-  `progress.(done, total)`: once with `done = 0` as soon as the number of
-  outcomes is known, then as outcomes finish - at most once per
-  `opts[:progress_interval_ms]` (default #{@progress_interval_ms}), and
-  always for the last one - so a page showing it is told at most ten times
-  a second however fast the outcomes come.
+  `progress.(done, total)`: once as soon as the number of outcomes is known
+  (`done` the outcomes already known, see below), then as outcomes finish -
+  at most once per `opts[:progress_interval_ms]` (default
+  #{@progress_interval_ms}), and always for the last one - so a page showing
+  it is told at most ten times a second however fast the outcomes come.
+
+  Every outcome paired is remembered (`PairingsEngine.NextRoundPreview.Memo`)
+  against everything but the results of the round being played, and only
+  the outcomes not found there are paired: a result entered for an open
+  game pairs nothing, a result cleared pairs only the outcomes in which it
+  differs from what it was. `opts[:memo]` false pairs every outcome.
+
+  `opts[:allow_complete]` previews a round with no open game left as its one
+  outcome - what the round will be once paired - for checking announced
+  boards (`PairingsEngine.BoardAnnouncements`).
 
   `{:ok, preview}` - see `classify/3` for its shape, plus `:round`,
   `:next_round`, `:games` (the open games), `:players`
-  (`%{id => %{name:, rating:}}`), `:fingerprint` and `:elapsed_ms` - or
-  `{:error, reason}`: one of `preview_context/1`'s, `:no_open_games`,
+  (`%{id => %{name:, rating:}}`), `:fingerprint`, `:base` (see
+  `base_state/2`), `:round_results`, `:reused` (outcomes found in the memo)
+  and `:elapsed_ms` - or `{:error, reason}`: one of
+  `PairingsEngine.Pairing.preview_context/1`'s, `:no_open_games`,
   `{:too_many, k}`, or `{:all_failed, reason}` when no outcome could be
   paired at all.
   """
   def run(%Tournament{} = tournament, opts \\ []) do
     progress = Keyword.get(opts, :progress, fn _done, _total -> :ok end)
     interval = Keyword.get(opts, :progress_interval_ms, @progress_interval_ms)
+    memo? = Keyword.get(opts, :memo, true)
     started = System.monotonic_time(:millisecond)
     fingerprint = fingerprint(tournament.id)
 
-    with {:ok, context} <- Engine.preview_context(tournament),
-         games = open_games(tournament.id, context.round_number),
-         :ok <- check_count(length(games)) do
+    with {:ok, checked} <- Engine.preview_check(tournament),
+         games = open_games(tournament.id, checked.round_number),
+         :ok <- check_count(length(games), Keyword.get(opts, :allow_complete, false)) do
+      {base, round_results} = base_state(tournament.id, checked.round_number)
       worlds = worlds(length(games))
       total = length(worlds)
-      player_ids = context.active |> Enum.map(& &1.id) |> Enum.sort()
-      progress.(0, total)
+      player_ids = checked.active |> Enum.map(& &1.id) |> Enum.sort()
+      keys = Enum.map(worlds, &Memo.key(Map.merge(round_results, world_results(games, &1))))
+      known = if memo?, do: Memo.fetch(tournament.id, base, keys), else: %{}
 
-      # The engine's field parsed once, from the first outcome's TRF; every
-      # outcome then only re-ranks it (`Pairing.preview_base/2`).
-      context = Engine.preview_base(context, world_results(games, hd(worlds)))
-
-      # In chunks: each task is handed the context, which is the whole
-      # history, so one task per outcome copied it 729 times. A chunk is
-      # small enough for the progress to move steadily.
-      chunk = max(1, div(total, concurrency() * 16))
-
-      {outcomes, {_done, _last}} =
+      missing =
         worlds
-        |> Enum.chunk_every(chunk)
-        |> Task.async_stream(fn worlds -> Enum.map(worlds, &pair_world(context, games, &1)) end,
-          max_concurrency: concurrency(),
-          timeout: :infinity
-        )
-        |> Enum.flat_map_reduce({0, nil}, fn {:ok, chunk_outcomes}, {done, last} ->
-          done = done + length(chunk_outcomes)
-          {chunk_outcomes, {done, throttled(progress, done, total, last, interval)}}
-        end)
+        |> Enum.zip(keys)
+        |> Enum.reject(fn {_world, key} -> Map.has_key?(known, key) end)
 
-      with {:ok, classified} <- classify(length(games), player_ids, outcomes) do
-        {:ok,
-         Map.merge(classified, %{
-           round: context.round_number,
-           next_round: context.next_number,
-           games: Enum.map(games, &game_row/1),
-           players: players_map(context.active),
-           fingerprint: fingerprint,
-           elapsed_ms: System.monotonic_time(:millisecond) - started
-         })}
+      progress.(total - length(missing), total)
+
+      with {:ok, paired} <- pair_missing(checked, games, missing, progress, interval, total) do
+        if memo?, do: Memo.store(tournament.id, base, paired)
+        by_key = Map.merge(known, Map.new(paired))
+        outcomes = Enum.map(keys, &Map.fetch!(by_key, &1))
+
+        with {:ok, classified} <- classify(length(games), player_ids, outcomes) do
+          {:ok,
+           Map.merge(classified, %{
+             round: checked.round_number,
+             next_round: checked.next_number,
+             games: Enum.map(games, &game_row/1),
+             players: players_map(checked.active),
+             fingerprint: fingerprint,
+             base: base,
+             round_results: round_results,
+             reused: map_size(known),
+             elapsed_ms: System.monotonic_time(:millisecond) - started
+           })}
+        end
       end
     end
+  end
+
+  # The outcomes the memo did not have, paired: `[{key, outcome}]`. The
+  # context - the whole history read and walked - only when there is one.
+  defp pair_missing(_checked, _games, [], _progress, _interval, _total), do: {:ok, []}
+
+  defp pair_missing(checked, games, missing, progress, interval, total) do
+    with {:ok, context} <- Engine.preview_context(checked.tournament) do
+      {worlds, keys} = Enum.unzip(missing)
+      known = total - length(worlds)
+
+      report = fn done, last ->
+        throttled(progress, known + done, total, last, interval)
+      end
+
+      {:ok, Enum.zip(keys, pair_outcomes(context, games, worlds, report))}
+    end
+  end
+
+  @doc """
+  The one place outcomes are paired: `worlds` (`worlds/1`'s shape) for the
+  open `games`, each paired as `PairingsEngine.Pairing.preview_round/2`
+  pairs it, returned in `worlds`' order as `{:ok, seats}` (`seats/1`) or
+  `{:error, reason}`. `report.(done, last)` is called after each chunk and
+  returns what the next call gets as `last`.
+
+  Kept to this one function so that a batch call into the engine can take
+  its place without anything around it changing.
+  """
+  def pair_outcomes(context, games, worlds, report \\ fn _done, last -> last end) do
+    # The engine's field parsed once, from the first outcome's TRF; every
+    # outcome then only re-ranks it (`Pairing.preview_base/2`).
+    context = Engine.preview_base(context, world_results(games, hd(worlds)))
+
+    # In chunks: each task is handed the context, which is the whole
+    # history, so one task per outcome copied it 729 times. A chunk is
+    # small enough for the progress to move steadily.
+    chunk = max(1, div(length(worlds), concurrency() * 16))
+
+    {outcomes, {_done, _last}} =
+      worlds
+      |> Enum.chunk_every(chunk)
+      |> Task.async_stream(fn worlds -> Enum.map(worlds, &pair_world(context, games, &1)) end,
+        max_concurrency: concurrency(),
+        timeout: :infinity
+      )
+      |> Enum.flat_map_reduce({0, nil}, fn {:ok, chunk_outcomes}, {done, last} ->
+        done = done + length(chunk_outcomes)
+        {chunk_outcomes, {done, report.(done, last)}}
+      end)
+
+    outcomes
+  end
+
+  @doc """
+  The data the next round's pairing reads, split for the memo
+  (`PairingsEngine.NextRoundPreview.Memo`): `{base, results}`, `results`
+  the stored result of every board of round `round_number` (`%{pairing_id
+  => result}`), and `base` a digest of everything else - the tournament's
+  settings, its players, its rounds and their boards (round
+  `round_number`'s without their results), its byes and its forbidden
+  pairings: the rows `fingerprint/1` follows, read whole.
+
+  Two states with the same `base` and the same `results` pair the same.
+  """
+  def base_state(tournament_id, round_number) do
+    tournament = Repo.get!(Tournament, tournament_id)
+
+    players =
+      Repo.all(from p in Player, where: p.tournament_id == ^tournament_id, order_by: p.id)
+
+    rounds =
+      Repo.all(
+        from r in Round.without_explanation(),
+          where: r.tournament_id == ^tournament_id,
+          order_by: r.number
+      )
+
+    current_round_id = Enum.find_value(rounds, &(&1.number == round_number && &1.id))
+
+    pairings =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where: r.tournament_id == ^tournament_id,
+          order_by: p.id
+      )
+
+    {current, earlier} = Enum.split_with(pairings, &(&1.round_id == current_round_id))
+
+    byes =
+      Repo.query!("SELECT * FROM byes WHERE tournament_id = ? ORDER BY rowid", [tournament_id]).rows
+
+    forbidden =
+      Repo.all(
+        from f in PairingsEngine.Tournaments.ForbiddenPairing,
+          where: f.tournament_id == ^tournament_id,
+          order_by: f.id
+      )
+
+    base =
+      Memo.digest({
+        round_number,
+        Map.drop(tournament, [:__meta__, :status, :updated_at, :user, :players, :teams, :rounds]),
+        Enum.map(players, &Map.drop(&1, [:__meta__, :tournament, :team])),
+        Enum.map(rounds, &Map.drop(&1, @round_bookkeeping)),
+        Enum.map(earlier, &Map.drop(&1, @pairing_assocs)),
+        Enum.map(current, &Map.drop(&1, @pairing_assocs ++ @result_fields)),
+        byes,
+        Enum.map(forbidden, &Map.drop(&1, [:__meta__, :tournament, :player_a, :player_b]))
+      })
+
+    {base, Map.new(current, &{&1.id, &1.result})}
   end
 
   # Reports `done` when the last report is `interval` ms old, or it is the
@@ -235,9 +378,10 @@ defmodule PairingsEngine.NextRoundPreview do
     end
   end
 
-  defp check_count(0), do: {:error, :no_open_games}
-  defp check_count(k) when k > @max_open_games, do: {:error, {:too_many, k}}
-  defp check_count(_k), do: :ok
+  defp check_count(0, true), do: :ok
+  defp check_count(0, false), do: {:error, :no_open_games}
+  defp check_count(k, _complete?) when k > @max_open_games, do: {:error, {:too_many, k}}
+  defp check_count(_k, _complete?), do: :ok
 
   @doc """
   Every combination of outcome indices for `k` games, the first game

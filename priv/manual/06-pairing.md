@@ -161,6 +161,31 @@ updates itself when a result is entered and can be printed (fixed boards
 and a list by name). It is available for individual Swiss tournaments with the
 Ainalrami engine.
 
+A result entered for one of the open games needs no new pairing: every
+combination already worked out is remembered, so the preview updates at once.
+Clearing a result only works out the combinations that are new.
+
+### Announcing fixed boards
+
+When the name cards of the fixed boards go out, press **Announce fixed boards**
+in the preview. Printing the fixed boards announces them as well while
+**Printing announces them** is ticked (it is by default). Each board is stored
+with its number, White and Black, the time and who announced it, and the
+audit trail records it. The Pairings page then shows how many boards of the
+next round are announced; **Withdraw** removes the announcement.
+
+If something changes that could break an announced board - a result outside
+the open games, a forfeit, a player withdrawn, absent or added, a forbidden
+pairing, a setting - the page says so. **Check again** works the preview out
+again and lists the announced boards that are no longer certain.
+
+When the round is paired, every announced board is compared with the
+pairing. If a board's opponent, colours or number differ, a large warning
+lists each one, announced and paired: take those cards back and print the
+pairing again. The pairing itself is never changed to match an announcement -
+that would be manipulating the pairing. If all announced boards hold, a short
+line says so. Unpairing and pairing again compares again.
+
 ## Chess960
 
 If **Chess960** is ticked on the Tournament settings page, the Pairings page

@@ -53,7 +53,10 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
       # The data has changed since; a new run is due or under way.
       stale?: false,
       run: nil,
-      debounce: nil
+      debounce: nil,
+      # Printing the fixed boards announces them too, unless unticked -
+      # see `PairingsEngine.BoardAnnouncements`.
+      announce_on_print?: true
     })
   end
 
@@ -99,6 +102,10 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
     if match?({:available, _}, socket.assigns.next_round_preview.availability),
       do: start(socket, NextRoundPreview.fingerprint(socket.assigns.tournament.id)),
       else: socket
+  end
+
+  def handle_event("announce_on_print", _params, socket) do
+    put_state(socket, announce_on_print?: !socket.assigns.next_round_preview.announce_on_print?)
   end
 
   def handle_event("close", _params, socket) do
@@ -309,12 +316,24 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
         </span>
 
         <div class="nrp-head-actions">
+          <button
+            :if={current?(@state) and @preview.fixed != []}
+            id="next-round-preview-announce"
+            type="button"
+            class="pe-btn"
+            phx-click="next_round_preview_announce"
+            title={gettext("Record that these boards' name cards are going out now")}
+          >
+            <.icon name="hero-megaphone-micro" /> {gettext("Announce fixed boards")}
+          </button>
+
           <a
-            :if={@preview && !@state.running? && !@state.stale?}
+            :if={current?(@state)}
             id="next-round-preview-print"
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/print/next-round-preview"}
             target="_blank"
+            phx-click="next_round_preview_print"
           >
             <.icon name="hero-printer-micro" /> {gettext("Print fixed boards")}
           </a>
@@ -339,6 +358,19 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           </button>
         </div>
       </header>
+
+      <label
+        :if={current?(@state) and @preview.fixed != []}
+        id="next-round-preview-announce-on-print"
+        class="nrp-announce-on-print"
+      >
+        <input
+          type="checkbox"
+          id="next-round-preview-announce-on-print-box"
+          checked={@state.announce_on_print?}
+          phx-click="next_round_preview_announce_on_print"
+        /> {gettext("Printing announces them: these cards go out now")}
+      </label>
 
       <p class="hint nrp-explain">
         {gettext(
@@ -372,6 +404,13 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
       />
     </section>
     """
+  end
+
+  # A finished preview of the data as it is: what can be printed and
+  # announced.
+  defp current?(state) do
+    state.preview != nil and !state.running? and !state.stale? and
+      match?({:available, _}, state.availability)
   end
 
   attr :progress, :any, required: true

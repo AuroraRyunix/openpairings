@@ -300,6 +300,72 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 2, "board" => 9, "white" => "Chris Maes", "from" => "1-0", "to" => ""}
     ],
     "pairing.round_deleted" => [%{"round" => 3}],
+    "pairing.boards_announced" => [
+      %{
+        "round" => 4,
+        "via" => "button",
+        "boards" => [%{"board" => "1", "white" => "Anna Peeters", "black" => "Bart Claes"}],
+        "replaced" => [],
+        "total" => 1
+      },
+      %{
+        "round" => 4,
+        "via" => "print",
+        "boards" => [
+          %{"board" => "1", "white" => "Anna Peeters", "black" => "Bart Claes"},
+          %{"board" => "2", "white" => "Carla Smet", "black" => "Dirk Maes"}
+        ],
+        "replaced" => [%{"board" => "3", "white" => "Anna Peeters", "black" => "Dirk Maes"}],
+        "total" => 2
+      }
+    ],
+    "pairing.announcement_withdrawn" => [
+      %{"round" => 4, "boards" => 1},
+      %{"round" => 4, "boards" => 6}
+    ],
+    "pairing.announcement_checked" => [
+      %{"round" => 4, "still_certain" => 5, "no_longer_certain" => []},
+      %{
+        "round" => 4,
+        "still_certain" => 4,
+        "no_longer_certain" => [
+          %{"board" => "2", "white" => "Carla Smet", "black" => "Dirk Maes"}
+        ]
+      }
+    ],
+    "pairing.announcement_compared" => [
+      %{"round" => 4, "announced" => 1, "changed" => []},
+      %{"round" => 4, "announced" => 5, "changed" => []},
+      %{
+        "round" => 4,
+        "announced" => 5,
+        "changed" => [
+          %{
+            "announced" => %{"board" => "2", "white" => "Carla Smet", "black" => "Dirk Maes"},
+            "actual" => %{"label" => "3", "white" => "Carla Smet", "black" => "Dirk Maes"},
+            "changes" => ["board"]
+          },
+          %{
+            "announced" => %{"board" => "4", "white" => "Erik Wouters", "black" => "Fien Jacobs"},
+            "actual" => %{"label" => "6", "white" => "Erik Wouters", "black" => nil},
+            "changes" => ["opponent", "board"]
+          },
+          %{
+            "announced" => %{
+              "board" => "5",
+              "white" => "Gert Mertens",
+              "black" => "Hilde Peeters"
+            },
+            "actual" => nil,
+            "changes" => ["not_paired"]
+          }
+        ]
+      }
+    ],
+    "pairing.announcement_acknowledged" => [
+      %{"round" => 4, "changed" => 1},
+      %{"round" => 4, "changed" => 3}
+    ],
     "pairing.chess960_drawn" => [%{"round" => 2, "position" => 518}],
     "standings.lots_drawn" => [%{"players" => 3}, %{"players" => 1}],
     "pairing.results_imported" => [
