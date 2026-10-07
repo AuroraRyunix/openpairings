@@ -151,7 +151,16 @@ defmodule PairingsEngine.Standings do
     not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
     unrated =
-      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and unrated_present?(players) do
+      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and
+           players
+           |> Enum.map(
+             &PairingsEngine.PeriodRatings.at_round(
+               &1,
+               PairingsEngine.PeriodRatings.tiebreak_round(tournament),
+               tournament
+             )
+           )
+           |> unrated_present?() do
         Enum.filter(configured, &Tiebreaks.rating_based?/1)
       else
         []

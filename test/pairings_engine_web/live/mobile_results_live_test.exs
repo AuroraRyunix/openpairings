@@ -412,7 +412,12 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
   end
 
   describe "deputy level (today's original behaviour, preserved for a backfilled enrolment)" do
-    test "may correct an existing result on an earlier round", %{conn: conn} do
+    # Since round 2 is paired, changing round 1 is a Correction PIBE, which
+    # waits for an explicit confirmation (VCL4THP Q115) this screen has no
+    # room for: the deputy is sent to the Pairings page, nothing is written.
+    test "is sent to the Pairings page to correct a result once a later round is paired", %{
+      conn: conn
+    } do
       tournament = new_tournament()
       {white, black} = two_players(tournament)
       insert_round(tournament, 1, "finished", [{white, black, "1-0"}])
@@ -431,11 +436,14 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
 
       round1_pairing = tournament.id |> Tournaments.get_round(1) |> Map.fetch!(:pairings) |> hd()
 
-      render_click(lv, "set_result", %{"id" => to_string(round1_pairing.id), "result" => "0-1"})
+      html =
+        render_click(lv, "set_result", %{"id" => to_string(round1_pairing.id), "result" => "0-1"})
+
+      assert html =~ "Pairings page"
 
       assert Tournaments.get_round(tournament.id, 1).pairings
              |> Enum.find(&(&1.id == round1_pairing.id))
-             |> Map.fetch!(:result) == "0-1"
+             |> Map.fetch!(:result) == "1-0"
     end
 
     test "board range still applies, same as for a helper", %{conn: conn} do

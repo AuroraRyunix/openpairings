@@ -222,6 +222,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # publish, and is passed to Ainalrami as `/U<rating>`.
     field :tiebreak_unrated_rating, :integer
 
+    # A tournament lasting more than 30 days (VCL4THP Q210-Q216): it spans
+    # more than one rating period, so a player may hold more than one
+    # rating during it. On, a player's later ratings can be entered with
+    # the round each applies from (`Player.period_ratings`,
+    # `PairingsEngine.PeriodRatings`), the expected scores use the rating of
+    # the game's round, and a TRF of chosen rounds writes the rating valid
+    # in its first round. `tiebreak_rating_round` is which rating the
+    # rating-based tie-breaks use: the one valid in that round; nil is the
+    # first rating, C.07 Article 10's default.
+    field :long_event, :boolean, default: false
+    field :tiebreak_rating_round, :integer
+
     # Whether players still level after the whole tie-break list share a place
     # (C.07 Article 2.1: the regulations say). Off, the default, keeps the
     # order the standings always had - rating, name - numbered 1..N, which
@@ -1169,6 +1181,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :postponed_fide_tournament_id,
       :tiebreaks,
       :tiebreak_unrated_rating,
+      :long_event,
+      :tiebreak_rating_round,
       :shared_places,
       :acceleration,
       :status,
@@ -1247,6 +1261,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       greater_than_or_equal_to: 0,
       less_than_or_equal_to: 4000
     )
+    |> validate_number(:tiebreak_rating_round, greater_than: 0, less_than_or_equal_to: 99)
     |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)
     |> validate_number(:team_match_points_win, greater_than_or_equal_to: 0)
     |> validate_number(:team_match_points_draw, greater_than_or_equal_to: 0)

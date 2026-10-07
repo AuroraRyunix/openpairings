@@ -19,7 +19,7 @@ defmodule PairingsEngine.TrfExport do
 
   import Ecto.Query, only: [from: 2]
 
-  alias PairingsEngine.{Federation, Pairing, Standings, TeamStandings, Tournaments}
+  alias PairingsEngine.{Federation, Pairing, PeriodRatings, Standings, TeamStandings, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
@@ -75,7 +75,8 @@ defmodule PairingsEngine.TrfExport do
             copy_comments(tournament, rounds_spec, opts) ++
               fide_mode_comments(tournament, opts) ++
               import_pibe_comments(tournament, opts) ++
-              mpa_comments(tournament, rounds_spec, opts)
+              mpa_comments(tournament, rounds_spec, opts) ++
+              correction_comments(tournament, rounds_spec, opts)
           )
         end
 
@@ -384,6 +385,7 @@ defmodule PairingsEngine.TrfExport do
       tournament
       |> Pairing.trf_player_rows(players)
       |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect)))
+      |> period_ratings(tournament, players, rounds)
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
       # Baku virtual points for the rounds in the file. The report had
       # left them out altogether; TRF26 wants them (`250`) for pairing.
@@ -404,9 +406,12 @@ defmodule PairingsEngine.TrfExport do
       |> serialize(trf_players, players, rounds, last_round, point_system, dialect, rating?)
       |> mark_unknown(unknown)
 
-    if rating? and Enum.any?(trf_players, &not_played_postponed?/1),
-      do: rerank(text, trf_players),
-      else: text
+    text =
+      if rating? and Enum.any?(trf_players, &not_played_postponed?/1),
+        do: rerank(text, trf_players),
+        else: text
+
+    national_rating_records(text, tournament, trf_players, players, rounds, dialect)
   end
 
   # The rank column of the 001 record (86-89) is the player's place in the
@@ -507,7 +512,7 @@ defmodule PairingsEngine.TrfExport do
           point_system: point_system,
           free_points: free_point_records(players, tournament),
           forbidden_pairs:
-            Pairing.forbidden_pairs(tournament.id, players) ++
+            forbidden_groups(tournament, players, dialect, last_round) ++
               Pairing.exclusion_pairs(tournament, players),
           team_point_system: team_point_system(tournament, dialect),
           team_pab: team_pab(tournament, rounds, dialect),
@@ -1625,8 +1630,197 @@ defmodule PairingsEngine.TrfExport do
       |> Enum.group_by(& &1.extra_points, & &1.pairing_number)
       |> Enum.sort()
       |> Enum.map(fn {points, ranks} ->
-        %{type: "", match_points: nil, points: points, round: nil, ranks: Enum.sort(ranks)}
+        %{
+          type: "",
+          match_points: nil,
+          points: points,
+          round: free_points_round(tournament),
+          ranks: Enum.sort(ranks)
+        }
       end)
+    else
+      []
+    end
+  end
+
+  # The round of an untyped `299` (TEC Manual, "Blank-AAT"): mandatory, and
+  # it says what the points touch. A handicap counts from the start - in the
+  # standings and in the score the pairing groups by - which is `000`,
+  # "applied before the pairings of Round 1". Acceleration-mode points reach
+  # the pairing as the `250` records' virtual points instead, and the
+  # standings keep them only at the end, which is `999`: "applied only to
+  # the final standings". Neither touches a tie-break (docs/extra-points.md).
+  # The record used to leave the round blank, which the manual does not
+  # allow for this record (VCL4THP Q217).
+  defp free_points_round(tournament) do
+    if Tournament.extra_points_acceleration?(tournament), do: 999, else: 0
+  end
+
+  ## ---------- a tournament lasting more than 30 days ----------
+  #
+  # VCL4THP Q210-Q216: a long event is reported to FIDE rating period by
+  # rating period, each report with the ratings of its own period. So the
+  # `001` rating column of a file holds each player's FIDE rating valid in
+  # the file's FIRST round (`PeriodRatings.at_round/2`) - for a file of the
+  # whole event that is the first rating, C.07 Article 10's default.
+  defp period_ratings(rows, %Tournament{long_event: true}, players, [_ | _] = rounds) do
+    first = Enum.min(rounds)
+    by_id = Map.new(players, &{&1.id, &1})
+
+    Enum.map(rows, fn row ->
+      case Map.fetch(by_id, row.id) do
+        {:ok, player} ->
+          Map.put(row, :fide_rating, PeriodRatings.at_round(player, first).fide_rating)
+
+        :error ->
+          row
+      end
+    end)
+  end
+
+  defp period_ratings(rows, _tournament, _players, _rounds), do: rows
+
+  ## ---------- prohibited pairings, from the round they were added ----------
+  #
+  # `Pairing.forbidden_pairs/2`'s pairs, except that in a TRF26 file a
+  # prohibition added after rounds were paired (`from_round`) is a `260`
+  # naming the rounds it held for - from that round to the end - instead
+  # of the whole event, which would claim it for rounds paired without it
+  # (VCL4THP Q217). One that only begins after the last round is not
+  # written. The engine dialect keeps every pair plain: its `XXP` has no
+  # rounds, and the pairing program reading it pairs the rounds to come.
+  defp forbidden_groups(tournament, players, dialect, last_round) do
+    rank = Map.new(players, &{&1.id, &1.pairing_number})
+    # The last round the writer gives an unlimited `260`, so both read alike.
+    last = max(max(tournament.rounds_count || 0, last_round), last_round + 1)
+
+    tournament.id
+    |> Tournaments.list_forbidden_pairings()
+    |> Enum.reject(& &1.soft)
+    |> Enum.flat_map(fn fp ->
+      a = rank[fp.player_a_id]
+      b = rank[fp.player_b_id]
+      from = fp.from_round
+
+      cond do
+        is_nil(a) or is_nil(b) -> []
+        dialect != :trf26 or not is_integer(from) or from <= 1 -> [[a, b]]
+        from > last -> []
+        true -> [{[a, b], from, last}]
+      end
+    end)
+  end
+
+  ## ---------- National Rating Support: `172` and the federation's records ----------
+  #
+  # TRF26 writes a player's national rating in a National Rating Support
+  # record - the `001` line's static part under the code of the federation
+  # that registers the tournament - and `172` says how the field was ranked
+  # from the two ratings. Both are needed only when national ratings
+  # influence the tournament (TEC Manual, "National Rating Support"): here,
+  # when the starting-rank method is not FIDE-only and a player is ranked
+  # by a national rating - under FIDON (FIDE first, the national one for a
+  # player without; this app's `Player.rating/1`), only when some player
+  # has no FIDE rating and a national one. Otherwise nothing is written,
+  # which the manual allows. TRF26 only; written in the file sent for
+  # rating too, since these are records of the format, not comments.
+  #
+  # `rating_method` (record 172's code) is read when the tournament carries
+  # one; FIDON is what this app ranks by otherwise.
+  defp national_rating_records(text, _tournament, _rows, _players, _rounds, :engine), do: text
+
+  defp national_rating_records(text, tournament, rows, players, rounds, :trf26) do
+    method = Map.get(tournament, :rating_method) || "FIDON"
+    federation = Federation.normalize(tournament.federation)
+    by_id = Map.new(players, &{&1.id, &1})
+    first = if rounds == [], do: 1, else: Enum.min(rounds)
+
+    nrs =
+      for row <- rows,
+          player = Map.get(by_id, row.id),
+          not is_nil(player),
+          national = PeriodRatings.at_round(player, first, tournament).national_rating || 0,
+          national > 0,
+          into: %{},
+          do: {row.rank, nrs_line(federation, row.rank, national, player.national_id)}
+
+    relied_on? =
+      method != "FIDE" and
+        (method != "FIDON" or
+           Enum.any?(rows, &((&1.fide_rating || 0) == 0 and Map.has_key?(nrs, &1.rank))))
+
+    if relied_on? and nrs != %{} and is_binary(federation) and
+         Regex.match?(~r/^[A-Z]{3}$/, federation) do
+      insert_nrs(text, "172 #{federation} #{method}", nrs)
+    else
+      text
+    end
+  end
+
+  # Columns as the `001` line's static part (TRF26, "National Rating
+  # Support"): federation 1-3, starting rank 5-8, national rating 49-52,
+  # national number 58-68. Sex, name and birth date are left out: the spec
+  # makes them optional when they are the `001` line's.
+  @doc false
+  def nrs_line(federation, rank, rating, national_id) do
+    id = national_id |> to_string() |> String.trim() |> String.slice(0, 11)
+
+    (federation <>
+       " " <>
+       String.pad_leading(Integer.to_string(rank), 4) <>
+       String.duplicate(" ", 40) <>
+       String.pad_leading(Integer.to_string(rating), 4) <>
+       String.duplicate(" ", 5) <> String.pad_leading(id, 11))
+    |> String.trim_trailing()
+  end
+
+  # `172` goes with the header records, before `182` when there is one;
+  # each NRS record right after its player's `001` line, as the TEC
+  # Manual's examples place them.
+  defp insert_nrs(text, line_172, nrs) do
+    lines = String.split(text, "\r\n")
+
+    {head, rest} =
+      case Enum.find_index(lines, &String.starts_with?(&1, "182 ")) do
+        nil ->
+          Enum.split_while(lines, &(&1 != "" and not String.starts_with?(&1, ["001", "###"])))
+
+        i ->
+          Enum.split(lines, i)
+      end
+
+    rest =
+      Enum.flat_map(rest, fn
+        "001" <> _ = line ->
+          rank = line |> String.slice(4, 4) |> String.trim() |> String.to_integer()
+
+          case Map.fetch(nrs, rank) do
+            {:ok, nrs_line} -> [line, nrs_line]
+            :error -> [line]
+          end
+
+        line ->
+          [line]
+      end)
+
+    Enum.join(head ++ [line_172] ++ rest, "\r\n")
+  end
+
+  ## ---------- result corrections are in the file ----------
+  #
+  # The TEC Manual's Correction PIBE (VCL4THP Q112-Q115, Q217): a result
+  # corrected after a later round was paired is a `###` line in the
+  # manual's own form, `Correction @ Round r: a-b: old => new`, starting
+  # ranks and the results as the pairings page writes them. Derived from
+  # the boards themselves (`Pairing.corrected_from`, set by
+  # `Tournaments.update_pairing_result/3`), not from the audit trail; a
+  # correction that put the original result back leaves no line. TRF26
+  # only, and never in the file sent for rating, like the other PIBEs.
+  defp correction_comments(tournament, rounds_spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      paired = Pairing.paired_rounds_count(tournament.id)
+      rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+      PairingsEngine.ResultCorrections.lines(tournament.id, rounds)
     else
       []
     end

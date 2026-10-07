@@ -701,7 +701,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       pairing = Repo.get_by!(Pairing, white_player_id: a.id, black_player_id: b.id)
 
-      Tournaments.update_pairing_result(pairing, "0-1")
+      Tournaments.update_pairing_result(pairing, "0-1", acknowledged: [:result_correction])
 
       html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
 

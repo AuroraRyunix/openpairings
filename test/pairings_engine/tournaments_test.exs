@@ -2102,7 +2102,7 @@ defmodule PairingsEngine.TournamentsTest do
       {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
 
       # A result changes -> stale.
-      Tournaments.update_pairing_result(pairing1, "0-1")
+      Tournaments.update_pairing_result(pairing1, "0-1", acknowledged: [:result_correction])
       assert Repo.reload!(tournament).manual_ranking_stale
 
       assert {:ok, reseeded} = Tournaments.reseed_manual_ranking(tournament)
@@ -2132,7 +2132,7 @@ defmodule PairingsEngine.TournamentsTest do
 
       {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
 
-      Tournaments.update_pairing_result(pairing1, "0-1")
+      Tournaments.update_pairing_result(pairing1, "0-1", acknowledged: [:result_correction])
       assert Repo.reload!(tournament).manual_ranking_stale
 
       assert {:ok, _} = Tournaments.move_manual_rank(tournament, Repo.reload!(b), :up)
@@ -2159,7 +2159,10 @@ defmodule PairingsEngine.TournamentsTest do
       before_a = Repo.reload!(a).manual_rank
       before_b = Repo.reload!(b).manual_rank
 
-      assert {:ok, _} = Tournaments.update_pairing_result(pairing1, "0-1")
+      assert {:ok, _} =
+               Tournaments.update_pairing_result(pairing1, "0-1",
+                 acknowledged: [:result_correction]
+               )
 
       assert Repo.reload!(tournament).manual_ranking_stale
       assert Repo.reload!(a).manual_rank == before_a
@@ -2170,10 +2173,10 @@ defmodule PairingsEngine.TournamentsTest do
       %{tournament: tournament, pairing1: pairing1} = manual_ranking_fixture()
       {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
 
-      Tournaments.update_pairing_result(pairing1, "0-1")
+      Tournaments.update_pairing_result(pairing1, "0-1", acknowledged: [:result_correction])
       assert Repo.reload!(tournament).manual_ranking_stale
 
-      Tournaments.update_pairing_result(pairing1, "1/2-1/2")
+      Tournaments.update_pairing_result(pairing1, "1/2-1/2", acknowledged: [:result_correction])
       assert Repo.reload!(tournament).manual_ranking_stale
     end
 
@@ -2184,7 +2187,7 @@ defmodule PairingsEngine.TournamentsTest do
       refute tournament.manual_ranking
       rank_before = Repo.reload!(a).manual_rank
 
-      Tournaments.update_pairing_result(pairing1, "0-1")
+      Tournaments.update_pairing_result(pairing1, "0-1", acknowledged: [:result_correction])
 
       refute Repo.reload!(tournament).manual_ranking_stale
       assert Repo.reload!(a).manual_rank == rank_before
@@ -2196,7 +2199,10 @@ defmodule PairingsEngine.TournamentsTest do
 
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
 
-      assert {:ok, _} = Tournaments.update_pairing_result(pairing1, "0-1")
+      assert {:ok, _} =
+               Tournaments.update_pairing_result(pairing1, "0-1",
+                 acknowledged: [:result_correction]
+               )
 
       tid = tournament.id
       assert_receive {:tournament_changed, ^tid, :results}

@@ -319,6 +319,11 @@ defmodule PairingsEngine.ResultsImport do
                   :finalised_result_changed in warnings ->
                     {resolved, [{:finalised_result_changed, board} | errors]}
 
+                  # A correction after a later round was paired is a PIBE
+                  # the arbiter confirms board by board (VCL4THP Q115).
+                  :result_correction in warnings ->
+                    {resolved, [{:result_correction, board} | errors]}
+
                   true ->
                     {[{pairing, result} | resolved], errors}
                 end

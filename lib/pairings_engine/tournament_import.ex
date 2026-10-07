@@ -883,7 +883,8 @@ defmodule PairingsEngine.TournamentImport do
           # The game's identity, kept (`PostponedGames`); a payload written
           # before it existed leaves it to the database, which gives a new
           # one.
-          game_uid: game_uid(Map.get(pr, "game_uid"))
+          game_uid: game_uid(Map.get(pr, "game_uid")),
+          corrected_from: string_or_nil(Map.get(pr, "corrected_from"))
         )
         |> insert!("a pairing of round entry #{n}")
       end)
@@ -914,6 +915,10 @@ defmodule PairingsEngine.TournamentImport do
 
   defp game_uid(value) when is_binary(value) and byte_size(value) in 1..64, do: value
   defp game_uid(_value), do: nil
+
+  # A Correction PIBE's original result: a short result code, or nothing.
+  defp string_or_nil(value) when is_binary(value) and byte_size(value) in 1..16, do: value
+  defp string_or_nil(_value), do: nil
 
   # The envelope's `"openresults"` block, kept as an OFFER rather than acted
   # on. It holds the key that can publish to and delete a tournament already
@@ -1132,7 +1137,14 @@ defmodule PairingsEngine.TournamentImport do
              b when not is_nil(b) <- Map.get(player_map, Map.get(f, "player_b_id")) do
           # Envelopes written before soft rules existed carry no "soft" key;
           # every row in them was a rule, which is what `false` means.
-          %{tournament_id: tournament.id, player_a_id: a, player_b_id: b, soft: f["soft"] == true}
+          %{
+            tournament_id: tournament.id,
+            player_a_id: a,
+            player_b_id: b,
+            soft: f["soft"] == true,
+            from_round:
+              if(is_integer(f["from_round"]) and f["from_round"] > 1, do: f["from_round"])
+          }
         else
           _ -> nil
         end

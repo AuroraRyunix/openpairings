@@ -4129,10 +4129,21 @@ defmodule PairingsEngine.Tournaments do
           player_b_id: player_b_id,
           soft: soft?
         })
+        # Added once rounds were paired, the prohibition holds from the next
+        # one: the TRF's `260` says so (VCL4THP Q217) instead of claiming
+        # it for rounds paired without it.
+        |> Ecto.Changeset.put_change(:from_round, late_prohibition_round(tournament))
         |> Repo.insert()
         |> tap_ok(fn inserted ->
           broadcast_tournament_change(inserted.tournament_id, :settings)
         end)
+    end
+  end
+
+  defp late_prohibition_round(tournament) do
+    case PairingsEngine.Pairing.paired_rounds_count(tournament.id) do
+      n when is_integer(n) and n > 0 -> n + 1
+      _ -> nil
     end
   end
 
@@ -5455,9 +5466,20 @@ defmodule PairingsEngine.Tournaments do
       do_update_pairing_result(
         pairing,
         result,
-        postponed_attrs(tournament, pairing, result, opts)
+        tournament
+        |> postponed_attrs(pairing, result, opts)
+        |> Map.merge(correction_attrs(pairing, result))
       )
     end
+  end
+
+  # A Correction PIBE's record on the board (`ResultCorrections`): the
+  # result it had before its first correction, read from the board as
+  # stored. Empty when the write leaves it as it was.
+  defp correction_attrs(pairing, result) do
+    stored = Repo.get(Pairing, pairing.id) || pairing
+    from = PairingsEngine.ResultCorrections.corrected_from(stored, result)
+    if from == stored.corrected_from, do: %{}, else: %{corrected_from: from}
   end
 
   # The FIDE-mode round window (`ensure_round_editable/2`), for results. A

@@ -17,7 +17,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments, Tiebreaks}
+  alias PairingsEngine.{Audit, PeriodRatings, Tournaments, Tiebreaks}
   alias PairingsEngine.Authz
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.UploadGuard
@@ -693,6 +693,70 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 name="tournament[shared_places]"
                 value="true"
                 checked={@tournament.shared_places}
+              />
+            </.setting_field>
+          </.setting_group>
+
+          <%!-- VCL4THP Q210-Q216: a tournament lasting more than 30 days,
+                in which a player may hold more than one rating. --%>
+          <.setting_group>
+            <.setting_field
+              label={gettext("Tournament lasts more than 30 days")}
+              hint={
+                gettext(
+                  "It spans more than one rating period, so a player may hold more than one rating during it. On, each player's later ratings can be entered on the Players page with the round each applies from; expected scores use the rating of each game's round, and a TRF of chosen rounds carries the ratings valid in its first round, so each rating period can be reported with its own ratings."
+                )
+              }
+            >
+              <input type="hidden" name="tournament[long_event]" value="false" />
+              <input
+                id="long-event"
+                type="checkbox"
+                name="tournament[long_event]"
+                value="true"
+                checked={@tournament.long_event}
+              />
+            </.setting_field>
+
+            <p
+              :if={!@tournament.long_event and PeriodRatings.spans_over_30_days?(@tournament)}
+              id="long-event-suggestion"
+              class="setting-warning"
+              role="note"
+            >
+              {gettext(
+                "This tournament's dates span %{days} days. If a new rating list is published during it, tick \"Tournament lasts more than 30 days\" so players can hold more than one rating.",
+                days: PeriodRatings.span_days(@tournament)
+              )}
+            </p>
+
+            <p
+              :if={@tournament.long_event and Enum.any?(@tiebreaks, &Tiebreaks.rating_based?/1)}
+              id="long-event-rating-tiebreaks"
+              class="setting-warning"
+              role="note"
+            >
+              {gettext(
+                "C.07 Article 10: rating-based tie-breaks are not recommended when a player can have more than one rating during the tournament. Consider removing them from the list above."
+              )}
+            </p>
+
+            <.setting_field
+              :if={@tournament.long_event}
+              label={gettext("Rating-based tie-breaks use the rating valid in round")}
+              hint={
+                gettext(
+                  "Leave empty for each player's first rating, which C.07 Article 10 prescribes unless the regulations say otherwise. Enter a round to use the ratings valid in that round instead."
+                )
+              }
+            >
+              <input
+                id="tiebreak-rating-round"
+                type="number"
+                name="tournament[tiebreak_rating_round]"
+                value={@tournament.tiebreak_rating_round}
+                min="1"
+                max="99"
               />
             </.setting_field>
           </.setting_group>

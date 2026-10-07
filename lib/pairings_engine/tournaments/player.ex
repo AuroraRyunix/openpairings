@@ -13,6 +13,15 @@ defmodule PairingsEngine.Tournaments.Player do
     field :fide_rating, :integer, default: 0
     field :national_id, :string, default: ""
     field :national_rating, :integer, default: 0
+    # A tournament lasting more than 30 days (`Tournament.long_event`): the
+    # player's LATER ratings, each with the first round it applies to -
+    # `[%{"from_round" => 5, "fide_rating" => 1850}]`, optionally with a
+    # `"national_rating"` too, oldest first. `fide_rating`/`national_rating`
+    # above stay the first rating, the one the tournament started with. Read
+    # through `PairingsEngine.PeriodRatings`; typed on the Players page as
+    # `period_ratings_text` ("5:1850, 9:1872").
+    field :period_ratings, {:array, :map}, default: []
+    field :period_ratings_text, :string, virtual: true
     field :federation, :string, default: ""
     field :birth_year, :integer
     field :club, :string, default: ""
@@ -210,8 +219,12 @@ defmodule PairingsEngine.Tournaments.Player do
       :no_bye_scope,
       :bye_preference,
       :bye_preference_rounds,
-      :bye_preference_scope
+      :bye_preference_scope,
+      :period_ratings
     ])
+    # Kept as typed, blank included: an emptied box is "no later ratings",
+    # which the default empty-to-nil cast would not see as a change.
+    |> cast(attrs, [:period_ratings_text], empty_values: [])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
     |> validate_inclusion(:status, ~w(active withdrawn expelled))
@@ -228,6 +241,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> normalize_no_bye()
     |> normalize_bye_preference()
     |> normalize_categories()
+    |> normalize_period_ratings()
     |> sync_special_table()
     |> validate_fide_id_range()
     |> unique_fide_id_in_tournament()
@@ -253,6 +267,40 @@ defmodule PairingsEngine.Tournaments.Player do
     if get_field(changeset, :start_round) == nil,
       do: put_change(changeset, :start_round, 1),
       else: changeset
+  end
+
+  # `period_ratings_text` ("5:1850, 9:1872", `PeriodRatings.parse/1`) is
+  # the form's spelling of `period_ratings`; a list given directly (the JSON
+  # import) is checked the same way.
+  defp normalize_period_ratings(changeset) do
+    alias PairingsEngine.PeriodRatings
+
+    case fetch_change(changeset, :period_ratings_text) do
+      {:ok, text} ->
+        case PeriodRatings.parse(text || "") do
+          {:ok, list} ->
+            put_change(changeset, :period_ratings, list)
+
+          :error ->
+            add_error(
+              changeset,
+              :period_ratings_text,
+              "use round:rating pairs from round 2 on, such as 5:1850, 9:1872"
+            )
+        end
+
+      :error ->
+        case fetch_change(changeset, :period_ratings) do
+          {:ok, list} ->
+            case PeriodRatings.normalize(list || []) do
+              {:ok, list} -> put_change(changeset, :period_ratings, list)
+              :error -> add_error(changeset, :period_ratings, "is not a list of round ratings")
+            end
+
+          :error ->
+            changeset
+        end
+    end
   end
 
   defp validate_fixed_board(changeset) do

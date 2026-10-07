@@ -150,11 +150,13 @@ opinion of it.
 - **National Rating Support records and `172`** are not read, and neither
   are the TRF-2026 team records (`300`, `310`, `320`, `330`, `352`, `362`,
   `801`, `802`).
-- **A `260` limited to a range of rounds is widened to the whole event.**
-  This app's forbidden pairings hold for every round, so "no clubmates in
-  the first two" imports as "never". Widening is the safe direction - the
-  engine will not seat a pair the arbiter separated - and the import says
-  so rather than absorbing the change silently.
+- **A `260` that ends before the last round is widened to the end of the
+  event.** This app's forbidden pairings hold until the last round, so "no
+  clubmates in the first two" imports as "never". Widening is the safe
+  direction - the engine will not seat a pair the arbiter separated - and
+  the import says so rather than absorbing the change silently. A later
+  FIRST round is kept: a prohibition added after rounds were paired, which
+  the export writes as a `260` from that round, comes back the same.
 - **A full-point bye granted for a round not yet paired is not imported.**
   The `byes` table records the half-point and zero-point kinds an arbiter
   grants; a full point is a pairing's own allocation and needs the round

@@ -299,15 +299,25 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                       )
                     )
 
-                  # A result already sent in a finalised TRF: the same, for
-                  # the same reason - the Pairings page asks first.
-                  {:error, {:needs_acknowledgement, _ids}} ->
+                  # A correction after a later round was paired (a
+                  # Correction PIBE, VCL4THP Q115), or a result already sent
+                  # in a finalised TRF: the same, for the same reason - the
+                  # Pairings page asks first.
+                  {:error, {:needs_acknowledgement, ids}} ->
                     put_flash(
                       socket,
                       :error,
-                      gettext(
-                        "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page.",
-                        board: pairing.board
+                      if(:result_correction in ids,
+                        do:
+                          gettext(
+                            "A later round was already paired with the result of board %{board}. Correcting it has to be done by the arbiter, on the Pairings page.",
+                            board: pairing.board
+                          ),
+                        else:
+                          gettext(
+                            "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page.",
+                            board: pairing.board
+                          )
                       )
                     )
 

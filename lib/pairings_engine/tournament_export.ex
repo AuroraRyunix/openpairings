@@ -89,7 +89,8 @@ defmodule PairingsEngine.TournamentExport do
     chief_arbiter deputy_arbiter time_control rounds_count
     points_win points_draw points_loss bye_value presence_value abs_value
     abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences
-    presence_on_allocated_bye tiebreaks tiebreak_unrated_rating shared_places acceleration baku_group_a_last
+    presence_on_allocated_bye tiebreaks tiebreak_unrated_rating long_event tiebreak_rating_round
+    shared_places acceleration baku_group_a_last
     status standard rate_of_play organizer_club_number round_dates
     categories category_rules category_prizes categories_enabled
     categories_ranked_separately event_code
@@ -270,7 +271,7 @@ defmodule PairingsEngine.TournamentExport do
     pairing_number paid affiliated absent forfeit special_table
     absent_rounds extra_points category categories club_number norm_data
     team_id fixed_board manual_rank no_bye no_bye_rounds bye_preference
-    bye_preference_rounds team_history no_half_bye
+    bye_preference_rounds team_history no_half_bye period_ratings
   )a
 
   # The roster is the one thing a backup absolutely cannot lose, so the same
@@ -716,7 +717,9 @@ defmodule PairingsEngine.TournamentExport do
       # The game's identity for life (`PostponedGames`, "Which game a record
       # is about"): written back on import and restore, so the sent-games
       # record still knows the game whatever happened to its players.
-      "game_uid" => p.game_uid
+      "game_uid" => p.game_uid,
+      # A Correction PIBE's original result (`Pairing.corrected_from`).
+      "corrected_from" => p.corrected_from
     }
   end
 
@@ -808,7 +811,8 @@ defmodule PairingsEngine.TournamentExport do
         select: %{
           player_a_id: f.player_a_id,
           player_b_id: f.player_b_id,
-          soft: type(f.soft, :boolean)
+          soft: type(f.soft, :boolean),
+          from_round: f.from_round
         }
     )
     |> Enum.map(&stringify_keys/1)

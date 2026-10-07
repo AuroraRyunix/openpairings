@@ -1353,28 +1353,37 @@ defmodule PairingsEngine.TrfImport do
 
     rows =
       for group <- groups,
-          {ranks, _first, _last} = normalise_group(group),
+          {ranks, first, _last} = normalise_group(group),
           [a, b] <- pairs_within(ranks),
           player_a = players_by_rank[a],
           player_b = players_by_rank[b],
           not is_nil(player_a) and not is_nil(player_b) do
         {low, high} = Enum.min_max([player_a.id, player_b.id])
 
-        %{tournament_id: tournament.id, player_a_id: low, player_b_id: high, soft: false}
+        # A rule that starts after round 1 - added once rounds were paired,
+        # as this app's own `260` writes it - keeps its first round.
+        %{
+          tournament_id: tournament.id,
+          player_a_id: low,
+          player_b_id: high,
+          soft: false,
+          from_round: if(first > 1, do: first)
+        }
       end
       |> Enum.uniq_by(&{&1.player_a_id, &1.player_b_id})
 
     if rows != [], do: Repo.insert_all(ForbiddenPairing, rows)
 
-    # A `260` may name a range of rounds ("no clubmates in the first two"),
-    # and this app's forbidden pairings hold for the whole event. Widening
-    # is the safe direction - the engine will never seat a pair the arbiter
-    # separated - but it is a change to what the file said, so it is said
-    # out loud rather than absorbed.
+    # A `260` may end before the last round ("no clubmates in the first
+    # two"), and this app's forbidden pairings hold until the end of the
+    # event. Widening is the safe direction - the engine will never seat a
+    # pair the arbiter separated - but it is a change to what the file said,
+    # so it is said out loud rather than absorbed. A later first round is
+    # kept (`ForbiddenPairing.from_round`).
     limited =
       Enum.count(groups, fn group ->
-        {_ranks, first, last} = normalise_group(group)
-        first > 1 or last < rounds
+        {_ranks, _first, last} = normalise_group(group)
+        last < rounds
       end)
 
     if limited == 0 do
@@ -1383,7 +1392,7 @@ defmodule PairingsEngine.TrfImport do
       [
         note(
           "#{limited} prohibited-pairing rule#{if limited == 1, do: "", else: "s"} in the file " <>
-            "applied only to some rounds; imported as applying to every round."
+            "applied only to some rounds; imported as applying until the last round."
         )
       ]
     end
