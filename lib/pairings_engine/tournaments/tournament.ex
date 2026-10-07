@@ -1062,6 +1062,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     #     the run under way. Set by `Pairing` itself just before the engine
     #     is called, from the players' `no_bye` settings.
     field :bye_exclusion_override, :integer, virtual: true
+    # True when the caller wants a pairing that would take the tournament
+    # out of FIDE mode (`Pairing.pairing_deviations/2`) refused and rolled
+    # back instead of written, so the arbiter can be asked first (VCL4THP
+    # Q43). Set by `Pairing.pair_next_round/2` from its options.
+    field :fide_departure_guard, :boolean, virtual: true, default: false
     field :engine_bye_exclusions, {:array, :integer}, virtual: true, default: []
     # The players' bye preferences for the run under way, as the engine
     # takes them - `[{rank, :want_hard | :want_soft | :avoid_soft}]` - set

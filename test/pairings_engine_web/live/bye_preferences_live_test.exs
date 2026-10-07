@@ -8,6 +8,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
   use PairingsEngineWeb.ConnCase
 
   import Phoenix.LiveViewTest
+  import PairingsEngineWeb.FideGateHelpers
 
   alias PairingsEngine.{Audit, Repo, Tournaments}
 
@@ -250,7 +251,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
       render_click(lv, "pair", %{})
-      render(lv)
+      confirm_fide_exit(lv)
 
       assert [_round] = Tournaments.list_rounds(t.id)
       assert has_element?(lv, "#bye-preference-notice", "went to A")

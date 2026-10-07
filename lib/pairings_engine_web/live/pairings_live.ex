@@ -4,7 +4,15 @@ defmodule PairingsEngineWeb.PairingsLive do
   alias PairingsEngineWeb.ByePreferenceText
   alias PairingsEngineWeb.PublicLink
 
-  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2, error_text: 1]
+  import PairingsEngineWeb.SettingsSupport,
+    only: [
+      setup_field_path: 2,
+      error_text: 1,
+      attach_fide_gate: 1,
+      fide_exit_dialog: 1,
+      new_gate: 4,
+      deviation_reasons: 1
+    ]
 
   alias PairingsEngine.{
     Audit,
@@ -141,6 +149,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        progress: &handle_upload_progress/3
      )
      |> NextRoundPreviewPanel.init()
+     |> attach_fide_gate()
+     |> assign(fide_resume: nil)
      |> refresh()}
   end
 
@@ -499,6 +509,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("pair", params, socket) do
+    socket = assign(socket, fide_resume: {"pair", params, []})
     PairTiming.span(:click, fn -> pair_clicked(params, socket) end)
   end
 
@@ -510,19 +521,28 @@ defmodule PairingsEngineWeb.PairingsLive do
     case socket.assigns.bye_exclusion_block do
       %{override: %{id: override_id} = player} when is_binary(id) ->
         if id == to_string(override_id) and not socket.assigns.pairing_in_progress do
-          Snapshots.capture(
-            socket.assigns.tournament,
-            "pairing.round_paired",
-            socket.assigns.current_scope,
-            summary: "Before pairing round #{socket.assigns.round_number}"
-          )
+          unless socket.assigns.fide_gate_confirmed do
+            Snapshots.capture(
+              socket.assigns.tournament,
+              "pairing.round_paired",
+              socket.assigns.current_scope,
+              summary: "Before pairing round #{socket.assigns.round_number}"
+            )
+          end
 
           socket
-          |> assign(bye_exclusion_block: nil, recorded_missing: missing_to_record(socket))
+          |> assign(
+            bye_exclusion_block: nil,
+            recorded_missing: missing_to_record(socket),
+            fide_resume:
+              {"pair_ignoring_bye_exclusion", %{"player-id" => id},
+               [bye_exclusion_block: socket.assigns.bye_exclusion_block]}
+          )
           |> apply_pair_result(
             Engine.pair_next_round(socket.assigns.tournament,
               acknowledged: socket.assigns.pair_acknowledged,
-              bye_exclusion_override: player.id
+              bye_exclusion_override: player.id,
+              fide_departure_guard: not socket.assigns.fide_gate_confirmed
             )
           )
         else
@@ -1996,19 +2016,24 @@ defmodule PairingsEngineWeb.PairingsLive do
         do_pair_team_swiss_async(socket)
 
       true ->
-        PairTiming.span(:snapshot, fn ->
-          Snapshots.capture(
-            socket.assigns.tournament,
-            "pairing.round_paired",
-            socket.assigns.current_scope,
-            summary: "Before pairing round #{socket.assigns.round_number}"
-          )
-        end)
+        # Already taken by the click the Level-4 question interrupted: the
+        # confirmed run pairs from the very same state.
+        unless socket.assigns.fide_gate_confirmed do
+          PairTiming.span(:snapshot, fn ->
+            Snapshots.capture(
+              socket.assigns.tournament,
+              "pairing.round_paired",
+              socket.assigns.current_scope,
+              summary: "Before pairing round #{socket.assigns.round_number}"
+            )
+          end)
+        end
 
         result =
           PairTiming.span(:pair, fn ->
             Engine.pair_next_round(socket.assigns.tournament,
-              acknowledged: socket.assigns.pair_acknowledged
+              acknowledged: socket.assigns.pair_acknowledged,
+              fide_departure_guard: not socket.assigns.fide_gate_confirmed
             )
           end)
 
@@ -2111,6 +2136,17 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       {:error, %Ecto.Changeset{}} ->
         {:noreply, assign(socket, error: "Could not save the round")}
+
+      # VCL4THP Q43: this pairing would take the tournament out of FIDE mode
+      # (nothing was written). Ask twice, then pair again with the guard off.
+      {:error, {:fide_departure, kinds}} ->
+        {event, payload, restore} = socket.assigns.fide_resume
+
+        {:noreply,
+         assign(socket,
+           error: nil,
+           fide_gate: new_gate(event, payload, deviation_reasons(kinds), restore)
+         )}
 
       {:error, {:bye_exclusions, info}} ->
         {:noreply,
@@ -3408,6 +3444,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             "Pairings", so the name stands alone; the links that sat beside
             it - the public page and the local view - are in More. --%>
       <h1 id="pairings-title" class="pairings-title">{@tournament.name}</h1>
+
+      <.fide_exit_dialog
+        id="fide-gate"
+        step={@fide_gate && @fide_gate.step}
+        reasons={(@fide_gate && @fide_gate.reasons) || []}
+      />
 
       <%!-- Every postponed game still to be played, whichever round is on
             screen (VCL4THP Q162): its result can be entered at any time, and

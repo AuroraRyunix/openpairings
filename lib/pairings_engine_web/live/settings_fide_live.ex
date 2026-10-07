@@ -204,74 +204,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         {gettext("Leave FIDE mode…")}
       </button>
 
-      <div :if={@step == :warn} id="leave-fide-warn" class="pe-modal-warn" role="alertdialog">
-        <p style="margin: 0 0 8px">
-          <strong>{gettext("This is not compliant with the FIDE regulations.")}</strong>
-          {gettext(
-            "A tournament outside FIDE mode can be changed in ways the FIDE pairing rules do not allow. Do you want to continue?"
-          )}
-        </p>
-        <div class="actions">
-          <button
-            id="leave-fide-continue"
-            type="button"
-            class="pe-btn"
-            phx-click="leave_fide_continue"
-          >
-            {gettext("Yes, continue")}
-          </button>
-          <button
-            id="leave-fide-cancel"
-            type="button"
-            class="pe-btn primary"
-            phx-click="leave_fide_cancel"
-          >
-            {gettext("Cancel")}
-          </button>
-        </div>
-      </div>
-
-      <div
-        :if={@step == :consequences}
-        id="leave-fide-consequences"
-        class="pe-modal-warn"
-        role="alertdialog"
-      >
-        <p style="margin: 0 0 6px"><strong>{gettext("What leaving FIDE mode does:")}</strong></p>
-        <ul style="margin: 0 0 8px; padding-left: 20px">
-          <li>{gettext("It is for good: this tournament can never return to FIDE mode.")}</li>
-          <li>
-            {gettext(
-              "The FIDE report (TRF) says from which round the tournament was no longer in FIDE mode, so whoever checks it knows where to look harder."
-            )}
-          </li>
-          <li>
-            {gettext(
-              "The locked settings and every earlier round can then be changed, and the program no longer stops a change the FIDE rules forbid."
-            )}
-          </li>
-          <li>{gettext("Every page of this tournament will say it is not in FIDE mode.")}</li>
-        </ul>
-        <p style="margin: 0 0 8px"><strong>{gettext("Stay in FIDE mode?")}</strong></p>
-        <div class="actions">
-          <button
-            id="leave-fide-stay"
-            type="button"
-            class="pe-btn primary"
-            phx-click="leave_fide_cancel"
-          >
-            {gettext("Yes, stay in FIDE mode")}
-          </button>
-          <button
-            id="leave-fide-confirm"
-            type="button"
-            class="pe-btn danger"
-            phx-click="leave_fide_confirm"
-          >
-            {gettext("No, leave FIDE mode")}
-          </button>
-        </div>
-      </div>
+      <.fide_exit_dialog
+        id="leave-fide"
+        step={@step}
+        continue_event="leave_fide_continue"
+        cancel_event="leave_fide_cancel"
+        confirm_event="leave_fide_confirm"
+      />
     </div>
     """
   end
@@ -291,15 +230,12 @@ defmodule PairingsEngineWeb.SettingsFideLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - FIDE")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-
-      <.settings_subnav tournament={@tournament} active={:fide} />
-
-      <.stale_banner stale={@stale} />
-
+      <.settings_subnav tournament={@tournament} active={:fide} /> <.stale_banner stale={@stale} />
       <div class="card">
         <h2>{gettext("FIDE handling")}</h2>
         <.compliance_notice tournament={@tournament} show_compliant />
@@ -308,7 +244,6 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
           )}
         </p>
-
         <.leave_fide_mode :if={Compliance.fide_mode?(@tournament)} step={@leave_step} />
       </div>
 
@@ -334,7 +269,6 @@ defmodule PairingsEngineWeb.SettingsFideLive do
               label={gettext("This tournament is FIDE-homologated (rated/reportable)")}
               checked={@tournament.fide_homologated}
             />
-
             <%!-- Bye preferences are not applied on a FIDE-rated
                   tournament; stored ones are kept, and this says whose. --%>
             <div
@@ -343,8 +277,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
               class="pe-modal-warn"
               role="note"
             >
-              <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong>
-              {ngettext(
+              <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong> {ngettext(
                 "%{names} has a bye preference, which is not applied when pairing a FIDE-rated tournament. It is kept, and applies again if the tournament stops being FIDE-rated.",
                 "%{names} have bye preferences, which are not applied when pairing a FIDE-rated tournament. They are kept, and apply again if the tournament stops being FIDE-rated.",
                 length(@ignored_bye_preferences),
@@ -370,6 +303,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
         <div class="card">
           <h2>{gettext("Per-round FIDE-ID ranges")}</h2>
+
           <p class="hint" style="margin-top: 0">
             {gettext(
               "For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds fall entirely inside one range below, that range's ID is used instead of the tournament-wide default above. Ranges may not overlap."
@@ -381,11 +315,15 @@ defmodule PairingsEngineWeb.SettingsFideLive do
               <thead>
                 <tr>
                   <th>{gettext("FIDE tournament ID")}</th>
+
                   <th>{gettext("From round")}</th>
+
                   <th>{gettext("To round")}</th>
+
                   <th><span class="sr-only">{gettext("Actions")}</span></th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr :for={{row, i} <- Enum.with_index(@rows)}>
                   <td>
@@ -395,6 +333,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                       value={row["fide_tournament_id"]}
                     />
                   </td>
+
                   <td>
                     <input
                       type="number"
@@ -405,6 +344,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                       value={row["from_round"]}
                     />
                   </td>
+
                   <td>
                     <input
                       type="number"
@@ -415,6 +355,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                       value={row["to_round"]}
                     />
                   </td>
+
                   <td style="text-align: right">
                     <button
                       type="button"

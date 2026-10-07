@@ -168,6 +168,14 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   defp click(conn, t) do
     {:ok, view, _html} = live(conn, ~p"/t/#{t.id}/pairings")
     render_click(view, "pair", %{})
+
+    # A pairing that departs from the FIDE rules asks twice first (Q43);
+    # this arbiter answers yes both times, so the golden stays what it was.
+    if has_element?(view, "#fide-gate-warn") do
+      view |> element("#fide-gate-continue") |> render_click()
+      view |> element("#fide-gate-confirm") |> render_click()
+    end
+
     refute has_element?(view, ".error-note, #pair-error")
     rows(render(view))
   end

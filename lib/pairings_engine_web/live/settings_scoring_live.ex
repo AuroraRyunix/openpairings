@@ -26,6 +26,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> attach_fide_gate()
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Scoring",
@@ -169,7 +170,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   def handle_event("preview", _params, socket), do: {:noreply, socket}
 
-  def handle_event("save", %{"tournament" => params}, socket) do
+  def handle_event("save", %{"tournament" => params} = payload, socket) do
     params =
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
@@ -182,6 +183,12 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
+    with :proceed <- fide_gate(socket, "save", payload, base, params) do
+      save_scoring(socket, base, params)
+    end
+  end
+
+  defp save_scoring(socket, base, params) do
     # `unlocked_fields` holds the UI-level `:abs_scoring` key, not the three
     # real schema fields it stands for - see `@abs_scoring_fields`. Read
     # from the socket, never from `params`: same "a crafted save must not
@@ -247,16 +254,17 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - Scoring")}</p>
         </div>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:scoring} />
-
-      <.compliance_notice tournament={@tournament} />
-
-      <.stale_banner stale={@stale} />
-
+      <.compliance_notice tournament={@tournament} /> <.stale_banner stale={@stale} />
+      <.fide_exit_dialog
+        id="fide-gate"
+        step={@fide_gate && @fide_gate.step}
+        reasons={(@fide_gate && @fide_gate.reasons) || []}
+      />
       <form id="scoring-settings-form" phx-submit="save" phx-change="preview">
         <div class="card">
           <h2>{gettext("Points")}</h2>
@@ -267,7 +275,6 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             fide_locked={@fide_locked}
             fields={[:points_win, :bye_value]}
           />
-
           <.setting_group>
             <.setting_field label={gettext("Points for a win")}>
               <input
@@ -320,7 +327,6 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             fide_locked={@fide_locked}
             fields={[:team_match_points_win]}
           />
-
           <p class="subtitle" style="margin: 0 0 8px">
             {gettext(
               "A team match is won by the team with more game points - the board results above, added up. FIDE team events give 2 match points for a win and 1 for a draw; change these if your league scores matches differently."
@@ -367,11 +373,13 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             id="team-pab-settings"
           >
             <h3>{gettext("Pairing-allocated bye")}</h3>
+
             <p class="subtitle" style="margin: 0 0 8px">
               {gettext(
                 "FIDE's team Swiss gives the team left out of an odd round the points of a drawn match, unless the competition's regulations say otherwise (C.04.6 Art. 1.4). Leave these empty for a drawn match's points."
               )}
             </p>
+
             <.setting_group>
               <.setting_field label={gettext("Match points for the bye")}>
                 <input
@@ -385,6 +393,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={:team_pab_match_points in @fide_locked}
                 />
               </.setting_field>
+
               <.setting_field label={gettext("Game points for the bye")}>
                 <input
                   id="team-pab-game-points"
@@ -428,6 +437,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 )}
               </span>
             </label>
+
             <p class="hint">
               {gettext(
                 "FIDE's rule for a player who withdraws from a round robin (General Regulations for Competitions 6.6): under 50% played, the results stay in the table for rating but do not count in the final ranking. Off by default: the results stand, as for an individual round robin here. The games always stay for the rating report."
@@ -470,6 +480,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={@abs_scoring_locked?}
                 /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:abs_scoring}
                 locked_hint={@locked_hint}
@@ -495,6 +506,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={@abs_scoring_locked?}
                 /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:abs_scoring}
                 locked_hint={@locked_hint}
@@ -520,6 +532,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={@abs_scoring_locked?}
                 /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:abs_scoring}
                 locked_hint={@locked_hint}
@@ -575,8 +588,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   fresh tournament about a setting they never touched. What
                   is actually dangerous is moving it mid-event. --%>
             <div :if={@vur_checked != @tournament.absent_counts_as_vur} class="setting-warning">
-              <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong>
-              {gettext(
+              <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong> {gettext(
                 "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
               )}
             </div>
