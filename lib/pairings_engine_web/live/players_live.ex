@@ -12,6 +12,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     PlayerStats,
     PlayerCard,
     RatingRefresh,
+    StartingNumbers,
     Tiebreaks
   }
 
@@ -158,6 +159,9 @@ defmodule PairingsEngineWeb.PlayersLive do
        titles: @titles,
        rating_refresh: nil,
        club_refresh: nil,
+       # The round robin's starting numbers dialog: nil while closed, else
+       # `StartingNumbers.order/1`.
+       starting_numbers: nil,
        bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
        # One switch for both since 0.74.2; the old Belgian key still counts
@@ -236,7 +240,23 @@ defmodule PairingsEngineWeb.PlayersLive do
       |> filter_by_category(socket.assigns[:cat_filter])
       |> sort_entries(socket.assigns[:sort_col], socket.assigns[:sort_dir])
 
-    assign(socket, :players, entries)
+    socket
+    |> assign(:players, entries)
+    |> assign(
+      :starting_numbers_editable?,
+      StartingNumbers.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
+    )
+    |> refresh_starting_numbers()
+  end
+
+  # An open starting-numbers dialog follows the roster (another tab, a new
+  # entry) and closes once a round is paired.
+  defp refresh_starting_numbers(%{assigns: %{starting_numbers: nil}} = socket), do: socket
+
+  defp refresh_starting_numbers(socket) do
+    if socket.assigns.starting_numbers_editable?,
+      do: assign(socket, :starting_numbers, StartingNumbers.order(socket.assigns.tournament)),
+      else: assign(socket, :starting_numbers, nil)
   end
 
   # "Show only the U16s" - a FILTER, not a sort. It changes which rows exist
@@ -1055,6 +1075,74 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("set_all_paid", _params, socket), do: {:noreply, socket}
+
+  ## ---------- Round-robin starting numbers (C.05 6.2, VCL4THP Q95) ----------
+  #
+  # Before round 1 the arbiter sets the Berger numbers - by hand, or by a
+  # drawing of lots - instead of the rating order round 1 would otherwise
+  # freeze. See `PairingsEngine.StartingNumbers`.
+
+  def handle_event("open_starting_numbers", _params, socket) do
+    if socket.assigns.starting_numbers_editable? do
+      {:noreply,
+       assign(socket, :starting_numbers, StartingNumbers.order(socket.assigns.tournament))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_starting_numbers", _params, socket),
+    do: {:noreply, assign(socket, :starting_numbers, nil)}
+
+  def handle_event("sn_move", %{"id" => id, "direction" => dir}, socket)
+      when dir in ["up", "down"] do
+    case Integer.parse(to_string(id)) do
+      {player_id, ""} ->
+        direction = if dir == "up", do: :up, else: :down
+
+        starting_numbers_result(
+          socket,
+          StartingNumbers.move(socket.assigns.tournament, player_id, direction),
+          %{player_name: sn_name(socket, player_id), direction: dir}
+        )
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("sn_move", _params, socket), do: {:noreply, socket}
+
+  def handle_event("sn_move_to", %{"player_id" => id, "number" => number}, socket) do
+    with {player_id, ""} <- Integer.parse(to_string(id)),
+         {n, ""} <- Integer.parse(String.trim(to_string(number))) do
+      starting_numbers_result(
+        socket,
+        StartingNumbers.move_to(socket.assigns.tournament, player_id, n),
+        %{player_name: sn_name(socket, player_id), number: n}
+      )
+    else
+      _ -> {:noreply, put_flash(socket, :error, gettext("Type a starting number."))}
+    end
+  end
+
+  def handle_event("sn_move_to", _params, socket), do: {:noreply, socket}
+
+  def handle_event("sn_draw_lots", _params, socket) do
+    starting_numbers_result(
+      socket,
+      StartingNumbers.draw_lots(socket.assigns.tournament),
+      %{drawn: true}
+    )
+  end
+
+  def handle_event("sn_by_rating", _params, socket) do
+    starting_numbers_result(
+      socket,
+      StartingNumbers.by_rating(socket.assigns.tournament),
+      %{by_rating: true}
+    )
+  end
 
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
 
@@ -2366,6 +2454,21 @@ defmodule PairingsEngineWeb.PlayersLive do
           </a>
 
           <button
+            :if={@starting_numbers_editable?}
+            id="open-starting-numbers"
+            type="button"
+            class="pe-btn"
+            phx-click="open_starting_numbers"
+            title={
+              gettext(
+                "Set the round robin's starting numbers before round 1 - by hand, or by a drawing of lots"
+              )
+            }
+          >
+            {gettext("Starting numbers")}
+          </button>
+
+          <button
             type="button"
             class="pe-btn"
             phx-click="open_rating_refresh"
@@ -2924,7 +3027,155 @@ defmodule PairingsEngineWeb.PlayersLive do
         tournament={@tournament}
       /> <.rating_refresh_modal :if={@rating_refresh} summary={@rating_refresh} />
       <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
+      <.starting_numbers_modal :if={@starting_numbers} order={@starting_numbers} />
     </Layouts.app>
+    """
+  end
+
+  defp sn_name(socket, player_id) do
+    Enum.find_value(socket.assigns.starting_numbers || [], "?", fn {player, _n} ->
+      player.id == player_id && player.name
+    end)
+  end
+
+  defp starting_numbers_result(socket, {:ok, order}, details) do
+    Audit.log(
+      socket.assigns.tournament.id,
+      socket.assigns.current_scope,
+      "player.starting_numbers_set",
+      details
+    )
+
+    {:noreply, socket |> assign_players() |> assign(:starting_numbers, order)}
+  end
+
+  defp starting_numbers_result(socket, {:error, reason}, _details) do
+    message =
+      case reason do
+        :round_paired ->
+          gettext("Round 1 is paired: the starting numbers are the schedule now.")
+
+        :out_of_range ->
+          gettext("That starting number is outside the list.")
+
+        reason when reason in [:archived, :handed_off] ->
+          error_text(reason)
+
+        _ ->
+          gettext("The list changed meanwhile - try again.")
+      end
+
+    {:noreply, socket |> put_flash(:error, message) |> assign_players()}
+  end
+
+  ## ---------- Round-robin starting numbers modal ----------
+
+  attr :order, :list, required: true
+
+  defp starting_numbers_modal(assigns) do
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="close_starting_numbers" phx-key="escape">
+      <div
+        class="modal-card"
+        phx-click-away="close_starting_numbers"
+        style="max-width: 620px"
+        id="starting-numbers-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="starting-numbers-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="starting-numbers-title">{gettext("Starting numbers")}</h2>
+
+        <p class="hint">
+          {gettext(
+            "These are the numbers the Berger tables pair by. Enter the result of the drawing of lots by hand, or let the program draw them. They are used when round 1 is paired and cannot change after that. A player entered later gets the next number."
+          )}
+        </p>
+
+        <div class="actions">
+          <button
+            id="sn-draw-lots"
+            type="button"
+            class="pe-btn primary"
+            phx-click="sn_draw_lots"
+            data-confirm={gettext("Draw all starting numbers by lot? The current order is replaced.")}
+          >
+            {gettext("Draw lots")}
+          </button>
+          <button id="sn-by-rating" type="button" class="pe-btn" phx-click="sn_by_rating">
+            {gettext("Order by rating")}
+          </button>
+        </div>
+
+        <div class="card-table-wrap">
+          <table class="pe-table" id="starting-numbers">
+            <thead>
+              <tr>
+                <th class="num">{gettext("No.")}</th>
+                <th>{gettext("Player")}</th>
+                <th class="num">{gettext("Rating")}</th>
+                <th>{gettext("Move")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{player, number} <- @order} id={"sn-row-#{player.id}"}>
+                <td class="num">
+                  <form id={"sn-number-#{player.id}"} phx-submit="sn_move_to" style="display: inline">
+                    <input type="hidden" name="player_id" value={player.id} />
+                    <input
+                      type="number"
+                      name="number"
+                      value={number}
+                      min="1"
+                      max={length(@order)}
+                      style="width: 4.5em"
+                      aria-label={gettext("Starting number of %{name}", name: player.name)}
+                    />
+                  </form>
+                </td>
+                <td>{player.name}</td>
+                <td class="num">{rating_or_dash(Player.rating(player))}</td>
+                <td>
+                  <button
+                    id={"sn-up-#{player.id}"}
+                    type="button"
+                    class="pe-btn"
+                    phx-click="sn_move"
+                    phx-value-id={player.id}
+                    phx-value-direction="up"
+                    disabled={number == 1}
+                    aria-label={gettext("Move %{name} up", name: player.name)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    id={"sn-down-#{player.id}"}
+                    type="button"
+                    class="pe-btn"
+                    phx-click="sn_move"
+                    phx-value-id={player.id}
+                    phx-value-direction="down"
+                    disabled={number == length(@order)}
+                    aria-label={gettext("Move %{name} down", name: player.name)}
+                  >
+                    ↓
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="pe-btn" phx-click="close_starting_numbers">
+            {gettext("Close")}
+          </button>
+        </div>
+      </div>
+    </div>
     """
   end
 

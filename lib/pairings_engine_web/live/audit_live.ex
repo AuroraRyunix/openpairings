@@ -100,7 +100,7 @@ defmodule PairingsEngineWeb.AuditLive do
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
         team.board_order_changed team.seeding_changed team.withdrawn team.reinstated
-        team.absence_changed)},
+        team.absence_changed player.starting_numbers_set)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.results_imported pairing.players_swapped pairing.player_substituted
@@ -341,6 +341,25 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("team.seeding_changed", d),
     do: gettext("Moved team %{team} down the order.", team: name(d, "team_name"))
+
+  def describe("player.starting_numbers_set", %{"drawn" => true}),
+    do: gettext("Drew the starting numbers by lot.")
+
+  def describe("player.starting_numbers_set", %{"by_rating" => true}),
+    do: gettext("Set the starting numbers back to the rating order.")
+
+  def describe("player.starting_numbers_set", %{"number" => _} = d),
+    do:
+      gettext("Gave %{name} starting number %{number}.",
+        name: name(d, "player_name"),
+        number: value(d, "number")
+      )
+
+  def describe("player.starting_numbers_set", %{"direction" => "up"} = d),
+    do: gettext("Moved %{name} up the starting order.", name: name(d, "player_name"))
+
+  def describe("player.starting_numbers_set", d),
+    do: gettext("Moved %{name} down the starting order.", name: name(d, "player_name"))
 
   def describe("player.deleted", d),
     do: gettext("Deleted player %{name}.", name: name(d, "player_name"))
