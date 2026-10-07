@@ -109,12 +109,20 @@ defmodule PairingsEngine.ManualPairing do
     with :ok <- Tournaments.ensure_writable(round.tournament_id) do
       set =
         case pibe do
-          {:set, line} when is_binary(line) -> [mpa_session: nil, mpa_pibe: line]
-          :clear -> [mpa_session: nil, mpa_pibe: nil]
-          :keep -> [mpa_session: nil]
+          {:set, line} when is_binary(line) -> [mpa_pibe: line]
+          :clear -> [mpa_pibe: nil]
+          :keep -> []
         end
 
-      Repo.update_all(from(r in Round, where: r.id == ^round.id), set: set)
+      # SQL NULL, not a JSON `null`: a nil handed to a map column is
+      # stored as the text "null", which `open_round/1` would still see.
+      Repo.update_all(
+        from(r in Round,
+          where: r.id == ^round.id,
+          update: [set: [mpa_session: fragment("NULL")]]
+        ),
+        set: set
+      )
       Tournaments.broadcast_tournament_change(round.tournament_id, :rounds)
       :ok
     end
