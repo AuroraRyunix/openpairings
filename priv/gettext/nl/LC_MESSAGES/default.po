@@ -27,8 +27,8 @@ msgstr ""
 msgid "Actions"
 msgstr "Acties"
 
-#: lib/pairings_engine_web/components/layouts.ex:858
-#: lib/pairings_engine_web/components/layouts.ex:874
+#: lib/pairings_engine_web/components/layouts.ex:873
+#: lib/pairings_engine_web/components/layouts.ex:889
 #, elixir-autogen, elixir-format
 msgid "Attempting to reconnect"
 msgstr "Bezig met opnieuw verbinden"
@@ -40,20 +40,20 @@ msgstr "Bezig met opnieuw verbinden"
 msgid "Birth year"
 msgstr "Geboortejaar"
 
-#: lib/pairings_engine_web/components/layouts.ex:1009
-#: lib/pairings_engine_web/components/layouts.ex:1010
-#: lib/pairings_engine_web/components/layouts.ex:1015
+#: lib/pairings_engine_web/components/layouts.ex:1024
+#: lib/pairings_engine_web/components/layouts.ex:1025
+#: lib/pairings_engine_web/components/layouts.ex:1030
 #: lib/pairings_engine_web/live/user_live/settings.ex:873
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr "Taal"
 
-#: lib/pairings_engine_web/components/layouts.ex:865
+#: lib/pairings_engine_web/components/layouts.ex:880
 #, elixir-autogen, elixir-format
 msgid "Something went wrong!"
 msgstr "Er is iets misgegaan!"
 
-#: lib/pairings_engine_web/components/layouts.ex:849
+#: lib/pairings_engine_web/components/layouts.ex:864
 #, elixir-autogen, elixir-format
 msgid "We can't find the internet"
 msgstr "We vinden het internet niet"
@@ -105,8 +105,8 @@ msgstr "Een .swar-bestand dat SWAR zelf kan openen - nooit gecontroleerd tegen e
 msgid "Absent at the rounds (e.g. 3,5 or 2-4)"
 msgstr "Afwezig in de rondes (bv. 3,5 of 2-4)"
 
-#: lib/pairings_engine_web/components/layouts.ex:922
-#: lib/pairings_engine_web/components/layouts.ex:923
+#: lib/pairings_engine_web/components/layouts.ex:937
+#: lib/pairings_engine_web/components/layouts.ex:938
 #: lib/pairings_engine_web/live/user_live/settings.ex:898
 #, elixir-autogen, elixir-format
 msgid "Accent colour"
@@ -391,9 +391,9 @@ msgstr "Tak inklappen"
 msgid "Colour balance (real games)"
 msgstr "Kleurbalans (echte partijen)"
 
-#: lib/pairings_engine_web/components/layouts.ex:1046
-#: lib/pairings_engine_web/components/layouts.ex:1047
-#: lib/pairings_engine_web/components/layouts.ex:1052
+#: lib/pairings_engine_web/components/layouts.ex:1061
+#: lib/pairings_engine_web/components/layouts.ex:1062
+#: lib/pairings_engine_web/components/layouts.ex:1067
 #: lib/pairings_engine_web/live/user_live/settings.ex:883
 #, elixir-autogen, elixir-format
 msgid "Colour theme"
@@ -906,7 +906,7 @@ msgstr "Link naar paringen op het web (IT4)"
 msgid "Live tournament rank - click to sort by current standings rank (same as Cl)"
 msgstr "Live toernooiplaats - klik om te sorteren op de huidige plaats in de stand (zelfde als Cl)"
 
-#: lib/pairings_engine_web/components/layouts.ex:472
+#: lib/pairings_engine_web/components/layouts.ex:487
 #: lib/pairings_engine_web/live/user_live/registration.ex:104
 #, elixir-autogen, elixir-format
 msgid "Log in"
@@ -917,7 +917,7 @@ msgstr "Aanmelden"
 msgid "Log in only this time"
 msgstr "Enkel deze keer aanmelden"
 
-#: lib/pairings_engine_web/components/layouts.ex:467
+#: lib/pairings_engine_web/components/layouts.ex:482
 #, elixir-autogen, elixir-format
 msgid "Log out"
 msgstr "Afmelden"
@@ -1672,7 +1672,7 @@ msgstr "Dit toernooi is FIDE-gehomologeerd (FIDE-rated/rapporteerbaar)"
 msgid "This tournament is FIDE-homologated."
 msgstr "Dit toernooi is FIDE-gehomologeerd."
 
-#: lib/pairings_engine_web/components/layouts.ex:541
+#: lib/pairings_engine_web/components/layouts.ex:556
 #, elixir-autogen, elixir-format
 msgid "This tournament is archived."
 msgstr "Dit toernooi is gearchiveerd."
@@ -1708,7 +1708,7 @@ msgstr "Toernooitype & speeltempo"
 msgid "Type DELETE to confirm"
 msgstr "Typ DELETE om te bevestigen"
 
-#: lib/pairings_engine_web/components/layouts.ex:545
+#: lib/pairings_engine_web/components/layouts.ex:560
 #, elixir-autogen, elixir-format
 msgid "Unarchive from Tournaments"
 msgstr "Dearchiveren via Toernooien"
@@ -2232,7 +2232,7 @@ msgstr "Volledig leeggemaakte borden die verborgen zijn in de tabel van deze ron
 msgid "It is reversible: the state you're leaving is saved as its own restore point first, so you can come straight back to it. Your audit trail, collaborators and public link are not affected."
 msgstr "Het is omkeerbaar: de toestand die je verlaat wordt eerst als eigen herstelpunt bewaard, zodat je er meteen naar terug kan. Je auditlogboek, medewerkers en publieke link blijven ongewijzigd."
 
-#: lib/pairings_engine_web/components/layouts.ex:541
+#: lib/pairings_engine_web/components/layouts.ex:556
 #, elixir-autogen, elixir-format
 msgid "It's read-only - every change is refused until you unarchive it. Everything else (viewing, printing, exporting, its public link) still works normally."
 msgstr "Het is alleen-lezen - elke wijziging wordt geweigerd tot je het dearchiveert. Al de rest (bekijken, afdrukken, exporteren, de publieke link) werkt gewoon."
@@ -2722,7 +2722,7 @@ msgstr "Terug"
 msgid "Black"
 msgstr "Zwart"
 
-#: lib/pairings_engine_web/components/layouts.ex:967
+#: lib/pairings_engine_web/components/layouts.ex:982
 #: lib/pairings_engine_web/controllers/print_controller.ex:717
 #: lib/pairings_engine_web/controllers/print_controller.ex:810
 #: lib/pairings_engine_web/controllers/print_controller.ex:970
@@ -2978,7 +2978,7 @@ msgstr "Hulparbiter: %{value}"
 msgid "Description"
 msgstr "Omschrijving"
 
-#: lib/pairings_engine_web/components/layouts.ex:531
+#: lib/pairings_engine_web/components/layouts.ex:546
 #: lib/pairings_engine_web/components/layouts/root.html.heex:187
 #, elixir-autogen, elixir-format
 msgid "Dismiss"
@@ -3704,7 +3704,7 @@ msgid "Scoring"
 msgstr "Puntentelling"
 
 #: lib/pairings_engine_web/components/layouts.ex:221
-#: lib/pairings_engine_web/components/layouts.ex:427
+#: lib/pairings_engine_web/components/layouts.ex:442
 #: lib/pairings_engine_web/live/audit_live.ex:219
 #, elixir-autogen, elixir-format
 msgid "Settings"
@@ -3789,7 +3789,7 @@ msgstr "Overschakelen naar handmatige rangschikking? De huidige berekende volgor
 msgid "Syncing…"
 msgstr "Bezig met synchroniseren…"
 
-#: lib/pairings_engine_web/components/layouts.ex:1060
+#: lib/pairings_engine_web/components/layouts.ex:1075
 #: lib/pairings_engine_web/live/audit_live.ex:2354
 #: lib/pairings_engine_web/live/tournaments_live.ex:2886
 #: lib/pairings_engine_web/live/user_live/settings.ex:1366
@@ -4891,7 +4891,7 @@ msgstr "(ingesteld in de serverconfiguratie)"
 msgid "(you)"
 msgstr "(jij)"
 
-#: lib/pairings_engine_web/components/layouts.ex:407
+#: lib/pairings_engine_web/components/layouts.ex:422
 #: lib/pairings_engine_web/live/admin_live.ex:223
 #: lib/pairings_engine_web/live/user_live/settings.ex:94
 #: lib/pairings_engine_web/live/user_live/settings.ex:570
@@ -5133,7 +5133,7 @@ msgstr "Iedereen met wie het toernooi gedeeld was, komt hier terug als een opens
 msgid "Bring back \"%{name}\""
 msgstr "\"%{name}\" terughalen"
 
-#: lib/pairings_engine_web/components/layouts.ex:578
+#: lib/pairings_engine_web/components/layouts.ex:593
 #: lib/pairings_engine_web/live/tournaments_live.ex:2984
 #, elixir-autogen, elixir-format
 msgid "Bring it back"
@@ -5330,7 +5330,7 @@ msgstr "Deze machine heeft dit toernooi al - het werd al eerder ontvangen. Het o
 msgid "This tournament has already been handed off. Take it back before handing it somewhere else."
 msgstr "Dit toernooi is al overgedragen. Haal het terug voor je het ergens anders naartoe overdraagt."
 
-#: lib/pairings_engine_web/components/layouts.ex:567
+#: lib/pairings_engine_web/components/layouts.ex:582
 #, elixir-autogen, elixir-format
 msgid "This tournament has been handed off to %{place}."
 msgstr "Dit toernooi is overgedragen aan %{place}."
@@ -5395,8 +5395,8 @@ msgstr "Wat niet meereist:"
 msgid "Where is it going?"
 msgstr "Waar gaat het naartoe?"
 
-#: lib/pairings_engine_web/components/layouts.ex:708
-#: lib/pairings_engine_web/components/layouts.ex:713
+#: lib/pairings_engine_web/components/layouts.ex:723
+#: lib/pairings_engine_web/components/layouts.ex:728
 #: lib/pairings_engine_web/live/settings_support.ex:456
 #: lib/pairings_engine_web/live/settings_support.ex:461
 #: lib/pairings_engine_web/live/tournaments_live.ex:2786
@@ -5430,7 +5430,7 @@ msgstr "in bruikleen"
 msgid "the other machine"
 msgstr "de andere machine"
 
-#: lib/pairings_engine_web/components/layouts.ex:571
+#: lib/pairings_engine_web/components/layouts.ex:586
 #, elixir-autogen, elixir-format
 msgid "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back, and the returning file brings everything played over there with it. Everything else (viewing, printing, exporting) still works normally."
 msgstr "Het verliet deze kopie op %{at} en is daar nu live. Het is hier alleen-lezen - elke wijziging wordt geweigerd tot het teruggegeven wordt, en het retourbestand brengt alles mee wat daar gespeeld is. Al de rest (bekijken, afdrukken, exporteren) werkt gewoon."
@@ -5511,7 +5511,7 @@ msgstr "Kon dat niet bewaren. Probeer het opnieuw."
 msgid "Downloads the Belgian member list (players, ratings, clubs) from the KBSB data platform and keeps a local copy. Adds its panel to the Connections page."
 msgstr "Downloadt de Belgische ledenlijst (spelers, ratings, clubs) van het KBSB-dataplatform en houdt er een lokale kopie van bij. Voegt het bijbehorende paneel toe aan de pagina Verbindingen."
 
-#: lib/pairings_engine_web/components/layouts.ex:441
+#: lib/pairings_engine_web/components/layouts.ex:456
 #, elixir-autogen, elixir-format
 msgid "Features"
 msgstr "Functies"
@@ -5790,7 +5790,7 @@ msgstr "Ronde %{n} is gepaard maar niet gepubliceerd."
 msgid "This view shows what is public, so a round is never on a screen in the hall while it is being held back from the results site. Publish it on the pairings page to show it here."
 msgstr "Deze weergave toont wat openbaar is, zodat een ronde nooit op een scherm in de zaal staat terwijl ze wordt achtergehouden voor de uitslagensite. Publiceer ze op de paringenpagina om ze hier te tonen."
 
-#: lib/pairings_engine_web/components/layouts.ex:796
+#: lib/pairings_engine_web/components/layouts.ex:811
 #, elixir-autogen, elixir-format
 msgid "%{names} and %{count} other"
 msgid_plural "%{names} and %{count} others"
@@ -7087,12 +7087,12 @@ msgstr "Uit"
 msgid "On"
 msgstr "Aan"
 
-#: lib/pairings_engine_web/components/layouts.ex:493
+#: lib/pairings_engine_web/components/layouts.ex:508
 #, elixir-autogen, elixir-format
 msgid "OpenPairings v%{version} is out."
 msgstr "OpenPairings v%{version} is uit."
 
-#: lib/pairings_engine_web/components/layouts.ex:747
+#: lib/pairings_engine_web/components/layouts.ex:762
 #, elixir-autogen, elixir-format
 msgid "This is a shared, per-machine install - updating needs an administrator."
 msgstr "Dit is een gedeelde installatie voor de hele machine - bijwerken vereist een beheerder."
@@ -7109,7 +7109,7 @@ msgstr "Uitzetten"
 msgid "Turn on"
 msgstr "Aanzetten"
 
-#: lib/pairings_engine_web/components/layouts.ex:491
+#: lib/pairings_engine_web/components/layouts.ex:506
 #, elixir-autogen, elixir-format
 msgid "Update available"
 msgstr "Update beschikbaar"
@@ -7119,42 +7119,42 @@ msgstr "Update beschikbaar"
 msgid "Updates"
 msgstr "Updates"
 
-#: lib/pairings_engine_web/components/layouts.ex:522
+#: lib/pairings_engine_web/components/layouts.ex:537
 #, elixir-autogen, elixir-format
 msgid "View the release"
 msgstr "Bekijk de release"
 
-#: lib/pairings_engine_web/components/layouts.ex:807
+#: lib/pairings_engine_web/components/layouts.ex:822
 #, elixir-autogen, elixir-format
 msgid "A round is paired but not finished in %{names} - best to install between tournaments."
 msgstr "In %{names} is een ronde ingedeeld maar nog niet afgerond - installeer bij voorkeur tussen toernooien door."
 
-#: lib/pairings_engine_web/components/layouts.ex:740
+#: lib/pairings_engine_web/components/layouts.ex:755
 #, elixir-autogen, elixir-format
 msgid "Download the new installer and run it - your tournaments are kept separately and carry over."
 msgstr "Download het nieuwe installatieprogramma en voer het uit - je toernooien worden apart bewaard en blijven behouden."
 
-#: lib/pairings_engine_web/components/layouts.ex:751
+#: lib/pairings_engine_web/components/layouts.ex:766
 #, elixir-autogen, elixir-format
 msgid "Download the new version and use it in place of this one - your tournaments are kept separately and carry over."
 msgstr "Download de nieuwe versie en gebruik die in plaats van deze - je toernooien worden apart bewaard en blijven behouden."
 
-#: lib/pairings_engine_web/components/layouts.ex:736
+#: lib/pairings_engine_web/components/layouts.ex:751
 #, elixir-autogen, elixir-format
 msgid "Click \"Install and restart\" below - your tournaments are kept separately and carry over."
 msgstr "Klik hieronder op \"Installeren en herstarten\" - je toernooien worden apart bewaard en blijven behouden."
 
-#: lib/pairings_engine_web/components/layouts.ex:777
+#: lib/pairings_engine_web/components/layouts.ex:792
 #, elixir-autogen, elixir-format
 msgid "Install OpenPairings v%{version} and restart now?"
 msgstr "OpenPairings v%{version} nu installeren en herstarten?"
 
-#: lib/pairings_engine_web/components/layouts.ex:512
+#: lib/pairings_engine_web/components/layouts.ex:527
 #, elixir-autogen, elixir-format
 msgid "Install and restart"
 msgstr "Installeren en herstarten"
 
-#: lib/pairings_engine_web/components/layouts.ex:497
+#: lib/pairings_engine_web/components/layouts.ex:512
 #, elixir-autogen, elixir-format
 msgid "Installing the update - OpenPairings will restart in a moment…"
 msgstr "Update wordt geïnstalleerd - OpenPairings herstart zo…"
@@ -8761,12 +8761,12 @@ msgstr "%{role}: naam"
 msgid ", prize place"
 msgstr ", prijsplaats"
 
-#: lib/pairings_engine_web/components/layouts.ex:381
+#: lib/pairings_engine_web/components/layouts.ex:396
 #, elixir-autogen, elixir-format
 msgid "Account and display"
 msgstr "Account en weergave"
 
-#: lib/pairings_engine_web/components/layouts.ex:900
+#: lib/pairings_engine_web/components/layouts.ex:915
 #: lib/pairings_engine_web/live/user_live/settings.ex:1376
 #, elixir-autogen, elixir-format
 msgid "Blue"
@@ -8788,43 +8788,43 @@ msgstr "Bord %{board}: resultaat gewist"
 msgid "Clear the result"
 msgstr "Resultaat wissen"
 
-#: lib/pairings_engine_web/components/layouts.ex:906
+#: lib/pairings_engine_web/components/layouts.ex:921
 #: lib/pairings_engine_web/live/user_live/settings.ex:1382
 #, elixir-autogen, elixir-format
 msgid "Cyan"
 msgstr "Cyaan"
 
-#: lib/pairings_engine_web/components/layouts.ex:963
+#: lib/pairings_engine_web/components/layouts.ex:978
 #: lib/pairings_engine_web/live/user_live/settings.ex:1368
 #, elixir-autogen, elixir-format
 msgid "Dark"
 msgstr "Donker"
 
-#: lib/pairings_engine_web/components/layouts.ex:907
+#: lib/pairings_engine_web/components/layouts.ex:922
 #: lib/pairings_engine_web/live/user_live/settings.ex:1383
 #, elixir-autogen, elixir-format
 msgid "Fuchsia"
 msgstr "Fuchsia"
 
-#: lib/pairings_engine_web/components/layouts.ex:899
+#: lib/pairings_engine_web/components/layouts.ex:914
 #: lib/pairings_engine_web/live/user_live/settings.ex:1375
 #, elixir-autogen, elixir-format
 msgid "Green"
 msgstr "Groen"
 
-#: lib/pairings_engine_web/components/layouts.ex:968
+#: lib/pairings_engine_web/components/layouts.ex:983
 #: lib/pairings_engine_web/live/user_live/settings.ex:1373
 #, elixir-autogen, elixir-format
 msgid "High Contrast"
 msgstr "Hoog contrast"
 
-#: lib/pairings_engine_web/components/layouts.ex:905
+#: lib/pairings_engine_web/components/layouts.ex:920
 #: lib/pairings_engine_web/live/user_live/settings.ex:1381
 #, elixir-autogen, elixir-format
 msgid "Indigo"
 msgstr "Indigo"
 
-#: lib/pairings_engine_web/components/layouts.ex:962
+#: lib/pairings_engine_web/components/layouts.ex:977
 #: lib/pairings_engine_web/live/user_live/settings.ex:1367
 #, elixir-autogen, elixir-format
 msgid "Light"
@@ -8835,7 +8835,7 @@ msgstr "Licht"
 msgid "Main navigation"
 msgstr "Hoofdnavigatie"
 
-#: lib/pairings_engine_web/components/layouts.ex:965
+#: lib/pairings_engine_web/components/layouts.ex:980
 #: lib/pairings_engine_web/live/user_live/settings.ex:1370
 #, elixir-autogen, elixir-format
 msgid "Mocha"
@@ -8851,7 +8851,7 @@ msgstr "%{tiebreak} omlaag verplaatsen"
 msgid "Move %{tiebreak} up"
 msgstr "%{tiebreak} omhoog verplaatsen"
 
-#: lib/pairings_engine_web/components/layouts.ex:966
+#: lib/pairings_engine_web/components/layouts.ex:981
 #: lib/pairings_engine_web/live/user_live/settings.ex:1371
 #, elixir-autogen, elixir-format
 msgid "Paper"
@@ -8883,7 +8883,7 @@ msgstr "Resultaat, bord %{board}: %{white} tegen %{black}"
 msgid "Resume cycling"
 msgstr "Automatisch doorbladeren hervatten"
 
-#: lib/pairings_engine_web/components/layouts.ex:903
+#: lib/pairings_engine_web/components/layouts.ex:918
 #: lib/pairings_engine_web/live/user_live/settings.ex:1379
 #, elixir-autogen, elixir-format
 msgid "Rose"
@@ -8894,15 +8894,15 @@ msgstr "Roze"
 msgid "Skip to content"
 msgstr "Naar de inhoud"
 
-#: lib/pairings_engine_web/components/layouts.ex:904
-#: lib/pairings_engine_web/components/layouts.ex:964
+#: lib/pairings_engine_web/components/layouts.ex:919
+#: lib/pairings_engine_web/components/layouts.ex:979
 #: lib/pairings_engine_web/live/user_live/settings.ex:1369
 #: lib/pairings_engine_web/live/user_live/settings.ex:1380
 #, elixir-autogen, elixir-format
 msgid "Slate"
 msgstr "Leisteen"
 
-#: lib/pairings_engine_web/components/layouts.ex:901
+#: lib/pairings_engine_web/components/layouts.ex:916
 #: lib/pairings_engine_web/live/user_live/settings.ex:1377
 #, elixir-autogen, elixir-format
 msgid "Teal"
@@ -8913,7 +8913,7 @@ msgstr "Blauwgroen"
 msgid "Type RESTORE to confirm"
 msgstr "Typ RESTORE om te bevestigen"
 
-#: lib/pairings_engine_web/components/layouts.ex:902
+#: lib/pairings_engine_web/components/layouts.ex:917
 #: lib/pairings_engine_web/live/user_live/settings.ex:1378
 #, elixir-autogen, elixir-format
 msgid "Violet"
@@ -10346,7 +10346,7 @@ msgstr "Net al gecontroleerd - probeer het straks opnieuw."
 msgid "Couldn't reach GitHub."
 msgstr "Kon GitHub niet bereiken."
 
-#: lib/pairings_engine_web/components/layouts.ex:529
+#: lib/pairings_engine_web/components/layouts.ex:544
 #, elixir-autogen, elixir-format
 msgid "Dismiss the update notice for this version"
 msgstr "De updatemelding voor deze versie sluiten"
@@ -14980,7 +14980,7 @@ msgid_plural "Not final: %{count} games in these rounds have no result yet."
 msgstr[0] "Niet definitief: een partij in deze ronden heeft nog geen resultaat."
 msgstr[1] "Niet definitief: %{count} partijen in deze ronden hebben nog geen resultaat."
 
-#: lib/pairings_engine_web/components/layouts.ex:587
+#: lib/pairings_engine_web/components/layouts.ex:602
 #, elixir-autogen, elixir-format
 msgid "Not in FIDE mode."
 msgstr "Niet in de FIDE-modus."
@@ -15071,7 +15071,7 @@ msgstr "Twee remises zijn meer waard dan een winst en een verlies samen. Een par
 msgid "What leaving FIDE mode does:"
 msgstr "Wat de FIDE-modus verlaten doet:"
 
-#: lib/pairings_engine_web/components/layouts.ex:588
+#: lib/pairings_engine_web/components/layouts.ex:603
 #, elixir-autogen, elixir-format
 msgid "What that means"
 msgstr "Wat dat betekent"
@@ -16656,7 +16656,8 @@ msgstr "Handmatige aanpassingen gestart."
 msgid "Hand edits to round %{n} are open."
 msgstr "Handmatige aanpassingen aan ronde %{n} staan open."
 
-#: lib/pairings_engine_web/components/layouts.ex:377
+#: lib/pairings_engine_web/components/layouts.ex:381
+#: lib/pairings_engine_web/components/layouts.ex:392
 #: lib/pairings_engine_web/live/help_live.ex:49
 #: lib/pairings_engine_web/live/help_live.ex:71
 #: lib/pairings_engine_web/live/help_live.ex:82
@@ -17936,8 +17937,8 @@ msgid_plural "%{count} sections match \"%{query}\"."
 msgstr[0] "Eén sectie bevat \"%{query}\"."
 msgstr[1] "%{count} secties bevatten \"%{query}\"."
 
-#: lib/pairings_engine_web/components/manual_link.ex:46
-#: lib/pairings_engine_web/components/manual_link.ex:47
+#: lib/pairings_engine_web/components/manual_link.ex:49
+#: lib/pairings_engine_web/components/manual_link.ex:50
 #, elixir-autogen, elixir-format
 msgid "Open the manual for this page"
 msgstr "Open de handleiding bij deze pagina"
@@ -17992,11 +17993,6 @@ msgstr "Zoek in de handleiding"
 #, elixir-autogen, elixir-format
 msgid "The OpenPairings user manual"
 msgstr "De gebruikershandleiding van OpenPairings"
-
-#: lib/pairings_engine_web/live/help_live.ex:178
-#, elixir-autogen, elixir-format
-msgid "The arbiter's handbook"
-msgstr "Het handboek van de arbiter"
 
 #: lib/pairings_engine_web/live/help_live.ex:170
 #: lib/pairings_engine_web/live/help_live.ex:177
@@ -18267,3 +18263,8 @@ msgstr "andere tegenstander"
 #, elixir-autogen, elixir-format
 msgid "take these name cards back and put out the ones of the pairing - print the pairing again. The pairing stands as it is: it is never changed to match an announcement."
 msgstr "haal deze naamkaartjes terug en leg die van de paring - druk de paring opnieuw af. De paring blijft zoals ze is: ze wordt nooit aangepast aan een aankondiging."
+
+#: lib/pairings_engine_web/components/layouts.ex:390
+#, elixir-autogen, elixir-format
+msgid "Opens the manual in a new tab"
+msgstr "Opent de handleiding in een nieuw tabblad"

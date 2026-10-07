@@ -367,12 +367,27 @@ defmodule PairingsEngineWeb.Layouts do
 
         <%!-- On every page, signed in or not: the manual needs no account
               (`PairingsEngineWeb.HelpLive`). Inside a tournament it opens at
-              the chapter for the tab the arbiter is on (`help_path/1`). --%>
+              the chapter for the tab the arbiter is on (`help_path/1`), in a
+              tab of its own: reading about the Pairings page used to cost
+              you the Pairings page, which is a strange way to help. Within
+              the manual it stays put. --%>
         <.link
+          :if={@active == "help"}
           id="topbar-help"
           navigate={help_path(@active)}
-          class={tab_class(@active == "help")}
-          aria-current={@active == "help" && "page"}
+          class={tab_class(true)}
+          aria-current="page"
+        >
+          {gettext("Help")}
+        </.link>
+        <.link
+          :if={@active != "help"}
+          id="topbar-help"
+          href={help_path(@active)}
+          target="_blank"
+          rel="noopener"
+          class={tab_class(false)}
+          title={gettext("Opens the manual in a new tab")}
         >
           {gettext("Help")}
         </.link>

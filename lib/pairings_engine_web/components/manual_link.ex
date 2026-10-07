@@ -2,7 +2,8 @@ defmodule PairingsEngineWeb.Components.ManualLink do
   @moduledoc """
   The small "?" beside a page's title that opens the manual at the section
   describing that page. The top bar's Help link opens the matching chapter;
-  this one goes straight to the section.
+  this one goes straight to the section. Both open a new tab, so the page
+  you were asking about is still there when you have read the answer.
 
   The targets are a closed list (`targets/0`), so a test can check that each
   one still points at a chapter and a heading that exist: a heading renamed
@@ -41,6 +42,8 @@ defmodule PairingsEngineWeb.Components.ManualLink do
     ~H"""
     <.link
       href={@path}
+      target="_blank"
+      rel="noopener"
       id={"manual-link-#{@topic}"}
       class="manual-help-link"
       aria-label={gettext("Open the manual for this page")}

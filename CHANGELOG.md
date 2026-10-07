@@ -17,6 +17,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Help opens in a new tab.** The top bar's Help and every "?" beside a
+  page title open the manual in a tab of their own. Before, reading how the
+  Pairings page works cost you the Pairings page - help with a sense of irony.
+  The manual's subtitle no longer says "The arbiter's handbook": FIDE already
+  has an Arbiters' Manual, and two books with nearly one name is one too many.
+- [Feature] **A findings list worth reading** (the component behind the
+  Interclubs plug-in's season check): findings grouped by kind, coloured by how
+  much they matter, filtered with a click, and each one opening to say what it
+  means and what to do - instead of a bullet list that said all of it at once.
 ## [0.76.0] - 2026-10-07
 
 - [Change] **Plug-ins are for administrators only.** The Plug-ins menu, the

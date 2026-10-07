@@ -175,7 +175,7 @@ defmodule PairingsEngineWeb.HelpLive do
               </span>
               <span>
                 <span class="manual-brand-title">{gettext("User manual")}</span>
-                <span class="manual-brand-sub">{gettext("The arbiter's handbook")}</span>
+                <span class="manual-brand-sub">OpenPairings</span>
               </span>
             </.link>
 

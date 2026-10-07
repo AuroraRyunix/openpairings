@@ -7444,3 +7444,108 @@ input[type="checkbox"]:not(.acct-choice input):disabled {
   .c960-pop { left: auto; right: 0; }
   .c960-pop .c960-board { width: 200px; height: 200px; }
 }
+
+/* ---- findings (a checked import's "worth a look" list) ----
+   Used by the Interclubs plug-in's season page, written plainly enough for
+   anything else that reads a file and has opinions about it. Severity lives
+   in the icon tile and the chips, not in a coloured stripe down the side:
+   the stripe says "warning" to everyone who has never read one. */
+.pe-findings { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+.pe-findings-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 20px; }
+.pe-findings-head h3 { margin: 0 0 2px; font-size: 15px; }
+.pe-findings-head .hint { margin: 0; max-width: 60ch; }
+.pe-findings-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pe-findings-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.pe-findings-chip:hover { border-color: var(--text-soft); }
+.pe-findings-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pe-findings-chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--surface); }
+.pe-findings-chip.is-attention[aria-pressed="true"] { background: var(--warn); border-color: var(--warn); color: var(--surface); }
+.pe-findings-chip.is-info[aria-pressed="true"] { background: var(--info); border-color: var(--info); color: var(--surface); }
+.pe-findings-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pe-findings-chip.is-attention .pe-findings-dot { background: var(--warn); }
+.pe-findings-chip.is-info .pe-findings-dot { background: var(--info); }
+.pe-findings-chip[aria-pressed="true"] .pe-findings-dot { background: currentColor; }
+.pe-findings-count { font-variant-numeric: tabular-nums; font-weight: 600; opacity: 0.8; }
+
+.pe-findings-list { display: flex; flex-direction: column; gap: 8px; }
+.pe-finding {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); overflow: hidden;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.pe-finding:hover { border-color: color-mix(in srgb, var(--text-soft) 45%, var(--border)); }
+.pe-finding[open] { box-shadow: var(--shadow); }
+.pe-finding > summary {
+  list-style: none; cursor: pointer;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px;
+  padding: 11px 14px;
+}
+.pe-finding > summary::-webkit-details-marker { display: none; }
+.pe-finding > summary:hover { background: var(--surface-hover); }
+.pe-finding > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pe-finding[open] > summary { border-bottom: 1px solid var(--border); }
+.pe-finding-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: grid; place-items: center;
+}
+.pe-finding-icon .hero-exclamation-triangle-mini,
+.pe-finding-icon .hero-information-circle-mini { width: 18px; height: 18px; }
+.pe-finding.is-attention .pe-finding-icon { background: var(--warn-soft); color: var(--warn); }
+.pe-finding.is-info .pe-finding-icon { background: var(--info-soft); color: var(--info); }
+.pe-finding-title { font-weight: 600; font-size: 14px; color: var(--text); text-wrap: balance; }
+.pe-finding-article {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11.5px; letter-spacing: 0.02em; color: var(--text-soft);
+  border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; white-space: nowrap;
+}
+.pe-finding-tally {
+  min-width: 26px; text-align: center; padding: 2px 8px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.pe-finding.is-attention .pe-finding-tally { background: var(--warn-soft); color: var(--warn); }
+.pe-finding.is-info .pe-finding-tally { background: var(--info-soft); color: var(--info); }
+.pe-finding-chevron { color: var(--text-soft); display: grid; transition: transform 160ms ease; }
+.pe-finding[open] .pe-finding-chevron { transform: rotate(180deg); }
+
+.pe-finding-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px; background: var(--surface-alt); }
+.pe-finding-explain { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+.pe-finding-explain h4 {
+  margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.pe-finding.is-attention .pe-finding-explain h4 { color: var(--warn); }
+.pe-finding.is-info .pe-finding-explain h4 { color: var(--info); }
+.pe-finding-explain p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text); max-width: 62ch; }
+.pe-finding-cases {
+  margin: 0; padding: 0; list-style: none; counter-reset: finding;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+  max-height: 340px; overflow-y: auto;
+}
+.pe-finding-cases li {
+  counter-increment: finding;
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 8px 12px; font-size: 13px; line-height: 1.45;
+  border-bottom: 1px solid var(--border);
+}
+.pe-finding-cases li:last-child { border-bottom: none; }
+.pe-finding-cases li::before {
+  content: counter(finding); flex: none; min-width: 1.8em; text-align: right;
+  font-variant-numeric: tabular-nums; color: var(--text-soft); font-size: 12px;
+}
+.pe-finding-where {
+  flex: none; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11.5px;
+  padding: 1px 6px; border-radius: 5px; background: var(--bg); color: var(--text-soft); white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .pe-finding > summary { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .pe-finding-article { display: none; }
+  .pe-finding-explain { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pe-finding, .pe-finding-chevron, .pe-findings-chip { transition: none; }
+}
