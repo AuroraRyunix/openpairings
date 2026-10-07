@@ -1924,9 +1924,9 @@
     "next": 118,
     "penalty": 18
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 18%. Only the FIDE list and the KBSB list, each from a fixed source; no custom list (fide/sync.ex:35,51-53)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Administrators load rating lists of their own from a CSV file (id, name, rating; optional federation, title, birth year, FIDE ID), validated row by row and previewed before loading; lists are machine-wide, appear in the add-player search and can be put in a tournament's rating-list sequence (lib/pairings_engine/rating_lists.ex, rating_lists/csv.ex, live/rating_lists_live.ex). Tests: rating_lists_test.exs, rating_list_sequence_live_test.exs. The consistency check compares FIDE ratings only."
   },
   {
    "q": 118,
@@ -2023,9 +2023,9 @@
     "next": 124,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. One fixed list per rate of play (Fide.rating_for_tempo, fide.ex:133-139): standard uses standard only, rapid and blitz fall back to standard; no configurable rating-list sequence."
+   "answer": "Y",
+   "status": "met",
+   "note": "A tournament without its own sequence uses the draft's default for its rate of play (standard: FIDE Standard, Rapid, Blitz; rapid: Effective Rapid, FIDE Blitz; blitz: Effective Blitz, FIDE Rapid) (RatingLists.default_sequence/1). Tests: rating_lists_test.exs 'the default sequence'."
   },
   {
    "q": 124,
@@ -2039,9 +2039,9 @@
     "outcome": "next",
     "next": 125
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "No sequence to define; routes to Q125 (fide.ex:133-141)."
+   "note": "The sequence is defined or changed per tournament on its FIDE settings page (#rating-sequence: add, reorder, leave out, reset). Tests: rating_list_sequence_live_test.exs 'the sequence editor'."
   },
   {
    "q": 125,
@@ -2072,9 +2072,9 @@
     "next": 127,
     "penalty": 12
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Off our path (only from Q123 YES)."
+   "note": "Lists can be left out (not the last), reordered, and the national, Effective and custom lists added (settings_fide_live.ex). Tests: rating_list_sequence_live_test.exs."
   },
   {
    "q": 127,
@@ -2091,7 +2091,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Picking a FIDE search result fills the rating for the tournament's rate of play (players_live.ex:723-748; fide.ex:135)."
+   "note": "The main list of the sequence supplies the rating when a player is picked (players_live.ex pick -> RatingLists.main_values)."
   },
   {
    "q": 128,
@@ -2123,9 +2123,9 @@
     "next": 130,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path while Q128 is NO; other-list ratings are display-only in the edit dialog."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each rating the player has in another list of the sequence is a button in the add-player search (#fide-result-<id>-use-<entry>) that fills that rating and records its list. Test: rating_list_sequence_live_test.exs 'picking a rating from another list'."
   },
   {
    "q": 130,
@@ -2275,9 +2275,9 @@
     "next": 139,
     "penalty": 1
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path (Q137 NO skips it). No switch for consistency checks."
+   "answer": "Y",
+   "status": "met",
+   "note": "Consistency checks can be switched off per tournament on the FIDE settings page (tournaments.rating_checks_enabled, #rating-checks-enabled, default on): no automatic notice, the manual Refresh ratings still compares. Tests: rating_lists_test.exs 'consistency checks on and off'."
   },
   {
    "q": 139,
