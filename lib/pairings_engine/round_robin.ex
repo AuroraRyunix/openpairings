@@ -56,6 +56,11 @@ defmodule PairingsEngine.RoundRobin do
   freeze are simply excluded from every round of the schedule (see
   `docs/pairing-systems.md`).
 
+  The arbiter can set the numbers before round 1 instead - by hand or by a
+  drawing of lots (`PairingsEngine.StartingNumbers`, C.05 6.2). Numbers
+  found on the roster when round 1 is paired are used as they are; only
+  the players still without one are numbered, after them.
+
   ## One table per category, and SWAR's table
 
   Pairing by category (`pair_by_category`), each category plays its own
@@ -433,8 +438,17 @@ defmodule PairingsEngine.RoundRobin do
   # entrant joins the field. Round robin must refuse exactly that - the
   # Berger schedule is fixed at freeze time, so a player numbered afterwards
   # would be scheduled against nobody.
+  #
+  # Before any round exists, numbers already on the roster are the arbiter's
+  # own (`PairingsEngine.StartingNumbers` - set by hand or by a drawing of
+  # lots, VCL4THP Q95) or an import's, and are kept; anybody active still
+  # without one - an entry made after the numbers were set - is numbered on
+  # after them, as a late entry joins a drawn table (C.05 6.4: the drawn
+  # pairings stay as they were). `ensure_pairing_numbers/2` numbers exactly
+  # the players lacking a number, so with nobody numbered this is the
+  # rating-order freeze it always was.
   defp ensure_frozen(%Tournament{} = tournament) do
-    unless already_frozen?(tournament.id) do
+    if not already_frozen?(tournament.id) or Engine.paired_rounds_count(tournament.id) == 0 do
       Engine.ensure_pairing_numbers(tournament, Engine.active_players(tournament.id))
     end
 

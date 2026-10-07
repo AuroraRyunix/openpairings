@@ -422,6 +422,22 @@ defmodule PairingsEngine.Snapshot do
     numbered =
       players |> Enum.filter(&is_integer(&1.pairing_number)) |> Enum.sort_by(& &1.pairing_number)
 
+    cond do
+      # Numbers issued before round 1 of a Swiss (a TPN exchange): round 1
+      # places a later entry by rating among them (`Tpn.seed_newcomers/2`),
+      # so the provisional list does too.
+      numbered != [] and PairingsEngine.Tpn.applies?(t) and
+          PairingsEngine.Pairing.paired_rounds_count(t.id) == 0 ->
+        t
+        |> PairingsEngine.Tpn.order()
+        |> Enum.map(fn {player, number} -> %{player | pairing_number: number} end)
+
+      true ->
+        publishable_numbered(t, numbered)
+    end
+  end
+
+  defp publishable_numbered(t, numbered) do
     case numbered do
       [] ->
         t.id

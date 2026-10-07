@@ -1210,7 +1210,8 @@ defmodule PairingsEngineWeb.PrintController do
 
     main_table =
       "<table><thead><tr>#{standings_head_cells()}#{rounds_played_header(rds?)}" <>
-        "<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
+        "<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>" <>
+        uncounted_footnote(entries)
 
     if has_categories do
       main_table <> category_standings_tables(entries, tournament, rds?)
@@ -1289,11 +1290,35 @@ defmodule PairingsEngineWeb.PrintController do
         "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
       end)
 
-    "<tr><td class=\"num\">#{rank_override || Standings.shown_rank_label(e, tournament)}</td><td><strong>#{esc(e.player.name)}</strong>#{status_note(e.player)}#{pending_note(e)}</td>" <>
+    "<tr><td class=\"num\">#{uncounted_rank(e, rank_override || Standings.shown_rank_label(e, tournament))}</td><td><strong>#{esc(e.player.name)}</strong>#{status_note(e.player)}#{pending_note(e)}#{uncounted_note(e)}</td>" <>
       "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       rounds_played_cell(rds?, e) <>
       "<td class=\"num\"><strong>#{e.points}</strong></td>#{extra_points_cells(tournament, e)}#{tb_cells}#{cat_cell}</tr>"
+  end
+
+  # A round-robin player C.05 6.6(2)1 leaves out of the standings
+  # (`Standings.uncounted_withdrawals/2`): listed last, with no place.
+  defp uncounted_rank(e, rank), do: if(Map.get(e, :c05_uncounted), do: "-", else: rank)
+
+  defp uncounted_note(e) do
+    if Map.get(e, :c05_uncounted),
+      do: " <span class=\"pending\">(#{esc(gettext("withdrawn, not counted"))})</span>",
+      else: ""
+  end
+
+  # Under the table that lists such a player, the rule in one sentence.
+  defp uncounted_footnote(entries) do
+    if Enum.any?(entries, &Map.get(&1, :c05_uncounted)) do
+      "<p id=\"c05-uncounted-note\" style=\"font-size: 11px; margin-top: 8px;\">" <>
+        esc(
+          gettext(
+            "Withdrawn, not counted: withdrew having played under half of their games. By FIDE C.05 6.6 their results stay in the cross table and count for rating, but not in the standings - for nobody's score or tie-breaks."
+          )
+        ) <> "</p>"
+    else
+      ""
+    end
   end
 
   # `has_categories` is false for the per-category tables below, which never
@@ -1841,10 +1866,10 @@ defmodule PairingsEngineWeb.PrintController do
         cells = Enum.map_join(players, "", &rr_crosstable_cell(row_entry, &1, tournament))
 
         "<tr><td class=\"num\">#{row_entry.player.pairing_number}</td>" <>
-          "<td><strong>#{esc(row_entry.player.name)}</strong></td>#{cells}" <>
+          "<td><strong>#{esc(row_entry.player.name)}</strong>#{uncounted_note(row_entry)}</td>#{cells}" <>
           "<td class=\"num\"><strong>#{row_entry.points}</strong></td>" <>
           extra_points_cells(tournament, row_entry) <>
-          "<td class=\"num\">#{Standings.shown_rank_label(row_entry, tournament)}</td></tr>"
+          "<td class=\"num\">#{uncounted_rank(row_entry, Standings.shown_rank_label(row_entry, tournament))}</td></tr>"
       end)
 
     body =
@@ -1853,7 +1878,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
         "<th>#{gettext("Name")}</th>#{col_headers}<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}" <>
         "<th class=\"num\">#{gettext("Rank")}</th></tr></thead>" <>
-        "<tbody>#{rows}</tbody></table></div>"
+        "<tbody>#{rows}</tbody></table></div>" <> uncounted_footnote(players)
 
     print_page(
       conn,
