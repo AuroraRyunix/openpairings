@@ -31,7 +31,17 @@ The button **Pair round N** is available when
   **Record missing results as postponed and pair round N**, records the empty boards
   as postponed and goes on, after you have read the warning;
 - the presence of the players is right: players marked absent are not
-  paired ([Byes and absences](05-byes-and-absences.md)).
+  paired ([Byes and absences](05-byes-and-absences.md));
+- no session of hand edits is open on an earlier round (see *Changing a
+  pairing by hand*): the button stays disabled with the note *Finish the
+  hand edits to round N first*.
+
+Before round 1 the page also warns, without blocking, when the number of
+rounds cannot be paired for the number of players: a Swiss with more rounds
+than the players allow without a rematch ("A round that cannot be paired will
+have to be made by hand"), or a round robin whose number of rounds does not
+match the players. The warning links to the setting that fixes it
+([Tournament set-up](03-tournament-setup.md)).
 
 Rounds are paired in order. The page also lists the checks that apply to the
 next pairing: for example, the players of every postponed game from earlier
@@ -59,6 +69,12 @@ quality criteria in the order that C.04.3 gives them. Forbidden pairings, club a
 points are given to the engine as well ([Tournament set-up](03-tournament-setup.md)).
 With Baku acceleration the virtual points are given for every round.
 
+The pairing numbers are given in the order of the tournament rating, then
+FIDE title, then the criterion the tournament announced
+([Players and rating lists](04-players-and-ratings.md)). If the engine finds
+no legal pairing at all, the program says so and offers **Pair round N by
+hand…** (see *Changing a pairing by hand*).
+
 A player with a **fixed table** ([Players and rating lists](04-players-and-ratings.md)) is
 labelled with that table; it is a label for printing only and does not
 change who plays whom.
@@ -73,7 +89,9 @@ players each player sits out one round with a zero-point bye; a double
 cycle plays the table twice with the colours reversed (with the last two
 rounds of the first cycle in reverse order, if that option is on). A player
 who is absent or withdrawn stays in the schedule: enter a forfeit result for
-their games.
+their games. The starting numbers the Berger tables use are the rating order
+unless you set them before round 1 on the Players page (*Starting numbers*,
+by hand or by a drawing of lots; [Players and rating lists](04-players-and-ratings.md)).
 
 ## Keizer
 
@@ -134,13 +152,33 @@ updates itself when a result is entered and can be printed (fixed boards
 and a list by name). It is available for individual Swiss tournaments with the
 Ainalrami engine.
 
+## Chess960
+
+If **Chess960** is ticked on the Tournament settings page, the Pairings page
+shows, for a paired round, the button **Draw Chess960 position**. It draws one
+of the 960 starting positions at random (each is equally likely), shows its
+number and the pieces of the first rank, and prints it with the round's
+pairings. A round gets one position: the draw cannot be repeated until a
+position pleases, and a second attempt is refused. The draw is written to the
+audit trail.
+
 ## Changing a pairing by hand
 
 Sometimes a pairing must be changed after the round is made: a player
 arrives late, a mistake in the entry, two players who have met under another
-name. Open the **Hand edits** menu by right-clicking a player (or press the
-context-menu key) on the Pairings page. The menu offers, according to what
-you clicked:
+name. The regulations allow an arbiter to alter a pairing (C.04.2 4.4), so
+this does not take the tournament out of FIDE mode. The program calls it a
+**manual pairing alteration** and works in sessions.
+
+### The session
+
+- A session on a round **starts** with **More**, **Edit pairings by hand**,
+  or implicitly with the first hand edit of the round. While it is open, a
+  banner says *Hand edits to round N are open* and carries the button
+  **Finish hand edits**.
+- Hand edits are made with the **Hand edits** menu: right-click a player (or
+  press the context-menu key) on the Pairings page. The menu offers,
+  according to what you clicked:
 
 | Action | What it does |
 | --- | --- |
@@ -149,12 +187,73 @@ you clicked:
 | Put in an empty seat | Puts a player from the *Not playing* list into an empty seat. |
 | Mark absent for this round | Takes the player out of the board and puts them in the *Not playing* list. |
 | Pair with another player who isn't playing… | Pairs two players of the *Not playing* list on a new board; you choose the table number. |
-| Award a bye to the remaining player | Gives the bye to a player left over. |
+| Give the pairing-allocated bye | Gives a player of the *Not playing* list the pairing-allocated bye, scored as set on the Scoring page. |
+| Award a bye to the remaining player | Gives the bye to the player left alone on a board whose opponent was removed. |
 | Delete this board… | Removes an empty board (a fully-vacated board can be hidden and un-hidden). |
 
-Every edit first shows a confirmation with the boards before and after, which
-you accept or cancel (`Escape` cancels). While an edit is half-made, a banner
-says so. Two additional confirmations exist:
+- The session **ends** only when you press **Finish hand edits**. The next
+  round cannot be paired while a session is open, so the check below cannot
+  be skipped by moving on.
+
+Every edit first shows a confirmation with the boards before and after,
+which you accept or cancel (`Escape` cancels). While an edit is half-made, a
+banner says so. A result that is on a board that you change is cleared; the
+confirmation says so. Every edit is written to the audit trail.
+
+### Rule warnings while editing
+
+For a tournament the checker can judge (an individual Dutch Swiss, see
+below) the confirmation of an edit also lists
+the pairing rules that the boards it creates would break:
+
+- two players who already played each other, or are a prohibited pairing;
+- the pairing-allocated bye for a player who already had one, won a game by
+  forfeit, or had a full-point bye;
+- a player getting the same colour for the third time running, or a colour
+  difference above two, before the last round;
+- two players who both get the colour opposite to the one each is due.
+
+Such an edit is applied only after you tick the box that acknowledges the
+warning. An edit that breaks nothing needs no tick.
+
+### Finishing: the check against the pairing checker
+
+**Finish hand edits** first asks that every seat is filled (fill it, give the
+remaining player a bye, or empty the board) and that at least one board is
+paired. Then the program runs the pairing engine over the players as the
+round now seats them, and compares its pairing with your boards, colours
+included but board order not:
+
+- **Nothing changed since the session began, or the boards are the engine's
+  own:** the session ends; nothing is recorded.
+- **The boards differ from the engine's pairing:** a dialog shows the
+  checker's pairing, what is only in yours and what is only in the checker's,
+  and the rule warnings that still apply. Choose **Keep editing** to go back,
+  or tick *I understand - keep my pairings and record the alteration* and
+  press **Finish and record**. The round keeps your boards and records the
+  alteration, which the TRF copies of the report carry as a comment line:
+  `### MPA @ Round r: <checker's boards> => <the round's boards>`. Finishing
+  a session again replaces the line of that round, or removes it when the
+  boards now agree with the engine. The file made by *Send…* contains records
+  only, so it has no such line ([Sending to FIDE](11-fide-report.md)).
+- **The checker cannot judge the round** (it is a Dutch-system check, so a
+  team, round robin, Keizer, per-category or Swiss match format round is
+  out of its reach): if the
+  boards differ from where the session began, the alteration is recorded
+  without a check.
+
+### A round with no legal pairing
+
+If the rules leave no legal pairing for the next round, the program says so
+and writes nothing. The Pairings page then offers **Pair round N by hand…**.
+The dialog says that the round is created with no boards and every player in
+the *Not playing* list, and that no pairing of the round can follow the
+rules, so the round is recorded as a manual pairing alteration. You confirm
+with the tick *I understand - create round N to pair by hand*. After
+**Create round N** you pair the players from the list (pair two players, give
+the pairing-allocated bye) and finish the hand edits as above.
+
+### Other confirmations
 
 - **A round that is not the latest.** Editing an earlier round asks for a
   tick, because later rounds were paired from it. In FIDE mode only the last
@@ -162,14 +261,6 @@ says so. Two additional confirmations exist:
 - **A round that was already sent to the rating office.** Changing who played
   whom in a sent round needs the tick *I understand - change the sent round N
   anyway* ([Sending to FIDE](11-fide-report.md)).
-
-A result that is on a board that you change is cleared; the confirmation says
-so.
-
-Hand edits are not checked by the pairing engine: the program does not
-warn when an edit repeats a pairing or breaks a colour rule, and the edit is
-written to the audit trail. After a hand edit, check the round against the
-rules yourself. (This is described for the current version.)
 
 ## Undoing a round
 

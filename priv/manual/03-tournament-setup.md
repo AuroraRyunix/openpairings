@@ -37,7 +37,12 @@ rounds and results included, and is named *Copy of …*).
 A round cannot be paired until the **tournament name**, the **number of
 rounds**, a **date for every round** and a **tie-break selection** exist. The
 Players and Pairings pages say what is still missing and link to the page
-where it is set. Recommended, but not required: the chief arbiter, the
+where it is set. The Pairings page also warns, before round 1 and without blocking, when the
+number of rounds cannot be paired for the players registered: a Swiss with more
+rounds than the players allow without a rematch, or a round robin whose number
+of rounds does not match the number of players. The warning links to the
+setting; if you keep the number, the round that cannot be paired is made by
+hand ([Pairing a round](06-pairing.md)). Recommended, but not required: the chief arbiter, the
 federation, the rate of play and (for a FIDE-rated tournament) the FIDE
 tournament ID.
 
@@ -54,7 +59,7 @@ The **Settings** menu in the top bar has these pages:
 | Dates | one date per round |
 | Categories | see [Categories and norms](13-categories-and-norms.md) |
 | Extra points | bonus or handicap points by rating band |
-| FIDE | FIDE mode and the report identifiers ([FIDE mode](02-fide-mode.md)) |
+| FIDE | FIDE mode and the report identifiers ([FIDE mode](02-fide-mode.md)); the rating-list sequence and the consistency checks of the ratings ([Players and rating lists](04-players-and-ratings.md)) |
 | Export | TRF, backups, CSV ([Import and export](10-import-export.md)) |
 | About | version and the pairing engine this tournament uses |
 
@@ -76,6 +81,12 @@ arbiters, and the data that the FIDE reports use. The same officials can be
 edited on the Norms page.
 
 **Tie-breaks.** Described in [Standings and tie-breaks](08-standings-and-tiebreaks.md).
+This section also holds *How an unrated player is counted in the tie-breaks*
+(with the rating typed for it) and *Players still level share a place*.
+
+**Chess960.** The tick *Chess960* says that the tournament is played as
+Chess960. The arbiter then draws a starting position for each round on the
+Pairings page ([Pairing a round](06-pairing.md)).
 
 **Share / Team.** The owner can invite other arbiters by e-mail address (see
 [Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
@@ -93,6 +104,28 @@ reference implementation of the 2017 edition and needs Java and the JaVaFo
 program file installed separately (it is not included). The engine is
 fixed once the first round is paired. Both engines are given exactly the
 same file (a TRF file built and checked by the program).
+
+**Tournament rating.** The rating that ranks the players, and so gives them
+their pairing numbers, and that the rating-based tie-breaks read. The choices
+are the methods of the TRF26 report: *FIDE rating only (FIDE)*, *National
+rating only (NRO)*, *FIDE rating, else national (FIDON)*, which is the default,
+*National rating, else FIDE (NIDOF)*, *Highest of FIDE, national and manual
+(HBFN)* and *Manual rating per player (OTHER)*. A manual rating is typed per
+player (*Tournament rating* on the player's form,
+[Players and rating lists](04-players-and-ratings.md)).
+
+**Equal rating and title.** Players with the same tournament rating are
+ordered by FIDE title (GM, IM, WGM, FM, WIM, CM, WFM, WCM, no title), and then
+by this criterion: alphabetically (the FIDE default), by FIDE ID (lowest
+first), oldest first or youngest first. Announce the criterion before the
+event.
+
+**Late entrants' pairing numbers** (Swiss only). *After the field* (the
+default) gives a player who joins after the numbers were given the next free
+number. *By rating* gives the number their rating earns and moves everybody
+below one place down (C.04.2 2.4); rounds already played keep their boards.
+Changing these three settings after round 1 renumbers nobody already
+numbered; the page says so.
 
 **Initial colour.** For the first round of a Swiss tournament: drawn by lot
 when round 1 is paired (the FIDE rule), or White or Black chosen by you. The

@@ -14,7 +14,10 @@ federation, title, birth year, and the standard, rapid and blitz ratings.
 Open **Connections** (top bar on the Tournaments page), section *FIDE
 database*, and press **Download rating list** the first time. **Update from
 FIDE** downloads the current list again (FIDE publishes a new list every
-month). The page shows how many players the local database holds and when it
+month). The program records which month's list it holds. Once a day, while it
+runs, it also asks FIDE whether a newer list exists and downloads it only
+if there is one (about once a month); nothing happens while offline. This is on
+by default and has a checkbox under Connections to switch it off. The page shows how many players the local database holds and when it
 was last updated. The download is large (about 40 MB) and replaces the whole
 local copy; it needs a connection to the FIDE rating site. On a desktop
 build you are the administrator of your own installation. On a server only the
@@ -34,20 +37,56 @@ An arbiter outside Belgium never sees any of it. The sync only copies the
 federation's file; it never writes ratings into your tournaments by itself.
 
 **Other national lists** are not built in. For a player of any other
-federation, type the national ID and national rating by hand.
+federation, type the national ID and national rating by hand, or load the
+list yourself as a CSV file.
 
-**Which rating is used.** The *Elo used* of a player is the FIDE rating
-when they have one, otherwise the national rating. This is the rating that the
-program orders the players by when it assigns the pairing numbers, and the
-rating it prints. The FIDE rating that is filled in is the one of the
+**Your own rating lists (CSV).** Connections has a link to **Rating lists**
+(`/rating-lists`), where you load a list of your own, for instance a national
+or club list. The first row of the CSV file names the columns: `id`, `name`
+and `rating` are required; `federation`, `title`, `birth_year` and `fide_id`
+are optional. The separator can be a comma, semicolon or tab, and a rating
+that is empty or 0 means unrated. *Check the file* shows what was found;
+*Load the list* stores it, and nothing is loaded unless every row is valid. A
+list with the same name is replaced. Only an administrator loads lists on a
+server. The lists are shared by every tournament on the machine, turn up when
+a player is added, and can be put in a tournament's rating-list sequence.
+
+**The rating-list sequence.** Settings, **FIDE**, section *Rating lists*, sets
+the lists a player's rating is taken from when the player is added or the
+ratings are refreshed, in order: FIDE Standard, FIDE Rapid, FIDE Blitz,
+Effective Rapid (Rapid, else Standard), Effective Blitz, the national list,
+and your own lists. Use the arrows to move a list, **Leave out** to drop one and
+**Add to the sequence** to add one; **Back to the default sequence** restores
+the sequence that fits the tournament's rate of play. The first list is the
+*main list*: its rating is entered automatically. The ratings the player has
+in the other lists are shown beside the search result, and a click on one
+(*Use this rating instead*) picks it. A FIDE list fills the FIDE rating; the
+national list and your own lists fill the national rating.
+
+**Which rating is used.** The *Elo used* of a player is the **tournament
+rating**, which the tournament's *Tournament rating* setting defines (Settings,
+Options): the FIDE rating only, the national rating only, the FIDE rating
+else the national (the default), the national else the FIDE, the highest of
+FIDE, national and a rating typed by hand, or the typed rating alone (see
+[Tournament set-up](03-tournament-setup.md)). It is the rating that the
+program orders the players by when it assigns the pairing numbers, that the
+rating-based tie-breaks read, and that it prints. A rating typed by hand is
+the field *Tournament rating* on the player's form; only the last two methods
+read it. The FIDE rating that is filled in is the one of the
 tournament's format: standard for a standard tournament, rapid for a rapid
 one, blitz for a blitz one (or the standard rating when the player has no
 rapid or blitz rating yet).
 
 **Ratings entered by hand.** Every rating field (FIDE rating, national
-rating) can be typed or changed by hand on the player's form; the program does
-not forbid a value because it differs from the list. The form shows what the list says
-and asks whether to apply it when it differs.
+rating, tournament rating) can be typed or changed by hand on the player's
+form; the program does not forbid a value because it differs from the list.
+The form shows what the list says and asks whether to apply it when it
+differs.
+
+**Where a rating came from.** A rating read from a list keeps its source:
+the player's form says, for example, that it is from the FIDE standard list
+of a given month, that it was changed by hand (and what it was on the list),
+or that it was entered by hand with no source list.
 
 ## The Players page
 
@@ -84,10 +123,32 @@ different from what is on file, the form shows what FIDE says and asks
 *apply this?* for each difference.
 
 Register the players before round 1 is paired. Their **pairing numbers**
-(the starting ranks) are given when the first round is paired: highest rating
-first, then by name (FIDE C.04.2.B). From then on a player's number does not
-change; a player who is added later gets the next free number when the next
-round is paired.
+(the starting ranks) are given when the first round is paired: highest
+tournament rating first, then FIDE title (GM, IM, WGM, FM, WIM, CM, WFM, WCM,
+no title), then the tournament's announced criterion (alphabetical by default;
+Settings, Options, *Equal rating and title*), as C.04.2 2 says. A player who
+is added later gets the next free number when the next round is paired, or, if
+the setting *Late entrants' pairing numbers* is *By rating*, the number their
+rating earns, with everybody below moving down one place (Swiss only).
+
+**Changing the pairing numbers of a Swiss tournament.** The button **Pairing
+numbers** on the Players page opens the list in pairing order. Two players with
+the same rating can **exchange** their numbers (the *Exchange* button between their rows) (to order them by another rule),
+and **Regenerate from ratings** renumbers everybody by the current ratings, keeping the
+order you gave to players of equal rating; use it to follow a rating change or
+to correct a mistake. Both are possible only until round 4 is paired
+(C.04.2); every change asks for your confirmation, a regeneration listing the
+players whose number changes first. Rounds that were already paired used the
+old numbers, so a pairing checker will no longer reproduce them; the dialog
+says so. Each change is written to the audit trail.
+
+**Starting numbers of a round robin.** Before round 1 the button **Starting
+numbers** opens the list the Berger tables pair by. Enter the result of a
+drawing of lots by hand (a number per player, or move a player up or down), or
+press **Draw lots** (the program draws, after a confirmation), or **Order by
+rating** to go back to the rating order. The numbers are used when round 1 is
+paired and cannot be changed after it; a player entered later gets the next
+number.
 
 ### The grid
 
@@ -132,7 +193,22 @@ Only the **FIDE rating** and the **title** are proposed, and a title is only
 proposed when FIDE's list actually carries one. A player without a FIDE ID is
 not touched. Nothing is written until you press **Apply**; **Cancel** writes
 nothing. It is an all-or-nothing action, and it is a manual action: the
-program never refreshes ratings on its own.
+program never writes ratings on its own.
+
+**The check by itself.** While the Players or Pairings page is open (and after a
+finished update of the list), the program compares the ratings and titles on
+file with the FIDE list that was valid in the month the tournament started and, when
+they differ, shows a notice: *The FIDE list (month) gives a different rating
+or title for N players*, with a **Review** button that opens the same table. It
+writes nothing. The month of the list must match the tournament's start month,
+otherwise the program proposes nothing and says why (only the current list
+is kept). The notice can be switched off per tournament (Settings, **FIDE**,
+*Consistency checks*); the **Refresh ratings** button still works on request.
+Before a requested check, the program asks FIDE whether its list on this
+machine is current and updates it first, or says that it could not.
+
+In the table of proposed changes each line has a tick, and there is **Select
+all**: **Apply selected** writes only the ticked ones.
 
 **Update clubs** (Belgian pack) works the same way for the club and the club
 number, matching by national ID, then FIDE ID. It never blanks a club.
@@ -144,7 +220,8 @@ does not change the pairing numbers already given.
 
 A player added after rounds have been paired can be given a round in which
 they join (**Joins in round** on the form; the next round to be paired is
-offered). The form says what the rounds before it count as. When absences
+offered). In a Swiss tournament their pairing number follows the setting
+*Late entrants' pairing numbers* (after the field, or by rating). The form says what the rounds before it count as. When absences
 score points (Scoring page), the rounds before the entry count as absences
 as set on the Scoring page. In a Swiss tournament the new player is paired in
 the round they join, with the others. In a round robin a player who is added

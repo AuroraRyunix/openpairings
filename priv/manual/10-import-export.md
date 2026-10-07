@@ -36,8 +36,36 @@ The program does not trust the file: it recomputes the points and lists every
 player whose total differs from the file, and every round of a Swiss
 tournament is **checked against the pairing rules**: a rematch, two players
 who were both due the same colour, a pair that the file's own prohibition
-record forbids, a second pairing-allocated bye. These are listed as warnings.
-The tournament is still imported, so that you can see and handle the problem.
+record forbids, a second pairing-allocated bye.
+
+**The review step.** Nothing is written until you have seen the review that
+follows the choice of the file:
+
+- *The version.* The review says whether the file was read as TRF26 or as
+  TRF16. TRF16 has no records for the point system, the tournament type or the
+  tie-breaks; the review then lists what the import used instead.
+- *The adjustments.* Every place where the import had to decide something is
+  listed: the default scoring used when the file has no point system, the
+  tournament type imported when the code is missing or unknown, round-robin
+  cycles reduced to what the program plays, tie-breaks that were not in the
+  file or that the program does not compute, a number of rounds taken from the
+  rounds the file holds, deputy arbiters beyond the fourth, team forfeit and
+  bye points, extra points outside the scoring, games without an opponent that
+  were imported as byes, and rounds that were not checked because only a
+  Dutch-system Swiss can be.
+- *Rounds that break a pairing rule.* If a round of the file breaks a rule, the
+  review is headed *This file's rounds break the FIDE pairing rules* and says
+  that importing is not compliant with the pairing rules. This is a warning
+  that needs your explicit confirmation (Level 3). The button then reads
+  **Import anyway**; otherwise it reads **Import**. **Cancel** imports
+  nothing.
+
+A confirmed import creates the tournament with the rounds exactly as the file
+records them. What the import adjusted and every rule it found broken are kept
+with the tournament and in its audit log. For each such round the TRF copies of
+the report carry a comment line, `### Import @ Round r: ...`, so whoever checks
+the file sees where the pairings were not the program's own. (The file made by
+*Send…* has records only and no such line.)
 
 ### JSON backup
 
