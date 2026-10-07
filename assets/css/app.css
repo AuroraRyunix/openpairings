@@ -1050,7 +1050,7 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
   width: 100%;
   height: 38px;
   padding: 0 34px 0 34px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--text-soft);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text);
@@ -1259,13 +1259,12 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 /* ---------- callouts ---------- */
 
 .manual-callout {
-  --tone: var(--info); --tone-soft: var(--info-soft);
   position: relative;
   margin: 8px 0 20px; padding: 13px 16px 3px 18px;
-  border: 1px solid color-mix(in srgb, var(--tone) 28%, transparent);
-  border-left: 4px solid var(--tone);
+  border: 1px solid color-mix(in srgb, var(--info) 28%, transparent);
+  border-left: 4px solid var(--info);
   border-radius: 8px;
-  background: var(--tone-soft);
+  background: var(--info-soft);
   font-size: 15px; line-height: 1.6;
   break-inside: avoid;
 }
@@ -1275,23 +1274,27 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
   display: flex; align-items: center; gap: 8px;
   margin: 0 0 6px !important;
   font-weight: 700; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--tone);
+  color: var(--info);
 }
 .manual-callout-icon { width: 18px; height: 18px; flex: none; }
-.manual-callout-tip { --tone: var(--success); --tone-soft: var(--success-soft); }
-.manual-callout-important { --tone: var(--accent); --tone-soft: var(--accent-soft); }
-.manual-callout-warning { --tone: var(--warn); --tone-soft: var(--warn-soft); }
-.manual-callout-caution { --tone: var(--danger); --tone-soft: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+/* Each kind in its own theme colour: the edge, the wash and the title. */
+.manual-callout-tip { border-color: color-mix(in srgb, var(--success) 28%, transparent); border-left-color: var(--success); background: var(--success-soft); }
+.manual-callout-tip .manual-callout-title { color: var(--success); }
+.manual-callout-important { border-color: color-mix(in srgb, var(--accent) 28%, transparent); border-left-color: var(--accent); background: var(--accent-soft); }
+.manual-callout-important .manual-callout-title { color: var(--accent); }
+.manual-callout-warning { border-color: color-mix(in srgb, var(--warn) 28%, transparent); border-left-color: var(--warn); background: var(--warn-soft); }
+.manual-callout-warning .manual-callout-title { color: var(--warn); }
+.manual-callout-caution { border-color: color-mix(in srgb, var(--danger) 28%, transparent); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.manual-callout-caution .manual-callout-title { color: var(--danger); }
 /* A FIDE rule reads like an article of the rulebook: a ruled card in the
    page's own ink, its title in the book serif. */
 .manual-callout-fide {
-  --tone: var(--text); --tone-soft: var(--surface);
   border-color: var(--border); border-left-color: var(--text);
-  background:
-    linear-gradient(var(--surface-alt), var(--surface-alt)) padding-box;
+  background: var(--surface-alt);
   box-shadow: var(--shadow);
 }
 .manual-callout-fide .manual-callout-title {
+  color: var(--text);
   font-family: var(--manual-serif); text-transform: none; letter-spacing: 0;
   font-size: 15.5px; font-weight: 650; font-style: italic;
 }
