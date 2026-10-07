@@ -100,10 +100,10 @@ defmodule PairingsEngineWeb.AuditLive do
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
         team.board_order_changed team.seeding_changed team.withdrawn team.reinstated
-        team.absence_changed)},
+        team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
-        pairing.results_imported pairing.players_swapped pairing.player_substituted
+        pairing.chess960_drawn pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
@@ -128,7 +128,7 @@ defmodule PairingsEngineWeb.AuditLive do
         openresults.public_consent_declined public_pages.toggled public_pages.link_rotated
         registration.toggled registration.settings swar.published swar.publish_failed)},
     {"standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
-        standings.manual_ranking_disabled standings.manual_reseeded
+        standings.manual_ranking_disabled standings.manual_reseeded standings.lots_drawn
         standings.extra_points_applied standings.extra_points_reduced
         standings.published standings.unpublished
         standings.starting_rank_toggled)},
@@ -343,6 +343,38 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("team.seeding_changed", d),
     do: gettext("Moved team %{team} down the order.", team: name(d, "team_name"))
 
+  def describe("player.pairing_numbers_changed", %{"regenerated" => _} = d),
+    do:
+      gettext("Regenerated the pairing numbers from the ratings (%{count} changed).",
+        count: value(d, "regenerated")
+      )
+
+  def describe("player.pairing_numbers_changed", d),
+    do:
+      gettext("Exchanged the pairing numbers of %{name} and %{other}.",
+        name: name(d, "player_name"),
+        other: name(d, "other_name")
+      )
+
+  def describe("player.starting_numbers_set", %{"drawn" => true}),
+    do: gettext("Drew the starting numbers by lot.")
+
+  def describe("player.starting_numbers_set", %{"by_rating" => true}),
+    do: gettext("Set the starting numbers back to the rating order.")
+
+  def describe("player.starting_numbers_set", %{"number" => _} = d),
+    do:
+      gettext("Gave %{name} starting number %{number}.",
+        name: name(d, "player_name"),
+        number: value(d, "number")
+      )
+
+  def describe("player.starting_numbers_set", %{"direction" => "up"} = d),
+    do: gettext("Moved %{name} up the starting order.", name: name(d, "player_name"))
+
+  def describe("player.starting_numbers_set", d),
+    do: gettext("Moved %{name} down the starting order.", name: name(d, "player_name"))
+
   def describe("player.deleted", d),
     do: gettext("Deleted player %{name}.", name: name(d, "player_name"))
 
@@ -546,6 +578,21 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.round_deleted", d),
     do: gettext("Unpaired round %{round}.", round: value(d, "round"))
+
+  def describe("pairing.chess960_drawn", d),
+    do:
+      gettext("Drew Chess960 position %{position} for round %{round}.",
+        position: PairingsEngine.Chess960.label(%{chess960_position: d["position"]}),
+        round: value(d, "round")
+      )
+
+  def describe("standings.lots_drawn", d),
+    do:
+      ngettext(
+        "Drew lots among %{count} player still level after every tie-break; the order is recorded in the manual ranking.",
+        "Drew lots among %{count} players still level after every tie-break; the order is recorded in the manual ranking.",
+        count(d, "players")
+      )
 
   def describe("pairing.results_imported", d),
     do:

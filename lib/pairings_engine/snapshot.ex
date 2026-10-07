@@ -412,7 +412,7 @@ defmodule PairingsEngine.Snapshot do
   # the stretch it exists for (reported 2026-09-11, on a live tournament).
   # So while no player has a number, the field is numbered provisionally:
   # the same players (`Pairing.active_players/1`) in the same order
-  # (`Pairing.initial_order/1`) that pairing round 1 will number, so the
+  # (`Pairing.initial_order/2`) that pairing round 1 will number, so the
   # provisional numbers normally come out identical to the real ones. Nothing
   # is written back: the real numbers are still issued, and frozen, only by
   # pairing round 1.
@@ -422,11 +422,27 @@ defmodule PairingsEngine.Snapshot do
     numbered =
       players |> Enum.filter(&is_integer(&1.pairing_number)) |> Enum.sort_by(& &1.pairing_number)
 
+    cond do
+      # Numbers issued before round 1 of a Swiss (a TPN exchange): round 1
+      # places a later entry by rating among them (`Tpn.seed_newcomers/2`),
+      # so the provisional list does too.
+      numbered != [] and PairingsEngine.Tpn.applies?(t) and
+          PairingsEngine.Pairing.paired_rounds_count(t.id) == 0 ->
+        t
+        |> PairingsEngine.Tpn.order()
+        |> Enum.map(fn {player, number} -> %{player | pairing_number: number} end)
+
+      true ->
+        publishable_numbered(t, numbered)
+    end
+  end
+
+  defp publishable_numbered(t, numbered) do
     case numbered do
       [] ->
         t.id
         |> PairingsEngine.Pairing.active_players()
-        |> PairingsEngine.Pairing.initial_order()
+        |> PairingsEngine.Pairing.initial_order(t)
         |> number_provisionally(0)
 
       numbered ->
@@ -436,7 +452,7 @@ defmodule PairingsEngine.Snapshot do
           t.id
           |> PairingsEngine.Pairing.active_players()
           |> Enum.filter(&is_nil(&1.pairing_number))
-          |> PairingsEngine.Pairing.initial_order()
+          |> PairingsEngine.Pairing.initial_order(t)
           |> number_provisionally(highest)
 
         numbered ++ late
@@ -444,9 +460,14 @@ defmodule PairingsEngine.Snapshot do
   end
 
   # The same numbers `Pairing.ensure_pairing_numbers/2` will issue at the next
-  # pairing: `initial_order/1`, continuing after the highest number ever issued
+  # pairing: `initial_order/2`, continuing after the highest number ever issued
   # on this roster. Nothing is written back - the real numbers are still issued,
-  # and frozen, only by pairing.
+  # and frozen, only by pairing. A Swiss late entrant numbered by rating
+  # (`late_entry_numbering` "rating") is the one exception to "the same":
+  # the pairing gives them the number their rating earns and
+  # moves the players below down one (C.04.2 2.4), which a provisional row
+  # here must not do - the published boards name those players by number.
+  # So until they are paired a late entrant is listed after the field.
   defp number_provisionally(players, highest) do
     players
     |> Enum.with_index(highest + 1)
@@ -477,7 +498,7 @@ defmodule PairingsEngine.Snapshot do
       "no" => p.pairing_number,
       "name" => p.name,
       "title" => blank_to_nil(p.title),
-      "rating" => zero_to_nil(Player.rating(p)),
+      "rating" => zero_to_nil(Player.rating(p, t)),
       "federation" => blank_to_nil(p.federation),
       "fide_id" => p.fide_id,
       "club" => blank_to_nil(p.club),

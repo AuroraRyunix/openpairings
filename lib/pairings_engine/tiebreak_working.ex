@@ -100,6 +100,9 @@ defmodule PairingsEngine.TiebreakWorking do
   def working([], _tournament, _codes), do: %{}
 
   def working([first | _] = entries, tournament, codes) do
+    tournament =
+      PairingsEngine.Standings.with_unrated_rating(tournament, Enum.map(entries, & &1.player))
+
     event = AinalramiBridge.event(entries, tournament, first.completed_rounds)
 
     # One code at a time, so a code Ainalrami refuses for this event (C.07

@@ -54,6 +54,7 @@ defmodule PairingsEngineWeb.Router do
         {PairingsEngineWeb.RequireRole, :support}
       ] do
       live "/fide", FideLive
+      live "/rating-lists", RatingListsLive
     end
 
     live_session :administration,

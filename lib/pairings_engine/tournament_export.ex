@@ -89,9 +89,9 @@ defmodule PairingsEngine.TournamentExport do
     chief_arbiter deputy_arbiter time_control rounds_count
     points_win points_draw points_loss bye_value presence_value abs_value
     abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences
-    presence_on_allocated_bye tiebreaks tiebreak_unrated_rating long_event tiebreak_rating_round
-    shared_places acceleration baku_group_a_last
-    status standard rate_of_play organizer_club_number round_dates
+    presence_on_allocated_bye tiebreaks tiebreak_unrated_rating tiebreak_unrated_method chess960 lots_seed shared_places acceleration baku_group_a_last
+    long_event tiebreak_rating_round
+    status standard rating_list_sequence rating_checks_enabled rate_of_play organizer_club_number round_dates
     categories category_rules category_prizes categories_enabled
     categories_ranked_separately event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
@@ -101,7 +101,7 @@ defmodule PairingsEngine.TournamentExport do
     team_boards team_match_points_win team_match_points_draw team_match_points_loss
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
     team_lineups team_rating_method team_unrated_rating teams_ordered_by_hand
-    team_pairing_mode initial_colour initial_colour_drawn
+    team_pairing_mode initial_colour initial_colour_drawn rating_method initial_order_tiebreak late_entry_numbering
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
     extra_points_mode count_extra_points extra_points_bands
@@ -266,12 +266,13 @@ defmodule PairingsEngine.TournamentExport do
   @team_excluded ~w(id tournament_id)a
 
   @player_fields ~w(
-    name sex title fide_id fide_rating national_id national_rating
+    name sex title fide_id fide_rating national_id national_rating tournament_rating
     federation birth_year birth_date club status start_round board_order
     pairing_number paid affiliated absent forfeit special_table
-    absent_rounds extra_points category categories club_number norm_data
+    absent_rounds extra_points external_tiebreak category categories club_number norm_data
     team_id fixed_board manual_rank no_bye no_bye_rounds bye_preference
-    bye_preference_rounds team_history no_half_bye period_ratings
+    bye_preference_rounds team_history no_half_bye fide_rating_source fide_rating_period
+    fide_rating_listed period_ratings
   )a
 
   # The roster is the one thing a backup absolutely cannot lose, so the same
@@ -293,7 +294,7 @@ defmodule PairingsEngine.TournamentExport do
 
   # `results_public` and `publish_cap` are not cast by `Round.changeset/2`;
   # the import carries them explicitly (`TournamentImport.import_rounds!/3`).
-  @round_fields ~w(number date status published_at results_public publish_cap)a
+  @round_fields ~w(number date status published_at results_public publish_cap chess960_position)a
 
   # Schema fields NOT exported, each with the reason. Paired with a test
   # (`tournament_export_test.exs`) that asserts every field on the Round and

@@ -90,3 +90,54 @@ the options, and the exact question to answer. The tracker
   waiting for TEC? (2) Should "only if possible" (soft) prohibitions count
   too, or hard ones only? (A soft one already leaves FIDE mode when it
   moves a board.)
+
+## Q166 - unknown result codes read as "unknown"
+
+- **Asks:** on import, any unexpected symbol in a result column (the draft's
+  examples are digits that are no TRF code) is taken as a game with an
+  unknown result. NO costs 10%.
+- **Today:** only `?` is read as unknown (it becomes a postponed game);
+  any other unrecognised code is refused by Ainalrami's parser on purpose
+  (`deps/ainalrami/lib/ainalrami/trf.ex`, moduledoc): reading garbage as
+  "unknown" turns a corrupt file into a plausible one, and the engine
+  argued against that reading when FIDE consulted on the draft.
+- **Options:** (a) keep refusing (10%); (b) in OpenPairings' import only,
+  rewrite an unrecognised result code to `?` before parsing, and list each
+  one on the import review step as an adjustment the arbiter confirms
+  (the engine and its checker stay strict); about 40 lines plus tests.
+- **Question:** For Q166, keep refusing unknown result codes (a), or accept
+  them as unknown results with each one shown on the import review for
+  confirmation (b)?
+
+## Q156 - late entrants' pairing numbers: default
+
+- **Asks:** a player entering after round 4 gets the correct TPN (the one
+  their rating earns). NO costs 18%.
+- **Today:** a per-tournament Swiss setting "Late entrants' pairing
+  numbers" offers "By rating" (C.04.2 2.4; everyone below moves down one,
+  played boards untouched, Baku's Group A follows its player) and "After
+  the field" (the next free number). The default is still "After the
+  field", because the bbpPairings reference expectations in
+  `engine_input_test.exs` and `snapshot_test.exs`, the app-path harness and
+  the TRF flow validation are built on it. The tracker answers YES because
+  the program can do it; a tester using the defaults would see NO.
+- **Options:** (a) keep the default (the tester must choose the setting);
+  (b) make "By rating" the default for new Swiss events and regenerate those
+  references; (c) also make "After the field" a FIDE-mode departure.
+- **Questions:** (1) Should "By rating" be the default for new Swiss
+  tournaments? (2) Should choosing "After the field" leave FIDE mode?
+  (3) Should the printed pairings and standings show the tournament rating
+  (the chosen method) instead of the FIDE-else-national rating?
+
+## Q100 - manual round-robin pairing
+
+- **Asks:** a round-robin round can be paired by hand. NO costs 7%; YES
+  leads to Q101 (15% unless hand-made rounds are checked so everyone meets
+  once per cycle) and Q102 (7% unless a hand-made double round robin is
+  guarded against three same colours running).
+- **Today:** Pair always builds the Berger schedule; starting numbers can
+  be set by hand or by lot before round 1 (Q95).
+- **Options:** (a) stay at NO (7%); (b) build manual round-robin pairing
+  together with both checks (no penalty; a sizeable piece of work).
+- **Question:** Is a manual round-robin pairing mode (with the meet-once
+  and colour checks) worth building, or do we accept the 7%?

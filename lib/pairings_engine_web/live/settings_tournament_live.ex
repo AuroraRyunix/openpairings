@@ -661,6 +661,27 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
           <.setting_group>
             <.setting_field
+              label={gettext("How an unrated player is counted in the tie-breaks")}
+              hint={
+                gettext(
+                  "Fixed rating: the rating below, and the rating-based tie-breaks are dropped while it is empty. Lowest rating in the field: every unrated player counts as the lowest rating of the tournament. Average rating: as the average of the rated players. The number worked out is the one written to the TRF tie-break line, so a checker computes the same values."
+                )
+              }
+            >
+              <select id="tiebreak-unrated-method" name="tournament[tiebreak_unrated_method]">
+                <option value="fixed" selected={@tournament.tiebreak_unrated_method == "fixed"}>
+                  {gettext("Fixed rating")}
+                </option>
+                <option value="lowest" selected={@tournament.tiebreak_unrated_method == "lowest"}>
+                  {gettext("Lowest rating in the field")}
+                </option>
+                <option value="average" selected={@tournament.tiebreak_unrated_method == "average"}>
+                  {gettext("Average rating of the rated players")}
+                </option>
+              </select>
+            </.setting_field>
+
+            <.setting_field
               label={gettext("Rating of an unrated player in the tie-breaks")}
               hint={
                 gettext(
@@ -675,6 +696,24 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 value={@tournament.tiebreak_unrated_rating}
                 min="0"
                 max="4000"
+              />
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Chess960")}
+              hint={
+                gettext(
+                  "The tournament is played as Chess960. The arbiter draws a random starting position for each round on the Pairings page; it is shown there and printed with the pairings."
+                )
+              }
+            >
+              <input type="hidden" name="tournament[chess960]" value="false" />
+              <input
+                id="chess960"
+                type="checkbox"
+                name="tournament[chess960]"
+                value="true"
+                checked={@tournament.chess960}
               />
             </.setting_field>
 

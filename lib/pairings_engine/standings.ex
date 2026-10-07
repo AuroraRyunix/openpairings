@@ -150,21 +150,25 @@ defmodule PairingsEngine.Standings do
 
     not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
+    # For a tournament lasting more than 30 days, the ratings valid in the
+    # round the tie-breaks use (`PeriodRatings`).
     unrated =
-      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and
-           players
-           |> Enum.map(
-             &PairingsEngine.PeriodRatings.at_round(
-               &1,
-               PairingsEngine.PeriodRatings.tiebreak_round(tournament),
-               tournament
-             )
-           )
-           |> unrated_present?() do
-        Enum.filter(configured, &Tiebreaks.rating_based?/1)
-      else
-        []
-      end
+      tb_players =
+      Enum.map(
+        players,
+        &PairingsEngine.PeriodRatings.at_round(
+          &1,
+          PairingsEngine.PeriodRatings.tiebreak_round(tournament),
+          tournament
+        )
+      )
+
+    if is_nil(unrated_rating(tournament, tb_players)) and
+         unrated_present?(tb_players, tournament) do
+      Enum.filter(configured, &Tiebreaks.rating_based?/1)
+    else
+      []
+    end
 
     round_robin =
       if tournament.pairing_system == "round_robin",
@@ -187,7 +191,48 @@ defmodule PairingsEngine.Standings do
     do: Enum.any?(players, &(PairingsEngine.Tournaments.Player.rating(&1) == 0))
 
   def unrated_present?(tournament),
-    do: unrated_present?(Tournaments.list_players(tournament.id))
+    do: unrated_present?(Tournaments.list_players(tournament.id), tournament)
+
+  @doc """
+  As above, under the tournament's own Tournament Rating
+  (`Player.rating/2`): the rating-based tie-breaks read that rating, so
+  "unrated" is unrated by it.
+  """
+  def unrated_present?(players, tournament) when is_list(players),
+    do: Enum.any?(players, &(PairingsEngine.Tournaments.Player.rating(&1, tournament) == 0))
+
+  @doc """
+  The rating an unrated player counts as in the rating-based tie-breaks of
+  `tournament`, or nil when none is set (Article 10 then drops them).
+
+  By the tournament's `tiebreak_unrated_method`: `"fixed"` the rating it
+  stores, `"lowest"` the lowest rating among `players`, `"average"` the
+  average of the rated players' ratings (rounded). A method that needs rated
+  players and finds none gives nil.
+  """
+  def unrated_rating(tournament, players) do
+    rated =
+      for p <- players,
+          rating = PairingsEngine.Tournaments.Player.rating(p, tournament),
+          rating > 0,
+          do: rating
+
+    case Map.get(tournament, :tiebreak_unrated_method) || "fixed" do
+      "lowest" when rated != [] -> Enum.min(rated)
+      "average" when rated != [] -> round(Enum.sum(rated) / length(rated))
+      "fixed" -> Map.get(tournament, :tiebreak_unrated_rating)
+      _ -> nil
+    end
+  end
+
+  @doc """
+  `tournament` with `:tiebreak_unrated_rating` set to what `unrated_rating/2`
+  works out for `players`, so everything that reads that one field - the
+  tie-break codes sent to Ainalrami, the TRF `202` line, the dropped-code
+  check - sees the number the method gives. Only ever used in memory.
+  """
+  def with_unrated_rating(tournament, players),
+    do: Map.put(tournament, :tiebreak_unrated_rating, unrated_rating(tournament, players))
 
   @doc """
   Same as `standings/1`, but the `:tiebreaks` map on every entry is guaranteed
@@ -268,11 +313,19 @@ defmodule PairingsEngine.Standings do
   end
 
   defp build_standings(tournament, tiebreak_codes, opts, players, data) do
+    tournament = with_unrated_rating(tournament, players)
     {games_by_player, completed_rounds} = games_by_player(tournament, players, opts, data)
+
+    # C.05 6.6(2)1: a round-robin player who withdrew having completed under
+    # half their games. Their games count for nobody's score or tie-breaks;
+    # see `uncounted_withdrawals/2`. Empty - and everything below exactly
+    # as it always was - for any other tournament.
+    uncounted = uncounted_withdrawals(tournament, players)
+    counted_games = drop_games_against(games_by_player, uncounted)
 
     entries =
       Enum.map(players, fn player ->
-        games = Map.get(games_by_player, player.id, [])
+        games = Map.get(counted_games, player.id, [])
         points = total_points(games)
         extra_points = (player.extra_points || 0.0) |> round_f(1)
 
@@ -286,10 +339,50 @@ defmodule PairingsEngine.Standings do
           # which has some twenty clauses. Both readers already hold an
           # entry: Article 16.3 reads the OPPONENT's, Article 9.2 its own.
           completed_rounds: completed_rounds,
-          rounds_played: rounds_played(games)
+          rounds_played: rounds_played(Map.get(games_by_player, player.id, []))
         }
       end)
 
+    if MapSet.size(uncounted) == 0 do
+      rank_entries(entries, tournament, tiebreak_codes, players)
+    else
+      rank_with_uncounted(
+        entries,
+        tournament,
+        tiebreak_codes,
+        players,
+        {uncounted, games_by_player}
+      )
+    end
+  end
+
+  # The C.05 6.6(2)1 table: the other players ranked among themselves, as if
+  # the withdrawn player had never been in the event; the withdrawn players
+  # after them, unranked by the tie-breaks (all zero), in pairing-number
+  # order, each marked `c05_uncounted: true`. Every entry gets its full game
+  # list back afterwards - the results "remain in the tournament table": the
+  # cross table still prints them and title norms still count them, only
+  # `points`, the tie-breaks and the order leave them out.
+  defp rank_with_uncounted(entries, tournament, tiebreak_codes, players, {uncounted, all_games}) do
+    {out, kept} = Enum.split_with(entries, &MapSet.member?(uncounted, &1.player.id))
+
+    out =
+      out
+      |> Enum.sort_by(&{&1.player.pairing_number, &1.player.name, &1.player.id})
+      |> Enum.map(fn e ->
+        e
+        |> Map.put(:tiebreaks, Map.new(tiebreak_codes, &{&1, 0.0}))
+        |> Map.put(:c05_uncounted, true)
+      end)
+
+    kept_players = Enum.reject(players, &MapSet.member?(uncounted, &1.id))
+
+    kept
+    |> rank_entries(tournament, tiebreak_codes, kept_players, out)
+    |> Enum.map(&Map.put(&1, :games, Map.get(all_games, &1.player.id, [])))
+  end
+
+  defp rank_entries(entries, tournament, tiebreak_codes, players, trailing \\ []) do
     entries = compute_tiebreaks(entries, tournament, tiebreak_codes)
 
     # An expelled player is left out of the table, and only the player: the
@@ -314,8 +407,10 @@ defmodule PairingsEngine.Standings do
     # this, is how an arbiter records a drawing of lots.
     entries
     |> Enum.sort_by(fn e ->
-      {Map.get(places, e.player.id, 0), -Player.rating(e.player), e.player.name, e.player.id}
+      {Map.get(places, e.player.id, 0), -Player.rating(e.player, tournament), e.player.name,
+       e.player.id}
     end)
+    |> Kernel.++(trailing)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} ->
       e |> Map.put(:rank, rank) |> Map.put(:place, Map.get(places, e.player.id, rank))
@@ -362,6 +457,101 @@ defmodule PairingsEngine.Standings do
   defp mark_shared_places(entries) do
     counts = Enum.frequencies_by(entries, & &1.place)
     Enum.map(entries, &Map.put(&1, :place_shared?, Map.fetch!(counts, &1.place) > 1))
+  end
+
+  @doc """
+  The players of an individual round robin whose results C.05 6.6(2)1 takes
+  out of the final standings, as a `MapSet` of player ids.
+
+  The regulation (FIDE General Regulations for Competitions, 6.6 "Round
+  robins", (2)): when a player withdraws or is expelled and has completed
+  less than 50% of their games, the results stay in the tournament table
+  (for rating and historical purposes) but are not counted in the final
+  standings; at 50% or more they stay and are counted. So:
+
+    * only a round robin played player by player (a team round robin has its
+      own standings), and only a player whose status is `withdrawn` or
+      `expelled`;
+    * "completed" games are games played over the board: a forfeit is not
+      a completed game, nor is a postponed game still to be played. Counted
+      over the whole event, whatever round the standings are asked about;
+    * "his games" are every game the schedule gives the player: one per
+      opponent in their Berger table per cycle, two per opponent in match
+      format. A round of an odd table's free round is not a game;
+    * strictly less than half: 3 of 6 completed is counted.
+
+  Nothing else reads this: the TRF and the rating report keep every game
+  (`PairingsEngine.TrfExport` does not go through the standings for a
+  player's games or points), as the regulation says.
+  """
+  def uncounted_withdrawals(tournament, players) do
+    withdrawn =
+      Enum.filter(
+        players,
+        &(&1.status in ~w(withdrawn expelled) and is_integer(&1.pairing_number))
+      )
+
+    if withdrawn == [] or not individual_round_robin?(tournament) do
+      MapSet.new()
+    else
+      completed = completed_games(tournament.id, Enum.map(withdrawn, & &1.id))
+      due = games_due(tournament, players)
+
+      withdrawn
+      |> Enum.filter(fn p -> Map.get(completed, p.id, 0) * 2 < Map.get(due, p.id, 0) end)
+      |> MapSet.new(& &1.id)
+    end
+  end
+
+  defp individual_round_robin?(tournament) do
+    tournament.pairing_system == "round_robin" and
+      not PairingsEngine.Tournaments.Tournament.team?(tournament)
+  end
+
+  # Over-the-board games each of `ids` has finished, over every round.
+  defp completed_games(tournament_id, ids) do
+    from(p in Pairing,
+      join: r in Round,
+      on: r.id == p.round_id,
+      where:
+        r.tournament_id == ^tournament_id and
+          (p.white_player_id in ^ids or p.black_player_id in ^ids),
+      select: {p.white_player_id, p.black_player_id, p.result}
+    )
+    |> Repo.all()
+    |> Enum.filter(fn {_w, _b, result} ->
+      Results.played?(result) and not Results.postponed?(result)
+    end)
+    |> Enum.flat_map(fn {w, b, _result} -> [w, b] end)
+    |> Enum.frequencies()
+  end
+
+  # `%{player_id => games the schedule gives them}`, from the Berger table
+  # each numbered player is in (`RoundRobin.schedule_groups/2`).
+  defp games_due(tournament, players) do
+    per_opponent =
+      if Map.get(tournament, :rr_match_format) == true,
+        do: 2,
+        else: Map.get(tournament, :rr_cycles) || 1
+
+    tournament
+    |> PairingsEngine.RoundRobin.schedule_groups(Enum.filter(players, & &1.pairing_number))
+    |> Enum.flat_map(fn group ->
+      Enum.map(group, &{&1.id, (length(group) - 1) * per_opponent})
+    end)
+    |> Map.new()
+  end
+
+  defp drop_games_against(games_by_player, uncounted) do
+    if MapSet.size(uncounted) == 0 do
+      games_by_player
+    else
+      Map.new(games_by_player, fn {id, games} ->
+        if MapSet.member?(uncounted, id),
+          do: {id, games},
+          else: {id, Enum.reject(games, &MapSet.member?(uncounted, &1.opponent_id))}
+      end)
+    end
   end
 
   @doc """
@@ -1475,7 +1665,7 @@ defmodule PairingsEngine.Standings do
       Enum.map(entries, fn entry ->
         tiebreaks =
           for code <- tiebreak_codes, code not in @direct_encounter, into: %{} do
-            {code, as_float(get_in(values, [code, entry.player.id]))}
+            {code, tiebreak_value(code, entry, values)}
           end
 
         Map.put(entry, :tiebreaks, tiebreaks)
@@ -1487,6 +1677,10 @@ defmodule PairingsEngine.Standings do
         else: entries
     end)
   end
+
+  # `EXT` is typed by the arbiter, not computed: the player's own value.
+  defp tiebreak_value("EXT", entry, _values), do: as_float(entry.player.external_tiebreak)
+  defp tiebreak_value(code, entry, values), do: as_float(get_in(values, [code, entry.player.id]))
 
   # Values were floats here before the switch, and screens format them as
   # such; Ainalrami gives counts and ratings as integers.
@@ -1505,14 +1699,39 @@ defmodule PairingsEngine.Standings do
 
   defp c07_places(entries, tournament, ranking_codes) do
     event = tiebreak_event(entries, tournament)
+    score = Map.new(entries, &{&1.player.id, ranking_score(&1, tournament)})
 
+    case Enum.split_while(ranking_codes, &(&1 != "EXT")) do
+      {_all, []} ->
+        rank_places(event, ranking_codes, tournament, score)
+
+      {before, ["EXT" | after_codes]} ->
+        # `EXT` is the arbiter's own value, which Ainalrami does not know:
+        # the codes before it rank the players, the typed value splits
+        # whoever is still level, and the codes after it go on from there.
+        # The split is handed on as a score of its own, so each stage sees
+        # the one before it as the score it starts from.
+        first = rank_places(event, before, tournament, score)
+
+        keys =
+          Map.new(entries, fn e ->
+            {e.player.id, {Map.get(first, e.player.id, 0), -(e.player.external_tiebreak || 0.0)}}
+          end)
+
+        dense = keys |> Map.values() |> Enum.uniq() |> Enum.sort() |> Enum.with_index(1)
+        dense = Map.new(dense)
+        split = Map.new(keys, fn {id, key} -> {id, -Map.fetch!(dense, key) * 1.0} end)
+
+        rank_places(event, after_codes, tournament, split)
+    end
+  end
+
+  defp rank_places(event, ranking_codes, tournament, score) do
     codes =
       ranking_codes
       |> Enum.filter(&Map.has_key?(AinalramiBridge.codes(), &1))
       |> Enum.reject(&(event.predetermined? and Tiebreaks.buchholz_based?(&1)))
       |> Enum.map(&AinalramiBridge.c07_code(&1, tournament))
-
-    score = Map.new(entries, &{&1.player.id, ranking_score(&1, tournament)})
 
     case Ainalrami.Tiebreaks.rank(event, codes, score: score) do
       {:ok, standings} -> Map.new(standings, &{&1.id, &1.rank})

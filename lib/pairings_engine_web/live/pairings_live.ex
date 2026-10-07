@@ -147,7 +147,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # whether the last pairing attempt found no legal pairing, which is
        # when creating the round by hand is offered.
        mpa_dialog: nil,
-       manual_round_offer: false
+       manual_round_offer: false,
+       # The automatic rating check's notice (see
+       # `PairingsEngineWeb.RatingNotice`) - worked out once, on opening.
+       rating_notice: nil
      )
      |> allow_upload(:results_csv,
        auto_upload: true,
@@ -159,7 +162,16 @@ defmodule PairingsEngineWeb.PairingsLive do
      |> NextRoundPreviewPanel.init()
      |> attach_fide_gate()
      |> assign(fide_resume: nil)
+     |> assign_rating_notice()
      |> refresh()}
+  end
+
+  defp assign_rating_notice(socket) do
+    notice =
+      if connected?(socket),
+        do: PairingsEngineWeb.RatingNotice.compute(socket.assigns.tournament)
+
+    assign(socket, rating_notice: notice)
   end
 
   defp initial_round(value, tournament, paired) do
@@ -575,6 +587,27 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("pair_ignoring_bye_exclusion", _params, socket), do: {:noreply, socket}
+
+  def handle_event("draw_chess960", _params, socket) do
+    %{tournament: t, round_number: round_number, current_scope: scope} = socket.assigns
+
+    case PairingsEngine.Chess960.draw_for_round(t, round_number) do
+      {:ok, round} ->
+        Audit.log(t.id, scope, "pairing.chess960_drawn", %{
+          round: round_number,
+          position: round.chess960_position
+        })
+
+        {:noreply, socket |> assign(error: nil) |> refresh()}
+
+      {:error, :already_drawn} ->
+        {:noreply,
+         assign(socket, error: gettext("A position has already been drawn for this round."))}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: error_text(reason))}
+    end
+  end
 
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
@@ -4136,6 +4169,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       tournament={@tournament}
       active="pairings"
     >
+      <PairingsEngineWeb.RatingNotice.notice notice={@rating_notice} tournament_id={@tournament.id} />
       <%!-- Two rows above the table (2026-09-28): the tournament's name,
             then the round bar below. The top bar's tab already says
             "Pairings", so the name stands alone; the links that sat beside
@@ -4371,6 +4405,28 @@ defmodule PairingsEngineWeb.PairingsLive do
           <%!-- `display: contents`: the control is a flex item of this row
                 like its neighbours, and the note it may carry wraps onto a
                 line of its own below them (see `.pe-level-note`). --%>
+          <%!-- Chess960: the round's drawn starting position (VCL4THP Q222),
+                or the button that draws it. Drawn once. --%>
+          <span
+            :if={@round != nil && @tournament.chess960 && @round.chess960_position != nil}
+            id="chess960-position"
+            class="badge"
+          >
+            {gettext("Chess960 position")} {PairingsEngine.Chess960.label(@round)}
+          </span>
+          <button
+            :if={
+              @round != nil && @tournament.chess960 && @round.chess960_position == nil &&
+                !@tournament.archived_at
+            }
+            id="draw-chess960"
+            type="button"
+            class="pe-btn"
+            phx-click="draw_chess960"
+          >
+            {gettext("Draw Chess960 position")}
+          </button>
+
           <div :if={@round != nil} id="round-publish-group" class="pe-level-slot">
             <.publish_level tournament={@tournament} round={@round} />
           </div>

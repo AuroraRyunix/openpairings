@@ -977,6 +977,14 @@ defmodule PairingsEngine.Tournaments do
       # freezes with round 1 like the rest of the pairing shape.
       base = base ++ [:initial_colour]
 
+      # The Tournament Rating method and the last criterion of the initial
+      # order gave round 1's pairing numbers (C.04.2 2.2-2.3), and the
+      # method is the rating the rating-based tie-breaks read, so both
+      # freeze with round 1 too. Unlockable: a wrong choice found early is
+      # a correction 2.3 allows, and changing either renumbers nobody - it
+      # only decides where a later late entrant goes.
+      base = base ++ [:rating_method, :initial_order_tiebreak]
+
       base = if paired > cycle, do: [:rr_cycles | base], else: base
       base = if paired >= cycle - 1, do: [:rr_reverse_last_two | base], else: base
 
@@ -2697,7 +2705,9 @@ defmodule PairingsEngine.Tournaments do
   # Only guards an *existing* number being changed to a different one -
   # `Pairing.ensure_pairing_numbers/2` assigning a fresh number to a player
   # who never had one (nil -> N, e.g. a late entry joining after round 4)
-  # is unaffected, exactly as FIDE's own rule allows.
+  # is unaffected, exactly as FIDE's own rule allows - and so is the move
+  # down by one that a Swiss late entrant numbered by rating above somebody
+  # gives them (C.04.2 2.4-2.5), which that function writes past this guard.
   defp guard_pairing_number_freeze(changeset, %Player{pairing_number: current})
        when not is_nil(current) do
     case Ecto.Changeset.get_change(changeset, :pairing_number) do
@@ -3771,8 +3781,8 @@ defmodule PairingsEngine.Tournaments do
   The team's rating for seeding, a float (0.0 when there is nothing to
   average), by the tournament's `team_rating_method`. A rating typed for the
   team (`teams.rating_override`) is used whenever it is set, whatever the
-  method. Each player counts with `Player.rating/1` - the FIDE rating, the
-  national one for a player without. A player with neither counts as the
+  method. Each player counts with their Tournament Rating (`Player.rating/2`,
+  by default the FIDE rating, the national one for a player without). A player with neither counts as the
   tournament's `team_unrated_rating` (1400 by default), and so does a board
   nobody sits at (a team with fewer players than boards): a short roster is
   not ranked below a team that fields an unrated player. A team with no
@@ -3839,10 +3849,11 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
-  # A player's rating for a team's rating: `Player.rating/1`, or the
-  # tournament's unrated value when the player has none.
+  # A player's rating for a team's rating: the Tournament Rating
+  # (`Player.rating/2`), or the tournament's unrated value when the player
+  # has none.
   defp seed_rating(player, tournament) do
-    case Player.rating(player) do
+    case Player.rating(player, tournament) do
       r when r > 0 -> r
       _ -> unrated_rating(tournament)
     end

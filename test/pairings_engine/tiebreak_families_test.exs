@@ -113,7 +113,7 @@ defmodule PairingsEngine.TiebreakFamiliesTest do
       for code <- @new_swiss ++ @new_rr, do: assert(code in offered, "#{code} is not offered")
 
       # The 39 of Q199, in this app's spelling for the four it spells its own way.
-      c07 = Enum.map(offered, &AinalramiBridge.c07_code/1)
+      c07 = offered |> Enum.reject(&(&1 == "EXT")) |> Enum.map(&AinalramiBridge.c07_code/1)
       assert length(Enum.uniq(c07)) == length(c07)
 
       for name <- Ainalrami.Tiebreaks.Code.names(),
@@ -126,7 +126,7 @@ defmodule PairingsEngine.TiebreakFamiliesTest do
     end
 
     test "every code is one Ainalrami parses back to itself, and the picker groups hold them all" do
-      for %{code: code, scope: scope} <- Tiebreaks.catalogue(), scope != :team do
+      for %{code: code, scope: scope} <- Tiebreaks.catalogue(), scope != :team, code != "EXT" do
         c07 = AinalramiBridge.c07_code(code)
         assert {:ok, parsed} = Ainalrami.Tiebreaks.Code.parse(c07)
         assert Ainalrami.Tiebreaks.Code.format(parsed) == c07

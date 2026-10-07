@@ -1338,6 +1338,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => "Refresh Test", "type" => "swiss"})
 
+      PairingsEngine.Meta.put(
+        "fide_list_period",
+        PairingsEngine.Fide.month_of(Date.utc_today())
+      )
+
       %{tournament: tournament}
     end
 
@@ -1347,7 +1352,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     } do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-      html = lv |> element("button", "Refresh ratings") |> render_click()
+      lv |> element("button", "Refresh ratings") |> render_click()
+      html = render_async(lv)
 
       assert html =~ "Everything up to date"
       assert html =~ "0 players checked"
@@ -1374,7 +1380,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-      html = lv |> element("button", "Refresh ratings") |> render_click()
+      lv |> element("button", "Refresh ratings") |> render_click()
+      html = render_async(lv)
 
       assert html =~ "FIDE rating"
       assert html =~ "1900"
@@ -1383,7 +1390,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "1 player checked"
       assert html =~ "1 change"
 
-      lv |> element("button", "Apply") |> render_click()
+      lv |> element("#rating-refresh-apply") |> render_click()
       # This click both writes (via RatingRefresh.apply/2) and broadcasts -
       # synchronize before asserting so the reload always lands before we look.
       html = render(lv)
@@ -1408,10 +1415,268 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
       lv |> element("button", "Refresh ratings") |> render_click()
+      render_async(lv)
       html = lv |> element("button", "Cancel") |> render_click()
 
       refute html =~ "phx-click-away=\"close_rating_refresh\""
       assert Tournaments.get_player!(player.tournament_id, player.id).fide_rating == 1500
+    end
+  end
+
+  describe "rating lists on the Players page (VCL4THP 128, 134, 140, 141, 144)" do
+    defp complete_tournament(scope, name, date) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => name,
+          "type" => "swiss",
+          "rounds_count" => "9",
+          "round_dates" => List.duplicate(date, 9),
+          "tiebreaks" => ["BH", "SB"],
+          "chief_arbiter" => "Jane Arbiter",
+          "federation" => "BEL",
+          "rate_of_play" => "90 min + 30 sec/move"
+        })
+
+      tournament
+    end
+
+    setup %{scope: scope} do
+      PairingsEngine.Meta.put(
+        "fide_list_period",
+        PairingsEngine.Fide.month_of(Date.utc_today())
+      )
+
+      %{tournament: complete_tournament(scope, "Lists Test", Date.to_iso8601(Date.utc_today()))}
+    end
+
+    defp two_players(tournament) do
+      {:ok, alice} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Alice",
+          "fide_id" => "1",
+          "fide_rating" => "1000"
+        })
+
+      {:ok, bob} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Bob",
+          "fide_id" => "2",
+          "fide_rating" => "1000"
+        })
+
+      Repo.insert!(%FidePlayer{fide_id: 1, name: "Alice", standard_rating: 1100})
+      Repo.insert!(%FidePlayer{fide_id: 2, name: "Bob", standard_rating: 1200})
+      {alice, bob}
+    end
+
+    test "every proposal is ticked to start with, and Apply writes only the ticked ones", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {alice, bob} = two_players(tournament)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      lv |> element("button", "Refresh ratings") |> render_click()
+      render_async(lv)
+
+      assert has_element?(lv, "#rating-proposal-#{alice.id}-fide_rating[checked]")
+      assert has_element?(lv, "#rating-proposal-#{bob.id}-fide_rating[checked]")
+      assert has_element?(lv, "#rating-refresh-select-all[checked]")
+
+      lv |> element("#rating-proposal-#{alice.id}-fide_rating") |> render_click()
+      refute has_element?(lv, "#rating-proposal-#{alice.id}-fide_rating[checked]")
+      refute has_element?(lv, "#rating-refresh-select-all[checked]")
+
+      lv |> element("#rating-refresh-apply") |> render_click()
+      render(lv)
+
+      assert Tournaments.get_player!(alice.tournament_id, alice.id).fide_rating == 1000
+      updated = Tournaments.get_player!(bob.tournament_id, bob.id)
+      assert updated.fide_rating == 1200
+      assert updated.fide_rating_source == "standard"
+    end
+
+    test "select all ticks everything again, and with nothing ticked Apply is disabled", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {alice, _bob} = two_players(tournament)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      lv |> element("button", "Refresh ratings") |> render_click()
+      render_async(lv)
+
+      lv |> element("#rating-refresh-select-all") |> render_click()
+      refute has_element?(lv, "#rating-proposal-#{alice.id}-fide_rating[checked]")
+      assert has_element?(lv, "#rating-refresh-apply[disabled]")
+
+      lv |> element("#rating-refresh-select-all") |> render_click()
+      assert has_element?(lv, "#rating-proposal-#{alice.id}-fide_rating[checked]")
+      refute has_element?(lv, "#rating-refresh-apply[disabled]")
+    end
+
+    test "a list later than the tournament's start date says so and proposes nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      old = complete_tournament(scope, "Old Event", "2020-01-05")
+      assert old.start_date == "2020-01-05"
+      two_players(old)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{old.id}/players")
+      lv |> element("button", "Refresh ratings") |> render_click()
+      render_async(lv)
+
+      assert has_element?(lv, "#rating-refresh-list")
+      refute has_element?(lv, "#rating-refresh-select-all")
+      assert render(lv) =~ "2020-01"
+    end
+
+    test "opening the page shows the automatic check's notice, which offers the check", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      two_players(tournament)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert has_element?(lv, "#rating-check-notice")
+      lv |> element("#rating-check-notice-review") |> render_click()
+      render_async(lv)
+      assert has_element?(lv, "#rating-refresh-dialog")
+    end
+
+    test "no notice when the ratings already match the list", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Alice",
+          "fide_id" => "1",
+          "fide_rating" => "1100"
+        })
+
+      Repo.insert!(%FidePlayer{fide_id: 1, name: "Alice", standard_rating: 1100})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      refute has_element?(lv, "#rating-check-notice")
+    end
+
+    test "a finished list update brings the notice up without reloading", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      refute has_element?(lv, "#rating-check-notice")
+
+      two_players(tournament)
+
+      Phoenix.PubSub.broadcast(
+        PairingsEngine.PubSub,
+        PairingsEngine.Fide.Sync.topic(),
+        {:fide_sync, %{status: :done}}
+      )
+
+      render(lv)
+      assert has_element?(lv, "#rating-check-notice")
+    end
+
+    test "a requested check asks FIDE first; out of date and not an administrator, it says so",
+         %{conn: conn, tournament: tournament} do
+      two_players(tournament)
+
+      Repo.query!(
+        "INSERT INTO meta (key, value) VALUES ('fide_last_sync', '2026-01-02 08:00:00') " <>
+          "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+      )
+
+      Repo.query!(
+        "INSERT INTO meta (key, value) VALUES ('fide_list_period', ?) " <>
+          "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [PairingsEngine.Fide.month_of(Date.utc_today())]
+      )
+
+      Req.Test.stub(PairingsEngine.Fide.FreshnessTest, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("last-modified", "Thu, 15 Oct 2099 12:00:00 GMT")
+        |> Plug.Conn.send_resp(200, "")
+      end)
+
+      # The test account is not an administrator, so it is told rather than
+      # starting a 41 MB download.
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      lv |> element("button", "Refresh ratings") |> render_click()
+      render_async(lv)
+
+      assert has_element?(lv, "#rating-refresh-note")
+      assert has_element?(lv, "#rating-refresh-dialog")
+    end
+
+    test "the add-player search shows the ratings a player has in the other lists", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      Repo.insert!(%FidePlayer{
+        fide_id: 31,
+        name: "Rapidonly, Rita",
+        federation: "BEL",
+        standard_rating: nil,
+        rapid_rating: 1850,
+        blitz_rating: 1900
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "Rapidonly"})
+
+      assert has_element?(lv, "#fide-result-31")
+      assert has_element?(lv, "#fide-result-31-other")
+      html = lv |> element("#fide-result-31") |> render()
+      assert html =~ "no standard rating"
+      assert html =~ "Rapid 1850"
+      assert html =~ "Blitz 1900"
+    end
+
+    test "a player picked from the list is saved with the list their rating came from", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      Repo.insert!(%FidePlayer{fide_id: 32, name: "Listed, Lena", standard_rating: 1750})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "Listed"})
+      render_click(lv, "pick", %{"fide-id" => "32"})
+
+      assert has_element?(lv, "#add-rating-source")
+      assert render(lv) =~ "From the FIDE Standard list of"
+
+      lv |> form("#add-player-form") |> render_submit()
+
+      player =
+        Tournaments.list_players(tournament.id) |> Enum.find(&(&1.name == "Listed, Lena"))
+
+      assert player.fide_rating == 1750
+      assert player.fide_rating_source == "standard"
+      assert player.fide_rating_period == PairingsEngine.Fide.month_of(Date.utc_today())
+      assert player.fide_rating_listed == 1750
+    end
+
+    test "a rating typed by hand in the add form is saved without a source", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      lv
+      |> form("#add-player-form", %{
+        "player" => %{"name" => "Hand, Hans", "fide_rating" => "1444"}
+      })
+      |> render_submit()
+
+      player = Tournaments.list_players(tournament.id) |> Enum.find(&(&1.name == "Hand, Hans"))
+      assert player.fide_rating == 1444
+      assert player.fide_rating_source == nil
     end
   end
 

@@ -11,8 +11,21 @@ defmodule PairingsEngine.Tournaments.Player do
     field :title, :string, default: ""
     field :fide_id, :integer
     field :fide_rating, :integer, default: 0
+    # Where `fide_rating` came from, kept beside it (VCL4THP 134): the FIDE
+    # list it was read from ("standard" | "rapid" | "blitz"), the monthly list
+    # ("YYYY-MM") it belongs to, and the value as that list printed it. All
+    # nil for a rating nobody read from a list. A later hand edit changes
+    # `fide_rating` and leaves these three, which is how `rating_manual?/1`
+    # tells a modified rating from an untouched one.
+    field :fide_rating_source, :string
+    field :fide_rating_period, :string
+    field :fide_rating_listed, :integer
     field :national_id, :string, default: ""
     field :national_rating, :integer, default: 0
+    # A rating typed by hand for this tournament (the TEC Manual's "manually
+    # entered value"), read only by the HBFN and OTHER Tournament Rating
+    # methods - see `rating/2`. nil when nobody typed one.
+    field :tournament_rating, :integer
     # A tournament lasting more than 30 days (`Tournament.long_event`): the
     # player's LATER ratings, each with the first round it applies to -
     # `[%{"from_round" => 5, "fide_rating" => 1850}]`, optionally with a
@@ -105,6 +118,10 @@ defmodule PairingsEngine.Tournaments.Player do
     field :bye_preference_scope, :string, virtual: true
     # SWAR XtPts
     field :extra_points, :float, default: 0.0
+    # A tie-break value calculated outside the program (code "EXT" in the
+    # tournament's tie-break list), typed by the arbiter on the Standings
+    # page; nil until entered, counted as 0. Higher ranks higher.
+    field :external_tiebreak, :float
     # The pairing-pool OVERRIDE, not "the player's category". A player can
     # carry several categories (`categories` below); `pair_by_category` can
     # only put them in one pool, so exactly one of those tags has to win.
@@ -190,8 +207,12 @@ defmodule PairingsEngine.Tournaments.Player do
       :title,
       :fide_id,
       :fide_rating,
+      :fide_rating_source,
+      :fide_rating_period,
+      :fide_rating_listed,
       :national_id,
       :national_rating,
+      :tournament_rating,
       :federation,
       :birth_year,
       :club,
@@ -208,6 +229,7 @@ defmodule PairingsEngine.Tournaments.Player do
       :absent_rounds,
       :no_half_bye,
       :extra_points,
+      :external_tiebreak,
       :category,
       :categories,
       :club_number,
@@ -225,6 +247,7 @@ defmodule PairingsEngine.Tournaments.Player do
     # Kept as typed, blank included: an emptied box is "no later ratings",
     # which the default empty-to-nil cast would not see as a change.
     |> cast(attrs, [:period_ratings_text], empty_values: [])
+    |> normalize_rating_provenance()
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
     |> validate_inclusion(:status, ~w(active withdrawn expelled))
@@ -244,8 +267,31 @@ defmodule PairingsEngine.Tournaments.Player do
     |> normalize_period_ratings()
     |> sync_special_table()
     |> validate_fide_id_range()
+    |> validate_number(:tournament_rating, greater_than_or_equal_to: 0, less_than: 10_000)
     |> unique_fide_id_in_tournament()
   end
+
+  @rating_lists ~w(standard rapid blitz)
+
+  # Blank means "no source", and anything that is not one of the three lists
+  # or a YYYY-MM period is dropped rather than stored.
+  defp normalize_rating_provenance(changeset) do
+    changeset
+    |> update_change(:fide_rating_source, fn v -> if v in @rating_lists, do: v end)
+    |> update_change(:fide_rating_period, fn v ->
+      if PairingsEngine.Fide.period?(v), do: v
+    end)
+  end
+
+  @doc """
+  Whether the FIDE rating was typed or changed by hand (or arrived from
+  somewhere that does not say where it came from): no source list on record,
+  or the value differs from the one the list printed. A player with no rating
+  is not "manual" - there is nothing to describe.
+  """
+  def rating_manual?(%__MODULE__{fide_rating: r}) when r in [nil, 0], do: false
+  def rating_manual?(%__MODULE__{fide_rating_source: nil}), do: true
+  def rating_manual?(%__MODULE__{fide_rating: r, fide_rating_listed: l}), do: r != l
 
   # A physical table number, so it has to be one that can exist: 0 and
   # negatives were accepted and travelled all the way to the printed sheet,
@@ -800,16 +846,86 @@ defmodule PairingsEngine.Tournaments.Player do
     unique_constraint(changeset, :fide_id, name: :players_tournament_id_fide_id_index)
   end
 
-  @doc "Rating used for sorting/pairing display: FIDE first, national as fallback."
-  def rating(%__MODULE__{fide_rating: f, national_rating: n}) do
+  @doc """
+  The FIDON rating: FIDE first, national as fallback - `rating/2` under the
+  default method, for a caller with no tournament in hand. Where the
+  tournament is known, `rating(player, tournament)` is the one that ranks.
+  """
+  def rating(%__MODULE__{} = player), do: rating(player, "FIDON")
+
+  @doc """
+  The player's Tournament Rating under `method` - a `%Tournament{}` (its
+  `rating_method`) or the method itself - always an integer, 0 for none.
+
+  The methods are TRF26 record 172's (VCL4THP Q145):
+
+    * `"FIDE"` - the FIDE rating only (the stored one is already the list
+      for the tournament's rate of play, see `PairingsEngine.Fide`).
+    * `"NRO"` - the national rating only.
+    * `"FIDON"` - FIDE, the national one for a player without. The default,
+      and what this app always did.
+    * `"NIDOF"` - national, the FIDE one for a player without.
+    * `"HBFN"` - the highest of FIDE, national and the hand-typed
+      `tournament_rating`.
+    * `"OTHER"` - the hand-typed `tournament_rating` alone: the arbiter's
+      own figure, the C.04.2 2.1 estimate for a player with no reliable
+      rating included.
+
+  An unknown or missing method reads as FIDON, so a struct built without the
+  column (an older file, a hand-made test struct) ranks as it always did.
+  """
+  def rating(%__MODULE__{} = player, %{rating_method: method}), do: rating(player, method)
+
+  def rating(%__MODULE__{} = player, method) do
     # Coerce nils to 0 first: a `nil` rating field (a raw/partial insert that
     # bypassed the schema's `default: 0`) would otherwise make `f > 0` return
     # `nil` - in Elixir's term ordering `nil > 0` is `true` - and returning
     # `nil` here crashes every `-Player.rating(p)` sort key downstream.
-    f = f || 0
-    n = n || 0
-    if f > 0, do: f, else: n
+    f = player.fide_rating || 0
+    n = player.national_rating || 0
+    manual = Map.get(player, :tournament_rating) || 0
+
+    case method do
+      "FIDE" -> f
+      "NRO" -> n
+      "NIDOF" -> if n > 0, do: n, else: f
+      "HBFN" -> Enum.max([f, n, manual])
+      "OTHER" -> manual
+      _fidon -> if f > 0, do: f, else: n
+    end
   end
+
+  # C.04.2 2.2.2: "FIDE-title (GM-IM-WGM-FM-WIM-CM-WFM-WCM-no title), for
+  # individual tournaments". Stored as the TRF-style uppercase code; the
+  # TRF's own one- and two-letter forms (g, i, wg, f, wi, c, wf, wc) are read
+  # too, since an import can carry either.
+  @title_order %{
+    "GM" => 0,
+    "G" => 0,
+    "IM" => 1,
+    "I" => 1,
+    "WGM" => 2,
+    "WG" => 2,
+    "FM" => 3,
+    "F" => 3,
+    "WIM" => 4,
+    "WI" => 4,
+    "CM" => 5,
+    "C" => 5,
+    "WFM" => 6,
+    "WF" => 6,
+    "WCM" => 7,
+    "WC" => 7
+  }
+
+  @doc """
+  Where the player's FIDE title puts them in C.04.2 2.2.2's order - 0 for a
+  GM, 8 for no title (or one that is not a FIDE playing title).
+  """
+  def title_rank(%{title: title}) when is_binary(title),
+    do: Map.get(@title_order, title |> String.trim() |> String.upcase(), 8)
+
+  def title_rank(_player), do: 8
 
   @doc """
   Display label for `sex`: stored internally as "m"/"w" (see

@@ -12,12 +12,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     PlayerStats,
     PlayerCard,
     RatingRefresh,
-    Tiebreaks
+    StartingNumbers,
+    Tiebreaks,
+    Tpn
   }
 
   alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
   alias PairingsEngine.LateEntry
+  alias PairingsEngine.RatingLists
   alias PairingsEngineWeb.RegistrationQueue
 
   alias PairingsEngine.Tournaments.Player
@@ -63,7 +66,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
     {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
     {"rnk", "Rnk", true,
-     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
+     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (tournament rating, then FIDE title, then the tie order set under Settings - Options) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
     {"cat", "Cat", false,
      "Prize categories (SWAR CATEGORIES) - every category this player is in, from the ones " <>
        "defined for this tournament on the Categories settings page, assigned by hand or by " <>
@@ -77,7 +80,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"national_rating", "Elo Nat", true, "National federation rating"},
     {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
     {"elo_used", "Elo used", true,
-     "The rating actually used for pairing/performance/tiebreak calculations - FIDE rating if the player has one, otherwise the national rating"},
+     "The tournament rating: the one that gives the pairing numbers and that the rating-based tiebreaks read, by the method set under Settings - Options (by default the FIDE rating, the national one for a player without)"},
     {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
     {"club", "Club", false, "Chess club"},
     {"games", "Ga", true, "Games played"},
@@ -127,12 +130,16 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      # A finished list update re-runs the automatic rating check, and a
+      # requested check that was waiting for one.
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, PairingsEngine.Fide.Sync.topic())
     end
 
     {:ok,
      socket
      |> assign(
        tournament: tournament,
+       rating_sequence: RatingLists.sequence(tournament),
        page_title: "#{tournament.name} · Players",
        adding: false,
        error: nil,
@@ -141,6 +148,9 @@ defmodule PairingsEngineWeb.PlayersLive do
        # KBSB members matching the add form's search, shown before the FIDE
        # hits when the player lookup is on (see the "search" handler).
        kbsb_results: [],
+       # Players of the custom rating lists in the tournament's sequence that
+       # match the search (see `PairingsEngine.RatingLists`).
+       custom_results: [],
        form_values: %{},
        visible: @default_visible,
        editing_player: nil,
@@ -158,7 +168,22 @@ defmodule PairingsEngineWeb.PlayersLive do
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
+       # The proposals ticked in the rating check, by id (all of them to
+       # start with); whether a requested check is waiting for a list
+       # update; a line about the list used; and the automatic check's notice.
+       rating_selected: MapSet.new(),
+       rating_waiting: false,
+       rating_note: nil,
+       rating_notice: nil,
        club_refresh: nil,
+       # The round robin's starting numbers dialog: nil while closed, else
+       # `StartingNumbers.order/1`.
+       starting_numbers: nil,
+       # A Swiss's pairing-number dialog (TPN exchange and regeneration):
+       # nil while closed, else `Tpn.order/1`; `tpn_changes` holds a
+       # regeneration waiting for the arbiter's confirmation.
+       tpn: nil,
+       tpn_changes: nil,
        bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
        # One switch for both since 0.74.2; the old Belgian key still counts
@@ -176,7 +201,18 @@ defmodule PairingsEngineWeb.PlayersLive do
      )
      |> assign_postponed_open()
      |> assign_players()
+     |> assign_rating_notice()
      |> RegistrationQueue.assign_queue()}
+  end
+
+  # The automatic rating check: only once connected (the static render does
+  # not need it), and never blocking - see `PairingsEngineWeb.RatingNotice`.
+  defp assign_rating_notice(socket) do
+    notice =
+      if connected?(socket),
+        do: PairingsEngineWeb.RatingNotice.compute(socket.assigns.tournament)
+
+    assign(socket, rating_notice: notice)
   end
 
   # The tournament's main page carries a small card with every postponed
@@ -215,6 +251,7 @@ defmodule PairingsEngineWeb.PlayersLive do
          socket
          |> assign(
            tournament: tournament,
+           rating_sequence: RatingLists.sequence(tournament),
            setup_complete: Tournament.setup_complete?(tournament),
            missing_setup: Tournament.missing_setup_fields(tournament)
          )
@@ -222,6 +259,88 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> assign_players()
          |> RegistrationQueue.assign_queue()}
     end
+  end
+
+  # A list update finished: refresh the automatic check's notice from the new
+  # list, and run the check the arbiter asked for before the update started.
+  def handle_info({:fide_sync, %{status: :done}}, socket) do
+    socket = assign_rating_notice(socket)
+
+    if socket.assigns.rating_waiting do
+      {:noreply, run_rating_check(socket, nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:fide_sync, %{status: :error}}, socket) do
+    if socket.assigns.rating_waiting do
+      {:noreply,
+       run_rating_check(
+         socket,
+         gettext(
+           "The FIDE list could not be updated, so this compares against the copy on this machine."
+         )
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:fide_sync, _state}, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_async(:rating_freshness, {:ok, :stale}, socket) do
+    if PairingsEngine.Authz.may_administer?(socket.assigns.current_scope.user) do
+      if PairingsEngine.Fide.Sync.status().status not in [:downloading, :importing] do
+        PairingsEngine.Fide.Sync.start_sync()
+        Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
+      end
+
+      {:noreply,
+       assign(socket,
+         rating_note:
+           gettext(
+             "The FIDE list on this machine is out of date. Updating it first; the check follows."
+           )
+       )}
+    else
+      # Downloading the list is an administrator's act (Connections page).
+      {:noreply,
+       run_rating_check(
+         socket,
+         gettext(
+           "The FIDE list on this machine is out of date. Ask an administrator to update it under Connections, then check again."
+         )
+       )}
+    end
+  end
+
+  def handle_async(:rating_freshness, {:ok, :unverified}, socket) do
+    {:noreply,
+     run_rating_check(
+       socket,
+       gettext(
+         "Could not confirm that the FIDE list on this machine is current (no answer from FIDE)."
+       )
+     )}
+  end
+
+  def handle_async(:rating_freshness, {:ok, :current}, socket),
+    do: {:noreply, run_rating_check(socket, nil)}
+
+  def handle_async(:rating_freshness, _failed, socket),
+    do: {:noreply, run_rating_check(socket, nil)}
+
+  defp run_rating_check(socket, note) do
+    summary = RatingRefresh.dry_run(socket.assigns.tournament)
+
+    assign(socket,
+      rating_refresh: summary,
+      rating_selected: MapSet.new(Enum.map(summary.proposals, & &1.id)),
+      rating_waiting: false,
+      rating_note: note
+    )
   end
 
   defp postponed_name(nil), do: "?"
@@ -237,7 +356,36 @@ defmodule PairingsEngineWeb.PlayersLive do
       |> filter_by_category(socket.assigns[:cat_filter])
       |> sort_entries(socket.assigns[:sort_col], socket.assigns[:sort_dir])
 
-    assign(socket, :players, entries)
+    socket
+    |> assign(:players, entries)
+    |> assign(
+      :starting_numbers_editable?,
+      StartingNumbers.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
+    )
+    |> refresh_starting_numbers()
+    |> assign(
+      :tpn_editable?,
+      Tpn.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
+    )
+    |> refresh_tpn()
+  end
+
+  defp refresh_tpn(%{assigns: %{tpn: nil}} = socket), do: socket
+
+  defp refresh_tpn(socket) do
+    if socket.assigns.tpn_editable?,
+      do: assign(socket, :tpn, Tpn.order(socket.assigns.tournament)),
+      else: assign(socket, tpn: nil, tpn_changes: nil)
+  end
+
+  # An open starting-numbers dialog follows the roster (another tab, a new
+  # entry) and closes once a round is paired.
+  defp refresh_starting_numbers(%{assigns: %{starting_numbers: nil}} = socket), do: socket
+
+  defp refresh_starting_numbers(socket) do
+    if socket.assigns.starting_numbers_editable?,
+      do: assign(socket, :starting_numbers, StartingNumbers.order(socket.assigns.tournament)),
+      else: assign(socket, :starting_numbers, nil)
   end
 
   # "Show only the U16s" - a FILTER, not a sort. It changes which rows exist
@@ -479,15 +627,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     current_round = Standings.rounds_paired(tournament.id) + 1
 
     # "Rnk" - a live (unfrozen) re-derivation of the same rule
-    # `Pairing.ensure_pairing_numbers/2` uses to freeze `Nr`: highest rating
-    # first, ties broken by name. Recomputed over the currently registered
+    # `Pairing.ensure_pairing_numbers/2` uses to freeze `Nr`
+    # (`Pairing.initial_order/2`: Tournament Rating, title, then the
+    # tournament's last criterion). Recomputed over the currently registered
     # player list on every render, so it can drift from the frozen `nr` grid
-    # value above once ratings are corrected or players are added out of
-    # order after numbers were frozen.
+    # value above once ratings are corrected.
     live_seed_rank_by_id =
       players_by_id
       |> Map.values()
-      |> Enum.sort_by(&{-Player.rating(&1), &1.name})
+      |> PairingsEngine.Pairing.initial_order(tournament)
       |> Enum.with_index(1)
       |> Map.new(fn {player, idx} -> {player.id, idx} end)
 
@@ -526,7 +674,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         "cl" => entry.rank,
         "nr" => entry.player.pairing_number,
         "rnk" => Map.get(live_seed_rank_by_id, entry.player.id),
-        "elo_used" => Player.rating(entry.player),
+        "elo_used" => Player.rating(entry.player, tournament),
         # The tournament's OWN categories (see Tournament.categories), never a
         # derived age bracket - the arbiter defines the category set, so
         # nothing here may invent one they didn't create. Every category the
@@ -590,7 +738,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        form_values: %{},
        query: "",
        results: [],
-       kbsb_results: []
+       kbsb_results: [],
+       custom_results: []
      )}
   end
 
@@ -656,13 +805,62 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     covered = kbsb |> Enum.map(& &1.fide_id) |> Enum.reject(&is_nil/1) |> MapSet.new()
 
+    custom =
+      socket.assigns.tournament
+      |> RatingLists.sequence()
+      |> RatingLists.search_custom(q)
+      |> Enum.reject(fn {_list, e} ->
+        e.fide_id && Enum.any?(fide, &(&1.fide_id == e.fide_id))
+      end)
+
     {:noreply,
      assign(socket,
        query: q,
        kbsb_results: kbsb,
+       custom_results: custom,
        results: Enum.reject(fide, &MapSet.member?(covered, &1.fide_id))
      )}
   end
+
+  # A player of a custom rating list picked: the list's details, and its
+  # rating as the national rating (a custom list stands in for a national one).
+  def handle_event("pick_custom", %{"entry-id" => entry_id}, socket) do
+    with id when is_integer(id) <- parse_id(entry_id),
+         {_list, entry} <- Enum.find(socket.assigns.custom_results, fn {_, e} -> e.id == id end) do
+      fp = entry.fide_id && Fide.get_player(entry.fide_id)
+
+      values =
+        %{
+          "name" => entry.name,
+          "title" => entry.title,
+          "federation" => entry.federation,
+          "birth_year" => entry.birth_year,
+          "national_rating" => entry.rating
+        }
+        |> Map.merge(
+          if fp,
+            do:
+              Map.merge(
+                %{"fide_id" => fp.fide_id, "sex" => normalize_fide_sex(fp.sex)},
+                RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
+              ),
+            else: %{}
+        )
+
+      {:noreply,
+       assign(socket,
+         query: "",
+         results: [],
+         kbsb_results: [],
+         custom_results: [],
+         form_values: Map.merge(socket.assigns.form_values, values)
+       )}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("pick_custom", _params, socket), do: {:noreply, socket}
 
   # A national hit picked: the national details from the KBSB list, and,
   # when the member has a FIDE id, the FIDE name, title, rating and sex from
@@ -680,12 +878,15 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         fide_values =
           if fp,
-            do: %{
-              "title" => fp.title,
-              "fide_id" => fp.fide_id,
-              "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-              "sex" => normalize_fide_sex(fp.sex)
-            },
+            do:
+              %{
+                "title" => fp.title,
+                "fide_id" => fp.fide_id,
+                "sex" => normalize_fide_sex(fp.sex)
+              }
+              |> Map.merge(
+                RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
+              ),
             else: %{"fide_id" => kp.fide_id}
 
         values =
@@ -727,27 +928,37 @@ defmodule PairingsEngineWeb.PlayersLive do
             {:noreply, socket}
 
           fp ->
-            base = %{
-              "name" => fp.name,
-              "title" => fp.title,
-              "fide_id" => fp.fide_id,
-              "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-              "federation" => fp.federation,
-              "birth_year" => fp.birth_year,
-              "sex" => normalize_fide_sex(fp.sex)
-            }
-
-            {:noreply,
-             assign(socket,
-               query: "",
-               results: [],
-               form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
-             )}
+            sequence = RatingLists.sequence(socket.assigns.tournament)
+            {:noreply, pick_fide(socket, fp, RatingLists.main_values(fp, sequence))}
         end
     end
   end
 
   def handle_event("pick", _params, socket), do: {:noreply, socket}
+
+  # One of the ratings a player has in the other lists of the sequence picked
+  # instead of the main list's (VCL4THP 129).
+  def handle_event("pick_other", %{"fide-id" => fide_id, "entry" => entry}, socket) do
+    with id when is_integer(id) <- parse_id(fide_id),
+         %FidePlayer{} = fp <- Enum.find(socket.assigns.results, &(&1.fide_id == id)),
+         sequence = RatingLists.sequence(socket.assigns.tournament),
+         true <- entry in sequence,
+         %{} = other <- Enum.find(RatingLists.other_ratings(fp, sequence), &(&1.entry == entry)) do
+      # The FIDE rating is cleared when the pick is a national or custom list:
+      # the list the player was found in is not the one being chosen.
+      cleared = RatingLists.values(%{lane: :fide, rating: nil})
+      values = if other.lane == :fide, do: RatingLists.values(other), else: cleared
+
+      values =
+        Map.merge(values, if(other.lane == :national, do: RatingLists.values(other), else: %{}))
+
+      {:noreply, pick_fide(socket, fp, values)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("pick_other", _params, socket), do: {:noreply, socket}
 
   # Mirrors the FIDE add-form's "pick" autofill, but triggered by typing/
   # leaving the National ID field instead of picking from a search list -
@@ -1052,19 +1263,166 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   def handle_event("set_all_paid", _params, socket), do: {:noreply, socket}
 
+  ## ---------- Round-robin starting numbers (C.05 6.2, VCL4THP Q95) ----------
+  #
+  # Before round 1 the arbiter sets the Berger numbers - by hand, or by a
+  # drawing of lots - instead of the rating order round 1 would otherwise
+  # freeze. See `PairingsEngine.StartingNumbers`.
+
+  def handle_event("open_starting_numbers", _params, socket) do
+    if socket.assigns.starting_numbers_editable? do
+      {:noreply,
+       assign(socket, :starting_numbers, StartingNumbers.order(socket.assigns.tournament))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_starting_numbers", _params, socket),
+    do: {:noreply, assign(socket, :starting_numbers, nil)}
+
+  def handle_event("sn_move", %{"id" => id, "direction" => dir}, socket)
+      when dir in ["up", "down"] do
+    case Integer.parse(to_string(id)) do
+      {player_id, ""} ->
+        direction = if dir == "up", do: :up, else: :down
+
+        starting_numbers_result(
+          socket,
+          StartingNumbers.move(socket.assigns.tournament, player_id, direction),
+          %{player_name: sn_name(socket, player_id), direction: dir}
+        )
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("sn_move", _params, socket), do: {:noreply, socket}
+
+  def handle_event("sn_move_to", %{"player_id" => id, "number" => number}, socket) do
+    with {player_id, ""} <- Integer.parse(to_string(id)),
+         {n, ""} <- Integer.parse(String.trim(to_string(number))) do
+      starting_numbers_result(
+        socket,
+        StartingNumbers.move_to(socket.assigns.tournament, player_id, n),
+        %{player_name: sn_name(socket, player_id), number: n}
+      )
+    else
+      _ -> {:noreply, put_flash(socket, :error, gettext("Type a starting number."))}
+    end
+  end
+
+  def handle_event("sn_move_to", _params, socket), do: {:noreply, socket}
+
+  def handle_event("sn_draw_lots", _params, socket) do
+    starting_numbers_result(
+      socket,
+      StartingNumbers.draw_lots(socket.assigns.tournament),
+      %{drawn: true}
+    )
+  end
+
+  def handle_event("sn_by_rating", _params, socket) do
+    starting_numbers_result(
+      socket,
+      StartingNumbers.by_rating(socket.assigns.tournament),
+      %{by_rating: true}
+    )
+  end
+
+  ## ---------- Swiss pairing numbers (TPN exchange/regeneration, VCL4THP Q147-Q155) ----------
+
+  def handle_event("open_tpn", _params, socket) do
+    if socket.assigns.tpn_editable? do
+      {:noreply, assign(socket, tpn: Tpn.order(socket.assigns.tournament), tpn_changes: nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_tpn", _params, socket),
+    do: {:noreply, assign(socket, tpn: nil, tpn_changes: nil)}
+
+  def handle_event("tpn_exchange", %{"a" => a, "b" => b}, socket) do
+    with {a_id, ""} <- Integer.parse(to_string(a)),
+         {b_id, ""} <- Integer.parse(to_string(b)) do
+      names = %{a: tpn_name(socket, a_id), b: tpn_name(socket, b_id)}
+
+      tpn_result(
+        socket,
+        Tpn.exchange(socket.assigns.tournament, a_id, b_id),
+        %{player_name: names.a, other_name: names.b, round: tpn_round(socket)}
+      )
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("tpn_exchange", _params, socket), do: {:noreply, socket}
+
+  # A regeneration that moves two or more numbers already issued waits for
+  # a confirmation listing them (the TEC manual's Level 3, VCL4THP Q154);
+  # one that moves at most one goes ahead.
+  def handle_event("tpn_regenerate", _params, socket) do
+    changes = Tpn.regeneration_changes(socket.assigns.tournament)
+
+    if Enum.count(changes, fn {_p, old, _new} -> old != nil end) >= 2,
+      do: {:noreply, assign(socket, :tpn_changes, changes)},
+      else: apply_regeneration(socket, changes)
+  end
+
+  def handle_event("tpn_regenerate_confirm", _params, socket) do
+    apply_regeneration(socket, socket.assigns.tpn_changes || [])
+  end
+
+  def handle_event("tpn_regenerate_cancel", _params, socket),
+    do: {:noreply, assign(socket, :tpn_changes, nil)}
+
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
 
+  # Before a requested check, the local list is compared with FIDE's (one
+  # HEAD request, off the LiveView process): out of date, it is updated first
+  # and the check runs when the update is done; unreachable, the check runs
+  # on the copy that is here, saying that it could not be verified.
   def handle_event("open_rating_refresh", _params, socket) do
-    summary = RatingRefresh.dry_run(socket.assigns.tournament)
-    {:noreply, assign(socket, rating_refresh: summary)}
+    {:noreply,
+     socket
+     |> assign(
+       rating_waiting: true,
+       rating_note: gettext("Checking that the FIDE list is current...")
+     )
+     |> start_async(:rating_freshness, fn -> PairingsEngine.Fide.Freshness.check() end)}
   end
 
   def handle_event("close_rating_refresh", _params, socket) do
-    {:noreply, assign(socket, rating_refresh: nil)}
+    {:noreply, assign(socket, rating_refresh: nil, rating_waiting: false, rating_note: nil)}
   end
 
+  def handle_event("toggle_rating_proposal", %{"id" => id}, socket) when is_binary(id) do
+    selected = socket.assigns.rating_selected
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, rating_selected: selected)}
+  end
+
+  def handle_event("toggle_rating_proposal", _params, socket), do: {:noreply, socket}
+
+  def handle_event("select_all_rating_proposals", %{"mode" => "all"}, socket) do
+    ids = (socket.assigns.rating_refresh || %{proposals: []}).proposals |> Enum.map(& &1.id)
+    {:noreply, assign(socket, rating_selected: MapSet.new(ids))}
+  end
+
+  def handle_event("select_all_rating_proposals", _params, socket),
+    do: {:noreply, assign(socket, rating_selected: MapSet.new())}
+
   def handle_event("apply_rating_refresh", _params, socket) do
-    proposals = (socket.assigns.rating_refresh || %{proposals: []}).proposals
+    summary = socket.assigns.rating_refresh || %{proposals: []}
+    proposals = RatingRefresh.select(summary, socket.assigns.rating_selected)
 
     case RatingRefresh.apply(socket.assigns.tournament, proposals) do
       {:ok, players} ->
@@ -1075,7 +1433,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           %{players_updated: length(players)}
         )
 
-        {:noreply, socket |> assign(rating_refresh: nil) |> assign_players()}
+        {:noreply,
+         socket
+         |> assign(rating_refresh: nil, rating_note: nil)
+         |> assign_players()
+         |> assign_rating_notice()}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
@@ -1440,9 +1802,14 @@ defmodule PairingsEngineWeb.PlayersLive do
     auto = %{
       "title" => fp.title,
       "fide_id" => fp.fide_id,
-      "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
       "federation" => fp.federation
     }
+
+    auto =
+      Map.merge(
+        auto,
+        RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
+      )
 
     {to_apply, conflicts} =
       {%{}, %{}}
@@ -1532,7 +1899,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Tracked player fields whose before/after change is worth recording in the
   # audit trail - returns a `%{"field" => [before, after]}` map of only the
   # fields that actually changed (empty map when nothing tracked changed).
-  @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
+  @audited_player_fields ~w(name title sex fide_id fide_rating national_rating tournament_rating
     federation club club_number birth_year category categories status absent
     forfeit absent_rounds fixed_board start_round extra_points manual_rank no_bye
     no_bye_rounds bye_preference bye_preference_rounds period_ratings)a
@@ -1612,6 +1979,10 @@ defmodule PairingsEngineWeb.PlayersLive do
       "title" => p.title,
       "fide_id" => blank_or(p.fide_id),
       "fide_rating" => blank_or(p.fide_rating),
+      "fide_rating_source" => p.fide_rating_source || "",
+      "fide_rating_period" => p.fide_rating_period || "",
+      "fide_rating_listed" => blank_or(p.fide_rating_listed),
+      "tournament_rating" => blank_or(p.tournament_rating),
       "period_ratings_text" => PairingsEngine.PeriodRatings.format(p.period_ratings),
       "category" => p.category,
       "categories" => p.categories || [],
@@ -2388,6 +2759,36 @@ defmodule PairingsEngineWeb.PlayersLive do
           </a>
 
           <button
+            :if={@tpn_editable?}
+            id="open-tpn"
+            type="button"
+            class="pe-btn"
+            phx-click="open_tpn"
+            title={
+              gettext(
+                "Exchange the pairing numbers of players with the same rating, or regenerate them from the ratings - until round 4 is paired"
+              )
+            }
+          >
+            {gettext("Pairing numbers")}
+          </button>
+
+          <button
+            :if={@starting_numbers_editable?}
+            id="open-starting-numbers"
+            type="button"
+            class="pe-btn"
+            phx-click="open_starting_numbers"
+            title={
+              gettext(
+                "Set the round robin's starting numbers before round 1 - by hand, or by a drawing of lots"
+              )
+            }
+          >
+            {gettext("Starting numbers")}
+          </button>
+
+          <button
             type="button"
             class="pe-btn"
             phx-click="open_rating_refresh"
@@ -2525,6 +2926,15 @@ defmodule PairingsEngineWeb.PlayersLive do
         </ul>
       </section>
 
+      <PairingsEngineWeb.RatingNotice.notice
+        notice={@rating_notice}
+        tournament_id={@tournament.id}
+        review="open_rating_refresh"
+      />
+      <div :if={@rating_waiting} id="rating-check-status" class="card" role="status">
+        {@rating_note}
+      </div>
+
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("Finish the tournament setup before adding players - still missing:")}
         <ul style="margin: 6px 0 0; padding-left: 20px">
@@ -2554,7 +2964,10 @@ defmodule PairingsEngineWeb.PlayersLive do
             placeholder={gettext("Start typing a last name… e.g. Carlsen")}
             class="pe-input"
           />
-          <div :if={@results != [] or @kbsb_results != []} class="search-results">
+          <div
+            :if={@results != [] or @kbsb_results != [] or @custom_results != []}
+            class="search-results"
+          >
             <button
               :for={kp <- @kbsb_results}
               id={"kbsb-result-#{kp.national_id}"}
@@ -2570,16 +2983,52 @@ defmodule PairingsEngineWeb.PlayersLive do
             </button>
 
             <button
-              :for={fp <- @results}
+              :for={{list_name, ce} <- @custom_results}
+              id={"custom-result-#{ce.id}"}
               type="button"
-              phx-click="pick"
-              phx-value-fide-id={fp.fide_id}
+              phx-click="pick_custom"
+              phx-value-entry-id={ce.id}
             >
-              <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+              <span>{if ce.title != "", do: "#{ce.title} "}{ce.name}</span>
               <span class="meta">
-                {fp.federation} · {fp.standard_rating || "unrated"} · {fp.birth_year || "-"}
+                {list_name} {ce.ext_id} · {ce.rating || gettext("unrated")}{if ce.fide_id,
+                  do: " · FIDE #{ce.fide_id}"}
               </span>
             </button>
+
+            <div :for={fp <- @results} id={"fide-result-#{fp.fide_id}"} class="fide-result">
+              <button
+                id={"fide-result-#{fp.fide_id}-pick"}
+                type="button"
+                phx-click="pick"
+                phx-value-fide-id={fp.fide_id}
+              >
+                <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                <span class="meta">
+                  {fp.federation} · {main_list_rating_text(fp, @rating_sequence)} · {fp.birth_year ||
+                    "-"}
+                </span>
+              </button>
+
+              <div
+                :if={RatingLists.other_ratings(fp, @rating_sequence) != []}
+                id={"fide-result-#{fp.fide_id}-other"}
+                class="fide-other-picks"
+              >
+                <span>{gettext("Other lists:")}</span>
+                <button
+                  :for={other <- RatingLists.other_ratings(fp, @rating_sequence)}
+                  id={"fide-result-#{fp.fide_id}-use-#{String.replace(other.entry, ":", "-")}"}
+                  type="button"
+                  phx-click="pick_other"
+                  phx-value-fide-id={fp.fide_id}
+                  phx-value-entry={other.entry}
+                  title={gettext("Use this rating instead")}
+                >
+                  {list_label(other.entry, other.label)} {other.rating}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2617,6 +3066,10 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>{gettext("FIDE rating")}</span>
             <input type="number" name="player[fide_rating]" value={@form_values["fide_rating"]} />
+            <.rating_provenance_inputs form={@form_values} />
+            <span id="add-rating-source" class="hint" style="display: block; margin-top: 2px">
+              {rating_source_text(@form_values)}
+            </span>
           </label>
 
           <%!-- The FIELD is never gated - `national_id` is a
@@ -2642,6 +3095,17 @@ defmodule PairingsEngineWeb.PlayersLive do
               type="number"
               name="player[national_rating]"
               value={@form_values["national_rating"]}
+            />
+          </label>
+
+          <label :if={manual_rating?(@tournament)} class="field">
+            <span>{gettext("Tournament rating")}</span>
+            <input
+              type="number"
+              id="add-player-tournament-rating"
+              name="player[tournament_rating]"
+              value={@form_values["tournament_rating"]}
+              min="0"
             />
           </label>
 
@@ -2950,15 +3414,368 @@ defmodule PairingsEngineWeb.PlayersLive do
         entry={Map.get(players_by_id(@players), @card_player_id)}
         by_id={players_by_id(@players)}
         tournament={@tournament}
-      /> <.rating_refresh_modal :if={@rating_refresh} summary={@rating_refresh} />
-      <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
+      />
+      <.rating_refresh_modal
+        :if={@rating_refresh}
+        summary={@rating_refresh}
+        selected={@rating_selected}
+        note={@rating_note}
+      /> <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
+      <.starting_numbers_modal :if={@starting_numbers} order={@starting_numbers} />
+      <.tpn_modal
+        :if={@tpn}
+        order={@tpn}
+        changes={@tpn_changes}
+        paired={Standings.rounds_paired(@tournament.id)}
+      />
     </Layouts.app>
+    """
+  end
+
+  defp tpn_name(socket, player_id) do
+    Enum.find_value(socket.assigns.tpn || [], "?", fn {player, _n} ->
+      player.id == player_id && player.name
+    end)
+  end
+
+  defp tpn_round(socket), do: Standings.rounds_paired(socket.assigns.tournament.id)
+
+  defp apply_regeneration(socket, changes) do
+    tpn_result(
+      assign(socket, :tpn_changes, nil),
+      Tpn.regenerate(socket.assigns.tournament),
+      %{regenerated: Enum.count(changes), round: tpn_round(socket)}
+    )
+  end
+
+  defp tpn_result(socket, {:ok, order}, details) do
+    Audit.log(
+      socket.assigns.tournament.id,
+      socket.assigns.current_scope,
+      "player.pairing_numbers_changed",
+      details
+    )
+
+    {:noreply, socket |> assign_players() |> assign(tpn: order, tpn_changes: nil)}
+  end
+
+  defp tpn_result(socket, {:error, reason}, _details) do
+    message =
+      case reason do
+        :different_ratings ->
+          gettext(
+            "Only players with the same rating can exchange pairing numbers. To follow a rating change, regenerate the numbers."
+          )
+
+        :locked ->
+          gettext("Round 4 is paired: the pairing numbers can no longer change (C.04.2).")
+
+        reason when reason in [:archived, :handed_off] ->
+          error_text(reason)
+
+        _ ->
+          gettext("The list changed meanwhile - try again.")
+      end
+
+    {:noreply, socket |> put_flash(:error, message) |> assign_players()}
+  end
+
+  defp sn_name(socket, player_id) do
+    Enum.find_value(socket.assigns.starting_numbers || [], "?", fn {player, _n} ->
+      player.id == player_id && player.name
+    end)
+  end
+
+  defp starting_numbers_result(socket, {:ok, order}, details) do
+    Audit.log(
+      socket.assigns.tournament.id,
+      socket.assigns.current_scope,
+      "player.starting_numbers_set",
+      details
+    )
+
+    {:noreply, socket |> assign_players() |> assign(:starting_numbers, order)}
+  end
+
+  defp starting_numbers_result(socket, {:error, reason}, _details) do
+    message =
+      case reason do
+        :round_paired ->
+          gettext("Round 1 is paired: the starting numbers are the schedule now.")
+
+        :out_of_range ->
+          gettext("That starting number is outside the list.")
+
+        reason when reason in [:archived, :handed_off] ->
+          error_text(reason)
+
+        _ ->
+          gettext("The list changed meanwhile - try again.")
+      end
+
+    {:noreply, socket |> put_flash(:error, message) |> assign_players()}
+  end
+
+  ## ---------- Swiss pairing numbers modal ----------
+
+  attr :order, :list, required: true
+  attr :changes, :any, default: nil
+  attr :paired, :integer, required: true
+
+  defp tpn_modal(assigns) do
+    assigns = assign(assigns, :rows, tpn_rows(assigns.order))
+
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="close_tpn" phx-key="escape">
+      <div
+        class="modal-card"
+        phx-click-away="close_tpn"
+        style="max-width: 640px"
+        id="tpn-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tpn-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="tpn-title">{gettext("Pairing numbers")}</h2>
+
+        <p class="hint">
+          {gettext(
+            "Players are numbered by rating. Players with the same rating can exchange their numbers, to order them by another rule; regenerating renumbers everyone by the current ratings and keeps the order you gave players of equal rating. Both are possible until round 4 is paired (C.04.2)."
+          )}
+        </p>
+
+        <p :if={@paired > 0} id="tpn-pibe-note" class="hint">
+          <strong>{gettext(
+            "Rounds already paired used the old numbers: a pairing checker will not reproduce them any more. Each change asks you to confirm."
+          )}</strong>
+        </p>
+
+        <div :if={@changes} id="tpn-regenerate-confirm" class="card">
+          <p>
+            <strong>
+              {gettext(
+                "Regenerating changes the pairing numbers of these players. The FIDE rules allow it only to correct a mistake or follow a rating change."
+              )}
+            </strong>
+          </p>
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Player")}</th>
+                <th class="num">{gettext("Old")}</th>
+                <th class="num">{gettext("New")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{player, old, new} <- @changes}>
+                <td>{player.name}</td>
+                <td class="num">{old || "-"}</td>
+                <td class="num"><strong>{new}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="actions">
+            <button
+              id="tpn-regenerate-go"
+              type="button"
+              class="pe-btn primary"
+              phx-click="tpn_regenerate_confirm"
+            >
+              {gettext("Regenerate")}
+            </button>
+            <button type="button" class="pe-btn" phx-click="tpn_regenerate_cancel">
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </div>
+
+        <div :if={!@changes} class="actions">
+          <button id="tpn-regenerate" type="button" class="pe-btn" phx-click="tpn_regenerate">
+            {gettext("Regenerate from ratings")}
+          </button>
+        </div>
+
+        <div class="card-table-wrap">
+          <table class="pe-table" id="tpn-list">
+            <thead>
+              <tr>
+                <th class="num">{gettext("No.")}</th>
+                <th>{gettext("Player")}</th>
+                <th class="num">{gettext("Rating")}</th>
+                <th>{gettext("Exchange")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{player, number, next} <- @rows} id={"tpn-row-#{player.id}"}>
+                <td class="num">{number}</td>
+                <td>{player.name}</td>
+                <td class="num">{rating_or_dash(Player.rating(player))}</td>
+                <td>
+                  <button
+                    :if={next}
+                    id={"tpn-exchange-#{player.id}"}
+                    type="button"
+                    class="pe-btn"
+                    phx-click="tpn_exchange"
+                    phx-value-a={player.id}
+                    phx-value-b={next.id}
+                    data-confirm={
+                      gettext(
+                        "Exchange the pairing numbers of %{a} and %{b}? This departs from the order the FIDE rules give the numbers; the next pairings use the new numbers.",
+                        a: player.name,
+                        b: next.name
+                      )
+                    }
+                    aria-label={
+                      gettext("Exchange the numbers of %{a} and %{b}", a: player.name, b: next.name)
+                    }
+                  >
+                    ⇅
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="pe-btn" phx-click="close_tpn">{gettext("Close")}</button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Each row with the player below it when the two may exchange: the same
+  # rating (`Tpn.exchange/3` refuses anything else).
+  defp tpn_rows(order) do
+    order
+    |> Enum.chunk_every(2, 1)
+    |> Enum.map(fn
+      [{p, n}, {q, _m}] -> {p, n, if(Player.rating(p) == Player.rating(q), do: q)}
+      [{p, n}] -> {p, n, nil}
+    end)
+  end
+
+  ## ---------- Round-robin starting numbers modal ----------
+
+  attr :order, :list, required: true
+
+  defp starting_numbers_modal(assigns) do
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="close_starting_numbers" phx-key="escape">
+      <div
+        class="modal-card"
+        phx-click-away="close_starting_numbers"
+        style="max-width: 620px"
+        id="starting-numbers-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="starting-numbers-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="starting-numbers-title">{gettext("Starting numbers")}</h2>
+
+        <p class="hint">
+          {gettext(
+            "These are the numbers the Berger tables pair by. Enter the result of the drawing of lots by hand, or let the program draw them. They are used when round 1 is paired and cannot change after that. A player entered later gets the next number."
+          )}
+        </p>
+
+        <div class="actions">
+          <button
+            id="sn-draw-lots"
+            type="button"
+            class="pe-btn primary"
+            phx-click="sn_draw_lots"
+            data-confirm={gettext("Draw all starting numbers by lot? The current order is replaced.")}
+          >
+            {gettext("Draw lots")}
+          </button>
+          <button id="sn-by-rating" type="button" class="pe-btn" phx-click="sn_by_rating">
+            {gettext("Order by rating")}
+          </button>
+        </div>
+
+        <div class="card-table-wrap">
+          <table class="pe-table" id="starting-numbers">
+            <thead>
+              <tr>
+                <th class="num">{gettext("No.")}</th>
+                <th>{gettext("Player")}</th>
+                <th class="num">{gettext("Rating")}</th>
+                <th>{gettext("Move")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{player, number} <- @order} id={"sn-row-#{player.id}"}>
+                <td class="num">
+                  <form id={"sn-number-#{player.id}"} phx-submit="sn_move_to" style="display: inline">
+                    <input type="hidden" name="player_id" value={player.id} />
+                    <input
+                      type="number"
+                      name="number"
+                      value={number}
+                      min="1"
+                      max={length(@order)}
+                      style="width: 4.5em"
+                      aria-label={gettext("Starting number of %{name}", name: player.name)}
+                    />
+                  </form>
+                </td>
+                <td>{player.name}</td>
+                <td class="num">{rating_or_dash(Player.rating(player))}</td>
+                <td>
+                  <button
+                    id={"sn-up-#{player.id}"}
+                    type="button"
+                    class="pe-btn"
+                    phx-click="sn_move"
+                    phx-value-id={player.id}
+                    phx-value-direction="up"
+                    disabled={number == 1}
+                    aria-label={gettext("Move %{name} up", name: player.name)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    id={"sn-down-#{player.id}"}
+                    type="button"
+                    class="pe-btn"
+                    phx-click="sn_move"
+                    phx-value-id={player.id}
+                    phx-value-direction="down"
+                    disabled={number == length(@order)}
+                    aria-label={gettext("Move %{name} down", name: player.name)}
+                  >
+                    ↓
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="pe-btn" phx-click="close_starting_numbers">
+            {gettext("Close")}
+          </button>
+        </div>
+      </div>
+    </div>
     """
   end
 
   ## ---------- Bulk rating refresh modal ----------
 
   attr :summary, :map, required: true
+  attr :selected, :any, required: true
+  attr :note, :string, default: nil
 
   defp rating_refresh_modal(assigns) do
     ~H"""
@@ -2983,7 +3800,16 @@ defmodule PairingsEngineWeb.PlayersLive do
           )}
         </p>
 
-        <div :if={@summary.proposals == []} class="card empty">
+        <p :if={@note} id="rating-refresh-note" class="hint">{@note}</p>
+
+        <p id="rating-refresh-list" class="hint">
+          {rating_list_line(@summary)}
+        </p>
+
+        <div
+          :if={@summary.proposals == [] and @summary.list_status == :ok}
+          class="card empty"
+        >
           <p><strong>{gettext("Everything up to date.")}</strong></p>
         </div>
 
@@ -2991,6 +3817,17 @@ defmodule PairingsEngineWeb.PlayersLive do
           <table class="pe-table">
             <thead>
               <tr>
+                <th>
+                  <input
+                    id="rating-refresh-select-all"
+                    type="checkbox"
+                    phx-click="select_all_rating_proposals"
+                    phx-value-mode={if all_selected?(@summary, @selected), do: "none", else: "all"}
+                    checked={all_selected?(@summary, @selected)}
+                    aria-label={gettext("Select all")}
+                  />
+                </th>
+
                 <th>{gettext("Player")}</th>
 
                 <th>{gettext("Field")}</th>
@@ -3002,7 +3839,18 @@ defmodule PairingsEngineWeb.PlayersLive do
             </thead>
 
             <tbody>
-              <tr :for={p <- @summary.proposals}>
+              <tr :for={p <- @summary.proposals} id={"rating-proposal-row-#{p.player.id}-#{p.field}"}>
+                <td>
+                  <input
+                    id={"rating-proposal-#{p.player.id}-#{p.field}"}
+                    type="checkbox"
+                    phx-click="toggle_rating_proposal"
+                    phx-value-id={p.id}
+                    checked={MapSet.member?(@selected, p.id)}
+                    aria-label={gettext("Apply this change")}
+                  />
+                </td>
+
                 <td>{p.player.name}</td>
 
                 <td>{field_label(p.field)}</td>
@@ -3026,11 +3874,13 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="actions">
           <button
             :if={@summary.proposals != []}
+            id="rating-refresh-apply"
             type="button"
             class="pe-btn primary"
             phx-click="apply_rating_refresh"
+            disabled={MapSet.size(@selected) == 0}
           >
-            {gettext("Apply")}
+            {gettext("Apply selected")}
           </button>
 
           <button type="button" class="pe-btn" phx-click="close_rating_refresh">{gettext("Cancel")}</button>
@@ -3038,6 +3888,134 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
     </div>
     """
+  end
+
+  # The three values that say where the FIDE rating in the form came from.
+  # Hidden, so they travel with the form when it is saved; the rating itself
+  # stays freely editable (a changed rating keeps its source and shows as
+  # modified - `Player.rating_manual?/1`).
+  attr :form, :map, required: true
+
+  defp rating_provenance_inputs(assigns) do
+    ~H"""
+    <input type="hidden" name="player[fide_rating_source]" value={@form["fide_rating_source"]} />
+    <input type="hidden" name="player[fide_rating_period]" value={@form["fide_rating_period"]} />
+    <input type="hidden" name="player[fide_rating_listed]" value={@form["fide_rating_listed"]} />
+    """
+  end
+
+  # One line on where the rating in the form came from: the list and month,
+  # or that it was entered by hand, or that it was changed after being read.
+  defp rating_source_text(form) do
+    rating = parse_rating(form["fide_rating"])
+    listed = parse_rating(form["fide_rating_listed"])
+    source = form["fide_rating_source"]
+    period = form["fide_rating_period"]
+    list = if source in ~w(standard rapid blitz), do: source_label(source)
+
+    cond do
+      rating == 0 ->
+        nil
+
+      list == nil ->
+        gettext("Entered by hand (no source list).")
+
+      listed != 0 and rating != listed ->
+        gettext("Changed by hand; it was %{listed} on the %{list} list of %{period}.",
+          listed: listed,
+          list: list,
+          period: period_text(period)
+        )
+
+      true ->
+        gettext("From the FIDE %{list} list of %{period}.",
+          list: list,
+          period: period_text(period)
+        )
+    end
+  end
+
+  defp pick_fide(socket, fp, rating_values) do
+    base =
+      Map.merge(
+        %{
+          "name" => fp.name,
+          "title" => fp.title,
+          "fide_id" => fp.fide_id,
+          "federation" => fp.federation,
+          "birth_year" => fp.birth_year,
+          "sex" => normalize_fide_sex(fp.sex)
+        },
+        rating_values
+      )
+
+    assign(socket,
+      query: "",
+      results: [],
+      custom_results: [],
+      form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
+    )
+  end
+
+  # The tournament's main list is the first of its rating-list sequence
+  # (`PairingsEngine.RatingLists`); the ratings a FIDE record has in the other
+  # lists of the sequence are shown beside it and can be picked (VCL4THP 128,
+  # 129), and the result says so when the main list has none, so a rapid-only
+  # or standard-only player is not shown as "unrated".
+  defp main_list_rating_text(fp, sequence) do
+    case RatingLists.ratings_for(fp, [hd(sequence)]) do
+      [%{rating: rating}] when not is_nil(rating) ->
+        rating
+
+      [main] ->
+        gettext("no %{list} rating", list: String.downcase(list_label(main.entry, main.label)))
+    end
+  end
+
+  # The name of a list as the search and the sequence show it.
+  defp list_label("fide_standard", _), do: gettext("Standard")
+  defp list_label("fide_rapid", _), do: gettext("Rapid")
+  defp list_label("fide_blitz", _), do: gettext("Blitz")
+  defp list_label("effective_rapid", _), do: gettext("Effective Rapid")
+  defp list_label("effective_blitz", _), do: gettext("Effective Blitz")
+  defp list_label("national", _), do: gettext("National")
+  defp list_label(_custom, name), do: name
+
+  defp source_label("standard"), do: gettext("Standard")
+  defp source_label("rapid"), do: gettext("Rapid")
+  defp source_label("blitz"), do: gettext("Blitz")
+
+  defp period_text(period) when period in [nil, ""], do: gettext("an unknown month")
+  defp period_text(period), do: period
+
+  defp all_selected?(%{proposals: proposals}, selected),
+    do: proposals != [] and Enum.all?(proposals, &MapSet.member?(selected, &1.id))
+
+  # Which list the check compared with, and why when it could not.
+  defp rating_list_line(%{list_status: :ok} = summary) do
+    gettext("Compared with the FIDE list of %{period} (valid on %{date}).",
+      period: summary.local_period,
+      date: Date.to_iso8601(summary.reference_date)
+    )
+  end
+
+  defp rating_list_line(%{list_status: :no_list}),
+    do: gettext("No FIDE list has been downloaded yet. Update it on the Connections page.")
+
+  defp rating_list_line(%{list_status: :local_older} = summary) do
+    gettext(
+      "This tournament uses the FIDE list of %{needed}, but the list on this machine is from %{have}. Update the list, then check again.",
+      needed: summary.required_period,
+      have: summary.local_period
+    )
+  end
+
+  defp rating_list_line(%{list_status: :local_newer} = summary) do
+    gettext(
+      "This tournament uses the FIDE list of %{needed} (valid on its start date); the list on this machine is the later one of %{have}, so nothing is compared.",
+      needed: summary.required_period,
+      have: summary.local_period
+    )
   end
 
   # Deliberately the twin of `rating_refresh_modal/1` above: same table, same
@@ -3141,16 +4119,28 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp via_label(:name), do: "Name + year"
   defp via_label(_), do: ""
 
-  # `Player.rating/1`'s own FIDE-first-then-national logic, worked from the
-  # edit form's raw string values instead of a saved `%Player{}` - the form
-  # can hold an unsaved edit the stored struct doesn't have yet, and this is
-  # what "Elo used" in the registration dialog needs to reflect live as the
-  # arbiter types, not just after a save round-trip.
-  defp elo_used_from_form(form) do
-    fide = parse_rating(form["fide_rating"])
-    national = parse_rating(form["national_rating"])
-    if fide > 0, do: fide, else: if(national > 0, do: national, else: nil)
+  # The Tournament Rating (`Player.rating/2`, by the tournament's method),
+  # worked from the edit form's raw string values instead of a saved
+  # `%Player{}` - the form can hold an unsaved edit the stored struct doesn't
+  # have yet, and this is what "Elo used" in the registration dialog needs to
+  # reflect live as the arbiter types, not just after a save round-trip.
+  defp elo_used_from_form(form, tournament) do
+    player = %Player{
+      fide_rating: parse_rating(form["fide_rating"]),
+      national_rating: parse_rating(form["national_rating"]),
+      tournament_rating: parse_rating(form["tournament_rating"])
+    }
+
+    case Player.rating(player, tournament) do
+      rating when rating > 0 -> rating
+      _ -> nil
+    end
   end
+
+  # Only the HBFN and OTHER methods read a hand-typed tournament rating, so
+  # the box is offered only under them.
+  defp manual_rating?(%{rating_method: method}), do: method in ~w(HBFN OTHER)
+  defp manual_rating?(_tournament), do: false
 
   defp parse_rating(nil), do: 0
   defp parse_rating(""), do: 0
@@ -3249,7 +4239,10 @@ defmodule PairingsEngineWeb.PlayersLive do
         no_bye_mode(assigns.tournament, assigns.bel_bye_exclusions?)
       )
       |> Phoenix.Component.assign(:fide_player, Fide.get_player(assigns.form["fide_id"]))
-      |> Phoenix.Component.assign(:elo_used, elo_used_from_form(assigns.form))
+      |> Phoenix.Component.assign(
+        :elo_used,
+        elo_used_from_form(assigns.form, assigns.tournament)
+      )
       |> Phoenix.Component.assign(
         :late_note,
         LateEntry.note(
@@ -3363,6 +4356,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>{gettext("FIDE Elo")}</span>
             <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
+            <.rating_provenance_inputs form={@form} />
+            <span id="edit-rating-source" class="hint" style="display: block; margin-top: 2px">
+              {rating_source_text(@form)}
+            </span>
+
             <span :if={@fide_player} class="hint" style="display: block; margin-top: 2px">
               {gettext("Standard %{std} · Rapid %{rapid} · Blitz %{blitz}",
                 std: rating_or_dash(@fide_player.standard_rating),
@@ -3381,6 +4379,17 @@ defmodule PairingsEngineWeb.PlayersLive do
               {gettext("Elo used (pairing/standings):")}
               <strong>{@elo_used || gettext("unrated")}</strong>
             </span>
+          </label>
+
+          <label :if={manual_rating?(@tournament)} class="field">
+            <span>{gettext("Tournament rating")}</span>
+            <input
+              type="number"
+              id="edit-player-tournament-rating"
+              name="player[tournament_rating]"
+              value={@form["tournament_rating"]}
+              min="0"
+            />
           </label>
 
           <label class="field">

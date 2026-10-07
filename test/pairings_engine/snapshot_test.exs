@@ -268,6 +268,14 @@ defmodule PairingsEngine.SnapshotTest do
         PairingsEngine.Pairing.active_players(tournament.id)
       )
 
+      # Round 1 exists: before it, a Swiss places a newcomer by rating among
+      # numbers issued early (`Tpn.seed_newcomers/2`), and the snapshot with it.
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing"
+      })
+
       Repo.insert!(%Player{
         tournament_id: tournament.id,
         name: "Dora",
