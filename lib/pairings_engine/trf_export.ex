@@ -502,7 +502,8 @@ defmodule PairingsEngine.TrfExport do
           # spelling JaVaFo reads. Nothing when there is none (a round robin,
           # or an event paired before the draw was stored), as before.
           initial_colour: initial_colour_code(tournament),
-          tie_breaks: tie_break_codes(tournament),
+          tie_breaks:
+            tie_break_codes(PairingsEngine.Standings.with_unrated_rating(tournament, players)),
           time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
           point_system: point_system,
           free_points: free_point_records(players, tournament),
@@ -1450,8 +1451,11 @@ defmodule PairingsEngine.TrfExport do
     # same values instead of dropping the code (C.07 Article 10).
     unrated = if Tournament.paired_as_teams?(t), do: nil, else: t.tiebreak_unrated_rating
 
+    # `EXT`, the arbiter's own typed values, is not a tie-break any reader
+    # can compute; TRF26 has no record for it, so it stays out of the list.
     (t.tiebreaks || [])
     |> Enum.map(&String.upcase(to_string(&1)))
+    |> Enum.reject(&(&1 == "EXT"))
     |> Enum.map(fn code ->
       c07_code = Map.get(c07, code, code)
 

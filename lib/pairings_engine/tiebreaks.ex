@@ -433,6 +433,14 @@ defmodule PairingsEngine.Tiebreaks do
       scope: :team,
       available: true,
       description: "Team events: board points weighted by board number, board 1 weighing most."
+    },
+    %{
+      code: "EXT",
+      name: "External value",
+      scope: :individual,
+      available: true,
+      description:
+        "A value calculated outside the program for a tie-break of the tournament's own, typed on the Standings page. Higher ranks higher. It is not a C.07 tie-break and is not written to the TRF."
     }
   ]
 
@@ -473,6 +481,7 @@ defmodule PairingsEngine.Tiebreaks do
     "BWG" => :results,
     "REP" => :results,
     "STD" => :results,
+    "EXT" => :results,
     "TPN" => :results,
     "TPN/R" => :results,
     "ARO" => :rating,

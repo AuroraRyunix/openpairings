@@ -233,6 +233,24 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # publish, and is passed to Ainalrami as `/U<rating>`.
     field :tiebreak_unrated_rating, :integer
 
+    # How an unrated player is counted in those tie-breaks (C.07 Article 10
+    # asks for "detailed rules"): "fixed" - `tiebreak_unrated_rating`, and
+    # nothing when it is empty; "lowest" - the lowest rating in the field;
+    # "average" - the average rating of the rated players. The last two are
+    # worked out when the standings or the TRF report are built and reach
+    # Ainalrami and the `202` line as the same `/U<rating>` the fixed one
+    # does, so a checker computes what the standings show.
+    field :tiebreak_unrated_method, :string, default: "fixed"
+
+    # The seed of this tournament's one drawing of lots for ties (C.07
+    # Article 4.2), made on first use. Drawing again for the same ties gives
+    # the same order: repeating a draw until it pleases is what the
+    # checklist says must not be possible. Not cast.
+    field :lots_seed, :integer
+
+    # Whether the arbiter draws a Chess960 starting position for each round.
+    field :chess960, :boolean, default: false
+
     # Whether players still level after the whole tie-break list share a place
     # (C.07 Article 2.1: the regulations say). Off, the default, keeps the
     # order the standings always had - rating, name - numbered 1..N, which
@@ -1199,6 +1217,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :postponed_fide_tournament_id,
       :tiebreaks,
       :tiebreak_unrated_rating,
+      :tiebreak_unrated_method,
+      :chess960,
       :shared_places,
       :acceleration,
       :status,
@@ -1279,6 +1299,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:initial_order_tiebreak, @initial_order_tiebreaks)
     |> validate_inclusion(:late_entry_numbering, @late_entry_numberings)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:tiebreak_unrated_method, ~w(fixed lowest average))
     |> validate_number(:tiebreak_unrated_rating,
       greater_than_or_equal_to: 0,
       less_than_or_equal_to: 4000

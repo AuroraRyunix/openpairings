@@ -89,7 +89,7 @@ defmodule PairingsEngine.TournamentExport do
     chief_arbiter deputy_arbiter time_control rounds_count
     points_win points_draw points_loss bye_value presence_value abs_value
     abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences
-    presence_on_allocated_bye tiebreaks tiebreak_unrated_rating shared_places acceleration baku_group_a_last
+    presence_on_allocated_bye tiebreaks tiebreak_unrated_rating tiebreak_unrated_method chess960 lots_seed shared_places acceleration baku_group_a_last
     status standard rate_of_play organizer_club_number round_dates
     categories category_rules category_prizes categories_enabled
     categories_ranked_separately event_code
@@ -268,7 +268,7 @@ defmodule PairingsEngine.TournamentExport do
     name sex title fide_id fide_rating national_id national_rating tournament_rating
     federation birth_year birth_date club status start_round board_order
     pairing_number paid affiliated absent forfeit special_table
-    absent_rounds extra_points category categories club_number norm_data
+    absent_rounds extra_points external_tiebreak category categories club_number norm_data
     team_id fixed_board manual_rank no_bye no_bye_rounds bye_preference
     bye_preference_rounds team_history no_half_bye fide_rating_source fide_rating_period
     fide_rating_listed
@@ -293,7 +293,7 @@ defmodule PairingsEngine.TournamentExport do
 
   # `results_public` and `publish_cap` are not cast by `Round.changeset/2`;
   # the import carries them explicitly (`TournamentImport.import_rounds!/3`).
-  @round_fields ~w(number date status published_at results_public publish_cap)a
+  @round_fields ~w(number date status published_at results_public publish_cap chess960_position)a
 
   # Schema fields NOT exported, each with the reason. Paired with a test
   # (`tournament_export_test.exs`) that asserts every field on the Round and

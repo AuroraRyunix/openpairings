@@ -710,6 +710,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       body =
         tournament_info_html(tournament) <>
+          chess960_line(tournament, round) <>
           "<table><thead><tr><th class=\"num\">#{gettext("Board")}</th>" <>
           "<th>#{gettext("White")}</th><th class=\"num\">Elo</th>" <>
           "<th style=\"text-align:center\">#{gettext("Result")}</th>" <>
@@ -726,6 +727,14 @@ defmodule PairingsEngineWeb.PrintController do
       )
     end
   end
+
+  # The round's drawn Chess960 starting position, as a line above the table
+  # (VCL4THP Q222); nothing for an ordinary tournament or an undrawn round.
+  defp chess960_line(%{chess960: true}, %{chess960_position: n} = round) when is_integer(n),
+    do:
+      "<p><strong>#{gettext("Chess960 position")}:</strong> #{esc(PairingsEngine.Chess960.label(round))}</p>"
+
+  defp chess960_line(_tournament, _round), do: ""
 
   @doc """
   GET /t/:id/print/pairings-alpha?round=N - the "where do I sit" list: every

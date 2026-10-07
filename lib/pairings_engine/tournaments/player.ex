@@ -109,6 +109,10 @@ defmodule PairingsEngine.Tournaments.Player do
     field :bye_preference_scope, :string, virtual: true
     # SWAR XtPts
     field :extra_points, :float, default: 0.0
+    # A tie-break value calculated outside the program (code "EXT" in the
+    # tournament's tie-break list), typed by the arbiter on the Standings
+    # page; nil until entered, counted as 0. Higher ranks higher.
+    field :external_tiebreak, :float
     # The pairing-pool OVERRIDE, not "the player's category". A player can
     # carry several categories (`categories` below); `pair_by_category` can
     # only put them in one pool, so exactly one of those tags has to win.
@@ -216,6 +220,7 @@ defmodule PairingsEngine.Tournaments.Player do
       :absent_rounds,
       :no_half_bye,
       :extra_points,
+      :external_tiebreak,
       :category,
       :categories,
       :club_number,
