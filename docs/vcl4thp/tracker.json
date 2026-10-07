@@ -176,9 +176,9 @@
     "outcome": "next",
     "next": 14
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "No user manual and no in-app help: docs/ is developer material, nothing links to it, no /help route."
+   "answer": "Y",
+   "status": "check",
+   "note": "An English user manual of fifteen chapters, covering every feature area, ships with the program (priv/manual/*.md, rendered by lib/pairings_engine/manual.ex) and opens from a Help link in the top bar of every page at /help (help_live.ex; tests manual_test.exs, help_live_test.exs). Status check: the maintainer to review it for completeness; the publishing, teams and printing chapters are the briefest."
   },
   {
    "q": 12,
@@ -192,9 +192,9 @@
     "outcome": "next",
     "next": 13
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Comes with the manual: a help link on every page. Off our path while Q11 is NO."
+   "answer": "Y",
+   "status": "met",
+   "note": "The Help link is in the top bar of every page, signed in or not, and inside a tournament opens the chapter for the current tab (layouts.ex #topbar-help, help_path/1; help_live_test.exs 'opens the chapter that matches the tab')."
   },
   {
    "q": 13,
@@ -209,9 +209,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Comes with the manual: a PDF per release. Off our path while Q11 is NO."
+   "answer": "Y",
+   "status": "met",
+   "note": "The manual is also a separate resource: plain Markdown files in priv/manual/ in the public repository (docs/manual/README.md points to them)."
   },
   {
    "q": 14,
@@ -225,9 +225,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL - verification stops here. No English manual of the essential functions (rating lists, setup incl. tie-breaks, byes, pairings, printouts); docs/printing.md and docs/pairing-systems.md are developer notes the app does not link."
+   "answer": "Y",
+   "status": "met",
+   "note": "Covered by the in-app manual: rating lists (chapter 4), set-up and tie-breaks (3, 8), byes (5), pairings (6), printouts of results and standings (9) (priv/manual; help_live.ex)."
   },
   {
    "q": 15,
@@ -244,7 +244,7 @@
    },
    "answer": "Y",
    "status": "check",
-   "note": "Only reached with a partial manual; costs 5%. The commitment is the maintainer's to make. Aim for a complete manual instead."
+   "note": "Not reached while Q11 is YES. If FIDE judges the manual partial: the maintainer's commitment to complete it within a year of the TAPC (5%). See docs/vcl4thp/questions.md."
   },
   {
    "q": 16,
@@ -698,9 +698,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL. Only the explicit way out has TEC's Level-4 two-step confirmation (settings_fide_live.ex:85-131,179). Saving a departing setting saves at once and the notice follows; a pairing moved by soft rules, extra points or a bye exclusion leaves with an inline note only."
+   "answer": "Y",
+   "status": "met",
+   "note": "Every way out of FIDE mode shows TEC's Level-4 double confirmation first (warn, then 'stay in FIDE mode?'), and only the second confirmation acts; cancelling changes nothing. Explicit exit (settings_fide_live.ex), settings saves through SettingsSupport.fide_gate/5 and Tournaments.fide_departures/2 (options, scoring, pair-by-category), and a pairing moved by soft rules, a bye exclusion or preference or extra points, rolled back until confirmed (Pairing fide_departure_guard). Tests: fide_departure_gate_test.exs."
   },
   {
    "q": 44,
@@ -782,9 +782,9 @@
     "next": 49,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%. A TRF06 file brings no 162/192/202/142, so scoring, system, tie-breaks and length take defaults silently, and old byes are converted silently; the version is not reported (trf_import.ex:539-570,587-589,1136-1147)."
+   "answer": "Y",
+   "status": "met",
+   "note": "The import names the file's version (TRF06/TRF16/TRF26, TrfImport.detect_version/2) and lists every default it used and every old-style bye it converted on a review step before anything is created (TrfImport.adjustments/3, review/2; tournaments_live.ex trf_review). Tests: trf_import_adjustments_test.exs."
   },
   {
    "q": 49,
@@ -816,9 +816,9 @@
     "next": 51,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. Without 162/192/202/212/142 the import defaults silently; notes exist only for rule widening, future full-point byes, whole-field 299 and non-Baku acceleration (trf_import.ex:539-570,686-736)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Same review step: each missing 162/192/202/212/142 is reported with the default used (trf_import_adjustments_test.exs, 'what a TRF06/TRF16 file cannot say')."
   },
   {
    "q": 51,
@@ -849,9 +849,9 @@
     "next": 54,
     "penalty": 70
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 70%. Not reported: dangling opponents turned into byes, F/U byes merged, unknown tie-breaks dropped, round-robin cycles over 2 clamped, unknown 192 codes ignored, deputies over 4 dropped, 362 P/A ignored, 299 switching on counted extra points (which leaves FIDE mode at the next pairing), a crashed verification pass swallowed (trf_import.ex:714-736,755,1136-1147,1294-1296,1534-1540)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Every adjustment is listed before confirming: defaults, dropped tie-breaks and deputies, clamped cycles, unknown 192 codes, ignored 362 and 299 records, 299 switching on counted extra points, one-sided games and F byes turned into byes, rounds not checked, and a crashed verification is reported instead of swallowed (TrfImport.adjustments/3, round_entry_adjustments; tests in trf_import_adjustments_test.exs incl. 'a crash is reported, not swallowed'). Findings are stored with the tournament (import_findings)."
   },
   {
    "q": 53,
@@ -899,9 +899,9 @@
     "next": 56,
     "penalty": 30
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 30%. The findings arrive as a flash after the tournament is committed: no confirm/cancel, no ###, nothing stored (tournaments_live.ex:1272-1279,1423-1449)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Imported rounds that break a pairing rule stop the import at a Level-3 review ('Import anyway' or Cancel) before the tournament exists; on confirm the finding is stored (import_findings), logged as a pibe.import audit row and written as '### Import @ Round r' in TRF26 reports, never in the file sent for rating (trf_export.ex import_pibe_comments). Tests: trf_import_adjustments_test.exs, tournaments_live import review test."
   },
   {
    "q": 56,
@@ -1015,9 +1015,9 @@
     "next": 63,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%. The setup checklist checks name, rounds, round dates and tie-breaks, never players against rounds (missing_setup_fields, tournament.ex:1927-1935); the arbiter learns at the first round that cannot pair."
+   "answer": "Y",
+   "status": "met",
+   "note": "Before round 1 the Pairings page warns when the rounds set cannot be paired for the players entered: a Swiss over n-1 rounds (even field) or n (odd), a round robin whose rounds differ from its schedule (Tournament.setup_warnings/2, Tournaments.setup_warnings/1; #setup-warning-*). Tests: setup_warnings_test.exs."
   },
   {
    "q": 63,
@@ -1709,9 +1709,9 @@
     "outcome": "next",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Present: DE, BPG, SB, WIN, KS. Missing from the catalogue and the bridge: BWG, REP, STD, SB/C1, SB/C2, RTNG, RTNG/R, TPN, TPN/R, KS/L1, KS/L2, KS/L-1, KS/L-2 (tiebreaks.ex:31-150; standings/ainalrami_bridge.ex:44-58). Ainalrami computes them all. The draft gives NO no outcome, only that all must be implemented: treat as a failure."
+   "answer": "Y",
+   "status": "met",
+   "note": "The round-robin set is selectable: DE, DE/P, BPG, BWG, REP, STD, SB, SB/C1, SB/C2, RTNG, RTNG/R, TPN, TPN/R, WIN, KS and KS/L1, KS/L2, KS/L-1, KS/L-2 (tiebreaks.ex catalogue; ainalrami_bridge.ex), each compared with Ainalrami's value; the Buchholz family is refused in round robins. Test: tiebreak_families_test.exs 'round robin: the tie-breaks of the checklist's list'."
   },
   {
    "q": 105,
@@ -2809,9 +2809,9 @@
     "next": 171,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. No withdrawn marker in the individual standings page or print (standings_live.ex:920-930,1053-1062; print_controller.ex:1280,1298). Team standings mark a team withdrawn with results not counted (standings_live.ex:1213-1225)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A withdrawn player is marked in the individual standings (standings_live.ex withdrawn badge, #player-withdrawn-<id>) and in the standings, Keizer and crosstable prints (print_controller.ex status_note). Test: vcl_small_items_live_test.exs."
   },
   {
    "q": 171,
@@ -2874,9 +2874,9 @@
     "next": 175,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 15%. A second paid absence raises no warning (tournaments.ex update_player; players_live.ex:3353)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A second or later half-point bye shows a warning in the player dialog and asks for confirmation before saving; the confirmation is in the audit row (Tournaments.second_half_bye_rounds/2, PairingsEngine.HalfByes; players_live #player-half-bye-warning). Tests: half_byes_test.exs."
   },
   {
    "q": 175,
@@ -2891,9 +2891,9 @@
     "next": 177,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. No half-point-bye-ineligible flag (player.ex:53-61). Routes to Q177."
+   "answer": "Y",
+   "status": "met",
+   "note": "A player can be marked not eligible for half-point byes (players.no_half_bye, #player-no-half-bye); a half-point absence is then refused (Tournaments guard_half_bye_eligibility). Tests: half_byes_test.exs. Routes to Q176."
   },
   {
    "q": 176,
@@ -2910,7 +2910,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "Off our path (Q175 NO)."
+   "note": "A marked player cannot be given a half-point bye: update_player refuses it (guard_half_bye_eligibility; half_byes_test.exs)."
   },
   {
    "q": 177,
@@ -3089,9 +3089,9 @@
     "next": 189,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 7%. Individual Swiss boards come in the engine's output order (plan_boards, pairing.ex:881-891), not sorted by C.04.2:3.6; only team Swiss sorts (team_swiss.ex:259-285)."
+   "answer": "Y",
+   "status": "met",
+   "note": "The engine's output order already follows C.04.2:3.6 (higher score of the higher-ranked player, then sum of scores, then lower TPN, bye last) and plan_boards numbers it in that order (pairing.ex:881-891). Test: board_order_c0402_test.exs (14, 15 and 22 players, 5 rounds, varied results). JaVaFo not checked."
   },
   {
    "q": 188,
@@ -3254,9 +3254,9 @@
     "next": 198,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%. Player status is active or withdrawn; no expelled flag (player.ex:19,195)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A player can be marked expelled (status 'expelled', Player.expelled?/1, #player-expelled; presence column 'E'); expelled players are not paired (every pairing path takes active players only)."
   },
   {
    "q": 198,
@@ -3271,9 +3271,9 @@
     "next": 199,
     "penalty": 2
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 2%. Every individual player is ranked (standings.ex:248-299); only team standings drop annulled teams (team_standings.ex:395-412)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Expelled players are left out of the standings after the tie-breaks are computed, so their results still count for their opponents (standings.ex build_standings)."
   },
   {
    "q": 199,
@@ -3287,9 +3287,9 @@
     "outcome": "next",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "12 of the 39 can be selected: ARO, ARO/C1, BH, BH/C1, BH/C2, BH/M1, BPG, DE, PS, SB, WIN, WON. Missing: AOB, AOB/F, APPO, APRO, ARO/C2, ARO/M1, ARO/M2, BH/M2, BWG, DE/P, FB, FB/C1, FB/C2, FB/M1, FB/M2, PS/C1, PS/C2, PTP, REP, RTNG, RTNG/R, SB/C1, SB/C2, STD, TPN, TPN/R, TPR (tiebreaks.ex:32-155; ainalrami_bridge.ex:44-57). Ainalrami computes all of them. The draft gives NO no outcome, only that all must be implemented: treat as a failure."
+   "answer": "Y",
+   "status": "met",
+   "note": "All 39 C.07 individual Swiss tie-breaks are selectable (tiebreaks.ex catalogue, ainalrami_bridge.ex), written to 202 in C.07 spelling and read back; each is compared with Ainalrami's own value and ainalrami -c accepts a file with a mixed list. Tests: tiebreak_families_test.exs."
   },
   {
    "q": 200,
@@ -3353,9 +3353,9 @@
     "next": 207,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 15% (was YES). Players still level after C.07 are ordered by rating, name and id and numbered 1..N, so no shared place is ever shown (standings.ex:288-299,466-476)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A tournament setting lets players still level after the whole tie-break list share a place (2=) on the standings page, live page, prints and public snapshot; off, they are ordered and numbered as before (shared_places; standings.ex c07_places, place/1). The TRF rank column is unchanged and the checker accepts it. Tests: tiebreak_families_test.exs 'a place shared...', settings_tiebreak_picker_test.exs."
   },
   {
    "q": 204,
@@ -3437,9 +3437,9 @@
     "next": 210,
     "penalty": 32
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 32%. With any unrated player, ARO and ARO/C1 are dropped for the whole event; no handling method (standings.ex:61-63,141-161). Ainalrami's /U<rating> is not wired in."
+   "answer": "Y",
+   "status": "met",
+   "note": "A per-tournament rating for unrated players in the rating-based tie-breaks (tiebreak_unrated_rating); empty keeps C.07 Article 10's drop. The bridge sends /U<n> to Ainalrami and 202 carries it (ARO/U1500), read back on import (AinalramiBridge.c07_code/2). Tests: tiebreak_families_test.exs 'an unrated player'."
   },
   {
    "q": 209,
