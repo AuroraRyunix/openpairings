@@ -585,13 +585,14 @@ defmodule PairingsEngine.Pairing do
 
   ## ---------- the next-round preview ----------
   #
-  # See `PairingsEngine.NextRoundPreview`. Two calls: `preview_context/1`
-  # reads, once, everything the real pairing would read from the database;
+  # See `PairingsEngine.NextRoundPreview`. `preview_context/1` reads, once,
+  # everything the real pairing would read from the database;
   # `preview_round/2` then pairs the next round in memory for one set of
   # results for the open games, through `plan_round/4` - the function the
-  # real pairing runs - and returns its boards. Nothing is written, ever:
-  # a late entrant's pairing number is handed out in memory only, and
-  # `save_plan/3` is never called.
+  # real pairing runs - and returns its boards. `preview_variants/2` does
+  # the same for many sets in one engine call, and says so when it cannot.
+  # Nothing is written, ever: a late entrant's pairing number is handed out
+  # in memory only, and `save_plan/3` is never called.
 
   @doc """
   What pairing round `paired + 1` of an individual Swiss would read, read
@@ -716,6 +717,45 @@ defmodule PairingsEngine.Pairing do
     case plan_round(context.tournament, context.next_number, context.active, run) do
       {:ok, %{kind: :base, base: base}} -> %{context | base: base}
       _other -> context
+    end
+  end
+
+  @doc """
+  Several outcomes of `context` (a `preview_base/2` one) paired in ONE call
+  into the engine, `Ainalrami.Pairing.pair_variants/3`: `{:ok, outcomes}`,
+  one `preview_round/2` answer per entry of `results_list`, in order - or
+  `:fallback` when the batch cannot be trusted to give exactly those, and
+  the caller is to pair the outcomes one by one instead.
+
+  The field is built once, for the first outcome, exactly as
+  `preview_round/2` builds it. An outcome then differs from it in the
+  players of the open games and nothing else: their result in the round
+  being played and their score (`with_outcome/4`, the same function the
+  one-by-one path applies). Everything else the engine is handed - the
+  ranks, every other player, the forbidden and soft pairs, the bye
+  exclusions, the options - is worked out from the roster, the settings
+  and the round number, none of which a result moves. The one input that
+  could still differ is the bye preferences, and those the batch does not
+  take: with any in play, `:fallback`. Likewise without a base (pairing by
+  category, or a TRF the engine would not read), and when the batch raises
+  anything other than the refusal it reports per variant.
+
+  A refusal comes back as `preview_round/2` returns it, logged and worded
+  the same.
+  """
+  def preview_variants(context, [_ | _] = results_list) do
+    case context.base do
+      %{} = base ->
+        histories = Enum.map(results_list, &outcome_history(context, &1))
+        run = %{history: hd(histories), preview?: true, base: base, variants: histories}
+
+        case plan_round(context.tournament, context.next_number, context.active, run) do
+          {:ok, %{kind: :variants, outcomes: outcomes}} -> {:ok, outcomes}
+          _other -> :fallback
+        end
+
+      nil ->
+        :fallback
     end
   end
 
@@ -1266,11 +1306,86 @@ defmodule PairingsEngine.Pairing do
 
     tournament = with_bye_exclusions(tournament, players, local_rank_by_player_id, next_number)
 
-    case Map.get(run, :base) == :capture or Map.get(run, :field_only?, false) do
-      true -> preview_field(input, local_rank_by_player_id, run)
-      false -> run_single_engine(tournament, input, next_number, soft, run, player_by_local_rank)
+    cond do
+      Map.get(run, :base) == :capture or Map.get(run, :field_only?, false) ->
+        preview_field(input, local_rank_by_player_id, run)
+
+      Map.has_key?(run, :variants) ->
+        run_variants(
+          tournament,
+          input,
+          next_number,
+          soft,
+          run,
+          local_rank_by_player_id,
+          player_by_local_rank
+        )
+
+      true ->
+        run_single_engine(tournament, input, next_number, soft, run, player_by_local_rank)
     end
   end
+
+  # `preview_variants/2`'s engine call: `input` is the first outcome's
+  # field, and every outcome (`run.variants`, its history) is that field
+  # with the open games' players given their own result and score - what
+  # `rerank_field/5` does to them, and all it does that depends on a
+  # result. One call, one `{:ok | :error, _}` per outcome, each turned into
+  # what `run_single_engine/6` would have made of it.
+  #
+  # Bye preferences are resolved around the engine (`pair_with_preferences/3`),
+  # not inside `pair_variants/3`, so with any in play this declines and the
+  # preview pairs one outcome at a time, as it always did.
+  defp run_variants(
+         tournament,
+         {:parsed, parsed},
+         next_number,
+         soft,
+         run,
+         rank_by_id,
+         player_by_local_rank
+       ) do
+    if (tournament.engine_bye_preferences || []) != [] do
+      {:error, :variants_unsupported}
+    else
+      round_index = length(run.history.rounds) - 1
+      field = Map.new(parsed.players, &{&1.rank, &1})
+
+      variants =
+        Enum.map(run.variants, fn history ->
+          Map.new(history.changed, fn id ->
+            rank = Map.fetch!(rank_by_id, id)
+            row_games = Map.fetch!(history.games, id)
+            {rank, with_outcome(Map.fetch!(field, rank), row_games, round_index, tournament)}
+          end)
+        end)
+
+      engine_opts = ainalrami_opts(tournament, parsed, soft)
+
+      outcomes =
+        parsed.players
+        |> Ainalrami.Pairing.pair_variants(variants, engine_opts)
+        |> Enum.map(fn
+          {:ok, raw_pairs} ->
+            pairs = Enum.map(raw_pairs, &ainalrami_bye_to_zero/1)
+            {:ok, plan_boards(%{kind: :single, pairs: pairs, by_rank: player_by_local_rank})}
+
+          {:error, e} ->
+            e
+            |> ainalrami_refusal(tournament, next_number, nil)
+            |> bye_exclusion_error(player_by_local_rank)
+        end)
+
+      {:ok, %{kind: :variants, outcomes: outcomes}}
+    end
+  rescue
+    # Anything but a per-variant refusal: the one-by-one path pairs these
+    # outcomes again and reports whatever it reports, crash included.
+    _e -> {:error, :variants_unsupported}
+  end
+
+  defp run_variants(_tournament, _input, _next_number, _soft, _run, _rank_by_id, _by_rank),
+    do: {:error, :variants_unsupported}
 
   defp run_single_engine(tournament, input, next_number, soft, run, player_by_local_rank) do
     case run_span(run, :engine, fn ->
@@ -3328,18 +3443,7 @@ defmodule PairingsEngine.Pairing do
         %{players: e.players, round: round_number, category: category_name}}}
 
     e in Ainalrami.Pairing.NoValidPairingError ->
-      if Map.get(e, :reason) == :bye_exclusions do
-        {:error,
-         {:bye_exclusions,
-          %{
-            excluded: e.excluded,
-            override: e.override,
-            category: category_name,
-            round: round_number
-          }}}
-      else
-        no_legal_pairing(e, tournament, round_number, category_name)
-      end
+      ainalrami_refusal(e, tournament, round_number, category_name)
 
     # The TRF we just built is our own, so this should be unreachable; it is
     # caught rather than allowed to escape because an unhandled raise here
@@ -3506,6 +3610,24 @@ defmodule PairingsEngine.Pairing do
       |> elem(0)
 
     %{player | games: games, points: points}
+  end
+
+  # The engine's "no legal round", as the page reads it. One function for
+  # the raise `run_ainalrami/6` rescues and the `{:error, e}` the variant
+  # batch hands back (`run_variants/7`), so the two cannot word it apart.
+  defp ainalrami_refusal(e, tournament, round_number, category_name) do
+    if Map.get(e, :reason) == :bye_exclusions do
+      {:error,
+       {:bye_exclusions,
+        %{
+          excluded: e.excluded,
+          override: e.override,
+          category: category_name,
+          round: round_number
+        }}}
+    else
+      no_legal_pairing(e, tournament, round_number, category_name)
+    end
   end
 
   defp no_legal_pairing(e, tournament, round_number, category_name) do

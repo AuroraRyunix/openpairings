@@ -30,7 +30,9 @@ defmodule PairingsEngine.NextRoundPreview do
 
   The work runs in the caller's process: the Pairings page starts it with
   `start_async/4` under `PairingsEngine.TaskSupervisor`, and the outcomes
-  are paired `concurrency/0` at a time. A finished preview is kept by
+  are paired in chunks, `concurrency/0` at a time, each chunk in one
+  engine call (`pair_outcomes/5`) - the same answers as pairing them one
+  by one, which is what the arbiter is owed and all the batch promises. A finished preview is kept by
   `PairingsEngine.NextRoundPreview.Cache` against the `fingerprint/1` of
   the data it was worked out from, which is how the print view finds it.
   """
@@ -191,6 +193,9 @@ defmodule PairingsEngine.NextRoundPreview do
   game pairs nothing, a result cleared pairs only the outcomes in which it
   differs from what it was. `opts[:memo]` false pairs every outcome.
 
+  `opts[:path]` is how the missing outcomes reach the engine: `:batch`
+  (the default) or `:single`, as `pair_outcomes/5` takes it.
+
   `opts[:allow_complete]` previews a round with no open game left as its one
   outcome - what the round will be once paired - for checking announced
   boards (`PairingsEngine.BoardAnnouncements`).
@@ -228,7 +233,10 @@ defmodule PairingsEngine.NextRoundPreview do
 
       progress.(total - length(missing), total)
 
-      with {:ok, paired} <- pair_missing(checked, games, missing, progress, interval, total) do
+      path = Keyword.get(opts, :path, :batch)
+
+      with {:ok, paired} <-
+             pair_missing(checked, games, missing, {progress, interval, total}, path) do
         if memo?, do: Memo.store(tournament.id, base, paired)
         by_key = Map.merge(known, Map.new(paired))
         outcomes = Enum.map(keys, &Map.fetch!(by_key, &1))
@@ -253,9 +261,9 @@ defmodule PairingsEngine.NextRoundPreview do
 
   # The outcomes the memo did not have, paired: `[{key, outcome}]`. The
   # context - the whole history read and walked - only when there is one.
-  defp pair_missing(_checked, _games, [], _progress, _interval, _total), do: {:ok, []}
+  defp pair_missing(_checked, _games, [], _progress, _path), do: {:ok, []}
 
-  defp pair_missing(checked, games, missing, progress, interval, total) do
+  defp pair_missing(checked, games, missing, {progress, interval, total}, path) do
     with {:ok, context} <- Engine.preview_context(checked.tournament) do
       {worlds, keys} = Enum.unzip(missing)
       known = total - length(worlds)
@@ -264,7 +272,7 @@ defmodule PairingsEngine.NextRoundPreview do
         throttled(progress, known + done, total, last, interval)
       end
 
-      {:ok, Enum.zip(keys, pair_outcomes(context, games, worlds, report))}
+      {:ok, Enum.zip(keys, pair_outcomes(context, games, worlds, report, path: path))}
     end
   end
 
@@ -275,23 +283,31 @@ defmodule PairingsEngine.NextRoundPreview do
   `{:error, reason}`. `report.(done, last)` is called after each chunk and
   returns what the next call gets as `last`.
 
-  Kept to this one function so that a batch call into the engine can take
-  its place without anything around it changing.
+  `opts[:path]`: `:batch` (the default) hands each chunk of outcomes to
+  the engine in one call (`PairingsEngine.Pairing.preview_variants/2`),
+  and pairs a chunk one outcome at a time when that call declines;
+  `:single` always pairs one at a time. The answers are the same - the
+  batch exists to be faster, and a test holds it to that and nothing more.
   """
-  def pair_outcomes(context, games, worlds, report \\ fn _done, last -> last end) do
+  def pair_outcomes(context, games, worlds, report \\ fn _done, last -> last end, opts \\ []) do
+    path = Keyword.get(opts, :path, :batch)
+
     # The engine's field parsed once, from the first outcome's TRF; every
     # outcome then only re-ranks it (`Pairing.preview_base/2`).
     context = Engine.preview_base(context, world_results(games, hd(worlds)))
 
     # In chunks: each task is handed the context, which is the whole
     # history, so one task per outcome copied it 729 times. A chunk is
-    # small enough for the progress to move steadily.
-    chunk = max(1, div(length(worlds), concurrency() * 16))
+    # small enough for the progress to move steadily. The batch takes
+    # bigger ones: it does its shared work once per chunk, and four chunks
+    # per core still report progress more often than anyone reads it.
+    per_core = if path == :batch, do: 4, else: 16
+    chunk = max(1, div(length(worlds), concurrency() * per_core))
 
     {outcomes, {_done, _last}} =
       worlds
       |> Enum.chunk_every(chunk)
-      |> Task.async_stream(fn worlds -> Enum.map(worlds, &pair_world(context, games, &1)) end,
+      |> Task.async_stream(&pair_chunk(context, games, &1, path),
         max_concurrency: concurrency(),
         timeout: :infinity
       )
@@ -400,12 +416,21 @@ defmodule PairingsEngine.NextRoundPreview do
     |> Map.new(fn {game, outcome} -> {game.id, Enum.at(@outcomes, outcome)} end)
   end
 
-  defp pair_world(context, games, world) do
-    case Engine.preview_round(context, world_results(games, world)) do
-      {:ok, boards} -> {:ok, seats(boards)}
-      {:error, reason} -> {:error, reason}
+  defp pair_chunk(context, games, worlds, :batch) do
+    case Engine.preview_variants(context, Enum.map(worlds, &world_results(games, &1))) do
+      {:ok, outcomes} -> Enum.map(outcomes, &seated/1)
+      :fallback -> pair_chunk(context, games, worlds, :single)
     end
   end
+
+  defp pair_chunk(context, games, worlds, :single),
+    do: Enum.map(worlds, &pair_world(context, games, &1))
+
+  defp pair_world(context, games, world),
+    do: context |> Engine.preview_round(world_results(games, world)) |> seated()
+
+  defp seated({:ok, boards}), do: {:ok, seats(boards)}
+  defp seated({:error, reason}), do: {:error, reason}
 
   @doc """
   One outcome's boards as seats: `%{player_id => {opponent_id | :bye,

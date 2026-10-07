@@ -9,7 +9,9 @@ defmodule PairingsEngine.Bench.NextRoundPreviewBenchTest do
 
   `BENCH_SIZES` (default `200,600`), `BENCH_OPEN` (default `1,3,6`) and
   `BENCH_CONCURRENCY` (default: `NextRoundPreview.concurrency/0`) choose
-  the runs. `+S 2:2` in `ELIXIR_ERL_OPTIONS` imitates the 2-vCPU server.
+  the runs; `BENCH_PATH=single` pairs one outcome at a time instead of the
+  batch, for the before-and-after. The memo is off: it would make the
+  second path's run free. `+S 2:2` in `ELIXIR_ERL_OPTIONS` imitates the 2-vCPU server.
   """
   use ExUnit.Case, async: false
 
@@ -34,6 +36,7 @@ defmodule PairingsEngine.Bench.NextRoundPreviewBenchTest do
 
   test "preview timings" do
     sizes = env_list("BENCH_SIZES", [200, 600])
+    path = if System.get_env("BENCH_PATH") == "single", do: :single, else: :batch
     open = env_list("BENCH_OPEN", [1, 3, 6])
 
     case System.get_env("BENCH_CONCURRENCY") do
@@ -66,10 +69,12 @@ defmodule PairingsEngine.Bench.NextRoundPreviewBenchTest do
 
       for k <- open do
         leave_only_open(t, k)
-        {us, {:ok, preview}} = :timer.tc(fn -> NextRoundPreview.run(reload(t)) end)
+
+        {us, {:ok, preview}} =
+          :timer.tc(fn -> NextRoundPreview.run(reload(t), memo: false, path: path) end)
 
         IO.puts(
-          "[bench] #{size} players, #{k} open (#{preview.outcomes} outcomes): " <>
+          "[bench] #{path}, #{size} players, #{k} open (#{preview.outcomes} outcomes): " <>
             "#{Float.round(us / 1_000_000, 2)} s - fixed #{length(preview.fixed)}, " <>
             "shifting #{length(preview.shifting)}, colours open #{length(preview.colours_open)}, " <>
             "open players #{length(preview.open)}, bye #{preview.bye.status}"

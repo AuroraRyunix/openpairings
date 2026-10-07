@@ -26,6 +26,19 @@ Each entry is tagged so a version can be skimmed:
   Interclubs plug-in's season check): findings grouped by kind, coloured by how
   much they matter, filtered with a click, and each one opening to say what it
   means and what to do - instead of a bullet list that said all of it at once.
+- [Performance] **The next-round preview asks the engine once per batch, not
+  once per outcome.** The outcomes still to pair go to Ainalrami's
+  `pair_variants` in chunks: the field is built once and each outcome is just
+  the players of the open games with their result and score. Same boards,
+  colours, byes and refusals as pairing each outcome alone - a test compares
+  the two on 2,367 outcomes of 1 to 6 open games, refusals included. Six open
+  games (729 outcomes), one core: 7.0 s to 5.0 s at 40 players, 3.0 s to
+  2.0 s at 150; four cores: 2.1 s to 1.6 s and 1.0 s to 0.7 s. With bye
+  preferences in play, or pairing by category, the preview pairs one outcome
+  at a time as before - the batch does not take those, and guessing is not
+  faster, only wrong sooner.
+- [Change] **Ainalrami v0.39.0** (from v0.38.0): adds `pair_variants`, the
+  batch above. Pairings are unchanged.
 ## [0.76.0] - 2026-10-07
 
 - [Change] **Plug-ins are for administrators only.** The Plug-ins menu, the
