@@ -151,10 +151,91 @@ defmodule PairingsEngine.Fide do
     end
   end
 
-  def put_last_sync do
+  @doc """
+  Records a finished sync. `period` is the monthly list the download belongs
+  to (`"YYYY-MM"`); when it is not given (or not a period) the current UTC
+  month is used, which is right except for the hours between FIDE's month
+  change and its publishing the new list.
+  """
+  def put_last_sync(period \\ nil) do
     Repo.query!(
       "INSERT INTO meta (key, value) VALUES ('fide_last_sync', datetime('now')) " <>
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
     )
+
+    PairingsEngine.Meta.put(
+      "fide_list_period",
+      if(period?(period), do: period, else: month_of(Date.utc_today()))
+    )
+  end
+
+  @doc """
+  A `Last-Modified` header value as a `DateTime` (UTC), or `nil` when it is
+  missing or not an HTTP date.
+  """
+  def parse_http_date(value) when is_binary(value) do
+    case :httpd_util.convert_request_date(String.to_charlist(value)) do
+      {{y, m, d}, {hh, mm, ss}} -> DateTime.new!(Date.new!(y, m, d), Time.new!(hh, mm, ss))
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  def parse_http_date(_value), do: nil
+
+  @doc """
+  The monthly FIDE list (`"YYYY-MM"`) the local copy is, or `nil` when nothing
+  has been downloaded yet.
+  """
+  def list_period, do: PairingsEngine.Meta.get("fide_list_period")
+
+  @doc "`\"YYYY-MM\"` for a date."
+  def month_of(%Date{year: y, month: m}),
+    do: Integer.to_string(y) <> "-" <> String.pad_leading(Integer.to_string(m), 2, "0")
+
+  def period?(value), do: is_binary(value) and Regex.match?(~r/\A\d{4}-(0[1-9]|1[0-2])\z/, value)
+
+  @doc """
+  The rating `rating_for_tempo/2` would pick, with the list it came from:
+  `{rating, "standard" | "rapid" | "blitz"}`, or `nil` for no record or no
+  rating at all. A rapid or blitz tournament whose player has no rating in
+  that list reports `"standard"`, the list it actually fell back to.
+  """
+  def rating_with_source(nil, _standard), do: nil
+
+  def rating_with_source(%FidePlayer{} = fp, standard) do
+    {list, rating} =
+      case standard do
+        "rapid" when is_integer(fp.rapid_rating) and fp.rapid_rating > 0 ->
+          {"rapid", fp.rapid_rating}
+
+        "blitz" when is_integer(fp.blitz_rating) and fp.blitz_rating > 0 ->
+          {"blitz", fp.blitz_rating}
+
+        _ ->
+          {"standard", fp.standard_rating}
+      end
+
+    if rating, do: {rating, list}
+  end
+
+  @doc """
+  The form/attribute values that record where a rating read from `fide_player`
+  came from (`fide_rating_source`, `fide_rating_period`, `fide_rating_listed`),
+  to merge next to `"fide_rating"`. Empty when the record carries no rating.
+  """
+  def rating_provenance(fide_player, standard) do
+    case rating_with_source(fide_player, standard) do
+      {rating, list} ->
+        %{
+          "fide_rating_source" => list,
+          "fide_rating_period" => list_period() || "",
+          "fide_rating_listed" => rating
+        }
+
+      nil ->
+        %{"fide_rating_source" => "", "fide_rating_period" => "", "fide_rating_listed" => ""}
+    end
   end
 end

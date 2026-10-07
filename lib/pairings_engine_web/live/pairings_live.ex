@@ -147,7 +147,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # whether the last pairing attempt found no legal pairing, which is
        # when creating the round by hand is offered.
        mpa_dialog: nil,
-       manual_round_offer: false
+       manual_round_offer: false,
+       # The automatic rating check's notice (see
+       # `PairingsEngineWeb.RatingNotice`) - worked out once, on opening.
+       rating_notice: nil
      )
      |> allow_upload(:results_csv,
        auto_upload: true,
@@ -159,7 +162,16 @@ defmodule PairingsEngineWeb.PairingsLive do
      |> NextRoundPreviewPanel.init()
      |> attach_fide_gate()
      |> assign(fide_resume: nil)
+     |> assign_rating_notice()
      |> refresh()}
+  end
+
+  defp assign_rating_notice(socket) do
+    notice =
+      if connected?(socket),
+        do: PairingsEngineWeb.RatingNotice.compute(socket.assigns.tournament)
+
+    assign(socket, rating_notice: notice)
   end
 
   defp initial_round(value, tournament, paired) do
@@ -4093,6 +4105,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       tournament={@tournament}
       active="pairings"
     >
+      <PairingsEngineWeb.RatingNotice.notice notice={@rating_notice} tournament_id={@tournament.id} />
       <%!-- Two rows above the table (2026-09-28): the tournament's name,
             then the round bar below. The top bar's tab already says
             "Pairings", so the name stands alone; the links that sat beside

@@ -179,3 +179,25 @@ guards restore the triggers along with the rows.
 Roughly 70% of the rows have no standard rating. So a player being absent from
 it means "has no FIDE ID", not "isn't rated yet" - worth remembering before
 concluding the importer failed to match someone.
+
+## Which list, how fresh, and where a rating came from
+
+- **The monthly list is recorded.** Each sync stores the month of the list
+  (`meta.fide_list_period`, from the download's `Last-Modified`, else the
+  current month). The check compares the tournament's start-date month (or the
+  check date's, for an event over 30 days) with it, and proposes nothing when
+  the local list is a different month - see `PairingsEngine.RatingRefresh`.
+  Only the current list is kept, so an event that started in an earlier month
+  than the local list cannot be compared; it says so.
+- **Every rating read from a list keeps its source:** `fide_rating_source`
+  (standard/rapid/blitz), `fide_rating_period`, `fide_rating_listed`. No
+  source means typed by hand; a changed value with a source means modified.
+- **Daily update.** `PairingsEngine.Fide.AutoSync` asks FIDE with one HEAD
+  request once a day and downloads only a newer list (about monthly). On by
+  default, off with the checkbox under Connections; silent when offline. A
+  requested check does the same HEAD first (`Fide.Freshness`).
+- **Automatic check.** Opening the Players or Pairings page, or a finished
+  update while the page is open, shows a notice when the list in use gives
+  different ratings; it writes nothing.
+- **Subset.** The check's table has a checkbox per proposal and select all;
+  Apply writes only the ticked ones.

@@ -87,3 +87,7 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
+
+# No test (and no dev session) reaches ratings.fide.com on its own; the daily
+# update is exercised by starting its own instance. See PairingsEngine.Fide.AutoSync.
+config :pairings_engine, :fide_auto_sync, false

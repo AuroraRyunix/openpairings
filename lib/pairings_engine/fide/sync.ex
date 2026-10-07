@@ -297,7 +297,7 @@ defmodule PairingsEngine.Fide.Sync do
     with {:ok, zip, state} <- download(server, state),
          {:ok, text, state} <- unpack(server, zip, state),
          {:ok, state} <- import_list(server, text, state) do
-      Fide.put_last_sync()
+      Fide.put_last_sync(downloaded_period())
       update(server, %{state | status: :done, progress: ""})
     else
       {:error, reason} ->
@@ -340,6 +340,10 @@ defmodule PairingsEngine.Fide.Sync do
   defp build_into(server, state) do
     fn {:data, data}, {req, resp} ->
       total = resp_content_length(resp)
+
+      if Process.get(:sync_last_modified) == nil,
+        do: Process.put(:sync_last_modified, response_last_modified(resp) || :none)
+
       Process.put(:sync_chunks, [data | Process.get(:sync_chunks)])
       loaded = Process.get(:sync_loaded) + byte_size(data)
       Process.put(:sync_loaded, loaded)
@@ -380,6 +384,7 @@ defmodule PairingsEngine.Fide.Sync do
     Process.put(:sync_loaded, 0)
     Process.put(:sync_last_report, 0)
     Process.put(:sync_download_aborted, false)
+    Process.put(:sync_last_modified, nil)
 
     req_opts = [
       into: into,
@@ -421,6 +426,22 @@ defmodule PairingsEngine.Fide.Sync do
         else
           {:error, reason}
         end
+    end
+  end
+
+  # The list's own date, when the server states one: the month it falls in is
+  # the monthly list this download is (`Fide.list_period/0`).
+  defp response_last_modified(resp) do
+    case Req.Response.get_header(resp, "last-modified") do
+      [value | _] -> Fide.parse_http_date(value)
+      _ -> nil
+    end
+  end
+
+  defp downloaded_period do
+    case Process.get(:sync_last_modified) do
+      %DateTime{} = at -> Fide.month_of(DateTime.to_date(at))
+      _ -> nil
     end
   end
 

@@ -11,6 +11,15 @@ defmodule PairingsEngine.Tournaments.Player do
     field :title, :string, default: ""
     field :fide_id, :integer
     field :fide_rating, :integer, default: 0
+    # Where `fide_rating` came from, kept beside it (VCL4THP 134): the FIDE
+    # list it was read from ("standard" | "rapid" | "blitz"), the monthly list
+    # ("YYYY-MM") it belongs to, and the value as that list printed it. All
+    # nil for a rating nobody read from a list. A later hand edit changes
+    # `fide_rating` and leaves these three, which is how `rating_manual?/1`
+    # tells a modified rating from an untouched one.
+    field :fide_rating_source, :string
+    field :fide_rating_period, :string
+    field :fide_rating_listed, :integer
     field :national_id, :string, default: ""
     field :national_rating, :integer, default: 0
     field :federation, :string, default: ""
@@ -181,6 +190,9 @@ defmodule PairingsEngine.Tournaments.Player do
       :title,
       :fide_id,
       :fide_rating,
+      :fide_rating_source,
+      :fide_rating_period,
+      :fide_rating_listed,
       :national_id,
       :national_rating,
       :federation,
@@ -212,6 +224,7 @@ defmodule PairingsEngine.Tournaments.Player do
       :bye_preference_rounds,
       :bye_preference_scope
     ])
+    |> normalize_rating_provenance()
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
     |> validate_inclusion(:status, ~w(active withdrawn expelled))
@@ -232,6 +245,28 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_fide_id_range()
     |> unique_fide_id_in_tournament()
   end
+
+  @rating_lists ~w(standard rapid blitz)
+
+  # Blank means "no source", and anything that is not one of the three lists
+  # or a YYYY-MM period is dropped rather than stored.
+  defp normalize_rating_provenance(changeset) do
+    changeset
+    |> update_change(:fide_rating_source, fn v -> if v in @rating_lists, do: v end)
+    |> update_change(:fide_rating_period, fn v ->
+      if PairingsEngine.Fide.period?(v), do: v
+    end)
+  end
+
+  @doc """
+  Whether the FIDE rating was typed or changed by hand (or arrived from
+  somewhere that does not say where it came from): no source list on record,
+  or the value differs from the one the list printed. A player with no rating
+  is not "manual" - there is nothing to describe.
+  """
+  def rating_manual?(%__MODULE__{fide_rating: r}) when r in [nil, 0], do: false
+  def rating_manual?(%__MODULE__{fide_rating_source: nil}), do: true
+  def rating_manual?(%__MODULE__{fide_rating: r, fide_rating_listed: l}), do: r != l
 
   # A physical table number, so it has to be one that can exist: 0 and
   # negatives were accepted and travelled all the way to the printed sheet,

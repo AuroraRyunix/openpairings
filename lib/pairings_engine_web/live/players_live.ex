@@ -127,6 +127,9 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      # A finished list update re-runs the automatic rating check, and a
+      # requested check that was waiting for one.
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, PairingsEngine.Fide.Sync.topic())
     end
 
     {:ok,
@@ -158,6 +161,13 @@ defmodule PairingsEngineWeb.PlayersLive do
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
+       # The proposals ticked in the rating check, by id (all of them to
+       # start with); whether a requested check is waiting for a list
+       # update; a line about the list used; and the automatic check's notice.
+       rating_selected: MapSet.new(),
+       rating_waiting: false,
+       rating_note: nil,
+       rating_notice: nil,
        club_refresh: nil,
        bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
@@ -176,7 +186,18 @@ defmodule PairingsEngineWeb.PlayersLive do
      )
      |> assign_postponed_open()
      |> assign_players()
+     |> assign_rating_notice()
      |> RegistrationQueue.assign_queue()}
+  end
+
+  # The automatic rating check: only once connected (the static render does
+  # not need it), and never blocking - see `PairingsEngineWeb.RatingNotice`.
+  defp assign_rating_notice(socket) do
+    notice =
+      if connected?(socket),
+        do: PairingsEngineWeb.RatingNotice.compute(socket.assigns.tournament)
+
+    assign(socket, rating_notice: notice)
   end
 
   # The tournament's main page carries a small card with every postponed
@@ -222,6 +243,88 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> assign_players()
          |> RegistrationQueue.assign_queue()}
     end
+  end
+
+  # A list update finished: refresh the automatic check's notice from the new
+  # list, and run the check the arbiter asked for before the update started.
+  def handle_info({:fide_sync, %{status: :done}}, socket) do
+    socket = assign_rating_notice(socket)
+
+    if socket.assigns.rating_waiting do
+      {:noreply, run_rating_check(socket, nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:fide_sync, %{status: :error}}, socket) do
+    if socket.assigns.rating_waiting do
+      {:noreply,
+       run_rating_check(
+         socket,
+         gettext(
+           "The FIDE list could not be updated, so this compares against the copy on this machine."
+         )
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:fide_sync, _state}, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_async(:rating_freshness, {:ok, :stale}, socket) do
+    if PairingsEngine.Authz.may_administer?(socket.assigns.current_scope.user) do
+      if PairingsEngine.Fide.Sync.status().status not in [:downloading, :importing] do
+        PairingsEngine.Fide.Sync.start_sync()
+        Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
+      end
+
+      {:noreply,
+       assign(socket,
+         rating_note:
+           gettext(
+             "The FIDE list on this machine is out of date. Updating it first; the check follows."
+           )
+       )}
+    else
+      # Downloading the list is an administrator's act (Connections page).
+      {:noreply,
+       run_rating_check(
+         socket,
+         gettext(
+           "The FIDE list on this machine is out of date. Ask an administrator to update it under Connections, then check again."
+         )
+       )}
+    end
+  end
+
+  def handle_async(:rating_freshness, {:ok, :unverified}, socket) do
+    {:noreply,
+     run_rating_check(
+       socket,
+       gettext(
+         "Could not confirm that the FIDE list on this machine is current (no answer from FIDE)."
+       )
+     )}
+  end
+
+  def handle_async(:rating_freshness, {:ok, :current}, socket),
+    do: {:noreply, run_rating_check(socket, nil)}
+
+  def handle_async(:rating_freshness, _failed, socket),
+    do: {:noreply, run_rating_check(socket, nil)}
+
+  defp run_rating_check(socket, note) do
+    summary = RatingRefresh.dry_run(socket.assigns.tournament)
+
+    assign(socket,
+      rating_refresh: summary,
+      rating_selected: MapSet.new(Enum.map(summary.proposals, & &1.id)),
+      rating_waiting: false,
+      rating_note: note
+    )
   end
 
   defp postponed_name(nil), do: "?"
@@ -686,12 +789,14 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         fide_values =
           if fp,
-            do: %{
-              "title" => fp.title,
-              "fide_id" => fp.fide_id,
-              "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-              "sex" => normalize_fide_sex(fp.sex)
-            },
+            do:
+              %{
+                "title" => fp.title,
+                "fide_id" => fp.fide_id,
+                "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
+                "sex" => normalize_fide_sex(fp.sex)
+              }
+              |> Map.merge(Fide.rating_provenance(fp, socket.assigns.tournament.standard)),
             else: %{"fide_id" => kp.fide_id}
 
         values =
@@ -742,6 +847,8 @@ defmodule PairingsEngineWeb.PlayersLive do
               "birth_year" => fp.birth_year,
               "sex" => normalize_fide_sex(fp.sex)
             }
+
+            base = Map.merge(base, Fide.rating_provenance(fp, socket.assigns.tournament.standard))
 
             {:noreply,
              assign(socket,
@@ -1060,17 +1167,48 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
 
+  # Before a requested check, the local list is compared with FIDE's (one
+  # HEAD request, off the LiveView process): out of date, it is updated first
+  # and the check runs when the update is done; unreachable, the check runs
+  # on the copy that is here, saying that it could not be verified.
   def handle_event("open_rating_refresh", _params, socket) do
-    summary = RatingRefresh.dry_run(socket.assigns.tournament)
-    {:noreply, assign(socket, rating_refresh: summary)}
+    {:noreply,
+     socket
+     |> assign(
+       rating_waiting: true,
+       rating_note: gettext("Checking that the FIDE list is current...")
+     )
+     |> start_async(:rating_freshness, fn -> PairingsEngine.Fide.Freshness.check() end)}
   end
 
   def handle_event("close_rating_refresh", _params, socket) do
-    {:noreply, assign(socket, rating_refresh: nil)}
+    {:noreply, assign(socket, rating_refresh: nil, rating_waiting: false, rating_note: nil)}
   end
 
+  def handle_event("toggle_rating_proposal", %{"id" => id}, socket) when is_binary(id) do
+    selected = socket.assigns.rating_selected
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, rating_selected: selected)}
+  end
+
+  def handle_event("toggle_rating_proposal", _params, socket), do: {:noreply, socket}
+
+  def handle_event("select_all_rating_proposals", %{"mode" => "all"}, socket) do
+    ids = (socket.assigns.rating_refresh || %{proposals: []}).proposals |> Enum.map(& &1.id)
+    {:noreply, assign(socket, rating_selected: MapSet.new(ids))}
+  end
+
+  def handle_event("select_all_rating_proposals", _params, socket),
+    do: {:noreply, assign(socket, rating_selected: MapSet.new())}
+
   def handle_event("apply_rating_refresh", _params, socket) do
-    proposals = (socket.assigns.rating_refresh || %{proposals: []}).proposals
+    summary = socket.assigns.rating_refresh || %{proposals: []}
+    proposals = RatingRefresh.select(summary, socket.assigns.rating_selected)
 
     case RatingRefresh.apply(socket.assigns.tournament, proposals) do
       {:ok, players} ->
@@ -1081,7 +1219,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           %{players_updated: length(players)}
         )
 
-        {:noreply, socket |> assign(rating_refresh: nil) |> assign_players()}
+        {:noreply,
+         socket
+         |> assign(rating_refresh: nil, rating_note: nil)
+         |> assign_players()
+         |> assign_rating_notice()}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
@@ -1450,6 +1592,8 @@ defmodule PairingsEngineWeb.PlayersLive do
       "federation" => fp.federation
     }
 
+    auto = Map.merge(auto, Fide.rating_provenance(fp, socket.assigns.tournament.standard))
+
     {to_apply, conflicts} =
       {%{}, %{}}
       |> stage_reviewable_field(form, "name", fp.name, &names_equivalent?/2)
@@ -1618,6 +1762,9 @@ defmodule PairingsEngineWeb.PlayersLive do
       "title" => p.title,
       "fide_id" => blank_or(p.fide_id),
       "fide_rating" => blank_or(p.fide_rating),
+      "fide_rating_source" => p.fide_rating_source || "",
+      "fide_rating_period" => p.fide_rating_period || "",
+      "fide_rating_listed" => blank_or(p.fide_rating_listed),
       "category" => p.category,
       "categories" => p.categories || [],
       "paid" => p.paid,
@@ -2530,6 +2677,15 @@ defmodule PairingsEngineWeb.PlayersLive do
         </ul>
       </section>
 
+      <PairingsEngineWeb.RatingNotice.notice
+        notice={@rating_notice}
+        tournament_id={@tournament.id}
+        review="open_rating_refresh"
+      />
+      <div :if={@rating_waiting} id="rating-check-status" class="card" role="status">
+        {@rating_note}
+      </div>
+
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("Finish the tournament setup before adding players - still missing:")}
         <ul style="margin: 6px 0 0; padding-left: 20px">
@@ -2576,13 +2732,23 @@ defmodule PairingsEngineWeb.PlayersLive do
 
             <button
               :for={fp <- @results}
+              id={"fide-result-#{fp.fide_id}"}
               type="button"
               phx-click="pick"
               phx-value-fide-id={fp.fide_id}
             >
               <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
               <span class="meta">
-                {fp.federation} · {fp.standard_rating || "unrated"} · {fp.birth_year || "-"}
+                {fp.federation} · {main_list_rating_text(fp, @tournament.standard)} · {fp.birth_year ||
+                  "-"}
+              </span>
+
+              <span
+                :if={other_list_ratings(fp, @tournament.standard) != []}
+                id={"fide-result-#{fp.fide_id}-other"}
+                class="meta"
+              >
+                {other_ratings_text(fp, @tournament.standard)}
               </span>
             </button>
           </div>
@@ -2622,6 +2788,10 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>{gettext("FIDE rating")}</span>
             <input type="number" name="player[fide_rating]" value={@form_values["fide_rating"]} />
+            <.rating_provenance_inputs form={@form_values} />
+            <span id="add-rating-source" class="hint" style="display: block; margin-top: 2px">
+              {rating_source_text(@form_values)}
+            </span>
           </label>
 
           <%!-- The FIELD is never gated - `national_id` is a
@@ -2955,8 +3125,13 @@ defmodule PairingsEngineWeb.PlayersLive do
         entry={Map.get(players_by_id(@players), @card_player_id)}
         by_id={players_by_id(@players)}
         tournament={@tournament}
-      /> <.rating_refresh_modal :if={@rating_refresh} summary={@rating_refresh} />
-      <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
+      />
+      <.rating_refresh_modal
+        :if={@rating_refresh}
+        summary={@rating_refresh}
+        selected={@rating_selected}
+        note={@rating_note}
+      /> <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
     </Layouts.app>
     """
   end
@@ -2964,6 +3139,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   ## ---------- Bulk rating refresh modal ----------
 
   attr :summary, :map, required: true
+  attr :selected, :any, required: true
+  attr :note, :string, default: nil
 
   defp rating_refresh_modal(assigns) do
     ~H"""
@@ -2988,7 +3165,16 @@ defmodule PairingsEngineWeb.PlayersLive do
           )}
         </p>
 
-        <div :if={@summary.proposals == []} class="card empty">
+        <p :if={@note} id="rating-refresh-note" class="hint">{@note}</p>
+
+        <p id="rating-refresh-list" class="hint">
+          {rating_list_line(@summary)}
+        </p>
+
+        <div
+          :if={@summary.proposals == [] and @summary.list_status == :ok}
+          class="card empty"
+        >
           <p><strong>{gettext("Everything up to date.")}</strong></p>
         </div>
 
@@ -2996,6 +3182,17 @@ defmodule PairingsEngineWeb.PlayersLive do
           <table class="pe-table">
             <thead>
               <tr>
+                <th>
+                  <input
+                    id="rating-refresh-select-all"
+                    type="checkbox"
+                    phx-click="select_all_rating_proposals"
+                    phx-value-mode={if all_selected?(@summary, @selected), do: "none", else: "all"}
+                    checked={all_selected?(@summary, @selected)}
+                    aria-label={gettext("Select all")}
+                  />
+                </th>
+
                 <th>{gettext("Player")}</th>
 
                 <th>{gettext("Field")}</th>
@@ -3007,7 +3204,18 @@ defmodule PairingsEngineWeb.PlayersLive do
             </thead>
 
             <tbody>
-              <tr :for={p <- @summary.proposals}>
+              <tr :for={p <- @summary.proposals} id={"rating-proposal-row-#{p.player.id}-#{p.field}"}>
+                <td>
+                  <input
+                    id={"rating-proposal-#{p.player.id}-#{p.field}"}
+                    type="checkbox"
+                    phx-click="toggle_rating_proposal"
+                    phx-value-id={p.id}
+                    checked={MapSet.member?(@selected, p.id)}
+                    aria-label={gettext("Apply this change")}
+                  />
+                </td>
+
                 <td>{p.player.name}</td>
 
                 <td>{field_label(p.field)}</td>
@@ -3031,11 +3239,13 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="actions">
           <button
             :if={@summary.proposals != []}
+            id="rating-refresh-apply"
             type="button"
             class="pe-btn primary"
             phx-click="apply_rating_refresh"
+            disabled={MapSet.size(@selected) == 0}
           >
-            {gettext("Apply")}
+            {gettext("Apply selected")}
           </button>
 
           <button type="button" class="pe-btn" phx-click="close_rating_refresh">{gettext("Cancel")}</button>
@@ -3043,6 +3253,128 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
     </div>
     """
+  end
+
+  # The three values that say where the FIDE rating in the form came from.
+  # Hidden, so they travel with the form when it is saved; the rating itself
+  # stays freely editable (a changed rating keeps its source and shows as
+  # modified - `Player.rating_manual?/1`).
+  attr :form, :map, required: true
+
+  defp rating_provenance_inputs(assigns) do
+    ~H"""
+    <input type="hidden" name="player[fide_rating_source]" value={@form["fide_rating_source"]} />
+    <input type="hidden" name="player[fide_rating_period]" value={@form["fide_rating_period"]} />
+    <input type="hidden" name="player[fide_rating_listed]" value={@form["fide_rating_listed"]} />
+    """
+  end
+
+  # One line on where the rating in the form came from: the list and month,
+  # or that it was entered by hand, or that it was changed after being read.
+  defp rating_source_text(form) do
+    rating = parse_rating(form["fide_rating"])
+    listed = parse_rating(form["fide_rating_listed"])
+    source = form["fide_rating_source"]
+    period = form["fide_rating_period"]
+    list = if source in ~w(standard rapid blitz), do: source_label(source)
+
+    cond do
+      rating == 0 ->
+        nil
+
+      list == nil ->
+        gettext("Entered by hand (no source list).")
+
+      listed != 0 and rating != listed ->
+        gettext("Changed by hand; it was %{listed} on the %{list} list of %{period}.",
+          listed: listed,
+          list: list,
+          period: period_text(period)
+        )
+
+      true ->
+        gettext("From the FIDE %{list} list of %{period}.",
+          list: list,
+          period: period_text(period)
+        )
+    end
+  end
+
+  # The tournament's main list is the one for its rate of play; the ratings
+  # a FIDE record has in the other lists are shown beside it, and say so when
+  # the main list has none (VCL4THP 128), so a rapid-only or standard-only
+  # player is not shown as "unrated".
+  defp list_rating(fp, "standard"), do: positive(fp.standard_rating)
+  defp list_rating(fp, "rapid"), do: positive(fp.rapid_rating)
+  defp list_rating(fp, "blitz"), do: positive(fp.blitz_rating)
+
+  defp positive(r) when is_integer(r) and r > 0, do: r
+  defp positive(_), do: nil
+
+  defp main_list(standard) when standard in ["rapid", "blitz"], do: standard
+  defp main_list(_standard), do: "standard"
+
+  defp other_list_ratings(fp, standard) do
+    main = main_list(standard)
+
+    for list <- ~w(standard rapid blitz), list != main, rating = list_rating(fp, list) do
+      {list, rating}
+    end
+  end
+
+  defp main_list_rating_text(fp, standard) do
+    main = main_list(standard)
+
+    case list_rating(fp, main) do
+      nil -> gettext("no %{list} rating", list: String.downcase(source_label(main)))
+      rating -> rating
+    end
+  end
+
+  defp other_ratings_text(fp, standard) do
+    others =
+      fp
+      |> other_list_ratings(standard)
+      |> Enum.map_join(", ", fn {list, rating} -> "#{source_label(list)} #{rating}" end)
+
+    gettext("Other lists: %{ratings}", ratings: others)
+  end
+
+  defp source_label("standard"), do: gettext("Standard")
+  defp source_label("rapid"), do: gettext("Rapid")
+  defp source_label("blitz"), do: gettext("Blitz")
+
+  defp period_text(period) when period in [nil, ""], do: gettext("an unknown month")
+  defp period_text(period), do: period
+
+  defp all_selected?(%{proposals: proposals}, selected),
+    do: proposals != [] and Enum.all?(proposals, &MapSet.member?(selected, &1.id))
+
+  # Which list the check compared with, and why when it could not.
+  defp rating_list_line(%{list_status: :ok} = summary) do
+    gettext("Compared with the FIDE list of %{period} (valid on %{date}).",
+      period: summary.local_period,
+      date: Date.to_iso8601(summary.reference_date)
+    )
+  end
+
+  defp rating_list_line(%{list_status: :no_list}),
+    do: gettext("No FIDE list has been downloaded yet. Update it on the Connections page.")
+
+  defp rating_list_line(%{list_status: :local_older} = summary) do
+    gettext(
+      "This tournament uses the FIDE list of %{needed}, but the list on this machine is from %{have}. Update the list, then check again.",
+      needed: summary.required_period,
+      have: summary.local_period
+    )
+  end
+
+  defp rating_list_line(%{list_status: :local_newer} = summary) do
+    gettext(
+      "This tournament uses the FIDE list of %{needed} (valid on its start date); the list on this machine is the later one of %{have}, so nothing is compared.",
+      needed: summary.required_period,
+      have: summary.local_period
+    )
   end
 
   # Deliberately the twin of `rating_refresh_modal/1` above: same table, same
@@ -3368,6 +3700,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>{gettext("FIDE Elo")}</span>
             <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
+            <.rating_provenance_inputs form={@form} />
+            <span id="edit-rating-source" class="hint" style="display: block; margin-top: 2px">
+              {rating_source_text(@form)}
+            </span>
+
             <span :if={@fide_player} class="hint" style="display: block; margin-top: 2px">
               {gettext("Standard %{std} · Rapid %{rapid} · Blitz %{blitz}",
                 std: rating_or_dash(@fide_player.standard_rating),
