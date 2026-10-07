@@ -72,7 +72,8 @@ defmodule PairingsEngine.TrfExport do
           tournament
           |> build(rounds_spec, opts)
           |> mark_copy(
-            copy_comments(tournament, rounds_spec, opts) ++ fide_mode_comments(tournament, opts)
+            copy_comments(tournament, rounds_spec, opts) ++
+              fide_mode_comments(tournament, opts) ++ import_pibe_comments(tournament, opts)
           )
         end
 
@@ -156,6 +157,58 @@ defmodule PairingsEngine.TrfExport do
       _ -> []
     end
   end
+
+  ## ---------- an Import PIBE is in the file ----------
+  #
+  # VCL4THP item 55 and the TEC manual's PIBE log: a tournament imported
+  # from a TRF whose rounds broke a pairing rule says so in its report, one
+  # `### Import @ Round r: ...` line per such round - the manual's own
+  # form, with what broke paraphrased after the colon (the manual writes
+  # the file's pairs and the correct ones; this app judges the absolute
+  # criteria, so it names the pairs and the rule each broke). The numbers
+  # are the file's starting ranks, which the import kept as pairing numbers.
+  #
+  # TRF26 only, and never in the file sent for rating (`for: :rating`
+  # builds without any `###` line), exactly like the FIDE-mode note above.
+  defp import_pibe_comments(%Tournament{import_findings: %{"pibe" => [_ | _] = rounds}}, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26,
+      do: Enum.map(rounds, &import_pibe_line/1),
+      else: []
+  end
+
+  defp import_pibe_comments(_tournament, _opts), do: []
+
+  @doc """
+  One round's Import PIBE (an entry of `import_findings["pibe"]`) as the
+  text of its `###` line, without the `### ` - also what the audit trail
+  records for it.
+  """
+  def import_pibe_line(%{"round" => round, "items" => items}),
+    do: "Import @ Round #{round}: " <> Enum.map_join(items, " ", &pibe_item/1)
+
+  defp pibe_item(%{"reason" => "rematch", "ranks" => [a, b]} = item),
+    do: "#{a}-#{b} (rematch of round #{item["met_in_round"]})"
+
+  defp pibe_item(%{"reason" => "colour", "ranks" => [a, b]} = item),
+    do: "#{a}-#{b} (both due #{pibe_colour(item["colour"])})"
+
+  defp pibe_item(%{"reason" => "forbidden", "ranks" => [a, b]}),
+    do: "#{a}-#{b} (prohibited pairing)"
+
+  defp pibe_item(%{"reason" => "bye", "ranks" => [a]} = item),
+    do: "#{a}=PAB (#{pibe_bye(item["bye_reason"])})"
+
+  defp pibe_item(%{"ranks" => ranks}),
+    do: "#{Enum.join(ranks, "-")} (absolute criterion)"
+
+  defp pibe_colour("w"), do: "White"
+  defp pibe_colour("b"), do: "Black"
+  defp pibe_colour(_), do: "the same colour"
+
+  defp pibe_bye("pairing_bye"), do: "already had the PAB"
+  defp pibe_bye("forfeit_win"), do: "already won by forfeit"
+  defp pibe_bye("full_point_bye"), do: "already had a full-point bye"
+  defp pibe_bye(_), do: "not eligible"
 
   @doc """
   Puts `comments` into the TRF `text` as `###` comment lines, after the

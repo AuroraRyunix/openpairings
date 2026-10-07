@@ -79,6 +79,11 @@ defmodule PairingsEngine.TournamentExport do
   # handled compliantly throughout. It is deliberately not cast, so both
   # import paths in `TournamentImport` carry it across by hand and each
   # decides differently what to do with it; see them.
+  #
+  # `import_findings` travels for the same reason: it is the record of the
+  # TRF import that made this tournament, including the rounds that broke a
+  # pairing rule (an Import PIBE), and a copy that dropped it would stop
+  # writing those `### Import` lines into its reports.
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count
@@ -101,7 +106,7 @@ defmodule PairingsEngine.TournamentExport do
     extra_points_mode count_extra_points extra_points_bands
     publish_mode publish_delay_minutes standings_through
     manual_ranking manual_ranking_stale
-    fide_compliance_lost_round
+    fide_compliance_lost_round import_findings
     public_listed public_display public_hidden_tiebreaks public_hall
     postponed_games postponed_requester_outcome postponed_opponent_outcome
     postponed_report_name postponed_fide_tournament_id

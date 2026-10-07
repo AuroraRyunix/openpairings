@@ -269,7 +269,11 @@ defmodule PairingsEngine.TournamentImport do
           earliest_compliance_loss(
             tournament.fide_compliance_lost_round,
             Map.get(t_attrs, "fide_compliance_lost_round")
-          )
+          ),
+        # A logged PIBE is never un-logged by a restore: an entry that
+        # predates the field keeps the live record.
+        import_findings:
+          map_or_nil(Map.get(t_attrs, "import_findings")) || tournament.import_findings
       )
       # Same reasoning, and the same three fields, as `import_tournament!/2`
       # - see the comment there. A restore point taken before this shipped
@@ -462,6 +466,8 @@ defmodule PairingsEngine.TournamentImport do
         # that were played after it happened. Outside the cast list for the
         # same reason as `manual_ranking_stale` above.
         fide_compliance_lost_round: coerce_int(Map.get(t_attrs, "fide_compliance_lost_round")),
+        # The TRF import's record (`TrfImport.findings/1`), as the file has it.
+        import_findings: map_or_nil(Map.get(t_attrs, "import_findings")),
         # The file's publishing key, filed away DORMANT - see
         # `dormant_claim/1`. Note where it comes from: `t_data`, the envelope
         # entry, not `t_attrs`. It is not a tournament field and is not cast,
@@ -1070,6 +1076,9 @@ defmodule PairingsEngine.TournamentImport do
       {mine, other} -> min(mine, other)
     end
   end
+
+  defp map_or_nil(map) when is_map(map), do: map
+  defp map_or_nil(_other), do: nil
 
   defp coerce_int(n) when is_integer(n), do: n
 
