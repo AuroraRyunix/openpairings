@@ -17,7 +17,9 @@ defmodule PairingsEngine.RatingRefresh do
       rating proposed is the one matching the tournament's own cadence
       (`tournament.standard` - Standard/Rapid/Blitz, see
       `PairingsEngine.Fide.rating_for_tempo/2`), falling back to Standard
-      when the player has no rating in that specific list.
+      when the player has no rating in that specific list. A tournament with
+      a rating-list sequence of its own (`PairingsEngine.RatingLists`) reads
+      the first FIDE list of that sequence instead.
 
   `national_rating` is deliberately NOT refreshed from the KBSB list. It is
   an import/manual-entry artifact: SWAR's own ELO lands there on import (see
@@ -108,7 +110,8 @@ defmodule PairingsEngine.RatingRefresh do
     results =
       if status == :ok do
         fides = fide_matches(players)
-        Enum.map(players, &player_proposals(&1, tournament.standard, fides, local))
+        sequence = PairingsEngine.RatingLists.sequence(tournament)
+        Enum.map(players, &player_proposals(&1, sequence, fides, local))
       else
         # Not comparable: the players are counted, nothing is proposed.
         Enum.map(players, fn _ -> %{proposals: [], matched?: false} end)
@@ -166,12 +169,14 @@ defmodule PairingsEngine.RatingRefresh do
   What the automatic check shows without being asked: `%{changed: n,
   local_period: p}` when the local list is the one this tournament uses and at
   least one player's rating differs from it, otherwise `nil` (nothing to say,
-  or not comparable).
+  or not comparable). `nil` as well when the tournament has switched the
+  automatic check off (`rating_checks_enabled`); asking for the check by hand
+  (`dry_run/2`) is not affected.
   """
   def notice(tournament, today \\ Date.utc_today()) do
-    # Nothing downloaded: no comparison to make, and no reason to read the
-    # roster on every page open.
-    if Fide.list_period() == nil do
+    # Switched off, or nothing downloaded: no comparison to make, and no
+    # reason to read the roster on every page open.
+    if Map.get(tournament, :rating_checks_enabled) == false or Fide.list_period() == nil do
       nil
     else
       case dry_run(tournament, today) do
@@ -194,19 +199,19 @@ defmodule PairingsEngine.RatingRefresh do
     |> Map.new(&{&1.fide_id, &1})
   end
 
-  defp player_proposals(player, standard, fides, local_period) do
+  defp player_proposals(player, sequence, fides, local_period) do
     fide = if player.fide_id, do: Map.get(fides, player.fide_id)
 
     proposals =
       []
-      |> maybe_add_rating(player, fide, standard, local_period)
+      |> maybe_add_rating(player, fide, sequence, local_period)
       |> maybe_add_title(player, fide)
 
     %{proposals: proposals, matched?: fide != nil}
   end
 
-  defp maybe_add_rating(list, player, fide, standard, local_period) do
-    case Fide.rating_with_source(fide, standard) do
+  defp maybe_add_rating(list, player, fide, sequence, local_period) do
+    case PairingsEngine.RatingLists.main_fide_rating(fide, sequence) do
       {rating, source} ->
         extra = %{
           fide_rating_source: source,

@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Compliance, Tournaments}
+  alias PairingsEngine.{Audit, Authz, Compliance, RatingLists, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -26,11 +26,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> assign_rating_lists(tournament)
      |> assign(
        tournament: tournament,
        ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
        page_title: "#{tournament.name} · Settings",
        rows: tournament.fide_id_ranges || [],
+       may_load_lists?: Authz.may_administer?(socket.assigns.current_scope.user),
        note: nil,
        error: nil,
        dirty: false,
@@ -59,7 +61,9 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
       tournament ->
         {:noreply,
-         assign(socket,
+         socket
+         |> assign_rating_lists(tournament)
+         |> assign(
            tournament: tournament,
            ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
            rows: tournament.fide_id_ranges || [],
@@ -85,6 +89,73 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   def handle_event("remove_range", %{"index" => index}, socket) do
     index = String.to_integer(index)
     {:noreply, assign(socket, rows: List.delete_at(socket.assigns.rows, index))}
+  end
+
+  ## ---------- the rating-list sequence and the consistency check ----------
+  #
+  # Each click saves on its own: the sequence is a list being arranged, not a
+  # form to be filled in and sent.
+
+  def handle_event("seq_move", %{"index" => index, "dir" => dir}, socket) do
+    seq = socket.assigns.rating_sequence
+
+    with {i, ""} <- Integer.parse(index),
+         j = if(dir == "up", do: i - 1, else: i + 1),
+         true <- i in 0..(length(seq) - 1)//1 and j in 0..(length(seq) - 1)//1 do
+      {:noreply, save_sequence(socket, swap(seq, i, j))}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("seq_remove", %{"index" => index}, socket) do
+    seq = socket.assigns.rating_sequence
+
+    with {i, ""} <- Integer.parse(index),
+         true <- length(seq) > 1 and i in 0..(length(seq) - 1)//1 do
+      {:noreply, save_sequence(socket, List.delete_at(seq, i))}
+    else
+      _ ->
+        {:noreply,
+         assign(socket, error: gettext("The sequence needs at least one list."), note: nil)}
+    end
+  end
+
+  def handle_event("seq_add", %{"entry" => entry}, socket) do
+    seq = socket.assigns.rating_sequence
+
+    if entry in Enum.map(socket.assigns.addable, &elem(&1, 0)) and entry not in seq do
+      {:noreply, save_sequence(socket, seq ++ [entry])}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("seq_reset", _params, socket) do
+    {:noreply, save_sequence(socket, [])}
+  end
+
+  def handle_event("set_rating_checks", params, socket) do
+    enabled = params["enabled"] in ["true", "on"]
+
+    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+
+    case Tournaments.update_tournament(base, %{"rating_checks_enabled" => enabled}) do
+      {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
+        {:noreply,
+         assign(socket,
+           tournament: tournament,
+           note: gettext("Saved."),
+           error: nil,
+           dirty: false,
+           stale: false
+         )}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, error: error_text(changeset), note: nil)}
+    end
   end
 
   ## ---------- leaving FIDE mode: two steps, then for good ----------
@@ -167,6 +238,56 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         {:noreply, assign(socket, error: error_text(changeset), note: nil)}
     end
   end
+
+  defp assign_rating_lists(socket, tournament) do
+    sequence = RatingLists.sequence(tournament)
+
+    assign(socket,
+      rating_sequence: sequence,
+      custom_names: RatingLists.custom_names(),
+      addable:
+        Enum.reject(RatingLists.available_entries(), fn {entry, _} -> entry in sequence end)
+    )
+  end
+
+  # A sequence equal to the default for the rate of play is stored as no
+  # sequence, so it keeps following the rate of play if that changes.
+  defp save_sequence(socket, list) do
+    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+    list = if list == RatingLists.default_sequence(base.standard), do: [], else: list
+
+    case Tournaments.update_tournament(base, %{"rating_list_sequence" => list}) do
+      {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
+        socket
+        |> assign_rating_lists(tournament)
+        |> assign(
+          tournament: tournament,
+          note: gettext("Saved."),
+          error: nil,
+          dirty: false,
+          stale: false
+        )
+
+      {:error, changeset} ->
+        assign(socket, error: error_text(changeset), note: nil)
+    end
+  end
+
+  defp swap(list, i, j) do
+    a = Enum.at(list, i)
+    b = Enum.at(list, j)
+    list |> List.replace_at(i, b) |> List.replace_at(j, a)
+  end
+
+  defp entry_label("fide_standard", _), do: gettext("FIDE Standard")
+  defp entry_label("fide_rapid", _), do: gettext("FIDE Rapid")
+  defp entry_label("fide_blitz", _), do: gettext("FIDE Blitz")
+  defp entry_label("effective_rapid", _), do: gettext("Effective Rapid (Rapid, else Standard)")
+  defp entry_label("effective_blitz", _), do: gettext("Effective Blitz (Blitz, else Standard)")
+  defp entry_label("national", _), do: gettext("National list")
+  defp entry_label("custom:" <> _ = entry, names), do: RatingLists.label(entry, names)
 
   # The "fide_id_ranges" form param arrives as a map indexed by string
   # position ("0", "1", ...) rather than a list - standard HTML nested-form
@@ -388,6 +509,124 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>
       </form>
+
+      <div id="rating-lists-card" class="card">
+        <h2>{gettext("Rating lists")}</h2>
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "The lists a player's rating is taken from when the player is added or the ratings are refreshed, in order. The first is the main list: its rating is entered automatically, and the ratings the player has in the other lists are offered to pick instead. A FIDE list fills the FIDE rating; the national list and your own lists fill the national rating."
+          )}
+        </p>
+        <p
+          :if={!RatingLists.custom_sequence?(@tournament)}
+          id="rating-sequence-default"
+          class="hint"
+        >
+          {gettext("This is the default sequence for the tournament's rate of play.")}
+        </p>
+
+        <ol id="rating-sequence" style="padding-left: 22px">
+          <li
+            :for={{entry, i} <- Enum.with_index(@rating_sequence)}
+            id={"rating-sequence-#{i}"}
+            style="display: flex; gap: 8px; align-items: center; margin: 4px 0"
+          >
+            <span style="flex: 1">
+              {entry_label(entry, @custom_names)}
+              <span :if={i == 0} class="badge muted">{gettext("main list")}</span>
+            </span>
+            <button
+              type="button"
+              class="pe-btn"
+              id={"rating-sequence-up-#{i}"}
+              phx-click="seq_move"
+              phx-value-index={i}
+              phx-value-dir="up"
+              disabled={i == 0}
+              aria-label={gettext("Move up")}
+            >
+              <.icon name="hero-arrow-up" class="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              class="pe-btn"
+              id={"rating-sequence-down-#{i}"}
+              phx-click="seq_move"
+              phx-value-index={i}
+              phx-value-dir="down"
+              disabled={i == length(@rating_sequence) - 1}
+              aria-label={gettext("Move down")}
+            >
+              <.icon name="hero-arrow-down" class="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              class="pe-btn danger-link"
+              id={"rating-sequence-remove-#{i}"}
+              phx-click="seq_remove"
+              phx-value-index={i}
+              disabled={length(@rating_sequence) == 1}
+            >
+              {gettext("Leave out")}
+            </button>
+          </li>
+        </ol>
+
+        <form
+          :if={@addable != []}
+          id="rating-sequence-add-form"
+          phx-submit="seq_add"
+          style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"
+        >
+          <select name="entry" id="rating-sequence-add-select" class="pe-input" style="width: auto">
+            <option :for={{entry, _label} <- @addable} value={entry}>
+              {entry_label(entry, @custom_names)}
+            </option>
+          </select>
+          <button type="submit" class="pe-btn" id="rating-sequence-add">
+            {gettext("Add to the sequence")}
+          </button>
+        </form>
+
+        <div class="actions">
+          <button
+            :if={RatingLists.custom_sequence?(@tournament)}
+            type="button"
+            class="pe-btn"
+            id="rating-sequence-reset"
+            phx-click="seq_reset"
+          >
+            {gettext("Back to the default sequence")}
+          </button>
+          <.link :if={@may_load_lists?} navigate={~p"/rating-lists"} id="rating-lists-manage">
+            {gettext("Load your own rating list")}
+          </.link>
+        </div>
+
+        <h3 style="margin-bottom: 4px">{gettext("Consistency checks")}</h3>
+        <form id="rating-checks-form" phx-change="set_rating_checks">
+          <input type="hidden" name="enabled" value="false" />
+          <label style="display: flex; gap: 8px; align-items: center">
+            <input
+              type="checkbox"
+              id="rating-checks-enabled"
+              name="enabled"
+              value="true"
+              checked={@tournament.rating_checks_enabled}
+            />
+            <span>
+              {gettext("Tell me when the FIDE list gives a player a different rating or title")}
+            </span>
+          </label>
+        </form>
+        <p class="hint" style="margin-bottom: 0">
+          {gettext(
+            "Switched off, nothing is checked on its own. The Refresh ratings button on the Players page still compares the ratings on file with the list when you ask."
+          )}
+        </p>
+        <span :if={@note} class="ok-note">{@note}</span>
+        <span :if={@error} class="error-note">{@error}</span>
+      </div>
     </Layouts.app>
     """
   end
