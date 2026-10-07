@@ -30,6 +30,11 @@ everything the app does and what is planned next.
   WCAG 2.2 AA pass: findings, every contrast change with its ratios, what is
   recommended rather than built, and the keyboard and NVDA checklist.
 
+## User manual
+
+- [User manual](manual/README.md) - the arbiter's manual, one chapter per topic,
+  in `priv/manual/` and shown in the program under Help.
+
 ## Feature guides
 
 - [Account page](account.md) - `/users/settings`: display name, sign-in and
