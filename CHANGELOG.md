@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-10-07
+
 - [Change] **Ainalrami 0.38.0.** The same pairings in the program; the engine's
   standalone checker and command line now also take the Swiss and round robin
   match formats, pairing by category and soft pairs, so a file from a
