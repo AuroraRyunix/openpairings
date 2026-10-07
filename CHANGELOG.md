@@ -17,6 +17,94 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **User manual in the program.** A Help link in the top bar of
+  every page opens a manual for arbiters, fifteen chapters from installing
+  and FIDE mode through pairing, results, tie-breaks, printing, import and
+  export, the FIDE report, teams, publishing and hand-off. It needs no
+  account, and inside a tournament it opens at the chapter for the page you
+  are on.
+- [Fix] **Leaving FIDE mode always asks twice.** A settings save that would
+  take the tournament out of FIDE mode, the pairing by category, and a
+  pairing that a bye exclusion, a bye preference, an "only if possible" wish
+  or extra points would move now show the same two-step confirmation as the
+  explicit "Leave FIDE mode" button, naming what departs. Cancelling at
+  either step changes nothing.
+- [Feature] **Hand edits to a round are a checked manual pairing
+  alteration.** Editing a round by hand opens a session that ends with
+  "Finish hand edits"; the next round waits for it. An edit that makes a
+  rematch, a prohibited pair, a second pairing-allocated bye, three same
+  colours running or a colour difference over two, or gives both players the
+  wrong colour, names the problem and needs its own tick. Finishing compares
+  the round with the pairing checker's own pairing; keeping a different one
+  is recorded and written in the TRF26 report as a `### MPA` line.
+- [Feature] **A round with no legal pairing can be paired by hand.** When
+  the engine finds no legal pairing, the Pairings page offers to create the
+  round empty and pair it from the not-playing list, with a new "Give the
+  pairing-allocated bye" action.
+- [Fix] **A TRF import shows what it changes before it imports.** The file's
+  version (TRF06, TRF16 or TRF26) is named and every adjustment is listed for
+  Confirm or Cancel before the tournament exists. A file whose rounds break a
+  pairing rule asks for "Import anyway", the finding is kept with the
+  tournament and its TRF26 reports carry it as a `### Import` line. A round
+  check that fails is reported instead of passing silently.
+- [Feature] **Every FIDE tie-break can be selected.** All of C.07's Swiss
+  and round-robin tie-breaks are in the list, grouped by kind, and written to
+  and read from the TRF in C.07's spelling. A tournament can say how an
+  unrated player counts in the rating tie-breaks (a fixed rating, the lowest
+  in the field, or the average of the rated players), let players still
+  level share a place (2=), draw lots for ties into the manual ranking, and
+  use an externally calculated value as a tie-break.
+- [Feature] **Tournament rating method.** Settings, Options chooses the
+  rating that gives the pairing numbers and that the rating tie-breaks read:
+  FIDE, national, FIDE else national (the default, as before), national else
+  FIDE, the highest of FIDE, national and a typed rating, or a typed rating
+  alone. Players level on rating are ordered by FIDE title, then by an
+  announced criterion, and a Swiss can number late entrants by rating.
+- [Feature] **Pairing numbers by hand.** Until round 4 a Swiss's players of
+  equal rating can exchange pairing numbers, or the numbers can be
+  regenerated from the ratings, each confirmed first. Before round 1 a round
+  robin's starting numbers can be set by hand or drawn by lot.
+- [Fix] **Round-robin standings leave out a player who withdrew early.** A
+  player who withdraws from a round robin, or is expelled, having played
+  under half of their games no longer counts in the standings (C.05 6.6):
+  their games count for nobody's score or tie-breaks. The cross table and
+  the rating report keep every game.
+- [Feature] **Rating lists kept current and checked against the right
+  month.** The FIDE list is checked once a day and downloaded when FIDE has a
+  newer one; each rating keeps the list and month it came from; the rating
+  check uses the list valid at the tournament's start, verifies the list
+  first, shows a notice on the Players and Pairings pages when ratings
+  differ (switchable per tournament), and applies only the changes you tick.
+- [Feature] **Rating-list sequence and your own lists.** Each tournament reads
+  ratings from an ordered sequence of lists, with FIDE's defaults for
+  standard, rapid and blitz, and a rating from another list of the sequence
+  can be picked instead. Administrators can load rating lists of their own
+  from a CSV file.
+- [Feature] **Byes and player status.** A full-point bye can be given to a
+  player sitting a paired round out (written `F`, with a `###` line); a
+  second half-point bye asks for confirmation; a player can be marked not
+  eligible for half-point byes, or expelled (not paired further, left out of
+  the standings). A withdrawn player is marked in the standings.
+- [Feature] **Corrections recorded as the rules want.** A result corrected
+  after a later round was paired is confirmed first, takes a restore point,
+  is logged and gets a `### Correction` line in the TRF26 report. A result
+  found wrong after the next round is over can be corrected for the rating
+  report only, while the pairings and standings keep the result they used.
+- [Feature] **Tournaments lasting more than 30 days.** A tournament can hold
+  a later rating per player with the round it applies from; expected scores
+  use each game's ratings and the rating tie-breaks use the first rating or a
+  chosen round.
+- [Fix] **The TRF26 report leaves less out.** National ratings that rank a
+  player are written as National Rating Support records with their `172`,
+  extra points carry their round in `299`, and a prohibition added mid-event
+  is a `260` from the round it was added for.
+- [Feature] **Chess960.** A tournament can be played as Chess960; a starting
+  position is drawn per round on the Pairings page and printed with the
+  pairings.
+- [Feature] **A warning before round 1 when the rounds cannot all be
+  paired.** A Swiss with more rounds than its players allow, or a round
+  robin whose rounds do not match its schedule, is flagged on the Pairings
+  page.
 - [Security] The "remember me" cookie is marked `Secure` and `HttpOnly`
   explicitly in production, like the session cookie, instead of relying on
   the request being recognised as https behind the proxy.

@@ -1839,9 +1839,9 @@
     "next": 114,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 15%. Identified, stored and logged as PIBEs now: hand edits (MPA: rounds.mpa_pibe, audit pairing.mpa_finished) and imports (import_findings, audit pibe.import). Not yet: result corrections of earlier rounds, regenerations and exchanges of TPNs, configuration changes."
+   "answer": "Y",
+   "status": "met",
+   "note": "Pairing-integrity events are identified, stored and logged as PIBEs: hand edits (MPA, rounds.mpa_pibe, audit pairing.mpa_finished), imports (import_findings, pibe.import), result corrections after a later round was paired (pairings.corrected_from, pibe.correction), TPN exchanges and regenerations (audited), full-point byes and rating-only corrections (audited, ### lines). Tests: manual_pairing_test.exs, trf_import_adjustments_test.exs, long_event_and_correction_live_test.exs, tpn_test.exs."
   },
   {
    "q": 113,
@@ -1856,9 +1856,9 @@
     "next": 114,
     "penalty": 7
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path while Q112 is NO; no PIBE is written as ###."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each logged PIBE kind is written to the TRF26 report as a ### line: MPA, Import, Correction, FPB, Rating correction (trf_export.ex), never in the file sent for rating."
   },
   {
    "q": 114,
@@ -1873,9 +1873,9 @@
     "next": 115,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%. Restore points are taken before pairing, unpairing, forfeits, a results CSV import, a match score or line-up and a hand-off (pairings_live.ex:513,545,1086,1130,1277,2000,2067,2165; match_live.ex:173,249; handoff.ex:750), not before a result correction, a hand edit or a settings change."
+   "answer": "Y",
+   "status": "met",
+   "note": "A restore point is taken before every PIBE: pairing, unpairing, imports, hand edits (session start), and since this pass a result correction (Snapshots.capture 'pibe.correction'). Test: long_event_and_correction_live_test.exs 'asks first, then takes a restore point and logs the PIBE'."
   },
   {
    "q": 115,
@@ -1890,9 +1890,9 @@
     "next": 116,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 10%. Level-3 before finalising: hand edits (the MPA end dialog), postponed non-draws, imports (the review step). Not yet: a plain correction of an earlier round's result (pairings_live.ex result handler)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Every PIBE asks first (Level 3): hand edits (rule-warning tick, MPA end dialog), imports (review step), corrections of an earlier round (:result_correction acknowledgement, #confirm-correction-<id>), TPN exchanges and regenerations, postponed non-draws. Tests as for Q112."
   },
   {
    "q": 116,
@@ -3471,9 +3471,9 @@
     "next": 217,
     "penalty": 40
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 40%. No flag for a tournament over 30 days, one rating per player (player.ex:13-15). Routes to Q217."
+   "answer": "Y",
+   "status": "met",
+   "note": "A tournament can be flagged as lasting more than 30 days (tournaments.long_event), suggested when the round dates span more than 30 days (PeriodRatings.spans_over_30_days?/1, #long-event-suggestion). Test: long_event_and_correction_live_test.exs."
   },
   {
    "q": 211,
@@ -3488,9 +3488,9 @@
     "next": 213,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path (Q210 NO)."
+   "answer": "Y",
+   "status": "met",
+   "note": "With the flag on and a rating-based tie-break in the list, C.07 Article 10's advice against them is shown (#long-event-rating-tiebreaks). Test: long_event_and_correction_live_test.exs."
   },
   {
    "q": 212,
@@ -3505,9 +3505,9 @@
     "next": 217,
     "penalty": 35
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path (Q210 NO)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each player can hold later ratings with the round each applies from (players.period_ratings, entered on the Players dialog #player-period-ratings). Tests: period_ratings_test.exs."
   },
   {
    "q": 213,
@@ -3522,9 +3522,9 @@
     "next": 215,
     "penalty": 10
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Off our path (Q210 NO)."
+   "note": "Each rating carries its first round; expected scores (We, W-We) use both players' ratings of each game's round (PeriodRatings.expected_score/4). Test: period_ratings_test.exs 'expected scores count each game'."
   },
   {
    "q": 214,
@@ -3540,8 +3540,8 @@
     "penalty": 3
    },
    "answer": "N",
-   "status": "met",
-   "note": "Off our path (Q210 NO)."
+   "status": "gap",
+   "note": "Costs 3%. The rating-based tie-breaks use one rating per player (the first, or the chosen round's): Ainalrami's tie-break event takes one rating per participant, so a rating per round needs an engine change."
   },
   {
    "q": 215,
@@ -3556,9 +3556,9 @@
     "next": 216,
     "penalty": 18
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path (Q210 NO)."
+   "answer": "Y",
+   "status": "met",
+   "note": "By default the rating-based tie-breaks use each player's first rating (PeriodRatings.tiebreak_round/1). Test: period_ratings_test.exs."
   },
   {
    "q": 216,
@@ -3573,9 +3573,9 @@
     "next": 217,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path (Q210 NO)."
+   "answer": "Y",
+   "status": "met",
+   "note": "tournaments.tiebreak_rating_round chooses the round whose ratings the tie-breaks use (#tiebreak-rating-round; AinalramiBridge event/3). Test: period_ratings_test.exs."
   },
   {
    "q": 217,
@@ -3590,9 +3590,9 @@
     "next": 218,
     "penalty": 30
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 30%. Written: final ranks (with_final_ranks, trf_export.ex:345-364), 202 in C.07 spelling (:1361), 152 initial colour (:419-425), 222 where encodable (:414), 330 for team forfeits (:1154,1181), 310. Still not written: 212, 172, scoped 299 (only the unscoped form, :1529), 222 for DELAY or free text, and no ### for corrections or late prohibitions. The FIDE-mode exit line is in copies and TRF26 downloads, not in the file sent for rating (Q44)."
+   "answer": "Y",
+   "status": "met",
+   "note": "The TRF26 report now also writes 172 with National Rating Support records when national ratings rank a player, 299 with its round (000 / 999), 260 from the round a late prohibition was added, and ### lines for corrections, rating-only corrections, full-point byes, MPAs and imports. Already written: final ranks, 202 in C.07 spelling, 152, 222 where encodable, 330, 310. 212 equals 202 here (points always rank first); 222 cannot encode a delay (122 carries the text). Tests: trf_complete_report_test.exs, trf_checker_round_trip_test.exs. See docs/vcl4thp/questions.md on the file sent for rating."
   },
   {
    "q": 218,

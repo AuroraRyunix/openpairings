@@ -17,12 +17,12 @@ FIDE mode (`PairingsEngine.Compliance`).
 
 ```
 VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
-  Questions on our path:  164 of 225
-  First failure:          Q14 - FIDE's verification would stop here
-  Failures on the path:   10 (Q14, Q43, Q63, Q65, Q68, Q95, Q103, Q169, Q195, Q196)
-  Penalties on the path:  755% (over 100% fails)
-  Answers:                152 met, 70 gaps, 3 still to check
-  On the path:            108 met, 54 gaps, 2 still to check
+  Questions on our path:  184 of 225
+  First failure:          Q169 - FIDE's verification would stop here
+  Failures on the path:   3 (Q169, Q195, Q196)
+  Penalties on the path:  55% (over 100% fails)
+  Answers:                210 met, 11 gaps, 4 still to check
+  On the path:            175 met, 7 gaps, 2 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -51,11 +51,11 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 8 | English available straight after installation? | Y | met | ok | English is the base locale and the fallback for every language but Dutch (lib/pairings_engine_web/locale.ex:39-44,73-75). The desktop build opens the system browser and follows its Accept-Language, so a Dutch browser opens in Dutch; English is one click away (Q9). |
 | 9 | English selectable at run time? | Y | met | - | Language picker in the top bar of every page (lib/pairings_engine_web/components/layouts.ex:250,846-871; router.ex:232), and a per-account language. Off our path while Q8 is YES. |
 | 10 | Non-English text inside the English interface? | N | met | ok | No non-English UI text found in the English catalogue. One placeholder said 'matricule'; it now says 'national ID' (fide_live.ex:784). The opt-in Belgian SWAR results-page export is Dutch by design: a federation upload document, not interface (federations/bel/swar_publish.ex:487-491). |
-| 11 | Complete English manual or online help? | N | gap | ok | No user manual and no in-app help: docs/ is developer material, nothing links to it, no /help route. |
-| 12 | Manual reachable from inside the program (e.g. F1)? | N | gap | - | Comes with the manual: a help link on every page. Off our path while Q11 is NO. |
-| 13 | Manual available separately (PDF / web link)? | N | gap | - | Comes with the manual: a PDF per release. Off our path while Q11 is NO. |
-| 14 | At least an essential-functions English manual? | N | gap | **FAIL** | FAIL - verification stops here. No English manual of the essential functions (rating lists, setup incl. tie-breaks, byes, pairings, printouts); docs/printing.md and docs/pairing-systems.md are developer notes the app does not link. |
-| 15 | Commit to completing a partial manual within a year? | Y | check | -5% | Only reached with a partial manual; costs 5%. The commitment is the maintainer's to make. Aim for a complete manual instead. |
+| 11 | Complete English manual or online help? | Y | check | ok | An English user manual of fifteen chapters, covering every feature area, ships with the program (priv/manual/*.md, rendered by lib/pairings_engine/manual.ex) and opens from a Help link in the top bar of every page at /help (help_live.ex; tests manual_test.exs, help_live_test.exs). Status check: the maintainer to review it for completeness; the publishing, teams and printing chapters are the briefest. |
+| 12 | Manual reachable from inside the program (e.g. F1)? | Y | met | ok | The Help link is in the top bar of every page, signed in or not, and inside a tournament opens the chapter for the current tab (layouts.ex #topbar-help, help_path/1; help_live_test.exs 'opens the chapter that matches the tab'). |
+| 13 | Manual available separately (PDF / web link)? | Y | met | - | The manual is also a separate resource: plain Markdown files in priv/manual/ in the public repository (docs/manual/README.md points to them). |
+| 14 | At least an essential-functions English manual? | Y | met | - | Covered by the in-app manual: rating lists (chapter 4), set-up and tie-breaks (3, 8), byes (5), pairings (6), printouts of results and standings (9) (priv/manual; help_live.ex). |
+| 15 | Commit to completing a partial manual within a year? | Y | check | - | Not reached while Q11 is YES. If FIDE judges the manual partial: the maintainer's commitment to complete it within a year of the TAPC (5%). See docs/vcl4thp/questions.md. |
 
 ## Engine verification (checker, generator)
 
@@ -93,7 +93,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 40 | FIDE mode is the default? | Y | met | ok | Every departing setting ships at the FIDE value (compliance.ex @departures) and a new tournament is Swiss. Caveat: an account can set Keizer as its own default (user_live/settings.ex:939); those tournaments start outside FIDE mode, stamped round 0. |
 | 41 | A way to enter FIDE mode? | Y | met | - | Not needed: default. |
 | 42 | Can the program leave FIDE mode? | Y | met | ok | Three ways out: saving a departing setting (tournaments.ex stamp_compliance_loss), a pairing moved by soft rules, extra points or a bye exclusion (pairing.ex record_pairing_deviations), and Leave FIDE mode on Settings > FIDE (tournaments.ex:1014). |
-| 43 | Level-4 warning when leaving FIDE mode? | N | gap | **FAIL** | FAIL. Only the explicit way out has TEC's Level-4 two-step confirmation (settings_fide_live.ex:85-131,179). Saving a departing setting saves at once and the notice follows; a pairing moved by soft rules, extra points or a bye exclusion leaves with an inline note only. |
+| 43 | Level-4 warning when leaving FIDE mode? | Y | met | ok | Every way out of FIDE mode shows TEC's Level-4 double confirmation first (warn, then 'stay in FIDE mode?'), and only the second confirmation acts; cancelling changes nothing. Explicit exit (settings_fide_live.ex), settings saves through SettingsSupport.fide_gate/5 and Tournaments.fide_departures/2 (options, scoring, pair-by-category), and a pairing moved by soft rules, a bye exclusion or preference or extra points, rolled back until confirmed (Pairing fide_departure_guard). Tests: fide_departure_gate_test.exs. |
 | 44 | ### comment in the TRF when leaving FIDE mode? | Y | met | ok | The TRF26 export writes '### FIDE mode exited @ Round N' (or 'before Round 1 was paired') after the header whenever fide_compliance_lost_round is set (trf_export.ex; test/pairings_engine/fide_mode_locks_test.exs) - in copies and TRF26 downloads, not in the file sent for rating, which holds only records by the arbiter's decision (SWAR parity). |
 | 45 | Can FIDE mode be re-entered? | N | met | ok | fide_compliance_lost_round is never cleared, a restore only moves it earlier (tournament_import.ex earliest_compliance_loss), and Compliance.fide_mode?/1 needs it nil (compliance.ex:332). Caveat: a JSON backup import takes the file's value. |
 | 46 | Permanent indication when not in FIDE mode? | Y | met | ok | Every page of a tournament not in FIDE mode carries a 'Not in FIDE mode' line linking to Settings > FIDE (layouts.ex:444; fide_mode_live_test.exs). |
@@ -103,14 +103,14 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
 | 47 | Imports TRF06? | Y | met | ok | One parser covers TRF06-era files; old-style byes are read as byes (deps/ainalrami/lib/ainalrami/trf.ex:2005-2010; trf_import.ex:1136-1147). |
-| 48 | Reports every adjustment TRF06 -> TRF26? | N | gap | -3% | Costs 3%. A TRF06 file brings no 162/192/202/142, so scoring, system, tie-breaks and length take defaults silently, and old byes are converted silently; the version is not reported (trf_import.ex:539-570,587-589,1136-1147). |
+| 48 | Reports every adjustment TRF06 -> TRF26? | Y | met | ok | The import names the file's version (TRF06/TRF16/TRF26, TrfImport.detect_version/2) and lists every default it used and every old-style bye it converted on a review step before anything is created (TrfImport.adjustments/3, review/2; tournaments_live.ex trf_review). Tests: trf_import_adjustments_test.exs. |
 | 49 | Imports TRF16? | Y | met | ok | TrfImport.import_text/2 over Ainalrami.Trf.parse (trf_import.ex:71-76). |
-| 50 | Reports every adjustment TRF16 -> TRF26? | N | gap | -7% | Costs 7%. Without 162/192/202/212/142 the import defaults silently; notes exist only for rule widening, future full-point byes, whole-field 299 and non-Baku acceleration (trf_import.ex:539-570,686-736). |
+| 50 | Reports every adjustment TRF16 -> TRF26? | Y | met | ok | Same review step: each missing 162/192/202/212/142 is reported with the default used (trf_import_adjustments_test.exs, 'what a TRF06/TRF16 file cannot say'). |
 | 51 | Imports a defective TRF anyway? | Y | met | ok | Defects are imported: dangling opponents become byes, a wrong points column is a warning, illegal rounds are imported as recorded (trf_import.ex:1136-1147,1437-1458,1498-1504). |
-| 52 | Tells the user every adjustment made? | N | gap | -70% | Costs 70%. Not reported: dangling opponents turned into byes, F/U byes merged, unknown tie-breaks dropped, round-robin cycles over 2 clamped, unknown 192 codes ignored, deputies over 4 dropped, 362 P/A ignored, 299 switching on counted extra points (which leaves FIDE mode at the next pairing), a crashed verification pass swallowed (trf_import.ex:714-736,755,1136-1147,1294-1296,1534-1540). |
+| 52 | Tells the user every adjustment made? | Y | met | ok | Every adjustment is listed before confirming: defaults, dropped tie-breaks and deputies, clamped cycles, unknown 192 codes, ignored 362 and 299 records, 299 switching on counted extra points, one-sided games and F byes turned into byes, rounds not checked, and a crashed verification is reported instead of swallowed (TrfImport.adjustments/3, round_entry_adjustments; tests in trf_import_adjustments_test.exs incl. 'a crash is reported, not swallowed'). Findings are stored with the tournament (import_findings). |
 | 53 | Shows the issues when a TRF26 cannot be imported? | Y | met | - | Off our path (Q51 YES). A refused file shows why: parse error, duplicate ranks, several 012 lines, validation text (trf_import.ex:149-157,318-396). |
 | 54 | Checks imported rounds against the pairing rules? | Y | met | ok | Every imported round is replayed: explain_round, Alternatives.violations, bye_eligibility (trf_import.ex:1530-1533,1584-1653). Limits: absolute criteria only, Dutch files only. |
-| 55 | Level-3 warning AND ### when imported rounds broke the rules? | N | gap | -30% | Costs 30%. The findings arrive as a flash after the tournament is committed: no confirm/cancel, no ###, nothing stored (tournaments_live.ex:1272-1279,1423-1449). |
+| 55 | Level-3 warning AND ### when imported rounds broke the rules? | Y | met | ok | Imported rounds that break a pairing rule stop the import at a Level-3 review ('Import anyway' or Cancel) before the tournament exists; on confirm the finding is stored (import_findings), logged as a pibe.import audit row and written as '### Import @ Round r' in TRF26 reports, never in the file sent for rating (trf_export.ex import_pibe_comments). Tests: trf_import_adjustments_test.exs, tournaments_live import review test. |
 | 56 | In FIDE mode automatically after import? | Y | met | ok | No import sets a departing setting (trf_import.ex:539-570,686-712). Risk: positive 299 records switch on counted extra points, and the next pairing then leaves FIDE mode (pairing.ex record_pairing_deviations). |
 
 ## Number of rounds
@@ -122,19 +122,19 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 59 | ### for the change? | Y | met | - | Off our path: cannot happen in FIDE mode (Q57). |
 | 60 | Re-checks the last round when its final/non-final status flips? | Y | met | - | Off our path: cannot happen in FIDE mode (Q57). |
 | 61 | Level-3 + ### if that makes pairings wrong? | Y | gap | - | Off our path: cannot happen in FIDE mode (Q57). YES itself costs 7% if reached. |
-| 62 | Warns before start if the setup cannot finish within the rules? | N | gap | -3% | Costs 3%. The setup checklist checks name, rounds, round dates and tie-breaks, never players against rounds (missing_setup_fields, tournament.ex:1927-1935); the arbiter learns at the first round that cannot pair. |
-| 63 | Manual/semi-automatic pairing to finish such a tournament? | N | gap | **FAIL** | FAIL (was YES). When the engine finds no legal pairing nothing is paired and no round exists (pairing.ex:3052-3061); swaps and pool pairing work only inside an existing round (tournaments.ex pair_from_pool), so such a tournament cannot be finished. |
+| 62 | Warns before start if the setup cannot finish within the rules? | Y | met | ok | Before round 1 the Pairings page warns when the rounds set cannot be paired for the players entered: a Swiss over n-1 rounds (even field) or n (odd), a round robin whose rounds differ from its schedule (Tournament.setup_warnings/2, Tournaments.setup_warnings/1; #setup-warning-*). Tests: setup_warnings_test.exs. |
+| 63 | Manual/semi-automatic pairing to finish such a tournament? | Y | met | ok | When the engine proves no legal pairing exists, the Pairings page offers to create the round by hand behind a Level-3 confirmation (#pair-by-hand, Pairing.create_round_by_hand/1): an empty round with every player in the pool, finished by pool pairing and 'Give the pairing-allocated bye' (Tournaments.award_pool_bye/4), then the end-of-session check, recorded as an MPA PIBE. Tests: manual_pairing_test.exs 'three players, four rounds', manual_pairing_live_test.exs. |
 
 ## Manual pairing
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
 | 64 | Pairings can be created or edited by hand? | Y | met | ok | Swap seats or colours, substitute from the pool, vacate/fill a seat, award a bye, pair two pool players, delete an empty last board - each confirmed as a board diff (tournaments.ex swap_players_in_round, pair_from_pool; pairings_live.ex:638-804). |
-| 65 | Clear start and end of a manual-alteration session? | N | gap | **FAIL** | FAIL. Each hand edit is its own staged gesture; there is no session with an end at which a check could run (pairings_live.ex:1303-1352). |
-| 66 | Level-3 on rematch / prohibited / ineligible PAB / triple colour during MPA? | N | gap | -25% | Costs 25%. The confirm modals show the board diff only; no check for a rematch, a prohibited pair, PAB eligibility, three same colours or an imbalance over 2 (pairings_live.ex:1354-1546). |
-| 67 | Warning when both players get the wrong colour? | N | gap | -10% | Costs 10%. No comparison with the colour each player was due (pairings_live.ex:1354-1387). |
-| 68 | Check at the end of the session against the correct pairings? | N | gap | **FAIL** | FAIL. No checker runs after hand edits; the explanation page only notes the boards diverged (round_explanation.ex:434-464). |
-| 69 | Level-3 + ### when they differ? | N | gap | -30% | Costs 30%. No warning, no ###, nothing stamped (trf_export.ex). |
+| 65 | Clear start and end of a manual-alteration session? | Y | met | ok | Hand edits to a round are a session with an explicit start (#mpa-start-N, or the first applied edit) and end (#mpa-end in #mpa-banner); the next round cannot be paired while one is open; audit codes pairing.mpa_started / pairing.mpa_finished (lib/pairings_engine/manual_pairing.ex; rounds.mpa_session). Tests: manual_pairing_test.exs 'a session with a start and an end (Q65)'. |
+| 66 | Level-3 on rematch / prohibited / ineligible PAB / triple colour during MPA? | Y | met | ok | Each staged hand edit is checked for a rematch, a prohibited pair, a PAB to a player who had a PAB, a forfeit win or a full-point bye, and three same colours or a difference over two before the last round; the warnings are listed and Apply needs an explicit tick, also enforced on the server (ManualPairing.warnings/4; #confirm-rule-warnings, #confirm-rule-ack). Tests: manual_pairing_test.exs, manual_pairing_live_test.exs. |
+| 67 | Warning when both players get the wrong colour? | Y | met | ok | A board where both players get the colour opposite to the one each is due raises a :wrong_colours warning in the same Level-3 block (ManualPairing.warnings/4). Test: manual_pairing_test.exs 'both players getting the colour opposite'. |
+| 68 | Check at the end of the session against the correct pairings? | Y | met | ok | Finishing the session runs the pairing checker (the engine on the round as seated) and compares its pairs, colours included, with the round's (ManualPairing.assess/2). Tests: manual_pairing_test.exs 'boards that are not the checker's', 're-entered and put back'. |
+| 69 | Level-3 + ### when they differ? | Y | met | ok | When they differ, a Level-3 dialog shows the checker's pairing, the differences, any rule breaches and the line to be written, and needs a tick (#mpa-end-dialog, #mpa-ack); confirming stores rounds.mpa_pibe and TRF26 reports carry '### MPA @ Round r: <checker pairs> => <round pairs>', never the file sent for rating (trf_export.ex mpa_comments/3). Test: 'the TRF carries the PIBE as a ### line; the file sent for rating does not'. |
 
 ## Scoring
 
@@ -170,16 +170,16 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 92 | Rules printable/obtainable for a non-Handbook Swiss system? | Y | met | ok | Every Swiss selectable in FIDE mode is in the Handbook (Dutch, C.04.6); Keizer is not a Swiss and leaves FIDE mode. |
 | 93 | Pairing system changeable once underway? | N | met | ok | pairing_system freezes with round 1 and in FIDE mode Unlock does not open it (tournaments.ex:979, ensure_unlocked/3; settings_options_live.ex locked_hint_message with fide_path; fide_mode_live_test.exs). |
 | 94 | Round robin selectable? | Y | met | ok | 'Round robin (Berger)' is a FIDE pairing system here (compliance.ex). |
-| 95 | Round-robin TPNs assignable by hand? | N | gap | **FAIL** | FAIL (was YES). Round-robin numbers are frozen at the first pairing by rating then name (round_robin.ex:389-393; pairing.ex:633-660); no page sets them and there is no draw-of-lots entry. Only a TRF or SWAR import can set them. |
+| 95 | Round-robin TPNs assignable by hand? | Y | met | ok | Before round 1 of an individual round robin the Players page's Starting numbers dialog sets the Berger numbers: move up/down, type a number, draw all by lot (after a confirmation) or reset to rating order; stored in players.pairing_number, used by round 1, locked once a round exists; a later entrant gets the next number (lib/pairings_engine/starting_numbers.ex; round_robin.ex ensure_frozen). Tests: starting_numbers_test.exs, starting_numbers_live_test.exs. |
 | 96 | Berger tables? | Y | met | ok | Circle-method Berger tables, single and double, checked against C.05 Annex 1 and SWAR's generator (round_robin.ex:8-45,253-294). |
 | 97 | Manual round-robin pairing (no Berger)? | N | met | - | Not reached: Q96 YES. |
 | 98 | Double RR: choose whether to reverse the last two rounds of cycle 1? | Y | met | ok | A double round robin has a setting to reverse rounds m-1 and m of cycle 1 (rr_reverse_last_two, tournament.ex:672; checkbox settings_options_live.ex:758-772, locked after round 1), on by default for a new double round robin (tournaments_live.ex:1720-1727); applied in round_robin.ex:253-294 (schedule/4, swap_last_two). Tests: round_robin_cycles_test.exs:47,82,272,325. Q99 is off our path. |
 | 99 | Always reverses those two rounds? | N | gap | - | Off our path since Q98 is YES. If reached: the reversal is a setting, default on for new double round robins (round_robin.ex:253-294), not forced. |
-| 100 | Manual round-robin pairing possible? | N | gap | -7% | Costs 7%. A round-robin round cannot be generated by hand; Pair always builds the Berger schedule (pairings_live.ex:1992-1993). |
+| 100 | Manual round-robin pairing possible? | N | gap | -7% | Costs 7%. A round-robin round cannot be generated by hand; Pair always builds the Berger schedule (pairings_live.ex do_pair_all_rounds). Kept NO on purpose: YES leads to Q101 (15% without a meet-once/twice check on hand-made rounds) and Q102 (7% without a three-same-colours guard), so a manual mode without both checks would cost more than it saves. |
 | 101 | Checks each pair meets once/twice? | N | met | - | Off our path while Q100 is NO; hand edits are not checked for meeting everyone once/twice (costs 15% if reached). |
 | 102 | Non-Berger double RR: no three same colours? | Y | met | ok | Round robins are always generated from Berger tables, so the non-Berger case cannot arise (round_robin.ex:253-294). |
-| 103 | RR standings exclude results of players under 50% of games? | N | gap | **FAIL** | FAIL. Nothing removes the results of a round-robin player who completed under 50% of games; their games count for everyone's score and tie-breaks (standings.ex:141-161; round_robin.ex:459-463). |
-| 104 | RR tie-breaks (DE, BPG, BWG, REP, STD, SB, SB/C1-2, RTNG, WIN, TPN, KS variants) correct? | N | gap | ok | Present: DE, BPG, SB, WIN, KS. Missing from the catalogue and the bridge: BWG, REP, STD, SB/C1, SB/C2, RTNG, RTNG/R, TPN, TPN/R, KS/L1, KS/L2, KS/L-1, KS/L-2 (tiebreaks.ex:31-150; standings/ainalrami_bridge.ex:44-58). Ainalrami computes them all. The draft gives NO no outcome, only that all must be implemented: treat as a failure. |
+| 103 | RR standings exclude results of players under 50% of games? | Y | met | ok | C.05 6.6(2): a round-robin player withdrawn or expelled having completed (played over the board) under half of their scheduled games is left out of the standings - their games count for nobody's points or tie-breaks, they are listed last without a place; the cross table, norms and the TRF keep every game (Standings.uncounted_withdrawals/2; standings page, print and crosstable show 'withdrawn, not counted'). Tests: round_robin_withdrawal_standings_test.exs (incl. exactly 50% and the TRF). |
+| 104 | RR tie-breaks (DE, BPG, BWG, REP, STD, SB, SB/C1-2, RTNG, WIN, TPN, KS variants) correct? | Y | met | ok | The round-robin set is selectable: DE, DE/P, BPG, BWG, REP, STD, SB, SB/C1, SB/C2, RTNG, RTNG/R, TPN, TPN/R, WIN, KS and KS/L1, KS/L2, KS/L-1, KS/L-2 (tiebreaks.ex catalogue; ainalrami_bridge.ex), each compared with Ainalrami's value; the Buchholz family is refused in round robins. Test: tiebreak_families_test.exs 'round robin: the tie-breaks of the checklist's list'. |
 | 105 | Buchholz-type tie-breaks usable in RR? | N | met | ok | Buchholz-type codes can be picked but standings drop them for a round robin and say why (standings.ex:153-160; tiebreaks.ex:174-185); FB/AOB do not exist. They still appear in the TRF's 202 list. |
 
 ## Acceleration
@@ -197,61 +197,61 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
-| 112 | All pairing-integrity events logged? | N | gap | -15% | Costs 15% (was YES). The audit trail records the raw acts (result changes with their round, confirmed postponed non-draws, every hand edit, settings diffs) but nothing is identified as a PIBE, import findings are not stored, and no checker runs on hand edits (pairings_live.ex:953-972; tournaments_live.ex:1272-1277). |
-| 113 | PIBEs written to the TRF as ###? | N | gap | - | Off our path while Q112 is NO; no PIBE is written as ###. |
-| 114 | A PIBE can be undone automatically? | N | gap | -3% | Costs 3%. Restore points are taken before pairing, unpairing, forfeits, a results CSV import, a match score or line-up and a hand-off (pairings_live.ex:513,545,1086,1130,1277,2000,2067,2165; match_live.ex:173,249; handoff.ex:750), not before a result correction, a hand edit or a settings change. |
-| 115 | Level-3 before finalising a PIBE? | N | gap | -10% | Costs 10%. Hand edits and postponed non-draws are confirmed first; a previous-round correction and an import are not (pairings_live.ex:953-972; tournaments_live.ex:1272-1277). |
+| 112 | All pairing-integrity events logged? | Y | met | ok | Pairing-integrity events are identified, stored and logged as PIBEs: hand edits (MPA, rounds.mpa_pibe, audit pairing.mpa_finished), imports (import_findings, pibe.import), result corrections after a later round was paired (pairings.corrected_from, pibe.correction), TPN exchanges and regenerations (audited), full-point byes and rating-only corrections (audited, ### lines). Tests: manual_pairing_test.exs, trf_import_adjustments_test.exs, long_event_and_correction_live_test.exs, tpn_test.exs. |
+| 113 | PIBEs written to the TRF as ###? | Y | met | ok | Each logged PIBE kind is written to the TRF26 report as a ### line: MPA, Import, Correction, FPB, Rating correction (trf_export.ex), never in the file sent for rating. |
+| 114 | A PIBE can be undone automatically? | Y | met | ok | A restore point is taken before every PIBE: pairing, unpairing, imports, hand edits (session start), and since this pass a result correction (Snapshots.capture 'pibe.correction'). Test: long_event_and_correction_live_test.exs 'asks first, then takes a restore point and logs the PIBE'. |
+| 115 | Level-3 before finalising a PIBE? | Y | met | ok | Every PIBE asks first (Level 3): hand edits (rule-warning tick, MPA end dialog), imports (review step), corrections of an earlier round (:result_correction acknowledgement, #confirm-correction-<id>), TPN exchanges and regenerations, postponed non-draws. Tests as for Q112. |
 
 ## Rating lists
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
 | 116 | Separate official vs tournament rating? | Y | met | ok | fide_rating is the official rating (TRF 001); the pairing rating is fide_rating, or national_rating when there is none (player.ex:12-16,728-736). Weak YES: a FIDE-rated player cannot get a separate tournament rating. |
-| 117 | Custom rating lists? | N | gap | -18% | Costs 18%. Only the FIDE list and the KBSB list, each from a fixed source; no custom list (fide/sync.ex:35,51-53). |
+| 117 | Custom rating lists? | Y | met | ok | Administrators load rating lists of their own from a CSV file (id, name, rating; optional federation, title, birth year, FIDE ID), validated row by row and previewed before loading; lists are machine-wide, appear in the add-player search and can be put in a tournament's rating-list sequence (lib/pairings_engine/rating_lists.ex, rating_lists/csv.ex, live/rating_lists_live.ex). Tests: rating_lists_test.exs, rating_list_sequence_live_test.exs. The consistency check compares FIDE ratings only. |
 | 118 | Effective Rapid/Blitz lists? | Y | met | ok | rating_for_tempo falls back to the standard rating when rapid or blitz is missing - the Effective Rapid/Blitz lists (fide.ex:133-141; rating_refresh.ex:83). |
 | 119 | Type-A lists (known source)? | Y | met | ok | FIDE list from ratings.fide.com, KBSB list from the federation's public file (fide/sync.ex:1-5,35; federations/bel/sync.ex:77). |
 | 120 | Type-B lists (unknown source)? | N | met | - | Off our path. No list of unknown origin can be imported. |
 | 121 | All official FIDE lists as Type-A? | Y | met | ok | The combined players_list.zip brings standard, rapid and blitz in one sync (fide/sync.ex:103-135; fide/fide_player.ex:9-11). |
 | 122 | All official FIDE lists importable as Type-B? | N | met | - | Off our path (only from Q120 YES). |
-| 123 | Default rating-list sequence per tournament type? | N | gap | -7% | Costs 7%. One fixed list per rate of play (Fide.rating_for_tempo, fide.ex:133-139): standard uses standard only, rapid and blitz fall back to standard; no configurable rating-list sequence. |
-| 124 | User can define/modify the sequence? | N | met | ok | No sequence to define; routes to Q125 (fide.ex:133-141). |
-| 125 | Only one list at a time? | Y | met | ok | One FIDE list per tournament, picked by its rate of play, plus the national fallback (fide.ex:135-141; player.ex:728-736). |
-| 126 | Sequence editable (exclude, add, reorder)? | N | met | - | Off our path (only from Q123 YES). |
-| 127 | Rating auto-assigned from the main list? | Y | met | ok | Picking a FIDE search result fills the rating for the tournament's rate of play (players_live.ex:723-748; fide.ex:135). |
-| 128 | Shows ratings in other lists when not in the main one? | N | gap | -7% | Costs 7%. Search results show the standard rating only (players_live.ex:2554); after a pick the form hints the standard, rapid and blitz ratings (:3331-3337), but nothing flags a player missing from the main list. |
-| 129 | User can pick one of those? | N | gap | - | Off our path while Q128 is NO; other-list ratings are display-only in the edit dialog. |
+| 123 | Default rating-list sequence per tournament type? | Y | met | ok | A tournament without its own sequence uses the draft's default for its rate of play (standard: FIDE Standard, Rapid, Blitz; rapid: Effective Rapid, FIDE Blitz; blitz: Effective Blitz, FIDE Rapid) (RatingLists.default_sequence/1). Tests: rating_lists_test.exs 'the default sequence'. |
+| 124 | User can define/modify the sequence? | Y | met | - | The sequence is defined or changed per tournament on its FIDE settings page (#rating-sequence: add, reorder, leave out, reset). Tests: rating_list_sequence_live_test.exs 'the sequence editor'. |
+| 125 | Only one list at a time? | Y | met | - | One FIDE list per tournament, picked by its rate of play, plus the national fallback (fide.ex:135-141; player.ex:728-736). |
+| 126 | Sequence editable (exclude, add, reorder)? | Y | met | ok | Lists can be left out (not the last), reordered, and the national, Effective and custom lists added (settings_fide_live.ex). Tests: rating_list_sequence_live_test.exs. |
+| 127 | Rating auto-assigned from the main list? | Y | met | ok | The main list of the sequence supplies the rating when a player is picked (players_live.ex pick -> RatingLists.main_values). |
+| 128 | Shows ratings in other lists when not in the main one? | Y | met | ok | The add-player search shows the main-list rating for the tournament's rate of play, or says there is none, plus the player's ratings in the other lists (players_live.ex #fide-result-<id>-other). Tests: players_live_test.exs. Picking one of those other ratings (Q129) is still not offered. |
+| 129 | User can pick one of those? | Y | met | ok | Each rating the player has in another list of the sequence is a button in the add-player search (#fide-result-<id>-use-<entry>) that fills that rating and records its list. Test: rating_list_sequence_live_test.exs 'picking a rating from another list'. |
 | 130 | Minimum rating entered automatically when none found? | N | met | ok | No automatic minimum rating (player.ex:13,728-736); routes to Q131. |
 | 131 | Rating enterable by hand? | Y | met | ok | Free FIDE and national rating inputs on the add form (players_live.ex:2591,2484). |
 | 132 | Assigned rating editable? | Y | met | ok | Editable in the edit dialog at any time (players_live.ex:3325,3199). |
 | 133 | Consistency checks (are ratings still current)? | Y | met | ok | Refresh ratings re-looks-up every player by FIDE ID and proposes each difference (rating_refresh.ex:60-88). |
-| 134 | Source list kept per rating, and manual entry marked? | N | gap | -18% | Costs 18%. No source list, list date or manual marker is stored per rating (player.ex:12-16). |
-| 135 | Local FIDE lists never more than a day old while running? | N | gap | -18% | Costs 18%. The FIDE sync runs only from the admin's button; no scheduler (fide_live.ex:327-333). |
+| 134 | Source list kept per rating, and manual entry marked? | Y | met | ok | Each FIDE rating keeps its source list and month (players.fide_rating_source, fide_rating_period, fide_rating_listed; migration 20261007090000); a rating typed by hand has no source and one changed by hand is flagged (Player.rating_manual?/1), shown on the player. Tests: rating_refresh_test.exs 'source of an applied rating (VCL4THP 134)', players_live_test.exs. Not covered: the national rating. |
+| 135 | Local FIDE lists never more than a day old while running? | Y | met | ok | While the program runs, Fide.AutoSync asks FIDE once a day whether a newer list exists (HEAD, Last-Modified) and runs the existing sync only then; on by default, switchable on Connections (meta.fide_auto_sync); silent and retried when offline (lib/pairings_engine/fide/auto_sync.ex). Tests: fide/auto_sync_test.exs, fide/freshness_test.exs. |
 | 136 | One-click update of all local lists? | Y | met | ok | One sync replaces standard, rapid and blitz together (fide_live.ex:327-333). |
-| 137 | Consistency check uses the list valid at start (or check date if >30 days)? | N | gap | -7% | Costs 7%. The check uses the latest synced list, whatever the start date; the list period is not recorded (rating_refresh.ex:60-91). |
-| 138 | Consistency checks can be switched on/off? | N | gap | - | Off our path (Q137 NO skips it). No switch for consistency checks. |
-| 139 | Automatic consistency check after a list update? | N | met | ok | Nothing runs a check after a sync (fide/sync.ex:209-224); routes to Q140. |
-| 140 | Consistency check only on request? | Y | gap | -25% | Costs 25%. The check runs only when the arbiter presses Refresh ratings (players_live.ex:983-986). |
-| 141 | Checks the lists are current before a requested check? | N | gap | -18% | Costs 18%. The check never compares the local list's date with FIDE's before running (players_live.ex:983-986). |
+| 137 | Consistency check uses the list valid at start (or check date if >30 days)? | Y | met | ok | Each sync records the list month (meta.fide_list_period); the check uses the list valid at the tournament's start, or the check date when the event runs over 30 days, and refuses to compare against a different month, saying why (RatingRefresh.dry_run). Tests: rating_refresh_test.exs 'which list the check uses (VCL4THP 137)'. Only the current list is kept, so an event that started in an earlier month is not compared. |
+| 138 | Consistency checks can be switched on/off? | Y | met | ok | Consistency checks can be switched off per tournament on the FIDE settings page (tournaments.rating_checks_enabled, #rating-checks-enabled, default on): no automatic notice, the manual Refresh ratings still compares. Tests: rating_lists_test.exs 'consistency checks on and off'. |
+| 139 | Automatic consistency check after a list update? | Y | met | ok | After a list update the check runs at the first opportunity: opening Players or Pairings, or the update finishing while one is open, shows a notice when ratings on file differ from the list (RatingRefresh.notice/1, PairingsEngineWeb.RatingNotice, #rating-check-notice). Tests: rating_refresh_test.exs 'notice/1 (VCL4THP 140)', players_live_test.exs. Routes to Q141. |
+| 140 | Consistency check only on request? | N | met | - | Off our path while Q139 is YES. The check also runs without being asked (the notice of Q139). |
+| 141 | Checks the lists are current before a requested check? | Y | met | ok | A requested check first asks FIDE whether the local list is current (Fide.Freshness.check/0); if stale, an administrator gets the update first and the check follows, others are told to ask an administrator; unreachable FIDE is said. Test: rating_refresh / players_live 'a requested check asks FIDE first'. |
 | 142 | Affected players reported? | Y | met | ok | Each affected player with old and new values (players_live.ex:2960-2989). |
 | 143 | Ratings updated automatically? | N | met | ok | Nothing is written until Apply (players_live.ex:1070-1082). |
-| 144 | User can update a chosen subset? | N | gap | -12% | Costs 12%. Apply takes every proposal; no subset (players_live.ex:992-995). |
+| 144 | User can update a chosen subset? | Y | met | ok | Each proposed change has a checkbox (ticked by default) with select all; Apply selected writes only the ticked ones (RatingRefresh.select/2, apply/2; #rating-refresh-apply). Tests: players_live_test.exs 'choosing which proposals to apply'. |
 
 ## Tournament events
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
-| 145 | Tournament-rating methods FIDE/NRO/FIDON/NIDOF/HBFN/OTHER? | N | gap | -117% | Costs 117% - the draft prices each missing method: FIDE 70, NRO 30, NIDOF 7, HBFN 7, OTHER 3. Only FIDON exists, hard-coded: FIDE rating if any, else national (player.ex:727-736; pairing.ex:670). |
-| 146 | Tie order beyond alphabetical for equal rating/title? | N | gap | -15% | Costs 15%. Equal ratings are ordered by name only; the FIDE title is not used (initial_order, pairing.ex:723). |
-| 147 | TPNs changeable without editing ratings? | N | gap | -7% | Costs 7%. No page sets a TPN; numbers are issued at round 1 (ensure_pairing_numbers pairing.ex:686, new_pairing_numbers :700) and frozen after round 4 (tournaments.ex:2607-2629). Routes to Q155. |
-| 148 | TPN exchange only among equal tournament ratings? | N | met | - | Off our path (Q147 NO); there is no TPN exchange. |
+| 145 | Tournament-rating methods FIDE/NRO/FIDON/NIDOF/HBFN/OTHER? | Y | met | ok | All six TRF26 tournament-rating methods can be chosen per tournament (FIDE, NRO, FIDON default, NIDOF, HBFN, OTHER; Tournament.rating_methods/0, Player.rating/2; Settings > Options #rating-method-select); HBFN and OTHER read a typed players.tournament_rating. The method drives pairing numbers, the rating-based tie-breaks, team seeding and the published rating. Tests: tournament_rating_test.exs 'each method reads its own rating', tournament_rating_live_test.exs. |
+| 146 | Tie order beyond alphabetical for equal rating/title? | Y | met | ok | Players level on rating are ordered by FIDE title (C.04.2 2.2.2: GM, IM, WGM, FM, WIM, CM, WFM, WCM), then by an announced criterion: alphabetical (default), FIDE ID, oldest or youngest first (Pairing.initial_order/2, Player.title_rank/1; #initial-order-tiebreak-select). Tests: tournament_rating_test.exs 'players level on rating are ordered by FIDE title before their name'. |
+| 147 | TPNs changeable without editing ratings? | Y | met | ok | Until round 4 is paired, the Players page's Pairing numbers dialog of an individual Swiss exchanges the numbers of two players of equal tournament rating or regenerates them from the ratings (lib/pairings_engine/tpn.ex). Tests: tpn_test.exs, tpn_live_test.exs. Routes to Q148. |
+| 148 | TPN exchange only among equal tournament ratings? | Y | met | ok | An exchange is refused between players of different tournament ratings (Tpn.exchange/3, :different_ratings; two unrated count as equal). Test: tpn_test.exs 'players of the same rating exchange numbers; different ratings are refused'. |
 | 149 | Level-3 when an exchange breaks the seeding rules? | Y | met | - | Off our path; vacuous - no exchange exists. |
-| 150 | Level-3 on any TPN exchange? | Y | met | - | Off our path; vacuous - no exchange exists. |
-| 151 | TPN exchange/regeneration after round 4 paired? | N | met | - | Off our path. Changing a number after round 4 is paired is refused (tournaments.ex guard_pairing_number_freeze). |
+| 150 | Level-3 on any TPN exchange? | Y | met | ok | Every exchange asks for confirmation first (Level 3, the themed confirm dialog); after round 1 it also says the rounds already paired used the old numbers (players_live tpn modal). Test: tpn_live_test.exs. |
+| 151 | TPN exchange/regeneration after round 4 paired? | N | met | ok | No exchange or regeneration once round 4 is paired (Tpn.editable?, guard_pairing_number_freeze). Test: tpn_test.exs 'nothing changes once round 4 is paired'. |
 | 152 | Level-4 if so? | N | met | - | Off our path (Q151 NO). |
-| 153 | TPN regeneration before round 4? | N | gap | - | Off our path today (Q147 NO); no regeneration exists, and NO costs 60% if reached. |
-| 154 | Level-3 when regeneration moves two or more TPNs? | Y | met | - | Off our path; vacuous. |
-| 155 | Regeneration keeps the tie-order chosen at first? | Y | met | ok | Vacuous: no regeneration and no arbiter-set tie order to keep (pairing.ex:723). |
-| 156 | Late entry after round 4 gets a correct TPN? | N | gap | -18% | Costs 18%. A late entrant always gets the next free number, never the TPN their rating gives (new_pairing_numbers, pairing.ex:700-710). |
+| 153 | TPN regeneration before round 4? | Y | met | ok | 'Regenerate from ratings' renumbers the field by the current tournament ratings until round 4 is paired (Tpn.regenerate/1). Test: tpn_test.exs. |
+| 154 | Level-3 when regeneration moves two or more TPNs? | Y | met | ok | A regeneration that would change two or more issued numbers first lists old and new numbers for confirmation. Test: tpn_live_test.exs 'a regeneration that moves numbers asks first'. |
+| 155 | Regeneration keeps the tie-order chosen at first? | Y | met | ok | Regeneration sorts by tournament rating and keeps the current order of equal ratings (which the title and announced criterion gave, Pairing.initial_order/2). Test: tpn_test.exs 'regeneration follows a rating change and keeps the order of equal ratings'. |
+| 156 | Late entry after round 4 gets a correct TPN? | Y | met | ok | With 'Late entrants' pairing numbers: By rating' (a per-tournament Swiss setting), a late entrant at any round gets the number their rating earns and everyone below moves down one; played boards are untouched and Baku's Group A line follows its player (Pairing.number_late_entrants/4, ensure_pairing_numbers/2). Tests: tournament_rating_test.exs 'a Swiss late entrant numbered by rating (C.04.2 2.4)' incl. ainalrami -c on every round. Default is still 'after the field': see docs/vcl4thp/questions.md. |
 
 ## Adjourned games
 
@@ -275,16 +275,16 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
-| 170 | Withdrawal shown in the standings? | N | gap | -7% | Costs 7%. No withdrawn marker in the individual standings page or print (standings_live.ex:920-930,1053-1062; print_controller.ex:1280,1298). Team standings mark a team withdrawn with results not counted (standings_live.ex:1213-1225). |
+| 170 | Withdrawal shown in the standings? | Y | met | ok | A withdrawn player is marked in the individual standings (standings_live.ex withdrawn badge, #player-withdrawn-<id>) and in the standings, Keizer and crosstable prints (print_controller.ex status_note). Test: vcl_small_items_live_test.exs. |
 | 171 | Non-zero score for an unpaired player? | Y | met | ok | Absences score abs_value, the PAB bye_value (standings.ex:644-680). |
 | 172 | Half-point bye? | Y | met | ok | A half-point bye is an absence with absence points at 1/2 (standings.ex:662,674-680); written as H, the half-point bye, by Pairing.unplayed_code/2 (it was Z with 162 Z=0.5 until 2026-10-02). |
 | 173 | Two or more half-point byes? | Y | met | ok | Unlimited unless abs_nbfois caps it (standings.ex:674-691). |
-| 174 | Level-3 on the second and later half-point bye? | N | gap | -15% | Costs 15%. A second paid absence raises no warning (tournaments.ex update_player; players_live.ex:3353). |
-| 175 | Players can be marked ineligible for half-point byes? | N | gap | -7% | Costs 7%. No half-point-bye-ineligible flag (player.ex:53-61). Routes to Q177. |
-| 176 | HPB assignable to an ineligible player? | N | met | - | Off our path (Q175 NO). |
-| 177 | Full-point bye assignable? | N | gap | -7% | Costs 7%. No full-point bye: a vacancy bye is stored and exported as a PAB (award_bye_for_vacancy tournaments.ex:6188; pairing.ex:4963-4967,5278). Routes to Q180. |
-| 178 | Level-2 saying full-point byes are deprecated? | N | met | - | Off our path (Q177 NO). |
-| 179 | ### for a full-point bye? | N | met | - | Off our path (Q177 NO); costs 3% once a full-point bye exists without a ### line. |
+| 174 | Level-3 on the second and later half-point bye? | Y | met | ok | A second or later half-point bye shows a warning in the player dialog and asks for confirmation before saving; the confirmation is in the audit row (Tournaments.second_half_bye_rounds/2, PairingsEngine.HalfByes; players_live #player-half-bye-warning). Tests: half_byes_test.exs. |
+| 175 | Players can be marked ineligible for half-point byes? | Y | met | ok | A player can be marked not eligible for half-point byes (players.no_half_bye, #player-no-half-bye); a half-point absence is then refused (Tournaments guard_half_bye_eligibility). Tests: half_byes_test.exs. Routes to Q176. |
+| 176 | HPB assignable to an ineligible player? | N | met | ok | A marked player cannot be given a half-point bye: update_player refuses it (guard_half_bye_eligibility; half_byes_test.exs). |
+| 177 | Full-point bye assignable? | Y | met | ok | A full-point bye is its own kind (byes type 'full-point', never a PAB), given from a paired round's not-playing list (Tournaments.award_full_point_bye/3, withdraw_full_point_bye/3); scored as a win, sent to the engine as F so the player cannot get the PAB later, read from a TRF's F and 240 F. Tests: full_point_bye_test.exs, full_point_bye_live_test.exs. |
+| 178 | Level-2 saying full-point byes are deprecated? | Y | met | ok | Before a full-point bye is applied the confirmation shows a Level-2 notice that the pairing regulations do not describe it and it should stay exceptional (#confirm-level2). Test: full_point_bye_live_test.exs. |
+| 179 | ### for a full-point bye? | Y | met | ok | The TRF26 report writes '### FPB @ Round r: n=FPB' and the 001 record '0000 - F' (trf_export.ex). Test: full_point_bye_test.exs 'written F, with a ### line'. Like every ### line, not in the file sent for rating; see docs/vcl4thp/questions.md. |
 | 180 | Odd over-the-board results (1/2-0, 0-1/2, 0-0)? | Y | met | ok | 1/2-0, 0-1/2 and 0-0 can be entered (results.ex:94-99,152). |
 | 181 | Inconsistent results (1-1/2, 1-1)? | N | met | ok | Only codes in the Results table are accepted; 1-1 and 1-1/2 do not exist (results.ex:89-114). |
 | 182 | Invalid forfeits (1/2F-0F ...)? | N | met | ok | No drawn forfeit code (results.ex:96-98). |
@@ -292,8 +292,8 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 184 | Mixed standard/forfeit results? | N | met | ok | No code mixes a played result with a forfeit (results.ex:89-114). |
 | 185 | Unrated results (game under one move)? | Y | met | ok | 1-0U, 0-1U, 1/2-1/2U, exported as W/L/D (results.ex:100-102,261-265). |
 | 186 | All enterable results handled correctly? | Y | met | ok | One classification table drives standings, tie-breaks, engine input, export and import (results.ex:89-114). |
-| 187 | Boards ordered by the published rules? | N | gap | -7% | Costs 7%. Individual Swiss boards come in the engine's output order (plan_boards, pairing.ex:881-891), not sorted by C.04.2:3.6; only team Swiss sorts (team_swiss.ex:259-285). |
-| 188 | With acceleration, ordered by real + fictitious points? | N | met | - | Off our path (Q187 NO). Include Baku's virtual points when Q187 is built, or this costs 3%. |
+| 187 | Boards ordered by the published rules? | Y | met | ok | The engine's output order already follows C.04.2:3.6 (higher score of the higher-ranked player, then sum of scores, then lower TPN, bye last) and plan_boards numbers it in that order (pairing.ex:881-891). Test: board_order_c0402_test.exs (14, 15 and 22 players, 5 rounds, varied results). JaVaFo not checked. |
+| 188 | With acceleration, ordered by real + fictitious points? | Y | met | ok | With Baku acceleration the boards come in C.04.2:3.6 order on real plus virtual points; test board_order_baku_test.exs (16 players, rounds 1-3, checked against 3.6 with Group A's virtual points, and shown to differ from real points alone). |
 
 ## Changing past results
 
@@ -302,8 +302,8 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 189 | Can results/pairings/colours of ANY earlier round be changed? | N | met | ok | In FIDE mode only the round before the last played, and later ones, can be changed: results, hand edits, team forfeit decisions, and deleting a player who played a closed round are refused (Tournaments.ensure_round_editable/2 tournaments.ex:5772-5779, sent_round_gate/2:5727, ensure_result_round_open/2:4778; team_matches.ex:159; fide_mode_locks_test.exs). |
 | 190 | Of the round before the last one played? | Y | met | ok | The round before the last played stays open (tournaments.ex:5772-5779; fide_mode_locks_test.exs). |
 | 191 | Of rounds before the second-to-last? | N | met | ok | Rounds before the second-to-last played are closed in FIDE mode (tournaments.ex:5772-5779; fide_mode_locks_test.exs). |
-| 192 | Corrections recorded for the rating report only (C.04.2:4.3)? | N | gap | -15% | Costs 15%. No rating-only correction: a board has one result for standings, pairing and TRF (tournaments/pairing.ex). |
-| 193 | ### noting results used differ from 001 records? | N | gap | - | Off our path while Q192 is NO. |
+| 192 | Corrections recorded for the rating report only (C.04.2:4.3)? | Y | met | ok | A result found wrong after the next round is over can be corrected for the rating report only (C.04.2:4.3): pairings.rating_result beside the board's result, which pairings, engine input and standings keep using; the TRF report writes the corrected result (Tournaments.set_rating_correction/3, Pairing.rating_history/1; 'Correct for rating...' on the Pairings page). Tests: rating_correction_test.exs, rating_correction_live_test.exs. |
+| 193 | ### noting results used differ from 001 records? | Y | met | ok | The TRF26 report adds '### Rating correction @ Round r: a-b: old => new (pairings and standings used old)' (trf_export.ex). Test: rating_correction_test.exs. Not in the file sent for rating, which carries the corrected 001 results; see docs/vcl4thp/questions.md. |
 
 ## Prohibited pairings
 
@@ -317,37 +317,37 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
-| 197 | Expelled player can be flagged? | N | gap | -3% | Costs 3%. Player status is active or withdrawn; no expelled flag (player.ex:19,195). |
-| 198 | Expelled player excluded from standings? | N | gap | -2% | Costs 2%. Every individual player is ranked (standings.ex:248-299); only team standings drop annulled teams (team_standings.ex:395-412). |
-| 199 | All Swiss tie-breaks in C.07 usable (AOB, APPO, APRO, ARO cuts/medians, BH/FB cuts/medians, BPG, BWG, DE, DE/P, PS cuts, PTP, REP, RTNG, SB cuts, STD, TPN, TPR, WIN, WON)? | N | gap | ok | 12 of the 39 can be selected: ARO, ARO/C1, BH, BH/C1, BH/C2, BH/M1, BPG, DE, PS, SB, WIN, WON. Missing: AOB, AOB/F, APPO, APRO, ARO/C2, ARO/M1, ARO/M2, BH/M2, BWG, DE/P, FB, FB/C1, FB/C2, FB/M1, FB/M2, PS/C1, PS/C2, PTP, REP, RTNG, RTNG/R, SB/C1, SB/C2, STD, TPN, TPN/R, TPR (tiebreaks.ex:32-155; ainalrami_bridge.ex:44-57). Ainalrami computes all of them. The draft gives NO no outcome, only that all must be implemented: treat as a failure. |
+| 197 | Expelled player can be flagged? | Y | met | ok | A player can be marked expelled (status 'expelled', Player.expelled?/1, #player-expelled; presence column 'E'); expelled players are not paired (every pairing path takes active players only). |
+| 198 | Expelled player excluded from standings? | Y | met | ok | Expelled players are left out of the standings after the tie-breaks are computed, so their results still count for their opponents (standings.ex build_standings). |
+| 199 | All Swiss tie-breaks in C.07 usable (AOB, APPO, APRO, ARO cuts/medians, BH/FB cuts/medians, BPG, BWG, DE, DE/P, PS cuts, PTP, REP, RTNG, SB cuts, STD, TPN, TPR, WIN, WON)? | Y | met | ok | All 39 C.07 individual Swiss tie-breaks are selectable (tiebreaks.ex catalogue, ainalrami_bridge.ex), written to 202 in C.07 spelling and read back; each is compared with Ainalrami's own value and ainalrami -c accepts a file with a mixed list. Tests: tiebreak_families_test.exs. |
 | 200 | Tie-break list changeable during the tournament? | N | met | ok | In FIDE mode the tie-break list freezes with round 1, no Unlock (tournaments.ex:979; settings_tournament_live.ex disabled editor; fide_mode_locks_test.exs). |
 | 201 | Level-4 on that change? | Y | met | - | Off our path: cannot happen in FIDE mode (Q200). |
 | 202 | ### with round and previous list? | Y | met | - | Off our path: cannot happen in FIDE mode (Q200). |
-| 203 | Ties allowed at the end? | N | gap | -15% | Costs 15% (was YES). Players still level after C.07 are ordered by rating, name and id and numbered 1..N, so no shared place is ever shown (standings.ex:288-299,466-476). |
-| 204 | Simulated drawing of lots for ties? | N | met | - | Off our path (Q203 NO). No drawing of lots for tied places. |
-| 205 | Tied players rankable by hand? | Y | met | - | Manual ranking: reseed from the computed order and move players (tournaments.ex:2812-2930). |
-| 206 | Repeated drawing of lots gives different results? | N | met | - | No drawing of lots exists to repeat. |
-| 207 | Externally calculated tie-break values enterable? | N | gap | -10% | Costs 10%. No externally calculated tie-break values (tiebreaks.ex:32-155). |
-| 208 | At least one method for unrated players in rating tie-breaks? | N | gap | -32% | Costs 32%. With any unrated player, ARO and ARO/C1 are dropped for the whole event; no handling method (standings.ex:61-63,141-161). Ainalrami's /U<rating> is not wired in. |
-| 209 | More than one such method? | N | gap | - | Off our path while Q208 is NO. |
-| 210 | Flag for tournaments over 30 days? | N | gap | -40% | Costs 40%. No flag for a tournament over 30 days, one rating per player (player.ex:13-15). Routes to Q217. |
-| 211 | Advises against rating tie-breaks for those (C.07:10)? | N | gap | - | Off our path (Q210 NO). |
-| 212 | Several ratings per player for long events? | N | gap | - | Off our path (Q210 NO). |
-| 213 | Ratings linked to rounds? | N | met | - | Off our path (Q210 NO). |
-| 214 | Rating tie-breaks per round's rating? | N | met | - | Off our path (Q210 NO). |
-| 215 | Default first rating (C.07:10)? | N | gap | - | Off our path (Q210 NO). |
-| 216 | User chooses which rating? | N | gap | - | Off our path (Q210 NO). |
+| 203 | Ties allowed at the end? | Y | met | ok | A tournament setting lets players still level after the whole tie-break list share a place (2=) on the standings page, live page, prints and public snapshot; off, they are ordered and numbered as before (shared_places; standings.ex c07_places, place/1). The TRF rank column is unchanged and the checker accepts it. Tests: tiebreak_families_test.exs 'a place shared...', settings_tiebreak_picker_test.exs. |
+| 204 | Simulated drawing of lots for ties? | Y | met | ok | 'Draw lots for ties' on the Standings page (#draw-lots, confirmed) reorders only players still level after the whole tie-break list and records the order as the manual ranking, audited as standings.lots_drawn (lib/pairings_engine/tie_lots.ex). Tests: tie_lots_test.exs, tie_lots_live_test.exs. |
+| 205 | Tied players rankable by hand? | Y | met | ok | The manual ranking (tournaments.ex manual ranking functions) takes a hand-set order; the drawing of lots feeds the same mechanism. |
+| 206 | Repeated drawing of lots gives different results? | N | met | ok | A repeated drawing of lots gives the same order: it is a function of the players and a per-tournament seed drawn once from :crypto and kept (tournaments.lots_seed, exported with the tournament). Tests: tie_lots_test.exs. |
+| 207 | Externally calculated tie-break values enterable? | Y | met | ok | Tie-break 'External value' (EXT): a value typed per player on the Standings page (#external-tiebreak-<id>, players.external_tiebreak, audited), ranking at its place in the list; TRF26 has no record for it, so 202 leaves it out. Tests: external_tiebreak_test.exs, external_tiebreak_live_test.exs. |
+| 208 | At least one method for unrated players in rating tie-breaks? | Y | met | ok | A per-tournament rating for unrated players in the rating-based tie-breaks (tiebreak_unrated_rating); empty keeps C.07 Article 10's drop. The bridge sends /U<n> to Ainalrami and 202 carries it (ARO/U1500), read back on import (AinalramiBridge.c07_code/2). Tests: tiebreak_families_test.exs 'an unrated player'. |
+| 209 | More than one such method? | Y | met | ok | Three methods for unrated players in rating tie-breaks (tiebreak_unrated_method): a fixed rating, the lowest rating in the field, the average of the rated players; the number used goes to Ainalrami and the 202 line as /U<n>, and ainalrami -c agrees (Standings.unrated_rating/2). Tests: unrated_methods_test.exs. |
+| 210 | Flag for tournaments over 30 days? | Y | met | ok | A tournament can be flagged as lasting more than 30 days (tournaments.long_event), suggested when the round dates span more than 30 days (PeriodRatings.spans_over_30_days?/1, #long-event-suggestion). Test: long_event_and_correction_live_test.exs. |
+| 211 | Advises against rating tie-breaks for those (C.07:10)? | Y | met | ok | With the flag on and a rating-based tie-break in the list, C.07 Article 10's advice against them is shown (#long-event-rating-tiebreaks). Test: long_event_and_correction_live_test.exs. |
+| 212 | Several ratings per player for long events? | Y | met | ok | Each player can hold later ratings with the round each applies from (players.period_ratings, entered on the Players dialog #player-period-ratings). Tests: period_ratings_test.exs. |
+| 213 | Ratings linked to rounds? | Y | met | ok | Each rating carries its first round; expected scores (We, W-We) use both players' ratings of each game's round (PeriodRatings.expected_score/4). Test: period_ratings_test.exs 'expected scores count each game'. |
+| 214 | Rating tie-breaks per round's rating? | N | gap | -3% | Costs 3%. The rating-based tie-breaks use one rating per player (the first, or the chosen round's): Ainalrami's tie-break event takes one rating per participant, so a rating per round needs an engine change. |
+| 215 | Default first rating (C.07:10)? | Y | met | ok | By default the rating-based tie-breaks use each player's first rating (PeriodRatings.tiebreak_round/1). Test: period_ratings_test.exs. |
+| 216 | User chooses which rating? | Y | met | ok | tournaments.tiebreak_rating_round chooses the round whose ratings the tie-breaks use (#tiebreak-rating-round; AinalramiBridge event/3). Test: period_ratings_test.exs. |
 
 ## Miscellaneous
 
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
-| 217 | Final TRF reflects everything that happened, no TRF-defined event left out? | N | gap | -30% | Costs 30%. Written: final ranks (with_final_ranks, trf_export.ex:345-364), 202 in C.07 spelling (:1361), 152 initial colour (:419-425), 222 where encodable (:414), 330 for team forfeits (:1154,1181), 310. Still not written: 212, 172, scoped 299 (only the unscoped form, :1529), 222 for DELAY or free text, and no ### for corrections or late prohibitions. The FIDE-mode exit line is in copies and TRF26 downloads, not in the file sent for rating (Q44). |
+| 217 | Final TRF reflects everything that happened, no TRF-defined event left out? | Y | met | ok | The TRF26 report now also writes 172 with National Rating Support records when national ratings rank a player, 299 with its round (000 / 999), 260 from the round a late prohibition was added, and ### lines for corrections, rating-only corrections, full-point byes, MPAs and imports. Already written: final ranks, 202 in C.07 spelling, 152, 222 where encodable, 330, 310. 212 equals 202 here (points always rank first); 222 cannot encode a delay (122 carries the text). Tests: trf_complete_report_test.exs, trf_checker_round_trip_test.exs. See docs/vcl4thp/questions.md on the file sent for rating. |
 | 218 | Level-2 warnings can be switched off? | N | met | ok | No setting turns warnings off (postponed_games.ex:54-79; features.ex:108-168). |
 | 219 | Level-2 and 3 warnings can be switched off? | N | met | ok | Confirmations are enforced in the write path; no switch skips them (postponed_games.ex:328-337). |
 | 220 | Level-4 warnings can be switched off? | N | met | ok | No setting disables a confirmation (postponed_games.ex:328-337). |
 | 221 | Level-4 can be relaxed to Level-3? | N | met | ok | The warnings are fixed in code (postponed_games.ex:54-79). |
-| 222 | Chess960 supported? | N | gap | -15% | Costs 15%. No Chess960: no variant setting and no draw of the start position. |
+| 222 | Chess960 supported? | Y | met | ok | Per-tournament Chess960 setting; the Pairings page draws a uniform random starting position per round with Scharnagl numbering (e.g. 518 RNBQKBNR), stored with the round, shown and printed with the pairings, audited (lib/pairings_engine/chess960.ex; rounds.chess960_position). Tests: chess960_test.exs, chess960_live_test.exs. |
 
 ## Offline use
 
