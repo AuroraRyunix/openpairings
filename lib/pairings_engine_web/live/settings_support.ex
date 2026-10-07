@@ -133,6 +133,39 @@ defmodule PairingsEngineWeb.SettingsSupport do
   end
 
   @doc """
+  What a `Tournament.norm_event_type` value is called on screen, with the
+  B.01 article it brings into play.
+  """
+  def norm_event_type_label("ordinary"),
+    do: gettext("Ordinary event (B.01: 9 games, normal federation mix)")
+
+  def norm_event_type_label("team_championship"),
+    do: gettext("World or Continental Team Championship (B.01 1.4.1 b: 7 games if 7-9 rounds)")
+
+  def norm_event_type_label("club_championship"),
+    do: gettext("World or Continental Club Championship (B.01 1.4.1 b: 7 games if 7-9 rounds)")
+
+  def norm_event_type_label("national_team_championship"),
+    do:
+      gettext(
+        "National team championship (B.01 1.4.3 b: federation mix exempt for the registering federation's players)"
+      )
+
+  def norm_event_type_label("world_cup"),
+    do: gettext("World Cup or Women's World Cup (B.01 1.4.1 b: 8 games)")
+
+  def norm_event_type_label("national_championship"),
+    do:
+      gettext(
+        "Final stage of a national championship (B.01 1.4.3 a: federation mix exempt for the registering federation's players)"
+      )
+
+  def norm_event_type_label("zonal"),
+    do: gettext("Zonal or Sub-zonal tournament (B.01 1.4.3 c: federation mix exempt)")
+
+  def norm_event_type_label(other), do: other
+
+  @doc """
   A vertical run of settings - the only layout wrapper the Settings pages use.
   Holds `<.setting_field>`s and `<.setting_toggle>`s in DOM order, one per row.
   """

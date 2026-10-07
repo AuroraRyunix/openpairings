@@ -14,6 +14,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Authz, Compliance, RatingLists, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -214,7 +215,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
-      |> Map.take(["fide_tournament_id", "event_code", "fide_homologated", "fide_id_ranges"])
+      |> Map.take([
+        "fide_tournament_id",
+        "event_code",
+        "fide_homologated",
+        "norm_event_type",
+        "fide_id_ranges"
+      ])
       |> Map.update("fide_id_ranges", [], &parse_rows_param/1)
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
@@ -412,6 +419,25 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
             <.setting_field label={gettext("FIDE event code")}>
               <input name="tournament[event_code]" value={@tournament.event_code} />
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Event type for title norms")}
+              hint={
+                gettext(
+                  "Only matters for a FIDE-rated event. The Norms tab judges each player's games with the fewer games or the federation-mix exemption this kind of event is granted in the FIDE Title Regulations; an ordinary event keeps the full requirements. Only the kinds that fit this tournament's type (team or individual) are offered."
+                )
+              }
+            >
+              <select id="norm-event-type" name="tournament[norm_event_type]">
+                <option
+                  :for={type <- Tournament.norm_event_types_for(@tournament)}
+                  value={type}
+                  selected={Tournament.effective_norm_event_type(@tournament) == type}
+                >
+                  {norm_event_type_label(type)}
+                </option>
+              </select>
             </.setting_field>
           </.setting_group>
 

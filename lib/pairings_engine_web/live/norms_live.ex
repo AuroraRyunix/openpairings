@@ -1285,8 +1285,23 @@ defmodule PairingsEngineWeb.NormsLive do
 
         <p class="hint" style="padding: 0 16px">
           {gettext(
-            "The \"computed\" column judges each player's games against the FIDE Title Regulations (B.01: game count, score %, titled opponents, federation mix, opponent-rating average, performance) automatically - hover it for the requirement-by-requirement breakdown. The claimed title and the IT4-only fields (norm text, medal/%, event group, federation counts, remarks) stay yours to set: exemptions and special event types are the arbiter's call, not the computer's."
+            "The \"computed\" column judges each player's games against the FIDE Title Regulations (B.01: game count, score %, titled opponents, federation mix, opponent-rating average, performance) automatically - hover it for the requirement-by-requirement breakdown. The claimed title and the IT4-only fields (norm text, medal/%, event group, federation counts, remarks) stay yours to set."
           )}
+        </p>
+
+        <p id="norm-event-type-note" class="hint" style="padding: 0 16px">
+          <.rich_text text={
+            gettext("Judged as: %{type}. Change it on the %[fide] settings page.",
+              type:
+                PairingsEngineWeb.SettingsSupport.norm_event_type_label(
+                  PairingsEngine.Tournaments.Tournament.effective_norm_event_type(@tournament)
+                )
+            )
+          }>
+            <:part name="fide">
+              <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("FIDE")}</.link>
+            </:part>
+          </.rich_text>
         </p>
 
         <table class="pe-table">

@@ -17718,3 +17718,63 @@ msgstr[1] ""
 #, elixir-autogen, elixir-format
 msgid "round %{round}, board %{board}"
 msgstr ""
+
+#: lib/pairings_engine_web/live/settings_fide_live.ex:371
+#, elixir-autogen, elixir-format
+msgid "Event type for title norms"
+msgstr ""
+
+#: lib/pairings_engine_web/live/norms_live.ex:1302
+#, elixir-autogen, elixir-format
+msgid "FIDE"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:150
+#, elixir-autogen, elixir-format
+msgid "Final stage of a national championship (B.01 1.4.3 a: federation mix exempt for the registering federation's players)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/norms_live.ex:1294
+#, elixir-autogen, elixir-format
+msgid "Judged as: %{type}. Change it on the %[fide] settings page."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:141
+#, elixir-autogen, elixir-format
+msgid "National team championship (B.01 1.4.3 b: federation mix exempt for the registering federation's players)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_fide_live.ex:373
+#, elixir-autogen, elixir-format
+msgid "Only matters for a FIDE-rated event. The Norms tab judges each player's games with the fewer games or the federation-mix exemption this kind of event is granted in the FIDE Title Regulations; an ordinary event keeps the full requirements. Only the kinds that fit this tournament's type (team or individual) are offered."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:131
+#, elixir-autogen, elixir-format
+msgid "Ordinary event (B.01: 9 games, normal federation mix)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/norms_live.ex:1287
+#, elixir-autogen, elixir-format
+msgid "The \"computed\" column judges each player's games against the FIDE Title Regulations (B.01: game count, score %, titled opponents, federation mix, opponent-rating average, performance) automatically - hover it for the requirement-by-requirement breakdown. The claimed title and the IT4-only fields (norm text, medal/%, event group, federation counts, remarks) stay yours to set."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:146
+#, elixir-autogen, elixir-format
+msgid "World Cup or Women's World Cup (B.01 1.4.1 b: 8 games)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:137
+#, elixir-autogen, elixir-format
+msgid "World or Continental Club Championship (B.01 1.4.1 b: 7 games if 7-9 rounds)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:134
+#, elixir-autogen, elixir-format
+msgid "World or Continental Team Championship (B.01 1.4.1 b: 7 games if 7-9 rounds)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_support.ex:155
+#, elixir-autogen, elixir-format
+msgid "Zonal or Sub-zonal tournament (B.01 1.4.3 c: federation mix exempt)"
+msgstr ""

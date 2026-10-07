@@ -10,11 +10,13 @@ defmodule PairingsEngine.Norms.TitleNorms do
 
     * **Counted games** (1.4.1 / 1.4.2): only games played over the board -
       forfeits/adjudications are excluded (1.4.2.3), byes have no opponent.
-      A norm needs at least 9 of them. The 7/8-game concessions
-      (1.4.1.1-1.4.1.3: World Team/Club championships, World Cup, an
-      unplayed last-round win-by-forfeit) are event types this software
-      doesn't model, so they are NOT applied - a judgment here is therefore
-      conservative, never optimistic, on game count.
+      A norm needs at least 9 of them (1.4.1 (a)), except where the
+      tournament's `norm_event_type` says it is one of the events 1.4.1 (b)
+      lowers that for - see "Event types" below. 1.4.1 (c)'s 9-round
+      allowance (8 games after a win by forfeit or a pairing-allocated bye
+      counting as a 9-game norm, once per title application) is NOT
+      applied: it is a property of the application, not of this event, so a
+      judgment here stays conservative on game count.
 
       **An UNRATED game counts.** 1.4.2 excludes a game "decided by
       forfeit, adjudication or any means other than over the board play";
@@ -32,8 +34,10 @@ defmodule PairingsEngine.Norms.TitleNorms do
 
       This is also what makes 1.4.5's "double round-robin tournaments need
       a minimum of 6 players" redundant rather than missing: a 5-player DRR
-      is 8 games, which the 9-game rule already refuses. It would only start
-      to matter if the 8-game concessions above were ever implemented.
+      is 8 games, which the 9-game rule already refuses. The 7- and 8-game
+      concessions of 1.4.1 (b) apply to team championships and the World
+      Cup, none of which is a double round-robin of individuals, so the rule
+      still never bites.
     * **Score** (1.4.8.2): at least 35% (percentage rounded to the nearest
       whole number, 0.5 up - the 1.4.9 note's rounding rule).
     * **Titled opponents** (1.4.5.1): at least 50% of opponents hold any
@@ -66,11 +70,12 @@ defmodule PairingsEngine.Norms.TitleNorms do
     * **Federation mix** (1.4.3 / 1.4.4): opponents from at least two
       federations other than the player's own; at most 3/5 of opponents
       from the player's own federation and at most 2/3 from any single
-      federation (maxima rounded DOWN per 1.4.4). The 1.4.3a-e exemptions
-      (national championships, zonals, big Swisses with 20+ rated players
-      per round from 3+ federations...) are not auto-detected; an arbiter
-      reporting such an event should treat a federation-mix failure here as
-      overridable.
+      federation (maxima rounded DOWN per 1.4.4). The exemptions of 1.4.3
+      (a)-(c) follow the tournament's `norm_event_type` - see "Event
+      types" below. 1.4.3 (d) (a Swiss with at least 20 foreign rated
+      players from 3+ federations, 10 of them titled, in every round) is not
+      detected; an arbiter reporting such an event should treat a
+      federation-mix failure here as overridable.
     * **Opponent ratings** (1.4.6 / 1.4.7): an unrated opponent counts as
       1400 (1.4.6.4); at most ONE opponent - the lowest - is raised to the
       norm's adjusted rating floor (2200 GM / 2050 IM / 2000 WGM / 1850
@@ -81,12 +86,49 @@ defmodule PairingsEngine.Norms.TitleNorms do
       table keyed by the rounded score percentage, must reach 2600 GM /
       2450 IM / 2400 WGM / 2250 WIM.
 
+  ## Event types (`Tournament.norm_event_type`)
+
+  An "ordinary" tournament - the default, and every tournament before the
+  field existed - is judged exactly as described above. The other kinds are
+  applied only where they fit (`Tournament.effective_norm_event_type/1`):
+  the team kinds on a team tournament, the individual kinds on an individual
+  one. Each player's own board games are what is judged, as for an
+  individual event.
+
+    * **World or Continental Team / Club Championship** (1.4.1 (b)): 7
+      games are enough when the event has 7, 8 or 9 rounds (the
+      tournament's scheduled `rounds_count`). Outside 7-9 rounds the
+      article grants nothing and 9 games are needed.
+    * **World Cup / Women's World Cup** (1.4.1 (b)): 8 games are enough;
+      the article adds that such a norm counts as 9 games, which matters to
+      the title application, not to this judgment.
+    * **Final stage of a national championship** (1.4.3 (a)) and **national
+      team championship** (1.4.3 (b)): the federation-mix requirement is
+      lifted, but only for players of the federation that registers the
+      event - read as the tournament's own `federation`. Left blank, nobody
+      is exempt. 1.4.3 (a)'s carve-out (no exemption in a year that
+      federation holds its own Zonal or Sub-zonal) is the arbiter's to
+      apply by choosing the type; 1.4.3 (b)'s ban on combining divisions is
+      likewise not checked here.
+    * **Zonal / Sub-zonal** (1.4.3 (c)): the federation-mix requirement is
+      lifted for everyone.
+
+  Reading of "the federation-mix requirement": 1.4.3 itself names only the
+  two-foreign-federations rule, but its paragraph (d) falls back to 1.4.4
+  when the exemption is not met, and paragraph (e) calls the rule being
+  relaxed the normal foreigner requirement, pointing at both 1.4.3 and
+  1.4.4 - so an exemption lifts the 1.4.4 maxima too. (Without that, a
+  national championship whose field is all one federation could never
+  yield a norm and the exemption would be void.) Every exempted check says
+  so, and repeats 1.4.3 (e): at least one norm of a title application must
+  meet the normal requirement - something only the application can show.
+
   Women's titles (WGM/WIM) are restricted to women (B.01 0.3.1), so they
   are only evaluated for players with `sex == "w"`.
 
   This is a *judgment aid* for the arbiter filling IT4 - the title claimed
-  on the report stays a manual field (appeals, exemptions and the
-  unmodelled event-type concessions are the arbiter's call); this module
+  on the report stays a manual field (appeals, 1.4.3 (d), 1.4.1 (c) and
+  1.4.3 (e) stay the arbiter's call); this module
   says what the numbers themselves support and exactly which requirement
   fails otherwise.
 
@@ -97,6 +139,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
   """
 
   alias PairingsEngine.Standings
+  alias PairingsEngine.Tournaments.Tournament
 
   @norm_titles ~w(GM IM WGM WIM)
 
@@ -246,11 +289,16 @@ defmodule PairingsEngine.Norms.TitleNorms do
     entries = Standings.standings(tournament)
     by_id = Map.new(entries, &{&1.player.id, &1})
 
+    event_type = Tournament.effective_norm_event_type(tournament)
+
     Map.new(entries, fn entry ->
       games = counted_games(entry, by_id)
 
       verdicts =
-        Enum.map(titles_for(entry.player), &evaluate_norm(&1, entry.player, games, tournament))
+        Enum.map(
+          titles_for(entry.player),
+          &evaluate_norm(&1, entry.player, games, tournament, event_type)
+        )
 
       best = Enum.find(verdicts, & &1.achieved?)
 
@@ -280,9 +328,11 @@ defmodule PairingsEngine.Norms.TitleNorms do
     end)
   end
 
-  defp evaluate_norm(title, player, games, tournament) do
+  defp evaluate_norm(title, player, games, tournament, event_type) do
     req = Map.fetch!(@requirements, title)
     n = length(games)
+    {min_games, games_note} = minimum_games(event_type, tournament)
+    fed_exemption = federation_exemption(event_type, player, tournament)
 
     score =
       games
@@ -332,8 +382,8 @@ defmodule PairingsEngine.Norms.TitleNorms do
       [
         check(
           :games,
-          n >= 9,
-          "#{n} counted game#{plural(n)} (need 9; forfeits and byes never count)"
+          n >= min_games,
+          "#{n} counted game#{plural(n)} (need #{min_games}#{games_note}; forfeits and byes never count)"
         ),
         check(
           :score,
@@ -350,17 +400,20 @@ defmodule PairingsEngine.Norms.TitleNorms do
           high_titled >= high_needed,
           "#{high_titled} opponent#{plural(high_titled)} holding #{Enum.join(req.counts_as_titled_or_higher, "/")} (need #{high_needed})"
         ),
-        check(
+        federation_check(
+          fed_exemption,
           :foreign_federations,
           foreign_feds >= 2,
-          "opponents from #{foreign_feds} federation#{plural(foreign_feds)} other than #{own_fed || "?"} (need 2; nat. championship/zonal exemptions not auto-detected)"
+          "opponents from #{foreign_feds} federation#{plural(foreign_feds)} other than #{own_fed || "?"} (need 2; national championship/zonal exemptions follow the event type on the FIDE settings page)"
         ),
-        check(
+        federation_check(
+          fed_exemption,
           :own_federation_share,
           n == 0 or own_fed_count <= div(3 * n, 5),
           "#{own_fed_count}/#{n} opponents from own federation (max #{div(3 * n, 5)} = 3/5 rounded down)"
         ),
-        check(
+        federation_check(
+          fed_exemption,
           :single_federation_share,
           n == 0 or max_one_fed <= div(2 * n, 3),
           "largest single-federation group #{max_one_fed}/#{n} (max #{div(2 * n, 3)} = 2/3 rounded down)"
@@ -389,6 +442,66 @@ defmodule PairingsEngine.Norms.TitleNorms do
   end
 
   defp check(name, ok?, detail), do: %{name: name, ok?: !!ok?, detail: detail}
+
+  @doc """
+  B.01 1.4.1 (a)/(b): the fewest counted games a norm can rest on for
+  `event_type` (an effective `norm_event_type`), with a note naming the
+  concession when one applies - `{9, ""}` when none does. The team / club
+  concession needs the event to have 7, 8 or 9 rounds; the World Cup one
+  does not.
+  """
+  def minimum_games(event_type, tournament)
+      when event_type in ~w(team_championship club_championship) do
+    case Map.get(tournament, :rounds_count) do
+      rounds when rounds in 7..9 -> {7, " - 1.4.1 (b), #{rounds}-round team/club championship"}
+      _ -> {9, ""}
+    end
+  end
+
+  def minimum_games("world_cup", _tournament),
+    do: {8, " - 1.4.1 (b), World Cup; counts as 9 games in the title application"}
+
+  def minimum_games(_event_type, _tournament), do: {9, ""}
+
+  @doc """
+  B.01 1.4.3 (a)-(c): the paragraph that lifts the federation mix for
+  `player` under `event_type`, or nil. (a) and (b) reach only players of
+  the federation that registers the event, read as the tournament's own
+  `federation`; (c) reaches everyone.
+  """
+  def federation_exemption("zonal", _player, _tournament), do: "1.4.3 (c)"
+
+  def federation_exemption(event_type, player, tournament)
+      when event_type in ~w(national_championship national_team_championship) do
+    registering = fed_key(Map.get(tournament, :federation))
+
+    if registering != nil and fed_key(player.federation) == registering do
+      if event_type == "national_championship", do: "1.4.3 (a)", else: "1.4.3 (b)"
+    end
+  end
+
+  def federation_exemption(_event_type, _player, _tournament), do: nil
+
+  # A federation-mix check, or - under a 1.4.3 exemption - the same check
+  # passed, saying which paragraph lifted it and what 1.4.3 (e) still asks.
+  defp federation_check(nil, name, ok?, detail), do: check(name, ok?, detail)
+
+  defp federation_check(paragraph, name, _ok?, detail) do
+    check(
+      name,
+      true,
+      "#{detail} - exempt under #{paragraph}; per 1.4.3 (e) at least one norm of the title application must meet the normal federation requirement"
+    )
+  end
+
+  defp fed_key(fed) when is_binary(fed) do
+    case fed |> String.trim() |> String.upcase() do
+      "" -> nil
+      key -> key
+    end
+  end
+
+  defp fed_key(_), do: nil
 
   # Awarded configured points -> standard 1 / ½ / 0 (see moduledoc).
   #

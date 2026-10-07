@@ -114,6 +114,18 @@ Each entry is tagged so a version can be skimmed:
   Ainalrami's checker. The file that was sent is not kept, so the copy is rebuilt
   from the tournament as it is now; a round that changed since it was sent is
   flagged.
+- [Feature] **Title norms know the kind of event.** The FIDE settings page
+  has an "Event type for title norms" choice, and the Norms tab judges with
+  it, per the FIDE Title Regulations (B.01). A World or Continental Team or
+  Club Championship of 7, 8 or 9 rounds needs 7 games for a norm instead of
+  9 (1.4.1 b), and the World Cup 8. A national team championship (1.4.3 b)
+  or the final stage of a national championship (1.4.3 a) lifts the
+  federation-mix requirement for players of the federation registering the
+  event, a Zonal or Sub-zonal (1.4.3 c) for everyone; each exempted check
+  says so and repeats 1.4.3 e. Only the kinds that fit the tournament (team
+  or individual) are offered. An ordinary event, the default for every
+  existing tournament, is judged exactly as before.
+
 - [Security] The "remember me" cookie is marked `Secure` and `HttpOnly`
   explicitly in production, like the session cookie, instead of relying on
   the request being recognised as https behind the proxy.

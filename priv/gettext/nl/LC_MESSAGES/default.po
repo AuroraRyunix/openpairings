@@ -17710,3 +17710,63 @@ msgstr[1] "rondes %{rounds} zijn afgelopen, geen ontvangstbewijs."
 #, elixir-autogen, elixir-format
 msgid "round %{round}, board %{board}"
 msgstr "ronde %{round}, bord %{board}"
+
+#: lib/pairings_engine_web/live/settings_fide_live.ex:371
+#, elixir-autogen, elixir-format
+msgid "Event type for title norms"
+msgstr "Type evenement voor titelnormen"
+
+#: lib/pairings_engine_web/live/norms_live.ex:1302
+#, elixir-autogen, elixir-format
+msgid "FIDE"
+msgstr "FIDE"
+
+#: lib/pairings_engine_web/live/settings_support.ex:150
+#, elixir-autogen, elixir-format
+msgid "Final stage of a national championship (B.01 1.4.3 a: federation mix exempt for the registering federation's players)"
+msgstr "Finale van een nationaal kampioenschap (B.01 1.4.3 a: vrijgesteld van de federatiemix voor spelers van de registrerende federatie)"
+
+#: lib/pairings_engine_web/live/norms_live.ex:1294
+#, elixir-autogen, elixir-format
+msgid "Judged as: %{type}. Change it on the %[fide] settings page."
+msgstr "Beoordeeld als: %{type}. Wijzig dit op de instellingenpagina %[fide]."
+
+#: lib/pairings_engine_web/live/settings_support.ex:141
+#, elixir-autogen, elixir-format
+msgid "National team championship (B.01 1.4.3 b: federation mix exempt for the registering federation's players)"
+msgstr "Nationaal teamkampioenschap (B.01 1.4.3 b: vrijgesteld van de federatiemix voor spelers van de registrerende federatie)"
+
+#: lib/pairings_engine_web/live/settings_fide_live.ex:373
+#, elixir-autogen, elixir-format
+msgid "Only matters for a FIDE-rated event. The Norms tab judges each player's games with the fewer games or the federation-mix exemption this kind of event is granted in the FIDE Title Regulations; an ordinary event keeps the full requirements. Only the kinds that fit this tournament's type (team or individual) are offered."
+msgstr "Telt enkel voor een FIDE-gerated evenement. Het tabblad Normen beoordeelt de partijen van elke speler met het kleinere aantal partijen of de vrijstelling van de federatiemix die de FIDE Title Regulations dit soort evenement toekennen; een gewoon evenement behoudt alle vereisten. Enkel de soorten die bij het type van dit toernooi passen (team of individueel) worden aangeboden."
+
+#: lib/pairings_engine_web/live/settings_support.ex:131
+#, elixir-autogen, elixir-format
+msgid "Ordinary event (B.01: 9 games, normal federation mix)"
+msgstr "Gewoon evenement (B.01: 9 partijen, gewone federatiemix)"
+
+#: lib/pairings_engine_web/live/norms_live.ex:1287
+#, elixir-autogen, elixir-format
+msgid "The \"computed\" column judges each player's games against the FIDE Title Regulations (B.01: game count, score %, titled opponents, federation mix, opponent-rating average, performance) automatically - hover it for the requirement-by-requirement breakdown. The claimed title and the IT4-only fields (norm text, medal/%, event group, federation counts, remarks) stay yours to set."
+msgstr "De kolom \"computed\" toetst de partijen van elke speler automatisch aan de FIDE Title Regulations (B.01: aantal partijen, score %, getitelde tegenstanders, federatiemix, gemiddelde tegenstanderrating, prestatie) - beweeg erover voor de opsplitsing per vereiste. De geclaimde titel en de velden die enkel voor IT4 dienen (normtekst, medaille/%, evenementgroep, federatietellingen, opmerkingen) blijf jij instellen."
+
+#: lib/pairings_engine_web/live/settings_support.ex:146
+#, elixir-autogen, elixir-format
+msgid "World Cup or Women's World Cup (B.01 1.4.1 b: 8 games)"
+msgstr "World Cup of Women's World Cup (B.01 1.4.1 b: 8 partijen)"
+
+#: lib/pairings_engine_web/live/settings_support.ex:137
+#, elixir-autogen, elixir-format
+msgid "World or Continental Club Championship (B.01 1.4.1 b: 7 games if 7-9 rounds)"
+msgstr "Wereld- of continentaal clubkampioenschap (B.01 1.4.1 b: 7 partijen bij 7-9 ronden)"
+
+#: lib/pairings_engine_web/live/settings_support.ex:134
+#, elixir-autogen, elixir-format
+msgid "World or Continental Team Championship (B.01 1.4.1 b: 7 games if 7-9 rounds)"
+msgstr "Wereld- of continentaal teamkampioenschap (B.01 1.4.1 b: 7 partijen bij 7-9 ronden)"
+
+#: lib/pairings_engine_web/live/settings_support.ex:155
+#, elixir-autogen, elixir-format
+msgid "Zonal or Sub-zonal tournament (B.01 1.4.3 c: federation mix exempt)"
+msgstr "Zonaal of subzonaal toernooi (B.01 1.4.3 c: vrijgesteld van de federatiemix)"

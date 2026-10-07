@@ -31,6 +31,20 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # is a sanity bound on a form field, not a regulation.
   @max_team_boards 20
   @team_types ~w(team-swiss team-roundrobin)
+  # B.01 event kinds a norm judgment distinguishes (`norm_event_type`).
+  # The team kinds only mean something on a team tournament and the
+  # individual kinds only on an individual one; `norm_event_types_for/1`
+  # offers the fitting ones and `TitleNorms` reads a mismatch as "ordinary".
+  #   team_championship          - World or Continental Team Championship, 1.4.1 (b)
+  #   club_championship          - World or Continental Club Championship, 1.4.1 (b)
+  #   national_team_championship - national team championship, 1.4.3 (b)
+  #   world_cup                  - World Cup or Women's World Cup, 1.4.1 (b)
+  #   national_championship      - final stage of a national (open/men's or
+  #                                women's) championship, 1.4.3 (a)
+  #   zonal                      - Zonal or Sub-zonal tournament, 1.4.3 (c)
+  @team_norm_event_types ~w(team_championship club_championship national_team_championship)
+  @individual_norm_event_types ~w(world_cup national_championship zonal)
+  @norm_event_types ["ordinary" | @team_norm_event_types ++ @individual_norm_event_types]
   # Who has White on which board of a team match (docs/team-tournaments.md,
   # "Board colours"): "fide" - the team the pairing names first has White on
   # the odd boards, as FIDE's team events lay down (Chess Olympiad 2026
@@ -412,6 +426,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `applicable_fide_id/2`), but kept here as the single place an arbiter
     # marks a tournament homologated for FIDE rating purposes.
     field :fide_homologated, :boolean, default: false
+    # Which kind of event the FIDE Title Regulations (B.01) see this as, for
+    # norm judgment only (`PairingsEngine.Norms.TitleNorms`): the 7- and
+    # 8-game concessions of 1.4.1 (b) and the federation-mix exemptions of
+    # 1.4.3 (a)-(c). "ordinary" - every tournament before this field existed
+    # - judges exactly as before. See `@norm_event_types` for the values and
+    # which of them fit a team or an individual tournament.
+    field :norm_event_type, :string, default: "ordinary"
     # SWAR's per-round FIDE-ID-range model ("FIDE id 89495 applies to
     # rounds 1-3, this other id applies to rounds 4-9, ...") - for splitting
     # one club's FIDE report across differently-rated sections/legs of the
@@ -1262,6 +1283,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :event_code,
       :fide_tournament_id,
       :fide_homologated,
+      :norm_event_type,
       :fide_id_ranges,
       :officials,
       :pairing_system,
@@ -1340,6 +1362,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:team_board_colours, @team_board_colours)
     |> validate_inclusion(:team_lineups, @team_lineups)
     |> validate_inclusion(:team_rating_method, @team_rating_methods)
+    |> validate_inclusion(:norm_event_type, @norm_event_types)
     |> validate_number(:team_unrated_rating,
       greater_than_or_equal_to: 0,
       less_than_or_equal_to: 4000
@@ -2282,6 +2305,29 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @doc "The values `team_rating_method` takes."
   def team_rating_methods, do: @team_rating_methods
+
+  @doc "The values `norm_event_type` takes."
+  def norm_event_types, do: @norm_event_types
+
+  @doc """
+  The `norm_event_type` values that fit `tournament`: "ordinary" plus the
+  team kinds on a team tournament, or the individual kinds otherwise.
+  """
+  def norm_event_types_for(tournament) do
+    if team?(tournament),
+      do: ["ordinary" | @team_norm_event_types],
+      else: ["ordinary" | @individual_norm_event_types]
+  end
+
+  @doc """
+  The `norm_event_type` B.01 is applied with: the stored one when it fits the
+  tournament (team kind on a team tournament, individual kind on an
+  individual one), "ordinary" otherwise or when unset.
+  """
+  def effective_norm_event_type(tournament) do
+    type = Map.get(tournament, :norm_event_type) || "ordinary"
+    if type in norm_event_types_for(tournament), do: type, else: "ordinary"
+  end
 
   @doc """
   Whether a team event plays without players on its rosters
