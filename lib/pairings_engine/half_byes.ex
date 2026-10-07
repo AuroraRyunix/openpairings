@@ -1,0 +1,66 @@
+defmodule PairingsEngine.HalfByes do
+  @moduledoc """
+  Half-point byes (C.05:6.7.4) as this app records them: a round in a
+  player's `absent_rounds` whose absence the tournament scores as a draw
+  (`Standings.bye_points/4` with the tournament's absence points at the draw
+  value, under its round and count caps), plus any `"requested-half"` row in
+  the byes table (imports write those).
+
+  Two rules hang on it (VCL4THP Q174/Q175): a second or later half-point bye
+  needs the arbiter's explicit confirmation, and a player marked
+  `no_half_bye` ("not eligible", having received conditions or free entry)
+  gets none.
+  """
+  import Ecto.Query
+
+  alias PairingsEngine.Repo
+  alias PairingsEngine.Standings
+  alias PairingsEngine.Tournaments.Player
+
+  @doc """
+  The rounds of `absent_rounds` (the stored text) that the tournament scores
+  as half a point, ascending. The count cap works on the position among the
+  player's own absences, as `Standings.bye_points_for_row/2` counts them.
+  """
+  def half_rounds(tournament, absent_rounds) do
+    absent_rounds
+    |> to_string()
+    |> Player.parse_absent_rounds()
+    |> Enum.sort()
+    |> Enum.with_index(1)
+    |> Enum.filter(fn {round, nth} ->
+      Standings.bye_points("absent", tournament, round, nth) == tournament.points_draw
+    end)
+    |> Enum.map(&elem(&1, 0))
+  end
+
+  @doc "The rounds the byes table holds a requested half-point bye for `player_id`."
+  def recorded_rounds(tournament_id, player_id) do
+    Repo.all(
+      from(b in "byes",
+        where:
+          b.tournament_id == ^tournament_id and b.player_id == ^player_id and
+            b.type == "requested-half",
+        select: b.round
+      )
+    )
+  end
+
+  @doc """
+  The half-point bye rounds a save would ADD to `player` when `absent_rounds`
+  (canonical text) replaces the stored ones, but only when that leaves the
+  player with a second or later one. `[]` otherwise.
+  """
+  def added_beyond_first(tournament, %Player{} = player, absent_rounds) do
+    before = half_rounds(tournament, player.absent_rounds)
+    later = half_rounds(tournament, absent_rounds)
+    added = later -- before
+
+    if added != [] and total(tournament, player, later) >= 2, do: added, else: []
+  end
+
+  defp total(tournament, player, rounds) do
+    recorded = if player.id, do: recorded_rounds(tournament.id, player.id), else: []
+    length(Enum.uniq(rounds ++ recorded))
+  end
+end

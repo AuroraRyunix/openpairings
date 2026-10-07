@@ -270,7 +270,7 @@ defmodule PairingsEngine.TournamentExport do
     pairing_number paid affiliated absent forfeit special_table
     absent_rounds extra_points category categories club_number norm_data
     team_id fixed_board manual_rank no_bye no_bye_rounds bye_preference
-    bye_preference_rounds team_history
+    bye_preference_rounds team_history no_half_bye
   )a
 
   # The roster is the one thing a backup absolutely cannot lose, so the same

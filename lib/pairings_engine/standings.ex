@@ -283,6 +283,12 @@ defmodule PairingsEngine.Standings do
 
     entries = compute_tiebreaks(entries, tournament, tiebreak_codes)
 
+    # An expelled player is left out of the table, and only the player: the
+    # games they played stay in everyone else's `games` and were counted
+    # above, so an opponent keeps the points and the tie-breaks those games
+    # gave (VCL4THP Q198: "the player, not the results they achieved").
+    entries = Enum.reject(entries, &Player.expelled?(&1.player))
+
     # Hoisted, emphatically: `effective_tiebreaks/1` reads the player list to
     # decide whether an unrated entrant is present - asked once here, not per
     # comparison.

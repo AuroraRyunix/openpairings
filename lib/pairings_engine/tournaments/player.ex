@@ -53,6 +53,10 @@ defmodule PairingsEngine.Tournaments.Player do
     field :special_table, :boolean, default: false
     # Comma-separated round numbers, e.g. "3,5"
     field :absent_rounds, :string, default: ""
+    # C.05:6.7.4: no half-point bye for a player who received conditions or
+    # free entry. Marked by the arbiter; `Tournaments.update_player/2,3`
+    # refuses to give such a player a half-point absence.
+    field :no_half_bye, :boolean, default: false
 
     # "No pairing-allocated bye" - an ORGANISER's rule, not FIDE's (a player
     # who travelled far, a junior with a long drive home). While set, the
@@ -152,6 +156,23 @@ defmodule PairingsEngine.Tournaments.Player do
     timestamps(type: :utc_datetime)
   end
 
+  @doc """
+  Whether the player is out of the event of their own accord or by the
+  arbiter's hand as a withdrawal: the `withdrawn` status (a withdrawn team's
+  roster) or the individual Forfeit tick, which is how a player is
+  withdrawn here.
+  """
+  def withdrawn?(%{status: "withdrawn"}), do: true
+  def withdrawn?(%{forfeit: true}), do: true
+  def withdrawn?(_player), do: false
+
+  @doc """
+  Whether the arbiter expelled the player (VCL4THP Q197): not paired any
+  further, like a withdrawn player, and left out of the standings.
+  """
+  def expelled?(%{status: "expelled"}), do: true
+  def expelled?(_player), do: false
+
   def changeset(player, attrs) do
     player
     |> cast(attrs, [
@@ -176,6 +197,7 @@ defmodule PairingsEngine.Tournaments.Player do
       :forfeit,
       :special_table,
       :absent_rounds,
+      :no_half_bye,
       :extra_points,
       :category,
       :categories,
@@ -192,7 +214,7 @@ defmodule PairingsEngine.Tournaments.Player do
     ])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
-    |> validate_inclusion(:status, ~w(active withdrawn))
+    |> validate_inclusion(:status, ~w(active withdrawn expelled))
     |> validate_inclusion(:paid, @paid_statuses)
     |> validate_number(:extra_points, greater_than_or_equal_to: 0.0)
     |> blank_start_round_is_one()

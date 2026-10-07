@@ -1969,6 +1969,55 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
+  Ways the current setup cannot be finished within the pairing rules, given
+  how many players are entered: a list of maps, each with a `:code` and the
+  numbers the message needs. Empty when it can, and for the shapes this
+  does not judge (team events, Keizer, fewer than two players).
+
+  Not a blocker like `missing_setup_fields/1`: an arbiter may still pair
+  such an event by hand (the pool and swaps), so this only says so before
+  the first round instead of at the round that cannot be paired.
+
+    * Swiss: no two players meet twice, so there are at most `n - 1` rounds
+      for an even number of players, `n` for an odd one (each player sits
+      out once).
+    * Round robin: the schedule is exactly `RoundRobin.rounds_needed/2`
+      rounds; fewer cannot finish the cycle, more have nobody left to meet.
+  """
+  def setup_warnings(%__MODULE__{} = t, players) when is_integer(players) do
+    rounds = t.rounds_count
+
+    cond do
+      team?(t) or players < 2 or not is_integer(rounds) or rounds < 1 ->
+        []
+
+      t.pairing_system == "swiss" ->
+        max = if rem(players, 2) == 0, do: players - 1, else: players
+
+        if rounds > max,
+          do: [%{code: :swiss_rounds, rounds: rounds, players: players, max: max}],
+          else: []
+
+      t.pairing_system == "round_robin" ->
+        needed = PairingsEngine.RoundRobin.rounds_needed(players, t)
+
+        cond do
+          rounds < needed ->
+            [%{code: :round_robin_short, rounds: rounds, players: players, needed: needed}]
+
+          rounds > needed ->
+            [%{code: :round_robin_long, rounds: rounds, players: players, needed: needed}]
+
+          true ->
+            []
+        end
+
+      true ->
+        []
+    end
+  end
+
+  @doc """
   The recommended-but-not-required fields `tournament` hasn't filled yet, in
   the same `{field, message}` shape as `missing_setup_fields/1`. Drives the
   soft "recommended for FIDE reporting" notice; never blocks pairing. The
