@@ -1031,9 +1031,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL (was YES). When the engine finds no legal pairing nothing is paired and no round exists (pairing.ex:3052-3061); swaps and pool pairing work only inside an existing round (tournaments.ex pair_from_pool), so such a tournament cannot be finished."
+   "answer": "Y",
+   "status": "met",
+   "note": "When the engine proves no legal pairing exists, the Pairings page offers to create the round by hand behind a Level-3 confirmation (#pair-by-hand, Pairing.create_round_by_hand/1): an empty round with every player in the pool, finished by pool pairing and 'Give the pairing-allocated bye' (Tournaments.award_pool_bye/4), then the end-of-session check, recorded as an MPA PIBE. Tests: manual_pairing_test.exs 'three players, four rounds', manual_pairing_live_test.exs."
   },
   {
    "q": 64,
@@ -1063,9 +1063,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL. Each hand edit is its own staged gesture; there is no session with an end at which a check could run (pairings_live.ex:1303-1352)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Hand edits to a round are a session with an explicit start (#mpa-start-N, or the first applied edit) and end (#mpa-end in #mpa-banner); the next round cannot be paired while one is open; audit codes pairing.mpa_started / pairing.mpa_finished (lib/pairings_engine/manual_pairing.ex; rounds.mpa_session). Tests: manual_pairing_test.exs 'a session with a start and an end (Q65)'."
   },
   {
    "q": 66,
@@ -1080,9 +1080,9 @@
     "next": 67,
     "penalty": 25
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 25%. The confirm modals show the board diff only; no check for a rematch, a prohibited pair, PAB eligibility, three same colours or an imbalance over 2 (pairings_live.ex:1354-1546)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Each staged hand edit is checked for a rematch, a prohibited pair, a PAB to a player who had a PAB, a forfeit win or a full-point bye, and three same colours or a difference over two before the last round; the warnings are listed and Apply needs an explicit tick, also enforced on the server (ManualPairing.warnings/4; #confirm-rule-warnings, #confirm-rule-ack). Tests: manual_pairing_test.exs, manual_pairing_live_test.exs."
   },
   {
    "q": 67,
@@ -1097,9 +1097,9 @@
     "next": 68,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 10%. No comparison with the colour each player was due (pairings_live.ex:1354-1387)."
+   "answer": "Y",
+   "status": "met",
+   "note": "A board where both players get the colour opposite to the one each is due raises a :wrong_colours warning in the same Level-3 block (ManualPairing.warnings/4). Test: manual_pairing_test.exs 'both players getting the colour opposite'."
   },
   {
    "q": 68,
@@ -1113,9 +1113,9 @@
     "outcome": "fail",
     "next": null
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "FAIL. No checker runs after hand edits; the explanation page only notes the boards diverged (round_explanation.ex:434-464)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Finishing the session runs the pairing checker (the engine on the round as seated) and compares its pairs, colours included, with the round's (ManualPairing.assess/2). Tests: manual_pairing_test.exs 'boards that are not the checker's', 're-entered and put back'."
   },
   {
    "q": 69,
@@ -1130,9 +1130,9 @@
     "next": 70,
     "penalty": 30
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 30%. No warning, no ###, nothing stamped (trf_export.ex)."
+   "answer": "Y",
+   "status": "met",
+   "note": "When they differ, a Level-3 dialog shows the checker's pairing, the differences, any rule breaches and the line to be written, and needs a tick (#mpa-end-dialog, #mpa-ack); confirming stores rounds.mpa_pibe and TRF26 reports carry '### MPA @ Round r: <checker pairs> => <round pairs>', never the file sent for rating (trf_export.ex mpa_comments/3). Test: 'the TRF carries the PIBE as a ### line; the file sent for rating does not'."
   },
   {
    "q": 70,
@@ -1841,7 +1841,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Costs 15% (was YES). The audit trail records the raw acts (result changes with their round, confirmed postponed non-draws, every hand edit, settings diffs) but nothing is identified as a PIBE, import findings are not stored, and no checker runs on hand edits (pairings_live.ex:953-972; tournaments_live.ex:1272-1277)."
+   "note": "Costs 15%. Identified, stored and logged as PIBEs now: hand edits (MPA: rounds.mpa_pibe, audit pairing.mpa_finished) and imports (import_findings, audit pibe.import). Not yet: result corrections of earlier rounds, regenerations and exchanges of TPNs, configuration changes."
   },
   {
    "q": 113,
@@ -1892,7 +1892,7 @@
    },
    "answer": "N",
    "status": "gap",
-   "note": "Costs 10%. Hand edits and postponed non-draws are confirmed first; a previous-round correction and an import are not (pairings_live.ex:953-972; tournaments_live.ex:1272-1277)."
+   "note": "Costs 10%. Level-3 before finalising: hand edits (the MPA end dialog), postponed non-draws, imports (the review step). Not yet: a plain correction of an earlier round's result (pairings_live.ex result handler)."
   },
   {
    "q": 116,
