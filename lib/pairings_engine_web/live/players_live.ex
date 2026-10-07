@@ -13,7 +13,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     PlayerCard,
     RatingRefresh,
     StartingNumbers,
-    Tiebreaks
+    Tiebreaks,
+    Tpn
   }
 
   alias PairingsEngine.Features
@@ -162,6 +163,11 @@ defmodule PairingsEngineWeb.PlayersLive do
        # The round robin's starting numbers dialog: nil while closed, else
        # `StartingNumbers.order/1`.
        starting_numbers: nil,
+       # A Swiss's pairing-number dialog (TPN exchange and regeneration):
+       # nil while closed, else `Tpn.order/1`; `tpn_changes` holds a
+       # regeneration waiting for the arbiter's confirmation.
+       tpn: nil,
+       tpn_changes: nil,
        bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
        bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
        # One switch for both since 0.74.2; the old Belgian key still counts
@@ -247,6 +253,19 @@ defmodule PairingsEngineWeb.PlayersLive do
       StartingNumbers.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
     )
     |> refresh_starting_numbers()
+    |> assign(
+      :tpn_editable?,
+      Tpn.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
+    )
+    |> refresh_tpn()
+  end
+
+  defp refresh_tpn(%{assigns: %{tpn: nil}} = socket), do: socket
+
+  defp refresh_tpn(socket) do
+    if socket.assigns.tpn_editable?,
+      do: assign(socket, :tpn, Tpn.order(socket.assigns.tournament)),
+      else: assign(socket, tpn: nil, tpn_changes: nil)
   end
 
   # An open starting-numbers dialog follows the roster (another tab, a new
@@ -1143,6 +1162,54 @@ defmodule PairingsEngineWeb.PlayersLive do
       %{by_rating: true}
     )
   end
+
+  ## ---------- Swiss pairing numbers (TPN exchange/regeneration, VCL4THP Q147-Q155) ----------
+
+  def handle_event("open_tpn", _params, socket) do
+    if socket.assigns.tpn_editable? do
+      {:noreply, assign(socket, tpn: Tpn.order(socket.assigns.tournament), tpn_changes: nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_tpn", _params, socket),
+    do: {:noreply, assign(socket, tpn: nil, tpn_changes: nil)}
+
+  def handle_event("tpn_exchange", %{"a" => a, "b" => b}, socket) do
+    with {a_id, ""} <- Integer.parse(to_string(a)),
+         {b_id, ""} <- Integer.parse(to_string(b)) do
+      names = %{a: tpn_name(socket, a_id), b: tpn_name(socket, b_id)}
+
+      tpn_result(
+        socket,
+        Tpn.exchange(socket.assigns.tournament, a_id, b_id),
+        %{player_name: names.a, other_name: names.b, round: tpn_round(socket)}
+      )
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("tpn_exchange", _params, socket), do: {:noreply, socket}
+
+  # A regeneration that moves two or more numbers already issued waits for
+  # a confirmation listing them (the TEC manual's Level 3, VCL4THP Q154);
+  # one that moves at most one goes ahead.
+  def handle_event("tpn_regenerate", _params, socket) do
+    changes = Tpn.regeneration_changes(socket.assigns.tournament)
+
+    if Enum.count(changes, fn {_p, old, _new} -> old != nil end) >= 2,
+      do: {:noreply, assign(socket, :tpn_changes, changes)},
+      else: apply_regeneration(socket, changes)
+  end
+
+  def handle_event("tpn_regenerate_confirm", _params, socket) do
+    apply_regeneration(socket, socket.assigns.tpn_changes || [])
+  end
+
+  def handle_event("tpn_regenerate_cancel", _params, socket),
+    do: {:noreply, assign(socket, :tpn_changes, nil)}
 
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
 
@@ -2454,6 +2521,21 @@ defmodule PairingsEngineWeb.PlayersLive do
           </a>
 
           <button
+            :if={@tpn_editable?}
+            id="open-tpn"
+            type="button"
+            class="pe-btn"
+            phx-click="open_tpn"
+            title={
+              gettext(
+                "Exchange the pairing numbers of players with the same rating, or regenerate them from the ratings - until round 4 is paired"
+              )
+            }
+          >
+            {gettext("Pairing numbers")}
+          </button>
+
+          <button
             :if={@starting_numbers_editable?}
             id="open-starting-numbers"
             type="button"
@@ -3028,8 +3110,62 @@ defmodule PairingsEngineWeb.PlayersLive do
       /> <.rating_refresh_modal :if={@rating_refresh} summary={@rating_refresh} />
       <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
       <.starting_numbers_modal :if={@starting_numbers} order={@starting_numbers} />
+      <.tpn_modal
+        :if={@tpn}
+        order={@tpn}
+        changes={@tpn_changes}
+        paired={Standings.rounds_paired(@tournament.id)}
+      />
     </Layouts.app>
     """
+  end
+
+  defp tpn_name(socket, player_id) do
+    Enum.find_value(socket.assigns.tpn || [], "?", fn {player, _n} ->
+      player.id == player_id && player.name
+    end)
+  end
+
+  defp tpn_round(socket), do: Standings.rounds_paired(socket.assigns.tournament.id)
+
+  defp apply_regeneration(socket, changes) do
+    tpn_result(
+      assign(socket, :tpn_changes, nil),
+      Tpn.regenerate(socket.assigns.tournament),
+      %{regenerated: Enum.count(changes), round: tpn_round(socket)}
+    )
+  end
+
+  defp tpn_result(socket, {:ok, order}, details) do
+    Audit.log(
+      socket.assigns.tournament.id,
+      socket.assigns.current_scope,
+      "player.pairing_numbers_changed",
+      details
+    )
+
+    {:noreply, socket |> assign_players() |> assign(tpn: order, tpn_changes: nil)}
+  end
+
+  defp tpn_result(socket, {:error, reason}, _details) do
+    message =
+      case reason do
+        :different_ratings ->
+          gettext(
+            "Only players with the same rating can exchange pairing numbers. To follow a rating change, regenerate the numbers."
+          )
+
+        :locked ->
+          gettext("Round 4 is paired: the pairing numbers can no longer change (C.04.2).")
+
+        reason when reason in [:archived, :handed_off] ->
+          error_text(reason)
+
+        _ ->
+          gettext("The list changed meanwhile - try again.")
+      end
+
+    {:noreply, socket |> put_flash(:error, message) |> assign_players()}
   end
 
   defp sn_name(socket, player_id) do
@@ -3066,6 +3202,150 @@ defmodule PairingsEngineWeb.PlayersLive do
       end
 
     {:noreply, socket |> put_flash(:error, message) |> assign_players()}
+  end
+
+  ## ---------- Swiss pairing numbers modal ----------
+
+  attr :order, :list, required: true
+  attr :changes, :any, default: nil
+  attr :paired, :integer, required: true
+
+  defp tpn_modal(assigns) do
+    assigns = assign(assigns, :rows, tpn_rows(assigns.order))
+
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="close_tpn" phx-key="escape">
+      <div
+        class="modal-card"
+        phx-click-away="close_tpn"
+        style="max-width: 640px"
+        id="tpn-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tpn-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id="tpn-title">{gettext("Pairing numbers")}</h2>
+
+        <p class="hint">
+          {gettext(
+            "Players are numbered by rating. Players with the same rating can exchange their numbers, to order them by another rule; regenerating renumbers everyone by the current ratings and keeps the order you gave players of equal rating. Both are possible until round 4 is paired (C.04.2)."
+          )}
+        </p>
+
+        <p :if={@paired > 0} id="tpn-pibe-note" class="hint">
+          <strong>{gettext(
+            "Rounds already paired used the old numbers: a pairing checker will not reproduce them any more. Each change asks you to confirm."
+          )}</strong>
+        </p>
+
+        <div :if={@changes} id="tpn-regenerate-confirm" class="card">
+          <p>
+            <strong>
+              {gettext(
+                "Regenerating changes the pairing numbers of these players. The FIDE rules allow it only to correct a mistake or follow a rating change."
+              )}
+            </strong>
+          </p>
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Player")}</th>
+                <th class="num">{gettext("Old")}</th>
+                <th class="num">{gettext("New")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{player, old, new} <- @changes}>
+                <td>{player.name}</td>
+                <td class="num">{old || "-"}</td>
+                <td class="num"><strong>{new}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="actions">
+            <button
+              id="tpn-regenerate-go"
+              type="button"
+              class="pe-btn primary"
+              phx-click="tpn_regenerate_confirm"
+            >
+              {gettext("Regenerate")}
+            </button>
+            <button type="button" class="pe-btn" phx-click="tpn_regenerate_cancel">
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </div>
+
+        <div :if={!@changes} class="actions">
+          <button id="tpn-regenerate" type="button" class="pe-btn" phx-click="tpn_regenerate">
+            {gettext("Regenerate from ratings")}
+          </button>
+        </div>
+
+        <div class="card-table-wrap">
+          <table class="pe-table" id="tpn-list">
+            <thead>
+              <tr>
+                <th class="num">{gettext("No.")}</th>
+                <th>{gettext("Player")}</th>
+                <th class="num">{gettext("Rating")}</th>
+                <th>{gettext("Exchange")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{player, number, next} <- @rows} id={"tpn-row-#{player.id}"}>
+                <td class="num">{number}</td>
+                <td>{player.name}</td>
+                <td class="num">{rating_or_dash(Player.rating(player))}</td>
+                <td>
+                  <button
+                    :if={next}
+                    id={"tpn-exchange-#{player.id}"}
+                    type="button"
+                    class="pe-btn"
+                    phx-click="tpn_exchange"
+                    phx-value-a={player.id}
+                    phx-value-b={next.id}
+                    data-confirm={
+                      gettext(
+                        "Exchange the pairing numbers of %{a} and %{b}? This departs from the order the FIDE rules give the numbers; the next pairings use the new numbers.",
+                        a: player.name,
+                        b: next.name
+                      )
+                    }
+                    aria-label={
+                      gettext("Exchange the numbers of %{a} and %{b}", a: player.name, b: next.name)
+                    }
+                  >
+                    ⇅
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="pe-btn" phx-click="close_tpn">{gettext("Close")}</button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Each row with the player below it when the two may exchange: the same
+  # rating (`Tpn.exchange/3` refuses anything else).
+  defp tpn_rows(order) do
+    order
+    |> Enum.chunk_every(2, 1)
+    |> Enum.map(fn
+      [{p, n}, {q, _m}] -> {p, n, if(Player.rating(p) == Player.rating(q), do: q)}
+      [{p, n}] -> {p, n, nil}
+    end)
   end
 
   ## ---------- Round-robin starting numbers modal ----------

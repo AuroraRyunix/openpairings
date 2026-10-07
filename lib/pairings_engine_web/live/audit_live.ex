@@ -100,7 +100,7 @@ defmodule PairingsEngineWeb.AuditLive do
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
         team.board_order_changed team.seeding_changed team.withdrawn team.reinstated
-        team.absence_changed player.starting_numbers_set)},
+        team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.results_imported pairing.players_swapped pairing.player_substituted
@@ -341,6 +341,19 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("team.seeding_changed", d),
     do: gettext("Moved team %{team} down the order.", team: name(d, "team_name"))
+
+  def describe("player.pairing_numbers_changed", %{"regenerated" => _} = d),
+    do:
+      gettext("Regenerated the pairing numbers from the ratings (%{count} changed).",
+        count: value(d, "regenerated")
+      )
+
+  def describe("player.pairing_numbers_changed", d),
+    do:
+      gettext("Exchanged the pairing numbers of %{name} and %{other}.",
+        name: name(d, "player_name"),
+        other: name(d, "other_name")
+      )
 
   def describe("player.starting_numbers_set", %{"drawn" => true}),
     do: gettext("Drew the starting numbers by lot.")

@@ -235,6 +235,8 @@ defmodule PairingsEngine.Pairing do
           {:error, "Round #{paired} still has missing results"}
 
         true ->
+          active = seed_newcomers_before_round_one(tournament, next_number, active)
+
           tournament
           |> draw_initial_colour_before_round_one(next_number)
           |> ensure_pairing_numbers(active)
@@ -692,6 +694,22 @@ defmodule PairingsEngine.Pairing do
 
     tournament
   end
+
+  # Numbers issued before round 1 - by a TPN exchange (`PairingsEngine.Tpn`),
+  # or left from a round 1 that was unpaired - and a player entered since:
+  # round 1 places them by rating among the others rather than last, as it
+  # would have numbered them with everybody else. With no number issued, or
+  # nobody new, nothing happens and `ensure_pairing_numbers/2` numbers the
+  # field as it always did. Returns the active roster, read again when
+  # numbers were written, so nothing after this sees a newcomer as still
+  # unnumbered.
+  defp seed_newcomers_before_round_one(tournament, 1, active) do
+    if PairingsEngine.Tpn.seed_newcomers(tournament, active) == :seeded,
+      do: active_players(tournament.id),
+      else: active
+  end
+
+  defp seed_newcomers_before_round_one(_tournament, _next_number, active), do: active
 
   # The numbers `ensure_pairing_numbers/2` would hand out, as
   # `[{player, number}]`, without writing them - the next-round preview
