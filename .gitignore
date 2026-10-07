@@ -82,3 +82,6 @@ agents.md
 .claude/
 .mcp.json
 graphify-out/
+
+# Local build of the hosted edition (MIX_BUILD_PATH=_build_hosted)
+/_build_hosted/
