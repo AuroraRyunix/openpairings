@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-10-08
+
 - [Change] **Help opens in a new tab.** The top bar's Help and every "?" beside a
   page title open the manual in a tab of their own. Before, reading how the
   Pairings page works cost you the Pairings page - help with a sense of irony.
