@@ -123,6 +123,7 @@ defmodule PairingsEngine.ManualPairing do
         ),
         set: set
       )
+
       Tournaments.broadcast_tournament_change(round.tournament_id, :rounds)
       :ok
     end
