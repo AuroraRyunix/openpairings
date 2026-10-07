@@ -132,6 +132,15 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       "/changelog" ->
         ["/changelog"]
 
+      "/help" ->
+        ["/help"]
+
+      "/help/:chapter" ->
+        ["/help/pairing", "/help/standings-and-tiebreaks"]
+
+      "/rating-lists" ->
+        ["/rating-lists"]
+
       "/tools/norms" ->
         ["/tools/norms"]
 
