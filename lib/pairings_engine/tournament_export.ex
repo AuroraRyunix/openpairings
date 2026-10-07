@@ -717,7 +717,10 @@ defmodule PairingsEngine.TournamentExport do
       # The game's identity for life (`PostponedGames`, "Which game a record
       # is about"): written back on import and restore, so the sent-games
       # record still knows the game whatever happened to its players.
-      "game_uid" => p.game_uid
+      "game_uid" => p.game_uid,
+      # A result corrected for the rating report only (C.04.2:4.3,
+      # `Tournaments.set_rating_correction/3`); nil for nearly every board.
+      "rating_result" => p.rating_result
     }
   end
 

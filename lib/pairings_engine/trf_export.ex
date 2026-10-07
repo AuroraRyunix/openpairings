@@ -75,7 +75,9 @@ defmodule PairingsEngine.TrfExport do
             copy_comments(tournament, rounds_spec, opts) ++
               fide_mode_comments(tournament, opts) ++
               import_pibe_comments(tournament, opts) ++
-              mpa_comments(tournament, rounds_spec, opts)
+              mpa_comments(tournament, rounds_spec, opts) ++
+              full_point_bye_comments(tournament, rounds_spec, opts) ++
+              rating_correction_comments(tournament, rounds_spec, opts)
           )
         end
 
@@ -238,6 +240,88 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
+  ## ---------- full-point byes are in the file ----------
+  #
+  # VCL4THP Q179: a full-point bye (`Tournaments.award_full_point_bye/3`) has
+  # its own letter, `F`, and is still pointed out, because the regulations do
+  # not describe it. One line per round, in the PIBE lines' shape
+  # (`FPB @ Round r: 7=FPB`, starting ranks; the TEC Manual writes `7=FPB`
+  # in its MPA example). TRF26 only, never in the file sent for rating.
+  defp full_point_bye_comments(tournament, rounds_spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      rounds = file_rounds(tournament, rounds_spec)
+      tpn = pairing_numbers(tournament.id)
+
+      PairingsEngine.Repo.all(
+        from b in "byes",
+          where:
+            b.tournament_id == ^tournament.id and b.type == "full-point" and
+              b.round in ^rounds,
+          order_by: [b.round, b.player_id],
+          select: {b.round, b.player_id}
+      )
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      |> Enum.sort()
+      |> Enum.map(fn {round, ids} ->
+        ranks = ids |> Enum.map(&Map.get(tpn, &1)) |> Enum.reject(&is_nil/1) |> Enum.sort()
+        "FPB @ Round #{round}: " <> Enum.map_join(ranks, " ", &"#{&1}=FPB")
+      end)
+    else
+      []
+    end
+  end
+
+  ## ---------- results corrected for rating only are in the file ----------
+  #
+  # VCL4THP Q193 and C.04.2:4.3: a wrong result found after the end of the
+  # next round is corrected for the rating report only
+  # (`Tournaments.set_rating_correction/3`). The `001` records carry the
+  # corrected result (`Pairing.rating_history/1`); this line says which
+  # result the pairings and the standings used instead, one per board, in
+  # the Correction PIBE's shape (`6-17`, White's starting rank first). TRF26
+  # only, never in the file sent for rating, like the other `###` lines.
+  defp rating_correction_comments(tournament, rounds_spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      rounds = file_rounds(tournament, rounds_spec)
+      tpn = pairing_numbers(tournament.id)
+
+      tournament.id
+      |> Tournaments.list_rating_corrections()
+      |> Enum.filter(&(&1.round in rounds))
+      |> Enum.map(&rating_correction_line(&1, tpn))
+    else
+      []
+    end
+  end
+
+  @doc """
+  The text of a rating-only correction's `###` line, without the `### `:
+  `Rating correction @ Round 4: 6-17: 1-0 => 0-1 (pairings and standings
+  used 1-0)`. `tpn` maps player ids to starting ranks.
+  """
+  def rating_correction_line(correction, tpn) do
+    w = Map.get(tpn, correction.white_id, "?")
+    b = Map.get(tpn, correction.black_id, "?")
+
+    "Rating correction @ Round #{correction.round}: #{w}-#{b}: " <>
+      "#{correction.result} => #{correction.rating_result} " <>
+      "(pairings and standings used #{correction.result})"
+  end
+
+  defp file_rounds(tournament, rounds_spec) do
+    paired = Pairing.paired_rounds_count(tournament.id)
+    if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+  end
+
+  defp pairing_numbers(tournament_id) do
+    PairingsEngine.Repo.all(
+      from p in PairingsEngine.Tournaments.Player,
+        where: p.tournament_id == ^tournament_id,
+        select: {p.id, p.pairing_number}
+    )
+    |> Map.new()
+  end
+
   @doc """
   Puts `comments` into the TRF `text` as `###` comment lines, after the
   header records and before the players - where a reader opening the file
@@ -380,9 +464,14 @@ defmodule PairingsEngine.TrfExport do
 
     players = Tournaments.list_players(tournament.id)
 
+    # The report holds the results corrected for rating only (C.04.2:4.3,
+    # `Tournaments.set_rating_correction/3`); the engine's spelling is the
+    # engine's input, byte for byte, and keeps what the event used.
+    history = if dialect == :trf26, do: Pairing.rating_history(tournament)
+
     trf_players =
       tournament
-      |> Pairing.trf_player_rows(players)
+      |> Pairing.trf_player_rows(players, history)
       |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect)))
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
       # Baku virtual points for the rounds in the file. The report had
@@ -1613,6 +1702,10 @@ defmodule PairingsEngine.TrfExport do
   # written (`Pairing.unplayed_code/2`): an absence the tournament pays half
   # a point or a full one for is `H` or `F`. It was always `Z`, whatever it
   # paid.
+  # The arbiter's full-point bye is `F` whatever it is worth, as in the
+  # played rounds (`Pairing`'s `bye_code/1`).
+  defp future_bye_code(%{type: "full-point"}, _tournament), do: "F"
+
   defp future_bye_code(bye, tournament),
     do: bye |> Standings.bye_points_for_row(tournament) |> Pairing.unplayed_code(tournament)
 

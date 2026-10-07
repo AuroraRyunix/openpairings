@@ -888,7 +888,10 @@ defmodule PairingsEngine.TournamentImport do
           # The game's identity, kept (`PostponedGames`); a payload written
           # before it existed leaves it to the database, which gives a new
           # one.
-          game_uid: game_uid(Map.get(pr, "game_uid"))
+          game_uid: game_uid(Map.get(pr, "game_uid")),
+          # A result corrected for the rating report only; nil for a payload
+          # without one, and for anything that is not a result code.
+          rating_result: rating_result(Map.get(pr, "rating_result"))
         )
         |> insert!("a pairing of round entry #{n}")
       end)
@@ -979,7 +982,7 @@ defmodule PairingsEngine.TournamentImport do
   # Valid `byes.type` values (see PairingsEngine.Standings.bye_points/2). An
   # imported row carrying anything else would score in nonstandard ways, so it
   # falls back to the neutral half-point bye rather than being trusted.
-  @bye_types ~w(requested-half requested-zero absent pairing-allocated)
+  @bye_types ~w(requested-half requested-zero absent pairing-allocated full-point)
 
   defp import_byes!(tournament, byes, player_map) do
     rows =
@@ -1042,6 +1045,12 @@ defmodule PairingsEngine.TournamentImport do
   # only the three values the column can hold survive.
   defp outcome_or_nil(value) when value in ~w(win draw loss), do: value
   defp outcome_or_nil(_), do: nil
+
+  defp rating_result(value) when is_binary(value) do
+    if value in PairingsEngine.Tournaments.rating_correction_codes(), do: value
+  end
+
+  defp rating_result(_), do: nil
 
   # A postponed game's agreed-date history: only the four string keys it is
   # written with, each a string or nil, so a hand-edited file cannot carry

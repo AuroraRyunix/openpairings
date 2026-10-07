@@ -315,6 +315,32 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 3, "pibe" => nil}
     ],
     "pairing.round_created_by_hand" => [%{"round" => 4}],
+    "pairing.full_point_bye_awarded" => [
+      %{"round" => 3, "summary" => "Anna Peeters scores a full point for round 3 without playing"}
+    ],
+    "pairing.full_point_bye_withdrawn" => [
+      %{"round" => 3, "summary" => "Anna Peeters is absent from round 3 again"}
+    ],
+    "pairing.rating_correction" => [
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Chris Maes",
+        "result" => "1-0",
+        "from" => nil,
+        "to" => "0-1"
+      },
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Chris Maes",
+        "result" => "1-0",
+        "from" => "0-1",
+        "to" => nil
+      }
+    ],
     "pairing.deleted" => [%{"round" => 3, "summary" => "Board 12 is removed from round 3"}],
     "pairing.match_forfeited" => [
       %{"round" => 3, "match" => 2, "winner" => "Brugse SK", "loser" => "Deurne"}

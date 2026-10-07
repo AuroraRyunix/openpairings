@@ -4878,7 +4878,7 @@ defmodule PairingsEngine.Pairing do
   # Listing the kinds rather than excluding "game" means a kind added later
   # falls back to the result code - today's behaviour - instead of silently
   # becoming a loss.
-  @bye_kinds ~w(requested-half requested-zero absent pairing-allocated zero)
+  @bye_kinds ~w(requested-half requested-zero absent pairing-allocated zero full-point)
 
   # A round with no board and no `byes` row: before the player joined (and
   # not counted as an absence - `PairingsEngine.LateEntry`), or after they
@@ -5317,6 +5317,30 @@ defmodule PairingsEngine.Pairing do
     }
   end
 
+  @doc """
+  The tournament's history as the report sent for rating has it: what
+  `trf_player_rows/3` takes as `shared_history`, with every board corrected
+  for the rating report only (`Tournaments.set_rating_correction/3`,
+  C.04.2:4.3) carrying its corrected result. Only `PairingsEngine.TrfExport`
+  reads it, for the TRF26 report; the pairing engine and the standings go
+  on reading the result the event used.
+  """
+  def rating_history(tournament) do
+    history = build_shared_history(tournament)
+
+    rounds =
+      Enum.map(history.rounds, fn round ->
+        %{round | pairings: Enum.map(round.pairings, &rated_pairing/1)}
+      end)
+
+    %{history | rounds: rounds}
+  end
+
+  defp rated_pairing(%{rating_result: rated} = pairing) when is_binary(rated),
+    do: %{pairing | result: rated}
+
+  defp rated_pairing(pairing), do: pairing
+
   # Adds each full-roster player's TRF game list to a shared history.
   #
   # `games_per_player/3` walks every round looking for each player's pairing
@@ -5535,5 +5559,10 @@ defmodule PairingsEngine.Pairing do
   defp bye_code("requested-zero"), do: "Z"
   defp bye_code("absent"), do: "Z"
   defp bye_code("pairing-allocated"), do: "U"
+  # The full-point bye (`Tournaments.award_full_point_bye/3`) is `F` whatever
+  # a win is worth: the letter is what tells the engine C.04.3 [C2] rules the
+  # player out of the pairing-allocated bye, so it is not left to
+  # `code_unplayed/2`'s reading of the value.
+  defp bye_code("full-point"), do: "F"
   defp bye_code(_), do: "Z"
 end

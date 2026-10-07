@@ -5583,6 +5583,7 @@ defmodule PairingsEngine.Tournaments do
       pairing
       |> Pairing.changeset(%{result: result})
       |> Ecto.Changeset.change(extra)
+      |> drop_rating_correction(pairing, result)
       |> Repo.update()
     end)
     |> tap_ok(fn updated ->
@@ -5600,6 +5601,85 @@ defmodule PairingsEngine.Tournaments do
       broadcast_tournament_change(tournament_id, :results)
       refresh_status!(tournament_id)
     end)
+  end
+
+  # A board's result changed the ordinary way: whatever was corrected for the
+  # rating report alone (`set_rating_correction/3`) described the result that
+  # is gone, so it goes with it.
+  defp drop_rating_correction(changeset, %Pairing{rating_result: nil}, _result), do: changeset
+  defp drop_rating_correction(changeset, %Pairing{result: result}, result), do: changeset
+
+  defp drop_rating_correction(changeset, _pairing, _result),
+    do: Ecto.Changeset.put_change(changeset, :rating_result, nil)
+
+  @doc """
+  Records `result` as the correction of `pairing`'s result for the rating
+  report only (C.04.2:4.3, VCL4THP Q192): the error was found after the end
+  of the round following the game's, so the pairings made since stand and
+  the board keeps its `result` for the pairings and the standings, while the
+  TRF26 report (`PairingsEngine.TrfExport`) writes `result` in the game's
+  `001` columns and says in a `###` line what the event used instead.
+
+  `nil`, or the board's own result, removes the correction. Refused with
+  `{:error, :rating_correction_too_early}` while the round after the game's
+  is still to be finished - a correction then is an ordinary one
+  (`update_pairing_result/3`) - and `{:error, :not_a_game}` for a bye, an
+  empty seat, a board without a result or a postponed game; a `result` that
+  is not a finished game's result is `{:error, :invalid_result}`.
+  """
+  def set_rating_correction(%Pairing{} = pairing, result, _opts \\ []) do
+    tournament_id = round_tournament_id(pairing.round_id)
+    fresh = Repo.get!(Pairing, pairing.id)
+    number = Repo.one(from r in Round, where: r.id == ^pairing.round_id, select: r.number)
+    result = if result in [nil, "", fresh.result], do: nil, else: result
+
+    cond do
+      refusal = write_refused(tournament_id) ->
+        refusal
+
+      is_nil(fresh.white_player_id) or is_nil(fresh.black_player_id) or
+        fresh.result in ["", "bye"] or PairingsEngine.Results.postponed?(fresh.result) ->
+        {:error, :not_a_game}
+
+      number >= last_played_round(tournament_id) ->
+        {:error, :rating_correction_too_early}
+
+      not is_nil(result) and result not in rating_correction_codes() ->
+        {:error, :invalid_result}
+
+      true ->
+        fresh
+        |> Ecto.Changeset.change(rating_result: result)
+        |> Repo.update()
+        |> tap_ok(fn _ -> broadcast_tournament_change(tournament_id, :results) end)
+    end
+  end
+
+  @doc "The results a board may be corrected to for the rating report."
+  def rating_correction_codes,
+    do: PairingsEngine.Results.entry_codes() -- ["" | PairingsEngine.Results.postponed_codes()]
+
+  @doc """
+  Every board of `tournament_id` corrected for the rating report only
+  (`set_rating_correction/3`), in round and board order, as `%{round:,
+  board:, white_id:, black_id:, result:, rating_result:}`.
+  """
+  def list_rating_corrections(tournament_id) do
+    Repo.all(
+      from p in Pairing,
+        join: r in Round,
+        on: r.id == p.round_id,
+        where: r.tournament_id == ^tournament_id and not is_nil(p.rating_result),
+        order_by: [r.number, p.board],
+        select: %{
+          round: r.number,
+          board: p.board,
+          white_id: p.white_player_id,
+          black_id: p.black_player_id,
+          result: p.result,
+          rating_result: p.rating_result
+        }
+    )
   end
 
   @doc """
@@ -6533,6 +6613,91 @@ defmodule PairingsEngine.Tournaments do
               delete_bye_row(round, player_id)
               created
           end
+        end)
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
+  Gives `player_id`, who sits out `round` (someone in `list_round_pool/2`,
+  at no board), a full-point bye for it: a full point for a round they do
+  not play, by the arbiter's or organiser's decision - TRF's `F`, not the
+  pairing-allocated bye (`U`) the pairing hands out. VCL4THP Q177.
+
+  Kept as the player's `"byes"` row for the round, of type `"full-point"`,
+  in place of the absence row that put them in the pool (if any). It scores
+  a win's points (`Standings.bye_points/4`), counts as an unplayed round
+  that is not voluntary for the tie-breaks (C.07), goes to the pairing
+  engine as `F` - after which C.04.3 [C2] rules the player out of the
+  pairing-allocated bye, as after the bye itself - and is written `F` in
+  the TRF with a `###` line saying so.
+
+  The regulations do not describe it: the Pairings page says so before it
+  is given (the TEC Manual's Level 2). Refused for Keizer and team events,
+  whose scoring has no such round (`{:error, :full_point_bye_unsupported}`),
+  and for a player seated in the round (`{:error, :already_seated}`).
+  """
+  def award_full_point_bye(%Round{} = round, player_id, opts \\ []) do
+    set_pool_bye_type(round, player_id, "full-point", opts)
+  end
+
+  @doc """
+  Takes back a full-point bye (`award_full_point_bye/3`): the player stays
+  out of the round, as an absence again (`"absent"`).
+  """
+  def withdraw_full_point_bye(%Round{} = round, player_id, opts \\ []) do
+    if pool_bye_type(round, player_id) == "full-point",
+      do: set_pool_bye_type(round, player_id, "absent", opts),
+      else: {:error, :no_full_point_bye}
+  end
+
+  @doc "Whether `tournament` can give a full-point bye (`award_full_point_bye/3`)."
+  def full_point_bye_supported?(%Tournament{} = t),
+    do: t.pairing_system != "keizer" and not Tournament.team?(t)
+
+  defp pool_bye_type(%Round{} = round, player_id) do
+    Repo.one(
+      from b in "byes",
+        where:
+          b.tournament_id == ^round.tournament_id and b.round == ^round.number and
+            b.player_id == ^player_id,
+        select: b.type
+    )
+  end
+
+  defp set_pool_bye_type(%Round{} = round, player_id, type, opts) do
+    tournament = Repo.get!(Tournament, round.tournament_id)
+
+    cond do
+      refusal = write_refused(round.tournament_id) ->
+        refusal
+
+      not full_point_bye_supported?(tournament) ->
+        {:error, :full_point_bye_unsupported}
+
+      refusal = sent_round_refused(round, opts) ->
+        refusal
+
+      not player_belongs_to_tournament?(round.tournament_id, player_id) ->
+        {:error, :invalid_player}
+
+      player_seated_in_round?(round.id, player_id) ->
+        {:error, :already_seated}
+
+      true ->
+        Repo.transaction(fn ->
+          delete_bye_row(round, player_id)
+
+          Repo.insert_all("byes", [
+            %{
+              tournament_id: round.tournament_id,
+              player_id: player_id,
+              round: round.number,
+              type: type
+            }
+          ])
+
+          %{player_id: player_id, round: round.number, type: type}
         end)
         |> finish_round_write(round.tournament_id)
     end

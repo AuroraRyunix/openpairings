@@ -186,9 +186,9 @@ defmodule PairingsEngine.TrfImportAdjustmentsTest do
       assert %{count: 1, rounds: [1]} = find(review!(trf(games)), :dangling_opponents)
     end
 
-    test "a full-point bye merged into the pairing-allocated bye" do
+    test "a full-point bye is no longer an adjustment: it is kept as one (VCL4THP Q177)" do
       games = %{1 => [game(2, "w", "=")], 2 => [game(1, "b", "=")], 3 => [nobody("F")]}
-      assert %{count: 1, rounds: [1]} = find(review!(trf(games)), :full_point_byes_merged)
+      refute find(review!(trf(games)), :full_point_byes_merged)
     end
 
     test "rounds of a system that cannot be checked" do

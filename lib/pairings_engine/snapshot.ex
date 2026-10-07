@@ -121,16 +121,17 @@ defmodule PairingsEngine.Snapshot do
   # database keeps whatever it has.
   @legacy_results %{"+--" => "1-0FF", "--+" => "0-1FF"}
 
-  # `byes` table types -> the contract's bye kinds. "full-point" is in the
-  # contract's vocabulary but has no counterpart here; an unrecognised type
-  # travels verbatim rather than being reported as something it is not - a bye
-  # type added to this app later is better read as unknown by OpenResults than
-  # read as the wrong thing.
+  # `byes` table types -> the contract's bye kinds, "full-point" the
+  # arbiter's full-point bye (`Tournaments.award_full_point_bye/3`). An
+  # unrecognised type travels verbatim rather than being reported as something
+  # it is not - a bye type added to this app later is better read as unknown
+  # by OpenResults than read as the wrong thing.
   @bye_kinds %{
     "requested-half" => "half-point",
     "requested-zero" => "zero-point",
     "absent" => "absent",
-    "pairing-allocated" => "pairing-allocated"
+    "pairing-allocated" => "pairing-allocated",
+    "full-point" => "full-point"
   }
 
   @doc """

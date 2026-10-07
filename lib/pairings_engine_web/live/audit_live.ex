@@ -113,7 +113,9 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.match_score_cleared
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
-        pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand)},
+        pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand
+        pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
+        pairing.rating_correction)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -660,6 +662,50 @@ defmodule PairingsEngineWeb.AuditLive do
           round: value(d, "round")
         ),
         d
+      )
+
+  # The arbiter's full-point bye (VCL4THP Q177) and taking it back.
+  def describe("pairing.full_point_bye_awarded", d),
+    do:
+      hand_edit(
+        gettext("Gave a player who was not playing round %{round} a full-point bye.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  def describe("pairing.full_point_bye_withdrawn", d),
+    do:
+      hand_edit(
+        gettext("Took back a full-point bye in round %{round}: the player is absent again.",
+          round: value(d, "round")
+        ),
+        d
+      )
+
+  # A result corrected for the rating report only (C.04.2:4.3, VCL4THP
+  # Q192): the board's own result is untouched, so the sentence names both.
+  def describe("pairing.rating_correction", %{"to" => to} = d) when is_binary(to),
+    do:
+      gettext(
+        "Round %{round}, board %{board} (%{white} - %{black}): for the rating report the result is %{to}; the pairings and standings keep %{result}.",
+        round: value(d, "round"),
+        board: value(d, "board"),
+        white: value(d, "white"),
+        black: value(d, "black"),
+        to: to,
+        result: value(d, "result")
+      )
+
+  def describe("pairing.rating_correction", d),
+    do:
+      gettext(
+        "Round %{round}, board %{board} (%{white} - %{black}): the correction for the rating report was removed; the report has %{result} again.",
+        round: value(d, "round"),
+        board: value(d, "board"),
+        white: value(d, "white"),
+        black: value(d, "black"),
+        result: value(d, "result")
       )
 
   # A round's manual pairing alteration (VCL4THP Q65-Q69): its start, its

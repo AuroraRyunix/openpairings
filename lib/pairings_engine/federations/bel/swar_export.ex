@@ -1601,6 +1601,20 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
           played?: false
         }
 
+      # The arbiter's full-point bye (`Tournaments.award_full_point_bye/3`):
+      # SWAR has no kind of its own for it, so it travels as the win bye it
+      # pays like, at no table - not `TABLE_BYE`, which is the pairing's.
+      bye && bye.type == "full-point" ->
+        %{
+          round_nr: bye.round,
+          table: 0,
+          advers: 0,
+          colour: 0,
+          result: 0x0040,
+          points: 1.0,
+          played?: false
+        }
+
       # A declared absence - a real "absent" row, or a round before the
       # player joined that counts as one (`LateEntry`, merged into `byes`
       # by `export/1`). Scored by `build_round_records/4`, which keeps the

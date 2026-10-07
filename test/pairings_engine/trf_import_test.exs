@@ -476,14 +476,14 @@ defmodule PairingsEngine.TrfImportTest do
     assert find_for.(r1, foxtrot).result == "bye"
 
     # Round 2: Alpha forfeit-wins vs Charlie ("+"/"-" -> "1-0FF"); Bravo's
-    # unpaired "F" (full-point bye) collapses to the same "bye" Pairing row
-    # kind (OpenPairings has no separate full-point-bye type - see
-    # docs/trf-import.md).
+    # unpaired "F" is the arbiter's full-point bye - a "full-point" byes row,
+    # not a board (VCL4THP Q177; it was folded into the pairing-allocated
+    # bye until that kind existed).
     r2_pairing = find_for.(r2, alpha)
     assert r2_pairing.white_player_id == alpha.id
     assert r2_pairing.black_player_id == charlie.id
     assert r2_pairing.result == "1-0FF"
-    assert find_for.(r2, bravo).result == "bye"
+    assert find_for.(r2, bravo) == nil
 
     # Round 3: Alpha/Delta double forfeit ("-"/"-" -> "0-0FF").
     r3_pairing = find_for.(r3, alpha)
@@ -512,7 +512,13 @@ defmodule PairingsEngine.TrfImportTest do
         )
       )
 
-    # Bravo: "H" (round 3) -> requested-half, "Z" (round 4) -> requested-zero.
+    # Bravo: "F" (round 2) -> full-point, "H" (round 3) -> requested-half,
+    # "Z" (round 4) -> requested-zero.
+    assert Enum.any?(
+             byes,
+             &(&1.player_id == bravo.id and &1.round == 2 and &1.type == "full-point")
+           )
+
     assert Enum.any?(
              byes,
              &(&1.player_id == bravo.id and &1.round == 3 and &1.type == "requested-half")
@@ -617,9 +623,16 @@ defmodule PairingsEngine.TrfImportTest do
       bye = Enum.find(byes, &(&1.player_id == player.id))
 
       case bucket(code) do
+        :full when code == "F" ->
+          # The full-point bye is the arbiter's, a byes-table row of its own
+          # kind (VCL4THP Q177), not the pairing's bye.
+          assert bye, "F should have become a byes-table row"
+          assert bye.type == "full-point"
+          refute pairing, "F should not also produce a pairing row"
+
         :full ->
-          # OpenPairings has one "full points, no game" row: a pairing with
-          # no black player (see docs/trf-import.md).
+          # Every other full point with no game is the pairing-allocated bye:
+          # a pairing with no black player (see docs/trf-import.md).
           assert pairing, "#{code} should have become a pairing-row bye"
           assert pairing.black_player_id == nil
           assert pairing.result == "bye"

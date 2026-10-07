@@ -481,6 +481,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   defp bye_type_label("requested-half"), do: "requested half-point bye"
   defp bye_type_label("requested-zero"), do: "requested zero-point bye"
   defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label("full-point"), do: "full-point bye"
   defp bye_type_label(other), do: other
 
   defp format_tb(value) when is_float(value) do

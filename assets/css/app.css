@@ -1750,6 +1750,30 @@ button.pe-btn, .pe-btn {
 }
 .pe-btn.danger-link:hover { text-decoration: underline; background: none; }
 
+/* A result corrected for the rating report only (C.04.2:4.3): a quiet line
+   under the board's result, never louder than the result itself. */
+.rating-fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.85em;
+}
+.rating-fix-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rating-fix .hint { margin: 0; flex-basis: 100%; }
+.rating-fix-link {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  color: var(--text-soft);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  transition: color 120ms ease;
+}
+.rating-fix-link:hover:not(:disabled) { color: var(--accent); }
+.rating-fix-link:disabled { cursor: default; opacity: 0.5; }
+
 .pe-btn.danger { background: var(--danger); border-color: var(--danger); color: var(--danger-ink); }
 /* The hover used to be `color-mix(--danger 82%, black)`. That was the right
    idea against a fixed white text, but --danger-ink is near-black in three of

@@ -126,6 +126,9 @@ defmodule PairingsEngineWeb.PairingsLive do
        # arbiter confirms it (`%{pairing_id:, result:}`) - VCL4THP Q163, see
        # `handle_event("confirm_postponed_result", ...)`.
        confirm_postponed: nil,
+       # The board whose result is being corrected for the rating report
+       # only (C.04.2:4.3, VCL4THP Q192) - see "open_rating_fix".
+       rating_fix: nil,
        # The board whose result select takes focus back when it reappears:
        # the clear-confirmation box replaces the select that had focus, and
        # without this closing the box dropped the keyboard at the top of the
@@ -327,6 +330,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         # occurrence - which is why this was easy to miss.
         absent_counts: Standings.absent_counts(t),
         paired_rounds: paired,
+        # A round whose next round is over: a result found wrong now is
+        # corrected for the rating report only (C.04.2:4.3, VCL4THP Q192).
+        rating_fix_open?: round != nil and n < Tournaments.last_played_round(t.id),
         next_pairable: paired + 1,
         setup_complete: setup_complete,
         missing_setup: missing_setup,
@@ -972,6 +978,27 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("stage_pool_bye", _params, socket), do: {:noreply, socket}
 
+  # The arbiter's full-point bye for a pool player, and taking it back
+  # (VCL4THP Q177/Q178): staged like every hand edit, so the dialog can say
+  # first that the regulations do not describe it (Level 2).
+  def handle_event("stage_pool_fpb", %{"player-id" => id}, socket) do
+    case parse_id(id) do
+      nil -> {:noreply, socket}
+      player_id -> {:noreply, stage(socket, {:pool_fpb, player_id})}
+    end
+  end
+
+  def handle_event("stage_pool_fpb", _params, socket), do: {:noreply, socket}
+
+  def handle_event("stage_pool_fpb_withdraw", %{"player-id" => id}, socket) do
+    case parse_id(id) do
+      nil -> {:noreply, socket}
+      player_id -> {:noreply, stage(socket, {:pool_fpb_withdraw, player_id})}
+    end
+  end
+
+  def handle_event("stage_pool_fpb_withdraw", _params, socket), do: {:noreply, socket}
+
   def handle_event("stage_fill", %{"pairing-id" => pid, "player-id" => plid}, socket) do
     with pairing_id when not is_nil(pairing_id) <- parse_id(pid),
          player_id when not is_nil(player_id) <- parse_id(plid) do
@@ -1269,6 +1296,59 @@ defmodule PairingsEngineWeb.PairingsLive do
       _ -> {:noreply, socket |> assign(confirm_postponed: nil) |> refresh()}
     end
   end
+
+  ## ---------- Correcting a result for the rating report only ----------
+  #
+  # C.04.2:4.3: a wrong result found after the end of the next round is
+  # corrected after the tournament and only for the rating report. The
+  # board keeps its result for the pairings and the standings; the
+  # corrected one goes in the TRF, with a `###` line saying what the event
+  # used (VCL4THP Q192/Q193, `Tournaments.set_rating_correction/3`).
+  def handle_event("open_rating_fix", %{"pairing-id" => id}, socket) do
+    {:noreply, assign(socket, rating_fix: parse_id(id))}
+  end
+
+  def handle_event("cancel_rating_fix", _params, socket),
+    do: {:noreply, assign(socket, rating_fix: nil)}
+
+  def handle_event(
+        "save_rating_fix",
+        %{"pairing-id" => id, "rating_result" => rated},
+        socket
+      ) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    case Enum.find(socket.assigns.round.pairings, &(to_string(&1.id) == id)) do
+      nil ->
+        {:noreply, socket |> assign(rating_fix: nil) |> refresh()}
+
+      pairing ->
+        case Tournaments.set_rating_correction(pairing, rated) do
+          {:ok, updated} ->
+            Audit.log(t.id, socket.assigns.current_scope, "pairing.rating_correction", %{
+              pairing_id: pairing.id,
+              round: round_number,
+              board: pairing.board,
+              white: player_name(pairing.white_player),
+              black: player_name(pairing.black_player),
+              result: pairing.result,
+              from: pairing.rating_result,
+              to: updated.rating_result
+            })
+
+            {:noreply, socket |> assign(rating_fix: nil) |> refresh()}
+
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, error_text(reason))
+             |> assign(rating_fix: nil)
+             |> refresh()}
+        end
+    end
+  end
+
+  def handle_event("save_rating_fix", _params, socket), do: {:noreply, socket}
 
   def handle_event("cancel_postponed_result", _params, socket) do
     refocus = socket.assigns.confirm_postponed && socket.assigns.confirm_postponed.pairing_id
@@ -1867,6 +1947,61 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  defp confirm_for(socket, {:pool_fpb, player_id}) do
+    %{round: round, round_pool: pool, round_number: n, tournament: t} = socket.assigns
+
+    if round && pool_member?(pool, player_id) && Tournaments.full_point_bye_supported?(t) do
+      name = display_name(socket, player_id)
+
+      {:ok,
+       %{
+         kind: :pool_fpb,
+         player_id: player_id,
+         title: gettext("Give a full-point bye"),
+         subtitle:
+           gettext("%{name} scores a full point for round %{n} without playing",
+             name: name,
+             n: n
+           ),
+         changes: [],
+         note:
+           gettext(
+             "Worth %{points} pt, what a win is worth. The TRF writes it as F, with a ### line saying so, and the player cannot get the pairing-allocated bye in a later round.",
+             points: t.points_win
+           ),
+         # The TEC Manual's Level 2: an action the regulations do not
+         # describe, said before it is done; applying it is the
+         # acknowledgement.
+         level2:
+           gettext(
+             "Full-point byes are not described by the pairing regulations and should stay exceptional. Make sure this one is intended."
+           )
+       }}
+    else
+      {:error, :not_in_round}
+    end
+  end
+
+  defp confirm_for(socket, {:pool_fpb_withdraw, player_id}) do
+    %{round: round, round_pool: pool, round_number: n} = socket.assigns
+
+    if round && Enum.any?(pool, &(&1.player.id == player_id and &1.type == "full-point")) do
+      name = display_name(socket, player_id)
+
+      {:ok,
+       %{
+         kind: :pool_fpb_withdraw,
+         player_id: player_id,
+         title: gettext("Take back the full-point bye"),
+         subtitle: gettext("%{name} is absent from round %{n} again", name: name, n: n),
+         changes: [],
+         note: gettext("They score what the tournament pays for an absence instead.")
+       }}
+    else
+      {:error, :not_in_round}
+    end
+  end
+
   defp confirm_for(socket, {:delete_pairing, pairing_id}) do
     with {:ok, pairing} <- fetch_pairing(socket.assigns.round, pairing_id) do
       {:ok,
@@ -2040,6 +2175,12 @@ defmodule PairingsEngineWeb.PairingsLive do
         %{kind: :pool_bye, player_id: p, board: board} ->
           Tournaments.award_pool_bye(round, p, board, ack)
 
+        %{kind: :pool_fpb, player_id: p} ->
+          Tournaments.award_full_point_bye(round, p, ack)
+
+        %{kind: :pool_fpb_withdraw, player_id: p} ->
+          Tournaments.withdraw_full_point_bye(round, p, ack)
+
         %{kind: :delete_pairing, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
                do: Tournaments.delete_pairing(round, pairing)
@@ -2048,8 +2189,10 @@ defmodule PairingsEngineWeb.PairingsLive do
     case result do
       {:ok, _} ->
         # The first hand edit of a round opens its manual pairing
-        # alteration, from the boards as they were before it (Q65).
-        implicit_mpa_start(socket, round)
+        # alteration, from the boards as they were before it (Q65). A
+        # full-point bye moves nobody on or off a board, so it does not.
+        if confirm.kind not in [:pool_fpb, :pool_fpb_withdraw],
+          do: implicit_mpa_start(socket, round)
 
         Audit.log(
           t.id,
@@ -2097,6 +2240,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp audit_action(:fill), do: "pairing.seat_filled"
   defp audit_action(:pool_pair), do: "pairing.pool_paired"
   defp audit_action(:pool_bye), do: "pairing.bye_awarded"
+  defp audit_action(:pool_fpb), do: "pairing.full_point_bye_awarded"
+  defp audit_action(:pool_fpb_withdraw), do: "pairing.full_point_bye_withdrawn"
   defp audit_action(:delete_pairing), do: "pairing.deleted"
 
   ## ---------- Manual pairing alteration: helpers ----------
@@ -3200,6 +3345,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp bye_type_label("requested-half"), do: "requested half-point bye"
   defp bye_type_label("requested-zero"), do: "requested zero-point bye"
   defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label("full-point"), do: "full-point bye"
   defp bye_type_label(other), do: other
 
   # Cosmetic-only: under `rr_match_format`/`swiss_match_format`, round
@@ -3808,17 +3954,97 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp put_here_name(:black, board),
     do: gettext("Put them here: black on board %{board}", board: board)
 
+  # A board whose result can be corrected for the rating report only: a
+  # finished game between two players (`Tournaments.set_rating_correction/3`).
+  defp rating_fixable?(pairing) do
+    not is_nil(pairing.white_player_id) and not is_nil(pairing.black_player_id) and
+      pairing.result not in ["", "bye"] and
+      not PairingsEngine.Results.postponed?(pairing.result)
+  end
+
+  # Under a board's result, in a round whose next round is over: the result
+  # corrected for the rating report only (C.04.2:4.3), and the control that
+  # records it. The board's own result stays what the pairings and the
+  # standings used.
+  attr :pairing, :map, required: true
+  attr :editing, :boolean, required: true
+  attr :board, :any, required: true
+  attr :archived, :boolean, default: false
+
+  defp rating_fix(assigns) do
+    ~H"""
+    <div class="rating-fix" id={"rating-fix-#{@pairing.id}"}>
+      <%= if @editing do %>
+        <form
+          id={"rating-fix-form-#{@pairing.id}"}
+          phx-submit="save_rating_fix"
+          class="rating-fix-form"
+        >
+          <input type="hidden" name="pairing-id" value={@pairing.id} />
+          <select
+            name="rating_result"
+            class="pe-select"
+            id={"rating-fix-select-#{@pairing.id}"}
+            aria-label={gettext("Result for the rating report, board %{board}", board: @board)}
+            aria-describedby={"rating-fix-hint-#{@pairing.id}"}
+            phx-mounted={JS.focus()}
+          >
+            <.result_options result={@pairing.rating_result || @pairing.result} />
+          </select>
+          <button type="submit" class="pe-btn primary" id={"rating-fix-save-#{@pairing.id}"}>
+            {gettext("Save")}
+          </button>
+          <button type="button" class="pe-btn" phx-click="cancel_rating_fix">
+            {gettext("Cancel")}
+          </button>
+        </form>
+        <p class="hint" id={"rating-fix-hint-#{@pairing.id}"}>
+          {gettext(
+            "For the rating report only: the pairings and standings keep %{result}, and the TRF says so.",
+            result: @pairing.result
+          )}
+        </p>
+      <% else %>
+        <span
+          :if={@pairing.rating_result}
+          class="badge"
+          id={"rating-fix-badge-#{@pairing.id}"}
+          title={gettext("The pairings and standings keep %{result}.", result: @pairing.result)}
+        >
+          {gettext("Rated as %{result}", result: @pairing.rating_result)}
+        </span>
+        <button
+          type="button"
+          class="rating-fix-link"
+          id={"rating-fix-open-#{@pairing.id}"}
+          phx-click="open_rating_fix"
+          phx-value-pairing-id={@pairing.id}
+          disabled={@archived}
+        >
+          {if @pairing.rating_result,
+            do: gettext("Change"),
+            else: gettext("Correct for rating…")}
+        </button>
+      <% end %>
+    </div>
+    """
+  end
+
   # The right-click menu. Fixed-positioned at the click point, so it opens
   # where the pointer is instead of at the top of the page.
   attr :menu, :map, required: true
   attr :round, :any, required: true
   attr :tournament, :map, required: true
+  attr :pool, :list, default: []
 
   defp pairing_menu(assigns) do
     pairing = assigns.menu.pairing_id && find_pairing(assigns.round, assigns.menu.pairing_id)
+    pool_entry = Enum.find(assigns.pool, &(&1.player.id == assigns.menu.player_id))
 
     assigns =
       assign(assigns,
+        fpb_supported?: Tournaments.full_point_bye_supported?(assigns.tournament),
+        has_fpb?: pool_entry != nil and pool_entry.type == "full-point",
         vacancies: length(vacant_pairings(assigns.round)),
         fully_vacant?: pairing != nil and fully_vacant?(pairing),
         pairing_hidden?: pairing != nil and pairing.hidden,
@@ -3902,6 +4128,28 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-value-player-id={@menu.player_id}
             >
               {gettext("Give the pairing-allocated bye")}
+            </button>
+
+            <button
+              :if={@fpb_supported? and not @has_fpb?}
+              type="button"
+              role="menuitem"
+              id="menu-give-fpb"
+              phx-click="stage_pool_fpb"
+              phx-value-player-id={@menu.player_id}
+            >
+              {gettext("Give a full-point bye…")}
+            </button>
+
+            <button
+              :if={@has_fpb?}
+              type="button"
+              role="menuitem"
+              id="menu-withdraw-fpb"
+              phx-click="stage_pool_fpb_withdraw"
+              phx-value-player-id={@menu.player_id}
+            >
+              {gettext("Take back the full-point bye…")}
             </button>
           <% "vacant" -> %>
             <button
@@ -4965,7 +5213,13 @@ defmodule PairingsEngineWeb.PairingsLive do
         <span>{gettext("Which empty seat should they take? Click one below.")}</span>
         <button type="button" class="pe-btn" phx-click="cancel_seat_pick">{gettext("Cancel (Esc)")}</button>
       </div>
-      <.pairing_menu :if={@menu} menu={@menu} round={@round} tournament={@tournament} />
+      <.pairing_menu
+        :if={@menu}
+        menu={@menu}
+        round={@round}
+        tournament={@tournament}
+        pool={@round_pool}
+      />
       <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
         <div
           class="pe-modal-card pe-modal-wide"
@@ -5040,6 +5294,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             </label>
 
             <p :if={@confirm.note} class="pe-modal-note">{@confirm.note}</p>
+
+            <%!-- The TEC Manual's Level 2 (a full-point bye, VCL4THP Q178):
+                  said, not ticked - applying is the acknowledgement. --%>
+            <p :if={@confirm[:level2]} id="confirm-level2" class="pe-modal-warn" role="status">
+              {@confirm.level2}
+            </p>
 
             <p
               :if={match?({:ok, _}, @confirm[:team_note])}
@@ -5639,6 +5899,14 @@ defmodule PairingsEngineWeb.PairingsLive do
                         />
                       </select>
                     </form>
+
+                    <.rating_fix
+                      :if={@rating_fix_open? and rating_fixable?(pairing)}
+                      pairing={pairing}
+                      editing={@rating_fix == pairing.id}
+                      board={display_board}
+                      archived={!is_nil(@tournament.archived_at)}
+                    />
                 <% end %>
               </td>
 
