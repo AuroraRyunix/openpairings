@@ -203,6 +203,12 @@ defmodule PairingsEngineWeb.AdminLive do
     >
       <h1>{gettext("Admin")}</h1>
 
+      <p>
+        <.link id="admin-rating-inbox-link" navigate={~p"/admin/rating-inbox"}>
+          {gettext("Rating period inbox")}
+        </.link>
+      </p>
+
       <div class="set-card">
         <h2>{gettext("Who may administer this installation")}</h2>
         <p class="hint">

@@ -1011,6 +1011,15 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               <span class="badge muted">{gettext("Soon")}</span>
             </button>
 
+            <.link
+              :if={PairingsEngine.Authz.may_administer?(@current_scope.user)}
+              id="rating-inbox-link"
+              class="pe-btn"
+              navigate={~p"/admin/rating-inbox"}
+            >
+              {gettext("Rating period inbox")}
+            </.link>
+
             <a
               class="trf-all-link"
               style="margin-left: auto"
