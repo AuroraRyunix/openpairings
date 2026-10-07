@@ -127,3 +127,11 @@ config :pairings_engine, :connection_poll_interval, :disabled
 # test depends on a coin. Tests of the draw itself pass their own lot to
 # `Tournaments.ensure_initial_colour/2`.
 config :pairings_engine, :initial_colour_lot, {PairingsEngine.Tournaments, :fixed_lot, ["white"]}
+
+# No test (and no dev session) reaches ratings.fide.com on its own; the daily
+# update is exercised by starting its own instance. See PairingsEngine.Fide.AutoSync.
+config :pairings_engine, :fide_auto_sync, false
+
+# The check before a requested rating comparison asks FIDE with a HEAD request;
+# no test reaches the network - those that need an answer stub this plug.
+config :pairings_engine, :fide_req_options, plug: {Req.Test, PairingsEngine.Fide.FreshnessTest}

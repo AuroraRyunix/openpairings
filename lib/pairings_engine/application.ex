@@ -52,6 +52,7 @@ defmodule PairingsEngine.Application do
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,
+      PairingsEngine.Fide.AutoSync,
       # Always supervised, even on a machine where nobody has the Belgian
       # pack's rating-list sync switched on. Three reasons, in order of
       # weight:
