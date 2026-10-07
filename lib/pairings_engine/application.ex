@@ -49,6 +49,8 @@ defmodule PairingsEngine.Application do
       PairingsEngine.StandingsCache,
       # The latest next-round preview per tournament, for the print view.
       PairingsEngine.NextRoundPreview.Cache,
+      # Every outcome it has paired, so an entered result costs no pairing.
+      PairingsEngine.NextRoundPreview.Memo,
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,

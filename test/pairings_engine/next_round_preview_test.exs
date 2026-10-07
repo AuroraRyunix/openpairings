@@ -7,6 +7,13 @@ defmodule PairingsEngine.NextRoundPreviewTest do
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
+  # Outcomes remembered by an earlier test would make a run here cheaper
+  # than the one the test describes (`NextRoundPreview.Memo`).
+  setup do
+    PairingsEngine.NextRoundPreview.Memo.clear()
+    :ok
+  end
+
   # Seats as `NextRoundPreview.seats/1` returns them.
   defp w(opponent, label), do: {opponent, :white, label}
   defp b(opponent, label), do: {opponent, :black, label}

@@ -115,7 +115,9 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
         pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
-        pairing.rating_correction pibe.correction)},
+        pairing.rating_correction pibe.correction
+        pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
+        pairing.announcement_compared pairing.announcement_acknowledged)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -577,6 +579,86 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.result_cleared", d),
     do: sentences([result_sentence(:cleared, d), phone_sentence(d)])
+
+  def describe("pairing.boards_announced", d) do
+    boards = Enum.map_join(d["boards"] || [], "; ", &announced_board_text/1)
+
+    sentences(
+      [
+        ngettext(
+          "Announced 1 board of round %{round}: %{boards}.",
+          "Announced %{count} boards of round %{round}: %{boards}.",
+          length(d["boards"] || []),
+          round: value(d, "round"),
+          boards: boards
+        ),
+        d["via"] == "print" && gettext("By printing the fixed boards."),
+        (d["replaced"] || []) != [] &&
+          gettext("Replaced: %{boards}.",
+            boards: Enum.map_join(d["replaced"], "; ", &announced_board_text/1)
+          )
+      ]
+      |> Enum.map(&(&1 || nil))
+    )
+  end
+
+  def describe("pairing.announcement_withdrawn", d),
+    do:
+      ngettext(
+        "Withdrew the announcement of round %{round} (1 board).",
+        "Withdrew the announcement of round %{round} (%{count} boards).",
+        count(d, "boards"),
+        round: value(d, "round")
+      )
+
+  def describe("pairing.announcement_checked", d) do
+    case d["no_longer_certain"] || [] do
+      [] ->
+        gettext("Checked the announced boards of round %{round}: all still certain.",
+          round: value(d, "round")
+        )
+
+      boards ->
+        gettext("Checked the announced boards of round %{round}; no longer certain: %{boards}.",
+          round: value(d, "round"),
+          boards: Enum.map_join(boards, "; ", &announced_board_text/1)
+        )
+    end
+  end
+
+  def describe("pairing.announcement_compared", d) do
+    case d["changed"] || [] do
+      [] ->
+        ngettext(
+          "Round %{round} paired: the announced board holds.",
+          "Round %{round} paired: all %{count} announced boards hold.",
+          count(d, "announced"),
+          round: value(d, "round")
+        )
+
+      changed ->
+        gettext(
+          "Round %{round} paired: %{changed} of %{count} announced boards differ - %{boards}.",
+          round: value(d, "round"),
+          changed: length(changed),
+          count: value(d, "announced"),
+          boards:
+            Enum.map_join(changed, "; ", fn c ->
+              announced_board_text(c["announced"] || %{}) <>
+                " → " <> actual_board_text(c["actual"])
+            end)
+        )
+    end
+  end
+
+  def describe("pairing.announcement_acknowledged", d),
+    do:
+      ngettext(
+        "Acknowledged that 1 announced board of round %{round} differs from the pairing.",
+        "Acknowledged that %{count} announced boards of round %{round} differ from the pairing.",
+        count(d, "changed"),
+        round: value(d, "round")
+      )
 
   def describe("pairing.round_deleted", d),
     do: gettext("Unpaired round %{round}.", round: value(d, "round"))
@@ -2100,6 +2182,28 @@ defmodule PairingsEngineWeb.AuditLive do
   ## ---------- detail helpers (details use string keys after JSON round-trip) ----------
 
   defp sentences(list), do: list |> Enum.reject(&is_nil/1) |> Enum.join(" ")
+
+  # An announced board as the audit row stores it (`BoardAnnouncements.audit_board/1`).
+  defp announced_board_text(b) do
+    gettext("board %{b}: %{white} – %{black}",
+      b: b["board"] || "?",
+      white: b["white"] || "?",
+      black: b["black"] || "?"
+    )
+  end
+
+  defp actual_board_text(nil), do: gettext("not paired")
+
+  defp actual_board_text(%{"black" => nil} = a),
+    do: gettext("board %{b}: %{white}, bye", b: a["label"] || "?", white: a["white"] || "?")
+
+  defp actual_board_text(a) do
+    gettext("board %{b}: %{white} – %{black}",
+      b: a["label"] || "?",
+      white: a["white"] || "?",
+      black: a["black"] || "?"
+    )
+  end
 
   # The sent receipt's codes (`PairingsEngine.SentReceipts`), on a send
   # recorded since receipts exist; nothing on an older row.

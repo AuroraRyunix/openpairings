@@ -17,6 +17,21 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Announced boards.** The next-round preview can record that the
+  name cards of its fixed boards are going out: **Announce fixed boards**, or
+  print them with "these cards go out now" ticked. The Pairings page shows the
+  announced boards of the coming round, can withdraw them, warns when a
+  result, a player or a setting changes in a way that could break them, and
+  **Check again** lists the ones no longer certain. When the round is paired,
+  any announced board whose opponent, colours or board number differ is shown
+  in a warning that cannot be missed, announced next to paired, until you
+  confirm the cards are re-printed; when they all hold, a short line says so.
+  The pairing is never changed to match an announcement. Everything goes into
+  the audit trail.
+- [Performance] **The next-round preview remembers what it has paired.**
+  Entering a result for one of the open games updates the preview at once,
+  without pairing anything again; clearing a result pairs only the
+  combinations that are new. Any other change works it out in full, as before.
 - [Fix] **A player listed twice in "Add player".** A KBSB member whose entry
   on the national list has no FIDE id showed up a second time as the matching
   Belgian FIDE entry. Same name and birth year now make one line, carrying

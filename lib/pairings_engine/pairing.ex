@@ -607,6 +607,17 @@ defmodule PairingsEngine.Pairing do
   engine's field as parsed, so that each outcome only re-ranks it.
   """
   def preview_context(%Tournament{} = tournament) do
+    with {:ok, checked} <- preview_check(tournament), do: {:ok, build_preview_context(checked)}
+  end
+
+  @doc """
+  `preview_context/1`'s refusals without the work: `{:ok, %{tournament:,
+  round_number:, next_number:, active:}}` when the next round could be
+  previewed, or the `{:error, reason}` `preview_context/1` would return.
+  Cheap - a few small reads - so a preview whose outcomes are all known
+  already (`PairingsEngine.NextRoundPreview.Memo`) asks this instead.
+  """
+  def preview_check(%Tournament{} = tournament) do
     tournament = %{tournament | bye_exclusion_override: nil}
     paired = paired_rounds_count(tournament.id)
     next_number = paired + 1
@@ -632,34 +643,36 @@ defmodule PairingsEngine.Pairing do
         {:error, :too_few_players}
 
       true ->
-        # `dispatch_swiss/1` numbers a player who has none yet
-        # (`ensure_pairing_numbers/2`) before it reads the history; here
-        # the numbers go into the history's roster in memory instead - a
-        # late entrant's, and those of the players they move down - and
-        # Baku's line moves with them as it will on disk.
-        {numbers, group_a_last} = new_pairing_numbers(tournament, active)
-        tournament = %{tournament | baku_group_a_last: group_a_last}
-
-        history =
-          tournament
-          |> build_shared_history()
-          |> with_pairing_numbers(numbers)
-          |> then(&precompute_games(tournament, &1))
-
-        # Group A read once here rather than once per outcome, for the rare
-        # Baku event that has none stored yet (see `baku_group_a_last/2`).
-        tournament = with_baku_group_a(tournament, Map.values(history.full_roster))
-
         {:ok,
          %{
            tournament: tournament,
            round_number: paired,
            next_number: next_number,
-           active: active,
-           history: history,
-           base: nil
+           active: active
          }}
     end
+  end
+
+  defp build_preview_context(%{tournament: tournament, active: active} = checked) do
+    # `dispatch_swiss/1` numbers a player who has none yet
+    # (`ensure_pairing_numbers/2`) before it reads the history; here
+    # the numbers go into the history's roster in memory instead - a
+    # late entrant's, and those of the players they move down - and
+    # Baku's line moves with them as it will on disk.
+    {numbers, group_a_last} = new_pairing_numbers(tournament, active)
+    tournament = %{tournament | baku_group_a_last: group_a_last}
+
+    history =
+      tournament
+      |> build_shared_history()
+      |> with_pairing_numbers(numbers)
+      |> then(&precompute_games(tournament, &1))
+
+    # Group A read once here rather than once per outcome, for the rare
+    # Baku event that has none stored yet (see `baku_group_a_last/2`).
+    tournament = with_baku_group_a(tournament, Map.values(history.full_roster))
+
+    Map.merge(checked, %{tournament: tournament, history: history, base: nil})
   end
 
   @doc """
