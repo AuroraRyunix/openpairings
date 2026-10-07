@@ -3106,9 +3106,9 @@
     "next": 189,
     "penalty": 3
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Off our path (Q187 NO). Include Baku's virtual points when Q187 is built, or this costs 3%."
+   "note": "With Baku acceleration the boards come in C.04.2:3.6 order on real plus virtual points; test board_order_baku_test.exs (16 players, rounds 1-3, checked against 3.6 with Group A's virtual points, and shown to differ from real points alone)."
   },
   {
    "q": 189,
@@ -3370,9 +3370,9 @@
     "next": 207,
     "penalty": 3
    },
-   "answer": "N",
+   "answer": "Y",
    "status": "met",
-   "note": "Off our path (Q203 NO). No drawing of lots for tied places."
+   "note": "'Draw lots for ties' on the Standings page (#draw-lots, confirmed) reorders only players still level after the whole tie-break list and records the order as the manual ranking, audited as standings.lots_drawn (lib/pairings_engine/tie_lots.ex). Tests: tie_lots_test.exs, tie_lots_live_test.exs."
   },
   {
    "q": 205,
@@ -3389,7 +3389,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Manual ranking: reseed from the computed order and move players (tournaments.ex:2812-2930)."
+   "note": "The manual ranking (tournaments.ex manual ranking functions) takes a hand-set order; the drawing of lots feeds the same mechanism."
   },
   {
    "q": 206,
@@ -3405,7 +3405,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "No drawing of lots exists to repeat."
+   "note": "A repeated drawing of lots gives the same order: it is a function of the players and a per-tournament seed drawn once from :crypto and kept (tournaments.lots_seed, exported with the tournament). Tests: tie_lots_test.exs."
   },
   {
    "q": 207,
@@ -3420,9 +3420,9 @@
     "next": 208,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 10%. No externally calculated tie-break values (tiebreaks.ex:32-155)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Tie-break 'External value' (EXT): a value typed per player on the Standings page (#external-tiebreak-<id>, players.external_tiebreak, audited), ranking at its place in the list; TRF26 has no record for it, so 202 leaves it out. Tests: external_tiebreak_test.exs, external_tiebreak_live_test.exs."
   },
   {
    "q": 208,
@@ -3454,9 +3454,9 @@
     "next": 210,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Off our path while Q208 is NO."
+   "answer": "Y",
+   "status": "met",
+   "note": "Three methods for unrated players in rating tie-breaks (tiebreak_unrated_method): a fixed rating, the lowest rating in the field, the average of the rated players; the number used goes to Ainalrami and the 202 line as /U<n>, and ainalrami -c agrees (Standings.unrated_rating/2). Tests: unrated_methods_test.exs."
   },
   {
    "q": 210,
@@ -3674,9 +3674,9 @@
     "next": 223,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 15%. No Chess960: no variant setting and no draw of the start position."
+   "answer": "Y",
+   "status": "met",
+   "note": "Per-tournament Chess960 setting; the Pairings page draws a uniform random starting position per round with Scharnagl numbering (e.g. 518 RNBQKBNR), stored with the round, shown and printed with the pairings, audited (lib/pairings_engine/chess960.ex; rounds.chess960_position). Tests: chess960_test.exs, chess960_live_test.exs."
   },
   {
    "q": 223,
