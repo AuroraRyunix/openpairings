@@ -100,6 +100,19 @@ defmodule PairingsEngineWeb.Layouts do
         _ -> assigns
       end
 
+    # The home screen's "Plug-ins" menu: signed in and outside a tournament,
+    # and only in a build with a plugin (`PairingsEngine.Plugins.installed/0`
+    # is `[]` otherwise, and the menu is not rendered at all).
+    assigns =
+      assign(
+        assigns,
+        :installed_plugins,
+        if(!assigns.tournament && assigns.current_scope,
+          do: PairingsEngine.Plugins.installed(),
+          else: []
+        )
+      )
+
     ~H"""
     <header class="topbar">
       <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
@@ -291,6 +304,54 @@ defmodule PairingsEngineWeb.Layouts do
           aria-current={@active == "tools" && "page"}
         >
           {gettext("Tools")}
+        </.link>
+
+        <%!-- Plugins (`PairingsEngine.Plugin`). On the home screen, one
+              "Plug-ins" menu listing every installed plugin and the
+              overview page - and in a build without a plugin, nothing at
+              all, not even an empty menu. Inside a tournament, whatever
+              links a plugin offers for it. `href`, not `navigate`: plugin
+              pages are in their own live_session, so the move is a page
+              load either way. --%>
+        <details
+          :if={@installed_plugins != []}
+          id="topbar-plugins"
+          class="topbar-menu"
+          name="topbar-popover"
+        >
+          <summary
+            id="topbar-plugins-toggle"
+            aria-haspopup="true"
+            class={tab_class(String.starts_with?(@active || "", "plugin"))}
+          >
+            {gettext("Plug-ins")}
+          </summary>
+          <div class="topbar-menu-panel">
+            <.link
+              :for={plugin <- @installed_plugins}
+              id={"plugin-menu-#{plugin.id}"}
+              href={plugin.path}
+              class="topbar-menu-item plugin-menu-item"
+            >
+              <span class="plugin-menu-name">
+                {plugin.name} <span class="plugin-menu-version">{plugin.version}</span>
+              </span>
+              <span class="plugin-menu-description">{plugin.description}</span>
+            </.link>
+            <.link id="plugin-menu-installed" href="/plugins" class="topbar-menu-item">
+              {gettext("Installed plug-ins")}
+            </.link>
+          </div>
+        </details>
+
+        <.link
+          :for={entry <- PairingsEngine.Plugins.tournament_menu_entries(@current_scope, @tournament)}
+          id={"plugin-menu-#{entry.id}"}
+          href={entry.path}
+          class={tab_class(@active == "plugin:" <> entry.id)}
+          aria-current={@active == "plugin:" <> entry.id && "page"}
+        >
+          {entry.label}
         </.link>
 
         <.link

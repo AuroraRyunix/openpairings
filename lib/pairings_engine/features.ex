@@ -101,8 +101,14 @@ defmodule PairingsEngine.Features do
   A function rather than a module attribute so the labels resolve in the
   reader's locale on every call, instead of freezing whatever locale
   compiled the release.
+
+  A plugin compiled into this build (`PairingsEngine.Plugin`) appends its
+  own entries after the core's, under a federation already listed in
+  `federations/0`; without one the list is the core's alone.
   """
-  def catalogue do
+  def catalogue, do: core_catalogue() ++ PairingsEngine.Plugins.features()
+
+  defp core_catalogue do
     [
       %{
         key: "bel_ratings_sync",

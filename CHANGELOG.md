@@ -17,6 +17,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Plug-ins, for the hosted server only.** A server build can now
+  include extra modules that the published application and the desktop
+  downloads do not contain; the desktop application is unchanged and has no
+  trace of them. Where a plug-in is installed, the home screen gets a
+  "Plug-ins" menu with each one's name, version and description, and an
+  "Installed plug-ins" page. A plug-in can add its own pages, a switch under
+  Features, players for a team's roster on the Teams page, and checks on a
+  team match's line-ups, shown on the match page while the line-ups are
+  entered and before they are saved. The checks only report: they never
+  block a save or change a pairing or a result. A plug-in that sets the
+  board order of a league's team matches lets a line-up out of roster order
+  be saved and reports on it instead. A plug-in can also number a league's
+  teams on a larger Berger table, where an empty number gives its opponent
+  the bye; when that table is not the one FIDE's tables give the field, the
+  first round paired from it takes the tournament out of FIDE mode, the same
+  way a soft rule does.
+
 ## [0.75.0] - 2026-10-07
 
 - [Change] **Ainalrami 0.38.0.** The same pairings in the program; the engine's

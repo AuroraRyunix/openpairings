@@ -270,13 +270,19 @@ defmodule PairingsEngine.Application do
         # kept explicit so which migration is running - the one thing worth
         # seeing if a long backfill is what makes a future boot slow - does
         # not depend on that default never changing upstream.
-        &Ecto.Migrator.run(&1, :up, all: true, log: :info),
+        &Ecto.Migrator.run(&1, migration_paths(&1), :up, all: true, log: :info),
         pool_size: 1
       )
     end
 
     with_migration_retry(migrate, repo, attempts_left)
   end
+
+  # The repo's own migrations, then any plugin's (`PairingsEngine.Plugins`).
+  # Just the first in every build without a plugin - which is what
+  # `Ecto.Migrator.run/3` and `migrations/1` read by themselves.
+  defp migration_paths(repo),
+    do: [Ecto.Migrator.migrations_path(repo) | PairingsEngine.Plugins.migrations_paths()]
 
   # Split out from `run_migrations_for/2` so the retry/give-up decision -
   # retry only a connection-availability failure, and only a bounded number
@@ -353,7 +359,11 @@ defmodule PairingsEngine.Application do
   defp refuse_pending_migrations! do
     for repo <- Application.fetch_env!(:pairings_engine, :ecto_repos) do
       read = fn ->
-        Ecto.Migrator.with_repo(repo, &Ecto.Migrator.migrations/1, pool_size: 1)
+        Ecto.Migrator.with_repo(
+          repo,
+          &Ecto.Migrator.migrations(&1, migration_paths(&1)),
+          pool_size: 1
+        )
       end
 
       {:ok, migrations, _apps} = with_migration_retry(read, repo, @migration_connection_attempts)

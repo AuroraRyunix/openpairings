@@ -15,12 +15,18 @@ defmodule PairingsEngineWeb.MatchLive do
   seat is a player not entered rather than a forfeit, and a match nobody
   sits at can be decided by its score alone
   (`PairingsEngine.TeamMatches.set_match_score/4`).
+
+  A plugin that checks line-ups (`PairingsEngine.Plugins.check_lineups/5`)
+  gets the two line-ups as they stand and again on every change to the
+  form, before they are saved, and its findings are listed under them.
+  Findings never block a save: they say what the competition's regulations
+  make of a line-up, and the arbiter decides.
   """
   use PairingsEngineWeb, :live_view
 
   import PairingsEngineWeb.SettingsSupport, only: [error_text: 1]
 
-  alias PairingsEngine.{Audit, Snapshots, TeamMatches, TeamRounds, Tournaments}
+  alias PairingsEngine.{Audit, Plugins, Snapshots, TeamMatches, TeamRounds, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Team, Tournament}
 
   @impl true
@@ -95,6 +101,9 @@ defmodule PairingsEngineWeb.MatchLive do
         open?: TeamMatches.lineup_open?(match),
         writable?: Tournaments.ensure_writable(t) == :ok,
         form: lineup_form(lineups),
+        findings:
+          Plugins.check_lineups(t, match, socket.assigns.round_number, lineups.a, lineups.b),
+        draft?: false,
         optional?: Tournament.team_lineups_optional?(t),
         unseated?: Enum.all?(lineups.a ++ lineups.b, &is_nil/1),
         score_form: to_form(%{"a" => "", "b" => ""}, as: :score)
@@ -119,15 +128,28 @@ defmodule PairingsEngineWeb.MatchLive do
   @impl true
   def handle_event("save_lineups", %{"lineup" => params}, socket) when is_map(params) do
     %{tournament: t} = socket.assigns
-    per_match = max(t.team_boards || 1, 1)
 
-    ids = fn side ->
-      for k <- 1..per_match do
-        params |> Map.get(side, %{}) |> Map.get(Integer.to_string(k)) |> parse_int()
-      end
-    end
+    save(
+      socket,
+      form_ids(params, "a", t),
+      form_ids(params, "b", t),
+      gettext("Line-ups saved; the boards were rewritten.")
+    )
+  end
 
-    save(socket, ids.("a"), ids.("b"), gettext("Line-ups saved; the boards were rewritten."))
+  # Every change to a select: the plugins' findings for the line-ups as
+  # they now stand on the form, saved or not.
+  def handle_event("check_lineups", %{"lineup" => params}, socket) when is_map(params) do
+    %{tournament: t, match: match, round_number: number} = socket.assigns
+    a = form_ids(params, "a", t)
+    b = form_ids(params, "b", t)
+
+    {:noreply,
+     assign(socket,
+       form: to_form(params, as: :lineup),
+       findings: Plugins.check_lineups(t, match, number, a, b),
+       draft?: {a, b} != {socket.assigns.lineups.a, socket.assigns.lineups.b}
+     )}
   end
 
   def handle_event("reset_lineups", _params, socket) do
@@ -213,6 +235,12 @@ defmodule PairingsEngineWeb.MatchLive do
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  defp form_ids(params, side, t) do
+    for k <- 1..max(t.team_boards || 1, 1) do
+      params |> Map.get(side, %{}) |> Map.get(Integer.to_string(k)) |> parse_int()
+    end
+  end
 
   # "2.5", "2,5", "2½" and "2 1/2" all read as 2.5.
   defp parse_score(value) do
@@ -311,6 +339,68 @@ defmodule PairingsEngineWeb.MatchLive do
   end
 
   ## ---------- rendering ----------
+
+  attr :findings, :list, required: true
+  attr :draft?, :boolean, required: true
+  attr :team_a, :string, required: true
+  attr :team_b, :string, required: true
+
+  # What the plugins' regulations make of the line-ups (see the moduledoc).
+  defp lineup_checks(assigns) do
+    ~H"""
+    <section id="lineup-checks" class="card" aria-live="polite">
+      <h2>{gettext("Line-up checks")}</h2>
+      <p class="hint">
+        <%= if @draft? do %>
+          {gettext(
+            "For the line-ups as they stand on the form, not saved yet. Nothing here stops a save: the checks report, the arbiter decides."
+          )}
+        <% else %>
+          {gettext(
+            "The competition's regulations, applied to every board of the saved line-ups. Nothing here stops a save: the checks report, the arbiter decides."
+          )}
+        <% end %>
+      </p>
+      <p :if={@findings == []} id="lineup-checks-clear" class="ok-note">
+        {gettext("No problems found in these line-ups.")}
+      </p>
+      <ul :if={@findings != []} id="lineup-findings" class="lineup-findings">
+        <li
+          :for={{finding, i} <- Enum.with_index(@findings)}
+          id={"lineup-finding-#{i}"}
+          class={["lineup-finding", "lineup-finding-#{finding.severity}"]}
+        >
+          <span class="lineup-finding-tag">
+            {if finding.severity == :violation, do: gettext("Violation"), else: gettext("Warning")}
+          </span>
+          <span class="lineup-finding-where">
+            {finding_where(finding, @team_a, @team_b)}
+          </span>
+          <span class="lineup-finding-text">{finding.message}</span>
+          <span class="lineup-finding-meta hint">
+            {finding.rule}<span :if={finding.penalty}> · {finding.penalty}</span>
+          </span>
+        </li>
+      </ul>
+    </section>
+    """
+  end
+
+  defp finding_where(%{team: team, board: board}, team_a, team_b) do
+    name =
+      case team do
+        :a -> team_a
+        :b -> team_b
+        _ -> nil
+      end
+
+    case {name, board} do
+      {nil, nil} -> gettext("Match")
+      {nil, k} -> gettext("Board %{board}", board: k)
+      {name, nil} -> name
+      {name, k} -> gettext("%{team}, board %{board}", team: name, board: k)
+    end
+  end
 
   @impl true
   def render(assigns) do
@@ -470,7 +560,7 @@ defmodule PairingsEngineWeb.MatchLive do
             {gettext("This match has a result, so its line-ups can no longer change.")}
           </p>
 
-          <.form for={@form} id="lineup-form" phx-submit="save_lineups">
+          <.form for={@form} id="lineup-form" phx-submit="save_lineups" phx-change="check_lineups">
             <table class="pe-table">
               <caption class="sr-only">{gettext("Line-ups by board")}</caption>
               <thead>
@@ -542,6 +632,14 @@ defmodule PairingsEngineWeb.MatchLive do
             </div>
           </.form>
         </div>
+
+        <.lineup_checks
+          :if={@findings}
+          findings={@findings}
+          draft?={@draft?}
+          team_a={team_name(@match.team_a)}
+          team_b={team_name(@match.team_b)}
+        />
       <% end %>
     </Layouts.app>
     """
