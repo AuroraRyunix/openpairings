@@ -112,7 +112,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.lineup_changed pairing.match_home_swapped pairing.match_score_set
         pairing.match_score_cleared
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
-        pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference)},
+        pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
+        pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -612,6 +613,38 @@ defmodule PairingsEngineWeb.AuditLive do
           round: value(d, "round")
         ),
         d
+      )
+
+  # A round's manual pairing alteration (VCL4THP Q65-Q69): its start, its
+  # end and the PIBE it recorded, and a round created to be paired by hand.
+  def describe("pairing.mpa_started", %{"implicit" => true} = d),
+    do:
+      gettext("Started hand edits to round %{round}, with its first hand edit.",
+        round: value(d, "round")
+      )
+
+  def describe("pairing.mpa_started", d),
+    do: gettext("Started hand edits to round %{round}.", round: value(d, "round"))
+
+  def describe("pairing.mpa_finished", %{"pibe" => line} = d) when is_binary(line),
+    do:
+      gettext(
+        "Finished hand edits to round %{round}, keeping pairings that differ from the pairing checker's. Recorded in the TRF as: %{line}",
+        round: value(d, "round"),
+        line: line
+      )
+
+  def describe("pairing.mpa_finished", d),
+    do:
+      gettext("Finished hand edits to round %{round}: nothing to record.",
+        round: value(d, "round")
+      )
+
+  def describe("pairing.round_created_by_hand", d),
+    do:
+      gettext(
+        "Created round %{round} with no boards, to pair by hand: the pairing engine found no legal pairing.",
+        round: value(d, "round")
       )
 
   def describe("pairing.pool_paired", d),

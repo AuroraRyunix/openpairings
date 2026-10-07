@@ -6386,6 +6386,54 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Gives a pool player the round's pairing-allocated bye, on a new board
+  numbered `board`: the shape a paired bye has (`black_player_id: nil`,
+  result `"bye"`). Their `"byes"` row for the round is dropped. What a
+  round paired by hand from nothing needs on an odd field (VCL4THP Q63) -
+  the other way to a bye, `award_bye_for_vacancy/3`, needs a board first.
+  """
+  def award_pool_bye(%Round{} = round, player_id, board, opts \\ [])
+      when is_integer(board) and board > 0 do
+    cond do
+      refusal = write_refused(round.tournament_id) ->
+        refusal
+
+      refusal = sent_round_refused(round, opts) ->
+        refusal
+
+      not player_belongs_to_tournament?(round.tournament_id, player_id) ->
+        {:error, :invalid_player}
+
+      true ->
+        Repo.transaction(fn ->
+          cond do
+            Repo.exists?(from p in Pairing, where: p.round_id == ^round.id and p.board == ^board) ->
+              Repo.rollback(:board_taken)
+
+            player_seated_in_round?(round.id, player_id) ->
+              Repo.rollback(:already_seated)
+
+            true ->
+              {:ok, created} =
+                %Pairing{round_id: round.id}
+                |> Pairing.changeset(%{
+                  board: board,
+                  white_player_id: player_id,
+                  black_player_id: nil,
+                  result: "bye"
+                })
+                |> Repo.insert()
+
+              :ok = freeze_new_pairing_display_board!(created)
+              delete_bye_row(round, player_id)
+              created
+          end
+        end)
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
   The lowest board number not already used in `round` - what the "pair
   these two" action offers as a default table number.
   """

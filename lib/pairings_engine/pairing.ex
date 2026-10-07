@@ -321,6 +321,64 @@ defmodule PairingsEngine.Pairing do
 
   defp with_baku_group_a(tournament, _roster), do: tournament
 
+  @doc """
+  Creates the next round of an individual Swiss with no boards at all, for
+  the arbiter to pair by hand - VCL4THP Q63: when the pairing rules leave no
+  legal pairing (fewer players than rounds, say), the tournament must still
+  be finishable. Every player the engine would have paired is left in the
+  round's pool; the absentees get their bye rows exactly as a paired round
+  gives them. The caller opens the round's manual pairing alteration
+  (`PairingsEngine.ManualPairing.start/2`), whose end checks it and records
+  the MPA PIBE.
+
+  Refused for anything but an individual Swiss paired as one round at a
+  time (`{:error, :not_by_hand}`), when every round is paired, and while the
+  previous round still has missing results - the same guards as pairing.
+  """
+  def create_round_by_hand(%Tournament{} = tournament) do
+    paired = paired_rounds_count(tournament.id)
+    next_number = paired + 1
+    active = active_players(tournament.id)
+
+    cond do
+      refusal = Tournaments.write_refused(tournament) ->
+        refusal
+
+      tournament.pairing_system != "swiss" or tournament.swiss_match_format or
+          Tournament.team_swiss?(tournament) ->
+        {:error, :not_by_hand}
+
+      next_number > max_pairable_round(tournament) ->
+        {:error, {:all_rounds_paired, tournament.rounds_count}}
+
+      not round_complete?(tournament.id, paired) ->
+        {:error, "Round #{paired} still has missing results"}
+
+      true ->
+        active = Enum.reject(active, &not_yet_started?(&1, next_number))
+        round_specific = Enum.filter(active, &absent_for_round?(&1, next_number))
+
+        tournament =
+          tournament
+          |> draw_initial_colour_before_round_one(next_number)
+          |> ensure_pairing_numbers(active)
+          |> freeze_baku_group_a(next_number)
+
+        with {:ok, round} <-
+               create_round(
+                 [],
+                 tournament,
+                 next_number,
+                 round_absentees(tournament, next_number, round_specific),
+                 nil
+               ) do
+          Tournaments.broadcast_tournament_change(tournament.id, :rounds)
+          Tournaments.refresh_status!(tournament.id)
+          {:ok, Tournaments.get_round(tournament.id, round.number)}
+        end
+    end
+  end
+
   @doc false
   def max_pairable_round(%Tournament{swiss_match_format: true, rounds_count: n}), do: n - 1
   def max_pairable_round(%Tournament{rounds_count: n}), do: n
@@ -3249,11 +3307,14 @@ defmodule PairingsEngine.Pairing do
       "Ainalrami found no legal pairing for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
     )
 
+    # Tagged, so the Pairings page can offer to pair the round by hand
+    # (VCL4THP Q63, `create_round_by_hand/1`); the words are the same.
     {:error,
-     ainalrami_scoped(
-       "Ainalrami found no legal pairing for this round - every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
-       category_name
-     )}
+     {:no_legal_pairing,
+      ainalrami_scoped(
+        "Ainalrami found no legal pairing for this round - every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
+        category_name
+      )}}
   end
 
   # What the round's account records about bye exclusions: the ranks the

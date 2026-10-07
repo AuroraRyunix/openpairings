@@ -8,6 +8,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   alias PairingsEngine.{
     Audit,
+    ManualPairing,
     PairingDisplay,
     PairingRationale,
     PostponedGames,
@@ -131,7 +132,14 @@ defmodule PairingsEngineWeb.PairingsLive do
        swap_first: nil,
        pool_first: nil,
        seat_pick: nil,
-       confirm: nil
+       confirm: nil,
+       # The manual pairing alteration's own dialogs (VCL4THP Q63-Q69, see
+       # "Manual pairing alteration" below): finishing a session whose
+       # boards are not the checker's, or creating a round by hand. And
+       # whether the last pairing attempt found no legal pairing, which is
+       # when creating the round by hand is offered.
+       mpa_dialog: nil,
+       manual_round_offer: false
      )
      |> allow_upload(:results_csv,
        auto_upload: true,
@@ -303,6 +311,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         recommended_missing: Tournament.missing_recommended_fields(t),
         can_pair:
           setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
+        # The round whose manual pairing alteration is still open, if any:
+        # the next round waits for it to finish (and be checked).
+        mpa_open: ManualPairing.open_round(t.id),
         # Postponed games (VCL4THP Q157-169): every one still to be played,
         # so it can be found and given its result from any round, and the
         # warnings pairing the next round comes with.
@@ -326,7 +337,15 @@ defmodule PairingsEngineWeb.PairingsLive do
       # switch, or the change's own confirmed write) - safer to drop back
       # to "nothing selected" than to leave a just-consumed gesture
       # sitting around.
-      assign(socket, menu: nil, swap_first: nil, pool_first: nil, seat_pick: nil, confirm: nil)
+      assign(socket,
+        menu: nil,
+        swap_first: nil,
+        pool_first: nil,
+        seat_pick: nil,
+        confirm: nil,
+        mpa_dialog: nil,
+        manual_round_offer: false
+      )
     end
   end
 
@@ -587,6 +606,173 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("set_publish_level", _params, socket), do: {:noreply, socket}
 
+  ## ---------- Manual pairing alteration (VCL4THP Q63-Q69) ----------
+  #
+  # A round's hand edits form one session (`PairingsEngine.ManualPairing`):
+  # it starts with "Edit pairings by hand" or with the first edit applied,
+  # and it ends with "Finish hand edits", which holds the round to the
+  # pairing checker. Boards that are not the checker's are kept only after
+  # an explicit confirmation, and recorded as the round's MPA PIBE.
+
+  def handle_event("mpa_start", _params, socket) do
+    case socket.assigns.round do
+      %{} = round when is_nil(socket.assigns.tournament.archived_at) ->
+        case ManualPairing.start(round) do
+          {:ok, true} ->
+            Audit.log(
+              socket.assigns.tournament.id,
+              socket.assigns.current_scope,
+              "pairing.mpa_started",
+              %{round: round.number}
+            )
+
+            {:noreply,
+             socket
+             |> refresh()
+             |> announce(gettext("Hand edits started."))}
+
+          {:ok, false} ->
+            {:noreply, refresh(socket)}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, error: error_text(reason))}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("mpa_end", _params, socket) do
+    %{tournament: t, round: round} = socket.assigns
+
+    case round && ManualPairing.open?(round) && ManualPairing.assess(t, round) do
+      result when result in [nil, false] ->
+        {:noreply, socket}
+
+      {:error, {:vacant, board}} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Board %{board} has an empty seat. Fill it, give the remaining player a bye, or empty the board before finishing.",
+             board: board
+           )
+         )}
+
+      {:error, :no_boards} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Pair at least one board before finishing."))}
+
+      :unchanged ->
+        finish_mpa(socket, round, :keep, gettext("Hand edits finished: nothing changed."))
+
+      {:matches, _info} ->
+        finish_mpa(
+          socket,
+          round,
+          :clear,
+          gettext("Hand edits finished: the pairings match the pairing checker's.")
+        )
+
+      {kind, info} when kind in [:differs, :unchecked] ->
+        {:noreply,
+         assign(socket,
+           mpa_dialog: %{
+             kind: :end,
+             checked: kind == :differs,
+             round: round.number,
+             line: info.line,
+             correct: checker_boards(socket, info[:correct]),
+             missing: Enum.map(info.missing, &pair_text(socket, &1)),
+             added: Enum.map(info.added, &pair_text(socket, &1)),
+             warnings: Enum.map(info.warnings, &rule_warning_text(socket, &1)),
+             ack: false
+           }
+         )}
+    end
+  end
+
+  def handle_event("mpa_end_confirm", _params, socket) do
+    case {socket.assigns.mpa_dialog, socket.assigns.round} do
+      {%{kind: :end, ack: true, line: line, round: n}, %{number: n} = round} ->
+        finish_mpa(
+          socket,
+          round,
+          {:set, line},
+          gettext("Hand edits finished: recorded as a manual pairing alteration.")
+        )
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_mpa_ack", _params, socket) do
+    case socket.assigns.mpa_dialog do
+      nil -> {:noreply, socket}
+      dialog -> {:noreply, assign(socket, mpa_dialog: Map.update!(dialog, :ack, &(!&1)))}
+    end
+  end
+
+  def handle_event("mpa_dialog_cancel", _params, socket),
+    do: {:noreply, assign(socket, mpa_dialog: nil)}
+
+  # VCL4THP Q63: the round the engine could not pair, created empty for the
+  # arbiter to pair by hand - behind a Level-3 confirmation, since the
+  # round it leads to breaks the pairing rules.
+  def handle_event("pair_by_hand", _params, socket) do
+    if socket.assigns.manual_round_offer do
+      {:noreply,
+       assign(socket,
+         mpa_dialog: %{kind: :manual_round, round: socket.assigns.next_pairable, ack: false}
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("pair_by_hand_confirm", _params, socket) do
+    with %{kind: :manual_round, ack: true} <- socket.assigns.mpa_dialog,
+         true <- socket.assigns.manual_round_offer do
+      t = socket.assigns.tournament
+
+      Snapshots.capture(t, "pairing.round_paired", socket.assigns.current_scope,
+        summary: "Before pairing round #{socket.assigns.next_pairable} by hand"
+      )
+
+      case Engine.create_round_by_hand(t) do
+        {:ok, round} ->
+          {:ok, _} = ManualPairing.start(round, [])
+
+          Audit.log(
+            socket.assigns.tournament.id,
+            socket.assigns.current_scope,
+            "pairing.round_created_by_hand",
+            %{round: round.number}
+          )
+
+          {:noreply,
+           socket
+           |> assign(tournament: fresh_tournament(socket), round_number: round.number, error: nil)
+           |> refresh()
+           |> put_flash(
+             :info,
+             gettext(
+               "Round %{n} was created with no boards: pair it from the not-playing list, then finish the hand edits.",
+               n: round.number
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, error: error_text(reason), mpa_dialog: nil)}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
   ## ---------- Editing a paired round by hand ----------
   #
   # Three gestures, all starting from a right-click:
@@ -720,6 +906,17 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("stage_bye", _params, socket), do: {:noreply, socket}
+
+  # A pool player straight onto the pairing-allocated bye, on a new board -
+  # what a round paired by hand from nothing needs on an odd field (Q63).
+  def handle_event("stage_pool_bye", %{"player-id" => id}, socket) do
+    case parse_id(id) do
+      nil -> {:noreply, socket}
+      player_id -> {:noreply, stage(socket, {:pool_bye, player_id})}
+    end
+  end
+
+  def handle_event("stage_pool_bye", _params, socket), do: {:noreply, socket}
 
   def handle_event("stage_fill", %{"pairing-id" => pid, "player-id" => plid}, socket) do
     with pairing_id when not is_nil(pairing_id) <- parse_id(pid),
@@ -867,6 +1064,14 @@ defmodule PairingsEngineWeb.PairingsLive do
     case socket.assigns.confirm do
       nil -> {:noreply, socket}
       confirm -> {:noreply, assign(socket, confirm: Map.update!(confirm, :sent_ack, &(!&1)))}
+    end
+  end
+
+  # The Level-3 tick of a hand edit that breaks the pairing rules.
+  def handle_event("toggle_rule_ack", _params, socket) do
+    case socket.assigns.confirm do
+      nil -> {:noreply, socket}
+      confirm -> {:noreply, assign(socket, confirm: Map.update!(confirm, :rule_ack, &(!&1)))}
     end
   end
 
@@ -1379,12 +1584,18 @@ defmodule PairingsEngineWeb.PairingsLive do
         sent? =
           PostponedGames.round_sent?(socket.assigns.tournament.id, socket.assigns.round_number)
 
+        # What the edit's new boards break (VCL4THP Q66, Q67): a Level-3
+        # warning, so its own tick before the edit can be applied.
+        rules = rule_warnings(socket, confirm)
+
         confirm =
           Map.merge(confirm, %{
             frozen: frozen?,
             frozen_ack: !frozen?,
             sent: sent?,
-            sent_ack: !sent?
+            sent_ack: !sent?,
+            rule_warnings: rules,
+            rule_ack: rules == []
           })
 
         assign(socket, confirm: confirm, menu: nil, seat_pick: nil)
@@ -1437,6 +1648,11 @@ defmodule PairingsEngineWeb.PairingsLive do
               do: [board_change(pa, [{fa, b}, {fb, a}])],
               else: [board_change(pa, [{fa, b}]), board_change(pb, [{fb, a}])]
 
+          new_boards =
+            if same?,
+              do: new_board(pa, [{fa, b_id}, {fb, a_id}]),
+              else: new_board(pa, [{fa, b_id}]) ++ new_board(pb, [{fb, a_id}])
+
           {:ok,
            %{
              kind: :swap,
@@ -1450,7 +1666,8 @@ defmodule PairingsEngineWeb.PairingsLive do
              # it's the one confirm kind where more than one player can
              # be on screen at once with something to tell apart.
              colors: identity_colors(changes),
-             note: nil
+             note: nil,
+             new_boards: new_boards
            }}
         end
 
@@ -1493,7 +1710,8 @@ defmodule PairingsEngineWeb.PairingsLive do
              colors: identity_colors(changes),
              note:
                "#{seated_name} moves to the not-playing list for this round." <>
-                 whole_event_note(socket, pool_id)
+                 whole_event_note(socket, pool_id),
+             new_boards: new_board(pairing, [{field, pool_id}])
            }}
         else
           {:error, :not_in_round}
@@ -1538,7 +1756,12 @@ defmodule PairingsEngineWeb.PairingsLive do
          title: "Award a bye",
          subtitle: "#{name} sits out round #{socket.assigns.round_number}",
          changes: [%{board: pairing.board, before: board_seats(pairing), after: {name, "bye"}}],
-         note: "Scores #{socket.assigns.tournament.bye_value} pt, as a pairing-allocated bye."
+         note: "Scores #{socket.assigns.tournament.bye_value} pt, as a pairing-allocated bye.",
+         new_boards:
+           if(remaining,
+             do: [{pairing.white_player_id || pairing.black_player_id, :pab}],
+             else: []
+           )
        }}
     end
   end
@@ -1558,8 +1781,35 @@ defmodule PairingsEngineWeb.PairingsLive do
          changes: [board_change(pairing, [{field, name}])],
          note:
            "#{name} is no longer marked absent for this round." <>
-             whole_event_note(socket, player_id)
+             whole_event_note(socket, player_id),
+         new_boards: new_board(pairing, [{field, player_id}])
        }}
+    end
+  end
+
+  defp confirm_for(socket, {:pool_bye, player_id}) do
+    %{round: round, round_pool: pool, round_number: n} = socket.assigns
+
+    if round && pool_member?(pool, player_id) do
+      name = display_name(socket, player_id)
+      board = Tournaments.next_free_board(round)
+
+      {:ok,
+       %{
+         kind: :pool_bye,
+         player_id: player_id,
+         board: board,
+         title: gettext("Give the pairing-allocated bye"),
+         subtitle: gettext("%{name} sits out round %{n}", name: name, n: n),
+         changes: [%{board: board, before: {"", ""}, after: {name, "bye"}}],
+         note:
+           gettext("Scores %{points} pt, as a pairing-allocated bye.",
+             points: socket.assigns.tournament.bye_value
+           ),
+         new_boards: [{player_id, :pab}]
+       }}
+    else
+      {:error, :not_in_round}
     end
   end
 
@@ -1609,7 +1859,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        subtitle: "#{a}  vs  #{b}",
        changes: [%{board: board, before: {"", ""}, after: {a, b}}],
        note: "Neither will be marked absent for this round any more.",
-       team_note: pool_pair_team_note(t, round, a_id, b_id, board)
+       team_note: pool_pair_team_note(t, round, a_id, b_id, board),
+       new_boards: [{a_id, b_id}]
      }}
   end
 
@@ -1665,6 +1916,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # it.
   defp apply_confirm(socket, %{frozen: true, frozen_ack: false}), do: {:noreply, socket}
   defp apply_confirm(socket, %{sent: true, sent_ack: false}), do: {:noreply, socket}
+  defp apply_confirm(socket, %{rule_ack: false}), do: {:noreply, socket}
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
@@ -1731,6 +1983,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         %{kind: :pool_pair, a_id: a, b_id: b, board: board} ->
           Tournaments.pair_from_pool(round, a, b, board, ack)
 
+        %{kind: :pool_bye, player_id: p, board: board} ->
+          Tournaments.award_pool_bye(round, p, board, ack)
+
         %{kind: :delete_pairing, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
                do: Tournaments.delete_pairing(round, pairing)
@@ -1738,6 +1993,10 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case result do
       {:ok, _} ->
+        # The first hand edit of a round opens its manual pairing
+        # alteration, from the boards as they were before it (Q65).
+        implicit_mpa_start(socket, round)
+
         Audit.log(
           t.id,
           socket.assigns.current_scope,
@@ -1783,7 +2042,173 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp audit_action(:bye), do: "pairing.bye_awarded"
   defp audit_action(:fill), do: "pairing.seat_filled"
   defp audit_action(:pool_pair), do: "pairing.pool_paired"
+  defp audit_action(:pool_bye), do: "pairing.bye_awarded"
   defp audit_action(:delete_pairing), do: "pairing.deleted"
+
+  ## ---------- Manual pairing alteration: helpers ----------
+
+  defp implicit_mpa_start(socket, %{} = round) do
+    if not ManualPairing.open?(round) do
+      case ManualPairing.start(round, ManualPairing.boards(round)) do
+        {:ok, true} ->
+          Audit.log(
+            socket.assigns.tournament.id,
+            socket.assigns.current_scope,
+            "pairing.mpa_started",
+            %{round: round.number, implicit: true}
+          )
+
+        _ ->
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  defp implicit_mpa_start(_socket, _round), do: :ok
+
+  # The board `pairing` becomes with `substitutions` (`{field, player_id}`)
+  # applied, as `ManualPairing.warnings/4` takes it: `[{white, black}]`,
+  # `[{holder, :pab}]` for a pairing-allocated bye, `[]` while a seat is
+  # empty.
+  defp new_board(pairing, substitutions) do
+    {w, b} =
+      Enum.reduce(substitutions, {pairing.white_player_id, pairing.black_player_id}, fn
+        {:white_player_id, id}, {_w, b} -> {id, b}
+        {:black_player_id, id}, {w, _b} -> {w, id}
+      end)
+
+    cond do
+      pairing.result == "bye" and is_nil(b) and not is_nil(w) -> [{w, :pab}]
+      not is_nil(w) and not is_nil(b) -> [{w, b}]
+      true -> []
+    end
+  end
+
+  defp finish_mpa(socket, round, pibe, message) do
+    case ManualPairing.finish(round, pibe) do
+      :ok ->
+        line =
+          case pibe do
+            {:set, line} -> line
+            _ -> nil
+          end
+
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "pairing.mpa_finished",
+          %{round: round.number, pibe: line}
+        )
+
+        {:noreply,
+         socket
+         |> assign(mpa_dialog: nil)
+         |> refresh()
+         |> put_flash(:info, message)}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: error_text(reason), mpa_dialog: nil)}
+    end
+  end
+
+  # Whether a round of `t` can be created by hand - what
+  # `Engine.create_round_by_hand/1` accepts.
+  defp by_hand_possible?(t),
+    do: t.pairing_system == "swiss" and !t.swiss_match_format and !Tournament.team_swiss?(t)
+
+  # The pairing checker's boards, for the dialog: "White - Black", or the
+  # bye. nil when the round could not be checked, `:none` when the checker
+  # found no legal pairing at all.
+  defp checker_boards(_socket, nil), do: nil
+  defp checker_boards(_socket, :none), do: :none
+  defp checker_boards(socket, pairs), do: Enum.map(pairs, &pair_text(socket, &1))
+
+  defp pair_text(socket, {w, nil}),
+    do: gettext("%{name} - bye", name: display_name(socket, w))
+
+  defp pair_text(socket, {w, b}), do: "#{display_name(socket, w)} - #{display_name(socket, b)}"
+
+  # One absolute-criteria breach (`ManualPairing.warnings/4`), in words.
+  defp rule_warning_text(socket, %{kind: :rematch, players: [a, b], round: met}),
+    do:
+      gettext("%{a} and %{b} already played each other, in round %{round}.",
+        a: display_name(socket, a),
+        b: display_name(socket, b),
+        round: met
+      )
+
+  defp rule_warning_text(socket, %{kind: :forbidden, players: [a, b]}),
+    do:
+      gettext("%{a} and %{b} are a prohibited pairing.",
+        a: display_name(socket, a),
+        b: display_name(socket, b)
+      )
+
+  defp rule_warning_text(socket, %{kind: :bye, players: [a], reason: :pairing_bye}),
+    do: gettext("%{name} already had a pairing-allocated bye.", name: display_name(socket, a))
+
+  defp rule_warning_text(socket, %{kind: :bye, players: [a], reason: :forfeit_win}),
+    do:
+      gettext(
+        "%{name} already won a game by forfeit, so may not get the pairing-allocated bye.",
+        name: display_name(socket, a)
+      )
+
+  defp rule_warning_text(socket, %{kind: :bye, players: [a]}),
+    do:
+      gettext(
+        "%{name} already had a full-point bye, so may not get the pairing-allocated bye.",
+        name: display_name(socket, a)
+      )
+
+  defp rule_warning_text(socket, %{kind: :colour_three, players: [a], colour: colour}),
+    do:
+      gettext("%{name} gets %{colour} for the third game running, before the last round.",
+        name: display_name(socket, a),
+        colour: colour_word(colour)
+      )
+
+  defp rule_warning_text(socket, %{kind: :colour_imbalance, players: [a]}),
+    do:
+      gettext(
+        "%{name} gets a colour difference of more than two, before the last round.",
+        name: display_name(socket, a)
+      )
+
+  defp rule_warning_text(socket, %{kind: :wrong_colours, players: [a, b]}),
+    do:
+      gettext(
+        "%{a} and %{b} both get the colour opposite to the one they are due.",
+        a: display_name(socket, a),
+        b: display_name(socket, b)
+      )
+
+  defp colour_word("w"), do: gettext("White")
+  defp colour_word(_b), do: gettext("Black")
+
+  # What the boards a staged hand edit creates break (Q66, Q67) - only for a
+  # tournament the checker can judge, and only when the edit creates any.
+  defp rule_warnings(socket, confirm) do
+    case confirm[:new_boards] || [] do
+      [] ->
+        []
+
+      boards ->
+        %{tournament: t, round_number: n} = socket.assigns
+
+        case ManualPairing.field(t, n) do
+          {:ok, field} ->
+            field
+            |> ManualPairing.warnings(t, n, boards)
+            |> Enum.map(&rule_warning_text(socket, &1))
+
+          :error ->
+            []
+        end
+    end
+  end
 
   ## ---------- Round lookups ----------
 
@@ -1982,6 +2407,19 @@ defmodule PairingsEngineWeb.PairingsLive do
              missing_setup_summary(socket.assigns.missing_setup)
          )}
 
+      # A round's hand edits are checked when they finish (VCL4THP Q68), so
+      # the next round waits for that rather than leaving them unchecked.
+      open = ManualPairing.open_round(socket.assigns.tournament.id) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Finish the hand edits to round %{n} first: their pairings are checked when you finish them.",
+             n: open
+           )
+         )}
+
       true ->
         do_pair(socket)
     end
@@ -2118,6 +2556,15 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       {:error, {:bye_preference_refused, info}} ->
         {:noreply, assign(socket, error: bye_preference_refusal(socket, info))}
+
+      # VCL4THP Q63: the rules leave no legal pairing, and the tournament
+      # must still be finishable - so the round can be created by hand.
+      {:error, {:no_legal_pairing, _text} = reason} ->
+        {:noreply,
+         assign(socket,
+           error: error_text(reason),
+           manual_round_offer: by_hand_possible?(socket.assigns.tournament)
+         )}
 
       {:error, reason} ->
         {:noreply, assign(socket, error: error_text(reason))}
@@ -3350,6 +3797,15 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Pair with another player who isn't playing…")}
             </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              phx-click="stage_pool_bye"
+              phx-value-player-id={@menu.player_id}
+            >
+              {gettext("Give the pairing-allocated bye")}
+            </button>
           <% "vacant" -> %>
             <button
               :if={!@fully_vacant?}
@@ -3385,6 +3841,176 @@ defmodule PairingsEngineWeb.PairingsLive do
             <div class="pe-level-menu">
               <.publish_level id_prefix="menu-" tournament={@tournament} round={@round} compact />
             </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  # The manual pairing alteration's two Level-3 confirmations (TEC Manual):
+  # finishing hand edits that leave the round different from the pairing
+  # checker's (Q69 - the checker's own pairing shown, as the manual asks),
+  # and creating a round by hand when no legal pairing exists (Q63). The
+  # app's own dialog, like every hand edit's, with its own tick.
+  attr :dialog, :map, required: true
+
+  defp mpa_dialog(assigns) do
+    ~H"""
+    <div class="pe-modal" phx-window-keydown="mpa_dialog_cancel" phx-key="escape">
+      <div
+        class="pe-modal-card pe-modal-wide"
+        phx-click-away="mpa_dialog_cancel"
+        id={"mpa-#{@dialog.kind}-dialog"}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="mpa-dialog-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <%= if @dialog.kind == :end do %>
+          <header class="pe-modal-head">
+            <h2 id="mpa-dialog-title">
+              {gettext("Finish hand edits to round %{n}", n: @dialog.round)}
+            </h2>
+            <p :if={@dialog.checked}>
+              {gettext("These pairings differ from the pairing checker's.")}
+            </p>
+            <p :if={!@dialog.checked}>
+              {gettext(
+                "The pairing checker cannot judge this kind of round, so the change is recorded as it is."
+              )}
+            </p>
+          </header>
+
+          <div class="pe-modal-body">
+            <div :if={@dialog.warnings != []} class="pe-modal-warn" id="mpa-end-warnings">
+              <strong>{gettext("These pairings break the pairing rules:")}</strong>
+              <ul style="margin: 6px 0 0; padding-left: 18px">
+                <li :for={line <- @dialog.warnings}>{line}</li>
+              </ul>
+            </div>
+
+            <div :if={@dialog.checked} id="mpa-end-checker" class="mpa-compare">
+              <div>
+                <h3>{gettext("The pairing checker pairs")}</h3>
+                <p :if={@dialog.correct == :none} class="hint">
+                  {gettext("No legal pairing exists for this round.")}
+                </p>
+                <ol :if={is_list(@dialog.correct)} id="mpa-checker-pairs">
+                  <li :for={line <- @dialog.correct}>{line}</li>
+                </ol>
+              </div>
+              <div>
+                <h3>{gettext("Only in your pairings")}</h3>
+                <ul id="mpa-added-pairs">
+                  <li :for={line <- @dialog.added}>{line}</li>
+                </ul>
+                <h3 :if={@dialog.missing != []}>{gettext("Only in the checker's")}</h3>
+                <ul :if={@dialog.missing != []} id="mpa-missing-pairs">
+                  <li :for={line <- @dialog.missing}>{line}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div :if={!@dialog.checked} id="mpa-end-unchecked" class="mpa-compare">
+              <div>
+                <h3>{gettext("Boards before")}</h3>
+                <ul>
+                  <li :for={line <- @dialog.missing}>{line}</li>
+                </ul>
+              </div>
+              <div>
+                <h3>{gettext("Boards now")}</h3>
+                <ul>
+                  <li :for={line <- @dialog.added}>{line}</li>
+                </ul>
+              </div>
+            </div>
+
+            <p class="pe-modal-note">
+              {gettext(
+                "Keeping them records a manual pairing alteration for round %{n}, written in the TRF as:",
+                n: @dialog.round
+              )} <code id="mpa-end-line">### {@dialog.line}</code>
+            </p>
+
+            <label
+              class="pe-modal-warn"
+              style="display: flex; align-items: center; gap: 6px; font-weight: 400"
+            >
+              <input
+                type="checkbox"
+                id="mpa-ack"
+                checked={@dialog.ack}
+                phx-click="toggle_mpa_ack"
+              /> {gettext("I understand - keep my pairings and record the alteration")}
+            </label>
+          </div>
+
+          <footer class="pe-modal-foot">
+            <button type="button" class="pe-btn" phx-click="mpa_dialog_cancel">
+              {gettext("Keep editing")}
+            </button>
+            <button
+              type="button"
+              id="mpa-end-confirm"
+              class="pe-btn primary pe-modal-go"
+              phx-click="mpa_end_confirm"
+              disabled={!@dialog.ack}
+            >
+              {gettext("Finish and record")}
+            </button>
+          </footer>
+        <% else %>
+          <header class="pe-modal-head">
+            <h2 id="mpa-dialog-title">
+              {gettext("Pair round %{n} by hand?", n: @dialog.round)}
+            </h2>
+            <p>
+              {gettext("The pairing engine found no legal pairing for round %{n}.", n: @dialog.round)}
+            </p>
+          </header>
+
+          <div class="pe-modal-body">
+            <p class="pe-modal-note">
+              {gettext(
+                "The round is created with no boards and every player in its not-playing list. Pair it from there - pair two players, give the pairing-allocated bye - and finish the hand edits when it is done."
+              )}
+            </p>
+
+            <div class="pe-modal-warn" role="alert">
+              <strong>{gettext("These pairings will break the pairing rules.")}</strong>
+              <p style="margin: 6px 0 0">
+                {gettext(
+                  "No pairing of this round can follow them. The round is recorded as a manual pairing alteration, and the TRF says so."
+                )}
+              </p>
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input
+                  type="checkbox"
+                  id="mpa-ack"
+                  checked={@dialog.ack}
+                  phx-click="toggle_mpa_ack"
+                /> {gettext("I understand - create round %{n} to pair by hand", n: @dialog.round)}
+              </label>
+            </div>
+          </div>
+
+          <footer class="pe-modal-foot">
+            <button type="button" class="pe-btn" phx-click="mpa_dialog_cancel">
+              {gettext("Cancel")}
+            </button>
+            <button
+              type="button"
+              id="pair-by-hand-confirm"
+              class="pe-btn primary pe-modal-go"
+              phx-click="pair_by_hand_confirm"
+              disabled={!@dialog.ack}
+            >
+              {gettext("Create round %{n}", n: @dialog.round)}
+            </button>
+          </footer>
         <% end %>
       </div>
     </div>
@@ -3627,7 +4253,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             phx-value-acknowledged={
               acknowledged_value(@pairing_warnings, [:adjourned_older_round_open])
             }
-            disabled={!@can_pair || @pairing_in_progress}
+            disabled={!@can_pair || @pairing_in_progress || @mpa_open != nil}
             data-confirm={
               cond do
                 @tournament.pairing_system == "round_robin" ->
@@ -3652,6 +4278,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
                 !@can_pair ->
                   "Previous round still has missing results"
+
+                @mpa_open != nil ->
+                  gettext("Finish the hand edits to round %{n} first.", n: @mpa_open)
 
                 true ->
                   nil
@@ -3894,6 +4523,15 @@ defmodule PairingsEngineWeb.PairingsLive do
                 >
                   {gettext("Import results (CSV)")}
                 </button>
+                <button
+                  :if={!@tournament.archived_at && !@round.mpa_session}
+                  type="button"
+                  role="menuitem"
+                  id={"mpa-start-#{@round_number}"}
+                  phx-click="mpa_start"
+                >
+                  {gettext("Edit pairings by hand")}
+                </button>
                 <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
                 <button
                   :if={@round_number == @paired_rounds && !@tournament.archived_at}
@@ -3931,7 +4569,58 @@ defmodule PairingsEngineWeb.PairingsLive do
           <summary style="cursor: pointer">{error_summary(@error)}</summary>
           <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 0">{@error}</pre>
         </details>
+        <%!-- VCL4THP Q63: no legal pairing, and the tournament must still be
+              finishable - the round can be created empty and paired by hand. --%>
+        <button
+          :if={@manual_round_offer && !@tournament.archived_at}
+          id="pair-by-hand"
+          type="button"
+          class="pe-btn"
+          style="margin-top: 8px"
+          phx-click="pair_by_hand"
+        >
+          {gettext("Pair round %{n} by hand…", n: @next_pairable)}
+        </button>
       </div>
+
+      <%!-- A manual pairing alteration is open on this round (VCL4THP Q65):
+            it ends here, and finishing it checks the round. --%>
+      <div
+        :if={@round && @round.mpa_session}
+        id="mpa-banner"
+        class="pe-modal-warn mpa-banner"
+        role="status"
+      >
+        <span>
+          <strong>{gettext("Hand edits to round %{n} are open.", n: @round_number)}</strong>
+          {gettext(
+            "Change the boards as needed, then finish: the pairing checker compares the round with its own pairing, and a difference is recorded in the TRF."
+          )}
+        </span>
+        <button
+          :if={!@tournament.archived_at}
+          id="mpa-end"
+          type="button"
+          class="pe-btn primary"
+          phx-click="mpa_end"
+        >
+          {gettext("Finish hand edits")}
+        </button>
+      </div>
+
+      <p
+        :if={@round && @round.mpa_pibe && !@round.mpa_session}
+        id="mpa-pibe-note"
+        class="setup-line"
+        role="note"
+      >
+        <.icon name="hero-pencil-square-micro" class="setup-line-icon" />
+        <span>
+          {gettext(
+            "These pairings were altered by hand and differ from the pairing checker's. The TRF records it:"
+          )} <code>### {@round.mpa_pibe}</code>
+        </span>
+      </p>
 
       <%!-- The players' bye preferences (not a FIDE rule): what they did
             to the pairing-allocated bye in the round on screen. --%>
@@ -4268,6 +4957,28 @@ defmodule PairingsEngineWeb.PairingsLive do
               </label>
             </div>
 
+            <%!-- VCL4THP Q66/Q67: what this edit breaks. Level 3 - it needs
+                  its own explicit tick. --%>
+            <div
+              :if={@confirm[:rule_warnings] not in [nil, []]}
+              class="pe-modal-warn"
+              id="confirm-rule-warnings"
+              role="alert"
+            >
+              <strong>{gettext("This breaks the pairing rules:")}</strong>
+              <ul style="margin: 6px 0 0; padding-left: 18px">
+                <li :for={line <- @confirm.rule_warnings}>{line}</li>
+              </ul>
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input
+                  type="checkbox"
+                  id="confirm-rule-ack"
+                  checked={@confirm.rule_ack}
+                  phx-click="toggle_rule_ack"
+                /> {gettext("I understand - apply it anyway")}
+              </label>
+            </div>
+
             <div :if={@confirm.frozen} class="pe-modal-warn">
               <strong>
                 {gettext("You're changing round %{n}, not the current round (round %{current}).",
@@ -4296,7 +5007,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-click="apply_confirm"
               disabled={
                 (@confirm.frozen and !@confirm.frozen_ack) or
-                  (@confirm[:sent] == true and !@confirm.sent_ack)
+                  (@confirm[:sent] == true and !@confirm.sent_ack) or
+                  @confirm[:rule_ack] == false
               }
             >
               {@confirm.title}
@@ -4304,6 +5016,8 @@ defmodule PairingsEngineWeb.PairingsLive do
           </footer>
         </div>
       </div>
+
+      <.mpa_dialog :if={@mpa_dialog} dialog={@mpa_dialog} />
 
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">

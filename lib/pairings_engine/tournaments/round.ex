@@ -78,6 +78,21 @@ defmodule PairingsEngine.Tournaments.Round do
     # docs/extra-points.md. Not cast.
     field :virtual_points, :map
 
+    # A manual pairing alteration in progress on this round (VCL4THP Q65):
+    # `%{"before" => [[white, black, bye?], ...]}` - the boards, by player
+    # id, as they stood when it began - or nil when none is open. In-flight
+    # state, not tournament content: not exported. Written only by
+    # `PairingsEngine.ManualPairing`; not cast.
+    field :mpa_session, :map
+
+    # The round's MPA PIBE (TEC Manual, "Logging of PIBEs"): the text of the
+    # `###` line the TRF carries for it, e.g. `MPA @ Round 5: 1-4 2-3 =>
+    # 1-3 2-4`, written when a manual alteration ends with boards that are
+    # not the pairing checker's. nil when there is none - at most one per
+    # round, and gone with the round. Written only by
+    # `PairingsEngine.ManualPairing`; not cast.
+    field :mpa_pibe, :string
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     has_many :pairings, PairingsEngine.Tournaments.Pairing
     # A team round's matches (`PairingsEngine.TeamRoundRobin`); none for an

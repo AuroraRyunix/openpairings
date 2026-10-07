@@ -296,6 +296,12 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "pairing.bye_awarded" => [%{"round" => 3, "summary" => "Anna Peeters sits out round 3"}],
     "pairing.seat_filled" => [%{"round" => 3, "summary" => "Chris Maes joins board 7"}],
     "pairing.pool_paired" => [%{"round" => 3, "summary" => "Chris Maes  vs  Dirk Jacobs"}],
+    "pairing.mpa_started" => [%{"round" => 3, "implicit" => true}, %{"round" => 3}],
+    "pairing.mpa_finished" => [
+      %{"round" => 3, "pibe" => "MPA @ Round 3: 1-4 2-3 => 1-3 2-4"},
+      %{"round" => 3, "pibe" => nil}
+    ],
+    "pairing.round_created_by_hand" => [%{"round" => 4}],
     "pairing.deleted" => [%{"round" => 3, "summary" => "Board 12 is removed from round 3"}],
     "pairing.match_forfeited" => [
       %{"round" => 3, "match" => 2, "winner" => "Brugse SK", "loser" => "Deurne"}
