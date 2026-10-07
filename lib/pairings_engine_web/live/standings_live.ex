@@ -913,9 +913,13 @@ defmodule PairingsEngineWeb.StandingsLive do
             <tr :for={entry <- display_entries}>
               <% place = Map.get(entry, :category_place) || entry.rank %>
               <% prize? =
-                @selected_category && Categories.prize_place?(@tournament, @selected_category, place) %>
+                !Map.get(entry, :c05_uncounted) && @selected_category &&
+                  Categories.prize_place?(@tournament, @selected_category, place) %>
               <td class={["num", prize? && "pe-cat-place is-prize"]}>
-                {place}<span :if={prize?} class="sr-only">{gettext(", prize place")}</span>
+                {if Map.get(entry, :c05_uncounted), do: "-", else: place}<span
+                  :if={prize?}
+                  class="sr-only"
+                >{gettext(", prize place")}</span>
               </td>
 
               <td>
@@ -926,6 +930,18 @@ defmodule PairingsEngineWeb.StandingsLive do
                   count={Map.get(@pending_by_player, entry.player.id, 0)}
                   id={"pending-#{entry.player.id}"}
                 />
+                <span
+                  :if={Map.get(entry, :c05_uncounted)}
+                  id={"c05-uncounted-#{entry.player.id}"}
+                  class="pending-chip"
+                  title={
+                    gettext(
+                      "Withdrew having played under half of their games: by FIDE C.05 6.6 their results stay in the cross table and count for rating, but not in these standings - for nobody's score or tie-breaks."
+                    )
+                  }
+                >
+                  {gettext("withdrawn, not counted")}
+                </span>
               </td>
 
               <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
