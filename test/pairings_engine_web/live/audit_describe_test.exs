@@ -64,6 +64,9 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "team.deleted" => [%{"team_name" => "Brugse SK"}],
     "team.player_assigned" => [%{"player_name" => "Anna Peeters", "team_name" => "Brugse SK"}],
     "team.player_removed" => [%{"player_name" => "Anna Peeters", "team_name" => "Brugse SK"}],
+    "team.roster_filled" => [
+      %{"team_name" => "Brugse SK", "source" => "Example list", "count" => 3}
+    ],
     "team.board_order_changed" => [
       %{"player_name" => "Anna Peeters", "direction" => "up"},
       %{"player_name" => "Anna Peeters", "direction" => "down"}

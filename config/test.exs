@@ -58,6 +58,11 @@ config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 # no task outlives the test's sandbox. Its own tests switch it to `:async`.
 config :pairings_engine, :explanation_jobs, :inline
 
+# Lets the plugin seam's tests register a fake plugin at run time
+# (`PairingsEngine.Plugins.all/0`, test/support/fake_plugin.ex). Read at
+# compile time, so no other environment can.
+config :pairings_engine, :runtime_test_plugins, true
+
 # Route PairingsEngine.Keycloak's Req calls through a Req.Test stub instead of
 # the real network - see Req.Test's moduledoc for the `plug: {Req.Test, name}`
 # convention. Individual tests set behaviour with Req.Test.stub/2.

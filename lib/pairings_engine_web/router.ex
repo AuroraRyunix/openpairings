@@ -195,6 +195,42 @@ defmodule PairingsEngineWeb.Router do
     get "/admin/rating-inbox/receipts/:id/trf", RatingInboxController, :trf
   end
 
+  ## Plugin pages (see `PairingsEngine.Plugin`). Only in a build that compiles
+  # a plugin in - the hosted edition. Everywhere else `plugin_routes` is empty
+  # and none of this exists: no scope, no live_session, no route.
+  #
+  # Signed in, with the same on_mount hooks as the tournament pages, because a
+  # plugin's pages are tournament work (a league series is a team
+  # tournament); each page enforces any narrower right itself, the way
+  # `PairingsEngineWeb.MatchLive` does. Its own live_session rather than
+  # `:require_authenticated_tournaments`: live_session names are unique, and
+  # that block is aliased to `PairingsEngineWeb`, which would prefix a
+  # plugin's module names. The price is a full page load between a plugin's
+  # pages and the core's, which is the right side of the trade.
+  #
+  # Every path is under `/p/<plugin id>`, so a plugin cannot shadow a core
+  # route.
+  plugin_routes = PairingsEngine.Plugins.routes()
+
+  if plugin_routes != [] do
+    scope "/" do
+      pipe_through [:browser, :require_authenticated_user]
+
+      live_session :plugins,
+        on_mount: [
+          PairingsEngineWeb.LocaleHook,
+          PairingsEngineWeb.DeployNotice,
+          PairingsEngineWeb.PublishStatusHook,
+          PairingsEngineWeb.UpdateNotice,
+          {PairingsEngineWeb.UserAuth, :require_authenticated}
+        ] do
+        for {path, live_module, action} <- plugin_routes do
+          live path, live_module, action
+        end
+      end
+    end
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", PairingsEngineWeb do
   #   pipe_through :api

@@ -101,8 +101,14 @@ defmodule PairingsEngine.Features do
   A function rather than a module attribute so the labels resolve in the
   reader's locale on every call, instead of freezing whatever locale
   compiled the release.
+
+  A plugin compiled into this build (`PairingsEngine.Plugin`) appends its
+  own entries after the core's, under a federation already listed in
+  `federations/0`; without one the list is the core's alone.
   """
-  def catalogue do
+  def catalogue, do: core_catalogue() ++ PairingsEngine.Plugins.features()
+
+  defp core_catalogue do
     [
       # Off until switched on: working out every outcome of the games still
       # being played costs a pairing run per outcome, and most arbiters never

@@ -17793,3 +17793,94 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Run again"
 msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1071
+#, elixir-autogen, elixir-format
+msgid "Organisers' rules that are not FIDE's, for any federation. Off until you switch them on."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1069
+#, elixir-autogen, elixir-format
+msgid "Pairing options"
+msgstr ""
+
+#: lib/pairings_engine_web/live/teams_live.ex:280
+#, elixir-autogen, elixir-format
+msgid "%{count} player from %{source} added to %{team}."
+msgid_plural "%{count} players from %{source} added to %{team}."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/match_live.ex:401
+#, elixir-autogen, elixir-format
+msgid "%{team}, board %{board}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/teams_live.ex:988
+#, elixir-autogen, elixir-format
+msgid "Add %{count} player from %{source}"
+msgid_plural "Add %{count} players from %{source}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:303
+#, elixir-autogen, elixir-format
+msgid "Added %{count} players from %{source} to team %{team}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/teams_live.ex:996
+#, elixir-autogen, elixir-format
+msgid "At the bottom of the roster, in the order %{source} gives."
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:399
+#, elixir-autogen, elixir-format
+msgid "Board %{board}"
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:355
+#, elixir-autogen, elixir-format
+msgid "For the line-ups as they stand on the form, not saved yet. Nothing here stops a save: the checks report, the arbiter decides."
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:342
+#: lib/pairings_engine_web/live/plugins_live.ex:18
+#: lib/pairings_engine_web/live/plugins_live.ex:36
+#, elixir-autogen, elixir-format
+msgid "Installed plug-ins"
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:352
+#, elixir-autogen, elixir-format
+msgid "Line-up checks"
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:365
+#, elixir-autogen, elixir-format
+msgid "No problems found in these line-ups."
+msgstr ""
+
+#: lib/pairings_engine_web/live/plugins_live.ex:38
+#, elixir-autogen, elixir-format
+msgid "Parts of this installation that are not in the published application: built in with it, and updated with it."
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:327
+#, elixir-autogen, elixir-format
+msgid "Plug-ins"
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:359
+#, elixir-autogen, elixir-format
+msgid "The competition's regulations, applied to every board of the saved line-ups. Nothing here stops a save: the checks report, the arbiter decides."
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:374
+#, elixir-autogen, elixir-format
+msgid "Violation"
+msgstr ""
+
+#: lib/pairings_engine_web/live/match_live.ex:374
+#, elixir-autogen, elixir-format
+msgid "Warning"
+msgstr ""

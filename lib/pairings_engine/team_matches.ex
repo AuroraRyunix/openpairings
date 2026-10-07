@@ -515,6 +515,9 @@ defmodule PairingsEngine.TeamMatches do
       Olympiad 2026 regulations Art. 4.17.6, World Team Rapid & Blitz 2026
       Art. 4.2.1, Asian Team Championships Art. 4.2.3-4.2.4) -
       `{:error, {:board_order, upper, lower}}`.
+      Unless a plugin's regulations set the board order for this
+      tournament (`PairingsEngine.Plugins.plugin_board_order?/1`): then the
+      plugin's line-up check reports on it instead.
 
   At least one team must field a player (`{:error, :no_players}`; a match
   neither team plays is a double forfeit, `double_forfeit/2`). Boards are
@@ -583,10 +586,18 @@ defmodule PairingsEngine.TeamMatches do
         if player && not TeamRounds.available?(player, number), do: player
       end)
 
+    # A plugin whose regulations set the board order (`PairingsEngine.
+    # Plugins.plugin_board_order?/1`) judges it in its own line-up check,
+    # which reports and never refuses; the roster order is then only the
+    # order the pairing seats by default.
     out_of_order =
-      seated
-      |> Enum.chunk_every(2, 1, :discard)
-      |> Enum.find(fn [x, y] -> Map.get(position, x, 0) > Map.get(position, y, 0) end)
+      if PairingsEngine.Plugins.plugin_board_order?(t) do
+        nil
+      else
+        seated
+        |> Enum.chunk_every(2, 1, :discard)
+        |> Enum.find(fn [x, y] -> Map.get(position, x, 0) > Map.get(position, y, 0) end)
+      end
 
     duplicate = seated |> Enum.frequencies() |> Enum.find(fn {_id, n} -> n > 1 end)
 

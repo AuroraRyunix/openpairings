@@ -305,7 +305,16 @@ defmodule PairingsEngine.RoundRobin do
   """
   def frozen_schedule_size(%Tournament{} = tournament) do
     if Tournament.team_round_robin?(tournament) do
-      length(PairingsEngine.TeamRounds.numbered_teams(tournament.id))
+      # A plugin's table (`PairingsEngine.Plugins.team_schedule/1`) can be
+      # larger than the field, its empty numbers byes: its size is the
+      # schedule's.
+      case PairingsEngine.Plugins.team_schedule(tournament) do
+        %{size: size} when is_integer(size) ->
+          max(size, length(PairingsEngine.TeamRounds.numbered_teams(tournament.id)))
+
+        _ ->
+          length(PairingsEngine.TeamRounds.numbered_teams(tournament.id))
+      end
     else
       tournament
       |> schedule_groups(frozen_players(tournament.id))

@@ -99,6 +99,7 @@ defmodule PairingsEngineWeb.AuditLive do
         player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
+        team.roster_filled
         team.board_order_changed team.seeding_changed team.withdrawn team.reinstated
         team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
@@ -294,6 +295,14 @@ defmodule PairingsEngineWeb.AuditLive do
     do:
       gettext("Put %{player} on team %{team}.",
         player: name(d, "player_name"),
+        team: name(d, "team_name")
+      )
+
+  def describe("team.roster_filled", d),
+    do:
+      gettext("Added %{count} players from %{source} to team %{team}.",
+        count: d["count"] || 0,
+        source: name(d, "source"),
         team: name(d, "team_name")
       )
 

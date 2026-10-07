@@ -24,6 +24,13 @@ config :pairings_engine,
   ecto_repos: [PairingsEngine.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# The plugins compiled into this build - `[]` unless mix.exs was loaded
+# with PAIRINGS_EDITION=hosted, which is the only place the list is decided
+# (see the top of mix.exs and `PairingsEngine.Plugin`). Read at compile time
+# by `PairingsEngine.Plugins` and the router, so switching edition
+# recompiles exactly what depends on it.
+config :pairings_engine, :plugins, Mix.Project.config()[:pairings_plugins] || []
+
 # Configure the endpoint
 config :pairings_engine, PairingsEngineWeb.Endpoint,
   url: [host: "localhost"],

@@ -19,7 +19,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
   import PairingsEngineWeb.SettingsSupport, only: [error_text: 1]
 
-  alias PairingsEngine.{Audit, TeamStandings, Tournaments}
+  alias PairingsEngine.{Audit, Plugins, TeamStandings, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Team, Tournament}
 
@@ -83,7 +83,17 @@ defmodule PairingsEngineWeb.TeamsLive do
           roster = Tournaments.sort_roster(Map.get(rosters, team.id, []))
           {team.id, Tournaments.team_rating_display(t, team, roster)}
         end),
-      paired: Engine.paired_rounds_count(t.id)
+      paired: Engine.paired_rounds_count(t.id),
+      # What a plugin can put on each team's roster from its own data
+      # (`PairingsEngine.Plugins.roster_candidates/3`); empty without one.
+      roster_sources:
+        if(Plugins.any?(),
+          do:
+            Map.new(teams, fn team ->
+              {team.id, Plugins.roster_candidates(socket.assigns.current_scope, t, team)}
+            end),
+          else: %{}
+        )
     )
   end
 
@@ -245,6 +255,39 @@ defmodule PairingsEngineWeb.TeamsLive do
        |> load()}
     else
       nil -> {:noreply, socket}
+      {:error, reason} -> {:noreply, fail(socket, reason)}
+    end
+  end
+
+  def handle_event("fill_roster", %{"team_id" => team_id, "source" => source}, socket) do
+    t = socket.assigns.tournament
+
+    with %Team{} = team <- team(socket, team_id),
+         {plugin, label, candidates} <-
+           socket.assigns.current_scope
+           |> Plugins.roster_candidates(t, team)
+           |> Enum.find(fn {plugin, _label, _} -> plugin.id() == source end),
+         {:ok, added} <- Plugins.add_to_roster(t, team, candidates) do
+      Audit.log(t.id, socket.assigns.current_scope, "team.roster_filled", %{
+        team_name: team.name,
+        source: plugin.name(),
+        count: added
+      })
+
+      {:noreply,
+       socket
+       |> ok(
+         ngettext(
+           "%{count} player from %{source} added to %{team}.",
+           "%{count} players from %{source} added to %{team}.",
+           added,
+           source: label,
+           team: team.name
+         )
+       )
+       |> load()}
+    else
+      nil -> {:noreply, load(socket)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -927,6 +970,32 @@ defmodule PairingsEngineWeb.TeamsLive do
             </label>
             <button type="submit" class="pe-btn">{gettext("Add player")}</button>
           </form>
+
+          <div
+            :for={{plugin, label, candidates} <- Map.get(@roster_sources, team.id, [])}
+            :if={@writable?}
+            id={"roster-source-#{plugin.id()}-#{team.id}"}
+            class="actions"
+          >
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="fill_roster"
+              phx-value-team_id={team.id}
+              phx-value-source={plugin.id()}
+              data-confirm={@roster_warning? && roster_confirm()}
+            >
+              {ngettext(
+                "Add %{count} player from %{source}",
+                "Add %{count} players from %{source}",
+                length(candidates),
+                source: label
+              )}
+            </button>
+            <span class="hint">
+              {gettext("At the bottom of the roster, in the order %{source} gives.", source: label)}
+            </span>
+          </div>
         </section>
 
         <div :if={@unassigned != [] and @teams != []} class="card">

@@ -159,6 +159,15 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       "/badges/:id/badge/:badge_id" ->
         ["/badges/#{world.badge_event.id}/badge/#{world.badge.id}"]
 
+      # A build with a plug-in (the hosted edition): the installed list, and
+      # each plug-in's own pages - walked like the core's, an `:id` being
+      # the world's tournament. None of these exist in any other build.
+      "/plugins" ->
+        ["/plugins"]
+
+      "/p/" <> _ ->
+        [String.replace(path, ":id", "#{t}")]
+
       # Token pages: a real token is single-use and bound to an email flow;
       # a made-up one redirects before rendering anything to audit.
       "/users/settings/confirm-email/:token" ->

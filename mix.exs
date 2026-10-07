@@ -1,12 +1,85 @@
 defmodule PairingsEngine.MixProject do
   use Mix.Project
 
+  # The edition being built, read once when this file is loaded. See
+  # `PairingsEngine.Plugin` for what a plugin is.
+  #
+  #   desktop (the default, and what CI, the desktop binaries and local
+  #            development build): no plugin. Nothing below adds a
+  #            dependency, a source path or a test path, so the build is
+  #            exactly what it would be without the plugin seam.
+  #   hosted  the hosted server: each plugin checkout (see below) is added
+  #            as a path dependency and its `lib/` compiled with ours.
+  #
+  # Anything else stops the build rather than quietly building the desktop
+  # edition: a typo in a deploy script must not ship a server without the
+  # plugins it was meant to have.
+  edition = System.get_env("PAIRINGS_EDITION", "desktop")
+
+  unless edition in ["desktop", "hosted"] do
+    Mix.raise("PAIRINGS_EDITION must be \"desktop\" or \"hosted\", not #{inspect(edition)}")
+  end
+
+  # Which plugins, in the hosted edition. A plugin is a checkout with an
+  # `openpairings_plugin.exs` at its root, naming itself and its module:
+  #
+  #     [name: :some_plugin, module: SomePlugin.Plugin]
+  #
+  # The checkouts are looked for in PAIRINGS_PLUGINS_DIR - by default the
+  # directory this checkout sits in. PAIRINGS_PLUGINS (comma-separated
+  # checkout names) says which; without it, every checkout there with a
+  # manifest. This file names no plugin itself: what is built in is the
+  # deploy's business, and the public repository knows nothing of it.
+  plugins_dir = System.get_env("PAIRINGS_PLUGINS_DIR") || Path.expand("..", __DIR__)
+
+  plugin_dirs =
+    case System.get_env("PAIRINGS_PLUGINS", "") |> String.split(",", trim: true) do
+      [] ->
+        plugins_dir
+        |> Path.join("*/openpairings_plugin.exs")
+        |> Path.wildcard()
+        |> Enum.map(&Path.dirname/1)
+
+      names ->
+        Enum.map(names, &Path.join(plugins_dir, String.trim(&1)))
+    end
+
+  @plugins (if edition == "hosted" do
+              for dir <- plugin_dirs do
+                manifest = Path.join(dir, "openpairings_plugin.exs")
+
+                unless File.regular?(manifest) do
+                  Mix.raise("No plugin at #{dir}: #{manifest} does not exist")
+                end
+
+                {opts, _binding} = Code.eval_file(manifest)
+
+                %{
+                  name: Keyword.fetch!(opts, :name),
+                  module: Keyword.fetch!(opts, :module),
+                  path: Path.expand(dir)
+                }
+              end
+            else
+              []
+            end)
+
+  @edition edition
+
   def project do
     [
       app: :pairings_engine,
       version: "0.75.0",
       elixir: "~> 1.17",
-      elixirc_paths: elixirc_paths(Mix.env()),
+      elixirc_paths: elixirc_paths(Mix.env()) ++ plugin_paths("lib"),
+      test_paths: ["test" | plugin_paths("test")],
+      # Read by config/config.exs into `:pairings_engine, :plugins` - the
+      # one list `PairingsEngine.Plugins` and the router compile against.
+      pairings_plugins: Enum.map(@plugins, & &1.module),
+      pairings_edition: @edition,
+      # Read by .formatter.exs, so `mix format` formats a plugin with the
+      # core's rules.
+      pairings_plugin_dirs: Enum.map(@plugins, & &1.path),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -237,8 +310,48 @@ defmodule PairingsEngine.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:test), do: ["lib", "test/support"] ++ plugin_paths("test/support")
   defp elixirc_paths(_), do: ["lib"]
+
+  # A directory of every plugin, where it exists - `[]` in the desktop
+  # edition. Compiled as part of this application rather than as a separate
+  # one: a plugin's pages `use PairingsEngineWeb, :live_view`, render inside
+  # `Layouts.app` and use the core components, and a dependency is compiled
+  # BEFORE this application, when none of those exist yet.
+  defp plugin_paths(dir) do
+    for plugin <- @plugins,
+        path = Path.join(plugin.path, dir),
+        File.dir?(path),
+        do: path
+  end
+
+  # The plugins as dependencies: path deps, so `mix deps.get` checks the
+  # checkout is where the build expects it and fails loudly when it is not.
+  # `compile: false, app: false` because the code is compiled with ours (see
+  # `plugin_paths/1`) and is not an application of its own. Path deps are
+  # never written to mix.lock, so the lock - and CI's `--check-locked` - is
+  # the same in both editions.
+  defp plugin_deps do
+    for plugin <- @plugins,
+        do: {plugin.name, path: plugin.path, compile: false, app: false}
+  end
+
+  # The plugins' own migrations, for the `ecto.*` aliases below. Empty in
+  # the desktop edition, where the aliases are exactly what they were.
+  defp plugin_migration_args do
+    for plugin <- @plugins,
+        path = Path.join([plugin.path, "priv", "migrations"]),
+        File.dir?(path),
+        into: "",
+        do: " --migrations-path #{inspect(path)}"
+  end
+
+  defp migrate_alias do
+    case plugin_migration_args() do
+      "" -> []
+      args -> ["ecto.migrate": ["ecto.migrate --migrations-path priv/repo/migrations" <> args]]
+    end
+  end
 
   # Specifies your project dependencies.
   #
@@ -310,7 +423,7 @@ defmodule PairingsEngine.MixProject do
       # a diff and in review. mix.lock still records the resolved commit, so
       # this is no less exact than a SHA was; it is only easier to read.
       {:ainalrami, github: "AuroraRyunix/Ainalrami", tag: "v0.38.0"}
-    ]
+    ] ++ plugin_deps()
   end
 
   # Aliases are shortcuts or tasks specific to the current project.
@@ -341,6 +454,6 @@ defmodule PairingsEngine.MixProject do
         "pairings.version_check",
         "test"
       ]
-    ]
+    ] ++ migrate_alias()
   end
 end
