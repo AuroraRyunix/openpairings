@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       paths = PairingsEngineWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
       plugin_paths = Enum.filter(paths, &(&1 == "/plugins" or String.starts_with?(&1, "/p/")))
 
-      if Plugins.compiled() == [] do
+      if Enum.empty?(Plugins.compiled()) do
         assert plugin_paths == []
         assert Plugins.routes([]) == []
       else
@@ -43,11 +43,11 @@ defmodule PairingsEngineWeb.PluginSeamTest do
 
     test "the home screen has no Plug-ins menu", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/")
-      assert has_element?(lv, "#topbar-plugins") == (Plugins.compiled() != [])
+      assert has_element?(lv, "#topbar-plugins") == not Enum.empty?(Plugins.compiled())
     end
 
     test "nothing is added to features, line-ups or schedules", %{scope: scope} do
-      if Plugins.compiled() == [] do
+      if Enum.empty?(Plugins.compiled()) do
         refute Plugins.any?()
         assert Plugins.installed() == []
         assert Plugins.features() == []

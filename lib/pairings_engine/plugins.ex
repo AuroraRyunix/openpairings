@@ -59,7 +59,7 @@ defmodule PairingsEngine.Plugins do
   def routes(plugins \\ compiled()) do
     own =
       for plugin <- plugins,
-          Code.ensure_compiled!(plugin) && function_exported?(plugin, :routes, 0),
+          Code.ensure_compiled!(plugin) && exports?(plugin, :routes, 0),
           {path, live, action} <- plugin.routes() do
         {"/p/" <> plugin.id() <> normalise_path(path), live, action}
       end
@@ -99,7 +99,7 @@ defmodule PairingsEngine.Plugins do
 
   def tournament_menu_entries(scope, tournament) do
     Enum.flat_map(all(), fn plugin ->
-      if function_exported?(plugin, :tournament_menu_entries, 2),
+      if exports?(plugin, :tournament_menu_entries, 2),
         do:
           safely(
             plugin,
@@ -116,7 +116,7 @@ defmodule PairingsEngine.Plugins do
   @doc "The `PairingsEngine.Features` catalogue entries the plugins add."
   def features do
     Enum.flat_map(all(), fn plugin ->
-      if function_exported?(plugin, :features, 0), do: plugin.features(), else: []
+      if exports?(plugin, :features, 0), do: plugin.features(), else: []
     end)
   end
 
@@ -130,14 +130,14 @@ defmodule PairingsEngine.Plugins do
   @spec plugin_board_order?(Tournament.t()) :: boolean()
   def plugin_board_order?(%Tournament{} = tournament) do
     Enum.any?(all(), fn plugin ->
-      function_exported?(plugin, :board_order, 1) and
+      exports?(plugin, :board_order, 1) and
         safely(plugin, :board_order, fn -> plugin.board_order(tournament) end, :roster) ==
           :plugin
     end)
   end
 
   @doc "Whether any plugin checks line-ups at all."
-  def checks_lineups?, do: Enum.any?(all(), &function_exported?(&1, :check_lineups, 1))
+  def checks_lineups?, do: Enum.any?(all(), &exports?(&1, :check_lineups, 1))
 
   @doc """
   The findings every plugin has about the line-ups of `match`, round
@@ -151,7 +151,7 @@ defmodule PairingsEngine.Plugins do
   @spec check_lineups(Tournament.t(), map(), pos_integer(), [integer() | nil], [integer() | nil]) ::
           [PairingsEngine.Plugin.finding()] | nil
   def check_lineups(%Tournament{} = t, match, round_number, ids_a, ids_b) do
-    checkers = Enum.filter(all(), &function_exported?(&1, :check_lineups, 1))
+    checkers = Enum.filter(all(), &exports?(&1, :check_lineups, 1))
 
     if checkers == [] do
       nil
@@ -203,7 +203,7 @@ defmodule PairingsEngine.Plugins do
   """
   def team_schedule(%Tournament{} = tournament) do
     Enum.find_value(all(), fn plugin ->
-      if function_exported?(plugin, :team_schedule, 1), do: plugin.team_schedule(tournament)
+      if exports?(plugin, :team_schedule, 1), do: plugin.team_schedule(tournament)
     end)
   end
 
@@ -219,7 +219,7 @@ defmodule PairingsEngine.Plugins do
   def roster_candidates(scope, %Tournament{} = t, %Team{} = team) do
     offering =
       for plugin <- all(),
-          function_exported?(plugin, :roster_candidates, 3),
+          exports?(plugin, :roster_candidates, 3),
           {:ok, label, candidates} <- [plugin.roster_candidates(scope, t, team)],
           do: {plugin, label, candidates}
 
@@ -276,12 +276,19 @@ defmodule PairingsEngine.Plugins do
 
   @doc "The plugins' own migration directories, run after the core's."
   def migrations_paths do
-    for plugin <- all(), function_exported?(plugin, :migrations_path, 0) do
+    for plugin <- all(), exports?(plugin, :migrations_path, 0) do
       plugin.migrations_path()
     end
   end
 
   ## ---------- helpers ----------
+
+  # `function_exported?/3` is false for a module not loaded yet - and under
+  # `mix phx.server` (how the hosted server runs) modules load on first use,
+  # so a hook asked before anything else touched the plugin would read as
+  # missing. Load first, then ask.
+  defp exports?(module, fun, arity),
+    do: Code.ensure_loaded?(module) and function_exported?(module, fun, arity)
 
   defp safely(plugin, hook, fun, fallback) do
     fun.()

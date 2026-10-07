@@ -18,7 +18,7 @@ defmodule PairingsEngine.FeaturesTest do
 
     test "bye preferences, the exclusion included, are one switch, last in the Belgian pack" do
       assert Features.general() == []
-      assert List.last(Features.catalogue_for("BEL")).key == "bye_preferences"
+      assert List.last(core_catalogue_for("BEL")).key == "bye_preferences"
       refute "bel_bye_exclusions" in Features.keys()
     end
 
@@ -29,8 +29,15 @@ defmodule PairingsEngine.FeaturesTest do
       assert keys == Enum.uniq(keys)
     end
 
+    # A hosted build's plug-ins append their own entries after the core's
+    # (`PairingsEngine.Plugins.features/0`); these two are about the core's.
+    defp core_catalogue_for(code) do
+      plugin_keys = Enum.map(PairingsEngine.Plugins.features(), & &1.key)
+      code |> Features.catalogue_for() |> Enum.reject(&(&1.key in plugin_keys))
+    end
+
     test "the seven Belgian switches are all there" do
-      assert Features.catalogue_for("BEL") |> Enum.map(& &1.key) == [
+      assert core_catalogue_for("BEL") |> Enum.map(& &1.key) == [
                "bel_ratings_sync",
                "bel_player_lookup",
                "bel_club_sync",
