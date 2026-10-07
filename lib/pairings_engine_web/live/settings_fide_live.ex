@@ -359,7 +359,10 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         <div>
           <h1>{@tournament.name}</h1>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - FIDE")}</p>
+          <p class="subtitle" style="margin: 0">
+            {gettext("Settings - FIDE")}
+            <PairingsEngineWeb.Components.ManualLink.manual_link topic={:fide_settings} />
+          </p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>

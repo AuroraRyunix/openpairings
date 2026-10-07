@@ -12,8 +12,9 @@ OpenPairings reads and writes several formats. They differ in purpose:
 | PGN | The games of the tournament, without moves | export |
 | FIDE forms (Excel) | IT3, FA1, IA1, IT4 | export |
 
-Importing never overwrites an existing tournament: every import makes a new
-tournament.
+> [!NOTE]
+> Importing never overwrites an existing tournament: every import makes a new
+> tournament.
 
 ## Importing
 
@@ -59,6 +60,8 @@ follows the choice of the file:
   that needs your explicit confirmation (Level 3). The button then reads
   **Import anyway**; otherwise it reads **Import**. **Cancel** imports
   nothing.
+
+![The TRF import review with the heading about rounds that break the FIDE pairing rules and the Import anyway button](screenshots/10-trf-import-review.png "The review step of a TRF import")
 
 A confirmed import creates the tournament with the rounds exactly as the file
 records them. What the import adjusted and every rule it found broken are kept

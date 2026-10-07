@@ -4422,7 +4422,9 @@ defmodule PairingsEngineWeb.PairingsLive do
             then the round bar below. The top bar's tab already says
             "Pairings", so the name stands alone; the links that sat beside
             it - the public page and the local view - are in More. --%>
-      <h1 id="pairings-title" class="pairings-title">{@tournament.name}</h1>
+      <h1 id="pairings-title" class="pairings-title">
+        {@tournament.name} <PairingsEngineWeb.Components.ManualLink.manual_link topic={:pairings} />
+      </h1>
 
       <.fide_exit_dialog
         id="fide-gate"

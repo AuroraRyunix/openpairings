@@ -9,6 +9,8 @@ The page header says *Standings after round N*. Players still level after
 every tie-break are ordered by rating and name, or share a place, as the
 setting *Players still level share a place* says (see below).
 
+![The Standings page of a Swiss tournament with the tie-break columns](screenshots/08-standings-swiss.png "Standings after round 5")
+
 - The **Category** filter above the table shows one category at a time
   ([Categories and norms](13-categories-and-norms.md)).
 - The column *Rds* (rounds present) and the extra-points columns appear
@@ -43,8 +45,10 @@ first round in FIDE mode: see [Tournament set-up](03-tournament-setup.md)). A
 pairing-allocated bye scores as set on the Scoring page; an absence scores
 as set there too ([Byes and absences](05-byes-and-absences.md)). Extra points
 (administrative bonus points) are added only if the tournament counts them.
-The tie-breaks of C.07 always use the game points of the opponents, never the
-extra points.
+
+> [!FIDE] C.07
+> The tie-breaks of C.07 always use the game points of the opponents, never the
+> extra points.
 
 ## Tie-breaks
 
@@ -64,9 +68,11 @@ calculations are done by the same engine that pairs the Swiss rounds.
 - **Add a tiebreak…** adds one from the list below; **Move up** and **Move
   down** change the order (the first one applies first); **Remove** takes one
   out. Without a tie-break, tied players share a place.
-- The list can be changed until the first round is paired. In FIDE mode it
-  is then locked, because the tie-breaks must be announced before the start
-  ([FIDE mode](02-fide-mode.md)).
+- The list can be changed until the first round is paired.
+
+> [!FIDE]
+> In FIDE mode the list is then locked, because the tie-breaks must be announced
+> before the start ([FIDE mode](02-fide-mode.md)).
 
 ### The available tie-breaks
 
@@ -207,10 +213,12 @@ ranking** turns the tournament's order into a list that you can change:
 
 While it is on, a banner says *Manual ranking is ON* on every page, the print
 and the public page that shows a rank. When a result or a bye changes after the
-order was set, the banner says that the order may be out of date. Manual
-ranking changes only the displayed order: it never touches the points, the
-tie-breaks or the TRF report, so a rating officer replaying the file sees the
-computed standings.
+order was set, the banner says that the order may be out of date.
+
+> [!NOTE]
+> Manual ranking changes only the displayed order: it never touches the points, the
+> tie-breaks or the TRF report, so a rating officer replaying the file sees the
+> computed standings.
 
 ## Drawing of lots
 

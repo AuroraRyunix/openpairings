@@ -21,6 +21,8 @@ Tournaments, **New tournament**.
 | Rate of play | A list of the usual time controls for the chosen format, or *none*. |
 | Format | Standard, Rapid or Blitz. It decides which time controls are offered, which FIDE rating the players' ratings are refreshed from, and the report type. |
 
+![The New tournament form with name, pairing system, rounds, place, start date and rate of play](screenshots/03-new-tournament-form.png "The New tournament form")
+
 The form starts with your defaults (Account page, *New tournaments*: system,
 rounds, format, rate of play, place, organiser, publishing mode). The
 tournament is created in FIDE mode ([FIDE mode](02-fide-mode.md)).
@@ -34,9 +36,11 @@ rounds and results included, and is named *Copy of …*).
 
 ### What must be set before pairing
 
-A round cannot be paired until the **tournament name**, the **number of
-rounds**, a **date for every round** and a **tie-break selection** exist. The
-Players and Pairings pages say what is still missing and link to the page
+> [!WARNING]
+> A round cannot be paired until the **tournament name**, the **number of
+> rounds**, a **date for every round** and a **tie-break selection** exist.
+
+The Players and Pairings pages say what is still missing and link to the page
 where it is set. The Pairings page also warns, before round 1 and without blocking, when the
 number of rounds cannot be paired for the players registered: a Swiss with more
 rounds than the players allow without a rematch, or a round robin whose number
@@ -105,6 +109,8 @@ program file installed separately (it is not included). The engine is
 fixed once the first round is paired. Both engines are given exactly the
 same file (a TRF file built and checked by the program).
 
+![The Options settings page with the pairing system, Swiss engine and tournament rating](screenshots/03-settings-options.png "Settings, Options")
+
 **Tournament rating.** The rating that ranks the players, and so gives them
 their pairing numbers, and that the rating-based tie-breaks read. The choices
 are the methods of the TRF26 report: *FIDE rating only (FIDE)*, *National
@@ -128,8 +134,11 @@ Changing these three settings after round 1 renumbers nobody already
 numbered; the page says so.
 
 **Initial colour.** For the first round of a Swiss tournament: drawn by lot
-when round 1 is paired (the FIDE rule), or White or Black chosen by you. The
-colour that was used is shown on the Pairings page under round 1.
+when round 1 is paired, or White or Black chosen by you. The colour that was
+used is shown on the Pairings page under round 1.
+
+> [!FIDE] C.04.3 5.1
+> Drawing the initial colour by lot is the FIDE rule.
 
 **Cycles** (round robin): single or double. **Play the last two rounds of the
 first cycle in reverse order** follows FIDE C.05. A single cycle can be made
@@ -145,7 +154,10 @@ changed once the first round is paired.
 
 **Swiss match format.** Each pairing is played twice in a row, the second
 game with the colours reversed. It needs an even number of rounds (each match
-is two rounds). It is a departure from FIDE mode.
+is two rounds).
+
+> [!FIDE] Departure from FIDE mode
+> The Swiss match format is a departure from FIDE mode.
 
 **Teams** (team tournaments): whether line-ups are required, the way a team's
 rating is worked out for the order of the teams, and the rating counted for
@@ -160,8 +172,10 @@ Player B and press *Pair*. A rule applies to every round and is kept by both
 Swiss engines and by Keizer (a round robin ignores them). **Only if possible**
 makes it a wish instead of a rule: the Ainalrami engine honours it as long as
 the FIDE criteria allow, and the pairing explanation shows when it gave way.
-A wish is not a FIDE rule and is recorded as a departure for the round it
-changed.
+
+> [!FIDE] Departure from FIDE mode
+> A wish is not a FIDE rule and is recorded as a departure for the round it
+> changed.
 
 **Club / federation exclusions.** Players from the same club (or the same
 federation) are not paired together: for all shared clubs, or only for the
@@ -173,9 +187,12 @@ colour and float criteria (strong) or only as a last tie-break (weak).
 ## Scoring page
 
 **Points** for a win (default 1), a draw (½) and a loss (0), and the value of
-the **pairing-allocated bye** (default: a win). In FIDE mode these cannot be
-changed after round 1, and a value in which a draw or the bye is worth more
-than a win marks the tournament as departing from the FIDE rules.
+the **pairing-allocated bye** (default: a win).
+
+> [!FIDE] Scoring
+> In FIDE mode these cannot be changed after round 1, and a value in which a
+> draw or the bye is worth more than a win marks the tournament as departing
+> from the FIDE rules.
 
 **Match points** (team events): 2 for a won match, 1 for a drawn match, 0 for
 a lost match by default; the match points and game points of a
@@ -197,9 +214,13 @@ which is the FIDE rule). See [Results](07-results.md).
 
 ## Dates page
 
-One date for each round. **Fill sequentially from round 1** puts consecutive
-days, **Calculate weekly from round 1** puts one week between rounds, **Clear
-all** empties them. The dates are used on the printed lists, the TRF report
+One date for each round:
+
+- **Fill sequentially from round 1** puts consecutive days,
+- **Calculate weekly from round 1** puts one week between rounds,
+- **Clear all** empties them.
+
+The dates are used on the printed lists, the TRF report
 (record 132), the match result sheets and the results site. The start and end
 date of the tournament are derived from them.
 
@@ -217,9 +238,11 @@ are two kinds:
 can also be typed per player on the Players page. *Count extra points
 (standings and pairing)* makes the standings (and, for a handicap, the
 pairing) use them; for acceleration the switch is called *Keep acceleration
-points in the final standings*. Extra points are not part of the FIDE rules; a
-round that the pairing used them for is recorded as a departure. In the TRF
-report they appear in record 299.
+points in the final standings*. In the TRF report they appear in record 299.
+
+> [!FIDE] Departure from FIDE mode
+> Extra points are not part of the FIDE rules; a round that the pairing used
+> them for is recorded as a departure.
 
 ## Locks
 
@@ -227,5 +250,8 @@ After the first round is paired some settings are locked because they decide
 what already happened: the pairing system and engine, the match formats, the
 pairing by category, the absence scoring, the initial colour and (team events)
 the boards per match and line-up rules. In FIDE mode the list is longer; see
-[FIDE mode](02-fide-mode.md). Outside FIDE mode a locked field has an
-*Unlock* control that opens it for one save.
+[FIDE mode](02-fide-mode.md).
+
+> [!TIP]
+> Outside FIDE mode a locked field has an *Unlock* control that opens it for
+> one save.

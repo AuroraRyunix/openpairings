@@ -1,6 +1,7 @@
 defmodule PairingsEngine.Markdown do
   @moduledoc """
-  Markdown to HTML, for `PairingsEngine.Changelog`.
+  Markdown to HTML, for `PairingsEngine.Changelog` and the user manual
+  (`PairingsEngine.Manual`).
 
   ## Why this exists rather than a call to a renderer
 
@@ -74,41 +75,75 @@ defmodule PairingsEngine.Markdown do
   time and a changelog that fails to parse should not stop the build.
   """
   def to_html(markdown) when is_binary(markdown) do
-    case EarmarkParser.as_ast(markdown, gfm: true, breaks: false) do
-      {:ok, ast, _messages} -> render(ast)
-      {:error, ast, _messages} -> render(ast)
-    end
+    markdown |> parse() |> render_ast()
   rescue
     _ -> "<p>Could not render the markdown.</p>"
   end
 
-  defp render(nodes) when is_list(nodes), do: nodes |> Enum.map(&render/1) |> Enum.join()
+  @doc """
+  The parser's AST for `markdown` (`earmark_parser`, GFM), for a caller that
+  rewrites the tree before `render_ast/2` turns it into HTML - the manual
+  (`PairingsEngine.Manual.Markup`) does, for its callouts and figures.
+  """
+  def parse(markdown) when is_binary(markdown) do
+    case EarmarkParser.as_ast(markdown, gfm: true, breaks: false) do
+      {:ok, ast, _messages} -> ast
+      {:error, ast, _messages} -> ast
+    end
+  end
+
+  # The manual's additions, on top of `@tags`. Every one of them is produced
+  # by `PairingsEngine.Manual.Markup` from ordinary Markdown, never copied
+  # from the source: raw HTML in a chapter is still text.
+  @manual_tags ~w(img figure figcaption button kbd div span mark)
+  @manual_attributes ~w(alt loading decoding type role aria-label aria-hidden tabindex start data-enlarge data-callout)
+
+  @doc """
+  Renders an AST from `parse/1`. The same closed tag and attribute sets as
+  `to_html/1`; `manual: true` widens both by the manual's few additions
+  (`@manual_tags`, `@manual_attributes`), which the changelog never uses.
+  """
+  def render_ast(ast, opts \\ []) do
+    allow =
+      if Keyword.get(opts, :manual, false),
+        do: {@tags ++ @manual_tags, @manual_attributes},
+        else: {@tags, []}
+
+    render(ast, allow)
+  end
+
+  defp render(nodes, allow) when is_list(nodes),
+    do: nodes |> Enum.map(&render(&1, allow)) |> Enum.join()
 
   # A text node. Escaped, always - this is the one branch that decides
   # whether markdown source can become markup.
-  defp render(text) when is_binary(text), do: escape_text(text)
+  defp render(text, _allow) when is_binary(text), do: escape_text(text)
 
-  defp render({tag, attrs, children, _meta}) do
+  defp render({tag, attrs, children, _meta}, {tags, _} = allow) do
     cond do
-      tag not in @tags ->
-        render(children)
+      tag not in tags ->
+        render(children, allow)
 
       tag in @void ->
-        "<" <> tag <> attributes(attrs, tag) <> " />"
+        "<" <> tag <> attributes(attrs, tag, allow) <> " />"
 
       true ->
-        "<" <> tag <> attributes(attrs, tag) <> ">" <> render(children) <> "</" <> tag <> ">"
+        "<" <>
+          tag <>
+          attributes(attrs, tag, allow) <> ">" <> render(children, allow) <> "</" <> tag <> ">"
     end
   end
 
   # Anything the parser emits that is not a tuple or a binary (it should not,
   # but a renderer that crashes on an unexpected node is worse than one that
   # skips it).
-  defp render(_other), do: ""
+  defp render(_other, _allow), do: ""
 
-  defp attributes(attrs, tag) do
+  defp attributes(attrs, tag, {_, extra}) do
     attrs
-    |> Enum.filter(fn {name, value} -> keep_attribute?(tag, name, value) end)
+    |> Enum.filter(fn {name, value} ->
+      keep_attribute?(tag, name, value) or (name in extra and name not in ["href", "src"])
+    end)
     |> Enum.map_join(fn {name, value} ->
       " " <> name <> ~s(=") <> escape_attribute(to_string(value)) <> ~s(")
     end)

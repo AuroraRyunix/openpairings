@@ -12,6 +12,8 @@ the button that pairs it. The table has one row per board: the board number,
 the White player, the result, the Black player. A player with a bye is a
 board with *bye* and no Black player.
 
+![The Pairings page with round 3 paired: round buttons, the board table and the Print and More menus](screenshots/06-pairings-round-paired.png "A paired round on the Pairings page")
+
 Besides the table, the page has a **Print** menu (pairings, pairings with the
 absentees section, result cards, test print, stack-cut order), a **More**
 menu (the live page, the public page, PGN, CSV result import, unpair), and,
@@ -63,9 +65,12 @@ A large field can take up to a minute; the button says so while it works. The
 round is saved only if the whole of it succeeded. If the rules allow no legal
 pairing for the remaining players the program says so and writes nothing.
 
-In every round the engine applies FIDE's absolute criteria (no repeated
-pairing, the colour rules, no second pairing-allocated bye) and then the
-quality criteria in the order that C.04.3 gives them. Forbidden pairings, club and federation exclusions and extra
+> [!FIDE] C.04.3
+> In every round the engine applies FIDE's absolute criteria (no repeated
+> pairing, the colour rules, no second pairing-allocated bye) and then the
+> quality criteria in the order that C.04.3 gives them.
+
+Forbidden pairings, club and federation exclusions and extra
 points are given to the engine as well ([Tournament set-up](03-tournament-setup.md)).
 With Baku acceleration the virtual points are given for every round.
 
@@ -82,9 +87,13 @@ change who plays whom.
 ## Round robin
 
 A round robin pairs the **whole tournament at once**: the button reads *Pair
-the whole tournament (Berger)*, and the program asks for confirmation,
-because the schedule cannot be changed afterwards and players added later are
-not in it. The rounds follow FIDE's Berger tables (C.05); for an odd number of
+the whole tournament (Berger)*, and the program asks for confirmation.
+
+> [!WARNING]
+> The schedule cannot be changed afterwards and players added later are
+> not in it.
+
+The rounds follow FIDE's Berger tables (C.05); for an odd number of
 players each player sits out one round with a zero-point bye; a double
 cycle plays the table twice with the colours reversed (with the last two
 rounds of the first cycle in reverse order, if that option is on). A player
@@ -166,9 +175,12 @@ audit trail.
 
 Sometimes a pairing must be changed after the round is made: a player
 arrives late, a mistake in the entry, two players who have met under another
-name. The regulations allow an arbiter to alter a pairing (C.04.2 4.4), so
-this does not take the tournament out of FIDE mode. The program calls it a
+name. The program calls it a
 **manual pairing alteration** and works in sessions.
+
+> [!FIDE] C.04.2 4.4
+> The regulations allow an arbiter to alter a pairing, so
+> this does not take the tournament out of FIDE mode.
 
 ### The session
 
@@ -196,9 +208,11 @@ this does not take the tournament out of FIDE mode. The program calls it a
   be skipped by moving on.
 
 Every edit first shows a confirmation with the boards before and after,
-which you accept or cancel (`Escape` cancels). While an edit is half-made, a
+which you accept or cancel (<kbd>Escape</kbd> cancels). While an edit is half-made, a
 banner says so. A result that is on a board that you change is cleared; the
 confirmation says so. Every edit is written to the audit trail.
+
+![The confirmation of a hand edit, showing the boards before and after](screenshots/06-hand-edit-confirmation.png "Confirming a swap")
 
 ### Rule warnings while editing
 
@@ -264,9 +278,11 @@ the pairing-allocated bye) and finish the hand edits as above.
 
 ## Undoing a round
 
-**More**, **Unpair round** (shown on the last paired round only) deletes that
-round and every result in it, after a confirmation. The program takes a
-restore point first ([Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
+> [!WARNING] Unpairing deletes results
+> **More**, **Unpair round** (shown on the last paired round only) deletes that
+> round and every result in it, after a confirmation. The program takes a
+> restore point first ([Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
+
 In a Swiss match format the two rounds of a match go together. A round that
 has been sent to the rating office cannot be unpaired.
 

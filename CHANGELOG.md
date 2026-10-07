@@ -17,6 +17,27 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The user manual is redesigned as an arbiter's handbook.** Help
+  (`/help`) now has a chapter list grouped in three parts that stays beside
+  the text (folded behind a button on a phone), an "On this page" outline that
+  follows your reading, a breadcrumb, previous and next chapter cards, and a
+  reading column with a proper type scale. Every heading has a link you can
+  copy. Rules and warnings stand out as callouts (FIDE rule, warning, tip,
+  note), procedures are numbered steps, keys are shown as keys, and tables
+  scroll on a narrow screen. The text itself says the same as before.
+- [Feature] **Search the manual.** A search box above the chapters (press
+  `/` or `Ctrl+K`) finds every section that
+  contains all the words you type, with the matches marked, and opens the
+  chapter at that section.
+- [Feature] **Screenshots in the manual.** Each chapter has room for one or two
+  numbered figures that open larger on a click. Until a picture is added the
+  figure shows which screen it will show.
+- [Feature] **A "?" beside the title of the Players, Pairings, Standings,
+  Teams, FIDE and Export settings pages, and the TRF import,** opens the
+  manual at the section about that page.
+- [Change] **Printing a manual chapter** prints the chapter alone: no menus,
+  no chapter list, callouts and figures kept whole.
+
 ## [0.75.0] - 2026-10-07
 
 - [Change] **Ainalrami 0.38.0.** The same pairings in the program; the engine's

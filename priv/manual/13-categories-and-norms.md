@@ -18,7 +18,7 @@ Settings, **Categories**:
 - The button that assigns categories fills each category from its rule and
   says how many of the players it assigned, or that nobody needs changing.
 - A player can be in several categories. On the Players page the category
-  cell (right-click or `Space`) assigns categories one at a time, and the
+  cell (right-click or <kbd>Space</kbd>) assigns categories one at a time, and the
   header of that column assigns everybody.
 - **Prizes**: an optional number of prizes per category. The standings of that
   category mark the places that win a prize. This is informational; the program
@@ -30,10 +30,15 @@ Two switches on the page:
   category has its own ranking.
 - **Pair each category independently (beta)**: each category is paired by its
   own engine run and the results are merged into one round with continuous board
-  numbers and a single pairing sheet. This pairs each category as a
-  separate tournament, which is a departure from FIDE mode
-  ([FIDE mode](02-fide-mode.md)). In a round robin each category gets its own
+  numbers and a single pairing sheet. In a round robin each category gets its own
   Berger table. It is locked after round 1.
+
+> [!FIDE] Departure from FIDE mode
+> Pairing each category independently treats each category as a
+> separate tournament, which is a departure from FIDE mode
+> ([FIDE mode](02-fide-mode.md)).
+
+![The Categories settings page with category rules, prizes and the two switches](screenshots/13-categories-settings.png "Category rules and switches")
 
 ## Norms and FIDE forms
 
@@ -65,6 +70,8 @@ submit to FIDE* while something required is missing.
 
 The forms use the FIDE house style for names (given name, SURNAME in capitals).
 
+![The Norms page with the IT3, FA1/IA1 and IT4 forms and the Not ready to submit to FIDE banner](screenshots/13-norms-forms.png "Advanced, Norms")
+
 ### Norms without an account
 
 The **Tools** tab in the top bar opens a public page for arbiters who have no
@@ -81,13 +88,15 @@ or score of a match, a changed line-up, a withdrawn team, a hand-off); the newes
 restore point** (with an optional name, for example *End of day 1*) to take one
 yourself.
 
-**Go back to this point** restores the tournament to that moment. This
-**overwrites live results**: every result, pairing and player change made after the
-point goes away, and you must type `RESTORE` to confirm. The page lists
-any game that was already sent to the rating office and would not be in the
-restored state, and needs a tick to restore anyway. Restoring changes the
-contents only: not the owner, not whether the tournament is archived, not what
-is published.
+**Go back to this point** restores the tournament to that moment.
+
+> [!WARNING] Overwrites live results
+> Every result, pairing and player change made after the
+> point goes away, and you must type `RESTORE` to confirm. The page lists
+> any game that was already sent to the rating office and would not be in the
+> restored state, and needs a tick to restore anyway. Restoring changes the
+> contents only: not the owner, not whether the tournament is archived, not what
+> is published.
 
 ## Audit trail
 

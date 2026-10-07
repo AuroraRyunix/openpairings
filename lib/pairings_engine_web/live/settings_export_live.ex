@@ -839,7 +839,10 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       <.settings_subnav tournament={@tournament} active={:export} />
 
       <div class="card" id="trf-export">
-        <h2>{gettext("TRF (FIDE rating report)")}</h2>
+        <h2>
+          {gettext("TRF (FIDE rating report)")}
+          <PairingsEngineWeb.Components.ManualLink.manual_link topic={:trf_export} />
+        </h2>
 
         <p class="hint" style="margin-top: 0">
           {gettext(

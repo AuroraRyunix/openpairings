@@ -1,9 +1,11 @@
 # Printing
 
 Every printable document opens in a new browser tab as an ordinary page that
-starts the browser's print dialog. Because it is an ordinary page, you can also
-save it as a PDF from the print dialog. The tab can be closed without
-disturbing the program.
+starts the browser's print dialog.
+
+> [!TIP]
+> Because it is an ordinary page, you can also save it as a PDF from the print
+> dialog. The tab can be closed without disturbing the program.
 
 ## Where to print from
 
@@ -13,6 +15,8 @@ first round is paired. Several documents can also be reached from the page they
 belong to: the Pairings page has a **Print** menu, the Players page has **Print
 player list** and **Print place cards**, the Standings page has **Print**, the
 postponed games list has the notices.
+
+![The Print tab listing the documents of a tournament](screenshots/09-print-tab.png "The Print tab")
 
 A tournament logo (Settings, Tournament, *Logo*) is printed on the
 documents. Print documents of a tournament in which a postponed game is

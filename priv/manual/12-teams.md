@@ -37,6 +37,8 @@ Keizer cannot be a team tournament.
 7. **Tie-breaks** (Settings, Tournament): a team tournament is offered the team
    tie-breaks. The FIDE default is MP, GP, DE, BB, SB.
 
+![The Teams page with team cards, rosters in board order and the Boards per match setting](screenshots/12-teams-page.png "The Teams page: rosters in board order")
+
 Every action on the Teams page is an ordinary button with a spoken name, and the
 result is announced.
 
@@ -45,14 +47,18 @@ result is announced.
 Options, *Line-ups*: **Required** (the default and the FIDE procedure): a team
 plays with the players of its roster in board order, a reserve moves up for an
 absent player, and a board that a team cannot fill is a forfeit win for the
-opponent. **Optional: pair teams without players**: some leagues and school
-events only record match scores. The matches are paired without players, and
-a match can be given as a *Match score* (for example 2½-1½ on four boards)
-that the program writes onto the boards. A match with empty seats is not a
-rated game and is reported to FIDE with a warning on the Export page.
+opponent.
 
-In FIDE mode the rosters and board orders are fixed after round 1; a new
-player can still be added at the bottom of a team as a reserve.
+> [!NOTE] Optional: pair teams without players
+> Some leagues and school
+> events only record match scores. The matches are paired without players, and
+> a match can be given as a *Match score* (for example 2½-1½ on four boards)
+> that the program writes onto the boards. A match with empty seats is not a
+> rated game and is reported to FIDE with a warning on the Export page.
+
+> [!FIDE]
+> In FIDE mode the rosters and board orders are fixed after round 1; a new
+> player can still be added at the bottom of a team as a reserve.
 
 ## Pairing
 
@@ -62,10 +68,15 @@ and Black on the even boards; the colour of a team in the match is the colour
 of its board 1.
 
 **Swiss (teams).** The program pairs each round team against team by the rules
-of FIDE C.04.6 (February 2026): match points are the primary score, game
-points decide colours, the first colour is drawn by lot. The pairing-allocated
-bye scores a drawn match (match and game points are set on the Scoring
-page). A team Swiss that was already paired player by player in an earlier version continues
+of FIDE C.04.6 (February 2026).
+
+> [!FIDE] C.04.6 (February 2026)
+> Match points
+> are the primary score, game points decide colours, the first colour is drawn
+> by lot. The pairing-allocated bye scores a drawn match (match and game points
+> are set on the Scoring page).
+
+A team Swiss that was already paired player by player in an earlier version continues
 that way.
 
 Each pairing is a **match**. The Pairings page shows a table *Matches - round N*
@@ -98,6 +109,8 @@ rank, the team, matches played, won-drawn-lost, match points and the team
 tie-breaks, each with its working (for each round the opponent and what it was
 worth, a forfeit, a bye). The page also shows **board statistics**: per board
 number, the players who sat there, with games, points, percentage and performance.
+
+![The team standings with match points, game points and the working of a team tie-break](screenshots/12-team-standings.png "Team standings with tie-break working")
 
 ### Team tie-breaks
 

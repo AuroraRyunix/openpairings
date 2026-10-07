@@ -717,6 +717,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               @rounds_paired > 0 -> gettext("Standings after round %{n}", n: @rounds_paired)
               true -> gettext("Standings")
             end}
+            <PairingsEngineWeb.Components.ManualLink.manual_link topic={:standings} />
           </p>
 
           <%!-- Once the standings are after a real round, what spectators see
