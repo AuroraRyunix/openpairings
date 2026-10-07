@@ -105,6 +105,15 @@ Each entry is tagged so a version can be skimmed:
   paired.** A Swiss with more rounds than its players allow, or a round
   robin whose rounds do not match its schedule, is flagged on the Pairings
   page.
+- [Feature] **Rating period inbox** (administrators only, Admin page and a link on
+  Settings, Export). Per FIDE rating period it lists every tournament's sent
+  rounds and postponed-games files with their receipts, the rounds of FIDE-rated
+  tournaments that are finished but have no receipt, the postponed games still
+  open, and the deadline (shown in red once it has passed with something still
+  to send). A sent round can be downloaded as a TRF copy and checked with
+  Ainalrami's checker. The file that was sent is not kept, so the copy is rebuilt
+  from the tournament as it is now; a round that changed since it was sent is
+  flagged.
 - [Security] The "remember me" cookie is marked `Secure` and `HttpOnly`
   explicitly in production, like the session cookie, instead of relying on
   the request being recognised as https behind the proxy.

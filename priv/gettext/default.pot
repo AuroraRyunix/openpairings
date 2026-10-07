@@ -17606,3 +17606,115 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "⚠ Round %{n}: a second or later half-point bye for this player."
 msgstr ""
+
+#: lib/pairings_engine_web/live/settings_tournament_live.ex:627
+#, elixir-autogen, elixir-format
+msgid "No tiebreaks selected - tied players will share a rank."
+msgstr ""
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:2289
+#, elixir-autogen, elixir-format
+msgid "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here. If the file's own points column doesn't match what we recompute from the imported results, you'll see a notice after import."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:226
+#, elixir-autogen, elixir-format
+msgid "%{count} postponed game still open:"
+msgid_plural "%{count} postponed games still open:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:185
+#, elixir-autogen, elixir-format
+msgid "Check"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:184
+#, elixir-autogen, elixir-format
+msgid "Checking…"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:117
+#, elixir-autogen, elixir-format
+msgid "Deadline %{date}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:66
+#, elixir-autogen, elixir-format
+msgid "Differs from the checker's pairing or standings."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:173
+#, elixir-autogen, elixir-format
+msgid "Download TRF copy"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:65
+#, elixir-autogen, elixir-format
+msgid "Every round matches the checker's own pairing."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:91
+#, elixir-autogen, elixir-format
+msgid "Every tournament on this installation, by FIDE rating period: what was sent for rating, what is missing, which postponed games are still open, and the deadline. A round counts for the month of its date. The file that was sent is not kept, so a download is a copy rebuilt from the tournament as it is now."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:69
+#, elixir-autogen, elixir-format
+msgid "Not replayed: the checker does not replay this pairing system."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:106
+#, elixir-autogen, elixir-format
+msgid "Nothing sent, missing or open yet."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:119
+#, elixir-autogen, elixir-format
+msgid "Past the deadline, with rounds or postponed games still to send."
+msgstr ""
+
+#: lib/pairings_engine_web/live/admin_live.ex:208
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:23
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:88
+#: lib/pairings_engine_web/live/settings_export_live.ex:1020
+#, elixir-autogen, elixir-format
+msgid "Rating period inbox"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:98
+#, elixir-autogen, elixir-format
+msgid "Refresh"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:71
+#, elixir-autogen, elixir-format
+msgid "The checker could not read the file."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:74
+#, elixir-autogen, elixir-format
+msgid "There is no copy of this file to check."
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:163
+#, elixir-autogen, elixir-format
+msgid "no hash on record"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:148
+#, elixir-autogen, elixir-format
+msgid "postponed games"
+msgstr ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:213
+#, elixir-autogen, elixir-format
+msgid "round %{rounds} finished, no receipt."
+msgid_plural "rounds %{rounds} finished, no receipt."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/live/rating_inbox_live.ex:233
+#, elixir-autogen, elixir-format
+msgid "round %{round}, board %{board}"
+msgstr ""

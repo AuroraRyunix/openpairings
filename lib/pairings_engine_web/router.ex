@@ -67,6 +67,7 @@ defmodule PairingsEngineWeb.Router do
         {PairingsEngineWeb.RequireRole, :admin}
       ] do
       live "/admin", AdminLive
+      live "/admin/rating-inbox", RatingInboxLive
     end
   end
 
@@ -187,6 +188,11 @@ defmodule PairingsEngineWeb.Router do
     # addresses, and every publishing key. SSO-gated inside the controller,
     # exactly as changing the publishing settings is.
     get "/backups/:name", BackupController, :download
+
+    # The rating period inbox's TRF copy of a sent round; admin-gated in the
+    # controller, like the backup above (the page itself is in
+    # the administration session).
+    get "/admin/rating-inbox/receipts/:id/trf", RatingInboxController, :trf
   end
 
   # Other scopes may use custom stacks.
