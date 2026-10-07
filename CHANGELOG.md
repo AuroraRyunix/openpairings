@@ -17,6 +17,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A bye a TRF file records for a round not yet paired keeps the
+  player out of that round.** A half-point, zero-point or full-point bye
+  written ahead in a file (in the next round's column, or as a TRF26 `240`
+  record) was lost (the column) or did not stop the player being paired
+  (the `240`), who was then scored for the bye and for the game. It is now kept as a requested
+  bye for that round, as one entered on the player is, and the import's
+  confirm step lists it. A round robin, which pairs everybody every round,
+  does not import such a bye and says so. A TRF26 export of a tournament
+  with a bye granted ahead no longer takes that bye off the player's total
+  (it could show a negative score).
 - [Feature] **User manual in the program.** A Help link in the top bar of
   every page opens a manual for arbiters, fifteen chapters from installing
   and FIDE mode through pairing, results, tie-breaks, printing, import and

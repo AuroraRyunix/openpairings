@@ -550,7 +550,7 @@ defmodule PairingsEngine.TrfImport do
       notes = notes ++ match_notes
 
       warnings =
-        points_warnings(tournament, data.players, players_by_rank) ++
+        points_warnings(tournament, data, players_by_rank, paired) ++
           unknown_result_warnings(data) ++
           notes ++ acceleration_notes ++ verification_warnings(data, paired)
 
@@ -1413,49 +1413,118 @@ defmodule PairingsEngine.TrfImport do
     for {a, i} <- indexed, {b, j} <- indexed, i < j, do: Enum.sort([a, b])
   end
 
-  # `240` records naming a round nobody has paired yet - the arbiter's
-  # "this player is not playing that round", which is a `byes` row and not
-  # a Round. A round already in the player rows came in through
-  # `create_rounds/4` and is skipped here.
+  # A bye recorded for a round nobody has paired yet - a `240` record, or
+  # the column past the last paired round that an engine reads as "leave
+  # this player out" (`0000 - H`, the older spelling of the same thing,
+  # which `create_rounds/4` never reaches) - is the arbiter's "this player
+  # is not playing that round". It is stored the way the same bye entered
+  # on the player before pairing is: the round goes into the player's
+  # `absent_rounds`, which is what keeps them out of the pairing
+  # (`Pairing.absent_for_round?/2`, and a team's line-up in
+  # `TeamRounds.available?/2`). The `byes` row beside it keeps what the
+  # file said the bye is worth: the pairing writes its absentees' rows
+  # `on_conflict: :nothing`, so this one stands, and an export writes it
+  # back as it came (`TrfExport`'s `append_future_byes/4`).
+  #
+  # The row alone - all this did before - was scored but kept nobody out,
+  # so the player was paired as well and scored for the bye and the game.
+  #
+  # An individual round robin has no such bye: its schedule is fixed and
+  # pairs everybody every round, absent or not. Its future byes are left
+  # out, and the review says so (`future_bye_adjustments/3`).
   defp import_future_byes(tournament, data, players_by_rank, paired) do
-    records = for r <- data.tournament[:byes] || [], r.round > paired, do: r
+    {kept, unsupported} =
+      data
+      |> future_byes(paired)
+      |> Enum.split_with(fn {_rank, _round, code} -> future_bye_type(code) end)
 
-    {rows, unsupported} =
-      Enum.reduce(records, {[], 0}, fn record, {rows, unsupported} ->
-        case future_bye_type(record.type) do
-          nil ->
-            {rows, unsupported + length(record.ranks)}
+    if keeps_future_byes?(tournament) do
+      kept =
+        for {rank, round, code} <- kept,
+            player = players_by_rank[rank],
+            not is_nil(player),
+            do: {player, round, future_bye_type(code)}
 
-          type ->
-            new =
-              for rank <- record.ranks, player = players_by_rank[rank], not is_nil(player) do
-                %{
-                  tournament_id: tournament.id,
-                  player_id: player.id,
-                  round: record.round,
-                  type: type
-                }
-              end
+      rows =
+        for {player, round, type} <- kept,
+            do: %{tournament_id: tournament.id, player_id: player.id, round: round, type: type}
 
-            {rows ++ new, unsupported}
-        end
+      if rows != [], do: Repo.insert_all("byes", rows)
+
+      kept
+      |> Enum.group_by(fn {player, _round, _type} -> player end, fn {_, round, _} -> round end)
+      |> Enum.each(fn {player, rounds} ->
+        absent =
+          (Player.parse_absent_rounds(player.absent_rounds) ++ rounds)
+          |> Enum.uniq()
+          |> Enum.sort()
+          |> Enum.join(",")
+
+        player |> Ecto.Changeset.change(absent_rounds: absent) |> Repo.update!()
       end)
-
-    rows = Enum.uniq_by(rows, &{&1.player_id, &1.round})
-    if rows != [], do: Repo.insert_all("byes", rows)
+    end
 
     # A `240` of any other kind (a pairing-allocated bye `U`, which is the
     # pairing's to hand out and not the arbiter's to grant) has no row this
     # app can write.
-    if unsupported == 0 do
-      []
-    else
-      [
-        note(
-          "#{unsupported} pairing-allocated bye#{if unsupported == 1, do: "", else: "s"} granted " <>
-            "for a round that is not yet paired could not be imported - the pairing hands it out."
+    case length(unsupported) do
+      0 ->
+        []
+
+      n ->
+        [
+          note(
+            "#{n} pairing-allocated bye#{if n == 1, do: "", else: "s"} granted " <>
+              "for a round that is not yet paired could not be imported - the pairing hands it out."
+          )
+        ]
+    end
+  end
+
+  # `{rank, round, code}` for every bye the file records past `paired`,
+  # once per player and round: the `240` records, and the trailing columns
+  # (`Ainalrami.Trf.parse/1` folds the next round's `240` into a column
+  # too, so the two overlap). A column there holds only a bye - anything
+  # with an opponent would have made the round a paired one.
+  defp future_byes(data, paired) do
+    from_records =
+      for r <- data.tournament[:byes] || [],
+          r.round > paired,
+          rank <- r.ranks,
+          do: {rank, r.round, r.type}
+
+    from_columns =
+      for p <- data.players,
+          {g, round} <- Enum.with_index(p.games || [], 1),
+          round > paired,
+          is_nil(g.opponent_rank),
+          g.result in ~w(H Z F U),
+          do: {p.rank, round, g.result}
+
+    Enum.uniq_by(from_records ++ from_columns, fn {rank, round, _code} -> {rank, round} end)
+  end
+
+  defp keeps_future_byes?(tournament),
+    do: tournament.pairing_system != "round_robin" or Tournament.team?(tournament)
+
+  # The review's line for them: kept as the requested byes they are, or -
+  # in an individual round robin - left out.
+  defp future_bye_adjustments(data, tournament, paired) do
+    byes =
+      for {_rank, _round, code} = bye <- future_byes(data, paired), future_bye_type(code), do: bye
+
+    case byes do
+      [] ->
+        []
+
+      byes ->
+        code =
+          if keeps_future_byes?(tournament), do: :future_byes_kept, else: :future_byes_dropped
+
+        adjustment(code,
+          count: length(byes),
+          rounds: byes |> Enum.map(&elem(&1, 1)) |> Enum.uniq() |> Enum.sort()
         )
-      ]
     end
   end
 
@@ -1691,15 +1760,29 @@ defmodule PairingsEngine.TrfImport do
   # same code TrfExport itself uses) and flags any player whose TRF-file
   # points column disagrees - floating point roundtrips through 0.5-point
   # increments exactly, so > 0.01 is a real mismatch, not noise.
-  defp points_warnings(tournament, trf_players, players_by_rank) do
+  defp points_warnings(tournament, data, players_by_rank, paired) do
     computed_by_rank =
       tournament
       |> PairingCtx.trf_player_rows(Map.values(players_by_rank))
       |> Map.new(&{&1.rank, &1.points})
 
-    trf_players
+    system = data.tournament[:point_system] || Trf.default_point_system()
+
+    data.players
     |> Enum.map(fn p ->
-      computed = Map.get(computed_by_rank, p.rank, 0.0)
+      # A bye in a column past the last paired round is credited up front
+      # in the file's total (the engines' convention, which
+      # `Ainalrami.Trf.parse/1` restores for a TRF26 `240` too); the
+      # tournament scores it when the round is paired.
+      credited =
+        for {g, round} <- Enum.with_index(p.games || [], 1),
+            round > paired,
+            is_nil(g.opponent_rank),
+            g.result in ~w(H Z F),
+            reduce: 0.0,
+            do: (sum -> sum + Trf.points_for(g.result, system))
+
+      computed = Map.get(computed_by_rank, p.rank, 0.0) + credited
       declared = p.points || 0.0
 
       if abs(computed - declared) > 0.01 do
@@ -2152,6 +2235,7 @@ defmodule PairingsEngine.TrfImport do
       team_point_adjustments(t, tournament),
       extra_points_adjustment(t, tournament),
       round_entry_adjustments(data, paired),
+      future_bye_adjustments(data, tournament, paired),
       unchecked_system_adjustment(data, paired)
     ])
   end

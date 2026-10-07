@@ -1664,6 +1664,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
         rounds: Enum.join(a.rounds, ", ")
       )
 
+  defp trf_adjustment_text(%{code: :future_byes_kept} = a),
+    do:
+      ngettext(
+        "%{count} bye recorded for a round not yet paired (round %{rounds}) was kept as a requested bye: that player is left out when the round is paired.",
+        "%{count} byes recorded for rounds not yet paired (rounds %{rounds}) were kept as requested byes: those players are left out when the round is paired.",
+        a.count,
+        rounds: Enum.join(a.rounds, ", ")
+      )
+
+  defp trf_adjustment_text(%{code: :future_byes_dropped} = a),
+    do:
+      ngettext(
+        "%{count} bye recorded for a round not yet paired (round %{rounds}) was not imported: a round robin pairs everybody every round. Record that game as a forfeit when it comes.",
+        "%{count} byes recorded for rounds not yet paired (rounds %{rounds}) were not imported: a round robin pairs everybody every round. Record those games as forfeits when they come.",
+        a.count,
+        rounds: Enum.join(a.rounds, ", ")
+      )
+
   defp trf_adjustment_text(%{code: :rounds_not_checked}),
     do:
       gettext(

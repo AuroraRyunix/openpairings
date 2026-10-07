@@ -1676,8 +1676,21 @@ defmodule PairingsEngine.TrfExport do
         |> Tournaments.list_byes_from_round(paired + 1)
         |> Enum.group_by(& &1.player_id)
 
+      system = Tournament.engine_point_system(tournament)
+
+      # Credited in the total as the engines' files credit a pre-recorded
+      # bye; the TRF26 writer takes it off again as it moves the column to
+      # a `240` (`Ainalrami.Trf.serialize/2`). Left out, that took a point
+      # the total never had and wrote a negative score.
       Enum.map(rows, fn row ->
-        Map.update!(row, :games, &(&1 ++ future_bye_games(byes, row, tournament)))
+        future = future_bye_games(byes, row, tournament)
+
+        credit =
+          for %{result: code} <- future, code not in [nil, ""], reduce: 0.0 do
+            sum -> sum + Trf.points_for(code, system)
+          end
+
+        %{row | games: row.games ++ future, points: (row.points || 0.0) + credit}
       end)
     else
       rows
