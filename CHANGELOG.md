@@ -17,6 +17,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A player listed twice in "Add player".** A KBSB member whose entry
+  on the national list has no FIDE id showed up a second time as the matching
+  Belgian FIDE entry. Same name and birth year now make one line, carrying
+  the FIDE id, and picking it fills the FIDE details in.
+- [Feature] **"Run again" on the next-round preview**, to work it out afresh
+  at any time - after entering results, or after a run that failed.
+- [Feature] **The Chess960 starting position as a board.** Hovering or
+  clicking the round's position on the Pairings page shows it on a diagram,
+  and the printed pairings carry the same diagram beside the position.
+- [Change] **"Preview next round" is an optional tool now, off until you
+  switch it on** (account settings, "Federation features", "Optional tools"). The group
+  that held the general switches is renamed from "Pairing options" to
+  "Optional tools".
+- [Change] **Checkboxes drawn by the app.** Every checkbox (settings, forms,
+  filters) is a clean, sharp box in the theme's accent colour, in every theme,
+  instead of the browser's own thin one.
+
 ## [0.75.0] - 2026-10-07
 
 - [Change] **Ainalrami 0.38.0.** The same pairings in the program; the engine's

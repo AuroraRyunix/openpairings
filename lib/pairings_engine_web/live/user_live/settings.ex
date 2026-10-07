@@ -1066,10 +1066,10 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 <div :if={Features.general() != []} class="acct-fed" id="features-general">
                   <div class="fed-head">
                     <div class="fed-title">
-                      <h3>{gettext("Pairing options")}</h3>
+                      <h3>{gettext("Optional tools")}</h3>
                       <p class="hint">
                         {gettext(
-                          "Organisers' rules that are not FIDE's, for any federation. Off until you switch them on."
+                          "Extra tools for any federation, none of which changes how a tournament is paired or scored. Off until you switch them on."
                         )}
                       </p>
                     </div>

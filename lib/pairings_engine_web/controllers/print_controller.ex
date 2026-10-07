@@ -66,6 +66,9 @@ defmodule PairingsEngineWeb.PrintController do
 
   @print_css """
   * { box-sizing: border-box; }
+  .c960-print { display: flex; align-items: center; gap: 14px; margin: 0 0 14px; break-inside: avoid; }
+  .c960-print p { margin: 0; }
+  .c960-print .c960-board { width: 46mm; height: 46mm; flex: none; color: #555; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; color: #111; margin: 24px; }
   .print-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .print-header-title { min-width: 0; }
@@ -732,7 +735,8 @@ defmodule PairingsEngineWeb.PrintController do
   # (VCL4THP Q222); nothing for an ordinary tournament or an undrawn round.
   defp chess960_line(%{chess960: true}, %{chess960_position: n} = round) when is_integer(n),
     do:
-      "<p><strong>#{gettext("Chess960 position")}:</strong> #{esc(PairingsEngine.Chess960.label(round))}</p>"
+      "<div class=\"c960-print\"><p><strong>#{gettext("Chess960 position")}:</strong> #{esc(PairingsEngine.Chess960.label(round))}</p>" <>
+        PairingsEngineWeb.Chess960Diagram.svg(n) <> "</div>"
 
   defp chess960_line(_tournament, _round), do: ""
 

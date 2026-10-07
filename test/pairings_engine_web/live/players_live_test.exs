@@ -722,6 +722,40 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "Peeters, Lotte"
     end
 
+    test "a member without a FIDE id on the KBSB list is listed once, with the FIDE id of the matching Belgian entry",
+         %{conn: conn, tournament: tournament} do
+      Repo.insert!(%Member{
+        national_id: "23456",
+        last_name: "Burssens",
+        first_name: "Guy",
+        national_rating: 1700,
+        fide_id: nil,
+        club_number: 601,
+        club_name: "",
+        federation: "BEL",
+        birth_year: 1965
+      })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 777_777,
+        name: "Burssens, Guy",
+        federation: "BEL",
+        birth_year: 1965,
+        standard_rating: 1750
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "Burssens"})
+
+      assert has_element?(lv, "#kbsb-result-23456", "FIDE 777777")
+      refute has_element?(lv, "#fide-result-777777")
+
+      html = render_click(lv, "pick_kbsb", %{"national-id" => "23456"})
+      assert html =~ ~s(value="777777")
+      assert html =~ ~s(value="1750")
+    end
+
     test "without the KBSB lookup the box searches FIDE only", %{
       conn: conn,
       tournament: tournament,

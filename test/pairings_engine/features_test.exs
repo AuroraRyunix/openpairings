@@ -17,7 +17,8 @@ defmodule PairingsEngine.FeaturesTest do
     end
 
     test "bye preferences, the exclusion included, are one switch, last in the Belgian pack" do
-      assert Features.general() == []
+      # The only general switch is the next-round preview, not a pairing rule.
+      assert Enum.map(Features.general(), & &1.key) == ["next_round_preview"]
       assert List.last(Features.catalogue_for("BEL")).key == "bye_preferences"
       refute "bel_bye_exclusions" in Features.keys()
     end

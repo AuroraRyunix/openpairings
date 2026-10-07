@@ -14,6 +14,12 @@ defmodule PairingsEngineWeb.NextRoundPreviewLiveTest do
 
   setup [:register_and_log_in_user]
 
+  # The preview is an optional feature, off until the account switches it on.
+  setup %{user: user} do
+    {:ok, _} = PairingsEngine.Features.set_enabled(user, ["next_round_preview"])
+    :ok
+  end
+
   setup do
     Application.put_env(:pairings_engine, :next_round_preview_debounce_ms, 0)
 
@@ -74,6 +80,22 @@ defmodule PairingsEngineWeb.NextRoundPreviewLiveTest do
     |> Enum.each(&({:ok, _} = Tournaments.update_pairing_result(&1, "1-0")))
 
     games
+  end
+
+  test "not shown, and cannot be opened, until the account switches it on", %{
+    conn: conn,
+    scope: scope,
+    user: user
+  } do
+    {:ok, _} = PairingsEngine.Features.set_enabled(Repo.reload!(user), [])
+    t = tournament(scope, 10)
+    leave_open(t, 2)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+    refute has_element?(lv, "#next-round-preview-open")
+    render_hook(lv, "next_round_preview_open", %{})
+    refute has_element?(lv, "#next-round-preview")
   end
 
   test "offered while a few games are open, with the count", %{conn: conn, scope: scope} do
@@ -201,6 +223,27 @@ defmodule PairingsEngineWeb.NextRoundPreviewLiveTest do
     render_async(lv, 30_000)
     assert has_element?(lv, "#next-round-preview-done")
     refute has_element?(lv, "#next-round-preview-results")
+  end
+
+  test "Run again works it out afresh, also after a failed run", %{conn: conn, scope: scope} do
+    t = tournament(scope, 10)
+    leave_open(t, 2)
+
+    Application.put_env(:pairings_engine, :next_round_preview_runner, fn _t, _opts ->
+      {:error, :crashed}
+    end)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+    lv |> element("#next-round-preview-open") |> render_click()
+    render_async(lv, 30_000)
+    assert has_element?(lv, "#next-round-preview-error")
+    refute has_element?(lv, "#next-round-preview-results")
+
+    Application.delete_env(:pairings_engine, :next_round_preview_runner)
+    lv |> element("#next-round-preview-rerun") |> render_click()
+    render_async(lv, 30_000)
+    refute has_element?(lv, "#next-round-preview-error")
+    assert has_element?(lv, "#next-round-preview-results", "9 outcomes")
   end
 
   describe "the print view" do

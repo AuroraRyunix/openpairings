@@ -486,8 +486,17 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp format_match_score(n), do: n
 
   @impl true
-  def handle_event("next_round_preview_open", params, socket),
-    do: {:noreply, NextRoundPreviewPanel.handle_event("open", params, socket)}
+  def handle_event("next_round_preview_open", params, socket) do
+    if PairingsEngine.Features.enabled?(socket.assigns.current_scope, "next_round_preview"),
+      do: {:noreply, NextRoundPreviewPanel.handle_event("open", params, socket)},
+      else: {:noreply, socket}
+  end
+
+  def handle_event("next_round_preview_rerun", params, socket) do
+    if PairingsEngine.Features.enabled?(socket.assigns.current_scope, "next_round_preview"),
+      do: {:noreply, NextRoundPreviewPanel.handle_event("rerun", params, socket)},
+      else: {:noreply, socket}
+  end
 
   def handle_event("next_round_preview_close", params, socket),
     do: {:noreply, NextRoundPreviewPanel.handle_event("close", params, socket)}
@@ -4655,13 +4664,19 @@ defmodule PairingsEngineWeb.PairingsLive do
                 line of its own below them (see `.pe-level-note`). --%>
           <%!-- Chess960: the round's drawn starting position (VCL4THP Q222),
                 or the button that draws it. Drawn once. --%>
-          <span
+          <%!-- Hover or click the badge for the starting position as a board. --%>
+          <details
             :if={@round != nil && @tournament.chess960 && @round.chess960_position != nil}
             id="chess960-position"
-            class="badge"
+            class="c960"
           >
-            {gettext("Chess960 position")} {PairingsEngine.Chess960.label(@round)}
-          </span>
+            <summary class="badge">
+              {gettext("Chess960 position")} {PairingsEngine.Chess960.label(@round)}
+            </summary>
+            <div class="c960-pop" id="chess960-diagram">
+              {Phoenix.HTML.raw(PairingsEngineWeb.Chess960Diagram.svg(@round.chess960_position))}
+            </div>
+          </details>
           <button
             :if={
               @round != nil && @tournament.chess960 && @round.chess960_position == nil &&
@@ -4995,7 +5010,8 @@ defmodule PairingsEngineWeb.PairingsLive do
         tournament={@tournament}
         show={
           @setup_complete and !@tournament.archived_at and
-            @round_number in [@paired_rounds, @next_pairable]
+            @round_number in [@paired_rounds, @next_pairable] and
+            PairingsEngine.Features.enabled?(@current_scope, "next_round_preview")
         }
       />
       <div :if={@error} class="error-note" style="display: block">

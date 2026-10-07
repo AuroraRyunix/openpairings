@@ -78,5 +78,22 @@ defmodule PairingsEngineWeb.Chess960LiveTest do
 
     html = conn |> get(~p"/t/#{t.id}/print/pairings?round=1") |> html_response(200)
     assert html =~ label
+    # The starting position is drawn as a board beside it on the print...
+    assert html =~ ~s(class="c960-board")
+
+    # ...and on the page, behind the badge.
+    assert has_element?(lv, "#chess960-diagram svg.c960-board")
+  end
+
+  test "the diagram puts the drawn order on ranks 1 and 8 and pawns on 2 and 7" do
+    order = PairingsEngine.Chess960.position(117)
+    svg = PairingsEngineWeb.Chess960Diagram.svg(117)
+
+    assert order == "NQBBRNKR"
+    assert svg =~ "Chess960 117 NQBBRNKR"
+    # 8 white pieces, 8 white pawns, 8 black pawns, 8 black pieces.
+    assert length(Regex.scan(~r/<text x="\d+" y="\d+" fill=/, svg)) == 32
+    # 64 squares.
+    assert length(Regex.scan(~r/<rect /, svg)) == 64
   end
 end

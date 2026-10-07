@@ -104,6 +104,18 @@ defmodule PairingsEngine.Features do
   """
   def catalogue do
     [
+      # Off until switched on: working out every outcome of the games still
+      # being played costs a pairing run per outcome, and most arbiters never
+      # need it. Hiding it changes no stored value (the preview is never saved).
+      %{
+        key: "next_round_preview",
+        federation: nil,
+        label: gettext("Preview next round"),
+        description:
+          gettext(
+            "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
+          )
+      },
       %{
         key: "bel_ratings_sync",
         federation: "BEL",

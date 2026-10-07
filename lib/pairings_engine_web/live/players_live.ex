@@ -797,11 +797,25 @@ defmodule PairingsEngineWeb.PlayersLive do
   # first: a Belgian arbiter adds Belgian club players. A FIDE hit for a
   # member already listed is left out, since picking the member pulls the
   # FIDE details in anyway.
+  #
+  # A member whose KBSB row carries no FIDE id is still the same person as a
+  # Belgian FIDE entry with the same name and birth year: that FIDE id is
+  # attached to the member's hit (so picking it pulls the FIDE details in)
+  # and the FIDE hit is left out, instead of listing the player twice. Only
+  # a single, exact match counts; without a birth year on both sides nothing
+  # is merged.
   def handle_event("search", %{"q" => q}, socket) do
-    fide = Fide.search(q)
+    fide = q |> Fide.search() |> Enum.uniq_by(& &1.fide_id)
 
     kbsb =
-      if socket.assigns.bel_lookup?, do: Members.search(q) |> Enum.take(10), else: []
+      if socket.assigns.bel_lookup?,
+        do:
+          q
+          |> Members.search()
+          |> Enum.uniq_by(& &1.national_id)
+          |> Enum.take(10)
+          |> attach_fide_ids(fide),
+        else: []
 
     covered = kbsb |> Enum.map(& &1.fide_id) |> Enum.reject(&is_nil/1) |> MapSet.new()
 
@@ -4870,4 +4884,32 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp blank_dash(value), do: value
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name
+
+  defp attach_fide_ids(members, fide) do
+    by_key =
+      fide
+      |> Enum.filter(&(&1.federation == "BEL" and is_integer(&1.birth_year)))
+      |> Enum.group_by(&{search_key(&1.name), &1.birth_year})
+
+    Enum.map(members, fn
+      %{fide_id: nil, birth_year: year} = member when is_integer(year) ->
+        case Map.get(by_key, {search_key(Member.full_name(member)), year}) do
+          [single] -> %{member | fide_id: single.fide_id}
+          _none_or_ambiguous -> member
+        end
+
+      member ->
+        member
+    end)
+  end
+
+  # "Burssens, Guy", "BURSSENS Guy" and "Bürssens, Guy" alike.
+  defp search_key(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/[^a-z]+/, " ")
+    |> String.trim()
+  end
 end

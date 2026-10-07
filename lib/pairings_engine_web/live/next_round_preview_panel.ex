@@ -90,6 +90,17 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
       else: socket
   end
 
+  # Worked out again from scratch, whatever the cache holds: the arbiter's
+  # way out when the panel looks stuck, failed, or they simply want a fresh
+  # run after entering results.
+  def handle_event("rerun", _params, socket) do
+    socket = put_state(socket, open?: true, error: nil, debounce: nil)
+
+    if match?({:available, _}, socket.assigns.next_round_preview.availability),
+      do: start(socket, NextRoundPreview.fingerprint(socket.assigns.tournament.id)),
+      else: socket
+  end
+
   def handle_event("close", _params, socket) do
     socket
     |> cancel_async(@async)
@@ -307,6 +318,16 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           >
             <.icon name="hero-printer-micro" /> {gettext("Print fixed boards")}
           </a>
+
+          <button
+            :if={!@state.running? and match?({:available, _}, @state.availability)}
+            id="next-round-preview-rerun"
+            type="button"
+            class="pe-btn"
+            phx-click="next_round_preview_rerun"
+          >
+            <.icon name="hero-arrow-path-micro" /> {gettext("Run again")}
+          </button>
 
           <button
             id="next-round-preview-close"
