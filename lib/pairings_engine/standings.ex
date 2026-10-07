@@ -151,7 +151,8 @@ defmodule PairingsEngine.Standings do
     not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
     unrated =
-      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and unrated_present?(players) do
+      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and
+           unrated_present?(players, tournament) do
         Enum.filter(configured, &Tiebreaks.rating_based?/1)
       else
         []
@@ -178,7 +179,15 @@ defmodule PairingsEngine.Standings do
     do: Enum.any?(players, &(PairingsEngine.Tournaments.Player.rating(&1) == 0))
 
   def unrated_present?(tournament),
-    do: unrated_present?(Tournaments.list_players(tournament.id))
+    do: unrated_present?(Tournaments.list_players(tournament.id), tournament)
+
+  @doc """
+  As above, under the tournament's own Tournament Rating
+  (`Player.rating/2`): the rating-based tie-breaks read that rating, so
+  "unrated" is unrated by it.
+  """
+  def unrated_present?(players, tournament) when is_list(players),
+    do: Enum.any?(players, &(PairingsEngine.Tournaments.Player.rating(&1, tournament) == 0))
 
   @doc """
   Same as `standings/1`, but the `:tiebreaks` map on every entry is guaranteed
@@ -305,7 +314,8 @@ defmodule PairingsEngine.Standings do
     # this, is how an arbiter records a drawing of lots.
     entries
     |> Enum.sort_by(fn e ->
-      {Map.get(places, e.player.id, 0), -Player.rating(e.player), e.player.name, e.player.id}
+      {Map.get(places, e.player.id, 0), -Player.rating(e.player, tournament), e.player.name,
+       e.player.id}
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} ->

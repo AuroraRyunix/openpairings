@@ -22,6 +22,10 @@ defmodule PairingsEngine.Tournaments.Player do
     field :fide_rating_listed, :integer
     field :national_id, :string, default: ""
     field :national_rating, :integer, default: 0
+    # A rating typed by hand for this tournament (the TEC Manual's "manually
+    # entered value"), read only by the HBFN and OTHER Tournament Rating
+    # methods - see `rating/2`. nil when nobody typed one.
+    field :tournament_rating, :integer
     field :federation, :string, default: ""
     field :birth_year, :integer
     field :club, :string, default: ""
@@ -195,6 +199,7 @@ defmodule PairingsEngine.Tournaments.Player do
       :fide_rating_listed,
       :national_id,
       :national_rating,
+      :tournament_rating,
       :federation,
       :birth_year,
       :club,
@@ -243,6 +248,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> normalize_categories()
     |> sync_special_table()
     |> validate_fide_id_range()
+    |> validate_number(:tournament_rating, greater_than_or_equal_to: 0, less_than: 10_000)
     |> unique_fide_id_in_tournament()
   end
 
@@ -787,16 +793,86 @@ defmodule PairingsEngine.Tournaments.Player do
     unique_constraint(changeset, :fide_id, name: :players_tournament_id_fide_id_index)
   end
 
-  @doc "Rating used for sorting/pairing display: FIDE first, national as fallback."
-  def rating(%__MODULE__{fide_rating: f, national_rating: n}) do
+  @doc """
+  The FIDON rating: FIDE first, national as fallback - `rating/2` under the
+  default method, for a caller with no tournament in hand. Where the
+  tournament is known, `rating(player, tournament)` is the one that ranks.
+  """
+  def rating(%__MODULE__{} = player), do: rating(player, "FIDON")
+
+  @doc """
+  The player's Tournament Rating under `method` - a `%Tournament{}` (its
+  `rating_method`) or the method itself - always an integer, 0 for none.
+
+  The methods are TRF26 record 172's (VCL4THP Q145):
+
+    * `"FIDE"` - the FIDE rating only (the stored one is already the list
+      for the tournament's rate of play, see `PairingsEngine.Fide`).
+    * `"NRO"` - the national rating only.
+    * `"FIDON"` - FIDE, the national one for a player without. The default,
+      and what this app always did.
+    * `"NIDOF"` - national, the FIDE one for a player without.
+    * `"HBFN"` - the highest of FIDE, national and the hand-typed
+      `tournament_rating`.
+    * `"OTHER"` - the hand-typed `tournament_rating` alone: the arbiter's
+      own figure, the C.04.2 2.1 estimate for a player with no reliable
+      rating included.
+
+  An unknown or missing method reads as FIDON, so a struct built without the
+  column (an older file, a hand-made test struct) ranks as it always did.
+  """
+  def rating(%__MODULE__{} = player, %{rating_method: method}), do: rating(player, method)
+
+  def rating(%__MODULE__{} = player, method) do
     # Coerce nils to 0 first: a `nil` rating field (a raw/partial insert that
     # bypassed the schema's `default: 0`) would otherwise make `f > 0` return
     # `nil` - in Elixir's term ordering `nil > 0` is `true` - and returning
     # `nil` here crashes every `-Player.rating(p)` sort key downstream.
-    f = f || 0
-    n = n || 0
-    if f > 0, do: f, else: n
+    f = player.fide_rating || 0
+    n = player.national_rating || 0
+    manual = Map.get(player, :tournament_rating) || 0
+
+    case method do
+      "FIDE" -> f
+      "NRO" -> n
+      "NIDOF" -> if n > 0, do: n, else: f
+      "HBFN" -> Enum.max([f, n, manual])
+      "OTHER" -> manual
+      _fidon -> if f > 0, do: f, else: n
+    end
   end
+
+  # C.04.2 2.2.2: "FIDE-title (GM-IM-WGM-FM-WIM-CM-WFM-WCM-no title), for
+  # individual tournaments". Stored as the TRF-style uppercase code; the
+  # TRF's own one- and two-letter forms (g, i, wg, f, wi, c, wf, wc) are read
+  # too, since an import can carry either.
+  @title_order %{
+    "GM" => 0,
+    "G" => 0,
+    "IM" => 1,
+    "I" => 1,
+    "WGM" => 2,
+    "WG" => 2,
+    "FM" => 3,
+    "F" => 3,
+    "WIM" => 4,
+    "WI" => 4,
+    "CM" => 5,
+    "C" => 5,
+    "WFM" => 6,
+    "WF" => 6,
+    "WCM" => 7,
+    "WC" => 7
+  }
+
+  @doc """
+  Where the player's FIDE title puts them in C.04.2 2.2.2's order - 0 for a
+  GM, 8 for no title (or one that is not a FIDE playing title).
+  """
+  def title_rank(%{title: title}) when is_binary(title),
+    do: Map.get(@title_order, title |> String.trim() |> String.upcase(), 8)
+
+  def title_rank(_player), do: 8
 
   @doc """
   Display label for `sex`: stored internally as "m"/"w" (see

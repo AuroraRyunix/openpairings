@@ -100,7 +100,7 @@ defmodule PairingsEngine.TournamentExport do
     team_boards team_match_points_win team_match_points_draw team_match_points_loss
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
     team_lineups team_rating_method team_unrated_rating teams_ordered_by_hand
-    team_pairing_mode initial_colour initial_colour_drawn
+    team_pairing_mode initial_colour initial_colour_drawn rating_method initial_order_tiebreak late_entry_numbering
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
     extra_points_mode count_extra_points extra_points_bands
@@ -265,7 +265,7 @@ defmodule PairingsEngine.TournamentExport do
   @team_excluded ~w(id tournament_id)a
 
   @player_fields ~w(
-    name sex title fide_id fide_rating national_id national_rating
+    name sex title fide_id fide_rating national_id national_rating tournament_rating
     federation birth_year birth_date club status start_round board_order
     pairing_number paid affiliated absent forfeit special_table
     absent_rounds extra_points category categories club_number norm_data

@@ -108,7 +108,7 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
         %Participant{
           id: entry.player.id,
           tpn: entry.player.pairing_number,
-          rating: rating(entry.player),
+          rating: rating(entry.player, tournament),
           rounds:
             entry.games
             |> Enum.filter(&(&1.round <= rounds))
@@ -123,8 +123,10 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
     )
   end
 
-  defp rating(player) do
-    case Player.rating(player) do
+  # The Tournament Rating (`Player.rating/2`): the TEC Manual's rating for
+  # "rating-based tie-break calculations".
+  defp rating(player, tournament) do
+    case Player.rating(player, tournament) do
       r when is_integer(r) and r > 0 -> r
       _ -> nil
     end
