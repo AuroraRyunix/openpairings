@@ -36,7 +36,9 @@ defmodule PairingsEngine.TeamRoundRobin do
   ## A plugin's table
 
   A plugin can fix the team numbers and the size of the Berger table
-  (`PairingsEngine.Plugins.team_schedule/1`) - a league whose regulations
+  (`PairingsEngine.Plugins.team_schedule/1`), or list a series' rounds
+  match by match (`:rounds`, for a league that publishes its own table
+  for one series), - a league whose regulations
   give every series a table of twelve, say, numbers handed out by the
   league. A number without a team is a vacancy: its opponent has the bye
   that round. Every pairing is still a Berger pairing; but when the numbers
@@ -122,15 +124,23 @@ defmodule PairingsEngine.TeamRoundRobin do
       teams = TeamRounds.numbered_teams(tournament.id)
       size = table_size(teams, plan)
 
-      if is_nil(size) do
-        {:error,
-         "The team numbers have gaps, which only a plugin's schedule can pair, " <>
-           "and no plugin gives this tournament one."}
-      else
-        case ensure_correct_rounds_count(tournament, size) do
-          {:error, _} = error -> error
-          corrected -> {:ok, corrected, teams, size}
-        end
+      cond do
+        match?(%{rounds: [_ | _]}, plan) ->
+          case set_rounds_count(tournament, length(plan.rounds)) do
+            {:error, _} = error -> error
+            corrected -> {:ok, corrected, teams, {:rounds, plan.rounds}}
+          end
+
+        is_nil(size) ->
+          {:error,
+           "The team numbers have gaps, which only a plugin's schedule can pair, " <>
+             "and no plugin gives this tournament one."}
+
+        true ->
+          case ensure_correct_rounds_count(tournament, size) do
+            {:error, _} = error -> error
+            corrected -> {:ok, corrected, teams, size}
+          end
       end
     end
   end
@@ -156,9 +166,17 @@ defmodule PairingsEngine.TeamRoundRobin do
 
       true ->
         schedule =
-          if tournament.rr_match_format,
-            do: RoundRobin.match_schedule(size, next_number),
-            else: RoundRobin.schedule(size, tournament.rr_cycles, next_number)
+          cond do
+            match?({:rounds, _}, size) ->
+              {:rounds, rounds} = size
+              {:ok, listed_round(Enum.at(rounds, next_number - 1, []), teams)}
+
+            tournament.rr_match_format ->
+              RoundRobin.match_schedule(size, next_number)
+
+            true ->
+              RoundRobin.schedule(size, tournament.rr_cycles, next_number)
+          end
 
         with {:ok, entries} <- schedule,
              entries = fill_vacancies(entries, teams),
@@ -191,6 +209,19 @@ defmodule PairingsEngine.TeamRoundRobin do
     end)
   end
 
+  # A round a plugin lists match by match (`team_schedule/1`'s `:rounds`):
+  # each `{home, away}` pair of numbers is a match, home team first, and
+  # every held number in no pair has the bye.
+  defp listed_round(pairs, teams) do
+    paired = for {a, b} <- pairs, do: {:pairing, a, b}
+    playing = pairs |> Enum.flat_map(fn {a, b} -> [a, b] end) |> MapSet.new()
+
+    byes =
+      for %{pairing_number: n} <- teams, not MapSet.member?(playing, n), do: {:bye, n}
+
+    fill_vacancies(paired ++ byes, teams)
+  end
+
   # The rounds a plugin's table gives are C.05 Annex 1's for N teams only
   # when the teams hold 1..N and the table is the one N needs (N, or N + 1
   # with the dummy on the last number). Otherwise the first round paired
@@ -198,6 +229,7 @@ defmodule PairingsEngine.TeamRoundRobin do
   # recorded the way `Pairing` records a soft rule that moved a board.
   defp record_table_departure(tournament, teams, size, round_number) do
     n = length(teams)
+    size = if match?({:rounds, _}, size), do: :listed, else: size
     plain = Enum.map(teams, & &1.pairing_number) == Enum.to_list(1..n//1)
     plain_size = if rem(n, 2) == 0, do: n, else: n + 1
 
@@ -269,6 +301,16 @@ defmodule PairingsEngine.TeamRoundRobin do
     |> case do
       {:error, _} = error -> error
       _ -> :ok
+    end
+  end
+
+  # A listed schedule is exactly as long as its list.
+  defp set_rounds_count(%Tournament{rounds_count: n} = tournament, n), do: tournament
+
+  defp set_rounds_count(tournament, n) do
+    case Tournaments.update_tournament(tournament, %{rounds_count: n}) do
+      {:ok, updated} -> updated
+      {:error, %Ecto.Changeset{}} -> {:error, "A listed schedule of #{n} rounds cannot be saved."}
     end
   end
 

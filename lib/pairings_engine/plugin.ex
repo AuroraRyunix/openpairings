@@ -46,7 +46,9 @@ defmodule PairingsEngine.Plugin do
       make them final. Findings only: a check never changes a line-up, a
       pairing or a result.
     * `team_schedule/1` - the team numbers and Berger table size a team
-      round robin is paired with, when a league's regulations fix them.
+      round robin is paired with, when a league's regulations fix them -
+      or, with `:rounds`, every round listed as `{home, away}` number
+      pairs (a held number in no pair has the bye).
       A table that is not the one C.05 Annex 1 gives the field takes the
       tournament out of FIDE mode at the first round paired from it
       (`PairingsEngine.TeamRoundRobin`).
@@ -117,7 +119,12 @@ defmodule PairingsEngine.Plugin do
   @callback board_order(Tournament.t()) :: :roster | :plugin
   @callback check_lineups(lineup_context()) :: [finding()] | nil
   @callback team_schedule(Tournament.t()) ::
-              %{size: pos_integer(), numbers: %{integer() => pos_integer()}} | nil
+              %{
+                required(:size) => pos_integer(),
+                required(:numbers) => %{integer() => pos_integer()},
+                optional(:rounds) => [[{pos_integer(), pos_integer()}]]
+              }
+              | nil
   @callback roster_candidates(Scope.t(), Tournament.t(), Team.t()) ::
               {:ok, String.t(), [map()]} | :none
   @callback migrations_path() :: String.t()

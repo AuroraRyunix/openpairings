@@ -270,6 +270,35 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       assert t.fide_compliance_lost_round == 1
     end
 
+    test "a listed schedule pairs each round as listed, the rest with the bye, and leaves FIDE mode",
+         %{scope: scope} do
+      {t, [a, b, c]} = three_fake_teams(scope)
+
+      FakePlugin.register(
+        schedule: %{
+          size: 4,
+          numbers: %{a.id => 1, b.id => 2, c.id => 4},
+          rounds: [[{4, 1}], [{2, 4}], []]
+        }
+      )
+
+      pair_next!(t)
+      t = Repo.reload!(t)
+      assert t.rounds_count == 3
+      assert t.fide_compliance_lost_round == 1
+
+      matches = Tournaments.list_matches(Tournaments.get_round(t.id, 1).id)
+      assert [played] = Enum.filter(matches, & &1.team_b_id)
+      assert {played.team_a_id, played.team_b_id} == {c.id, a.id}
+      assert [%{team_a_id: bye}] = Enum.reject(matches, & &1.team_b_id)
+      assert bye == b.id
+
+      pair_next!(t)
+      pair_next!(Repo.reload!(t))
+      round3 = Tournaments.list_matches(Tournaments.get_round(t.id, 3).id)
+      assert Enum.all?(round3, &is_nil(&1.team_b_id)) and length(round3) == 3
+    end
+
     test "every team must have a number", %{scope: scope} do
       {t, [a, b, _c]} = three_fake_teams(scope)
       FakePlugin.register(schedule: %{size: 4, numbers: %{a.id => 1, b.id => 2}})
