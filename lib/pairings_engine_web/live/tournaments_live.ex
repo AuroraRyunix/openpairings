@@ -8,6 +8,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Tournaments,
     TournamentExport,
     TournamentImport,
+    TrfExport,
     TrfImport,
     RateOfPlay
   }
@@ -78,6 +79,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
        swar_pending: nil,
        swar_duplicate: nil,
        swar_team: nil,
+       # A TRF file read but not yet imported: its content and its import
+       # report (`TrfImport.review/2`), shown for Confirm / Cancel.
+       trf_review: nil,
        bel_swar_import?: Features.enabled?(socket.assigns.current_scope, @swar_import_feature),
        # ---- hand-off ----
        # Three separate assigns for three separate states, deliberately not
@@ -485,6 +489,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        swar_pending: nil,
        swar_duplicate: nil,
        swar_team: nil,
+       trf_review: nil,
        # Closing the dialog also cancels any "finish this import once the
        # upload arrives" promise made by `UploadGuard` - otherwise a file
        # that keeps uploading in the background would import itself after
@@ -632,12 +637,29 @@ defmodule PairingsEngineWeb.TournamentsLive do
     {:noreply, assign(socket, swar_duplicate: nil)}
   end
 
-  ## ---------- TRF import, TRF26 or TRF16 (one step - no resolve modal) ----------
+  ## ---------- TRF import, TRF06, TRF16 or TRF26 ----------
+  #
+  # Two steps when the file needs any: `TrfImport.review/2` runs the import
+  # and rolls it back, and what it would adjust - and any round of the file
+  # that breaks a pairing rule, an Import PIBE - is shown for Confirm or
+  # Cancel BEFORE the tournament exists (VCL4THP items 48, 50, 52, 55, 115).
+  # A file with nothing to report imports in one step, as it always did.
 
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_trf", _params, socket), do: {:noreply, socket}
 
   def handle_event("import_trf_file", _params, socket), do: import_tournament_file(socket, :trf)
+
+  def handle_event("confirm_trf_import", _params, %{assigns: %{trf_review: nil}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("confirm_trf_import", _params, socket) do
+    content = socket.assigns.trf_review.content
+    commit_trf(assign(socket, trf_review: nil), content)
+  end
+
+  def handle_event("cancel_trf_import", _params, socket),
+    do: {:noreply, assign(socket, trf_review: nil, importing_trf: true, error: nil)}
 
   ## ---------- JSON backup import (full-fidelity, single or all tournaments) ----------
 
@@ -1262,14 +1284,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
       [{:swar, {:error, reason}}] ->
         {:noreply, assign(socket, error: SwarImport.error_message(reason))}
 
-      [{:trf, {:ok, tournament, warnings}}] ->
-        Audit.log(tournament.id, scope, "import.trf", %{name: tournament.name})
+      [{:trf_review, content, {:ok, report}}] ->
+        if TrfImport.report_empty?(report) do
+          commit_trf(socket, content)
+        else
+          {:noreply,
+           assign(socket,
+             trf_review: %{content: content, report: report},
+             importing: false,
+             importing_trf: false,
+             error: nil
+           )}
+        end
 
-        {:noreply,
-         socket
-         |> maybe_flash_trf_warnings(warnings)
-         |> assign(importing: false, importing_trf: false)
-         |> push_navigate(to: ~p"/t/#{tournament.id}/standings")}
+      [{:trf_review, _content, {:error, reason}}] ->
+        {:noreply, assign(socket, error: TrfImport.error_message(reason))}
 
       [{:trf, {:error, reason}}] ->
         {:noreply, assign(socket, error: TrfImport.error_message(reason))}
@@ -1413,33 +1442,328 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
-  defp maybe_flash_trf_warnings(socket, []), do: socket
+  # The one place a TRF file becomes a tournament from this page: the real
+  # import (the review was a rolled-back run of the same), then the audit
+  # trail - the import with its version and adjustments, and one
+  # `pibe.import` row per round of the file that broke a pairing rule, so
+  # the PIBE is logged as one (VCL4THP item 112). The same record is kept on
+  # the tournament itself (`TrfImport.findings/1`).
+  defp commit_trf(socket, content) do
+    scope = socket.assigns.current_scope
 
-  defp maybe_flash_trf_warnings(socket, warnings) do
-    # Three kinds, and they read differently: a points mismatch names the
-    # players it is about, a note is a sentence about the tournament (a
-    # rule the file stated that this app applies more broadly, a bye it
-    # could not place), and an illegal round is a pairing in the file that
-    # breaks a rule of the Dutch system. All three are notices rather than
-    # failures - the import went through either way - so :info, which is
-    # what Layouts.flash_group/1 renders.
-    #
-    # The illegal rounds go first. The other two are this app rounding
-    # something off; that one is about the tournament itself being wrong,
-    # and it is the only one an arbiter may have to act on.
-    grouped = Enum.group_by(warnings, &Map.get(&1, :kind, :points))
+    case crash_safe(fn -> TrfImport.import_with_report(content, scope) end) do
+      {:ok, tournament, report} ->
+        findings = TrfImport.findings(report)
 
-    messages =
-      trf_illegal_round_message(Map.get(grouped, :illegal_round, [])) ++
-        trf_unverified_message(Map.get(grouped, :round_unverified, [])) ++
-        trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
-        trf_points_message(Map.get(grouped, :points, [])) ++
-        Enum.map(Map.get(grouped, :note, []), & &1.text)
+        Audit.log(tournament.id, scope, "import.trf", %{
+          name: tournament.name,
+          version: findings["version"],
+          adjustments: length(report.adjustments),
+          pibe_rounds: Enum.map(findings["pibe"], & &1["round"])
+        })
 
-    case messages do
-      [] -> socket
-      _ -> put_flash(socket, :info, Enum.join(messages, " "))
+        for %{"round" => round} = pibe <- findings["pibe"] do
+          Audit.log(tournament.id, scope, "pibe.import", %{
+            round: round,
+            findings: TrfExport.import_pibe_line(pibe)
+          })
+        end
+
+        {:noreply,
+         socket
+         |> maybe_flash_trf_confirmed(report)
+         |> assign(importing: false, importing_trf: false, trf_review: nil)
+         |> push_navigate(to: ~p"/t/#{tournament.id}/standings")}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           trf_review: nil,
+           importing_trf: true,
+           error: TrfImport.error_message(reason)
+         )}
     end
+  end
+
+  defp maybe_flash_trf_confirmed(socket, report) do
+    if TrfImport.report_empty?(report),
+      do: socket,
+      else:
+        put_flash(
+          socket,
+          :info,
+          gettext(
+            "Imported. What the import adjusted, and any pairing rule it found broken, is kept with the tournament and in its audit log."
+          )
+        )
+  end
+
+  # The review step's content, grouped the way it is shown: the rounds that
+  # break a pairing rule (the Level-3 part), what could not be checked, and
+  # everything the import adjusted or noticed.
+  defp trf_review_sections(report) do
+    grouped = Enum.group_by(report.warnings, &Map.get(&1, :kind, :points))
+
+    %{
+      rule_breaks:
+        Enum.map(Map.get(grouped, :illegal_round, []), &upcase_first(illegal_round_detail(&1))),
+      unchecked:
+        trf_unverified_message(Map.get(grouped, :round_unverified, [])) ++
+          trf_verification_failed_message(Map.get(grouped, :verification_failed, [])),
+      adjustments:
+        Enum.map(report.adjustments, &trf_adjustment_text/1) ++
+          trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
+          trf_points_message(Map.get(grouped, :points, [])) ++
+          Enum.map(Map.get(grouped, :note, []), & &1.text)
+    }
+  end
+
+  defp upcase_first(<<first::utf8, rest::binary>>), do: String.upcase(<<first::utf8>>) <> rest
+  defp upcase_first(other), do: other
+
+  defp trf_verification_failed_message([]), do: []
+
+  defp trf_verification_failed_message(_),
+    do: [
+      gettext(
+        "The check of the imported rounds against the pairing rules failed with an internal error, so they were NOT checked. Import only if you have checked the pairings yourself."
+      )
+    ]
+
+  defp trf_version_text(:trf26), do: gettext("Read as a TRF26 file.")
+
+  defp trf_version_text(version),
+    do:
+      gettext(
+        "Read as a %{version} file. %{version} has no records for the point system, the tournament type or the tie-breaks, which TRF26 carries: what the import used instead is listed below.",
+        version: TrfImport.version_label(version)
+      )
+
+  defp trf_adjustment_text(%{code: :default_scoring} = a),
+    do:
+      gettext(
+        "No point system in the file (record 162): results are scored with this app's defaults - win %{win}, draw %{draw}, loss %{loss}, pairing-allocated bye %{bye}.",
+        win: format_points(a.win),
+        draw: format_points(a.draw),
+        loss: format_points(a.loss),
+        bye: format_points(a.bye)
+      )
+
+  defp trf_adjustment_text(%{code: :default_system} = a),
+    do:
+      gettext("No tournament type code in the file (record 192): imported as %{system}.",
+        system: trf_system_phrase(a)
+      )
+
+  defp trf_adjustment_text(%{code: :unknown_system_code} = a),
+    do:
+      gettext(
+        "The file's tournament type code %{code} is not a system this app has: imported as %{system}.",
+        code: a.type_code,
+        system: trf_system_phrase(a)
+      )
+
+  defp trf_adjustment_text(%{code: :rr_cycles_clamped} = a),
+    do:
+      gettext(
+        "The file asks for %{requested} round-robin cycles; this app plays at most %{used}, so it was imported with %{used}.",
+        requested: a.requested,
+        used: a.used
+      )
+
+  defp trf_adjustment_text(%{code: :default_tiebreaks, tiebreaks: []}),
+    do:
+      gettext(
+        "No tie-breaks in the file (records 202/212): none were set. Choose them under Options."
+      )
+
+  defp trf_adjustment_text(%{code: :default_tiebreaks} = a),
+    do:
+      gettext(
+        "No tie-breaks in the file (records 202/212): this app's defaults were set (%{list}).",
+        list: Enum.join(a.tiebreaks, ", ")
+      )
+
+  defp trf_adjustment_text(%{code: :tiebreaks_dropped} = a),
+    do:
+      ngettext(
+        "The file's tie-break %{codes} is not one this app computes, and was left out.",
+        "The file's tie-breaks %{codes} are not ones this app computes, and were left out.",
+        length(a.codes),
+        codes: Enum.join(a.codes, ", ")
+      )
+
+  defp trf_adjustment_text(%{code: :default_round_count} = a),
+    do:
+      gettext(
+        "The file does not give the number of rounds (record 142): it was set to %{rounds}, the rounds the file holds. Change it under Options if the event is longer.",
+        rounds: a.rounds
+      )
+
+  defp trf_adjustment_text(%{code: :round_count_raised} = a),
+    do:
+      gettext(
+        "The file says %{from} rounds but its players have played %{to}: the tournament was set to %{to} rounds.",
+        from: a.from,
+        to: a.to
+      )
+
+  defp trf_adjustment_text(%{code: :deputies_dropped} = a),
+    do:
+      ngettext(
+        "%{count} deputy arbiter after the fourth was left out (this app keeps four).",
+        "%{count} deputy arbiters after the fourth were left out (this app keeps four).",
+        a.count
+      )
+
+  defp trf_adjustment_text(%{code: :team_forfeit_points_ignored} = a),
+    do:
+      gettext(
+        "The file gives a match lost by forfeit %{points} match points (record 362); this app scores it as a lost match.",
+        points: format_points(a.points)
+      )
+
+  defp trf_adjustment_text(%{code: :team_pab_points_ignored} = a),
+    do:
+      gettext(
+        "The file gives the team bye %{points} match points (record 362), which only a team Swiss uses; it was not imported.",
+        points: format_points(a.points)
+      )
+
+  defp trf_adjustment_text(%{code: :team_match_points_ignored} = a),
+    do:
+      ngettext(
+        "%{count} record assigning match points outside the scoring (record 299) was not imported.",
+        "%{count} records assigning match points outside the scoring (record 299) were not imported.",
+        a.count
+      )
+
+  defp trf_adjustment_text(%{code: :extra_points_counted} = a),
+    do:
+      ngettext(
+        "The file gives %{count} player points outside the scoring (record 299). They were imported and are counted in the standings - a setting outside FIDE mode, so pairing the next round takes the tournament out of FIDE mode unless you switch counting off under Options.",
+        "The file gives %{count} players points outside the scoring (record 299). They were imported and are counted in the standings - a setting outside FIDE mode, so pairing the next round takes the tournament out of FIDE mode unless you switch counting off under Options.",
+        a.players
+      )
+
+  defp trf_adjustment_text(%{code: :old_style_byes} = a),
+    do:
+      ngettext(
+        "%{count} game in the file has no opponent (a TRF06-style bye; rounds %{rounds}): imported as the bye its points stand for - a full point as the pairing-allocated bye, a half or zero as a half- or zero-point bye.",
+        "%{count} games in the file have no opponent (TRF06-style byes; rounds %{rounds}): imported as the byes their points stand for - a full point as the pairing-allocated bye, a half or zero as a half- or zero-point bye.",
+        a.count,
+        rounds: Enum.join(a.rounds, ", ")
+      )
+
+  defp trf_adjustment_text(%{code: :dangling_opponents} = a),
+    do:
+      ngettext(
+        "%{count} game entry names an opponent who does not name the player back (rounds %{rounds}): imported as a bye worth the points it records.",
+        "%{count} game entries name an opponent who does not name the player back (rounds %{rounds}): each imported as a bye worth the points it records.",
+        a.count,
+        rounds: Enum.join(a.rounds, ", ")
+      )
+
+  defp trf_adjustment_text(%{code: :full_point_byes_merged} = a),
+    do:
+      ngettext(
+        "%{count} full-point bye (F; rounds %{rounds}) was imported as a pairing-allocated bye: this app has one kind of full-point bye.",
+        "%{count} full-point byes (F; rounds %{rounds}) were imported as pairing-allocated byes: this app has one kind of full-point bye.",
+        a.count,
+        rounds: Enum.join(a.rounds, ", ")
+      )
+
+  defp trf_adjustment_text(%{code: :rounds_not_checked}),
+    do:
+      gettext(
+        "The file's rounds were not checked against the pairing rules: only a Dutch-system Swiss can be."
+      )
+
+  # A code this page has not been taught to word - one the importer gains
+  # after this was written. Never a crash on somebody's import.
+  defp trf_adjustment_text(%{code: code}),
+    do: gettext("The import adjusted something this page cannot describe (%{code}).", code: code)
+
+  defp trf_system_phrase(%{pairing_system: "round_robin"}), do: gettext("a round robin")
+
+  defp trf_system_phrase(%{pairing_engine: "javafo"}),
+    do: gettext("a Swiss paired by the Dutch system as it stood before July 2025 (JaVaFo)")
+
+  defp trf_system_phrase(_),
+    do: gettext("a Swiss paired by the Dutch system in force since July 2025")
+
+  # The review step of a TRF import. A Level-3 warning (TEC manual: not
+  # compliant, explicit confirmation) when a round of the file breaks a
+  # pairing rule - an Import PIBE; otherwise the list of what the import
+  # adjusted, still confirmed before anything is written.
+  attr :review, :map, required: true
+
+  defp trf_review(assigns) do
+    report = assigns.review.report
+
+    assigns =
+      assign(assigns,
+        pibe?: TrfImport.pibe?(report),
+        version: trf_version_text(report.version),
+        sections: trf_review_sections(report)
+      )
+
+    ~H"""
+    <div
+      id="trf-review"
+      class={["card trf-review", @pibe? && "trf-review-level3"]}
+      role="region"
+      aria-labelledby="trf-review-title"
+    >
+      <h2 id="trf-review-title">
+        <%= if @pibe? do %>
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          {gettext("This file's rounds break the FIDE pairing rules")}
+        <% else %>
+          {gettext("Before importing: what this file needs adjusted")}
+        <% end %>
+      </h2>
+
+      <p id="trf-review-version" class="hint" style="margin-top: 0">{@version}</p>
+
+      <div :if={@pibe?} id="trf-review-pibe">
+        <p>
+          {gettext(
+            "Importing it is not compliant with the pairing rules (an Import PIBE). The rounds are imported exactly as the file records them; the finding is kept with the tournament, in its audit log and as a ### line in its TRF reports. Import only if you accept this."
+          )}
+        </p>
+        <ul class="trf-review-list">
+          <li :for={line <- @sections.rule_breaks}>{line}</li>
+        </ul>
+      </div>
+
+      <ul :if={@sections.unchecked != []} id="trf-review-unchecked" class="trf-review-list">
+        <li :for={line <- @sections.unchecked}>{line}</li>
+      </ul>
+
+      <div :if={@sections.adjustments != []} id="trf-review-adjustments">
+        <h3>{gettext("Adjustments")}</h3>
+        <ul class="trf-review-list">
+          <li :for={line <- @sections.adjustments}>{line}</li>
+        </ul>
+      </div>
+
+      <div class="actions">
+        <button
+          type="button"
+          id="trf-review-confirm"
+          class="pe-btn primary"
+          phx-click="confirm_trf_import"
+          phx-disable-with={gettext("Importing…")}
+        >
+          {if @pibe?, do: gettext("Import anyway"), else: gettext("Import")}
+        </button>
+        <button type="button" id="trf-review-cancel" class="pe-btn" phx-click="cancel_trf_import">
+          {gettext("Cancel")}
+        </button>
+      </div>
+    </div>
+    """
   end
 
   # `?` in the file - a result it records as not known - imported as a
@@ -1464,37 +1788,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp trf_points_message(warnings) do
     [
-      "Imported, but the TRF file's own points column didn't match the recomputed total for " <>
+      "The TRF file's own points column does not match the recomputed total for " <>
         Enum.map_join(warnings, ", ", fn w ->
           "#{w.player_name} (file: #{format_points(w.trf_points)}, recomputed: #{format_points(w.computed_points)})"
         end)
-    ]
-  end
-
-  # How many findings are spelled out before the message just gives a
-  # count. A flash is one line of prose and the list comes off an uploaded
-  # file, so a thoroughly broken one could otherwise put hundreds of
-  # clauses in a sentence nobody can read - and the first few already tell
-  # the arbiter what kind of file they have.
-  @illegal_rounds_listed 8
-
-  defp trf_illegal_round_message([]), do: []
-
-  defp trf_illegal_round_message(warnings) do
-    {listed, rest} = Enum.split(warnings, @illegal_rounds_listed)
-
-    more =
-      case length(rest) do
-        0 -> ""
-        n -> ", and #{n} more"
-      end
-
-    [
-      "Imported, but #{count_phrase(length(warnings))} in the file " <>
-        "#{if length(warnings) == 1, do: "breaks", else: "break"} a FIDE pairing rule: " <>
-        Enum.map_join(listed, "; ", &illegal_round_detail/1) <>
-        more <>
-        ". The rounds were imported exactly as the file records them."
     ]
   end
 
@@ -1508,14 +1805,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
     label = if length(rounds) == 1, do: "round", else: "rounds"
 
     [
-      "Imported, but #{label} #{Enum.join(rounds, ", ")} could not be checked against the FIDE " <>
+      "#{String.capitalize(label)} #{Enum.join(rounds, ", ")} could not be checked against the FIDE " <>
         "pairing rules: the file's game entries for #{if length(rounds) == 1, do: "that round", else: "those rounds"} " <>
         "do not describe a complete pairing (for example a game one player lists and the other does not)."
     ]
   end
-
-  defp count_phrase(1), do: "one pairing"
-  defp count_phrase(n), do: "#{n} pairings"
 
   defp illegal_round_detail(%{reason: :rematch, players: [a, b]} = w),
     do: "round #{w.round}, #{a} v #{b} had already met in round #{w.met_in_round}"
@@ -1596,7 +1890,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         {:ok, {:swar, SwarImport.prepare_import(path, filename: entry.client_name)}}
 
       :trf ->
-        {:ok, {:trf, TrfImport.import_text(content, scope)}}
+        {:ok, {:trf_review, content, TrfImport.review(content, scope)}}
 
       :unknown when panel == :swar and not swar? ->
         {:ok, {:swar, {:error, :feature_off}}}
@@ -1605,7 +1899,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         {:ok, {:swar, SwarImport.prepare_import(path, filename: entry.client_name)}}
 
       :unknown ->
-        {:ok, {:trf, TrfImport.import_text(content, scope)}}
+        {:ok, {:trf_review, content, TrfImport.review(content, scope)}}
     end
   end
 
@@ -2287,7 +2581,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
-              "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here. If the file's own points column doesn't match what we recompute from the imported results, you'll see a notice after import."
+              "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here. Anything the import has to adjust, and any round that breaks a pairing rule, is shown to you first, to confirm or cancel."
             )
           }>
             <:part name="ext"><code>.trf</code></:part>
@@ -2332,6 +2626,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
+
+      <.trf_review :if={@trf_review} review={@trf_review} />
 
       <form
         :if={@importing_backup}

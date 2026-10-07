@@ -946,6 +946,15 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
    text, which the page's own "What if?" style of <h2> would have enlarged. */
 .card h2.pe-card-subhead, h2.pe-card-subhead { font-size: inherit; font-weight: inherit; margin: 0; }
 
+/* A TRF import's review step (TournamentsLive.trf_review/1). The Level-3
+   variant - a round of the file breaks a pairing rule - is set apart in the
+   warning colour, so it never reads like the ordinary list of adjustments. */
+.trf-review-list { margin: 8px 0 14px; padding-left: 20px; line-height: 1.5; }
+.trf-review-list li + li { margin-top: 4px; }
+.trf-review h3 { font-size: 14px; font-weight: 650; margin: 14px 0 0; }
+.trf-review-level3 { border-left: 4px solid var(--warn); background: var(--warn-soft); }
+.trf-review-level3 h2 { color: var(--warn); display: flex; align-items: center; gap: 8px; }
+
 /* SettingsChangelogLive - rendered CHANGELOG.md */
 .changelog-body h1 { font-size: 20px; margin: 0 0 6px; }
 .changelog-body h2 {

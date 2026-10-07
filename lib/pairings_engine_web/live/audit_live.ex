@@ -131,7 +131,7 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.extra_points_applied standings.extra_points_reduced
         standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf import.json trf.finalised trf.postponed_sent
+    {"imports", ~w(import.swar import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
@@ -929,6 +929,17 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("import.trf", d),
     do: gettext("Imported tournament %{name} from a TRF file.", name: name(d, "name"))
+
+  # A round of the imported file that breaks a pairing rule - the TEC
+  # manual's Import PIBE, confirmed by the arbiter at the import's review
+  # step. `findings` is the round's `### Import @ Round r: ...` text.
+  def describe("pibe.import", d),
+    do:
+      gettext(
+        "Pairing integrity (Import PIBE): round %{round} of the imported file breaks a pairing rule, and the import was confirmed - %{findings}",
+        round: value(d, "round"),
+        findings: d["findings"] || ""
+      )
 
   # A TRF downloaded "for sending" with its results marked as sent
   # (`PostponedGames.finalise/2`), and a postponed-games file sent the same

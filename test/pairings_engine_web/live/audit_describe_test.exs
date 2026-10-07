@@ -32,7 +32,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # role and the phone access levels (see
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token
-             computer guid swar trf json csv fide id elo keizer support deputy helper)
+             computer guid swar trf json csv fide id elo keizer support deputy helper pibe)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list
@@ -383,6 +383,9 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "tournament.restored" => [%{"name" => "Paasopen Brugge"}],
     "import.swar" => [%{"name" => "Paasopen Brugge"}],
     "import.trf" => [%{"name" => "Paasopen Brugge"}],
+    "pibe.import" => [
+      %{"round" => 2, "findings" => "Import @ Round 2: 1-2 (rematch of round 1)"}
+    ],
     "import.json" => [%{"name" => "Paasopen Brugge"}],
     "collaborator.invited" => [%{"email" => "an@example.org"}],
     "collaborator.accepted" => [%{"email" => "an@example.org"}],
