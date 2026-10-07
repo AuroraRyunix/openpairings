@@ -191,12 +191,15 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     frank = players["Frank"]
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, frank.id)
 
+    # Added once round 1 was paired: it holds from round 2 (VCL4THP Q217),
+    # and comes back that way.
     {imported, warnings, text} = round_trip(tournament)
-    assert text =~ "\r\n260   1   9    1    6\r\n"
+    assert text =~ "\r\n260   2   9    1    6\r\n"
     assert warnings == []
 
     assert [pair] = Tournaments.list_forbidden_pairings(imported.id)
     assert Enum.sort([pair.player_a.name, pair.player_b.name]) == ["Alice", "Frank"]
+    assert pair.from_round == 2
   end
 
   test "a club exclusion arrives as the pairs it stands for" do
@@ -329,7 +332,8 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     {:ok, _} = Tournaments.update_player(players["Dave"], %{"extra_points" => 1.5})
 
     {imported, _warnings, text} = round_trip(Repo.reload!(tournament))
-    assert text =~ "\r\n299           1.5         2    4\r\n"
+    # Round 000: a counted handicap applies before round 1 (TEC Manual, Blank-AAT).
+    assert text =~ "\r\n299           1.5  000    2    4\r\n"
 
     assert imported.count_extra_points
     by_name = Map.new(imported_players(imported), &{&1.name, &1.extra_points})

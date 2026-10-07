@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
         pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
-        pairing.rating_correction)},
+        pairing.rating_correction pibe.correction)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
@@ -1059,6 +1059,17 @@ defmodule PairingsEngineWeb.AuditLive do
   # A round of the imported file that breaks a pairing rule - the TEC
   # manual's Import PIBE, confirmed by the arbiter at the import's review
   # step. `findings` is the round's `### Import @ Round r: ...` text.
+  # A result corrected after a later round was paired - the TEC manual's
+  # Correction PIBE, confirmed by the arbiter (`PairingsEngine.ResultCorrections`).
+  # `line` is its `### Correction @ Round r: a-b: old => new` text.
+  def describe("pibe.correction", d),
+    do:
+      gettext(
+        "Pairing integrity (Correction PIBE): a result of round %{round} was corrected after a later round had been paired - %{line}",
+        round: value(d, "round"),
+        line: d["line"] || ""
+      )
+
   def describe("pibe.import", d),
     do:
       gettext(
@@ -1984,6 +1995,12 @@ defmodule PairingsEngineWeb.AuditLive do
     do:
       gettext(
         "Confirmed over the warning that the game was postponed and had counted provisionally for pairing."
+      )
+
+  defp confirmed_warning("result_correction"),
+    do:
+      gettext(
+        "Confirmed over the warning that a later round had already been paired with the old result."
       )
 
   defp confirmed_warning("finalised_result_changed"),

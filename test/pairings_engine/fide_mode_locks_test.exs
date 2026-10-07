@@ -284,7 +284,14 @@ defmodule PairingsEngine.FideModeLocksTest do
                "round #{r.number} still open"
       end
 
-      for r <- [r3, r4], do: assert({:ok, _} = Tournaments.update_pairing_result(game(r), "0-1"))
+      for r <- [r3, r4],
+          do:
+            assert(
+              {:ok, _} =
+                Tournaments.update_pairing_result(game(r), "0-1",
+                  acknowledged: [:result_correction]
+                )
+            )
     end
 
     test "a round in progress keeps the one before the last played open", %{t: t} do
@@ -314,7 +321,11 @@ defmodule PairingsEngine.FideModeLocksTest do
 
     test "outside FIDE mode every round stays open", %{t: t, rounds: [r1 | _]} do
       {:ok, _} = Tournaments.leave_fide_mode(t)
-      assert {:ok, _} = Tournaments.update_pairing_result(game(r1), "0-1")
+
+      assert {:ok, _} =
+               Tournaments.update_pairing_result(game(r1), "0-1",
+                 acknowledged: [:result_correction]
+               )
     end
   end
 
@@ -332,7 +343,7 @@ defmodule PairingsEngine.FideModeLocksTest do
       # And corrected later, like any other entry of that game.
       assert {:ok, _} =
                Tournaments.update_pairing_result(played, "1-0",
-                 acknowledged: [:adjourned_non_draw_result]
+                 acknowledged: [:adjourned_non_draw_result, :result_correction]
                )
     end
   end

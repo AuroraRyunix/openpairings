@@ -90,6 +90,7 @@ defmodule PairingsEngine.TournamentExport do
     points_win points_draw points_loss bye_value presence_value abs_value
     abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences
     presence_on_allocated_bye tiebreaks tiebreak_unrated_rating tiebreak_unrated_method chess960 lots_seed shared_places acceleration baku_group_a_last
+    long_event tiebreak_rating_round
     status standard rating_list_sequence rating_checks_enabled rate_of_play organizer_club_number round_dates
     categories category_rules category_prizes categories_enabled
     categories_ranked_separately event_code
@@ -271,7 +272,7 @@ defmodule PairingsEngine.TournamentExport do
     absent_rounds extra_points external_tiebreak category categories club_number norm_data
     team_id fixed_board manual_rank no_bye no_bye_rounds bye_preference
     bye_preference_rounds team_history no_half_bye fide_rating_source fide_rating_period
-    fide_rating_listed
+    fide_rating_listed period_ratings
   )a
 
   # The roster is the one thing a backup absolutely cannot lose, so the same
@@ -720,7 +721,9 @@ defmodule PairingsEngine.TournamentExport do
       "game_uid" => p.game_uid,
       # A result corrected for the rating report only (C.04.2:4.3,
       # `Tournaments.set_rating_correction/3`); nil for nearly every board.
-      "rating_result" => p.rating_result
+      "rating_result" => p.rating_result,
+      # A Correction PIBE's original result (`Pairing.corrected_from`).
+      "corrected_from" => p.corrected_from
     }
   end
 
@@ -812,7 +815,8 @@ defmodule PairingsEngine.TournamentExport do
         select: %{
           player_a_id: f.player_a_id,
           player_b_id: f.player_b_id,
-          soft: type(f.soft, :boolean)
+          soft: type(f.soft, :boolean),
+          from_round: f.from_round
         }
     )
     |> Enum.map(&stringify_keys/1)

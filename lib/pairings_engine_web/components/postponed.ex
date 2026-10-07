@@ -331,7 +331,24 @@ defmodule PairingsEngineWeb.Postponed do
   defp acknowledgement_reason(:finalised_result_changed),
     do: gettext("This result was already sent in a TRF finalised for sending.")
 
+  defp acknowledgement_reason(:result_correction),
+    do: gettext("A later round was already paired with the result being corrected.")
+
   defp acknowledgement_reason(_other), do: ""
+
+  @doc """
+  The question before correcting a result after a later round was paired
+  (`:result_correction`, VCL4THP Q115) - the TEC Manual's Correction PIBE.
+  """
+  def correction_text(round_number, board, old, new) do
+    gettext(
+      "Board %{board} of round %{round}: a later round was already paired with %{old}. Correcting it to %{new} is a pairing integrity breaching event (a Correction PIBE): the pairings made since stay as they are, a restore point is taken first, and the correction is logged and written in the TRF.",
+      board: board,
+      round: round_number,
+      old: old,
+      new: new
+    )
+  end
 
   @doc """
   The question before changing a result already sent in a TRF finalised for

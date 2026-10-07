@@ -710,8 +710,9 @@ defmodule PairingsEngine.TrfExportTest do
       {tournament, %{alice: alice, bob: bob}} = fixture()
       {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
 
+      # Added with two rounds paired, so it holds from round 3 (VCL4THP Q217).
       assert {:ok, text} = TrfExport.export(tournament)
-      assert text =~ "\r\n260   1   3    1    2\r\n"
+      assert text =~ "\r\n260   3   3    1    2\r\n"
       refute text =~ "XXP"
 
       assert {:ok, text} = TrfExport.export(tournament, nil, dialect: :engine)
@@ -764,7 +765,8 @@ defmodule PairingsEngine.TrfExportTest do
       end
 
       assert shape.(trf26) == shape.(engine)
-      assert Trf.parse(trf26).tournament[:forbidden_pairs] == [{[1, 2], 1, 3}]
+      # Added after round 2 was paired: from round 3.
+      assert Trf.parse(trf26).tournament[:forbidden_pairs] == [{[1, 2], 3, 3}]
       assert Trf.parse(trf26).tournament[:type_code] == "FIDE_DUTCH_2025_BAKU"
     end
   end

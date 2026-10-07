@@ -39,6 +39,11 @@ defmodule PairingsEngine.Tournaments.ForbiddenPairing do
     # nor a Keizer exclusion. Hard rows (`false`, the default) behave as
     # they always did.
     field :soft, :boolean, default: false
+    # The first round the prohibition applies to, when it was added after
+    # rounds had been paired (VCL4THP Q217): the TRF's `260` record then
+    # names the rounds it really held for, rather than claiming the whole
+    # event. nil is every round. Set by `Tournaments.add_forbidden_pairing/3`.
+    field :from_round, :integer
   end
 
   def changeset(forbidden_pairing, attrs) do

@@ -344,7 +344,7 @@ defmodule PairingsEngine.SentReceiptsTest do
 
       # A round changed since it was sent says so in the copy too.
       [board | _] = Tournaments.get_round(t.id, 1).pairings
-      result!(board, "0-1", acknowledged: [:finalised_result_changed])
+      result!(board, "0-1", acknowledged: [:finalised_result_changed, :result_correction])
       {:ok, copy} = TrfExport.export(Repo.reload!(t), "1", copy: true)
       assert copy =~ "It changed since it was sent"
     end

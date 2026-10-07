@@ -223,7 +223,7 @@ defmodule PairingsEngine.TournamentExportTest do
     assert t_data["byes"] == [%{"player_id" => a.id, "round" => 2, "type" => "requested-half"}]
 
     assert t_data["forbidden_pairings"] == [
-             %{"player_a_id" => a.id, "player_b_id" => b.id, "soft" => false}
+             %{"player_a_id" => a.id, "player_b_id" => b.id, "soft" => false, "from_round" => nil}
            ]
   end
 

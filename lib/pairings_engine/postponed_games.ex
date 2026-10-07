@@ -63,6 +63,10 @@ defmodule PairingsEngine.PostponedGames do
     # here is that no wrong TRF data is ever sent, so changing a sent
     # result is possible - "semi-frozen" - but never silent.
     %{id: :finalised_result_changed, vcl: [], acknowledge?: true},
+    # A result corrected after a later round was paired - the TEC Manual's
+    # Correction PIBE, a Level-3 warning with explicit confirmation
+    # (`PairingsEngine.ResultCorrections`).
+    %{id: :result_correction, vcl: [112, 115], acknowledge?: true},
     %{id: :sent_round_changed, vcl: [], acknowledge?: true},
     %{id: :sent_games_changed, vcl: [], acknowledge?: true},
     # A round sent before, then taken back to before it was paired by a
@@ -296,6 +300,10 @@ defmodule PairingsEngine.PostponedGames do
   that they know. A draw, clearing the board and re-postponing it need no
   confirmation.
 
+  `:result_correction` (Q112, Q115), when a real result is corrected after
+  a later round was paired - a Correction PIBE
+  (`PairingsEngine.ResultCorrections.correction?/2`).
+
   `:finalised_result_changed`, when the board was already sent in a TRF
   marked as sent and the result would change: possible, never silent.
   """
@@ -315,8 +323,11 @@ defmodule PairingsEngine.PostponedGames do
         ((not is_nil(stored.finalised_at) and not stored.finalised_open) or
            not is_nil(stored.postponed_reported_at))
 
+    correction? = PairingsEngine.ResultCorrections.correction?(stored, result)
+
     if(non_draw?, do: [:adjourned_non_draw_result], else: []) ++
-      if sent_changed?, do: [:finalised_result_changed], else: []
+      if(sent_changed?, do: [:finalised_result_changed], else: []) ++
+      if correction?, do: [:result_correction], else: []
   end
 
   @doc """

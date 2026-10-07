@@ -37,7 +37,7 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
 
   alias Ainalrami.Tiebreaks.Event
   alias Ainalrami.Tiebreaks.Event.{Participant, Round}
-  alias PairingsEngine.Standings
+  alias PairingsEngine.{PeriodRatings, Standings}
   alias PairingsEngine.Tournaments.Player
 
   # OpenPairings' codes and C.07's spelling of the same tie-break.
@@ -103,12 +103,20 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
       loss: tournament.points_loss + presence
     }
 
+    # One rating per player: for a tournament lasting more than 30 days,
+    # the one valid in the round the arbiter chose, the first by default
+    # (C.07 Article 10, VCL4THP Q215-Q216; `PeriodRatings`).
+    tiebreak_round = PeriodRatings.tiebreak_round(tournament)
+
     participants =
       for entry <- entries do
         %Participant{
           id: entry.player.id,
           tpn: entry.player.pairing_number,
-          rating: rating(entry.player, tournament),
+          rating:
+            entry.player
+            |> PeriodRatings.at_round(tiebreak_round, tournament)
+            |> rating(tournament),
           rounds:
             entry.games
             |> Enum.filter(&(&1.round <= rounds))

@@ -660,21 +660,15 @@ defmodule PairingsEngineWeb.PlayersLive do
       # rated opponent count, per Article 8.3 - mirrors `opponent_ratings`
       # above but drops unrated (rating <= 0) opponents, since the table has
       # no defined probability against "no rating".
-      rated_games =
-        Enum.filter(played_games, fn g ->
-          case Map.get(players_by_id, g.opponent_id) do
-            nil -> false
-            opp -> Player.rating(opp) > 0
-          end
-        end)
-
-      own_rating = Player.rating(entry.player)
-
-      rated_opponent_ratings =
-        Enum.map(rated_games, &Player.rating(Map.get(players_by_id, &1.opponent_id)))
-
-      we = PlayerStats.we(own_rating, rated_opponent_ratings)
-      w_counted = rated_games |> Enum.map(& &1.points) |> Enum.sum()
+      # For a tournament lasting more than 30 days, each game with both
+      # players' ratings in its round (VCL4THP Q213).
+      {we, w_counted} =
+        PairingsEngine.PeriodRatings.expected_score(
+          entry.player,
+          played_games,
+          players_by_id,
+          tournament
+        )
 
       grid = %{
         "cl" => entry.rank,
@@ -1908,7 +1902,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   @audited_player_fields ~w(name title sex fide_id fide_rating national_rating tournament_rating
     federation club club_number birth_year category categories status absent
     forfeit absent_rounds fixed_board start_round extra_points manual_rank no_bye
-    no_bye_rounds bye_preference bye_preference_rounds)a
+    no_bye_rounds bye_preference bye_preference_rounds period_ratings)a
 
   defp player_diff(before, after_player) do
     for field <- @audited_player_fields,
@@ -1989,6 +1983,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       "fide_rating_period" => p.fide_rating_period || "",
       "fide_rating_listed" => blank_or(p.fide_rating_listed),
       "tournament_rating" => blank_or(p.tournament_rating),
+      "period_ratings_text" => PairingsEngine.PeriodRatings.format(p.period_ratings),
       "category" => p.category,
       "categories" => p.categories || [],
       "paid" => p.paid,
@@ -4404,6 +4399,22 @@ defmodule PairingsEngineWeb.PlayersLive do
 
               <option :for={t <- @titles} value={t} selected={@form["title"] == t}>{t}</option>
             </select>
+          </label>
+          <%!-- A tournament lasting more than 30 days (VCL4THP Q212-Q213):
+                the player's later ratings, each with its first round. --%>
+          <label :if={@tournament.long_event} class="field">
+            <span>{gettext("Later ratings (round:rating)")}</span>
+            <input
+              id="player-period-ratings"
+              name="player[period_ratings_text]"
+              value={@form["period_ratings_text"]}
+              placeholder="5:1850, 9:1872"
+            />
+            <span class="hint" style="display: block; margin-top: 2px">
+              {gettext(
+                "The FIDE rating from each new rating list, with the first round it applies to. The rating above stays the first one."
+              )}
+            </span>
           </label>
           <%!-- Personal --%>
           <label class="field">

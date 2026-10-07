@@ -10,6 +10,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     Tiebreaks,
     Standings,
     Keizer,
+    PeriodRatings,
     PlayerStats,
     PostponedGames,
     TeamStandings
@@ -386,7 +387,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       else
         tournament
         |> Standings.standings()
-        |> with_expected_score()
+        |> with_expected_score(tournament)
         |> Standings.apply_manual_ranking(tournament)
       end
 
@@ -534,7 +535,11 @@ defmodule PairingsEngineWeb.StandingsLive do
   # against a rated opponent count, own rating unrated or zero counted
   # games renders blank. Not offered for Keizer standings - Keizer scoring
   # isn't rating-based, so an "expected score" has no meaning there.
-  defp with_expected_score(entries) do
+  #
+  # A tournament lasting more than 30 days counts each game with both
+  # players' ratings in that game's round (`PeriodRatings.expected_score/4`,
+  # VCL4THP Q213).
+  defp with_expected_score(entries, tournament) do
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
 
     Enum.map(entries, fn entry ->
@@ -542,21 +547,8 @@ defmodule PairingsEngineWeb.StandingsLive do
       # score for yet (`Standings.finished_game?/1`).
       played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
-      rated_games =
-        Enum.filter(played_games, fn g ->
-          case Map.get(players_by_id, g.opponent_id) do
-            nil -> false
-            opp -> Player.rating(opp) > 0
-          end
-        end)
-
-      own_rating = Player.rating(entry.player)
-
-      opponent_ratings =
-        Enum.map(rated_games, &Player.rating(Map.get(players_by_id, &1.opponent_id)))
-
-      we = PlayerStats.we(own_rating, opponent_ratings)
-      w_counted = rated_games |> Enum.map(& &1.points) |> Enum.sum()
+      {we, w_counted} =
+        PeriodRatings.expected_score(entry.player, played_games, players_by_id, tournament)
 
       Map.merge(entry, %{we: we, wmwe: PlayerStats.w_minus_we(w_counted, we)})
     end)

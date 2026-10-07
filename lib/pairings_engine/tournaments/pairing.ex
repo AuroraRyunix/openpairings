@@ -66,6 +66,14 @@ defmodule PairingsEngine.Tournaments.Pairing do
     # is recreated, whatever happened to its players' names or FIDE IDs.
     # Never cast.
     field :game_uid, :string
+    # A Correction PIBE (TEC Manual, VCL4THP Q112-Q115, Q217): the result
+    # the board had before it was first corrected after a later round had
+    # been paired - nil for a board never corrected, and again nil when a
+    # correction puts the original back. The TRF writes
+    # `### Correction @ Round r: a-b: <this> => <result>` from it
+    # (`TrfExport`). Set by `Tournaments.update_pairing_result/3` only;
+    # never cast.
+    field :corrected_from, :string
 
     # A correction for the rating report only (C.04.2:4.3, VCL4THP Q192): the
     # result found to be wrong after the next round was over stays in

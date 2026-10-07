@@ -150,8 +150,21 @@ defmodule PairingsEngine.Standings do
 
     not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
+    # For a tournament lasting more than 30 days, the ratings valid in the
+    # round the tie-breaks use (`PeriodRatings`).
+    tb_players =
+      Enum.map(
+        players,
+        &PairingsEngine.PeriodRatings.at_round(
+          &1,
+          PairingsEngine.PeriodRatings.tiebreak_round(tournament),
+          tournament
+        )
+      )
+
     unrated =
-      if is_nil(unrated_rating(tournament, players)) and unrated_present?(players, tournament) do
+      if is_nil(unrated_rating(tournament, tb_players)) and
+           unrated_present?(tb_players, tournament) do
         Enum.filter(configured, &Tiebreaks.rating_based?/1)
       else
         []

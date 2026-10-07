@@ -203,6 +203,16 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
         "to" => "1-0",
         "confirmed" => "adjourned_non_draw_result"
       },
+      # A Correction PIBE, confirmed over its warning (VCL4THP Q115).
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "1-0",
+        "to" => "0-1",
+        "confirmed" => "result_correction"
+      },
       # A result already sent in a finalised TRF, changed over the warning -
       # alone, and together with the postponed one.
       %{
@@ -430,6 +440,9 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "import.trf" => [%{"name" => "Paasopen Brugge"}],
     "pibe.import" => [
       %{"round" => 2, "findings" => "Import @ Round 2: 1-2 (rematch of round 1)"}
+    ],
+    "pibe.correction" => [
+      %{"round" => 4, "board" => 3, "line" => "Correction @ Round 4: 6-17: 1-0 => 0-1"}
     ],
     "import.json" => [%{"name" => "Paasopen Brugge"}],
     "collaborator.invited" => [%{"email" => "an@example.org"}],

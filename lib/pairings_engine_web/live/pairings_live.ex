@@ -1266,6 +1266,18 @@ defmodule PairingsEngineWeb.PairingsLive do
          %{} = pairing <- Enum.find(socket.assigns.round.pairings, &(&1.id == staged_id)) do
       previous = pairing.result
 
+      correction =
+        if :result_correction in ids, do: correction_line(round_number, pairing, result)
+
+      # A Correction PIBE (VCL4THP Q114): a restore point first, so the
+      # result as it stood - and every later round paired with it - can be
+      # brought back.
+      if correction do
+        Snapshots.capture(t, "pibe.correction", socket.assigns.current_scope,
+          summary: "Before ### #{correction}"
+        )
+      end
+
       case Tournaments.update_pairing_result(pairing, result, acknowledged: ids) do
         {:ok, _} ->
           Audit.log(t.id, socket.assigns.current_scope, "pairing.result_changed", %{
@@ -1278,6 +1290,17 @@ defmodule PairingsEngineWeb.PairingsLive do
             to: result,
             confirmed: Enum.map_join(ids, ",", &Atom.to_string/1)
           })
+
+          # Identified and logged as a PIBE (VCL4THP Q112), with the line
+          # the TRF carries for it.
+          if correction do
+            Audit.log(t.id, socket.assigns.current_scope, "pibe.correction", %{
+              pairing_id: pairing.id,
+              round: round_number,
+              board: pairing.board,
+              line: correction
+            })
+          end
 
           {:noreply,
            socket |> assign(confirm_postponed: nil, refocus_result: pairing.id) |> refresh()}
@@ -3238,6 +3261,19 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp player_name(nil), do: nil
   defp player_name(player), do: player.name
 
+  # The Correction PIBE's `###` text for changing `pairing` to `result`
+  # (`PairingsEngine.ResultCorrections.line/5`): starting ranks, and the
+  # result as it stands before this change.
+  defp correction_line(round_number, pairing, result) do
+    PairingsEngine.ResultCorrections.line(
+      round_number,
+      pairing.white_player && pairing.white_player.pairing_number,
+      pairing.black_player && pairing.black_player.pairing_number,
+      pairing.result,
+      result
+    )
+  end
+
   # A results-import problem: a sentence from `ResultsImport`, or the one
   # reason it hands over to be worded here.
   defp import_error_text({:postponed_non_draw, board}),
@@ -3251,6 +3287,13 @@ defmodule PairingsEngineWeb.PairingsLive do
     do:
       gettext(
         "board %{board}: this result was already sent in a TRF finalised for sending - change it on this page, where it is confirmed",
+        board: board
+      )
+
+  defp import_error_text({:result_correction, board}),
+    do:
+      gettext(
+        "board %{board}: a later round was already paired with this result - correct it on this page, where it is confirmed",
         board: board
       )
 
@@ -5763,6 +5806,18 @@ defmodule PairingsEngineWeb.PairingsLive do
                             display_board,
                             @confirm_postponed.result,
                             pairing
+                          )}
+                        </span>
+
+                        <span
+                          :if={:result_correction in @confirm_postponed.ids}
+                          id={"confirm-correction-#{pairing.id}"}
+                        >
+                          {Postponed.correction_text(
+                            @round_number,
+                            display_board,
+                            pairing.result,
+                            @confirm_postponed.result
                           )}
                         </span>
 
