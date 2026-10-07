@@ -62,6 +62,15 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   `team_rating_method` ("olympiad") and `teams_ordered_by_hand` (false).
   With those three keys taken out the regenerated file is equal, term for
   term, to the one before.
+
+  And for the VCL4THP pass (vcl-pass2): the exports and standings entries
+  gain the new settings and fields at their defaults (import findings,
+  tie-break unrated rating and method, shared places, places, rating
+  method and order, late-entry numbering, rating provenance, list sequence
+  and checks, long events and period ratings, Chess960, lots seed, external
+  tie-break value, no-half-bye, rating and correction results). With every
+  key the file before did not have taken out, the regenerated file is
+  equal, term for term, to the one before - no board, no pairing, no TRF.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
