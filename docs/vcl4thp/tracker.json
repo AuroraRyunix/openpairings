@@ -2392,9 +2392,9 @@
     "next": 146,
     "penalty": 117
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 117% - the draft prices each missing method: FIDE 70, NRO 30, NIDOF 7, HBFN 7, OTHER 3. Only FIDON exists, hard-coded: FIDE rating if any, else national (player.ex:727-736; pairing.ex:670)."
+   "answer": "Y",
+   "status": "met",
+   "note": "All six TRF26 tournament-rating methods can be chosen per tournament (FIDE, NRO, FIDON default, NIDOF, HBFN, OTHER; Tournament.rating_methods/0, Player.rating/2; Settings > Options #rating-method-select); HBFN and OTHER read a typed players.tournament_rating. The method drives pairing numbers, the rating-based tie-breaks, team seeding and the published rating. Tests: tournament_rating_test.exs 'each method reads its own rating', tournament_rating_live_test.exs."
   },
   {
    "q": 146,
@@ -2409,9 +2409,9 @@
     "next": 147,
     "penalty": 15
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 15%. Equal ratings are ordered by name only; the FIDE title is not used (initial_order, pairing.ex:723)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Players level on rating are ordered by FIDE title (C.04.2 2.2.2: GM, IM, WGM, FM, WIM, CM, WFM, WCM), then by an announced criterion: alphabetical (default), FIDE ID, oldest or youngest first (Pairing.initial_order/2, Player.title_rank/1; #initial-order-tiebreak-select). Tests: tournament_rating_test.exs 'players level on rating are ordered by FIDE title before their name'."
   },
   {
    "q": 147,
@@ -2578,9 +2578,9 @@
     "next": 157,
     "penalty": 18
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 18%. A late entrant always gets the next free number, never the TPN their rating gives (new_pairing_numbers, pairing.ex:700-710)."
+   "answer": "Y",
+   "status": "met",
+   "note": "With 'Late entrants' pairing numbers: By rating' (a per-tournament Swiss setting), a late entrant at any round gets the number their rating earns and everyone below moves down one; played boards are untouched and Baku's Group A line follows its player (Pairing.number_late_entrants/4, ensure_pairing_numbers/2). Tests: tournament_rating_test.exs 'a Swiss late entrant numbered by rating (C.04.2 2.4)' incl. ainalrami -c on every round. Default is still 'after the field': see docs/vcl4thp/questions.md."
   },
   {
    "q": 157,
