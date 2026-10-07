@@ -56,6 +56,16 @@ only after a confirmation. In FIDE mode a result can be changed only in the
 last two rounds played ([FIDE mode](02-fide-mode.md)); an earlier mistake is
 corrected after the tournament, in the report to the rating office.
 
+### Correcting a result for the rating report only
+
+A wrong result found after the next round is already over cannot change
+the pairings that were made with it (C.04.2:4.3). Under each finished board
+of such a round, **Correct for rating…** records the right result for the
+rating report only: the pairings and the standings keep the result they
+used, the FIDE report carries the corrected one, and its TRF26 copy adds a
+`### Rating correction @ Round r` line saying which result the event used.
+Changing the board's result the ordinary way removes the correction.
+
 When the last result of a round is in, the next round can be paired.
 
 ## Results from a file (CSV)

@@ -13,6 +13,7 @@ in how the tie-breaks of C.07 treat it.
 | **Withdrawn (forfeit)** | The arbiter marks the player as withdrawn (*Forfeit*). | Nothing: the player is not paid the absence value either, and in a round robin every game from then on is a forfeit loss. | Not paired in any later round. |
 | **Expelled** | The arbiter ticks **Expelled** in the registration form. | The player is not paired in any later round and is left out of the standings. The games already played stay: the opponents keep the points and tie-breaks those games gave them. | Not paired in any later round. |
 | **Forfeit win / loss of a game** | A pairing whose result is entered as a forfeit (1-0 FF, 0-1 FF, 0-0 FF). | A forfeit win scores the win, a forfeit loss the loss. | It is an ordinary pairing. |
+| **Full-point bye** | The arbiter gives it, from the *Not playing* list of a paired round, to a player who sits that round out. | What a win is worth. | Not paired; the player can no longer get the pairing-allocated bye. |
 | **Half-point or zero-point bye** | Arrives with an imported SWAR or TRF file, or from the hand-off of another copy. | A half-point bye is worth a draw; a zero-point bye nothing. | Not paired. |
 
 Details of the scoring are in [Standings and tie-breaks](08-standings-and-tiebreaks.md).
@@ -98,6 +99,13 @@ offers:
 - **Award a bye to the remaining player**: gives the pairing-allocated bye to
   the player left alone on a board whose opponent was removed;
 - **Put in an empty seat**, **Swap with…**, **Delete this board**.
+- **Give a full-point bye…** (on a player of the *Not playing* list): the
+  player scores a win for the round without playing. A notice first says
+  that the pairing regulations do not describe full-point byes and that
+  they should stay exceptional. The FIDE report writes it as `F`, with a
+  `### FPB @ Round r` line, and the player cannot get the pairing-allocated
+  bye in a later round. **Take back the full-point bye…** makes the player
+  absent again.
 
 Every hand edit first shows a confirmation with the boards as they are now
 and as they will be, and warns, with a tick, when the bye would go to a
