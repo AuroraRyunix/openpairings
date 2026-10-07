@@ -8,36 +8,63 @@ defmodule PairingsEngine.MixProject do
   #            development build): no plugin. Nothing below adds a
   #            dependency, a source path or a test path, so the build is
   #            exactly what it would be without the plugin seam.
-  #   hosted  the hosted server: every entry of `@hosted_plugins` is added
+  #   hosted  the hosted server: each plugin checkout (see below) is added
   #            as a path dependency and its `lib/` compiled with ours.
   #
   # Anything else stops the build rather than quietly building the desktop
   # edition: a typo in a deploy script must not ship a server without the
   # plugins it was meant to have.
-  @edition System.get_env("PAIRINGS_EDITION", "desktop")
+  edition = System.get_env("PAIRINGS_EDITION", "desktop")
 
-  unless @edition in ["desktop", "hosted"] do
-    Mix.raise("PAIRINGS_EDITION must be \"desktop\" or \"hosted\", not #{inspect(@edition)}")
+  unless edition in ["desktop", "hosted"] do
+    Mix.raise("PAIRINGS_EDITION must be \"desktop\" or \"hosted\", not #{inspect(edition)}")
   end
 
-  # Where the hosted edition finds plugin checkouts: the directory next to
-  # this one unless PAIRINGS_PLUGINS_DIR says otherwise. The deploy script
-  # uploads each plugin there, beside the app, so the server needs no
-  # credentials for a private repository.
-  @plugins_dir System.get_env("PAIRINGS_PLUGINS_DIR") || Path.expand("..", __DIR__)
+  # Which plugins, in the hosted edition. A plugin is a checkout with an
+  # `openpairings_plugin.exs` at its root, naming itself and its module:
+  #
+  #     [name: :some_plugin, module: SomePlugin.Plugin]
+  #
+  # The checkouts are looked for in PAIRINGS_PLUGINS_DIR - by default the
+  # directory this checkout sits in. PAIRINGS_PLUGINS (comma-separated
+  # checkout names) says which; without it, every checkout there with a
+  # manifest. This file names no plugin itself: what is built in is the
+  # deploy's business, and the public repository knows nothing of it.
+  plugins_dir = System.get_env("PAIRINGS_PLUGINS_DIR") || Path.expand("..", __DIR__)
 
-  # The hosted edition's plugins: the name of the checkout (and of the path
-  # dependency), the module implementing `PairingsEngine.Plugin`, and where
-  # the checkout is.
-  @hosted_plugins [
-    %{
-      name: :openpairings_kbsb,
-      module: OpenPairingsKbsb.Plugin,
-      path: Path.join(@plugins_dir, "openpairings_kbsb")
-    }
-  ]
+  plugin_dirs =
+    case System.get_env("PAIRINGS_PLUGINS", "") |> String.split(",", trim: true) do
+      [] ->
+        plugins_dir
+        |> Path.join("*/openpairings_plugin.exs")
+        |> Path.wildcard()
+        |> Enum.map(&Path.dirname/1)
 
-  @plugins Enum.filter(@hosted_plugins, fn _plugin -> @edition == "hosted" end)
+      names ->
+        Enum.map(names, &Path.join(plugins_dir, String.trim(&1)))
+    end
+
+  @plugins (if edition == "hosted" do
+              for dir <- plugin_dirs do
+                manifest = Path.join(dir, "openpairings_plugin.exs")
+
+                unless File.regular?(manifest) do
+                  Mix.raise("No plugin at #{dir}: #{manifest} does not exist")
+                end
+
+                {opts, _binding} = Code.eval_file(manifest)
+
+                %{
+                  name: Keyword.fetch!(opts, :name),
+                  module: Keyword.fetch!(opts, :module),
+                  path: Path.expand(dir)
+                }
+              end
+            else
+              []
+            end)
+
+  @edition edition
 
   def project do
     [

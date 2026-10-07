@@ -200,7 +200,7 @@ defmodule PairingsEngineWeb.Router do
   # and none of this exists: no scope, no live_session, no route.
   #
   # Signed in, with the same on_mount hooks as the tournament pages, because a
-  # plugin's pages are tournament work (an Interclubs series is a team
+  # plugin's pages are tournament work (a league series is a team
   # tournament); each page enforces any narrower right itself, the way
   # `PairingsEngineWeb.MatchLive` does. Its own live_session rather than
   # `:require_authenticated_tournaments`: live_session names are unique, and

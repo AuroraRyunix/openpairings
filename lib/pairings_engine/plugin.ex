@@ -12,8 +12,11 @@ defmodule PairingsEngine.Plugin do
   development) lists no plugin, so no plugin source is compiled, nothing
   references one, and the application is exactly what it is without this
   module. `PAIRINGS_EDITION=hosted` adds each plugin as a path dependency
-  (`PAIRINGS_PLUGINS_DIR`, by default the directory next to this checkout)
-  and compiles its `lib/` together with the core, which is what lets a
+  and compiles its `lib/` together with the core. A plugin is a checkout
+  with an `openpairings_plugin.exs` manifest (`[name: ..., module: ...]`)
+  in `PAIRINGS_PLUGINS_DIR` - by default the directory next to this
+  checkout - and `PAIRINGS_PLUGINS` names which ones (all of them when
+  unset); the core names none. Compiling with the core is what lets a
   plugin's pages `use PairingsEngineWeb, :live_view` and render inside
   `Layouts.app` like every other page. `config/config.exs` hands the list
   to `PairingsEngine.Plugins`, which every hook below goes through.
