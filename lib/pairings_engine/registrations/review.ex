@@ -156,10 +156,22 @@ defmodule PairingsEngine.Registrations.Review do
 
   ## ---------- the FIDE list ----------
 
+  # The rating of the first FIDE list of the tournament's rating-list sequence
+  # (the default for its rate of play unless it has chosen its own).
+  defp registration_rating(fp, tournament) do
+    case PairingsEngine.RatingLists.main_fide_rating(
+           fp,
+           PairingsEngine.RatingLists.sequence(tournament)
+         ) do
+      {rating, _list} -> rating
+      nil -> nil
+    end
+  end
+
   defp fide(%{"fide_id" => fide_id} = attrs, notes, tournament) when is_integer(fide_id) do
     case Fide.get_player(fide_id) do
       %FidePlayer{} = fp ->
-        {attrs, notes} = fide_rating(attrs, notes, Fide.rating_for_tempo(fp, tournament.standard))
+        {attrs, notes} = fide_rating(attrs, notes, registration_rating(fp, tournament))
 
         {name, notes} = fide_name(attrs["name"], fp.name, notes)
 

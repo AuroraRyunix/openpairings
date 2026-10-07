@@ -685,6 +685,12 @@ defmodule PairingsEngineWeb.FideLive do
             {gettext("Cancel")}
           </button>
         </div>
+
+        <p class="hint" style="margin-bottom: 0">
+          <.link navigate={~p"/rating-lists"} id="rating-lists-link">
+            {gettext("Your own rating lists (CSV)")}
+          </.link>
+        </p>
       </div>
 
       <%!-- Not rendered at all when the pack's sync is switched off, rather

@@ -18,6 +18,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
   alias PairingsEngine.LateEntry
+  alias PairingsEngine.RatingLists
   alias PairingsEngineWeb.RegistrationQueue
 
   alias PairingsEngine.Tournaments.Player
@@ -136,6 +137,7 @@ defmodule PairingsEngineWeb.PlayersLive do
      socket
      |> assign(
        tournament: tournament,
+       rating_sequence: RatingLists.sequence(tournament),
        page_title: "#{tournament.name} · Players",
        adding: false,
        error: nil,
@@ -144,6 +146,9 @@ defmodule PairingsEngineWeb.PlayersLive do
        # KBSB members matching the add form's search, shown before the FIDE
        # hits when the player lookup is on (see the "search" handler).
        kbsb_results: [],
+       # Players of the custom rating lists in the tournament's sequence that
+       # match the search (see `PairingsEngine.RatingLists`).
+       custom_results: [],
        form_values: %{},
        visible: @default_visible,
        editing_player: nil,
@@ -236,6 +241,7 @@ defmodule PairingsEngineWeb.PlayersLive do
          socket
          |> assign(
            tournament: tournament,
+           rating_sequence: RatingLists.sequence(tournament),
            setup_complete: Tournament.setup_complete?(tournament),
            missing_setup: Tournament.missing_setup_fields(tournament)
          )
@@ -699,7 +705,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        form_values: %{},
        query: "",
        results: [],
-       kbsb_results: []
+       kbsb_results: [],
+       custom_results: []
      )}
   end
 
@@ -765,13 +772,62 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     covered = kbsb |> Enum.map(& &1.fide_id) |> Enum.reject(&is_nil/1) |> MapSet.new()
 
+    custom =
+      socket.assigns.tournament
+      |> RatingLists.sequence()
+      |> RatingLists.search_custom(q)
+      |> Enum.reject(fn {_list, e} ->
+        e.fide_id && Enum.any?(fide, &(&1.fide_id == e.fide_id))
+      end)
+
     {:noreply,
      assign(socket,
        query: q,
        kbsb_results: kbsb,
+       custom_results: custom,
        results: Enum.reject(fide, &MapSet.member?(covered, &1.fide_id))
      )}
   end
+
+  # A player of a custom rating list picked: the list's details, and its
+  # rating as the national rating (a custom list stands in for a national one).
+  def handle_event("pick_custom", %{"entry-id" => entry_id}, socket) do
+    with id when is_integer(id) <- parse_id(entry_id),
+         {_list, entry} <- Enum.find(socket.assigns.custom_results, fn {_, e} -> e.id == id end) do
+      fp = entry.fide_id && Fide.get_player(entry.fide_id)
+
+      values =
+        %{
+          "name" => entry.name,
+          "title" => entry.title,
+          "federation" => entry.federation,
+          "birth_year" => entry.birth_year,
+          "national_rating" => entry.rating
+        }
+        |> Map.merge(
+          if fp,
+            do:
+              Map.merge(
+                %{"fide_id" => fp.fide_id, "sex" => normalize_fide_sex(fp.sex)},
+                RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
+              ),
+            else: %{}
+        )
+
+      {:noreply,
+       assign(socket,
+         query: "",
+         results: [],
+         kbsb_results: [],
+         custom_results: [],
+         form_values: Map.merge(socket.assigns.form_values, values)
+       )}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("pick_custom", _params, socket), do: {:noreply, socket}
 
   # A national hit picked: the national details from the KBSB list, and,
   # when the member has a FIDE id, the FIDE name, title, rating and sex from
@@ -793,10 +849,11 @@ defmodule PairingsEngineWeb.PlayersLive do
               %{
                 "title" => fp.title,
                 "fide_id" => fp.fide_id,
-                "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
                 "sex" => normalize_fide_sex(fp.sex)
               }
-              |> Map.merge(Fide.rating_provenance(fp, socket.assigns.tournament.standard)),
+              |> Map.merge(
+                RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
+              ),
             else: %{"fide_id" => kp.fide_id}
 
         values =
@@ -838,29 +895,37 @@ defmodule PairingsEngineWeb.PlayersLive do
             {:noreply, socket}
 
           fp ->
-            base = %{
-              "name" => fp.name,
-              "title" => fp.title,
-              "fide_id" => fp.fide_id,
-              "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-              "federation" => fp.federation,
-              "birth_year" => fp.birth_year,
-              "sex" => normalize_fide_sex(fp.sex)
-            }
-
-            base = Map.merge(base, Fide.rating_provenance(fp, socket.assigns.tournament.standard))
-
-            {:noreply,
-             assign(socket,
-               query: "",
-               results: [],
-               form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
-             )}
+            sequence = RatingLists.sequence(socket.assigns.tournament)
+            {:noreply, pick_fide(socket, fp, RatingLists.main_values(fp, sequence))}
         end
     end
   end
 
   def handle_event("pick", _params, socket), do: {:noreply, socket}
+
+  # One of the ratings a player has in the other lists of the sequence picked
+  # instead of the main list's (VCL4THP 129).
+  def handle_event("pick_other", %{"fide-id" => fide_id, "entry" => entry}, socket) do
+    with id when is_integer(id) <- parse_id(fide_id),
+         %FidePlayer{} = fp <- Enum.find(socket.assigns.results, &(&1.fide_id == id)),
+         sequence = RatingLists.sequence(socket.assigns.tournament),
+         true <- entry in sequence,
+         %{} = other <- Enum.find(RatingLists.other_ratings(fp, sequence), &(&1.entry == entry)) do
+      # The FIDE rating is cleared when the pick is a national or custom list:
+      # the list the player was found in is not the one being chosen.
+      cleared = RatingLists.values(%{lane: :fide, rating: nil})
+      values = if other.lane == :fide, do: RatingLists.values(other), else: cleared
+
+      values =
+        Map.merge(values, if(other.lane == :national, do: RatingLists.values(other), else: %{}))
+
+      {:noreply, pick_fide(socket, fp, values)}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("pick_other", _params, socket), do: {:noreply, socket}
 
   # Mirrors the FIDE add-form's "pick" autofill, but triggered by typing/
   # leaving the National ID field instead of picking from a search list -
@@ -1588,11 +1653,14 @@ defmodule PairingsEngineWeb.PlayersLive do
     auto = %{
       "title" => fp.title,
       "fide_id" => fp.fide_id,
-      "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
       "federation" => fp.federation
     }
 
-    auto = Map.merge(auto, Fide.rating_provenance(fp, socket.assigns.tournament.standard))
+    auto =
+      Map.merge(
+        auto,
+        RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
+      )
 
     {to_apply, conflicts} =
       {%{}, %{}}
@@ -2715,7 +2783,10 @@ defmodule PairingsEngineWeb.PlayersLive do
             placeholder={gettext("Start typing a last name… e.g. Carlsen")}
             class="pe-input"
           />
-          <div :if={@results != [] or @kbsb_results != []} class="search-results">
+          <div
+            :if={@results != [] or @kbsb_results != [] or @custom_results != []}
+            class="search-results"
+          >
             <button
               :for={kp <- @kbsb_results}
               id={"kbsb-result-#{kp.national_id}"}
@@ -2731,26 +2802,52 @@ defmodule PairingsEngineWeb.PlayersLive do
             </button>
 
             <button
-              :for={fp <- @results}
-              id={"fide-result-#{fp.fide_id}"}
+              :for={{list_name, ce} <- @custom_results}
+              id={"custom-result-#{ce.id}"}
               type="button"
-              phx-click="pick"
-              phx-value-fide-id={fp.fide_id}
+              phx-click="pick_custom"
+              phx-value-entry-id={ce.id}
             >
-              <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+              <span>{if ce.title != "", do: "#{ce.title} "}{ce.name}</span>
               <span class="meta">
-                {fp.federation} · {main_list_rating_text(fp, @tournament.standard)} · {fp.birth_year ||
-                  "-"}
-              </span>
-
-              <span
-                :if={other_list_ratings(fp, @tournament.standard) != []}
-                id={"fide-result-#{fp.fide_id}-other"}
-                class="meta"
-              >
-                {other_ratings_text(fp, @tournament.standard)}
+                {list_name} {ce.ext_id} · {ce.rating || gettext("unrated")}{if ce.fide_id,
+                  do: " · FIDE #{ce.fide_id}"}
               </span>
             </button>
+
+            <div :for={fp <- @results} id={"fide-result-#{fp.fide_id}"} class="fide-result">
+              <button
+                id={"fide-result-#{fp.fide_id}-pick"}
+                type="button"
+                phx-click="pick"
+                phx-value-fide-id={fp.fide_id}
+              >
+                <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                <span class="meta">
+                  {fp.federation} · {main_list_rating_text(fp, @rating_sequence)} · {fp.birth_year ||
+                    "-"}
+                </span>
+              </button>
+
+              <div
+                :if={RatingLists.other_ratings(fp, @rating_sequence) != []}
+                id={"fide-result-#{fp.fide_id}-other"}
+                class="fide-other-picks"
+              >
+                <span>{gettext("Other lists:")}</span>
+                <button
+                  :for={other <- RatingLists.other_ratings(fp, @rating_sequence)}
+                  id={"fide-result-#{fp.fide_id}-use-#{String.replace(other.entry, ":", "-")}"}
+                  type="button"
+                  phx-click="pick_other"
+                  phx-value-fide-id={fp.fide_id}
+                  phx-value-entry={other.entry}
+                  title={gettext("Use this rating instead")}
+                >
+                  {list_label(other.entry, other.label)} {other.rating}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -3300,45 +3397,51 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  # The tournament's main list is the one for its rate of play; the ratings
-  # a FIDE record has in the other lists are shown beside it, and say so when
-  # the main list has none (VCL4THP 128), so a rapid-only or standard-only
-  # player is not shown as "unrated".
-  defp list_rating(fp, "standard"), do: positive(fp.standard_rating)
-  defp list_rating(fp, "rapid"), do: positive(fp.rapid_rating)
-  defp list_rating(fp, "blitz"), do: positive(fp.blitz_rating)
+  defp pick_fide(socket, fp, rating_values) do
+    base =
+      Map.merge(
+        %{
+          "name" => fp.name,
+          "title" => fp.title,
+          "fide_id" => fp.fide_id,
+          "federation" => fp.federation,
+          "birth_year" => fp.birth_year,
+          "sex" => normalize_fide_sex(fp.sex)
+        },
+        rating_values
+      )
 
-  defp positive(r) when is_integer(r) and r > 0, do: r
-  defp positive(_), do: nil
+    assign(socket,
+      query: "",
+      results: [],
+      custom_results: [],
+      form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
+    )
+  end
 
-  defp main_list(standard) when standard in ["rapid", "blitz"], do: standard
-  defp main_list(_standard), do: "standard"
+  # The tournament's main list is the first of its rating-list sequence
+  # (`PairingsEngine.RatingLists`); the ratings a FIDE record has in the other
+  # lists of the sequence are shown beside it and can be picked (VCL4THP 128,
+  # 129), and the result says so when the main list has none, so a rapid-only
+  # or standard-only player is not shown as "unrated".
+  defp main_list_rating_text(fp, sequence) do
+    case RatingLists.ratings_for(fp, [hd(sequence)]) do
+      [%{rating: rating}] when not is_nil(rating) ->
+        rating
 
-  defp other_list_ratings(fp, standard) do
-    main = main_list(standard)
-
-    for list <- ~w(standard rapid blitz), list != main, rating = list_rating(fp, list) do
-      {list, rating}
+      [main] ->
+        gettext("no %{list} rating", list: String.downcase(list_label(main.entry, main.label)))
     end
   end
 
-  defp main_list_rating_text(fp, standard) do
-    main = main_list(standard)
-
-    case list_rating(fp, main) do
-      nil -> gettext("no %{list} rating", list: String.downcase(source_label(main)))
-      rating -> rating
-    end
-  end
-
-  defp other_ratings_text(fp, standard) do
-    others =
-      fp
-      |> other_list_ratings(standard)
-      |> Enum.map_join(", ", fn {list, rating} -> "#{source_label(list)} #{rating}" end)
-
-    gettext("Other lists: %{ratings}", ratings: others)
-  end
+  # The name of a list as the search and the sequence show it.
+  defp list_label("fide_standard", _), do: gettext("Standard")
+  defp list_label("fide_rapid", _), do: gettext("Rapid")
+  defp list_label("fide_blitz", _), do: gettext("Blitz")
+  defp list_label("effective_rapid", _), do: gettext("Effective Rapid")
+  defp list_label("effective_blitz", _), do: gettext("Effective Blitz")
+  defp list_label("national", _), do: gettext("National")
+  defp list_label(_custom, name), do: name
 
   defp source_label("standard"), do: gettext("Standard")
   defp source_label("rapid"), do: gettext("Rapid")

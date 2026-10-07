@@ -245,6 +245,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
     # standard | rapid | blitz (SWAR TournoiStd)
     field :standard, :string, default: "standard"
+
+    # The ordered rating lists that supply a player's rating when one is added
+    # or refreshed (`PairingsEngine.RatingLists`): "fide_standard",
+    # "fide_rapid", "fide_blitz", "effective_rapid", "effective_blitz",
+    # "national" and "custom:<id>". nil is the default sequence for the
+    # tournament's rate of play, which follows `standard` if it changes.
+    field :rating_list_sequence, {:array, :string}
+
+    # Whether opening the Players or Pairings page checks the ratings on file
+    # against the FIDE list and says so. The check asked for by hand is
+    # unaffected.
+    field :rating_checks_enabled, :boolean, default: true
     field :rate_of_play, :string, default: ""
     field :organizer_club_number, :string, default: ""
     # SWAR's own per-tournament GUID - see docs/import-export.md's re-upload
@@ -1173,6 +1185,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :acceleration,
       :status,
       :standard,
+      :rating_list_sequence,
+      :rating_checks_enabled,
       :rate_of_play,
       :organizer_club_number,
       :swar_guid,
@@ -1276,6 +1290,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
     |> normalize_fide_id_ranges()
+    |> normalize_rating_list_sequence()
     |> normalize_category_prizes()
     |> put_public_slug()
     |> pad_round_dates_to_rounds_count()
@@ -1639,6 +1654,23 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   defp format_bonus(bonus) do
     if bonus == Float.round(bonus, 0), do: trunc(bonus), else: bonus
+  end
+
+  # An empty or missing sequence is "the default for the rate of play" (nil);
+  # entries that name no list are dropped and repeats kept once.
+  defp normalize_rating_list_sequence(changeset) do
+    case fetch_change(changeset, :rating_list_sequence) do
+      {:ok, list} when is_list(list) ->
+        cleaned =
+          list
+          |> Enum.filter(&PairingsEngine.RatingLists.valid_entry?/1)
+          |> Enum.uniq()
+
+        put_change(changeset, :rating_list_sequence, if(cleaned == [], do: nil, else: cleaned))
+
+      _ ->
+        changeset
+    end
   end
 
   # Re-parses, validates and re-canonicalizes `fide_id_ranges` on every

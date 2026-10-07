@@ -90,7 +90,7 @@ defmodule PairingsEngine.TournamentExport do
     points_win points_draw points_loss bye_value presence_value abs_value
     abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences
     presence_on_allocated_bye tiebreaks tiebreak_unrated_rating shared_places acceleration baku_group_a_last
-    status standard rate_of_play organizer_club_number round_dates
+    status standard rating_list_sequence rating_checks_enabled rate_of_play organizer_club_number round_dates
     categories category_rules category_prizes categories_enabled
     categories_ranked_separately event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
