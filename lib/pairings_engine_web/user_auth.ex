@@ -12,10 +12,17 @@ defmodule PairingsEngineWeb.UserAuth do
   # the session validity setting in UserToken.
   @max_cookie_age_in_days 14
   @remember_me_cookie "_pairings_engine_web_user_remember_me"
+  # `secure` stated rather than left to Plug's default (secure when the
+  # request's scheme is https): behind a proxy that default depends on
+  # `force_ssl`'s `rewrite_on` having run, and the session cookie already
+  # says it outright (`secure_cookies`, config/prod.exs). `http_only` is
+  # Plug's default; stated so nobody has to know that.
   @remember_me_options [
     sign: true,
     max_age: @max_cookie_age_in_days * 24 * 60 * 60,
-    same_site: "Lax"
+    same_site: "Lax",
+    http_only: true,
+    secure: Application.compile_env(:pairings_engine, :secure_cookies, false)
   ]
 
   # How old the session token should be before a new one is issued. When a request is made

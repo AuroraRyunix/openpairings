@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Security] The "remember me" cookie is marked `Secure` and `HttpOnly`
+  explicitly in production, like the session cookie, instead of relying on
+  the request being recognised as https behind the proxy.
+
 ## [0.74.4] - 2026-10-06
 
 - [Feature] **SWAR 3-2-1 tournaments import.** A `.swar` file of SWAR's
