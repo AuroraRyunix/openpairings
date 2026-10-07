@@ -37,6 +37,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> attach_fide_gate()
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Settings",
@@ -215,21 +216,23 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
-    # Switching the engine is the one setting on this page that changes who
-    # computes the pairings, so it asks first rather than saving silently
-    # with an explanation buried in a hint the arbiter has already scrolled
-    # past.
-    #
-    # The direction reversed on 2026-08-25. It used to guard the way IN to
-    # Ainalrami, when JaVaFo was the default and the endorsed one. Now the
-    # choice that deserves a second look is the way OUT: JaVaFo implements
-    # C.04.3 as it stood until 31 January 2026 and has not been updated for
-    # the edition effective 1 February 2026, so selecting it means pairing a
-    # 2026 tournament by superseded rules.
-    if switching_to_javafo?(base, params) do
-      {:noreply, assign(socket, engine_confirm: params, engine_confirm_section: section)}
-    else
-      save_settings(socket, base, params, section)
+    with :proceed <- fide_gate(socket, "save", payload, base, params) do
+      # Switching the engine is the one setting on this page that changes who
+      # computes the pairings, so it asks first rather than saving silently
+      # with an explanation buried in a hint the arbiter has already scrolled
+      # past.
+      #
+      # The direction reversed on 2026-08-25. It used to guard the way IN to
+      # Ainalrami, when JaVaFo was the default and the endorsed one. Now the
+      # choice that deserves a second look is the way OUT: JaVaFo implements
+      # C.04.3 as it stood until 31 January 2026 and has not been updated for
+      # the edition effective 1 February 2026, so selecting it means pairing a
+      # 2026 tournament by superseded rules.
+      if switching_to_javafo?(base, params) do
+        {:noreply, assign(socket, engine_confirm: params, engine_confirm_section: section)}
+      else
+        save_settings(socket, base, params, section)
+      end
     end
   end
 
@@ -456,6 +459,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       <span :if={@note && @saved == @section} class="ok-note" style="align-self: center">
         {@note}
       </span>
+
       <span :if={@error && @saved == @section} class="error-note" style="align-self: center">
         {@error}
       </span>
@@ -589,7 +593,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       </div>
       <.settings_subnav tournament={@tournament} active={:options} />
       <.stale_banner stale={@stale} />
-      <.compliance_notice tournament={@tournament} />
+      <.fide_exit_dialog
+        id="fide-gate"
+        step={@fide_gate && @fide_gate.step}
+        reasons={(@fide_gate && @fide_gate.reasons) || []}
+      /> <.compliance_notice tournament={@tournament} />
       <form id="pairing-settings-form" phx-submit="save">
         <input type="hidden" name="section" value="pairing" />
         <div class="card">
@@ -609,6 +617,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:pairing_system}
                 locked_hint={@locked_hint}
@@ -637,12 +646,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:pairing_engine}
                 locked_hint={@locked_hint}
                 warning={pairing_engine_warning()}
               />
-
               <span class="hint">
                 <.rich_text text={
                   gettext(
@@ -650,6 +659,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   )
                 }>
                   <:part name="engine"><strong>Ainalrami</strong></:part>
+
                   <:part name="date"><strong>{gettext("1 February 2026")}</strong></:part>
                 </.rich_text>
               </span>
@@ -661,6 +671,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   )
                 }>
                   <:part name="engine"><strong>JaVaFo</strong></:part>
+
                   <:part name="edition"><strong>{gettext("2017 edition")}</strong></:part>
                 </.rich_text>
               </span>
@@ -712,6 +723,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:initial_colour} locked?={@initial_colour_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:initial_colour}
                 locked_hint={@locked_hint}
@@ -742,6 +754,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:rr_cycles}
                 locked_hint={@locked_hint}
@@ -771,7 +784,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               locked_hint={@locked_hint}
               warning={rr_reverse_last_two_warning()}
             />
-
             <.setting_toggle
               name="tournament[rr_match_format]"
               label={
@@ -812,6 +824,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   {gettext("Baku acceleration (FIDE C.04.7)")}
                 </option>
               </select>
+
               <.fide_lock_note
                 id="acceleration-fide-lock"
                 tournament={@tournament}
@@ -856,7 +869,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             />
           </.setting_group>
         </div>
-
         <.section_actions section="pairing" note={@note} error={@error} saved={@saved_section} />
       </form>
 
@@ -886,10 +898,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 <option value="required" selected={@tournament.team_lineups == "required"}>
                   {gettext("Required (FIDE)")}
                 </option>
+
                 <option value="optional" selected={@tournament.team_lineups == "optional"}>
                   {gettext("Optional: pair teams without players")}
                 </option>
               </select>
+
               <span :if={@team_lineups_locked?} class="hint">
                 {gettext("Locked: round 1 has been paired.")}
               </span>
@@ -907,15 +921,18 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 <option value="olympiad" selected={@tournament.team_rating_method == "olympiad"}>
                   {gettext("Olympiad: average of the highest-rated players, one per board (default)")}
                 </option>
+
                 <option
                   value="first_boards"
                   selected={@tournament.team_rating_method == "first_boards"}
                 >
                   {gettext("Average of the first boards, in board order")}
                 </option>
+
                 <option value="roster" selected={@tournament.team_rating_method == "roster"}>
                   {gettext("Average of the whole roster")}
                 </option>
+
                 <option value="manual" selected={@tournament.team_rating_method == "manual"}>
                   {gettext("Typed in for each team")}
                 </option>
@@ -941,7 +958,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
           </.setting_group>
         </div>
-
         <.section_actions section="teams" note={@note} error={@error} saved={@saved_section} />
       </form>
 
@@ -985,7 +1001,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
           </.setting_group>
         </div>
-
         <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
       </form>
 
@@ -1022,7 +1037,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               )
             }
           />
-
           <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
 
           <div class="actions">
@@ -1155,8 +1169,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </p>
 
           <p class="hint" id="soft-rules-fide-note" style="margin-top: 0">
-            <strong>{gettext("Not part of the FIDE rules.")}</strong>
-            {gettext(
+            <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
               "A round in which a wish moves a board is not the round the FIDE rules pair, and a FIDE checker cannot replay it. The first such round is recorded as the round the tournament stopped matching the FIDE rules, and the audit trail records it; a wish the rules already honour changes nothing."
             )}
           </p>
@@ -1199,6 +1212,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </div>
         </form>
       </div>
+
       <div
         :if={@engine_confirm}
         class="modal-overlay"
@@ -1261,6 +1275,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <button type="button" class="pe-btn primary" phx-click="confirm_engine">
               {gettext("Use JaVaFo")}
             </button>
+
             <button type="button" class="pe-btn" phx-click="cancel_engine">
               {gettext("Keep Ainalrami")}
             </button>

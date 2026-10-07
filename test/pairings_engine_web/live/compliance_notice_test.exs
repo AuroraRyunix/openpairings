@@ -14,6 +14,7 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
   use PairingsEngineWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import PairingsEngineWeb.FideGateHelpers
 
   alias PairingsEngine.{Audit, Compliance, Repo, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
@@ -104,10 +105,11 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
-      html =
-        render_submit(lv, "save", %{
-          "tournament" => %{"name" => tournament.name, "swiss_match_format" => "true"}
-        })
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "swiss_match_format" => "true"}
+      })
+
+      html = confirm_fide_exit(lv)
 
       # The change landed. Nothing here refuses, because an arbiter running a
       # club event that is not FIDE-rated has every right to this.
@@ -132,6 +134,8 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
       render_submit(lv, "save", %{
         "tournament" => %{"name" => tournament.name, "swiss_match_format" => "true"}
       })
+
+      confirm_fide_exit(lv)
 
       [entry] =
         Audit.list_for_tournament(tournament.id, action: "tournament.fide_compliance_lost")
@@ -190,7 +194,8 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
       refute html =~ "no longer set up the way the FIDE pairing rules describe"
 
-      html = render_click(lv, "toggle_pair_by_category", %{})
+      render_click(lv, "toggle_pair_by_category", %{})
+      html = confirm_fide_exit(lv)
 
       assert Repo.reload!(tournament).pair_by_category
       assert html =~ "no longer set up the way the FIDE pairing rules describe"

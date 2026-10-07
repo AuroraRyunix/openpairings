@@ -4,6 +4,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
   use PairingsEngineWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import PairingsEngineWeb.FideGateHelpers
 
   alias PairingsEngine.{Audit, Tournaments}
 
@@ -131,6 +132,8 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       lv
       |> element(~s(button[phx-click="toggle_pair_by_category"]), "Turn on")
       |> render_click()
+
+      confirm_fide_exit(lv)
 
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
     end

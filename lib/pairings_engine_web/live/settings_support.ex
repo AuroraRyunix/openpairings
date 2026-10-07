@@ -65,54 +65,63 @@ defmodule PairingsEngineWeb.SettingsSupport do
       >
         {gettext("Tournament")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/options"}
         class={["pe-btn", "filter-picker", @active == :options && "active"]}
       >
         {gettext("Options")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/results"}
         class={["pe-btn", "filter-picker", @active == :results && "active"]}
       >
         {gettext("OpenResults")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/scoring"}
         class={["pe-btn", "filter-picker", @active == :scoring && "active"]}
       >
         {gettext("Scoring")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/dates"}
         class={["pe-btn", "filter-picker", @active == :dates && "active"]}
       >
         {gettext("Dates")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/categories"}
         class={["pe-btn", "filter-picker", @active == :categories && "active"]}
       >
         {gettext("Categories")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
         class={["pe-btn", "filter-picker", @active == :extra_points && "active"]}
       >
         {gettext("Extra points")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/fide"}
         class={["pe-btn", "filter-picker", @active == :fide && "active"]}
       >
         FIDE
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/export"}
         class={["pe-btn", "filter-picker", @active == :export && "active"]}
       >
         {gettext("Export")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/about"}
         class={["pe-btn", "filter-picker", @active == :about && "active"]}
@@ -157,8 +166,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       <span class={["set-label", @required && "req"]}>
         {@label}<span :if={@required} class="set-req"> *</span>
       </span>
-      {render_slot(@inner_block)}
-      <span :if={@hint} class="hint">{@hint}</span>
+      {render_slot(@inner_block)} <span :if={@hint} class="hint">{@hint}</span>
     </label>
     """
   end
@@ -190,16 +198,15 @@ defmodule PairingsEngineWeb.SettingsSupport do
         <input type="checkbox" name={@name} value="true" checked={@checked} disabled={@disabled} />
         <.locked_overlay :if={@field} field={@field} locked?={@locked?} />
       </span>
+
       <span class="set-toggle-text">
-        {@label}
-        <span :if={@hint} class="hint">{@hint}</span>
+        {@label} <span :if={@hint} class="hint">{@hint}</span>
         <.locked_hint_message
           :if={@field}
           field={@field}
           locked_hint={@locked_hint}
           warning={@warning}
-        />
-        {render_slot(@inner_block)}
+        /> {render_slot(@inner_block)}
       </span>
     </label>
     """
@@ -257,6 +264,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
         </p>
       <% else %>
         <p style="margin: 0 0 8px">{@warning}</p>
+
         <button
           type="button"
           class="pe-btn tonal"
@@ -465,6 +473,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           - {compliance_message(departure.code)}
         </li>
       </ul>
+
       <p :if={@tournament.fide_compliance_lost_round} class="hint" style="margin: 8px 0 0">
         {compliance_lost_line(@tournament.fide_compliance_lost_round)}
       </p>
@@ -480,8 +489,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       :if={@show_compliant and @departures == [] and @tournament.fide_compliance_lost_round != nil}
       class="error-note"
     >
-      {compliance_lost_line(@tournament.fide_compliance_lost_round)}
-      {gettext(
+      {compliance_lost_line(@tournament.fide_compliance_lost_round)} {gettext(
         "Its settings match the FIDE rules, but there is no way back into FIDE mode: that is a fact about this tournament's history and it stands."
       )}
     </p>
@@ -628,6 +636,239 @@ defmodule PairingsEngineWeb.SettingsSupport do
     end
 
     :ok
+  end
+
+  ## ---------- leaving FIDE mode: TEC's Level-4 double confirmation ----------
+  #
+  # VCL4THP Q43. Every way out of FIDE mode asks twice before it acts: a
+  # first message saying the act is not compliant, then a second one spelling
+  # out what it costs, answered the opposite way round from the first. The
+  # explicit "Leave FIDE mode" button, a settings save that departs and a
+  # pairing that departs all use `fide_exit_dialog/1`.
+
+  @doc """
+  Makes a page ask before a save takes the tournament out of FIDE mode
+  (`fide_gate/5`) and answers the dialog's three events. Call it once in
+  `mount/3`.
+
+  The gate remembers the event it held back and runs it again, once, when
+  the second confirmation comes; cancelling at either step drops it and
+  nothing was saved. The server holds the step, so a confirm that skipped the
+  first message is ignored.
+  """
+  def attach_fide_gate(socket) do
+    socket
+    |> Phoenix.Component.assign(fide_gate: nil, fide_gate_confirmed: false)
+    |> attach_hook(:fide_gate, :handle_event, &fide_gate_event/3)
+  end
+
+  defp fide_gate_event("fide_gate_continue", _params, socket) do
+    case socket.assigns.fide_gate do
+      %{step: :warn} = gate ->
+        {:halt, Phoenix.Component.assign(socket, fide_gate: %{gate | step: :consequences})}
+
+      _ ->
+        {:halt, socket}
+    end
+  end
+
+  defp fide_gate_event("fide_gate_cancel", _params, socket),
+    do: {:halt, Phoenix.Component.assign(socket, fide_gate: nil)}
+
+  defp fide_gate_event("fide_gate_confirm", _params, socket) do
+    case socket.assigns.fide_gate do
+      %{step: :consequences, event: event, payload: payload} = gate ->
+        socket =
+          Phoenix.Component.assign(
+            socket,
+            [fide_gate: nil, fide_gate_confirmed: true] ++ Map.get(gate, :restore, [])
+          )
+
+        {:noreply, socket} = socket.view.handle_event(event, payload, socket)
+        {:halt, Phoenix.Component.assign(socket, fide_gate_confirmed: false)}
+
+      _ ->
+        {:halt, socket}
+    end
+  end
+
+  defp fide_gate_event(_event, _params, socket), do: {:cont, socket}
+
+  @doc """
+  Asks before saving `params` over `base` when that would take the tournament
+  out of FIDE mode: `:proceed` when it would not (or the arbiter has just
+  confirmed), otherwise `{:noreply, socket}` with the first Level-4 message
+  up. `event` and `payload` are the event being handled, kept to run again on
+  the second confirmation.
+  """
+  def fide_gate(socket, event, payload, base, params) do
+    if socket.assigns[:fide_gate_confirmed] do
+      :proceed
+    else
+      case Tournaments.fide_departures(base, params) do
+        [] ->
+          :proceed
+
+        departures ->
+          reasons =
+            for d <- departures,
+                do: {compliance_setting_label(d.setting), compliance_message(d.code)}
+
+          {:noreply,
+           Phoenix.Component.assign(socket, fide_gate: new_gate(event, payload, reasons))}
+      end
+    end
+  end
+
+  @doc "The gate a page holds while it asks - `step` is `:warn`, then `:consequences`."
+  def new_gate(event, payload, reasons, restore \\ []),
+    do: %{step: :warn, event: event, payload: payload, reasons: reasons, restore: restore}
+
+  @doc """
+  What a pairing that departs from the FIDE rules did, as `{label, sentence}`
+  pairs for `fide_exit_dialog/1` - one per kind `Pairing.pairing_deviations/2`
+  names.
+  """
+  def deviation_reasons(kinds), do: Enum.map(kinds, &deviation_reason/1)
+
+  defp deviation_reason(:bye_exclusion),
+    do:
+      {gettext("Bye exclusion"),
+       gettext(
+         "A bye exclusion moves the pairing-allocated bye away from the player the FIDE rules would give it to."
+       )}
+
+  defp deviation_reason(:bye_preference),
+    do:
+      {gettext("Bye preference"),
+       gettext(
+         "A bye preference moves the pairing-allocated bye away from the player the FIDE rules would give it to."
+       )}
+
+  defp deviation_reason(:soft_pairs),
+    do:
+      {gettext("Soft pairing rules"),
+       gettext(
+         "An \"only if possible\" pairing wish moves a board away from where the FIDE rules put it."
+       )}
+
+  defp deviation_reason(:extra_points),
+    do:
+      {gettext("Extra points in the pairing"),
+       gettext("Extra points are counted in the pairing, which the FIDE rules do not do.")}
+
+  @doc """
+  The Level-4 double confirmation for leaving FIDE mode. Shows nothing while
+  `step` is nil; `:warn` is the first message ("this is not compliant -
+  continue?"), `:consequences` the second, answered the opposite way round
+  ("stay in FIDE mode?"). `reasons` is what departs, as `{label, sentence}`
+  pairs; it is empty for the explicit way out, which departs from nothing in
+  particular. The three events and the `id` prefix are the caller's, so each
+  page keeps its own element ids.
+  """
+  attr :id, :string, required: true
+  attr :step, :atom, default: nil
+  attr :reasons, :list, default: []
+  attr :continue_event, :string, default: "fide_gate_continue"
+  attr :cancel_event, :string, default: "fide_gate_cancel"
+  attr :confirm_event, :string, default: "fide_gate_confirm"
+
+  def fide_exit_dialog(assigns) do
+    ~H"""
+    <div
+      :if={@step}
+      id={@id}
+      class="modal-overlay"
+      phx-window-keydown={@cancel_event}
+      phx-key="escape"
+    >
+      <div
+        id={"#{@id}-card"}
+        class="modal-card"
+        style="max-width: 560px"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={"#{@id}-title"}
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <h2 id={"#{@id}-title"}>{gettext("Leave FIDE mode?")}</h2>
+
+        <div :if={@step == :warn} id={"#{@id}-warn"}>
+          <p style="margin: 0 0 8px">
+            <strong>{gettext("This is not compliant with the FIDE regulations.")}</strong> {gettext(
+              "A tournament outside FIDE mode can be changed in ways the FIDE pairing rules do not allow. Do you want to continue?"
+            )}
+          </p>
+
+          <div :if={@reasons != []} id={"#{@id}-reasons"}>
+            <p style="margin: 0 0 6px">
+              <strong>{gettext("This is what takes it out of FIDE mode:")}</strong>
+            </p>
+
+            <ul style="margin: 0 0 10px; padding-left: 20px">
+              <li :for={{label, sentence} <- @reasons}><strong>{label}</strong> - {sentence}</li>
+            </ul>
+          </div>
+
+          <div class="actions">
+            <button id={"#{@id}-continue"} type="button" class="pe-btn" phx-click={@continue_event}>
+              {gettext("Yes, continue")}
+            </button>
+
+            <button
+              id={"#{@id}-cancel"}
+              type="button"
+              class="pe-btn primary"
+              phx-click={@cancel_event}
+            >
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </div>
+
+        <div :if={@step == :consequences} id={"#{@id}-consequences"}>
+          <p style="margin: 0 0 6px"><strong>{gettext("What leaving FIDE mode does:")}</strong></p>
+
+          <ul style="margin: 0 0 8px; padding-left: 20px">
+            <li>{gettext("It is for good: this tournament can never return to FIDE mode.")}</li>
+
+            <li>
+              {gettext(
+                "The FIDE report (TRF) says from which round the tournament was no longer in FIDE mode, so whoever checks it knows where to look harder."
+              )}
+            </li>
+
+            <li>
+              {gettext(
+                "The locked settings and every earlier round can then be changed, and the program no longer stops a change the FIDE rules forbid."
+              )}
+            </li>
+
+            <li>{gettext("Every page of this tournament will say it is not in FIDE mode.")}</li>
+          </ul>
+
+          <p style="margin: 0 0 8px"><strong>{gettext("Stay in FIDE mode?")}</strong></p>
+
+          <div class="actions">
+            <button id={"#{@id}-stay"} type="button" class="pe-btn primary" phx-click={@cancel_event}>
+              {gettext("Yes, stay in FIDE mode")}
+            </button>
+
+            <button
+              id={"#{@id}-confirm"}
+              type="button"
+              class="pe-btn danger"
+              phx-click={@confirm_event}
+            >
+              {gettext("No, leave FIDE mode")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
   end
 
   @doc """

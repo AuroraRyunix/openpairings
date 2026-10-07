@@ -32,6 +32,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
        # the moment a toggle using it lands (see `toggle_pair_by_category/2`).
        unlocked_fields: MapSet.new()
      )
+     |> attach_fide_gate()
      |> assign_pair_by_category_lock()
      |> assign_rules_editor()}
   end
@@ -224,26 +225,31 @@ defmodule PairingsEngineWeb.CategoriesLive do
       unlock_fields =
         if :pair_by_category in socket.assigns.unlocked_fields, do: [:pair_by_category], else: []
 
-      case Tournaments.update_tournament(
-             tournament,
-             %{"pair_by_category" => to_string(enabled?)},
-             unlock: unlock_fields
-           ) do
-        {:ok, updated} ->
-          Audit.log(updated.id, socket.assigns.current_scope, "pair_by_category.toggled", %{
-            enabled: enabled?
-          })
+      with :proceed <-
+             fide_gate(socket, "toggle_pair_by_category", %{}, tournament, %{
+               "pair_by_category" => to_string(enabled?)
+             }) do
+        case Tournaments.update_tournament(
+               tournament,
+               %{"pair_by_category" => to_string(enabled?)},
+               unlock: unlock_fields
+             ) do
+          {:ok, updated} ->
+            Audit.log(updated.id, socket.assigns.current_scope, "pair_by_category.toggled", %{
+              enabled: enabled?
+            })
 
-          log_unlocked_field_changes(socket, tournament, updated, unlock_fields)
-          log_compliance_departures(socket, tournament, updated)
+            log_unlocked_field_changes(socket, tournament, updated, unlock_fields)
+            log_compliance_departures(socket, tournament, updated)
 
-          {:noreply,
-           socket
-           |> assign(tournament: updated, toggle_error: nil, unlocked_fields: MapSet.new())
-           |> assign_pair_by_category_lock()}
+            {:noreply,
+             socket
+             |> assign(tournament: updated, toggle_error: nil, unlocked_fields: MapSet.new())
+             |> assign_pair_by_category_lock()}
 
-        {:error, changeset} ->
-          {:noreply, assign(socket, toggle_error: error_text(changeset))}
+          {:error, changeset} ->
+            {:noreply, assign(socket, toggle_error: error_text(changeset))}
+        end
       end
     end
   end
@@ -650,14 +656,16 @@ defmodule PairingsEngineWeb.CategoriesLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Categories")}</p>
         </div>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:categories} />
-
-      <.compliance_notice tournament={@tournament} />
-
+      <.fide_exit_dialog
+        id="fide-gate"
+        step={@fide_gate && @fide_gate.step}
+        reasons={(@fide_gate && @fide_gate.reasons) || []}
+      /> <.compliance_notice tournament={@tournament} />
       <div class="card">
         <h2>{gettext("Categories")}</h2>
 
@@ -680,6 +688,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
               {if @tournament.categories_enabled, do: "Turn off", else: "Turn on"}
             </button>
           </div>
+
           <%!-- Turning categories off would also have to turn pair-by-category
                 off, and that IS locked once a round is paired. Said here, next
                 to the disabled control, rather than left to a refusal that
@@ -702,6 +711,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
               "Each category gets its own independent pairings and byes within one combined round - in a round robin, its own Berger table."
             )}
           </p>
+
           <div class="actions" style="align-items: center; gap: 10px">
             <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>
             <div class="locked-wrap locked-wrap-inline">
@@ -716,6 +726,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
               <.locked_overlay field={:pair_by_category} locked?={@pair_by_category_locked?} />
             </div>
           </div>
+
           <.locked_hint_message
             field={:pair_by_category}
             locked_hint={@locked_hint}
@@ -738,10 +749,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
               "Each category gets its own standings, numbered from 1, and a tie is broken among the tied players of that category only - so direct encounter looks at the games within the category. SWAR's \"separate categories\" does this."
             )}
           </p>
+
           <div class="actions" style="align-items: center; gap: 10px">
             <span>
               {if @tournament.categories_ranked_separately, do: gettext("On"), else: gettext("Off")}
             </span>
+
             <button
               type="button"
               id="toggle-ranked-separately"
@@ -761,6 +774,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
       <div :if={@tournament.categories_enabled}>
         <div class="card">
           <h2>{gettext("Category list")}</h2>
+
           <p class="hint" style="margin-top: 0">
             <.rich_text text={
               gettext(
@@ -772,6 +786,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
               </:part>
             </.rich_text>
           </p>
+
           <p class="hint">
             {gettext(
               "An unrated player satisfies a \"rating below\" condition (0 is under any ceiling) but never a \"rating from\" one."
@@ -783,25 +798,32 @@ defmodule PairingsEngineWeb.CategoriesLive do
               <.setting_field label={gettext("New category name")}>
                 <input type="text" name="name" value="" placeholder={gettext("e.g. U1800 or 45+")} />
               </.setting_field>
+
               <.setting_field label={gettext("Rating from")}>
                 <input type="number" name="rating_from" value="" min="1" />
               </.setting_field>
+
               <.setting_field label={gettext("Rating below")}>
                 <input type="number" name="rating_below" value="" min="1" />
               </.setting_field>
+
               <.setting_field label={gettext("Age from")}>
                 <input type="number" name="age_from" value="" min="1" />
               </.setting_field>
+
               <.setting_field label={gettext("Under age")}>
                 <input type="number" name="age_below" value="" min="1" />
               </.setting_field>
             </.setting_group>
+
             <label class="set-toggle" style="margin-top: 6px">
               <input type="hidden" name="women" value="false" />
               <input type="checkbox" name="women" value="true" />
               <span class="set-toggle-text">{gettext("Women only")}</span>
             </label>
+
             <p :if={@category_error} class="error-note">{@category_error}</p>
+
             <div class="actions">
               <button type="submit" class="pe-btn primary">Add</button>
             </div>
@@ -813,21 +835,31 @@ defmodule PairingsEngineWeb.CategoriesLive do
                 <thead>
                   <tr>
                     <th>{gettext("Category")}</th>
+
                     <th class="num">{gettext("Rating from")}</th>
+
                     <th class="num">{gettext("Rating below")}</th>
+
                     <th class="num">{gettext("Age from")}</th>
+
                     <th class="num">{gettext("Under age")}</th>
+
                     <th>{gettext("Women")}</th>
+
                     <th class="num">{gettext("Prizes")}</th>
+
                     <th>{gettext("Summary")}</th>
+
                     <th><span class="sr-only">{gettext("Actions")}</span></th>
                   </tr>
                 </thead>
+
                 <tbody>
                   <tr :for={
                     {{c, row}, idx} <- Enum.with_index(Enum.zip(@tournament.categories, @rules_draft))
                   }>
                     <td>{c}</td>
+
                     <td class="num">
                       <input
                         type="number"
@@ -837,6 +869,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                         style="width: 80px"
                       />
                     </td>
+
                     <td class="num">
                       <input
                         type="number"
@@ -846,6 +879,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                         style="width: 80px"
                       />
                     </td>
+
                     <td class="num">
                       <input
                         type="number"
@@ -858,6 +892,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                         {age_from_hint(row, @tournament_year)}
                       </div>
                     </td>
+
                     <td class="num">
                       <input
                         type="number"
@@ -870,6 +905,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                         {age_below_hint(row, @tournament_year)}
                       </div>
                     </td>
+
                     <td>
                       <input type="hidden" name={"rule[#{idx}][women]"} value="false" />
                       <input
@@ -879,6 +915,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                         checked={row["women"] == "true"}
                       />
                     </td>
+
                     <td class="num">
                       <input
                         type="number"
@@ -888,7 +925,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
                         style="width: 60px"
                       />
                     </td>
+
                     <td>{rule_summary(draft_rule(row))}</td>
+
                     <td style="text-align: right">
                       <button
                         type="button"
@@ -902,6 +941,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                   </tr>
                 </tbody>
               </table>
+
               <div class="actions" style="margin-top: 10px">
                 <button type="submit" class="pe-btn primary">{gettext("Save rules")}</button>
               </div>
@@ -922,6 +962,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
             </button>
             <span :if={@assign_note} class="ok-note" style="align-self: center">{@assign_note}</span>
           </div>
+
           <p :if={@category_error} class="error-note" style="margin-top: 10px">
             {@category_error}
           </p>
@@ -947,6 +988,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
         >
           <div class="pe-modal-head">
             <h2 id="category-confirm-title">{gettext("Assign categories?")}</h2>
+
             <p>
               {gettext(
                 "Applying the threshold rules would change the categories of %{changed} of %{total} players. Categories with no rule are left alone. Players with no change are omitted below.",
@@ -955,22 +997,30 @@ defmodule PairingsEngineWeb.CategoriesLive do
               )}
             </p>
           </div>
+
           <div class="pe-modal-body">
             <div class="card-table-wrap">
               <table class="pe-table">
                 <thead>
                   <tr>
                     <th>{gettext("Player")}</th>
+
                     <th>{gettext("From")}</th>
+
                     <th>To</th>
+
                     <th>{gettext("Pairing pool")}</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   <tr :for={change <- @category_confirm.changes}>
                     <td>{change.player.name}</td>
+
                     <td>{empty_dash(Enum.join(change.from, ", "))}</td>
+
                     <td>{empty_dash(Enum.join(change.to, ", "))}</td>
+
                     <%!-- The pairing pool is single-valued and changes on its
                           own rules, so it gets its own column rather than
                           being folded into the set it is drawn from. --%>
@@ -982,10 +1032,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
               </table>
             </div>
           </div>
+
           <div class="pe-modal-foot">
             <button type="button" class="pe-btn" phx-click="cancel_category_confirm">
               {gettext("Cancel")}
             </button>
+
             <button
               type="button"
               class="pe-btn primary pe-modal-go"

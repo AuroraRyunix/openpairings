@@ -141,7 +141,11 @@ defmodule PairingsEngine.Pairing do
   def pair_next_round(%Tournament{} = tournament, opts \\ []) do
     # "Pair anyway, ignoring the exclusion for X": one player's bye exclusion
     # lifted for this run only - see `with_bye_exclusions/4`.
-    tournament = %{tournament | bye_exclusion_override: opts[:bye_exclusion_override]}
+    tournament = %{
+      tournament
+      | bye_exclusion_override: opts[:bye_exclusion_override],
+        fide_departure_guard: opts[:fide_departure_guard] == true
+    }
 
     case Tournaments.ensure_writable(tournament) do
       :ok -> pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
@@ -235,11 +239,13 @@ defmodule PairingsEngine.Pairing do
           {:error, "Round #{paired} still has missing results"}
 
         true ->
-          tournament
-          |> draw_initial_colour_before_round_one(next_number)
-          |> ensure_pairing_numbers(active)
-          |> freeze_baku_group_a(next_number)
-          |> do_pair(next_number, active)
+          guard_fide_departures(tournament, next_number, fn ->
+            tournament
+            |> draw_initial_colour_before_round_one(next_number)
+            |> ensure_pairing_numbers(active)
+            |> freeze_baku_group_a(next_number)
+            |> do_pair(next_number, active)
+          end)
       end
 
     case result do
@@ -264,6 +270,44 @@ defmodule PairingsEngine.Pairing do
         other
     end
   end
+
+  # VCL4THP Q43: a pairing that takes a tournament out of FIDE mode (a bye
+  # exclusion or preference that moves the bye, a soft rule that moves a
+  # board, extra points in the pairing) is a Level-4 act, so the arbiter is
+  # asked before it is written. What moved is only known once the engine has
+  # run, so the run happens inside one transaction and is rolled back when
+  # it turns out to depart - nothing is kept of it (the pairing numbers, the
+  # drawn colour and the round all go). Only when the caller asked
+  # (`opts[:fide_departure_guard]`) and the tournament is in FIDE mode now;
+  # every other run is exactly what it was. The caller confirms by pairing
+  # again without the guard.
+  defp guard_fide_departures(%Tournament{fide_departure_guard: true} = tournament, number, run) do
+    if PairingsEngine.Compliance.fide_mode?(tournament) do
+      outcome =
+        Repo.transaction(fn ->
+          case run.() do
+            {:ok, _round, _sections} = ok ->
+              case pairing_deviations(tournament, number) do
+                [] -> ok
+                deviations -> Repo.rollback({:fide_departure, deviations})
+              end
+
+            other ->
+              other
+          end
+        end)
+
+      case outcome do
+        {:ok, result} -> result
+        {:error, {:fide_departure, _deviations} = reason} -> {:error, reason}
+        {:error, other} -> {:error, other}
+      end
+    else
+      run.()
+    end
+  end
+
+  defp guard_fide_departures(_tournament, _number, run), do: run.()
 
   # `swiss_match_format` inserts BOTH legs of a match (rounds `next_number`
   # and `next_number + 1`) in one `do_pair/2` call - see that function -

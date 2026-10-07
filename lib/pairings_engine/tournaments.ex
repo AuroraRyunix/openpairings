@@ -718,6 +718,33 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  @doc """
+  The FIDE-mode departures saving `attrs` on `tournament` would introduce -
+  `[]` when the tournament is not in FIDE mode now, when the change leaves
+  every compliance setting as it was, or when `attrs` would not save at all.
+
+  Nothing is written. The settings pages call this before `update_tournament/3`
+  to ask the arbiter first (VCL4THP Q43, TEC's Level 4): leaving FIDE mode is
+  never a side effect of a save.
+  """
+  @spec fide_departures(Tournament.t(), map()) :: [PairingsEngine.Compliance.departure()]
+  def fide_departures(%Tournament{} = tournament, attrs) do
+    if PairingsEngine.Compliance.fide_mode?(tournament) do
+      changeset = Tournament.changeset(tournament, attrs)
+
+      if changeset.valid? do
+        PairingsEngine.Compliance.introduced(
+          tournament,
+          Ecto.Changeset.apply_changes(changeset)
+        )
+      else
+        []
+      end
+    else
+      []
+    end
+  end
+
   # A round robin's length is not a free choice (`RoundRobin`'s
   # `ensure_correct_rounds_count/2`): once its field is frozen, a change of
   # cycles or match format moves `rounds_count` in the same save, so the

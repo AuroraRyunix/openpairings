@@ -3,6 +3,7 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
   use PairingsEngineWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import PairingsEngineWeb.FideGateHelpers
 
   alias PairingsEngine.Tournaments
 
@@ -252,7 +253,7 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
       render_click(lv, "pair", %{})
-      render(lv)
+      confirm_fide_exit(lv)
 
       assert [_round] = Tournaments.list_rounds(tournament.id)
 
