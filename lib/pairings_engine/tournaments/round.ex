@@ -5,6 +5,10 @@ defmodule PairingsEngine.Tournaments.Round do
 
   schema "rounds" do
     field :number, :integer
+    # The Chess960 starting position drawn for this round (0..959, the
+    # standard numbering - `PairingsEngine.Chess960`), nil while none is.
+    # Not cast: written only by `Chess960.draw_for_round/3`.
+    field :chess960_position, :integer
     field :date, :string, default: ""
     field :status, :string, default: "pairing"
     # When this round becomes visible on the public pairings page - see

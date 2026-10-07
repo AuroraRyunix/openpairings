@@ -557,6 +557,27 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("pair_ignoring_bye_exclusion", _params, socket), do: {:noreply, socket}
 
+  def handle_event("draw_chess960", _params, socket) do
+    %{tournament: t, round_number: round_number, current_scope: scope} = socket.assigns
+
+    case PairingsEngine.Chess960.draw_for_round(t, round_number) do
+      {:ok, round} ->
+        Audit.log(t.id, scope, "pairing.chess960_drawn", %{
+          round: round_number,
+          position: round.chess960_position
+        })
+
+        {:noreply, socket |> assign(error: nil) |> refresh()}
+
+      {:error, :already_drawn} ->
+        {:noreply,
+         assign(socket, error: gettext("A position has already been drawn for this round."))}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: error_text(reason))}
+    end
+  end
+
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
 
@@ -3702,6 +3723,28 @@ defmodule PairingsEngineWeb.PairingsLive do
           <%!-- `display: contents`: the control is a flex item of this row
                 like its neighbours, and the note it may carry wraps onto a
                 line of its own below them (see `.pe-level-note`). --%>
+          <%!-- Chess960: the round's drawn starting position (VCL4THP Q222),
+                or the button that draws it. Drawn once. --%>
+          <span
+            :if={@round != nil && @tournament.chess960 && @round.chess960_position != nil}
+            id="chess960-position"
+            class="badge"
+          >
+            {gettext("Chess960 position")} {PairingsEngine.Chess960.label(@round)}
+          </span>
+          <button
+            :if={
+              @round != nil && @tournament.chess960 && @round.chess960_position == nil &&
+                !@tournament.archived_at
+            }
+            id="draw-chess960"
+            type="button"
+            class="pe-btn"
+            phx-click="draw_chess960"
+          >
+            {gettext("Draw Chess960 position")}
+          </button>
+
           <div :if={@round != nil} id="round-publish-group" class="pe-level-slot">
             <.publish_level tournament={@tournament} round={@round} />
           </div>

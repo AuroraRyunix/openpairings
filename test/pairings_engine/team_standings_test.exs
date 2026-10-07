@@ -277,7 +277,7 @@ defmodule PairingsEngine.TeamStandingsTest do
     test "an individual tournament's picker keeps what it had and adds C.07's others, a team tournament's offers the team breaks" do
       individual = Tiebreaks.selectable("swiss") |> Enum.map(& &1.code)
       assert Enum.take(individual, 13) == ~w(BH BHC1 BHC2 MBH SB DE WIN WON BPG PS KS ARO AROC1)
-      assert length(individual) == 44
+      assert length(individual) == 45
       assert Tiebreaks.selectable() |> Enum.map(& &1.code) == individual
 
       assert Tiebreaks.selectable("team-roundrobin") |> Enum.map(& &1.code) ==

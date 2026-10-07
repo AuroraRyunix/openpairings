@@ -275,6 +275,8 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 2, "board" => 9, "white" => "Chris Maes", "from" => "1-0", "to" => ""}
     ],
     "pairing.round_deleted" => [%{"round" => 3}],
+    "pairing.chess960_drawn" => [%{"round" => 2, "position" => 518}],
+    "standings.lots_drawn" => [%{"players" => 3}, %{"players" => 1}],
     "pairing.results_imported" => [
       %{"round" => 2, "results_set" => 8},
       %{"round" => 2, "results_set" => 1}

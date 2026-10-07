@@ -129,6 +129,31 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
+  # Drawing of lots for players level after every tie-break (C.07 Art. 4.2).
+  # The order is recorded as the manual ranking; drawing again gives the same
+  # order (`PairingsEngine.TieLots`).
+  @impl true
+  def handle_event("draw_lots", _params, socket) do
+    case PairingsEngine.TieLots.draw(socket.assigns.tournament) do
+      {:ok, %{players: players, tournament: tournament}} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "standings.lots_drawn", %{
+          players: players
+        })
+
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+
+      {:error, :no_ties} ->
+        {:noreply, put_flash(socket, :error, gettext("Nobody is level after every tie-break."))}
+
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+
+      {:error, _other} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Lots cannot be drawn for this tournament."))}
+    end
+  end
+
   @impl true
   def handle_event("reseed_manual_ranking", _params, socket) do
     case Tournaments.reseed_manual_ranking(socket.assigns.tournament) do
@@ -140,6 +165,31 @@ defmodule PairingsEngineWeb.StandingsLive do
         {:noreply, archived_refusal(socket)}
     end
   end
+
+  # An externally calculated tie-break value (code "EXT"), typed per player
+  # in the column the standings show for it (VCL4THP Q207). Blank clears it.
+  @impl true
+  def handle_event("set_external_tiebreak", %{"player_id" => player_id} = params, socket) do
+    tournament = socket.assigns.tournament
+
+    with %Player{} = player <- Tournaments.get_player(tournament.id, player_id),
+         {:ok, value} <- parse_external(params["value"]),
+         {:ok, _player} <- Tournaments.update_player(player, %{external_tiebreak: value}) do
+      Tournaments.invalidate_manual_ranking(tournament.id)
+
+      Audit.log(tournament.id, socket.assigns.current_scope, "player.updated", %{
+        player_name: player.name,
+        changed_fields: %{"external_tiebreak" => [player.external_tiebreak, value]}
+      })
+
+      {:noreply, reload_standings(socket)}
+    else
+      {:error, :archived} -> {:noreply, archived_refusal(socket)}
+      _ -> {:noreply, put_flash(socket, :error, gettext("That is not a number."))}
+    end
+  end
+
+  def handle_event("set_external_tiebreak", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket)
@@ -512,6 +562,21 @@ defmodule PairingsEngineWeb.StandingsLive do
     end)
   end
 
+  defp parse_external(nil), do: {:ok, nil}
+
+  defp parse_external(text) when is_binary(text) do
+    case text |> String.trim() |> String.replace(",", ".") do
+      "" ->
+        {:ok, nil}
+
+      clean ->
+        case Float.parse(clean) do
+          {value, ""} -> {:ok, value}
+          _ -> :error
+        end
+    end
+  end
+
   defp format_tb(value) when is_float(value) do
     if value == Float.round(value, 0), do: trunc(value), else: value
   end
@@ -788,6 +853,20 @@ defmodule PairingsEngineWeb.StandingsLive do
             {gettext("Enable manual ranking")}
           </button>
 
+          <button
+            :if={PairingsEngine.TieLots.tied_count(@entries) > 0}
+            id="draw-lots"
+            class="pe-btn"
+            phx-click="draw_lots"
+            data-confirm={
+              gettext(
+                "Draw lots among the players level after every tie-break? Their order is recorded as the manual ranking, and the draw cannot be repeated for a different result."
+              )
+            }
+          >
+            {gettext("Draw lots for ties")}
+          </button>
+
           <button :if={@tournament.manual_ranking} class="pe-btn" phx-click="disable_manual_ranking">
             {gettext("Disable manual ranking")}
           </button>
@@ -968,7 +1047,26 @@ defmodule PairingsEngineWeb.StandingsLive do
               <td :if={show_col?(@visible, "wmwe")} class="num">{format_wmwe(entry.wmwe)}</td>
 
               <td :for={code <- visible_tiebreak_codes(@effective_tiebreaks, @visible)} class="num">
-                {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
+                <form
+                  :if={code == "EXT" and !@tournament.archived_at}
+                  id={"external-tiebreak-form-#{entry.player.id}"}
+                  phx-change="set_external_tiebreak"
+                >
+                  <input type="hidden" name="player_id" value={entry.player.id} />
+                  <input
+                    id={"external-tiebreak-#{entry.player.id}"}
+                    type="text"
+                    inputmode="decimal"
+                    name="value"
+                    value={entry.player.external_tiebreak}
+                    phx-debounce="blur"
+                    style="width: 6em; text-align: right"
+                    aria-label={gettext("External value for %{name}", name: entry.player.name)}
+                  />
+                </form>
+                <span :if={code != "EXT" or @tournament.archived_at}>
+                  {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
+                </span>
               </td>
 
               <td :if={@tournament.categories != [] and is_nil(@selected_category)}>

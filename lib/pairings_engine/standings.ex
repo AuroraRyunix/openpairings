@@ -151,7 +151,7 @@ defmodule PairingsEngine.Standings do
     not_calculable = Enum.reject(configured, &Tiebreaks.individual_calculable?/1)
 
     unrated =
-      if is_nil(Map.get(tournament, :tiebreak_unrated_rating)) and unrated_present?(players) do
+      if is_nil(unrated_rating(tournament, players)) and unrated_present?(players) do
         Enum.filter(configured, &Tiebreaks.rating_based?/1)
       else
         []
@@ -179,6 +179,39 @@ defmodule PairingsEngine.Standings do
 
   def unrated_present?(tournament),
     do: unrated_present?(Tournaments.list_players(tournament.id))
+
+  @doc """
+  The rating an unrated player counts as in the rating-based tie-breaks of
+  `tournament`, or nil when none is set (Article 10 then drops them).
+
+  By the tournament's `tiebreak_unrated_method`: `"fixed"` the rating it
+  stores, `"lowest"` the lowest rating among `players`, `"average"` the
+  average of the rated players' ratings (rounded). A method that needs rated
+  players and finds none gives nil.
+  """
+  def unrated_rating(tournament, players) do
+    rated =
+      for p <- players,
+          rating = PairingsEngine.Tournaments.Player.rating(p),
+          rating > 0,
+          do: rating
+
+    case Map.get(tournament, :tiebreak_unrated_method) || "fixed" do
+      "lowest" when rated != [] -> Enum.min(rated)
+      "average" when rated != [] -> round(Enum.sum(rated) / length(rated))
+      "fixed" -> Map.get(tournament, :tiebreak_unrated_rating)
+      _ -> nil
+    end
+  end
+
+  @doc """
+  `tournament` with `:tiebreak_unrated_rating` set to what `unrated_rating/2`
+  works out for `players`, so everything that reads that one field - the
+  tie-break codes sent to Ainalrami, the TRF `202` line, the dropped-code
+  check - sees the number the method gives. Only ever used in memory.
+  """
+  def with_unrated_rating(tournament, players),
+    do: Map.put(tournament, :tiebreak_unrated_rating, unrated_rating(tournament, players))
 
   @doc """
   Same as `standings/1`, but the `:tiebreaks` map on every entry is guaranteed
@@ -259,6 +292,7 @@ defmodule PairingsEngine.Standings do
   end
 
   defp build_standings(tournament, tiebreak_codes, opts, players, data) do
+    tournament = with_unrated_rating(tournament, players)
     {games_by_player, completed_rounds} = games_by_player(tournament, players, opts, data)
 
     entries =
@@ -1466,7 +1500,7 @@ defmodule PairingsEngine.Standings do
       Enum.map(entries, fn entry ->
         tiebreaks =
           for code <- tiebreak_codes, code not in @direct_encounter, into: %{} do
-            {code, as_float(get_in(values, [code, entry.player.id]))}
+            {code, tiebreak_value(code, entry, values)}
           end
 
         Map.put(entry, :tiebreaks, tiebreaks)
@@ -1478,6 +1512,10 @@ defmodule PairingsEngine.Standings do
         else: entries
     end)
   end
+
+  # `EXT` is typed by the arbiter, not computed: the player's own value.
+  defp tiebreak_value("EXT", entry, _values), do: as_float(entry.player.external_tiebreak)
+  defp tiebreak_value(code, entry, values), do: as_float(get_in(values, [code, entry.player.id]))
 
   # Values were floats here before the switch, and screens format them as
   # such; Ainalrami gives counts and ratings as integers.
@@ -1496,14 +1534,39 @@ defmodule PairingsEngine.Standings do
 
   defp c07_places(entries, tournament, ranking_codes) do
     event = tiebreak_event(entries, tournament)
+    score = Map.new(entries, &{&1.player.id, ranking_score(&1, tournament)})
 
+    case Enum.split_while(ranking_codes, &(&1 != "EXT")) do
+      {_all, []} ->
+        rank_places(event, ranking_codes, tournament, score)
+
+      {before, ["EXT" | after_codes]} ->
+        # `EXT` is the arbiter's own value, which Ainalrami does not know:
+        # the codes before it rank the players, the typed value splits
+        # whoever is still level, and the codes after it go on from there.
+        # The split is handed on as a score of its own, so each stage sees
+        # the one before it as the score it starts from.
+        first = rank_places(event, before, tournament, score)
+
+        keys =
+          Map.new(entries, fn e ->
+            {e.player.id, {Map.get(first, e.player.id, 0), -(e.player.external_tiebreak || 0.0)}}
+          end)
+
+        dense = keys |> Map.values() |> Enum.uniq() |> Enum.sort() |> Enum.with_index(1)
+        dense = Map.new(dense)
+        split = Map.new(keys, fn {id, key} -> {id, -Map.fetch!(dense, key) * 1.0} end)
+
+        rank_places(event, after_codes, tournament, split)
+    end
+  end
+
+  defp rank_places(event, ranking_codes, tournament, score) do
     codes =
       ranking_codes
       |> Enum.filter(&Map.has_key?(AinalramiBridge.codes(), &1))
       |> Enum.reject(&(event.predetermined? and Tiebreaks.buchholz_based?(&1)))
       |> Enum.map(&AinalramiBridge.c07_code(&1, tournament))
-
-    score = Map.new(entries, &{&1.player.id, ranking_score(&1, tournament)})
 
     case Ainalrami.Tiebreaks.rank(event, codes, score: score) do
       {:ok, standings} -> Map.new(standings, &{&1.id, &1.rank})

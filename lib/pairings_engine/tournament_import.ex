@@ -236,6 +236,9 @@ defmodule PairingsEngine.TournamentImport do
       |> Ecto.Changeset.change(swar_settings: swar_settings(t_attrs, tournament.swar_settings))
       |> Ecto.Changeset.change(
         manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
+        # The seed of the one drawing of lots (not cast): a restored
+        # tournament repeats a draw the way the original did.
+        lots_seed: coerce_int(Map.get(t_attrs, "lots_seed")),
         # The round FIDE-mode compliance was first lost in, and the ONLY
         # field here that is not simply taken from the file.
         #
@@ -459,6 +462,7 @@ defmodule PairingsEngine.TournamentImport do
       # stale hand-set order would come back claiming to be fresh.
       |> Ecto.Changeset.change(
         manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
+        lots_seed: coerce_int(Map.get(t_attrs, "lots_seed")),
         # A brand-new row, so there is no live value to weigh against: the
         # file's is the only record there is. A backup of a tournament that
         # lost FIDE-mode compliance in round 4 has to come back as one that
@@ -808,6 +812,7 @@ defmodule PairingsEngine.TournamentImport do
         |> Round.changeset(r)
         |> then(&Ecto.Changeset.change(&1, results_public: results_public(tournament, &1, r)))
         |> Ecto.Changeset.change(publish_cap: coerce_int(Map.get(r, "publish_cap")))
+        |> Ecto.Changeset.change(chess960_position: coerce_int(Map.get(r, "chess960_position")))
         |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
         |> insert!("round entry #{n}")
 
