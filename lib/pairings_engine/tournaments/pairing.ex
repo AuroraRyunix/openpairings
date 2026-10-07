@@ -67,6 +67,14 @@ defmodule PairingsEngine.Tournaments.Pairing do
     # Never cast.
     field :game_uid, :string
 
+    # A correction for the rating report only (C.04.2:4.3, VCL4THP Q192): the
+    # result found to be wrong after the next round was over stays in
+    # `result`, which the pairings and the standings went on using, and the
+    # corrected one is here for the TRF sent for rating
+    # (`PairingsEngine.TrfExport`). Nil when the board was never so corrected.
+    # One writer, `Tournaments.set_rating_correction/3`, so it is not cast.
+    field :rating_result, :string
+
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player

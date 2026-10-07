@@ -41,7 +41,8 @@ defmodule PairingsEngine.AuditActionCodes do
       ~w(pairing.result_entered pairing.result_changed),
     {"lib/pairings_engine_web/live/pairings_live.ex", "audit_action(confirm.kind)"} =>
       ~w(pairing.players_swapped pairing.player_substituted pairing.seat_vacated
-         pairing.bye_awarded pairing.seat_filled pairing.pool_paired pairing.deleted),
+         pairing.bye_awarded pairing.seat_filled pairing.pool_paired pairing.deleted
+         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn),
     {"lib/pairings_engine_web/live/mobile_results_live.ex", "action"} =>
       ~w(pairing.result_cleared pairing.result_entered pairing.result_changed),
     {"lib/pairings_engine/tournaments.ex", "@forced_unlock_action"} =>

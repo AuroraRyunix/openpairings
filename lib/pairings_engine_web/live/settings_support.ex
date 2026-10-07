@@ -1378,6 +1378,20 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "Only an individual Swiss paired one round at a time can have a round created by hand."
       )
 
+  # A result corrected for the rating report only (C.04.2:4.3) - see
+  # `Tournaments.set_rating_correction/3`.
+  def error_text(:rating_correction_too_early),
+    do:
+      gettext(
+        "A correction for the rating report only is for a round whose next round is already over. Correct this result the ordinary way."
+      )
+
+  def error_text(:not_a_game),
+    do: gettext("Only a finished game between two players can be corrected for rating.")
+
+  def error_text(:full_point_bye_unsupported),
+    do: gettext("Keizer and team tournaments have no full-point bye.")
+
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
 
