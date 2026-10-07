@@ -408,9 +408,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   # the breaks `PairingsEngine.TeamStandings` calculates. Offering anything
   # else is offering a column of noughts that decides nothing. See
   # PairingsEngine.Tiebreaks.
-  defp available_tiebreaks(selected, type) do
-    Enum.reject(Tiebreaks.selectable(type), &(&1.code in selected))
-  end
+  defp grouped_tiebreaks(selected, type), do: Tiebreaks.selectable_grouped(type, selected)
+
+  defp tb_group_label(:results), do: gettext("Results and games")
+  defp tb_group_label(:buchholz), do: gettext("Buchholz")
+  defp tb_group_label(:sonneborn), do: gettext("Sonneborn-Berger and Koya")
+  defp tb_group_label(:progressive), do: gettext("Progressive score")
+  defp tb_group_label(:rating), do: gettext("Rating-based")
+  defp tb_group_label(:team), do: gettext("Team events")
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name
   defp tb_desc(code), do: (Tiebreaks.get(code) || %{description: ""}).description
@@ -624,7 +629,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             </ol>
 
             <p :if={@tiebreaks == []} class="hint">
-              {gettext("No tiebreaks selected - tied players will share a rank.")}
+              {gettext(
+                "No tiebreaks selected - players level on points are ordered by rating and name."
+              )}
             </p>
 
             <div class="actions" style="flex-wrap: wrap">
@@ -637,15 +644,58 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               >
                 <option value="">{gettext("Add a tiebreak…")}</option>
 
-                <option :for={tb <- available_tiebreaks(@tiebreaks, @tournament.type)} value={tb.code}>
-                  {tb.name}
-                </option>
+                <optgroup
+                  :for={{group, tbs} <- grouped_tiebreaks(@tiebreaks, @tournament.type)}
+                  label={tb_group_label(group)}
+                >
+                  <option :for={tb <- tbs} value={tb.code}>
+                    {tb.code} - {tb.name}
+                  </option>
+                </optgroup>
               </select>
               <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
                 "Reset to FIDE default"
               )}</button>
             </div>
           </fieldset>
+
+          <.setting_group>
+            <.setting_field
+              label={gettext("Rating of an unrated player in the tie-breaks")}
+              hint={
+                gettext(
+                  "C.07 Article 10: with an unrated player in the tournament the rating-based tie-breaks (ARO and its cuts and medians, TPR, PTP, APRO, APPO, RTNG) are dropped, unless the regulations say how unrated players are handled. Leave empty to drop them; enter a rating to count every unrated player as that rating instead. State the rule in the tournament regulations before the first round."
+                )
+              }
+            >
+              <input
+                id="tiebreak-unrated-rating"
+                type="number"
+                name="tournament[tiebreak_unrated_rating]"
+                value={@tournament.tiebreak_unrated_rating}
+                min="0"
+                max="4000"
+              />
+            </.setting_field>
+
+            <.setting_field
+              label={gettext("Players still level share a place")}
+              hint={
+                gettext(
+                  "C.07 Article 2.1: the regulations say whether tied participants share a place. Off, players still level after the whole tie-break list are put in an order (rating, then name) and numbered one after the other - record a drawing of lots with the manual order. On, they all show the same place, such as 2=, and the next place is skipped accordingly."
+                )
+              }
+            >
+              <input type="hidden" name="tournament[shared_places]" value="false" />
+              <input
+                id="shared-places"
+                type="checkbox"
+                name="tournament[shared_places]"
+                value="true"
+                checked={@tournament.shared_places}
+              />
+            </.setting_field>
+          </.setting_group>
         </div>
 
         <div class="actions form-actions">

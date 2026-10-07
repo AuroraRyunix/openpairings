@@ -213,6 +213,20 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Only PairingsEngine.Federations.BEL.SwarImport sets it true (type == 3 files only).
     field :presence_on_allocated_bye, :boolean, default: false
     field :tiebreaks, {:array, :string}, default: []
+
+    # What a player without a rating counts as in the rating-based tie-breaks
+    # (C.07 Article 10: ARO and its cuts, TPR, PTP, APRO, APPO, RTNG). nil, the
+    # default, is Article 10's own answer: with an unrated player present
+    # those tie-breaks are dropped. A number is the "detailed rule on the
+    # handling of unrated players" the article asks the regulations to
+    # publish, and is passed to Ainalrami as `/U<rating>`.
+    field :tiebreak_unrated_rating, :integer
+
+    # Whether players still level after the whole tie-break list share a place
+    # (C.07 Article 2.1: the regulations say). Off, the default, keeps the
+    # order the standings always had - rating, name - numbered 1..N, which
+    # is where an arbiter's drawing of lots (Article 4.2) is recorded.
+    field :shared_places, :boolean, default: false
     field :acceleration, :string, default: "none"
 
     # Baku acceleration (FIDE C.04.7) only: the pairing number of the LAST
@@ -1154,6 +1168,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :postponed_report_name,
       :postponed_fide_tournament_id,
       :tiebreaks,
+      :tiebreak_unrated_rating,
+      :shared_places,
       :acceleration,
       :status,
       :standard,
@@ -1227,6 +1243,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_length(:postponed_fide_tournament_id, max: 40)
     |> validate_inclusion(:initial_colour, @initial_colours)
     |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
+    |> validate_number(:tiebreak_unrated_rating,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 4000
+    )
     |> validate_number(:team_boards, greater_than: 0, less_than_or_equal_to: @max_team_boards)
     |> validate_number(:team_match_points_win, greater_than_or_equal_to: 0)
     |> validate_number(:team_match_points_draw, greater_than_or_equal_to: 0)

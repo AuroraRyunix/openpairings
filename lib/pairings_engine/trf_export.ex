@@ -1417,9 +1417,20 @@ defmodule PairingsEngine.TrfExport do
         do: TeamStandings.c07_codes(),
         else: PairingsEngine.Standings.AinalramiBridge.codes()
 
+    # A rating-based code carries the rating the tournament counts an unrated
+    # player as (`/U<rating>`), so a checker reading the file computes the
+    # same values instead of dropping the code (C.07 Article 10).
+    unrated = if Tournament.paired_as_teams?(t), do: nil, else: t.tiebreak_unrated_rating
+
     (t.tiebreaks || [])
     |> Enum.map(&String.upcase(to_string(&1)))
-    |> Enum.map(&Map.get(c07, &1, &1))
+    |> Enum.map(fn code ->
+      c07_code = Map.get(c07, code, code)
+
+      if is_integer(unrated) and PairingsEngine.Tiebreaks.rating_based?(code),
+        do: c07_code <> "/U#{unrated}",
+        else: c07_code
+    end)
     |> Enum.filter(&Regex.match?(~r"^[A-Z][A-Z0-9]*(:[A-Z]{2})?(/[A-Z0-9][A-Z0-9+.-]*)*$", &1))
   end
 

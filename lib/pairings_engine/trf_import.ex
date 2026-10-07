@@ -863,8 +863,11 @@ defmodule PairingsEngine.TrfImport do
   # (MPTS is MP, BC is BB, SB:MP is SB - `TeamStandings.c07_codes/0`), which
   # is how this app writes a team report since 2026-10-03.
   defp tiebreak_attrs(codes, type) do
-    {kept, _dropped} = split_tiebreaks(codes, type)
-    if kept == [], do: %{}, else: %{tiebreaks: kept}
+    case split_tiebreaks(codes, type) do
+      {[], _dropped, _unrated} -> %{}
+      {kept, _dropped, nil} -> %{tiebreaks: kept}
+      {kept, _dropped, unrated} -> %{tiebreaks: kept, tiebreak_unrated_rating: unrated}
+    end
   end
 
   # `{kept, dropped}`: the file's codes this app computes (in this app's
@@ -885,10 +888,28 @@ defmodule PairingsEngine.TrfImport do
           ),
         else: individual
 
-    {kept, dropped} =
-      Enum.split_with(codes, &MapSet.member?(known, Map.get(ours, &1, &1)))
+    # `ARO/U1500`: C.07 Article 10's rule for unrated players, written on the
+    # code (Ainalrami's spelling). The code is read without it and the rating
+    # becomes the tournament's `tiebreak_unrated_rating` - the first one
+    # named, as the setting is one number for all of them.
+    split = Enum.map(codes, fn code -> {code, split_unrated(code)} end)
 
-    {Enum.map(kept, &Map.get(ours, &1, &1)), dropped}
+    {kept, dropped} =
+      Enum.split_with(split, fn {_raw, {code, _unrated}} ->
+        MapSet.member?(known, Map.get(ours, code, code))
+      end)
+
+    unrated = Enum.find_value(kept, fn {_raw, {_code, unrated}} -> unrated end)
+
+    {Enum.map(kept, fn {_raw, {code, _}} -> Map.get(ours, code, code) end),
+     Enum.map(dropped, fn {raw, _} -> raw end), unrated}
+  end
+
+  defp split_unrated(code) do
+    case Regex.run(~r{^(.*)/U(\d+)$}, code) do
+      [_, base, rating] -> {base, min(String.to_integer(rating), 4000)}
+      _ -> {code, nil}
+    end
   end
 
   # TRF16's 092/112 arbiter lines are "<FIDE id> <name>" when the id is
@@ -2178,8 +2199,8 @@ defmodule PairingsEngine.TrfImport do
 
       codes ->
         case split_tiebreaks(codes, infer_type(t[:type])) do
-          {_kept, []} -> []
-          {_kept, dropped} -> adjustment(:tiebreaks_dropped, codes: dropped)
+          {_kept, [], _unrated} -> []
+          {_kept, dropped, _unrated} -> adjustment(:tiebreaks_dropped, codes: dropped)
         end
     end
   end
