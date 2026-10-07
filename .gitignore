@@ -84,6 +84,6 @@ agents.md
 graphify-out/
 
 # Local build of the hosted edition (MIX_BUILD_PATH=_build_hosted)
-/_build_hosted/
+/_build_hosted*/
 # Plug-ins placed inside the checkout, as the hosted server does (<app>/plugins/<name>)
 /plugins/
