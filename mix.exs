@@ -318,11 +318,16 @@ defmodule PairingsEngine.MixProject do
   # one: a plugin's pages `use PairingsEngineWeb, :live_view`, render inside
   # `Layouts.app` and use the core components, and a dependency is compiled
   # BEFORE this application, when none of those exist yet.
+  # Relative when the plugin sits inside this project (the server keeps it at
+  # `<app>/plugins/<name>`, so a rollback snapshot covers it): Mix takes an
+  # absolute elixirc path for a directory OUTSIDE the project only - inside
+  # it, the compiler files the sources under one spelling and looks them up
+  # under the other, and the build stops with "Could not find source".
   defp plugin_paths(dir) do
     for plugin <- @plugins,
         path = Path.join(plugin.path, dir),
         File.dir?(path),
-        do: path
+        do: Path.relative_to(path, __DIR__)
   end
 
   # The plugins as dependencies: path deps, so `mix deps.get` checks the
