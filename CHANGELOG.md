@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Ainalrami 0.38.0.** The same pairings in the program; the engine's
+  standalone checker and command line now also take the Swiss and round robin
+  match formats, pairing by category and soft pairs, so a file from a
+  tournament using them can be checked outside OpenPairings too.
 - [Feature] **User manual in the program.** A Help link in the top bar of
   every page opens a manual for arbiters, fifteen chapters from installing
   and FIDE mode through pairing, results, tie-breaks, printing, import and
