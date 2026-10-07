@@ -103,6 +103,8 @@ defmodule PairingsEngine.PlayerCard do
       # kinds have fixed values there, so they keep fixed labels.
       "requested-half" -> "½ bye"
       "requested-zero" -> "0 bye"
+      # The arbiter's full-point bye: a win's worth, whatever that is.
+      "full-point" -> "1 bye"
       # Everything this app records is an "absent" row, and what it pays
       # depends on the tournament and on how many the player has already
       # had - "0 bye" was right only while nothing could pay anything else.

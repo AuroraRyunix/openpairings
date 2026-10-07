@@ -1253,11 +1253,11 @@ defmodule PairingsEngine.TrfImport do
 
   # A round entry that never resolves to a real, mutual opponent this round:
   # either a genuine TRF bye code, or a playing code whose opponent isn't
-  # resolvable in this round's roster. OpenPairings models exactly one
-  # "full points, no game" outcome (the pairing-allocated bye - a `pairings`
-  # row with no black player) - both TRF's "U" (pairing-allocated) and "F"
-  # (full-point bye) collapse into that same row, since there is no second
-  # full-point-bye type to keep them apart (see docs/trf-import.md). "H"
+  # resolvable in this round's roster. TRF's "U" (pairing-allocated bye)
+  # becomes the pairing-allocated bye - a `pairings` row with no black
+  # player - and "F" (full-point bye) the arbiter's full-point bye, a
+  # `"full-point"` `byes` row (`Tournaments.award_full_point_bye/3`); until
+  # that kind existed "F" was folded into "U" (see docs/trf-import.md). "H"
   # (half-point bye) and "Z" (zero-point bye), and a dangling playing code
   # reinterpreted by the point value it represents (mirrors
   # `PairingsEngine.Pairing.bye_safe_result/2`, the same normalization in
@@ -1312,6 +1312,9 @@ defmodule PairingsEngine.TrfImport do
 
   defp single_sided(p, %{result: result}) do
     case result do
+      "F" ->
+        {:bye, %{rank: p.rank, type: "full-point"}}
+
       code when code in @single_sided_full ->
         {:pairing, %{board: nil, white_rank: p.rank, black_rank: nil, result: "bye"}}
 
@@ -1428,16 +1431,16 @@ defmodule PairingsEngine.TrfImport do
     rows = Enum.uniq_by(rows, &{&1.player_id, &1.round})
     if rows != [], do: Repo.insert_all("byes", rows)
 
-    # A full-point bye granted in advance has no row this app can write:
-    # its `byes` table records the half-point and zero-point kinds an
-    # arbiter grants, and a full point is a pairing's own allocation.
+    # A `240` of any other kind (a pairing-allocated bye `U`, which is the
+    # pairing's to hand out and not the arbiter's to grant) has no row this
+    # app can write.
     if unsupported == 0 do
       []
     else
       [
         note(
-          "#{unsupported} full-point bye#{if unsupported == 1, do: "", else: "s"} granted for a " <>
-            "round that is not yet paired could not be imported - grant them once the round exists."
+          "#{unsupported} pairing-allocated bye#{if unsupported == 1, do: "", else: "s"} granted " <>
+            "for a round that is not yet paired could not be imported - the pairing hands it out."
         )
       ]
     end
@@ -1445,7 +1448,8 @@ defmodule PairingsEngine.TrfImport do
 
   defp future_bye_type("H"), do: "requested-half"
   defp future_bye_type("Z"), do: "requested-zero"
-  defp future_bye_type(_full_point), do: nil
+  defp future_bye_type("F"), do: "full-point"
+  defp future_bye_type(_pairing_allocated), do: nil
 
   # An untyped `299` - points an arbiter assigned outside the scoring
   # system, which the `001` column does not carry. This app calls them a
@@ -2268,9 +2272,10 @@ defmodule PairingsEngine.TrfImport do
   #   * a game against nobody (opponent 0000 with a playing code) - TRF06's
   #     way of writing a bye - became the bye its points stand for;
   #   * a game whose opponent does not name this player back (a defect)
-  #     became the same, and the opponent's own entry stands on its own;
-  #   * a full-point bye `F` became a pairing-allocated bye, the one
-  #     full-point no-game outcome this app has.
+  #     became the same, and the opponent's own entry stands on its own.
+  #
+  # A full-point bye `F` is no longer one: it is kept as the arbiter's
+  # full-point bye it is, so there is nothing to say about it.
   defp round_entry_adjustments(data, paired) do
     found =
       for round <- 1..paired//1,
@@ -2301,7 +2306,6 @@ defmodule PairingsEngine.TrfImport do
     cond do
       g.result in @playing_codes and is_nil(g.opponent_rank) -> :old_style_byes
       g.result in @game_codes and is_nil(mutual_opponent(p, g, by_rank)) -> :dangling_opponents
-      g.result == "F" -> :full_point_byes_merged
       true -> nil
     end
   end

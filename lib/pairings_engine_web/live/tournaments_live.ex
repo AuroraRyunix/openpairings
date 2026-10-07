@@ -1664,15 +1664,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
         rounds: Enum.join(a.rounds, ", ")
       )
 
-  defp trf_adjustment_text(%{code: :full_point_byes_merged} = a),
-    do:
-      ngettext(
-        "%{count} full-point bye (F; rounds %{rounds}) was imported as a pairing-allocated bye: this app has one kind of full-point bye.",
-        "%{count} full-point byes (F; rounds %{rounds}) were imported as pairing-allocated byes: this app has one kind of full-point bye.",
-        a.count,
-        rounds: Enum.join(a.rounds, ", ")
-      )
-
   defp trf_adjustment_text(%{code: :rounds_not_checked}),
     do:
       gettext(

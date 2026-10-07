@@ -119,17 +119,16 @@ opinion of it.
 | `U` | pairing-allocated bye | a `pairings` row, no black player, result `"bye"` |
 | `H` | half-point bye | `byes` row, `type: "requested-half"` |
 | `Z` | zero-point bye | `byes` row, `type: "requested-zero"` |
-| `F` | full-point bye | **collapses onto the same `"bye"` row as `U`** - see below |
+| `F` | full-point bye | `byes` row, `type: "full-point"` (the arbiter's full-point bye) |
 
 ## Known limitations
 
-- **`F` and `U` are not distinguished.** OpenPairings models exactly one
-  "full points, no game" outcome - the pairing-allocated bye (a `pairings`
-  row with no black player, worth the tournament's `bye_value`, default
-  1.0). TRF16 distinguishes `U` (the pairing engine's own odd-player-out
-  allocation) from `F` (an arbiter-awarded full-point bye for some other
-  reason); both import to the same row. Points are correct either way;
-  only the "why" is lost.
+- **`F` and `U` are kept apart** (since VCL4THP Q177). `U`, the pairing's
+  own odd-player-out allocation, is a `pairings` row with no black player,
+  worth the tournament's `bye_value`; `F`, a full point the arbiter awarded
+  for a round the player did not play, is a `"full-point"` `byes` row worth
+  a win (`Tournaments.award_full_point_bye/3`). Before that kind existed both
+  imported as the pairing-allocated bye.
 - **A playing code with an unresolvable opponent falls back to a bye**,
   reinterpreted by the point value it represents (`1`/`+` → full-point
   bye, `=` → half-point bye, `0`/`-` → zero-point bye) - the exact inverse
@@ -155,10 +154,8 @@ opinion of it.
   the first two" imports as "never". Widening is the safe direction - the
   engine will not seat a pair the arbiter separated - and the import says
   so rather than absorbing the change silently.
-- **A full-point bye granted for a round not yet paired is not imported.**
-  The `byes` table records the half-point and zero-point kinds an arbiter
-  grants; a full point is a pairing's own allocation and needs the round
-  to exist. Reported as a note.
+- **A bye granted for a round not yet paired** (`240` `F`, `H` or `Z`) is
+  imported as a `byes` row of the matching kind.
 - **Virtual points that Baku does not reproduce are not imported.** FIDE
   C.04.7 Baku is the one acceleration method this app implements, so a
   `250`/`XXA` line is applied only when that method produces the file's own

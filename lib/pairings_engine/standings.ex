@@ -685,7 +685,8 @@ defmodule PairingsEngine.Standings do
 
   @doc """
   Points a bye of `type` (a `"byes"`-table row's `type`: `"requested-half"`,
-  `"requested-zero"`, `"absent"`, or (for completeness) `"pairing-allocated"`)
+  `"requested-zero"`, `"absent"`, `"full-point"`, or (for completeness)
+  `"pairing-allocated"`)
   is worth under `tournament`'s configured scoring. The single source of
   truth for this mapping - reused by `add_bye_records/3` here and by any
   display code (e.g. `PairingsEngineWeb.PairingsLive`) that needs to show a
@@ -708,6 +709,9 @@ defmodule PairingsEngine.Standings do
   def bye_points(type, tournament, round \\ nil, cumulative_absences \\ nil) do
     case type do
       "requested-half" -> tournament.points_draw
+      # A full-point bye (TRF `F`, `Tournaments.award_full_point_bye/3`):
+      # what a win is worth - TRF26's `162` values `F` with the win's `W`.
+      "full-point" -> tournament.points_win
       # SWAR 3-2-1's `SW321_PreBye` club option ("Add presence points for
       # bye games", manual §5.16) - when `presence_on_allocated_bye` is set,
       # a pairing-allocated bye pays `presence_value` ON TOP of `bye_value`

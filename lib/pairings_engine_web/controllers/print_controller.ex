@@ -856,6 +856,7 @@ defmodule PairingsEngineWeb.PrintController do
   defp bye_type_label("requested-half"), do: gettext("requested half-point bye")
   defp bye_type_label("requested-zero"), do: gettext("requested zero-point bye")
   defp bye_type_label("absent"), do: gettext("absent")
+  defp bye_type_label("full-point"), do: gettext("full-point bye")
   defp bye_type_label(other), do: other
 
   @next_round_preview_css """
