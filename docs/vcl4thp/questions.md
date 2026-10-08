@@ -5,20 +5,6 @@ per item: what the item asks (paraphrased), what OpenPairings does today,
 the options, and the exact question to answer. The tracker
 (`docs/vcl4thp/tracker.json`) points here from each item's note.
 
-## Q11 / Q15 - is the manual "fully functional"?
-
-- **Asks:** a full English manual or online help (Q11). If FIDE judges it
-  partial, the maker must commit to completing it within a year of the
-  TAPC, which costs 5% (Q15); without that commitment it fails.
-- **Today:** fifteen English chapters ship with the program and open from
-  the Help link on every page (`priv/manual/`, `/help`). The publishing,
-  teams and printing chapters are the briefest.
-- **Options:** (a) review the manual and answer Q11 YES; (b) answer Q11 NO
-  and give the Q15 commitment (5%).
-- **Question:** Have you read `priv/manual/` and do you judge it complete
-  enough to answer Q11 YES? If not, do you commit to completing it within
-  one year of the TAPC (Q15, 5%)?
-
 ## Q37 - were the other engines' faults reported?
 
 - **Asks:** discrepancies traced to other engines were reported to TEC or

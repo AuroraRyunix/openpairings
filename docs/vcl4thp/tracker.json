@@ -177,8 +177,8 @@
     "next": 14
    },
    "answer": "Y",
-   "status": "check",
-   "note": "An English user manual of fifteen chapters, covering every feature area, ships with the program (priv/manual/*.md, rendered by lib/pairings_engine/manual.ex) and opens from a Help link in the top bar of every page at /help (help_live.ex; tests manual_test.exs, help_live_test.exs). Status check: the maintainer to review it for completeness; the publishing, teams and printing chapters are the briefest."
+   "status": "met",
+   "note": "An English user manual of fifteen chapters, covering every feature area, ships with the program (priv/manual/*.md, rendered by lib/pairings_engine/manual.ex) and opens from a Help link in the top bar of every page at /help (help_live.ex; tests manual_test.exs, help_live_test.exs). The maintainer judged it complete (2026-10-07); a Dutch translation ships alongside (priv/manual/nl)."
   },
   {
    "q": 12,
