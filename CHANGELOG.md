@@ -17,6 +17,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A bye entered on the player for a round not yet paired is in the
+  TRF.** "Absent at the rounds" for a coming round went nowhere near the
+  export; only a bye that had arrived in an imported file did. It is now
+  written like one - a `240` record in TRF26, the next round's column in the
+  engines' spelling - lettered by what the tournament pays an absence
+  (`H` for half a point, `F` for a win's worth, `Z` otherwise), and reads
+  back in as that bye. Not in an individual round robin, which pairs
+  everybody anyway.
+- [Fix] **Unpairing a round no longer forgets a granted bye.** A half-point,
+  zero-point or full-point bye for a player still absent from that round
+  was deleted with the round, and the next pairing recorded a plain
+  absence at the tournament's absence value instead. It now stays, and the
+  same bye comes back, team events included. The other way round as well:
+  taking the round out of a player's absences before it is paired drops
+  such a bye, rather than leaving it to score the player for a game and a
+  bye.
+
 - [Feature] **The manual in Dutch.** `/help` follows the language you picked:
   all fifteen chapters, search included. Every section keeps the English one's
   address, so the "?" links land in the same place in both languages - a

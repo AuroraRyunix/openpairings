@@ -2624,7 +2624,29 @@ defmodule PairingsEngine.Tournaments do
     |> guard_second_bye_want(player)
     |> guard_half_bye_eligibility()
     |> Repo.update()
+    |> tap_ok(&drop_withdrawn_future_byes/1)
     |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
+  end
+
+  # A bye row for a round not yet paired stands for an entry in
+  # `absent_rounds` (an imported one, or one an unpairing kept - see
+  # `Pairing`'s `granted_bye_ids/2`). Take the round out of the player's
+  # absences and the row has to go with it, or the pairing seats the player
+  # and the row scores them for the bye on top of the game.
+  defp drop_withdrawn_future_byes(%Player{absent: true}), do: :ok
+
+  defp drop_withdrawn_future_byes(%Player{} = player) do
+    paired =
+      Repo.aggregate(from(r in Round, where: r.tournament_id == ^player.tournament_id), :count)
+
+    still = Player.parse_absent_rounds(to_string(player.absent_rounds))
+
+    Repo.delete_all(
+      from b in "byes",
+        where: b.player_id == ^player.id and b.round > ^paired and b.round not in ^still
+    )
+
+    :ok
   end
 
   # "Must get the pairing-allocated bye" for rounds after the one where the
