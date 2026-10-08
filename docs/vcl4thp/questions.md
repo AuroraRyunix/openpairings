@@ -109,26 +109,6 @@ the options, and the exact question to answer. The tracker
   them as unknown results with each one shown on the import review for
   confirmation (b)?
 
-## Q156 - late entrants' pairing numbers: default
-
-- **Asks:** a player entering after round 4 gets the correct TPN (the one
-  their rating earns). NO costs 18%.
-- **Today:** a per-tournament Swiss setting "Late entrants' pairing
-  numbers" offers "By rating" (C.04.2 2.4; everyone below moves down one,
-  played boards untouched, Baku's Group A follows its player) and "After
-  the field" (the next free number). The default is still "After the
-  field", because the bbpPairings reference expectations in
-  `engine_input_test.exs` and `snapshot_test.exs`, the app-path harness and
-  the TRF flow validation are built on it. The tracker answers YES because
-  the program can do it; a tester using the defaults would see NO.
-- **Options:** (a) keep the default (the tester must choose the setting);
-  (b) make "By rating" the default for new Swiss events and regenerate those
-  references; (c) also make "After the field" a FIDE-mode departure.
-- **Questions:** (1) Should "By rating" be the default for new Swiss
-  tournaments? (2) Should choosing "After the field" leave FIDE mode?
-  (3) Should the printed pairings and standings show the tournament rating
-  (the chosen method) instead of the FIDE-else-national rating?
-
 ## Q100 - manual round-robin pairing
 
 - **Asks:** a round-robin round can be paired by hand. NO costs 7%; YES

@@ -169,6 +169,68 @@ defmodule PairingsEngineWeb.FideDepartureGateTest do
     end
   end
 
+  describe "late entrants after the field (VCL4THP Q156)" do
+    @after_field %{"tournament" => %{"late_entry_numbering" => "after"}}
+
+    test "the Options page offers by rating, selected, and after the field - not the grandfathered value",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/options")
+
+      assert has_element?(lv, "#late-entry-numbering-select option[value='rating'][selected]")
+      assert has_element?(lv, "#late-entry-numbering-select option[value='after']")
+      refute has_element?(lv, "#late-entry-numbering-select option[value='end']")
+    end
+
+    test "cancelling keeps by rating, in FIDE mode", %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/options")
+
+      render_submit(lv, "save", @after_field)
+      assert has_element?(lv, "#fide-gate-warn")
+      assert has_element?(lv, "#fide-gate-reasons")
+      lv |> element("#fide-gate-cancel") |> render_click()
+
+      assert Repo.reload!(t).late_entry_numbering == "rating"
+      assert Compliance.fide_mode?(Repo.reload!(t))
+      assert lost_audit(t) == []
+    end
+
+    test "confirming twice saves it and leaves FIDE mode, recorded", %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/options")
+
+      render_submit(lv, "save", @after_field)
+      pass_both(lv)
+
+      left = Repo.reload!(t)
+      assert left.late_entry_numbering == "after"
+      refute Compliance.fide_mode?(left)
+      assert left.fide_compliance_lost_round == 0
+      assert [%{details: %{"setting" => "late_entry_numbering"}}] = lost_audit(t)
+
+      # The stamp reaches the TRF26 report, like every other way out (Q44).
+      players(t, 4)
+      {:ok, _} = PairingsEngine.Pairing.pair_next_round(Repo.reload!(t))
+      {:ok, text} = PairingsEngine.TrfExport.export(Repo.reload!(t))
+      assert text =~ "### FIDE mode exited before Round 1 was paired"
+    end
+
+    test "a tournament that predates the default keeps its value, offered, and saves unasked",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      {:ok, _} = t |> Ecto.Changeset.change(late_entry_numbering: "end") |> Repo.update()
+
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/options")
+      assert has_element?(lv, "#late-entry-numbering-select option[value='end'][selected]")
+
+      render_submit(lv, "save", %{"tournament" => %{"late_entry_numbering" => "end"}})
+      refute has_element?(lv, "#fide-gate")
+      assert Repo.reload!(t).late_entry_numbering == "end"
+      assert Compliance.fide_mode?(Repo.reload!(t))
+    end
+  end
+
   describe "the pair-by-category toggle" do
     defp categories_tournament(scope),
       do: tournament(scope, %{"categories_enabled" => true, "categories" => ["A", "B"]})

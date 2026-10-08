@@ -144,10 +144,10 @@ startrangen) worden gegeven wanneer de eerste ronde wordt gepaard.
 > aangekondigde criterium van het toernooi (standaard alfabetisch; Instellingen,
 > Opties, *Gelijke rating en titel*).
 
-Een speler die later wordt toegevoegd, krijgt het eerstvolgende vrije nummer
-wanneer de volgende ronde wordt gepaard, of, als de instelling *Paringsnummers
-van laatkomers* op *Op rating* staat, het nummer dat zijn rating oplevert, waarbij
-iedereen daaronder één plaats omlaag schuift (alleen Zwitsers).
+Een speler die later wordt toegevoegd, krijgt wanneer de volgende ronde wordt
+gepaard het nummer dat zijn rating oplevert, waarbij iedereen daaronder één
+plaats omlaag schuift (alleen Zwitsers), of het eerstvolgende vrije nummer als
+de instelling *Paringsnummers van laatkomers* op *Achter het veld* staat.
 
 **Paringsnummers van een Zwitsers toernooi wijzigen.** De knop **Paringsnummers**
 op de pagina Spelers opent de lijst in paringsvolgorde. Twee spelers met dezelfde
@@ -255,7 +255,7 @@ club leeg.
 Een speler die wordt toegevoegd nadat rondes zijn gepaard, kan een ronde krijgen
 waarin hij meedoet (**Speelt mee vanaf ronde** op het formulier; de volgende te
 paren ronde wordt aangeboden). In een Zwitsers toernooi volgt hun paringsnummer de
-instelling *Paringsnummers van laatkomers* (na het veld, of op rating). Het
+instelling *Paringsnummers van laatkomers* (volgens rating, of achter het veld). Het
 formulier zegt wat de rondes ervoor tellen. Wanneer afwezigheid punten oplevert
 (pagina Puntentelling), tellen de rondes vóór de inschrijving als afwezigheid, zoals
 ingesteld op de pagina Puntentelling. In een Zwitsers toernooi wordt de nieuwe

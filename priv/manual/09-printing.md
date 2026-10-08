@@ -23,6 +23,13 @@ documents. Print documents of a tournament in which a postponed game is
 still open, or a board has no result, carry a line saying that the figures are
 not final.
 
+The rating printed beside a player (pairing lists, standings, cross table,
+cards, score sheets) is the **tournament rating**: the one the tournament's
+*Tournament rating* setting picks (Settings, Options; see
+[Players and rating lists](04-players-and-ratings.md)). Its column is headed *Elo*
+when the FIDE rating leads, *Nat.* when the national rating does, and *Rtg*
+for the highest-of or typed-by-hand methods.
+
 ## The documents of an individual tournament
 
 | Document | What it is |

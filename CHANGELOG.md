@@ -17,6 +17,30 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Late entrants are numbered by rating by default.** A new Swiss
+  tournament gives a player who joins late the pairing number their rating
+  earns and moves everybody below down one (C.04.2 2.4); the rounds already
+  played keep their boards. Every tournament that already exists keeps
+  numbering them after the field, as it did, and stays in FIDE mode - nobody
+  chose that value, a migration did, and an upgrade that evicted every event
+  from FIDE mode overnight would be a strange way to announce a default. A
+  backup file from before the setting existed imports the same way; a TRF or
+  SWAR import, which has no say in the matter, is a new tournament and gets
+  the new default.
+- [Change] **Choosing "After the field" leaves FIDE mode.** The FIDE rules
+  give a late entrant the number their rating earns, so picking the next free
+  number instead is a departure, asked about twice like the others, recorded
+  for the round it happened in and written into the TRF26 report. The
+  grandfathered value shows up on the Options page only for the tournaments
+  that already have it.
+- [Change] **Printed pairings and standings show the tournament rating.** The
+  rating beside each name on the pairing lists, standings, cross table,
+  cards, score sheets and the next-round preview is now the one the
+  tournament's *Tournament rating* setting ranks by, not FIDE-else-national
+  regardless. The column says *Elo* when the FIDE rating leads, *Nat.* when
+  the national one does and *Rtg* otherwise - five of the six methods had
+  been printing a number the pairing never looked at.
+
 - [Feature] **The manual in Dutch.** `/help` follows the language you picked:
   all fifteen chapters, search included. Every section keeps the English one's
   address, so the "?" links land in the same place in both languages - a

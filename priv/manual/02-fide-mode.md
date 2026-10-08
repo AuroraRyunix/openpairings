@@ -58,6 +58,8 @@ The settings are:
   separate tournament;
 - the **Swiss match format** (each pairing played twice in a row with colours
   reversed);
+- *Late entrants' pairing numbers* **After the field**, which gives a player
+  who joins late the next free number instead of the one their rating earns;
 - **postponed games** counted as anything other than a draw for both
   players;
 - scoring in which a draw is worth more than a win, or the bye more than a
@@ -91,8 +93,8 @@ There are two ways out, and both ask the same two questions.
 - **On purpose:** Settings, **FIDE**, **Leave FIDE mode…**
 - **By an action that is not allowed in FIDE mode.** These are: saving a
   Settings page (Options, Scoring) with a setting from the list above
-  (Keizer, the Swiss match format, postponed games counted differently, a
-  draw or the bye worth more than a win); switching on *Pair each category
+  (Keizer, the Swiss match format, late entrants after the field, postponed
+  games counted differently, a draw or the bye worth more than a win); switching on *Pair each category
   independently* on the Categories page; and pressing a pair button when the
   round, as it would be paired, is moved by a soft rule (an "only if
   possible" wish), by a bye exclusion or a bye preference, or by extra points

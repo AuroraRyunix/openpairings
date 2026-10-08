@@ -565,7 +565,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp initial_order_tiebreak_label("age_older"), do: gettext("Oldest first")
   defp initial_order_tiebreak_label("age_younger"), do: gettext("Youngest first")
 
-  defp late_entry_numbering_label("end"), do: gettext("After the field")
+  defp late_entry_numbering_label("after"), do: gettext("After the field (leaves FIDE mode)")
+
+  defp late_entry_numbering_label("end"),
+    do: gettext("After the field (kept from before By rating was the default)")
+
   defp late_entry_numbering_label("rating"), do: gettext("By rating (FIDE)")
 
   defp rating_method_warning,
@@ -836,13 +840,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               label={gettext("Late entrants' pairing numbers")}
               hint={
                 gettext(
-                  "Swiss only. By rating, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards."
+                  "Swiss only. By rating, the default, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards. After the field gives them the next free number instead, which the FIDE rules do not, so choosing it takes the tournament out of FIDE mode."
                 )
               }
             >
               <select id="late-entry-numbering-select" name="tournament[late_entry_numbering]">
                 <option
-                  :for={value <- Tournament.late_entry_numberings()}
+                  :for={value <- Tournament.late_entry_numbering_choices(@tournament)}
                   value={value}
                   selected={@tournament.late_entry_numbering == value}
                 >

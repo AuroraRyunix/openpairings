@@ -551,6 +551,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def compliance_setting_label(:pair_by_category), do: gettext("Pair by category")
   def compliance_setting_label(:swiss_match_format), do: gettext("Match format")
 
+  def compliance_setting_label(:late_entry_numbering),
+    do: gettext("Late entrants' pairing numbers")
+
   def compliance_setting_label(:postponed_requester_outcome),
     do: gettext("Postponed game, for the player who postponed it")
 
@@ -610,6 +613,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "With the standard 1, ½, 0 scoring, the pairing-allocated bye is worth something a game cannot give. A bye worth 1, ½ or 0 puts this back."
       )
 
+  def compliance_message(:late_entrants_after_field),
+    do:
+      gettext(
+        "A player who joins late is numbered after the field instead of where their rating puts them, so every later round is paired on numbers the FIDE rules (C.04.2 2.4) would not have given. By rating puts this back."
+      )
+
   def compliance_message(:mirrored_second_leg),
     do:
       gettext(
@@ -633,7 +642,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
            ],
       do: ~p"/t/#{tournament.id}/settings/scoring"
 
-  # pairing_system and swiss_match_format both live on the Options page.
+  # pairing_system, swiss_match_format and late_entry_numbering all live on
+  # the Options page.
   def compliance_setting_path(tournament, _setting),
     do: ~p"/t/#{tournament.id}/settings/options"
 

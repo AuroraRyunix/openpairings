@@ -290,7 +290,13 @@ defmodule PairingsEngine.EngineInputTest do
           type: "swiss",
           rounds_count: 5,
           initial_colour: "white",
-          pairing_engine: "ainalrami"
+          pairing_engine: "ainalrami",
+          # Every case here is a harness seed whose reference file numbered
+          # the late entrant after the field (2026-10-02, before "rating"
+          # became the default). By rating, the late entrant's pairing number
+          # and rating order coincide, and the starting-rank cases could no
+          # longer tell the two apart - which is the whole point of them.
+          late_entry_numbering: "after"
         },
         attrs
       )

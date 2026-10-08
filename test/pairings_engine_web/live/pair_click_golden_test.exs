@@ -71,6 +71,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   tie-break value, no-half-bye, rating and correction results). With every
   key the file before did not have taken out, the regenerated file is
   equal, term for term, to the one before - no board, no pairing, no TRF.
+
+  And for VCL4THP Q156, "By rating" becoming the default for late entrants:
+  every JSON export's `tournament.late_entry_numbering` reads "rating"
+  instead of "end". With that one value mapped back the regenerated file is
+  equal, term for term, to the one before; no scenario has a late entrant.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

@@ -132,11 +132,16 @@ daarna op dit criterium: alfabetisch (de FIDE-standaard), op FIDE-ID (laagste
 eerst), oudste eerst of jongste eerst. Kondig het criterium aan vóór het
 evenement.
 
-**Paringsnummers van laatkomers** (alleen Zwitsers). *Na het veld* (de standaard)
-geeft een speler die meedoet nadat de nummers zijn uitgedeeld het eerstvolgende
-vrije nummer. *Op rating* geeft het nummer dat hun rating oplevert, en iedereen
-daaronder schuift één plaats omlaag (C.04.2 2.4); rondes die al zijn gespeeld
-houden hun borden. Wijzigt u deze drie instellingen na ronde 1, dan wordt niemand
+**Paringsnummers van laatkomers** (alleen Zwitsers). *Volgens rating* (de
+standaard) geeft een speler die meedoet nadat de nummers zijn uitgedeeld het
+nummer dat hun rating oplevert, en iedereen daaronder schuift één plaats omlaag
+(C.04.2 2.4); rondes die al zijn gespeeld houden hun borden. *Achter het veld*
+geeft hun in de plaats het eerstvolgende vrije nummer. De FIDE-regels doen dat
+niet, dus wie dat kiest, haalt het toernooi uit de FIDE-modus
+([FIDE-modus](02-fide-mode.md)). Een toernooi dat is aangemaakt voordat
+*Volgens rating* de standaard werd, houdt *Achter het veld* zoals het dat had,
+zonder de FIDE-modus te verlaten; een back-upbestand uit die tijd ook, wanneer
+het wordt geïmporteerd. Wijzigt u deze drie instellingen na ronde 1, dan wordt niemand
 die al een nummer heeft opnieuw genummerd; de pagina zegt dat.
 
 **Beginkleur.** Voor de eerste ronde van een Zwitsers toernooi: door loting

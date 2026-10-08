@@ -62,6 +62,9 @@ De instellingen zijn:
   toernooi wordt gepaard;
 - het **Zwitserse matchformaat** (elke paring twee keer achter elkaar gespeeld,
   met omgekeerde kleuren);
+- *Paringsnummers van laatkomers* **Achter het veld**, waarmee een speler die
+  later meedoet het eerstvolgende vrije nummer krijgt in plaats van het nummer
+  dat zijn rating oplevert;
 - **uitgestelde partijen** die voor beide spelers iets anders tellen dan remise;
 - een puntentelling waarbij een remise meer waard is dan een winst, of de bye
   meer dan een winst.
@@ -96,8 +99,8 @@ Er zijn twee manieren om eruit te gaan, en beide stellen dezelfde twee vragen.
 - **Bewust:** Instellingen, **FIDE**, **FIDE-modus verlaten…**
 - **Door een handeling die in de FIDE-modus niet is toegestaan.** Dat zijn: een
   instellingenpagina (Opties, Puntentelling) opslaan met een instelling uit de
-  lijst hierboven (Keizer, het Zwitserse matchformaat, uitgestelde partijen
-  anders geteld, een remise of de bye meer waard dan een winst); het inschakelen
+  lijst hierboven (Keizer, het Zwitserse matchformaat, laatkomers achter het
+  veld, uitgestelde partijen anders geteld, een remise of de bye meer waard dan een winst); het inschakelen
   van *Elke categorie apart paren* op de pagina Categorieën; en op een knop
   paren drukken wanneer de ronde, zoals ze zou worden gepaard, wordt verschoven
   door een zachte regel (een wens "enkel indien mogelijk"), door een uitsluiting

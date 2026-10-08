@@ -151,6 +151,29 @@ defmodule PairingsEngine.ComplianceTest do
                Compliance.check(t)
     end
 
+    test "late entrants numbered after the field, chosen, is a departure" do
+      t = tournament(user_scope(), %{"late_entry_numbering" => "after"})
+
+      assert [
+               %{
+                 setting: :late_entry_numbering,
+                 code: :late_entrants_after_field,
+                 restore_to: ["rating"]
+               }
+             ] = Compliance.check(t)
+    end
+
+    # "end" is what the migration gave every tournament that predates the
+    # "rating" default. Nobody chose it, so an upgrade must not throw those
+    # events out of FIDE mode.
+    test "the grandfathered after-the-field value is not, and a new Swiss is by rating" do
+      assert tournament(user_scope()).late_entry_numbering == "rating"
+      assert Compliance.check(tournament(user_scope(), %{"late_entry_numbering" => "end"})) == []
+
+      assert Compliance.check(tournament(user_scope(), %{"late_entry_numbering" => "rating"})) ==
+               []
+    end
+
     test "a mirrored second leg is a departure" do
       t = tournament(user_scope(), %{"swiss_match_format" => "true"})
 
@@ -184,8 +207,15 @@ defmodule PairingsEngine.ComplianceTest do
           "pair_by_category" => "true"
         })
 
+      after_field =
+        tournament(user_scope(), %{
+          "pairing_system" => "round_robin",
+          "late_entry_numbering" => "after"
+        })
+
       assert Compliance.check(mirrored) == []
       assert Compliance.check(by_category) == []
+      assert Compliance.check(after_field) == []
     end
 
     test "a Keizer tournament with a Swiss-only setting reports only the Keizer departure" do
