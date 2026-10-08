@@ -163,7 +163,7 @@ defmodule PairingsEngineWeb.ExportController do
           tournament,
           meta.rounds,
           fn fresh -> TrfExport.export(fresh, meta.rounds, for: :rating) end,
-          [acknowledged: acknowledged] ++ sender(conn)
+          [acknowledged: acknowledged, file_name: trf_filename(tournament, meta)] ++ sender(conn)
         )
       end
 
@@ -384,7 +384,7 @@ defmodule PairingsEngineWeb.ExportController do
       case PostponedGames.send_late_games(
              tournament,
              &TrfExport.postponed_export(&1, opts),
-             sender(conn)
+             [file_name: &postponed_filename/2] ++ sender(conn)
            ) do
         {:ok, text, games, receipt} ->
           Tournaments.broadcast_tournament_change(tournament.id, :results)
@@ -665,6 +665,55 @@ defmodule PairingsEngineWeb.ExportController do
     envelope = TournamentExport.export_tournament(tournament)
 
     send_json_download(conn, envelope, filename(tournament, "json"))
+  end
+
+  @doc """
+  GET /t/:id/export/receipts/:receipt_id/json - the receipt of one sent file
+  as JSON (`SentReceipts.receipt_json/2`). For whoever may open the
+  tournament's Export page - its owner, an accepted collaborator - and for
+  an administrator; a receipt of another tournament is a 404.
+  """
+  def receipt_json(conn, %{"id" => id, "receipt_id" => receipt_id}) do
+    tournament = receipt_tournament(conn.assigns.current_scope, id)
+
+    with %{} <- tournament,
+         {rid, ""} <- Integer.parse(receipt_id),
+         %PairingsEngine.Tournaments.SentReceipt{} = receipt <-
+           PairingsEngine.SentReceipts.get(tournament.id, rid) do
+      name =
+        "receipt-#{String.replace(to_string(receipt.code || rid), ~r/[^A-Za-z0-9-]/, "-")}.json"
+
+      send_json_download(
+        conn,
+        PairingsEngine.SentReceipts.receipt_json(tournament, receipt),
+        name
+      )
+    else
+      _ ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(html: PairingsEngineWeb.ErrorHTML)
+        |> text("No such receipt.")
+    end
+  end
+
+  # The tournament whose receipts this account may read: one it may open,
+  # else - for an administrator - any that is not deleted.
+  defp receipt_tournament(scope, id) do
+    case Tournaments.get_authorized_tournament(scope, id) do
+      nil -> admin_tournament(scope.user, id)
+      tournament -> tournament
+    end
+  end
+
+  defp admin_tournament(user, id) do
+    with true <- PairingsEngine.Authz.may_administer?(user),
+         {int, ""} <- Integer.parse(id),
+         %{deleted_at: nil} = tournament <- Tournaments.get_tournament(int) do
+      tournament
+    else
+      _ -> nil
+    end
   end
 
   @doc "GET /export/tournaments.json - full-fidelity JSON backup of every tournament the current user can access (owned or collaborated)."

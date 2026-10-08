@@ -872,7 +872,7 @@ defmodule PairingsEngine.PostponedGames do
   end
 
   # Who sent it, for the receipt (`SentReceipts.record_rounds/4`).
-  defp receipt_opts(opts), do: Keyword.take(opts, [:sent_by, :sent_by_id])
+  defp receipt_opts(opts), do: Keyword.take(opts, [:sent_by, :sent_by_id, :file_name])
 
   defp build_file(nil, _tournament), do: {:ok, nil}
 
@@ -1367,7 +1367,7 @@ defmodule PairingsEngine.PostponedGames do
                  games,
                  late_period_of(games),
                  text,
-                 receipt_opts(opts)
+                 late_receipt_opts(opts, fresh, games)
                ) do
           {text, games, receipt}
         else
@@ -1379,6 +1379,17 @@ defmodule PairingsEngine.PostponedGames do
     |> case do
       {:ok, {text, games, receipt}} -> {:ok, text, games, receipt}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # `file_name:` may be a function of the fresh tournament and the games
+  # (the name depends on both).
+  defp late_receipt_opts(opts, fresh, games) do
+    opts = receipt_opts(opts)
+
+    case Keyword.get(opts, :file_name) do
+      fun when is_function(fun, 2) -> Keyword.put(opts, :file_name, fun.(fresh, games))
+      _ -> opts
     end
   end
 

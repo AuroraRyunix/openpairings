@@ -246,14 +246,48 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
   end
 
   describe "the TRF section's round table (Settings, Export)" do
-    test "the YAML rating validator is announced, disabled, and does nothing",
+    test "the Receipt (JSON) button is disabled until something was sent, then lists each send",
          %{conn: conn, scope: scope} do
       t = tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
 
-      assert has_element?(lv, "#trf-yaml-validator[disabled]", "Rating validator (YAML)")
-      assert has_element?(lv, "#trf-yaml-validator .badge", "Soon")
-      refute has_element?(lv, "#trf-yaml-validator[phx-click]")
+      assert has_element?(lv, "#receipt-json-none[disabled]", "Receipt (JSON)")
+      refute has_element?(lv, "#trf-yaml-validator")
+      refute has_element?(lv, "#receipt-json")
+
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      [receipt] = PairingsEngine.SentReceipts.list(t.id)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      refute has_element?(lv, "#receipt-json-none")
+
+      assert has_element?(
+               lv,
+               "#receipt-json-#{receipt.id}[href='/t/#{t.id}/export/receipts/#{receipt.id}/json']"
+             )
+
+      json = get(conn, ~p"/t/#{t.id}/export/receipts/#{receipt.id}/json")
+      body = json_response(json, 200)
+      assert body["code"] == receipt.code
+      assert body["file_sha256"] == receipt.file_sha256
+      assert body["kind"] == "report" and body["round"] == 1
+      assert [_ | _] = body["games"]
+      assert is_binary(body["file_name"]) and is_binary(body["sent_by"])
+    end
+
+    test "a receipt is read by the tournament's people only", %{conn: conn, scope: scope} do
+      t = tournament(scope)
+      for p <- boards(t, 1), do: set!(p, "1-0")
+      post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+      [receipt] = PairingsEngine.SentReceipts.list(t.id)
+
+      stranger = PairingsEngine.AccountsFixtures.user_fixture()
+      other = log_in_user(build_conn(), stranger)
+
+      assert other
+             |> get(~p"/t/#{t.id}/export/receipts/#{receipt.id}/json")
+             |> response(404)
     end
 
     test "shows each round's state, ticks what is ready, and blocks sending what cannot go",

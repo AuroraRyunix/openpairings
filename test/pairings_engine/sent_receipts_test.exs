@@ -203,6 +203,116 @@ defmodule PairingsEngine.SentReceiptsTest do
     end
   end
 
+  describe "the file kept on the receipt" do
+    test "is the exact text that was sent, with its name and size" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+
+      {:ok, %{file: file, receipts: [receipt]}} =
+        PostponedGames.send_rounds(
+          Repo.reload!(t),
+          [1],
+          &TrfExport.export(&1, [1], for: :rating),
+          file_name: "S_1_club_r1.trf"
+        )
+
+      assert SentReceipts.file(receipt) == file
+      assert SentReceipts.file?(receipt)
+      assert receipt.file_name == "S_1_club_r1.trf"
+      assert receipt.file_size == byte_size(file)
+      assert SentReceipts.sha256(SentReceipts.file(receipt)) == receipt.file_sha256
+
+      # An ordinary read leaves the text where it is.
+      [listed] = receipts(t)
+      assert listed.file == nil
+      assert listed.file_size == byte_size(file)
+    end
+
+    test "a file over the limit is not kept, its hash still is" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      big = String.duplicate("x", SentReceipts.max_file_bytes() + 1)
+
+      {:ok, %{receipts: [receipt]}} =
+        PostponedGames.send_rounds(Repo.reload!(t), [1], fn _ -> {:ok, big} end)
+
+      refute SentReceipts.file?(receipt)
+      assert SentReceipts.file(receipt) == nil
+      assert receipt.file_sha256 == SentReceipts.sha256(big)
+    end
+
+    test "a send with no file keeps none" do
+      {t, _players} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, do: result!(p, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+
+      [receipt] = receipts(t)
+      refute SentReceipts.file?(receipt)
+    end
+
+    test "the postponed-games file is kept too" do
+      {t, players} = tournament()
+      round1 = pair!(t)
+      postponed = round1 |> board_of(players["Ann"]) |> result!("*W")
+      for p <- round1.pairings, p.id != postponed.id, do: result!(p, "1-0")
+      {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])
+      result!(Repo.reload!(postponed), "1/2-1/2", played_on: ~D[2026-09-20])
+
+      {:ok, text, _games, receipt} =
+        PostponedGames.send_late_games(
+          Repo.reload!(t),
+          &TrfExport.postponed_export(&1, []),
+          file_name: fn _fresh, _games -> "late.trf" end
+        )
+
+      assert SentReceipts.file(receipt) == text
+      assert receipt.file_name == "late.trf"
+    end
+
+    test "travels with a backup; a file that is not the one hashed is dropped" do
+      {t, _players, _round, built, %{receipts: [receipt]}} = sent_round!()
+      scope = user_scope_fixture()
+
+      backup = t |> TournamentExport.export_tournament() |> Jason.encode!() |> Jason.decode!()
+      [entry] = backup["tournaments"]
+      assert [%{"file" => ^built}] = entry["sent_receipts"]
+
+      {:ok, [copy]} = TournamentImport.import(backup, scope)
+      [imported] = receipts(copy)
+      assert SentReceipts.file(imported) == built
+
+      tampered =
+        update_in(backup, ["tournaments", Access.at(0), "sent_receipts", Access.at(0)], fn e ->
+          Map.put(e, "file", built <> "
+")
+        end)
+
+      {:ok, [other]} = TournamentImport.import(tampered, scope)
+      [dropped] = receipts(other)
+      assert dropped.file_sha256 == receipt.file_sha256
+      refute SentReceipts.file?(dropped)
+    end
+
+    test "the receipt as JSON names code, fingerprint, kind, round, sender, time, games and hash" do
+      {t, _players, _round, _built, %{receipts: [receipt]}} = sent_round!()
+
+      json = SentReceipts.receipt_json(Repo.reload!(t), receipt)
+
+      assert json["code"] == receipt.code
+      assert json["fingerprint"] == receipt.fingerprint
+      assert json["kind"] == "report" and json["round"] == 1
+      assert json["sent_by"] == "arbiter@example.org"
+      assert json["file_sha256"] == receipt.file_sha256
+      assert length(json["games"]) == 2
+      assert {:ok, _, _} = DateTime.from_iso8601(json["sent_at"])
+      refute Map.has_key?(json, "file")
+      assert {:ok, _} = Jason.encode(json)
+    end
+  end
+
   describe "the one-send guard is untouched" do
     test "a second send of a round is refused and writes no second receipt" do
       {t, _players, _round, _built, _sent} = sent_round!()

@@ -124,7 +124,7 @@ ze gespeeld is en het bestand waarin ze zit:
   een fout stopt de download met een melding.
 - Het bestand terug importeren in OpenPairings (of in een ander programma) is de beste
   controle dat het zegt wat u denkt dat het zegt ([Importeren en exporteren](10-import-export.md)).
-- Een **ratingvalidator** (YAML) wordt aangekondigd op de pagina Exporteren en is nog niet beschikbaar.
+- **Ontvangstbewijs (JSON)** op de pagina Exporteren downloadt het ontvangstbewijs van één verstuurd bestand: code en vingerafdruk, ronde of periode, wie het verstuurde en wanneer, de partijen zoals verstuurd, en de SHA-256 en naam van het bestand. Het ontvangstbewijs bewaart ook het exacte bestand; de inbox per ratingperiode downloadt en controleert dat bestand.
 
 ## Normrapporten {#norm-reports}
 

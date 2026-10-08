@@ -5,14 +5,15 @@ defmodule PairingsEngineWeb.RatingInboxLive do
   are open and the deadline - for every tournament of this installation, so
   it is administrators only (`live_session :administration`).
 
-  A sent round can be downloaded as a TRF copy and checked with Ainalrami's
-  checker. The check replays every round up to it, which takes a while on a
+  A send can be downloaded - the exact file that was sent, or for an older
+  round (sent before files were kept) a rebuilt copy, labelled as one - and
+  checked with Ainalrami's checker. The check replays every round up to it, which takes a while on a
   large tournament, so it runs with `start_async/3` and the page stays
   usable.
   """
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{RatingInbox, Repo}
+  alias PairingsEngine.{RatingInbox, Repo, SentReceipts}
   alias PairingsEngine.Tournaments.{SentReceipt, Tournament}
   alias PairingsEngineWeb.Postponed
 
@@ -27,9 +28,9 @@ defmodule PairingsEngineWeb.RatingInboxLive do
   @impl true
   def handle_event("check", %{"id" => id}, socket) do
     with {int, ""} <- Integer.parse(id),
-         %SentReceipt{kind: "report"} = receipt <- Repo.get(SentReceipt, int),
+         %SentReceipt{} = receipt <- Repo.get(SentReceipt, int),
          %Tournament{deleted_at: nil} = tournament <- Repo.get(Tournament, receipt.tournament_id),
-         {:ok, text} <- RatingInbox.trf_copy(tournament, receipt, :through) do
+         {:ok, text, _kind} <- RatingInbox.file_for(tournament, receipt, :through) do
       {:noreply,
        socket
        |> update(:checks, &Map.put(&1, int, :running))
@@ -61,6 +62,39 @@ defmodule PairingsEngineWeb.RatingInboxLive do
   end
 
   defp month_id(period), do: Calendar.strftime(period, "%Y-%m")
+
+  # How a list stands (`RatingInbox.list_status/2`): the words, and the
+  # colour that goes with the level.
+  defp list_text(%{level: :normal} = list),
+    do:
+      gettext("Goes to the list of %{month}: send it before %{date}.",
+        month: Postponed.month_text(list.target),
+        date: Postponed.date_text(list.closes)
+      )
+
+  defp list_text(%{level: :later} = list),
+    do:
+      gettext(
+        "Past the list of %{month}: it goes to a later list now, the list of %{later} at the earliest, and is not rated at all if it misses the list of %{last}.",
+        month: Postponed.month_text(list.target),
+        later: Postponed.month_text(list.lands_in),
+        last: Postponed.month_text(Date.beginning_of_month(list.last_chance))
+      )
+
+  defp list_text(%{level: :late} = list),
+    do:
+      gettext(
+        "Will not be rated: it missed the list of %{last}, the third list after the tournament ended.",
+        last: Postponed.month_text(Date.beginning_of_month(list.last_chance))
+      )
+
+  defp list_style(%{level: :later}), do: "color: var(--warn)"
+  defp list_style(%{level: :late}), do: "color: var(--danger)"
+  defp list_style(_), do: nil
+
+  defp period_style(:later), do: "border-color: var(--warn)"
+  defp period_style(:late), do: "border-color: var(--danger)"
+  defp period_style(_), do: nil
 
   defp check_label(:match), do: gettext("Every round matches the checker's own pairing.")
   defp check_label(:differs), do: gettext("Differs from the checker's pairing or standings.")
@@ -96,7 +130,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
 
       <p class="hint" id="rating-inbox-intro">
         {gettext(
-          "Every tournament on this installation, by FIDE rating period: what was sent for rating, what is missing, which postponed games are still open, and the deadline. A round counts for the month of its date. The file that was sent is not kept, so a download is a copy rebuilt from the tournament as it is now."
+          "Every tournament on this installation, by FIDE rating period: what was sent for rating, what is missing, which postponed games are still open, and which rating list each goes to. A round counts for the month of its date. A download is the exact file that was sent; a send from before files were kept can only be offered as a copy rebuilt from the tournament as it is now. Nothing here is refused: a late report is still sent, and the list it will make is shown."
         )}
       </p>
 
@@ -117,15 +151,10 @@ defmodule PairingsEngineWeb.RatingInboxLive do
         :for={p <- @periods}
         id={"rating-inbox-period-#{month_id(p.period)}"}
         class="set-card"
-        style={p.overdue? && "border-color: var(--warn)"}
+        data-level={p.level}
+        style={period_style(p.level)}
       >
         <h2>{Postponed.month_text(p.period)}</h2>
-        <p class="hint">
-          {gettext("Deadline %{date}.", date: Postponed.date_text(p.deadline))}
-          <strong :if={p.overdue?}>
-            {gettext("Past the deadline, with rounds or postponed games still to send.")}
-          </strong>
-        </p>
 
         <div
           :for={b <- p.tournaments}
@@ -135,6 +164,25 @@ defmodule PairingsEngineWeb.RatingInboxLive do
           <h3>
             <.link navigate={~p"/t/#{b.tournament.id}/settings/export"}>{b.tournament.name}</.link>
           </h3>
+
+          <p
+            :if={b.missing != [] and b.report_list}
+            id={"rating-inbox-list-#{b.tournament.id}-#{month_id(p.period)}"}
+            class="hint"
+            data-level={b.report_list.level}
+            style={list_style(b.report_list)}
+          >
+            {list_text(b.report_list)}
+          </p>
+          <p
+            :if={b.open != [] and b.open_list}
+            id={"rating-inbox-open-list-#{b.tournament.id}-#{month_id(p.period)}"}
+            class="hint"
+            data-level={b.open_list.level}
+            style={list_style(b.open_list)}
+          >
+            <strong>{gettext("Postponed-games file")}:</strong> {list_text(b.open_list)}
+          </p>
 
           <table :if={b.sent != []} class="pe-table">
             <thead>
@@ -171,13 +219,28 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                     </span>
                   </td>
                   <td class="num">
-                    <div :if={s.receipt.kind == "report"} class="actions">
+                    <div
+                      :if={s.receipt.kind == "report" or SentReceipts.file?(s.receipt)}
+                      class="actions"
+                    >
+                      <span
+                        :if={SentReceipts.file?(s.receipt)}
+                        class="hint"
+                        title={s.receipt.file_name}
+                      >
+                        {gettext("file as sent")}
+                      </span>
+                      <span :if={not SentReceipts.file?(s.receipt)} class="hint">
+                        {gettext("rebuilt copy")}
+                      </span>
                       <a
                         id={"rating-inbox-download-#{s.receipt.id}"}
                         class="pe-btn"
                         href={~p"/admin/rating-inbox/receipts/#{s.receipt.id}/trf"}
                       >
-                        {gettext("Download TRF copy")}
+                        {if SentReceipts.file?(s.receipt),
+                          do: gettext("Download file"),
+                          else: gettext("Download TRF copy")}
                       </a>
                       <button
                         type="button"

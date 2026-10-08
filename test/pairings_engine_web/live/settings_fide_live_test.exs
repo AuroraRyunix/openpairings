@@ -151,4 +151,68 @@ defmodule PairingsEngineWeb.SettingsFideLiveTest do
     assert has_element?(lv, "#norm-event-type option[value=zonal]")
     refute has_element?(lv, "#norm-event-type option[value=team_championship]")
   end
+
+  describe "the Save button and the Rating lists card do not share anything" do
+    test "a rating-list click says Saved in its own card, not beside Save FIDE settings", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/fide")
+
+      lv
+      |> form("#rating-sequence-add-form", %{"entry" => "national"})
+      |> render_submit()
+
+      assert has_element?(lv, "#rating-note", "Saved.")
+      refute has_element?(lv, "#fide-note")
+
+      # And the other way round: saving the FIDE form leaves the card's words alone.
+      lv
+      |> form("#fide-settings-form", %{"tournament" => %{"event_code" => "X/1"}})
+      |> render_submit()
+
+      assert has_element?(lv, "#fide-note", "Saved.")
+      refute has_element?(lv, "#rating-note")
+    end
+
+    test "a rating-list click does not throw away a range row nobody saved yet", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/fide")
+
+      lv |> element("button[phx-click=add_range]") |> render_click()
+      assert has_element?(lv, "input[name='tournament[fide_id_ranges][0][fide_tournament_id]']")
+
+      lv
+      |> form("#rating-sequence-add-form", %{"entry" => "national"})
+      |> render_submit()
+
+      # The echo of the card's own save arrives as a tournament broadcast.
+      _ = :sys.get_state(lv.pid)
+      assert has_element?(lv, "input[name='tournament[fide_id_ranges][0][fide_tournament_id]']")
+      refute render(lv) =~ "updated elsewhere"
+    end
+
+    test "a Save FIDE settings click does not touch the rating sequence", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/fide")
+
+      lv |> form("#rating-sequence-add-form", %{"entry" => "national"}) |> render_submit()
+      before = Tournaments.get_authorized_tournament!(scope, tournament.id).rating_list_sequence
+
+      lv
+      |> form("#fide-settings-form", %{"tournament" => %{"fide_tournament_id" => "777"}})
+      |> render_submit()
+
+      saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert saved.rating_list_sequence == before
+      assert saved.fide_tournament_id == "777"
+    end
+  end
 end

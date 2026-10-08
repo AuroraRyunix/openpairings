@@ -166,6 +166,7 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/export/players", ExportController, :players
     get "/t/:id/export/json", ExportController, :json
     get "/t/:id/export/postponed/:pairing_id/calendar", ExportController, :postponed_calendar
+    get "/t/:id/export/receipts/:receipt_id/json", ExportController, :receipt_json
     get "/export/tournaments.json", ExportController, :all_json
 
     # POST, not GET, and the only two download routes here that are. Both

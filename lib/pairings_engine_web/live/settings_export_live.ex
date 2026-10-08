@@ -92,6 +92,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     receipts = PairingsEngine.SentReceipts.statuses(t.id)
 
     assign(socket,
+      receipt_files: PairingsEngine.SentReceipts.list(t.id) |> Enum.reverse(),
       receipt_reports: receipts.reports,
       receipt_postponed: receipts.postponed,
       receipt_drift:
@@ -1152,19 +1153,31 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
             <span :if={blocker} id="trf-send-blocker" class="hint">{blocker}</span>
 
-            <%!-- Placeholder: a YAML file a rating officer's validator reads
-                  (what the report should contain, to check a TRF against).
-                  Not built yet - the button does nothing. --%>
+            <%!-- The receipt of a sent file, as JSON: one link per send. --%>
+            <details :if={@receipt_files != []} id="receipt-json" class="receipt-json">
+              <summary class="pe-btn">{gettext("Receipt (JSON)")}</summary>
+              <ul class="receipt-list">
+                <li :for={receipt <- @receipt_files}>
+                  <a
+                    id={"receipt-json-#{receipt.id}"}
+                    href={~p"/t/#{@tournament.id}/export/receipts/#{receipt.id}/json"}
+                  >
+                    {SentReceipt.code_text(receipt)}
+                  </a>
+                  <span class="hint">· {SentReceipt.at_text(receipt.sent_at)}</span>
+                </li>
+              </ul>
+            </details>
             <button
+              :if={@receipt_files == []}
               type="button"
-              id="trf-yaml-validator"
+              id="receipt-json-none"
               class="pe-btn"
               disabled
               aria-disabled="true"
-              title={gettext("Not available yet")}
+              title={gettext("Nothing has been sent yet, so there is no receipt.")}
             >
-              {gettext("Rating validator (YAML)")}
-              <span class="badge muted">{gettext("Soon")}</span>
+              {gettext("Receipt (JSON)")}
             </button>
 
             <.link
