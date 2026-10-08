@@ -150,7 +150,11 @@ blank for the automatic value.
 **Acceleration.** None, or **Baku acceleration (FIDE C.04.7)**: the program
 works out every player's virtual points in the first rounds and gives them to
 the engine, round by round. It applies to Swiss tournaments only and cannot be
-changed once the first round is paired.
+changed once the first round is paired. Group A is counted over the players
+paired in round 1: somebody absent from round 1 (a requested bye, an absence,
+a later start round) gets no pairing number until they arrive, and is then
+numbered like any late entrant (C.04.2 2.4), after the field or by rating as
+*Late entrants' pairing numbers* says.
 
 **Swiss match format.** Each pairing is played twice in a row, the second
 game with the colours reversed. It needs an even number of rounds (each match

@@ -156,7 +156,11 @@ voor de automatische waarde.
 **Acceleratie.** Geen, of **Baku-acceleratie (FIDE C.04.7)**: het programma
 berekent in de eerste ronden de virtuele punten van elke speler en geeft die
 ronde na ronde aan de engine. Het geldt alleen voor Zwitserse toernooien en kan
-niet meer worden gewijzigd zodra de eerste ronde is gepaard.
+niet meer worden gewijzigd zodra de eerste ronde is gepaard. Groep A wordt
+geteld over de spelers die in ronde 1 gepaard zijn: wie in ronde 1 afwezig is
+(een gevraagde bye, een afwezigheid, een latere startronde) krijgt pas een
+paringsnummer bij aankomst, en dan zoals elke laatkomer (C.04.2 2.4): na het
+veld of volgens rating, zoals *Paringsnummers van laatkomers* zegt.
 
 **Zwitsers matchformaat.** Elke paring wordt twee keer achter elkaar gespeeld,
 de tweede partij met omgekeerde kleuren. Het vereist een even aantal rondes (elke

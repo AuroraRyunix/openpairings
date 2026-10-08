@@ -20,9 +20,9 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
   Questions on our path:  184 of 225
   First failure:          Q169 - FIDE's verification would stop here
   Failures on the path:   3 (Q169, Q195, Q196)
-  Penalties on the path:  55% (over 100% fails)
-  Answers:                210 met, 11 gaps, 4 still to check
-  On the path:            175 met, 7 gaps, 2 still to check
+  Penalties on the path:  20% (over 100% fails)
+  Answers:                211 met, 10 gaps, 4 still to check
+  On the path:            176 met, 6 gaps, 2 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -191,7 +191,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | 108 | Rules for other methods printable? | Y | met | - | Off our path (Q107 NO): no other method in FIDE mode. |
 | 109 | Acceleration removable after round 1? | N | met | ok | In FIDE mode acceleration freezes with round 1, no Unlock (tournaments.ex:979; settings_options_live.ex disabled select; fide_mode_locks_test.exs). |
 | 110 | Acceleration changeable after round 1? | N | met | ok | Same lock as Q109. |
-| 111 | Percentage groups respect round-1 byes having no TPN? | N | gap | -35% | Costs 35%. Late entrants are fixed: Group A is frozen at round 1 and a late entrant is numbered last and never joins it (pairing.ex:291-314; baku_group_a_test.exs:133-160). Still against the SPP's 2026-08-27 reading of C.04.2:2.4: a player absent or on a bye in round 1 has a TPN and counts in N (pairing.ex:4418-4440; baku_group_a_test.exs:188-198). See docs/vcl4thp/questions.md. |
+| 111 | Percentage groups respect round-1 byes having no TPN? | Y | met | ok | A player absent from round 1 of a Baku event (requested bye, absence, later start round) holds no TPN at round 1 and is not in N; they are numbered on arrival as a late entry per C.04.2 2.4, after the field or by rating as the tournament says, and the last GA participant stays the same (C.04.7 1.3.2). pairing.ex baku_numbering_pool/3, release_baku_round_one_absentees/3; baku_group_a_test.exs "a round-1 absentee". |
 
 ## Pairing-integrity events (PIBEs)
 

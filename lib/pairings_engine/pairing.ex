@@ -239,12 +239,15 @@ defmodule PairingsEngine.Pairing do
           {:error, "Round #{paired} still has missing results"}
 
         true ->
-          active = seed_newcomers_before_round_one(tournament, next_number, active)
+          active =
+            tournament
+            |> seed_newcomers_before_round_one(next_number, active)
+            |> then(&release_baku_round_one_absentees(tournament, next_number, &1))
 
           guard_fide_departures(tournament, next_number, fn ->
             tournament
             |> draw_initial_colour_before_round_one(next_number)
-            |> ensure_pairing_numbers(active)
+            |> ensure_pairing_numbers(baku_numbering_pool(tournament, active, next_number))
             |> freeze_baku_group_a(next_number)
             |> do_pair(next_number, active)
           end)
@@ -359,6 +362,70 @@ defmodule PairingsEngine.Pairing do
 
   defp freeze_baku_group_a(tournament, _next_number), do: tournament
 
+  # C.04.2 2.4: a Late Entry is "taken into account for the pairing of
+  # rounds after the first", "given an appropriate TPN and paired only when
+  # they actually arrive". C.04.7 1.2 forms Group A from "the list of
+  # participants to be paired" in round 1, and 1.3.1 sends everybody who is
+  # not on it through C.04.2 Article 2. So in a Baku event a player who is
+  # absent from round 1 - a requested bye, an absence, a later start round -
+  # is not on round 1's list: not numbered, not in N, and numbered on the
+  # round they turn up, like any late entrant (`late_entry_numbering`
+  # deciding where). Everybody already holding a number keeps it, whatever
+  # they are doing this round; it is only the unnumbered who wait.
+  #
+  # Only Baku, deliberately. Elsewhere the numbering of a round-1 absentee
+  # changes no group and no pairing (the round-1 colour parity is taken on
+  # the arrived players anyway), so the old behaviour stays where it is
+  # harmless.
+  defp baku_numbering_pool(
+         %Tournament{acceleration: "baku", pairing_system: "swiss"},
+         active,
+         next_number
+       ),
+       do: Enum.reject(active, &(is_nil(&1.pairing_number) and not_arrived?(&1, next_number)))
+
+  defp baku_numbering_pool(_tournament, active, _next_number), do: active
+
+  defp not_arrived?(player, round_number),
+    do: absent_for_round?(player, round_number) or not_yet_started?(player, round_number)
+
+  # The other half of the rule above, for numbers issued before round 1 was
+  # paired - a TPN exchange numbers the whole field in advance, and a round
+  # 1 that was unpaired leaves its numbers behind. Whoever holds one and is
+  # not on round 1's list after all hands it back, and the rest close ranks
+  # in the order they had: 1..N over the players actually paired, which is
+  # the N Group A is counted over. Returns the active roster, read again
+  # when anything was written.
+  defp release_baku_round_one_absentees(
+         %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
+         1,
+         active
+       ) do
+    arrived = active |> Enum.reject(&not_arrived?(&1, 1)) |> MapSet.new(& &1.id)
+
+    {keep, release} =
+      tournament.id |> full_roster_players() |> Enum.split_with(&(&1.id in arrived))
+
+    if release == [] do
+      active
+    else
+      Repo.transaction(fn ->
+        ids = Enum.map(release, & &1.id)
+        Repo.update_all(from(p in Player, where: p.id in ^ids), set: [pairing_number: nil])
+
+        for {player, number} <- Enum.with_index(keep, 1), player.pairing_number != number do
+          Repo.update_all(from(p in Player, where: p.id == ^player.id),
+            set: [pairing_number: number]
+          )
+        end
+      end)
+
+      active_players(tournament.id)
+    end
+  end
+
+  defp release_baku_round_one_absentees(_tournament, _next_number, active), do: active
+
   defp with_baku_group_a(
          %Tournament{acceleration: "baku", pairing_system: "swiss", baku_group_a_last: nil} = t,
          roster
@@ -401,13 +468,17 @@ defmodule PairingsEngine.Pairing do
         {:error, "Round #{paired} still has missing results"}
 
       true ->
-        active = Enum.reject(active, &not_yet_started?(&1, next_number))
+        active =
+          tournament
+          |> release_baku_round_one_absentees(next_number, active)
+          |> Enum.reject(&not_yet_started?(&1, next_number))
+
         round_specific = Enum.filter(active, &absent_for_round?(&1, next_number))
 
         tournament =
           tournament
           |> draw_initial_colour_before_round_one(next_number)
-          |> ensure_pairing_numbers(active)
+          |> ensure_pairing_numbers(baku_numbering_pool(tournament, active, next_number))
           |> freeze_baku_group_a(next_number)
 
         with {:ok, round} <-
@@ -660,7 +731,12 @@ defmodule PairingsEngine.Pairing do
     # the numbers go into the history's roster in memory instead - a
     # late entrant's, and those of the players they move down - and
     # Baku's line moves with them as it will on disk.
-    {numbers, group_a_last} = new_pairing_numbers(tournament, active)
+    {numbers, group_a_last} =
+      new_pairing_numbers(
+        tournament,
+        baku_numbering_pool(tournament, active, checked.next_number)
+      )
+
     tournament = %{tournament | baku_group_a_last: group_a_last}
 
     history =
@@ -4809,15 +4885,21 @@ defmodule PairingsEngine.Pairing do
   tournament (FIDE C.04.7) - Group A is every player numbered up to and
   including it - or nil when there is nobody to put in it.
 
-  C.04.7 1.2 splits "the participants" before round 1: Group A is the first
-  half of them, rounded up to an even number, `2 * ceil(N/4)`. N is the
-  starting list round 1 is paired from: every player holding a pairing
-  number when round 1 is paired, which includes somebody absent from round
-  1 (a round-1 bye, or a later start round entered before the event began) -
-  they are on the list and hold a number in it - and excludes nobody else.
+  C.04.7 1.2 splits "the list of participants to be paired" before round
+  1: Group A is the first half of them, rounded up to an even number,
+  `2 * ceil(N/4)`. N is the players round 1 is paired from - every player
+  holding a pairing number when round 1 is paired. Somebody absent from
+  round 1 (a requested bye, an absence, a later start round) holds none
+  then: C.04.2 2.4 makes them a Late Entry, "given an appropriate TPN and
+  paired only when they actually arrive", so they are not in N
+  (`baku_numbering_pool/3`, `release_baku_round_one_absentees/3`). Until
+  2026-10 they were numbered with the field and counted; VCL4THP Q111 says
+  that costs 35%, and FIDE's text says it is wrong.
+
   1.3.2 then keeps "the last GA-participant ... the same participant as in
-  the previous round". A late entrant (1.3.1) is numbered after the field,
-  or - `late_entry_numbering` "rating" - given the number their rating earns
+  the previous round". A late entrant (1.3.1) - the round-1 absentee
+  included, on the round they arrive - is numbered after the field, or -
+  `late_entry_numbering` "rating" - given the number their rating earns
   (`ensure_pairing_numbers/2`); one put above that player moves the stored
   line down one with them - and is in Group A, as 1.3.2's first note
   foresees - and one put below it changes nothing.
@@ -4827,10 +4909,13 @@ defmodule PairingsEngine.Pairing do
   `players`. A tournament with a round 1 and nothing stored (Baku switched
   on later, or restored from a file older than the column) gets the field
   of its round 1: `players` numbered up to the highest number that sat at a
-  board or had a bye row in round 1 - the backfill's rule, see the
-  `AddBakuGroupALast` migration. That reading assumes nobody was numbered
-  in among round 1's players later; a late entrant put above one of them
-  in such a tournament is counted into the list.
+  board in round 1, the pairing-allocated bye included. The
+  `AddBakuGroupALast` migration's backfill also counted round 1's bye rows,
+  which was right while round-1 absentees were numbered with the field; a
+  round-1 absentee now arrives with a number after it, and counting their
+  bye row would drag them back into N. That reading assumes nobody was
+  numbered in among round 1's players later; a late entrant put above one
+  of them in such a tournament is counted into the list.
   """
   def baku_group_a_last(%{baku_group_a_last: last}, _players) when is_integer(last), do: last
 
@@ -4849,8 +4934,10 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  # The highest pairing number that took part in round 1 - at a board, or
-  # with a bye/absence row - or nil when there is no round 1 (yet).
+  # The highest pairing number that was paired in round 1 - at a board, the
+  # pairing-allocated bye included - or nil when there is no round 1 (yet).
+  # Bye and absence rows do not count: their players were not on round 1's
+  # list (C.04.2 2.4), whatever number they hold now.
   defp round_one_highest_number(%{id: id}) when is_integer(id) do
     in_round_one =
       from(g in PairingsEngine.Tournaments.Pairing,
@@ -4862,12 +4949,7 @@ defmodule PairingsEngine.Pairing do
       |> Repo.all()
       |> List.flatten()
 
-    on_bye =
-      Repo.all(
-        from b in "byes", where: b.tournament_id == ^id and b.round == 1, select: b.player_id
-      )
-
-    case Enum.reject(in_round_one ++ on_bye, &is_nil/1) do
+    case Enum.reject(in_round_one, &is_nil/1) do
       [] ->
         nil
 
