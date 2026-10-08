@@ -674,7 +674,7 @@ defmodule PairingsEngine.Tournaments do
   def create_tournament(attrs) do
     type = attrs["type"] || attrs[:type] || "swiss"
 
-    %Tournament{tiebreaks: Tiebreaks.fide_defaults(type)}
+    %Tournament{tiebreaks: Tiebreaks.fide_defaults(type), round_one_absentees_late: true}
     |> Tournament.changeset(attrs)
     |> Tournament.validate_no_team_keizer()
     |> stamp_compliance_loss(0)
@@ -686,7 +686,13 @@ defmodule PairingsEngine.Tournaments do
   def create_tournament(%Scope{} = scope, attrs) do
     type = attrs["type"] || attrs[:type] || "swiss"
 
-    %Tournament{tiebreaks: Tiebreaks.fide_defaults(type), user_id: scope.user.id}
+    # A new tournament is under C.04.2 2.4 from the start
+    # (`Tournament`'s `round_one_absentees_late`).
+    %Tournament{
+      tiebreaks: Tiebreaks.fide_defaults(type),
+      user_id: scope.user.id,
+      round_one_absentees_late: true
+    }
     |> Tournament.changeset(attrs)
     |> Tournament.validate_no_team_keizer()
     |> stamp_compliance_loss(0)

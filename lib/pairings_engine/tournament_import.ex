@@ -294,6 +294,10 @@ defmodule PairingsEngine.TournamentImport do
       |> Ecto.Changeset.change(
         pairing_state(t_attrs, tournament.initial_colour_drawn, records!(entry, "teams") != [])
       )
+      |> Ecto.Changeset.change(
+        round_one_absentees_late:
+          round_one_absentees_late(t_attrs, tournament.round_one_absentees_late)
+      )
       |> update!()
 
     team_map = import_teams!(tournament, records!(entry, "teams"))
@@ -397,6 +401,18 @@ defmodule PairingsEngine.TournamentImport do
     if Map.has_key?(t_attrs, "late_entry_absences") or Map.get(t_attrs, "status") != "finished",
       do: t_attrs,
       else: Map.put(t_attrs, "late_entry_absences", false)
+  end
+
+  # Not cast - it is when the tournament was made, not a choice - so it is
+  # carried by hand. A file from before it travelled describes a tournament
+  # that numbered its round-1 absentees with the field: a new row gets
+  # false, the value the migration gave every row of that era; a restore
+  # keeps the live row's (`fallback`).
+  defp round_one_absentees_late(t_attrs, fallback) do
+    case Map.fetch(t_attrs, "round_one_absentees_late") do
+      {:ok, value} -> truthy(value)
+      :error -> fallback
+    end
   end
 
   # A file written before `late_entry_numbering` travelled carries none, and
@@ -509,6 +525,7 @@ defmodule PairingsEngine.TournamentImport do
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil, records!(t_data, "teams") != []))
+      |> Ecto.Changeset.change(round_one_absentees_late: round_one_absentees_late(t_attrs, false))
       |> insert!("the \"tournament\" block")
 
     team_map = import_teams!(tournament, records!(t_data, "teams"))
