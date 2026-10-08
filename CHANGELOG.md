@@ -17,7 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
-- [Feature] **Tom W, a royal-blue theme with a sky-blue accent,** under Board in the theme picker. Named for someone whose help shaped a good deal of this app; he gets a colour scheme, which is more than arbiters usually get. Every accent has its own lighter variant on it, because royal blue is bright enough to swallow the dark themes' ones.
+- [Feature] **Tom W, a pale sky-blue theme with a royal-blue accent,** under Board in the theme picker. Named for someone whose help shaped a good deal of this app; he gets a colour scheme, which is more than arbiters usually get. A light theme, so the accent picker works on it exactly as on Light: red means red.
 - [Removed] **Mocha.** It did not earn its place. If it was your theme you are back on System, on every device, until you pick another.
 - [Fix] **Dropdown arrows stay inside their box.** Every dropdown draws its own
   arrow now, in the theme's colour, with room kept for it - the browser's own
