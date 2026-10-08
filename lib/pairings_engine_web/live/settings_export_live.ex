@@ -66,6 +66,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
        csv_skip_absent: false,
        csv_bom: true
      )
+     |> attach_fide_gate()
      |> assign_trf_state()
      |> assign_swar_export_notes()}
   end
@@ -111,6 +112,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           else: []
         ),
       postponed_open: PostponedGames.open_games(t),
+      # FIDE mode: the open postponed games no TRF goes out with (VCL4THP
+      # Q169) - each waits for its result or for "not played in this event".
+      blocking_postponed: PostponedGames.blocking_games(t),
       trf_rounds: rounds,
       trf_selected: selected,
       postponed_report_form: postponed_report_form(t),
@@ -136,12 +140,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp trf_rounds_param(selected), do: selected |> Enum.sort() |> Enum.join(",")
 
   # Why "Send" cannot go ahead with this selection, or nil when it can.
-  defp trf_send_blocker(rounds, selected, tournament) do
+  defp trf_send_blocker(rounds, selected, tournament, blocking) do
     chosen = Enum.filter(rounds, &MapSet.member?(selected, &1.round))
 
     cond do
       tournament.send_confirmation_needed ->
         gettext("Confirm above that this copy is the one that reports first.")
+
+      blocking != [] ->
+        gettext(
+          "In FIDE mode no TRF goes out while a postponed game has no result: see the games above."
+        )
 
       chosen == [] ->
         gettext("Tick the rounds to send.")
@@ -493,6 +502,66 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     end
   end
 
+  defp not_played_reason,
+    do:
+      {gettext("Postponed game not played"),
+       gettext(
+         "A postponed game without a result goes in the FIDE report as not played in this event. The FIDE rules allow no report while a game has no result."
+       )}
+
+  defp report_not_played(socket, id) do
+    t = socket.assigns.tournament
+    game = Enum.find(socket.assigns.postponed_open, &(to_string(&1.pairing.id) == to_string(id)))
+
+    with %{pairing: pairing, round: round} <- game || {:error, :not_open},
+         {:ok, %{left_fide_mode: left?}} <- PostponedGames.report_not_played(t, pairing.id) do
+      scope = socket.assigns.current_scope
+
+      Audit.log(t.id, scope, "pairing.postponed_not_played", %{
+        round: round,
+        board: pairing.display_board || pairing.board,
+        pairing_id: pairing.id
+      })
+
+      fresh = Tournaments.get_authorized_tournament!(scope, t.id)
+
+      # The audit trail's copy of the stamp, as a settings save that departs
+      # writes one (`SettingsSupport.log_compliance_departures/3`).
+      if left? do
+        Audit.log(t.id, scope, "tournament.fide_compliance_lost", %{
+          setting: "postponed_not_played",
+          code: "postponed_not_played",
+          round: fresh.fide_compliance_lost_round
+        })
+      end
+
+      {:noreply,
+       socket
+       |> assign(tournament: fresh)
+       |> put_flash(
+         :info,
+         gettext(
+           "Recorded: round %{round}, board %{board} was not played in this event. The file for rating writes it as not played; if it is played later, its result goes in the postponed-games file.",
+           round: round,
+           board: pairing.display_board || pairing.board
+         )
+       )
+       |> assign_trf_state()}
+    else
+      {:error, :not_open} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           gettext("Not changed: that game is no longer an open postponed game.")
+         )
+         |> assign_trf_state()}
+
+      {:error, reason} when is_atom(reason) ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
   # What a `.swar` export of this tournament cannot carry (`SwarExport.
   # export_notes/1`), shown beside its button - only where that button is.
   defp assign_swar_export_notes(socket) do
@@ -525,6 +594,20 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     # The rounds are packed again, so dates set for the old ones no longer
     # belong to anything.
     {:noreply, socket |> assign(late_selected: selected, late_dates: %{}) |> assign_late_packed()}
+  end
+
+  # VCL4THP Q169: an open postponed game recorded as not played in this
+  # event. In FIDE mode that is a departure, so it asks twice first (the
+  # Level-4 gate, `SettingsSupport.attach_fide_gate/1`) and then leaves FIDE
+  # mode with it; outside FIDE mode it just records it.
+  def handle_event("report_not_played", %{"id" => id} = params, socket) do
+    if PairingsEngine.Compliance.fide_mode?(socket.assigns.tournament) and
+         not socket.assigns.fide_gate_confirmed do
+      {:noreply,
+       assign(socket, fide_gate: new_gate("report_not_played", params, [not_played_reason()]))}
+    else
+      report_not_played(socket, id)
+    end
   end
 
   def handle_event("set_late_date", %{"round" => round, "date" => date}, socket) do
@@ -882,6 +965,51 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           </button>
         </div>
 
+        <.fide_exit_dialog
+          id="fide-gate"
+          step={@fide_gate && @fide_gate.step}
+          reasons={(@fide_gate && @fide_gate.reasons) || []}
+        />
+
+        <%!-- FIDE mode, a postponed game still without a result (VCL4THP
+              Q169): no TRF goes out, copy or for rating, until each one has
+              a result or is recorded as not played in this event - which
+              asks twice and takes the tournament out of FIDE mode. --%>
+        <div
+          :if={@blocking_postponed != []}
+          id="trf-open-postponed"
+          class="card"
+          role="alert"
+          style="display: block; margin: 0 0 12px; border-left: 3px solid var(--danger)"
+        >
+          <p style="margin-top: 0">
+            <strong>
+              {gettext(
+                "No TRF in FIDE mode while a postponed game has no result. The FIDE rules allow no report, and no final standings, until every game has one."
+              )}
+            </strong>
+            {Postponed.what_to_do_text()}
+          </p>
+          <ul style="margin: 0; padding-left: 20px">
+            <li :for={game <- @blocking_postponed} id={"trf-open-postponed-#{game.pairing.id}"}>
+              <.link navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}>
+                {Postponed.game_text(game)}
+              </.link>
+              <button
+                :if={!@tournament.archived_at}
+                type="button"
+                id={"trf-not-played-#{game.pairing.id}"}
+                class="pe-btn"
+                style="margin-left: 8px"
+                phx-click="report_not_played"
+                phx-value-id={game.pairing.id}
+              >
+                {gettext("Not played in this event")}
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <p :if={@trf_rounds == []} class="hint" id="trf-no-rounds">
           {gettext("No round is paired yet.")}
         </p>
@@ -949,16 +1077,20 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             </table>
           </div>
 
-          <% blocker = trf_send_blocker(@trf_rounds, @trf_selected, @tournament) %>
+          <% blocker =
+            trf_send_blocker(@trf_rounds, @trf_selected, @tournament, @blocking_postponed) %>
           <div class="actions" style="align-items: center">
             <a
               id="trf-download-copy"
-              class={["pe-btn", MapSet.size(@trf_selected) == 0 && "is-disabled"]}
+              class={[
+                "pe-btn",
+                (MapSet.size(@trf_selected) == 0 or @blocking_postponed != []) && "is-disabled"
+              ]}
               href={
-                if MapSet.size(@trf_selected) > 0,
+                if MapSet.size(@trf_selected) > 0 and @blocking_postponed == [],
                   do: ~p"/t/#{@tournament.id}/export/trf?rounds=#{trf_rounds_param(@trf_selected)}"
               }
-              aria-disabled={to_string(MapSet.size(@trf_selected) == 0)}
+              aria-disabled={to_string(MapSet.size(@trf_selected) == 0 or @blocking_postponed != [])}
               target="_blank"
             >
               {gettext("Download a copy (not for rating)")}

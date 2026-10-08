@@ -149,6 +149,8 @@ defmodule PairingsEngine.RatingInbox do
     case TrfExport.export(t, spec, copy: true) do
       {:ok, text} -> {:ok, text}
       {:error, %{message: message}} -> {:error, message}
+      # FIDE mode, a postponed game open since (VCL4THP Q169): no TRF at all.
+      {:error, {:open_postponed, _games}} -> {:error, :open_postponed}
     end
   end
 

@@ -17,6 +17,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **FIDE mode makes nothing final while a postponed game is open.** No
+  TRF - copy, engine spelling or the file *Send…* hands out - and no final
+  standings, on screen or on paper, until every postponed game has a result;
+  the refusal lists the open games. The other way on is **Not played in this
+  event** beside each game on Settings, Export: it asks twice, takes the
+  tournament out of FIDE mode for good, writes the game as `0000 - Z` in the
+  file for rating and names it in a `### Not played @ Round r` line in the
+  copies. The game itself stays postponed, so if it is played after all it
+  still goes in the postponed-games file. Outside FIDE mode nothing changed:
+  the old way was always right for a club that never asked FIDE's opinion
+  (VCL4THP Q169).
 - [Feature] **The manual in Dutch.** `/help` follows the language you picked:
   all fifteen chapters, search included. Every section keeps the English one's
   address, so the "?" links land in the same place in both languages - a

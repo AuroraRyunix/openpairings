@@ -152,7 +152,16 @@ afdrukken en de publiek gepubliceerde stand dat ze *niet definitief* zijn, marke
 ze de speler of ploeg met *1 pending* (1 in behandeling), en blijft het toernooi
 lopen. Het archiveren van het toernooi meldt hoeveel partijen nog niet zijn gespeeld.
 
-**Verslaglegging.** Een uitgestelde partij wordt in het TRF-verslag als `?`
-geschreven; het echte resultaat gaat naar de FIDE in een apart bestand voor de
-uitgestelde partijen, omdat een partij die in een andere ratingperiode is gespeeld,
-als apart toernooi wordt gerapporteerd. Zie [Verzenden naar FIDE](11-fide-report.md).
+**Verslaglegging.** In de FIDE-modus is er geen TRF en geen eindstand zolang
+een uitgestelde partij geen resultaat heeft: Instellingen, Exporteren toont de
+openstaande partijen. Voer het resultaat in, of druk naast de partij op **Niet
+gespeeld in dit toernooi**. Die tweede weg vraagt het twee keer (ze haalt het
+toernooi voorgoed uit de FIDE-modus), en het verslag zegt dan in een
+`###`-regel om welke partij het gaat. De partij blijft uitgesteld: het bestand
+voor de rating schrijft ze als niet gespeeld (`0000 - Z`), en wordt ze later
+toch gespeeld, dan gaat het echte resultaat naar de FIDE in een apart bestand
+voor de uitgestelde partijen, omdat een partij die in een andere ratingperiode
+is gespeeld, als apart toernooi wordt gerapporteerd. Buiten de FIDE-modus wordt
+een uitgestelde partij zonder vragen als `?` in de TRF-kopieën en als niet
+gespeeld in het bestand voor de rating geschreven. Zie
+[Verzenden naar FIDE](11-fide-report.md).

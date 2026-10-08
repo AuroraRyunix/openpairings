@@ -1043,6 +1043,19 @@ defmodule PairingsEngineWeb.PrintController do
       requested_round != nil and Tournaments.get_round(tournament.id, requested_round) == nil ->
         send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested_round))
 
+      # FIDE mode, the last round paired and a postponed game still open
+      # (VCL4THP Q169): this sheet would be the final standings, and FIDE
+      # allows none until every game has a result. The paper says why and
+      # lists the games, instead of a table somebody hands prizes out from.
+      PairingsEngine.PostponedGames.final_standings_refused?(tournament, requested_round) ->
+        print_page(
+          conn,
+          tournament,
+          tournament.name,
+          gettext("Standings after round %{n}", n: requested_round || rounds_paired),
+          final_refused_body(tournament)
+        )
+
       true ->
         entries =
           case {keizer?, requested_round} do
@@ -1107,6 +1120,20 @@ defmodule PairingsEngineWeb.PrintController do
         "missing-results-not-final",
         &PairingsEngineWeb.Postponed.missing_results_text/1
       )
+  end
+
+  defp final_refused_body(tournament) do
+    games =
+      tournament
+      |> PairingsEngine.PostponedGames.blocking_games()
+      |> Enum.map_join("", &("<li>" <> esc(PairingsEngineWeb.Postponed.game_text(&1)) <> "</li>"))
+
+    ~s(<div id="final-standings-refused" style="border: 2px solid #000; padding: 8px 12px; margin-bottom: 14px; font-size: 12.5px;"><strong>) <>
+      esc(PairingsEngineWeb.Postponed.final_standings_refused_text()) <>
+      "</strong><ul>" <>
+      games <>
+      "</ul><p>" <>
+      esc(PairingsEngineWeb.Postponed.what_to_do_text()) <> "</p></div>"
   end
 
   # Boards with no result at all make a sheet as unfinal as an open postponed
@@ -1516,42 +1543,61 @@ defmodule PairingsEngineWeb.PrintController do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     requested = parse_round(params["round"])
 
-    if requested != nil and Tournaments.get_round(tournament.id, requested) == nil do
-      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested))
-    else
-      opts = if requested, do: [through_round: requested], else: []
-      entries = TeamStandings.standings(tournament, opts)
-      codes = tournament |> TeamStandings.effective_tiebreaks() |> Enum.reject(&(&1 == "MP"))
+    cond do
+      requested != nil and Tournaments.get_round(tournament.id, requested) == nil ->
+        send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested))
 
-      head =
-        "<th class=\"num\">#{gettext("Rank")}</th><th>#{gettext("Team")}</th>" <>
-          "<th class=\"num\">#{gettext("Played")}</th><th class=\"num\">#{gettext("W-D-L")}</th>" <>
-          "<th class=\"num\">MP</th>" <>
-          Enum.map_join(codes, "", &"<th class=\"num\">#{esc(&1)}</th>")
+      # The team table is final standings too (VCL4THP Q169) - see
+      # `standings/2`.
+      PairingsEngine.PostponedGames.final_standings_refused?(tournament, requested) ->
+        print_page(
+          conn,
+          tournament,
+          tournament.name,
+          gettext("Team standings after round %{n}",
+            n: requested || PairingsEngine.Standings.rounds_paired(tournament.id)
+          ),
+          final_refused_body(tournament)
+        )
 
-      rows =
-        Enum.map_join(entries, "", fn e ->
-          "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.team.name)}</strong>#{team_pending_note(e)}</td>" <>
-            "<td class=\"num\">#{e.played}</td>" <>
-            "<td class=\"num\">#{e.won}-#{e.drawn}-#{e.lost}</td>" <>
-            "<td class=\"num\"><strong>#{format_num(e.mp)}</strong></td>" <>
-            Enum.map_join(codes, "", fn code ->
-              "<td class=\"num\">#{format_num(Map.get(e.tiebreaks, code, 0.0))}</td>"
-            end) <> "</tr>"
-        end)
-
-      label = requested || PairingsEngine.Standings.rounds_paired(tournament.id)
-
-      print_page(
-        conn,
-        tournament,
-        tournament.name,
-        gettext("Team standings after round %{n}", n: label),
-        tournament_info_html(tournament) <>
-          postponed_banner(tournament, requested) <>
-          "<table><thead><tr>#{head}</tr></thead><tbody>#{rows}</tbody></table>"
-      )
+      true ->
+        team_standings_page(conn, tournament, requested)
     end
+  end
+
+  defp team_standings_page(conn, tournament, requested) do
+    opts = if requested, do: [through_round: requested], else: []
+    entries = TeamStandings.standings(tournament, opts)
+    codes = tournament |> TeamStandings.effective_tiebreaks() |> Enum.reject(&(&1 == "MP"))
+
+    head =
+      "<th class=\"num\">#{gettext("Rank")}</th><th>#{gettext("Team")}</th>" <>
+        "<th class=\"num\">#{gettext("Played")}</th><th class=\"num\">#{gettext("W-D-L")}</th>" <>
+        "<th class=\"num\">MP</th>" <>
+        Enum.map_join(codes, "", &"<th class=\"num\">#{esc(&1)}</th>")
+
+    rows =
+      Enum.map_join(entries, "", fn e ->
+        "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.team.name)}</strong>#{team_pending_note(e)}</td>" <>
+          "<td class=\"num\">#{e.played}</td>" <>
+          "<td class=\"num\">#{e.won}-#{e.drawn}-#{e.lost}</td>" <>
+          "<td class=\"num\"><strong>#{format_num(e.mp)}</strong></td>" <>
+          Enum.map_join(codes, "", fn code ->
+            "<td class=\"num\">#{format_num(Map.get(e.tiebreaks, code, 0.0))}</td>"
+          end) <> "</tr>"
+      end)
+
+    label = requested || PairingsEngine.Standings.rounds_paired(tournament.id)
+
+    print_page(
+      conn,
+      tournament,
+      tournament.name,
+      gettext("Team standings after round %{n}", n: label),
+      tournament_info_html(tournament) <>
+        postponed_banner(tournament, requested) <>
+        "<table><thead><tr>#{head}</tr></thead><tbody>#{rows}</tbody></table>"
+    )
   end
 
   @notice_css """

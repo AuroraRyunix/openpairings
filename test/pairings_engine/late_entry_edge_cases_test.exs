@@ -184,6 +184,9 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
 
   defp trf_total(t, player) do
     player = Repo.reload!(player)
+    # FIDE mode makes no TRF with a postponed game open (Q169); the totals
+    # are what is asked here, so any open one is recorded as not played.
+    PairingsEngine.PostponedHelpers.report_open_games_not_played!(t.id)
     {:ok, text} = TrfExport.export(fresh(t))
 
     line =

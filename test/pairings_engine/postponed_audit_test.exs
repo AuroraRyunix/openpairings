@@ -364,6 +364,9 @@ defmodule PairingsEngine.PostponedAuditTest do
       round1 = pair!(t)
       postponed = round1 |> board_of(players["Ann"]) |> result!("*W")
       others!(round1, postponed)
+      # FIDE mode makes no TRF with a game open (Q169): record it as not
+      # played in this event first, as the arbiter now has to.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
 
       {:ok, text} = TrfExport.export(Repo.reload!(t), "1")
       {:ok, _} = PostponedGames.finalise(Repo.reload!(t), [1])

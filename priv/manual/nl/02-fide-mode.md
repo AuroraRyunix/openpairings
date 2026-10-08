@@ -48,6 +48,13 @@ In een ploegentoernooi liggen de selecties van de ploegen en de bordvolgorden
 vast zodra ronde 1 is gepaard (een nieuwe speler kan nog wel als reserve
 onderaan een ploeg worden toegevoegd).
 
+De FIDE-modus maakt **geen TRF en geen eindstand zolang een uitgestelde partij
+geen resultaat heeft**. Elke TRF-download, het bestand van *Versturen…* en de
+stand na de laatste ronde worden geweigerd, met de openstaande partijen erbij.
+Voer hun resultaten in, of leg een partij vast als **niet gespeeld in dit
+toernooi** (Instellingen, Exporteren); dat haalt het toernooi uit de
+FIDE-modus. Zie [Uitgestelde partijen](07-results.md).
+
 ## Instellingen die een toernooi uit de FIDE-modus halen {#settings-that-take-a-tournament-out-of-fide-mode}
 
 > [!FIDE] Afwijkingen van FIDE
@@ -101,7 +108,9 @@ Er zijn twee manieren om eruit te gaan, en beide stellen dezelfde twee vragen.
   van *Elke categorie apart paren* op de pagina Categorieën; en op een knop
   paren drukken wanneer de ronde, zoals ze zou worden gepaard, wordt verschoven
   door een zachte regel (een wens "enkel indien mogelijk"), door een uitsluiting
-  of voorkeur voor een bye, of door extra punten die in de paring meetellen.
+  of voorkeur voor een bye, of door extra punten die in de paring meetellen; en
+  een uitgestelde partij vastleggen als *niet gespeeld in dit toernooi* op de
+  pagina Exporteren.
 
 Voordat er iets wordt geschreven, toont het programma het dialoogvenster
 *FIDE-modus verlaten?* in twee stappen (dit is de dubbele bevestiging die de

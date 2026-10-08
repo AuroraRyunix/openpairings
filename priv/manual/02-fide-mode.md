@@ -44,6 +44,13 @@ In a team event, the teams' rosters and board orders are fixed once round 1
 is paired (a new player can still be added at the bottom of a team, as a
 reserve).
 
+FIDE mode makes **no TRF and no final standings while a postponed game has no
+result**. Every TRF download, the file made by *Send…* and the standings
+after the last round are refused, with the open games listed. Enter their
+results, or record a game as **not played in this event** (Settings, Export),
+which takes the tournament out of FIDE mode. See
+[Postponed games](07-results.md).
+
 ## Settings that take a tournament out of FIDE mode
 
 > [!FIDE] Departures from FIDE
@@ -96,7 +103,8 @@ There are two ways out, and both ask the same two questions.
   independently* on the Categories page; and pressing a pair button when the
   round, as it would be paired, is moved by a soft rule (an "only if
   possible" wish), by a bye exclusion or a bye preference, or by extra points
-  counted in the pairing.
+  counted in the pairing; and recording a postponed game as *not played in
+  this event* on the Export page.
 
 Before anything is written the program shows the dialog *Leave FIDE mode?*
 in two steps (this is the double confirmation that the FIDE tournament

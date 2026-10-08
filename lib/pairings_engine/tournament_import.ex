@@ -883,6 +883,7 @@ defmodule PairingsEngine.TournamentImport do
           finalised_at: parse_datetime(Map.get(pr, "finalised_at")),
           finalised_open: truthy(Map.get(pr, "finalised_open")),
           postponed_reported_at: parse_datetime(Map.get(pr, "postponed_reported_at")),
+          not_played_at: parse_datetime(Map.get(pr, "not_played_at")),
           agreed_date: parse_date(Map.get(pr, "agreed_date")),
           agreed_date_log: agreed_date_log(Map.get(pr, "agreed_date_log")),
           # The game's identity, kept (`PostponedGames`); a payload written

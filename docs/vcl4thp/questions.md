@@ -51,26 +51,6 @@ the options, and the exact question to answer. The tracker
   Baku-accelerated event be left out of N and numbered only when they
   arrive, as the SPP read C.04.2:2.4?
 
-## Q169 - standings and TRF with a postponed game open
-
-- **Asks:** the program must NOT produce final standings or the TRF while
-  an adjourned game has no result. YES fails.
-- **Today:** with a postponed game open, the round can be finalised and
-  sent (the file sent for rating writes it as not played, `0000 - Z`; the
-  TRF26 download writes `?` with `162 X`), and standings show as not final.
-  This is the project's design: games played after the event are rated as
-  their own FIDE tournament.
-- **Options:** (a) keep it and argue it to TEC (fails as written);
-  (b) in FIDE mode refuse final standings and the TRF until every
-  postponed game has a result, with "report it as not played" as an
-  explicit result the arbiter enters (`0000 - Z` already exists for the
-  rating file), so nothing is ever produced with an open game;
-  (c) make producing them with an open game a FIDE-mode departure
-  (Level-4).
-- **Question:** For Q169, which do you want: (a), (b) or (c)? Option (b)
-  keeps the separate-tournament design: the arbiter first records the
-  postponed game as "not played in this event", then sends.
-
 ## Q195 / Q196 - prohibited pairings after round 1
 
 - **Asks:** prohibitions can be entered only before round 1 is paired

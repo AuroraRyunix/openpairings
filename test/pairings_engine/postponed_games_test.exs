@@ -339,6 +339,9 @@ defmodule PairingsEngine.PostponedGamesTest do
       round1 = pair!(t)
       postponed = round1 |> board_of(alice) |> result!("*")
       white_wins_elsewhere!(round1, postponed)
+      # FIDE mode makes no TRF with a game open (Q169): record it as not
+      # played in this event first, as the arbiter now has to.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
 
       {:ok, text} = TrfExport.export(Repo.reload!(t))
       lines = String.split(text, "\r\n")
@@ -370,6 +373,9 @@ defmodule PairingsEngine.PostponedGamesTest do
     test "the engine dialect keeps the draw a pairing program reads" do
       {t, %{"Alice" => alice}} = tournament()
       t |> pair!() |> board_of(alice) |> result!("*")
+      # FIDE mode makes no TRF with a game open (Q169): record it as not
+      # played in this event first, as the arbiter now has to.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
 
       {:ok, text} = TrfExport.export(Repo.reload!(t), nil, dialect: :engine)
 
@@ -381,6 +387,9 @@ defmodule PairingsEngine.PostponedGamesTest do
       round1 = pair!(t)
       postponed = round1 |> board_of(alice) |> result!("*")
       white_wins_elsewhere!(round1, postponed)
+      # FIDE mode makes no TRF with a game open (Q169): record it as not
+      # played in this event first, as the arbiter now has to.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
       {:ok, text} = TrfExport.export(Repo.reload!(t))
 
       assert {:ok, imported, warnings} = TrfImport.import_text(text, user_scope_fixture())

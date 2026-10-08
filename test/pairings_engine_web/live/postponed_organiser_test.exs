@@ -355,6 +355,8 @@ defmodule PairingsEngineWeb.PostponedOrganiserTest do
       scope: scope
     } do
       {t, game} = with_postponed(scope)
+      # FIDE mode sends nothing with a game open (Q169): not played here.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
       post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
       play!(game, "0-1")
       {:ok, _} = Tournaments.set_played_on(Repo.reload!(game), ~D[2026-10-14])

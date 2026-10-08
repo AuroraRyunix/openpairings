@@ -113,6 +113,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.lineup_changed pairing.match_home_swapped pairing.match_score_set
         pairing.match_score_cleared
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
+        pairing.postponed_not_played
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
         pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
@@ -1235,6 +1236,18 @@ defmodule PairingsEngineWeb.AuditLive do
         "Set what the postponed-games file is reported as: name %{name}, FIDE tournament ID %{id}.",
         name: shown(d["name"]),
         id: shown(d["fide_tournament_id"])
+      )
+
+  # An open postponed game recorded as not played in this event
+  # (`PostponedGames.report_not_played/2`, VCL4THP Q169). In FIDE mode it is
+  # also the act that took the tournament out of it, which its own
+  # `tournament.fide_compliance_lost` row records.
+  def describe("pairing.postponed_not_played", d),
+    do:
+      gettext(
+        "Recorded the postponed game on board %{board} of round %{round} as not played in this event.",
+        board: value(d, "board"),
+        round: value(d, "round")
       )
 
   def describe("pairing.played_on_set", d),

@@ -204,6 +204,125 @@ defmodule PairingsEngine.PostponedGames do
   """
   def final?(tournament), do: open_count(tournament) == 0
 
+  ## ---------- FIDE mode: nothing final while a game is open (Q169) ----------
+  #
+  # VCL4THP Q169 fails a program that produces final standings or a TRF
+  # while an adjourned game has no result. Outside FIDE mode this app still
+  # does both, marked not final, because the game is rated later as a
+  # tournament of its own (the postponed-games file). In FIDE mode it
+  # refuses, and the arbiter has two ways on: enter the result, or record
+  # the game as "not played in this event" (`report_not_played/2`) - which
+  # is a departure from FIDE's rules and takes the tournament out of FIDE
+  # mode, on the record, behind the Level-4 confirmation. The board keeps
+  # its postponed result either way, so the separate-tournament route for a
+  # game played later is exactly what it was.
+
+  @doc """
+  The open postponed games that stop `tournament` producing a TRF or final
+  standings: in FIDE mode (`PairingsEngine.Compliance.fide_mode?/1`), every
+  open postponed game not recorded as not played in this event; `[]`
+  outside FIDE mode. Same shape as `open_games/1`.
+  """
+  def blocking_games(%Tournament{} = tournament) do
+    if PairingsEngine.Compliance.fide_mode?(tournament) do
+      tournament |> open_games() |> Enum.filter(&is_nil(&1.pairing.not_played_at))
+    else
+      []
+    end
+  end
+
+  @doc """
+  `:ok`, or `{:error, {:open_postponed, games}}` with `blocking_games/1`'s
+  list - what every TRF of `tournament` asks first (`TrfExport.export/3`).
+  """
+  def ensure_reportable(%Tournament{} = tournament) do
+    case blocking_games(tournament) do
+      [] -> :ok
+      games -> {:error, {:open_postponed, games}}
+    end
+  end
+
+  @doc """
+  Whether standings of `tournament` through `through_round` (nil for the
+  latest) would be its FINAL standings and are refused (Q169): every round
+  is paired, the view covers the last one, and `blocking_games/1` is not
+  empty. Standings after an earlier round are not final standings and are
+  never refused.
+  """
+  def final_standings_refused?(%Tournament{} = tournament, through_round \\ nil) do
+    rounds = tournament.rounds_count || 0
+    paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+    rounds > 0 and paired >= rounds and (is_nil(through_round) or through_round >= rounds) and
+      blocking_games(tournament) != []
+  end
+
+  @doc """
+  Records the open postponed game on board `pairing_id` of `tournament` as
+  not played in this event (Q169): a FIDE report may then go out with it
+  still open - written as not played, `0000 - Z`, in the file for rating,
+  and named in a `###` line in the TRF26 report (`TrfExport`).
+
+  In FIDE mode that is a departure, so it takes the tournament out of FIDE
+  mode for good: the round under way is stamped in
+  `fide_compliance_lost_round` in the same transaction. The page asks twice
+  first (TEC's Level 4); this function does not ask.
+
+  The result is left as it is - still postponed, still counted as a draw
+  until it is entered - so a game played later still goes in the
+  postponed-games file. Idempotent: a game already recorded keeps its first
+  time. Returns `{:ok, %{pairing: pairing, left_fide_mode: boolean}}`, or
+  `{:error, :not_found | :not_open | :archived | :handed_off}`.
+  """
+  def report_not_played(%Tournament{} = tournament, pairing_id) do
+    with :ok <- PairingsEngine.Tournaments.ensure_writable(tournament),
+         %Pairing{} = pairing <- board_in(tournament.id, pairing_id) || {:error, :not_found},
+         true <- Results.postponed?(pairing.result) || {:error, :not_open} do
+      Repo.transaction(fn ->
+        fresh = Repo.get!(Tournament, tournament.id)
+        leaving? = PairingsEngine.Compliance.fide_mode?(fresh)
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+        Repo.update_all(
+          from(p in Pairing, where: p.id == ^pairing.id and is_nil(p.not_played_at)),
+          set: [not_played_at: now]
+        )
+
+        if leaving? do
+          round = PairingsEngine.Pairing.paired_rounds_count(fresh.id)
+
+          Repo.update_all(
+            from(t in Tournament,
+              where: t.id == ^fresh.id and is_nil(t.fide_compliance_lost_round)
+            ),
+            set: [fide_compliance_lost_round: round]
+          )
+        end
+
+        %{pairing: Repo.reload!(pairing), left_fide_mode: leaving?}
+      end)
+      |> tap(fn
+        {:ok, %{left_fide_mode: left?}} ->
+          PairingsEngine.Tournaments.broadcast_tournament_change(tournament.id, :results)
+
+          if left?,
+            do: PairingsEngine.Tournaments.broadcast_tournament_change(tournament.id, :settings)
+
+        _ ->
+          :ok
+      end)
+    end
+  end
+
+  defp board_in(tournament_id, pairing_id) do
+    Repo.one(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and p.id == ^pairing_id
+    )
+  end
+
   @doc """
   The warnings that apply to pairing `tournament`'s next round, as
   `%{id: atom, ...details}` maps.

@@ -424,6 +424,12 @@ defmodule PairingsEngineWeb.StandingsLive do
       # the prizes are handed out from this page.
       postponed_open: postponed_open,
       pending_by_player: PostponedGames.pending_by_player(postponed_open),
+      # FIDE mode, every round paired and a postponed game still open
+      # (VCL4THP Q169): these would be the final standings, and FIDE allows
+      # none until every game has a result - so the page lists the games
+      # instead of the table. Standings after an earlier round still show.
+      final_refused: PostponedGames.final_standings_refused?(tournament),
+      blocking_postponed: PostponedGames.blocking_games(tournament),
       manual_stale?:
         !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
       manual_incomplete?:
@@ -793,13 +799,19 @@ defmodule PairingsEngineWeb.StandingsLive do
         </form>
       </div>
       <PairingsEngineWeb.Postponed.missing_results_banner count={@missing_results_count} />
+      <PairingsEngineWeb.Postponed.final_standings_refused
+        :if={@final_refused}
+        tournament={@tournament}
+        games={@blocking_postponed}
+      />
       <PairingsEngineWeb.Postponed.not_final_banner
+        :if={!@final_refused}
         count={@postponed_open_count}
         tournament={@tournament}
         games={@postponed_open}
       />
       <.team_standings_section
-        :if={@team?}
+        :if={@team? and !@final_refused}
         tournament={@tournament}
         entries={@team_entries}
         tiebreaks={@team_tiebreaks}
@@ -807,7 +819,11 @@ defmodule PairingsEngineWeb.StandingsLive do
         teams_by_id={@teams_by_id}
         board_stats={@board_stats}
       />
-      <div :if={!@keizer? and !@team?} class="card manual-ranking-card" style="margin-bottom: 12px">
+      <div
+        :if={!@keizer? and !@team? and !@final_refused}
+        class="card manual-ranking-card"
+        style="margin-bottom: 12px"
+      >
         <div
           :if={@tournament.manual_ranking}
           class="manual-ranking-banner"
@@ -913,7 +929,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       </p>
 
       <div
-        :if={@entries != [] and !@keizer? and !@team?}
+        :if={@entries != [] and !@keizer? and !@team? and !@final_refused}
         id="standings-table"
         class="card table-card"
         phx-hook="ColumnPrefs"

@@ -257,6 +257,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"name" => "Club postponed games", "fide_tournament_id" => "777001"},
       %{"name" => nil, "fide_tournament_id" => nil}
     ],
+    "pairing.postponed_not_played" => [%{"round" => 3, "board" => 2}],
     "pairing.played_on_set" => [
       %{"round" => 2, "board" => 4, "from" => "2026-10-05", "to" => "2026-10-04"},
       %{"round" => 2, "board" => 4, "from" => nil, "to" => "2026-10-04"}

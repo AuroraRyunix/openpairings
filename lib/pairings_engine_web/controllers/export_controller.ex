@@ -73,6 +73,11 @@ defmodule PairingsEngineWeb.ExportController do
       )
       |> send_resp(200, text)
     else
+      {:error, {:open_postponed, games}} ->
+        conn
+        |> put_flash(:error, PairingsEngineWeb.Postponed.trf_refused_text(games))
+        |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
+
       {:error, {:open_postponed_in_engine_dialect, rounds}} ->
         conn
         |> put_flash(
@@ -201,6 +206,12 @@ defmodule PairingsEngineWeb.ExportController do
   # an arbiter must never wonder whether a refused send half-happened.
   defp send_error_text(%Ainalrami.Trf.ValidationError{message: message}),
     do: "Could not export TRF: #{message}"
+
+  # FIDE mode, a postponed game still open (VCL4THP Q169): the file is
+  # built inside the send, so the refusal comes out of it and nothing is
+  # marked.
+  defp send_error_text({:open_postponed, games}),
+    do: PairingsEngineWeb.Postponed.trf_refused_text(games)
 
   defp send_error_text({:already_sent, rounds}),
     do:

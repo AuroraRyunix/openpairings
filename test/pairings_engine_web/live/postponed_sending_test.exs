@@ -59,6 +59,8 @@ defmodule PairingsEngineWeb.PostponedSendingTest do
   # Round 1 sent with both games postponed, both played since on `dates`.
   defp late_games!(conn, t, dates) do
     games = for p <- boards(t, 1), do: set!(p, "*W")
+    # FIDE mode sends nothing with a game open (Q169): not played here.
+    PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
     post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
 
     for {p, date} <- Enum.zip(games, dates) do

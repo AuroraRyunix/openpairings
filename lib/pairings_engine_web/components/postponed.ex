@@ -441,4 +441,56 @@ defmodule PairingsEngineWeb.Postponed do
     </div>
     """
   end
+
+  ## ---------- FIDE mode: nothing final while a game is open (Q169) ----------
+
+  @doc """
+  Why a TRF was refused in FIDE mode (`{:error, {:open_postponed, games}}`,
+  `PairingsEngine.PostponedGames.ensure_reportable/1`), naming every open
+  game and both ways on.
+  """
+  def trf_refused_text(games) do
+    gettext(
+      "No file: in FIDE mode no TRF is made while a postponed game has no result. Still open: %{games}. Enter each result, or record the game as not played in this event under Settings, Export (that takes the tournament out of FIDE mode).",
+      games: Enum.map_join(games, "; ", &game_text/1)
+    )
+  end
+
+  @doc "What the two ways on are, for a page that lists the open games itself."
+  def what_to_do_text do
+    gettext(
+      "Enter each result when the game is played. A game that will not be played in this event can be recorded as not played: it is then written as not played (0000 - Z) in the file for rating and the tournament leaves FIDE mode, for good. If it is played later after all, its result goes in the postponed-games file, a tournament of its own."
+    )
+  end
+
+  @doc """
+  Shown instead of the final standings in FIDE mode while a postponed game
+  is open (`PairingsEngine.PostponedGames.final_standings_refused?/2`): the
+  games, as links to where their results are entered, and what to do.
+  """
+  attr :tournament, :map, required: true
+  attr :games, :list, required: true
+  attr :id, :string, default: "final-standings-refused"
+
+  def final_standings_refused(assigns) do
+    ~H"""
+    <div id={@id} class="card postponed-guard" role="alert">
+      <strong>{final_standings_refused_text()}</strong>
+      <.game_links tournament={@tournament} games={@games} id={@id} />
+      <p class="hint" style="margin: 6px 0 0">
+        {what_to_do_text()}
+        <.link id={"#{@id}-export"} navigate={~p"/t/#{@tournament.id}/settings/export"}>
+          {gettext("Settings, Export")}
+        </.link>
+      </p>
+    </div>
+    """
+  end
+
+  @doc "The headline of `final_standings_refused/1`, also on paper."
+  def final_standings_refused_text do
+    gettext(
+      "No final standings: this tournament is in FIDE mode and a postponed game still has no result. The FIDE rules allow final standings only when every game has one."
+    )
+  end
 end

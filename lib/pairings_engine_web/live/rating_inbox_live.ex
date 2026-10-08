@@ -72,6 +72,13 @@ defmodule PairingsEngineWeb.RatingInboxLive do
 
   defp error_text(reason) when is_binary(reason), do: reason
   defp error_text(:no_copy), do: gettext("There is no copy of this file to check.")
+
+  defp error_text(:open_postponed),
+    do:
+      gettext(
+        "No copy: the tournament is in FIDE mode and a postponed game in it has no result, so no TRF of it is made."
+      )
+
   defp error_text(other), do: inspect(other)
 
   @impl true

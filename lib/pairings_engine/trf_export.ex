@@ -45,7 +45,11 @@ defmodule PairingsEngine.TrfExport do
 
   Returns `{:ok, text}`, or `{:error, %Ainalrami.Trf.ValidationError{}}`
   if the filtered result set fails `Trf`'s own legality validation (an
-  unrecognized or mutually-inconsistent result code) - never raises.
+  unrecognized or mutually-inconsistent result code) - never raises. In
+  FIDE mode, `{:error, {:open_postponed, games}}` while a postponed game of
+  the tournament is open and not recorded as not played in this event
+  (`PostponedGames.ensure_reportable/1`, VCL4THP Q169) - whatever rounds
+  were asked for, and whatever the file is for.
 
   ## The file sent for rating
 
@@ -64,7 +68,8 @@ defmodule PairingsEngine.TrfExport do
   postponed-games file (`postponed_export/2`), a FIDE tournament of its own.
   """
   def export(tournament, rounds_spec \\ nil, opts \\ []) do
-    with :ok <- ensure_round_dates(tournament, rounds_spec) do
+    with :ok <- PairingsEngine.PostponedGames.ensure_reportable(tournament),
+         :ok <- ensure_round_dates(tournament, rounds_spec) do
       text =
         if rating?(opts) do
           build(tournament, rounds_spec, Keyword.put(opts, :dialect, :trf26))
@@ -78,7 +83,8 @@ defmodule PairingsEngine.TrfExport do
               mpa_comments(tournament, rounds_spec, opts) ++
               full_point_bye_comments(tournament, rounds_spec, opts) ++
               rating_correction_comments(tournament, rounds_spec, opts) ++
-              correction_comments(tournament, rounds_spec, opts)
+              correction_comments(tournament, rounds_spec, opts) ++
+              not_played_comments(tournament, rounds_spec, opts)
           )
         end
 
@@ -266,6 +272,47 @@ defmodule PairingsEngine.TrfExport do
       |> Enum.map(fn {round, ids} ->
         ranks = ids |> Enum.map(&Map.get(tpn, &1)) |> Enum.reject(&is_nil/1) |> Enum.sort()
         "FPB @ Round #{round}: " <> Enum.map_join(ranks, " ", &"#{&1}=FPB")
+      end)
+    else
+      []
+    end
+  end
+
+  ## ---------- postponed games reported as not played are in the file ----------
+  #
+  # VCL4THP Q169: in FIDE mode no report goes out while a postponed game is
+  # open, unless the arbiter recorded it as not played in this event
+  # (`PostponedGames.report_not_played/2`) - which took the tournament out of
+  # FIDE mode, and the report says which games did it, one line per round in
+  # the PIBE lines' shape (`Not played @ Round 3: 5-12`, White's starting
+  # rank first). Only while the game is still open or went out open
+  # (`finalised_open`): one whose result came in before it was sent was
+  # played after all, and there is nothing left to explain. TRF26 only, never
+  # in the file sent for rating, like the other `###` lines.
+  defp not_played_comments(tournament, rounds_spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      rounds = file_rounds(tournament, rounds_spec)
+      tpn = pairing_numbers(tournament.id)
+      postponed = PairingsEngine.Results.postponed_codes()
+
+      PairingsEngine.Repo.all(
+        from p in PairingsEngine.Tournaments.Pairing,
+          join: r in PairingsEngine.Tournaments.Round,
+          on: p.round_id == r.id,
+          where:
+            r.tournament_id == ^tournament.id and r.number in ^rounds and
+              not is_nil(p.not_played_at) and
+              (p.result in ^postponed or p.finalised_open == true),
+          order_by: [r.number, p.board],
+          select: {r.number, p.white_player_id, p.black_player_id}
+      )
+      |> Enum.group_by(&elem(&1, 0), fn {_, w, b} ->
+        "#{Map.get(tpn, w, "?")}-#{Map.get(tpn, b, "?")}"
+      end)
+      |> Enum.sort()
+      |> Enum.map(fn {round, games} ->
+        "Not played @ Round #{round}: " <>
+          Enum.join(games, " ") <> " (postponed, reported as not played in this event)"
       end)
     else
       []

@@ -280,6 +280,16 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       assert has_element?(lv, "#trf-round-1.is-waiting", "not played")
       assert has_element?(lv, "#trf-tick-1[checked]")
       assert has_element?(lv, "#trf-send-form input[name='rounds'][value='1']")
+
+      # FIDE mode (Q169): nothing goes out while the game is open. Recording
+      # it as not played in this event asks twice, then lets it go.
+      assert has_element?(lv, "#trf-open-postponed-#{postponed.id}")
+      assert has_element?(lv, "#trf-send[disabled]")
+      assert has_element?(lv, "#trf-send-blocker", "postponed")
+      lv |> element("#trf-not-played-#{postponed.id}") |> render_click()
+      lv |> element("#fide-gate-continue") |> render_click()
+      lv |> element("#fide-gate-confirm") |> render_click()
+      refute has_element?(lv, "#trf-open-postponed")
       refute has_element?(lv, "#trf-send[disabled]")
 
       # Sent: marked as such, no longer ticked, and cannot be sent again.
@@ -301,6 +311,8 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       [postponed, other] = boards(t, 1)
       set!(postponed, "*B")
       set!(other, "1-0")
+      # FIDE mode sends nothing with a game open (Q169): not played here.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
 
       post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
 
@@ -330,6 +342,8 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       [a, b] = boards(t, 1)
       set!(a, "*W")
       set!(b, "*B")
+      # FIDE mode sends nothing with a game open (Q169): not played here.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
       post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
 
       ack = [acknowledged: [:adjourned_non_draw_result, :finalised_result_changed]]
@@ -379,6 +393,8 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       [postponed, other] = boards(t, 1)
       set!(postponed, "*B")
       set!(other, "1-0")
+      # FIDE mode sends nothing with a game open (Q169): not played here.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
 
       sent = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
       # The file for rating writes the open game as not played, never `?`.
@@ -434,6 +450,8 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
       [postponed, other] = boards(t, 1)
       set!(postponed, "*W")
       set!(other, "1-0")
+      # FIDE mode sends nothing with a game open (Q169): not played here.
+      PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
       post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")

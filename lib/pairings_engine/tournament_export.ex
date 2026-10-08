@@ -716,6 +716,9 @@ defmodule PairingsEngine.TournamentExport do
       "finalised_open" => p.finalised_open,
       "postponed_reported_at" =>
         p.postponed_reported_at && DateTime.to_iso8601(p.postponed_reported_at),
+      # Recorded as "not played in this event" (VCL4THP Q169): the TRF's
+      # `###` line for it, and the reason a FIDE report was allowed out.
+      "not_played_at" => p.not_played_at && DateTime.to_iso8601(p.not_played_at),
       # The date the players agreed to play a postponed game on, and how it
       # changed - so a restore keeps both.
       "agreed_date" => p.agreed_date && Date.to_iso8601(p.agreed_date),

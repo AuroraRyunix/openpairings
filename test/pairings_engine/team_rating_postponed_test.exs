@@ -60,6 +60,9 @@ defmodule PairingsEngine.TeamRatingPostponedTest do
   test "the rating file's 310 counts the boards the file holds; a match left with none counts for nothing" do
     {t, m1, m2} = setup_event()
     teams = Map.new(Tournaments.list_teams(t.id), &{&1.id, &1})
+    # FIDE mode makes no TRF with a game open (Q169): record it as not
+    # played in this event first, as the arbiter now has to.
+    t = PairingsEngine.PostponedHelpers.report_open_games_not_played!(t)
 
     {:ok, rating} = TrfExport.export(t, [1], for: :rating)
     {:ok, copy} = TrfExport.export(t, [1])

@@ -50,6 +50,13 @@ defmodule PairingsEngine.Tournaments.Pairing do
     field :finalised_at, :utc_datetime
     field :finalised_open, :boolean, default: false
     field :postponed_reported_at, :utc_datetime
+    # When the arbiter recorded this open postponed game as "not played in
+    # this event" (`PostponedGames.report_not_played/2`, VCL4THP Q169): it
+    # lets a FIDE report go out while the game is still open, and the act
+    # takes the tournament out of FIDE mode. The result stays postponed, so
+    # the game, if it is ever played, still goes in the postponed-games
+    # file. Never cast.
+    field :not_played_at, :utc_datetime
 
     # The date the two players agreed to play a postponed game on - not a
     # deadline, nothing is ever overdue - and every change to it, oldest

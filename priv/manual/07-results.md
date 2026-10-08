@@ -146,7 +146,14 @@ published standings say that they are *not final*, mark the player or team
 with *1 pending*, and the tournament stays running. Archiving the tournament
 tells you how many games are still unplayed.
 
-**Reporting.** A postponed game is written `?` in the TRF report; the real
-result goes to the FIDE in a separate file for the postponed games, because
-a game played in another rating period is reported as a separate tournament.
-See [Sending to FIDE](11-fide-report.md).
+**Reporting.** In FIDE mode there is no TRF and no final standings while a
+postponed game has no result: Settings, Export lists the open games. Enter the
+result, or press **Not played in this event** beside the game. That second way
+asks twice (it takes the tournament out of FIDE mode, for good), and the
+report then says which game it was in a `###` line. The game stays postponed:
+the file for rating writes it as not played (`0000 - Z`), and if it is played
+later after all, its real result goes to the FIDE in a separate file for the
+postponed games, because a game played in another rating period is reported
+as a separate tournament. Outside FIDE mode a postponed game is written `?` in
+the TRF copies and as not played in the file for rating, without asking. See
+[Sending to FIDE](11-fide-report.md).

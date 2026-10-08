@@ -2792,9 +2792,9 @@
     "outcome": "ok",
     "next": null
    },
-   "answer": "Y",
-   "status": "gap",
-   "note": "FAIL on the draft's reading. With a * open, the round can be finalised and sent (the file sent for rating writes the open game as 0000 - Z, not played, trf_export.ex:54-61,457-505; the TRF26 download writes ? with 162 X) and standings are produced, marked not final (postponed_games.ex:700-780). This is the project's design for games played after the event (reported as their own FIDE tournament). See docs/vcl4thp/questions.md."
+   "answer": "N",
+   "status": "met",
+   "note": "In FIDE mode no TRF (copy, engine dialect, file for rating, Send) and no final standings (Standings page, printed individual and team standings) are made while a postponed game has no result: TrfExport.export/3 asks PostponedGames.ensure_reportable/1, the pages ask PostponedGames.final_standings_refused?/2, and each refusal lists the open games. The way on without a result is 'Not played in this event' (Settings, Export; PostponedGames.report_not_played/2): Level-4 double confirmation, leaves FIDE mode (fide_compliance_lost_round stamped, audit row), written 0000 - Z in the file for rating and as '### Not played @ Round r' in TRF26 copies (trf_export.ex not_played_comments). A real result keeps FIDE mode. Tests: postponed_fide_mode_test.exs, postponed_fide_mode_live_test.exs."
   },
   {
    "q": 170,
