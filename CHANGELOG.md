@@ -30,7 +30,8 @@ Each entry is tagged so a version can be skimmed:
   now they get their number on the round they turn up - after the field, or by
   rating if *Late entrants' pairing numbers* says so - and Group A keeps its last
   player (C.04.7 1.3.2). A number handed out before round 1 to somebody who then
-  does not play it is taken back and the field closes ranks. Events already
+  does not play it is taken back and the field closes ranks, and a TPN
+  regeneration or exchange in the meantime no longer hands one out early. Events already
   under way keep the Group A they were paired with. (VCL4THP Q111, which cost 35%.)
 ## [0.77.0] - 2026-10-08
 

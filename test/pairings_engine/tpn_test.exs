@@ -94,6 +94,32 @@ defmodule PairingsEngine.TpnTest do
     assert Tpn.regeneration_changes(t) == []
   end
 
+  # C.04.2 2.3 allows the regeneration until round 4; C.04.2 2.4 gives a late
+  # entry its TPN "only when they actually arrive", and C.04.7 1.3.1 sends a
+  # Baku event's late entries through that Article. So a Baku player who has
+  # not arrived yet is left out of a regeneration and numbered on arrival.
+  test "in a Baku event a regeneration skips a player who has not arrived yet",
+       %{t: t, p: p} do
+    t = t |> Ecto.Changeset.change(acceleration: "baku") |> Repo.update!()
+    {:ok, eve} = Tournaments.create_player(t.id, %{name: "Eve", fide_rating: 2500})
+    {:ok, _} = Tournaments.update_player(eve, %{"absent_rounds" => "1,2"})
+    {:ok, frank} = Tournaments.create_player(t.id, %{name: "Frank", fide_rating: 1000})
+    {:ok, _} = Tournaments.update_player(frank, %{"absent_rounds" => "1"})
+
+    assert {:ok, _round} = Pairing.pair_next_round(t)
+    assert number(eve) == nil and number(frank) == nil
+
+    # Round 2 is next: Frank arrives, Eve does not.
+    {:ok, _} = Tournaments.update_player(Repo.reload!(p["Dave"]), %{fide_rating: 2100})
+    refute Enum.any?(Tpn.regeneration_changes(t), fn {pl, _old, _new} -> pl.id == eve.id end)
+    assert {:ok, order} = Tpn.regenerate(t)
+
+    assert names(order) == ~w(Dave Alice Bob Carol Frank)
+    assert number(eve) == nil
+    assert number(frank) == 5
+    assert Repo.reload!(t).baku_group_a_last == 2
+  end
+
   test "a regeneration with nothing to change changes nothing", %{t: t} do
     assert {:ok, _round} = Pairing.pair_next_round(t)
     assert Tpn.regeneration_changes(t) == []
