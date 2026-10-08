@@ -106,6 +106,15 @@ usual, such as the rating inbox's copy of a round sent earlier. The Export page 
 FIDE mode; the copies then carry `### Not played @ Round 3: 5-12` for it, and
 the file for rating writes it as not played (`0000 - Z`).
 
+## Prohibitions changed during the event
+
+A forbidden pairing or a pairing rule added, changed or removed after round
+1 was paired is listed in the TRF copies, one line per round it first
+affects, for example `### Prohibition @ Round 4: 5-12 added; rule same club
+removed`. In FIDE mode the first such change is also the round the
+tournament left it ([FIDE mode](02-fide-mode.md)). The file for rating holds
+records only and carries no such line.
+
 A game played after its round was sent is reported as a **separate tournament**
 with its own name and its own FIDE tournament ID, and FIDE rates month by month.
 Settings, Export, section *Postponed games* lists every postponed game with

@@ -77,11 +77,10 @@ defmodule PairingsEngineWeb.SettingsExportLiveTest do
     refute has_element?(lv, "#swar-export-notes")
 
     tournament =
-      create_tournament(scope, %{
-        "club_exclusion" => "all",
-        "fed_exclusion" => "all",
-        "tiebreaks" => ["BH", "WON"]
-      })
+      create_tournament(scope, %{"tiebreaks" => ["BH", "WON"]})
+
+    {:ok, _} = PairingsEngine.Tournaments.add_pairing_rule(tournament, %{"kind" => "club"})
+    {:ok, _} = PairingsEngine.Tournaments.add_pairing_rule(tournament, %{"kind" => "federation"})
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
     assert has_element?(lv, "#swar-export-notes", "SWAR keeps one exclusion rule")

@@ -844,9 +844,16 @@ defmodule PairingsEngine.PairingTest do
 
   ## ---------- club/federation exclusions -> JaVaFo XXP extension ----------
 
+  defp rule!(tournament, attrs) do
+    {:ok, rule} = Tournaments.add_pairing_rule(tournament, attrs)
+    rule
+  end
+
   test "exclusion_pairs/2 emits one group per pair excluded by an \"all\" club rule" do
     tournament =
-      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, club_exclusion: "all"})
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    rule!(tournament, %{"kind" => "club"})
 
     alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
     bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
@@ -860,10 +867,10 @@ defmodule PairingsEngine.PairingTest do
       Repo.insert!(%Tournament{
         name: "T",
         type: "swiss",
-        rounds_count: 3,
-        fed_exclusion: "listed",
-        fed_exclusion_list: "BEL"
+        rounds_count: 3
       })
+
+    rule!(tournament, %{"kind" => "federation", "names" => ["BEL"]})
 
     alice = insert_player(tournament, "Alice", pairing_number: 1, federation: "BEL")
     bob = insert_player(tournament, "Bob", pairing_number: 2, federation: "BEL")
@@ -875,7 +882,9 @@ defmodule PairingsEngine.PairingTest do
 
   test "exclusion_pairs/2 dedupes a pair already covered by an explicit forbidden pairing" do
     tournament =
-      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, club_exclusion: "all"})
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    rule!(tournament, %{"kind" => "club"})
 
     alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
     bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
@@ -898,7 +907,9 @@ defmodule PairingsEngine.PairingTest do
 
   test "javafo_input/2 includes exclusion XXP lines alongside explicit forbidden-pairing lines" do
     tournament =
-      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5, club_exclusion: "all"})
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+
+    rule!(tournament, %{"kind" => "club"})
 
     alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
     bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")

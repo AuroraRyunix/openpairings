@@ -20,26 +20,6 @@ the options, and the exact question to answer. The tracker
   findings A-D sent to TEC or its author? If not, may I draft both
   messages for you to send?
 
-## Q195 / Q196 - prohibited pairings after round 1
-
-- **Asks:** prohibitions can be entered only before round 1 is paired
-  (Q195 NO fails) and not after a round was played (Q196 YES fails),
-  citing C.05:5.2.
-- **Today:** a prohibition can be added at any time
-  (`tournaments.ex add_forbidden_pairing`). Our 2026-09-08 letter (B.6)
-  asked TEC to make this a Level-4 warning plus a `###` line instead;
-  no answer yet.
-- **Options:** (a) wait for TEC (both fail as written); (b) adding one after
-  round 1 takes the tournament out of FIDE mode behind the Level-4 double
-  confirmation (the gate built for Q43), stamped and written as `###` in
-  TRF26 reports - in FIDE mode prohibitions are then before-round-1 only,
-  which answers Q195 YES and Q196 NO; about 60 lines plus tests.
-- **Questions:** (1) Should adding a prohibited pairing after round 1 leave
-  FIDE mode behind the Level-4 confirmation, as in option (b), without
-  waiting for TEC? (2) Should "only if possible" (soft) prohibitions count
-  too, or hard ones only? (A soft one already leaves FIDE mode when it
-  moves a board.)
-
 ## Q179 / Q193 (and every `###` line) - in the file sent for rating?
 
 - **Asks:** a `###` comment in the post-tournament report for a full-point

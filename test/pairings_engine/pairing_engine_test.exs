@@ -255,7 +255,8 @@ defmodule PairingsEngine.PairingEngineTest do
       # `XXP` lines (see `Exclusions`), so they travel the identical path --
       # but they are the case an arbiter never enters by hand, and so the one
       # least likely to be noticed if it silently stopped working.
-      t = tournament(%{pairing_engine: "ainalrami", club_exclusion: "all"})
+      t = tournament(%{pairing_engine: "ainalrami"})
+      {:ok, _} = Tournaments.add_pairing_rule(t, %{"kind" => "club"})
       [p1, _p2, p3, _p4] = roster(t, 4)
 
       {:ok, _} = Tournaments.update_player(p1, %{"club" => "Gent"})
@@ -449,7 +450,16 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "clubmates are kept apart for the first N rounds, and only those" do
-      t = tournament(%{pairing_engine: "ainalrami", soft_club_rounds: 1})
+      t = tournament(%{pairing_engine: "ainalrami"})
+
+      {:ok, _} =
+        Tournaments.add_pairing_rule(t, %{
+          "kind" => "club",
+          "soft" => true,
+          "window" => "first",
+          "window_rounds" => 1
+        })
+
       p1 = insert_player(t, "P1", fide_rating: 1950, club: "Chess Club")
       p2 = insert_player(t, "P2", fide_rating: 1900)
       p3 = insert_player(t, "P3", fide_rating: 1850, club: "chess club ")
@@ -473,15 +483,27 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Pairing.soft_pairs(t, players, nil, nil, 2) == []
     end
 
-    test "a hard club rule makes the club wish redundant, so it is not sent" do
-      t = tournament(%{pairing_engine: "ainalrami", club_exclusion: "all", soft_club_rounds: 3})
-      insert_player(t, "P1", fide_rating: 1950, club: "Chess Club")
-      insert_player(t, "P2", fide_rating: 1900, club: "Chess Club")
+    test "a wish for the last rounds is sent in those rounds and no others" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+
+      {:ok, _} =
+        Tournaments.add_pairing_rule(t, %{
+          "kind" => "federation",
+          "soft" => true,
+          "window" => "last",
+          "window_rounds" => 2
+        })
+
+      insert_player(t, "P1", fide_rating: 1950, federation: "BEL")
+      insert_player(t, "P2", fide_rating: 1900, federation: "BEL")
+      insert_player(t, "P3", fide_rating: 1850, federation: "NED")
 
       players = Tournaments.list_players(t.id)
       rank_by_id = players |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
 
-      assert Pairing.soft_pairs(t, players, rank_by_id, nil, 1) == []
+      for round <- 1..3, do: assert(Pairing.soft_pairs(t, players, rank_by_id, nil, round) == [])
+      assert Pairing.soft_pairs(t, players, rank_by_id, nil, 4) == [[1, 2]]
+      assert Pairing.soft_pairs(t, players, rank_by_id, nil, 5) == [[1, 2]]
     end
 
     test "with no soft rules the engine is handed nothing, so its ladder is untouched" do

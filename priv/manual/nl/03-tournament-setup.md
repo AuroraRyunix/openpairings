@@ -60,7 +60,8 @@ Het menu **Instellingen** in de bovenbalk heeft deze pagina's:
 | Pagina | Bevat |
 | --- | --- |
 | Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; functionarissen; tiebreaks; delen; logo |
-| Opties | paringssysteem en -engine, beginkleur, acceleratie, Zwitsers matchformaat, ploegen, type en speeltempo, verboden paringen, club- en federatie-uitsluitingen |
+| Opties | paringssysteem en -engine, beginkleur, acceleratie, Zwitsers matchformaat, ploegen, type en speeltempo |
+| Verboden paringen | verboden paren, regels per club of federatie, groepen spelers die elkaar niet mogen treffen, en de wensen |
 | OpenResults | publiceren naar de uitslagensite ([Publiceren](14-publishing.md)) |
 | Puntentelling | punten, byes, afwezigheden, uitgestelde partijen |
 | Data | één datum per ronde |
@@ -192,24 +193,58 @@ rating die wordt geteld voor een ongerate speler. Zie [Ploegen](12-teams.md).
 **Type en speeltempo.** Het type (Standaard, Rapid, Blitz) en de bedenktijd, uit
 een lijst of ingetypt. Het speeltempo wordt in het TRF-rapport geschreven.
 
-**Verboden paringen.** Twee spelers die elkaar niet mogen treffen: kies Speler A
-en Speler B en druk op *Paren*. Een regel geldt voor elke ronde en wordt door
-beide Zwitserse engines en door Keizer gehandhaafd (een rondetoernooi negeert
-haar). **Enkel indien mogelijk** maakt er een wens van in plaats van een regel:
-de Ainalrami-engine honoreert die zolang de FIDE-criteria het toelaten, en de
-paringsverantwoording toont wanneer hij heeft toegegeven.
+Verboden paringen en de club- en federatieregels hebben een eigen pagina,
+hieronder.
+
+## Pagina Verboden paringen {#forbidden-pairings-page}
+
+Wie wie niet mag treffen. Alles hier wordt door beide Zwitserse engines en door
+Keizer gehandhaafd; het schema van een rondetoernooi ligt vast en negeert het.
+
+**Gevolg voor de volgende ronde.** Hoeveel van de partijen die het veld zou
+kunnen spelen zijn uitgesloten, en hoeveel wensen er zijn. Wanneer de
+beperkingen samen met de al gespeelde partijen een speler niemand meer laten om
+te treffen, of de ronde helemaal niet meer paarbaar maken, zegt de pagina dat in
+het rood voordat u op Paren drukt. Sluiten ze meer dan de helft van de
+mogelijke partijen uit, dan waarschuwt ze dat de engine weinig keuze overhoudt.
+
+**Regels.** *Spelers van dezelfde club* of *Spelers van dezelfde federatie*
+treffen elkaar niet - elke club of federatie, of alleen de clubs of federaties
+die u opgeeft (gescheiden door komma's). Elke regel is **Nooit - een regel** of
+**Indien mogelijk - een wens**, en geldt voor **Elke ronde**, **De eerste
+rondes**, **De laatste rondes** (teruggeteld vanaf het aantal rondes) of **Van
+ronde … tot ronde …**. Een regel volgt de spelers zoals ze zijn wanneer een
+ronde gepaard wordt, dus een late instapper of een verbeterde club valt eronder
+zonder dat u de regel aanraakt. Elke regel toont wat hij nu doet, bijvoorbeeld
+*4 paren over 2 clubs*; **Bewerken** en **Verwijderen** werken ter plaatse.
+
+**Spelers die elkaar niet mogen treffen.** Zoek op naam, club of federatie, vink
+twee of meer spelers aan en druk op **Deze N uit elkaar houden**. Twee spelers
+vormen een verboden paar, drie of meer een groep waarvan de leden elkaar nooit
+treffen. **Enkel indien mogelijk** maakt er een wens van. Een paar wordt een
+wens of weer een regel met **Maak er een wens van** / **Maak er een regel van**;
+een groep wijzigt u met **Bewerken**, dat de leden aanvinkt zodat u er kunt
+toevoegen of weghalen, en dan **Groep opslaan**.
+
+**Hoe zwaar de wensen wegen.** *Sterk* zet de wensen vóór de kleur- en
+floatcriteria, *Zwak* gebruikt ze alleen als laatste beslissing. Alleen de
+Ainalrami-engine past wensen toe: JaVaFo en Keizer houden zich aan de regels
+maar negeren de wensen, en de pagina zegt dat.
+
+> [!FIDE] Vóór ronde 1 instellen
+> De Algemene Reglementen van de FIDE (C.05 5.2) laten beperkingen op de
+> paringen toe - hun eigen voorbeeld is "spelers van dezelfde federatie
+> ontmoeten elkaar, indien mogelijk, niet in de laatste rondes" - wanneer de
+> spelers ze vóór de eerste ronde te horen krijgen. Stel ze in de FIDE-modus dus
+> in voordat ronde 1 gepaard wordt. Daarna vraagt het toevoegen, wijzigen of
+> verwijderen van een paar of een regel (of het wijzigen van hoe zwaar de wensen
+> wegen) twee keer om bevestiging en haalt het het toernooi uit de FIDE-modus;
+> de TRF-kopieën vermelden elke wijziging als een regel `### Prohibition`. Een
+> speler die later instapt en onder een regel valt, is geen wijziging.
 
 > [!FIDE] Afwijking van de FIDE-modus
-> Een wens is geen FIDE-regel en wordt als afwijking vastgelegd voor de ronde die
-> ze veranderde.
-
-**Club-/federatie-uitsluitingen.** Spelers van dezelfde club (of dezelfde
-federatie) worden niet tegen elkaar gepaard: voor alle gedeelde clubs, of alleen
-voor de clubs of federaties die u opgeeft. Een tweede optie, *Clubgenoten de
-eerste N rondes uit elkaar houden*, vraagt de engine om clubgenoten vroeg te
-scheiden zonder er een regel van te maken, en *Hoe hard proberen* bepaalt of die
-wens vóór de kleur- en doorschuifcriteria weegt (sterk) of alleen als laatste
-tiebreak (zwak).
+> Een wens is geen FIDE-regel: een ronde waarin een wens een bord verplaatst,
+> wordt voor die ronde als afwijking vastgelegd.
 
 ## Pagina Puntentelling {#scoring-page}
 

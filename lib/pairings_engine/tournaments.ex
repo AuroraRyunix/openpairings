@@ -29,7 +29,8 @@ defmodule PairingsEngine.Tournaments do
     Pairing,
     Match,
     Collaborator,
-    ForbiddenPairing
+    ForbiddenPairing,
+    PairingRule
   }
 
   ## ---------- Live updates (PubSub) ----------
@@ -713,6 +714,7 @@ defmodule PairingsEngine.Tournaments do
       |> Tournament.changeset(attrs)
       |> Tournament.validate_no_team_keizer()
       |> follow_round_robin_shape(tournament)
+      |> record_soft_position_change(tournament)
       |> stamp_compliance_loss(fn ->
         PairingsEngine.Pairing.paired_rounds_count(tournament.id)
       end)
@@ -742,12 +744,73 @@ defmodule PairingsEngine.Tournaments do
         PairingsEngine.Compliance.introduced(
           tournament,
           Ecto.Changeset.apply_changes(changeset)
-        )
+        ) ++ soft_position_departure(changeset, tournament)
       else
         []
       end
     else
       []
+    end
+  end
+
+  # How hard the wishes are tried is part of what was announced about them,
+  # so changing it once round 1 is paired is a prohibition changed
+  # (`record_prohibition_change/2`) - but only while there is a wish for it
+  # to weigh; with none, the setting reads nothing and changing it is noise.
+  # Not a `Compliance` entry: it is an act at a round, not a setting a
+  # tournament can be found carrying.
+  defp soft_position_departure(changeset, tournament) do
+    if soft_position_change?(changeset, tournament),
+      do: [
+        %{
+          setting: :soft_position,
+          code: :prohibition_changed_after_round_1,
+          value: Ecto.Changeset.get_field(changeset, :soft_position),
+          restore_to: [tournament.soft_position]
+        }
+      ],
+      else: []
+  end
+
+  defp soft_position_change?(changeset, tournament) do
+    changeset.valid? and Ecto.Changeset.changed?(changeset, :soft_position) and
+      PairingsEngine.Pairing.paired_rounds_count(tournament.id) > 0 and
+      soft_wishes?(tournament.id)
+  end
+
+  defp soft_wishes?(tournament_id) do
+    Repo.exists?(from f in ForbiddenPairing, where: f.tournament_id == ^tournament_id and f.soft) or
+      Repo.exists?(from r in PairingRule, where: r.tournament_id == ^tournament_id and r.soft)
+  end
+
+  # The save's own record of a `soft_position` change after round 1, in the
+  # same changeset (see `record_prohibition_change/2` for the rule and
+  # `stamp_compliance_loss/2` for why the same changeset).
+  defp record_soft_position_change(changeset, tournament) do
+    if soft_position_change?(changeset, tournament) do
+      paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+      change = %{
+        "action" => "changed",
+        "what" => "soft_position",
+        "from" => tournament.soft_position,
+        "to" => Ecto.Changeset.get_field(changeset, :soft_position),
+        "round" => paired + 1
+      }
+
+      changeset
+      |> Ecto.Changeset.put_change(
+        :prohibition_changes,
+        (tournament.prohibition_changes || []) ++ [change]
+      )
+      |> then(
+        &if(PairingsEngine.Compliance.fide_mode?(tournament),
+          do: Ecto.Changeset.put_change(&1, :fide_compliance_lost_round, paired),
+          else: &1
+        )
+      )
+    else
+      changeset
     end
   end
 
@@ -4150,12 +4213,18 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
-  ## Forbidden pairings (arbiter-configured "never pair these two" - see
-  ## docs/forbidden-pairings.md). A tournament-configuration write like
-  ## `update_tournament/2` above: any authorized user (owner or accepted
-  ## collaborator, per `get_authorized_tournament!/2`) may manage these, not
-  ## just the owner - there's no separate ownership check here, same as the
-  ## general Settings form.
+  ## Forbidden pairings and pairing rules (see docs/forbidden-pairings.md).
+  ## A tournament-configuration write like `update_tournament/2` above: any
+  ## authorized user (owner or accepted collaborator, per
+  ## `get_authorized_tournament!/2`) may manage these, not just the owner.
+  ##
+  ## In FIDE mode they are set before round 1 is paired, as C.05 5.2 asks of
+  ## any restriction on the pairings. Adding, changing or removing one once
+  ## round 1 is paired is recorded (`prohibition_changes`) and takes the
+  ## tournament out of FIDE mode in the same transaction (VCL4THP Q195/Q196);
+  ## the page asks twice first, these functions do not ask. What a rule
+  ## does to a player who joins later is not an act and records nothing: the
+  ## rule was announced, the roster was not.
 
   @doc """
   Lists `tournament`'s forbidden pairings, most recently added first, with
@@ -4171,6 +4240,22 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  @doc "Lists `tournament_id`'s pairing rules, oldest first."
+  def list_pairing_rules(tournament_id) do
+    Repo.all(from r in PairingRule, where: r.tournament_id == ^tournament_id, order_by: r.id)
+  end
+
+  @doc """
+  Whether adding, changing or removing a prohibition now would take
+  `tournament` out of FIDE mode: it is in FIDE mode and round 1 is paired.
+  What the pages ask before they act (TEC's Level 4).
+  """
+  @spec prohibition_change_departs?(Tournament.t()) :: boolean()
+  def prohibition_change_departs?(%Tournament{} = tournament) do
+    PairingsEngine.Compliance.fide_mode?(tournament) and
+      PairingsEngine.Pairing.paired_rounds_count(tournament.id) > 0
+  end
+
   @doc """
   Forbids `player_a_id` and `player_b_id` from ever being paired against
   each other in `tournament` - or, with `soft: true`, asks the Swiss engine
@@ -4183,9 +4268,10 @@ defmodule PairingsEngine.Tournaments do
     * `:already_forbidden` - the pair is already forbidden, in either order
       (`{a, b}` and `{b, a}` are the same pair)
 
-  Otherwise inserts the row and broadcasts `:settings` on the tournament's
-  topic (same hint `update_tournament/2` uses - both are tournament
-  configuration, so the Settings page reload path is identical).
+  Otherwise inserts the row and broadcasts `:settings`. After round 1 the
+  act is recorded and, in FIDE mode, leaves it (see the section comment);
+  `import: true` - a SWAR file's own exclusions, which were there before
+  this copy existed - records nothing.
   """
   def add_forbidden_pairing(%Tournament{} = tournament, player_a_id, player_b_id, opts \\ []) do
     soft? = Keyword.get(opts, :soft, false) == true
@@ -4204,21 +4290,49 @@ defmodule PairingsEngine.Tournaments do
         {:error, :already_forbidden}
 
       true ->
-        %ForbiddenPairing{}
-        |> ForbiddenPairing.changeset(%{
-          tournament_id: tournament.id,
-          player_a_id: player_a_id,
-          player_b_id: player_b_id,
-          soft: soft?
-        })
-        # Added once rounds were paired, the prohibition holds from the next
-        # one: the TRF's `260` says so (VCL4THP Q217) instead of claiming
-        # it for rounds paired without it.
-        |> Ecto.Changeset.put_change(:from_round, late_prohibition_round(tournament))
-        |> Repo.insert()
-        |> tap_ok(fn inserted ->
-          broadcast_tournament_change(inserted.tournament_id, :settings)
+        prohibition_write(tournament, opts, fn ->
+          inserted =
+            %ForbiddenPairing{}
+            |> ForbiddenPairing.changeset(%{
+              tournament_id: tournament.id,
+              player_a_id: player_a_id,
+              player_b_id: player_b_id,
+              soft: soft?
+            })
+            # Added once rounds were paired, the prohibition holds from the
+            # next one: the TRF's `260` says so (VCL4THP Q217) instead of
+            # claiming it for rounds paired without it.
+            |> Ecto.Changeset.put_change(:from_round, late_prohibition_round(tournament))
+            |> Repo.insert()
+
+          with {:ok, row} <- inserted do
+            {:ok, row, pair_change("added", row)}
+          end
         end)
+    end
+  end
+
+  @doc """
+  Makes forbidden pairing `id` of `tournament` a rule (`soft: false`) or a
+  wish (`soft: true`). A change after round 1 is recorded like an addition.
+  `{:error, :not_found}` for a row that is not this tournament's.
+  """
+  def set_forbidden_pairing_soft(%Tournament{} = tournament, id, soft?) when is_boolean(soft?) do
+    with :ok <- ensure_writable(tournament) do
+      case Repo.get_by(ForbiddenPairing, id: id, tournament_id: tournament.id) do
+        nil ->
+          {:error, :not_found}
+
+        %ForbiddenPairing{soft: ^soft?} = row ->
+          {:ok, row}
+
+        row ->
+          prohibition_write(tournament, [], fn ->
+            with {:ok, updated} <- row |> Ecto.Changeset.change(soft: soft?) |> Repo.update() do
+              {:ok, updated, pair_change("changed", updated)}
+            end
+          end)
+      end
     end
   end
 
@@ -4238,8 +4352,11 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
-  defp both_players_belong_to_tournament?(tournament_id, player_a_id, player_b_id) do
-    ids = Enum.uniq([player_a_id, player_b_id])
+  defp both_players_belong_to_tournament?(tournament_id, player_a_id, player_b_id),
+    do: all_players_belong_to_tournament?(tournament_id, [player_a_id, player_b_id])
+
+  defp all_players_belong_to_tournament?(tournament_id, ids) do
+    ids = Enum.uniq(ids)
 
     count =
       Repo.aggregate(
@@ -4268,18 +4385,207 @@ defmodule PairingsEngine.Tournaments do
   """
   def remove_forbidden_pairing(%Tournament{} = tournament, id) do
     with :ok <- ensure_writable(tournament) do
-      do_remove_forbidden_pairing(tournament, id)
+      case Repo.get_by(ForbiddenPairing, id: id, tournament_id: tournament.id) do
+        nil ->
+          {:error, :not_found}
+
+        forbidden_pairing ->
+          prohibition_write(tournament, [], fn ->
+            with {:ok, deleted} <- Repo.delete(forbidden_pairing) do
+              {:ok, deleted, pair_change("removed", deleted)}
+            end
+          end)
+      end
     end
   end
 
-  defp do_remove_forbidden_pairing(%Tournament{} = tournament, id) do
-    case Repo.get_by(ForbiddenPairing, id: id, tournament_id: tournament.id) do
-      nil ->
-        {:error, :not_found}
+  @doc """
+  "These players must not meet each other", in one act: two players are a
+  forbidden pairing (`add_forbidden_pairing/4`), three or more a group rule
+  (`add_pairing_rule/3`), so the list shows them as the one thing the
+  arbiter said rather than as every pair it makes. `soft: true` makes it a
+  wish. Same refusals as the two it calls.
+  """
+  def add_forbidden_group(%Tournament{} = tournament, player_ids, opts \\ []) do
+    case Enum.uniq(player_ids) do
+      [] ->
+        {:error, :same_player}
 
-      forbidden_pairing ->
-        Repo.delete(forbidden_pairing)
-        |> tap_ok(fn deleted -> broadcast_tournament_change(deleted.tournament_id, :settings) end)
+      [_] ->
+        {:error, :same_player}
+
+      [a, b] ->
+        add_forbidden_pairing(tournament, a, b, opts)
+
+      ids ->
+        add_pairing_rule(tournament, %{
+          "kind" => "group",
+          "player_ids" => ids,
+          "soft" => Keyword.get(opts, :soft, false)
+        })
+    end
+  end
+
+  @doc """
+  Adds a pairing rule (`PairingRule`) to `tournament` from `attrs`.
+  `{:error, changeset}` for one that does not validate,
+  `{:error, :invalid_player}` for a group naming a player who is not in the
+  tournament. After round 1 the rule holds from the next round
+  (`from_round`) and the act is recorded; `import: true` records nothing.
+  """
+  def add_pairing_rule(%Tournament{} = tournament, attrs, opts \\ []) do
+    changeset =
+      %PairingRule{tournament_id: tournament.id, from_round: late_prohibition_round(tournament)}
+      |> PairingRule.changeset(attrs)
+
+    cond do
+      refusal = write_refused(tournament) ->
+        refusal
+
+      not changeset.valid? ->
+        {:error, changeset}
+
+      not all_players_belong_to_tournament?(
+        tournament.id,
+        Ecto.Changeset.get_field(changeset, :player_ids)
+      ) ->
+        {:error, :invalid_player}
+
+      true ->
+        prohibition_write(tournament, opts, fn ->
+          with {:ok, rule} <- Repo.insert(changeset) do
+            {:ok, rule, rule_change("added", rule)}
+          end
+        end)
+    end
+  end
+
+  @doc """
+  Changes pairing rule `id` of `tournament`. A rule changed after round 1
+  holds as changed from the next round; the act is recorded.
+  `{:error, :not_found}` for a rule that is not this tournament's.
+  """
+  def update_pairing_rule(%Tournament{} = tournament, id, attrs) do
+    with :ok <- ensure_writable(tournament),
+         %PairingRule{} = rule <-
+           Repo.get_by(PairingRule, id: id, tournament_id: tournament.id) || {:error, :not_found} do
+      changeset = PairingRule.changeset(rule, attrs)
+
+      cond do
+        not changeset.valid? ->
+          {:error, changeset}
+
+        changeset.changes == %{} ->
+          {:ok, rule}
+
+        not all_players_belong_to_tournament?(
+          tournament.id,
+          Ecto.Changeset.get_field(changeset, :player_ids)
+        ) ->
+          {:error, :invalid_player}
+
+        true ->
+          late = late_prohibition_round(tournament)
+
+          changeset =
+            if late,
+              do:
+                Ecto.Changeset.put_change(changeset, :from_round, max(rule.from_round || 1, late)),
+              else: changeset
+
+          prohibition_write(tournament, [], fn ->
+            with {:ok, updated} <- Repo.update(changeset) do
+              {:ok, updated, rule_change("changed", updated)}
+            end
+          end)
+      end
+    end
+  end
+
+  @doc """
+  Removes pairing rule `id` from `tournament`; recorded after round 1.
+  `{:error, :not_found}` for a rule that is not this tournament's.
+  """
+  def delete_pairing_rule(%Tournament{} = tournament, id) do
+    with :ok <- ensure_writable(tournament),
+         %PairingRule{} = rule <-
+           Repo.get_by(PairingRule, id: id, tournament_id: tournament.id) || {:error, :not_found} do
+      prohibition_write(tournament, [], fn ->
+        with {:ok, deleted} <- Repo.delete(rule) do
+          {:ok, deleted, rule_change("removed", deleted)}
+        end
+      end)
+    end
+  end
+
+  # The write and its record in one transaction: `fun` writes and returns
+  # `{:ok, row, change}`; the change is recorded when round 1 is paired
+  # (`record_prohibition_change/2`). Broadcasts `:settings` once it holds.
+  defp prohibition_write(tournament, opts, fun) do
+    Repo.transaction(fn ->
+      case fun.() do
+        {:ok, row, change} ->
+          unless Keyword.get(opts, :import, false),
+            do: record_prohibition_change(tournament, change)
+
+          row
+
+        {:error, reason} ->
+          Repo.rollback(reason)
+      end
+    end)
+    |> tap_ok(fn _ -> broadcast_tournament_change(tournament.id, :settings) end)
+  end
+
+  defp pair_change(action, %ForbiddenPairing{} = row),
+    do: %{
+      "action" => action,
+      "what" => "pair",
+      "players" => [row.player_a_id, row.player_b_id],
+      "soft" => row.soft
+    }
+
+  defp rule_change(action, %PairingRule{} = rule),
+    do: %{
+      "action" => action,
+      "what" => "rule",
+      "rule" => PairingsEngine.Exclusions.describe(rule),
+      "players" => if(rule.kind == "group", do: rule.player_ids, else: []),
+      "soft" => rule.soft
+    }
+
+  # VCL4THP Q195/Q196. Once round 1 is paired, a prohibition added,
+  # changed or removed is written into `prohibition_changes` - the round it
+  # first affects, what it was - and, if the tournament is still in FIDE
+  # mode, the round under way into `fide_compliance_lost_round`. Before
+  # round 1 it records nothing at all: that is when C.05 5.2 says
+  # restrictions are announced, and announcing one is not a departure.
+  #
+  # Runs inside the caller's transaction, so the act and its record land
+  # together or not at all - the reasoning `stamp_compliance_loss/2` gives.
+  # Returns whether this act is the one that left FIDE mode.
+  @doc false
+  def record_prohibition_change(%Tournament{} = tournament, change) do
+    paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+    if paired > 0 do
+      fresh = Repo.get!(Tournament, tournament.id)
+      leaving? = PairingsEngine.Compliance.fide_mode?(fresh)
+      changes = (fresh.prohibition_changes || []) ++ [Map.put(change, "round", paired + 1)]
+
+      fresh
+      |> Ecto.Changeset.change(prohibition_changes: changes)
+      |> then(
+        &if(leaving?,
+          do: Ecto.Changeset.put_change(&1, :fide_compliance_lost_round, paired),
+          else: &1
+        )
+      )
+      |> Repo.update!()
+
+      leaving?
+    else
+      false
     end
   end
 

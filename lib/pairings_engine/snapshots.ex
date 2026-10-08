@@ -467,6 +467,7 @@ defmodule PairingsEngine.Snapshots do
   def wipe_contents(tournament_id) do
     Repo.delete_all(from b in "byes", where: b.tournament_id == ^tournament_id)
     Repo.delete_all(from f in "forbidden_pairings", where: f.tournament_id == ^tournament_id)
+    Repo.delete_all(from r in "pairing_rules", where: r.tournament_id == ^tournament_id)
     Repo.delete_all(from r in Round, where: r.tournament_id == ^tournament_id)
     Repo.delete_all(from p in Player, where: p.tournament_id == ^tournament_id)
     Repo.delete_all(from t in Team, where: t.tournament_id == ^tournament_id)

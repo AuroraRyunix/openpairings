@@ -123,7 +123,8 @@ defmodule PairingsEngineWeb.AuditLive do
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
-        forbidden_pairing.added forbidden_pairing.removed
+        forbidden_pairing.added forbidden_pairing.removed forbidden_pairing.changed
+        pairing_rule.added pairing_rule.changed pairing_rule.removed
         category.created category.removed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.hall
@@ -138,7 +139,8 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.extra_points_applied standings.extra_points_reduced
         standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf pibe.import import.json trf.finalised trf.postponed_sent
+    {"imports",
+     ~w(import.swar import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
@@ -1289,6 +1291,32 @@ defmodule PairingsEngineWeb.AuditLive do
         b: value(d, "player_b_id")
       )
 
+  def describe("forbidden_pairing.changed", %{"soft" => true} = d),
+    do:
+      gettext("Made the forbidden pairing of players #%{a} and #%{b} a wish (if possible).",
+        a: value(d, "player_a_id"),
+        b: value(d, "player_b_id")
+      )
+
+  def describe("forbidden_pairing.changed", d),
+    do:
+      gettext("Made the forbidden pairing of players #%{a} and #%{b} a rule.",
+        a: value(d, "player_a_id"),
+        b: value(d, "player_b_id")
+      )
+
+  # A pairing rule (`PairingRule`). `rule` is the rule's own ASCII
+  # description (`Exclusions.describe/1`), written when the row was - the
+  # same words its `### Prohibition` line uses, kept as evidence.
+  def describe("pairing_rule.added", d),
+    do: gettext("Added the pairing rule: %{rule}.", rule: value(d, "rule"))
+
+  def describe("pairing_rule.changed", d),
+    do: gettext("Changed a pairing rule to: %{rule}.", rule: value(d, "rule"))
+
+  def describe("pairing_rule.removed", d),
+    do: gettext("Removed the pairing rule: %{rule}.", rule: value(d, "rule"))
+
   def describe("category.created", d),
     do: gettext("Added category %{name}.", name: name(d, "name"))
 
@@ -2399,18 +2427,21 @@ defmodule PairingsEngineWeb.AuditLive do
       >
         {gettext("Norms")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/history"}
         class={["pe-btn", "filter-picker", @active == :history && "active"]}
       >
         {gettext("History")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/audit"}
         class={["pe-btn", "filter-picker", @active == :index && "active"]}
       >
         {gettext("Audit trail")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/audit/explain"}
         class={["pe-btn", "filter-picker", @active == :explain && "active"]}
@@ -2436,14 +2467,13 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext("Pick a paired round to see its pairing rationale")}
           </p>
         </div>
       </div>
-
       <.subnav tournament={@tournament} active={:explain} />
-
       <div :if={@paired_rounds == 0} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("No rounds have been paired yet, so there is nothing to explain.")}
       </div>
@@ -2478,14 +2508,13 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext("Audit trail - every change, who made it, and when")}
           </p>
         </div>
       </div>
-
       <.subnav tournament={@tournament} active={:index} />
-
       <div class="round-picker" style="flex-wrap: wrap">
         <button
           :for={{key, _codes} <- categories()}
@@ -2513,10 +2542,13 @@ defmodule PairingsEngineWeb.AuditLive do
           <thead>
             <tr>
               <th style="width: 150px">{gettext("When")}</th>
+
               <th style="width: 220px">{gettext("Who")}</th>
+
               <th>{gettext("What")}</th>
             </tr>
           </thead>
+
           <tbody>
             <tr :if={@entries == []}>
               <td colspan="3">
@@ -2528,7 +2560,9 @@ defmodule PairingsEngineWeb.AuditLive do
 
             <tr :for={entry <- @entries}>
               <td style="white-space: nowrap">{format_time(entry.inserted_at)}</td>
+
               <td title={actor_title(entry)}>{actor(entry)}</td>
+
               <td>{describe(entry)}</td>
             </tr>
           </tbody>
@@ -2544,9 +2578,7 @@ defmodule PairingsEngineWeb.AuditLive do
         >
           {gettext("← Newer")}
         </button>
-
         <span class="hint">{gettext("Page %{n}", n: @page + 1)}</span>
-
         <button
           class="pe-btn"
           phx-click="page"

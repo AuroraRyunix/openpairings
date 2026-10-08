@@ -80,6 +80,19 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   And for "Ask the bye type for each absence" (bye-type-choice): every JSON
   export gains `tournament.ask_bye_type` (false). With that key taken out
   the regenerated file is equal, term for term, to the one before.
+
+  And for round-1 absentees as late entrants (late-entry-all-swiss): every
+  JSON export gains `tournament.round_one_absentees_late` (false in the
+  scenarios). With that key taken out the regenerated file is equal, term
+  for term, to the one before.
+
+  And for pairing rules (prohibited-pairings, 0.79.0): the club exclusion
+  and the soft club wish of the `:options` scenario are pairing rules now.
+  Every JSON export loses the five old exclusion keys and gains
+  `pairing_rules` and `tournament.prohibition_changes`; the `:options` TRF
+  writes the "Pawn" club as one `260` group line instead of its six pairs.
+  With those taken out the regenerated file is equal, term for term, to the
+  one before - every board, account and standing included.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

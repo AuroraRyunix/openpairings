@@ -76,7 +76,7 @@ Een overdracht verplaatst een toernooi van de ene kopie van het programma naar d
 3. Wanneer het evenement voorbij is, op de tweede computer **Teruggeven**: het maakt een *retourbestand* aan en vergrendelt die kopie.
 4. Op de eerste computer, **Terughalen** met het retourbestand: de kopie hier wordt vervangen door wat op de andere computer is gespeeld, en ontgrendeld. Eerst wordt een herstelpunt van de bevroren kopie bewaard; kan dat niet, dan wordt niets vervangen.
 
-Wat meereist: de instellingen, spelers, ronden, uitslagen, byes, ploegen, verboden paringen, het auditlogboek en de registratie van wat naar het ratingbureau is verstuurd.
+Wat meereist: de instellingen, spelers, ronden, uitslagen, byes, ploegen, verboden paringen en paringsregels, het auditlogboek en de registratie van wat naar het ratingbureau is verstuurd.
 Wat niet meereist: de herstelpunten, de telefoons die voor het invoeren van uitslagen zijn ingeschreven, en de medewerkers, die aankomen als openstaande uitnodigingen. Een overdrachtsbestand kan ook geopend worden als een gewone back-up.
 
 > [!WARNING]

@@ -70,8 +70,8 @@ pairing for the remaining players the program says so and writes nothing.
 > pairing, the colour rules, no second pairing-allocated bye) and then the
 > quality criteria in the order that C.04.3 gives them.
 
-Forbidden pairings, club and federation exclusions and extra
-points are given to the engine as well ([Tournament set-up](03-tournament-setup.md)).
+Forbidden pairings, the pairing rules (same club, same federation, groups)
+that hold in the round, and extra points are given to the engine as well ([Tournament set-up](03-tournament-setup.md)).
 With Baku acceleration the virtual points are given for every round.
 
 The pairing numbers are given in the order of the tournament rating, then

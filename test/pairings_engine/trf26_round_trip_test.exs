@@ -203,7 +203,12 @@ defmodule PairingsEngine.Trf26RoundTripTest do
   end
 
   test "a club exclusion arrives as the pairs it stands for" do
-    {tournament, players} = configured(%{club_exclusion: "all"})
+    {tournament, players} = configured()
+    # Set before round 1, as the old setting would have been.
+    Repo.insert!(%PairingsEngine.Tournaments.PairingRule{
+      tournament_id: tournament.id,
+      kind: "club"
+    })
 
     for name <- ~w(Alice Bob) do
       {:ok, _} = Tournaments.update_player(players[name], %{"club" => "Chess Club"})
@@ -215,7 +220,7 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     # The RULE is not in the file - TRF has no way to say "same club" - so
     # it arrives as the pair it produced. That keeps the two apart, which
     # is what the arbiter asked for.
-    assert imported.club_exclusion == "none"
+    assert Tournaments.list_pairing_rules(imported.id) == []
     assert [pair] = Tournaments.list_forbidden_pairings(imported.id)
     assert Enum.sort([pair.player_a.name, pair.player_b.name]) == ["Alice", "Bob"]
   end

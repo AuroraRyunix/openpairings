@@ -75,8 +75,8 @@ dit en schrijft het niets weg.
 > partij, de kleurregels, geen tweede door de paring toegekende bye) en daarna de
 > kwaliteitscriteria in de volgorde die C.04.3 geeft.
 
-Verboden paringen, club- en federatie-uitsluitingen en extra punten worden
-eveneens aan de engine doorgegeven ([Toernooi-instellingen](03-tournament-setup.md)).
+Verboden paringen, de paringsregels (dezelfde club, dezelfde federatie, groepen)
+die in de ronde gelden, en extra punten worden eveneens aan de engine doorgegeven ([Toernooi-instellingen](03-tournament-setup.md)).
 Bij Baku-versnelling worden de virtuele punten voor elke ronde doorgegeven.
 
 De paringsnummers worden toegekend in de volgorde van de toernooirating, daarna

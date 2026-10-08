@@ -726,8 +726,8 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # `SwarImport`'s `[EXCLUSION]` section): -1 none, 0 groups of player
   # numbers whose members never meet ("1,4:12,15,21"), 1 listed club
   # numbers ("618:621"), 2 listed nationalities ("BEL:FRA"), 3 every club,
-  # 4 every nationality. This app holds a club rule, a federation rule and
-  # forbidden pairs, any of them at once. Returns `{type, values, notes}`,
+  # 4 every nationality. This app holds any number of pairing rules (club,
+  # federation, group) and forbidden pairs at once. Returns `{type, values, notes}`,
   # `notes` being what the export screen tells the organiser
   # (`export_notes/1`):
   #
@@ -740,10 +740,16 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   #     keep exactly the same players apart as the rules do now. A player
   #     added in SWAR afterwards is in no group.
   #
-  # Soft pairs and the soft club rule have no place in SWAR at all.
+  # Soft pairs and soft rules have no place in SWAR at all, and neither does
+  # a rule limited to some rounds: SWAR's exclusion holds for every round.
   defp exclusion_for_export(t, players, ni_by_player_id) do
     forbidden = Tournaments.list_forbidden_pairings(t.id)
     {soft, hard} = Enum.split_with(forbidden, & &1.soft)
+
+    {soft_rules, hard_rules} =
+      t.id |> Tournaments.list_pairing_rules() |> Enum.split_with(& &1.soft)
+
+    {whole, windowed} = Enum.split_with(hard_rules, &(&1.window == "all"))
     by_id = Map.new(players, &{&1.id, &1})
 
     hard_pairs =
@@ -755,14 +761,22 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         end
       end)
 
-    club = if t.club_exclusion in ["all", "listed"], do: [:club], else: []
-    fed = if t.fed_exclusion in ["all", "listed"], do: [:fed], else: []
-
     soft_notes =
-      if soft != [] or (t.soft_club_rounds || 0) > 0 do
+      if soft != [] or soft_rules != [] do
         [
           gettext(
-            "SWAR has no soft pairing wishes: the pairs to avoid if possible, and the wish to keep clubmates apart in the first rounds, are not in the file."
+            "SWAR has no soft pairing wishes: the pairs and rules to keep apart only if possible are not in the file."
+          )
+        ]
+      else
+        []
+      end
+
+    window_notes =
+      if windowed != [] do
+        [
+          gettext(
+            "SWAR's exclusions hold for every round: the rules limited to some rounds are not in the file."
           )
         ]
       else
@@ -770,46 +784,47 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       end
 
     {type, values, notes} =
-      case {club ++ fed, hard_pairs} do
+      case {whole, hard_pairs} do
         {[], []} ->
           {-1, "", []}
 
         {[], pairs} ->
           {0, pairs_value(pairs, ni_by_player_id), []}
 
-        {[:club], []} ->
-          club_rule(t, players, ni_by_player_id)
+        {[%{kind: "club"} = rule], []} ->
+          club_rule(rule, players, ni_by_player_id)
 
-        {[:fed], []} ->
-          fed_rule(t)
+        {[%{kind: "federation"} = rule], []} ->
+          fed_rule(rule)
 
-        {_rules, pairs} ->
+        {rules, pairs} ->
           groups =
-            rule_groups(t, players) ++ Enum.map(pairs, fn {a, b} -> [a, b] end)
+            Enum.flat_map(rules, &Exclusions.groups(&1, players)) ++
+              Enum.map(pairs, fn {a, b} -> [a, b] end)
 
           {0, groups_value(groups, ni_by_player_id),
            [
              gettext(
-               "SWAR keeps one exclusion rule, and this tournament has more than one (club, federation or forbidden pairs). They are written as groups of player numbers whose members never meet, which keep exactly the same players apart - but a player added in SWAR later is in no group, and re-importing the file brings them back as forbidden pairs, not as club or federation rules."
+               "SWAR keeps one exclusion rule, and this tournament has more than one (club, federation, groups or forbidden pairs). They are written as groups of player numbers whose members never meet, which keep exactly the same players apart - but a player added in SWAR later is in no group, and re-importing the file brings them back as forbidden pairs, not as rules."
              )
            ]}
       end
 
-    {type, values, notes ++ soft_notes}
+    {type, values, notes ++ window_notes ++ soft_notes}
   end
 
   # The club rule on its own: SWAR's 3 (every club) or 1 (these club
   # numbers) when its grouping by club NUMBER keeps apart the same players as
   # this app's grouping by club NAME; groups of player numbers otherwise.
-  defp club_rule(t, players, ni_by_player_id) do
-    ours = club_name_groups(t, players)
+  defp club_rule(rule, players, ni_by_player_id) do
+    ours = Exclusions.groups(rule, players)
 
     {type, numbers} =
-      case t.club_exclusion do
-        "all" ->
+      case rule.names do
+        [] ->
           {3, nil}
 
-        "listed" ->
+        _names ->
           {1,
            ours
            |> List.flatten()
@@ -842,7 +857,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # nationalities). SWAR v6.65 does not apply 4 at all (`BuildAllNat` is
   # empty - docs/swar-source-audit-2026-09-09.md, F2): the file says what
   # the tournament wants, and the note says SWAR will not do it.
-  defp fed_rule(%{fed_exclusion: "all"}) do
+  defp fed_rule(%{names: []}) do
     {4, "",
      [
        gettext(
@@ -851,38 +866,9 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
      ]}
   end
 
-  defp fed_rule(t) do
-    codes = t.fed_exclusion_list |> Exclusions.normalize_list() |> Enum.map(&String.upcase/1)
+  defp fed_rule(rule) do
+    codes = Enum.map(rule.names, &String.upcase/1)
     {2, Enum.join(codes, ":"), []}
-  end
-
-  # The groups the club and federation rules keep apart now, as lists of
-  # players.
-  defp rule_groups(t, players) do
-    club = if t.club_exclusion in ["all", "listed"], do: club_name_groups(t, players), else: []
-
-    fed =
-      if t.fed_exclusion in ["all", "listed"],
-        do: value_groups(players, & &1.federation, t.fed_exclusion, t.fed_exclusion_list),
-        else: []
-
-    club ++ fed
-  end
-
-  defp club_name_groups(t, players),
-    do: value_groups(players, & &1.club, t.club_exclusion, t.club_exclusion_list)
-
-  # `PairingsEngine.Exclusions`' own grouping: trimmed, case-insensitive,
-  # blank never a group; "listed" keeps the listed values only.
-  defp value_groups(players, field, mode, list) do
-    allowed = list |> Exclusions.normalize_list() |> MapSet.new(&String.downcase/1)
-
-    players
-    |> Enum.group_by(&(&1 |> field.() |> to_string() |> String.trim() |> String.downcase()))
-    |> Enum.reject(fn {value, _} -> value == "" end)
-    |> Enum.filter(fn {value, _} -> mode == "all" or MapSet.member?(allowed, value) end)
-    |> Enum.map(fn {_value, group} -> group end)
-    |> Enum.filter(&(length(&1) >= 2))
   end
 
   defp as_sets(groups), do: MapSet.new(groups, fn g -> MapSet.new(g, & &1.id) end)

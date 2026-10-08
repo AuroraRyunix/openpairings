@@ -165,17 +165,8 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
   end
 
   describe "soft pairing rules" do
-    test "default to no wishes, tried hard when there are any" do
-      assert %Tournament{}.soft_club_rounds == 0
+    test "wishes are tried hard by default" do
       assert %Tournament{}.soft_position == "strong"
-    end
-
-    test "the club wish cannot cover a negative number of rounds" do
-      changeset = Tournament.changeset(%Tournament{}, %{soft_club_rounds: -1, name: "T"})
-      assert changeset.errors[:soft_club_rounds]
-
-      changeset = Tournament.changeset(%Tournament{}, %{soft_club_rounds: 0, name: "T"})
-      refute Keyword.has_key?(changeset.errors, :soft_club_rounds)
     end
 
     test "how hard to try is strong or weak, nothing else" do

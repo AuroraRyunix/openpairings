@@ -88,7 +88,8 @@ defmodule PairingsEngine.TrfExport do
               full_point_bye_comments(tournament, rounds_spec, opts) ++
               rating_correction_comments(tournament, rounds_spec, opts) ++
               correction_comments(tournament, rounds_spec, opts) ++
-              not_played_comments(tournament, rounds_spec, opts)
+              not_played_comments(tournament, rounds_spec, opts) ++
+              prohibition_comments(tournament, rounds_spec, opts)
           )
         end
 
@@ -322,6 +323,66 @@ defmodule PairingsEngine.TrfExport do
       []
     end
   end
+
+  ## ---------- prohibitions changed once the event was under way ----------
+  #
+  # VCL4THP Q195/Q196: a prohibited pairing is announced before round 1
+  # (C.05 5.2). One added, changed or removed after round 1 was paired is
+  # in `prohibition_changes` (`Tournaments.record_prohibition_change/2`) -
+  # in FIDE mode it is also what took the tournament out of it - and the
+  # report says what it was, one line per round it first affected, in the
+  # PIBE lines' shape: `Prohibition @ Round 4: 5-12 added; rule same club
+  # (if possible, last 2 rounds) removed`. Players by starting rank. A file
+  # carries the changes up to the round after its last one, which is the
+  # round they were made for. TRF26 only, never in the file sent for
+  # rating, like the other `###` lines.
+  defp prohibition_comments(%Tournament{prohibition_changes: [_ | _] = changes} = t, spec, opts) do
+    if Keyword.get(opts, :dialect, :trf26) == :trf26 do
+      rounds = file_rounds(t, spec)
+      upto = Enum.max(rounds, fn -> 0 end) + 1
+      tpn = pairing_numbers(t.id)
+
+      changes
+      |> Enum.filter(&(is_integer(&1["round"]) and &1["round"] <= upto))
+      |> Enum.group_by(& &1["round"])
+      |> Enum.sort()
+      |> Enum.map(fn {round, items} ->
+        "Prohibition @ Round #{round}: " <> Enum.map_join(items, "; ", &prohibition_item(&1, tpn))
+      end)
+    else
+      []
+    end
+  end
+
+  defp prohibition_comments(_tournament, _spec, _opts), do: []
+
+  defp prohibition_item(%{"what" => "pair", "action" => "changed"} = c, tpn),
+    do:
+      "#{tpns(c["players"], tpn)} made " <>
+        if(c["soft"], do: "a wish (if possible)", else: "a rule")
+
+  defp prohibition_item(%{"what" => "pair"} = c, tpn),
+    do: "#{tpns(c["players"], tpn)}#{if c["soft"], do: " (if possible)"} #{c["action"]}"
+
+  defp prohibition_item(%{"what" => "rule"} = c, tpn) do
+    text =
+      case c["players"] do
+        [_ | _] = ids ->
+          String.replace_prefix(c["rule"] || "group", "group", "group " <> tpns(ids, tpn))
+
+        _ ->
+          c["rule"] || "rule"
+      end
+
+    "rule #{text} #{c["action"]}"
+  end
+
+  defp prohibition_item(%{"what" => "soft_position"} = c, _tpn),
+    do: "wishes tried #{c["from"]} -> #{c["to"]}"
+
+  defp prohibition_item(c, _tpn), do: "prohibition #{c["action"]}"
+
+  defp tpns(ids, tpn), do: Enum.map_join(ids || [], "-", &(Map.get(tpn, &1) || "?"))
 
   ## ---------- results corrected for rating only are in the file ----------
   #
@@ -654,7 +715,7 @@ defmodule PairingsEngine.TrfExport do
           free_points: free_point_records(players, tournament),
           forbidden_pairs:
             forbidden_groups(tournament, players, dialect, last_round) ++
-              Pairing.exclusion_pairs(tournament, players),
+              rule_groups(tournament, players, dialect, last_round),
           team_point_system: team_point_system(tournament, dialect),
           team_pab: team_pab(tournament, rounds, dialect),
           forfeited_matches:
@@ -1921,6 +1982,53 @@ defmodule PairingsEngine.TrfExport do
         true -> [{[a, b], from, last}]
       end
     end)
+  end
+
+  ## ---------- pairing rules, for the rounds they hold ----------
+  #
+  # A hard pairing rule (`PairingsEngine.Exclusions`) as the groups it keeps
+  # apart, one line per club, federation or group, from the players as they
+  # are now. In a TRF26 file a rule that does not hold for the whole event -
+  # "the last two rounds", or one added once rounds were paired - is a
+  # `260` naming its rounds, so the report does not claim it for rounds
+  # paired without it (Q217, as `forbidden_groups/4`). The engine dialect's
+  # `XXP` has no rounds: it carries the rules that hold in the round to be
+  # paired next, which is the one the program reading it will pair. Soft
+  # rules are wishes and never written, as soft pairs are not.
+  defp rule_groups(tournament, players, dialect, last_round) do
+    rank = Map.new(players, &{&1.id, &1.pairing_number})
+    rounds_count = tournament.rounds_count || 0
+    last = max(max(rounds_count, last_round), last_round + 1)
+
+    tournament.id
+    |> Tournaments.list_pairing_rules()
+    |> Enum.reject(& &1.soft)
+    |> Enum.flat_map(fn rule ->
+      span = PairingsEngine.Exclusions.rounds(rule, rounds_count)
+
+      rule
+      |> PairingsEngine.Exclusions.groups(players)
+      |> Enum.map(fn group -> group |> Enum.map(&rank[&1.id]) |> Enum.reject(&is_nil/1) end)
+      |> Enum.filter(&(length(&1) >= 2))
+      |> Enum.flat_map(&rule_group(&1, span, dialect, last, last_round))
+    end)
+  end
+
+  defp rule_group(_ranks, nil, _dialect, _last, _last_round), do: []
+
+  defp rule_group(ranks, {first, to}, :trf26, last, _last_round) do
+    to = min(to || last, last)
+
+    cond do
+      first > to -> []
+      first <= 1 and to >= last -> [ranks]
+      true -> [{ranks, first, to}]
+    end
+  end
+
+  defp rule_group(ranks, {first, to}, _engine, _last, last_round) do
+    next = last_round + 1
+    if next >= first and (is_nil(to) or next <= to), do: [ranks], else: []
   end
 
   ## ---------- National Rating Support: `172` and the federation's records ----------

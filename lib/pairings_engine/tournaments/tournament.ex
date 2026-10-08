@@ -86,9 +86,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # the import of an older backup both apply.
   @publish_modes ~w(manual pairings results standings)
   @legacy_publish_modes ~w(immediate timed scheduled)
-  # Club/federation pairing-exclusion rules (SWAR parity #7-10) - see
-  # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
-  @exclusion_modes ~w(none all listed)
   # Where a soft pairing wish sits on Ainalrami's criteria ladder - see
   # PairingsEngine.Pairing.soft_pairs/5 and docs/forbidden-pairings.md.
   @soft_positions ~w(strong weak)
@@ -917,28 +914,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `swiss_match_format`.
     field :pair_by_category, :boolean, default: false
 
-    # Club/federation pairing exclusions (SWAR parity #7-10) - arbiters
-    # often must avoid pairing clubmates / same-federation players
-    # together. "none" | "all" | "listed" - "listed" restricts the rule to
-    # the comma-separated names in the matching `_list` field. Translated
-    # into forbidden pairs at pairing time by PairingsEngine.Exclusions;
-    # respected by Swiss (JaVaFo XXP lines) and Keizer, ignored by round
-    # robin's fixed schedule by design - see docs/forbidden-pairings.md.
-    field :club_exclusion, :string, default: "none"
-    field :club_exclusion_list, :string, default: ""
-    field :fed_exclusion, :string, default: "none"
-    field :fed_exclusion_list, :string, default: ""
-
-    # Soft pairing rules - wishes the Ainalrami engine weighs against the
-    # pairing criteria, not rules it must satisfy (docs/forbidden-pairings.md,
-    # "Soft rules"). Clubmates are asked to be kept apart for rounds
-    # 1..`soft_club_rounds` (0 = never; the usual request is "not in the
-    # first two rounds"), and `soft_position` says how hard every soft wish
-    # is tried: "strong" puts it above the quality criteria (the engine would
-    # rather float a player than seat the pair), "weak" makes it a tie-break
-    # and nothing more. Explicit soft pairs live on `forbidden_pairings.soft`.
-    # JaVaFo and Keizer have no such option and ignore all three.
-    field :soft_club_rounds, :integer, default: 0
+    # The club and federation rules (and the soft "clubmates apart in the
+    # first N rounds" wish) lived in five columns here until 0.79.0; they
+    # are `PairingsEngine.Tournaments.PairingRule` rows now, the columns are
+    # left in the table unread (the migration that moved them says why).
+    #
+    # `soft_position` says how hard every soft wish - a soft pair or a soft
+    # rule - is tried: "strong" puts it above the quality criteria (the
+    # engine would rather float a player than seat the pair), "weak" makes
+    # it a tie-break and nothing more (docs/forbidden-pairings.md, "Soft
+    # rules"). JaVaFo and Keizer have no such option and ignore it.
     field :soft_position, :string, default: "strong"
 
     # Extra points (SWAR parity #12, "XtPts") - see docs/extra-points.md.
@@ -1159,6 +1144,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # writes its PIBE rounds as `### Import @ Round r` lines.
     field :import_findings, :map
 
+    # Every prohibition added, changed or removed after round 1 was paired
+    # (VCL4THP Q195/Q196; `Tournaments.record_prohibition_change/3`): a
+    # pair, a rule, or how hard wishes are tried. One map per act -
+    # `"round"` the first round it affects, `"action"` added / changed /
+    # removed, `"what"` and the players it names. In FIDE mode the first
+    # such act is also what took the tournament out of it. `TrfExport`
+    # writes them as `### Prohibition @ Round r` lines. Never cast, like
+    # the record above it: a history, not a setting. Empty for everything
+    # done before the column existed, which is not re-judged.
+    field :prohibition_changes, {:array, :map}, default: []
+
     # Per-tournament print logo (SWAR parity #14-16), stored as a DB blob so
     # backups/deploys carry it. Written only by Tournaments.set_logo/2 and
     # clear_logo/1 - NOT cast by changeset/2, same reasoning as deleted_at.
@@ -1336,11 +1332,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :initial_order_tiebreak,
       :late_entry_numbering,
       :pair_by_category,
-      :club_exclusion,
-      :club_exclusion_list,
-      :fed_exclusion,
-      :fed_exclusion_list,
-      :soft_club_rounds,
       :soft_position,
       :extra_points_mode,
       :count_extra_points,
@@ -1364,8 +1355,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:rr_cycles, @rr_cycles_values)
     |> validate_inclusion(:publish_mode, @publish_modes)
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
-    |> validate_inclusion(:club_exclusion, @exclusion_modes)
-    |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_inclusion(:soft_position, @soft_positions)
     |> validate_inclusion(:postponed_requester_outcome, ~w(win draw loss))
     |> validate_inclusion(:postponed_opponent_outcome, ~w(win draw loss))
@@ -1375,7 +1364,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:rating_method, @rating_methods)
     |> validate_inclusion(:initial_order_tiebreak, @initial_order_tiebreaks)
     |> validate_inclusion(:late_entry_numbering, @late_entry_numberings)
-    |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_inclusion(:tiebreak_unrated_method, ~w(fixed lowest average))
     |> validate_number(:tiebreak_unrated_rating,
       greater_than_or_equal_to: 0,
@@ -1408,8 +1396,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_swiss_match_format()
     |> validate_pair_by_category()
     |> validate_extra_points_excludes_baku()
-    |> normalize_exclusion_list(:club_exclusion_list)
-    |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
     |> normalize_fide_id_ranges()
     |> normalize_rating_list_sequence()
@@ -1501,22 +1487,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     changeset
     |> put_change(:start_date, List.first(dates) || "")
     |> put_change(:end_date, List.last(dates) || "")
-  end
-
-  # Trims each comma-separated entry and drops blanks, storing back in the
-  # same comma-separated shape ("Club A, Club B") - keeps the stored value
-  # tidy regardless of how the arbiter typed it (extra spaces, trailing
-  # commas, ...). Runs before validate_inclusion has any bearing on this
-  # field (there is none - free text), so it's safe unconditionally.
-  defp normalize_exclusion_list(changeset, field) do
-    case get_change(changeset, field) do
-      nil ->
-        changeset
-
-      value ->
-        normalized = value |> PairingsEngine.Exclusions.normalize_list() |> Enum.join(", ")
-        put_change(changeset, field, normalized)
-    end
   end
 
   # `keizer_top_value` is nullable (nil means "automatic") - only validate
@@ -1740,8 +1710,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def extra_points_acceleration?(%__MODULE__{extra_points_mode: "acceleration"}), do: true
   def extra_points_acceleration?(%__MODULE__{}), do: false
 
-  # Re-parses and re-normalizes `extra_points_bands` on every write (like the
-  # exclusion lists above), storing back the canonical
+  # Re-parses and re-normalizes `extra_points_bands` on every write, storing back the canonical
   # "threshold:bonus, threshold:bonus" shape sorted ascending by threshold -
   # tidy regardless of how the arbiter typed it, and a guarantee that
   # anything stored always parses cleanly for `apply_extra_points_bands/1`.
@@ -2018,8 +1987,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Coerces every value in `category_prizes` to a non-negative integer,
   # dropping anything that doesn't parse as one (a blank form field, a
   # negative number, stray non-numeric input) rather than failing the whole
-  # save - the same "tidy what's there, refuse nothing outright" precedent
-  # `normalize_exclusion_list/2` sets, chosen here because a bad prize count
+  # save - the "tidy what's there, refuse nothing outright" rule, chosen here because a bad prize count
   # is display-only (see `PairingsEngine.Categories.prize_place?/3`) and
   # never something pairing or scoring reads. A category name is not
   # checked against `categories` here - same reasoning as
@@ -2456,13 +2424,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def pairing_systems, do: @pairing_systems
   def pairing_engines, do: @pairing_engines
   def rr_cycles_values, do: @rr_cycles_values
-  def exclusion_modes, do: @exclusion_modes
-
-  def exclusion_mode_label("none"), do: "None"
-  def exclusion_mode_label("all"), do: "All shared clubs/federations"
-  def exclusion_mode_label("listed"), do: "Only listed"
-  def exclusion_mode_label(other), do: other
-
   def soft_positions, do: @soft_positions
 
   def soft_position_label("strong"), do: "Strong - before the colour and float rules"

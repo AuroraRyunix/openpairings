@@ -607,14 +607,19 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
   end
 
   describe "exclusions: SWAR keeps one rule" do
-    defp excl_tournament(attrs, players) do
+    # `rules` are pairing rules (`PairingRule`), set before any round.
+    defp excl_tournament(rules, players) do
       t =
-        Repo.insert!(
-          struct(
-            %Tournament{name: "Excl", type: "swiss", pairing_system: "swiss", rounds_count: 3},
-            attrs
-          )
-        )
+        Repo.insert!(%Tournament{
+          name: "Excl",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3
+        })
+
+      for r <- rules,
+          do:
+            Repo.insert!(struct(%PairingsEngine.Tournaments.PairingRule{tournament_id: t.id}, r))
 
       created =
         for {p, i} <- Enum.with_index(players, 1) do
@@ -631,7 +636,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
 
     test "every club, where club numbers and names agree, is SWAR's own rule" do
       {t, _} =
-        excl_tournament(%{club_exclusion: "all"}, [
+        excl_tournament([%{kind: "club"}], [
           %{club: "A", club_number: 1},
           %{club: "A", club_number: 1},
           %{club: "B", club_number: 2}
@@ -643,7 +648,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
 
     test "listed clubs go as their club numbers" do
       {t, _} =
-        excl_tournament(%{club_exclusion: "listed", club_exclusion_list: "A"}, [
+        excl_tournament([%{kind: "club", names: ["A"]}], [
           %{club: "A", club_number: 618},
           %{club: "A", club_number: 618},
           %{club: "B", club_number: 2},
@@ -655,7 +660,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
 
     test "a club without a number is kept apart as a group of players, and said so" do
       {t, _} =
-        excl_tournament(%{club_exclusion: "all"}, [
+        excl_tournament([%{kind: "club"}], [
           %{club: "A", club_number: nil},
           %{club: "A", club_number: nil},
           %{club: "B", club_number: nil}
@@ -668,14 +673,14 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     end
 
     test "every federation is SWAR's own rule, with a word about SWAR's defect" do
-      {t, _} = excl_tournament(%{fed_exclusion: "all"}, [%{}, %{}])
+      {t, _} = excl_tournament([%{kind: "federation"}], [%{}, %{}])
       assert exported_exclusion(t) == %{type: 4, values: ""}
       assert Enum.any?(SwarExport.export_notes(t), &(&1 =~ "does not apply"))
     end
 
     test "listed federations" do
       {t, _} =
-        excl_tournament(%{fed_exclusion: "listed", fed_exclusion_list: "BEL, fra"}, [%{}, %{}])
+        excl_tournament([%{kind: "federation", names: ["BEL", "fra"]}], [%{}, %{}])
 
       assert exported_exclusion(t) == %{type: 2, values: "BEL:FRA"}
     end
@@ -683,7 +688,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExportTest do
     test "two rules and a forbidden pair become groups of players that keep the same apart" do
       {t, [a, b, c, d]} =
         excl_tournament(
-          %{club_exclusion: "all", fed_exclusion: "listed", fed_exclusion_list: "NED"},
+          [%{kind: "club"}, %{kind: "federation", names: ["NED"]}],
           [
             %{club: "A", club_number: 1},
             %{club: "A", club_number: 1},

@@ -4,8 +4,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   *how* the tournament is paired: the pairing system and its variants (RR
   cycles, RR/Swiss match format - each locked once round 1 has been
   paired), the Swiss engine that does the actual pairing, the rating used
-  for pairing, acceleration, the rate of play, and the forbidden-pairing /
-  club-federation exclusion rules. The public-pairings publish delay moved
+  for pairing, acceleration and the rate of play. Forbidden pairings and
+  pairing rules have their own page since 0.79.0
+  (`PairingsEngineWeb.SettingsRestrictionsLive`). The public-pairings publish delay moved
   to `PairingsEngineWeb.SettingsResultsLive` on 2026-08-29, with the rest of
   this tournament's public existence.
   Scoring (points per win/draw/loss, byes, SWAR's "Pt ABSENT"
@@ -18,7 +19,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments, Pairing, Exclusions, RateOfPlay}
+  alias PairingsEngine.{Tournaments, Pairing, RateOfPlay}
   alias PairingsEngine.Tournaments.Tournament
 
   @pairing_system_options for ps <- Tournament.pairing_systems(),
@@ -60,7 +61,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        # just saved goes right back to frozen, same as any other locked
        # field once round 1 is paired).
        unlocked_fields: MapSet.new(),
-       forbidden_pairing_error: nil,
        # Holds the pending settings params while the "switching engine"
        # dialog is up; nil when no dialog is showing.
        engine_confirm: nil,
@@ -70,13 +70,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        # Which subject's save produced the current `note`/`error`. Each card
        # saves on its own, so the feedback has to say WHICH one saved rather
        # than appearing once at the foot of the page.
-       saved_section: nil,
-       club_exclusion_mode: tournament.club_exclusion,
-       fed_exclusion_mode: tournament.fed_exclusion,
-       exclusion_error: nil
+       saved_section: nil
      )
-     |> assign_pairing_locks()
-     |> assign_forbidden_pairings()}
+     |> assign_pairing_locks()}
   end
 
   # Which pairing-shape settings are frozen. The rule itself lives in
@@ -120,17 +116,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     )
   end
 
-  defp assign_forbidden_pairings(socket) do
-    tournament = socket.assigns.tournament
-    players = Tournaments.list_players(tournament.id) |> Enum.sort_by(& &1.name)
-
-    assign(socket,
-      forbidden_pairings: Tournaments.list_forbidden_pairings(tournament.id),
-      forbidden_pairing_players: players,
-      excluded_pair_count: Exclusions.excluded_pairs(tournament, players) |> MapSet.size()
-    )
-  end
-
   @impl true
   def handle_info({:tournament_changed, _id, _hint}, %{assigns: %{dirty: true}} = socket) do
     handle_stale_check(socket)
@@ -154,12 +139,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            tournament: tournament,
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
-           club_exclusion_mode: tournament.club_exclusion,
-           fed_exclusion_mode: tournament.fed_exclusion,
            stale: false
          )
-         |> assign_pairing_locks()
-         |> assign_forbidden_pairings()}
+         |> assign_pairing_locks()}
     end
   end
 
@@ -260,142 +242,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     {:noreply, assign(socket, engine_confirm: nil)}
   end
 
-  ## ---------- Forbidden pairings ----------
-
-  def handle_event(
-        "add_forbidden_pairing",
-        %{"player_a_id" => a, "player_b_id" => b} = params,
-        socket
-      ) do
-    with {a_id, ""} <- Integer.parse(a),
-         {b_id, ""} <- Integer.parse(b) do
-      soft? = params["soft"] == "true"
-
-      case Tournaments.add_forbidden_pairing(socket.assigns.tournament, a_id, b_id, soft: soft?) do
-        {:ok, forbidden_pairing} ->
-          Audit.log(
-            socket.assigns.tournament.id,
-            socket.assigns.current_scope,
-            "forbidden_pairing.added",
-            %{
-              player_a_id: forbidden_pairing.player_a_id,
-              player_b_id: forbidden_pairing.player_b_id,
-              soft: forbidden_pairing.soft
-            }
-          )
-
-          {:noreply,
-           socket
-           |> assign(forbidden_pairing_error: nil)
-           |> assign_forbidden_pairings()}
-
-        {:error, :same_player} ->
-          {:noreply, assign(socket, forbidden_pairing_error: "Choose two different players")}
-
-        {:error, :invalid_player} ->
-          {:noreply,
-           assign(socket, forbidden_pairing_error: "Choose two players from this tournament")}
-
-        {:error, :already_forbidden} ->
-          {:noreply, assign(socket, forbidden_pairing_error: "That pair is already forbidden")}
-
-        {:error, :archived} ->
-          {:noreply, assign(socket, forbidden_pairing_error: error_text(:archived))}
-
-        {:error, _reason} ->
-          {:noreply,
-           assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
-      end
-    else
-      _ -> {:noreply, assign(socket, forbidden_pairing_error: "Choose two players")}
-    end
-  end
-
-  def handle_event("remove_forbidden_pairing", %{"id" => id}, socket) do
-    case Tournaments.remove_forbidden_pairing(socket.assigns.tournament, id) do
-      {:ok, forbidden_pairing} ->
-        Audit.log(
-          socket.assigns.tournament.id,
-          socket.assigns.current_scope,
-          "forbidden_pairing.removed",
-          %{
-            player_a_id: forbidden_pairing.player_a_id,
-            player_b_id: forbidden_pairing.player_b_id
-          }
-        )
-
-        {:noreply, assign_forbidden_pairings(socket)}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, error_text(reason))}
-    end
-  end
-
-  ## ---------- Club/federation exclusions ----------
-
-  def handle_event(
-        "club_exclusion_mode_change",
-        %{"tournament" => %{"club_exclusion" => mode}},
-        socket
-      ) do
-    {:noreply, assign(socket, club_exclusion_mode: mode)}
-  end
-
-  def handle_event(
-        "fed_exclusion_mode_change",
-        %{"tournament" => %{"fed_exclusion" => mode}},
-        socket
-      ) do
-    {:noreply, assign(socket, fed_exclusion_mode: mode)}
-  end
-
-  def handle_event("save_exclusions", %{"tournament" => params}, socket) do
-    params =
-      Map.take(params, [
-        "club_exclusion",
-        "club_exclusion_list",
-        "fed_exclusion",
-        "fed_exclusion_list",
-        "soft_club_rounds",
-        "soft_position"
-      ])
-
-    base = socket.assigns.tournament
-
-    case Tournaments.update_tournament(base, params) do
-      {:ok, tournament} ->
-        log_settings_change(socket, base, tournament)
-
-        {:noreply,
-         socket
-         |> assign(
-           tournament: tournament,
-           club_exclusion_mode: tournament.club_exclusion,
-           fed_exclusion_mode: tournament.fed_exclusion,
-           exclusion_error: nil
-         )
-         |> assign_forbidden_pairings()}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, exclusion_error: error_text(changeset))}
-    end
-  end
-
   ## ---------- helpers ----------
-
-  # Soft rules are kept for any tournament but only Ainalrami applies them;
-  # the page says which is the case here rather than letting a Keizer or
-  # JaVaFo arbiter set a wish that nothing reads.
-  defp soft_rules_note(%{pairing_system: "swiss", pairing_engine: "ainalrami"}), do: nil
-
-  defp soft_rules_note(%{pairing_system: "swiss"}),
-    do:
-      gettext(
-        "This tournament pairs with JaVaFo, which has no \"if possible\": these wishes are kept but not applied until the engine is Ainalrami."
-      )
-
-  defp soft_rules_note(_tournament),
-    do: gettext("Only the Ainalrami Swiss engine applies these; this tournament does not use it.")
 
   # Server-side enforcement of the locks: drop any submitted value for a
   # locked field regardless of the HTML `disabled` attribute.
@@ -795,6 +642,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:rating_method} locked?={@rating_method_locked?} />
               </div>
+
               <.locked_hint_message
                 field={:rating_method}
                 locked_hint={@locked_hint}
@@ -824,11 +672,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                     {initial_order_tiebreak_label(value)}
                   </option>
                 </select>
+
                 <.locked_overlay
                   field={:initial_order_tiebreak}
                   locked?={@initial_order_tiebreak_locked?}
                 />
               </div>
+
               <.locked_hint_message
                 field={:initial_order_tiebreak}
                 locked_hint={@locked_hint}
@@ -1125,213 +975,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
       </form>
 
-      <div class="card">
+      <div class="card" id="restrictions-moved">
         <h2>{gettext("Forbidden pairings")}</h2>
 
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Two players who must never be paired against each other. Applies to Swiss pairing (a TRF \"XXP\" rule) and to Keizer; a round robin's fixed schedule ignores this by design."
-          )}
+        <p class="hint" style="margin: 0">
+          {gettext("Forbidden pairs, club and federation rules and the wishes have their own page:")}
+          <.link navigate={~p"/t/#{@tournament.id}/settings/restrictions"}>
+            {gettext("Forbidden pairings")}
+          </.link>
         </p>
-
-        <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
-          <.setting_group>
-            <.setting_field label={gettext("Player A")}>
-              <select name="player_a_id" class="pe-select">
-                <option :for={p <- @forbidden_pairing_players} value={p.id}>{p.name}</option>
-              </select>
-            </.setting_field>
-
-            <.setting_field label={gettext("Player B")}>
-              <select name="player_b_id" class="pe-select">
-                <option :for={p <- @forbidden_pairing_players} value={p.id}>{p.name}</option>
-              </select>
-            </.setting_field>
-          </.setting_group>
-
-          <.setting_toggle
-            name="soft"
-            label={gettext("Only if possible")}
-            hint={
-              gettext(
-                "A wish rather than a rule: the pair is weighed against the pairing criteria instead of ruled out, and gives way when the rules leave no other legal round. Ainalrami only - JaVaFo and Keizer have no such option and ignore it."
-              )
-            }
-          />
-          <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
-
-          <div class="actions">
-            <button
-              type="submit"
-              class="pe-btn tonal"
-              disabled={length(@forbidden_pairing_players) < 2}
-            >
-              Add
-            </button>
-          </div>
-        </form>
-
-        <div :if={@forbidden_pairings != []} class="card-table-wrap" style="margin-top: 16px">
-          <table class="pe-table">
-            <thead>
-              <tr>
-                <th>{gettext("Pair")}</th>
-
-                <th><span class="sr-only">{gettext("Actions")}</span></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr :for={fp <- @forbidden_pairings}>
-                <td>
-                  {fp.player_a.name} - {fp.player_b.name}
-                  <span :if={fp.soft} class="pe-tag pe-tag-muted">{gettext("if possible")}</span>
-                </td>
-
-                <td style="text-align: right">
-                  <button
-                    class="pe-btn danger-link"
-                    phx-click="remove_forbidden_pairing"
-                    phx-value-id={fp.id}
-                  >
-                    {gettext("Remove")}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p :if={@forbidden_pairings == []} class="hint" style="margin-bottom: 0">
-          {gettext("No forbidden pairings yet.")}
-        </p>
-
-        <h3 style="margin-top: 24px">{gettext("Club / federation exclusions")}</h3>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Automatically forbid pairing any two players who share a club or federation, instead of listing every pair by hand. Applies to Swiss (TRF \"XXP\" rules, same as above) and to Keizer; a round robin's fixed schedule ignores this by design."
-          )}
-        </p>
-
-        <form id="exclusion-rules-form" phx-submit="save_exclusions">
-          <.setting_group>
-            <.setting_field label={gettext("Clubs")}>
-              <select
-                name="tournament[club_exclusion]"
-                class="pe-select"
-                phx-change="club_exclusion_mode_change"
-              >
-                <option
-                  :for={m <- Tournament.exclusion_modes()}
-                  value={m}
-                  selected={m == @club_exclusion_mode}
-                >
-                  {Tournament.exclusion_mode_label(m)}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field
-              :if={@club_exclusion_mode == "listed"}
-              label={gettext("Clubs (comma-separated)")}
-            >
-              <input
-                type="text"
-                name="tournament[club_exclusion_list]"
-                value={@tournament.club_exclusion_list}
-                placeholder={gettext("e.g. Chess Club A, Chess Club B")}
-              />
-            </.setting_field>
-
-            <.setting_field label={gettext("Federations")}>
-              <select
-                name="tournament[fed_exclusion]"
-                class="pe-select"
-                phx-change="fed_exclusion_mode_change"
-              >
-                <option
-                  :for={m <- Tournament.exclusion_modes()}
-                  value={m}
-                  selected={m == @fed_exclusion_mode}
-                >
-                  {Tournament.exclusion_mode_label(m)}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field
-              :if={@fed_exclusion_mode == "listed"}
-              label={gettext("Federations (comma-separated)")}
-            >
-              <input
-                type="text"
-                name="tournament[fed_exclusion_list]"
-                value={@tournament.fed_exclusion_list}
-                placeholder={gettext("e.g. BEL, NED")}
-              />
-            </.setting_field>
-          </.setting_group>
-
-          <p class="hint">
-            {ngettext(
-              "%{count} pair currently excluded by these rules.",
-              "%{count} pairs currently excluded by these rules.",
-              @excluded_pair_count
-            )}
-          </p>
-
-          <h3 style="margin-top: 24px">{gettext("Rather not, if possible")}</h3>
-
-          <p class="hint" style="margin-top: 0">
-            {gettext(
-              "Wishes rather than rules. Ainalrami weighs them against the pairing criteria and gives way when the rules leave no other legal round; the rationale page shows the rung. Forbidden pairings marked \"only if possible\" above are weighed the same way. JaVaFo and Keizer have no such option and ignore all of this."
-            )}
-          </p>
-
-          <p class="hint" id="soft-rules-fide-note" style="margin-top: 0">
-            <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
-              "A round in which a wish moves a board is not the round the FIDE rules pair, and a FIDE checker cannot replay it. The first such round is recorded as the round the tournament stopped matching the FIDE rules, and the audit trail records it; a wish the rules already honour changes nothing."
-            )}
-          </p>
-
-          <.setting_group>
-            <.setting_field
-              label={gettext("Keep clubmates apart for the first N rounds")}
-              hint={gettext("0 leaves clubmates to the ordinary pairing rules.")}
-            >
-              <input
-                type="number"
-                name="tournament[soft_club_rounds]"
-                min="0"
-                step="1"
-                value={@tournament.soft_club_rounds}
-              />
-            </.setting_field>
-
-            <.setting_field label={gettext("How hard to try")}>
-              <select name="tournament[soft_position]" class="pe-select">
-                <option
-                  :for={p <- Tournament.soft_positions()}
-                  value={p}
-                  selected={p == @tournament.soft_position}
-                >
-                  {Tournament.soft_position_label(p)}
-                </option>
-              </select>
-            </.setting_field>
-          </.setting_group>
-
-          <p :if={soft_rules_note(@tournament)} class="hint" style="margin-bottom: 0">
-            {soft_rules_note(@tournament)}
-          </p>
-
-          <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>
-
-          <div class="actions">
-            <button type="submit" class="pe-btn primary">{gettext("Save exclusion rules")}</button>
-          </div>
-        </form>
       </div>
 
       <div

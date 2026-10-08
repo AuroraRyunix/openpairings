@@ -74,6 +74,13 @@ defmodule PairingsEngineWeb.SettingsSupport do
       </.link>
 
       <.link
+        navigate={~p"/t/#{@tournament.id}/settings/restrictions"}
+        class={["pe-btn", "filter-picker", @active == :restrictions && "active"]}
+      >
+        {gettext("Forbidden pairings")}
+      </.link>
+
+      <.link
         navigate={~p"/t/#{@tournament.id}/settings/results"}
         class={["pe-btn", "filter-picker", @active == :results && "active"]}
       >
@@ -563,6 +570,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def compliance_setting_label(:points_draw), do: gettext("Points for a draw")
   def compliance_setting_label(:bye_value), do: gettext("Pairing-allocated bye")
 
+  def compliance_setting_label(:soft_position),
+    do: gettext("How hard to try the wishes")
+
   @doc """
   What one `PairingsEngine.Compliance` code means, in an arbiter's words.
 
@@ -617,6 +627,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
     do:
       gettext(
         "A player who joins late is numbered after the field instead of where their rating puts them, so every later round is paired on numbers the FIDE rules (C.04.2 2.4) would not have given. By rating puts this back."
+      )
+
+  def compliance_message(:prohibition_changed_after_round_1),
+    do:
+      gettext(
+        "Round 1 is paired. How hard the wishes are tried is part of what was announced about them, and the FIDE rules (C.05 5.2) want restrictions announced before the first round."
       )
 
   def compliance_message(:mirrored_second_leg),

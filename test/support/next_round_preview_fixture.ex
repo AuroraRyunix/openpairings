@@ -14,7 +14,7 @@ defmodule PairingsEngine.NextRoundPreviewFixture do
   import Ecto.Query
 
   alias PairingsEngine.{Pairing, Repo, Tournaments}
-  alias PairingsEngine.Tournaments.{ForbiddenPairing, Player, Tournament}
+  alias PairingsEngine.Tournaments.{ForbiddenPairing, PairingRule, Player, Tournament}
 
   @clubs ["Rook", "Knight", "Bishop", "", "Pawn", ""]
 
@@ -55,9 +55,6 @@ defmodule PairingsEngine.NextRoundPreviewFixture do
             type: "swiss",
             rounds_count: 6,
             acceleration: "baku",
-            soft_club_rounds: 3,
-            club_exclusion: "listed",
-            club_exclusion_list: "Pawn",
             initial_colour: "black"
           },
           attrs
@@ -65,6 +62,19 @@ defmodule PairingsEngine.NextRoundPreviewFixture do
       )
 
     players = for i <- 1..23, do: insert_player(t, i)
+
+    # Clubmates of "Pawn" never meet; every club kept apart, if possible,
+    # in the first three rounds - what `club_exclusion: "listed"` and
+    # `soft_club_rounds: 3` said before they became rules.
+    Repo.insert!(%PairingRule{tournament_id: t.id, kind: "club", names: ["Pawn"]})
+
+    Repo.insert!(%PairingRule{
+      tournament_id: t.id,
+      kind: "club",
+      soft: true,
+      window: "first",
+      window_rounds: 3
+    })
 
     by_i = fn i -> Enum.at(players, i - 1) end
 

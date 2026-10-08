@@ -88,7 +88,8 @@ would actually be moved by one of them. See
 Things that FIDE's own regulations allow are not departures and do not
 change the mode: other point values for a win, draw and loss (as long as no
 game scores less than a lesser result), a half-point bye, extra points,
-the choice of tie-breaks, a hand-set standings order, and changing the
+the choice of tie-breaks, forbidden pairings and pairing rules set before
+round 1 is paired (C.05 5.2), a hand-set standings order, and changing the
 boards of a round by hand ([Pairing a round](06-pairing.md): hand edits are
 a manual pairing alteration that the regulations foresee, so they do not end
 FIDE mode; a difference from the pairing checker is recorded in the report
@@ -106,8 +107,10 @@ There are two ways out, and both ask the same two questions.
   independently* on the Categories page; and pressing a pair button when the
   round, as it would be paired, is moved by a soft rule (an "only if
   possible" wish), by a bye exclusion or a bye preference, or by extra points
-  counted in the pairing; and recording a postponed game as *not played in
-  this event* on the Export page.
+  counted in the pairing; recording a postponed game as *not played in
+  this event* on the Export page; and adding, changing or removing a
+  forbidden pairing or a pairing rule once round 1 is paired
+  ([Forbidden pairings page](03-tournament-setup.md)).
 
 Before anything is written the program shows the dialog *Leave FIDE mode?*
 in two steps (this is the double confirmation that the FIDE tournament

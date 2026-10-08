@@ -69,6 +69,7 @@ defmodule PairingsEngineWeb.HistoryLive do
     "tournament" => "tournament",
     "logo" => "settings",
     "forbidden_pairing" => "settings",
+    "pairing_rule" => "settings",
     "category" => "settings",
     "categories" => "settings",
     "pair_by_category" => "settings",
@@ -689,8 +690,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         </form>
 
         <p :if={@snapshot_count == 0} class="hint hist-note">
-          <strong>{gettext("No restore points yet.")}</strong>
-          {if @tournament.archived_at,
+          <strong>{gettext("No restore points yet.")}</strong> {if @tournament.archived_at,
             do:
               gettext(
                 "One is saved automatically before anything irreversible - pairing or unpairing a round, or importing results from a file. Editing players, adjusting settings and typing results in by hand don't take one."
@@ -705,8 +705,7 @@ defmodule PairingsEngineWeb.HistoryLive do
               it is the one the tournament is already on, so it gets no "go
               back" button and the page showed a save box and nothing else. --%>
         <p :if={@snapshot_count > 0 and @restorable_count == 0} class="hint hist-note">
-          <strong>{gettext("One restore point, and you are on it.")}</strong>
-          {gettext(
+          <strong>{gettext("One restore point, and you are on it.")}</strong> {gettext(
             "There is nowhere to go back to yet - the option to go back appears on a point once the tournament has moved past it. Carry on working, and save another when you reach the next state worth keeping."
           )}
         </p>
@@ -823,8 +822,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         phx-click="toggle_changes"
         phx-value-id={@point.id}
       >
-        <span class={["hist-chevron", @expanded && "is-open"]} aria-hidden="true">▸</span>
-        {ngettext(
+        <span class={["hist-chevron", @expanded && "is-open"]} aria-hidden="true">▸</span> {ngettext(
           "%{count} change after this point",
           "%{count} changes after this point",
           length(@point.changes)
@@ -923,8 +921,9 @@ defmodule PairingsEngineWeb.HistoryLive do
         </p>
 
         <div class="setting-warning">
-          <strong>{gettext("⚠ This overwrites live results.")}</strong>
-          {gettext("Every result, pairing and player change made after that point goes away.")}
+          <strong>{gettext("⚠ This overwrites live results.")}</strong> {gettext(
+            "Every result, pairing and player change made after that point goes away."
+          )}
         </div>
 
         <p class="hint">
@@ -945,9 +944,11 @@ defmodule PairingsEngineWeb.HistoryLive do
               length(@sent)
             )}
           </strong>
+
           <ul>
             <li :for={game <- @sent}>{sent_conflict_text(game)}</li>
           </ul>
+
           <p>
             {gettext(
               "The file that was sent keeps what it said, and the tournament would no longer agree with it. Those rounds stay marked as sent, so they are never sent again - correct the difference with the rating officer."
@@ -982,9 +983,9 @@ defmodule PairingsEngineWeb.HistoryLive do
               value="true"
               id="restore-sent-ack"
               checked={@sent_ack}
-            />
-            {gettext("I know these games were already sent, and restore anyway")}
+            /> {gettext("I know these games were already sent, and restore anyway")}
           </label>
+
           <div class="actions">
             <button
               type="submit"
@@ -993,6 +994,7 @@ defmodule PairingsEngineWeb.HistoryLive do
             >
               {gettext("Go back to this point")}
             </button>
+
             <button type="button" class="pe-btn" phx-click="restore_cancel">{gettext("Cancel")}</button>
           </div>
         </form>

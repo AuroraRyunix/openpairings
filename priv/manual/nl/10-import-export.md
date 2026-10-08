@@ -88,7 +88,7 @@ dat *Versturen…* maakt, bevat alleen records en geen zo'n regel.)
 **Een OpenPairings-back-up importeren** leest een bestand dat is gemaakt met **Volledige
 back-up exporteren (JSON)** (hieronder), tot 10 MB. Het geeft een nieuw toernooi, dat
 van u is, met de instellingen, officials, ploegen, elk spelerveld, rondes, resultaten,
-byes, verboden paringen en de registratie van wat er naar het ratingkantoor is
+byes, verboden paringen, paringsregels en de registratie van wat er naar het ratingkantoor is
 verzonden. Het origineel wordt nooit aangeraakt, ook niet wanneer u uw eigen bestand
 opnieuw importeert. Gaat er iets mis, dan blijft er niets achter.
 

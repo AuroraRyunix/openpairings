@@ -103,7 +103,7 @@ merged, because two copies that both took results cannot be reconciled.
    of the frozen copy is saved first; if it cannot be saved nothing is replaced.
 
 What travels: the settings, players, rounds, results, byes, teams, forbidden
-pairings, the audit trail and the record of what was sent to the rating office.
+pairings and pairing rules, the audit trail and the record of what was sent to the rating office.
 What does not: the restore points, the phones enrolled for result entry, and
 the collaborators, who arrive as pending invitations. A hand-off file can also
 be opened as an ordinary backup.

@@ -143,7 +143,7 @@ defmodule PairingsEngine.Keizer do
     ranked_eligible = Enum.filter(order, &MapSet.member?(eligible_ids, &1.id))
 
     history = build_history(games)
-    forbidden = read_forbidden(tournament, ladder_pool)
+    forbidden = read_forbidden(tournament, ladder_pool, next_number)
 
     case match_round(ranked_eligible, history, forbidden) do
       {:error, reason} ->
@@ -451,13 +451,14 @@ defmodule PairingsEngine.Keizer do
     {games, byes}
   end
 
-  # Unions explicit forbidden pairings with club/federation exclusion rules
-  # (PairingsEngine.Exclusions - see docs/forbidden-pairings.md), both keyed
-  # by `pair_key/2` (player ids) since that's the id space `match_round/3`
-  # and friends already work in. `players` only needs to cover this round's
-  # ladder pool - Exclusions.excluded_pairs/2 only ever produces pairs drawn
-  # from whatever list it's given.
-  defp read_forbidden(tournament, players) do
+  # Unions explicit forbidden pairings with the hard pairing rules that hold
+  # in round `round` (PairingsEngine.Exclusions - see
+  # docs/forbidden-pairings.md), both keyed by `pair_key/2` (player ids)
+  # since that's the id space `match_round/3` and friends already work in.
+  # `players` only needs to cover this round's ladder pool -
+  # `Exclusions.hard_pairs/4` only ever produces pairs drawn from whatever
+  # list it's given.
+  defp read_forbidden(tournament, players, round) do
     # Hard rows only. A soft pair is a wish for the Swiss engine's ladder
     # (see `ForbiddenPairing`); Keizer's matcher has no "rather not", and
     # honouring it here would silently turn a wish into a rule.
@@ -468,8 +469,9 @@ defmodule PairingsEngine.Keizer do
       |> MapSet.new(&pair_key(&1.player_a_id, &1.player_b_id))
 
     exclusions =
-      tournament
-      |> Exclusions.excluded_pairs(players)
+      tournament.id
+      |> Tournaments.list_pairing_rules()
+      |> Exclusions.hard_pairs(players, round, tournament.rounds_count)
       |> MapSet.new(fn {a, b} -> pair_key(a.id, b.id) end)
 
     MapSet.union(explicit, exclusions)

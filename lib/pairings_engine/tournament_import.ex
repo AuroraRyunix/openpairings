@@ -306,6 +306,8 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, records!(entry, "rounds"), player_map, team_map)
     import_byes!(tournament, records!(entry, "byes"), player_map)
     import_forbidden_pairings!(tournament, records!(entry, "forbidden_pairings"), player_map)
+    import_pairing_rules!(tournament, entry, t_attrs, player_map)
+    tournament = import_prohibition_changes!(tournament, t_attrs, player_map)
 
     tournament
     |> PairingsEngine.TeamSwiss.settle_mode()
@@ -534,6 +536,8 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, records!(t_data, "rounds"), player_map, team_map)
     import_byes!(tournament, records!(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, records!(t_data, "forbidden_pairings"), player_map)
+    import_pairing_rules!(tournament, t_data, t_attrs, player_map)
+    tournament = import_prohibition_changes!(tournament, t_attrs, player_map)
     # What the file says was sent to the rating officer goes on this copy's
     # sent-games record: the file's own record of it (`"sent_games"`, audit
     # 2026-10-01 F5), and the sent marks on its boards. So neither this copy
@@ -1202,6 +1206,117 @@ defmodule PairingsEngine.TournamentImport do
     # schemaless insert has no type for `soft`, and SQLite would store the
     # boolean as the text "true", which the schema then cannot load.
     if rows != [], do: Repo.insert_all(PairingsEngine.Tournaments.ForbiddenPairing, rows)
+  end
+
+  # The pairing rules, as the file has them - or, in a file from before
+  # 0.79.0, the rules its club/federation settings meant (the same reading
+  # the migration that introduced rules gave every existing tournament).
+  # A group rule's members are remapped like every other player reference;
+  # one left with fewer than two is dropped, as a pair naming a lost player
+  # is.
+  defp import_pairing_rules!(tournament, entry, t_attrs, player_map) do
+    attrs =
+      if Map.has_key?(entry, "pairing_rules"),
+        do: entry |> records!("pairing_rules") |> Enum.map(&rule_attrs(&1, player_map)),
+        else: legacy_rule_attrs(t_attrs)
+
+    for {attrs, from_round} <- Enum.reject(attrs, &is_nil/1) do
+      changeset =
+        %PairingsEngine.Tournaments.PairingRule{
+          tournament_id: tournament.id,
+          from_round: from_round
+        }
+        |> PairingsEngine.Tournaments.PairingRule.changeset(attrs)
+
+      if changeset.valid?, do: Repo.insert!(changeset)
+    end
+
+    :ok
+  end
+
+  defp rule_attrs(r, player_map) do
+    ids =
+      r
+      |> Map.get("player_ids")
+      |> List.wrap()
+      |> Enum.map(&Map.get(player_map, &1))
+      |> Enum.reject(&is_nil/1)
+
+    from = coerce_int(r["from_round"])
+
+    {%{
+       "kind" => r["kind"],
+       "soft" => r["soft"] == true,
+       "names" => List.wrap(r["names"]),
+       "player_ids" => ids,
+       "window" => r["window"] || "all",
+       "window_rounds" => r["window_rounds"],
+       "window_from" => r["window_from"],
+       "window_to" => r["window_to"]
+     }, if(is_integer(from) and from > 1, do: from)}
+  end
+
+  @doc false
+  def legacy_rule_attrs(t_attrs) do
+    hard =
+      for {kind, mode_key, list_key} <- [
+            {"club", "club_exclusion", "club_exclusion_list"},
+            {"federation", "fed_exclusion", "fed_exclusion_list"}
+          ],
+          attrs <- legacy_rule(kind, t_attrs[mode_key], t_attrs[list_key]),
+          do: {attrs, nil}
+
+    soft_rounds = coerce_int(t_attrs["soft_club_rounds"])
+
+    soft =
+      if is_integer(soft_rounds) and soft_rounds > 0 and t_attrs["club_exclusion"] != "all",
+        do: [
+          {%{
+             "kind" => "club",
+             "soft" => true,
+             "window" => "first",
+             "window_rounds" => soft_rounds
+           }, nil}
+        ],
+        else: []
+
+    hard ++ soft
+  end
+
+  defp legacy_rule(kind, "all", _list), do: [%{"kind" => kind, "window" => "all"}]
+
+  defp legacy_rule(kind, "listed", list) when is_binary(list) do
+    case PairingsEngine.Exclusions.normalize_list(list) do
+      [] -> []
+      names -> [%{"kind" => kind, "names" => names, "window" => "all"}]
+    end
+  end
+
+  defp legacy_rule(_kind, _mode, _list), do: []
+
+  # `prohibition_changes` names players by id; the file's ids become this
+  # copy's through `player_map` (an id that maps to nobody becomes nil and
+  # the `###` line shows "?"). A file without the key keeps what is on the
+  # row - nothing for a new copy.
+  defp import_prohibition_changes!(tournament, t_attrs, player_map) do
+    case Map.get(t_attrs, "prohibition_changes") do
+      changes when is_list(changes) ->
+        remapped =
+          changes
+          |> Enum.filter(&is_map/1)
+          |> Enum.map(fn c ->
+            Map.update(c, "players", [], fn ids ->
+              ids |> List.wrap() |> Enum.map(&Map.get(player_map, &1))
+            end)
+          end)
+
+        tournament
+        |> Ecto.Changeset.change(prohibition_changes: remapped)
+        |> Repo.update!()
+
+      _ ->
+        tournament
+    end
   end
 
   ## ---------- the audit trail (hand-off envelopes only) ----------

@@ -155,7 +155,8 @@ defmodule PairingsEngine.NextRoundPreview do
   A value that changes whenever anything the next round's pairing reads
   changes: the tournament's settings and its `data_version` (moved by every
   write to its players, rounds, pairings and byes - see
-  `PairingsEngine.StandingsCache`), and its forbidden pairings.
+  `PairingsEngine.StandingsCache`), its forbidden pairings and its pairing
+  rules.
   """
   def fingerprint(tournament_id) do
     case Repo.get(Tournament, tournament_id) do
@@ -171,10 +172,19 @@ defmodule PairingsEngine.NextRoundPreview do
               select: {f.player_a_id, f.player_b_id, f.soft}
           )
 
+        rules =
+          Repo.all(
+            from r in PairingsEngine.Tournaments.PairingRule,
+              where: r.tournament_id == ^tournament_id,
+              order_by: r.id
+          )
+          |> Enum.map(&Map.drop(&1, [:__meta__, :tournament, :inserted_at, :updated_at]))
+
         :erlang.phash2({
           StandingsCache.version(tournament_id),
           Map.delete(t, :__meta__),
-          forbidden
+          forbidden,
+          rules
         })
     end
   end
@@ -366,6 +376,13 @@ defmodule PairingsEngine.NextRoundPreview do
           order_by: f.id
       )
 
+    rules =
+      Repo.all(
+        from r in PairingsEngine.Tournaments.PairingRule,
+          where: r.tournament_id == ^tournament_id,
+          order_by: r.id
+      )
+
     base =
       Memo.digest({
         round_number,
@@ -375,7 +392,8 @@ defmodule PairingsEngine.NextRoundPreview do
         Enum.map(earlier, &Map.drop(&1, @pairing_assocs)),
         Enum.map(current, &Map.drop(&1, @pairing_assocs ++ @result_fields)),
         byes,
-        Enum.map(forbidden, &Map.drop(&1, [:__meta__, :tournament, :player_a, :player_b]))
+        Enum.map(forbidden, &Map.drop(&1, [:__meta__, :tournament, :player_a, :player_b])),
+        Enum.map(rules, &Map.drop(&1, [:__meta__, :tournament, :inserted_at, :updated_at]))
       })
 
     {base, Map.new(current, &{&1.id, &1.result})}

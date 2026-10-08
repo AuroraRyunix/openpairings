@@ -88,7 +88,7 @@ the file sees where the pairings were not the program's own. (The file made by
 **Import an OpenPairings backup** reads a file made by **Export full backup
 (JSON)** (below), up to 10 MB. It gives a new tournament, owned by you, with
 the settings, officials, teams, every player field, rounds, results, byes,
-forbidden pairings and the record of what was sent to the rating office. The
+forbidden pairings, pairing rules and the record of what was sent to the rating office. The
 original is never touched, even when you import your own file again. If
 anything goes wrong nothing is left behind.
 
