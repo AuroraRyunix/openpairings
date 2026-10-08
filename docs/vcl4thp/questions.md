@@ -91,24 +91,6 @@ the options, and the exact question to answer. The tracker
   too, or hard ones only? (A soft one already leaves FIDE mode when it
   moves a board.)
 
-## Q166 - unknown result codes read as "unknown"
-
-- **Asks:** on import, any unexpected symbol in a result column (the draft's
-  examples are digits that are no TRF code) is taken as a game with an
-  unknown result. NO costs 10%.
-- **Today:** only `?` is read as unknown (it becomes a postponed game);
-  any other unrecognised code is refused by Ainalrami's parser on purpose
-  (`deps/ainalrami/lib/ainalrami/trf.ex`, moduledoc): reading garbage as
-  "unknown" turns a corrupt file into a plausible one, and the engine
-  argued against that reading when FIDE consulted on the draft.
-- **Options:** (a) keep refusing (10%); (b) in OpenPairings' import only,
-  rewrite an unrecognised result code to `?` before parsing, and list each
-  one on the import review step as an adjustment the arbiter confirms
-  (the engine and its checker stay strict); about 40 lines plus tests.
-- **Question:** For Q166, keep refusing unknown result codes (a), or accept
-  them as unknown results with each one shown on the import review for
-  confirmation (b)?
-
 ## Q156 - late entrants' pairing numbers: default
 
 - **Asks:** a player entering after round 4 gets the correct TPN (the one

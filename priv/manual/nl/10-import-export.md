@@ -54,6 +54,13 @@ op de keuze van het bestand:
   forfait- en bye-punten van ploegen, extra punten buiten de puntentelling, partijen
   zonder tegenstander die als byes zijn geïmporteerd, en rondes die niet zijn
   gecontroleerd omdat alleen een Zwitsers volgens het Nederlandse systeem dat kan.
+- *Symbolen die geen resultaatcode zijn.* Een symbool in een resultaatkolom dat geen
+  resultaatcode is (een `5`, een `x`, een `%`) wordt gelezen als een partij met onbekende
+  uitslag en geïmporteerd als uitgestelde partij, net als `?`. Elk symbool wordt vermeld
+  met de speler, het startnummer, de ronde en het gevonden symbool. Het resultaat van de
+  tegenstander in die ronde wordt ook op onbekend gezet, en de lijst zegt dat, omdat beide
+  kanten van een partij moeten overeenkomen. Een symbool in een ronde zonder tegenstander
+  is geen partij en het bestand wordt nog steeds geweigerd. Annuleren importeert niets.
 - *Rondes die een paringsregel breken.* Als een ronde van het bestand een regel breekt,
   krijgt de controle de kop *Deze rondes van het bestand breken de FIDE-paringsregels*
   en zegt dat het importeren niet in overeenstemming is met de paringsregels. Dit is

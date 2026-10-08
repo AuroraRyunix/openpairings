@@ -1690,6 +1690,29 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   # A code this page has not been taught to word - one the importer gains
   # after this was written. Never a crash on somebody's import.
+  defp trf_adjustment_text(%{code: :unrecognised_result, partner_rank: nil} = a),
+    do:
+      gettext(
+        "%{player} (starting rank %{rank}), round %{round}: the result column holds \"%{code}\", which is not a result code. It was read as a game with an unknown result and imported as a postponed game.",
+        player: a.player,
+        rank: a.rank,
+        round: a.round,
+        code: a.symbol
+      )
+
+  defp trf_adjustment_text(%{code: :unrecognised_result} = a),
+    do:
+      gettext(
+        "%{player} (starting rank %{rank}), round %{round}: the result column holds \"%{code}\", which is not a result code. It was read as a game with an unknown result and imported as a postponed game; the opponent, %{partner} (starting rank %{partner_rank}), had \"%{partner_code}\" there, which was set to unknown as well because both sides of a game must agree.",
+        player: a.player,
+        rank: a.rank,
+        round: a.round,
+        code: a.symbol,
+        partner: a.partner,
+        partner_rank: a.partner_rank,
+        partner_code: a.partner_code
+      )
+
   defp trf_adjustment_text(%{code: code}),
     do: gettext("The import adjusted something this page cannot describe (%{code}).", code: code)
 
