@@ -968,7 +968,7 @@ defmodule PairingsEngineWeb.Layouts do
     {"slate", "hero-window-micro"},
     {"paper", "hero-document-micro"},
     {"board", "hero-squares-2x2-micro"},
-    {"tomw", "hero-trophy-micro"},
+    {"tomw", "hero-swatch-micro"},
     {"contrast", "hero-eye-micro"}
   ]
 

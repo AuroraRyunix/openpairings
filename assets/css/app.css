@@ -385,48 +385,48 @@
   --color-base-content: #1f2a22;
 }
 
-/* TOM W. Royal blue with a sky-blue accent, named for a club arbiter whose
-   help shaped a good part of this app - he asked for nothing, so he gets a
-   colour scheme, which is about what arbiters get for anything.
+/* TOM W. A light theme in pale sky with a royal-blue accent, named for a
+   club arbiter whose help shaped a good part of this app. He asked for
+   nothing, so he gets a colour scheme, which is about what arbiters get for
+   anything.
 
-   Royal blue is a mid-tone, not a dark one, and that is the whole trouble:
-   white text is comfortable on it, but a translucent tint of a light accent
-   lifts the ground toward the accent and eats the contrast. So the tints
-   here are 10%, not the 16-18% the darker themes get, and every accent has
-   its own lighter variant below. The semantic four are pastels for the
-   same reason - anything saturated enough to look "red" on royal blue is
-   too dark to read on it. */
+   The first draft painted the whole page royal blue. It was loud, every
+   accent had to be bleached to stay readable on it, and red buttons came
+   out pink. Royal blue is better as the thing you click than as the thing
+   you stare at, so it moved to the accent and the page went sky-pale - which
+   also lets the ordinary light accents apply unchanged. */
 [data-theme="tomw"] {
-  --bg: #1b3994;
-  --surface: #24449f;
-  --border: #4566c0;
-  --text: #ffffff;
-  --text-soft: #dbe6ff;
-  --accent: #a8e4ff;
-  --accent-hover: #c6edff;
-  --accent-soft: rgba(168, 228, 255, 0.10);
-  --accent-ink: #0b1f5c;
-  --accent-lift: #ffffff;
-  --danger: #ffd2d2;
-  --danger-hover: #ffe0e0;
-  --danger-ink: #0b1f5c;
-  --success: #a8f5c4;
-  --success-soft: rgba(154, 240, 184, 0.10);
-  --warn: #ffe08f;
-  --warn-soft: rgba(255, 215, 122, 0.10);
-  --info: #e8dcff;
-  --info-soft: rgba(227, 212, 255, 0.10);
-  --shadow: 0 1px 3px rgba(5, 15, 50, 0.45);
+  --bg: #eaf2fc;
+  --surface: #f9fbff;
+  --border: #c7d7ee;
+  --text: #13254f;
+  --text-soft: #4a5b7e;
+  --accent: #2352c4;
+  --accent-hover: #1b42a3;
+  --accent-soft: #e2ecfb;
+  --accent-ink: #ffffff;
+  --accent-lift: #10151b;
+  --danger: #b3261e;
+  --danger-hover: #931f18;
+  --danger-ink: #ffffff;
+  --success: #1f6f45;
+  --success-soft: #e3f1e9;
+  --warn: #6f4c08;
+  --warn-soft: #f6eedb;
+  --info: #0c6a92;
+  --info-soft: #e1f1f9;
+  --shadow: 0 1px 3px rgba(19, 37, 79, 0.10);
 
-  --surface-alt: #2c4ca8;
-  --surface-hover: #3454b4;
-  --scrim: rgba(5, 15, 50, 0.6);
+  --surface-alt: #f1f6fd;
+  --surface-hover: #e8f0fb;
+  --scrim: rgba(19, 37, 79, 0.45);
+  --pe-bg-alt: var(--surface-alt);
 
-  color-scheme: dark;
-  --color-base-100: #24449f;
-  --color-base-200: #2c4ca8;
-  --color-base-300: #4566c0;
-  --color-base-content: #ffffff;
+  color-scheme: light;
+  --color-base-100: #f9fbff;
+  --color-base-200: #eaf2fc;
+  --color-base-300: #dbe7f8;
+  --color-base-content: #13254f;
 }
 
 
@@ -463,18 +463,6 @@
 [data-accent="indigo"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #8a94f8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
 [data-accent="cyan"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
 [data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
-
-/* Tom W's own set. The dark set above assumes a ground near black; on royal
-   blue those accents read at 3-4:1 on their own tint, so each is lifted
-   toward white until a badge and the current tab clear 4.5:1, hue kept. */
-[data-accent="blue"]:where([data-theme="tomw"]) { --accent: #b8d9fe; --accent-hover: #cae2fe; --accent-soft: rgba(91, 155, 255, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="teal"]:where([data-theme="tomw"]) { --accent: #81e5d9; --accent-hover: #a0ece2; --accent-soft: rgba(45, 212, 191, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="violet"]:where([data-theme="tomw"]) { --accent: #d7cbfd; --accent-hover: #e1d8fe; --accent-soft: rgba(167, 139, 250, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="rose"]:where([data-theme="tomw"]) { --accent: #fdbbc4; --accent-hover: #feccd3; --accent-soft: rgba(251, 113, 133, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="slate"]:where([data-theme="tomw"]) { --accent: #cad1dc; --accent-hover: #d7dce5; --accent-soft: rgba(148, 163, 184, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="indigo"]:where([data-theme="tomw"]) { --accent: #c9cefc; --accent-hover: #d6dafd; --accent-soft: rgba(129, 140, 248, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="cyan"]:where([data-theme="tomw"]) { --accent: #7ae5f5; --accent-hover: #9becf8; --accent-soft: rgba(34, 211, 238, 0.10); --accent-ink: #0b1f5c; }
-[data-accent="fuchsia"]:where([data-theme="tomw"]) { --accent: #f4bffc; --accent-hover: #f7cffd; --accent-soft: rgba(232, 121, 249, 0.10); --accent-ink: #0b1f5c; }
 
 html { background: var(--bg); }
 
@@ -2353,7 +2341,7 @@ button.pe-btn, .pe-btn {
    "frozen, you cannot edit this" must never read as a success state.
    `--warn` satisfies that too - it is per-theme, not per-accent - and unlike
    the amber literal this used to carry, it is the tone the CURRENT theme
-   calls amber. Dark's is #e8a54a, Tom W's #ffe08f; a fixed #d97706 sat in
+   calls amber. Dark's is #e8a54a, Board's #795312; a fixed #d97706 sat in
    the middle of both of them looking like a bug, which it was. Same token as
    .pe-modal-warn / .setting-warning, so every "careful" surface matches. */
 .badge.archived {
@@ -7375,7 +7363,7 @@ dialog.pe-confirm::backdrop { background: var(--scrim); }
    a text field's padding and border on top. Last in the file on purpose, so
    it wins over the generic `.field input` / `.set-field input` rules of equal
    specificity. The tick is an SVG whose colour cannot follow a token, so the
-   themes whose --accent-ink is dark (dark, slate, tomw) get a dark tick.
+   themes whose --accent-ink is dark (dark, slate) get a dark tick.
    `.acct-choice` keeps its invisible full-card checkbox. */
 input[type="checkbox"]:not(.acct-choice input) {
   appearance: none;
@@ -7414,11 +7402,11 @@ input[type="checkbox"]:not(.acct-choice input):indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
 }
 
-:where([data-theme="dark"], [data-theme="slate"], [data-theme="tomw"]) input[type="checkbox"]:not(.acct-choice input):checked {
+:where([data-theme="dark"], [data-theme="slate"]) input[type="checkbox"]:not(.acct-choice input):checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2310151b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
 }
 
-:where([data-theme="dark"], [data-theme="slate"], [data-theme="tomw"]) input[type="checkbox"]:not(.acct-choice input):indeterminate {
+:where([data-theme="dark"], [data-theme="slate"]) input[type="checkbox"]:not(.acct-choice input):indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2310151b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
 }
 
