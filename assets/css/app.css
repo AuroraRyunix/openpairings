@@ -7549,3 +7549,38 @@ input[type="checkbox"]:not(.acct-choice input):disabled {
 @media (prefers-reduced-motion: reduce) {
   .pe-finding, .pe-finding-chevron, .pe-findings-chip { transition: none; }
 }
+
+/* Dropdowns draw their own arrow. The browser's sat on the right edge with no
+   room of its own - in some browsers half outside the box, which is a bold
+   look for a control whose one job is to look like it opens. Two gradient
+   strokes make the chevron so it takes the theme's colour (an SVG could
+   not), and the right padding keeps long option text out from under it.
+   A list box (`multiple`, `size`) has no arrow and keeps the native look. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-soft) 50%),
+    linear-gradient(135deg, var(--text-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) calc(50% + 1px),
+    calc(100% - 12px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  text-overflow: ellipsis;
+}
+
+select:not([multiple]):not([size]):hover:not(:disabled) {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text) 50%),
+    linear-gradient(135deg, var(--text) 50%, transparent 50%);
+}
+
+select:not([multiple]):not([size]):disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* Windows' high-contrast mode drops background images; give the arrow back. */
+@media (forced-colors: active) {
+  select:not([multiple]):not([size]) { appearance: auto; -webkit-appearance: auto; padding-right: 10px; }
+}

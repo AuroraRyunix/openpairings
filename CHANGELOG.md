@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Dropdown arrows stay inside their box.** Every dropdown draws its own
+  arrow now, in the theme's colour, with room kept for it - the browser's own
+  sat on the edge and, in some browsers, half outside it. Long options end in
+  "..." instead of running under the arrow.
 - [Change] **"Preview next round" is in the Belgian pack** (Federation features,
   BEL), off until you switch it on. The "Optional tools" group it sat in alone
   is gone - a group of one is a shelf, not a category.
