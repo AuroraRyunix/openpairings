@@ -57,7 +57,8 @@ The **Settings** menu in the top bar has these pages:
 | Page | Holds |
 | --- | --- |
 | Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; officials; tie-breaks; sharing; logo |
-| Options | pairing system and engine, initial colour, acceleration, Swiss match format, teams, type and rate of play, forbidden pairings, club and federation exclusions |
+| Options | pairing system and engine, initial colour, acceleration, Swiss match format, teams, type and rate of play |
+| Forbidden pairings | forbidden pairs, rules by club or federation, groups of players who must not meet, and the wishes |
 | OpenResults | publishing to the results site ([Publishing](14-publishing.md)) |
 | Scoring | points, byes, absences, postponed games |
 | Dates | one date per round |
@@ -175,22 +176,57 @@ an unrated player. See [Teams](12-teams.md).
 control, from a list or typed in. The rate of play is written into the TRF
 report.
 
-**Forbidden pairings.** Two players who must not meet: choose Player A and
-Player B and press *Pair*. A rule applies to every round and is kept by both
-Swiss engines and by Keizer (a round robin ignores them). **Only if possible**
-makes it a wish instead of a rule: the Ainalrami engine honours it as long as
-the FIDE criteria allow, and the pairing explanation shows when it gave way.
+Forbidden pairings and the club and federation rules have their own page,
+below.
+
+## Forbidden pairings page
+
+Who must not meet whom. Everything here is kept by both Swiss engines and by
+Keizer; a round robin's schedule is fixed and ignores it.
+
+**Effect on the next round.** How many of the games the field could have
+are ruled out, and how many wishes there are. When the restrictions and the
+games already played leave a player nobody to meet, or leave no way to pair
+the round at all, the page says so in red before you press Pair. When they
+rule out more than half of the possible games it warns that the engine has
+little left to choose from.
+
+**Rules.** *Players of the same club* or *Players of the same federation* do
+not meet - every club or federation, or only the ones you list (comma
+separated). Each rule is either **Never - a rule** or **If possible - a
+wish**, and holds for **Every round**, **The first rounds**, **The last
+rounds** (counted back from the number of rounds) or **From round … to round
+…**. A rule follows the players as they are when a round is paired, so a
+late entrant or a corrected club is covered without touching it. Each rule
+shows what it does now, for example *4 pairs among 2 clubs*; **Edit** and
+**Remove** work in place.
+
+**Players who must not meet.** Search by name, club or federation, tick two
+or more players and press **Keep these N apart**. Two players make a
+forbidden pair, three or more a group whose members never meet each other.
+**Only if possible** makes it a wish. A pair can be turned into a wish or
+back into a rule with **Make it a wish** / **Make it a rule**; a group is
+changed with **Edit**, which ticks its members so you can add or remove
+some, then **Save group**.
+
+**How hard to try the wishes.** *Strong* puts the wishes before the colour
+and float criteria, *Weak* uses them only as a last tie-break. Wishes are
+applied by the Ainalrami engine only: JaVaFo and Keizer keep the rules but
+ignore the wishes, and the page says so.
+
+> [!FIDE] Set before round 1
+> FIDE's General Regulations (C.05 5.2) allow restrictions on the pairings -
+> their own example is "players from the same federation shall, if possible,
+> not meet in the last rounds" - when the players hear about them before the
+> first round. So in FIDE mode set them before round 1 is paired. Once it
+> is, adding, changing or removing a pair or a rule (or changing how hard
+> the wishes are tried) asks twice and then takes the tournament out of FIDE
+> mode; the TRF copies list each change as a `### Prohibition` line. A
+> player who joins later and falls under a rule is not a change.
 
 > [!FIDE] Departure from FIDE mode
-> A wish is not a FIDE rule and is recorded as a departure for the round it
-> changed.
-
-**Club / federation exclusions.** Players from the same club (or the same
-federation) are not paired together: for all shared clubs, or only for the
-clubs or federations you list. A second control, *Keep clubmates apart for the
-first N rounds*, asks the engine to separate clubmates early without making
-it a rule, and *How hard to try* chooses whether that wish ranks before the
-colour and float criteria (strong) or only as a last tie-break (weak).
+> A wish is not a FIDE rule: a round in which a wish moves a board is
+> recorded as a departure for that round.
 
 ## Scoring page
 

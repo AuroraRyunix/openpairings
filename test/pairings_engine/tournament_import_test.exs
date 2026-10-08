@@ -623,9 +623,6 @@ defmodule PairingsEngine.TournamentImportTest do
           categories_enabled: true,
           categories: ["Open", "U18"],
           category_rules: %{"U18" => %{"kind" => "age_below", "value" => 18}},
-          club_exclusion: "all",
-          fed_exclusion: "listed",
-          fed_exclusion_list: "BEL, NED",
           count_extra_points: true,
           extra_points_bands: "1400:1",
           publish_mode: "manual",
@@ -637,6 +634,20 @@ defmodule PairingsEngine.TournamentImportTest do
           absent_counts_as_vur: true,
           fide_homologated: true
         })
+
+      Repo.insert!(%PairingsEngine.Tournaments.PairingRule{
+        tournament_id: original.id,
+        kind: "club"
+      })
+
+      Repo.insert!(%PairingsEngine.Tournaments.PairingRule{
+        tournament_id: original.id,
+        kind: "federation",
+        names: ["BEL", "NED"],
+        soft: true,
+        window: "last",
+        window_rounds: 2
+      })
 
       envelope = TournamentExport.export_tournament(original)
       assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
@@ -656,9 +667,18 @@ defmodule PairingsEngine.TournamentImportTest do
       # rules are converted at the import door" describe block below for
       # the conversion arithmetic itself.
       assert imported.category_rules == %{"U18" => %{"age_below" => 17}}
-      assert imported.club_exclusion == "all"
-      assert imported.fed_exclusion == "listed"
-      assert imported.fed_exclusion_list == "BEL, NED"
+
+      assert [
+               %{kind: "club", soft: false, names: [], window: "all"},
+               %{
+                 kind: "federation",
+                 soft: true,
+                 names: ["BEL", "NED"],
+                 window: "last",
+                 window_rounds: 2
+               }
+             ] = PairingsEngine.Tournaments.list_pairing_rules(imported.id)
+
       assert imported.count_extra_points
       assert imported.extra_points_bands == "1400:1"
       assert imported.publish_mode == "manual"
@@ -669,6 +689,44 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.abs_nbfois == 2
       assert imported.absent_counts_as_vur
       assert imported.fide_homologated
+    end
+
+    test "a backup from before pairing rules brings its club and federation settings back as rules" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Old Rules",
+          type: "swiss",
+          rounds_count: 5,
+          user_id: owner.user.id
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+
+      envelope =
+        update_in(envelope, ["tournaments", Access.at(0)], fn entry ->
+          entry
+          |> Map.delete("pairing_rules")
+          |> update_in(["tournament"], fn t ->
+            Map.merge(t, %{
+              "club_exclusion" => "listed",
+              "club_exclusion_list" => "Rook, Knight",
+              "fed_exclusion" => "all",
+              "fed_exclusion_list" => "",
+              "soft_club_rounds" => 2
+            })
+          end)
+        end)
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert [
+               %{kind: "club", soft: false, names: ["Rook", "Knight"], window: "all"},
+               %{kind: "federation", soft: false, names: [], window: "all"},
+               %{kind: "club", soft: true, window: "first", window_rounds: 2}
+             ] = PairingsEngine.Tournaments.list_pairing_rules(imported.id)
     end
 
     test "a backup written before standings_through existed defaults to the pre-feature default (roster public)" do

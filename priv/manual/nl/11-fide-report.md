@@ -104,6 +104,15 @@ toernooi**. Dat vraagt het twee keer en haalt het toernooi uit de FIDE-modus;
 de kopieën dragen dan `### Not played @ Round 3: 5-12` voor die partij, en het
 bestand voor de rating schrijft ze als niet gespeeld (`0000 - Z`).
 
+## Tijdens het toernooi gewijzigde verboden paringen {#prohibitions-changed-during-the-event}
+
+Een verboden paring of een paringsregel die na het paren van ronde 1 wordt
+toegevoegd, gewijzigd of verwijderd, staat in de TRF-kopieën, één regel per ronde
+waarop ze voor het eerst inwerkt, bijvoorbeeld `### Prohibition @ Round 4: 5-12
+added; rule same club removed`. In de FIDE-modus is de eerste zulke wijziging ook
+de ronde waarin het toernooi die modus verliet ([FIDE-modus](02-fide-mode.md)).
+Het bestand voor de rating bevat alleen records en draagt zo'n regel niet.
+
 Een partij die gespeeld wordt nadat haar ronde verstuurd is, wordt gerapporteerd als een **apart toernooi**
 met een eigen naam en een eigen FIDE-toernooi-ID, en FIDE rate maand na maand. Instellingen, Exporteren,
 sectie *Uitgestelde partijen* toont elke uitgestelde partij met haar status, de datum waarop

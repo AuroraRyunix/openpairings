@@ -20,6 +20,31 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **"Preview next round" is in the Belgian pack** (Federation features,
   BEL), off until you switch it on. The "Optional tools" group it sat in alone
   is gone - a group of one is a shelf, not a category.
+- [Feature] **Forbidden pairings get a page of their own, and rules.** Settings,
+  Forbidden pairings: "same club" and "same federation" are rules now, any
+  number of them, each a rule or an "if possible" wish, for every round, the
+  first or last N rounds, or rounds X to Y - C.05 5.2's own "compatriots, if
+  possible, not in the last rounds" is two clicks. A rule follows the roster
+  as it is when the round is paired, so the late entrant from the same club
+  is covered without anybody remembering to. Tick any number of players and
+  keep them apart in one go (two make a pair, more make a group), edit and
+  remove in place, and see what it all costs the next round before pressing
+  Pair: games ruled out, players left with nobody, and a red line when the
+  round cannot be paired at all. Picking players two dropdowns at a time is
+  over.
+- [Change] **The club and federation exclusions and "keep clubmates apart
+  for the first N rounds" became rules**, with exactly the meaning they had;
+  existing tournaments and older backups are converted on the way in. The TRF
+  report writes a club rule as one `260` group line instead of every pair in
+  it. A SWAR export says when a rule limited to some rounds cannot go along.
+- [Change] **In FIDE mode, prohibitions are announced before round 1**
+  (VCL4THP Q195/Q196, C.05 5.2). Setting them then is fine, hard or soft.
+  Adding, changing or removing one after round 1 is paired - or changing how
+  hard the wishes are tried - asks twice and leaves FIDE mode, and the TRF
+  copies say what changed in a `### Prohibition @ Round r` line. A late
+  entrant falling under a rule is not a change. Tournaments that added a
+  prohibition mid-event before this version keep their FIDE mode: the past is
+  not retried under the new law. The checklist path now has no failures.
 ## [0.78.0] - 2026-10-08
 
 - [Performance] **Ainalrami 0.40.0.** Pairing 40 to 80 players takes 1.6 to 1.7

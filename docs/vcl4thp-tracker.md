@@ -5,7 +5,7 @@
 
 Where OpenPairings stands against FIDE's Verification Checklist for
 Tournament Handler Programs, version 13 (FIDE TEC draft, 2026-08-25). Answers
-reviewed 2026-10-07. The goal before applying for a TAPC:
+reviewed 2026-10-08. The goal before applying for a TAPC:
 no failure and no penalty on our path, and every answer checked.
 
 Every question is asked **in FIDE mode**: anything only possible after
@@ -16,13 +16,13 @@ FIDE mode (`PairingsEngine.Compliance`).
 ## Summary
 
 ```
-VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
+VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-08
   Questions on our path:  185 of 225
-  First failure:          Q195 - FIDE's verification would stop here
-  Failures on the path:   2 (Q195, Q196)
+  First failure:          none - no answer on our path is a failure
+  Failures on the path:   0
   Penalties on the path:  3% (over 100% fails)
-  Answers:                215 met, 7 gaps, 3 still to check
-  On the path:            181 met, 3 gaps, 1 still to check
+  Answers:                217 met, 5 gaps, 3 still to check
+  On the path:            183 met, 1 gaps, 1 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -310,8 +310,8 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-07
 | Q | Asks | Answer | Status | Outcome | Note |
 |---|---|---|---|---|---|
 | 194 | Prohibited pairings supported? | Y | met | ok | Prohibited pairs and club/federation exclusions for the whole tournament, written as 260 (tournaments.ex add_forbidden_pairing; trf_export.ex). No per-round prohibition. |
-| 195 | Only before round 1 is paired? | N | gap | **FAIL** | FAIL. Prohibitions can be added at any time (add_forbidden_pairing, tournaments.ex:4014-4040). Disputed: our 2026-09-08 letter (docs/tec-feedback-2026-09.md:179-193, B.6) argues C.05:5.2 binds the organiser, not the software. See docs/vcl4thp/questions.md. |
-| 196 | Addable after a round has been played? | Y | gap | **FAIL** | FAIL. Same: added after a round with no warning; the club/federation exclusion settings are not frozen either. |
+| 195 | Only before round 1 is paired? | Y | met | ok | In FIDE mode every prohibition - forbidden pairs, pairing rules by club, federation or group, hard or 'if possible' - is set before round 1 is paired, as C.05 5.2 asks of any restriction. Once round 1 is paired, adding, changing or removing one (and changing how hard the wishes are tried, while there are any) asks TEC's Level-4 double confirmation first (SettingsRestrictionsLive ask/3, fide_exit_dialog), then leaves FIDE mode in the same transaction: the act is recorded in tournaments.prohibition_changes and the round under way stamped in fide_compliance_lost_round (Tournaments.record_prohibition_change/2, record_soft_position_change/2). The TRF26 copy writes '### Prohibition @ Round r: ...' beside '### FIDE mode exited @ Round n' (trf_export.ex prohibition_comments); never in the file sent for rating. What a rule announced before round 1 does to a late entrant is not an act and records nothing; prohibitions added late before 0.79.0 are not re-judged (only new acts count). Tests: prohibitions_fide_mode_test.exs, settings_restrictions_live_test.exs 'FIDE mode'. |
+| 196 | Addable after a round has been played? | N | met | ok | In FIDE mode, no: once round 1 is paired any prohibition added, changed or removed takes the tournament out of FIDE mode behind the Level-4 confirmation, stamped and written as '### Prohibition' in TRF26 copies (see Q195). The club/federation rules are pairing rules now and follow the same path. Outside FIDE mode it can be added at any time and is still listed in the TRF26 copy. Tests: prohibitions_fide_mode_test.exs 'once round 1 is paired, in FIDE mode'. |
 
 ## Tie-breaks and standings
 

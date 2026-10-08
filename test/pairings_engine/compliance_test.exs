@@ -94,9 +94,6 @@ defmodule PairingsEngine.ComplianceTest do
           "abs_value" => "0.5",
           "absent_counts_as_vur" => "false",
           "manual_ranking" => "true",
-          "club_exclusion" => "all",
-          "fed_exclusion" => "all",
-          "soft_club_rounds" => "2",
           "soft_position" => "weak",
           "tiebreaks" => [],
           "pairing_engine" => "javafo"

@@ -1409,7 +1409,8 @@ defmodule PairingsEngine.Pairing do
           full_roster,
           local_rank_by_player_id,
           shared_history.forbidden_pairings,
-          next_number
+          next_number,
+          shared_history.pairing_rules
         )
       end)
 
@@ -1675,7 +1676,8 @@ defmodule PairingsEngine.Pairing do
           full_roster,
           local_rank_by_player_id,
           shared_history.forbidden_pairings,
-          next_number
+          next_number,
+          shared_history.pairing_rules
         )
       end)
 
@@ -2075,7 +2077,8 @@ defmodule PairingsEngine.Pairing do
       full_roster,
       local_rank_by_player_id,
       current_round,
-      shared_history.forbidden_pairings
+      shared_history.forbidden_pairings,
+      shared_history.pairing_rules
     )
   end
 
@@ -2092,7 +2095,15 @@ defmodule PairingsEngine.Pairing do
   # They are all fields of the tournament map now, so `Ainalrami.Trf` emits
   # them itself, from the same data and under the same validation as every
   # other column.
-  defp engine_trf(tournament, trf_rows, roster, rank_by_player_id, current_round, forbidden) do
+  defp engine_trf(
+         tournament,
+         trf_rows,
+         roster,
+         rank_by_player_id,
+         current_round,
+         forbidden,
+         rules
+       ) do
     accelerations = accelerations(tournament, roster, current_round)
 
     Trf.serialize(
@@ -2125,7 +2136,14 @@ defmodule PairingsEngine.Pairing do
           # ten.
           forbidden_pairs:
             forbidden_pairs(tournament.id, roster, rank_by_player_id, forbidden) ++
-              exclusion_pairs(tournament, roster, rank_by_player_id, forbidden)
+              exclusion_pairs(
+                tournament,
+                roster,
+                rank_by_player_id,
+                forbidden,
+                current_round,
+                rules
+              )
         },
         players: attach_accelerations(trf_rows, accelerations)
       },
@@ -2664,7 +2682,8 @@ defmodule PairingsEngine.Pairing do
             full_roster,
             local_rank_by_player_id,
             history.forbidden_pairings,
-            round_number
+            round_number,
+            history.pairing_rules
           )
 
         # Unlike the wishes, the bye exclusions are read off the round's own
@@ -3255,7 +3274,14 @@ defmodule PairingsEngine.Pairing do
     parsed = Ainalrami.Trf.parse(trf)
 
     soft =
-      soft_pairs(tournament, full_roster, rank_by_id, history.forbidden_pairings, round_number)
+      soft_pairs(
+        tournament,
+        full_roster,
+        rank_by_id,
+        history.forbidden_pairings,
+        round_number,
+        history.pairing_rules
+      )
 
     organiser = section |> Map.get("bye_exclusions", []) |> Enum.flat_map(rank) |> Enum.sort()
     preference = recorded_preference_exclusions([section], rank_by_id)
@@ -3688,7 +3714,14 @@ defmodule PairingsEngine.Pairing do
 
     forbidden =
       forbidden_pairs(tournament.id, roster, rank_by_id, history.forbidden_pairings) ++
-        exclusion_pairs(tournament, roster, rank_by_id, history.forbidden_pairings)
+        exclusion_pairs(
+          tournament,
+          roster,
+          rank_by_id,
+          history.forbidden_pairings,
+          length(history.rounds) + 1,
+          history.pairing_rules
+        )
 
     parsed_tournament =
       if forbidden == [],
@@ -4575,9 +4608,10 @@ defmodule PairingsEngine.Pairing do
       rank_by_player_id,
       paired_rounds_count(tournament.id) + 1,
       # nil for a caller with no run history in hand (TRF export, tests):
-      # `forbidden_pairs/4` and `exclusion_pairs/4` fall back to reading it
+      # `forbidden_pairs/4` and `exclusion_pairs/6` fall back to reading it
       # themselves, exactly as they always did.
-      shared_history && shared_history.forbidden_pairings
+      shared_history && shared_history.forbidden_pairings,
+      shared_history && shared_history.pairing_rules
     )
   end
 
@@ -4614,16 +4648,27 @@ defmodule PairingsEngine.Pairing do
   end
 
   @doc """
-  One starting-rank pair per pair excluded by `tournament`'s club/federation
-  exclusion rules (see `PairingsEngine.Exclusions.excluded_pairs/2`),
-  translated to starting ranks the same way `forbidden_pairs/3` does (see
-  that function's doc for the optional `rank_by_player_id` override, used by
-  per-category Swiss pairing, and for why these are ranks rather than `XXP`
-  text). A pair already covered by an explicit forbidden pairing is
-  skipped - JaVaFo doesn't need to hear the same rule twice - as is any pair
-  where a player isn't in `players` or hasn't been assigned a rank yet.
+  One starting-rank pair per pair a HARD pairing rule keeps apart in
+  `round` (`PairingsEngine.Exclusions.hard_pairs/4` - same club, same
+  federation, a group), translated to starting ranks the same way
+  `forbidden_pairs/4` does (see that function's doc for the optional
+  `rank_by_player_id` override, used by per-category Swiss pairing, and for
+  why these are ranks rather than `XXP` text). A pair already covered by an
+  explicit forbidden pairing is skipped - the engine doesn't need to hear
+  the same rule twice - as is any pair where a player isn't in `players` or
+  hasn't been assigned a rank yet.
+
+  `round` nil takes every rule whatever its rounds; `rules` nil reads the
+  tournament's own.
   """
-  def exclusion_pairs(tournament, players, rank_by_player_id \\ nil, forbidden \\ nil) do
+  def exclusion_pairs(
+        tournament,
+        players,
+        rank_by_player_id \\ nil,
+        forbidden \\ nil,
+        round \\ nil,
+        rules \\ nil
+      ) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     explicit_rank_pairs =
@@ -4635,15 +4680,20 @@ defmodule PairingsEngine.Pairing do
       |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
       |> MapSet.new(&normalize_rank_pair/1)
 
-    tournament
-    |> Exclusions.excluded_pairs(players)
+    rules
+    |> pairing_rules(tournament.id)
+    |> Exclusions.hard_pairs(players, round, tournament.rounds_count)
     |> Enum.map(fn {a, b} -> {rank_by_player_id[a.id], rank_by_player_id[b.id]} end)
     |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
     |> Enum.map(&normalize_rank_pair/1)
     |> Enum.uniq()
+    |> Enum.sort()
     |> Enum.reject(&MapSet.member?(explicit_rank_pairs, &1))
     |> Enum.map(fn {a, b} -> [a, b] end)
   end
+
+  defp pairing_rules(nil, tournament_id), do: Tournaments.list_pairing_rules(tournament_id)
+  defp pairing_rules(rules, _tournament_id) when is_list(rules), do: rules
 
   # The run's already-read list, or a read of our own for a caller that has
   # none - TRF export and the tests, which build one file and not one per
@@ -4670,11 +4720,10 @@ defmodule PairingsEngine.Pairing do
 
     * every forbidden pairing the arbiter marked soft
       (`ForbiddenPairing.soft`), as a pair;
-    * when `round_number` is within `tournament.soft_club_rounds`, every
-      club with two or more players in `players`, as one group - "keep
-      clubmates apart in the first N rounds". Skipped when the club rule is
-      already hard for everyone (`club_exclusion: "all"`), where it could
-      add nothing.
+    * every SOFT pairing rule that holds in `round_number`
+      (`PairingsEngine.Exclusions.soft_groups/4`): each club, federation or
+      group it keeps apart, as one group - "same federation, if possible,
+      not in the last two rounds" is C.05 5.2's own example.
 
   Ranks resolve exactly as in `forbidden_pairs/4`; a player with no rank in
   this run drops out of a group the same way, and a group left with fewer
@@ -4683,10 +4732,10 @@ defmodule PairingsEngine.Pairing do
   its FIDE behaviour is byte for byte what it was.
 
   Only Ainalrami reads this. JaVaFo has no such option and Keizer no such
-  rung; for them a soft pair is simply not a rule, and the Settings page
-  says so beside the control.
+  rung; for them a wish is simply not a rule, and the Options page says so
+  beside the control. `rules` nil reads the tournament's own.
   """
-  def soft_pairs(tournament, players, rank_by_player_id, forbidden, round_number) do
+  def soft_pairs(tournament, players, rank_by_player_id, forbidden, round_number, rules \\ nil) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     explicit =
@@ -4695,21 +4744,14 @@ defmodule PairingsEngine.Pairing do
       |> Enum.filter(& &1.soft)
       |> Enum.map(fn fp -> [fp.player_a_id, fp.player_b_id] end)
 
-    clubs =
-      if soft_club_round?(tournament, round_number) do
-        players |> Exclusions.club_groups() |> Enum.map(fn group -> Enum.map(group, & &1.id) end)
-      else
-        []
-      end
+    groups =
+      rules
+      |> pairing_rules(tournament.id)
+      |> Exclusions.soft_groups(players, round_number, tournament.rounds_count)
 
-    (explicit ++ clubs)
+    (explicit ++ groups)
     |> Enum.map(fn ids -> ids |> Enum.map(&rank_by_player_id[&1]) |> Enum.reject(&is_nil/1) end)
     |> Enum.filter(&(length(&1) >= 2))
-  end
-
-  defp soft_club_round?(tournament, round_number) do
-    rounds = tournament.soft_club_rounds || 0
-    rounds > 0 and round_number <= rounds and tournament.club_exclusion != "all"
   end
 
   defp normalize_rank_pair({a, b}) when a <= b, do: {a, b}
@@ -5567,7 +5609,9 @@ defmodule PairingsEngine.Pairing do
       # Identical for every category, and read TWICE per TRF build -
       # `forbidden_pairs/3` and `exclusion_pairs/3` each queried it on their
       # own, so a five-category run issued ten of these for one answer.
-      forbidden_pairings: Tournaments.list_forbidden_pairings(tournament_id)
+      forbidden_pairings: Tournaments.list_forbidden_pairings(tournament_id),
+      # The pairing rules, read once for the same reason.
+      pairing_rules: Tournaments.list_pairing_rules(tournament_id)
     }
   end
 

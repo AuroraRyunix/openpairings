@@ -76,6 +76,14 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   every JSON export's `tournament.late_entry_numbering` reads "rating"
   instead of "end". With that one value mapped back the regenerated file is
   equal, term for term, to the one before; no scenario has a late entrant.
+
+  And for pairing rules (prohibited-pairings, 0.79.0): the club exclusion
+  and the soft club wish of the `:options` scenario are pairing rules now.
+  Every JSON export loses the five old exclusion keys and gains
+  `pairing_rules` and `tournament.prohibition_changes`; the `:options` TRF
+  writes the "Pawn" club as one `260` group line instead of its six pairs.
+  With those taken out the regenerated file is equal, term for term, to the
+  one before - every board, account and standing included.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

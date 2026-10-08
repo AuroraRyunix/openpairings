@@ -84,6 +84,9 @@ defmodule PairingsEngine.TournamentExport do
   # TRF import that made this tournament, including the rounds that broke a
   # pairing rule (an Import PIBE), and a copy that dropped it would stop
   # writing those `### Import` lines into its reports.
+  #
+  # `prohibition_changes` too: the prohibitions changed after round 1, the
+  # `### Prohibition` lines. Its player ids are remapped on import.
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count
@@ -102,12 +105,11 @@ defmodule PairingsEngine.TournamentExport do
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
     team_lineups team_rating_method team_unrated_rating teams_ordered_by_hand
     team_pairing_mode initial_colour initial_colour_drawn rating_method initial_order_tiebreak late_entry_numbering
-    club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
-    soft_club_rounds soft_position
+    soft_position
     extra_points_mode count_extra_points extra_points_bands
     publish_mode publish_delay_minutes standings_through
     manual_ranking manual_ranking_stale
-    fide_compliance_lost_round import_findings
+    fide_compliance_lost_round import_findings prohibition_changes
     public_listed public_display public_hidden_tiebreaks public_hall
     postponed_games postponed_requester_outcome postponed_opponent_outcome
     postponed_report_name postponed_fide_tournament_id
@@ -569,6 +571,12 @@ defmodule PairingsEngine.TournamentExport do
       "rounds" => Enum.map(rounds_with_pairings(t.id), &round_map/1),
       "byes" => byes(t.id),
       "forbidden_pairings" => forbidden_pairings(t.id),
+      # The pairing rules (`PairingRule`): a group rule's members are player
+      # ids, remapped on import like every other player reference. An
+      # envelope from before 0.79.0 has no such block and carries the old
+      # club/federation settings instead, which `TournamentImport` turns
+      # into rules.
+      "pairing_rules" => pairing_rules(t.id),
       # What this tournament sent to the rating officer (the sent-games
       # record, `PostponedGames.export_records/1`). Not tournament content -
       # a restore leaves the record alone and ignores this block - but a
@@ -830,6 +838,24 @@ defmodule PairingsEngine.TournamentExport do
         }
     )
     |> Enum.map(&stringify_keys/1)
+  end
+
+  defp pairing_rules(tournament_id) do
+    tournament_id
+    |> Tournaments.list_pairing_rules()
+    |> Enum.map(fn r ->
+      %{
+        "kind" => r.kind,
+        "soft" => r.soft,
+        "names" => r.names,
+        "player_ids" => r.player_ids,
+        "window" => r.window,
+        "window_rounds" => r.window_rounds,
+        "window_from" => r.window_from,
+        "window_to" => r.window_to,
+        "from_round" => r.from_round
+      }
+    end)
   end
 
   defp struct_fields(struct, fields) do

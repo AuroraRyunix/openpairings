@@ -497,6 +497,12 @@ proposed again:
   argument as a permanent mark on somebody's tournament was not this change's
   call. When Q196 settles, `Tournaments.add_forbidden_pairing/4` is where it
   lands.
+  *Settled 2026-10-08 (0.79.0), by the maintainer rather than by TEC:*
+  having prohibitions is still no departure, but adding, changing or
+  removing one once round 1 is paired is - behind the Level-4 confirmation,
+  stamped, `### Prohibition` in TRF26 copies
+  (`Tournaments.record_prohibition_change/2`). Only acts from 0.79.0 on
+  count; nothing older is re-judged.
 - **`rr_match_format`** - reorders a fixed Berger schedule. Everybody still
   meets everybody with the same colours; it changes the order of rounds, not
   who meets whom.

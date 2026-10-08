@@ -20,6 +20,13 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament}
 
+  # The pairing rules a tournament carries, as {kind, names}.
+  defp rules_of(t),
+    do:
+      t.id
+      |> PairingsEngine.Tournaments.list_pairing_rules()
+      |> Enum.map(&{&1.kind, &1.names})
+
   ## ---------- synthetic .swar binary builder ----------
 
   defp w_str(s), do: <<byte_size(s)::little-signed-32, s::binary>>
@@ -269,8 +276,7 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
     test "every club (3) keeps clubmates apart", %{tmp_dir: dir} do
       path = write_swar!(dir, "icn.swar", exclusion: {3, ""})
       assert {:ok, t, warnings} = SwarImport.import_file(path)
-      assert t.club_exclusion == "all"
-      assert t.fed_exclusion == "none"
+      assert rules_of(t) == [{"club", []}]
       assert warnings == []
     end
 
@@ -278,8 +284,7 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
     test "every nationality (4) keeps each federation apart", %{tmp_dir: dir} do
       path = write_swar!(dir, "nato.swar", exclusion: {4, ""})
       assert {:ok, t, _} = SwarImport.import_file(path)
-      assert t.fed_exclusion == "all"
-      assert t.club_exclusion == "none"
+      assert rules_of(t) == [{"federation", []}]
     end
 
     @tag :tmp_dir
@@ -287,8 +292,7 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
       # 999 is nobody's club: it excludes nobody in SWAR either.
       path = write_swar!(dir, "listed.swar", exclusion: {1, "618:999"})
       assert {:ok, t, warnings} = SwarImport.import_file(path)
-      assert t.club_exclusion == "listed"
-      assert t.club_exclusion_list == "Club A"
+      assert rules_of(t) == [{"club", ["Club A"]}]
       assert warnings == []
     end
 
@@ -296,8 +300,7 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
     test "listed nationalities (2) are listed as federation codes", %{tmp_dir: dir} do
       path = write_swar!(dir, "listed-nat.swar", exclusion: {2, "FRA:ned"})
       assert {:ok, t, _} = SwarImport.import_file(path)
-      assert t.fed_exclusion == "listed"
-      assert t.fed_exclusion_list == "FRA, NED"
+      assert rules_of(t) == [{"federation", ["FRA", "NED"]}]
     end
 
     @tag :tmp_dir
@@ -320,14 +323,14 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
         |> Enum.sort()
 
       assert pairs == [[1, 2], [1, 3], [2, 3]]
-      assert t.club_exclusion == "none"
+      assert rules_of(t) == []
     end
 
     @tag :tmp_dir
     test "no exclusion leaves every rule off", %{tmp_dir: dir} do
       path = write_swar!(dir, "plain.swar", [])
       assert {:ok, t, _} = SwarImport.import_file(path)
-      assert {t.club_exclusion, t.fed_exclusion} == {"none", "none"}
+      assert rules_of(t) == []
     end
 
     @tag :tmp_dir
@@ -340,7 +343,7 @@ defmodule PairingsEngine.Federations.BEL.SwarTeamImportTest do
 
       path = write_swar!(dir, "icn.swar", exclusion: {3, ""}, players: players)
       assert {:ok, t, [warning]} = SwarImport.import_file(path)
-      assert t.club_exclusion == "all"
+      assert rules_of(t) == [{"club", []}]
       assert warning =~ "club number"
     end
 

@@ -46,7 +46,10 @@ defmodule PairingsEngine.AuditActionCodes do
     {"lib/pairings_engine_web/live/mobile_results_live.ex", "action"} =>
       ~w(pairing.result_cleared pairing.result_entered pairing.result_changed),
     {"lib/pairings_engine/tournaments.ex", "@forced_unlock_action"} =>
-      ~w(tournament.handoff_forced)
+      ~w(tournament.handoff_forced),
+    {"lib/pairings_engine_web/live/settings_restrictions_live.ex", "action"} =>
+      ~w(forbidden_pairing.added forbidden_pairing.changed forbidden_pairing.removed
+         pairing_rule.added pairing_rule.changed pairing_rule.removed)
   }
 
   @doc """

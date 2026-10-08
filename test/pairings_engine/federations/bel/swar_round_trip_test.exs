@@ -23,6 +23,13 @@ defmodule PairingsEngine.Federations.BEL.SwarRoundTripTest do
   alias PairingsEngine.SwarFixture
   alias PairingsEngine.Federations.BEL.{SwarExport, SwarImport}
 
+  # The pairing rules a tournament carries, as {kind, names}.
+  defp rules_of(t),
+    do:
+      t.id
+      |> PairingsEngine.Tournaments.list_pairing_rules()
+      |> Enum.map(&{&1.kind, &1.names})
+
   @moduletag :tmp_dir
 
   # Four players, three rounds, every kind of result and bye SWAR has.
@@ -325,14 +332,12 @@ defmodule PairingsEngine.Federations.BEL.SwarRoundTripTest do
         end)
 
       {t, _} = round_trip!(dir, opts)
-      t = PairingsEngine.Repo.reload!(t)
-      assert t.club_exclusion == "listed"
-      assert t.club_exclusion_list == "KSK Test"
+      assert rules_of(t) == [{"club", ["KSK Test"]}]
     end
 
     test "listed nationalities", %{tmp_dir: dir} do
       {t, _} = round_trip!(dir, swiss(%{exclusion: {2, "BEL:FRA"}}))
-      assert PairingsEngine.Repo.reload!(t).fed_exclusion_list == "BEL, FRA"
+      assert rules_of(t) == [{"federation", ["BEL", "FRA"]}]
     end
 
     test "every club", %{tmp_dir: dir} do
@@ -343,12 +348,12 @@ defmodule PairingsEngine.Federations.BEL.SwarRoundTripTest do
         end)
 
       {t, _} = round_trip!(dir, opts)
-      assert PairingsEngine.Repo.reload!(t).club_exclusion == "all"
+      assert rules_of(t) == [{"club", []}]
     end
 
     test "every nationality", %{tmp_dir: dir} do
       {t, _} = round_trip!(dir, swiss(%{exclusion: {4, ""}}))
-      assert PairingsEngine.Repo.reload!(t).fed_exclusion == "all"
+      assert rules_of(t) == [{"federation", []}]
     end
   end
 

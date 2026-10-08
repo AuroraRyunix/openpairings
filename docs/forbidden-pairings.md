@@ -49,14 +49,11 @@ still gated the normal way: `SettingsLive.mount/3` loads the tournament via
 `Tournaments.get_authorized_tournament!/2`, so a stranger never reaches the
 LiveView (and therefore never reaches these functions) at all.
 
-## The UI (Settings page)
+## The UI
 
-The Settings page (`/t/:id/settings`) has a "Forbidden pairings" card,
-visible to the owner and every collaborator: two alphabetical player
-`<select>`s and an "Add" button, followed by the current list as
-"Name A - Name B" rows each with a Remove button. Invalid adds (same player
-picked twice, or a pair that's already forbidden) show a friendly inline
-error instead of a crash or a raw changeset dump.
+Settings → Forbidden pairings (`/t/:id/settings/restrictions`) - see
+"The page" under Pairing rules below. Until 0.79.0 these lived on the
+Options page as two player `<select>`s and the exclusion settings.
 
 ## Applying it to pairing
 
@@ -122,66 +119,79 @@ substituting a different opponent. If an organiser needs to guarantee two
 players never meet, round robin isn't the right pairing system for that
 field. The Settings page's exclusion-rules card says as much.
 
-## Club / federation exclusions (`PairingsEngine.Exclusions`)
+## Pairing rules (`PairingsEngine.Tournaments.PairingRule`, since 0.79.0)
 
-Explicit forbidden pairings (above) name two specific players. For the
-common case - "nobody from Club X should play a clubmate", or "no two
-players from the same federation" - naming every pair by hand doesn't
-scale. Each tournament instead carries two independent rules, one for club
-and one for federation, stored directly on `tournaments`:
+Explicit forbidden pairings name two players. For the common case - "nobody
+from the same club", "no compatriots in the last two rounds", "these five
+never meet" - naming every pair by hand doesn't scale, so a tournament also
+carries any number of **rules**:
 
 ```
-tournaments
-  club_exclusion       "none" | "all" | "listed"  (default "none")
-  club_exclusion_list  comma-separated club names, only used by "listed"
-  fed_exclusion         "none" | "all" | "listed"  (default "none")
-  fed_exclusion_list    comma-separated federation names, only used by "listed"
+pairing_rules
+  id, tournament_id
+  kind           "club" | "federation" | "group"
+  soft           boolean - a wish ("if possible") rather than a rule
+  names          club/federation only: limited to these (empty = every one)
+  player_ids     group only: the players who never meet each other
+  window         "all" | "first" | "last" | "range"
+  window_rounds  first/last N
+  window_from, window_to   range
+  from_round     set when added after rounds were paired (as forbidden_pairings.from_round)
 ```
 
-Rule semantics, identical on both axes:
+A rule is never stored as pairs. `PairingsEngine.Exclusions` expands it from
+the players as they are when a round is paired - so a late entrant or a
+corrected club is covered without anybody touching it - and only for the
+rounds it holds in (`Exclusions.applies?/3`; "last N" counts back from the
+tournament's number of rounds). Clubs and federations are compared trimmed
+and case-insensitively; a blank one is never a group.
 
-* `"none"` - no exclusions from this axis.
-* `"all"` - every pair of players sharing the same non-blank club/federation
-  is excluded.
-* `"listed"` - only pairs sharing a club/federation whose name (trimmed,
-  case-insensitive) appears in the axis's list.
+* Hard rules reach the engines as pairs (`Exclusions.hard_pairs/4`):
+  `Pairing.exclusion_pairs/6` turns them into starting-rank `XXP` groups,
+  deduplicated against explicit pairs; Keizer folds them into its forbidden
+  set for the round.
+* Soft rules reach Ainalrami as whole groups (`Exclusions.soft_groups/4`,
+  through `Pairing.soft_pairs/6`) - C.05 5.2's own example is one: "players
+  from the same federation shall, if possible, not meet in the last rounds".
+  JaVaFo and Keizer have no such option and ignore them.
+* The TRF26 report writes each hard rule as one `260` per club, federation
+  or group, with its rounds when it does not hold for the whole event; the
+  engine dialect writes the `XXP` groups that hold for the next round.
 
-A player with a blank club/federation is never excluded on that axis under
-any rule. Club and federation rules are independent and their results are
-unioned - a pair excluded by both counts once. The two `_list` fields are
-normalized on save (`PairingsEngine.Tournaments.Tournament`'s changeset):
-each comma-separated entry is trimmed and blanks are dropped.
+The five tournament columns that held the old club/federation exclusions and
+the soft club wish (`club_exclusion`, `club_exclusion_list`, `fed_exclusion`,
+`fed_exclusion_list`, `soft_club_rounds`) were turned into rules by the
+migration that introduced this table, with exactly their old meaning, and
+are no longer read. A JSON backup from before 0.79.0 carries them instead of
+a `pairing_rules` block; `TournamentImport` converts them the same way.
 
-`PairingsEngine.Exclusions.excluded_pairs/2` is the single pure function
-that turns a tournament's rules plus a list of players into the actual set
-of excluded pairs - as `{player, player}` tuples of the full
-`PairingsEngine.Tournaments.Player` struct (not ids or ranks), canonically
-ordered `a.id <= b.id`, so each call site maps to whatever id space it
-needs:
+### The page
 
-* `PairingsEngine.Pairing.exclusion_pairs/3` maps each pair to starting
-  ranks, the same way `forbidden_pairs/3` does for explicit forbidden
-  pairings - appended to its groups in `javafo_input/2`, and deduplicated
-  against them (a pair already covered by an explicit forbidden pairing
-  isn't sent twice).
-* `PairingsEngine.Keizer`'s `read_forbidden/2` maps each pair to player ids
-  and unions it into the same `MapSet` explicit forbidden pairings feed.
+Settings → Forbidden pairings (`PairingsEngineWeb.SettingsRestrictionsLive`):
 
-Like explicit forbidden pairings, round robin does not consult these rules
-at all (see above).
+* **Effect on the next round** - games the hard prohibitions rule out,
+  players left with nobody (prohibitions plus games already played), and
+  whether the round can be paired at all (`PairingsEngine.RestrictionCheck`,
+  Ainalrami's team-pairing perfect-matching oracle asked over the players).
+* **Rules** - add, edit in place, remove; each shows its pairs and groups
+  ("4 pairs among 2 clubs").
+* **Players who must not meet** - a searchable list with club, federation
+  and rating; tick any number and keep them apart in one action (two make a
+  forbidden pair, three or more a group rule). Pairs can be turned into a
+  wish or a rule in place; groups are edited by ticking.
+* **How hard to try the wishes** - `soft_position`.
 
-### The UI (Settings page)
+### FIDE mode (VCL4THP Q195/Q196)
 
-The "Forbidden pairings" card also has a "Club / federation exclusions"
-section: a `<select>` per axis (None / All shared clubs-federations / Only
-listed), each showing its matching comma-separated text input only when set
-to "Only listed", plus a live hint ("N pair(s) currently excluded by these
-rules") computed via `Exclusions.excluded_pairs/2` against the tournament's
-full roster. Saving persists through
-`PairingsEngine.Tournaments.update_tournament/2` immediately, the same
-write (and `:settings` broadcast) every other small card on this page
-uses - there's no separate "save path" to keep in sync with the big form's
-"Save" button.
+C.05 5.2: restrictions are announced before the first round. Having them is
+no departure. Adding, changing or removing a pair or a rule once round 1 is
+paired - or changing `soft_position` while there are wishes - is: the page
+asks TEC's Level-4 double confirmation, and the context records the act in
+`tournaments.prohibition_changes` and stamps `fide_compliance_lost_round` in
+the same transaction (`Tournaments.record_prohibition_change/2`). TRF26
+copies write `### Prohibition @ Round r: ...` lines; the file sent for
+rating does not. A rule reaching a late entrant is not an act. Prohibitions
+added late before 0.79.0 are not re-judged: only new acts count.
 
 ## Interaction with the JSON backup
 
@@ -212,12 +222,12 @@ pairs as rules leave no legal round at all. The rationale page names the
 rung in the arbiter's words ("pairs the arbiter asked to keep apart if
 possible"), and a what-if that seats a soft pair anyway is judged on it.
 
-Three settings, all defaulting to "no wishes", under which the engine's
+Three places, all defaulting to "no wishes", under which the engine's
 behaviour is byte for byte what it was:
 
 ```
 forbidden_pairings.soft        a single pair as a wish instead of a rule
-tournaments.soft_club_rounds   clubmates apart for rounds 1..N (0 = never)
+pairing_rules.soft             a rule as a wish (clubmates apart in rounds 1..N, ...)
 tournaments.soft_position      "strong" | "weak" - how hard to try
 ```
 
@@ -229,9 +239,8 @@ a wish never produces a rematch, a third colour in a row, or an illegal bye.
 
 `PairingsEngine.Pairing.soft_pairs/5` turns the settings into starting-rank
 groups in the same shape `forbidden_pairs/4` returns, resolved against the
-same rank map - a soft row as a pair, each club with two or more players as
-one group while the round is within `soft_club_rounds` (skipped when
-`club_exclusion` is already `"all"`, where it could add nothing). Unlike the
+same rank map - a soft row as a pair, each group a soft rule keeps apart in
+the round as one group. Unlike the
 rules, the wishes cannot travel in the TRF, which has no way to say "if you
 can": they are handed to `Ainalrami.Pairing.pair_next_round/2` as its
 `soft_pairs` / `soft_position` options, alongside the file. A soft row is

@@ -522,6 +522,13 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "collaborator.removed" => [%{"email" => "an@example.org"}],
     "forbidden_pairing.added" => [%{"player_a_id" => 3, "player_b_id" => 8}],
     "forbidden_pairing.removed" => [%{"player_a_id" => 3, "player_b_id" => 8}],
+    "forbidden_pairing.changed" => [
+      %{"player_a_id" => 3, "player_b_id" => 8, "soft" => true},
+      %{"player_a_id" => 3, "player_b_id" => 8, "soft" => false}
+    ],
+    "pairing_rule.added" => [%{"rule" => "same club", "kind" => "club"}],
+    "pairing_rule.changed" => [%{"rule" => "same federation, last 2 rounds"}],
+    "pairing_rule.removed" => [%{"rule" => "group"}],
     "category.created" => [%{"name" => "U12"}],
     "category.removed" => [%{"name" => "U12"}],
     "category.rules_updated" => [%{}],

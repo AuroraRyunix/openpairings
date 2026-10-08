@@ -95,7 +95,9 @@ zou verschuiven. Zie [Byes en afwezigheid](05-byes-and-absences.md) en
 Zaken die de eigen FIDE-regels toestaan, zijn geen afwijkingen en veranderen de
 modus niet: andere puntwaarden voor winst, remise en verlies (zolang geen
 partij minder oplevert dan een lager resultaat), een halvepuntsbye, extra
-punten, de keuze van tiebreaks, een met de hand vastgestelde rangschikking, en
+punten, de keuze van tiebreaks, verboden paringen en paringsregels die vóór het
+paren van ronde 1 zijn ingesteld (C.05 5.2), een met de hand vastgestelde
+rangschikking, en
 het met de hand wijzigen van de borden van een ronde ([Een ronde paren](06-pairing.md):
 handmatige wijzigingen zijn een handmatige aanpassing van de paring die de
 reglementen voorzien, dus ze beëindigen de FIDE-modus niet; een verschil met de
@@ -115,7 +117,9 @@ Er zijn twee manieren om eruit te gaan, en beide stellen dezelfde twee vragen.
   door een zachte regel (een wens "enkel indien mogelijk"), door een uitsluiting
   of voorkeur voor een bye, of door extra punten die in de paring meetellen; en
   een uitgestelde partij vastleggen als *niet gespeeld in dit toernooi* op de
-  pagina Exporteren.
+  pagina Exporteren; en een verboden paring of een paringsregel toevoegen,
+  wijzigen of verwijderen nadat ronde 1 gepaard is
+  ([Pagina Verboden paringen](03-tournament-setup.md)).
 
 Voordat er iets wordt geschreven, toont het programma het dialoogvenster
 *FIDE-modus verlaten?* in twee stappen (dit is de dubbele bevestiging die de

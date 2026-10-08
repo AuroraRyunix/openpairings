@@ -83,22 +83,21 @@ defmodule PairingsEngine.Compliance do
       JaVaFo and rules-currency points at Ainalrami, so the regulations
       cannot settle it either way and this module does not pretend to. The
       advisory note on the Options page is the right treatment and stays.
-    * **Forbidden pairings, club and federation exclusions, soft rules.**
-      `XXP` is FIDE's own TRF extension and the endorsed engine implements
-      it. VCL4THP's Q196 does make adding a prohibited pairing *after round
-      1* a hard failure, citing C.05:5.2 - but that is an act at a round,
-      not a setting, and `docs/tec-feedback-2026-09.md:179-193` is a live
-      disagreement with TEC about whether that reading is right at all.
-      Encoding one side of an open argument as a permanent mark on an
-      arbiter's tournament is not this module's call. When Q196 settles,
-      `Tournaments.add_forbidden_pairing/4` is where it lands. The SOFT
-      rules ("only if possible" pairs, clubmates apart) are the exception:
-      they are not `XXP`, they replace the Dutch system's own choice among
-      equally good pairings, and the round they change is not the one a FIDE
-      checker reproduces. Like extra points, that is a fact about a round,
-      so the pairing marks it when they move a board
-      (`Pairing.pairing_deviations/2`) and not before; so does an
-      organiser's bye exclusion that moves the bye.
+    * **Forbidden pairings and pairing rules, hard or soft.** `XXP`/`260`
+      is FIDE's own record and C.05 5.2 allows restrictions as long as they
+      are announced before the first round - its own example is a soft one,
+      "same federation, if possible, not in the last rounds". So HAVING
+      them is not a departure, and no existing tournament is judged by the
+      ones it has. CHANGING one once round 1 is paired is (VCL4THP
+      Q195/Q196) - but that is an act at a round, not a setting, so it is
+      recorded where the act happens (`Tournaments.record_prohibition_change/2`,
+      behind the Level-4 confirmation on the page) and never computed here.
+      A rule's later reach to a player who joined late is not an act: the
+      rule was announced, the roster was not. A wish that MOVES a board is
+      still a fact about that round, not the settings: the round it changed
+      is not the one a FIDE checker reproduces, so the pairing marks it then
+      (`Pairing.pairing_deviations/2`), as it does an organiser's bye
+      exclusion that moves the bye.
     * **`rr_match_format`.** It reorders a fixed Berger schedule; every
       pairing in it is still a Berger pairing and everybody still meets
       everybody with the same colours. It changes the order of rounds, not

@@ -1,135 +1,172 @@
 defmodule PairingsEngine.Exclusions do
   @moduledoc """
-  Club / federation pairing-exclusion rules (SWAR parity #7-10) - arbiter
-  policy that certain groups of players (clubmates, players sharing a
-  federation) must never be paired against each other, translated into a
-  set of forbidden player pairs at pairing time.
+  Pairing rules (`PairingsEngine.Tournaments.PairingRule`) turned into the
+  players they keep apart - "same club", "same federation", "these five" -
+  for one round, from the players as they are now.
 
-  `excluded_pairs/2` returns a `MapSet` of `{player, player}` tuples - pairs
-  of the full `PairingsEngine.Tournaments.Player` struct, not ids or
-  starting ranks, so each call site can map to whatever id space it needs
-  without this module knowing about either:
+  Pure: rules and players in, groups and pairs out. Nothing here reads the
+  database, so the pairing, Keizer, the TRF writer and the Options page's
+  counts all expand a rule the same way.
 
-    * `PairingsEngine.Pairing` maps each pair to the players' TRF starting
-      rank (`pairing_number`) to emit JaVaFo `XXP` lines, same as an
-      explicit forbidden pairing.
-    * `PairingsEngine.Keizer` maps each pair to player ids to fold into its
-      own `pair_key/2`-keyed forbidden set.
+  A group is the set of players a rule keeps apart from EACH OTHER: one per
+  club with two or more members for a club rule, one per federation, the
+  rule's own members for a group rule. Hard rules reach the engines as
+  pairs (`hard_pairs/4`, written as `XXP`); soft ones as whole groups
+  (`soft_groups/4`), the shape Ainalrami's `:soft_pairs` option takes.
 
-  Every returned pair is canonically ordered `{a, b}` with `a.id <= b.id`,
-  so duplicate pairs collapse regardless of which rule (or which group)
-  produced them, and so unioning the club and federation results never
-  double-counts a pair excluded by both.
-
-  A round robin's fixed schedule ignores these rules entirely by design -
-  see `docs/forbidden-pairings.md`.
+  Clubs and federations are compared trimmed and case-insensitively, and a
+  blank club or federation is never a group - "no club" is not a club.
   """
 
-  alias PairingsEngine.Tournaments.{Player, Tournament}
+  alias PairingsEngine.Tournaments.{PairingRule, Player}
 
   @doc """
-  Pairs of `players` excluded by `tournament`'s club and federation
-  exclusion rules (`club_exclusion`/`club_exclusion_list`,
-  `fed_exclusion`/`fed_exclusion_list` - see
-  `PairingsEngine.Tournaments.Tournament`). Club rules and federation rules
-  are independent and their results unioned: a pair excluded by both counts
-  once.
-
-  Rule semantics, identical on both axes:
-
-    * `"none"` - no exclusions from this axis.
-    * `"all"` - every pair of players sharing the same non-blank
-      club/federation is excluded.
-    * `"listed"` - only pairs sharing a club/federation whose name (after
-      trimming and case-insensitive compare) appears in the axis's
-      comma-separated list.
-
-  A player with a blank club/federation is never excluded on that axis
-  under any rule - there's no group for them to share.
+  Whether `rule` holds in `round` of a tournament of `rounds_count` rounds.
+  A rule added once rounds were paired (`from_round`) never holds before it.
   """
-  @spec excluded_pairs(Tournament.t(), [Player.t()]) :: MapSet.t({Player.t(), Player.t()})
-  def excluded_pairs(%Tournament{} = tournament, players) do
-    club_pairs =
-      pairs_for(players, tournament.club_exclusion, tournament.club_exclusion_list, & &1.club)
+  @spec applies?(PairingRule.t() | map(), pos_integer(), non_neg_integer() | nil) :: boolean()
+  def applies?(rule, round, rounds_count) do
+    case rounds(rule, rounds_count) do
+      nil -> false
+      {first, last} -> round >= first and (is_nil(last) or round <= last)
+    end
+  end
 
-    fed_pairs =
-      pairs_for(players, tournament.fed_exclusion, tournament.fed_exclusion_list, & &1.federation)
+  @doc """
+  The rounds `rule` holds for, as `{first, last}` - `last` nil for "to the
+  end" - or nil when it holds for none (a "last 3 rounds" rule added after
+  the last round was paired). `rounds_count` is the tournament's number of
+  rounds, which "last N" counts back from.
+  """
+  def rounds(rule, rounds_count) do
+    {first, last} =
+      case rule.window do
+        "first" -> {1, rule.window_rounds}
+        "last" -> {max((rounds_count || 0) - (rule.window_rounds || 0) + 1, 1), rounds_count}
+        "range" -> {rule.window_from, rule.window_to}
+        _ -> {1, nil}
+      end
 
-    MapSet.union(club_pairs, fed_pairs)
+    first = max(first || 1, rule.from_round || 1)
+
+    if is_integer(last) and last < first, do: nil, else: {first, last}
+  end
+
+  @doc """
+  The groups of `players` that `rule` keeps apart, each a list of two or
+  more players. Ignores the rule's rounds - see `applies?/3`.
+  """
+  @spec groups(PairingRule.t() | map(), [Player.t()]) :: [[Player.t()]]
+  def groups(%{kind: "club"} = rule, players), do: value_groups(players, & &1.club, rule.names)
+
+  def groups(%{kind: "federation"} = rule, players),
+    do: value_groups(players, & &1.federation, rule.names)
+
+  def groups(%{kind: "group", player_ids: ids}, players) do
+    wanted = MapSet.new(ids || [])
+
+    case Enum.filter(players, &MapSet.member?(wanted, &1.id)) do
+      [_, _ | _] = members -> [members]
+      _ -> []
+    end
+  end
+
+  def groups(_rule, _players), do: []
+
+  @doc """
+  Every pair of `players` a HARD rule of `rules` keeps apart in `round`, as
+  `{player, player}` tuples ordered by id, each pair once however many
+  rules name it. `round` nil means every round any rule holds for - what a
+  count "how many pairs do these rules forbid" wants.
+  """
+  @spec hard_pairs([map()], [Player.t()], pos_integer() | nil, non_neg_integer() | nil) ::
+          MapSet.t({Player.t(), Player.t()})
+  def hard_pairs(rules, players, round, rounds_count) do
+    rules
+    |> Enum.reject(& &1.soft)
+    |> Enum.filter(&(is_nil(round) or applies?(&1, round, rounds_count)))
+    |> Enum.flat_map(&groups(&1, players))
+    |> Enum.flat_map(&unordered_pairs/1)
+    |> MapSet.new()
+  end
+
+  @doc """
+  The groups of player ids the SOFT rules of `rules` ask to keep apart in
+  `round` - Ainalrami's `:soft_pairs` takes groups as they are.
+  """
+  @spec soft_groups([map()], [Player.t()], pos_integer(), non_neg_integer() | nil) :: [
+          [integer()]
+        ]
+  def soft_groups(rules, players, round, rounds_count) do
+    rules
+    |> Enum.filter(& &1.soft)
+    |> Enum.filter(&applies?(&1, round, rounds_count))
+    |> Enum.flat_map(&groups(&1, players))
+    |> Enum.map(fn group -> Enum.map(group, & &1.id) end)
+  end
+
+  @doc """
+  What `rule` does to `players` now: `%{pairs: n, groups: n}` - the pairs it
+  keeps apart and the clubs, federations or groups they come from. What
+  the Options page shows beside each rule.
+  """
+  def effect(rule, players) do
+    groups = groups(rule, players)
+
+    %{
+      groups: length(groups),
+      pairs: Enum.reduce(groups, 0, fn g, acc -> acc + div(length(g) * (length(g) - 1), 2) end)
+    }
   end
 
   @doc """
   `players` grouped by club - one list per non-blank club with at least two
-  members, in no particular order - for the SOFT club rule
-  (`tournaments.soft_club_rounds`): "keep clubmates apart in the first N
-  rounds if you can". Where `excluded_pairs/2` expands a club into pairs
-  because the engines take `XXP` lines pairwise, the soft rule hands the
-  engine each club whole, which is the group form its option already takes.
-  Same trimming and case-folding as the hard rule, so "Chess Club" and
-  "chess club" are one club for both.
+  members.
   """
   @spec club_groups([Player.t()]) :: [[Player.t()]]
-  def club_groups(players) do
-    players
-    |> group_by_value(& &1.club)
-    |> Enum.map(fn {_value, group} -> group end)
-    |> Enum.filter(&(length(&1) >= 2))
-  end
-
-  defp pairs_for(_players, "none", _list, _field_fn), do: MapSet.new()
-
-  defp pairs_for(players, "all", _list, field_fn) do
-    players |> group_by_value(field_fn) |> pairs_from_groups()
-  end
-
-  defp pairs_for(players, "listed", list, field_fn) do
-    allowed = list |> normalize_list() |> MapSet.new(&String.downcase/1)
-
-    players
-    |> group_by_value(field_fn)
-    |> Enum.filter(fn {value, _group} -> String.downcase(value) in allowed end)
-    |> pairs_from_groups()
-  end
-
-  defp pairs_for(_players, _other_mode, _list, _field_fn), do: MapSet.new()
-
-  # Groups players by their (trimmed) club/federation value, dropping any
-  # group keyed on a blank value - blank means "no club/federation", never
-  # a group to exclude within. Grouped case-insensitively (trimmed, then
-  # downcased) so "Chess Club" and "chess club" are treated as the same
-  # club, matching the "listed" rule's case-insensitive list compare below.
-  defp group_by_value(players, field_fn) do
-    players
-    |> Enum.group_by(fn p ->
-      p |> field_fn.() |> to_string() |> String.trim() |> String.downcase()
-    end)
-    |> Enum.reject(fn {value, _group} -> value == "" end)
-  end
-
-  defp pairs_from_groups(groups) do
-    groups
-    |> Enum.flat_map(fn {_value, group} -> unordered_pairs(group) end)
-    |> MapSet.new()
-  end
-
-  # Every unordered pair within `players`, generated once each (i < j over
-  # the list's own indices, not the players' ids) - quadratic in group size,
-  # which is fine: exclusion groups are clubs/federations, not the whole
-  # field.
-  defp unordered_pairs(players) do
-    indexed = Enum.with_index(players)
-
-    for {a, i} <- indexed, {b, j} <- indexed, i < j, do: canonical(a, b)
-  end
-
-  defp canonical(%{id: a_id} = a, %{id: b_id} = b) when a_id <= b_id, do: {a, b}
-  defp canonical(a, b), do: {b, a}
+  def club_groups(players), do: value_groups(players, & &1.club, [])
 
   @doc """
-  Normalizes a comma-separated exclusion list into a list of trimmed,
-  non-blank entries. Used here and by `PairingsEngine.Tournaments.Tournament`'s
-  changeset (which re-joins the result back into the same comma-separated
-  storage shape).
+  A rule in plain ASCII English, the way a `### Prohibition` line names it:
+  "same club", "same federation (BEL, NED), if possible, last 2 rounds".
+  Group members are not named here - the TRF line lists them by number.
+  """
+  def describe(rule) do
+    what =
+      case rule.kind do
+        "club" -> "same club" <> names_suffix(rule.names)
+        "federation" -> "same federation" <> names_suffix(rule.names)
+        _ -> "group"
+      end
+
+    [what, if(rule.soft, do: "if possible"), window_text(rule)]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(", ")
+  end
+
+  defp names_suffix([_ | _] = names) do
+    ascii = names |> Enum.map(&ascii/1) |> Enum.reject(&(&1 == ""))
+    if ascii == [], do: "", else: " (" <> Enum.join(ascii, ", ") <> ")"
+  end
+
+  defp names_suffix(_), do: ""
+
+  # The `###` lines are ASCII; a club called "Échiquier" becomes
+  # "Echiquier" rather than a byte the checker chokes on.
+  defp ascii(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/[^\x20-\x7E]/u, "")
+    |> String.trim()
+  end
+
+  defp window_text(%{window: "first", window_rounds: n}), do: "first #{n} rounds"
+  defp window_text(%{window: "last", window_rounds: n}), do: "last #{n} rounds"
+  defp window_text(%{window: "range", window_from: a, window_to: b}), do: "rounds #{a}-#{b}"
+  defp window_text(_rule), do: nil
+
+  @doc """
+  Normalizes a comma-separated list into trimmed, non-blank entries.
   """
   @spec normalize_list(String.t() | nil) :: [String.t()]
   def normalize_list(nil), do: []
@@ -140,4 +177,29 @@ defmodule PairingsEngine.Exclusions do
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
   end
+
+  # Groups by the trimmed, downcased value; blank is never a group, and a
+  # group of one keeps nobody apart. `names` non-empty keeps the listed
+  # values only.
+  defp value_groups(players, field_fn, names) do
+    allowed = MapSet.new(names || [], &(&1 |> String.trim() |> String.downcase()))
+
+    players
+    |> Enum.group_by(fn p ->
+      p |> field_fn.() |> to_string() |> String.trim() |> String.downcase()
+    end)
+    |> Enum.reject(fn {value, _} -> value == "" end)
+    |> Enum.filter(fn {value, _} -> MapSet.size(allowed) == 0 or value in allowed end)
+    |> Enum.sort_by(fn {value, _} -> value end)
+    |> Enum.map(fn {_, group} -> Enum.sort_by(group, & &1.id) end)
+    |> Enum.filter(&(length(&1) >= 2))
+  end
+
+  defp unordered_pairs(players) do
+    indexed = Enum.with_index(players)
+    for {a, i} <- indexed, {b, j} <- indexed, i < j, do: canonical(a, b)
+  end
+
+  defp canonical(%{id: a_id} = a, %{id: b_id} = b) when a_id <= b_id, do: {a, b}
+  defp canonical(a, b), do: {b, a}
 end

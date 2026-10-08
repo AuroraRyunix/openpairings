@@ -22,7 +22,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   use Gettext, backend: PairingsEngineWeb.Gettext
 
   alias PairingsEngine.Repo
-  alias PairingsEngine.{Encoding, Exclusions, Federation, SafeError, Tournaments, Standings}
+  alias PairingsEngine.{Encoding, Federation, SafeError, Tournaments, Standings}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
 
@@ -684,7 +684,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   #   * club or nationality exclusion (`[EXCLUSION]`, "ICN style" in SWAR's
   #     own manual - schools, NATO teams): an individual Swiss in which two
   #     players of the same club, or nationality, never meet. It is carried
-  #     over (`exclusion_attrs/1`), because this app has the same rules.
+  #     over (`exclusion_rule/1`), because this app has the same rules.
   #
   # So nothing in a .swar file can be mapped onto teams here, and nothing is
   # guessed: a team-mode file is refused as a team event (the organiser may
@@ -962,6 +962,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       {data, unpaired} = drop_unpaired_rounds(data)
       create_rounds(tournament, data.players, players_by_ni)
       create_exclusion_pairs(tournament, data, players_by_ni)
+      create_exclusion_rule(tournament, data)
 
       warnings =
         trailing_data_warnings(data) ++
@@ -1718,7 +1719,6 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     }
     |> Map.merge(scoring_attrs(t))
     |> Map.merge(system_attrs(t))
-    |> Map.merge(exclusion_attrs(data))
     |> Map.merge(category_mode_attrs(data))
     |> Map.merge(extra_points_attrs(data))
     |> Map.merge(fide_attrs(t))
@@ -2000,26 +2000,42 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   #     nationality apart", so that is what it becomes here - the audit's own
   #     advice is not to calibrate this rule against SWAR's bug.
   #
-  # 0 is not a tournament setting here but explicit forbidden pairings, so
-  # it is written in `create_exclusion_pairs/3` once the players exist.
-  defp exclusion_attrs(%{exclusion: %{type: 3}}), do: %{club_exclusion: "all"}
-  defp exclusion_attrs(%{exclusion: %{type: 4}}), do: %{fed_exclusion: "all"}
+  # Each becomes a pairing rule (`create_exclusion_rule/2`) once the
+  # tournament exists; 0 is explicit forbidden pairings, written in
+  # `create_exclusion_pairs/3` once the players exist.
+  defp exclusion_rule(%{exclusion: %{type: 3}}), do: %{"kind" => "club"}
+  defp exclusion_rule(%{exclusion: %{type: 4}}), do: %{"kind" => "federation"}
 
-  defp exclusion_attrs(%{exclusion: %{type: 1, values: values}, players: players}) do
+  defp exclusion_rule(%{exclusion: %{type: 1, values: values}, players: players}) do
     case listed_club_names(values, players) do
-      [] -> %{}
-      names -> %{club_exclusion: "listed", club_exclusion_list: Enum.join(names, ", ")}
+      [] -> nil
+      names -> %{"kind" => "club", "names" => names}
     end
   end
 
-  defp exclusion_attrs(%{exclusion: %{type: 2, values: values}}) do
+  defp exclusion_rule(%{exclusion: %{type: 2, values: values}}) do
     case exclusion_values(values) |> Enum.map(&Federation.normalize/1) |> Enum.uniq() do
-      [] -> %{}
-      codes -> %{fed_exclusion: "listed", fed_exclusion_list: Enum.join(codes, ", ")}
+      [] -> nil
+      codes -> %{"kind" => "federation", "names" => codes}
     end
   end
 
-  defp exclusion_attrs(_data), do: %{}
+  defp exclusion_rule(_data), do: nil
+
+  # The rule, once the tournament exists. The file's own, so `import: true`:
+  # it was announced before this copy had a round of its own to depart from.
+  defp create_exclusion_rule(tournament, data) do
+    case exclusion_rule(data) do
+      nil ->
+        :ok
+
+      attrs ->
+        case Tournaments.add_pairing_rule(tournament, attrs, import: true) do
+          {:ok, _rule} -> :ok
+          {:error, _reason} -> Repo.rollback("Could not import the file's exclusion rule.")
+        end
+    end
+  end
 
   # `Exclusion.Values` is ':'-separated, as `ImplodeValues1` (`TOptions.cpp`)
   # stores it.
@@ -2059,7 +2075,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   end
 
   @doc false
-  # The notices an [EXCLUSION] section can give (see `exclusion_attrs/1`).
+  # The notices an [EXCLUSION] section can give (see `exclusion_rule/1`).
   # Only the club rule has one: SWAR keeps players apart by club NUMBER, this
   # app by club NAME, and where the two groupings differ - a club spelled two
   # ways, two clubs sharing a name, several players without a club number -
@@ -2072,8 +2088,11 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       |> Enum.filter(&(type == 3 or &1.club_nr in listed_club_numbers(data.exclusion.values)))
       |> groups_of(& &1.club_nr)
 
-    listed = exclusion_attrs(data) |> Map.get(:club_exclusion_list, "")
-    listed_names = Enum.map(Exclusions.normalize_list(listed), &String.downcase/1)
+    listed_names =
+      case exclusion_rule(data) do
+        %{"names" => names} -> Enum.map(names, &String.downcase/1)
+        _ -> []
+      end
 
     our_groups =
       players
@@ -2129,7 +2148,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
     end)
     |> Enum.uniq()
     |> Enum.each(fn {a, b} ->
-      case Tournaments.add_forbidden_pairing(tournament, a, b) do
+      case Tournaments.add_forbidden_pairing(tournament, a, b, import: true) do
         {:ok, _row} -> :ok
         {:error, :already_forbidden} -> :ok
         {:error, _reason} -> Repo.rollback("Could not import the file's excluded pairings.")

@@ -1037,9 +1037,13 @@ defmodule PairingsEngine.KeizerTest do
           name: "Keizer Club Night",
           type: "swiss",
           pairing_system: "keizer",
-          rounds_count: 1,
-          club_exclusion: "all"
+          rounds_count: 1
         })
+
+      Repo.insert!(%PairingsEngine.Tournaments.PairingRule{
+        tournament_id: tournament.id,
+        kind: "club"
+      })
 
       # Alice/Bob are ranked 1st/2nd (highest ratings) and share a club -
       # without the exclusion rule they'd be paired together round 1.
