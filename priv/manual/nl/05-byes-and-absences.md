@@ -102,13 +102,15 @@ worden toegepast; een tweede halvepuntsbye vraagt een eigen vinkje, *Ik begrijp
 het - toch geven*; een bye van een vol punt toont de melding hierboven.
 
 > [!NOTE]
-> Een gekozen bye is geen afwezigheid meer, dus telt hij niet mee voor de limiet
-> van de eerste N overgeslagen rondes die worden betaald, en ook de keuze die voor
-> de volgende ronde wordt aangeduid, telt hem niet. Waar de twee limieten voor die
-> ronde minder zouden betalen dan de gekozen bye (de limiet is opgebruikt, of de
-> ronde ligt na de laatste betaalde, en u kiest toch een halvepuntsbye), zeggen het
-> formulier en de bevestiging dat. Ze houden u niet tegen. De afwezigheidspunten
-> later wijzigen, verandert een al gekozen bye niet.
+> De twee limieten op betaalde afwezigheden bepalen de keuze die vooraf wordt
+> aangeduid. Voor de limiet van de eerste N overgeslagen rondes die worden betaald,
+> telt elke eerdere bye van een half of vol punt als een van de N, precies zoals een
+> afwezigheid: met N = 2 wordt de derde vrije ronde van een speler aangeboden als
+> bye van nul punt. Een bye van nul punt betaalt niets en gebruikt niets op. De
+> gekozen bye wordt wel gescoord zoals gekozen, wat de limieten ook zeggen: waar ze
+> voor die ronde minder zouden betalen (u kiest toch een halvepuntsbye voor de derde
+> ronde), zeggen het formulier en de bevestiging dat, en ze houden u niet tegen. De
+> afwezigheidspunten later wijzigen, verandert een al gekozen bye niet.
 
 > [!WARNING]
 > Markeer de afwezigheden **voordat** u de ronde paart. Een speler die laat komt,

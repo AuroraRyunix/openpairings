@@ -31,10 +31,11 @@ Each entry is tagged so a version can be skimmed:
   and comes back on import. The half-point bye rules count a picked one (a
   second asks for confirmation, an ineligible player cannot have one and is
   offered the zero instead), and a picked full-point bye gets the same notice
-  the Pairings page gives one. A picked bye is no longer an absence, so it
-  does not use up the paid-absences allowance; where the limits on paid
-  absences would have paid less than the bye picked, the form says so and
-  lets you carry on regardless, which is the point of asking.
+  the Pairings page gives one. The limits on paid absences still decide what
+  is pre-picked - an earlier half-point or full-point bye counts toward "only
+  the first N are paid" exactly as an absence would - but the bye picked is
+  scored as picked. Pick past the limit and the form says so, then lets you,
+  which is the point of asking.
 - [Feature] **"Mark absent for this round" asks too.** With the switch on,
   emptying a seat in a paired round on the Pairings page asks the same
   three-way question in its confirmation, picked the same way, and stores

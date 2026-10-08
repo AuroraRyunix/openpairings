@@ -107,28 +107,49 @@ defmodule PairingsEngine.ByeTypesTest do
       end
     end
 
-    test "picked byes use none of the paid-absences allowance up" do
-      t = tournament(%{abs_value: 0.5, abs_nbfois: 1})
+    test "the count cap decides the pre-picked answer, paid picks counting as absences" do
+      t = tournament(%{abs_value: 0.5, abs_nbfois: 2})
       delta = by_name(t)["Delta"]
 
-      # Round 2 is about to be a picked bye, not an absence, so round 4 is
-      # still the first absence as far as the count cap goes.
-      assert ByeTypes.dialog_types(t, delta, "2,4") == %{
+      # Two paid, the third is past the cap.
+      assert ByeTypes.dialog_types(t, delta, "2,3,4") == %{
                2 => "requested-half",
-               4 => "requested-half"
+               3 => "requested-half",
+               4 => "requested-zero"
              }
 
+      # A zero-point pick pays nothing and uses nothing up.
+      assert [{2, "requested-zero", 1}, {3, "requested-half", 1}, {4, "requested-half", 2}] =
+               ByeTypes.dialog_plan(t, delta, "2,3,4", %{2 => "requested-zero"})
+
+      # Stored picks count the same way once saved.
       assert {:ok, delta} =
                Tournaments.update_player(
                  delta,
-                 %{"absent_rounds" => "2", "bye_types" => %{"2" => "requested-half"}},
-                 []
+                 %{
+                   "absent_rounds" => "2,3",
+                   "bye_types" => %{"2" => "requested-half", "3" => "full-point"}
+                 },
+                 acknowledged: [:second_half_bye]
                )
 
-      assert ByeTypes.dialog_types(t, delta, "2,4") == %{
-               2 => "requested-half",
-               4 => "requested-half"
-             }
+      assert ByeTypes.dialog_types(t, delta, "2,3,5")[5] == "requested-zero"
+      # Going past it anyway is said, not refused.
+      assert ByeTypes.above_limits?(t, 5, 3, "requested-half")
+    end
+
+    test "a seat emptied in a paired round counts the paid byes before it" do
+      t = tournament(%{abs_value: 0.5, abs_nbfois: 1})
+      delta = by_name(t)["Delta"]
+      assert ByeTypes.next_absence_nth(t, delta.id, 1) == 1
+
+      Repo.insert_all("byes", [
+        %{tournament_id: t.id, player_id: delta.id, round: 1, type: "requested-half"}
+      ])
+
+      assert ByeTypes.next_absence_nth(t, delta.id, 2) == 2
+      assert ByeTypes.default_for(t, delta, 2, 2) == "requested-zero"
+      # Picked byes still score as picked: the standings never cap them.
     end
 
     test "the limits still decide the pre-picked answer, and a richer pick is flagged" do

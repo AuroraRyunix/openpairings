@@ -174,6 +174,45 @@ defmodule PairingsEngineWeb.ByeTypeChoiceLiveTest do
     end
   end
 
+  describe "the count cap in the player dialog" do
+    test "the third absence of two paid is pre-picked as zero; half anyway is said", %{
+      conn: conn,
+      scope: scope
+    } do
+      t =
+        tournament(scope, %{"abs_value" => "0.5", "abs_nbfois" => "2", "ask_bye_type" => "true"})
+
+      ann = player(t, "Ann")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      render_click(lv, "edit_player", %{"id" => to_string(ann.id)})
+
+      lv
+      |> element("#player-edit-form")
+      |> render_change(%{"player" => %{"absent_rounds" => "1,2,3"}})
+
+      assert has_element?(lv, "#player-bye-type-1-requested-half[checked]")
+      assert has_element?(lv, "#player-bye-type-2-requested-half[checked]")
+      assert has_element?(lv, "#player-bye-type-3-requested-zero[checked]")
+      refute has_element?(lv, "#player-bye-above-limits")
+
+      lv
+      |> element("#player-edit-form")
+      |> render_change(%{
+        "player" => %{
+          "absent_rounds" => "1,2,3",
+          "bye_types" => %{
+            "1" => "requested-half",
+            "2" => "requested-half",
+            "3" => "requested-half"
+          }
+        }
+      })
+
+      assert has_element?(lv, "#player-bye-above-limits")
+    end
+  end
+
   describe "Mark absent on the Pairings page" do
     setup %{scope: scope} do
       t = tournament(scope, %{"abs_value" => "0.5", "ask_bye_type" => "true"})

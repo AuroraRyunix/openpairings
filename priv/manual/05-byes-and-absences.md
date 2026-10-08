@@ -100,14 +100,15 @@ half-point bye needs its own tick, *I understand - give it anyway*; a
 full-point bye shows the notice above.
 
 > [!NOTE]
-> A picked bye is no longer an absence, so it does not use up the
-> *only a player's first N rounds sat out are paid* allowance, and the
-> answer picked for the next round does not count it either. Where the two
-> limits would pay less for that round than the bye picked (the allowance
-> is used up, or the round is past the last one paid, and you pick a
-> half-point bye anyway), the form and the confirmation say so. They do not
-> stop you. Changing the absence points later does not change a bye already
-> picked.
+> The two limits on paid absences decide the answer picked in advance. For
+> *only a player's first N rounds sat out are paid*, every earlier
+> half-point or full-point bye counts as one of the N, exactly as an absence
+> would: with N = 2, a player's third round off is offered as a zero-point
+> bye. A zero-point bye pays nothing and uses nothing up. The bye you pick
+> is scored as picked, though, whatever the limits say: where they would pay
+> less for that round (you pick a half-point bye for the third round anyway),
+> the form and the confirmation say so, and do not stop you. Changing the
+> absence points later does not change a bye already picked.
 
 > [!WARNING]
 > Mark the absences **before** you pair the round. A player who turns up late

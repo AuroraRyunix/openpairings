@@ -1999,7 +1999,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # The dialog's bye-type rows: one per round in the absences typed so far
   # that is not paired yet, each with what the arbiter picked, else what is
-  # stored, else what the absence value gives (`ByeTypes.dialog_types/3`).
+  # stored, else what the absence value gives under its limits (`ByeTypes.dialog_plan/4`).
   # Nothing for a player marked absent outright, or absences that do not
   # parse - the field's own error says that.
   defp bye_type_rows(tournament, %Player{} = player, form) do
@@ -2007,16 +2007,12 @@ defmodule PairingsEngineWeb.PlayersLive do
          false <- form["absent"] in [true, "true"],
          {:ok, canonical} <-
            Player.parse_absent_rounds_input(to_string(form["absent_rounds"] || "")) do
-      defaults = ByeTypes.dialog_types(tournament, player, canonical)
-      picked = form |> Map.get("bye_types") |> ByeTypes.parse() |> Map.take(Map.keys(defaults))
+      picked = form |> Map.get("bye_types") |> ByeTypes.parse()
 
-      positions = ByeTypes.dialog_positions(tournament, player, canonical)
-
-      defaults
-      |> Map.merge(picked)
-      |> Enum.sort()
-      |> Enum.map(fn {round, type} ->
-        {round, type, ByeTypes.above_limits?(tournament, round, positions[round], type)}
+      tournament
+      |> ByeTypes.dialog_plan(player, canonical, picked)
+      |> Enum.map(fn {round, type, nth} ->
+        {round, type, ByeTypes.above_limits?(tournament, round, nth, type)}
       end)
     else
       _ -> []
