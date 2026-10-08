@@ -37,9 +37,14 @@ defmodule PairingsEngineWeb.HelpLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    # The manual in the reader's language where it has been translated
+    # (`PairingsEngine.Manual`), English for the rest.
+    locale = Gettext.get_locale(PairingsEngineWeb.Gettext)
+
     {:ok,
      assign(socket,
-       chapters: Manual.chapters(),
+       manual_locale: locale,
+       chapters: Manual.chapters(locale),
        chapter: nil,
        previous: nil,
        next: nil,
@@ -52,7 +57,7 @@ defmodule PairingsEngineWeb.HelpLive do
 
   @impl true
   def handle_params(%{"chapter" => slug}, _uri, socket) do
-    case Manual.get(slug) do
+    case Manual.get(slug, socket.assigns.manual_locale) do
       nil ->
         {:noreply,
          socket
@@ -60,7 +65,7 @@ defmodule PairingsEngineWeb.HelpLive do
          |> push_navigate(to: ~p"/help")}
 
       chapter ->
-        {previous, next} = Manual.neighbours(slug)
+        {previous, next} = Manual.neighbours(slug, socket.assigns.manual_locale)
 
         {:noreply,
          socket
@@ -102,7 +107,7 @@ defmodule PairingsEngineWeb.HelpLive do
   defp assign_search(socket, query) do
     assign(socket,
       query: query,
-      results: Manual.search(query),
+      results: Manual.search(query, 30, socket.assigns.manual_locale),
       search_form: to_form(%{"q" => query}, as: :search)
     )
   end

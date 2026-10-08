@@ -162,4 +162,39 @@ defmodule PairingsEngine.ManualTest do
       assert length(Manual.search("berger")) == length(Manual.search("Berger"))
     end
   end
+
+  describe "translations" do
+    test "a translated chapter has exactly the English chapter's section ids, so every link lands" do
+      english = Map.new(Manual.chapters(), &{&1.slug, Enum.map(Manual.toc(&1), fn h -> h.id end)})
+
+      for locale <- Manual.locales(), chapter <- Manual.chapters(locale) do
+        assert Enum.map(Manual.toc(chapter), & &1.id) == english[chapter.slug],
+               "#{locale}/#{chapter.slug}: section ids differ from the English chapter"
+
+        refute Enum.any?(Manual.toc(chapter), &String.contains?(&1.text, "{#")),
+               "#{locale}/#{chapter.slug}: an explicit id leaked into a heading"
+      end
+    end
+
+    test "every locale has every chapter, in the English order" do
+      for locale <- Manual.locales() do
+        assert Enum.map(Manual.chapters(locale), & &1.slug) == Manual.slugs()
+      end
+    end
+
+    test "an explicit id wins over the heading text" do
+      html =
+        PairingsEngine.Manual.Markup.chapter(
+          "# T
+
+## Een kop {#a-heading}
+
+Tekst.
+",
+          1
+        )
+
+      assert [%{id: "a-heading", text: "Een kop"}] = html.toc
+    end
+  end
 end

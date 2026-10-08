@@ -31,6 +31,10 @@ defmodule PairingsEngine.Manual do
   """
 
   @manual_dir Path.expand("../../priv/manual", __DIR__)
+  # Translations: `priv/manual/<locale>/NN-slug.md`, same file names, same
+  # heading ids (written explicitly, `{#id}` - see the Markup). A chapter not
+  # translated yet is shown in English rather than not at all.
+  @locales ["nl"]
   @screenshot_dir Path.expand("../../priv/static/images/manual", __DIR__)
 
   # `NN-slug.md` only: `SCREENSHOTS.md` beside the chapters is the list of
@@ -46,18 +50,21 @@ defmodule PairingsEngine.Manual do
   list_screenshots = fn dir -> dir |> Path.join("*") |> Path.wildcard() |> Enum.sort() end
 
   @files list_files.(@manual_dir)
-  @files_hash :erlang.md5(:erlang.term_to_binary({@files, list_screenshots.(@screenshot_dir)}))
+  @locale_files Map.new(@locales, &{&1, list_files.(Path.join(@manual_dir, &1))})
+  @all_files @files ++ Enum.flat_map(@locale_files, &elem(&1, 1))
+  @files_hash :erlang.md5(
+                :erlang.term_to_binary({@all_files, list_screenshots.(@screenshot_dir)})
+              )
 
-  for file <- @files, do: @external_resource(file)
+  for file <- @all_files, do: @external_resource(file)
 
   # A chapter added or removed, or a screenshot dropped into
   # `priv/static/images/manual/` (its figure stops being a placeholder).
   @doc false
   def __mix_recompile__? do
     files =
-      @manual_dir
-      |> Path.join("*.md")
-      |> Path.wildcard()
+      [@manual_dir | Enum.map(@locales, &Path.join(@manual_dir, &1))]
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "*.md")))
       |> Enum.filter(&Regex.match?(~r/\A\d+-[a-z0-9-]+\.md\z/, Path.basename(&1)))
       |> Enum.sort()
 
@@ -65,30 +72,52 @@ defmodule PairingsEngine.Manual do
     :erlang.md5(:erlang.term_to_binary({files, screenshots})) != @files_hash
   end
 
-  @chapters (for {file, index} <- Enum.with_index(@files, 1) do
-               base = Path.basename(file, ".md")
-               slug = Regex.replace(~r/^\d+-/, base, "")
+  render = fn file, index ->
+    base = Path.basename(file, ".md")
+    slug = Regex.replace(~r/^\d+-/, base, "")
 
-               rendered =
-                 file
-                 |> File.read!()
-                 |> PairingsEngine.Manual.Markup.chapter(index, screenshot_dir: @screenshot_dir)
+    rendered =
+      file
+      |> File.read!()
+      |> PairingsEngine.Manual.Markup.chapter(index, screenshot_dir: @screenshot_dir)
 
-               rendered
-               |> Map.put(:slug, slug)
-               |> Map.put(:number, index)
-               |> Map.put(:title, if(rendered.title == "", do: slug, else: rendered.title))
-             end)
+    rendered
+    |> Map.put(:slug, slug)
+    |> Map.put(:number, index)
+    |> Map.put(:title, if(rendered.title == "", do: slug, else: rendered.title))
+  end
+
+  @chapters for {file, index} <- Enum.with_index(@files, 1), do: render.(file, index)
+
+  # Per locale, in the English reading order; an untranslated chapter is the
+  # English one.
+  @translated (for locale <- @locales, into: %{} do
+                 by_name = Map.new(@locale_files[locale], &{Path.basename(&1), &1})
+
+                 chapters =
+                   for {file, index} <- Enum.with_index(@files, 1) do
+                     case by_name[Path.basename(file)] do
+                       nil -> Enum.at(@chapters, index - 1)
+                       translated -> render.(translated, index)
+                     end
+                   end
+
+                 {locale, chapters}
+               end)
 
   @doc """
   Every chapter, in reading order: `%{slug:, number:, title:, summary:, html:,
   toc:, sections:, figures:}` (see `PairingsEngine.Manual.Markup.chapter/3`).
   """
-  def chapters, do: @chapters
+  def chapters(locale \\ "en"), do: Map.get(@translated, locale, @chapters)
 
-  @doc "The chapter with this slug, or `nil`."
-  def get(slug) when is_binary(slug), do: Enum.find(@chapters, &(&1.slug == slug))
-  def get(_), do: nil
+  @doc "The languages the manual exists in besides English."
+  def locales, do: @locales
+
+  @doc "The chapter with this slug, in `locale` (English if not translated), or `nil`."
+  def get(slug, locale \\ "en")
+  def get(slug, locale) when is_binary(slug), do: Enum.find(chapters(locale), &(&1.slug == slug))
+  def get(_, _), do: nil
 
   @doc "The slugs, in reading order."
   def slugs, do: Enum.map(@chapters, & &1.slug)
@@ -100,11 +129,12 @@ defmodule PairingsEngine.Manual do
   def figures, do: for(c <- @chapters, f <- c.figures, do: {c, f})
 
   @doc "The chapter before and after `slug`, as `{previous, next}` (each may be `nil`)."
-  def neighbours(slug) do
-    index = Enum.find_index(@chapters, &(&1.slug == slug))
+  def neighbours(slug, locale \\ "en") do
+    chapters = chapters(locale)
+    index = Enum.find_index(chapters, &(&1.slug == slug))
 
     if index do
-      {if(index > 0, do: Enum.at(@chapters, index - 1)), Enum.at(@chapters, index + 1)}
+      {if(index > 0, do: Enum.at(chapters, index - 1)), Enum.at(chapters, index + 1)}
     else
       {nil, nil}
     end
@@ -119,7 +149,7 @@ defmodule PairingsEngine.Manual do
   heading_parts:, snippet_parts:}`. The `_parts` lists are `{text, matched?}`
   pieces, so the page can mark the matches without building HTML here.
   """
-  def search(query, limit \\ 30) when is_binary(query) do
+  def search(query, limit \\ 30, locale \\ "en") when is_binary(query) do
     terms =
       query
       |> String.downcase()
@@ -130,7 +160,7 @@ defmodule PairingsEngine.Manual do
     if terms == [] do
       []
     else
-      for chapter <- @chapters,
+      for chapter <- chapters(locale),
           section <- chapter.sections,
           heading = section.heading || chapter.title,
           haystack = String.downcase(heading <> " " <> section.text),

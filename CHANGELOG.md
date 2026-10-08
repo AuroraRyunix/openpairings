@@ -17,6 +17,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The manual in Dutch.** `/help` follows the language you picked:
+  all fifteen chapters, search included. Every section keeps the English one's
+  address, so the "?" links land in the same place in both languages - a
+  translation that moves the furniture is just a different manual. A chapter
+  not yet translated would show in English rather than not at all.
 ## [0.77.0] - 2026-10-08
 
 - [Change] **Help opens in a new tab.** The top bar's Help and every "?" beside a

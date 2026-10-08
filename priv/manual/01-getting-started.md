@@ -161,7 +161,7 @@ The following chapters explain each step in full.
 
 The page around the manual, and the whole program, is available in English
 and Dutch (picker in the top bar; online, the choice follows your account).
-This manual is written in English only.
+This manual exists in English and Dutch and follows the language you pick.
 
 ## Keyboard and accessibility
 

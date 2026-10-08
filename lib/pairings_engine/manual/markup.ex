@@ -185,8 +185,9 @@ defmodule PairingsEngine.Manual.Markup do
 
   defp transform({level, attrs, children, meta}, state) when level in ["h2", "h3"] do
     {children, state} = transform_nodes(children, state)
+    {children, explicit} = take_explicit_id(children)
     text = children |> text_of() |> String.trim()
-    {id, state} = unique_id(heading_id(text), state)
+    {id, state} = unique_id(explicit || heading_id(text), state)
 
     anchor =
       {"a",
@@ -458,6 +459,29 @@ defmodule PairingsEngine.Manual.Markup do
   end
 
   defp drop_attr(attrs, name), do: List.keydelete(attrs, name, 0)
+
+  # `## Kop {#the-heading}`: an explicit id, written at the end of a heading.
+  # A translated chapter carries the English chapter's ids this way, so the
+  # "?" links and the cross-references land on the same section in every
+  # language - deriving them from Dutch text would quietly break all of them.
+  @explicit_id ~r/\s*\{#([a-z0-9][a-z0-9-]*)\}\s*\z/
+
+  defp take_explicit_id(children) do
+    case List.last(children) do
+      last when is_binary(last) ->
+        case Regex.run(@explicit_id, last) do
+          [whole, id] ->
+            trimmed = binary_part(last, 0, byte_size(last) - byte_size(whole))
+            {List.replace_at(children, -1, trimmed), id}
+
+          nil ->
+            {children, nil}
+        end
+
+      _ ->
+        {children, nil}
+    end
+  end
 
   defp unique_id(id, state) do
     case Map.get(state.ids, id) do
