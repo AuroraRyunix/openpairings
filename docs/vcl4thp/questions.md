@@ -34,23 +34,6 @@ the options, and the exact question to answer. The tracker
   findings A-D sent to TEC or its author? If not, may I draft both
   messages for you to send?
 
-## Q111 - Baku groups and round-1 byes
-
-- **Asks:** percentage groups respect that a player with a round-1 bye has
-  no TPN yet. NO costs 35%.
-- **Today:** Group A is frozen at round 1 and late entrants never join it,
-  but a player absent or on a bye in round 1 is numbered and counts in N
-  (`pairing.ex` `baku_group_a_last`; `baku_group_a_test.exs:188-198`).
-  The SPP's 2026-08-27 reading of C.04.2:2.4 says such a player has no
-  TPN until arrival.
-- **Options:** (a) keep counting them (35%); (b) count only players seated
-  or numbered in round 1, number round-1 absentees on arrival (changes
-  Group A size and TPNs in such events; goldens with a round-1 bye in a
-  Baku event change).
-- **Question:** Should a player who is absent or on a bye in round 1 of a
-  Baku-accelerated event be left out of N and numbered only when they
-  arrive, as the SPP read C.04.2:2.4?
-
 ## Q195 / Q196 - prohibited pairings after round 1
 
 - **Asks:** prohibitions can be entered only before round 1 is paired
@@ -70,7 +53,6 @@ the options, and the exact question to answer. The tracker
   waiting for TEC? (2) Should "only if possible" (soft) prohibitions count
   too, or hard ones only? (A soft one already leaves FIDE mode when it
   moves a board.)
-
 
 ## Q100 - manual round-robin pairing
 

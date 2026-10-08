@@ -71,6 +71,17 @@ Each entry is tagged so a version can be skimmed:
   address, so the "?" links land in the same place in both languages - a
   translation that moves the furniture is just a different manual. A chapter
   not yet translated would show in English rather than not at all.
+- [Fix] **Baku: a round-1 absentee is not in Group A's count.** A player on a
+  requested bye, absent, or starting later than round 1 used to be numbered with
+  the field and counted in N, so eight players and one no-show got a Group A of
+  six instead of four. FIDE C.04.7 1.2 forms Group A from the players paired in
+  round 1, and C.04.2 2.4 numbers a late entry "only when they actually arrive";
+  now they get their number on the round they turn up - after the field, or by
+  rating if *Late entrants' pairing numbers* says so - and Group A keeps its last
+  player (C.04.7 1.3.2). A number handed out before round 1 to somebody who then
+  does not play it is taken back and the field closes ranks, and a TPN
+  regeneration or exchange in the meantime no longer hands one out early. Events already
+  under way keep the Group A they were paired with. (VCL4THP Q111, which cost 35%.)
 ## [0.77.0] - 2026-10-08
 
 - [Change] **Help opens in a new tab.** The top bar's Help and every "?" beside a

@@ -62,8 +62,14 @@ defmodule PairingsEngine.Tpn do
   """
   def order(%Tournament{} = t) do
     players = Tournaments.list_players(t.id)
-    active_ids = MapSet.new(Engine.active_players(t.id), & &1.id)
-    before_round_one? = Engine.paired_rounds_count(t.id) == 0
+    paired = Engine.paired_rounds_count(t.id)
+    before_round_one? = paired == 0
+
+    active_ids =
+      t.id
+      |> Engine.active_players()
+      |> Enum.reject(&(not before_round_one? and waiting_for_baku_number?(t, &1, paired + 1)))
+      |> MapSet.new(& &1.id)
 
     # Everybody who holds a number keeps a place, whatever their status now,
     # as the pairing and the public snapshot both treat a number once issued.
@@ -78,6 +84,24 @@ defmodule PairingsEngine.Tpn do
       do: Enum.with_index(merge(numbered, newcomers, t), 1),
       else: Enum.zip(numbered ++ newcomers, numbers(numbered, newcomers))
   end
+
+  # C.04.2 2.4 and C.04.7 1.3.1: in a Baku event a player who has not
+  # arrived yet is a late entry with no TPN until they do - the pairing
+  # numbers them on arrival (`Pairing.ensure_pairing_numbers/2`). So a
+  # regeneration (C.04.2 2.3) or an exchange made in the meantime leaves
+  # them out rather than handing them a number early, which would also put
+  # them into Group A's count by the back door. Before round 1 they are
+  # listed as before: round 1 itself takes such a number back.
+  defp waiting_for_baku_number?(
+         %Tournament{acceleration: "baku", pairing_system: "swiss"},
+         %Player{pairing_number: nil} = player,
+         next_round
+       ),
+       do:
+         Engine.absent_for_round?(player, next_round) or
+           Engine.not_yet_started?(player, next_round)
+
+  defp waiting_for_baku_number?(_tournament, _player, _next_round), do: false
 
   defp numbers(numbered, newcomers) do
     highest = numbered |> Enum.map(& &1.pairing_number) |> Enum.max(fn -> 0 end)
