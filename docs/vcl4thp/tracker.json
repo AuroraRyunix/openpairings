@@ -2743,9 +2743,9 @@
     "next": 167,
     "penalty": 10
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 10%. Only ? becomes * (trf_import.ex:1084-1092); any other unknown code is refused by Ainalrami's parser on purpose (deps/ainalrami/lib/ainalrami/trf.ex:80-90, validate_game! :1995-2018)."
+   "answer": "Y",
+   "status": "met",
+   "note": "Any other symbol in a result column of a 001 record that names an opponent is rewritten to ? before the parser sees it (TrfImport.rewrite_unrecognised_results/1, called from build_structs_with_data/1) and imported as a postponed game; the opponent's playing code in that round is set to ? too, since the parser demands both sides agree. Each rewrite is an adjustment (TrfImport.unrecognised_result_adjustments/1, rendered by tournaments_live.ex trf_adjustment_text :unrecognised_result: player, rank, round, code) on the review step, so nothing is imported unless the arbiter confirms; Cancel imports nothing. Ainalrami stays strict. Tests: trf_import_odd_results_test.exs."
   },
   {
    "q": 167,

@@ -54,6 +54,13 @@ follows the choice of the file:
   bye points, extra points outside the scoring, games without an opponent that
   were imported as byes, and rounds that were not checked because only a
   Dutch-system Swiss can be.
+- *Result symbols that are not result codes.* A symbol in a result column that
+  is not a result code (a `5`, an `x`, a `%`) is read as a game with an unknown
+  result and imported as a postponed game, like `?`. Every one is listed with the
+  player, the starting rank, the round and the symbol found. The opponent's
+  result in that round is set to unknown as well, and the list says so, because
+  both sides of a game must agree. A symbol in a round with no opponent is not
+  a game and the file is still refused. Cancel imports nothing.
 - *Rounds that break a pairing rule.* If a round of the file breaks a rule, the
   review is headed *This file's rounds break the FIDE pairing rules* and says
   that importing is not compliant with the pairing rules. This is a warning

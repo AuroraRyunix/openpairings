@@ -164,8 +164,10 @@ defmodule PairingsEngine.TrfImport do
     with :ok <- check_bounds(content),
          decoded = decode_content(content),
          :ok <- check_single_document(decoded),
-         {:ok, data} <- parse_trf(decoded),
+         {readable, odd_results} = rewrite_unrecognised_results(decoded),
+         {:ok, data} <- parse_trf(readable),
          data = Map.put(data, :trf_version, detect_version(decoded, data)),
+         data = Map.put(data, :odd_results, odd_results),
          {:ok, tournament} <- build_tournament_struct(data),
          {:ok, players} <- build_player_structs(data.players) do
       {:ok, {tournament, players, data}}
@@ -211,6 +213,128 @@ defmodule PairingsEngine.TrfImport do
   # three. Kept generic rather than `inspect/1`, which would print an
   # unrecognised term (and any data it carries) straight onto the page.
   def error_message(_reason), do: "Could not import this TRF file."
+
+  ## ---------- unrecognised result symbols ----------
+  #
+  # VCL4THP Q166: on import, any unexpected symbol in a result column is a
+  # game with an unknown result. The engine stays strict - `Ainalrami.Trf`
+  # refuses a code it does not know, deliberately, because reading garbage
+  # as a plausible file is the failure mode nobody notices - so the
+  # leniency lives here, in the one place that reads someone else's file:
+  # the symbol is rewritten to `?` before the parser sees it, and every
+  # rewrite is returned as data for `adjustments/3`, which puts it in front
+  # of the arbiter on the review step. Nothing is rewritten silently.
+  #
+  # What counts: a result byte (round r is at column 99 + 10 * (r - 1) of a
+  # `001` record, the parser's own layout) that is not blank, not a playing
+  # code, not a bye code and not `?`, in a round that names an opponent.
+  # An odd symbol next to no opponent is left alone: `?` says a game
+  # happened, and with nobody on the other side none did, so that file is
+  # still refused exactly as before.
+  #
+  # The parser checks both sides of a game agree, and `?` agrees only with
+  # `?`. So the opponent's playing code in the same round is set to `?` as
+  # well - a game whose result is unknown is unknown for both - and the
+  # code that was overwritten is reported with the rewrite, not hidden.
+  @result_first_col 98
+  @recognised_results Trf.playing_codes() ++ ["?"] ++ Trf.bye_codes()
+
+  defp rewrite_unrecognised_results(text) do
+    pieces = Regex.split(~r/\r\n|\n|\r/, text, include_captures: true)
+
+    records =
+      pieces
+      |> Enum.with_index()
+      |> Enum.flat_map(fn {piece, i} ->
+        with "001" <> _ <- piece,
+             {rank, ""} <- Integer.parse(trf_cell(piece, 4, 4)) do
+          [{rank, {i, piece}}]
+        else
+          _ -> []
+        end
+      end)
+
+    by_rank = Map.new(records)
+
+    rewrites =
+      for {rank, {i, piece}} <- records,
+          round <- round_numbers(piece),
+          {opponent, code} = trf_game(piece, round),
+          is_integer(opponent),
+          code != "",
+          code not in @recognised_results do
+        {partner_edit, partner_code} = partner_edit(by_rank, opponent, rank, round)
+
+        %{
+          rank: rank,
+          round: round,
+          symbol: display_code(code),
+          partner_rank: if(partner_edit, do: opponent),
+          partner_code: partner_code,
+          edits: [{i, odd_offset(round)}] ++ List.wrap(partner_edit)
+        }
+      end
+
+    edits =
+      rewrites
+      |> Enum.flat_map(& &1.edits)
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+
+    rewritten =
+      pieces
+      |> Enum.with_index()
+      |> Enum.map_join(fn {piece, i} ->
+        edits |> Map.get(i, []) |> Enum.uniq() |> Enum.reduce(piece, &put_unknown(&2, &1))
+      end)
+
+    {rewritten, Enum.map(rewrites, &Map.delete(&1, :edits))}
+  end
+
+  defp odd_offset(round), do: @result_first_col + (round - 1) * 10
+
+  defp partner_edit(by_rank, opponent, rank, round) do
+    with {j, piece} <- Map.get(by_rank, opponent),
+         true <- round in round_numbers(piece),
+         {^rank, code} <- trf_game(piece, round),
+         true <- code in Trf.playing_codes() do
+      {{j, odd_offset(round)}, code}
+    else
+      _ -> {nil, nil}
+    end
+  end
+
+  defp put_unknown(piece, offset) do
+    <<head::binary-size(^offset), _::binary-size(1), tail::binary>> = piece
+    head <> "?" <> tail
+  end
+
+  # The same count `Ainalrami.Trf` makes: rounds are blocks of ten columns
+  # from column 92, and a line too short for round 1's result has none.
+  defp round_numbers(piece) do
+    size = byte_size(piece)
+    if size <= @result_first_col, do: [], else: Enum.to_list(1..(div(size - 99, 10) + 1))
+  end
+
+  defp trf_game(piece, round) do
+    base = 91 + (round - 1) * 10
+
+    opponent =
+      case Integer.parse(trf_cell(piece, base, 4)) do
+        {n, ""} when n > 0 -> n
+        _ -> nil
+      end
+
+    {opponent, trf_cell(piece, base + 7, 1)}
+  end
+
+  defp trf_cell(piece, start, len) do
+    if start >= byte_size(piece),
+      do: "",
+      else: piece |> binary_part(start, min(len, byte_size(piece) - start)) |> String.trim()
+  end
+
+  defp display_code(<<byte>> = code) when byte >= 128, do: Encoding.cp1252_decode(code)
+  defp display_code(code), do: code
 
   ## ---------- input bounds ----------
 
@@ -2235,6 +2359,7 @@ defmodule PairingsEngine.TrfImport do
       team_point_adjustments(t, tournament),
       extra_points_adjustment(t, tournament),
       round_entry_adjustments(data, paired),
+      unrecognised_result_adjustments(data),
       future_bye_adjustments(data, tournament, paired),
       unchecked_system_adjustment(data, paired)
     ])
@@ -2242,6 +2367,21 @@ defmodule PairingsEngine.TrfImport do
 
   defp adjustment(code, fields),
     do: Map.merge(%{kind: :adjustment, code: code}, Map.new(fields))
+
+  # One per rewritten symbol: who, which round, what the file said.
+  defp unrecognised_result_adjustments(data) do
+    names = Map.new(data.players, &{&1.rank, String.trim(&1.name || "")})
+
+    for odd <- Map.get(data, :odd_results, []) do
+      adjustment(
+        :unrecognised_result,
+        Map.merge(odd, %{
+          player: Map.get(names, odd.rank, ""),
+          partner: Map.get(names, odd.partner_rank, "")
+        })
+      )
+    end
+  end
 
   # No `162` (nor the engines' `BB*`): what a result is worth is this app's
   # default, which decides every bracket from the next round on.

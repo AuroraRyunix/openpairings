@@ -28,6 +28,14 @@ Each entry is tagged so a version can be skimmed:
   still goes in the postponed-games file. Outside FIDE mode nothing changed:
   the old way was always right for a club that never asked FIDE's opinion
   (VCL4THP Q169).
+- [Feature] **Result symbols that are not result codes import as unknown.** A TRF
+  file with a `5`, an `x` or a `%` in a result column used to be refused outright.
+  The import now reads such a symbol as a game with an unknown result, imports
+  it as a postponed game, and lists every one on the review step - player,
+  starting rank, round and the symbol found - for you to confirm; Cancel
+  imports nothing. The opponent's result in that round is set to unknown too,
+  and said so, because both sides of a game have to agree. A symbol beside no
+  opponent is still refused: a game needs two people, even a lost one.
 - [Feature] **The manual in Dutch.** `/help` follows the language you picked:
   all fifteen chapters, search included. Every section keeps the English one's
   address, so the "?" links land in the same place in both languages - a
