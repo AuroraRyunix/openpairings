@@ -167,7 +167,14 @@ defmodule PairingsEngine.TrfFlowValidationTest do
         "start_date" => Date.to_iso8601(hd(dates)),
         "end_date" => Date.to_iso8601(List.last(dates)),
         "round_dates" => Enum.map(dates, &Date.to_iso8601/1),
-        "fide_tournament_id" => "#{900_000 + seed}"
+        "fide_tournament_id" => "#{900_000 + seed}",
+        # The old default, numbering late entrants after the field, and the
+        # value a tournament from before VCL4THP Q156 carries (still FIDE
+        # mode). This instrument reads every file it ever sent with the
+        # pairing numbers the players hold at the END; by rating renumbers
+        # the field under a late entrant, and the early files would be read
+        # with numbers they never had.
+        "late_entry_numbering" => "end"
       })
 
     st = %{
@@ -334,6 +341,11 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     if rounds == [] do
       st
     else
+      # FIDE mode sends no round with an open postponed game (VCL4THP Q169).
+      # The arbiter's way on that keeps this flow's whole point - the game
+      # goes out as 0000 - Z now and is rated later in the postponed-games
+      # file - is "Not played in this event", which leaves FIDE mode, once.
+      {st, t} = report_open_as_not_played(st, t, rounds)
       meta = TrfExport.export_meta(t, Enum.join(rounds, ","))
 
       case PostponedGames.send_rounds(
@@ -360,6 +372,20 @@ defmodule PairingsEngine.TrfFlowValidationTest do
           fail(st, "send of rounds #{inspect(rounds)} refused: #{inspect(reason)}")
       end
     end
+  end
+
+  defp report_open_as_not_played(st, t, rounds) do
+    open = t |> PostponedGames.blocking_games() |> Enum.filter(&(&1.round in rounds))
+
+    st =
+      Enum.reduce(open, st, fn game, acc ->
+        case PostponedGames.report_not_played(t, game.pairing.id) do
+          {:ok, _} -> bump(acc, :reported_not_played)
+          other -> fail(acc, "r#{game.round}: not played refused: #{inspect(other, limit: 3)}")
+        end
+      end)
+
+    {st, Tournaments.get_tournament!(st.tid)}
   end
 
   defp send_late(%{postponed?: false} = st), do: st
