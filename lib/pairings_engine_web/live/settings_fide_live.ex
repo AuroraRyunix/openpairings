@@ -36,6 +36,14 @@ defmodule PairingsEngineWeb.SettingsFideLive do
        may_load_lists?: Authz.may_administer?(socket.assigns.current_scope.user),
        note: nil,
        error: nil,
+       # The Rating lists card has a voice of its own: its messages were the
+       # FIDE form's too, so "Saved." beside "Save FIDE settings" could mean
+       # a click on the other card.
+       rating_note: nil,
+       rating_error: nil,
+       # Unsaved edits in the FIDE form (the page-wide `dirty` is set by every
+       # event, a rating-list click included).
+       form_dirty: false,
        dirty: false,
        stale: false,
        # The two-step "Leave FIDE mode" (TEC's Level 4): nil, then :warn,
@@ -68,6 +76,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
            tournament: tournament,
            ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
            rows: tournament.fide_id_ranges || [],
+           form_dirty: false,
            stale: false
          )}
     end
@@ -79,23 +88,25 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   # into other rows. Nothing is persisted here; only "save" writes to the DB.
   @impl true
   def handle_event("validate", %{"tournament" => params}, socket) do
-    {:noreply, assign(socket, rows: parse_rows_param(params["fide_id_ranges"]))}
+    {:noreply, assign(socket, rows: parse_rows_param(params["fide_id_ranges"]), form_dirty: true)}
   end
 
   def handle_event("add_range", _params, socket) do
     row = %{"fide_tournament_id" => "", "from_round" => "", "to_round" => ""}
-    {:noreply, assign(socket, rows: socket.assigns.rows ++ [row])}
+    {:noreply, assign(socket, rows: socket.assigns.rows ++ [row], form_dirty: true)}
   end
 
   def handle_event("remove_range", %{"index" => index}, socket) do
     index = String.to_integer(index)
-    {:noreply, assign(socket, rows: List.delete_at(socket.assigns.rows, index))}
+    {:noreply, assign(socket, rows: List.delete_at(socket.assigns.rows, index), form_dirty: true)}
   end
 
   ## ---------- the rating-list sequence and the consistency check ----------
   #
   # Each click saves on its own: the sequence is a list being arranged, not a
-  # form to be filled in and sent.
+  # form to be filled in and sent. It says so in its own card (`rating_note`)
+  # and leaves the FIDE form alone: whatever was typed there and not saved
+  # is still unsaved, so the page stays dirty if the form is.
 
   def handle_event("seq_move", %{"index" => index, "dir" => dir}, socket) do
     seq = socket.assigns.rating_sequence
@@ -118,7 +129,10 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     else
       _ ->
         {:noreply,
-         assign(socket, error: gettext("The sequence needs at least one list."), note: nil)}
+         assign(socket,
+           rating_error: gettext("The sequence needs at least one list."),
+           rating_note: nil
+         )}
     end
   end
 
@@ -148,14 +162,16 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         {:noreply,
          assign(socket,
            tournament: tournament,
-           note: gettext("Saved."),
+           rating_note: gettext("Saved."),
+           rating_error: nil,
+           note: nil,
            error: nil,
-           dirty: false,
+           dirty: socket.assigns.form_dirty,
            stale: false
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, error: error_text(changeset), note: nil)}
+        {:noreply, assign(socket, rating_error: error_text(changeset), rating_note: nil)}
     end
   end
 
@@ -237,6 +253,9 @@ defmodule PairingsEngineWeb.SettingsFideLive do
            rows: tournament.fide_id_ranges || [],
            note: "Saved.",
            error: nil,
+           rating_note: nil,
+           rating_error: nil,
+           form_dirty: false,
            dirty: false,
            stale: false
          )}
@@ -271,14 +290,16 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         |> assign_rating_lists(tournament)
         |> assign(
           tournament: tournament,
-          note: gettext("Saved."),
+          rating_note: gettext("Saved."),
+          rating_error: nil,
+          note: nil,
           error: nil,
-          dirty: false,
+          dirty: socket.assigns.form_dirty,
           stale: false
         )
 
       {:error, changeset} ->
-        assign(socket, error: error_text(changeset), note: nil)
+        assign(socket, rating_error: error_text(changeset), rating_note: nil)
     end
   end
 
@@ -533,9 +554,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         </div>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Save FIDE settings")}</button>
-          <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
-          <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
+          <button type="submit" id="fide-settings-save" class="pe-btn primary">
+            {gettext("Save FIDE settings")}
+          </button>
+          <span :if={@note} id="fide-note" class="ok-note" style="align-self: center">{@note}</span>
+          <span :if={@error} id="fide-error" class="error-note" style="align-self: center">
+            {@error}
+          </span>
         </div>
       </form>
 
@@ -659,8 +684,8 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             "Switched off, nothing is checked on its own. The Refresh ratings button on the Players page still compares the ratings on file with the list when you ask."
           )}
         </p>
-        <span :if={@note} class="ok-note">{@note}</span>
-        <span :if={@error} class="error-note">{@error}</span>
+        <span :if={@rating_note} id="rating-note" class="ok-note">{@rating_note}</span>
+        <span :if={@rating_error} id="rating-error" class="error-note">{@rating_error}</span>
       </div>
     </Layouts.app>
     """

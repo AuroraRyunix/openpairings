@@ -26,6 +26,30 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **"Preview next round" is in the Belgian pack** (Federation features,
   BEL), off until you switch it on. The "Optional tools" group it sat in alone
   is gone - a group of one is a shelf, not a category.
+- [Change] **The rating inbox counts deadlines the way FIDE does** (B.02 Art. 9.1).
+  A report goes to the list of the month its tournament ended in, or the next
+  month's when five days or fewer were left of that month. Past that list it is
+  amber ("goes to a later list", with the list it will now make); past the third
+  list it is red ("will not be rated"). Postponed-games files count from the
+  last game's date. Nothing is refused: the inbox tells you which colour you
+  earned, it does not take the file away.
+- [Feature] **A receipt keeps the file that was sent.** The exact bytes, the
+  name it went out under and its size, in the database beside the hash (a TRF is
+  kilobytes; anything over 2 MB is not kept, the hash still is). The inbox now
+  downloads that file and Check checks it, a postponed-games file included. A
+  receipt from before this release has no file: the inbox keeps offering a
+  rebuilt copy for it, and says that is what it is. The file travels with the
+  tournament export, but only if it still matches its hash.
+- [Feature] **Receipt (JSON)** replaces the "Rating validator (YAML) - Soon"
+  button on the Export page, which had been soon for long enough. One download
+  per sent file: code, fingerprint, kind, round or period, sender, time, the
+  games as sent, the file's SHA-256 and its name. For the tournament's owner,
+  its collaborators and administrators.
+- [Fix] **Settings > FIDE: "Saved." beside "Save FIDE settings" no longer
+  answers a click in the Rating lists card**, and a click in that card no longer
+  throws away the FIDE-ID range row you were still typing. The two shared one
+  note, one error and one "nothing unsaved" flag, so each spoke for the other.
+
 ## [0.78.0] - 2026-10-08
 
 - [Performance] **Ainalrami 0.40.0.** Pairing 40 to 80 players takes 1.6 to 1.7

@@ -126,8 +126,10 @@ its state, the date it was played and the file it is in:
   opponents is validated; an error stops the download with a message.
 - Importing the file back into OpenPairings (or any other program) is the
   best check that it says what you think it says ([Import and export](10-import-export.md)).
-- A **rating validator** (YAML) is announced on the Export page and not available
-  yet.
+- **Receipt (JSON)** on the Export page downloads the receipt of one sent file:
+  its code and fingerprint, round or period, who sent it and when, the games as
+  sent, and the file's SHA-256 and name. The receipt keeps the exact file too;
+  the rating period inbox downloads and checks that one.
 
 ## Norm reports
 

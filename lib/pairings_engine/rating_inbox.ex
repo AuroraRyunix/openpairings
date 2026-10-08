@@ -18,10 +18,13 @@ defmodule PairingsEngine.RatingInbox do
 
   ## What it does not do
 
-  It reads; it sends nothing and changes nothing. The file of a send is not
-  kept (a receipt holds its code and the file's hash), so the TRF it offers
-  is a COPY rebuilt from the tournament as it is now, and `check/2` checks
-  that copy. A receipt that changed since it was sent is flagged by
+  It reads; it sends nothing and changes nothing. A receipt holds the exact
+  file that was sent (`SentReceipts.file/1`), and that is what the inbox
+  offers for download and what `check/1` checks - a postponed-games file
+  included. A receipt from before files were kept has none; for a round's
+  report the inbox then rebuilds a COPY from the tournament as it is now
+  (`trf_copy/3`) and says so, and a postponed-games receipt has nothing to
+  offer. A receipt that changed since it was sent is flagged by
   `SentReceipts.statuses/1`.
   """
 
@@ -31,11 +34,16 @@ defmodule PairingsEngine.RatingInbox do
   alias PairingsEngine.Tournaments.{SentReceipt, Tournament}
 
   @doc """
-  The periods, newest first, as `%{period:, deadline:, overdue?:,
+  The periods, newest first, as `%{period:, level:, overdue?:,
   tournaments: [bucket]}`; a bucket is `%{tournament:, sent: [%{receipt:,
-  changes:}], missing: [round number], open: [%{round:, pairing:}]}`.
-  `today` decides `overdue?`: the deadline has passed and something is
-  missing or open.
+  changes:}], missing: [round number], open: [%{round:, pairing:}],
+  report_list:, open_list:}`. The two lists are `list_status/2`'s answer
+  (nil when there is no date to count from): `report_list` for the
+  tournament's report (counted from the tournament's last day),
+  `open_list` for the postponed-games file (counted from the last game's
+  date). `level` is the worst `list_status/2` level among the things still
+  to send in the period (`:normal` when nothing is); `overdue?` is
+  `level != :normal`. `today` decides both.
   """
   def periods(today \\ Date.utc_today()) do
     receipts = Repo.all(from s in SentReceipt, select: s) |> Enum.group_by(& &1.tournament_id)
@@ -82,8 +90,6 @@ defmodule PairingsEngine.RatingInbox do
   end
 
   defp period(period, items, today) do
-    deadline = PostponedGames.rating_period(period).deadline
-
     tournaments =
       items
       |> Enum.group_by(fn {t, _kind, _data} -> t end)
@@ -94,17 +100,132 @@ defmodule PairingsEngine.RatingInbox do
           missing: for({_t, :missing, r} <- rows, do: r) |> Enum.sort(),
           open: for({_t, :open, g} <- rows, do: g)
         }
+        |> with_lists(today)
       end)
       |> Enum.sort_by(&String.downcase(&1.tournament.name || ""))
 
-    pending? = Enum.any?(tournaments, &(&1.missing != [] or &1.open != []))
+    level =
+      tournaments
+      |> Enum.flat_map(fn b ->
+        [b.missing != [] && b.report_list, b.open != [] && b.open_list]
+      end)
+      |> Enum.filter(& &1)
+      |> Enum.map(& &1.level)
+      |> Enum.max_by(&level_rank/1, &>=/2, fn -> :normal end)
 
-    %{
-      period: period,
-      deadline: deadline,
-      overdue?: pending? and Date.compare(today, deadline) == :gt,
-      tournaments: tournaments
-    }
+    %{period: period, level: level, overdue?: level != :normal, tournaments: tournaments}
+  end
+
+  defp with_lists(bucket, today) do
+    report_list =
+      case tournament_last_day(bucket.tournament) do
+        %Date{} = day -> list_status(day, today)
+        nil -> nil
+      end
+
+    open_list =
+      case last_game_day(bucket) do
+        %Date{} = day -> list_status(day, today)
+        nil -> nil
+      end
+
+    Map.merge(bucket, %{report_list: report_list, open_list: open_list})
+  end
+
+  defp level_rank(:normal), do: 0
+  defp level_rank(:later), do: 1
+  defp level_rank(:late), do: 2
+
+  # The date of the last postponed game still open in the bucket: the day
+  # it was played, else its round's date.
+  defp last_game_day(%{open: []}), do: nil
+
+  defp last_game_day(%{tournament: t, open: open}) do
+    open
+    |> Enum.map(fn %{round: round, pairing: p} -> p.played_on || round_date(t, round) end)
+    |> Enum.filter(&match?(%Date{}, &1))
+    |> Enum.max(Date, fn -> nil end)
+  end
+
+  ## ---------- the list a tournament is rated in (FIDE B.02, Art. 9.1) ----------
+
+  @doc """
+  The tournament's last day: the latest of its round dates, else its end
+  date; nil when it has no date at all.
+  """
+  def tournament_last_day(%Tournament{} = t) do
+    dates =
+      for text <- t.round_dates || [], {:ok, d} <- [parse_date(text)], do: d
+
+    case dates do
+      [] ->
+        case parse_date(t.end_date) do
+          {:ok, d} -> d
+          _ -> nil
+        end
+
+      dates ->
+        Enum.max(dates, Date)
+    end
+  end
+
+  defp round_date(%Tournament{round_dates: dates}, round) when is_integer(round) do
+    case parse_date(Enum.at(dates || [], round - 1)) do
+      {:ok, d} -> d
+      _ -> nil
+    end
+  end
+
+  defp round_date(_t, _round), do: nil
+
+  defp parse_date(text) when is_binary(text), do: Date.from_iso8601(String.trim(text))
+  defp parse_date(_), do: :error
+
+  @doc """
+  Where a report counted from `last_day` (a tournament's last day, or the
+  last game's day of a postponed-games file) stands on `today`, under FIDE
+  B.02 Art. 9.1 (2024): the report should reach the Rating Officer in time
+  for the monthly list the tournament is registered in - the list of the
+  month of `last_day` - or, when five days or fewer remain from `last_day`
+  to the end of that month, the following month's list. A report that
+  misses its list still goes to a later one, and is not rated only if it
+  misses the third list counted from the target list (the target list and
+  the two after it).
+
+  Returns `%{target:, closes:, last_chance:, level:, lands_in:}`:
+
+    * `target` - the first day of the target list's month; `closes` its
+      last day (the date a report should be in by);
+    * `last_chance` - the last day of the third list's month;
+    * `level` - `:normal` (on or before `closes`), `:later` (past it, but
+      it can still make the third list; `lands_in` is the first day of the
+      month of the list it will now make) or `:late` (past `last_chance`:
+      it will not be rated; `lands_in` nil).
+
+  The monthly list is dated by the month it covers, as the rest of this
+  page treats a rating period; whether the Rating Officer's own cut-off is
+  earlier is the federation's business, as `PostponedGames.rating_period/1`
+  says.
+  """
+  def list_status(%Date{} = last_day, %Date{} = today) do
+    eom = Date.end_of_month(last_day)
+
+    month =
+      if Date.diff(eom, last_day) <= 5,
+        do: Date.beginning_of_month(Date.add(eom, 1)),
+        else: Date.beginning_of_month(last_day)
+
+    closes = Date.end_of_month(month)
+    last_chance = month |> Date.shift(month: 2) |> Date.end_of_month()
+
+    {level, lands_in} =
+      cond do
+        Date.compare(today, closes) != :gt -> {:normal, month}
+        Date.compare(today, last_chance) != :gt -> {:later, Date.beginning_of_month(today)}
+        true -> {:late, nil}
+      end
+
+    %{target: month, closes: closes, last_chance: last_chance, level: level, lands_in: lands_in}
   end
 
   defp sort_key(%{receipt: %{kind: kind, round: round, sent_at: at}}),
@@ -134,10 +255,26 @@ defmodule PairingsEngine.RatingInbox do
   ## ---------- the file, and its check ----------
 
   @doc """
+  The file to offer for `receipt`: `{:ok, text, :sent}` - the exact file that
+  was sent - when the receipt holds it, else (a report receipt from before
+  files were kept) `{:ok, text, :copy}`, `trf_copy/3`'s rebuilt copy, for
+  `scope` as there. The errors are `trf_copy/3`'s.
+  """
+  def file_for(%Tournament{} = t, %SentReceipt{} = receipt, scope) do
+    case SentReceipts.file(receipt) do
+      text when is_binary(text) ->
+        {:ok, text, :sent}
+
+      nil ->
+        with {:ok, text} <- trf_copy(t, receipt, scope), do: {:ok, text, :copy}
+    end
+  end
+
+  @doc """
   The TRF copy for `receipt` (a report receipt): `{:ok, text}` with `rounds`
   the round alone (`:round`) or every round up to it (`:through`, what a
   check needs, since a checker replays a round from the history before it).
-  Not the file that was sent: that file is not kept. A postponed-games
+  Not the file that was sent (`file_for/3` prefers that, when kept). A postponed-games
   receipt has no copy (`{:error, :no_copy}`): its games are marked sent and
   are no longer offered.
   """

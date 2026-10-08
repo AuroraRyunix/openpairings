@@ -45,6 +45,19 @@ defmodule PairingsEngine.SentReceipts do
   yet in a postponed-games file, a player's FIDE ID or name changed, colours
   swapped, a game removed or added. Each is named (`changes`), never fixed.
 
+  ## The file itself
+
+  The exact text that was sent is kept on the receipt (`file`, with its
+  name and size), so the inbox can hand out the real file and check it
+  rather than a rebuilt copy. A TRF is small - a few KB for a club
+  tournament, a few hundred for a big open - so it lives in the database
+  beside the hash that vouches for it, not in a file store that could
+  drift from it. A file over 2 MB is not kept (the hash
+  still is); the receipt then behaves like one from before files were
+  kept. The file travels with the tournament export and a hand-off, but
+  only if its SHA-256 is the one the receipt holds: a file that does not
+  match its own hash is not evidence, so it is dropped on the way in.
+
   ## Sends made before receipts
 
   A send made before this feature has a receipt marked `"before_receipts"`:
@@ -59,6 +72,12 @@ defmodule PairingsEngine.SentReceipts do
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, SentReceipt, TrfSentGame}
 
   @version "openpairings-receipt-1"
+
+  # The largest file kept on a receipt, in bytes.
+  @max_file_bytes 2_000_000
+
+  @doc "The largest file a receipt keeps, in bytes."
+  def max_file_bytes, do: @max_file_bytes
 
   ## ---------- the games as sent ----------
 
@@ -165,7 +184,8 @@ defmodule PairingsEngine.SentReceipts do
   sent-games record landed (`PostponedGames.send_rounds/4`): it reads the
   boards as they were sent. Returns `{:ok, receipts, file}`.
 
-  `opts`: `sent_by` (a label: who sent it), `sent_by_id`, `now`.
+  `opts`: `sent_by` (a label: who sent it), `sent_by_id`, `now`,
+  `file_name` (the name the file went out under).
   """
   def record_rounds(tournament_id, rounds, file, opts \\ []) do
     boards =
@@ -255,7 +275,7 @@ defmodule PairingsEngine.SentReceipts do
           sent_by_id: Keyword.get(opts, :sent_by_id)
         }
 
-        {row, MapSet.put(taken, code)}
+        {Map.merge(row, kept_file(file, Keyword.get(opts, :file_name))), MapSet.put(taken, code)}
       end)
 
     # The file goes out as built: a file sent for rating holds only TRF
@@ -267,9 +287,58 @@ defmodule PairingsEngine.SentReceipts do
     {:ok, receipts, file}
   end
 
+  # The file as the receipt keeps it; nothing for no file or one too big.
+  defp kept_file(file, name) when is_binary(file) and byte_size(file) <= @max_file_bytes,
+    do: %{file: file, file_name: string_or_nil(name), file_size: byte_size(file)}
+
+  defp kept_file(_file, _name), do: %{file: nil, file_name: nil, file_size: nil}
+
+  @doc """
+  The file that was sent with `receipt`, as the text it was; nil for a
+  send from before files were kept (or one too large to keep).
+  """
+  def file(%SentReceipt{id: id}),
+    do: Repo.one(from s in SentReceipt, where: s.id == ^id, select: s.file)
+
+  @doc "Whether `receipt` holds the file that was sent."
+  def file?(%SentReceipt{file_size: size}), do: is_integer(size)
+
   defp at_text(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
 
   ## ---------- reading them back ----------
+
+  @doc "One receipt of `tournament_id` by id; nil when it is not that tournament's."
+  def get(tournament_id, id) when is_integer(id) do
+    Repo.one(from s in SentReceipt, where: s.tournament_id == ^tournament_id and s.id == ^id)
+  end
+
+  @doc """
+  The receipt as a JSON-ready map, for the Export page's "Receipt (JSON)":
+  the code and fingerprint, what kind of file (`"report"` or
+  `"postponed"`), its round or rating period, who sent it and when, the
+  games as sent, the SHA-256 of the file and its name. The file itself is
+  not in it (the inbox hands that out); its hash is, so the two can be
+  compared. `tournament` names whose it is.
+  """
+  def receipt_json(tournament, %SentReceipt{} = r) do
+    %{
+      "format" => @version,
+      "tournament" => %{"id" => tournament.id, "name" => tournament.name},
+      "code" => r.code,
+      "fingerprint" => r.fingerprint,
+      "kind" => r.kind,
+      "round" => r.round,
+      "period" => r.period && Date.to_iso8601(r.period),
+      "sent_by" => r.sent_by,
+      "sent_at" => DateTime.to_iso8601(r.sent_at),
+      "status" => r.status,
+      "origin" => r.origin,
+      "games" => r.games,
+      "file_sha256" => r.file_sha256,
+      "file_name" => r.file_name,
+      "file_size" => r.file_size
+    }
+  end
 
   @doc "Every receipt of `tournament_id`, oldest first."
   def list(tournament_id) do
@@ -585,7 +654,7 @@ defmodule PairingsEngine.SentReceipts do
   was stored with; the account id stays here.
   """
   def export_receipts(tournament_id) do
-    for r <- list(tournament_id) do
+    for r <- list_with_files(tournament_id) do
       %{
         "kind" => r.kind,
         "round" => r.round,
@@ -598,9 +667,21 @@ defmodule PairingsEngine.SentReceipts do
         "status" => r.status,
         "origin" => r.origin,
         "sent_at" => DateTime.to_iso8601(r.sent_at),
-        "sent_by" => r.sent_by
+        "sent_by" => r.sent_by,
+        "file" => r.file,
+        "file_name" => r.file_name
       }
     end
+  end
+
+  # `list/1` with the files loaded (the schema leaves them out of a query).
+  defp list_with_files(tournament_id) do
+    Repo.all(
+      from s in SentReceipt,
+        where: s.tournament_id == ^tournament_id,
+        order_by: [s.sent_at, s.id],
+        select: %{s | file: s.file}
+    )
   end
 
   @doc """
@@ -640,11 +721,22 @@ defmodule PairingsEngine.SentReceipts do
           sent_at: at,
           sent_by: string_or_nil(e["sent_by"])
         }
+        |> Map.merge(imported_file(e))
       end
 
     if rows != [], do: Repo.insert_all(SentReceipt, rows)
     backfill_before_receipts(tournament_id)
   end
+
+  # A file an export carries is kept only if it is the file its receipt
+  # hashes: anything else is not the file that was sent.
+  defp imported_file(%{"file" => file} = e) when is_binary(file) do
+    if byte_size(file) <= @max_file_bytes and sha256(file) == e["file_sha256"],
+      do: kept_file(file, e["file_name"]),
+      else: kept_file(nil, nil)
+  end
+
+  defp imported_file(_e), do: kept_file(nil, nil)
 
   defp integer_or_nil(n) when is_integer(n), do: n
   defp integer_or_nil(_), do: nil
