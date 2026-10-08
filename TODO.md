@@ -1102,6 +1102,17 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
+- **Tournament groups (asked 2026-10-08).** One event is often several
+  separate tournaments - the Open, the U20, the U12, a rapid on the side.
+  Today each is its own island in the list. Wanted: put tournaments in a
+  group (an "event"), and from any of them jump straight to a sibling, e.g.
+  a switcher in the tournament header ("Open | U20 | U12"). Distinct from
+  player categories (one tournament, several categories): these are
+  separate tournaments with their own players, rounds and pairings. To
+  decide when it is picked up: who may group what (owner only, or shared
+  arbiters too), whether the home list collapses a group into one row,
+  and whether OpenResults publishes the group as one event page with tabs.
+
 - ~~**History page (`/t/:id/history`) reported as "just a read-only thing"**~~
   - **answered 2026-08-16.** Nothing was broken: the restore buttons only
   render on entries that ARE restore points, and `Snapshots.capture/4` was
