@@ -57,6 +57,33 @@ Each entry is tagged so a version can be skimmed:
   and the review step says which games were assumed, what as, and which
   rounds rest on it. A symbol the import does not know (rewritten to `?`)
   gets the same treatment.
+- [Feature] **Ask the bye type for each absence.** A new switch on Settings -
+  Scoring, under *Byes and absences*, off by default and offered in an
+  individual Swiss. On, the player dialog asks for every round in "Absent at
+  the rounds" not yet paired whether it is a half-point, zero-point or
+  full-point bye, with the one the absence points would give already picked -
+  so Save is usually the only click, and the other answer is there for the
+  player who did not ask in time. The pick is stored as the bye itself: it
+  survives an unpairing, goes into the TRF (`240` while the round is unpaired)
+  and comes back on import. The half-point bye rules count a picked one (a
+  second asks for confirmation, an ineligible player cannot have one and is
+  offered the zero instead), and a picked full-point bye gets the same notice
+  the Pairings page gives one. The limits on paid absences still decide what
+  is pre-picked - an earlier half-point or full-point bye counts toward "only
+  the first N are paid" exactly as an absence would - but the bye picked is
+  scored as picked. Pick past the limit and the form says so, then lets you,
+  which is the point of asking.
+- [Feature] **"Mark absent for this round" asks too.** With the switch on,
+  emptying a seat in a paired round on the Pairings page asks the same
+  three-way question in its confirmation, picked the same way, and stores
+  the answer as the bye. The half-point rules come along: refused for a
+  player marked not eligible, a second one needs its own tick, and a
+  full-point bye gets its Level-2 notice. Off, it is the plain absence it
+  always was.
+- [Fix] **A half-point bye count no longer mistakes a typed bye for the
+  absence value.** A round with a zero-point or full-point bye row (from an
+  import) in a tournament paying half a point for an absence was counted as
+  a half-point bye by the second-bye warning and the not-eligible check.
 
 ## [0.78.0] - 2026-10-08
 

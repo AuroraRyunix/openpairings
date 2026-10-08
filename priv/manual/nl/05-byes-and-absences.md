@@ -13,8 +13,8 @@ hoe de tiebreaks van C.07 die behandelen.
 | **Teruggetrokken (forfait)** | De arbiter markeert de speler als teruggetrokken (*Forfait*). | Niets: de speler krijgt ook niet de afwezigheidswaarde, en in een rondetoernooi is elke partij vanaf dan een verlies bij forfait. | Niet gepaard in een latere ronde. |
 | **Uitgesloten** | De arbiter vinkt **Uitgesloten** aan op het inschrijfformulier. | De speler wordt in geen enkele latere ronde gepaard en wordt uit de rangschikking gelaten. De al gespeelde partijen blijven: de tegenstanders houden de punten en tiebreaks die die partijen hun gaven. | Niet gepaard in een latere ronde. |
 | **Forfaitwinst / -verlies van een partij** | Een paring waarvan het resultaat als forfait wordt ingevoerd (1-0 FF, 0-1 FF, 0-0 FF). | Een forfaitwinst telt als winst, een forfaitverlies als verlies. | Het is een gewone paring. |
-| **Bye van een vol punt** | De arbiter geeft die, uit de *Lijst met niet-spelenden* van een gepaarde ronde, aan een speler die die ronde niet meespeelt. | Wat een winst waard is. | Niet gepaard; de speler kan geen door de paring toegekende bye meer krijgen. |
-| **Bye van een half of nul punt** | Komt mee met een geïmporteerd SWAR- of TRF-bestand, of met de overdracht van een andere kopie. | Een bye van een half punt is een remise waard; een bye van nul punt niets. | Niet gepaard. |
+| **Bye van een vol punt** | De arbiter geeft die, uit de *Lijst met niet-spelenden* van een gepaarde ronde, aan een speler die die ronde niet meespeelt; of kiest hem voor een komende ronde wanneer **Het byetype vragen bij elke afwezigheid** aan staat. | Wat een winst waard is. | Niet gepaard; de speler kan geen door de paring toegekende bye meer krijgen. |
+| **Bye van een half of nul punt** | Komt mee met een geïmporteerd SWAR- of TRF-bestand, of met de overdracht van een andere kopie; of wordt gekozen voor een komende ronde wanneer **Het byetype vragen bij elke afwezigheid** aan staat. | Een bye van een half punt is een remise waard; een bye van nul punt niets. | Niet gepaard. |
 
 Details van de puntentelling staan in
 [Rangschikking en tiebreaks](08-standings-and-tiebreaks.md).
@@ -65,6 +65,53 @@ Het programma helpt op twee manieren:
   van een half punt voor die speler geweigerd, en het vakje kan niet worden
   aangevinkt voor een speler die er al een heeft; de melding noemt de rondes.
 
+### Het byetype vragen {#asking-the-bye-type}
+
+Standaard is een overgeslagen ronde waard wat de pagina Puntentelling voor een
+afwezigheid betaalt, en daarmee is het gezegd. Sommige evenementen willen per
+afwezigheid beslissen: een halvepuntsbye voor de speler die op tijd vroeg, een
+nulpuntsbye voor de speler die dat niet deed. Zet **Het byetype vragen bij elke
+afwezigheid** aan op de pagina Puntentelling, onder *Byes en afwezigheden*. Het
+staat standaard uit, en alleen een individueel Zwitsers toernooi biedt het aan.
+
+Staat het aan, dan toont het inschrijfformulier een regel voor elke ronde in
+**Afwezig in de rondes** die nog niet is gepaard, met drie keuzes: **Bye van een
+half punt**, **Bye van nul punt** en **Bye van een vol punt**. De keuze die de
+pagina Puntentelling zou geven, is al aangeduid (met de twee limieten erbij), dus
+voor de meeste afwezigheden is **Opslaan** de enige klik. Kies een andere waar het
+antwoord verschilt.
+
+- De keuze blijft bij de ronde. Het paren van de ronde laat de speler erbuiten en
+  scoort de bye zoals gekozen; het ontparen van de ronde behoudt hem; de ronde uit
+  de afwezigheden van de speler halen, verwijdert hem.
+- Het FIDE-rapport schrijft hem met de eigen letter, in record 240 zolang de ronde
+  niet is gepaard, en een import van dat bestand brengt dezelfde bye terug.
+- De regels voor halvepuntsbyes hierboven tellen een gekozen halvepuntsbye mee: een
+  tweede vraagt *Toch opslaan?*, en een speler die niet in aanmerking komt, kan er
+  geen krijgen. Voor zo'n speler is de nulpuntsbye vooraf aangeduid.
+- Een bye van een vol punt kiezen toont dezelfde melding als op de pagina Paringen:
+  de paringsregels beschrijven hem niet, en hij moet uitzonderlijk blijven. De
+  speler kan later geen door de paring toegekende bye meer krijgen, en zodra de
+  ronde is gepaard, voegt het rapport de regel `### FPB` toe.
+
+Dezelfde vraag komt terug in een ronde die al is gepaard: **Markeren als afwezig
+voor deze ronde** op de pagina Paringen (zie [Byes met de hand](#byes-by-hand))
+toont de drie keuzes in de bevestiging, op dezelfde manier vooraf aangeduid. Een
+halvepuntsbye voor een speler die er niet voor in aanmerking komt, kan daar niet
+worden toegepast; een tweede halvepuntsbye vraagt een eigen vinkje, *Ik begrijp
+het - toch geven*; een bye van een vol punt toont de melding hierboven.
+
+> [!NOTE]
+> De twee limieten op betaalde afwezigheden bepalen de keuze die vooraf wordt
+> aangeduid. Voor de limiet van de eerste N overgeslagen rondes die worden betaald,
+> telt elke eerdere bye van een half of vol punt als een van de N, precies zoals een
+> afwezigheid: met N = 2 wordt de derde vrije ronde van een speler aangeboden als
+> bye van nul punt. Een bye van nul punt betaalt niets en gebruikt niets op. De
+> gekozen bye wordt wel gescoord zoals gekozen, wat de limieten ook zeggen: waar ze
+> voor die ronde minder zouden betalen (u kiest toch een halvepuntsbye voor de derde
+> ronde), zeggen het formulier en de bevestiging dat, en ze houden u niet tegen. De
+> afwezigheidspunten later wijzigen, verandert een al gekozen bye niet.
+
 > [!WARNING]
 > Markeer de afwezigheden **voordat** u de ronde paart. Een speler die laat komt,
 > kan weer als aanwezig worden gemarkeerd en met de hand worden gepaard (zie
@@ -106,7 +153,9 @@ een speler in de ronde) biedt:
 ![Het menu Wijzigingen met de hand, geopend op de naam van een speler in een gepaarde ronde](screenshots/05-hand-edits-menu.png "Het menu Wijzigingen met de hand")
 
 - **Markeren als afwezig voor deze ronde**: de plaats van de speler wordt
-  leeggemaakt en de speler gaat naar de *Lijst met niet-spelenden*;
+  leeggemaakt en de speler gaat naar de *Lijst met niet-spelenden*; met **Het
+  byetype vragen bij elke afwezigheid** aan, vraagt de bevestiging welke bye het is
+  ([Het byetype vragen](#asking-the-bye-type));
 - **Paren met een andere speler die niet speelt…**: zet twee spelers van de
   *Lijst met niet-spelenden* op een eigen bord;
 - **De door de paring toegekende bye geven** (aan een speler van de *Lijst met
@@ -132,10 +181,10 @@ een speler zou gaan die er al een had, een partij bij forfait won, of een bye va
 een vol punt had. Wijzigingen met de hand worden gemaakt in een sessie die wordt
 gecontroleerd wanneer ze klaar is. Zie [Een ronde paren](06-pairing.md).
 
-*Dit hoofdstuk beschrijft het huidige gedrag. Het programma heeft geen aparte knop
-om een halvepuntsbye of een nulpuntsbye voor een latere ronde *aan te vragen*; een
-halvepuntsbye komt uit een import, en een speler die een ronde zal missen wordt als
-afwezig gemarkeerd, gescoord door de pagina Puntentelling.*
+*Een halvepuntsbye of nulpuntsbye voor een komende ronde wordt aangevraagd door de
+speler voor die ronde als afwezig te markeren: de pagina Puntentelling beslist wat
+hij waard is, of, met **Het byetype vragen bij elke afwezigheid** aan, vraagt het
+inschrijfformulier het (zie [Het byetype vragen](#asking-the-bye-type)).*
 
 ## Organisatorvoorkeuren voor byes {#organiser-s-bye-preferences}
 

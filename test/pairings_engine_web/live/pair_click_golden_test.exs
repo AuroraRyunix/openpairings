@@ -76,6 +76,10 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   every JSON export's `tournament.late_entry_numbering` reads "rating"
   instead of "end". With that one value mapped back the regenerated file is
   equal, term for term, to the one before; no scenario has a late entrant.
+
+  And for "Ask the bye type for each absence" (bye-type-choice): every JSON
+  export gains `tournament.ask_bye_type` (false). With that key taken out
+  the regenerated file is equal, term for term, to the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

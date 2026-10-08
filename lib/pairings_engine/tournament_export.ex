@@ -88,7 +88,7 @@ defmodule PairingsEngine.TournamentExport do
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count
     points_win points_draw points_loss bye_value presence_value abs_value
-    abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences
+    abs_jusque abs_nbfois absent_counts_as_vur late_entry_absences ask_bye_type
     presence_on_allocated_bye tiebreaks tiebreak_unrated_rating tiebreak_unrated_method chess960 lots_seed shared_places acceleration baku_group_a_last
     long_event tiebreak_rating_round
     status standard rating_list_sequence rating_checks_enabled rate_of_play organizer_club_number round_dates

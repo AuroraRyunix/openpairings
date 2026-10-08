@@ -174,7 +174,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     params =
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur late_entry_absences team_match_points_win team_match_points_draw team_match_points_loss
+        absent_counts_as_vur late_entry_absences ask_bye_type team_match_points_win team_match_points_draw team_match_points_loss
         team_pab_match_points team_pab_game_points team_withdrawal_annul
         postponed_games postponed_requester_outcome postponed_opponent_outcome))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
@@ -577,6 +577,29 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 <span class="hint">
                   {gettext(
                     "On (the default) = a player who joins in round 4 is scored for rounds 1-3 as if absent: the points above, within both limits, and they use up the absences allowed. This is what SWAR does. Off = those rounds score nothing."
+                  )}
+                </span>
+              </span>
+            </label>
+
+            <label
+              :if={PairingsEngine.ByeTypes.possible?(@tournament)}
+              class="set-toggle"
+              id="ask-bye-type-setting"
+            >
+              <input type="hidden" name="tournament[ask_bye_type]" value="false" />
+              <input
+                type="checkbox"
+                id="ask-bye-type-toggle"
+                name="tournament[ask_bye_type]"
+                value="true"
+                checked={@tournament.ask_bye_type}
+              />
+              <span class="set-toggle-text">
+                {gettext("Ask the bye type for each absence")}
+                <span class="hint">
+                  {gettext(
+                    "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round - in the player dialog, or with Mark absent on the Pairings page - asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round and goes into the TRF; a bye picked ahead also survives unpairing and comes back on import."
                   )}
                 </span>
               </span>

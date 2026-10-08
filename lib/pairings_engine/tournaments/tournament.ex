@@ -233,6 +233,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # rounds are derived, never written as `byes` rows, so changing this or
     # a player's `start_round` rescores at once. See `PairingsEngine.LateEntry`.
     field :late_entry_absences, :boolean, default: true
+    # "Ask the bye type for each absence": the player dialog asks, for a
+    # round marked absent ahead of its pairing, which bye it is, and stores
+    # the answer as the typed `byes` row. Off by default - the absence value
+    # above decides, as it always has. See `PairingsEngine.ByeTypes`.
+    field :ask_bye_type, :boolean, default: false
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
     # games") - when true, a bye pays `presence_value` ON TOP of
     # `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a LOST_BYE round when
@@ -1264,6 +1269,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :abs_nbfois,
       :absent_counts_as_vur,
       :late_entry_absences,
+      :ask_bye_type,
       :presence_on_allocated_bye,
       :postponed_games,
       :postponed_requester_outcome,

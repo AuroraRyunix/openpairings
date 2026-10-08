@@ -2565,7 +2565,12 @@ defmodule PairingsEngine.Tournaments do
     with {:ok, value} <- fetch_attr(attrs, :absent_rounds),
          {:ok, canonical} <- Player.parse_absent_rounds_input(to_string(value || "")),
          %Tournament{} = tournament <- Repo.get(Tournament, player.tournament_id) do
-      PairingsEngine.HalfByes.added_beyond_first(tournament, player, canonical)
+      PairingsEngine.HalfByes.added_beyond_first(
+        tournament,
+        player,
+        canonical,
+        PairingsEngine.ByeTypes.chosen(tournament, attrs)
+      )
     else
       _ -> []
     end
@@ -2617,15 +2622,46 @@ defmodule PairingsEngine.Tournaments do
        else: :ok
   end
 
+  # The bye types picked in the dialog (`PairingsEngine.ByeTypes`, only
+  # when the tournament asks for them) are written in the same transaction
+  # as the player: a saved absence whose type went missing would quietly
+  # fall back to the absence value, which is the thing the arbiter just
+  # declined to use.
+  #
+  # Without any (the setting off, or nothing to pick) it is the plain
+  # update it always was, outside a transaction of its own - some callers
+  # are inside theirs, and a refused changeset should not roll those back.
   defp do_update_player(player, attrs) do
+    tournament = Repo.get!(Tournament, player.tournament_id)
+    chosen = PairingsEngine.ByeTypes.chosen(tournament, attrs)
+
+    result =
+      if chosen == %{} do
+        write_player(player, attrs, chosen)
+      else
+        Repo.transaction(fn ->
+          case write_player(player, attrs, chosen) do
+            {:ok, updated} ->
+              :ok = PairingsEngine.ByeTypes.write(tournament, updated, chosen)
+              updated
+
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+        end)
+      end
+
+    tap_ok(result, fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
+  end
+
+  defp write_player(player, attrs, chosen) do
     player
     |> Player.changeset(attrs)
     |> guard_pairing_number_freeze(player)
     |> guard_second_bye_want(player)
-    |> guard_half_bye_eligibility()
+    |> guard_half_bye_eligibility(chosen)
     |> Repo.update()
     |> tap_ok(&drop_withdrawn_future_byes/1)
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
   end
 
   # A bye row for a round not yet paired stands for an entry in
@@ -2694,17 +2730,24 @@ defmodule PairingsEngine.Tournaments do
   # Checked whenever the mark or the absent rounds change, so neither giving
   # an ineligible player a half-point absence nor marking a player who has
   # one goes through; the error names the rounds.
-  defp guard_half_bye_eligibility(changeset) do
+  # A bye type picked in the dialog counts as much as the absence value
+  # does: picking "half-point" for a marked player is refused the same way.
+  defp guard_half_bye_eligibility(changeset, chosen) do
+    stored = PairingsEngine.ByeTypes.stored(changeset.data.tournament_id, changeset.data.id)
+
     touched? =
       Ecto.Changeset.changed?(changeset, :no_half_bye) or
-        Ecto.Changeset.changed?(changeset, :absent_rounds)
+        Ecto.Changeset.changed?(changeset, :absent_rounds) or
+        Enum.any?(chosen, fn {round, type} -> Map.get(stored, round) != type end)
 
     with true <- touched? and Ecto.Changeset.get_field(changeset, :no_half_bye) == true,
          %Tournament{} = t <- Repo.get(Tournament, changeset.data.tournament_id),
+         typed = Map.merge(stored, chosen),
          [_ | _] = rounds <-
            PairingsEngine.HalfByes.half_rounds(
              t,
-             Ecto.Changeset.get_field(changeset, :absent_rounds)
+             Ecto.Changeset.get_field(changeset, :absent_rounds),
+             typed
            ) do
       Ecto.Changeset.add_error(
         changeset,
@@ -6314,10 +6357,42 @@ defmodule PairingsEngine.Tournaments do
   """
   def vacate_seat(%Round{} = round, player_id, type \\ "absent", opts \\ []) do
     with :ok <- ensure_writable(round.tournament_id),
-         :ok <- sent_round_gate(round, opts) do
+         :ok <- sent_round_gate(round, opts),
+         :ok <- half_bye_gate(round, player_id, type, opts) do
       do_vacate_seat(round, player_id, type)
     end
   end
+
+  @doc """
+  The two half-point bye rules (C.05:6.7.4, VCL4THP Q174-Q176) for a
+  half-point bye given while emptying a seat - "Ask the bye type for each
+  absence" lets the Pairings page do that. A player marked not eligible
+  gets `{:error, :half_bye_not_eligible}`; a second or later one waits for
+  `acknowledged: [:second_half_bye]`. Anything but `"requested-half"` is
+  `:ok`.
+  """
+  def half_bye_gate(%Round{} = round, player_id, "requested-half", opts) do
+    with %Player{} = player <- Repo.get(Player, player_id),
+         true <- player.tournament_id == round.tournament_id do
+      tournament = Repo.get!(Tournament, round.tournament_id)
+
+      cond do
+        player.no_half_bye ->
+          {:error, :half_bye_not_eligible}
+
+        :second_half_bye not in Keyword.get(opts, :acknowledged, []) and
+            PairingsEngine.HalfByes.taken_rounds(tournament, player) -- [round.number] != [] ->
+          {:error, {:needs_acknowledgement, [:second_half_bye]}}
+
+        true ->
+          :ok
+      end
+    else
+      _ -> {:error, :invalid_player}
+    end
+  end
+
+  def half_bye_gate(_round, _player_id, _type, _opts), do: :ok
 
   defp do_vacate_seat(%Round{} = round, player_id, type) do
     case find_player_seat(round.pairings, player_id) do

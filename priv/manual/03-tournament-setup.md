@@ -213,7 +213,11 @@ player's rounds are paid. *Treat a round sat out as a voluntary unplayed round
 for tiebreaks* changes how the tie-breaks of C.07 treat those rounds. *Rounds
 before a late entrant joins count as absences* pays the rounds before a late
 entry in the same way. These settings change the points, the tie-breaks and
-with them the standings, and are locked after round 1.
+with them the standings, and are locked after round 1. *Ask the bye type for
+each absence* (individual Swiss, off by default) makes the registration form
+ask whether each round sat out is a half-point, zero-point or full-point bye,
+with the answer the points above give already picked; see
+[Byes and absences](05-byes-and-absences.md#asking-the-bye-type).
 
 **Postponed games.** *Allow postponed games* offers a postponed result on the
 Pairings page. Until a postponed game is played it counts for the player who
