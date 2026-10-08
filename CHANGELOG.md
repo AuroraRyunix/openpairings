@@ -22,6 +22,26 @@ Each entry is tagged so a version can be skimmed:
   address, so the "?" links land in the same place in both languages - a
   translation that moves the furniture is just a different manual. A chapter
   not yet translated would show in English rather than not at all.
+- [Feature] **A round robin can be paired by hand.** *Pair round N by hand…*
+  sits beside the Berger button: the round starts empty, you pair it from the
+  not-playing list, and whoever you leave off the boards sits out with the
+  zero-point bye. It is the Swiss hand-edit session, with the Berger table's
+  round as the checker - a round that differs from it needs a tick and goes in
+  the TRF as a `### MPA` line. Individual round robins over one table only;
+  team, per-category and match-format ones keep their table (FIDE VCL4THP
+  Q100).
+- [Feature] **Hand-made round-robin rounds are held to the round-robin rules.**
+  A pair meeting twice in one cycle, or a player on the same colour three
+  rounds running, needs its own tick as you make the board; finishing also
+  checks that the rounds left in the cycle can still pair everyone exactly
+  once - an actual search, not a count, because six players can fit every
+  count and still be stuck with two triangles. Edits to rounds the table
+  paired are judged the same way (VCL4THP Q101, Q102).
+- [Change] **After a round made by hand, the Berger button pairs the remaining
+  rounds** - and refuses, naming the two players, when the table's next round
+  would pair a couple who already met in that cycle. Round-robin rounds no
+  longer wait for the previous round's results before the table is paired;
+  they never depended on them.
 ## [0.77.0] - 2026-10-08
 
 - [Change] **Help opens in a new tab.** The top bar's Help and every "?" beside a

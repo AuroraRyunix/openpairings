@@ -129,19 +129,6 @@ the options, and the exact question to answer. The tracker
   (3) Should the printed pairings and standings show the tournament rating
   (the chosen method) instead of the FIDE-else-national rating?
 
-## Q100 - manual round-robin pairing
-
-- **Asks:** a round-robin round can be paired by hand. NO costs 7%; YES
-  leads to Q101 (15% unless hand-made rounds are checked so everyone meets
-  once per cycle) and Q102 (7% unless a hand-made double round robin is
-  guarded against three same colours running).
-- **Today:** Pair always builds the Berger schedule; starting numbers can
-  be set by hand or by lot before round 1 (Q95).
-- **Options:** (a) stay at NO (7%); (b) build manual round-robin pairing
-  together with both checks (no penalty; a sizeable piece of work).
-- **Question:** Is a manual round-robin pairing mode (with the meet-once
-  and colour checks) worth building, or do we accept the 7%?
-
 ## Q179 / Q193 (and every `###` line) - in the file sent for rating?
 
 - **Asks:** a `###` comment in the post-tournament report for a full-point

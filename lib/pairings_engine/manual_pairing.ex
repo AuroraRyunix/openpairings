@@ -35,9 +35,13 @@ defmodule PairingsEngine.ManualPairing do
   it again replaces its PIBE, or removes it when the boards now match - at
   most one per round, and unpairing the round removes it with the round.
 
-  Only an individual, single-pool Swiss can be checked (`checkable?/1`): the
-  checker is the Dutch system's. Any other round that ends a session with
-  boards different from where it started records the PIBE without a check.
+  An individual, single-pool Swiss is checked by the Dutch system's engine.
+  A round robin paired by hand (VCL4THP Q100, `RoundRobin.by_hand?/1`) is
+  held to its own round of the Berger table instead, and to the round-robin
+  rules (`PairingsEngine.ManualRoundRobin`: meeting once per cycle, Q101;
+  three colours running, Q102) - the table being the only pairing a round
+  robin has. Any other round that ends a session with boards different from
+  where it started records the PIBE without a check.
 
   Hand edits do not take a tournament out of FIDE mode: the regulations
   foresee them, and the PIBE is how the TRF says where the pairings stop
@@ -46,7 +50,7 @@ defmodule PairingsEngine.ManualPairing do
 
   import Ecto.Query, only: [from: 2]
 
-  alias PairingsEngine.{Pairing, Repo, Tournaments}
+  alias PairingsEngine.{ManualRoundRobin, Pairing, Repo, RoundRobin, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
   @c2_reasons [:pairing_bye, :forfeit_win, :full_point_bye]
@@ -116,6 +120,10 @@ defmodule PairingsEngine.ManualPairing do
 
       # SQL NULL, not a JSON `null`: a nil handed to a map column is
       # stored as the text "null", which `open_round/1` would still see.
+      # A round robin's player left off the boards sits the round out with
+      # the table's zero-point bye, whoever decided it.
+      RoundRobin.record_sitting_out(round)
+
       Repo.update_all(
         from(r in Round,
           where: r.id == ^round.id,
@@ -132,10 +140,13 @@ defmodule PairingsEngine.ManualPairing do
   ## ---------- the checker's field ----------
 
   @doc """
-  Whether a round of `tournament` can be held to the pairing checker: an
-  individual Dutch Swiss paired as one pool, both legs not mirrored.
+  Whether a round of `tournament` can be held to a pairing checker: an
+  individual Dutch Swiss paired as one pool, both legs not mirrored (the
+  engine), or a round robin paired by hand (its Berger table).
   """
-  def checkable?(%Tournament{} = t) do
+  def checkable?(%Tournament{} = t), do: swiss_checkable?(t) or RoundRobin.by_hand?(t)
+
+  defp swiss_checkable?(t) do
     t.pairing_system == "swiss" and not t.pair_by_category and not t.swiss_match_format and
       not Tournament.paired_as_teams?(t)
   end
@@ -146,7 +157,7 @@ defmodule PairingsEngine.ManualPairing do
   not be rebuilt.
   """
   def field(%Tournament{} = t, round_number) do
-    if checkable?(t) do
+    if swiss_checkable?(t) do
       case Pairing.engine_field(t, round_number) do
         {:ok, field} -> {:ok, field}
         _ -> :error
@@ -339,6 +350,50 @@ defmodule PairingsEngine.ManualPairing do
     do: is_nil(p.white_player_id) != is_nil(p.black_player_id)
 
   defp judge(t, round, before, current) do
+    if RoundRobin.by_hand?(t),
+      do: judge_round_robin(t, round, before, current),
+      else: judge_swiss(t, round, before, current)
+  end
+
+  # The checker of a round robin is its Berger table (VCL4THP Q100); the
+  # player of the table left off the boards sits the round out, as the
+  # table's own bye does.
+  defp judge_round_robin(t, round, before, current) do
+    seated = current |> Enum.flat_map(fn [w, b, _] -> [w, b] end) |> MapSet.new()
+
+    edited =
+      Enum.map(current, &pair/1) ++
+        for p <- Pairing.full_roster_players(t.id),
+            not MapSet.member?(seated, p.id),
+            do: {p.id, nil}
+
+    tpn = tpns(t.id)
+    warnings = ManualRoundRobin.warnings(t, round.number, edited, complete: true)
+
+    case RoundRobin.table_round(t, round.number) do
+      {:ok, table} ->
+        missing = table -- edited
+        added = edited -- table
+
+        if missing == [] and added == [] do
+          {:matches, %{warnings: warnings}}
+        else
+          {:differs,
+           %{
+             correct: table,
+             missing: missing,
+             added: added,
+             warnings: warnings,
+             line: line(round.number, format(missing, tpn, "BYE"), format(added, tpn, "BYE"))
+           }}
+        end
+
+      :error ->
+        unchecked(round, before, Enum.map(current, &pair/1), tpn)
+    end
+  end
+
+  defp judge_swiss(t, round, before, current) do
     edited = Enum.map(current, &pair/1)
     tpn = tpns(t.id)
 
@@ -434,13 +489,15 @@ defmodule PairingsEngine.ManualPairing do
 
   @doc """
   Boards as the TEC Manual writes them: `12-7` (White's starting rank
-  first), `44=PAB` for a pairing-allocated bye; `none` for no board.
+  first), `44=PAB` for a pairing-allocated bye; `none` for no board. A
+  round robin's player sitting the round out is `44=BYE` (`bye`).
   """
-  def format([], _tpn), do: "none"
+  def format(pairs, tpn, bye \\ "PAB")
+  def format([], _tpn, _bye), do: "none"
 
-  def format(pairs, tpn) do
+  def format(pairs, tpn, bye) do
     Enum.map_join(pairs, " ", fn
-      {w, nil} -> "#{number(tpn, w)}=PAB"
+      {w, nil} -> "#{number(tpn, w)}=#{bye}"
       {w, b} -> "#{number(tpn, w)}-#{number(tpn, b)}"
     end)
   end
