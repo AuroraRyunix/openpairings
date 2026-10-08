@@ -84,6 +84,22 @@ Each entry is tagged so a version can be skimmed:
   absence value.** A round with a zero-point or full-point bye row (from an
   import) in a tournament paying half a point for an absence was counted as
   a half-point bye by the second-bye warning and the not-eligible check.
+- [Change] **A player absent from round 1 is a late entrant in every new Swiss**,
+  not only in Baku (C.04.2 2.4): no pairing number at round 1, numbered on
+  arrival by *Late entrants' pairing numbers*. A round 1 unpaired and paired
+  again numbers whoever is now present by rating, and takes the number back
+  from whoever is now absent. Tournaments created before this version, and
+  those imported from a TRF or SWAR file, keep numbering round-1 absentees
+  with the field - their numbers were already somebody's; a backup keeps what
+  its tournament had.
+- [Fix] **Round 1 paired again by hand** places a player entered since the
+  first pairing by rating, as the engine's pairing does, instead of last.
+- [Feature] **Pairing numbers out of rating order are said out loud.** Until
+  round 4 is paired, the Pairings page lists the players whose number no longer
+  matches their rating - with the number they should have - above *Pair round
+  N*, and links to *Regenerate from ratings*. Equal ratings in any order and
+  late entrants numbered after the field are left alone. It warns, it does not
+  block; a 2090 sitting at number 17 had been quiet about it long enough.
 
 ## [0.78.0] - 2026-10-08
 

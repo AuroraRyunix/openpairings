@@ -165,6 +165,14 @@ van de spelers wier nummer verandert. Rondes die al gepaard waren, gebruikten de
 oude nummers, dus een paringscontroleur zal ze niet langer reproduceren; het
 dialoogvenster zegt dat. Elke wijziging wordt in het auditlogboek geschreven.
 
+Tot ronde 4 gepaard is, waarschuwt de pagina Paringen boven *Ronde N paren*
+wanneer de nummers de ratings niet meer volgen - een rating die na ronde 1 is
+gecorrigeerd, bijvoorbeeld, of nummers die een oudere versie heeft
+achtergelaten. Ze noemt elke speler met rating, nummer en het nummer dat de
+rating oplevert, en **Opnieuw aanmaken volgens rating…** opent deze lijst.
+Spelers met gelijke rating in om het even welke volgorde, en laatkomers die
+achter het veld zijn genummerd, worden niet gemeld. Paren blijft mogelijk.
+
 **Startnummers van een rondetoernooi.** Vóór ronde 1 opent de knop
 **Startnummers** de lijst waarop de Berger-tabellen paren. Voer het resultaat van
 een loting met de hand in (een nummer per speler, of verplaats een speler omhoog

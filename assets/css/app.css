@@ -3864,6 +3864,21 @@ a.pending-chip:hover {
 .setup-line-items a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .setup-line-items a:hover { color: var(--text); }
 
+/* The Pairings page's "pairing numbers out of rating order" warning: amber,
+   not red - it informs, it does not stop the pairing. */
+.tpn-order-warning {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.tpn-order-warning-head { display: flex; align-items: baseline; gap: 7px; margin: 0; font-weight: 500; }
+.tpn-order-warning-list { margin: 6px 0 10px 22px; padding: 0; list-style: disc; color: var(--text); }
+.tpn-order-warning-list li { overflow-wrap: anywhere; }
+
 /* A note that belongs to the table above it (round 1's initial colour):
    close under the card, not a card's gap away. */
 .table-note { margin: -10px 0 20px; }

@@ -891,6 +891,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # See `PairingsEngine.Pairing.ensure_pairing_numbers/2`.
     field :late_entry_numbering, :string, default: "rating"
 
+    # C.04.2 2.4 for every Swiss, not only Baku: a player absent from round 1
+    # (an absence for round 1, a later start round, or off the active roster
+    # altogether) is a late entry - no pairing number at round 1, numbered
+    # when they arrive under `late_entry_numbering`. True on the tournaments
+    # `Tournaments.create_tournament/1,2` makes; false for every row the
+    # migration found and for imports, which arrive with the file's own
+    # numbering. Not cast: nobody chooses it, it is when the event was made.
+    # Baku events behave this way regardless. See
+    # `PairingsEngine.Pairing.round_one_absentees_late?/1`.
+    field :round_one_absentees_late, :boolean, default: false
+
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:

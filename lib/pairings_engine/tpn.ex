@@ -68,7 +68,7 @@ defmodule PairingsEngine.Tpn do
     active_ids =
       t.id
       |> Engine.active_players()
-      |> Enum.reject(&(not before_round_one? and waiting_for_baku_number?(t, &1, paired + 1)))
+      |> Enum.reject(&(not before_round_one? and waiting_for_number?(t, &1, paired + 1)))
       |> MapSet.new(& &1.id)
 
     # Everybody who holds a number keeps a place, whatever their status now,
@@ -85,23 +85,103 @@ defmodule PairingsEngine.Tpn do
       else: Enum.zip(numbered ++ newcomers, numbers(numbered, newcomers))
   end
 
-  # C.04.2 2.4 and C.04.7 1.3.1: in a Baku event a player who has not
-  # arrived yet is a late entry with no TPN until they do - the pairing
-  # numbers them on arrival (`Pairing.ensure_pairing_numbers/2`). So a
-  # regeneration (C.04.2 2.3) or an exchange made in the meantime leaves
-  # them out rather than handing them a number early, which would also put
-  # them into Group A's count by the back door. Before round 1 they are
-  # listed as before: round 1 itself takes such a number back.
-  defp waiting_for_baku_number?(
-         %Tournament{acceleration: "baku", pairing_system: "swiss"},
-         %Player{pairing_number: nil} = player,
-         next_round
-       ),
-       do:
-         Engine.absent_for_round?(player, next_round) or
-           Engine.not_yet_started?(player, next_round)
+  # C.04.2 2.4: in a tournament that treats a round-1 absentee as a late
+  # entry (`Pairing.round_one_absentees_late?/1` - Baku, and every Swiss
+  # created since), a player who has not arrived yet has no TPN until they
+  # do - the pairing numbers them on arrival
+  # (`Pairing.ensure_pairing_numbers/2`). So a regeneration (C.04.2 2.3) or
+  # an exchange made in the meantime leaves them out rather than handing
+  # them a number early - which in Baku would also put them into Group A's
+  # count by the back door. Before round 1 they are listed as before: round
+  # 1 itself takes such a number back.
+  defp waiting_for_number?(t, %Player{pairing_number: nil} = player, next_round) do
+    Engine.round_one_absentees_late?(t) and
+      (Engine.absent_for_round?(player, next_round) or
+         Engine.not_yet_started?(player, next_round))
+  end
 
-  defp waiting_for_baku_number?(_tournament, _player, _next_round), do: false
+  defp waiting_for_number?(_tournament, _player, _next_round), do: false
+
+  @doc """
+  The issued pairing numbers that no longer follow the ratings, while they
+  can still be corrected: an individual Swiss with round 4 not yet paired
+  (`editable?/1`). `[%{player, rating, number, expected}]` in number order,
+  `expected` being the number a regeneration (`regenerate/1`) would give
+  them; empty when everything is in order or nothing can be done about it.
+
+  A warning, never a refusal - the Pairings page shows it above "Pair
+  round N" and links here. It exists because a bad number is otherwise
+  silent: the production case was a 2090 numbered 17th after an older
+  version re-paired round 1, and nothing anywhere said so.
+
+  What does not count as out of order:
+
+    * Players of equal rating in any order - that is what an exchange is
+      for (Q147, Q155), and why the comparison is on rating alone.
+    * A late entrant numbered after the field under `late_entry_numbering`
+      "after" or "end": the arbiter's choice, or the grandfathered one.
+      Late means not in round 1's field - on a board, given the
+      pairing-allocated bye, or, where round-1 absentees are numbered with
+      the field (`Pairing.round_one_absentees_late?/1` false), holding any
+      round-1 bye. Before round 1 nobody is late.
+  """
+  def out_of_order(%Tournament{} = t) do
+    if applies?(t) and editable?(t), do: misplaced(t), else: []
+  end
+
+  defp misplaced(t) do
+    numbered = t.id |> Tournaments.list_players() |> Enum.filter(&is_integer(&1.pairing_number))
+    checked = Enum.reject(numbered, &after_the_field?(&1, late_entrants(t)))
+    slots = checked |> Enum.map(& &1.pairing_number) |> Enum.sort()
+
+    checked
+    |> Enum.sort_by(&{-Player.rating(&1, t), &1.pairing_number})
+    |> Enum.zip(slots)
+    |> Enum.reject(fn {p, slot} -> p.pairing_number == slot end)
+    |> Enum.map(fn {p, slot} ->
+      %{player: p, rating: Player.rating(p, t), number: p.pairing_number, expected: slot}
+    end)
+    |> Enum.sort_by(& &1.number)
+  end
+
+  defp after_the_field?(_player, :none), do: false
+  defp after_the_field?(player, field), do: not MapSet.member?(field, player.id)
+
+  # Round 1's field when late entrants are numbered after it, else `:none`.
+  defp late_entrants(%Tournament{late_entry_numbering: numbering} = t)
+       when numbering in ~w(after end) do
+    case Engine.paired_rounds_count(t.id) do
+      0 -> :none
+      _ -> round_one_field(t)
+    end
+  end
+
+  defp late_entrants(_t), do: :none
+
+  defp round_one_field(t) do
+    boards =
+      Repo.all(
+        from p in PairingsEngine.Tournaments.Pairing,
+          join: r in assoc(p, :round),
+          where: r.tournament_id == ^t.id and r.number == 1,
+          select: {p.white_player_id, p.black_player_id}
+      )
+      |> Enum.flat_map(&Tuple.to_list/1)
+
+    bye_types =
+      if Engine.round_one_absentees_late?(t), do: ["pairing-allocated"], else: nil
+
+    byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^t.id and b.round == 1,
+          select: {b.player_id, b.type}
+      )
+      |> Enum.filter(fn {_id, type} -> is_nil(bye_types) or type in bye_types end)
+      |> Enum.map(&elem(&1, 0))
+
+    (boards ++ byes) |> Enum.reject(&is_nil/1) |> MapSet.new()
+  end
 
   defp numbers(numbered, newcomers) do
     highest = numbered |> Enum.map(& &1.pairing_number) |> Enum.max(fn -> 0 end)

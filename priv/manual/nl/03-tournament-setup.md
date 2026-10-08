@@ -144,6 +144,17 @@ zonder de FIDE-modus te verlaten; een back-upbestand uit die tijd ook, wanneer
 het wordt geïmporteerd. Wijzigt u deze drie instellingen na ronde 1, dan wordt niemand
 die al een nummer heeft opnieuw genummerd; de pagina zegt dat.
 
+Een speler die in ronde 1 afwezig is (een gevraagde bye, een afwezigheid, een
+latere startronde) is ook een laatkomer: bij het paren van ronde 1 krijgt die
+geen paringsnummer, en wordt genummerd bij aankomst, volgens de instelling
+hierboven (C.04.2 2.4). Wordt ronde 1 ontpaard en opnieuw gepaard terwijl de
+speler er wel is, dan krijgt die met het veld een nummer volgens rating. Dat
+geldt voor elk Zwitsers toernooi dat vanaf versie 0.79 is aangemaakt. Een
+toernooi van daarvoor, of een dat uit een TRF- of SWAR-bestand is
+geïmporteerd, blijft afwezigen in ronde 1 met het veld nummeren zoals het
+altijd deed: de nummers kwamen van elders en blijven zoals ze zijn. Een
+back-upbestand houdt wat het toernooi had.
+
 **Beginkleur.** Voor de eerste ronde van een Zwitsers toernooi: door loting
 bepaald wanneer ronde 1 wordt gepaard, of Wit of Zwart door u gekozen. De gebruikte
 kleur wordt op de pagina Paringen onder ronde 1 getoond.

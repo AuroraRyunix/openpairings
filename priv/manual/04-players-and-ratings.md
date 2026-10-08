@@ -159,6 +159,14 @@ players whose number changes first. Rounds that were already paired used the
 old numbers, so a pairing checker will no longer reproduce them; the dialog
 says so. Each change is written to the audit trail.
 
+Until round 4 is paired, the Pairings page warns above *Pair round N* when the
+numbers no longer follow the ratings - a rating corrected after round 1, say,
+or numbers left by an older version. It names each player with their rating,
+their number and the number their rating earns, and **Regenerate from
+ratings…** opens this list. Players of equal rating in any order, and late
+entrants numbered after the field, are not reported. It does not stop the
+pairing.
+
 **Starting numbers of a round robin.** Before round 1 the button **Starting
 numbers** opens the list the Berger tables pair by. Enter the result of a
 drawing of lots by hand (a number per player, or move a player up or down), or

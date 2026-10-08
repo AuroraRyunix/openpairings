@@ -102,6 +102,7 @@ defmodule PairingsEngine.TournamentExport do
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
     team_lineups team_rating_method team_unrated_rating teams_ordered_by_hand
     team_pairing_mode initial_colour initial_colour_drawn rating_method initial_order_tiebreak late_entry_numbering
+    round_one_absentees_late
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     soft_club_rounds soft_position
     extra_points_mode count_extra_points extra_points_bands
