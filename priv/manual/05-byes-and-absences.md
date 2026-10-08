@@ -13,8 +13,8 @@ in how the tie-breaks of C.07 treat it.
 | **Withdrawn (forfeit)** | The arbiter marks the player as withdrawn (*Forfeit*). | Nothing: the player is not paid the absence value either, and in a round robin every game from then on is a forfeit loss. | Not paired in any later round. |
 | **Expelled** | The arbiter ticks **Expelled** in the registration form. | The player is not paired in any later round and is left out of the standings. The games already played stay: the opponents keep the points and tie-breaks those games gave them. | Not paired in any later round. |
 | **Forfeit win / loss of a game** | A pairing whose result is entered as a forfeit (1-0 FF, 0-1 FF, 0-0 FF). | A forfeit win scores the win, a forfeit loss the loss. | It is an ordinary pairing. |
-| **Full-point bye** | The arbiter gives it, from the *Not playing* list of a paired round, to a player who sits that round out. | What a win is worth. | Not paired; the player can no longer get the pairing-allocated bye. |
-| **Half-point or zero-point bye** | Arrives with an imported SWAR or TRF file, or from the hand-off of another copy. | A half-point bye is worth a draw; a zero-point bye nothing. | Not paired. |
+| **Full-point bye** | The arbiter gives it, from the *Not playing* list of a paired round, to a player who sits that round out; or picks it for a coming round when **Ask the bye type for each absence** is on. | What a win is worth. | Not paired; the player can no longer get the pairing-allocated bye. |
+| **Half-point or zero-point bye** | Arrives with an imported SWAR or TRF file, or from the hand-off of another copy; or is picked for a coming round when **Ask the bye type for each absence** is on. | A half-point bye is worth a draw; a zero-point bye nothing. | Not paired. |
 
 Details of the scoring are in [Standings and tie-breaks](08-standings-and-tiebreaks.md).
 
@@ -63,6 +63,39 @@ The program helps in two ways:
   have one. While it is ticked, a half-point absence is refused for that
   player, and the box cannot be ticked for a player who already has one; the
   message names the rounds.
+
+### Asking the bye type
+
+By default a round sat out is worth what the Scoring page pays an absence,
+and that is all there is to it. Some events want to decide per absence: a
+half-point bye for the player who asked in time, a zero-point one for the
+player who did not. Turn on **Ask the bye type for each absence** on the
+Scoring page, under *Byes and absences*. It is off by default, and only an
+individual Swiss offers it.
+
+With it on, the registration form shows a line for every round in **Absent
+at the rounds** that is not paired yet, with three choices: **Half-point
+bye**, **Zero-point bye** and **Full-point bye**. The one the Scoring page
+would give is already picked (counting the two limits), so for most absences
+**Save** is the only click. Pick another one where the answer differs.
+
+- The pick is kept with the round. Pairing the round leaves the player out
+  and scores the bye as picked; unpairing the round keeps it; taking the
+  round out of the player's absences drops it.
+- The FIDE report writes it with its own letter, in record 240 while the
+  round is not paired, and an import of that file brings the same bye back.
+- The half-point bye rules above count a picked half-point bye: a second one
+  asks *Save it anyway?*, and a player marked not eligible cannot be given
+  one. For such a player the zero-point bye is picked instead.
+- Picking a full-point bye shows the same notice as on the Pairings page:
+  the pairing regulations do not describe it, and it should stay
+  exceptional. The player cannot get the pairing-allocated bye later, and
+  once the round is paired the report adds its `### FPB` line.
+
+> [!NOTE]
+> A picked bye is no longer an absence, so it does not use up the
+> *only a player's first N rounds sat out are paid* allowance. Changing the
+> absence points later does not change a bye already picked.
 
 > [!WARNING]
 > Mark the absences **before** you pair the round. A player who turns up late
@@ -131,10 +164,10 @@ player who already had one, won a game by forfeit or had a full-point bye.
 Hand edits are made in a session that is checked when it is finished. See
 [Pairing a round](06-pairing.md).
 
-*This chapter describes the current behaviour. The program has no separate
-button to *request* a half-point or zero-point bye for a future round; a
-half-point bye arrives from an import, and a player who will miss a round is
-marked absent for it, scored by the Scoring page.*
+*A half-point or zero-point bye for a coming round is requested by marking
+the player absent for it: the Scoring page decides what it is worth, or,
+with **Ask the bye type for each absence** on, the registration form asks
+(see [Asking the bye type](#asking-the-bye-type)).*
 
 ## Organiser's bye preferences
 

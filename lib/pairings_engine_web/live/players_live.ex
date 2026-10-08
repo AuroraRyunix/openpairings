@@ -19,6 +19,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
+  alias PairingsEngine.ByeTypes
   alias PairingsEngine.LateEntry
   alias PairingsEngine.RatingLists
   alias PairingsEngineWeb.RegistrationQueue
@@ -159,6 +160,10 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_fide_conflicts: nil,
        edit_sent_rounds: [],
        edit_half_rounds: [],
+       # `[{round, type}]`: the bye type each round sat out ahead of its
+       # pairing is about to get, under "Ask the bye type for each absence"
+       # (`PairingsEngine.ByeTypes`). Empty when the tournament does not ask.
+       edit_bye_types: [],
        # The join round worked out for the player in the dialog when theirs
        # is not set - `LateEntry.derived_start_round/2`.
        edit_derived_start: nil,
@@ -1530,6 +1535,7 @@ defmodule PairingsEngineWeb.PlayersLive do
            edit_fide_conflicts: nil,
            edit_sent_rounds: [],
            edit_half_rounds: [],
+           edit_bye_types: bye_type_rows(socket.assigns.tournament, player, form),
            edit_derived_start: derived
          )}
     end
@@ -1545,7 +1551,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_error: nil,
        edit_fide_conflicts: nil,
        edit_sent_rounds: [],
-       edit_half_rounds: []
+       edit_half_rounds: [],
+       edit_bye_types: []
      )}
   end
 
@@ -1570,7 +1577,10 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_form: params,
        edit_fide_conflicts: nil,
        edit_sent_rounds: Tournaments.sent_absence_rounds(socket.assigns.editing_player, params),
-       edit_half_rounds: Tournaments.second_half_bye_rounds(socket.assigns.editing_player, params)
+       edit_half_rounds:
+         Tournaments.second_half_bye_rounds(socket.assigns.editing_player, params),
+       edit_bye_types:
+         bye_type_rows(socket.assigns.tournament, socket.assigns.editing_player, params)
      )}
   end
 
@@ -1733,7 +1743,8 @@ defmodule PairingsEngineWeb.PlayersLive do
            edit_form: %{},
            edit_error: nil,
            edit_fide_conflicts: nil,
-           edit_half_rounds: []
+           edit_half_rounds: [],
+           edit_bye_types: []
          )
          |> assign_players()}
 
@@ -1742,7 +1753,8 @@ defmodule PairingsEngineWeb.PlayersLive do
          assign(socket,
            edit_error: nil,
            edit_form: params,
-           edit_half_rounds: Tournaments.second_half_bye_rounds(before, params)
+           edit_half_rounds: Tournaments.second_half_bye_rounds(before, params),
+           edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
          )}
 
       {:error, {:needs_acknowledgement, _ids}} ->
@@ -1758,7 +1770,12 @@ defmodule PairingsEngineWeb.PlayersLive do
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, edit_error: error_text(changeset), edit_form: params)}
+        {:noreply,
+         assign(socket,
+           edit_error: error_text(changeset),
+           edit_form: params,
+           edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
+         )}
     end
   end
 
@@ -1978,6 +1995,33 @@ defmodule PairingsEngineWeb.PlayersLive do
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
     |> Enum.uniq()
+  end
+
+  # The dialog's bye-type rows: one per round in the absences typed so far
+  # that is not paired yet, each with what the arbiter picked, else what is
+  # stored, else what the absence value gives (`ByeTypes.dialog_types/3`).
+  # Nothing for a player marked absent outright, or absences that do not
+  # parse - the field's own error says that.
+  defp bye_type_rows(tournament, %Player{} = player, form) do
+    with true <- ByeTypes.applies?(tournament),
+         false <- form["absent"] in [true, "true"],
+         {:ok, canonical} <-
+           Player.parse_absent_rounds_input(to_string(form["absent_rounds"] || "")) do
+      defaults = ByeTypes.dialog_types(tournament, player, canonical)
+      picked = form |> Map.get("bye_types") |> ByeTypes.parse() |> Map.take(Map.keys(defaults))
+
+      defaults |> Map.merge(picked) |> Enum.sort()
+    else
+      _ -> []
+    end
+  end
+
+  defp bye_type_options do
+    [
+      {"requested-half", gettext("Half-point bye")},
+      {"requested-zero", gettext("Zero-point bye")},
+      {"full-point", gettext("Full-point bye")}
+    ]
   end
 
   defp player_to_form(p) do
@@ -3418,6 +3462,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         editing_player_id={@editing_player.id}
         sent_rounds={@edit_sent_rounds}
         half_rounds={@edit_half_rounds}
+        bye_types={@edit_bye_types}
         derived_start={@edit_derived_start}
         players={@players}
         bel_lookup?={@bel_lookup?}
@@ -4236,6 +4281,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Half-point bye rounds that would be a second or later one: the Level 3
   # warning and the confirm on Save (VCL4THP Q174).
   attr :half_rounds, :list, default: []
+  # `[{round, type}]` - see the `edit_bye_types` assign.
+  attr :bye_types, :list, default: []
   # Leading rounds with nothing recorded, for a player starting in round 1.
   attr :derived_start, :any, default: nil
   attr :players, :list, default: []
@@ -4603,6 +4650,47 @@ defmodule PairingsEngineWeb.PlayersLive do
                 )}
             <% end %>
           </p>
+          <%!-- "Ask the bye type for each absence": one row per round not yet
+                paired, the likely answer already picked, so Save is usually
+                the only click. --%>
+          <div
+            :if={@bye_types != []}
+            class="field"
+            id="player-bye-types"
+            style="grid-column: 1 / -1"
+          >
+            <span>{gettext("Bye type for each round sat out")}</span>
+            <div
+              :for={{round, type} <- @bye_types}
+              class="radio-row"
+              id={"player-bye-type-#{round}"}
+              role="radiogroup"
+              aria-label={gettext("Round %{n}", n: round)}
+            >
+              <strong>{gettext("Round %{n}", n: round)}</strong>
+              <label :for={{value, label} <- bye_type_options()}>
+                <input
+                  type="radio"
+                  id={"player-bye-type-#{round}-#{value}"}
+                  name={"player[bye_types][#{round}]"}
+                  value={value}
+                  checked={type == value}
+                /> {label}
+              </label>
+            </div>
+            <%!-- The TEC Manual's Level 2 for a full-point bye (VCL4THP
+                  Q178), the same words the Pairings page says it in. --%>
+            <p
+              :if={Enum.any?(@bye_types, &(elem(&1, 1) == "full-point"))}
+              class="pe-modal-warn"
+              id="player-fpb-notice"
+              role="status"
+            >
+              {gettext(
+                "Full-point byes are not described by the pairing regulations and should stay exceptional. Make sure this one is intended."
+              )}
+            </p>
+          </div>
           <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
           <.bye_preference_fields
             mode={bye_preference_mode(@tournament, @form, @bye_preferences?)}

@@ -41,8 +41,8 @@ msgstr ""
 msgid "Attempting to reconnect"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3133
-#: lib/pairings_engine_web/live/players_live.ex:4436
+#: lib/pairings_engine_web/live/players_live.ex:3177
+#: lib/pairings_engine_web/live/players_live.ex:4483
 #: lib/pairings_engine_web/live/rating_lists_live.ex:290
 #, elixir-autogen, elixir-format
 msgid "Birth year"
@@ -108,7 +108,7 @@ msgstr ""
 msgid "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4560
+#: lib/pairings_engine_web/live/players_live.ex:4607
 #, elixir-autogen, elixir-format
 msgid "Absent at the rounds (e.g. 3,5 or 2-4)"
 msgstr ""
@@ -141,15 +141,15 @@ msgstr ""
 msgid "Add collaborator"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2846
-#: lib/pairings_engine_web/live/players_live.ex:2963
-#: lib/pairings_engine_web/live/players_live.ex:3178
+#: lib/pairings_engine_web/live/players_live.ex:2890
+#: lib/pairings_engine_web/live/players_live.ex:3007
+#: lib/pairings_engine_web/live/players_live.ex:3222
 #: lib/pairings_engine_web/live/teams_live.ex:973
 #, elixir-autogen, elixir-format
 msgid "Add player"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3187
+#: lib/pairings_engine_web/live/players_live.ex:3231
 #, elixir-autogen, elixir-format
 msgid "Add players by searching the FIDE database, or enter them by hand."
 msgstr ""
@@ -170,8 +170,8 @@ msgid "Administrative bonus points (SWAR XtPts)"
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:5701
-#: lib/pairings_engine_web/live/players_live.ex:2144
-#: lib/pairings_engine_web/live/players_live.ex:2351
+#: lib/pairings_engine_web/live/players_live.ex:2188
+#: lib/pairings_engine_web/live/players_live.ex:2395
 #, elixir-autogen, elixir-format
 msgid "All rounds"
 msgstr ""
@@ -225,7 +225,7 @@ msgstr ""
 msgid "Audit trail - every change, who made it, and when"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4296
+#: lib/pairings_engine_web/live/players_live.ex:4343
 #, elixir-autogen, elixir-format
 msgid "Auto-fill from the local rating databases:"
 msgstr ""
@@ -379,7 +379,7 @@ msgstr ""
 msgid "Club / federation exclusions"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4528
+#: lib/pairings_engine_web/live/players_live.ex:4575
 #, elixir-autogen, elixir-format
 msgid "Club nr"
 msgstr ""
@@ -412,12 +412,12 @@ msgstr ""
 msgid "Combined report (festival)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2811
+#: lib/pairings_engine_web/live/players_live.ex:2855
 #, elixir-autogen, elixir-format
 msgid "Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2825
+#: lib/pairings_engine_web/live/players_live.ex:2869
 #, elixir-autogen, elixir-format
 msgid "Compare every registered player against the locally-synced KBSB database and preview club updates before applying them"
 msgstr ""
@@ -458,7 +458,7 @@ msgstr ""
 msgid "Create your free account."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2847
+#: lib/pairings_engine_web/live/players_live.ex:2891
 #, elixir-autogen, elixir-format
 msgid "Ctrl+I"
 msgstr ""
@@ -507,7 +507,7 @@ msgstr ""
 msgid "Disable manual ranking"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4541
+#: lib/pairings_engine_web/live/players_live.ex:4588
 #, elixir-autogen, elixir-format
 msgid "Displays/prints this player's games at this table number, regardless of normal board order"
 msgstr ""
@@ -592,7 +592,7 @@ msgstr ""
 msgid "Enter your email and we'll send a magic link to confirm it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4063
+#: lib/pairings_engine_web/live/players_live.ex:4108
 #, elixir-autogen, elixir-format
 msgid "Every club up to date."
 msgstr ""
@@ -602,7 +602,7 @@ msgstr ""
 msgid "Every result, pairing and player change made after that point goes away."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3828
+#: lib/pairings_engine_web/live/players_live.ex:3873
 #, elixir-autogen, elixir-format
 msgid "Everything up to date."
 msgstr ""
@@ -635,7 +635,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:253
 #: lib/pairings_engine_web/live/extra_points_live.ex:222
-#: lib/pairings_engine_web/live/players_live.ex:4555
+#: lib/pairings_engine_web/live/players_live.ex:4602
 #: lib/pairings_engine_web/live/settings_options_live.ex:969
 #: lib/pairings_engine_web/live/settings_support.ex:108
 #, elixir-autogen, elixir-format
@@ -652,7 +652,7 @@ msgstr ""
 msgid "FA1 / IA1 arbiter norm candidate"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4372
+#: lib/pairings_engine_web/live/players_live.ex:4419
 #, elixir-autogen, elixir-format
 msgid "FIDE Elo"
 msgstr ""
@@ -673,12 +673,12 @@ msgstr ""
 msgid "FIDE expected score (Table 8.1.2)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4307
+#: lib/pairings_engine_web/live/players_live.ex:4354
 #, elixir-autogen, elixir-format
 msgid "FIDE lookup"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3082
+#: lib/pairings_engine_web/live/players_live.ex:3126
 #, elixir-autogen, elixir-format
 msgid "FIDE rating"
 msgstr ""
@@ -744,7 +744,7 @@ msgstr ""
 msgid "First name"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4533
+#: lib/pairings_engine_web/live/players_live.ex:4580
 #, elixir-autogen, elixir-format
 msgid "Fixed table"
 msgstr ""
@@ -769,7 +769,7 @@ msgstr ""
 msgid "Full criteria ladder for this bracket"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3054
+#: lib/pairings_engine_web/live/players_live.ex:3098
 #, elixir-autogen, elixir-format
 msgid "Full name *"
 msgstr ""
@@ -867,7 +867,7 @@ msgstr ""
 msgid "Invited by"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4321
+#: lib/pairings_engine_web/live/players_live.ex:4368
 #, elixir-autogen, elixir-format
 msgid "KBSB lookup"
 msgstr ""
@@ -899,7 +899,7 @@ msgstr ""
 msgid "Last round this still applies to"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3058
+#: lib/pairings_engine_web/live/players_live.ex:3102
 #, elixir-autogen, elixir-format
 msgid "Lastname, Firstname"
 msgstr ""
@@ -909,7 +909,7 @@ msgstr ""
 msgid "Link to pairings web (IT4)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3262
+#: lib/pairings_engine_web/live/players_live.ex:3306
 #, elixir-autogen, elixir-format
 msgid "Live tournament rank - click to sort by current standings rank (same as Cl)"
 msgstr ""
@@ -930,12 +930,12 @@ msgstr ""
 msgid "Log out"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4302
+#: lib/pairings_engine_web/live/players_live.ex:4349
 #, elixir-autogen, elixir-format
 msgid "Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4316
+#: lib/pairings_engine_web/live/players_live.ex:4363
 #, elixir-autogen, elixir-format
 msgid "Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
 msgstr ""
@@ -955,7 +955,7 @@ msgstr ""
 msgid "Master tournament (header/schedule/name)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4078
+#: lib/pairings_engine_web/live/players_live.ex:4123
 #, elixir-autogen, elixir-format
 msgid "Matched by"
 msgstr ""
@@ -984,7 +984,7 @@ msgstr ""
 msgid "Moved down into this bracket:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4817
+#: lib/pairings_engine_web/live/players_live.ex:4905
 #, elixir-autogen, elixir-format
 msgid "N-Elo"
 msgstr ""
@@ -994,18 +994,18 @@ msgstr ""
 msgid "Name this point"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4367
+#: lib/pairings_engine_web/live/players_live.ex:4414
 #, elixir-autogen, elixir-format
 msgid "National Elo"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3097
-#: lib/pairings_engine_web/live/players_live.ex:4353
+#: lib/pairings_engine_web/live/players_live.ex:3141
+#: lib/pairings_engine_web/live/players_live.ex:4400
 #, elixir-autogen, elixir-format
 msgid "National ID"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3108
+#: lib/pairings_engine_web/live/players_live.ex:3152
 #, elixir-autogen, elixir-format
 msgid "National rating"
 msgstr ""
@@ -1031,7 +1031,7 @@ msgstr ""
 msgid "New tournament"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4676
+#: lib/pairings_engine_web/live/players_live.ex:4764
 #, elixir-autogen, elixir-format
 msgid "No Paid"
 msgstr ""
@@ -1067,7 +1067,7 @@ msgid "No players have a claimed title yet - set one below to include a player."
 msgstr ""
 
 #: lib/pairings_engine_web/live/live_round_live.ex:905
-#: lib/pairings_engine_web/live/players_live.ex:3185
+#: lib/pairings_engine_web/live/players_live.ex:3229
 #: lib/pairings_engine_web/live/standings_live.ex:894
 #, elixir-autogen, elixir-format
 msgid "No players registered yet."
@@ -1256,12 +1256,12 @@ msgstr ""
 msgid "Player B"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4293
+#: lib/pairings_engine_web/live/players_live.ex:4340
 #, elixir-autogen, elixir-format
 msgid "Player registration"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3278
+#: lib/pairings_engine_web/live/players_live.ex:3322
 #, elixir-autogen, elixir-format
 msgid "Player's full name"
 msgstr ""
@@ -1277,7 +1277,7 @@ msgid "Players - title-norm judgment"
 msgstr ""
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:589
-#: lib/pairings_engine_web/live/players_live.ex:4793
+#: lib/pairings_engine_web/live/players_live.ex:4881
 #, elixir-autogen, elixir-format
 msgid "Players Card"
 msgstr ""
@@ -1323,12 +1323,12 @@ msgstr ""
 msgid "Print just the first 3 result cards, to check printer alignment before printing the full stack"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2773
+#: lib/pairings_engine_web/live/players_live.ex:2817
 #, elixir-autogen, elixir-format
 msgid "Print place cards"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2769
+#: lib/pairings_engine_web/live/players_live.ex:2813
 #, elixir-autogen, elixir-format
 msgid "Print player list"
 msgstr ""
@@ -1361,8 +1361,8 @@ msgstr ""
 msgid "Recycle bin"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2816
-#: lib/pairings_engine_web/live/players_live.ex:3810
+#: lib/pairings_engine_web/live/players_live.ex:2860
+#: lib/pairings_engine_web/live/players_live.ex:3855
 #, elixir-autogen, elixir-format
 msgid "Refresh ratings"
 msgstr ""
@@ -1469,7 +1469,7 @@ msgid "Save round dates"
 msgstr ""
 
 #: lib/pairings_engine_web/live/badge_studio_live.ex:1436
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:663
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:686
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:805
 #, elixir-autogen, elixir-format
 msgid "Save settings"
@@ -1495,7 +1495,7 @@ msgstr ""
 msgid "Score-bracket map of this round's pairings"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2969
+#: lib/pairings_engine_web/live/players_live.ex:3013
 #, elixir-autogen, elixir-format
 msgid "Search the FIDE database (name or FIDE ID)"
 msgstr ""
@@ -1592,7 +1592,7 @@ msgstr ""
 msgid "Special remarks (IT3)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2979
+#: lib/pairings_engine_web/live/players_live.ex:3023
 #, elixir-autogen, elixir-format
 msgid "Start typing a last name… e.g. Carlsen"
 msgstr ""
@@ -1674,7 +1674,7 @@ msgid "This tournament is FIDE-homologated (rated/reportable)"
 msgstr ""
 
 #: lib/pairings_engine_web/live/extra_points_live.ex:306
-#: lib/pairings_engine_web/live/players_live.ex:2175
+#: lib/pairings_engine_web/live/players_live.ex:2219
 #: lib/pairings_engine_web/live/settings_options_live.ex:1385
 #, elixir-autogen, elixir-format
 msgid "This tournament is FIDE-homologated."
@@ -1726,8 +1726,8 @@ msgstr ""
 msgid "Unpair round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2830
-#: lib/pairings_engine_web/live/players_live.ex:4054
+#: lib/pairings_engine_web/live/players_live.ex:2874
+#: lib/pairings_engine_web/live/players_live.ex:4099
 #, elixir-autogen, elixir-format
 msgid "Update clubs"
 msgstr ""
@@ -2028,7 +2028,7 @@ msgstr ""
 msgid "· odd"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3050
+#: lib/pairings_engine_web/live/players_live.ex:3094
 #, elixir-autogen, elixir-format
 msgid "…or fill the details in by hand below."
 msgstr ""
@@ -2052,7 +2052,7 @@ msgstr ""
 msgid "▼ paired down"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:591
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:614
 #, elixir-autogen, elixir-format
 msgid "⚠ This changes FIDE tiebreak results, not just scoring."
 msgstr ""
@@ -2129,12 +2129,12 @@ msgstr ""
 msgid "Automatically forbid pairing any two players who share a club or federation, instead of listing every pair by hand. Applies to Swiss (TRF \"XXP\" rules, same as above) and to Keizer; a round robin's fixed schedule ignores this by design."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3813
+#: lib/pairings_engine_web/live/players_live.ex:3858
 #, elixir-autogen, elixir-format
 msgid "Compares every registered player against the locally-synced FIDE rating list (by FIDE id) and proposes a new rating and title. National ratings are not touched - they come from import or manual entry. Nothing is written until you Apply."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4057
+#: lib/pairings_engine_web/live/players_live.ex:4102
 #, elixir-autogen, elixir-format
 msgid "Compares every registered player against the locally-synced KBSB list (by National id, or FIDE id when no matricule is on file) and proposes their current club. Never clears a club the list has no entry for. Nothing is written until you Apply."
 msgstr ""
@@ -2155,12 +2155,12 @@ msgstr ""
 msgid "Deleted tournaments stay here for 3 months, after which they are purged automatically. Restore one to bring it back, or delete it permanently right away."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3200
+#: lib/pairings_engine_web/live/players_live.ex:3244
 #, elixir-autogen, elixir-format
 msgid "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4394
+#: lib/pairings_engine_web/live/players_live.ex:4441
 #, elixir-autogen, elixir-format
 msgid "Elo used (pairing/standings):"
 msgstr ""
@@ -2185,7 +2185,7 @@ msgstr ""
 msgid "Every distinct federation represented, biggest contingent first - FIDE norm regulations often set a minimum federation count, so this is worth checking before submitting."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4331
+#: lib/pairings_engine_web/live/players_live.ex:4378
 #, elixir-autogen, elixir-format
 msgid "FIDE disagrees with what's already on file:"
 msgstr ""
@@ -2210,7 +2210,7 @@ msgstr ""
 msgid "Federations shared across files:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2954
+#: lib/pairings_engine_web/live/players_live.ex:2998
 #, elixir-autogen, elixir-format
 msgid "Finish the tournament setup before adding players - still missing:"
 msgstr ""
@@ -2451,14 +2451,14 @@ msgstr ""
 msgid "%[owner] invited you to collaborate on %[tournament]. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3882
-#: lib/pairings_engine_web/live/players_live.ex:4099
+#: lib/pairings_engine_web/live/players_live.ex:3927
+#: lib/pairings_engine_web/live/players_live.ex:4144
 #, elixir-autogen, elixir-format
 msgid "%{checked} checked, %{changed}, %{unmatched} without id match."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3884
-#: lib/pairings_engine_web/live/players_live.ex:4101
+#: lib/pairings_engine_web/live/players_live.ex:3929
+#: lib/pairings_engine_web/live/players_live.ex:4146
 #, elixir-autogen, elixir-format
 msgid "%{count} change"
 msgid_plural "%{count} changes"
@@ -2529,8 +2529,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:391
-#: lib/pairings_engine_web/live/players_live.ex:3883
-#: lib/pairings_engine_web/live/players_live.ex:4100
+#: lib/pairings_engine_web/live/players_live.ex:3928
+#: lib/pairings_engine_web/live/players_live.ex:4145
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1036
 #, elixir-autogen, elixir-format
 msgid "%{count} player"
@@ -2538,7 +2538,7 @@ msgid_plural "%{count} players"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2756
+#: lib/pairings_engine_web/live/players_live.ex:2800
 #, elixir-autogen, elixir-format
 msgid "%{count} player registered"
 msgid_plural "%{count} players registered"
@@ -2557,7 +2557,7 @@ msgstr[1] ""
 msgid "%{host} host · %{other} other feds"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4479
+#: lib/pairings_engine_web/live/players_live.ex:4526
 #, elixir-autogen, elixir-format
 msgid "%{name} (not in list)"
 msgstr ""
@@ -2593,7 +2593,7 @@ msgstr ""
 msgid "(table %{n})"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4386
+#: lib/pairings_engine_web/live/players_live.ex:4433
 #, elixir-autogen, elixir-format
 msgid "(this is a %{kind} tournament - refreshing fills in the %{kind} rating, or Standard if this player has none yet)"
 msgstr ""
@@ -2608,7 +2608,7 @@ msgstr ""
 msgid "- FIDE %{id} - %{federation}, born %{year}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4335
+#: lib/pairings_engine_web/live/players_live.ex:4382
 #, elixir-autogen, elixir-format
 msgid "- apply this?"
 msgid_plural "- apply these?"
@@ -2633,7 +2633,7 @@ msgstr[1] ""
 msgid "About"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4700
+#: lib/pairings_engine_web/live/players_live.ex:4788
 #, elixir-autogen, elixir-format
 msgid "Absent"
 msgstr ""
@@ -2671,12 +2671,12 @@ msgstr ""
 msgid "Alphabetical pairing list - round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4547
+#: lib/pairings_engine_web/live/players_live.ex:4594
 #, elixir-autogen, elixir-format
 msgid "Also used by: %{who} - fine if they'll be paired together there, otherwise double-check."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4113
+#: lib/pairings_engine_web/live/players_live.ex:4158
 #: lib/pairings_engine_web/live/team_sheets_live.ex:439
 #, elixir-autogen, elixir-format
 msgid "Apply"
@@ -2783,10 +2783,10 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairings_live.ex:6291
 #: lib/pairings_engine_web/live/pairings_live.ex:6699
 #: lib/pairings_engine_web/live/pairings_live.ex:6731
-#: lib/pairings_engine_web/live/players_live.ex:3605
-#: lib/pairings_engine_web/live/players_live.ex:3901
-#: lib/pairings_engine_web/live/players_live.ex:4116
-#: lib/pairings_engine_web/live/players_live.ex:4760
+#: lib/pairings_engine_web/live/players_live.ex:3650
+#: lib/pairings_engine_web/live/players_live.ex:3946
+#: lib/pairings_engine_web/live/players_live.ex:4161
+#: lib/pairings_engine_web/live/players_live.ex:4848
 #: lib/pairings_engine_web/live/rating_lists_live.ex:317
 #: lib/pairings_engine_web/live/settings_support.ex:869
 #: lib/pairings_engine_web/live/tournaments_live.ex:1794
@@ -2815,7 +2815,7 @@ msgstr ""
 #: lib/pairings_engine_web/components/layouts.ex:246
 #: lib/pairings_engine_web/live/categories_live.ex:660
 #: lib/pairings_engine_web/live/categories_live.ex:670
-#: lib/pairings_engine_web/live/players_live.ex:4456
+#: lib/pairings_engine_web/live/players_live.ex:4503
 #: lib/pairings_engine_web/live/settings_support.ex:101
 #, elixir-autogen, elixir-format
 msgid "Categories"
@@ -2824,7 +2824,7 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/print_controller.ex:1218
 #: lib/pairings_engine_web/controllers/print_controller.ex:1239
 #: lib/pairings_engine_web/live/categories_live.ex:837
-#: lib/pairings_engine_web/live/players_live.ex:4519
+#: lib/pairings_engine_web/live/players_live.ex:4566
 #: lib/pairings_engine_web/live/standings_live.ex:784
 #: lib/pairings_engine_web/live/standings_live.ex:1006
 #: lib/pairings_engine_web/live/standings_live.ex:1180
@@ -2864,8 +2864,8 @@ msgstr ""
 msgid "Clear the recorded result (%{result}) for this board?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3138
-#: lib/pairings_engine_web/live/players_live.ex:4524
+#: lib/pairings_engine_web/live/players_live.ex:3182
+#: lib/pairings_engine_web/live/players_live.ex:4571
 #, elixir-autogen, elixir-format
 msgid "Club"
 msgstr ""
@@ -2900,7 +2900,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4362
+#: lib/pairings_engine_web/live/players_live.ex:4409
 #, elixir-autogen, elixir-format
 msgid "Country"
 msgstr ""
@@ -2993,7 +2993,7 @@ msgstr ""
 msgid "Dismiss"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3398
+#: lib/pairings_engine_web/live/players_live.ex:3442
 #, elixir-autogen, elixir-format
 msgid "Display"
 msgstr ""
@@ -3003,7 +3003,7 @@ msgstr ""
 msgid "Document"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3180
+#: lib/pairings_engine_web/live/players_live.ex:3224
 #, elixir-autogen, elixir-format
 msgid "Done"
 msgstr ""
@@ -3032,7 +3032,7 @@ msgstr ""
 msgid "Every report below is generated from the officials/arbiter details in the card just below, the FIDE identifiers on the %[fide] page, and the player list."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4876
+#: lib/pairings_engine_web/live/players_live.ex:4964
 #, elixir-autogen, elixir-format
 msgid "Exit"
 msgstr ""
@@ -3065,7 +3065,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/norms_live.ex:1085
 #: lib/pairings_engine_web/live/norms_live.ex:1214
 #: lib/pairings_engine_web/live/norms_live.ex:1312
-#: lib/pairings_engine_web/live/players_live.ex:3128
+#: lib/pairings_engine_web/live/players_live.ex:3172
 #: lib/pairings_engine_web/live/rating_lists_live.ex:288
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1231
 #: lib/pairings_engine_web/live/user_live/settings.ex:992
@@ -3089,8 +3089,8 @@ msgstr ""
 msgid "Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms below. Organizer name is set on the %[tournament] page; the tournament's FIDE ID / event code on the %[fide] page. Pairing mode is always computerized, and the pairing program names whichever engine paired this tournament."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3848
-#: lib/pairings_engine_web/live/players_live.ex:4072
+#: lib/pairings_engine_web/live/players_live.ex:3893
+#: lib/pairings_engine_web/live/players_live.ex:4117
 #, elixir-autogen, elixir-format
 msgid "Field"
 msgstr ""
@@ -3101,12 +3101,12 @@ msgstr ""
 msgid "File"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4867
+#: lib/pairings_engine_web/live/players_live.ex:4955
 #, elixir-autogen, elixir-format
 msgid "Following"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4738
+#: lib/pairings_engine_web/live/players_live.ex:4826
 #, elixir-autogen, elixir-format
 msgid "Forfeit"
 msgstr ""
@@ -3127,7 +3127,7 @@ msgstr ""
 msgid "General"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4688
+#: lib/pairings_engine_web/live/players_live.ex:4776
 #, elixir-autogen, elixir-format
 msgid "Gratis"
 msgstr ""
@@ -3226,8 +3226,8 @@ msgstr ""
 #: lib/pairings_engine_web/live/live_round_live.ex:913
 #: lib/pairings_engine_web/live/live_round_live.ex:948
 #: lib/pairings_engine_web/live/norms_live.ex:1310
-#: lib/pairings_engine_web/live/players_live.ex:3281
-#: lib/pairings_engine_web/live/players_live.ex:4349
+#: lib/pairings_engine_web/live/players_live.ex:3325
+#: lib/pairings_engine_web/live/players_live.ex:4396
 #: lib/pairings_engine_web/live/rating_lists_live.ex:193
 #: lib/pairings_engine_web/live/rating_lists_live.ex:286
 #: lib/pairings_engine_web/live/standings_live.ex:945
@@ -3244,7 +3244,7 @@ msgstr ""
 msgid "Name"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4343
+#: lib/pairings_engine_web/live/players_live.ex:4390
 #, elixir-autogen, elixir-format
 msgid "No"
 msgstr ""
@@ -3315,7 +3315,7 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/print_controller.ex:814
 #: lib/pairings_engine_web/controllers/print_controller.ex:1032
 #: lib/pairings_engine_web/controllers/print_controller.ex:1692
-#: lib/pairings_engine_web/live/players_live.ex:4815
+#: lib/pairings_engine_web/live/players_live.ex:4903
 #, elixir-autogen, elixir-format
 msgid "Opponent"
 msgstr ""
@@ -3338,7 +3338,7 @@ msgstr ""
 msgid "Page %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4682
+#: lib/pairings_engine_web/live/players_live.ex:4770
 #, elixir-autogen, elixir-format
 msgid "Paid"
 msgstr ""
@@ -3433,11 +3433,11 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3584
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3614
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3861
-#: lib/pairings_engine_web/live/players_live.ex:3582
-#: lib/pairings_engine_web/live/players_live.ex:3621
-#: lib/pairings_engine_web/live/players_live.ex:3725
-#: lib/pairings_engine_web/live/players_live.ex:3846
-#: lib/pairings_engine_web/live/players_live.ex:4070
+#: lib/pairings_engine_web/live/players_live.ex:3627
+#: lib/pairings_engine_web/live/players_live.ex:3666
+#: lib/pairings_engine_web/live/players_live.ex:3770
+#: lib/pairings_engine_web/live/players_live.ex:3891
+#: lib/pairings_engine_web/live/players_live.ex:4115
 #, elixir-autogen, elixir-format
 msgid "Player"
 msgstr ""
@@ -3458,7 +3458,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/categories_live.ex:785
 #: lib/pairings_engine_web/live/extra_points_live.ex:230
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:533
-#: lib/pairings_engine_web/live/players_live.ex:3240
+#: lib/pairings_engine_web/live/players_live.ex:3284
 #: lib/pairings_engine_web/live/rating_lists_live.ex:194
 #: lib/pairings_engine_web/live/tools_norms_live.ex:969
 #: lib/pairings_engine_web/live/tournaments_live.ex:2913
@@ -3482,7 +3482,7 @@ msgid "Press \"Pair round %{n}\" to generate the %{engine}."
 msgstr ""
 
 #: lib/pairings_engine_web/live/help_live.ex:376
-#: lib/pairings_engine_web/live/players_live.ex:4866
+#: lib/pairings_engine_web/live/players_live.ex:4954
 #, elixir-autogen, elixir-format
 msgid "Previous"
 msgstr ""
@@ -3490,7 +3490,7 @@ msgstr ""
 #: lib/pairings_engine_web/components/layouts.ex:176
 #: lib/pairings_engine_web/controllers/badge_print_html.ex:79
 #: lib/pairings_engine_web/live/pairings_live.ex:5571
-#: lib/pairings_engine_web/live/players_live.ex:4873
+#: lib/pairings_engine_web/live/players_live.ex:4961
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:908
 #: lib/pairings_engine_web/live/standings_live.ex:762
 #: lib/pairings_engine_web/live/team_sheets_live.ex:141
@@ -3530,7 +3530,7 @@ msgstr ""
 msgid "Registered players (%{count})"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4669
+#: lib/pairings_engine_web/live/players_live.ex:4757
 #, elixir-autogen, elixir-format
 msgid "Registration"
 msgstr ""
@@ -3547,8 +3547,8 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/badge_studio_live.ex:1479
 #: lib/pairings_engine_web/live/categories_live.ex:938
-#: lib/pairings_engine_web/live/players_live.ex:3313
-#: lib/pairings_engine_web/live/players_live.ex:3389
+#: lib/pairings_engine_web/live/players_live.ex:3357
+#: lib/pairings_engine_web/live/players_live.ex:3433
 #: lib/pairings_engine_web/live/settings_export_live.ex:1757
 #: lib/pairings_engine_web/live/settings_fide_live.ex:516
 #: lib/pairings_engine_web/live/settings_options_live.ex:1197
@@ -3597,6 +3597,8 @@ msgid "Revoke"
 msgstr ""
 
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:250
+#: lib/pairings_engine_web/live/players_live.ex:4668
+#: lib/pairings_engine_web/live/players_live.ex:4670
 #: lib/pairings_engine_web/live/settings_dates_live.ex:236
 #: lib/pairings_engine_web/live/standings_live.ex:305
 #, elixir-autogen, elixir-format
@@ -3665,7 +3667,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/fide_live.ex:1130
 #: lib/pairings_engine_web/live/norms_live.ex:1443
 #: lib/pairings_engine_web/live/pairings_live.ex:4673
-#: lib/pairings_engine_web/live/players_live.ex:4758
+#: lib/pairings_engine_web/live/players_live.ex:4846
 #: lib/pairings_engine_web/live/settings_export_live.ex:1301
 #: lib/pairings_engine_web/live/settings_options_live.ex:460
 #: lib/pairings_engine_web/live/settings_results_live.ex:1519
@@ -3674,7 +3676,7 @@ msgstr ""
 msgid "Save"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:591
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:614
 #, elixir-autogen, elixir-format
 msgid "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
 msgstr ""
@@ -3751,7 +3753,7 @@ msgstr ""
 msgid "Signing in..."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4380
+#: lib/pairings_engine_web/live/players_live.ex:4427
 #, elixir-autogen, elixir-format
 msgid "Standard %{std} · Rapid %{rapid} · Blitz %{blitz}"
 msgstr ""
@@ -3895,8 +3897,8 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:392
 #: lib/pairings_engine_web/live/badge_studio_live.ex:617
 #: lib/pairings_engine_web/live/badge_studio_live.ex:894
-#: lib/pairings_engine_web/live/players_live.ex:3063
-#: lib/pairings_engine_web/live/players_live.ex:4411
+#: lib/pairings_engine_web/live/players_live.ex:3107
+#: lib/pairings_engine_web/live/players_live.ex:4458
 #: lib/pairings_engine_web/live/rating_lists_live.ex:289
 #: lib/pairings_engine_web/live/team_sheets_live.ex:377
 #, elixir-autogen, elixir-format
@@ -3920,7 +3922,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:633
 #: lib/pairings_engine_web/controllers/print_controller.ex:1316
-#: lib/pairings_engine_web/live/players_live.ex:4853
+#: lib/pairings_engine_web/live/players_live.ex:4941
 #: lib/pairings_engine_web/live/standings_live.ex:978
 #, elixir-autogen, elixir-format
 msgid "Total"
@@ -4068,7 +4070,7 @@ msgstr ""
 msgid "Working…"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4339
+#: lib/pairings_engine_web/live/players_live.ex:4386
 #, elixir-autogen, elixir-format
 msgid "Yes"
 msgstr ""
@@ -4139,7 +4141,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1357
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2298
-#: lib/pairings_engine_web/live/players_live.ex:4539
+#: lib/pairings_engine_web/live/players_live.ex:4586
 #, elixir-autogen, elixir-format
 msgid "none"
 msgstr ""
@@ -4200,9 +4202,9 @@ msgid "unknown"
 msgstr ""
 
 #: lib/pairings_engine_web/live/fide_live.ex:842
-#: lib/pairings_engine_web/live/players_live.ex:2995
-#: lib/pairings_engine_web/live/players_live.ex:3009
-#: lib/pairings_engine_web/live/players_live.ex:4395
+#: lib/pairings_engine_web/live/players_live.ex:3039
+#: lib/pairings_engine_web/live/players_live.ex:3053
+#: lib/pairings_engine_web/live/players_live.ex:4442
 #, elixir-autogen, elixir-format
 msgid "unrated"
 msgstr ""
@@ -5480,22 +5482,22 @@ msgstr ""
 msgid "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:157
+#: lib/pairings_engine/features.ex:145
 #, elixir-autogen, elixir-format
 msgid "Adds \"Import SWAR file\": takes a .swar tournament in, with its players, rounds and results, and continues it here."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:139
+#: lib/pairings_engine/features.ex:127
 #, elixir-autogen, elixir-format
 msgid "Adds the \"KBSB lookup\" button beside a player's details, and fills the form in as you type a National ID. Reads the local copy of the member list."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:148
+#: lib/pairings_engine/features.ex:136
 #, elixir-autogen, elixir-format
 msgid "Adds the \"Update clubs\" action on the players page: compares everyone against the local member list and proposes their current club before writing anything. Reads the local copy of the member list."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:166
+#: lib/pairings_engine/features.ex:154
 #, elixir-autogen, elixir-format
 msgid "Adds the .swar download to a tournament's Export page, for handing a tournament back to SWAR."
 msgstr ""
@@ -5505,7 +5507,7 @@ msgstr ""
 msgid "Belgium - KBSB / FRBE"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:146
+#: lib/pairings_engine/features.ex:134
 #, elixir-autogen, elixir-format
 msgid "Bulk club update"
 msgstr ""
@@ -5516,7 +5518,7 @@ msgstr ""
 msgid "Could not save that. Please try again."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:130
+#: lib/pairings_engine/features.ex:118
 #, elixir-autogen, elixir-format
 msgid "Downloads the Belgian member list (players, ratings, clubs) from the KBSB data platform and keeps a local copy. Adds its panel to the Connections page."
 msgstr ""
@@ -5537,17 +5539,17 @@ msgstr ""
 msgid "It hides buttons. Everything already imported - players, clubs, scores, categories - stays exactly as it is, and scores exactly as it did."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:137
+#: lib/pairings_engine/features.ex:125
 #, elixir-autogen, elixir-format
 msgid "KBSB player lookup"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:128
+#: lib/pairings_engine/features.ex:116
 #, elixir-autogen, elixir-format
 msgid "National rating list sync"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:164
+#: lib/pairings_engine/features.ex:152
 #, elixir-autogen, elixir-format
 msgid "SWAR export"
 msgstr ""
@@ -5557,7 +5559,7 @@ msgstr ""
 msgid "SWAR export is switched off for your account. Turn it on under Features."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:155
+#: lib/pairings_engine/features.ex:143
 #, elixir-autogen, elixir-format
 msgid "SWAR import"
 msgstr ""
@@ -5582,12 +5584,12 @@ msgstr ""
 msgid "The Belgian rating list sync is switched off for your account. Turn it on under Features."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2445
+#: lib/pairings_engine_web/live/players_live.ex:2489
 #, elixir-autogen, elixir-format
 msgid "The KBSB club update is switched off for your account. Turn it on under Features."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2439
+#: lib/pairings_engine_web/live/players_live.ex:2483
 #, elixir-autogen, elixir-format
 msgid "The KBSB player lookup is switched off for your account. Turn it on under Features."
 msgstr ""
@@ -5964,7 +5966,7 @@ msgid_plural "Rondes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine/features.ex:173
+#: lib/pairings_engine/features.ex:161
 #: lib/pairings_engine_web/live/fide_live.ex:857
 #, elixir-autogen, elixir-format
 msgid "SWAR results page"
@@ -6015,7 +6017,7 @@ msgstr ""
 msgid "van %{start} tot %{end}"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:175
+#: lib/pairings_engine/features.ex:163
 #, elixir-autogen, elixir-format
 msgid "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
 msgstr ""
@@ -6333,7 +6335,7 @@ msgstr ""
 msgid "Find the fixes"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4502
+#: lib/pairings_engine_web/live/players_live.ex:4549
 #, elixir-autogen, elixir-format
 msgid "First of their categories in list order"
 msgstr ""
@@ -6486,7 +6488,7 @@ msgid "Paired by JaVaFo. Analysed after the fact by Ainalrami"
 msgstr ""
 
 #: lib/pairings_engine_web/live/categories_live.ex:1012
-#: lib/pairings_engine_web/live/players_live.ex:4499
+#: lib/pairings_engine_web/live/players_live.ex:4546
 #, elixir-autogen, elixir-format
 msgid "Pairing pool"
 msgstr ""
@@ -6523,7 +6525,7 @@ msgstr ""
 msgid "Question"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3211
+#: lib/pairings_engine_web/live/players_live.ex:3255
 #, elixir-autogen, elixir-format
 msgid "Ranks are still this player's rank in the whole tournament, not a position within the category."
 msgstr ""
@@ -6595,12 +6597,12 @@ msgstr ""
 msgid "Semicolon  ;   (Excel on a Belgian/Dutch machine)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3220
+#: lib/pairings_engine_web/live/players_live.ex:3264
 #, elixir-autogen, elixir-format
 msgid "Show all"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3211
+#: lib/pairings_engine_web/live/players_live.ex:3255
 #, elixir-autogen, elixir-format
 msgid "Showing only %{name}."
 msgstr ""
@@ -7461,8 +7463,8 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/help_live.ex:464
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:357
-#: lib/pairings_engine_web/live/players_live.ex:3660
-#: lib/pairings_engine_web/live/players_live.ex:3781
+#: lib/pairings_engine_web/live/players_live.ex:3705
+#: lib/pairings_engine_web/live/players_live.ex:3826
 #: lib/pairings_engine_web/public_consent.ex:185
 #, elixir-autogen, elixir-format
 msgid "Close"
@@ -8954,7 +8956,7 @@ msgstr ""
 msgid "To publish a tournament, open its Settings, go to OpenResults and turn publishing on. The first time, you are asked once, and nothing is sent before you agree."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3245
+#: lib/pairings_engine_web/live/players_live.ex:3289
 #, elixir-autogen, elixir-format
 msgid "%[name] is no longer in the grid; you are on the row that took its place."
 msgstr ""
@@ -8964,17 +8966,17 @@ msgstr ""
 msgid "Black on board %{board}: %{name}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3204
+#: lib/pairings_engine_web/live/players_live.ex:3248
 #, elixir-autogen, elixir-format
 msgid "By keyboard, the grid is one Tab stop: the arrow keys move between cells, Enter or Space opens a Pr., Paid or Cat. cell's menu, Enter on a name edits the player, and the context-menu key opens what a right-click would."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2680
+#: lib/pairings_engine_web/live/players_live.ex:2724
 #, elixir-autogen, elixir-format
 msgid "Categories, %{name}: %{categories}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2677
+#: lib/pairings_engine_web/live/players_live.ex:2721
 #, elixir-autogen, elixir-format
 msgid "Categories, %{name}: none"
 msgstr ""
@@ -8989,22 +8991,22 @@ msgstr ""
 msgid "Not playing: %{name}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2669
+#: lib/pairings_engine_web/live/players_live.ex:2713
 #, elixir-autogen, elixir-format
 msgid "Paid, %{name}: free of charge"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2668
+#: lib/pairings_engine_web/live/players_live.ex:2712
 #, elixir-autogen, elixir-format
 msgid "Paid, %{name}: no"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2670
+#: lib/pairings_engine_web/live/players_live.ex:2714
 #, elixir-autogen, elixir-format
 msgid "Paid, %{name}: not recorded"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2667
+#: lib/pairings_engine_web/live/players_live.ex:2711
 #, elixir-autogen, elixir-format
 msgid "Paid, %{name}: yes"
 msgstr ""
@@ -9019,27 +9021,27 @@ msgstr ""
 msgid "Pairing cancelled."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2644
+#: lib/pairings_engine_web/live/players_live.ex:2688
 #, elixir-autogen, elixir-format
 msgid "Presence, %{name}: absent for the whole event"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2650
+#: lib/pairings_engine_web/live/players_live.ex:2694
 #, elixir-autogen, elixir-format
 msgid "Presence, %{name}: absent this round (sitting out rounds %{rounds})"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2656
+#: lib/pairings_engine_web/live/players_live.ex:2700
 #, elixir-autogen, elixir-format
 msgid "Presence, %{name}: available this round (sat out rounds %{rounds})"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2641
+#: lib/pairings_engine_web/live/players_live.ex:2685
 #, elixir-autogen, elixir-format
 msgid "Presence, %{name}: forfeited"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2647
+#: lib/pairings_engine_web/live/players_live.ex:2691
 #, elixir-autogen, elixir-format
 msgid "Presence, %{name}: present"
 msgstr ""
@@ -9431,7 +9433,7 @@ msgstr ""
 msgid "OpenPairings cannot calculate this tie-break for this kind of tournament - a team tie-break in an individual event, or one team standings do not calculate. It would score zero for everybody and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3716
+#: lib/pairings_engine_web/live/players_live.ex:3761
 #: lib/pairings_engine_web/live/teams_live.ex:670
 #, elixir-autogen, elixir-format
 msgid "Order by rating"
@@ -9972,8 +9974,8 @@ msgstr ""
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:120
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:147
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:2500
-#: lib/pairings_engine_web/live/players_live.ex:3620
-#: lib/pairings_engine_web/live/players_live.ex:3724
+#: lib/pairings_engine_web/live/players_live.ex:3665
+#: lib/pairings_engine_web/live/players_live.ex:3769
 #: lib/pairings_engine_web/live/team_sheets_live.ex:245
 #: lib/pairings_engine_web/live/team_sheets_live.ex:289
 #, elixir-autogen, elixir-format
@@ -11270,7 +11272,7 @@ msgstr ""
 msgid "A draw (FIDE)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:602
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:625
 #, elixir-autogen, elixir-format
 msgid "A game that is not played in its round - moved to a later date, or adjourned - can be recorded as postponed by White or by Black. The tournament goes on; until the game is played it counts as set here, in the standings, the tie-breaks and the pairing. Changing these values later only affects games postponed after the change."
 msgstr ""
@@ -11307,7 +11309,7 @@ msgstr[1] ""
 msgid "A win"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:618
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:641
 #, elixir-autogen, elixir-format
 msgid "Allow postponed games"
 msgstr ""
@@ -11364,12 +11366,12 @@ msgstr ""
 msgid "Confirmed over the warning that the round had already been sent in a TRF finalised for sending."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:642
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:665
 #, elixir-autogen, elixir-format
 msgid "Counts as, for the opponent"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:627
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:650
 #, elixir-autogen, elixir-format
 msgid "Counts as, for the player who postponed it"
 msgstr ""
@@ -11397,7 +11399,7 @@ msgid_plural "Exported a TRF for sending (rounds %{rounds}) and marked %{count} 
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:656
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:679
 #, elixir-autogen, elixir-format
 msgid "FIDE allows only a draw for both. Anything else - a win for the player who postponed it, so they are paired higher up, for example - takes the tournament out of FIDE mode."
 msgstr ""
@@ -11413,7 +11415,7 @@ msgid "I know these games were already sent, and restore anyway"
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:6246
-#: lib/pairings_engine_web/live/players_live.ex:4641
+#: lib/pairings_engine_web/live/players_live.ex:4729
 #, elixir-autogen, elixir-format
 msgid "I understand - change the sent round %{n} anyway"
 msgstr ""
@@ -11440,7 +11442,7 @@ msgid_plural "Not final: %{count} postponed games are still to be played. They c
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:1752
+#: lib/pairings_engine_web/live/players_live.ex:1764
 #, elixir-autogen, elixir-format
 msgid "Not saved: round %{rounds} was already sent to FIDE. Tick the box under the absences to change it anyway."
 msgstr ""
@@ -11450,7 +11452,7 @@ msgstr ""
 msgid "Nothing to send: no postponed game was played after its round was sent."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:620
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:643
 #, elixir-autogen, elixir-format
 msgid "Off (the default) = no postponed option is offered anywhere. On = the result lists offer \"postponed by White\" and \"postponed by Black\", and a Postponed games page lists them and exports their TRF."
 msgstr ""
@@ -11476,7 +11478,7 @@ msgid "Postponed game, for the player who postponed it"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:1216
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:599
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:622
 #, elixir-autogen, elixir-format
 msgid "Postponed games"
 msgstr ""
@@ -11616,7 +11618,7 @@ msgstr ""
 msgid "There is no postponed game to send: none was played after its round was sent."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4629
+#: lib/pairings_engine_web/live/players_live.ex:4717
 #, elixir-autogen, elixir-format
 msgid "This changes the player's absence there only: the file that was sent keeps the old one, and the tournament will no longer agree with it. The round stays marked as sent and is not sent again. Only go on to correct a real mistake, and tell the rating officer."
 msgstr ""
@@ -11746,7 +11748,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:6228
-#: lib/pairings_engine_web/live/players_live.ex:4622
+#: lib/pairings_engine_web/live/players_live.ex:4710
 #, elixir-autogen, elixir-format
 msgid "⚠ Round %{n} was already sent to FIDE in a TRF finalised for sending."
 msgstr ""
@@ -11998,7 +12000,7 @@ msgid_plural "%{count} postponed games still unplayed"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2902
+#: lib/pairings_engine_web/live/players_live.ex:2946
 #, elixir-autogen, elixir-format
 msgid "%{count} postponed game to be played"
 msgid_plural "%{count} postponed games to be played"
@@ -12077,7 +12079,7 @@ msgstr[1] ""
 msgid "December"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2910
+#: lib/pairings_engine_web/live/players_live.ex:2954
 #, elixir-autogen, elixir-format
 msgid "Enter results"
 msgstr ""
@@ -12177,7 +12179,7 @@ msgstr ""
 msgid "Print notices"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2921
+#: lib/pairings_engine_web/live/players_live.ex:2965
 #, elixir-autogen, elixir-format
 msgid "Round %{round} · board %{board}"
 msgstr ""
@@ -12481,8 +12483,8 @@ msgid_plural "%{count} absences left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3148
-#: lib/pairings_engine_web/live/players_live.ex:4565
+#: lib/pairings_engine_web/live/players_live.ex:3192
+#: lib/pairings_engine_web/live/players_live.ex:4612
 #, elixir-autogen, elixir-format
 msgid "Joins in round"
 msgstr ""
@@ -12692,13 +12694,13 @@ msgstr ""
 msgid "%{name}'s exclusion from the bye was lifted for this round only: no legal pairing kept the bye away from every excluded player."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2175
+#: lib/pairings_engine_web/live/players_live.ex:2219
 #, elixir-autogen, elixir-format
 msgid "A round in which this moves the bye is not paired the way the FIDE rules require, and the tournament's FIDE record says so from that round on. Only use it if the rating officer has agreed."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2154
-#: lib/pairings_engine_web/live/players_live.ex:2361
+#: lib/pairings_engine_web/live/players_live.ex:2198
+#: lib/pairings_engine_web/live/players_live.ex:2405
 #, elixir-autogen, elixir-format
 msgid "Certain rounds"
 msgstr ""
@@ -12710,22 +12712,22 @@ msgid_plural "Every legal pairing gives the pairing-allocated bye to one of the 
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2133
+#: lib/pairings_engine_web/live/players_live.ex:2177
 #, elixir-autogen, elixir-format
 msgid "Exclude from the pairing-allocated bye"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2107
+#: lib/pairings_engine_web/live/players_live.ex:2151
 #, elixir-autogen, elixir-format
 msgid "Exclude from the pairing-allocated bye: not available - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2073
+#: lib/pairings_engine_web/live/players_live.ex:2117
 #, elixir-autogen, elixir-format
 msgid "Excluded from the pairing-allocated bye in every round (organiser's rule, not FIDE)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2079
+#: lib/pairings_engine_web/live/players_live.ex:2123
 #, elixir-autogen, elixir-format
 msgid "Excluded from the pairing-allocated bye in rounds %{rounds} (organiser's rule, not FIDE)"
 msgstr ""
@@ -12737,7 +12739,7 @@ msgid_plural "No legal pairing keeps the pairing-allocated bye away from the %{c
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2160
+#: lib/pairings_engine_web/live/players_live.ex:2204
 #, elixir-autogen, elixir-format
 msgid "No pairing-allocated bye at the rounds (e.g. 3,5 or 2-4)"
 msgstr ""
@@ -12748,8 +12750,8 @@ msgid "Not a FIDE rule: a FIDE-endorsed program would have paired this round dif
 msgstr ""
 
 #: lib/pairings_engine_web/live/extra_points_live.ex:297
-#: lib/pairings_engine_web/live/players_live.ex:2171
-#: lib/pairings_engine_web/live/players_live.ex:2384
+#: lib/pairings_engine_web/live/players_live.ex:2215
+#: lib/pairings_engine_web/live/players_live.ex:2428
 #: lib/pairings_engine_web/live/settings_options_live.ex:1293
 #, elixir-autogen, elixir-format
 msgid "Not part of the FIDE rules."
@@ -12794,12 +12796,12 @@ msgstr[1] ""
 msgid "This round cannot be paired with the bye exclusions as they stand."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2171
+#: lib/pairings_engine_web/live/players_live.ex:2215
 #, elixir-autogen, elixir-format
 msgid "With this player kept from the pairing-allocated bye, the Swiss pairings will differ from what FIDE-endorsed programs produce, and a FIDE checker cannot replay the rounds it changes. The round's explanation and the audit trail record it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3351
+#: lib/pairings_engine_web/live/players_live.ex:3395
 #, elixir-autogen, elixir-format
 msgid "no bye"
 msgstr ""
@@ -12824,12 +12826,12 @@ msgstr ""
 msgid "With extra points in the pairing, the Swiss pairings will differ from what the FIDE rules pair, and a FIDE checker cannot replay the rounds they change. The first round paired while a player holds extra points is recorded as the round the tournament stopped matching the FIDE rules, and the audit trail records it. With nobody holding extra points, nothing changes."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4600
+#: lib/pairings_engine_web/live/players_live.ex:4647
 #, elixir-autogen, elixir-format
 msgid "Joins in round %{round} (no game yet: the next round to be paired). Type another round to set it yourself."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4595
+#: lib/pairings_engine_web/live/players_live.ex:4642
 #, elixir-autogen, elixir-format
 msgid "Joins in round %{round} (worked out from their first game). Type another round to set it yourself."
 msgstr ""
@@ -13866,32 +13868,32 @@ msgstr ""
 msgid "%{name}'s bye preference was not applied: it contradicts their other bye setting (%{other}), which takes precedence."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2384
+#: lib/pairings_engine_web/live/players_live.ex:2428
 #, elixir-autogen, elixir-format
 msgid "A bye preference makes the Swiss pairings differ from what FIDE-endorsed programs produce in any round it changes, and a FIDE checker cannot replay that round. The round's explanation and the audit trail record it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2287
+#: lib/pairings_engine_web/live/players_live.ex:2331
 #, elixir-autogen, elixir-format
 msgid "Bye preference (%{what}): not applied - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2371
+#: lib/pairings_engine_web/live/players_live.ex:2415
 #, elixir-autogen, elixir-format
 msgid "Bye preference at the rounds (e.g. 3,5 or 2-4)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2315
+#: lib/pairings_engine_web/live/players_live.ex:2359
 #, elixir-autogen, elixir-format
 msgid "Bye preference ignored: this tournament is FIDE-rated."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2246
+#: lib/pairings_engine_web/live/players_live.ex:2290
 #, elixir-autogen, elixir-format
 msgid "Bye preference in every round: %{what} (organiser's wish, not FIDE)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2250
+#: lib/pairings_engine_web/live/players_live.ex:2294
 #, elixir-autogen, elixir-format
 msgid "Bye preference in rounds %{rounds}: %{what} (organiser's wish, not FIDE)"
 msgstr ""
@@ -13902,17 +13904,17 @@ msgstr ""
 msgid "Bye preferences ignored: this tournament is FIDE-rated."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2219
+#: lib/pairings_engine_web/live/players_live.ex:2263
 #, elixir-autogen, elixir-format
 msgid "Must get it, if a legal pairing allows"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2390
+#: lib/pairings_engine_web/live/players_live.ex:2434
 #, elixir-autogen, elixir-format
 msgid "Must get it: whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - unless no legal pairing allows it; then the round is paired normally and the Pairings page says why."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2218
+#: lib/pairings_engine_web/live/players_live.ex:2262
 #, elixir-autogen, elixir-format
 msgid "No preference (the FIDE rules decide)"
 msgstr ""
@@ -13922,27 +13924,27 @@ msgstr ""
 msgid "Not a FIDE rule: where the preferences changed the round, a FIDE-endorsed program would have paired it differently, and a FIDE checker cannot replay it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2338
+#: lib/pairings_engine_web/live/players_live.ex:2382
 #, elixir-autogen, elixir-format
 msgid "Pairing-allocated bye preference"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2220
+#: lib/pairings_engine_web/live/players_live.ex:2264
 #, elixir-autogen, elixir-format
 msgid "Rather gets it"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2394
+#: lib/pairings_engine_web/live/players_live.ex:2438
 #, elixir-autogen, elixir-format
 msgid "Rather gets it: decides the bye among the players on the score that gets it, at the cost of the quality criteria only. It never lifts the bye to a higher score and never makes the round unpairable."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2221
+#: lib/pairings_engine_web/live/players_live.ex:2265
 #, elixir-autogen, elixir-format
 msgid "Rather not"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2398
+#: lib/pairings_engine_web/live/players_live.ex:2442
 #, elixir-autogen, elixir-format
 msgid "Rather not: another player on the score that gets the bye takes it, if any can. It never lifts the bye to a higher score and never makes the round unpairable."
 msgstr ""
@@ -13969,7 +13971,7 @@ msgstr ""
 msgid "The bye preferences changed this round (an organiser's wish, not a FIDE rule): the pairing-allocated bye went to %{name}; by the FIDE rules alone it would have gone to %{fide}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2315
+#: lib/pairings_engine_web/live/players_live.ex:2359
 #, elixir-autogen, elixir-format
 msgid "This player's stored preference (%{what}) is not applied while the tournament is FIDE-rated, and cannot be changed here. It is kept, and applies again if the tournament stops being FIDE-rated."
 msgstr ""
@@ -13989,17 +13991,17 @@ msgstr ""
 msgid "already won a game without playing"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2235
+#: lib/pairings_engine_web/live/players_live.ex:2279
 #, elixir-autogen, elixir-format
 msgid "bye: must"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2236
+#: lib/pairings_engine_web/live/players_live.ex:2280
 #, elixir-autogen, elixir-format
 msgid "bye: rather"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2237
+#: lib/pairings_engine_web/live/players_live.ex:2281
 #, elixir-autogen, elixir-format
 msgid "bye: rather not"
 msgstr ""
@@ -14009,7 +14011,7 @@ msgstr ""
 msgid "excluded from the bye"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2256
+#: lib/pairings_engine_web/live/players_live.ex:2300
 #, elixir-autogen, elixir-format
 msgid "ignored: the tournament is FIDE-rated"
 msgstr ""
@@ -14019,7 +14021,7 @@ msgstr ""
 msgid "must get the bye"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2225
+#: lib/pairings_engine_web/live/players_live.ex:2269
 #, elixir-autogen, elixir-format
 msgid "must get the pairing-allocated bye"
 msgstr ""
@@ -14029,7 +14031,7 @@ msgstr ""
 msgid "rather gets the bye"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2226
+#: lib/pairings_engine_web/live/players_live.ex:2270
 #, elixir-autogen, elixir-format
 msgid "rather gets the pairing-allocated bye"
 msgstr ""
@@ -14039,12 +14041,12 @@ msgstr ""
 msgid "rather not the bye"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2227
+#: lib/pairings_engine_web/live/players_live.ex:2271
 #, elixir-autogen, elixir-format
 msgid "rather not the pairing-allocated bye"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:188
+#: lib/pairings_engine/features.ex:189
 #, elixir-autogen, elixir-format
 msgid "Bye preferences"
 msgstr ""
@@ -14214,7 +14216,7 @@ msgstr ""
 msgid "Preview - nothing is saved"
 msgstr ""
 
-#: lib/pairings_engine/features.ex:119
+#: lib/pairings_engine/features.ex:174
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:264
 #, elixir-autogen, elixir-format
 msgid "Preview next round"
@@ -14455,7 +14457,7 @@ msgstr ""
 msgid "standings"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2866
+#: lib/pairings_engine_web/live/players_live.ex:2910
 #, elixir-autogen, elixir-format
 msgid "%{count} entry waiting from the results site"
 msgid_plural "%{count} entries waiting from the results site"
@@ -14472,7 +14474,7 @@ msgstr ""
 msgid "Adding…"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2878
+#: lib/pairings_engine_web/live/players_live.ex:2922
 #, elixir-autogen, elixir-format
 msgid "All entries"
 msgstr ""
@@ -14577,7 +14579,7 @@ msgstr ""
 msgid "The FIDE list has this FIDE ID as %{name} - check it is the same person before accepting."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2883
+#: lib/pairings_engine_web/live/players_live.ex:2927
 #, elixir-autogen, elixir-format
 msgid "The entry form is open. New entries appear here within a minute; nobody is added until you accept them."
 msgstr ""
@@ -16006,32 +16008,32 @@ msgstr ""
 msgid "What a player without a rating, and a board nobody sits at, count as in a team's rating. 1400 is the FIDE rating floor (Rating Regulations 2024 Art. 7.1.4; the World University Team Championship regulations Art. 5.2.4 give unrated players 1400; the Olympiad Pairing Rules of 2012 Art. 7 gave them the floor). C.04.6 leaves it to the event's rules. Seeds already set never change by themselves."
 msgstr ""
 
-#: lib/pairings_engine/features.ex:190
+#: lib/pairings_engine/features.ex:191
 #, elixir-autogen, elixir-format
 msgid "Adds the pairing-allocated bye to a player's details: exclude them from it, or a preference - must get it, rather gets it, or rather not - for every round or chosen rounds. Not a FIDE rule: a round it changes is recorded as not paired by the FIDE rules, and a FIDE checker cannot replay it. Preferences are never applied on a FIDE-rated tournament. Ainalrami engine only."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2968
+#: lib/pairings_engine_web/live/players_live.ex:3012
 #, elixir-autogen, elixir-format
 msgid "Search the KBSB and FIDE lists (name, national ID or FIDE ID)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2283
+#: lib/pairings_engine_web/live/players_live.ex:2327
 #, elixir-autogen, elixir-format
 msgid "Bye preference: not available - this tournament pairs with JaVaFo, which has no such option. Switch the tournament to the Ainalrami engine to use it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2272
+#: lib/pairings_engine_web/live/players_live.ex:2316
 #, elixir-autogen, elixir-format
 msgid "Bye preference: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2097
+#: lib/pairings_engine_web/live/players_live.ex:2141
 #, elixir-autogen, elixir-format
 msgid "Exclude from the pairing-allocated bye: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2300
+#: lib/pairings_engine_web/live/players_live.ex:2344
 #, elixir-autogen, elixir-format
 msgid "Bye preference: not available - this tournament is FIDE-rated, and a preference is not a FIDE rule. The exclusion above is the only way to keep a player off the bye."
 msgstr ""
@@ -16222,12 +16224,12 @@ msgstr ""
 msgid "An \"only if possible\" pairing wish moves a board away from where the FIDE rules put it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3898
+#: lib/pairings_engine_web/live/players_live.ex:3943
 #, elixir-autogen, elixir-format
 msgid "Apply selected"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3865
+#: lib/pairings_engine_web/live/players_live.ex:3910
 #, elixir-autogen, elixir-format
 msgid "Apply this change"
 msgstr ""
@@ -16247,8 +16249,8 @@ msgstr ""
 msgid "Before importing: what this file needs adjusted"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3993
-#: lib/pairings_engine_web/live/players_live.ex:4001
+#: lib/pairings_engine_web/live/players_live.ex:4038
+#: lib/pairings_engine_web/live/players_live.ex:4046
 #, elixir-autogen, elixir-format
 msgid "Blitz"
 msgstr ""
@@ -16323,7 +16325,7 @@ msgstr ""
 msgid "Change the number of rounds"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3939
+#: lib/pairings_engine_web/live/players_live.ex:3984
 #, elixir-autogen, elixir-format
 msgid "Changed by hand; it was %{listed} on the %{list} list of %{period}."
 msgstr ""
@@ -16333,7 +16335,7 @@ msgstr ""
 msgid "Check the file"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:1407
+#: lib/pairings_engine_web/live/players_live.ex:1412
 #, elixir-autogen, elixir-format
 msgid "Checking that the FIDE list is current..."
 msgstr ""
@@ -16354,7 +16356,7 @@ msgstr ""
 msgid "Choose a CSV file first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4011
+#: lib/pairings_engine_web/live/players_live.ex:4056
 #, elixir-autogen, elixir-format
 msgid "Compared with the FIDE list of %{period} (valid on %{date})."
 msgstr ""
@@ -16374,7 +16376,7 @@ msgstr ""
 msgid "Correct for rating…"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:323
+#: lib/pairings_engine_web/live/players_live.ex:328
 #, elixir-autogen, elixir-format
 msgid "Could not confirm that the FIDE list on this machine is current (no answer from FIDE)."
 msgstr ""
@@ -16400,12 +16402,12 @@ msgstr ""
 msgid "Draw Chess960 position"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3711
+#: lib/pairings_engine_web/live/players_live.ex:3756
 #, elixir-autogen, elixir-format
 msgid "Draw all starting numbers by lot? The current order is replaced."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3713
+#: lib/pairings_engine_web/live/players_live.ex:3758
 #, elixir-autogen, elixir-format
 msgid "Draw lots"
 msgstr ""
@@ -16442,7 +16444,7 @@ msgstr ""
 msgid "Edit pairings by hand"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3995
+#: lib/pairings_engine_web/live/players_live.ex:4040
 #, elixir-autogen, elixir-format
 msgid "Effective Blitz"
 msgstr ""
@@ -16452,7 +16454,7 @@ msgstr ""
 msgid "Effective Blitz (Blitz, else Standard)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3994
+#: lib/pairings_engine_web/live/players_live.ex:4039
 #, elixir-autogen, elixir-format
 msgid "Effective Rapid"
 msgstr ""
@@ -16462,7 +16464,7 @@ msgstr ""
 msgid "Effective Rapid (Rapid, else Standard)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3936
+#: lib/pairings_engine_web/live/players_live.ex:3981
 #, elixir-autogen, elixir-format
 msgid "Entered by hand (no source list)."
 msgstr ""
@@ -16472,22 +16474,22 @@ msgstr ""
 msgid "Equal rating and title"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3623
+#: lib/pairings_engine_web/live/players_live.ex:3668
 #, elixir-autogen, elixir-format
 msgid "Exchange"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3648
+#: lib/pairings_engine_web/live/players_live.ex:3693
 #, elixir-autogen, elixir-format
 msgid "Exchange the numbers of %{a} and %{b}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3641
+#: lib/pairings_engine_web/live/players_live.ex:3686
 #, elixir-autogen, elixir-format
 msgid "Exchange the pairing numbers of %{a} and %{b}? This departs from the order the FIDE rules give the numbers; the next pairings use the new numbers."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2783
+#: lib/pairings_engine_web/live/players_live.ex:2827
 #, elixir-autogen, elixir-format
 msgid "Exchange the pairing numbers of players with the same rating, or regenerate them from the ratings - until round 4 is paired"
 msgstr ""
@@ -16497,7 +16499,7 @@ msgstr ""
 msgid "Exchanged the pairing numbers of %{name} and %{other}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4728
+#: lib/pairings_engine_web/live/players_live.ex:4816
 #, elixir-autogen, elixir-format
 msgid "Expelled"
 msgstr ""
@@ -16597,12 +16599,13 @@ msgstr ""
 msgid "For the rating report only: the pairings and standings keep %{result}, and the TRF says so."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3946
+#: lib/pairings_engine_web/live/players_live.ex:3991
 #, elixir-autogen, elixir-format
 msgid "From the FIDE %{list} list of %{period}."
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:2194
+#: lib/pairings_engine_web/live/players_live.ex:4689
 #, elixir-autogen, elixir-format
 msgid "Full-point byes are not described by the pairing regulations and should stay exceptional. Make sure this one is intended."
 msgstr ""
@@ -16757,7 +16760,7 @@ msgstr ""
 msgid "Late entrants' pairing numbers"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4421
+#: lib/pairings_engine_web/live/players_live.ex:4468
 #, elixir-autogen, elixir-format
 msgid "Later ratings (round:rating)"
 msgstr ""
@@ -16828,17 +16831,17 @@ msgstr ""
 msgid "Manual rating per player (OTHER)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3727
+#: lib/pairings_engine_web/live/players_live.ex:3772
 #, elixir-autogen, elixir-format
 msgid "Move"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3769
+#: lib/pairings_engine_web/live/players_live.ex:3814
 #, elixir-autogen, elixir-format
 msgid "Move %{name} down"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3757
+#: lib/pairings_engine_web/live/players_live.ex:3802
 #, elixir-autogen, elixir-format
 msgid "Move %{name} up"
 msgstr ""
@@ -16853,7 +16856,7 @@ msgstr ""
 msgid "Moved %{name} up the starting order."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3996
+#: lib/pairings_engine_web/live/players_live.ex:4041
 #, elixir-autogen, elixir-format
 msgid "National"
 msgstr ""
@@ -16873,12 +16876,12 @@ msgstr ""
 msgid "National rating, else FIDE (NIDOF)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3584
+#: lib/pairings_engine_web/live/players_live.ex:3629
 #, elixir-autogen, elixir-format
 msgid "New"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4018
+#: lib/pairings_engine_web/live/players_live.ex:4063
 #, elixir-autogen, elixir-format
 msgid "No FIDE list has been downloaded yet. Update it on the Connections page."
 msgstr ""
@@ -16928,12 +16931,12 @@ msgstr ""
 msgid "Nobody is level after every tie-break."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4711
+#: lib/pairings_engine_web/live/players_live.ex:4799
 #, elixir-autogen, elixir-format
 msgid "Not eligible for half-point byes"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3583
+#: lib/pairings_engine_web/live/players_live.ex:3628
 #, elixir-autogen, elixir-format
 msgid "Old"
 msgstr ""
@@ -16970,12 +16973,12 @@ msgstr ""
 msgid "Only in your pairings"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3481
+#: lib/pairings_engine_web/live/players_live.ex:3526
 #, elixir-autogen, elixir-format
 msgid "Only players with the same rating can exchange pairing numbers. To follow a rating change, regenerate the numbers."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3033
+#: lib/pairings_engine_web/live/players_live.ex:3077
 #, elixir-autogen, elixir-format
 msgid "Other lists:"
 msgstr ""
@@ -17007,8 +17010,8 @@ msgstr ""
 msgid "Pairing integrity (Import PIBE): round %{round} of the imported file breaks a pairing rule, and the import was confirmed - %{findings}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2788
-#: lib/pairings_engine_web/live/players_live.ex:3557
+#: lib/pairings_engine_web/live/players_live.ex:2832
+#: lib/pairings_engine_web/live/players_live.ex:3602
 #, elixir-autogen, elixir-format
 msgid "Pairing numbers"
 msgstr ""
@@ -17018,7 +17021,7 @@ msgstr ""
 msgid "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here. Anything the import has to adjust, and any round that breaks a pairing rule, is shown to you first, to confirm or cancel."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3560
+#: lib/pairings_engine_web/live/players_live.ex:3605
 #, elixir-autogen, elixir-format
 msgid "Players are numbered by rating. Players with the same rating can exchange their numbers, to order them by another rule; regenerating renumbers everyone by the current ratings and keeps the order you gave players of equal rating. Both are possible until round 4 is paired (C.04.2)."
 msgstr ""
@@ -17028,7 +17031,7 @@ msgstr ""
 msgid "Players still level share a place"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2638
+#: lib/pairings_engine_web/live/players_live.ex:2682
 #, elixir-autogen, elixir-format
 msgid "Presence, %{name}: expelled"
 msgstr ""
@@ -17038,8 +17041,8 @@ msgstr ""
 msgid "Progressive score"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3992
-#: lib/pairings_engine_web/live/players_live.ex:4000
+#: lib/pairings_engine_web/live/players_live.ex:4037
+#: lib/pairings_engine_web/live/players_live.ex:4045
 #, elixir-autogen, elixir-format
 msgid "Rapid"
 msgstr ""
@@ -17049,8 +17052,8 @@ msgstr ""
 msgid "Rated as %{result}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3622
-#: lib/pairings_engine_web/live/players_live.ex:3726
+#: lib/pairings_engine_web/live/players_live.ex:3667
+#: lib/pairings_engine_web/live/players_live.ex:3771
 #: lib/pairings_engine_web/live/rating_lists_live.ex:287
 #, elixir-autogen, elixir-format
 msgid "Rating"
@@ -17092,12 +17095,12 @@ msgstr ""
 msgid "Read as a TRF26 file."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3602
+#: lib/pairings_engine_web/live/players_live.ex:3647
 #, elixir-autogen, elixir-format
 msgid "Regenerate"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3612
+#: lib/pairings_engine_web/live/players_live.ex:3657
 #, elixir-autogen, elixir-format
 msgid "Regenerate from ratings"
 msgstr ""
@@ -17107,7 +17110,7 @@ msgstr ""
 msgid "Regenerated the pairing numbers from the ratings (%{count} changed)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3574
+#: lib/pairings_engine_web/live/players_live.ex:3619
 #, elixir-autogen, elixir-format
 msgid "Regenerating changes the pairing numbers of these players. The FIDE rules allow it only to correct a mistake or follow a rating change."
 msgstr ""
@@ -17144,7 +17147,7 @@ msgstr ""
 msgid "Round %{round}, board %{board} (%{white} - %{black}): the correction for the rating report was removed; the report has %{result} again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3519
+#: lib/pairings_engine_web/live/players_live.ex:3564
 #, elixir-autogen, elixir-format
 msgid "Round 1 is paired: the starting numbers are the schedule now."
 msgstr ""
@@ -17154,12 +17157,12 @@ msgstr ""
 msgid "Round 1's pairing numbers were given by this setting. Changing it now renumbers nobody already numbered; it changes where a later late entrant is placed and, for the rating method, the rating the tie-breaks read."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3486
+#: lib/pairings_engine_web/live/players_live.ex:3531
 #, elixir-autogen, elixir-format
 msgid "Round 4 is paired: the pairing numbers can no longer change (C.04.2)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3566
+#: lib/pairings_engine_web/live/players_live.ex:3611
 #, elixir-autogen, elixir-format
 msgid "Rounds already paired used the old numbers: a pairing checker will not reproduce them any more. Each change asks you to confirm."
 msgstr ""
@@ -17169,12 +17172,12 @@ msgstr ""
 msgid "Scores %{points} pt, as a pairing-allocated bye."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3842
+#: lib/pairings_engine_web/live/players_live.ex:3887
 #, elixir-autogen, elixir-format
 msgid "Select all"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2798
+#: lib/pairings_engine_web/live/players_live.ex:2842
 #, elixir-autogen, elixir-format
 msgid "Set the round robin's starting numbers before round 1 - by hand, or by a drawing of lots"
 msgstr ""
@@ -17194,8 +17197,8 @@ msgstr ""
 msgid "Sonneborn-Berger and Koya"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3991
-#: lib/pairings_engine_web/live/players_live.ex:3999
+#: lib/pairings_engine_web/live/players_live.ex:4036
+#: lib/pairings_engine_web/live/players_live.ex:4044
 #, elixir-autogen, elixir-format
 msgid "Standard"
 msgstr ""
@@ -17210,13 +17213,13 @@ msgstr ""
 msgid "Started hand edits to round %{round}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3742
+#: lib/pairings_engine_web/live/players_live.ex:3787
 #, elixir-autogen, elixir-format
 msgid "Starting number of %{name}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:2803
-#: lib/pairings_engine_web/live/players_live.ex:3697
+#: lib/pairings_engine_web/live/players_live.ex:2847
+#: lib/pairings_engine_web/live/players_live.ex:3742
 #, elixir-autogen, elixir-format
 msgid "Starting numbers"
 msgstr ""
@@ -17256,7 +17259,7 @@ msgstr ""
 msgid "That is not a number."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3522
+#: lib/pairings_engine_web/live/players_live.ex:3567
 #, elixir-autogen, elixir-format
 msgid "That starting number is outside the list."
 msgstr ""
@@ -17268,22 +17271,22 @@ msgid_plural "The FIDE list (%{period}) gives a different rating or title for %{
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/players_live.ex:281
+#: lib/pairings_engine_web/live/players_live.ex:286
 #, elixir-autogen, elixir-format
 msgid "The FIDE list could not be updated, so this compares against the copy on this machine."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:312
+#: lib/pairings_engine_web/live/players_live.ex:317
 #, elixir-autogen, elixir-format
 msgid "The FIDE list on this machine is out of date. Ask an administrator to update it under Connections, then check again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:303
+#: lib/pairings_engine_web/live/players_live.ex:308
 #, elixir-autogen, elixir-format
 msgid "The FIDE list on this machine is out of date. Updating it first; the check follows."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4429
+#: lib/pairings_engine_web/live/players_live.ex:4476
 #, elixir-autogen, elixir-format
 msgid "The FIDE rating from each new rating list, with the first round it applies to. The rating above stays the first one."
 msgstr ""
@@ -17352,8 +17355,8 @@ msgstr ""
 msgid "The import adjusted something this page cannot describe (%{code})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3492
-#: lib/pairings_engine_web/live/players_live.ex:3528
+#: lib/pairings_engine_web/live/players_live.ex:3537
+#: lib/pairings_engine_web/live/players_live.ex:3573
 #, elixir-autogen, elixir-format
 msgid "The list changed meanwhile - try again."
 msgstr ""
@@ -17398,7 +17401,7 @@ msgstr ""
 msgid "The round is created with no boards and every player in its not-playing list. Pair it from there - pair two players, give the pairing-allocated bye - and finish the hand edits when it is done."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4661
+#: lib/pairings_engine_web/live/players_live.ex:4749
 #, elixir-autogen, elixir-format
 msgid "The rules (C.05:6.7.4) allow a player only one half-point bye in a tournament. Saving asks for your confirmation."
 msgstr ""
@@ -17413,7 +17416,7 @@ msgstr ""
 msgid "The tournament is played as Chess960. The arbiter draws a random starting position for each round on the Pairings page; it is shown there and printed with the pairings."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3700
+#: lib/pairings_engine_web/live/players_live.ex:3745
 #, elixir-autogen, elixir-format
 msgid "These are the numbers the Berger tables pair by. Enter the result of the drawing of lots by hand, or let the program draw them. They are used when round 1 is paired and cannot change after that. A player entered later gets the next number."
 msgstr ""
@@ -17453,7 +17456,7 @@ msgstr ""
 msgid "This file's rounds break the FIDE pairing rules"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4753
+#: lib/pairings_engine_web/live/players_live.ex:4841
 #, elixir-autogen, elixir-format
 msgid "This is a second or later half-point bye for this player (C.05:6.7.4). Save it anyway?"
 msgstr ""
@@ -17468,12 +17471,12 @@ msgstr ""
 msgid "This is what takes it out of FIDE mode:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4029
+#: lib/pairings_engine_web/live/players_live.ex:4074
 #, elixir-autogen, elixir-format
 msgid "This tournament uses the FIDE list of %{needed} (valid on its start date); the list on this machine is the later one of %{have}, so nothing is compared."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4021
+#: lib/pairings_engine_web/live/players_live.ex:4066
 #, elixir-autogen, elixir-format
 msgid "This tournament uses the FIDE list of %{needed}, but the list on this machine is from %{have}. Update the list, then check again."
 msgstr ""
@@ -17493,19 +17496,19 @@ msgstr ""
 msgid "Tournament lasts more than 30 days"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3117
-#: lib/pairings_engine_web/live/players_live.ex:4400
+#: lib/pairings_engine_web/live/players_live.ex:3161
+#: lib/pairings_engine_web/live/players_live.ex:4447
 #: lib/pairings_engine_web/live/settings_options_live.ex:775
 #, elixir-autogen, elixir-format
 msgid "Tournament rating"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:1326
+#: lib/pairings_engine_web/live/players_live.ex:1331
 #, elixir-autogen, elixir-format
 msgid "Type a starting number."
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3041
+#: lib/pairings_engine_web/live/players_live.ex:3085
 #, elixir-autogen, elixir-format
 msgid "Use this rating instead"
 msgstr ""
@@ -17560,7 +17563,7 @@ msgstr ""
 msgid "a round robin"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4003
+#: lib/pairings_engine_web/live/players_live.ex:4048
 #, elixir-autogen, elixir-format
 msgid "an unknown month"
 msgstr ""
@@ -17580,7 +17583,7 @@ msgstr ""
 msgid "main list"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:3986
+#: lib/pairings_engine_web/live/players_live.ex:4031
 #, elixir-autogen, elixir-format
 msgid "no %{list} rating"
 msgstr ""
@@ -17597,7 +17600,7 @@ msgstr ""
 msgid "withdrawn, not counted"
 msgstr ""
 
-#: lib/pairings_engine_web/live/players_live.ex:4655
+#: lib/pairings_engine_web/live/players_live.ex:4743
 #, elixir-autogen, elixir-format
 msgid "⚠ Round %{n}: a second or later half-point bye for this player."
 msgstr ""
@@ -17778,7 +17781,7 @@ msgid_plural "%{count} byes recorded for rounds not yet paired (rounds %{rounds}
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine/features.ex:121
+#: lib/pairings_engine/features.ex:176
 #, elixir-autogen, elixir-format
 msgid "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
 msgstr ""
@@ -18464,4 +18467,34 @@ msgstr ""
 #: lib/pairings_engine/round_robin.ex:168
 #, elixir-autogen, elixir-format
 msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met in round %{met} of this cycle - the rounds paired by hand have left the table behind. Pair round %{round} by hand."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:599
+#, elixir-autogen, elixir-format
+msgid "Ask the bye type for each absence"
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:4662
+#, elixir-autogen, elixir-format
+msgid "Bye type for each round sat out"
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:2023
+#, elixir-autogen, elixir-format
+msgid "Full-point bye"
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:2021
+#, elixir-autogen, elixir-format
+msgid "Half-point bye"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:601
+#, elixir-autogen, elixir-format
+msgid "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round not yet paired asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round: it survives unpairing, goes into the TRF and comes back on import."
+msgstr ""
+
+#: lib/pairings_engine_web/live/players_live.ex:2022
+#, elixir-autogen, elixir-format
+msgid "Zero-point bye"
 msgstr ""

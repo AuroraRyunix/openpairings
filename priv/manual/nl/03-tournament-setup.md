@@ -223,7 +223,11 @@ overgeslagen ronde als vrijwillig niet gespeelde ronde behandelen voor tiebreaks
 verandert hoe de tiebreaks van C.07 die rondes behandelen. *Rondes voor een
 laatkomer die meedoet tellen als afwezigheid* betaalt de rondes vóór een late
 inschrijving op dezelfde manier. Deze instellingen veranderen de punten, de
-tiebreaks en daarmee de rangschikking, en liggen vast na ronde 1.
+tiebreaks en daarmee de rangschikking, en liggen vast na ronde 1. *Het byetype
+vragen bij elke afwezigheid* (individueel Zwitsers, standaard uit) laat het
+inschrijfformulier vragen of elke overgeslagen ronde een bye van een half, nul of
+vol punt is, met het antwoord dat de punten hierboven geven al aangeduid; zie
+[Byes en afwezigheid](05-byes-and-absences.md#asking-the-bye-type).
 
 **Uitgestelde partijen.** *Uitgestelde partijen toestaan* biedt een uitgesteld
 resultaat aan op de pagina Paringen. Totdat een uitgestelde partij is gespeeld,

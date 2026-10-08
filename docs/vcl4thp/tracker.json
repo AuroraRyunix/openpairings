@@ -2910,7 +2910,7 @@
    },
    "answer": "N",
    "status": "met",
-   "note": "A marked player cannot be given a half-point bye: update_player refuses it (guard_half_bye_eligibility; half_byes_test.exs)."
+   "note": "A marked player cannot be given a half-point bye: update_player refuses it, also when it is picked under \"Ask the bye type for each absence\" (guard_half_bye_eligibility; half_byes_test.exs, bye_types_test.exs)."
   },
   {
    "q": 177,
@@ -2944,7 +2944,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "Before a full-point bye is applied the confirmation shows a Level-2 notice that the pairing regulations do not describe it and it should stay exceptional (#confirm-level2). Test: full_point_bye_live_test.exs."
+   "note": "Before a full-point bye is applied the confirmation shows a Level-2 notice that the pairing regulations do not describe it and it should stay exceptional (#confirm-level2); the player dialog shows the same notice when one is picked for a coming round under \"Ask the bye type for each absence\" (#player-fpb-notice). Tests: full_point_bye_live_test.exs, bye_type_choice_live_test.exs."
   },
   {
    "q": 179,

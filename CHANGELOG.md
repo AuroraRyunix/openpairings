@@ -20,6 +20,23 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **"Preview next round" is in the Belgian pack** (Federation features,
   BEL), off until you switch it on. The "Optional tools" group it sat in alone
   is gone - a group of one is a shelf, not a category.
+- [Feature] **Ask the bye type for each absence.** A new switch on Settings -
+  Scoring, under *Byes and absences*, off by default and offered in an
+  individual Swiss. On, the player dialog asks for every round in "Absent at
+  the rounds" not yet paired whether it is a half-point, zero-point or
+  full-point bye, with the one the absence points would give already picked -
+  so Save is usually the only click, and the other answer is there for the
+  player who did not ask in time. The pick is stored as the bye itself: it
+  survives an unpairing, goes into the TRF (`240` while the round is unpaired)
+  and comes back on import. The half-point bye rules count a picked one (a
+  second asks for confirmation, an ineligible player cannot have one and is
+  offered the zero instead), and a picked full-point bye gets the same notice
+  the Pairings page gives one. A picked bye is no longer an absence, so it
+  does not use up the paid-absences allowance.
+- [Fix] **A half-point bye count no longer mistakes a typed bye for the
+  absence value.** A round with a zero-point or full-point bye row (from an
+  import) in a tournament paying half a point for an absence was counted as
+  a half-point bye by the second-bye warning and the not-eligible check.
 ## [0.78.0] - 2026-10-08
 
 - [Performance] **Ainalrami 0.40.0.** Pairing 40 to 80 players takes 1.6 to 1.7
