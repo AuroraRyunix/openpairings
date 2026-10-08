@@ -102,6 +102,14 @@ their games. The starting numbers the Berger tables use are the rating order
 unless you set them before round 1 on the Players page (*Starting numbers*,
 by hand or by a drawing of lots; [Players and rating lists](04-players-and-ratings.md)).
 
+Beside it, **Pair round N by hand…** makes the next round yourself instead
+of taking the table's
+([A round robin paired by hand](#a-round-robin-paired-by-hand)). Once a
+round exists, the main button reads *Pair the remaining rounds (Berger)*
+and pairs the rest from the table - unless the rounds made by hand have
+left the table behind, and its next round would pair two players who
+already met in that cycle: then it refuses and says which two.
+
 ## Keizer
 
 The Keizer system ranks the players on a ladder: the player ranked *i* is
@@ -291,6 +299,37 @@ rules, so the round is recorded as a manual pairing alteration. You confirm
 with the tick *I understand - create round N to pair by hand*. After
 **Create round N** you pair the players from the list (pair two players, give
 the pairing-allocated bye) and finish the hand edits as above.
+
+### A round robin paired by hand
+
+In a round robin (one table for the whole field, not in match format, not a
+team event), **Pair round N by hand…** sits next to the Berger button. The
+dialog says the round is created with no boards and every player in the
+*Not playing* list, and that a round that differs from the table is
+recorded as a manual pairing alteration; you confirm with the tick *I
+understand - create round N to pair by hand*. Then pair two players at a
+time from the list. A player you leave off the boards sits the round out
+with the round robin's zero-point bye, given when you finish; the
+pairing-allocated bye is not offered in a round robin.
+
+Each board is checked as you make it, and a breach needs its own tick:
+
+- **Two players who already meet in this cycle** - in a single round robin
+  everyone meets everyone exactly once, in a double one once per cycle.
+- **A third same colour running** - a player given White (or Black) in
+  three consecutive rounds. The Berger table never does that within a
+  cycle; a hand easily does.
+
+**Finish hand edits** compares the round with the same round of the Berger
+table, and checks that the rounds left in the cycle can still pair
+everyone who has not met yet exactly once (a player left out of an even
+field, say, cannot catch up). If the round differs from the table the
+dialog shows the table's boards, the differences, any breach and the line
+the TRF gets, for example `### MPA @ Round 1: 1-4 2-3 => 1-2 3-4`
+(starting numbers; `5=BYE` for the player sitting out). As for a Swiss
+round, the tick *I understand - keep my pairings and record the alteration*
+keeps them. A round robin's earlier rounds can also be edited by hand in
+the same way, and are judged the same.
 
 ### Other confirmations
 

@@ -91,6 +91,7 @@ defmodule PairingsEngine.RoundRobin do
   """
 
   import Ecto.Query
+  use Gettext, backend: PairingsEngineWeb.Gettext
   alias PairingsEngine.{Repo, Tournaments}
   # `Pairing` is already the schema in this module; the round-lifecycle
   # module borrows the same name, so it comes in as `Engine` - the alias
@@ -147,9 +148,168 @@ defmodule PairingsEngine.RoundRobin do
       length(frozen) < 2 ->
         {:error, "At least two active players are needed"}
 
+      # Rounds paired by hand (VCL4THP Q100) may have left the table behind:
+      # its next round would then pair two players a second time in one
+      # cycle (Q101), which the table pairs without a word unless asked.
+      conflict = paired > 0 and table_conflict(tournament, frozen, next_number) ->
+        {:error, conflict}
+
       true ->
         do_pair(tournament, frozen, next_number)
     end
+  end
+
+  defp table_conflict(tournament, frozen, number) do
+    with true <- by_hand?(tournament),
+         {:ok, table} <- table_round(tournament, number),
+         {a, b, met} <- PairingsEngine.ManualRoundRobin.table_conflict(tournament, number, table) do
+      name = fn id -> Enum.find_value(frozen, "?", &(&1.id == id && &1.name)) end
+
+      gettext(
+        "Round %{round} of the Berger table pairs %{a} and %{b}, who already met in round %{met} of this cycle - the rounds paired by hand have left the table behind. Pair round %{round} by hand.",
+        round: number,
+        a: name.(a),
+        b: name.(b),
+        met: met
+      )
+    else
+      _ -> false
+    end
+  end
+
+  ## ---------- by hand (VCL4THP Q100-Q102) ----------
+
+  @doc """
+  Whether a round of `tournament` can be paired by hand and held to its
+  Berger table (VCL4THP Q100): an individual round robin over one table,
+  not in match format. A team round robin pairs teams, a table per
+  category is several round robins at once and match format plays every
+  pairing twice in a row - none of them is a single table one round can be
+  compared with, so they keep the table.
+  """
+  def by_hand?(%Tournament{} = t) do
+    t.pairing_system == "round_robin" and not Tournament.team_round_robin?(t) and
+      t.rr_match_format != true and not by_category?(t)
+  end
+
+  def by_hand?(_other), do: false
+
+  @doc """
+  Round `round_number` of the Berger table as player ids: `{white, black}`
+  per board, `{player, nil}` for the player who sits the round out. The
+  pairing a hand-made round is compared with (`PairingsEngine.ManualPairing`).
+  `:error` before the numbers are frozen, or past the schedule's end.
+  """
+  def table_round(%Tournament{} = t, round_number) do
+    case schedule_groups(t, frozen_players(t.id)) do
+      [group] ->
+        by_number = group |> Enum.with_index(1) |> Map.new(fn {p, i} -> {i, p.id} end)
+
+        case group_schedule(t, length(group), round_number) do
+          {:ok, matches} ->
+            {:ok,
+             Enum.map(matches, fn
+               {:pairing, w, b} -> {Map.fetch!(by_number, w), Map.fetch!(by_number, b)}
+               {:bye, p} -> {Map.fetch!(by_number, p), nil}
+             end)}
+
+          _ ->
+            :error
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  @doc """
+  Creates the next round of a round robin with no boards, every player of
+  the table in its not-playing list, for the arbiter to pair by hand
+  (VCL4THP Q100) inside a manual pairing alteration. The numbers are frozen
+  and the round count set exactly as the table's first pairing would.
+  """
+  def create_round_by_hand(%Tournament{} = tournament) do
+    cond do
+      refusal = Tournaments.write_refused(tournament) ->
+        refusal
+
+      not by_hand?(tournament) ->
+        {:error, :not_by_hand}
+
+      true ->
+        ensure_frozen(tournament)
+        frozen = frozen_players(tournament.id)
+
+        case ensure_correct_rounds_count(tournament, schedule_groups(tournament, frozen)) do
+          {:error, reason} ->
+            {:error, reason}
+
+          tournament ->
+            next_number = Engine.paired_rounds_count(tournament.id) + 1
+
+            cond do
+              length(frozen) < 2 ->
+                {:error, "At least two active players are needed"}
+
+              next_number > tournament.rounds_count ->
+                {:error, {:all_rounds_paired, tournament.rounds_count}}
+
+              true ->
+                with {:ok, _round} <- create_round(tournament, [], next_number) do
+                  Tournaments.broadcast_tournament_change(tournament.id, :rounds)
+                  Tournaments.refresh_status!(tournament.id)
+                  {:ok, Tournaments.get_round(tournament.id, next_number)}
+                end
+            end
+        end
+    end
+  end
+
+  @doc """
+  Gives every player of the table left off `round`'s boards the round
+  robin's zero-point bye for it - what the table does for the player it
+  sits out, and so what a round paired by hand does for whoever the arbiter
+  left out. Run when a manual pairing alteration finishes; a player who
+  already has a bye row for the round keeps it.
+  """
+  def record_sitting_out(%Round{} = round) do
+    with %Tournament{} = t <- Repo.get(Tournament, round.tournament_id),
+         true <- by_hand?(t) do
+      seated =
+        from(p in Pairing,
+          where: p.round_id == ^round.id,
+          select: [p.white_player_id, p.black_player_id]
+        )
+        |> Repo.all()
+        |> List.flatten()
+        |> MapSet.new()
+
+      with_bye =
+        from(b in "byes",
+          where: b.tournament_id == ^t.id and b.round == ^round.number,
+          select: b.player_id
+        )
+        |> Repo.all()
+        |> MapSet.new()
+
+      rows =
+        for p <- frozen_players(t.id),
+            not MapSet.member?(seated, p.id),
+            not MapSet.member?(with_bye, p.id),
+            do: %{
+              tournament_id: t.id,
+              player_id: p.id,
+              round: round.number,
+              type: "requested-zero"
+            }
+
+      if rows != [] do
+        Repo.insert_all("byes", rows, on_conflict: :nothing)
+        Tournaments.invalidate_manual_ranking(t.id)
+      end
+    end
+
+    :ok
   end
 
   @doc """

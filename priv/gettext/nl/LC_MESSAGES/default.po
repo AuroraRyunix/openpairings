@@ -18371,3 +18371,93 @@ msgstr "Geen bestand: in de FIDE-modus bevat geen enkele TRF een ronde met een u
 #, elixir-autogen, elixir-format
 msgid "This TRF file has the symbol \"%{symbol}\" in round %{round} of %{player} (starting rank %{rank}), a round with no opponent (0000). An unknown result is a game whose result is missing; with nobody on the other side there is no game, so the file cannot be read. Correct that round in the file (a bye or absence code, or the opponent's number) and import it again."
 msgstr "Dit TRF-bestand heeft het symbool \"%{symbol}\" in ronde %{round} van %{player} (startrang %{rank}), een ronde zonder tegenstander (0000). Een onbekend resultaat is een partij waarvan het resultaat ontbreekt; zonder iemand aan de andere kant is er geen partij, dus het bestand kan niet worden gelezen. Verbeter die ronde in het bestand (een bye- of afwezigheidscode, of het nummer van de tegenstander) en importeer het opnieuw."
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:568
+#, elixir-autogen, elixir-format
+msgid "After the field"
+msgstr "Achter het veld"
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:838
+#, elixir-autogen, elixir-format
+msgid "Swiss only. By rating, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards."
+msgstr "Alleen Zwitsers. Volgens rating krijgt een speler die instapt nadat de nummers zijn toegekend het nummer dat zijn rating verdient, en schuift iedereen eronder één plaats op (FIDE C.04.2 2.4); de reeds gespeelde ronden behouden hun borden."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2997
+#, elixir-autogen, elixir-format
+msgid "%{a} and %{b} already meet in round %{round}, in the same cycle."
+msgstr "%{a} en %{b} ontmoeten elkaar al in ronde %{round}, in dezelfde cyclus."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3026
+#, elixir-autogen, elixir-format
+msgid "%{name} gets %{colour} for the third round running."
+msgstr "%{name} krijgt voor de derde ronde op rij %{colour}."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3005
+#, elixir-autogen, elixir-format
+msgid "%{name} is not in the round robin's table, so plays nobody else in it."
+msgstr "%{name} staat niet in de tabel van het rondetoernooi en speelt er dus tegen niemand anders in."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5024
+#, elixir-autogen, elixir-format
+msgid "A round that differs from the table is a departure from it."
+msgstr "Een ronde die van de tabel afwijkt, is een afwijking ervan."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5018
+#, elixir-autogen, elixir-format
+msgid "Each board is checked as you make it: a pair that already met in this cycle, or a third same colour running, needs its own tick. Finishing compares the round with the table's and checks that the rounds left can still pair everyone exactly once per cycle."
+msgstr "Elk bord wordt gecontroleerd terwijl je het maakt: een paar dat elkaar in deze cyclus al ontmoette, of een derde keer dezelfde kleur op rij, vraagt een eigen vinkje. Bij het afronden wordt de ronde vergeleken met die van de tabel en gecontroleerd of de resterende rondes nog iedereen precies één keer per cyclus kunnen paren."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5007
+#, elixir-autogen, elixir-format
+msgid "Instead of round %{n} of the Berger table."
+msgstr "In plaats van ronde %{n} van de Berger-tabel."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5026
+#, elixir-autogen, elixir-format
+msgid "It is recorded as a manual pairing alteration, and the TRF says so. The table's own remaining rounds may no longer fit afterwards."
+msgstr "Ze wordt vastgelegd als handmatige wijziging van de paring, en de TRF zegt het. De resterende rondes van de tabel passen daarna misschien niet meer."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4942
+#, elixir-autogen, elixir-format
+msgid "Only in the table's"
+msgstr "Alleen in die van de tabel"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5490
+#, elixir-autogen, elixir-format
+msgid "Pair the remaining rounds (Berger)"
+msgstr "De resterende rondes paren (Berger)"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4925
+#, elixir-autogen, elixir-format
+msgid "The Berger table pairs"
+msgstr "De Berger-tabel paart"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5013
+#, elixir-autogen, elixir-format
+msgid "The round is created with no boards and every player in its not-playing list. Pair two players at a time from there; a player you leave off the boards sits the round out with the round robin's zero-point bye. Finish the hand edits when it is done."
+msgstr "De ronde wordt aangemaakt zonder borden, met elke speler in de lijst met niet-spelenden. Paar van daaruit telkens twee spelers; een speler die je buiten de borden laat, rust die ronde uit met de bye van nul punten van het rondetoernooi. Rond de handmatige aanpassingen af als je klaar bent."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3011
+#, elixir-autogen, elixir-format
+msgid "The rounds left in cycle %{cycle} can no longer pair everyone who has not met yet exactly once."
+msgstr "De resterende rondes van cyclus %{cycle} kunnen niet meer iedereen die elkaar nog niet ontmoette precies één keer paren."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3018
+#, elixir-autogen, elixir-format
+msgid "The rounds left in cycle %{cycle} do not match the opponents still to meet for: %{names}. Not everyone can meet everyone exactly once in this cycle."
+msgstr "De resterende rondes van cyclus %{cycle} passen niet bij de tegenstanders die nog te ontmoeten zijn voor: %{names}. Niet iedereen kan in deze cyclus iedereen precies één keer ontmoeten."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4901
+#, elixir-autogen, elixir-format
+msgid "These pairings differ from this round of the Berger table."
+msgstr "Deze paringen wijken af van deze ronde van de Berger-tabel."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5893
+#, elixir-autogen, elixir-format
+msgid "These pairings were made by hand and differ from the Berger table's. The TRF records it:"
+msgstr "Deze paringen zijn met de hand gemaakt en wijken af van die van de Berger-tabel. De TRF legt het vast:"
+
+#: lib/pairings_engine/round_robin.ex:168
+#, elixir-autogen, elixir-format
+msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met in round %{met} of this cycle - the rounds paired by hand have left the table behind. Pair round %{round} by hand."
+msgstr "Ronde %{round} van de Berger-tabel paart %{a} en %{b}, die elkaar al ontmoetten in ronde %{met} van deze cyclus - de met de hand gepaarde rondes hebben de tabel verlaten. Paar ronde %{round} met de hand."

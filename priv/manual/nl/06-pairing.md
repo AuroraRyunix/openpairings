@@ -107,6 +107,15 @@ voor zijn partijen een forfaitresultaat in. De startnummers die de Berger-tabell
 gebruiken, zijn de ratingvolgorde, tenzij u ze vóór ronde 1 op de pagina Spelers
 instelt (*Startnummers*, met de hand of door loting; [Spelers en ratinglijsten](04-players-and-ratings.md)).
 
+Ernaast maakt **Ronde N met de hand paren…** de volgende ronde zelf in plaats
+van die van de tabel
+([Een rondetoernooi met de hand gepaard](#a-round-robin-paired-by-hand)).
+Zodra er een ronde bestaat, luidt de hoofdknop *De resterende rondes paren
+(Berger)* en paart die de rest uit de tabel - tenzij de met de hand gemaakte
+rondes de tabel hebben verlaten en haar volgende ronde twee spelers zou paren
+die elkaar in die cyclus al ontmoetten: dan weigert hij en zegt hij welke
+twee.
+
 ## Keizer {#keizer}
 
 Het Keizer-systeem rangschikt de spelers op een ladder: de speler op plaats *i*
@@ -306,6 +315,41 @@ wijziging van de paring. U bevestigt met het vinkje *Ik begrijp het - maak ronde
 om met de hand te paren*. Na **Ronde N maken** paart u de spelers uit de lijst
 (twee spelers paren, de door de paring toegekende bye geven) en rondt u de
 handmatige wijzigingen af zoals hierboven.
+
+### Een rondetoernooi met de hand gepaard {#a-round-robin-paired-by-hand}
+
+In een rondetoernooi (één tabel voor het hele veld, niet in matchvorm, geen
+teamtoernooi) staat **Ronde N met de hand paren…** naast de Berger-knop. De
+dialoog zegt dat de ronde wordt gemaakt zonder borden en met elke speler op
+de lijst *Lijst met niet-spelenden*, en dat een ronde die van de tabel afwijkt
+wordt vastgelegd als handmatige wijziging van de paring; u bevestigt met het
+vinkje *Ik begrijp het - ronde N aanmaken om met de hand te paren*. Paar daarna
+telkens twee spelers uit de lijst. Een speler die u buiten de borden laat,
+rust die ronde uit met de bye van nul punten van het rondetoernooi, gegeven
+bij het afronden; de door de paring toegekende bye wordt in een rondetoernooi
+niet aangeboden.
+
+Elk bord wordt gecontroleerd terwijl u het maakt, en een overtreding vraagt
+een eigen vinkje:
+
+- **Twee spelers die elkaar in deze cyclus al ontmoeten** - in een enkel
+  rondetoernooi ontmoet iedereen iedereen precies één keer, in een dubbel één
+  keer per cyclus.
+- **Een derde keer dezelfde kleur op rij** - een speler die in drie
+  opeenvolgende rondes wit (of zwart) krijgt. De Berger-tabel doet dat binnen
+  een cyclus nooit; een hand doet het makkelijk.
+
+**Handmatige aanpassingen afronden** vergelijkt de ronde met dezelfde ronde van
+de Berger-tabel, en controleert of de rondes die in de cyclus overblijven nog
+iedereen die elkaar nog niet ontmoette precies één keer kunnen paren (een
+speler die in een even veld buiten de ronde blijft, kan bijvoorbeeld niet meer
+bijbenen). Wijkt de ronde af van de tabel, dan toont de dialoog de borden van
+de tabel, de verschillen, elke overtreding en de regel die de TRF krijgt,
+bijvoorbeeld `### MPA @ Round 1: 1-4 2-3 => 1-2 3-4` (startnummers; `5=BYE`
+voor de speler die uitrust). Zoals bij een Zwitserse ronde behoudt het vinkje
+*Ik begrijp het - mijn paringen behouden en de wijziging vastleggen* ze. Ook de
+eerdere rondes van een rondetoernooi kunnen zo met de hand worden gewijzigd,
+en worden op dezelfde manier beoordeeld.
 
 ### Andere bevestigingen {#other-confirmations}
 

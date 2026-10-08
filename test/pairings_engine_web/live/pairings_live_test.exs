@@ -803,7 +803,10 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       assert html =~ "Pair the whole tournament"
       assert html =~ "generates the whole round-robin schedule at once"
-      refute html =~ "Pair round 1"
+      # Not one round of the engine - only the round made by hand beside it
+      # (VCL4THP Q100) names a single round.
+      refute html =~ "Pair round 1 ("
+      assert html =~ "Pair round 1 by hand"
     end
 
     test "one click generates every round, and corrects a mismatched rounds_count", %{

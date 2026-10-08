@@ -18,6 +18,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     Audit,
     BoardAnnouncements,
     ManualPairing,
+    ManualRoundRobin,
     NextRoundPreview,
     PairingDisplay,
     PairingRationale,
@@ -153,6 +154,7 @@ defmodule PairingsEngineWeb.PairingsLive do
        # when creating the round by hand is offered.
        mpa_dialog: nil,
        manual_round_offer: false,
+       rr_by_hand: false,
        # The automatic rating check's notice (see
        # `PairingsEngineWeb.RatingNotice`) - worked out once, on opening.
        rating_notice: nil,
@@ -356,8 +358,13 @@ defmodule PairingsEngineWeb.PairingsLive do
         missing_setup: missing_setup,
         recommended_missing: Tournament.missing_recommended_fields(t),
         setup_warnings: Tournaments.setup_warnings(t),
+        # A round robin's rounds do not depend on results, so the rest of
+        # the table does not wait for them after a round paired by hand.
         can_pair:
-          setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
+          setup_complete and paired < t.rounds_count and
+            (t.pairing_system == "round_robin" or Engine.round_complete?(t.id, paired)),
+        # VCL4THP Q100: a round robin's next round can be paired by hand.
+        rr_by_hand: RoundRobin.by_hand?(t),
         # The round whose manual pairing alteration is still open, if any:
         # the next round waits for it to finish (and be checked).
         mpa_open: ManualPairing.open_round(t.id),
@@ -871,6 +878,7 @@ defmodule PairingsEngineWeb.PairingsLive do
            mpa_dialog: %{
              kind: :end,
              checked: kind == :differs,
+             berger: RoundRobin.by_hand?(t),
              round: round.number,
              line: info.line,
              correct: checker_boards(socket, info[:correct]),
@@ -919,6 +927,62 @@ defmodule PairingsEngineWeb.PairingsLive do
        )}
     else
       {:noreply, socket}
+    end
+  end
+
+  # VCL4THP Q100: a round-robin round paired by hand instead of from the
+  # table - an empty round, paired from the not-playing list inside a
+  # manual pairing alteration, and held to the table's round at its end.
+  def handle_event("rr_pair_by_hand", _params, socket) do
+    %{tournament: t, round: round, mpa_open: open} = socket.assigns
+
+    if RoundRobin.by_hand?(t) and is_nil(round) and is_nil(open) and is_nil(t.archived_at) do
+      {:noreply,
+       assign(socket,
+         mpa_dialog: %{kind: :rr_round, round: socket.assigns.next_pairable, ack: false}
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("rr_pair_by_hand_confirm", _params, socket) do
+    with %{kind: :rr_round, ack: true} <- socket.assigns.mpa_dialog,
+         t = socket.assigns.tournament,
+         true <- RoundRobin.by_hand?(t),
+         nil <- ManualPairing.open_round(t.id) do
+      Snapshots.capture(t, "pairing.round_paired", socket.assigns.current_scope,
+        summary: "Before pairing round #{socket.assigns.next_pairable} by hand"
+      )
+
+      case RoundRobin.create_round_by_hand(t) do
+        {:ok, round} ->
+          {:ok, _} = ManualPairing.start(round, [])
+
+          Audit.log(
+            t.id,
+            socket.assigns.current_scope,
+            "pairing.round_created_by_hand",
+            %{round: round.number}
+          )
+
+          {:noreply,
+           socket
+           |> assign(tournament: fresh_tournament(socket), round_number: round.number, error: nil)
+           |> refresh()
+           |> put_flash(
+             :info,
+             gettext(
+               "Round %{n} was created with no boards: pair it from the not-playing list, then finish the hand edits.",
+               n: round.number
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, error: error_text(reason), mpa_dialog: nil)}
+      end
+    else
+      _ -> {:noreply, socket}
     end
   end
 
@@ -1099,9 +1163,11 @@ defmodule PairingsEngineWeb.PairingsLive do
   # A pool player straight onto the pairing-allocated bye, on a new board -
   # what a round paired by hand from nothing needs on an odd field (Q63).
   def handle_event("stage_pool_bye", %{"player-id" => id}, socket) do
-    case parse_id(id) do
-      nil -> {:noreply, socket}
-      player_id -> {:noreply, stage(socket, {:pool_bye, player_id})}
+    # A round robin's bye is the table's zero-point one, given to whoever
+    # is left off the boards; the menu does not offer this one there.
+    case !RoundRobin.by_hand?(socket.assigns.tournament) && parse_id(id) do
+      player_id when is_integer(player_id) -> {:noreply, stage(socket, {:pool_bye, player_id})}
+      _ -> {:noreply, socket}
     end
   end
 
@@ -2926,6 +2992,42 @@ defmodule PairingsEngineWeb.PairingsLive do
         b: display_name(socket, b)
       )
 
+  defp rule_warning_text(socket, %{kind: :rr_repeat, players: [a, b], round: met}),
+    do:
+      gettext("%{a} and %{b} already meet in round %{round}, in the same cycle.",
+        a: display_name(socket, a),
+        b: display_name(socket, b),
+        round: met
+      )
+
+  defp rule_warning_text(socket, %{kind: :rr_outside, players: [a]}),
+    do:
+      gettext("%{name} is not in the round robin's table, so plays nobody else in it.",
+        name: display_name(socket, a)
+      )
+
+  defp rule_warning_text(_socket, %{kind: :rr_incomplete, players: [], cycle: cycle}),
+    do:
+      gettext(
+        "The rounds left in cycle %{cycle} can no longer pair everyone who has not met yet exactly once.",
+        cycle: cycle
+      )
+
+  defp rule_warning_text(socket, %{kind: :rr_incomplete, players: players, cycle: cycle}),
+    do:
+      gettext(
+        "The rounds left in cycle %{cycle} do not match the opponents still to meet for: %{names}. Not everyone can meet everyone exactly once in this cycle.",
+        cycle: cycle,
+        names: Enum.map_join(players, ", ", &display_name(socket, &1))
+      )
+
+  defp rule_warning_text(socket, %{kind: :rr_colour_three, players: [a], colour: colour}),
+    do:
+      gettext("%{name} gets %{colour} for the third round running.",
+        name: display_name(socket, a),
+        colour: colour_word(colour)
+      )
+
   defp colour_word("w"), do: gettext("White")
   defp colour_word(_b), do: gettext("Black")
 
@@ -2939,7 +3041,20 @@ defmodule PairingsEngineWeb.PairingsLive do
       boards ->
         %{tournament: t, round_number: n} = socket.assigns
 
-        case ManualPairing.field(t, n) do
+        case RoundRobin.by_hand?(t) || ManualPairing.field(t, n) do
+          # A round robin's own rules (Q101, Q102): no pair twice in a
+          # cycle, no three colours running.
+          true ->
+            boards =
+              Enum.map(boards, fn
+                {w, :pab} -> {w, nil}
+                board -> board
+              end)
+
+            t
+            |> ManualRoundRobin.warnings(n, boards)
+            |> Enum.map(&rule_warning_text(socket, &1))
+
           {:ok, field} ->
             field
             |> ManualPairing.warnings(t, n, boards)
@@ -4685,6 +4800,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             </button>
 
             <button
+              :if={!RoundRobin.by_hand?(@tournament)}
               type="button"
               role="menuitem"
               phx-click="stage_pool_bye"
@@ -4781,7 +4897,10 @@ defmodule PairingsEngineWeb.PairingsLive do
             <h2 id="mpa-dialog-title">
               {gettext("Finish hand edits to round %{n}", n: @dialog.round)}
             </h2>
-            <p :if={@dialog.checked}>
+            <p :if={@dialog.checked && @dialog[:berger]}>
+              {gettext("These pairings differ from this round of the Berger table.")}
+            </p>
+            <p :if={@dialog.checked && !@dialog[:berger]}>
               {gettext("These pairings differ from the pairing checker's.")}
             </p>
             <p :if={!@dialog.checked}>
@@ -4801,7 +4920,11 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             <div :if={@dialog.checked} id="mpa-end-checker" class="mpa-compare">
               <div>
-                <h3>{gettext("The pairing checker pairs")}</h3>
+                <h3>
+                  {if @dialog[:berger],
+                    do: gettext("The Berger table pairs"),
+                    else: gettext("The pairing checker pairs")}
+                </h3>
                 <p :if={@dialog.correct == :none} class="hint">
                   {gettext("No legal pairing exists for this round.")}
                 </p>
@@ -4814,7 +4937,11 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <ul id="mpa-added-pairs">
                   <li :for={line <- @dialog.added}>{line}</li>
                 </ul>
-                <h3 :if={@dialog.missing != []}>{gettext("Only in the checker's")}</h3>
+                <h3 :if={@dialog.missing != []}>
+                  {if @dialog[:berger],
+                    do: gettext("Only in the table's"),
+                    else: gettext("Only in the checker's")}
+                </h3>
                 <ul :if={@dialog.missing != []} id="mpa-missing-pairs">
                   <li :for={line <- @dialog.missing}>{line}</li>
                 </ul>
@@ -4870,7 +4997,63 @@ defmodule PairingsEngineWeb.PairingsLive do
               {gettext("Finish and record")}
             </button>
           </footer>
-        <% else %>
+        <% end %>
+        <%= if @dialog.kind == :rr_round do %>
+          <header class="pe-modal-head">
+            <h2 id="mpa-dialog-title">
+              {gettext("Pair round %{n} by hand?", n: @dialog.round)}
+            </h2>
+            <p>
+              {gettext("Instead of round %{n} of the Berger table.", n: @dialog.round)}
+            </p>
+          </header>
+
+          <div class="pe-modal-body">
+            <p class="pe-modal-note">
+              {gettext(
+                "The round is created with no boards and every player in its not-playing list. Pair two players at a time from there; a player you leave off the boards sits the round out with the round robin's zero-point bye. Finish the hand edits when it is done."
+              )}
+            </p>
+            <p class="pe-modal-note">
+              {gettext(
+                "Each board is checked as you make it: a pair that already met in this cycle, or a third same colour running, needs its own tick. Finishing compares the round with the table's and checks that the rounds left can still pair everyone exactly once per cycle."
+              )}
+            </p>
+
+            <div class="pe-modal-warn" role="alert">
+              <strong>{gettext("A round that differs from the table is a departure from it.")}</strong>
+              <p style="margin: 6px 0 0">
+                {gettext(
+                  "It is recorded as a manual pairing alteration, and the TRF says so. The table's own remaining rounds may no longer fit afterwards."
+                )}
+              </p>
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input
+                  type="checkbox"
+                  id="mpa-ack"
+                  checked={@dialog.ack}
+                  phx-click="toggle_mpa_ack"
+                /> {gettext("I understand - create round %{n} to pair by hand", n: @dialog.round)}
+              </label>
+            </div>
+          </div>
+
+          <footer class="pe-modal-foot">
+            <button type="button" class="pe-btn" phx-click="mpa_dialog_cancel">
+              {gettext("Cancel")}
+            </button>
+            <button
+              type="button"
+              id="rr-pair-by-hand-confirm"
+              class="pe-btn primary pe-modal-go"
+              phx-click="rr_pair_by_hand_confirm"
+              disabled={!@dialog.ack}
+            >
+              {gettext("Create round %{n}", n: @dialog.round)}
+            </button>
+          </footer>
+        <% end %>
+        <%= if @dialog.kind == :manual_round do %>
           <header class="pe-modal-head">
             <h2 id="mpa-dialog-title">
               {gettext("Pair round %{n} by hand?", n: @dialog.round)}
@@ -5303,12 +5486,35 @@ defmodule PairingsEngineWeb.PairingsLive do
                   n: @round_number
                 )
 
+              @tournament.pairing_system == "round_robin" and @paired_rounds > 0 ->
+                gettext("Pair the remaining rounds (Berger)")
+
               @tournament.pairing_system == "round_robin" ->
                 "Pair the whole tournament (Berger)"
 
               true ->
                 "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"
             end}
+          </button>
+
+          <%!-- VCL4THP Q100: a round robin's next round paired by hand
+                instead of from the table, checked when the hand edits
+                finish (Q101, Q102). --%>
+          <button
+            :if={
+              @rr_by_hand && @round == nil && @round_number == @next_pairable &&
+                !@tournament.archived_at
+            }
+            type="button"
+            class="pe-btn"
+            id="rr-pair-by-hand"
+            phx-click="rr_pair_by_hand"
+            disabled={
+              !@setup_complete || @mpa_open != nil ||
+                (@paired_rounds > 0 && @paired_rounds >= @tournament.rounds_count)
+            }
+          >
+            {gettext("Pair round %{n} by hand…", n: @round_number)}
           </button>
 
           <%!-- The last round still has boards without a result, and every
@@ -5682,9 +5888,15 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <.icon name="hero-pencil-square-micro" class="setup-line-icon" />
         <span>
-          {gettext(
-            "These pairings were altered by hand and differ from the pairing checker's. The TRF records it:"
-          )} <code>### {@round.mpa_pibe}</code>
+          {if @rr_by_hand,
+            do:
+              gettext(
+                "These pairings were made by hand and differ from the Berger table's. The TRF records it:"
+              ),
+            else:
+              gettext(
+                "These pairings were altered by hand and differ from the pairing checker's. The TRF records it:"
+              )} <code>### {@round.mpa_pibe}</code>
         </span>
       </p>
 

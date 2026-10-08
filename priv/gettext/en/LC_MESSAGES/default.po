@@ -18379,3 +18379,93 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "This TRF file has the symbol \"%{symbol}\" in round %{round} of %{player} (starting rank %{rank}), a round with no opponent (0000). An unknown result is a game whose result is missing; with nobody on the other side there is no game, so the file cannot be read. Correct that round in the file (a bye or absence code, or the opponent's number) and import it again."
 msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:568
+#, elixir-autogen, elixir-format
+msgid "After the field"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_options_live.ex:838
+#, elixir-autogen, elixir-format
+msgid "Swiss only. By rating, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:2997
+#, elixir-autogen, elixir-format
+msgid "%{a} and %{b} already meet in round %{round}, in the same cycle."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3026
+#, elixir-autogen, elixir-format
+msgid "%{name} gets %{colour} for the third round running."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3005
+#, elixir-autogen, elixir-format
+msgid "%{name} is not in the round robin's table, so plays nobody else in it."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5024
+#, elixir-autogen, elixir-format
+msgid "A round that differs from the table is a departure from it."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5018
+#, elixir-autogen, elixir-format
+msgid "Each board is checked as you make it: a pair that already met in this cycle, or a third same colour running, needs its own tick. Finishing compares the round with the table's and checks that the rounds left can still pair everyone exactly once per cycle."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5007
+#, elixir-autogen, elixir-format
+msgid "Instead of round %{n} of the Berger table."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5026
+#, elixir-autogen, elixir-format
+msgid "It is recorded as a manual pairing alteration, and the TRF says so. The table's own remaining rounds may no longer fit afterwards."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4942
+#, elixir-autogen, elixir-format
+msgid "Only in the table's"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5490
+#, elixir-autogen, elixir-format
+msgid "Pair the remaining rounds (Berger)"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4925
+#, elixir-autogen, elixir-format
+msgid "The Berger table pairs"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5013
+#, elixir-autogen, elixir-format
+msgid "The round is created with no boards and every player in its not-playing list. Pair two players at a time from there; a player you leave off the boards sits the round out with the round robin's zero-point bye. Finish the hand edits when it is done."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3011
+#, elixir-autogen, elixir-format
+msgid "The rounds left in cycle %{cycle} can no longer pair everyone who has not met yet exactly once."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:3018
+#, elixir-autogen, elixir-format
+msgid "The rounds left in cycle %{cycle} do not match the opponents still to meet for: %{names}. Not everyone can meet everyone exactly once in this cycle."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:4901
+#, elixir-autogen, elixir-format
+msgid "These pairings differ from this round of the Berger table."
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5893
+#, elixir-autogen, elixir-format
+msgid "These pairings were made by hand and differ from the Berger table's. The TRF records it:"
+msgstr ""
+
+#: lib/pairings_engine/round_robin.ex:168
+#, elixir-autogen, elixir-format
+msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met in round %{met} of this cycle - the rounds paired by hand have left the table behind. Pair round %{round} by hand."
+msgstr ""
