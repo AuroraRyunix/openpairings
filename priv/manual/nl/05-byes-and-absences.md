@@ -94,10 +94,21 @@ antwoord verschilt.
   speler kan later geen door de paring toegekende bye meer krijgen, en zodra de
   ronde is gepaard, voegt het rapport de regel `### FPB` toe.
 
+Dezelfde vraag komt terug in een ronde die al is gepaard: **Markeren als afwezig
+voor deze ronde** op de pagina Paringen (zie [Byes met de hand](#byes-by-hand))
+toont de drie keuzes in de bevestiging, op dezelfde manier vooraf aangeduid. Een
+halvepuntsbye voor een speler die er niet voor in aanmerking komt, kan daar niet
+worden toegepast; een tweede halvepuntsbye vraagt een eigen vinkje, *Ik begrijp
+het - toch geven*; een bye van een vol punt toont de melding hierboven.
+
 > [!NOTE]
 > Een gekozen bye is geen afwezigheid meer, dus telt hij niet mee voor de limiet
-> van de eerste N overgeslagen rondes die worden betaald. De afwezigheidspunten later
-> wijzigen, verandert een al gekozen bye niet.
+> van de eerste N overgeslagen rondes die worden betaald, en ook de keuze die voor
+> de volgende ronde wordt aangeduid, telt hem niet. Waar de twee limieten voor die
+> ronde minder zouden betalen dan de gekozen bye (de limiet is opgebruikt, of de
+> ronde ligt na de laatste betaalde, en u kiest toch een halvepuntsbye), zeggen het
+> formulier en de bevestiging dat. Ze houden u niet tegen. De afwezigheidspunten
+> later wijzigen, verandert een al gekozen bye niet.
 
 > [!WARNING]
 > Markeer de afwezigheden **voordat** u de ronde paart. Een speler die laat komt,
@@ -140,7 +151,9 @@ een speler in de ronde) biedt:
 ![Het menu Wijzigingen met de hand, geopend op de naam van een speler in een gepaarde ronde](screenshots/05-hand-edits-menu.png "Het menu Wijzigingen met de hand")
 
 - **Markeren als afwezig voor deze ronde**: de plaats van de speler wordt
-  leeggemaakt en de speler gaat naar de *Lijst met niet-spelenden*;
+  leeggemaakt en de speler gaat naar de *Lijst met niet-spelenden*; met **Het
+  byetype vragen bij elke afwezigheid** aan, vraagt de bevestiging welke bye het is
+  ([Het byetype vragen](#asking-the-bye-type));
 - **Paren met een andere speler die niet speelt…**: zet twee spelers van de
   *Lijst met niet-spelenden* op een eigen bord;
 - **De door de paring toegekende bye geven** (aan een speler van de *Lijst met

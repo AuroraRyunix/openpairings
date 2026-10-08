@@ -77,25 +77,66 @@ defmodule PairingsEngine.ByeTypes do
   is one, the absence value's otherwise. `%{}` where the setting is off.
   """
   def dialog_types(tournament, %Player{} = player, absent_rounds) do
+    stored = stored(tournament.id, player.id)
+
+    tournament
+    |> dialog_positions(player, absent_rounds)
+    |> Map.new(fn {round, nth} ->
+      {round, Map.get(stored, round) || default_for(tournament, player, round, nth)}
+    end)
+  end
+
+  @doc """
+  `%{round => nth}` for the rounds `dialog_types/3` covers: which absence
+  of the player's each would be, for the count cap. The plain absences
+  already recorded, plus one - and only one, whatever else is planned: each
+  of those rounds is about to become a picked bye, and a picked bye is not
+  an absence and uses none of the allowance up. `%{}` where the setting is
+  off.
+  """
+  def dialog_positions(tournament, %Player{} = player, absent_rounds) do
     if applies?(tournament) do
       paired = Standings.rounds_paired(tournament.id)
-      stored = stored(tournament.id, player.id)
-      recorded = recorded_absences(tournament, player.id, paired)
+      nth = recorded_absences(tournament, player.id, paired + 1) + 1
 
       absent_rounds
       |> to_string()
       |> Player.parse_absent_rounds()
       |> Enum.filter(&(&1 > paired))
-      |> Enum.sort()
-      |> Enum.with_index(1)
-      |> Map.new(fn {round, nth} ->
-        {round,
-         Map.get(stored, round) ||
-           eligible(default_type(tournament, round, recorded + nth), player)}
-      end)
+      |> Map.new(&{&1, nth})
     else
       %{}
     end
+  end
+
+  @doc """
+  Which absence of the player's one in `round` would be: those recorded in
+  the rounds before it, plus this one. For a seat emptied in a paired round.
+  """
+  def next_absence_nth(tournament, player_id, round),
+    do: recorded_absences(tournament, player_id, round) + 1
+
+  @doc """
+  The type pre-picked for `player`'s absence in `round` (the `nth` one):
+  the absence value's, with the zero for a player who may not have a
+  half-point bye.
+  """
+  def default_for(tournament, %Player{} = player, round, nth),
+    do: eligible(default_type(tournament, round, nth), player)
+
+  @doc "Points a bye of `type` is worth in `tournament`."
+  def points(tournament, type), do: Standings.bye_points(type, tournament)
+
+  @doc """
+  Whether picking `type` for the `nth` absence, in `round`, pays more than
+  the two limits on paid absences leave it: the limits cut the absence
+  value there, and the pick is worth more than what is left. Said, never
+  refused - a picked bye is not an absence and the limits do not count it.
+  """
+  def above_limits?(tournament, round, nth, type) do
+    capped = Standings.bye_points("absent", tournament, round, nth)
+    uncapped = Standings.bye_points("absent", tournament)
+    capped < uncapped and points(tournament, type) > capped
   end
 
   # A player marked not eligible for half-point byes (C.05:6.7.4) would
@@ -103,11 +144,12 @@ defmodule PairingsEngine.ByeTypes do
   defp eligible("requested-half", %Player{no_half_bye: true}), do: "requested-zero"
   defp eligible(type, _player), do: type
 
-  # The absences already used up against the count cap, as the export's
-  # future byes count them (`TrfExport`'s `dialog_future_byes/3`).
-  defp recorded_absences(tournament, player_id, paired) do
+  # The absences already used up against the count cap before `round`, as
+  # the export's future byes count them (`TrfExport`'s
+  # `dialog_future_byes/3`).
+  defp recorded_absences(tournament, player_id, round) do
     for {{^player_id, r}, running} <- Standings.absent_counts(tournament),
-        r <= paired,
+        r < round,
         reduce: 0 do
       acc -> max(acc, running)
     end

@@ -107,14 +107,41 @@ defmodule PairingsEngine.ByeTypesTest do
       end
     end
 
-    test "the count cap is applied as the standings would" do
+    test "picked byes use none of the paid-absences allowance up" do
       t = tournament(%{abs_value: 0.5, abs_nbfois: 1})
       delta = by_name(t)["Delta"]
 
+      # Round 2 is about to be a picked bye, not an absence, so round 4 is
+      # still the first absence as far as the count cap goes.
       assert ByeTypes.dialog_types(t, delta, "2,4") == %{
                2 => "requested-half",
-               4 => "requested-zero"
+               4 => "requested-half"
              }
+
+      assert {:ok, delta} =
+               Tournaments.update_player(
+                 delta,
+                 %{"absent_rounds" => "2", "bye_types" => %{"2" => "requested-half"}},
+                 []
+               )
+
+      assert ByeTypes.dialog_types(t, delta, "2,4") == %{
+               2 => "requested-half",
+               4 => "requested-half"
+             }
+    end
+
+    test "the limits still decide the pre-picked answer, and a richer pick is flagged" do
+      t = tournament(%{abs_value: 0.5, abs_jusque: 1})
+      delta = by_name(t)["Delta"]
+
+      assert ByeTypes.dialog_types(t, delta, "2") == %{2 => "requested-zero"}
+      assert ByeTypes.above_limits?(t, 2, 1, "requested-half")
+      refute ByeTypes.above_limits?(t, 2, 1, "requested-zero")
+
+      # No limit cut anything: nothing to say.
+      t = %{t | abs_jusque: nil}
+      refute ByeTypes.above_limits?(t, 2, 1, "full-point")
     end
 
     test "a player not eligible for half-point byes is offered the zero" do

@@ -334,6 +334,9 @@ defmodule PairingsEngineWeb.Postponed do
   defp acknowledgement_reason(:result_correction),
     do: gettext("A later round was already paired with the result being corrected.")
 
+  defp acknowledgement_reason(:second_half_bye),
+    do: gettext("It would be a second or later half-point bye for this player (C.05:6.7.4).")
+
   defp acknowledgement_reason(_other), do: ""
 
   @doc """

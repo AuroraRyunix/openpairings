@@ -599,7 +599,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 {gettext("Ask the bye type for each absence")}
                 <span class="hint">
                   {gettext(
-                    "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round not yet paired asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round: it survives unpairing, goes into the TRF and comes back on import."
+                    "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round - in the player dialog, or with Mark absent on the Pairings page - asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round and goes into the TRF; a bye picked ahead also survives unpairing and comes back on import."
                   )}
                 </span>
               </span>

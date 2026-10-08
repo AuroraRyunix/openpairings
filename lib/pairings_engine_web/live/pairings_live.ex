@@ -33,6 +33,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.PairTiming
+  alias PairingsEngine.{ByeTypes, HalfByes}
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.NextRoundPreviewPanel
   alias PairingsEngineWeb.Postponed
@@ -1351,6 +1352,37 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The bye type picked in a "Mark absent" confirm.
+  def handle_event("set_confirm_bye_type", %{"bye_type" => type}, socket) do
+    case socket.assigns.confirm do
+      %{bye_type: _} = confirm when type in ["requested-half", "requested-zero", "full-point"] ->
+        confirm =
+          bye_type_flags(
+            %{confirm | bye_type: type, half_ack: false},
+            socket.assigns.tournament,
+            socket.assigns.round_number
+          )
+
+        {:noreply, assign(socket, confirm: confirm)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("set_confirm_bye_type", _params, socket), do: {:noreply, socket}
+
+  # The Level-3 tick of a second half-point bye (Q174).
+  def handle_event("toggle_half_ack", _params, socket) do
+    case socket.assigns.confirm do
+      %{half_needs_ack?: true} = confirm ->
+        {:noreply, assign(socket, confirm: Map.update!(confirm, :half_ack, &(!&1)))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("apply_confirm", _params, socket) do
     apply_confirm(socket, socket.assigns.confirm)
   end
@@ -2092,7 +2124,8 @@ defmodule PairingsEngineWeb.PairingsLive do
            "Board #{pairing.board} keeps its number and #{blank_dash(opponent)} stays put. " <>
              "The empty seat can be filled from the not-playing list, or turned into a bye - " <>
              "until then the round counts as unfinished."
-       }}
+       }
+       |> Map.merge(vacate_bye_choice(socket, player_id))}
     end
   end
 
@@ -2315,6 +2348,57 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def slot_reason(_other), do: ""
 
+  # "Ask the bye type for each absence": the seat emptied in a paired round
+  # gets the same question the player dialog asks for a coming one, with
+  # the same answer pre-picked. Nothing at all with the setting off - the
+  # round is then a plain absence, as it always was.
+  defp vacate_bye_choice(socket, player_id) do
+    %{tournament: t, round_number: n} = socket.assigns
+
+    with true <- ByeTypes.applies?(t),
+         %{} = player <- Tournaments.get_player(t.id, player_id) do
+      nth = ByeTypes.next_absence_nth(t, player.id, n)
+
+      bye_type_flags(
+        %{
+          bye_type: ByeTypes.default_for(t, player, n, nth),
+          bye_nth: nth,
+          bye_half_taken?: HalfByes.taken_rounds(t, player) -- [n] != [],
+          bye_no_half?: player.no_half_bye == true,
+          half_ack: false
+        },
+        t,
+        n
+      )
+    else
+      _ -> %{}
+    end
+  end
+
+  # What the picked type brings with it: the Level-2 notice of a full-point
+  # bye (Q178), the Level-3 tick of a second half-point one (Q174), the
+  # refusal of one for a player who may not have it (Q175/Q176), and the
+  # plain remark that the pick pays more than the limits on paid absences
+  # would - a picked bye is not an absence, so they do not apply to it.
+  defp bye_type_flags(confirm, t, n) do
+    type = confirm.bye_type
+    half? = type == "requested-half"
+
+    Map.merge(confirm, %{
+      level2:
+        if(type == "full-point",
+          do:
+            gettext(
+              "Full-point byes are not described by the pairing regulations and should stay exceptional. Make sure this one is intended."
+            )
+        ),
+      half_needs_ack?: half? and confirm.bye_half_taken?,
+      half_ack: not (half? and confirm.bye_half_taken?) or confirm.half_ack == true,
+      half_blocked: half? and confirm.bye_no_half?,
+      above_limits?: ByeTypes.above_limits?(t, n, confirm.bye_nth, type)
+    })
+  end
+
   defp apply_confirm(socket, nil), do: {:noreply, socket}
 
   # Belt-and-braces: the modal's primary button is already `disabled` in
@@ -2324,6 +2408,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp apply_confirm(socket, %{frozen: true, frozen_ack: false}), do: {:noreply, socket}
   defp apply_confirm(socket, %{sent: true, sent_ack: false}), do: {:noreply, socket}
   defp apply_confirm(socket, %{rule_ack: false}), do: {:noreply, socket}
+  defp apply_confirm(socket, %{half_ack: false}), do: {:noreply, socket}
+  defp apply_confirm(socket, %{half_blocked: true}), do: {:noreply, socket}
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
@@ -2377,7 +2463,12 @@ defmodule PairingsEngineWeb.PairingsLive do
           Tournaments.swap_seated_with_pool_player(round, s, p, ack)
 
         %{kind: :vacate, player_id: p} ->
-          Tournaments.vacate_seat(round, p, "absent", ack)
+          ack =
+            if confirm[:half_needs_ack?] == true and confirm[:half_ack] == true,
+              do: [acknowledged: Keyword.get(ack, :acknowledged, []) ++ [:second_half_bye]],
+              else: ack
+
+          Tournaments.vacate_seat(round, p, confirm[:bye_type] || "absent", ack)
 
         %{kind: :bye, pairing_id: id} ->
           with {:ok, pairing} <- fetch_pairing(round, id),
@@ -2418,7 +2509,20 @@ defmodule PairingsEngineWeb.PairingsLive do
           audit_action(confirm.kind),
           Map.merge(
             %{round: socket.assigns.round_number, summary: confirm.subtitle},
-            if(confirm[:sent], do: %{confirmed: "sent_round_changed"}, else: %{})
+            Map.merge(
+              if(confirm[:sent], do: %{confirmed: "sent_round_changed"}, else: %{}),
+              if(confirm[:bye_type],
+                do:
+                  Map.merge(
+                    %{bye_type: confirm.bye_type},
+                    if(confirm[:half_needs_ack?],
+                      do: %{confirmed_second_half_bye: true},
+                      else: %{}
+                    )
+                  ),
+                else: %{}
+              )
+            )
           )
         )
 
@@ -2449,6 +2553,14 @@ defmodule PairingsEngineWeb.PairingsLive do
            pool_first: nil
          )}
     end
+  end
+
+  defp vacate_bye_type_options do
+    [
+      {"requested-half", gettext("Half-point bye")},
+      {"requested-zero", gettext("Zero-point bye")},
+      {"full-point", gettext("Full-point bye")}
+    ]
   end
 
   defp audit_action(:swap), do: "pairing.players_swapped"
@@ -6182,6 +6294,67 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             <p :if={@confirm.note} class="pe-modal-note">{@confirm.note}</p>
 
+            <%!-- "Ask the bye type for each absence": what the emptied seat's
+                  round is, picked as the player dialog picks it. --%>
+            <form
+              :if={@confirm[:bye_type]}
+              id="confirm-bye-type-form"
+              phx-change="set_confirm_bye_type"
+              class="field"
+            >
+              <span>{gettext("Bye type for this round")}</span>
+              <div class="radio-row" role="radiogroup" aria-label={gettext("Bye type for this round")}>
+                <label :for={{value, label} <- vacate_bye_type_options()}>
+                  <input
+                    type="radio"
+                    id={"confirm-bye-type-#{value}"}
+                    name="bye_type"
+                    value={value}
+                    checked={@confirm.bye_type == value}
+                  /> {label}
+                </label>
+              </div>
+            </form>
+
+            <p :if={@confirm[:above_limits?]} id="confirm-bye-above-limits" class="pe-modal-note">
+              {gettext(
+                "The limits on paid absences would pay less for this round. A picked bye is not an absence, so they do not apply to it."
+              )}
+            </p>
+
+            <p
+              :if={@confirm[:half_blocked]}
+              id="confirm-half-bye-refused"
+              class="pe-modal-warn"
+              role="alert"
+            >
+              {gettext(
+                "This player is marked not eligible for half-point byes (C.05:6.7.4). Pick another bye."
+              )}
+            </p>
+
+            <div
+              :if={@confirm[:half_needs_ack?]}
+              class="pe-modal-warn"
+              id="confirm-second-half-bye"
+              role="alert"
+            >
+              <strong>{gettext("⚠ A second or later half-point bye for this player.")}</strong>
+              <p style="margin: 6px 0 0">
+                {gettext(
+                  "The rules (C.05:6.7.4) allow a player only one half-point bye in a tournament."
+                )}
+              </p>
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input
+                  type="checkbox"
+                  id="confirm-half-ack"
+                  checked={@confirm.half_ack}
+                  phx-click="toggle_half_ack"
+                /> {gettext("I understand - give it anyway")}
+              </label>
+            </div>
+
             <%!-- The TEC Manual's Level 2 (a full-point bye, VCL4THP Q178):
                   said, not ticked - applying is the acknowledgement. --%>
             <p :if={@confirm[:level2]} id="confirm-level2" class="pe-modal-warn" role="status">
@@ -6298,7 +6471,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               disabled={
                 (@confirm.frozen and !@confirm.frozen_ack) or
                   (@confirm[:sent] == true and !@confirm.sent_ack) or
-                  @confirm[:rule_ack] == false
+                  @confirm[:rule_ack] == false or @confirm[:half_ack] == false or
+                  @confirm[:half_blocked] == true
               }
             >
               {@confirm.title}

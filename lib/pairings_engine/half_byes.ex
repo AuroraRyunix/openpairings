@@ -57,6 +57,41 @@ defmodule PairingsEngine.HalfByes do
   end
 
   @doc """
+  Every round `player` already has a half-point bye in: a requested one in
+  the byes table, a plain absence the tournament scores as a draw (a seat
+  emptied on the Pairings page), and the coming rounds of `absent_rounds`
+  that will score as one. For a half-point bye given in a paired round,
+  which `added_beyond_first/4` - built around the dialog's text field -
+  does not see.
+  """
+  def taken_rounds(tournament, %Player{} = player) do
+    counts = Standings.absent_counts(tournament)
+
+    rows =
+      Repo.all(
+        from(b in "byes",
+          where:
+            b.tournament_id == ^tournament.id and b.player_id == ^player.id and
+              b.type in ["requested-half", "absent"],
+          select: %{type: b.type, round: b.round, player_id: b.player_id}
+        )
+      )
+      |> Enum.filter(fn
+        %{type: "requested-half"} ->
+          true
+
+        row ->
+          Standings.bye_points_for_row(row, tournament, counts) == tournament.points_draw
+      end)
+      |> Enum.map(& &1.round)
+
+    planned =
+      half_rounds(tournament, player.absent_rounds, ByeTypes.stored(tournament.id, player.id))
+
+    Enum.uniq(rows ++ planned)
+  end
+
+  @doc """
   The half-point bye rounds a save would ADD to `player` when `absent_rounds`
   (canonical text) replaces the stored ones, but only when that leaves the
   player with a second or later one. `[]` otherwise.

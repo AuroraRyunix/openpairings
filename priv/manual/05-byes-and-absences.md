@@ -92,10 +92,22 @@ would give is already picked (counting the two limits), so for most absences
   exceptional. The player cannot get the pairing-allocated bye later, and
   once the round is paired the report adds its `### FPB` line.
 
+The same question comes up in a round already paired: **Mark absent for
+this round** on the Pairings page (see [Byes by hand](#byes-by-hand)) shows
+the three choices in its confirmation, picked the same way. A half-point bye
+for a player marked not eligible cannot be applied there; a second
+half-point bye needs its own tick, *I understand - give it anyway*; a
+full-point bye shows the notice above.
+
 > [!NOTE]
 > A picked bye is no longer an absence, so it does not use up the
-> *only a player's first N rounds sat out are paid* allowance. Changing the
-> absence points later does not change a bye already picked.
+> *only a player's first N rounds sat out are paid* allowance, and the
+> answer picked for the next round does not count it either. Where the two
+> limits would pay less for that round than the bye picked (the allowance
+> is used up, or the round is past the last one paid, and you pick a
+> half-point bye anyway), the form and the confirmation say so. They do not
+> stop you. Changing the absence points later does not change a bye already
+> picked.
 
 > [!WARNING]
 > Mark the absences **before** you pair the round. A player who turns up late
@@ -140,7 +152,9 @@ offers:
 
 
 - **Mark absent for this round**: the player's seat is emptied and the
-  player moves to the *Not playing* list;
+  player moves to the *Not playing* list; with **Ask the bye type for each
+  absence** on, the confirmation asks which bye it is
+  ([Asking the bye type](#asking-the-bye-type));
 - **Pair with another player who isn't playing**: puts two players of the
   *Not playing* list in a board of their own;
 - **Give the pairing-allocated bye** (on a player of the *Not playing*

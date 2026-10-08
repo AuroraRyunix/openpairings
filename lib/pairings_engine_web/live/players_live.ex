@@ -160,7 +160,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_fide_conflicts: nil,
        edit_sent_rounds: [],
        edit_half_rounds: [],
-       # `[{round, type}]`: the bye type each round sat out ahead of its
+       # `[{round, type, above_limits?}]`: the bye type each round sat out ahead of its
        # pairing is about to get, under "Ask the bye type for each absence"
        # (`PairingsEngine.ByeTypes`). Empty when the tournament does not ask.
        edit_bye_types: [],
@@ -2010,7 +2010,14 @@ defmodule PairingsEngineWeb.PlayersLive do
       defaults = ByeTypes.dialog_types(tournament, player, canonical)
       picked = form |> Map.get("bye_types") |> ByeTypes.parse() |> Map.take(Map.keys(defaults))
 
-      defaults |> Map.merge(picked) |> Enum.sort()
+      positions = ByeTypes.dialog_positions(tournament, player, canonical)
+
+      defaults
+      |> Map.merge(picked)
+      |> Enum.sort()
+      |> Enum.map(fn {round, type} ->
+        {round, type, ByeTypes.above_limits?(tournament, round, positions[round], type)}
+      end)
     else
       _ -> []
     end
@@ -4281,7 +4288,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Half-point bye rounds that would be a second or later one: the Level 3
   # warning and the confirm on Save (VCL4THP Q174).
   attr :half_rounds, :list, default: []
-  # `[{round, type}]` - see the `edit_bye_types` assign.
+  # `[{round, type, above_limits?}]` - see the `edit_bye_types` assign.
   attr :bye_types, :list, default: []
   # Leading rounds with nothing recorded, for a player starting in round 1.
   attr :derived_start, :any, default: nil
@@ -4661,7 +4668,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             <span>{gettext("Bye type for each round sat out")}</span>
             <div
-              :for={{round, type} <- @bye_types}
+              :for={{round, type, _above?} <- @bye_types}
               class="radio-row"
               id={"player-bye-type-#{round}"}
               role="radiogroup"
@@ -4678,6 +4685,19 @@ defmodule PairingsEngineWeb.PlayersLive do
                 /> {label}
               </label>
             </div>
+            <%!-- Informational only: a picked bye is not an absence, so the
+                  limits on paid absences never touch it. --%>
+            <p
+              :if={Enum.any?(@bye_types, &elem(&1, 2))}
+              class="hint"
+              id="player-bye-above-limits"
+              role="status"
+            >
+              {gettext(
+                "Round %{n}: the limits on paid absences would pay less. A picked bye is not an absence, so they do not apply to it.",
+                n: @bye_types |> Enum.filter(&elem(&1, 2)) |> Enum.map_join(", ", &elem(&1, 0))
+              )}
+            </p>
             <%!-- The TEC Manual's Level 2 for a full-point bye (VCL4THP
                   Q178), the same words the Pairings page says it in. --%>
             <p

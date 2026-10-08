@@ -1225,6 +1225,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   def error_text(:bad_round), do: gettext("Choose a round of this tournament.")
 
+  def error_text(:half_bye_not_eligible),
+    do:
+      gettext(
+        "This player is marked not eligible for half-point byes (C.05:6.7.4). Pick another bye."
+      )
+
   def error_text(:player_in_closed_round),
     do:
       gettext(

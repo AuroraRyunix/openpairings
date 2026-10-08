@@ -6357,10 +6357,42 @@ defmodule PairingsEngine.Tournaments do
   """
   def vacate_seat(%Round{} = round, player_id, type \\ "absent", opts \\ []) do
     with :ok <- ensure_writable(round.tournament_id),
-         :ok <- sent_round_gate(round, opts) do
+         :ok <- sent_round_gate(round, opts),
+         :ok <- half_bye_gate(round, player_id, type, opts) do
       do_vacate_seat(round, player_id, type)
     end
   end
+
+  @doc """
+  The two half-point bye rules (C.05:6.7.4, VCL4THP Q174-Q176) for a
+  half-point bye given while emptying a seat - "Ask the bye type for each
+  absence" lets the Pairings page do that. A player marked not eligible
+  gets `{:error, :half_bye_not_eligible}`; a second or later one waits for
+  `acknowledged: [:second_half_bye]`. Anything but `"requested-half"` is
+  `:ok`.
+  """
+  def half_bye_gate(%Round{} = round, player_id, "requested-half", opts) do
+    with %Player{} = player <- Repo.get(Player, player_id),
+         true <- player.tournament_id == round.tournament_id do
+      tournament = Repo.get!(Tournament, round.tournament_id)
+
+      cond do
+        player.no_half_bye ->
+          {:error, :half_bye_not_eligible}
+
+        :second_half_bye not in Keyword.get(opts, :acknowledged, []) and
+            PairingsEngine.HalfByes.taken_rounds(tournament, player) -- [round.number] != [] ->
+          {:error, {:needs_acknowledgement, [:second_half_bye]}}
+
+        true ->
+          :ok
+      end
+    else
+      _ -> {:error, :invalid_player}
+    end
+  end
+
+  def half_bye_gate(_round, _player_id, _type, _opts), do: :ok
 
   defp do_vacate_seat(%Round{} = round, player_id, type) do
     case find_player_seat(round.pairings, player_id) do
