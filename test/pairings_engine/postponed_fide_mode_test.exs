@@ -80,6 +80,38 @@ defmodule PairingsEngine.PostponedFideModeTest do
       end
     end
 
+    # Only a file that holds the open game's round is refused: the copy of
+    # an earlier round (the rating inbox's, of a round sent last week) says
+    # nothing about a game that had not been paired yet.
+    test "a file of only the rounds before its round is made; one that includes it is not" do
+      {t, %{"Alice" => alice}} = tournament()
+      round1 = pair!(t)
+      for p <- round1.pairings, p.black_player_id, do: result!(p, "1-0")
+
+      round2 = pair!(t)
+      postponed = round2 |> board_of(alice) |> result!("*W")
+      others!(round2, postponed)
+      t = Repo.reload!(t)
+      assert Compliance.fide_mode?(t)
+
+      for opts <- [[], [copy: true], [dialect: :engine], [for: :rating]] do
+        assert {:ok, _text} = TrfExport.export(t, [1], opts)
+        assert {:ok, _text} = TrfExport.export(t, "1", opts)
+
+        for spec <- [[1, 2], [2], "1-2", nil] do
+          assert {:error, {:open_postponed, [%{round: 2, pairing: %{id: id}}]}} =
+                   TrfExport.export(t, spec, opts)
+
+          assert id == postponed.id
+        end
+      end
+
+      assert {:ok, %{file: _}} =
+               PostponedGames.send_rounds(t, [1], &TrfExport.export(&1, [1], for: :rating))
+
+      assert PostponedGames.sent_rounds(Repo.reload!(t)) == [1]
+    end
+
     test "refuses sending, and marks nothing" do
       {t, _postponed} = with_open_game()
 

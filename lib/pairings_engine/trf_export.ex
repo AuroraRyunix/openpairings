@@ -46,10 +46,10 @@ defmodule PairingsEngine.TrfExport do
   Returns `{:ok, text}`, or `{:error, %Ainalrami.Trf.ValidationError{}}`
   if the filtered result set fails `Trf`'s own legality validation (an
   unrecognized or mutually-inconsistent result code) - never raises. In
-  FIDE mode, `{:error, {:open_postponed, games}}` while a postponed game of
-  the tournament is open and not recorded as not played in this event
-  (`PostponedGames.ensure_reportable/1`, VCL4THP Q169) - whatever rounds
-  were asked for, and whatever the file is for.
+  FIDE mode, `{:error, {:open_postponed, games}}` when a round of the file
+  holds a postponed game that is open and not recorded as not played in
+  this event (`PostponedGames.ensure_reportable/2`, VCL4THP Q169), whatever
+  the file is for. A file of only the rounds before it is made as usual.
 
   ## The file sent for rating
 
@@ -68,7 +68,11 @@ defmodule PairingsEngine.TrfExport do
   postponed-games file (`postponed_export/2`), a FIDE tournament of its own.
   """
   def export(tournament, rounds_spec \\ nil, opts \\ []) do
-    with :ok <- PairingsEngine.PostponedGames.ensure_reportable(tournament),
+    with :ok <-
+           PairingsEngine.PostponedGames.ensure_reportable(
+             tournament,
+             file_rounds(tournament, rounds_spec)
+           ),
          :ok <- ensure_round_dates(tournament, rounds_spec) do
       text =
         if rating?(opts) do

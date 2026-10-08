@@ -216,6 +216,13 @@ defmodule PairingsEngine.PostponedGames do
   # mode, on the record, behind the Level-4 confirmation. The board keeps
   # its postponed result either way, so the separate-tournament route for a
   # game played later is exactly what it was.
+  #
+  # Two things this deliberately does not do. A file of only the rounds
+  # before the open game's round is still made (`ensure_reportable/2`): it
+  # reports nothing about a game not yet paired. And publishing to
+  # OpenResults is untouched - spectators keep seeing the standings, marked
+  # not final, which is what they are; refusing them would only send the
+  # room to a phone with worse information.
 
   @doc """
   The open postponed games that stop `tournament` producing a TRF or final
@@ -232,11 +239,22 @@ defmodule PairingsEngine.PostponedGames do
   end
 
   @doc """
-  `:ok`, or `{:error, {:open_postponed, games}}` with `blocking_games/1`'s
-  list - what every TRF of `tournament` asks first (`TrfExport.export/3`).
+  `:ok`, or `{:error, {:open_postponed, games}}` with the `blocking_games/1`
+  that sit in one of `rounds` (`:all` for any round) - what every TRF of
+  `tournament` asks first (`TrfExport.export/3`, passing the file's rounds).
+
+  Only a file that holds the open game's round is refused. A file of the
+  rounds before it - the copy of a round sent last week, kept in the rating
+  inbox - says nothing about a game that had not been paired yet, and
+  refusing it would protect nobody from anything.
   """
-  def ensure_reportable(%Tournament{} = tournament) do
-    case blocking_games(tournament) do
+  def ensure_reportable(%Tournament{} = tournament, rounds \\ :all) do
+    games =
+      tournament
+      |> blocking_games()
+      |> Enum.filter(&(rounds == :all or &1.round in rounds))
+
+    case games do
       [] -> :ok
       games -> {:error, {:open_postponed, games}}
     end

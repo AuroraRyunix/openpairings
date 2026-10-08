@@ -103,7 +103,7 @@ msgstr ""
 msgid "8-digit code"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1574
+#: lib/pairings_engine_web/live/settings_export_live.ex:1588
 #, elixir-autogen, elixir-format
 msgid "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
 msgstr ""
@@ -612,12 +612,12 @@ msgstr ""
 msgid "Everything you are organising, most recent first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1579
+#: lib/pairings_engine_web/live/settings_export_live.ex:1593
 #, elixir-autogen, elixir-format
 msgid "Export .swar (v7, experimental)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1527
+#: lib/pairings_engine_web/live/settings_export_live.ex:1541
 #, elixir-autogen, elixir-format
 msgid "Export / backup"
 msgstr ""
@@ -628,7 +628,7 @@ msgstr ""
 msgid "Export all (JSON)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1560
+#: lib/pairings_engine_web/live/settings_export_live.ex:1574
 #, elixir-autogen, elixir-format
 msgid "Export full backup (JSON)"
 msgstr ""
@@ -965,14 +965,14 @@ msgstr ""
 msgid "Medal / %"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1731
+#: lib/pairings_engine_web/live/settings_export_live.ex:1745
 #: lib/pairings_engine_web/live/settings_fide_live.ex:587
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:608
 #, elixir-autogen, elixir-format
 msgid "Move down"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1721
+#: lib/pairings_engine_web/live/settings_export_live.ex:1735
 #: lib/pairings_engine_web/live/settings_fide_live.ex:575
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:596
 #, elixir-autogen, elixir-format
@@ -2275,7 +2275,7 @@ msgstr ""
 msgid "Log in and stay signed in"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1456
+#: lib/pairings_engine_web/live/settings_export_live.ex:1470
 #, elixir-autogen, elixir-format
 msgid "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
 msgstr ""
@@ -2723,8 +2723,8 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairings_live.ex:2930
 #: lib/pairings_engine_web/live/pairings_live.ex:4300
 #: lib/pairings_engine_web/live/pairings_live.ex:6354
-#: lib/pairings_engine_web/live/settings_export_live.ex:419
-#: lib/pairings_engine_web/live/settings_export_live.ex:1204
+#: lib/pairings_engine_web/live/settings_export_live.ex:425
+#: lib/pairings_engine_web/live/settings_export_live.ex:1218
 #: lib/pairings_engine_web/live/settings_support.ex:1079
 #, elixir-autogen, elixir-format
 msgid "Black"
@@ -2743,7 +2743,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:3003
 #: lib/pairings_engine_web/live/pairings_live.ex:2732
 #: lib/pairings_engine_web/live/pairings_live.ex:6348
-#: lib/pairings_engine_web/live/settings_export_live.ex:1202
+#: lib/pairings_engine_web/live/settings_export_live.ex:1216
 #: lib/pairings_engine_web/live/teams_live.ex:897
 #: lib/pairings_engine_web/live/user_live/settings.ex:1372
 #, elixir-autogen, elixir-format
@@ -3272,7 +3272,7 @@ msgstr ""
 msgid "Not playing round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1540
+#: lib/pairings_engine_web/live/settings_export_live.ex:1554
 #, elixir-autogen, elixir-format
 msgid "Note that its rank column is the computed order, not manual ranking's hand-set one."
 msgstr ""
@@ -3548,7 +3548,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/categories_live.ex:938
 #: lib/pairings_engine_web/live/players_live.ex:3313
 #: lib/pairings_engine_web/live/players_live.ex:3389
-#: lib/pairings_engine_web/live/settings_export_live.ex:1736
+#: lib/pairings_engine_web/live/settings_export_live.ex:1750
 #: lib/pairings_engine_web/live/settings_fide_live.ex:516
 #: lib/pairings_engine_web/live/settings_options_live.ex:1197
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:620
@@ -3665,7 +3665,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/norms_live.ex:1443
 #: lib/pairings_engine_web/live/pairings_live.ex:4558
 #: lib/pairings_engine_web/live/players_live.ex:4758
-#: lib/pairings_engine_web/live/settings_export_live.ex:1280
+#: lib/pairings_engine_web/live/settings_export_live.ex:1294
 #: lib/pairings_engine_web/live/settings_options_live.ex:460
 #: lib/pairings_engine_web/live/settings_results_live.ex:1519
 #: lib/pairings_engine_web/live/settings_results_live.ex:1626
@@ -3775,7 +3775,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/categories_live.ex:679
 #: lib/pairings_engine_web/live/fide_live.ex:975
-#: lib/pairings_engine_web/live/settings_export_live.ex:1206
+#: lib/pairings_engine_web/live/settings_export_live.ex:1220
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:852
 #: lib/pairings_engine_web/live/tournaments_live.ex:2917
 #: lib/pairings_engine_web/live/tournaments_live.ex:3057
@@ -3946,7 +3946,7 @@ msgstr ""
 msgid "Tournament logo"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1536
+#: lib/pairings_engine_web/live/settings_export_live.ex:1550
 #: lib/pairings_engine_web/live/tournaments_live.ex:2107
 #: lib/pairings_engine_web/live/user_live/settings.ex:1155
 #, elixir-autogen, elixir-format
@@ -4048,8 +4048,8 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairings_live.ex:2929
 #: lib/pairings_engine_web/live/pairings_live.ex:4292
 #: lib/pairings_engine_web/live/pairings_live.ex:6350
-#: lib/pairings_engine_web/live/settings_export_live.ex:418
-#: lib/pairings_engine_web/live/settings_export_live.ex:1203
+#: lib/pairings_engine_web/live/settings_export_live.ex:424
+#: lib/pairings_engine_web/live/settings_export_live.ex:1217
 #: lib/pairings_engine_web/live/settings_support.ex:1078
 #, elixir-autogen, elixir-format
 msgid "White"
@@ -4712,7 +4712,7 @@ msgstr ""
 msgid "This backup carries the tournament's publishing key - anyone holding the file can update or delete its page on the results site."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1553
+#: lib/pairings_engine_web/live/settings_export_live.ex:1567
 #, elixir-autogen, elixir-format
 msgid "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
 msgstr ""
@@ -5019,7 +5019,7 @@ msgstr ""
 msgid "a local install (no accounts, no roles needed)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:917
+#: lib/pairings_engine_web/live/settings_export_live.ex:923
 #, elixir-autogen, elixir-format
 msgid "Settings - Export"
 msgstr ""
@@ -5904,7 +5904,7 @@ msgstr ""
 msgid "Elo"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1598
+#: lib/pairings_engine_web/live/settings_export_live.ex:1612
 #, elixir-autogen, elixir-format
 msgid "Export SWAR results page (.html)"
 msgstr ""
@@ -5972,7 +5972,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/fide_live.ex:223
 #: lib/pairings_engine_web/live/fide_live.ex:397
 #: lib/pairings_engine_web/live/fide_live.ex:551
-#: lib/pairings_engine_web/live/settings_export_live.ex:684
+#: lib/pairings_engine_web/live/settings_export_live.ex:690
 #: lib/pairings_engine_web/live/settings_fide_live.ex:151
 #: lib/pairings_engine_web/live/settings_fide_live.ex:274
 #, elixir-autogen, elixir-format
@@ -6019,68 +6019,68 @@ msgstr ""
 msgid "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:752
+#: lib/pairings_engine_web/live/settings_export_live.ex:758
 #, elixir-autogen, elixir-format
 msgid "Could not publish: %{message}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1687
+#: lib/pairings_engine_web/live/settings_export_live.ex:1701
 #, elixir-autogen, elixir-format
 msgid "Finish indexing"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1640
+#: lib/pairings_engine_web/live/settings_export_live.ex:1654
 #, elixir-autogen, elixir-format
 msgid "Last published: %{when} UTC."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1671
+#: lib/pairings_engine_web/live/settings_export_live.ex:1685
 #, elixir-autogen, elixir-format
 msgid "Publish \"%{name}\" to the federation's public results site (frbe-kbsb.be)? Its standings and results become visible to anyone there, immediately, and this cannot be undone from here."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1677
+#: lib/pairings_engine_web/live/settings_export_live.ex:1691
 #, elixir-autogen, elixir-format
 msgid "Publish to frbe-kbsb.be"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1627
+#: lib/pairings_engine_web/live/settings_export_live.ex:1641
 #, elixir-autogen, elixir-format
 msgid "Publish to the federation's results site"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:739
-#: lib/pairings_engine_web/live/settings_export_live.ex:793
+#: lib/pairings_engine_web/live/settings_export_live.ex:745
+#: lib/pairings_engine_web/live/settings_export_live.ex:799
 #, elixir-autogen, elixir-format
 msgid "Published to the federation's results site (frbe-kbsb.be)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1636
+#: lib/pairings_engine_web/live/settings_export_live.ex:1650
 #, elixir-autogen, elixir-format
 msgid "Publishing to the federation needs an administrator."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:898
+#: lib/pairings_engine_web/live/settings_export_live.ex:904
 #, elixir-autogen, elixir-format
 msgid "Publishing to the federation's results site needs an administrator."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1630
+#: lib/pairings_engine_web/live/settings_export_live.ex:1644
 #, elixir-autogen, elixir-format
 msgid "Sends the results page above to frbe-kbsb.be and asks the federation to index it - the same two steps SWAR itself performs. This is the federation's own public site, not OpenResults: the standings and results become visible there to anyone, immediately, and this machine cannot take that back down."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1655
+#: lib/pairings_engine_web/live/settings_export_live.ex:1669
 #, elixir-autogen, elixir-format
 msgid "The file was uploaded but the federation has not confirmed it is indexed yet. Press \"Finish indexing\" to retry just that step - no need to upload again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1593
+#: lib/pairings_engine_web/live/settings_export_live.ex:1607
 #, elixir-autogen, elixir-format
 msgid "The standings and round results, laid out the way the federation's results site expects."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:766
+#: lib/pairings_engine_web/live/settings_export_live.ex:772
 #, elixir-autogen, elixir-format
 msgid "Uploaded, but the federation did not confirm it was indexed (%{message}). The file is staged - press \"Finish indexing\" to retry."
 msgstr ""
@@ -6211,7 +6211,7 @@ msgstr ""
 msgid "A wish rather than a rule: the pair is weighed against the pairing criteria instead of ruled out, and gives way when the rules leave no other legal round. Ainalrami only - JaVaFo and Keizer have no such option and ignore it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1743
+#: lib/pairings_engine_web/live/settings_export_live.ex:1757
 #, elixir-autogen, elixir-format
 msgid "Add a field"
 msgstr ""
@@ -6241,7 +6241,7 @@ msgstr ""
 msgid "Article 5.2.5."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1696
+#: lib/pairings_engine_web/live/settings_export_live.ex:1710
 #, elixir-autogen, elixir-format
 msgid "Choose the fields, put them in the order you want them, and pick what separates the columns. Excel splits on the list separator of the machine's locale - on a Belgian or Dutch Windows that is a semicolon, not a comma, and a comma-separated file opens as one column of text."
 msgstr ""
@@ -6257,17 +6257,17 @@ msgstr ""
 msgid "Colours so far"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1761
+#: lib/pairings_engine_web/live/settings_export_live.ex:1775
 #, elixir-autogen, elixir-format
 msgid "Column separator"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1702
+#: lib/pairings_engine_web/live/settings_export_live.ex:1716
 #, elixir-autogen, elixir-format
 msgid "Columns, in this order"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:885
+#: lib/pairings_engine_web/live/settings_export_live.ex:891
 #, elixir-autogen, elixir-format
 msgid "Comma  ,"
 msgstr ""
@@ -6292,7 +6292,7 @@ msgstr ""
 msgid "Didn't turn up?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1810
+#: lib/pairings_engine_web/live/settings_export_live.ex:1824
 #, elixir-autogen, elixir-format
 msgid "Download players (CSV)"
 msgstr ""
@@ -6317,12 +6317,12 @@ msgstr ""
 msgid "Every round that needs it is being paired again from its own history, and every alternative judged - one full pairing per candidate. An eleven-round tournament can take a minute or two. The page reloads by itself when it is done."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1797
+#: lib/pairings_engine_web/live/settings_export_live.ex:1811
 #, elixir-autogen, elixir-format
 msgid "Excel-friendly (UTF-8 marker)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1693
+#: lib/pairings_engine_web/live/settings_export_live.ex:1707
 #, elixir-autogen, elixir-format
 msgid "Export players (CSV)"
 msgstr ""
@@ -6382,7 +6382,7 @@ msgstr ""
 msgid "Keep clubmates apart for the first N rounds"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1786
+#: lib/pairings_engine_web/live/settings_export_live.ex:1800
 #, elixir-autogen, elixir-format
 msgid "Leave out players marked absent"
 msgstr ""
@@ -6398,7 +6398,7 @@ msgstr ""
 msgid "Missing"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1779
+#: lib/pairings_engine_web/live/settings_export_live.ex:1793
 #, elixir-autogen, elixir-format
 msgid "Name - A to Z"
 msgstr ""
@@ -6449,7 +6449,7 @@ msgstr ""
 msgid "Not worked out at pairing time: %{count} candidates, and each one is a full pairing of the round."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1705
+#: lib/pairings_engine_web/live/settings_export_live.ex:1719
 #, elixir-autogen, elixir-format
 msgid "Nothing chosen - the download falls back to the standard set."
 msgstr ""
@@ -6507,7 +6507,7 @@ msgstr ""
 msgid "Pick two different players who were seated in this round."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:891
+#: lib/pairings_engine_web/live/settings_export_live.ex:897
 #, elixir-autogen, elixir-format
 msgid "Pipe  |"
 msgstr ""
@@ -6564,7 +6564,7 @@ msgstr ""
 msgid "Round %{n}: no game"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1773
+#: lib/pairings_engine_web/live/settings_export_live.ex:1787
 #, elixir-autogen, elixir-format
 msgid "Row order"
 msgstr ""
@@ -6584,12 +6584,12 @@ msgstr ""
 msgid "Seed"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1776
+#: lib/pairings_engine_web/live/settings_export_live.ex:1790
 #, elixir-autogen, elixir-format
 msgid "Seed - starting rank, then rating"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:888
+#: lib/pairings_engine_web/live/settings_export_live.ex:894
 #, elixir-autogen, elixir-format
 msgid "Semicolon  ;   (Excel on a Belgian/Dutch machine)"
 msgstr ""
@@ -6604,7 +6604,7 @@ msgstr ""
 msgid "Showing only %{name}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:890
+#: lib/pairings_engine_web/live/settings_export_live.ex:896
 #, elixir-autogen, elixir-format
 msgid "Tab"
 msgstr ""
@@ -6649,7 +6649,7 @@ msgstr ""
 msgid "The analysis is Ainalrami's, after the fact: it judges the boards JaVaFo produced by its own criteria, which agree with JaVaFo's on all but a fraction of a percent of pairings. Where it says it would have preferred something else, that is the two engines disagreeing - not an error in the round."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1789
+#: lib/pairings_engine_web/live/settings_export_live.ex:1803
 #, elixir-autogen, elixir-format
 msgid "The permanent Absent checkbox only. Somebody who is just missing one round still appears."
 msgstr ""
@@ -6741,7 +6741,7 @@ msgstr ""
 msgid "Wishes rather than rules. Ainalrami weighs them against the pairing criteria and gives way when the rules leave no other legal round; the rationale page shows the rung. Forbidden pairings marked \"only if possible\" above are weighed the same way. JaVaFo and Keizer have no such option and ignore all of this."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1800
+#: lib/pairings_engine_web/live/settings_export_live.ex:1814
 #, elixir-autogen, elixir-format
 msgid "Without it Excel reads an accented name as mojibake. Switch it off if a script refuses the leading bytes."
 msgstr ""
@@ -9234,7 +9234,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:501
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:531
 #: lib/pairings_engine_web/live/pairings_live.ex:6108
-#: lib/pairings_engine_web/live/settings_export_live.ex:1036
+#: lib/pairings_engine_web/live/settings_export_live.ex:1043
 #: lib/pairings_engine_web/live/standings_live.ex:1429
 #, elixir-autogen, elixir-format
 msgid "Boards"
@@ -11311,7 +11311,7 @@ msgstr ""
 msgid "Allow postponed games"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1191
+#: lib/pairings_engine_web/live/settings_export_live.ex:1205
 #, elixir-autogen, elixir-format
 msgid "Already sent: round %{rounds}"
 msgstr ""
@@ -11373,13 +11373,13 @@ msgstr ""
 msgid "Counts as, for the player who postponed it"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1236
+#: lib/pairings_engine_web/live/settings_export_live.ex:1250
 #, elixir-autogen, elixir-format
 msgid "Date played"
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:660
-#: lib/pairings_engine_web/live/settings_export_live.ex:643
+#: lib/pairings_engine_web/live/settings_export_live.ex:649
 #, elixir-autogen, elixir-format
 msgid "Date saved."
 msgstr ""
@@ -11417,12 +11417,12 @@ msgstr ""
 msgid "I understand - change the sent round %{n} anyway"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1212
+#: lib/pairings_engine_web/live/settings_export_live.ex:1226
 #, elixir-autogen, elixir-format
 msgid "No game has been postponed yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:650
+#: lib/pairings_engine_web/live/settings_export_live.ex:656
 #, elixir-autogen, elixir-format
 msgid "Not changed: this game was already sent in a postponed-games file."
 msgstr ""
@@ -11444,7 +11444,7 @@ msgstr[1] ""
 msgid "Not saved: round %{rounds} was already sent to FIDE. Tick the box under the absences to change it anyway."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1302
+#: lib/pairings_engine_web/live/settings_export_live.ex:1316
 #, elixir-autogen, elixir-format
 msgid "Nothing to send: no postponed game was played after its round was sent."
 msgstr ""
@@ -11459,7 +11459,7 @@ msgstr ""
 msgid "Pair round %{n}?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1205
+#: lib/pairings_engine_web/live/settings_export_live.ex:1219
 #, elixir-autogen, elixir-format
 msgid "Postponed by"
 msgstr ""
@@ -11474,7 +11474,7 @@ msgstr ""
 msgid "Postponed game, for the player who postponed it"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1195
+#: lib/pairings_engine_web/live/settings_export_live.ex:1209
 #: lib/pairings_engine_web/live/settings_scoring_live.ex:599
 #, elixir-autogen, elixir-format
 msgid "Postponed games"
@@ -11493,8 +11493,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:1690
-#: lib/pairings_engine_web/live/settings_export_live.ex:1035
-#: lib/pairings_engine_web/live/settings_export_live.ex:1201
+#: lib/pairings_engine_web/live/settings_export_live.ex:1042
+#: lib/pairings_engine_web/live/settings_export_live.ex:1215
 #, elixir-autogen, elixir-format
 msgid "Round"
 msgstr ""
@@ -11543,14 +11543,14 @@ msgid "Round %{round}: %{white} - %{black}, sent as %{sent} - would become %{res
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:5057
-#: lib/pairings_engine_web/live/settings_export_live.ex:1238
+#: lib/pairings_engine_web/live/settings_export_live.ex:1252
 #, elixir-autogen, elixir-format
 msgid "Save date"
 msgstr ""
 
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:142
-#: lib/pairings_engine_web/live/settings_export_live.ex:213
-#: lib/pairings_engine_web/live/settings_export_live.ex:1207
+#: lib/pairings_engine_web/live/settings_export_live.ex:219
+#: lib/pairings_engine_web/live/settings_export_live.ex:1221
 #, elixir-autogen, elixir-format
 msgid "Sent"
 msgstr ""
@@ -11562,13 +11562,13 @@ msgid_plural "Sent %{count} postponed games in a postponed-games TRF."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1518
+#: lib/pairings_engine_web/live/settings_export_live.ex:1532
 #, elixir-autogen, elixir-format
 msgid "So an outside pairing program or checker (JaVaFo, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
 msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:674
-#: lib/pairings_engine_web/live/settings_export_live.ex:657
+#: lib/pairings_engine_web/live/settings_export_live.ex:663
 #, elixir-autogen, elixir-format
 msgid "That is not a date."
 msgstr ""
@@ -11580,7 +11580,7 @@ msgid_plural "The TRF export is not final: %{count} postponed games are written 
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1510
+#: lib/pairings_engine_web/live/settings_export_live.ex:1524
 #, elixir-autogen, elixir-format
 msgid "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
 msgstr ""
@@ -11680,12 +11680,12 @@ msgstr ""
 msgid "board %{board}: this tournament does not allow postponed games - turn them on under Settings, Scoring first"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:446
+#: lib/pairings_engine_web/live/settings_export_live.ex:452
 #, elixir-autogen, elixir-format
 msgid "in its round's report as not played - its result goes in the postponed-games file"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:451
+#: lib/pairings_engine_web/live/settings_export_live.ex:457
 #, elixir-autogen, elixir-format
 msgid "in its round's report as not played - ready for the postponed-games file"
 msgstr ""
@@ -11697,22 +11697,22 @@ msgstr ""
 msgid "no result"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:420
+#: lib/pairings_engine_web/live/settings_export_live.ex:426
 #, elixir-autogen, elixir-format
 msgid "nobody named"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:457
+#: lib/pairings_engine_web/live/settings_export_live.ex:463
 #, elixir-autogen, elixir-format
 msgid "not sent yet - goes in its round's report"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:428
+#: lib/pairings_engine_web/live/settings_export_live.ex:434
 #, elixir-autogen, elixir-format
 msgid "played on %{date}: %{result}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:434
+#: lib/pairings_engine_web/live/settings_export_live.ex:440
 #, elixir-autogen, elixir-format
 msgid "played: %{result}"
 msgstr ""
@@ -11722,17 +11722,17 @@ msgstr ""
 msgid "postponed game still to be played"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:441
+#: lib/pairings_engine_web/live/settings_export_live.ex:447
 #, elixir-autogen, elixir-format
 msgid "sent in a postponed-games file on %{date}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:454
+#: lib/pairings_engine_web/live/settings_export_live.ex:460
 #, elixir-autogen, elixir-format
 msgid "sent in its round's report, with its result"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:425
+#: lib/pairings_engine_web/live/settings_export_live.ex:431
 #, elixir-autogen, elixir-format
 msgid "still to be played"
 msgstr ""
@@ -11750,12 +11750,12 @@ msgstr[1] ""
 msgid "⚠ Round %{n} was already sent to FIDE in a TRF finalised for sending."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1531
+#: lib/pairings_engine_web/live/settings_export_live.ex:1545
 #, elixir-autogen, elixir-format
 msgid "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:926
+#: lib/pairings_engine_web/live/settings_export_live.ex:932
 #, elixir-autogen, elixir-format
 msgid "TRF (FIDE rating report)"
 msgstr ""
@@ -11801,105 +11801,105 @@ msgstr ""
 msgid "This round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:190
+#: lib/pairings_engine_web/live/settings_export_live.ex:196
 #, elixir-autogen, elixir-format
 msgid "%{count} being played"
 msgid_plural "%{count} being played"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:182
+#: lib/pairings_engine_web/live/settings_export_live.ex:188
 #, elixir-autogen, elixir-format
 msgid "%{count} ready to send"
 msgid_plural "%{count} ready to send"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:180
+#: lib/pairings_engine_web/live/settings_export_live.ex:186
 #, elixir-autogen, elixir-format
 msgid "%{count} round sent"
 msgid_plural "%{count} rounds sent"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:184
+#: lib/pairings_engine_web/live/settings_export_live.ex:190
 #, elixir-autogen, elixir-format
 msgid "%{count} with a postponed game open"
 msgid_plural "%{count} with postponed games open"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:230
+#: lib/pairings_engine_web/live/settings_export_live.ex:236
 #, elixir-autogen, elixir-format
 msgid "Being played - %{count} result missing"
 msgid_plural "Being played - %{count} results missing"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1033
+#: lib/pairings_engine_web/live/settings_export_live.ex:1040
 #, elixir-autogen, elixir-format
 msgid "Include"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1057
+#: lib/pairings_engine_web/live/settings_export_live.ex:1064
 #, elixir-autogen, elixir-format
 msgid "Include round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1014
+#: lib/pairings_engine_web/live/settings_export_live.ex:1021
 #, elixir-autogen, elixir-format
 msgid "No round is paired yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:220
+#: lib/pairings_engine_web/live/settings_export_live.ex:226
 #, elixir-autogen, elixir-format
 msgid "Ready - %{count} postponed game goes out as not played, rated later"
 msgid_plural "Ready - %{count} postponed games go out as not played, rated later"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:226
+#: lib/pairings_engine_web/live/settings_export_live.ex:232
 #, elixir-autogen, elixir-format
 msgid "Ready to send"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:164
+#: lib/pairings_engine_web/live/settings_export_live.ex:165
 #, elixir-autogen, elixir-format
 msgid "Round %{rounds} still has boards without a result."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:159
+#: lib/pairings_engine_web/live/settings_export_live.ex:160
 #, elixir-autogen, elixir-format
 msgid "Round %{rounds} was already sent. Untick it to send the others."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:463
+#: lib/pairings_engine_web/live/settings_export_live.ex:469
 #, elixir-autogen, elixir-format
 msgid "Send round %{rounds}? The file downloads, and every result in it is marked as sent: changing one afterwards asks for confirmation, and these rounds cannot be sent a second time."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1128
-#: lib/pairings_engine_web/live/settings_export_live.ex:1443
+#: lib/pairings_engine_web/live/settings_export_live.ex:1142
+#: lib/pairings_engine_web/live/settings_export_live.ex:1457
 #, elixir-autogen, elixir-format
 msgid "Send…"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:211
+#: lib/pairings_engine_web/live/settings_export_live.ex:217
 #, elixir-autogen, elixir-format
 msgid "Sent %{date}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1037
+#: lib/pairings_engine_web/live/settings_export_live.ex:1044
 #, elixir-autogen, elixir-format
 msgid "State"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:931
+#: lib/pairings_engine_web/live/settings_export_live.ex:937
 #, elixir-autogen, elixir-format
 msgid "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or send them: sending marks their results as sent, so a round is never sent twice and a sent result asks for confirmation before it changes."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:156
+#: lib/pairings_engine_web/live/settings_export_live.ex:157
 #, elixir-autogen, elixir-format
 msgid "Tick the rounds to send."
 msgstr ""
@@ -11919,31 +11919,31 @@ msgstr ""
 msgid "boards, e.g. 1-4"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1307
+#: lib/pairings_engine_web/live/settings_export_live.ex:1321
 #, elixir-autogen, elixir-format
 msgid "%{count} postponed game played since its round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date."
 msgid_plural "%{count} postponed games played since their round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1392
+#: lib/pairings_engine_web/live/settings_export_live.ex:1406
 #, elixir-autogen, elixir-format
 msgid "Date of extra round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1379
+#: lib/pairings_engine_web/live/settings_export_live.ex:1393
 #, elixir-autogen, elixir-format
 msgid "Extra round %{n}: %{count} game"
 msgid_plural "Extra round %{n}: %{count} games"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1251
+#: lib/pairings_engine_web/live/settings_export_live.ex:1265
 #, elixir-autogen, elixir-format
 msgid "Postponed-games file"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1362
+#: lib/pairings_engine_web/live/settings_export_live.ex:1376
 #, elixir-autogen, elixir-format
 msgid "Round %{round}, board %{board}:"
 msgstr ""
@@ -11962,7 +11962,7 @@ msgid_plural "%{count} boards still to be played in postponed games - this place
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:331
+#: lib/pairings_engine_web/live/settings_export_live.ex:337
 #, elixir-autogen, elixir-format
 msgid "%{count} game has no date played: set it in the list above to see which rating period it belongs to."
 msgid_plural "%{count} games have no date played: set them in the list above to see which rating period they belong to."
@@ -12081,7 +12081,7 @@ msgstr ""
 msgid "Enter results"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1338
+#: lib/pairings_engine_web/live/settings_export_live.ex:1352
 #, elixir-autogen, elixir-format
 msgid "FIDE rates games month by month, so a game belongs to the rating period of the month it was played in. The end of that month is shown as the date to send it by; your federation may ask for it sooner."
 msgstr ""
@@ -12254,7 +12254,7 @@ msgstr ""
 msgid "to be played on %{date}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:339
+#: lib/pairings_engine_web/live/settings_export_live.ex:345
 #, elixir-autogen, elixir-format
 msgid "%{count} game played in %{month} falls in that month's FIDE rating period. Send it in a postponed-games file before %{deadline} to have it rated in that period."
 msgid_plural "%{count} games played in %{month} fall in that month's FIDE rating period. Send them in a postponed-games file before %{deadline} to have them rated in that period."
@@ -12456,7 +12456,7 @@ msgstr ""
 msgid "Turned ranking each category separately on."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1613
+#: lib/pairings_engine_web/live/settings_export_live.ex:1627
 #, elixir-autogen, elixir-format
 msgid "What the .swar file cannot hold of this tournament:"
 msgstr ""
@@ -12774,7 +12774,7 @@ msgstr ""
 msgid "Pairing..."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1172
+#: lib/pairings_engine_web/live/settings_export_live.ex:1186
 #, elixir-autogen, elixir-format
 msgid "Round %{rounds} was paired with a player excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently."
 msgid_plural "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently."
@@ -13946,7 +13946,7 @@ msgstr ""
 msgid "Rather not: another player on the score that gets the bye takes it, if any can. It never lifts the bye to a higher score and never makes the round unpairable."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1182
+#: lib/pairings_engine_web/live/settings_export_live.ex:1196
 #, elixir-autogen, elixir-format
 msgid "Round %{rounds} was changed by a player's bye preference (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently."
 msgid_plural "Rounds %{rounds} were changed by players' bye preferences (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently."
@@ -14656,7 +14656,7 @@ msgstr ""
 msgid "%{name} postponed games"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1164
+#: lib/pairings_engine_web/live/settings_export_live.ex:1178
 #, elixir-autogen, elixir-format
 msgid "All rounds (TRF copy, not for rating)"
 msgstr ""
@@ -14676,7 +14676,7 @@ msgstr ""
 msgid "Confirm above that this copy is the one that reports first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:959
+#: lib/pairings_engine_web/live/settings_export_live.ex:965
 #, elixir-autogen, elixir-format
 msgid "Confirm that this copy is the one that sends this tournament's results to the rating officer, and that no round in it was sent from anywhere else? A round sent twice is rated twice."
 msgstr ""
@@ -14686,23 +14686,23 @@ msgstr ""
 msgid "Confirmed that this imported copy is the one that sends the results to the rating officer."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:698
+#: lib/pairings_engine_web/live/settings_export_live.ex:704
 #, elixir-autogen, elixir-format
 msgid "Confirmed: this copy sends the results from now on."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1096
-#: lib/pairings_engine_web/live/settings_export_live.ex:1408
+#: lib/pairings_engine_web/live/settings_export_live.ex:1110
+#: lib/pairings_engine_web/live/settings_export_live.ex:1422
 #, elixir-autogen, elixir-format
 msgid "Download a copy (not for rating)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1277
+#: lib/pairings_engine_web/live/settings_export_live.ex:1291
 #, elixir-autogen, elixir-format
 msgid "Its FIDE tournament ID"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1333
+#: lib/pairings_engine_web/live/settings_export_live.ex:1347
 #, elixir-autogen, elixir-format
 msgid "Make this file"
 msgstr ""
@@ -14757,32 +14757,32 @@ msgstr ""
 msgid "Not sent, and no file: this tournament was imported from a file, and its rounds may already have been sent from the copy it came from. Confirm on this page that this copy is the one that reports first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:934
+#: lib/pairings_engine_web/live/settings_export_live.ex:940
 #, elixir-autogen, elixir-format
 msgid "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:216
+#: lib/pairings_engine_web/live/settings_export_live.ex:222
 #, elixir-autogen, elixir-format
 msgid "Ready - this round was sent before with other games"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:369
+#: lib/pairings_engine_web/live/settings_export_live.ex:375
 #, elixir-autogen, elixir-format
 msgid "Reported as %{name}, FIDE tournament ID %{id}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:375
+#: lib/pairings_engine_web/live/settings_export_live.ex:381
 #, elixir-autogen, elixir-format
 msgid "Reported as %{name}. No FIDE tournament ID set for it yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:473
+#: lib/pairings_engine_web/live/settings_export_live.ex:479
 #, elixir-autogen, elixir-format
 msgid "Round %{rounds} was sent before, with games it no longer holds (the tournament was restored to before it was paired). The rating officer already has that file: sending this one reports the round a second time, with other games."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1437
+#: lib/pairings_engine_web/live/settings_export_live.ex:1451
 #, elixir-autogen, elixir-format
 msgid "Send the postponed-games file as the separate tournament %{name}? The file downloads, and the ticked games are marked as sent, so they are never sent again."
 msgstr ""
@@ -14799,47 +14799,47 @@ msgstr[1] ""
 msgid "Set what the postponed-games file is reported as: name %{name}, FIDE tournament ID %{id}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1258
+#: lib/pairings_engine_web/live/settings_export_live.ex:1272
 #, elixir-autogen, elixir-format
 msgid "The postponed-games file is reported to FIDE as a separate tournament: its own name and its own FIDE tournament ID (not this tournament's), dated from the first to the last day its games were played, with only those games, and one file per rating period."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:964
+#: lib/pairings_engine_web/live/settings_export_live.ex:970
 #, elixir-autogen, elixir-format
 msgid "This copy reports: allow sending"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1346
+#: lib/pairings_engine_web/live/settings_export_live.ex:1360
 #, elixir-autogen, elixir-format
 msgid "This file: games played in %{month}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1271
+#: lib/pairings_engine_web/live/settings_export_live.ex:1285
 #, elixir-autogen, elixir-format
 msgid "Tournament name of the postponed-games file"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:386
+#: lib/pairings_engine_web/live/settings_export_live.ex:392
 #, elixir-autogen, elixir-format
 msgid "a JSON backup"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:385
+#: lib/pairings_engine_web/live/settings_export_live.ex:391
 #, elixir-autogen, elixir-format
 msgid "a SWAR file"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:384
+#: lib/pairings_engine_web/live/settings_export_live.ex:390
 #, elixir-autogen, elixir-format
 msgid "a TRF file"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:389
+#: lib/pairings_engine_web/live/settings_export_live.ex:395
 #, elixir-autogen, elixir-format
 msgid "This tournament was imported from %{file} of an event that may already have been reported to the rating officer from somewhere else. What was sent after that file was made is not known here, so nothing can be sent from this copy until you confirm it is the one that reports. If rounds were sent from the other copy, do not send them again from here."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1296
+#: lib/pairings_engine_web/live/settings_export_live.ex:1310
 #, elixir-autogen, elixir-format
 msgid "%{count} game"
 msgid_plural "%{count} games"
@@ -15136,17 +15136,17 @@ msgstr ""
 msgid "This file is larger than %{mb} MB."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1143
+#: lib/pairings_engine_web/live/settings_export_live.ex:1157
 #, elixir-autogen, elixir-format
 msgid "Not available yet"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1145
+#: lib/pairings_engine_web/live/settings_export_live.ex:1159
 #, elixir-autogen, elixir-format
 msgid "Rating validator (YAML)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1146
+#: lib/pairings_engine_web/live/settings_export_live.ex:1160
 #, elixir-autogen, elixir-format
 msgid "Soon"
 msgstr ""
@@ -15813,7 +15813,7 @@ msgstr ""
 msgid "Entered the score of match %{match} of round %{round}: %{a} %{score} %{b}, written onto its boards."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1485
+#: lib/pairings_engine_web/live/settings_export_live.ex:1499
 #, elixir-autogen, elixir-format
 msgid "FIDE mode: some boards of this event's team matches have an empty seat (%{rounds}). A board without two players is not a rated game: the file leaves it out of the players' games, while its result still counts in the team scores (record 310). Sending is not blocked - check this is what the rating officer expects."
 msgstr ""
@@ -15988,7 +15988,7 @@ msgstr ""
 msgid "Withdrew the score of match %{match} of round %{round} (%{a} %{score} %{b}); its boards are blank again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1489
+#: lib/pairings_engine_web/live/settings_export_live.ex:1503
 #, elixir-autogen, elixir-format
 msgid "round %{round}: 1 board"
 msgid_plural "round %{round}: %{count} boards"
@@ -17656,7 +17656,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/admin_live.ex:208
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:23
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:95
-#: lib/pairings_engine_web/live/settings_export_live.ex:1155
+#: lib/pairings_engine_web/live/settings_export_live.ex:1169
 #, elixir-autogen, elixir-format
 msgid "Rating period inbox"
 msgstr ""
@@ -18270,7 +18270,7 @@ msgstr ""
 msgid "Opens the manual in a new tab"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:508
+#: lib/pairings_engine_web/live/settings_export_live.ex:514
 #, elixir-autogen, elixir-format
 msgid "A postponed game without a result goes in the FIDE report as not played in this event. The FIDE rules allow no report while a game has no result."
 msgstr ""
@@ -18280,24 +18280,9 @@ msgstr ""
 msgid "Enter each result when the game is played. A game that will not be played in this event can be recorded as not played: it is then written as not played (0000 - Z) in the file for rating and the tournament leaves FIDE mode, for good. If it is played later after all, its result goes in the postponed-games file, a tournament of its own."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:151
-#, elixir-autogen, elixir-format
-msgid "In FIDE mode no TRF goes out while a postponed game has no result: see the games above."
-msgstr ""
-
-#: lib/pairings_engine_web/live/settings_export_live.ex:987
-#, elixir-autogen, elixir-format
-msgid "No TRF in FIDE mode while a postponed game has no result. The FIDE rules allow no report, and no final standings, until every game has one."
-msgstr ""
-
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:78
 #, elixir-autogen, elixir-format
 msgid "No copy: the tournament is in FIDE mode and a postponed game in it has no result, so no TRF of it is made."
-msgstr ""
-
-#: lib/pairings_engine_web/components/postponed.ex:453
-#, elixir-autogen, elixir-format
-msgid "No file: in FIDE mode no TRF is made while a postponed game has no result. Still open: %{games}. Enter each result, or record the game as not played in this event under Settings, Export (that takes the tournament out of FIDE mode)."
 msgstr ""
 
 #: lib/pairings_engine_web/components/postponed.ex:492
@@ -18305,17 +18290,17 @@ msgstr ""
 msgid "No final standings: this tournament is in FIDE mode and a postponed game still has no result. The FIDE rules allow final standings only when every game has one."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:556
+#: lib/pairings_engine_web/live/settings_export_live.ex:562
 #, elixir-autogen, elixir-format
 msgid "Not changed: that game is no longer an open postponed game."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:1007
+#: lib/pairings_engine_web/live/settings_export_live.ex:1014
 #, elixir-autogen, elixir-format
 msgid "Not played in this event"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:507
+#: lib/pairings_engine_web/live/settings_export_live.ex:513
 #, elixir-autogen, elixir-format
 msgid "Postponed game not played"
 msgstr ""
@@ -18325,7 +18310,7 @@ msgstr ""
 msgid "Recorded the postponed game on board %{board} of round %{round} as not played in this event."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:543
+#: lib/pairings_engine_web/live/settings_export_live.ex:549
 #, elixir-autogen, elixir-format
 msgid "Recorded: round %{round}, board %{board} was not played in this event. The file for rating writes it as not played; if it is played later, its result goes in the postponed-games file."
 msgstr ""
@@ -18373,4 +18358,24 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_options_live.ex:842
 #, elixir-autogen, elixir-format
 msgid "Swiss only. By rating, the default, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards. After the field gives them the next free number instead, which the FIDE rules do not, so choosing it takes the tournament out of FIDE mode."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:151
+#, elixir-autogen, elixir-format
+msgid "In FIDE mode no TRF goes out with a round whose postponed game has no result: see the games above, or untick round %{rounds}."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:994
+#, elixir-autogen, elixir-format
+msgid "In FIDE mode no TRF holds a round with a postponed game that has no result, and there are no final standings: the FIDE rules allow neither until every game has one. A file of only the rounds before it can still be made."
+msgstr ""
+
+#: lib/pairings_engine_web/components/postponed.ex:453
+#, elixir-autogen, elixir-format
+msgid "No file: in FIDE mode no TRF holds a round with a postponed game that has no result. Still open: %{games}. Enter each result, record the game as not played in this event under Settings, Export (that takes the tournament out of FIDE mode), or make the file of the rounds before it only."
+msgstr ""
+
+#: lib/pairings_engine/trf_import.ex:332
+#, elixir-autogen, elixir-format
+msgid "This TRF file has the symbol \"%{symbol}\" in round %{round} of %{player} (starting rank %{rank}), a round with no opponent (0000). An unknown result is a game whose result is missing; with nobody on the other side there is no game, so the file cannot be read. Correct that round in the file (a bye or absence code, or the opponent's number) and import it again."
 msgstr ""

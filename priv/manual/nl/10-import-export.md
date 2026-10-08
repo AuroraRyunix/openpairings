@@ -60,7 +60,8 @@ op de keuze van het bestand:
   met de speler, het startnummer, de ronde en het gevonden symbool. Het resultaat van de
   tegenstander in die ronde wordt ook op onbekend gezet, en de lijst zegt dat, omdat beide
   kanten van een partij moeten overeenkomen. Een symbool in een ronde zonder tegenstander
-  is geen partij en het bestand wordt nog steeds geweigerd. Annuleren importeert niets.
+  (`0000`) is geen partij en het bestand wordt nog steeds geweigerd; de melding
+  noemt de speler, de ronde en het symbool. Annuleren importeert niets.
 - *Rondes die een paringsregel breken.* Als een ronde van het bestand een regel breekt,
   krijgt de controle de kop *Deze rondes van het bestand breken de FIDE-paringsregels*
   en zegt dat het importeren niet in overeenstemming is met de paringsregels. Dit is

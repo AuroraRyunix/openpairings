@@ -49,8 +49,10 @@ vast zodra ronde 1 is gepaard (een nieuwe speler kan nog wel als reserve
 onderaan een ploeg worden toegevoegd).
 
 De FIDE-modus maakt **geen TRF en geen eindstand zolang een uitgestelde partij
-geen resultaat heeft**. Elke TRF-download, het bestand van *Versturen…* en de
-stand na de laatste ronde worden geweigerd, met de openstaande partijen erbij.
+geen resultaat heeft**. Elke TRF-download en elk bestand van *Versturen…* dat
+haar ronde bevat, en de stand na de laatste ronde, worden geweigerd, met de
+openstaande partijen erbij. Een bestand met alleen de ronden ervoor wordt nog
+wel gemaakt.
 Voer hun resultaten in, of leg een partij vast als **niet gespeeld in dit
 toernooi** (Instellingen, Exporteren); dat haalt het toernooi uit de
 FIDE-modus. Zie [Uitgestelde partijen](07-results.md).

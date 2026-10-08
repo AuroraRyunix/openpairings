@@ -59,8 +59,9 @@ follows the choice of the file:
   result and imported as a postponed game, like `?`. Every one is listed with the
   player, the starting rank, the round and the symbol found. The opponent's
   result in that round is set to unknown as well, and the list says so, because
-  both sides of a game must agree. A symbol in a round with no opponent is not
-  a game and the file is still refused. Cancel imports nothing.
+  both sides of a game must agree. A symbol in a round with no opponent (`0000`) is
+  not a game and the file is still refused; the message names the player, the
+  round and the symbol. Cancel imports nothing.
 - *Rounds that break a pairing rule.* If a round of the file breaks a rule, the
   review is headed *This file's rounds break the FIDE pairing rules* and says
   that importing is not compliant with the pairing rules. This is a warning

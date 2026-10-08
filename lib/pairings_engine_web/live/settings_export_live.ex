@@ -147,9 +147,15 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       tournament.send_confirmation_needed ->
         gettext("Confirm above that this copy is the one that reports first.")
 
-      blocking != [] ->
+      blocking_in(blocking, selected) != [] ->
         gettext(
-          "In FIDE mode no TRF goes out while a postponed game has no result: see the games above."
+          "In FIDE mode no TRF goes out with a round whose postponed game has no result: see the games above, or untick round %{rounds}.",
+          rounds:
+            blocking
+            |> blocking_in(selected)
+            |> Enum.map(& &1.round)
+            |> Enum.uniq()
+            |> Enum.join(", ")
         )
 
       chosen == [] ->
@@ -170,6 +176,12 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         nil
     end
   end
+
+  # The open games (FIDE mode, Q169) that sit in a ticked round: only those
+  # stop a file. A file of the rounds before them is as true as it was the
+  # day it was first made.
+  defp blocking_in(blocking, selected),
+    do: Enum.filter(blocking, &MapSet.member?(selected, &1.round))
 
   defp trf_summary(rounds) do
     count = fn state -> Enum.count(rounds, &(&1.state == state)) end
@@ -972,9 +984,10 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         />
 
         <%!-- FIDE mode, a postponed game still without a result (VCL4THP
-              Q169): no TRF goes out, copy or for rating, until each one has
-              a result or is recorded as not played in this event - which
-              asks twice and takes the tournament out of FIDE mode. --%>
+              Q169): no TRF that holds its round goes out, copy or for
+              rating, until it has a result or is recorded as not played in
+              this event - which asks twice and takes the tournament out of
+              FIDE mode. Files of the rounds before it are unaffected. --%>
         <div
           :if={@blocking_postponed != []}
           id="trf-open-postponed"
@@ -985,7 +998,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           <p style="margin-top: 0">
             <strong>
               {gettext(
-                "No TRF in FIDE mode while a postponed game has no result. The FIDE rules allow no report, and no final standings, until every game has one."
+                "In FIDE mode no TRF holds a round with a postponed game that has no result, and there are no final standings: the FIDE rules allow neither until every game has one. A file of only the rounds before it can still be made."
               )}
             </strong>
             {Postponed.what_to_do_text()}
@@ -1084,13 +1097,21 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               id="trf-download-copy"
               class={[
                 "pe-btn",
-                (MapSet.size(@trf_selected) == 0 or @blocking_postponed != []) && "is-disabled"
+                (MapSet.size(@trf_selected) == 0 or
+                   blocking_in(@blocking_postponed, @trf_selected) != []) &&
+                  "is-disabled"
               ]}
               href={
-                if MapSet.size(@trf_selected) > 0 and @blocking_postponed == [],
-                  do: ~p"/t/#{@tournament.id}/export/trf?rounds=#{trf_rounds_param(@trf_selected)}"
+                if MapSet.size(@trf_selected) > 0 and
+                     blocking_in(@blocking_postponed, @trf_selected) == [],
+                   do: ~p"/t/#{@tournament.id}/export/trf?rounds=#{trf_rounds_param(@trf_selected)}"
               }
-              aria-disabled={to_string(MapSet.size(@trf_selected) == 0 or @blocking_postponed != [])}
+              aria-disabled={
+                to_string(
+                  MapSet.size(@trf_selected) == 0 or
+                    blocking_in(@blocking_postponed, @trf_selected) != []
+                )
+              }
               target="_blank"
             >
               {gettext("Download a copy (not for rating)")}

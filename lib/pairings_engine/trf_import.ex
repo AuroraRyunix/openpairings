@@ -32,6 +32,8 @@ defmodule PairingsEngine.TrfImport do
   is checked, what is deliberately not, and which files are judged at all.
   """
 
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   alias PairingsEngine.{Encoding, Repo, SafeError, Tiebreaks, Tournaments}
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
@@ -164,6 +166,7 @@ defmodule PairingsEngine.TrfImport do
     with :ok <- check_bounds(content),
          decoded = decode_content(content),
          :ok <- check_single_document(decoded),
+         :ok <- check_no_stray_results(decoded),
          {readable, odd_results} = rewrite_unrecognised_results(decoded),
          {:ok, data} <- parse_trf(readable),
          data = Map.put(data, :trf_version, detect_version(decoded, data)),
@@ -291,6 +294,50 @@ defmodule PairingsEngine.TrfImport do
   end
 
   defp odd_offset(round), do: @result_first_col + (round - 1) * 10
+
+  # The other half of the rule above: an unrecognised symbol in a round
+  # that names no opponent (`0000`). That is not a game with an unknown
+  # result - there is no game - so the file is refused, and the refusal
+  # says whose line, which round and what symbol, because "invalid result"
+  # on a 300-line file is a scavenger hunt, not an error message. The first
+  # one is enough to send the file back; listing every one is the
+  # arbiter's editor's job.
+  defp check_no_stray_results(text) do
+    stray =
+      text
+      |> String.split(~r/\r\n|\n|\r/)
+      |> Enum.find_value(fn piece ->
+        with "001" <> _ <- piece,
+             {rank, ""} <- Integer.parse(trf_cell(piece, 4, 4)) do
+          Enum.find_value(round_numbers(piece), fn round ->
+            case trf_game(piece, round) do
+              {nil, code} when code != "" ->
+                if code not in @recognised_results, do: {rank, piece, round, code}
+
+              _ ->
+                nil
+            end
+          end)
+        else
+          _ -> nil
+        end
+      end)
+
+    case stray do
+      nil ->
+        :ok
+
+      {rank, piece, round, code} ->
+        {:error,
+         gettext(
+           "This TRF file has the symbol \"%{symbol}\" in round %{round} of %{player} (starting rank %{rank}), a round with no opponent (0000). An unknown result is a game whose result is missing; with nobody on the other side there is no game, so the file cannot be read. Correct that round in the file (a bye or absence code, or the opponent's number) and import it again.",
+           symbol: display_code(code),
+           round: round,
+           player: trf_cell(piece, 14, 33),
+           rank: rank
+         )}
+    end
+  end
 
   defp partner_edit(by_rank, opponent, rank, round) do
     with {j, piece} <- Map.get(by_rank, opponent),

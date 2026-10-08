@@ -45,8 +45,9 @@ is paired (a new player can still be added at the bottom of a team, as a
 reserve).
 
 FIDE mode makes **no TRF and no final standings while a postponed game has no
-result**. Every TRF download, the file made by *Send…* and the standings
-after the last round are refused, with the open games listed. Enter their
+result**. Every TRF download and file made by *Send…* that holds its round,
+and the standings after the last round, are refused, with the open games
+listed. A file of only the rounds before it is still made. Enter their
 results, or record a game as **not played in this event** (Settings, Export),
 which takes the tournament out of FIDE mode. See
 [Postponed games](07-results.md).

@@ -135,7 +135,14 @@ defmodule PairingsEngineWeb.TrfImportOddResultsTest do
       end)
       |> Enum.join("\n")
 
-    assert {:error, _} = TrfImport.review(text)
+    # Refused before the parser, with whose line, which round and what
+    # symbol - not the parser's bare "unrecognized result code".
+    assert {:error, reason} = TrfImport.review(text)
+    message = TrfImport.error_message(reason)
+    assert message =~ "Alpha, Player"
+    assert message =~ "round 1"
+    assert message =~ ~s("5")
+    assert message =~ "no opponent (0000)"
   end
 
   test "the review step lists each one; confirming imports them as postponed games", %{conn: conn} do

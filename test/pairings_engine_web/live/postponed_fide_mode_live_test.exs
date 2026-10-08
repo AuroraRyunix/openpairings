@@ -91,6 +91,65 @@ defmodule PairingsEngineWeb.PostponedFideModeLiveTest do
     assert is_nil(Repo.reload!(postponed).finalised_at)
   end
 
+  # Two rounds, round 1 played in full, the open game in round 2: the files
+  # of round 1 alone - a copy, the rating inbox's copy of a round sent
+  # earlier - are not the ones Q169 is about.
+  defp two_rounds(scope) do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Club championship",
+        "type" => "swiss",
+        "start_date" => "2026-09-01",
+        "rounds_count" => "2",
+        "round_dates" => ["2026-09-01", "2026-09-08"],
+        "tiebreaks" => ["BH", "SB"],
+        "postponed_games" => "true"
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name, "fide_rating" => "#{rating}"})
+    end
+
+    {:ok, _} = Engine.pair_next_round(t)
+
+    for p <- Tournaments.get_round(t.id, 1).pairings,
+        do: Tournaments.update_pairing_result(p, "1-0")
+
+    {:ok, _} = Engine.pair_next_round(Tournaments.get_tournament!(t.id))
+    [postponed, other] = Tournaments.get_round(t.id, 2).pairings
+    {:ok, postponed} = Tournaments.update_pairing_result(postponed, "*W")
+    {:ok, _} = Tournaments.update_pairing_result(other, "1-0")
+    {Tournaments.get_tournament!(t.id), postponed}
+  end
+
+  test "a file of only the rounds before the open game's round is made; with its round, refused",
+       %{conn: conn, scope: scope} do
+    {t, postponed} = two_rounds(scope)
+    assert Compliance.fide_mode?(t)
+
+    copy = get(conn, ~p"/t/#{t.id}/export/trf?rounds=1")
+    assert response(copy, 200) =~ "COPY - NOT FOR RATING"
+
+    refused = get(conn, ~p"/t/#{t.id}/export/trf?rounds=1-2")
+    assert redirected_to(refused) == ~p"/t/#{t.id}/settings/export"
+    assert Phoenix.Flash.get(refused.assigns.flash, :error) =~ "Alice"
+
+    # The Export page: both rounds ticked, the copy is off; round 2
+    # unticked, it is on again, the open game still listed.
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+    assert has_element?(lv, "#trf-open-postponed-#{postponed.id}")
+    assert has_element?(lv, "#trf-download-copy[aria-disabled='true']")
+
+    lv |> element("#trf-tick-2") |> render_click()
+    assert has_element?(lv, "#trf-download-copy[aria-disabled='false']")
+    refute has_element?(lv, "#trf-send[disabled]")
+
+    sent = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
+    assert response(sent, 200) =~ "001"
+    assert PairingsEngine.PostponedGames.sent_rounds(Repo.reload!(t)) == [1]
+    assert is_nil(Repo.reload!(postponed).finalised_at)
+  end
+
   test "the final standings are refused on the page and on paper, until the game has a result",
        %{conn: conn, scope: scope} do
     {t, postponed} = tournament(scope)

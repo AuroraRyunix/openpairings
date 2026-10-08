@@ -152,9 +152,11 @@ afdrukken en de publiek gepubliceerde stand dat ze *niet definitief* zijn, marke
 ze de speler of ploeg met *1 pending* (1 in behandeling), en blijft het toernooi
 lopen. Het archiveren van het toernooi meldt hoeveel partijen nog niet zijn gespeeld.
 
-**Verslaglegging.** In de FIDE-modus is er geen TRF en geen eindstand zolang
-een uitgestelde partij geen resultaat heeft: Instellingen, Exporteren toont de
-openstaande partijen. Voer het resultaat in, of druk naast de partij op **Niet
+**Verslaglegging.** In de FIDE-modus is er geen TRF die de ronde van een
+uitgestelde partij zonder resultaat bevat, en geen eindstand: Instellingen,
+Exporteren toont de openstaande partijen. Een bestand met alleen de ronden
+ervoor wordt nog wel gemaakt, en OpenResults blijft de stand tonen, gemarkeerd
+als niet definitief. Voer het resultaat in, of druk naast de partij op **Niet
 gespeeld in dit toernooi**. Die tweede weg vraagt het twee keer (ze haalt het
 toernooi voorgoed uit de FIDE-modus), en het verslag zegt dan in een
 `###`-regel om welke partij het gaat. De partij blijft uitgesteld: het bestand

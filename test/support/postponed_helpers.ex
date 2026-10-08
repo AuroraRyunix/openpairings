@@ -2,7 +2,7 @@ defmodule PairingsEngine.PostponedHelpers do
   @moduledoc """
   For tests of what a report does with an open postponed game. In FIDE mode
   no TRF is made while one is open (VCL4THP Q169,
-  `PostponedGames.ensure_reportable/1`); the arbiter's way on, short of
+  `PostponedGames.ensure_reportable/2`); the arbiter's way on, short of
   entering the result, is to record each open game as not played in this
   event - which also takes the tournament out of FIDE mode. That is what a
   test of the sending flow has to do first now, so it does it here.

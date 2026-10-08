@@ -146,8 +146,10 @@ published standings say that they are *not final*, mark the player or team
 with *1 pending*, and the tournament stays running. Archiving the tournament
 tells you how many games are still unplayed.
 
-**Reporting.** In FIDE mode there is no TRF and no final standings while a
-postponed game has no result: Settings, Export lists the open games. Enter the
+**Reporting.** In FIDE mode there is no TRF that holds the round of a
+postponed game without a result, and no final standings: Settings, Export
+lists the open games. A file of only the rounds before it is still made, and
+OpenResults keeps showing the standings, marked not final. Enter the
 result, or press **Not played in this event** beside the game. That second way
 asks twice (it takes the tournament out of FIDE mode, for good), and the
 report then says which game it was in a `###` line. The game stays postponed:

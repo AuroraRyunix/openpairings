@@ -99,8 +99,9 @@ This way the game is neither rated twice nor lost; see below.
 
 ## Postponed games
 
-In FIDE mode nothing is sent, and no copy is made, while a postponed game has
-no result. The Export page lists the open games: enter each result, or press
+In FIDE mode no file that holds the round of a postponed game without a
+result is sent or copied. A file of only the rounds before it is made as
+usual, such as the rating inbox's copy of a round sent earlier. The Export page lists the open games: enter each result, or press
 **Not played in this event**. That asks twice and takes the tournament out of
 FIDE mode; the copies then carry `### Not played @ Round 3: 5-12` for it, and
 the file for rating writes it as not played (`0000 - Z`).

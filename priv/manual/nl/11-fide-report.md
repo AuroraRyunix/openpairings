@@ -95,8 +95,10 @@ Zo wordt de partij niet twee keer gerate en ook niet verloren; zie hieronder.
 
 ## Uitgestelde partijen {#postponed-games}
 
-In de FIDE-modus wordt er niets verstuurd en geen kopie gemaakt zolang een
-uitgestelde partij geen resultaat heeft. De pagina Exporteren toont de
+In de FIDE-modus wordt geen bestand verstuurd of gekopieerd dat de ronde van
+een uitgestelde partij zonder resultaat bevat. Een bestand met alleen de ronden
+ervoor wordt gewoon gemaakt, zoals de kopie in de ratinginbox van een eerder
+verstuurde ronde. De pagina Exporteren toont de
 openstaande partijen: voer elk resultaat in, of druk op **Niet gespeeld in dit
 toernooi**. Dat vraagt het twee keer en haalt het toernooi uit de FIDE-modus;
 de kopieën dragen dan `### Not played @ Round 3: 5-12` voor die partij, en het

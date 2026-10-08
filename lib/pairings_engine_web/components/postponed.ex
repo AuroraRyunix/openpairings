@@ -446,12 +446,12 @@ defmodule PairingsEngineWeb.Postponed do
 
   @doc """
   Why a TRF was refused in FIDE mode (`{:error, {:open_postponed, games}}`,
-  `PairingsEngine.PostponedGames.ensure_reportable/1`), naming every open
+  `PairingsEngine.PostponedGames.ensure_reportable/2`), naming every open
   game and both ways on.
   """
   def trf_refused_text(games) do
     gettext(
-      "No file: in FIDE mode no TRF is made while a postponed game has no result. Still open: %{games}. Enter each result, or record the game as not played in this event under Settings, Export (that takes the tournament out of FIDE mode).",
+      "No file: in FIDE mode no TRF holds a round with a postponed game that has no result. Still open: %{games}. Enter each result, record the game as not played in this event under Settings, Export (that takes the tournament out of FIDE mode), or make the file of the rounds before it only.",
       games: Enum.map_join(games, "; ", &game_text/1)
     )
   end
