@@ -741,6 +741,71 @@ defmodule PairingsEngine.TrfImportTest do
 
       refute Enum.any?(warnings, &match?(%{kind: :postponed_imported}, &1))
     end
+
+    # Round 1: Alpha v Bravo, result unknown; Charlie beats Delta. The rounds
+    # after it are judged on scores that include the `?`, which the engine
+    # refuses to put a value on - so the whole check used to crash and leave
+    # every round unchecked. Now it counts the game as the import does (a
+    # postponed game, a draw for both) and says so.
+    defp unknown_then(round2) do
+      {r2_alpha, r2_bravo, r2_charlie, r2_delta} = round2
+
+      ([
+         "012 Unknown result",
+         "092 Individual: Swiss System",
+         "XXR 5",
+         trf06_player_line(1, "Alpha, One", "0.5", {2, "w", "?"}, r2_alpha),
+         trf06_player_line(2, "Bravo, Two", "0.5", {1, "b", "?"}, r2_bravo),
+         trf06_player_line(3, "Charlie, Three", "1.0", {4, "w", "1"}, r2_charlie),
+         trf06_player_line(4, "Delta, Four", "0.0", {3, "b", "0"}, r2_delta)
+       ]
+       |> Enum.join("
+")) <> "
+"
+    end
+
+    test "the rounds after it are checked, counting it as the draw it is imported as" do
+      # The round a draw for Alpha and Bravo makes legal: Charlie (1) floats
+      # to Alpha, Bravo meets Delta.
+      trf = unknown_then({{3, "b", "="}, {4, "w", "="}, {1, "w", "="}, {2, "b", "="}})
+
+      assert {:ok, report} = TrfImport.review(trf, user_scope())
+      kinds = Enum.map(report.warnings, & &1.kind)
+
+      refute :verification_failed in kinds
+      refute :round_unverified in kinds
+      refute :illegal_round in kinds
+
+      assert [assumed] = Enum.filter(report.warnings, &(&1.kind == :unknown_results_assumed))
+      assert assumed.outcome == :draw
+      assert assumed.points == 0.5
+      assert assumed.rounds == [2]
+      assert [%{round: 1, ranks: [1, 2], players: ["Alpha, One", "Bravo, Two"]}] = assumed.games
+
+      assert [%{"outcome" => "draw", "rounds" => [2], "games" => [%{"round" => 1}]}] =
+               TrfImport.findings(report)["assumed_results"]
+    end
+
+    test "a rule broken after it is still found" do
+      # Round 1 replayed in round 2 - two rematches, whatever the first
+      # games' results were, the unknown one included.
+      trf = unknown_then({{2, "w", "="}, {1, "b", "="}, {4, "b", "="}, {3, "w", "="}})
+
+      assert {:ok, report} = TrfImport.review(trf, user_scope())
+
+      findings = Enum.filter(report.warnings, &(&1.kind == :illegal_round))
+      assert Enum.all?(findings, &(&1.round == 2 and &1.reason == :rematch))
+      assert Enum.sort(Enum.map(findings, & &1.ranks)) == [[1, 2], [3, 4]]
+      assert Enum.any?(report.warnings, &(&1.kind == :unknown_results_assumed))
+    end
+
+    test "a ? in the last round assumed nothing, and says nothing about it" do
+      trf = unknown_then({nil, nil, nil, nil})
+
+      assert {:ok, report} = TrfImport.review(trf, user_scope())
+      refute Enum.any?(report.warnings, &(&1.kind == :unknown_results_assumed))
+      refute Enum.any?(report.warnings, &(&1.kind == :verification_failed))
+    end
   end
 
   defp place_trf_col(line, position, text) do

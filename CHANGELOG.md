@@ -49,6 +49,14 @@ Each entry is tagged so a version can be skimmed:
   answers a click in the Rating lists card**, and a click in that card no longer
   throws away the FIDE-ID range row you were still typing. The two shared one
   note, one error and one "nothing unsaved" flag, so each spoke for the other.
+- [Fix] **A TRF with an unknown result (`?`) has its later rounds checked.**
+  The engine will not score a `?`, so the import's round check crashed on the
+  first round after one and checked nothing at all - a thorough way of
+  finding no problems. It now counts each `?` game as the draw the
+  import makes of it (a postponed game, the FIDE value), checks every round,
+  and the review step says which games were assumed, what as, and which
+  rounds rest on it. A symbol the import does not know (rewritten to `?`)
+  gets the same treatment.
 
 ## [0.78.0] - 2026-10-08
 

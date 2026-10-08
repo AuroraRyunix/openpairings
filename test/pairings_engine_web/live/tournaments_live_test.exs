@@ -1202,6 +1202,27 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   # round 2, which no Swiss may do; `:legal` pairs the same four players a
   # different but perfectly legal way. Nothing else differs between the two
   # files, so what the flash says below can only be about the rematch.
+  # `two_round_trf(:legal)` with round 1's Alpha v Bravo draw rewritten as
+  # `?` on both lines - `Ainalrami.Trf.serialize/1` will not write one.
+  defp unknown_result_trf do
+    :legal
+    |> two_round_trf()
+    |> String.split("
+")
+    |> Enum.map_join(
+      "
+",
+      fn
+        "001    " <> <<rank::binary-size(1), _::binary>> = line when rank in ["1", "2"] ->
+          {head, "=" <> tail} = String.split_at(line, 98)
+          head <> "?" <> tail
+
+        line ->
+          line
+      end
+    )
+  end
+
   defp two_round_trf(:illegal), do: two_round_trf([{1, 2}, {3, 4}])
   defp two_round_trf(:legal), do: two_round_trf([{3, 1}, {2, 4}])
 
@@ -1295,6 +1316,24 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
                  where: a.tournament_id == ^tournament.id and a.action == "pibe.import"
                )
              )
+    end
+
+    # Round 1's Alpha v Bravo with its result unknown. The check used to
+    # crash on round 2 (the engine will not score `?`); it now judges it on
+    # the draw the import counts the game as, and the review says so.
+    test "rounds checked on an assumed result for a ? game say which games and what was assumed",
+         %{conn: conn} do
+      lv = submit_trf(conn, unknown_result_trf())
+
+      assert has_element?(lv, "#trf-review")
+      refute has_element?(lv, "#trf-review-pibe")
+      refute has_element?(lv, "#trf-review-unchecked")
+
+      assumed = lv |> element("#trf-review-assumed") |> render()
+      assert assumed =~ "Round 2"
+      assert assumed =~ "draw"
+      assert assumed =~ "Alpha, Player"
+      assert assumed =~ "Bravo, Player"
     end
 
     test "Cancel on the review step imports nothing", %{conn: conn} do

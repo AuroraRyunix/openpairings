@@ -62,6 +62,11 @@ follows the choice of the file:
   both sides of a game must agree. A symbol in a round with no opponent (`0000`) is
   not a game and the file is still refused; the message names the player, the
   round and the symbol. Cancel imports nothing.
+- *Results assumed for the check.* The rounds after a game with an unknown
+  result (`?`, or a symbol read as one) are still checked against the pairing
+  rules, counting that game as a draw for both players - what the import makes
+  of it, a postponed game. The review says which rounds were checked that way
+  and lists every game assumed, with its round and its two players.
 - *Rounds that break a pairing rule.* If a round of the file breaks a rule, the
   review is headed *This file's rounds break the FIDE pairing rules* and says
   that importing is not compliant with the pairing rules. This is a warning

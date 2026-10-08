@@ -1256,6 +1256,17 @@ defmodule PairingsEngine.TrfImport do
     :ok
   end
 
+  # What an imported `?` counts as until the arbiter enters a result: the
+  # postponed-games default (`Tournament.postponed_requester_outcome` and
+  # `postponed_opponent_outcome`, both "draw") and C.04.2 3.1's rule for an
+  # adjourned game. The file cannot say who asked for the postponement, so
+  # the requester/opponent split has nobody to apply to; both seats get the
+  # one value the two settings share by default. One attribute, read by the
+  # rows `insert_round/4` writes and by the round check that judges the
+  # rounds after - so the check cannot assume one thing while the
+  # tournament pairs on another.
+  @unknown_outcome "draw"
+
   defp insert_round(tournament, round_number, entries, players_by_rank) do
     {pairings, byes} = build_round(entries, Tournament.team?(tournament))
 
@@ -1272,10 +1283,12 @@ defmodule PairingsEngine.TrfImport do
         black_player_id: p.black_rank && Map.fetch!(players_by_rank, p.black_rank).id,
         result: p.result,
         # A `?` came in as a postponed game (see `result_string/2`): it counts
-        # as a draw for both, the value the file's `X` is written with and
-        # the FIDE rule, whatever the new tournament's own setting says.
-        provisional_white: if(p.result == PairingsEngine.Results.postponed(), do: "draw"),
-        provisional_black: if(p.result == PairingsEngine.Results.postponed(), do: "draw")
+        # as `@unknown_outcome` for both - and the round check judged the
+        # later rounds on exactly that (`assume_unknown_results/1`).
+        provisional_white:
+          if(p.result == PairingsEngine.Results.postponed(), do: @unknown_outcome),
+        provisional_black:
+          if(p.result == PairingsEngine.Results.postponed(), do: @unknown_outcome)
       })
     end)
 
@@ -2041,7 +2054,12 @@ defmodule PairingsEngine.TrfImport do
   defp verification_warnings(_data, paired) when paired < 1, do: []
 
   defp verification_warnings(data, paired) do
-    if dutch_swiss?(data), do: round_check().(data, paired), else: []
+    if dutch_swiss?(data) do
+      round_check().(assume_unknown_results(data), paired) ++
+        unknown_assumption_warnings(data, paired)
+    else
+      []
+    end
   rescue
     # Same reasoning as `build_structs_with_data/1`'s rescue above: this runs
     # over the imported players/rounds, so an exception's own message can
@@ -2106,6 +2124,100 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
+  # The file's `?` games, scored the way the tournament will score them.
+  #
+  # The engine will not put a value on `?` (`Ainalrami.Trf`'s "The `?`
+  # unknown result"): scoring one raises, and so does asking whether it was
+  # played, which colour history needs. Every round after a `?` is judged on
+  # scores that include it, so one lost scoresheet used to take the whole
+  # check down with it - crashed, rescued, every round left unchecked.
+  #
+  # But the import does not leave the game unknown either: it becomes a
+  # postponed game worth `@unknown_outcome` to both players, and that is
+  # what the next round will be paired on. So the check reads it the same
+  # way `Pairing.trf_game/4` hands a postponed game to the engine - a played
+  # draw, colours counting - and judges the rounds on the scores the
+  # tournament itself will have. Only games with an opponent: a `?` against
+  # nobody has no seat to fill in, and is left to fail its own round
+  # (`verify_round/5`) rather than be guessed at.
+  @assumed_result %{"draw" => "="}
+
+  defp assume_unknown_results(data) do
+    assumed = Map.fetch!(@assumed_result, @unknown_outcome)
+
+    players =
+      Enum.map(data.players, fn player ->
+        games =
+          Enum.map(player.games || [], fn
+            %{result: @unknown_code, opponent_rank: opp} = game when not is_nil(opp) ->
+              %{game | result: assumed}
+
+            game ->
+              game
+          end)
+
+        %{player | games: games}
+      end)
+
+    %{data | players: players}
+  end
+
+  # Said, not just done: the arbiter is told which games the check filled
+  # in and with what, for every round that was judged on them - the rounds
+  # AFTER a `?` (the round holding it is judged on who met whom, which the
+  # file does know). A `?` in the last paired round changed no round's
+  # verdict, and gets no sentence here; `:postponed_imported` covers it.
+  defp unknown_assumption_warnings(data, paired) do
+    names = Map.new(data.players, &{&1.rank, String.trim(&1.name || "")})
+
+    games =
+      for player <- data.players,
+          {game, round} <- Enum.with_index(player.games || [], 1),
+          game[:result] == @unknown_code,
+          opp = game[:opponent_rank],
+          not is_nil(opp),
+          # Each game once, from its lower rank.
+          player.rank < opp or not mutual_unknown?(data.players, opp, round, player.rank),
+          round < paired,
+          do: %{
+            round: round,
+            ranks: [player.rank, opp],
+            players: [player_name(names, player.rank), player_name(names, opp)]
+          }
+
+    case Enum.sort_by(games, &{&1.round, &1.ranks}) do
+      [] ->
+        []
+
+      games ->
+        first = games |> Enum.map(& &1.round) |> Enum.min()
+        points = data.tournament[:point_system] || Trf.default_point_system()
+
+        [
+          %{
+            kind: :unknown_results_assumed,
+            outcome: String.to_existing_atom(@unknown_outcome),
+            points: Map.fetch!(points, String.to_existing_atom(@unknown_outcome)),
+            rounds: Enum.to_list((first + 1)..paired//1),
+            games: games
+          }
+        ]
+    end
+  end
+
+  defp mutual_unknown?(players, rank, round, opponent) do
+    case Enum.find(players, &(&1.rank == rank)) do
+      nil ->
+        false
+
+      p ->
+        match?(
+          %{result: @unknown_code, opponent_rank: ^opponent},
+          Enum.at(p.games || [], round - 1)
+        )
+    end
+  end
+
   defp illegal_round_warnings(data, paired) do
     point_system = data.tournament[:point_system]
 
@@ -2143,9 +2255,7 @@ defmodule PairingsEngine.TrfImport do
           []
 
         pairs ->
-          data.players
-          |> state_before_round(round, point_system)
-          |> verify_round(pairs, opts, round, names)
+          verify_round(data.players, round, point_system, pairs, opts, names)
       end
     end)
   end
@@ -2164,24 +2274,29 @@ defmodule PairingsEngine.TrfImport do
   # (`pairing_problem/2`), and the rest are verified as usual. The rescue
   # is the backstop for whatever else the engine may object to, and is
   # per round for the same reason.
-  defp verify_round(pre_round, pairs, opts, round, names) do
+  #
+  # The round's starting state is built inside the same rescue: scoring it
+  # is the engine's arithmetic too, and a result it refuses to score (a `?`
+  # that `assume_unknown_results/1` had no opponent to fill in) costs this
+  # round, not the pass.
+  defp verify_round(players, round, point_system, pairs, opts, names) do
+    pre_round = state_before_round(players, round, point_system)
+
     case pairing_problem(pre_round, pairs) do
       nil ->
-        try do
-          pre_round
-          |> round_violations(pairs, opts)
-          |> Enum.map(&warning(&1, round, names))
-        rescue
-          # Type only, as in `verification_warnings/2`: the message can
-          # quote a player.
-          e ->
-            SafeError.log_crash("TRF import verification of round #{round}", e, __STACKTRACE__)
-            [unverified_warning(round, :engine_refused)]
-        end
+        pre_round
+        |> round_violations(pairs, opts)
+        |> Enum.map(&warning(&1, round, names))
 
       problem ->
         [unverified_warning(round, problem)]
     end
+  rescue
+    # Type only, as in `verification_warnings/2`: the message can quote a
+    # player.
+    e ->
+      SafeError.log_crash("TRF import verification of round #{round}", e, __STACKTRACE__)
+      [unverified_warning(round, :engine_refused)]
   end
 
   defp unverified_warning(round, reason),
@@ -2631,7 +2746,18 @@ defmodule PairingsEngine.TrfImport do
         end),
       "unchecked_rounds" =>
         for(%{kind: :round_unverified, round: r} <- warnings, uniq: true, do: r) |> Enum.sort(),
-      "verification_failed" => Enum.any?(warnings, &(&1[:kind] == :verification_failed))
+      "verification_failed" => Enum.any?(warnings, &(&1[:kind] == :verification_failed)),
+      # The `?` games the round check counted as `outcome`, and the rounds
+      # judged on them: what the check above is conditional on.
+      "assumed_results" =>
+        for(
+          %{kind: :unknown_results_assumed} = w <- warnings,
+          do: %{
+            "outcome" => to_string(w.outcome),
+            "rounds" => w.rounds,
+            "games" => Enum.map(w.games, &%{"round" => &1.round, "ranks" => &1.ranks})
+          }
+        )
     }
   end
 
