@@ -564,12 +564,12 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - Forbidden pairings")}</p>
         </div>
-         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
+        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-       <.settings_subnav tournament={@tournament} active={:restrictions} />
+      <.settings_subnav tournament={@tournament} active={:restrictions} />
       <.fide_exit_dialog
         id="fide-gate"
         step={@fide_gate && @fide_gate.step}
@@ -591,14 +591,14 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             )}
         <% end %>
       </div>
-      
+
       <p :if={engine_note(@tournament)} class="hint" id="restrictions-engine-note">
         {engine_note(@tournament)}
       </p>
-      
+
       <div class="card" id="restrictions-effect">
         <h2>{gettext("Effect on the next round")}</h2>
-        
+
         <%= if @check.round do %>
           <div class="prohib-stats">
             <span class="pe-stat">
@@ -610,7 +610,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 round: @check.round
               )}
             </span>
-            
+
             <span class="pe-stat">
               <span class="pe-stat-n">{@wish_count}</span> {ngettext(
                 "wish (if possible)",
@@ -619,7 +619,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               )}
             </span>
           </div>
-          
+
           <p
             :if={@check.pairable == false}
             id="restrictions-unpairable"
@@ -629,7 +629,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               "With these restrictions and the games already played, there is no way to give every player an opponent they have not met and may meet. Remove or soften a restriction before pairing."
             )}
           </p>
-          
+
           <p :if={@check.isolated != []} id="restrictions-isolated" class="prohib-alert is-warm">
             <strong>
               {ngettext(
@@ -638,9 +638,9 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 length(@check.isolated)
               )}
             </strong>
-             {Enum.map_join(@check.isolated, ", ", & &1.name)}
+            {Enum.map_join(@check.isolated, ", ", & &1.name)}
           </p>
-          
+
           <p
             :if={
               @check.pairable != false and @check.possible > 0 and
@@ -657,16 +657,16 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
           <p class="hint" style="margin: 0">{gettext("Every round is paired.")}</p>
         <% end %>
       </div>
-      
+
       <div class="card" id="restrictions-rules">
         <h2>{gettext("Rules")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Keep players of the same club or federation apart without naming them: a rule follows the players as they are when a round is paired, so a late entrant or a corrected club is covered without touching it."
           )}
         </p>
-        
+
         <ul :if={@field_rules != []} class="prohib-list" id="rule-list">
           <li :for={rule <- @field_rules} id={"rule-#{rule.id}"} class="prohib-row">
             <%= if @editing_rule == rule.id do %>
@@ -685,9 +685,9 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 <span class={["pe-tag", if(rule.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
                   {if rule.soft, do: gettext("if possible"), else: gettext("rule")}
                 </span>
-                 <span class="hint">{window_label(rule, @tournament)}</span>
+                <span class="hint">{window_label(rule, @tournament)}</span>
               </div>
-               <span class="prohib-row-effect">{effect_text(rule, @effects[rule.id])}</span>
+              <span class="prohib-row-effect">{effect_text(rule, @effects[rule.id])}</span>
               <span class="prohib-row-actions">
                 <button
                   type="button"
@@ -698,7 +698,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 >
                   {gettext("Edit")}
                 </button>
-                
+
                 <button
                   type="button"
                   class="pe-btn danger-link"
@@ -712,11 +712,11 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             <% end %>
           </li>
         </ul>
-        
+
         <p :if={@field_rules == []} class="hint">{gettext("No rules yet.")}</p>
-        
+
         <h3 class="prohib-subhead">{gettext("Add a rule")}</h3>
-        
+
         <.rule_fields
           form={@rule_form}
           id="add-rule-form"
@@ -726,16 +726,16 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
           error={@editing_rule == nil && @rule_error}
         />
       </div>
-      
+
       <div class="card" id="restrictions-players">
         <h2>{gettext("Players who must not meet")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Tick two or more players and keep them apart in one go: two make a forbidden pair, three or more a group whose members never meet each other."
           )}
         </p>
-        
+
         <div class="prohib-picker" id="player-picker">
           <form id="player-search-form" phx-change="search" phx-submit="search">
             <input
@@ -749,7 +749,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               phx-debounce="150"
             />
           </form>
-          
+
           <div class="prohib-chips" id="selected-players">
             <span :if={@selected == []} class="hint">{gettext("No players ticked.")}</span>
             <button
@@ -763,7 +763,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               {name_of(@players_by_id, id)} <span aria-hidden="true">×</span>
             </button>
           </div>
-          
+
           <ul class="prohib-options" id="player-options">
             <li :for={p <- @visible}>
               <label class={["prohib-option", p.id in @selected && "is-on"]}>
@@ -777,12 +777,12 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 <span class="prohib-option-meta">{player_line(p, @tournament)}</span>
               </label>
             </li>
-            
+
             <li :if={@visible == []} class="hint" style="padding: 8px">
               {gettext("No player matches.")}
             </li>
           </ul>
-          
+
           <form id="keep-apart-form" phx-submit="keep_apart" class="prohib-picker-actions">
             <label class="set-toggle" style="margin: 0">
               <input type="hidden" name="soft" value="false" />
@@ -795,7 +795,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 phx-value-soft={to_string(!@selection_soft)}
               /> <span class="set-toggle-text">{gettext("Only if possible")}</span>
             </label>
-            
+
             <button
               type="submit"
               id="keep-apart"
@@ -815,7 +815,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                   )}
               <% end %>
             </button>
-            
+
             <button
               :if={@selected != [] or @editing_group}
               type="button"
@@ -825,10 +825,10 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               {gettext("Clear")}
             </button>
           </form>
-          
+
           <p :if={@error} class="error-note" id="picker-error">{@error}</p>
         </div>
-        
+
         <ul :if={@groups != [] or @pairs != []} class="prohib-list" id="pair-list">
           <li
             :for={g <- @groups}
@@ -839,16 +839,16 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               <span class="prohib-row-title">
                 {Enum.map_join(g.player_ids, ", ", &name_of(@players_by_id, &1))}
               </span>
-              
+
               <span class={["pe-tag", if(g.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
                 {if g.soft, do: gettext("if possible"), else: gettext("never")}
               </span>
-              
+
               <span :if={g.from_round && g.from_round > 1} class="hint">
                 {gettext("from round %{n}", n: g.from_round)}
               </span>
             </div>
-             <span class="prohib-row-effect">{effect_text(g, @effects[g.id])}</span>
+            <span class="prohib-row-effect">{effect_text(g, @effects[g.id])}</span>
             <span class="prohib-row-actions">
               <button
                 type="button"
@@ -859,7 +859,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               >
                 {gettext("Edit")}
               </button>
-              
+
               <button
                 type="button"
                 class="pe-btn danger-link"
@@ -871,19 +871,19 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               </button>
             </span>
           </li>
-          
+
           <li :for={fp <- @pairs} id={"pair-#{fp.id}"} class="prohib-row">
             <div class="prohib-row-main">
               <span class="prohib-row-title">{fp.player_a.name} - {fp.player_b.name}</span>
               <span class={["pe-tag", if(fp.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
                 {if fp.soft, do: gettext("if possible"), else: gettext("never")}
               </span>
-              
+
               <span :if={fp.from_round && fp.from_round > 1} class="hint">
                 {gettext("from round %{n}", n: fp.from_round)}
               </span>
             </div>
-            
+
             <span class="prohib-row-actions">
               <button
                 type="button"
@@ -895,7 +895,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               >
                 {if fp.soft, do: gettext("Make it a rule"), else: gettext("Make it a wish")}
               </button>
-              
+
               <button
                 type="button"
                 class="pe-btn danger-link"
@@ -908,21 +908,21 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             </span>
           </li>
         </ul>
-        
+
         <p :if={@groups == [] and @pairs == []} class="hint" style="margin-bottom: 0">
           {gettext("No players kept apart yet.")}
         </p>
       </div>
-      
+
       <div class="card" id="restrictions-wishes">
         <h2>{gettext("How hard to try the wishes")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "A wish (if possible) is weighed against the pairing criteria and gives way when the rules leave no other legal round. A round in which a wish moves a board is not the round the FIDE rules pair, so in FIDE mode that round is recorded as leaving it."
           )}
         </p>
-        
+
         <form id="soft-position-form" phx-submit="save_soft_position">
           <.setting_group>
             <.setting_field label={gettext("How hard to try")}>
@@ -937,7 +937,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
               </select>
             </.setting_field>
           </.setting_group>
-          
+
           <div class="actions">
             <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
             <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
@@ -969,13 +969,13 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             <option value="club" selected={@form[:kind].value == "club"}>
               {gettext("Players of the same club")}
             </option>
-            
+
             <option value="federation" selected={@form[:kind].value == "federation"}>
               {gettext("Players of the same federation")}
             </option>
           </select>
         </.setting_field>
-        
+
         <.setting_field
           label={gettext("Only these (optional)")}
           hint={gettext("Comma-separated. Empty means every club or federation.")}
@@ -991,39 +991,39 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             }
           />
         </.setting_field>
-        
+
         <.setting_field label={gettext("Strength")}>
           <select name="rule[soft]" class="pe-select">
             <option value="false" selected={@form[:soft].value in ["false", false]}>
               {gettext("Never - a rule")}
             </option>
-            
+
             <option value="true" selected={@form[:soft].value in ["true", true]}>
               {gettext("If possible - a wish")}
             </option>
           </select>
         </.setting_field>
-        
+
         <.setting_field label={gettext("Rounds")}>
           <select name="rule[window]" class="pe-select">
             <option value="all" selected={@form[:window].value == "all"}>
               {gettext("Every round")}
             </option>
-            
+
             <option value="first" selected={@form[:window].value == "first"}>
               {gettext("The first rounds")}
             </option>
-            
+
             <option value="last" selected={@form[:window].value == "last"}>
               {gettext("The last rounds")}
             </option>
-            
+
             <option value="range" selected={@form[:window].value == "range"}>
               {gettext("From round ... to round ...")}
             </option>
           </select>
         </.setting_field>
-        
+
         <.setting_field
           :if={@form[:window].value in ["first", "last"]}
           label={gettext("How many rounds")}
@@ -1036,7 +1036,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             value={@form[:window_rounds].value}
           />
         </.setting_field>
-        
+
         <.setting_field :if={@form[:window].value == "range"} label={gettext("From round")}>
           <input
             type="number"
@@ -1046,7 +1046,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
             value={@form[:window_from].value}
           />
         </.setting_field>
-        
+
         <.setting_field :if={@form[:window].value == "range"} label={gettext("To round")}>
           <input
             type="number"
@@ -1057,9 +1057,9 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
           />
         </.setting_field>
       </div>
-      
+
       <p :if={@error} class="error-note">{@error}</p>
-      
+
       <div class="actions">
         <button type="submit" class="pe-btn tonal" id={"#{@id}-submit"}>{@label}</button>
         <button :if={@cancel} type="button" class="pe-btn" phx-click={@cancel}>
