@@ -20,7 +20,7 @@ defmodule PairingsEngine.TrfExport do
   import Ecto.Query, only: [from: 2]
 
   alias PairingsEngine.{Federation, Pairing, PeriodRatings, Standings, TeamStandings, Tournaments}
-  alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngine.Tournaments.{Player, Tournament}
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
   # with it. There used to be a local `PairingsEngine.Trf` as well - a
@@ -530,7 +530,7 @@ defmodule PairingsEngine.TrfExport do
       # Baku virtual points for the rounds in the file. The report had
       # left them out altogether; TRF26 wants them (`250`) for pairing.
       |> then(&Pairing.accelerated_rows(tournament, &1, players, length(rounds)))
-      |> append_future_byes(tournament, rounds, paired)
+      |> append_future_byes(tournament, players, rounds, paired)
       |> with_final_ranks(tournament, rounds, dialect)
 
     last_round = Enum.reduce(trf_players, length(rounds), &max(length(&1.games), &2))
@@ -1720,11 +1720,13 @@ defmodule PairingsEngine.TrfExport do
   # Only on a full export. A `?rounds=1-3` slice is a historical excerpt
   # and says nothing about what comes next, and appending a future round to
   # one would put a column where the reader expects the file to end.
-  defp append_future_byes(rows, tournament, rounds, paired) do
+  defp append_future_byes(rows, tournament, players, rounds, paired) do
     if rounds == Enum.to_list(1..paired//1) do
       byes =
         tournament.id
         |> Tournaments.list_byes_from_round(paired + 1)
+        |> Kernel.++(dialog_future_byes(tournament, players, paired))
+        |> Enum.uniq_by(&{&1.player_id, &1.round})
         |> Enum.group_by(& &1.player_id)
 
       system = Tournament.engine_point_system(tournament)
@@ -1767,6 +1769,49 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
+  # The byes entered on the player - "absent at the rounds" past the last
+  # paired one - which until now the export did not see at all: only an
+  # imported bye has a `byes` row before its round is paired, so the
+  # arbiter's own was missing from the very file the next round might be
+  # paired from. It is the same "this player is not playing" an imported
+  # one is (`TrfImport`'s `import_future_byes/4` writes `absent_rounds` for
+  # it too), worth what the tournament pays an absence, so it goes out as
+  # an `"absent"` bye at that value. Listed after the rows, which win where
+  # both exist - an imported bye keeps the letter it came with.
+  #
+  # Not in an individual round robin, which pairs everybody every round
+  # and whose import leaves such a bye out for the same reason.
+  defp dialog_future_byes(tournament, players, paired) do
+    if tournament.pairing_system != "round_robin" or Tournament.team?(tournament) do
+      counts = Standings.absent_counts(tournament)
+
+      # The occurrence cap counts each of these after every absence already
+      # recorded - `absent_counts/1` holds those, keyed by round.
+      recorded =
+        for {{pid, r}, running} <- counts, r <= paired, reduce: %{} do
+          acc -> Map.update(acc, pid, running, &max(&1, running))
+        end
+
+      for p <- players,
+          not p.forfeit,
+          {round, nth} <-
+            p.absent_rounds
+            |> to_string()
+            |> Player.parse_absent_rounds()
+            |> Enum.filter(&(&1 > paired))
+            |> Enum.sort()
+            |> Enum.with_index(1),
+          do: %{
+            player_id: p.id,
+            round: round,
+            type: "absent",
+            nth: Map.get(recorded, p.id, 0) + nth
+          }
+    else
+      []
+    end
+  end
+
   # The letter for what the bye will be worth, as the played rounds are
   # written (`Pairing.unplayed_code/2`): an absence the tournament pays half
   # a point or a full one for is `H` or `F`. It was always `Z`, whatever it
@@ -1774,6 +1819,12 @@ defmodule PairingsEngine.TrfExport do
   # The arbiter's full-point bye is `F` whatever it is worth, as in the
   # played rounds (`Pairing`'s `bye_code/1`).
   defp future_bye_code(%{type: "full-point"}, _tournament), do: "F"
+
+  defp future_bye_code(%{type: "absent", nth: nth} = bye, tournament),
+    do:
+      "absent"
+      |> Standings.bye_points(tournament, bye.round, nth)
+      |> Pairing.unplayed_code(tournament)
 
   defp future_bye_code(bye, tournament),
     do: bye |> Standings.bye_points_for_row(tournament) |> Pairing.unplayed_code(tournament)

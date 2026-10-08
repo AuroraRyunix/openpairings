@@ -35,8 +35,8 @@ defmodule PairingsEngine.TrfImportFutureByeTest do
 
   # Six players, round 1 played. Round 2 not paired, but Charlie (3) has a
   # full-point bye, Echo (5) a half-point and Foxtrot (6) a zero-point one
-  # recorded for it.
-  defp file(dialect, tournament \\ %{}) do
+  # recorded for it - unless `future?` is false, when nobody has.
+  defp file(dialect, tournament \\ %{}, future? \\ true) do
     games = %{
       1 => [game(4, "w", "1")],
       2 => [game(5, "w", "=")],
@@ -45,6 +45,8 @@ defmodule PairingsEngine.TrfImportFutureByeTest do
       5 => [game(2, "b", "="), nobody("H")],
       6 => [game(3, "b", "1"), nobody("Z")]
     }
+
+    games = if future?, do: games, else: Map.new(games, fn {r, gs} -> {r, Enum.take(gs, 1)} end)
 
     players =
       for {rank, gs} <- Enum.sort(games) do
@@ -207,5 +209,151 @@ defmodule PairingsEngine.TrfImportFutureByeTest do
     assert [%{type: "requested-half"}] =
              Tournaments.list_byes_for_round(imported.id, 2)
              |> Enum.filter(&(&1.player_id == a1.id))
+  end
+
+  defp round_2_seated(tournament) do
+    [round] =
+      Repo.all(
+        from r in PairingsEngine.Tournaments.Round,
+          where: r.tournament_id == ^tournament.id and r.number == 2,
+          preload: :pairings
+      )
+
+    round.pairings
+    |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+    |> Enum.reject(&is_nil/1)
+  end
+
+  test "pair, unpair, pair again: the granted byes come back as they were" do
+    tournament = import!(file(:trf26))
+    players = by_name(tournament)
+
+    assert {:ok, _} = Pairing.pair_next_round(Repo.reload!(tournament))
+    assert round_2_byes(tournament) == @expected
+    assert :ok = Pairing.delete_round(tournament.id, 2)
+
+    # Still granted while nothing is paired.
+    assert round_2_byes(tournament) == @expected
+
+    assert {:ok, _} = Pairing.pair_next_round(Repo.reload!(tournament))
+    assert round_2_byes(tournament) == @expected
+
+    seated = round_2_seated(tournament)
+    for name <- ~w(Charlie Echo Foxtrot), do: refute(players[name].id in seated, name)
+
+    points = Standings.points_by_player(Repo.reload!(tournament))
+    assert points[players["Charlie"].id] == 1.0
+    assert points[players["Echo"].id] == 1.0
+    assert points[players["Foxtrot"].id] == 1.0
+  end
+
+  test "an unpairing still clears the pairing's own absences" do
+    tournament = import!(file(:trf26, %{}, false))
+    delta = by_name(tournament)["Delta"]
+    assert {:ok, _} = Tournaments.update_player(delta, %{absent_rounds: "2"})
+
+    assert {:ok, _} = Pairing.pair_next_round(Repo.reload!(tournament))
+    assert round_2_byes(tournament) == %{"Delta" => "absent"}
+    assert :ok = Pairing.delete_round(tournament.id, 2)
+    assert round_2_byes(tournament) == %{}
+  end
+
+  # The player dialog has no bye kind of its own: "absent at the rounds"
+  # is worth what the tournament pays an absence, and that decides the
+  # letter - half a point is `H`, a win's worth `F`, nothing `Z`.
+  for {abs_value, code, type, points} <- [
+        {0.5, "H", "requested-half", 0.5},
+        {1.0, "F", "full-point", 1.0},
+        {nil, "Z", "requested-zero", 0.0}
+      ] do
+    test "a bye entered on the player (absence worth #{inspect(abs_value)}) exports as #{code}, re-imports and pairs once" do
+      tournament =
+        file(:trf26, %{}, false)
+        |> import!()
+        |> Ecto.Changeset.change(
+          round_dates: for(n <- 1..5, do: "2026-03-0#{n}"),
+          abs_value: unquote(abs_value)
+        )
+        |> Repo.update!()
+
+      delta = by_name(tournament)["Delta"]
+      assert {:ok, _} = Tournaments.update_player(delta, %{absent_rounds: "2"})
+      # No row: the dialog writes none, and the export no longer needs one.
+      assert round_2_byes(tournament) == %{}
+
+      assert {:ok, text} = TrfExport.export(Repo.reload!(tournament))
+      assert text =~ ~r/^240 #{unquote(code)} 002\s+4\s*$/m
+
+      again = import!(text)
+      assert round_2_byes(again) == %{"Delta" => unquote(type)}
+      assert by_name(again)["Delta"].absent_rounds == "2"
+
+      # And out again the same way.
+      assert {:ok, twice} = TrfExport.export(Repo.reload!(again))
+      assert twice =~ ~r/^240 #{unquote(code)} 002\s+4\s*$/m
+
+      assert {:ok, _} = Pairing.pair_next_round(Repo.reload!(again))
+      delta = by_name(again)["Delta"]
+      refute delta.id in round_2_seated(again)
+      assert round_2_byes(again) == %{"Delta" => unquote(type)}
+      # Delta lost round 1: the total is the bye's, counted once.
+      assert Standings.points_by_player(Repo.reload!(again))[delta.id] == unquote(points)
+    end
+  end
+
+  test "the engine dialect writes the dialog's bye as the next round's column" do
+    tournament =
+      file(:engine, %{}, false)
+      |> import!()
+      |> Ecto.Changeset.change(abs_value: 0.5, round_dates: for(n <- 1..5, do: "2026-03-0#{n}"))
+      |> Repo.update!()
+
+    assert {:ok, _} =
+             Tournaments.update_player(by_name(tournament)["Delta"], %{absent_rounds: "2"})
+
+    assert {:ok, text} = TrfExport.export(Repo.reload!(tournament), nil, dialect: :engine)
+    assert text =~ "0000 - H"
+  end
+
+  test "taking the round out of the player's absences takes the granted bye with it" do
+    tournament = import!(file(:trf26))
+    echo = by_name(tournament)["Echo"]
+    assert echo.absent_rounds == "2"
+
+    assert {:ok, _} = Tournaments.update_player(echo, %{absent_rounds: ""})
+    assert round_2_byes(tournament) == Map.delete(@expected, "Echo")
+
+    assert {:ok, _} = Pairing.pair_next_round(Repo.reload!(tournament))
+    assert echo.id in round_2_seated(tournament)
+    refute Map.has_key?(round_2_byes(tournament), "Echo")
+  end
+
+  test "a team event keeps the granted bye across an unpairing too" do
+    {t, _} =
+      PairingsEngine.TeamFixtures.team_swiss(
+        [{"A", [2200, 2100]}, {"B", [2150, 2050]}, {"C", [2000, 1950]}, {"D", [1900, 1850]}],
+        start_date: "2026-03-01",
+        end_date: "2026-03-05",
+        round_dates: for(n <- 1..5, do: "2026-03-0#{n}")
+      )
+
+    round = PairingsEngine.TeamFixtures.pair_next!(t)
+
+    for p <- Repo.preload(round, :pairings).pairings,
+        do: {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+    a1 = Enum.find(Tournaments.list_players(t.id), &(&1.name == "A 1"))
+    {:ok, a1} = Tournaments.update_player(a1, %{absent_rounds: "2"})
+
+    Repo.insert_all("byes", [
+      %{tournament_id: t.id, player_id: a1.id, round: 2, type: "requested-half"}
+    ])
+
+    PairingsEngine.TeamFixtures.pair_next!(Repo.reload!(t))
+    assert :ok = Pairing.delete_round(t.id, 2)
+    PairingsEngine.TeamFixtures.pair_next!(Repo.reload!(t))
+
+    assert [%{type: "requested-half"}] =
+             Tournaments.list_byes_for_round(t.id, 2) |> Enum.filter(&(&1.player_id == a1.id))
   end
 end

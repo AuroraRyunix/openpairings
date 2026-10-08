@@ -597,9 +597,12 @@ defmodule PairingsEngine.Pairing do
           from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
         )
 
+        kept = granted_bye_ids(tournament_id, numbers)
+
         Repo.delete_all(
           from b in "byes",
-            where: b.tournament_id == ^tournament_id and b.round in ^numbers
+            where: b.tournament_id == ^tournament_id and b.round in ^numbers,
+            where: b.id not in ^kept
         )
 
         # A team event's draw order is only frozen while a round exists.
@@ -637,6 +640,40 @@ defmodule PairingsEngine.Pairing do
     Tournaments.broadcast_tournament_change(tournament_id, :rounds)
     Tournaments.refresh_status!(tournament_id)
     :ok
+  end
+
+  # The bye rows an unpairing leaves standing: a half-point, zero-point or
+  # full-point bye for a player who is still out of that round
+  # (`absent_rounds`, or absent altogether). Those were the arbiter's, not
+  # the pairing's - imported ahead of the round (`TrfImport`'s
+  # `import_future_byes/4`) or granted in it - and the pairing that comes
+  # next writes its absentees `on_conflict: :nothing`, so a kept row is the
+  # bye that comes back. Deleting them all, as this did, turned a granted
+  # half point into a plain absence at whatever the tournament pays for one.
+  #
+  # Everything else goes: the pairing's own `"absent"` and allocated byes,
+  # and an individual round robin's structural zero-point bye, which its
+  # schedule hands out again (its import keeps no granted bye either).
+  defp granted_bye_ids(tournament_id, numbers) do
+    tournament = Repo.get!(Tournament, tournament_id)
+
+    if tournament.pairing_system == "round_robin" and not Tournament.team?(tournament) do
+      []
+    else
+      from(b in "byes",
+        join: p in Player,
+        on: p.id == b.player_id,
+        where:
+          b.tournament_id == ^tournament_id and b.round in ^numbers and
+            b.type in ["requested-half", "requested-zero", "full-point"],
+        select: {b.id, b.round, p.absent, p.absent_rounds}
+      )
+      |> Repo.all()
+      |> Enum.filter(fn {_id, round, absent, rounds} ->
+        absent == true or round in Player.parse_absent_rounds(to_string(rounds))
+      end)
+      |> Enum.map(&elem(&1, 0))
+    end
   end
 
   def paired_rounds_count(tournament_id) do
