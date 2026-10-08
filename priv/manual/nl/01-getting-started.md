@@ -118,8 +118,8 @@ De balk bovenaan elke pagina bevat:
 - **Wijzigingen** - wat er in elke release is veranderd.
 - **Help** - deze handleiding. Binnen een toernooi opent ze bij het hoofdstuk
   dat past bij de pagina waarop u bent.
-- De kleuraccent, de taalkeuze (Engels en Nederlands) en het thema (licht,
-  donker).
+- De kleuraccent, de taalkeuze (Engels en Nederlands) en het thema (Systeem,
+  Licht, Donker, Leisteen, Papier, Bord, Tom W, Hoog contrast).
 - Het accountmenu, met *Instellingen* (online), *Functies* en *Afmelden*
   (online), en het versienummer.
 
@@ -179,5 +179,7 @@ voegt een speler toe, de pijltjestoetsen bewegen tussen de cellen,
 en <kbd>Enter</kbd> of <kbd>Space</kbd> op de naam van een speler opent het
 inschrijfformulier.
 
-Het programma volgt het kleurenschema dat u kiest; er zijn lichte en donkere
-thema's en een modus met hoog contrast op de live pagina.
+Het programma volgt het kleurenschema dat u kiest: *Systeem* volgt de lichte of
+donkere instelling van de computer, en de themakeuze biedt daarnaast Licht,
+Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent)
+en Hoog contrast. De live pagina heeft een eigen modus met hoog contrast.

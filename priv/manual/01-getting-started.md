@@ -118,7 +118,7 @@ The bar at the top of every page has:
 - **Help** - this manual. Inside a tournament it opens at the chapter that
   matches the page you are on.
 - The colour accent, the language picker (English and Dutch) and the theme
-  (light, dark).
+  (System, Light, Dark, Slate, Paper, Board, Tom W, High Contrast).
 - The account menu, with *Settings* (online), *Features* and *Log out* (online),
   and the version number.
 
@@ -175,5 +175,7 @@ adds a player, the arrow keys move between the cells, <kbd>Space</kbd> or
 <kbd>Shift</kbd>+<kbd>F10</kbd> opens a cell's menu, and <kbd>Enter</kbd> or
 <kbd>Space</kbd> on a player's name opens the registration form.
 
-The program follows the colour scheme you choose; there are light and dark themes
-and a high-contrast mode on the live page.
+The program follows the colour scheme you choose: *System* follows the
+computer's light or dark setting, and the theme picker also offers Light, Dark,
+Slate, Paper, Board, Tom W (royal blue with a sky-blue accent) and High
+Contrast. The live page has a high-contrast mode of its own.

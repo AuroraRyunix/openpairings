@@ -80,6 +80,12 @@ FIDE title, then the criterion the tournament announced
 no legal pairing at all, the program says so and offers **Pair round N by
 hand…** (see *Changing a pairing by hand*).
 
+**Board order.** The boards are numbered as C.04.2 Art. 3.6 orders them: first
+by the score of the pair's higher-ranked player, highest first; then by the sum
+of the two players' scores; then by the pairing number of the higher-ranked
+player, smallest first. The pairing-allocated bye comes last. With Baku
+acceleration the scores include the virtual points.
+
 A player with a **fixed table** ([Players and rating lists](04-players-and-ratings.md)) is
 labelled with that table; it is a label for printing only and does not
 change who plays whom.
@@ -167,7 +173,8 @@ shift** (the board range is given), **fixed with colours open**, or **open**,
 with the players it could involve and the games that decide it. The preview
 updates itself when a result is entered and can be printed (fixed boards
 and a list by name). It is available for individual Swiss tournaments with the
-Ainalrami engine.
+Ainalrami engine, and only once it is switched on: it is part of the Belgian
+pack under Account, **Features** ([Accounts](15-accounts-and-handoff.md)).
 
 A result entered for one of the open games needs no new pairing: every
 combination already worked out is remembered, so the preview updates at once.

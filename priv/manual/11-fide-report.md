@@ -140,6 +140,34 @@ its state, the date it was played and the file it is in:
   sent, and the file's SHA-256 and name. The receipt keeps the exact file too;
   the rating period inbox downloads and checks that one.
 
+## The rating period inbox
+
+For the administrator of the installation: **Rating period inbox**, linked
+from *Connections* and from the Export page. It lists every tournament on the
+installation by FIDE rating period: what was sent for rating, what is still
+missing, which postponed games are still open, and which rating list each
+file goes to. A round counts for the month of its date.
+
+The list follows FIDE's deadline (B.02 Art. 9.1). A tournament goes to the
+list of the month it ended in, or to the next month's list when it ended with
+five days or fewer left in its month; a postponed-games file counts from the
+date of its last game. Each tournament says where it stands:
+
+- *Goes to the list of …: send it before …* - in time.
+- In amber, *Past the list of …* - that list is gone; the file goes to a later
+  one, and the line names the first list it can still make and the last one
+  it can make at all.
+- In red, *Will not be rated* - it missed the third list after the
+  tournament ended.
+
+Nothing is refused: a late file can still be sent, and the inbox shows the
+list it will make. Each sent file can be downloaded (**Download file**) and
+replayed against the checker (**Check**), which pairs every round up to it
+again and says whether the boards and standings match. The receipt keeps the
+exact file that was sent (up to 2 MB). A file sent before the receipts kept
+their files has none: the inbox offers a copy rebuilt from the tournament as
+it is now, labelled *rebuilt copy*, which is not necessarily what was sent.
+
 ## Norm reports
 
 The IT3 tournament report and the arbiter and player norm forms are separate

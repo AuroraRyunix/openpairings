@@ -34,7 +34,7 @@ bewaren het adres en wachtwoord bij de organisatie.
 
 ### Nationale functies {#national-features}
 
-Account, **Functies**. De onderdelen van het programma die bij één federatie horen, zijn aparte schakelaars, allemaal standaard uit. Op dit moment horen ze bij het Belgische pakket: de synchronisatie van de nationale ratinglijst, de nationale spelerszoekfunctie, de bulkupdate van clubs, SWAR-import, SWAR-export, de SWAR-resultatenpagina en de bye-voorkeuren. Een arbiter buiten België ziet er nooit één van. Een functie uitschakelen verbergt alleen de bediening: een toernooi dat ze gebruikte, behoudt al zijn gegevens.
+Account, **Functies**. De onderdelen van het programma die bij één federatie horen, zijn aparte schakelaars, allemaal standaard uit. Op dit moment horen ze bij het Belgische pakket: de synchronisatie van de nationale ratinglijst, de nationale spelerszoekfunctie, de bulkupdate van clubs, SWAR-import, SWAR-export, de SWAR-resultatenpagina, de voorvertoning van de volgende ronde en de bye-voorkeuren. Een arbiter buiten België ziet er nooit één van. Een functie uitschakelen verbergt alleen de bediening: een toernooi dat ze gebruikte, behoudt al zijn gegevens.
 
 ## Een toernooi delen {#sharing-a-tournament}
 

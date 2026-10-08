@@ -135,6 +135,37 @@ ze gespeeld is en het bestand waarin ze zit:
   controle dat het zegt wat u denkt dat het zegt ([Importeren en exporteren](10-import-export.md)).
 - **Ontvangstbewijs (JSON)** op de pagina Exporteren downloadt het ontvangstbewijs van één verstuurd bestand: code en vingerafdruk, ronde of periode, wie het verstuurde en wanneer, de partijen zoals verstuurd, en de SHA-256 en naam van het bestand. Het ontvangstbewijs bewaart ook het exacte bestand; de inbox per ratingperiode downloadt en controleert dat bestand.
 
+## De inbox per ratingperiode {#the-rating-period-inbox}
+
+Voor de beheerder van de installatie: **Inbox ratingperiodes**, bereikbaar via
+*Verbindingen* en via de pagina Exporteren. Ze toont elk toernooi op de
+installatie per FIDE-ratingperiode: wat voor de rating is verstuurd, wat nog
+ontbreekt, welke uitgestelde partijen nog openstaan en in welke ratinglijst elk
+bestand terechtkomt. Een ronde telt mee voor de maand van haar datum.
+
+De lijst volgt de termijn van FIDE (B.02 art. 9.1). Een toernooi komt in de
+lijst van de maand waarin het eindigde, of in die van de volgende maand als het
+eindigde met vijf dagen of minder over in zijn maand; een bestand met uitgestelde
+partijen telt vanaf de datum van zijn laatste partij. Bij elk toernooi staat
+waar het staat:
+
+- *Komt in de lijst van …: verstuur het voor …* - op tijd.
+- In oranje, *De lijst van … is gesloten* - die lijst is voorbij; het bestand
+  komt in een latere lijst, en de regel noemt de eerste lijst die het nog kan
+  halen en de laatste die het überhaupt kan halen.
+- In rood, *Wordt niet geratet* - het heeft de derde lijst na het einde van het
+  toernooi gemist.
+
+Niets wordt geweigerd: een laat bestand kan nog altijd verstuurd worden, en de
+inbox toont de lijst waarin het terechtkomt. Elk verstuurd bestand kan worden
+gedownload (**Bestand downloaden**) en tegen de controle afgespeeld
+(**Controleren**), die elke ronde tot en met dat bestand opnieuw paart en zegt of
+de borden en de stand overeenkomen. Het ontvangstbewijs bewaart het exacte
+bestand dat verstuurd werd (tot 2 MB). Een bestand dat verstuurd werd voordat de
+ontvangstbewijzen hun bestand bewaarden, heeft er geen: de inbox biedt dan een
+kopie aan, opnieuw opgebouwd uit het toernooi zoals het nu is, met het label
+*opnieuw opgebouwde kopie* - wat niet noodzakelijk is wat verstuurd werd.
+
 ## Normrapporten {#norm-reports}
 
 Het IT3-toernooirapport en de formulieren voor arbiter- en spelersnormen zijn afzonderlijke Excel-bestanden;

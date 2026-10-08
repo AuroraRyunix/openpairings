@@ -85,6 +85,13 @@ de FIDE-titel, daarna het criterium dat het toernooi heeft aangekondigd
 geen wettige paring vindt, meldt het programma dit en biedt het **Ronde N met de
 hand paren…** aan (zie *Een paring met de hand wijzigen*).
 
+**Bordvolgorde.** De borden worden genummerd zoals C.04.2 art. 3.6 ze ordent:
+eerst volgens de score van de hoger gerangschikte speler van het paar, hoogste
+eerst; dan volgens de som van de scores van beide spelers; dan volgens het
+paringsnummer van de hoger gerangschikte speler, laagste eerst. De door de
+paring toegekende bye komt als laatste. Bij Baku-versnelling tellen de virtuele
+punten mee in de scores.
+
 Een speler met een **vaste tafel** ([Spelers en ratinglijsten](04-players-and-ratings.md))
 wordt met die tafel gelabeld; dat is alleen een label voor het afdrukken en
 verandert niet wie tegen wie speelt.
@@ -176,7 +183,9 @@ verschuiven** (het bordbereik is gegeven), **vast met open kleuren**, of **open*
 met de spelers die erbij betrokken kunnen zijn en de partijen die het beslissen.
 De voorvertoning werkt zichzelf bij wanneer een resultaat wordt ingevoerd, en kan
 worden afgedrukt (vaste borden en een lijst op naam). Ze is beschikbaar voor
-afzonderlijke Zwitserse toernooien met de Ainalrami-engine.
+afzonderlijke Zwitserse toernooien met de Ainalrami-engine, en pas als ze is
+ingeschakeld: ze hoort bij het Belgische pakket onder Account, **Functies**
+([Accounts](15-accounts-and-handoff.md)).
 
 Een resultaat voor een van de openstaande partijen vraagt geen nieuwe paring: elke
 al berekende combinatie wordt onthouden, dus de voorvertoning werkt meteen bij.

@@ -125,6 +125,18 @@ Each entry is tagged so a version can be skimmed:
   entrant falling under a rule is not a change. Tournaments that added a
   prohibition mid-event before this version keep their FIDE mode: the past is
   not retried under the new law. The checklist path now has no failures.
+- [Fix] **Boards are numbered in C.04.2 Art. 3.6's order** (Ainalrami 0.41.0).
+  The engine handed the boards back in the order it found them, bracket by
+  bracket, which is not 3.6's order once a float or a mixed bracket is
+  involved: in about one round in thirteen of a small event a board sat
+  above one it belongs below. Now it is the higher-ranked player's score,
+  then the pair's sum, then that player's pairing number, the
+  pairing-allocated bye last, with Baku's virtual points counted. Same
+  pairs, same colours, same bye; only the numbers on the tables move.
+- [Change] **The manual catches up**: the rating period inbox has a section
+  of its own, the board order is written down, the next-round preview is
+  where the Belgian pack put it, and the theme list names Tom W and no
+  longer promises only light and dark.
 
 ## [0.78.0] - 2026-10-08
 

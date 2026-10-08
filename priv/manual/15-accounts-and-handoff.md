@@ -38,8 +38,8 @@ single sign-on keep the address and password with the organisation.
 Account, **Features**. The parts of the program that belong to one federation
 are separate switches, all off by default. At the moment they belong to
 the Belgian pack: the national rating list sync, the national player lookup,
-the bulk club update, SWAR import, SWAR export, the SWAR results page, and the
-bye preferences. An arbiter outside Belgium never sees any of them. Switching a
+the bulk club update, SWAR import, SWAR export, the SWAR results page, the
+next-round preview and the bye preferences. An arbiter outside Belgium never sees any of them. Switching a
 feature off only hides its controls: a tournament that used it keeps all its data.
 
 ## Sharing a tournament
