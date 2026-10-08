@@ -110,18 +110,6 @@ defmodule PairingsEngine.Features do
 
   defp core_catalogue do
     [
-      # Off until switched on: working out every outcome of the games still
-      # being played costs a pairing run per outcome, and most arbiters never
-      # need it. Hiding it changes no stored value (the preview is never saved).
-      %{
-        key: "next_round_preview",
-        federation: nil,
-        label: gettext("Preview next round"),
-        description:
-          gettext(
-            "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
-          )
-      },
       %{
         key: "bel_ratings_sync",
         federation: "BEL",
@@ -174,6 +162,19 @@ defmodule PairingsEngine.Features do
         description:
           gettext(
             "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
+          )
+      },
+      # In the Belgian pack since 2026-10-08 (the clubs there asked for it;
+      # "optional tools" was a group of one). Off until switched on: every
+      # outcome of the open games costs a pairing run, and most arbiters never
+      # need it. Hiding it changes no stored value (the preview is never saved).
+      %{
+        key: "next_round_preview",
+        federation: "BEL",
+        label: gettext("Preview next round"),
+        description:
+          gettext(
+            "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
           )
       },
       # Last in the Belgian pack, below the federation's own switches: it is

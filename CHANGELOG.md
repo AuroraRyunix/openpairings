@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **"Preview next round" is in the Belgian pack** (Federation features,
+  BEL), off until you switch it on. The "Optional tools" group it sat in alone
+  is gone - a group of one is a shelf, not a category.
 ## [0.78.0] - 2026-10-08
 
 - [Performance] **Ainalrami 0.40.0.** Pairing 40 to 80 players takes 1.6 to 1.7
