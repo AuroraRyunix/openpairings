@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.TournamentRatingLiveTest do
     end
 
     assert has_element?(lv, "#initial-order-tiebreak-select option[value='name'][selected]")
-    assert has_element?(lv, "#late-entry-numbering-select option[value='end'][selected]")
+    assert has_element?(lv, "#late-entry-numbering-select option[value='rating'][selected]")
 
     lv
     |> form("#pairing-settings-form", %{

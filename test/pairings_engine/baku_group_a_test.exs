@@ -64,7 +64,11 @@ defmodule PairingsEngine.BakuGroupATest do
             initial_colour: "white",
             start_date: "2026-09-01",
             end_date: "2026-09-0#{rounds_count}",
-            round_dates: for(n <- 1..rounds_count, do: "2026-09-0#{n}")
+            round_dates: for(n <- 1..rounds_count, do: "2026-09-0#{n}"),
+            # These cases are about a late entrant who can reach Group A only
+            # by the group growing, which needs them numbered after the field.
+            # By rating they join it on purpose: `tournament_rating_test.exs`.
+            late_entry_numbering: "after"
           },
           attrs
         )

@@ -247,7 +247,7 @@ defmodule PairingsEngine.NextRoundPreview do
              round: checked.round_number,
              next_round: checked.next_number,
              games: Enum.map(games, &game_row/1),
-             players: players_map(checked.active),
+             players: players_map(checked.active, tournament),
              fingerprint: fingerprint,
              base: base,
              round_results: round_results,
@@ -704,7 +704,9 @@ defmodule PairingsEngine.NextRoundPreview do
     }
   end
 
-  defp players_map(players) do
-    Map.new(players, fn p -> {p.id, %{name: p.name, rating: Player.rating(p)}} end)
+  # The Tournament Rating (the tournament's `rating_method`), the number the
+  # printed pairings show too.
+  defp players_map(players, tournament) do
+    Map.new(players, fn p -> {p.id, %{name: p.name, rating: Player.rating(p, tournament)}} end)
   end
 end

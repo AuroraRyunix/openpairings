@@ -54,6 +54,7 @@ defmodule PairingsEngineWeb.ComplianceNoticeTest do
         [
           %Tournament{pairing_system: "swiss", pair_by_category: true},
           %Tournament{pairing_system: "swiss", swiss_match_format: true},
+          %Tournament{pairing_system: "swiss", late_entry_numbering: "after"},
           %Tournament{
             pairing_system: "swiss",
             postponed_games: true,

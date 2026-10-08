@@ -399,6 +399,20 @@ defmodule PairingsEngine.TournamentImport do
       else: Map.put(t_attrs, "late_entry_absences", false)
   end
 
+  # A file written before `late_entry_numbering` travelled carries none, and
+  # its tournament numbered late entrants after the field - the only thing
+  # this app did then. Left alone, the schema's "rating" default would quietly
+  # renumber the next one to join. It gets the grandfathered "end", the same
+  # value the migration gave the rows already in the database, so a restored
+  # old event neither changes how it pairs nor leaves FIDE mode for a choice
+  # nobody made. A restore point (`restore_into!/2`) needs none of this: a
+  # missing key there keeps the live row's value.
+  defp legacy_late_entry_numbering(t_attrs) do
+    if Map.has_key?(t_attrs, "late_entry_numbering"),
+      do: t_attrs,
+      else: Map.put(t_attrs, "late_entry_numbering", "end")
+  end
+
   # SWAR bookkeeping (`TournamentExport`'s `@tournament_fields`: the guid,
   # `swar_settings` and the two-axis category columns), so a restored copy
   # writes the `.swar` file the original did. `swar_guid` and the category
@@ -450,6 +464,7 @@ defmodule PairingsEngine.TournamentImport do
       |> legacy_publish_mode()
       |> legacy_extra_points_mode(t_data)
       |> legacy_late_entry_absences()
+      |> legacy_late_entry_numbering()
       |> unique_swar_guid()
 
     tournament =

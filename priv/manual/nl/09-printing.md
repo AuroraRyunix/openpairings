@@ -23,6 +23,13 @@ Documenten van een toernooi waarin nog een uitgestelde partij open staat, of waa
 een bord geen resultaat heeft, krijgen een regel die zegt dat de cijfers nog niet
 definitief zijn.
 
+De rating die naast een speler wordt afgedrukt (paringslijsten, klassement,
+kruistabel, kaarten, scoreformulieren) is de **toernooirating**: de rating die de
+instelling *Toernooirating* van het toernooi kiest (Instellingen, Opties; zie
+[Spelers en ratinglijsten](04-players-and-ratings.md)). De kolom heet *Elo* wanneer de
+FIDE-rating voorgaat, *Nat.* wanneer de nationale rating voorgaat, en *Rtg* bij
+de methoden met de hoogste rating of een met de hand ingetypte rating.
+
 ## De documenten van een individueel toernooi {#the-documents-of-an-individual-tournament}
 
 | Document | Wat het is |

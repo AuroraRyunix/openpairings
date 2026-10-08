@@ -100,10 +100,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # 2.2.3 "alphabetically, unless ... replaced by another one", VCL4THP Q146)
   # - see `PairingsEngine.Pairing.initial_order/2`.
   @initial_order_tiebreaks ~w(name fide_id age_older age_younger)
-  # A Swiss late entrant's pairing number: after the field, or the one their
-  # rating earns (C.04.2 2.4, VCL4THP Q156) - see
-  # `PairingsEngine.Pairing.ensure_pairing_numbers/2`.
-  @late_entry_numberings ~w(end rating)
+  # A Swiss late entrant's pairing number: the one their rating earns (C.04.2
+  # 2.4, VCL4THP Q156), or after the field - see
+  # `PairingsEngine.Pairing.ensure_pairing_numbers/2`. "after" and "end" pair
+  # identically; they differ in who chose them. "end" is what every
+  # tournament created before "rating" became the default carries, put there
+  # by a migration rather than an arbiter, so it is grandfathered: not a
+  # FIDE-mode departure, and not offered to anyone who does not already have
+  # it. "after" is the same thing chosen on purpose, and that leaves FIDE
+  # mode (`PairingsEngine.Compliance`).
+  @late_entry_numberings ~w(rating after end)
 
   # `swar_guid` is minted by another program and imported verbatim from a
   # `.swar` file, and it is then used as a filename:
@@ -869,12 +875,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `PairingsEngine.Pairing.initial_order/2`.
     field :initial_order_tiebreak, :string, default: "name"
 
-    # A Swiss late entrant's pairing number: "end" - after everybody already
-    # numbered, what this app always did - or "rating": the number their
+    # A Swiss late entrant's pairing number: "rating" - the number their
     # rating earns, everybody from there down moving one place (C.04.2 2.4
-    # "an appropriate TPN", 2.5, C.04.7 1.3.1). See
-    # `PairingsEngine.Pairing.ensure_pairing_numbers/2`.
-    field :late_entry_numbering, :string, default: "end"
+    # "an appropriate TPN", 2.5, C.04.7 1.3.1), the default since VCL4THP
+    # Q156 - or after everybody already numbered: "after" when an arbiter
+    # chose it (a FIDE-mode departure), "end" when a migration did, for a
+    # tournament that predates the default (see `@late_entry_numberings`).
+    # The column's own database default is still "end"; nothing inserts
+    # without this schema default, so it only ever spoke for existing rows.
+    # See `PairingsEngine.Pairing.ensure_pairing_numbers/2`.
+    field :late_entry_numbering, :string, default: "rating"
 
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
@@ -2393,6 +2403,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @doc "The values `late_entry_numbering` takes."
   def late_entry_numberings, do: @late_entry_numberings
+
+  @doc """
+  The `late_entry_numbering` values the Options page offers `tournament`:
+  "rating" and "after", plus the grandfathered "end" only for a tournament
+  that already carries it - so it can be kept, never newly picked.
+  """
+  def late_entry_numbering_choices(%{late_entry_numbering: "end"}), do: ~w(rating after end)
+  def late_entry_numbering_choices(_tournament), do: ~w(rating after)
 
   @doc "The values `initial_colour` takes: drawn by lot, or set by the arbiter."
   def initial_colours, do: @initial_colours

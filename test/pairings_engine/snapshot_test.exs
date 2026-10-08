@@ -261,7 +261,10 @@ defmodule PairingsEngine.SnapshotTest do
     # is part of the field from the moment they are on it; they are numbered
     # provisionally here, exactly as the whole field is before round 1.
     test "a player registered after numbering is published with the number pairing will issue" do
-      tournament = unnumbered_tournament(%{})
+      # After the field: by rating (the default) the pairing inserts them
+      # and moves the field down, which a provisional number must not do
+      # (`Snapshot`'s `number_provisionally/2`), so the two differ there.
+      tournament = unnumbered_tournament(%{late_entry_numbering: "after"})
 
       PairingsEngine.Pairing.ensure_pairing_numbers(
         tournament,

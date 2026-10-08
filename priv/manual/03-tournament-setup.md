@@ -126,10 +126,14 @@ by this criterion: alphabetically (the FIDE default), by FIDE ID (lowest
 first), oldest first or youngest first. Announce the criterion before the
 event.
 
-**Late entrants' pairing numbers** (Swiss only). *After the field* (the
-default) gives a player who joins after the numbers were given the next free
-number. *By rating* gives the number their rating earns and moves everybody
-below one place down (C.04.2 2.4); rounds already played keep their boards.
+**Late entrants' pairing numbers** (Swiss only). *By rating* (the default)
+gives a player who joins after the numbers were given the number their rating
+earns and moves everybody below one place down (C.04.2 2.4); rounds already
+played keep their boards. *After the field* gives them the next free number
+instead. The FIDE rules do not, so choosing it takes the tournament out of
+FIDE mode ([FIDE mode](02-fide-mode.md)). A tournament created before *By
+rating* became the default keeps *After the field* as it had it, without
+leaving FIDE mode; so does a backup file from that time when it is imported.
 Changing these three settings after round 1 renumbers nobody already
 numbered; the page says so.
 

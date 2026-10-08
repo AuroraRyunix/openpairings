@@ -404,6 +404,44 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     end
   end
 
+  describe "the rating printed is the tournament rating (VCL4THP Q156)" do
+    # A has FIDE 2000 and national 1500; nobody else has a national rating.
+    defp national_fixture(scope, method) do
+      {tournament, %{a: a}} = fixture(scope)
+      a |> Ecto.Changeset.change(national_rating: 1500) |> Repo.update!()
+      tournament = tournament |> Ecto.Changeset.change(rating_method: method) |> Repo.update!()
+      tournament
+    end
+
+    test "national only: pairings and standings print it, headed Nat.", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = national_fixture(scope, "NRO")
+
+      for path <- [~p"/t/#{t.id}/print/pairings?round=1", ~p"/t/#{t.id}/print/standings"] do
+        html = get(conn, path) |> html_response(200)
+        assert html =~ ~s(<th class="num">Nat.</th>), path
+        assert html =~ ">1500<", path
+        refute html =~ ">2000<", path
+      end
+    end
+
+    test "FIDE else national, the default, prints the FIDE rating under Elo", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = national_fixture(scope, "FIDON")
+
+      for path <- [~p"/t/#{t.id}/print/pairings?round=1", ~p"/t/#{t.id}/print/standings"] do
+        html = get(conn, path) |> html_response(200)
+        assert html =~ ~s(<th class="num">Elo</th>), path
+        assert html =~ ">2000<", path
+        refute html =~ ">1500<", path
+      end
+    end
+  end
+
   describe "standings/2" do
     test "without ?round, prints current (overall) standings", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)

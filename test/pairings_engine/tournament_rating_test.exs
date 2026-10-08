@@ -224,20 +224,26 @@ defmodule PairingsEngine.TournamentRatingTest do
     end
   end
 
-  test "by default a Swiss late entrant still goes after the field" do
-    t = plain_tournament(6)
-    pair!(t)
-    finish_latest_round(t)
+  # The default since VCL4THP Q156: by rating. After the field takes an
+  # arbiter's choice ("after") or a tournament from before the default
+  # ("end", the migration's value); both pair the same.
+  for {setting, number} <- [{nil, 1}, {"after", 7}, {"end", 7}] do
+    test "a Swiss late entrant rated above the field, late_entry_numbering #{inspect(setting)}, is number #{number}" do
+      attrs = if unquote(setting), do: %{late_entry_numbering: unquote(setting)}, else: %{}
+      t = plain_tournament(6, attrs)
+      pair!(t)
+      finish_latest_round(t)
 
-    {:ok, late} =
-      Tournaments.create_player(t.id, %{
-        "name" => "Late Entrant",
-        "fide_rating" => 2700,
-        "start_round" => 2
-      })
+      {:ok, late} =
+        Tournaments.create_player(t.id, %{
+          "name" => "Late Entrant",
+          "fide_rating" => 2700,
+          "start_round" => 2
+        })
 
-    pair!(t)
-    assert Repo.get!(Player, late.id).pairing_number == 7
+      pair!(t)
+      assert Repo.get!(Player, late.id).pairing_number == unquote(number)
+    end
   end
 
   # C.04.7 1.3.1-1.3.2: a late entrant is placed by Article 2, and Group A's
@@ -373,6 +379,57 @@ defmodule PairingsEngine.TournamentRatingTest do
       assert entry["tournament"]["rating_method"] == "HBFN"
       assert entry["tournament"]["initial_order_tiebreak"] == "age_older"
       assert Enum.any?(entry["players"], &(&1["tournament_rating"] == 1999))
+    end
+  end
+
+  describe "late_entry_numbering on import (VCL4THP Q156)" do
+    defp import_scope do
+      user =
+        Repo.insert!(%PairingsEngine.Accounts.User{
+          email: "q156-#{System.unique_integer([:positive])}@example.com",
+          confirmed_at: DateTime.truncate(DateTime.utc_now(), :second)
+        })
+
+      PairingsEngine.Accounts.Scope.for_user(user)
+    end
+
+    defp envelope(t),
+      do:
+        t
+        |> PairingsEngine.TournamentExport.export_tournament()
+        |> Jason.encode!()
+        |> Jason.decode!()
+
+    test "a JSON backup keeps what it says, and one from before the key is grandfathered" do
+      for value <- ~w(rating after end) do
+        t = plain_tournament(2, %{late_entry_numbering: value})
+        {:ok, [copy]} = PairingsEngine.TournamentImport.import(envelope(t), import_scope())
+        assert Repo.reload!(copy).late_entry_numbering == value
+      end
+
+      old =
+        update_in(envelope(plain_tournament(2)), ["tournaments"], fn [entry] ->
+          [update_in(entry, ["tournament"], &Map.delete(&1, "late_entry_numbering"))]
+        end)
+
+      {:ok, [copy]} = PairingsEngine.TournamentImport.import(old, import_scope())
+      assert Repo.reload!(copy).late_entry_numbering == "end"
+      assert PairingsEngine.Compliance.check(Repo.reload!(copy)) == []
+    end
+
+    test "a TRF, which has no such record, imports as a new tournament: by rating" do
+      t =
+        plain_tournament(4, %{
+          late_entry_numbering: "after",
+          start_date: "2026-09-01",
+          end_date: "2026-09-07",
+          round_dates: for(n <- 1..7, do: "2026-09-0#{n}")
+        })
+
+      pair!(t)
+      {:ok, text} = PairingsEngine.TrfExport.export(reload(t))
+      {:ok, imported, _warnings} = PairingsEngine.TrfImport.import_text(text, import_scope())
+      assert Repo.reload!(imported).late_entry_numbering == "rating"
     end
   end
 

@@ -139,9 +139,10 @@ Register the players before round 1 is paired. Their **pairing numbers**
 > rating and title*).
 
 A player who
-is added later gets the next free number when the next round is paired, or, if
-the setting *Late entrants' pairing numbers* is *By rating*, the number their
-rating earns, with everybody below moving down one place (Swiss only).
+is added later gets, when the next round is paired, the number their rating
+earns, with everybody below moving down one place (Swiss only), or the next
+free number if the setting *Late entrants' pairing numbers* is *After the
+field*.
 
 **Changing the pairing numbers of a Swiss tournament.** The button **Pairing
 numbers** on the Players page opens the list in pairing order. Two players with
@@ -243,7 +244,7 @@ number, matching by national ID, then FIDE ID. It never blanks a club.
 A player added after rounds have been paired can be given a round in which
 they join (**Joins in round** on the form; the next round to be paired is
 offered). In a Swiss tournament their pairing number follows the setting
-*Late entrants' pairing numbers* (after the field, or by rating). The form says what the rounds before it count as. When absences
+*Late entrants' pairing numbers* (by rating, or after the field). The form says what the rounds before it count as. When absences
 score points (Scoring page), the rounds before the entry count as absences
 as set on the Scoring page. In a Swiss tournament the new player is paired in
 the round they join, with the others. In a round robin a player who is added

@@ -106,9 +106,15 @@ defmodule PairingsEngine.Compliance do
 
   The line that survived all of that: **a departure is a setting that
   changes who plays whom, or what a game is worth, away from what the FIDE
-  rules allow.** The first three below change who plays whom; the postponed
-  outcomes and the three scoring entries change what a game is worth. All of
-  them default to the FIDE value.
+  rules allow.** The first four below change who plays whom - the fourth,
+  late entrants numbered after the field rather than by rating (C.04.2 2.4,
+  VCL4THP Q156), by giving them a pairing number the Dutch system would not;
+  the postponed outcomes and the three scoring entries change what a game is
+  worth. All of them default to the FIDE value. The late-entrant one has a
+  grandfathered twin: `"end"`, the same numbering a migration gave every
+  tournament that predates the "rating" default, is not a departure, because
+  nobody chose it and an upgrade that silently threw every existing event
+  out of FIDE mode would be the cry-wolf failure this module exists to avoid.
 
   ## The Levels, and what FIDE mode refuses
 
@@ -148,6 +154,11 @@ defmodule PairingsEngine.Compliance do
       setting: :swiss_match_format,
       code: :mirrored_second_leg,
       restore_to: [false]
+    },
+    %{
+      setting: :late_entry_numbering,
+      code: :late_entrants_after_field,
+      restore_to: ["rating"]
     },
     %{
       setting: :postponed_requester_outcome,
@@ -251,6 +262,15 @@ defmodule PairingsEngine.Compliance do
   # even-numbered one.
   defp departed?(:mirrored_second_leg, t), do: swiss?(t) and t.swiss_match_format == true
 
+  # A late entrant numbered after the field instead of where their rating
+  # puts them (C.04.2 2.4 "an appropriate TPN"): from then on every round's
+  # brackets are ordered by numbers FIDE's rules would not have given, and a
+  # checker that renumbers by rating pairs a different round. Only "after",
+  # the value an arbiter picks; "end" is the grandfathered pre-default one
+  # (`Tournament`'s `@late_entry_numberings`).
+  defp departed?(:late_entrants_after_field, t),
+    do: swiss?(t) and t.late_entry_numbering == "after"
+
   # A postponed game counts as a draw until it is played - VCL4THP Q167 fails
   # a program that allows any other provisional score. A club may still want
   # to "punish" the player who asked for it by counting it as a win for them
@@ -285,7 +305,7 @@ defmodule PairingsEngine.Compliance do
   defp departed?(:bye_not_a_game_score, t),
     do: fide_system?(t) and standard_scoring?(t) and bye(t) not in [1.0, 0.5, 0.0]
 
-  # The two Swiss-only booleans above are inert unless the tournament actually pairs Swiss
+  # The Swiss-only settings above are inert unless the tournament actually pairs Swiss
   # - their own schema comments say "never read otherwise", the same
   # tolerance `acceleration` gets. Reporting a departure that no round will
   # ever act on is the cry-wolf failure this module is written to avoid: an
