@@ -1367,9 +1367,9 @@ defmodule PairingsEngineWeb.UserLive.Settings do
   defp theme_label("light"), do: gettext("Light")
   defp theme_label("dark"), do: gettext("Dark")
   defp theme_label("slate"), do: gettext("Slate")
-  defp theme_label("mocha"), do: gettext("Mocha")
   defp theme_label("paper"), do: gettext("Paper")
   defp theme_label("board"), do: gettext("Board")
+  defp theme_label("tomw"), do: gettext("Tom W")
   defp theme_label("contrast"), do: gettext("High Contrast")
 
   defp accent_label("green"), do: gettext("Green")

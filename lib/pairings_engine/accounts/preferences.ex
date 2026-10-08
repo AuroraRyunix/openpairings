@@ -34,7 +34,7 @@ defmodule PairingsEngine.Accounts.Preferences do
   "leave each device alone".
   """
 
-  @themes ~w(system light dark slate mocha paper board contrast)
+  @themes ~w(system light dark slate paper board tomw contrast)
   @accents ~w(green blue teal violet rose slate indigo cyan fuchsia)
 
   @doc "Every theme an account may store, `\"system\"` first."

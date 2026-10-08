@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
 
   A theme choice is not state this app owns: it is a string in somebody
   else's browser, and it outlives the theme it names. Dracula, Tokyo Night,
-  Solarized Dark, Solarized Light, Nord and Nocturne were all removed while
+  Solarized Dark, Solarized Light, Nord, Nocturne and Mocha were all removed while
   people were using them, and a stored `"dracula"` stamped onto `<html>`
   matches no `[data-theme]` block at all - the page falls back to `:root`,
   which is the LIGHT palette, under every assumption a dark theme makes.
@@ -14,10 +14,10 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   bootstrap keeps a list of what it will accept and sends anything else to
   the default.
 
-  A theme that only changed its NAME is different: Catppuccin became Mocha,
-  same palette, so a stored `"catppuccin"` is rewritten to `"mocha"` by a
-  small alias map BEFORE the list above is even consulted, rather than
-  being treated as gone.
+  A theme that only changes its NAME is different: the bootstrap keeps a
+  small alias map, applied BEFORE the list above is consulted, so a renamed
+  theme keeps its people. It is empty today - Catppuccin's rename to Mocha
+  went with Mocha.
 
   A list is only a safety net while it is true, which is what these check:
   the bootstrap, the stylesheet and the picker have to name the same seven
@@ -153,7 +153,7 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
     # names that were removed (or, for catppuccin, superseded by a rename).
     # Comments may still explain them - that is what the comments are for -
     # but nothing that DECIDES anything may still name them.
-    for retired <- ~w(dracula tokyo solarized solarized-light nord nocturne catppuccin),
+    for retired <- ~w(dracula tokyo solarized solarized-light nord nocturne catppuccin mocha),
         {place, names} <- [
           {"the bootstrap's known set", accepted()},
           {"the stylesheet's palette blocks", styled()},
@@ -180,22 +180,15 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
     end
   end
 
-  test "a renamed theme is aliased to its new name, not sent to the default" do
-    assert aliased() == %{"catppuccin" => "mocha"},
-           "expected the bootstrap's alias map to rewrite catppuccin to mocha, " <>
-             "found #{inspect(aliased())}"
+  test "an alias only ever points at a theme that exists" do
+    # An alias to a retired theme is a rename into nothing: the guard right
+    # after it throws the value away anyway, so the map is lying about what
+    # it does.
+    for {from, to} <- aliased() do
+      assert to in accepted(), "#{from} is aliased to #{to}, which is not a theme"
+      refute from in accepted(), "#{from} is both a theme and an alias"
+    end
 
-    assert "mocha" in accepted(),
-           "mocha is not in the known set, so the alias would just be overruled " <>
-             "by the fallback guard right after it runs"
-
-    refute "catppuccin" in accepted(),
-           "catppuccin is still in the known set directly - that would mask " <>
-             "whether the alias itself is doing any work"
-
-    # The alias has to run BEFORE the known-set guard, or a stored
-    # "catppuccin" is rejected as unknown before it gets the chance to become
-    # "mocha".
     [_, body] =
       Regex.run(
         ~r/const setTheme = \(theme\) => \{(.*?)\n          if \(theme === "system"/s,
@@ -204,6 +197,6 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
 
     assert body =~ ~r/aliases\[theme\][\s\S]*!known\.has\(theme\)/,
            "the alias is not applied before the known-set guard in setTheme, so " <>
-             "a stored catppuccin would be forgotten instead of renamed"
+             "a renamed theme would be forgotten instead of renamed"
   end
 end

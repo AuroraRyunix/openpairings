@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.ContrastTest do
   @css Path.expand("../../assets/css/app.css", __DIR__)
   @layouts Path.expand("../../lib/pairings_engine_web/components/layouts.ex", __DIR__)
 
-  @themes ~w(light dark slate mocha paper board contrast)
+  @themes ~w(light dark slate paper board tomw contrast)
   @accents ~w(green blue teal violet rose slate indigo cyan fuchsia)
 
   # {what it is, foreground, ground, the ratio it needs}. A ground is a token,

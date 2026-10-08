@@ -2722,7 +2722,7 @@ msgstr "Terug"
 msgid "Black"
 msgstr "Zwart"
 
-#: lib/pairings_engine_web/components/layouts.ex:982
+#: lib/pairings_engine_web/components/layouts.ex:981
 #: lib/pairings_engine_web/controllers/print_controller.ex:719
 #: lib/pairings_engine_web/controllers/print_controller.ex:812
 #: lib/pairings_engine_web/controllers/print_controller.ex:972
@@ -2737,7 +2737,7 @@ msgstr "Zwart"
 #: lib/pairings_engine_web/live/pairings_live.ex:6560
 #: lib/pairings_engine_web/live/settings_export_live.ex:1223
 #: lib/pairings_engine_web/live/teams_live.ex:897
-#: lib/pairings_engine_web/live/user_live/settings.ex:1372
+#: lib/pairings_engine_web/live/user_live/settings.ex:1371
 #, elixir-autogen, elixir-format
 msgid "Board"
 msgstr "Bord"
@@ -2980,7 +2980,7 @@ msgid "Description"
 msgstr "Omschrijving"
 
 #: lib/pairings_engine_web/components/layouts.ex:546
-#: lib/pairings_engine_web/components/layouts/root.html.heex:187
+#: lib/pairings_engine_web/components/layouts/root.html.heex:185
 #, elixir-autogen, elixir-format
 msgid "Dismiss"
 msgstr "Sluiten"
@@ -5472,22 +5472,22 @@ msgstr "Dit vervangt wat hier staat door wat terugkomt:"
 msgid "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
 msgstr "de rondes die op de andere machine gespeeld zijn, worden die van deze kopie, want ze is alleen-lezen geweest sinds ze wegging en kan dus niet veranderd zijn. Wat hier nu staat, wordt bewaard als herstelpunt onder Geschiedenis, zodat je het kan bekijken of ernaar terug kan."
 
-#: lib/pairings_engine/features.ex:157
+#: lib/pairings_engine/features.ex:145
 #, elixir-autogen, elixir-format
 msgid "Adds \"Import SWAR file\": takes a .swar tournament in, with its players, rounds and results, and continues it here."
 msgstr "Voegt \"SWAR-bestand importeren\" toe: neemt een .swar-toernooi over, met zijn spelers, rondes en uitslagen, en zet het hier verder."
 
-#: lib/pairings_engine/features.ex:139
+#: lib/pairings_engine/features.ex:127
 #, elixir-autogen, elixir-format
 msgid "Adds the \"KBSB lookup\" button beside a player's details, and fills the form in as you type a National ID. Reads the local copy of the member list."
 msgstr "Voegt de knop \"KBSB-opzoeking\" toe naast de gegevens van een speler, en vult het formulier in terwijl je een stamnummer typt. Leest de lokale kopie van de ledenlijst."
 
-#: lib/pairings_engine/features.ex:148
+#: lib/pairings_engine/features.ex:136
 #, elixir-autogen, elixir-format
 msgid "Adds the \"Update clubs\" action on the players page: compares everyone against the local member list and proposes their current club before writing anything. Reads the local copy of the member list."
 msgstr "Voegt de actie \"Clubs bijwerken\" toe op de pagina Spelers: vergelijkt iedereen met de lokale ledenlijst en stelt hun huidige club voor, voordat er iets weggeschreven wordt. Leest de lokale kopie van de ledenlijst."
 
-#: lib/pairings_engine/features.ex:166
+#: lib/pairings_engine/features.ex:154
 #, elixir-autogen, elixir-format
 msgid "Adds the .swar download to a tournament's Export page, for handing a tournament back to SWAR."
 msgstr "Voegt de .swar-download toe aan de pagina Exporteren van een toernooi, om een toernooi terug te geven aan SWAR."
@@ -5497,7 +5497,7 @@ msgstr "Voegt de .swar-download toe aan de pagina Exporteren van een toernooi, o
 msgid "Belgium - KBSB / FRBE"
 msgstr "België - KBSB / FRBE"
 
-#: lib/pairings_engine/features.ex:146
+#: lib/pairings_engine/features.ex:134
 #, elixir-autogen, elixir-format
 msgid "Bulk club update"
 msgstr "Clubs in bulk bijwerken"
@@ -5508,7 +5508,7 @@ msgstr "Clubs in bulk bijwerken"
 msgid "Could not save that. Please try again."
 msgstr "Kon dat niet bewaren. Probeer het opnieuw."
 
-#: lib/pairings_engine/features.ex:130
+#: lib/pairings_engine/features.ex:118
 #, elixir-autogen, elixir-format
 msgid "Downloads the Belgian member list (players, ratings, clubs) from the KBSB data platform and keeps a local copy. Adds its panel to the Connections page."
 msgstr "Downloadt de Belgische ledenlijst (spelers, ratings, clubs) van het KBSB-dataplatform en houdt er een lokale kopie van bij. Voegt het bijbehorende paneel toe aan de pagina Verbindingen."
@@ -5529,17 +5529,17 @@ msgstr "Federatiefuncties"
 msgid "It hides buttons. Everything already imported - players, clubs, scores, categories - stays exactly as it is, and scores exactly as it did."
 msgstr "Het verbergt knoppen. Alles wat al geïmporteerd is - spelers, clubs, scores, categorieën - blijft precies zoals het is, en scoort precies zoals voorheen."
 
-#: lib/pairings_engine/features.ex:137
+#: lib/pairings_engine/features.ex:125
 #, elixir-autogen, elixir-format
 msgid "KBSB player lookup"
 msgstr "KBSB-opzoeking van spelers"
 
-#: lib/pairings_engine/features.ex:128
+#: lib/pairings_engine/features.ex:116
 #, elixir-autogen, elixir-format
 msgid "National rating list sync"
 msgstr "Synchronisatie nationale ratinglijst"
 
-#: lib/pairings_engine/features.ex:164
+#: lib/pairings_engine/features.ex:152
 #, elixir-autogen, elixir-format
 msgid "SWAR export"
 msgstr "SWAR-export"
@@ -5549,7 +5549,7 @@ msgstr "SWAR-export"
 msgid "SWAR export is switched off for your account. Turn it on under Features."
 msgstr "SWAR-export staat uit voor je account. Zet het aan onder Functies."
 
-#: lib/pairings_engine/features.ex:155
+#: lib/pairings_engine/features.ex:143
 #, elixir-autogen, elixir-format
 msgid "SWAR import"
 msgstr "SWAR-import"
@@ -5956,7 +5956,7 @@ msgid_plural "Rondes"
 msgstr[0] "Ronde"
 msgstr[1] "Rondes"
 
-#: lib/pairings_engine/features.ex:173
+#: lib/pairings_engine/features.ex:161
 #: lib/pairings_engine_web/live/fide_live.ex:857
 #, elixir-autogen, elixir-format
 msgid "SWAR results page"
@@ -6007,7 +6007,7 @@ msgstr "Uitslagen"
 msgid "van %{start} tot %{end}"
 msgstr "van %{start} tot %{end}"
 
-#: lib/pairings_engine/features.ex:175
+#: lib/pairings_engine/features.ex:163
 #, elixir-autogen, elixir-format
 msgid "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
 msgstr "Voegt een SWAR-compatibele HTML-resultatenpagina toe aan de pagina Exporteren van een toernooi - de eindstand en de ronderesultaten, opgemaakt zoals de uitslagensite van de federatie ze verwacht. Voegt ook de knop toe om ze rechtstreeks daarheen te sturen, voorbehouden aan een beheerder."
@@ -8837,12 +8837,6 @@ msgstr "Licht"
 msgid "Main navigation"
 msgstr "Hoofdnavigatie"
 
-#: lib/pairings_engine_web/components/layouts.ex:980
-#: lib/pairings_engine_web/live/user_live/settings.ex:1370
-#, elixir-autogen, elixir-format
-msgid "Mocha"
-msgstr "Mokka"
-
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:609
 #, elixir-autogen, elixir-format
 msgid "Move %{tiebreak} down"
@@ -8853,8 +8847,8 @@ msgstr "%{tiebreak} omlaag verplaatsen"
 msgid "Move %{tiebreak} up"
 msgstr "%{tiebreak} omhoog verplaatsen"
 
-#: lib/pairings_engine_web/components/layouts.ex:981
-#: lib/pairings_engine_web/live/user_live/settings.ex:1371
+#: lib/pairings_engine_web/components/layouts.ex:980
+#: lib/pairings_engine_web/live/user_live/settings.ex:1370
 #, elixir-autogen, elixir-format
 msgid "Paper"
 msgstr "Papier"
@@ -8891,7 +8885,7 @@ msgstr "Automatisch doorbladeren hervatten"
 msgid "Rose"
 msgstr "Roze"
 
-#: lib/pairings_engine_web/components/layouts/root.html.heex:144
+#: lib/pairings_engine_web/components/layouts/root.html.heex:142
 #, elixir-autogen, elixir-format
 msgid "Skip to content"
 msgstr "Naar de inhoud"
@@ -14036,7 +14030,7 @@ msgstr "liever niet de bye"
 msgid "rather not the pairing-allocated bye"
 msgstr "liever niet de door de paring toegekende bye"
 
-#: lib/pairings_engine/features.ex:188
+#: lib/pairings_engine/features.ex:189
 #, elixir-autogen, elixir-format
 msgid "Bye preferences"
 msgstr "Byevoorkeuren"
@@ -14206,7 +14200,7 @@ msgstr "Voorvertoning - niet de paring."
 msgid "Preview - nothing is saved"
 msgstr "Voorvertoning - er wordt niets opgeslagen"
 
-#: lib/pairings_engine/features.ex:119
+#: lib/pairings_engine/features.ex:174
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:264
 #, elixir-autogen, elixir-format
 msgid "Preview next round"
@@ -15998,7 +15992,7 @@ msgstr "Rating van een speler zonder rating"
 msgid "What a player without a rating, and a board nobody sits at, count as in a team's rating. 1400 is the FIDE rating floor (Rating Regulations 2024 Art. 7.1.4; the World University Team Championship regulations Art. 5.2.4 give unrated players 1400; the Olympiad Pairing Rules of 2012 Art. 7 gave them the floor). C.04.6 leaves it to the event's rules. Seeds already set never change by themselves."
 msgstr "Waarmee een speler zonder rating, en een bord waar niemand zit, meetelt in de rating van een ploeg. 1400 is de FIDE-ratingvloer (Rating Regulations 2024 art. 7.1.4; het FIDE-reglement van het wereldkampioenschap voor universiteitsploegen, art. 5.2.4, geeft spelers zonder rating 1400; de Olympiad Pairing Rules van 2012, art. 7, gaven hen de ratingvloer). C.04.6 laat het over aan het reglement van het evenement. Reeds vastgelegde reeksnummers veranderen nooit vanzelf."
 
-#: lib/pairings_engine/features.ex:190
+#: lib/pairings_engine/features.ex:191
 #, elixir-autogen, elixir-format
 msgid "Adds the pairing-allocated bye to a player's details: exclude them from it, or a preference - must get it, rather gets it, or rather not - for every round or chosen rounds. Not a FIDE rule: a round it changes is recorded as not paired by the FIDE rules, and a FIDE checker cannot replay it. Preferences are never applied on a FIDE-rated tournament. Ainalrami engine only."
 msgstr "Voegt de door de paring toegekende bye toe aan de gegevens van een speler: hem ervan uitsluiten, of een voorkeur - moet hem krijgen, krijgt hem liever, of liever niet - voor elke ronde of gekozen rondes. Geen FIDE-regel: een ronde die ze verandert, wordt vastgelegd als niet gepaard volgens de FIDE-regels, en een FIDE-controleprogramma kan die niet naspelen. Voorkeuren worden nooit toegepast op een FIDE-gehomologeerd toernooi. Alleen de Ainalrami-engine."
@@ -17770,7 +17764,7 @@ msgid_plural "%{count} byes recorded for rounds not yet paired (rounds %{rounds}
 msgstr[0] "%{count} bye voor een nog niet gepaarde ronde (ronde %{rounds}) is niet geïmporteerd: een rondetoernooi paart iedereen elke ronde. Noteer die partij als forfait wanneer ze aan de beurt is."
 msgstr[1] "%{count} byes voor nog niet gepaarde ronden (ronden %{rounds}) zijn niet geïmporteerd: een rondetoernooi paart iedereen elke ronde. Noteer die partijen als forfait wanneer ze aan de beurt zijn."
 
-#: lib/pairings_engine/features.ex:121
+#: lib/pairings_engine/features.ex:176
 #, elixir-autogen, elixir-format
 msgid "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
 msgstr "Voegt \"Volgende ronde voorvertonen\" toe aan de pagina Paringen: terwijl de laatste partijen van een ronde nog bezig zijn, berekent het welke borden van de volgende ronde al vastliggen, wat de uitslag van die partijen ook wordt, zodat de naamkaartjes vroeg klaar kunnen staan. Kan afgedrukt worden."
@@ -18457,3 +18451,9 @@ msgstr "Deze paringen zijn met de hand gemaakt en wijken af van die van de Berge
 #, elixir-autogen, elixir-format
 msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met in round %{met} of this cycle - the rounds paired by hand have left the table behind. Pair round %{round} by hand."
 msgstr "Ronde %{round} van de Berger-tabel paart %{a} en %{b}, die elkaar al ontmoetten in ronde %{met} van deze cyclus - de met de hand gepaarde rondes hebben de tabel verlaten. Paar ronde %{round} met de hand."
+
+#: lib/pairings_engine_web/components/layouts.ex:982
+#: lib/pairings_engine_web/live/user_live/settings.ex:1372
+#, elixir-autogen, elixir-format
+msgid "Tom W"
+msgstr "Tom W"

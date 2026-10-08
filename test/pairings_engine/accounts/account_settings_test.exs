@@ -58,11 +58,11 @@ defmodule PairingsEngine.Accounts.AccountSettingsTest do
       {:ok, user} =
         Accounts.update_user_preferences(user, %{
           "locale" => "nl",
-          "theme" => "mocha",
+          "theme" => "tomw",
           "accent" => "teal"
         })
 
-      assert {user.locale, user.theme, user.accent} == {"nl", "mocha", "teal"}
+      assert {user.locale, user.theme, user.accent} == {"nl", "tomw", "teal"}
 
       assert {:error, cs} = Accounts.update_user_preferences(user, %{"theme" => "nord"})
       assert %{theme: [_]} = errors_on(cs)

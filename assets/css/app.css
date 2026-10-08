@@ -385,42 +385,48 @@
   --color-base-content: #1f2a22;
 }
 
-/* Mocha, one of Catppuccin's four flavours (catppuccin.com) - base/surface0/
-   surface1 for backgrounds, mauve as the signature accent. Named after the
-   flavour itself, matching how the picker's other borrowed palettes (Paper,
-   Board, Slate) go by their own name rather than crediting the source app
-   in the label - the credit lives here in the comment instead. */
-[data-theme="mocha"] {
-  --bg: #1e1e2e;
-  --surface: #313244;
-  --border: #45475a;
-  --text: #cdd6f4;
-  --text-soft: #b4bad1;
-  --accent: #ceacf8;
-  --accent-hover: #b4befe;
-  --accent-soft: rgba(203, 166, 247, 0.18);
-  --accent-ink: #1e1e2e;
-  --accent-lift: #ffffff;
-  --danger: #f38fab;
-  --danger-hover: #f5a0b8;
-  --danger-ink: #1e1e2e;
-  --success: #a6e3a1;
-  --success-soft: rgba(166, 227, 161, 0.18);
-  --warn: #fab387;
-  --warn-soft: rgba(250, 179, 135, 0.18);
-  --info: #74c7ec;
-  --info-soft: rgba(116, 199, 236, 0.18);
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+/* TOM W. Royal blue with a sky-blue accent, named for a club arbiter whose
+   help shaped a good part of this app - he asked for nothing, so he gets a
+   colour scheme, which is about what arbiters get for anything.
 
-  --surface-alt: #383a52;
-  --surface-hover: #45475a;
-  --scrim: rgba(0, 0, 0, 0.6);
+   Royal blue is a mid-tone, not a dark one, and that is the whole trouble:
+   white text is comfortable on it, but a translucent tint of a light accent
+   lifts the ground toward the accent and eats the contrast. So the tints
+   here are 10%, not the 16-18% the darker themes get, and every accent has
+   its own lighter variant below. The semantic four are pastels for the
+   same reason - anything saturated enough to look "red" on royal blue is
+   too dark to read on it. */
+[data-theme="tomw"] {
+  --bg: #1b3994;
+  --surface: #24449f;
+  --border: #4566c0;
+  --text: #ffffff;
+  --text-soft: #dbe6ff;
+  --accent: #a8e4ff;
+  --accent-hover: #c6edff;
+  --accent-soft: rgba(168, 228, 255, 0.10);
+  --accent-ink: #0b1f5c;
+  --accent-lift: #ffffff;
+  --danger: #ffd2d2;
+  --danger-hover: #ffe0e0;
+  --danger-ink: #0b1f5c;
+  --success: #a8f5c4;
+  --success-soft: rgba(154, 240, 184, 0.10);
+  --warn: #ffe08f;
+  --warn-soft: rgba(255, 215, 122, 0.10);
+  --info: #e8dcff;
+  --info-soft: rgba(227, 212, 255, 0.10);
+  --shadow: 0 1px 3px rgba(5, 15, 50, 0.45);
+
+  --surface-alt: #2c4ca8;
+  --surface-hover: #3454b4;
+  --scrim: rgba(5, 15, 50, 0.6);
 
   color-scheme: dark;
-  --color-base-100: #313244;
-  --color-base-200: #383a52;
-  --color-base-300: #45475a;
-  --color-base-content: #cdd6f4;
+  --color-base-100: #24449f;
+  --color-base-200: #2c4ca8;
+  --color-base-300: #4566c0;
+  --color-base-content: #ffffff;
 }
 
 
@@ -450,26 +456,25 @@
 [data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; --accent-ink: #ffffff; }
 
 [data-accent="blue"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
-[data-accent="teal"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="mocha"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
+[data-accent="teal"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
 [data-accent="violet"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #a98dfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
 [data-accent="rose"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
 [data-accent="slate"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
 [data-accent="indigo"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #8a94f8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
-[data-accent="cyan"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="mocha"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
+[data-accent="cyan"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
 [data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="slate"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
 
-/* Mocha's own set, split out on 2026-09-13 (accessibility pass). The dark
-   set above is the right brightness for Dark and Slate, but Mocha's surfaces
-   are lighter and its accent tint sits on #313244, where those six accents
-   read at 3.2-3.8:1 on their own tint - a badge, the current tab. Each is
-   lightened only as far as 4.5:1 needs, hue kept; teal and cyan already
-   cleared it and still come from the shared set. */
-[data-accent="blue"]:where([data-theme="mocha"]) { --accent: #80b2ff; --accent-hover: #9ac1ff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
-[data-accent="violet"]:where([data-theme="mocha"]) { --accent: #bca7fb; --accent-hover: #cfbffc; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
-[data-accent="rose"]:where([data-theme="mocha"]) { --accent: #fc8f9f; --accent-hover: #fda7b3; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
-[data-accent="slate"]:where([data-theme="mocha"]) { --accent: #aab6c6; --accent-hover: #b9c3d0; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
-[data-accent="indigo"]:where([data-theme="mocha"]) { --accent: #a4acfa; --accent-hover: #bcc2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
-[data-accent="fuchsia"]:where([data-theme="mocha"]) { --accent: #ed94fa; --accent-hover: #f1acfb; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
+/* Tom W's own set. The dark set above assumes a ground near black; on royal
+   blue those accents read at 3-4:1 on their own tint, so each is lifted
+   toward white until a badge and the current tab clear 4.5:1, hue kept. */
+[data-accent="blue"]:where([data-theme="tomw"]) { --accent: #b8d9fe; --accent-hover: #cae2fe; --accent-soft: rgba(91, 155, 255, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="teal"]:where([data-theme="tomw"]) { --accent: #81e5d9; --accent-hover: #a0ece2; --accent-soft: rgba(45, 212, 191, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="violet"]:where([data-theme="tomw"]) { --accent: #d7cbfd; --accent-hover: #e1d8fe; --accent-soft: rgba(167, 139, 250, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="rose"]:where([data-theme="tomw"]) { --accent: #fdbbc4; --accent-hover: #feccd3; --accent-soft: rgba(251, 113, 133, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="slate"]:where([data-theme="tomw"]) { --accent: #cad1dc; --accent-hover: #d7dce5; --accent-soft: rgba(148, 163, 184, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="indigo"]:where([data-theme="tomw"]) { --accent: #c9cefc; --accent-hover: #d6dafd; --accent-soft: rgba(129, 140, 248, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="cyan"]:where([data-theme="tomw"]) { --accent: #7ae5f5; --accent-hover: #9becf8; --accent-soft: rgba(34, 211, 238, 0.10); --accent-ink: #0b1f5c; }
+[data-accent="fuchsia"]:where([data-theme="tomw"]) { --accent: #f4bffc; --accent-hover: #f7cffd; --accent-soft: rgba(232, 121, 249, 0.10); --accent-ink: #0b1f5c; }
 
 html { background: var(--bg); }
 
@@ -754,8 +759,8 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
   box-shadow: 0 0 0 2px var(--surface) inset;
 }
 
-/* ---------- theme picker (System / Light / Dark / Slate / Mocha / Paper /
-   Board / High Contrast) ----------
+/* ---------- theme picker (System / Light / Dark / Slate / Paper / Board /
+   Tom W / High Contrast) ----------
    A popover, not an inline button row, once there are more than a
    handful of themes - matches the accent-picker's own <details>/<summary>
    pattern, and the .topbar-menu-panel/.topbar-menu-item vertical-list
@@ -817,9 +822,9 @@ html[data-theme-source="system"] .theme-picker-item[data-theme-opt="system"],
 html[data-theme-source="user"][data-theme="light"] .theme-picker-item[data-theme-opt="light"],
 html[data-theme-source="user"][data-theme="dark"] .theme-picker-item[data-theme-opt="dark"],
 html[data-theme-source="user"][data-theme="slate"] .theme-picker-item[data-theme-opt="slate"],
-html[data-theme-source="user"][data-theme="mocha"] .theme-picker-item[data-theme-opt="mocha"],
 html[data-theme-source="user"][data-theme="paper"] .theme-picker-item[data-theme-opt="paper"],
 html[data-theme-source="user"][data-theme="board"] .theme-picker-item[data-theme-opt="board"],
+html[data-theme-source="user"][data-theme="tomw"] .theme-picker-item[data-theme-opt="tomw"],
 html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-theme-opt="contrast"] {
   background: var(--accent-soft);
   color: var(--accent);
@@ -2244,7 +2249,7 @@ button.pe-btn, .pe-btn {
    on its own: at full strength the accent scored 2.89:1 on its own tint in
    one theme, so the text is pulled 40% toward --accent-lift, which is
    whichever pole the surface is NOT. Worst case after that is 5.65:1
-   (Mocha + indigo). */
+   (a theme since retired, + indigo). */
 .pe-btn.tonal {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
@@ -2348,7 +2353,7 @@ button.pe-btn, .pe-btn {
    "frozen, you cannot edit this" must never read as a success state.
    `--warn` satisfies that too - it is per-theme, not per-accent - and unlike
    the amber literal this used to carry, it is the tone the CURRENT theme
-   calls amber. Dark's is #e8a54a, Mocha's #fab387; a fixed #d97706 sat in
+   calls amber. Dark's is #e8a54a, Tom W's #ffe08f; a fixed #d97706 sat in
    the middle of both of them looking like a bug, which it was. Same token as
    .pe-modal-warn / .setting-warning, so every "careful" surface matches. */
 .badge.archived {
@@ -3758,7 +3763,7 @@ a.pending-chip:hover {
 }
 .pool-chip.swap-eligible { cursor: pointer; }
 /* The ink that is readable on this accent, rather than a white that was
-   1.7-1.9:1 on the light accents of Dark, Slate and Mocha. */
+   1.7-1.9:1 on the light accents of the dark themes. */
 .pool-chip.swap-selected .pool-chip-tag { color: var(--accent-ink); }
 .pool-chip-name { font-weight: 600; font-size: 14px; }
 .pool-chip-tag { font-size: 11.5px; color: var(--text-soft); }
@@ -7355,7 +7360,7 @@ dialog.pe-confirm::backdrop { background: var(--scrim); }
    a text field's padding and border on top. Last in the file on purpose, so
    it wins over the generic `.field input` / `.set-field input` rules of equal
    specificity. The tick is an SVG whose colour cannot follow a token, so the
-   themes whose --accent-ink is dark (dark, slate, mocha) get a dark tick.
+   themes whose --accent-ink is dark (dark, slate, tomw) get a dark tick.
    `.acct-choice` keeps its invisible full-card checkbox. */
 input[type="checkbox"]:not(.acct-choice input) {
   appearance: none;
@@ -7394,11 +7399,11 @@ input[type="checkbox"]:not(.acct-choice input):indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
 }
 
-:where([data-theme="dark"], [data-theme="slate"], [data-theme="mocha"]) input[type="checkbox"]:not(.acct-choice input):checked {
+:where([data-theme="dark"], [data-theme="slate"], [data-theme="tomw"]) input[type="checkbox"]:not(.acct-choice input):checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2310151b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
 }
 
-:where([data-theme="dark"], [data-theme="slate"], [data-theme="mocha"]) input[type="checkbox"]:not(.acct-choice input):indeterminate {
+:where([data-theme="dark"], [data-theme="slate"], [data-theme="tomw"]) input[type="checkbox"]:not(.acct-choice input):indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2310151b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
 }
 

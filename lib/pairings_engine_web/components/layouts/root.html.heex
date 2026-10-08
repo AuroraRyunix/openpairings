@@ -61,13 +61,11 @@
           document.documentElement.setAttribute("data-theme-source", source);
         };
 
-        // A theme that changed its NAME rather than disappearing. Catppuccin
-        // became Mocha - same palette, so whoever had it picked did not ask
-        // to lose it and should land on the new name, not be bounced to
-        // System like a theme that is actually gone. Applied before the
-        // `known` check below, so the old key still resolves to a real
-        // theme instead of failing it.
-        const aliases = { catppuccin: "mocha" };
+        // A theme that changed its NAME rather than disappearing lands on
+        // the new name here, before the `known` check below. Empty since
+        // Mocha (once Catppuccin) was retired outright: a rename keeps you,
+        // a removal sends you to System like everyone else's lost theme.
+        const aliases = {};
 
         // Every palette app.css actually defines, and the only strings that
         // may reach `data-theme` once the alias above has run. A stored
@@ -85,7 +83,7 @@
         // every page. Losing a theme should cost the person who liked it a
         // trip back to the picker, nothing more.
         const known = new Set([
-          "light", "dark", "slate", "mocha", "paper", "board", "contrast"
+          "light", "dark", "slate", "paper", "board", "tomw", "contrast"
         ]);
 
         const setTheme = (theme) => {
