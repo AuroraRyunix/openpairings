@@ -105,6 +105,37 @@ defmodule PairingsEngine.EngineInputTest do
     assert board_numbers(t, round2) == [{2, 1}, {4, 3}, {6, 8}, {7, 5}]
   end
 
+  # The production report (2026-10-08): round 1, number 17 the highest
+  # rated player in the field, number 16 absent - and 8-17 went out as
+  # board 1, above 1-9, which is board order by rating. C.04.2 3.6 orders
+  # boards by the higher-ranked player's score, the pair's sum, then the
+  # higher-ranked player's TPN; in round 1 that is the TPN alone. The
+  # numbers are written straight onto the players, as a TPN exchange or a
+  # rating corrected after numbering leaves them.
+  test "round 1's boards follow the TPN of the higher-ranked player, not the rating" do
+    t = tournament(%{})
+    players = add_players(t, Enum.map(1..16, &(2000 - &1)) ++ [2600])
+
+    for {p, n} <- Enum.with_index(players, 1) do
+      Repo.update_all(from(x in PairingsEngine.Tournaments.Player, where: x.id == ^p.id),
+        set: [pairing_number: n]
+      )
+    end
+
+    {:ok, _} = Tournaments.update_player(player(t, 16), %{"absent_rounds" => "1"})
+    {:ok, round1} = Pairing.pair_next_round(t)
+
+    pn = Map.new(Tournaments.list_players(t.id), &{&1.id, &1.pairing_number})
+
+    boards =
+      round1
+      |> pairings()
+      |> Enum.sort_by(& &1.board)
+      |> Enum.map(&Enum.sort([pn[&1.white_player_id], pn[&1.black_player_id]]))
+
+    assert boards == [[1, 9], [2, 10], [3, 11], [4, 12], [5, 13], [6, 14], [7, 15], [8, 17]]
+  end
+
   describe "unplayed rounds" do
     # The tournament pays a full point for an absence, but not for the
     # rounds before a late entrant joined (`late_entry_absences` off).

@@ -20,6 +20,14 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **"Preview next round" is in the Belgian pack** (Federation features,
   BEL), off until you switch it on. The "Optional tools" group it sat in alone
   is gone - a group of one is a shelf, not a category.
+- [Fix] **A TRF with an unknown result (`?`) has its later rounds checked.**
+  The engine will not score a `?`, so the import's round check crashed on the
+  first round after one and checked nothing at all - a thorough way of
+  finding no problems. It now counts each `?` game as the draw the
+  import makes of it (a postponed game, the FIDE value), checks every round,
+  and the review step says which games were assumed, what as, and which
+  rounds rest on it. A symbol the import does not know (rewritten to `?`)
+  gets the same treatment.
 ## [0.78.0] - 2026-10-08
 
 - [Performance] **Ainalrami 0.40.0.** Pairing 40 to 80 players takes 1.6 to 1.7

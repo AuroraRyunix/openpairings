@@ -62,6 +62,11 @@ op de keuze van het bestand:
   kanten van een partij moeten overeenkomen. Een symbool in een ronde zonder tegenstander
   (`0000`) is geen partij en het bestand wordt nog steeds geweigerd; de melding
   noemt de speler, de ronde en het symbool. Annuleren importeert niets.
+- *Uitslagen aangenomen voor de controle.* De rondes na een partij met een onbekende
+  uitslag (`?`, of een symbool dat zo gelezen wordt) worden toch getoetst aan de
+  paringsregels, met die partij geteld als remise voor beide spelers - wat de import
+  ervan maakt, een uitgestelde partij. De controle zegt welke rondes zo getoetst zijn
+  en somt elke aangenomen partij op, met de ronde en de twee spelers.
 - *Rondes die een paringsregel breken.* Als een ronde van het bestand een regel breekt,
   krijgt de controle de kop *Deze rondes van het bestand breken de FIDE-paringsregels*
   en zegt dat het importeren niet in overeenstemming is met de paringsregels. Dit is

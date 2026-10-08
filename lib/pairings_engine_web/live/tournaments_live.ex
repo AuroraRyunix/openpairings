@@ -1510,6 +1510,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
       unchecked:
         trf_unverified_message(Map.get(grouped, :round_unverified, [])) ++
           trf_verification_failed_message(Map.get(grouped, :verification_failed, [])),
+      assumed:
+        Enum.flat_map(Map.get(grouped, :unknown_results_assumed, []), &trf_assumed_lines/1),
       adjustments:
         Enum.map(report.adjustments, &trf_adjustment_text/1) ++
           trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
@@ -1520,6 +1522,30 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp upcase_first(<<first::utf8, rest::binary>>), do: String.upcase(<<first::utf8>>) <> rest
   defp upcase_first(other), do: other
+
+  # The check judged the rounds after a `?` game as if it had ended in
+  # `outcome` - the value the import gives it as a postponed game. The
+  # arbiter gets the assumption and every game it was made for, because a
+  # clean verdict on those rounds is only as good as the guess.
+  defp trf_assumed_lines(%{outcome: outcome, points: points, rounds: rounds, games: games}) do
+    [
+      ngettext(
+        "Round %{rounds} was checked against the pairing rules assuming every game with an unknown result (?) before it ended as a %{outcome} (%{points} points each), which is what the import counts it as - a postponed game - until its result is entered. The games assumed:",
+        "Rounds %{rounds} were checked against the pairing rules assuming every game with an unknown result (?) before them ended as a %{outcome} (%{points} points each), which is what the import counts it as - a postponed game - until its result is entered. The games assumed:",
+        length(rounds),
+        rounds: Enum.join(rounds, ", "),
+        outcome: trf_outcome_word(outcome),
+        points: format_points(points)
+      )
+      | Enum.map(games, fn %{round: round, players: [a, b]} ->
+          gettext("round %{round}: %{a} v %{b}", round: round, a: a, b: b)
+        end)
+    ]
+  end
+
+  defp trf_outcome_word(:draw), do: gettext("draw")
+  defp trf_outcome_word(:win), do: gettext("win")
+  defp trf_outcome_word(:loss), do: gettext("loss")
 
   defp trf_verification_failed_message([]), do: []
 
@@ -1771,6 +1797,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
       <ul :if={@sections.unchecked != []} id="trf-review-unchecked" class="trf-review-list">
         <li :for={line <- @sections.unchecked}>{line}</li>
+      </ul>
+
+      <ul :if={@sections.assumed != []} id="trf-review-assumed" class="trf-review-list">
+        <li :for={line <- @sections.assumed}>{line}</li>
       </ul>
 
       <div :if={@sections.adjustments != []} id="trf-review-adjustments">
