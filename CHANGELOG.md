@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-10-08
+
 - [Performance] **Ainalrami 0.40.0.** Pairing 40 to 80 players takes 1.6 to 1.7
   times less time: the engine's certified shortcuts now start at 30 players, not
   at a 100 that someone once guessed and nobody measured. Same pairings - 2.16
