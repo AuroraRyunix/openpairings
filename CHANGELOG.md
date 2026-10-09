@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-10-09
+
 - [Feature] **Round-1 absentees as late entries can be switched per tournament**
   (Settings, Options, next to the late-entrant numbering). New tournaments have
   it on; an older or imported one can switch it on - or off - until round 1 is
