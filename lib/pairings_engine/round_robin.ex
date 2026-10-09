@@ -105,7 +105,7 @@ defmodule PairingsEngine.RoundRobin do
   Unlike Swiss, a round-robin round's pairings never depend on prior
   results (the whole schedule is fixed at freeze time - see moduledoc), so
   there's no need to gate pairing round N+1 on round N being fully scored
-  the way the Swiss/JaVaFo path does - see `pair_all_rounds/1` below,
+  the way the Swiss path does - see `pair_all_rounds/1` below,
   which is exactly this fact turned into a feature (generate the whole
   event in one action, since there's nothing to wait on between rounds).
 
@@ -858,7 +858,7 @@ defmodule PairingsEngine.RoundRobin do
         # order must be marked stale here too, same as any other
         # point-changing write. See docs/manual-standings.md (Fix 3) and
         # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the same
-        # pattern on the Swiss/JaVaFo path. Must run before the caller's
+        # pattern on the Swiss path. Must run before the caller's
         # broadcast_tournament_change so no PubSub subscriber can reload and
         # observe a stale-but-unmarked manual order.
         Tournaments.invalidate_manual_ranking(tournament.id)

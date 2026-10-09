@@ -1388,7 +1388,7 @@ defmodule PairingsEngine.Standings do
       # never downgraded to a draw when trailing. The `byes`-table path
       # (`add_bye_records/3` above) already excludes "pairing-allocated"
       # from its own `voluntary` set for the same reason - this mirrors it
-      # for the JaVaFo-assigned `Pairing.result == "bye"` shape.
+      # for the engine-assigned `Pairing.result == "bye"` shape.
       voluntary: not played and not forfeit and pairing.result != "bye",
       # Same key `add_bye_records/3` carries for `byes`-table rows - lets
       # PlayerCard label the row as a pairing-allocated bye by KIND rather

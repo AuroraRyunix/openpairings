@@ -52,7 +52,6 @@ defmodule PairingsEngineWeb.Bench.StandingsPagesBenchTest do
         "name" => "Bench standings",
         "type" => "swiss",
         "rounds_count" => "9",
-        "pairing_engine" => "ainalrami",
         "tiebreaks" => ["BH", "BHC1", "SB", "DE"]
       })
 

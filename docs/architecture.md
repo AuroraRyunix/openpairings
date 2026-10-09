@@ -48,12 +48,9 @@ SQLite connection pool, and a handful of long-lived GenServers.
        PairingsEngine.Tools.Session - public /tools/norms sessions (RAM only)
        PairingsEngine.RateLimit    - request/send throttling
 
-     Swiss pairing, one of two engines per tournament:
-       Ainalrami                   - default; an Elixir library, called in
-                                     this process, no subprocess at all
-       java -jar priv/javafo/javafo.jar
-                                   - by choice; the only external process
-                                     this application ever starts
+     Swiss pairing:
+       Ainalrami                   - an Elixir library, called in this
+                                     process, no subprocess at all
 ```
 
 ## Layers
@@ -80,8 +77,7 @@ Plain Elixir modules, mostly pure functions plus a handful of Ecto-backed
 context modules (`Tournaments`, `Accounts`). The three pairing systems
 (`Pairing` for Swiss, `RoundRobin`, `Keizer`) share no code but all funnel
 through the same `Tournaments`/`Standings` layer afterward. `Pairing` is
-itself a fork: a Swiss tournament's `pairing_engine` field selects
-Ainalrami, the default, or JaVaFo. See `docs/AGENTS.md` for the Swiss
+itself a fork on `pairing_system`; Swiss always goes to Ainalrami. See `docs/AGENTS.md` for the Swiss
 pipeline's internal shape - it's the most intricate part of this layer.
 
 Import/export modules (`TrfImport`, `TrfExport`,
@@ -212,10 +208,7 @@ Pairing.pair_next_round/1  (dispatches on tournament.pairing_system)
    local rank map)        (frozen pairing         no external process)
    │                       numbers)                │
    ├── ainalrami ──┐          │                     │
-   │  (default,    │          │                     │
-   │   in-process) │          │                     │
-   └── javafo ─────┤          │                     │
-      (subprocess) │          │                     │
+   │  (in-process) │          │                     │
    ┌───────────────┘          │                     │
    ▼                          ▼                     ▼
 parse pairs               map ranks to        assign colours,
@@ -233,10 +226,8 @@ parse pairs               map ranks to        assign colours,
 ```
 
 Round robin and Keizer never build TRF text at all - only the `swiss`
-branch does, and it builds the same text whichever engine is selected,
-because the TRF is how both are fed. What differs is where that text goes:
-Ainalrami is handed it in memory and answers in this process, while JaVaFo
-gets it as a scratch file and answers as a subprocess under a deadline. The
+branch does. Ainalrami is handed it in memory and answers in this process;
+there is no subprocess and no scratch file. The
 app has exactly one TRF implementation, and it lives in the engine - see
 `Pairing`'s own note on why there used to be two. See `docs/AGENTS.md` for the Swiss branch's actual
 internal steps (full-roster scoping, scratch-file lifecycle, acceleration,

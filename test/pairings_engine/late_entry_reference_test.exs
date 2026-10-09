@@ -403,7 +403,7 @@ defmodule PairingsEngine.LateEntryReferenceTest do
       File.write!(input, trf)
 
       case System.cmd(path, ["--dutch", input, "-p", output], stderr_to_stdout: true) do
-        {_out, 0} -> output |> File.read!() |> Pairing.parse_pairs()
+        {_out, 0} -> output |> File.read!() |> PairingsEngine.Test.BbpPairings.parse_pairs()
         {out, code} -> {:error, "exit #{code}: #{out}"}
       end
     after

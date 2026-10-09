@@ -762,7 +762,7 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
-  # `152` (or JaVaFo's `XXC white1`/`black1`) is the colour drawn by lot
+  # `152` (or the extension's `XXC white1`/`black1`) is the colour drawn by lot
   # before round 1. Stored as the draw, so the imported tournament pairs its
   # next round with it and shows "Drawn by lot: ..." rather than drawing
   # again.
@@ -956,14 +956,14 @@ defmodule PairingsEngine.TrfImport do
   # TRF26's `192`, the encoded type of tournament
   # (`TournamentTypeCodeTable192-TRF26`) - the inverse of
   # `PairingsEngine.TrfExport`'s own mapping. It is the one field that says
-  # which EDITION of the Dutch rules paired the boards, and the app models
-  # that as the choice of engine: JaVaFo implements the system as it stood
-  # before 1 July 2025 (`FIDE_DUTCH_2017`), Ainalrami the one in force since
-  # (`FIDE_DUTCH_2025`, or the date-dependent bare `FIDE_DUTCH`).
-  # `FIDE_DUTCH_2026` is not a code FIDE's table has ever had - this app
-  # wrote it by mistake before 0.69.0 - but it is read the same as
-  # `FIDE_DUTCH_2025` so a file this app already exported still comes back
-  # as Ainalrami, not as a code this app has no system for.
+  # which EDITION of the Dutch rules paired the boards. This app pairs by
+  # one - the edition in force since 1 July 2025, Ainalrami's - so every
+  # Dutch code imports as a Swiss: `FIDE_DUTCH_2025`, the date-dependent
+  # bare `FIDE_DUTCH`, `FIDE_DUTCH_2026` (not a code FIDE's table has ever
+  # had - this app wrote it by mistake before 0.69.0) and `FIDE_DUTCH_2017`.
+  # The last one says the rounds already in the file followed the older
+  # edition; they are kept as played, the rounds paired here from now on
+  # follow the current one, and the import says so (`:dutch_2017`).
   #
   # A code this app has no system for (Dubov, Burstein, a CUSTOM_*) leaves
   # the defaults alone rather than guessing; the settings the file could not
@@ -982,11 +982,8 @@ defmodule PairingsEngine.TrfImport do
 
     system =
       cond do
-        base == "FIDE_DUTCH_2017" ->
-          %{pairing_system: "swiss", pairing_engine: "javafo"}
-
-        base in ~w(FIDE_DUTCH FIDE_DUTCH_2025 FIDE_DUTCH_2026) ->
-          %{pairing_system: "swiss", pairing_engine: "ainalrami"}
+        base in ~w(FIDE_DUTCH FIDE_DUTCH_2017 FIDE_DUTCH_2025 FIDE_DUTCH_2026) ->
+          %{pairing_system: "swiss"}
 
         # The first cycle's last two rounds played in reverse order (FIDE
         # C.05 Annex 1) - the schedule `RoundRobin.schedule/4` replays with
@@ -2559,10 +2556,7 @@ defmodule PairingsEngine.TrfImport do
       )
 
   defp system_adjustments(t, tournament) do
-    system = [
-      pairing_system: tournament.pairing_system,
-      pairing_engine: tournament.pairing_engine
-    ]
+    system = [pairing_system: tournament.pairing_system]
 
     case t[:type_code] do
       nil ->
@@ -2591,7 +2585,10 @@ defmodule PairingsEngine.TrfImport do
               []
           end
 
-        unknown ++ clamped
+        older_dutch =
+          if base == "FIDE_DUTCH_2017", do: [adjustment(:dutch_2017, type_code: code)], else: []
+
+        unknown ++ clamped ++ older_dutch
     end
   end
 

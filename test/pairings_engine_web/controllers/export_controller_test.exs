@@ -499,7 +499,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
   end
 
   describe "trf/2 dialects" do
-    test "?dialect=javafo serves the older extension-line spelling", %{conn: conn, scope: scope} do
+    test "?dialect=engine serves the older extension-line spelling", %{conn: conn, scope: scope} do
       {tournament, _} = fixture(scope)
       [a, b | _] = PairingsEngine.Tournaments.list_players(tournament.id)
       {:ok, _} = PairingsEngine.Tournaments.add_forbidden_pairing(tournament, a.id, b.id)
@@ -509,9 +509,15 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       assert fide =~ "\r\n260 "
       refute fide =~ "XXP"
 
-      javafo = conn |> get(~p"/t/#{tournament.id}/export/trf?dialect=javafo") |> response(200)
-      assert javafo =~ "\r\nXXP "
-      refute javafo =~ "\r\n260 "
+      engine = conn |> get(~p"/t/#{tournament.id}/export/trf?dialect=engine") |> response(200)
+      assert engine =~ "\r\nXXP "
+      refute engine =~ "\r\n260 "
+
+      # The dialect's first name, from when the app shipped the program it
+      # was named after: links and scripts written then still get the file.
+      legacy = conn |> get(~p"/t/#{tournament.id}/export/trf?dialect=javafo") |> response(200)
+      assert legacy =~ "\r\nXXP "
+      refute legacy =~ "\r\n260 "
     end
   end
 end

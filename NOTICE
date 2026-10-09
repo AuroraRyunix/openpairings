@@ -11,9 +11,5 @@ This product bundles third-party components under their own terms:
   * Ainalrami (pairing engine, fetched as a dependency) - Apache License 2.0.
     https://github.com/AuroraRyunix/Ainalrami
 
-  * JaVaFo is (c) Roberto Ricca. It is not open source and is not bundled
-    with this repository; the app calls it only if an operator installs it
-    themselves.
-
 Elixir, Phoenix and the other Hex dependencies are covered by their own
 licences, recorded in mix.lock and in each package.

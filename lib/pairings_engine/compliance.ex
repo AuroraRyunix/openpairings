@@ -76,13 +76,6 @@ defmodule PairingsEngine.Compliance do
     * **Acceleration** (`acceleration`). Baku is FIDE's own, C.04.7. Both
       values are FIDE's. Removing or changing it after round 1 (Q109/Q110)
       is a FIDE-mode lock, like the tie-breaks.
-    * **Pairing engine** (`pairing_engine`). JaVaFo is the FIDE-endorsed
-      one; Ainalrami is not endorsed yet, and implements the edition of
-      C.04.3 in force since 1 February 2026 where JaVaFo implements the 2017
-      one. `VCL.03` ("a system the program is endorsed for") points at
-      JaVaFo and rules-currency points at Ainalrami, so the regulations
-      cannot settle it either way and this module does not pretend to. The
-      advisory note on the Options page is the right treatment and stays.
     * **Forbidden pairings and pairing rules, hard or soft.** `XXP`/`260`
       is FIDE's own record and C.05 5.2 allows restrictions as long as they
       are announced before the first round - its own example is a soft one,

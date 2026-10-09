@@ -77,8 +77,7 @@ defmodule PairingsEngine.BoardOrderC0402Test do
         Repo.insert!(%Tournament{
           name: "Board order",
           type: "swiss",
-          rounds_count: 6,
-          pairing_engine: "ainalrami"
+          rounds_count: 6
         })
 
       players =

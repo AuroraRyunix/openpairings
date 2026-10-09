@@ -2,7 +2,7 @@ defmodule PairingsEngine.CrossProgramTest do
   @moduledoc """
   Cross-program-agreement check - the second half of the fuzz-testing
   harness `docs/fide-endorsement.md` proposes. Runs OpenPairings' own,
-  real `PairingsEngine.Pairing.pair_next_round/1` (JaVaFo-backed) against
+  real `PairingsEngine.Pairing.pair_next_round/1` (Ainalrami) against
   `bbpPairings` (Bierema Boyz Programming, Apache-2.0, vendored in
   `priv/bbppairings/` - see `PairingsEngine.Test.BbpPairings`), a
   standalone, independently-written second Dutch-system implementation, on
@@ -22,7 +22,7 @@ defmodule PairingsEngine.CrossProgramTest do
   Runs `PAIRING_FUZZ_COUNT` synthetic tournaments (default 8 - enough to
   matter in ordinary CI/dev runs without being slow; set a much higher
   count for a deliberate "throw a pile of random tournaments at it" pass,
-  e.g. `PAIRING_FUZZ_COUNT=500 mix test --only javafo --only bbppairings
+  e.g. `PAIRING_FUZZ_COUNT=500 mix test --only bbppairings
   test/pairings_engine/cross_program_test.exs`), each with a random 4-24
   player roster and 2-3 rounds, results entered between rounds so
   standings genuinely change and later rounds pair from real score groups,
@@ -33,11 +33,10 @@ defmodule PairingsEngine.CrossProgramTest do
 
   Until 2026-09-13, `PAIRING_FUZZ_COUNT=40 ... --seed 0` and up failed on a
   5-player round-2 position where rank 2 took a pairing-allocated bye in
-  round 1 and ranks 3-4 had already met: JaVaFo and bbpPairings handed the
-  bye to different players. On 2026-09-13 - after the initial colour began
-  reaching every engine explicitly (JaVaFo through an `XXC` line; before,
-  JaVaFo drew its own colour on every run) - runs of 39 and 200 tournaments
-  both passed. The old failure was never adjudicated against the Handbook,
+  round 1 and ranks 3-4 had already met: the engine then behind this app
+  and bbpPairings handed the bye to different players. On 2026-09-13 -
+  after the initial colour began reaching every engine explicitly through
+  an `XXC` line - runs of 39 and 200 tournaments both passed. The old failure was never adjudicated against the Handbook,
   so if it returns, treat it as unexplained rather than as a known
   2017-versus-2026 rules difference. The default 8 is deterministic (each
   tournament reseeds `:rand` from its own fuzz seed, so ExUnit's `--seed`
@@ -51,13 +50,12 @@ defmodule PairingsEngine.CrossProgramTest do
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Test.BbpPairings
 
-  @moduletag :javafo
   @moduletag :bbppairings
 
   # Same telemetry-capture pattern pairing_test.exs uses (see its own
-  # top-level `setup` doc) - `Pairing`'s scratch TRF file is deleted the
-  # instant its JaVaFo run finishes, so this is the only way to get the
-  # exact text back out to also hand to bbpPairings.
+  # top-level `setup` doc) - the engine's TRF text never touches disk, so
+  # this is the only way to get the exact text back out to also hand to
+  # bbpPairings.
   setup do
     handler_id =
       "cross-program-trf-capture-#{inspect(self())}-#{System.unique_integer([:positive])}"
@@ -81,7 +79,7 @@ defmodule PairingsEngine.CrossProgramTest do
   # one-size-fits-all bound between the default quick run and a deliberate
   # "throw 500 tournaments at it" pass.
   @tag timeout: :infinity
-  test "OpenPairings (JaVaFo) and bbpPairings agree on who plays whom, every round, across many random tournaments" do
+  test "OpenPairings (Ainalrami) and bbpPairings agree on who plays whom, every round, across many random tournaments" do
     count = System.get_env("PAIRING_FUZZ_COUNT", "8") |> String.to_integer()
 
     disagreements =
@@ -115,8 +113,9 @@ defmodule PairingsEngine.CrossProgramTest do
     #
     # This axis did not exist until the `XXA` writer turned out to be
     # malformed - `xxa_line/2` padded the starting rank to five columns
-    # instead of four, shifting every value one place right. JaVaFo tolerates
-    # that and has been the only reader, so nothing here noticed; bbpPairings
+    # instead of four, shifting every value one place right. The engine this
+    # app ran then tolerated that and had been the only reader, so nothing
+    # here noticed; bbpPairings
     # rejects the line outright, and one accelerated tournament in this
     # harness would have caught it on the first run. The whole argument for
     # this file is that a second independent implementation reading the same
@@ -203,7 +202,7 @@ defmodule PairingsEngine.CrossProgramTest do
 
   # bbpPairings' output pairs are TRF *starting ranks* (the same local
   # numbering the captured TRF itself assigned this run - see
-  # PairingsEngine.Pairing.javafo_input/4's rank_by_player_id, which is
+  # PairingsEngine.Pairing.trf_input/5's rank_by_player_id, which is
   # NOT the same as pairing_number from round 2 onward, since pairing
   # re-sorts into current-standings order first). Translate via the TRF's
   # own player rows (rank -> name) and the roster's own name -> pairing_number

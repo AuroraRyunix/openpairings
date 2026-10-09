@@ -138,7 +138,6 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
     end
 
-    @tag :javafo
     test "button is disabled once round 1 has been paired, and explains why on click", %{
       conn: conn,
       scope: scope
@@ -165,7 +164,6 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       assert html =~ "Unlock"
     end
 
-    @tag :javafo
     test "a click is a no-op server-side once locked, even with the disabled attribute bypassed",
          %{conn: conn, scope: scope} do
       tournament =
@@ -186,9 +184,8 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
 
     # `pair_by_category` is locked by `Tournaments.locked_fields/1` the
     # moment ANY round exists, regardless of pairing system - so, unlike the
-    # two tests above (kept on Swiss/`:javafo` for continuity), these use a
-    # round robin round 1 to exercise the lock without needing the JaVaFo
-    # jar the sandbox running this suite doesn't have.
+    # two tests above (kept on Swiss for continuity), these use a round
+    # robin round 1 to exercise the lock from the other pairing path.
     defp pair_round_robin_round_1(tournament) do
       Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})

@@ -5,26 +5,22 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
 
-- **Swiss (FIDE Dutch)** on either of two engines, chosen per tournament and
-  driven through TRF files built and validated by the app:
-  - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (default) -
+- **Swiss (FIDE Dutch)** on one engine, driven through TRF files built and validated by the app:
+  - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** -
     written for this project in Elixir, implementing C.04.3 as it stands
-    from **1 February 2026**, in-process with no JVM. Cross-checked against
+    from **1 February 2026**, in-process, no Java needed. Cross-checked against
     bbpPairings 6.0.0 over 2.5 billion individual pairings with two
     disagreements, both defects in bbpPairings. See
     [`fide-endorsement.md`](fide-endorsement.md).
-  - **JaVaFo 2.2** - FIDE's own reference implementation, of the **2017**
-    edition of C.04.3. External, needs a JVM, and is the choice for an
-    organiser who wants the endorsed engine rather than the current rules.
   - **Accelerated Swiss (Baku, FIDE C.04.7)** - the app computes each Group-A
-    player's virtual points per round and hands the selected engine the full
+    player's virtual points per round and hands the engine the full
     history via fixed-column `XXA` lines.
   - **Per-category pairing** - each category paired by its own independent
     engine run, merged into one round with continuous board numbers and a
     single pairing sheet.
   - **Match format** - two-game matches: each pairing decision produces two
     back-to-back rounds, the second a colour-reversed mirror (verified safe
-    against the real JaVaFo engine before implementation).
+    against an external engine before implementation).
   - **No pairing-allocated bye for chosen players** ("Bye preferences" switch, Ainalrami
     only) - an organiser's rule, not FIDE's: a player excluded for all or
     certain rounds is treated as one who already had the bye. Warned as a
@@ -32,7 +28,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
     legal round, and recorded in the round's explanation, the audit trail
     and the TRF export's notes. See
     [`pairing-systems.md`](pairing-systems.md).
-  - **Bye preferences** (its own switch, off by default; Ainalrami only,
+  - **Bye preferences** (its own switch, off by default; every individual Swiss,
     never on a FIDE-rated tournament) -
     per player, for all or certain rounds: "must get" the pairing-allocated
     bye (if a legal pairing allows; otherwise paired normally and said why -
@@ -46,7 +42,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
     [`pairing-systems.md`](pairing-systems.md), "Bye preferences".
   - Robust against real-world rosters: absent and round-specific-absent
     players anywhere in the field (including mid-ranking gaps that crash a
-    naive JaVaFo invocation) are handled via contiguous rank remapping.
+    naive TRF invocation) are handled via contiguous rank remapping.
 - **Round robin (Berger tables)** - single or double cycle, match format
   (immediate colour-reversed rematches), automatic forfeit results for
   absent/forfeited players, odd-field structural byes.
@@ -78,7 +74,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   unambiguous; an unclear round is named, not guessed.
 - **Initial colour** - drawn by lot at the first Swiss pairing (the FIDE
   rule, C.04.3 5.1 / C.04.6 4.1), stored and shown on the Pairings page, or
-  set to White or Black by the arbiter; both engines are told it (JaVaFo as
+  set to White or Black by the arbiter; the engine is told it (as
   `XXC`).
 - **Keizer system** - classic ladder values with retroactive recalculation and
   a dedicated Keizer standings table.
@@ -372,10 +368,10 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
   a score-bracket map showing every pairing as a connector between score
   groups (floaters visibly crossing bands), board-by-board cards with colour
   chips, due-colour verdicts and float badges. Exact explanations for round
-  robin and Keizer, and for Swiss on Ainalrami, which reports the criteria it
+  robin and Keizer, and for Swiss, which reports the criteria it
   applied per bracket and per board (which colour preference was denied, whose
-  float was repeated). Swiss on JaVaFo stays an honest input/output analysis:
-  its internal reasoning is not pretended to be known.
+  float was repeated). Rounds with no stored account are analysed after the
+  fact by Ainalrami.
 - **Recycle bin** - deleted tournaments are soft-deleted and restorable.
 - **Account page** (`/users/settings`, see [account.md](account.md)) -
   profile with a display name shown in audit logs, history and sharing
@@ -414,8 +410,7 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
 - **Interface language** - a full gettext catalogue with a per-session picker;
   English and Dutch ship today, and the player-facing public pages stay
   English on purpose because an open draws players from many federations.
-- CI on GitHub Actions; 3,500+ tests including end-to-end runs against the real
-  JaVaFo engine.
+- CI on GitHub Actions; 3,500+ tests including cross-checks against bbpPairings.
 
 ## What's next
 

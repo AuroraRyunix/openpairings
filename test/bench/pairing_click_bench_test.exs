@@ -133,7 +133,6 @@ defmodule PairingsEngine.Bench.PairingClickBenchTest do
         type: "swiss",
         rounds_count: 9,
         tiebreaks: ~w(BH),
-        pairing_engine: "ainalrami",
         initial_colour: "white",
         round_dates: List.duplicate("2026-09-01", 9)
       })

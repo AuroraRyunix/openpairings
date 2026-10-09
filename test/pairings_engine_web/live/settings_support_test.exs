@@ -47,7 +47,7 @@ defmodule PairingsEngineWeb.SettingsSupportTest do
     end
   end
 
-  describe "the individual (JaVaFo/Ainalrami) path's own crash guard - English" do
+  describe "the individual (Ainalrami) path's own crash guard - English" do
     test "no category: a plain generic message" do
       text = error_text({:pairing_crashed, 4, nil})
       assert text =~ "Pairing failed unexpectedly"

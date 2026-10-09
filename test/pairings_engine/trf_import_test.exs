@@ -1242,7 +1242,7 @@ defmodule PairingsEngine.TrfImportTest do
     # in force since 1 July 2025 `FIDE_DUTCH_2025` (or the date-dependent
     # bare `FIDE_DUTCH`); this app's own export wrote the mistaken
     # `FIDE_DUTCH_2026` before 0.69.0 (`PairingsEngine.TrfExport.tournament_type_code/1`
-    # explains why), so a file carrying either spelling reads as Ainalrami.
+    # explains why), so a file carrying either spelling reads as a Swiss.
     # Each file is built here by substituting the code into a valid
     # serialized line, exactly as a third party's own file would arrive.
     defp trf_with_type_code(code, extra \\ %{}) do
@@ -1256,16 +1256,16 @@ defmodule PairingsEngine.TrfImportTest do
       for code <- ~w(FIDE_DUTCH_2025 FIDE_DUTCH FIDE_DUTCH_2026) do
         assert {:ok, imported, _warnings} = TrfImport.import_text(trf_with_type_code(code))
 
-        assert imported.pairing_system == "swiss"
-        assert imported.pairing_engine == "ainalrami", code
+        assert imported.pairing_system == "swiss", code
       end
     end
 
-    test "FIDE_DUTCH_2017 reads as JaVaFo" do
-      assert {:ok, imported, _warnings} =
-               TrfImport.import_text(trf_with_type_code("FIDE_DUTCH_2017"))
+    test "FIDE_DUTCH_2017 reads as a Swiss, and the import says the older edition is not kept" do
+      assert {:ok, imported, report} =
+               TrfImport.import_with_report(trf_with_type_code("FIDE_DUTCH_2017"))
 
-      assert imported.pairing_engine == "javafo"
+      assert imported.pairing_system == "swiss"
+      assert Enum.any?(report.adjustments, &(&1.code == :dutch_2017))
     end
 
     # A team code always names the word TEAM (the table's own rule); this

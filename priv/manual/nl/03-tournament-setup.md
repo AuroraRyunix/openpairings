@@ -152,13 +152,11 @@ rangschikking of FIDE-rapporten, en worden niet gepubliceerd op OpenResults.
 
 **Paringssysteem.** Het systeem ligt vast zodra de eerste ronde is gepaard.
 
-**Zwitserse engine.** *Ainalrami* is de standaard en zit ingebouwd in het
-programma; het volgt C.04.3 zoals het luidt vanaf 1 februari 2026. *JaVaFo* is
-de referentie-implementatie van FIDE voor de editie van 2017 en heeft Java en het
-JaVaFo-programmabestand nodig, dat apart moet worden geïnstalleerd (het zit er
-niet bij). De engine ligt vast zodra de eerste ronde is gepaard. Beide engines
-krijgen precies hetzelfde bestand (een TRF-bestand dat door het programma is
-opgebouwd en gecontroleerd).
+**Zwitserse engine.** Elk Zwitsers toernooi wordt gepaard door *Ainalrami*,
+dat in het programma zit ingebouwd en C.04.3 volgt zoals het luidt vanaf
+1 februari 2026. Er valt niets te kiezen of te installeren; de pagina noemt de
+engine. De engine krijgt een TRF-bestand dat door het programma is opgebouwd en
+gecontroleerd.
 
 ![De instellingenpagina Opties met het paringssysteem, de Zwitserse engine en de toernooirating](screenshots/03-settings-options.png "Instellingen, Opties")
 
@@ -247,7 +245,7 @@ hieronder.
 
 ## Pagina Verboden paringen {#forbidden-pairings-page}
 
-Wie wie niet mag treffen. Alles hier wordt door beide Zwitserse engines en door
+Wie wie niet mag treffen. Alles hier wordt door de Zwitserse engine en door
 Keizer gehandhaafd; het schema van een rondetoernooi ligt vast en negeert het.
 
 **Gevolg voor de volgende ronde.** Hoeveel van de partijen die het veld zou
@@ -277,8 +275,8 @@ toevoegen of weghalen, en dan **Groep opslaan**.
 
 **Hoe zwaar de wensen wegen.** *Sterk* zet de wensen vóór de kleur- en
 floatcriteria, *Zwak* gebruikt ze alleen als laatste beslissing. Alleen de
-Ainalrami-engine past wensen toe: JaVaFo en Keizer houden zich aan de regels
-maar negeren de wensen, en de pagina zegt dat.
+Zwitserse engine past wensen toe: Keizer houdt zich aan de regels maar negeert
+de wensen, en de pagina zegt dat.
 
 > [!FIDE] Vóór ronde 1 instellen
 > De Algemene Reglementen van de FIDE (C.05 5.2) laten beperkingen op de

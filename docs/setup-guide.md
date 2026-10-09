@@ -11,7 +11,6 @@ see [`docs/deployment.md`](deployment.md).
 | --- | --- | --- |
 | Erlang/OTP | 29 | BEAM runtime |
 | Elixir | 1.20 (`~> 1.17` per `mix.exs`) | language + `mix` |
-| Java (JRE) | 8+ | runs `javafo.jar` for Swiss pairing |
 | SQLite | (bundled via `ecto_sqlite3`/Exqlite) | no separate install needed |
 
 No Node.js, no `npm`/`yarn`, no separate database server. `esbuild` and
@@ -40,21 +39,9 @@ project's own dev machine is one such case), a fully portable install works:
    system-wide, this is almost always why - check `PATH` before assuming
    something else is broken.
 
-### JaVaFo
-
-The Swiss pairing engine is © Roberto Ricca and is **not bundled** in this
-repository (not committed, not a dependency). Download it from
-https://www.rrweb.org/javafo/ and place the jar at:
-
-```
-priv/javafo/javafo.jar
-```
-
-Round robin and Keizer tournaments work with no jar present at all - only
-pairing a Swiss round needs it. Tests that exercise real JaVaFo pairing are
-tagged `@tag :javafo` and are automatically excluded by `test_helper.exs`
-when the jar (or a JRE) isn't available, so `mix test` is safe to run
-without it; you'll just see those tests in the "excluded" count.
+Swiss pairing is done by Ainalrami, an Elixir dependency, so no Java and no
+external pairing program is needed anywhere. (`priv/javafo/` is unused; its
+`.gitignore` line only keeps a leftover jar from being committed.)
 
 ## First-time setup
 
@@ -78,8 +65,8 @@ loads it automatically and switches the mailer over. See
 
 ```bash
 mix phx.server              # dev server, hot code reload on save
-mix test                    # full suite (excludes :javafo/:swar_fixture if unavailable)
-mix test --exclude javafo --exclude swar_fixture   # explicit, matches CI exactly
+mix test                    # full suite (excludes :swar_fixture if the fixtures are unavailable)
+mix test --exclude swar_fixture   # explicit, matches CI exactly
 mix precommit                # compile --warnings-as-errors, deps.unlock --unused, format, test
 ```
 

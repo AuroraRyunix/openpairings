@@ -44,7 +44,7 @@ defmodule PairingsEngineWeb.ExportController do
 
   @doc """
   GET /t/:id/export/trf?rounds=1-5 - TRF26 text download, all or selected
-  rounds; `?dialect=javafo` asks for the older `XX*`/`BB*` spelling the
+  rounds; `?dialect=engine` asks for the older `XX*`/`BB*` spelling the
   pairing programs read. Filename convention: `<X>_<fideid>_<slug>_<rounds>.trf`, where
   `<X>` is B/R/S for `tournament.standard` (blitz/rapid/standard), `<fideid>`
   is whichever FIDE tournament ID `TrfExport.applicable_fide_id/2` resolves
@@ -96,7 +96,7 @@ defmodule PairingsEngineWeb.ExportController do
     end
   end
 
-  # The older (`?dialect=javafo`) spelling has no unknown result, so an open
+  # The older (`?dialect=engine`) spelling has no unknown result, so an open
   # postponed game would go out as a plain draw - a result that never
   # happened. That URL is linked from nowhere, but it is a URL: it refuses
   # rather than write it.
@@ -861,7 +861,9 @@ defmodule PairingsEngineWeb.ExportController do
   # uses `.trf`, so this keeps that consistent rather than introducing a
   # second convention.
   # The file an arbiter uploads is TRF26; a pairing program that reads the
-  # older extension-line spelling asks for it by name.
+  # older extension-line spelling asks for it by name. `javafo` is that
+  # name's first spelling, from when this app shipped the program it was
+  # named after; links and scripts written then still work.
   defp trf_dialect(dialect) when dialect in ["javafo", "engine"], do: :engine
   defp trf_dialect(_dialect), do: :trf26
 

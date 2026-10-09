@@ -1,7 +1,7 @@
 # TRF import - TRF26 and TRF16 (`PairingsEngine.TrfImport`)
 
 Imports a FIDE TRF file, TRF26 or TRF16 - the same format `PairingsEngine.TrfExport` and
-`Ainalrami.Trf` already produce/consume for JaVaFo and the user-facing
+`Ainalrami.Trf` already produce/consume for the pairing engine and the user-facing
 TRF download - as a brand-new tournament: players, rounds, pairings and
 byes, owned by the importing user. Reached from the Tournaments page's
 "Import TRF file" panel, right next to "Import SWAR file". Unlike SWAR
@@ -174,7 +174,7 @@ the one that left. What a file says now lands where it belongs:
 | Record | Setting |
 |---|---|
 | `162` / `BB*` | `points_win`, `points_draw`, `points_loss`, `bye_value`, and `abs_value` when the zero-point bye differs from a loss |
-| `192` | `pairing_system`, `pairing_engine` (`FIDE_DUTCH_2017` is JaVaFo, `FIDE_DUTCH_2025`/`FIDE_DUTCH_2026`/bare `FIDE_DUTCH` are Ainalrami), `rr_cycles` (also read from the team round-robin spellings), and `acceleration` from a `_BAKU` suffix |
+| `192` | `pairing_system`, the Swiss `pairing_system` (`FIDE_DUTCH_2017`, `FIDE_DUTCH_2025`/`FIDE_DUTCH_2026` and bare `FIDE_DUTCH` all import as an ordinary Swiss; a `FIDE_DUTCH_2017` file adds the `:dutch_2017` import-review adjustment: earlier rounds followed the 2017 edition and are kept as played, further rounds follow the current edition), `rr_cycles` (also read from the team round-robin spellings), and `acceleration` from a `_BAKU` suffix |
 | `310` / `362` / `320` / `330` | teams (name, roster, and - once every team has a `310` number - match points, game points, final rank), `team_match_points_win/draw/loss` from `362`, and `PairingsEngine.TeamMatchInference`'s bye (`320`) and forfeited-match (`330`) records, when the file has them |
 | `202` / `212` | `tiebreaks`, filtered to the codes this installation can compute |
 | `142` / `XXR` | `rounds_count` - the tournament's length, which is not how much of it has been played |

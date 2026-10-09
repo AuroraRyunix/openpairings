@@ -444,9 +444,8 @@ drawing of lots before the pairing of the first round". Settings - Options -
   keeps the draw.
 - **White** / **Black** - the arbiter's choice; nothing is drawn.
 
-It locks when round 1 is paired. Both engines are told it: the engine TRF
-carries `XXC white1` / `XXC black1` (JaVaFo does not read `152`, and without
-`XXC` it draws its own lot on every run), Ainalrami takes it as
+It locks when round 1 is paired. The engines are told it: the engine TRF
+carries `XXC white1` / `XXC black1`, Ainalrami takes it as
 `:initial_colour`, and the team engine as `:initial_colour`. A tournament that
 paired round 1 before the setting existed has no draw on record and is left
 exactly as it was: no line is written and each engine works the colour out as
@@ -586,7 +585,7 @@ team standings (before 2026-10-03 the app's own `MP GP DE BB SB` went out,
 which no checker reads); the import reads them back to the app's codes. The
 `152` header carries the initial colour drawn by lot (or set by the arbiter)
 whenever one is on record - for individual events too; the engine dialect
-writes it as JaVaFo's `XXC white1`/`black1`. The `082` header carries the
+writes it as `XXC white1`/`black1`. The `082` header carries the
 team count. The individual games on the `001` lines are exactly what they
 would be for the same boards in an individual event; a board forfeited for
 want of a player has no opponent and goes out as the point without a game,

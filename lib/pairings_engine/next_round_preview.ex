@@ -95,22 +95,10 @@ defmodule PairingsEngine.NextRoundPreview do
     * `{:available, k}` - an individual Swiss whose latest round has `k`
       open games (`1..max_open_games/0`), with a next round to pair;
     * `{:too_many, k}` - the same, with more open games than the cap;
-    * `:javafo` - the same, paired by JaVaFo: one JVM per outcome, so the
-      preview is offered with the built-in engine only;
     * `:unavailable` - anything else: no open game, no next round in the
       schedule, not an individual Swiss, or read-only.
   """
   def availability(%Tournament{} = t) do
-    case open_games_state(t) do
-      {tag, _k} when tag in [:available, :too_many] and t.pairing_engine != "ainalrami" ->
-        :javafo
-
-      state ->
-        state
-    end
-  end
-
-  defp open_games_state(t) do
     with true <- individual_swiss?(t),
          :ok <- Tournaments.ensure_writable(t),
          paired when paired > 0 <- Engine.paired_rounds_count(t.id),

@@ -1078,6 +1078,24 @@ defmodule PairingsEngineWeb.AuditLive do
         to: shown(d["to"])
       )
 
+  # Written once, by the migration that retired JaVaFo, for every individual
+  # Swiss still set to it - nobody clicked anything, which is exactly why the
+  # trail has to say it happened.
+  def describe("tournament.pairing_engine_retired", %{"rounds_paired" => n})
+      when is_integer(n) and n > 0,
+      do:
+        ngettext(
+          "Pairing engine changed by an upgrade, not by an arbiter: JaVaFo (the 2017 rules) was removed from the app, so this tournament pairs with Ainalrami (the rules in force since 2026) from its next round. %{count} round was already paired by JaVaFo and stays as played.",
+          "Pairing engine changed by an upgrade, not by an arbiter: JaVaFo (the 2017 rules) was removed from the app, so this tournament pairs with Ainalrami (the rules in force since 2026) from its next round. %{count} rounds were already paired by JaVaFo and stay as played.",
+          n
+        )
+
+  def describe("tournament.pairing_engine_retired", _d),
+    do:
+      gettext(
+        "Pairing engine changed by an upgrade, not by an arbiter: JaVaFo (the 2017 rules) was removed from the app, so this tournament pairs with Ainalrami (the rules in force since 2026). No round had been paired yet."
+      )
+
   # Its own line for the same reason as the one above, and one more: the
   # round is the fact VCL4THP asks for by name, and a `###` TRF comment is
   # eventually built from it. Buried inside a bulk settings diff it would be

@@ -28,8 +28,7 @@ defmodule PairingsEngine.ByeExclusionsTest do
           %{
             "name" => "Bye exclusions",
             "type" => "swiss",
-            "rounds_count" => "5",
-            "pairing_engine" => "ainalrami"
+            "rounds_count" => "5"
           },
           attrs
         )

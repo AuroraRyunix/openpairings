@@ -52,8 +52,8 @@ preferences are not applied.
 
 ## Swiss
 
-The button reads **Pair round N (Ainalrami)** or **(JaVaFo)**, naming the
-engine of the tournament. Press it and confirm. The program
+The button reads **Pair round N (Ainalrami)**, naming the engine. Press it
+and confirm. The program
 
 1. gives the pairing numbers if this is the first round (highest rating
    first; the initial colour is drawn by lot unless you set it),
@@ -155,9 +155,10 @@ For a Swiss round paired by Ainalrami the page shows
   terms of the criteria of C.04.3, and whether the engine's choice is the best.
   The answers are worked out when you open a question, and are saved.
 
-Round robin and Keizer have an exact account too. For a Swiss round paired by
-JaVaFo the page is an honest comparison of input and output only: JaVaFo's
-reasoning is not available.
+Round robin and Keizer have an exact account too. A Swiss round with no
+account of its own - paired before the program kept one, or by an engine it
+no longer has - can be analysed after the fact from the boards as played; the
+page offers to do so and says that it did.
 
 If an organiser's rule changed the round (a bye preference, a pair wish), the
 page says which board it moved and what the FIDE rules alone would have given.
@@ -172,8 +173,8 @@ combinations) and saves nothing. Each board is then shown as **fixed**
 shift** (the board range is given), **fixed with colours open**, or **open**,
 with the players it could involve and the games that decide it. The preview
 updates itself when a result is entered and can be printed (fixed boards
-and a list by name). It is available for individual Swiss tournaments with the
-Ainalrami engine, and only once it is switched on: it is part of the Belgian
+and a list by name). It is available for individual Swiss tournaments, and only once it is
+switched on: it is part of the Belgian
 pack under Account, **Features** ([Accounts](15-accounts-and-handoff.md)).
 
 A result entered for one of the open games needs no new pairing: every

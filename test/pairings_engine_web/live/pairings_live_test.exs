@@ -743,10 +743,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute render(button) =~ "disabled"
   end
 
-  # Only this half of the setup-gate coverage actually runs the pairing, which
-  # shells out to javafo.jar - the gate assertions above stay untagged so they
-  # keep running where the (gitignored) jar isn't present, e.g. CI.
-  @tag :javafo
+  # Only this half of the setup-gate coverage actually runs the pairing.
   test "pairing with a complete setup creates the round", %{conn: conn, scope: scope} do
     tournament = complete_setup_tournament(scope)
 

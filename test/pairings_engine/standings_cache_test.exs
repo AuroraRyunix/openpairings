@@ -32,7 +32,6 @@ defmodule PairingsEngine.StandingsCacheTest do
           type: "swiss",
           rounds_count: 6,
           tiebreaks: ~w(BH SB),
-          pairing_engine: "ainalrami",
           initial_colour: "white",
           round_dates: List.duplicate("2026-09-01", 6)
         },

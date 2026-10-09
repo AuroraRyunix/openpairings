@@ -27,40 +27,26 @@ history to judge floats, and the row order handed to the engine
 Baku's and extra points alike.
 Baku and extra points in the pairing are mutually exclusive.
 
-*Which* engine runs is a second, independent setting - `pairing_engine`,
-below. Round robin and Keizer never reach an engine at all, so that setting
-is inert for them.
+### The engine (Swiss only)
 
-### The engine: `pairing_engine` (Swiss only)
+Swiss is paired by [Ainalrami](https://github.com/AuroraRyunix/Ainalrami),
+a from-scratch Dutch engine in pure Elixir running inside this app's own
+BEAM. It implements C.04.3 as in force from 1 February 2026 and is the only
+Swiss engine: there is no per-tournament choice and no Java anywhere.
+JaVaFo, the external engine this app used to offer (it implements the 2017
+edition), was removed. Round robin and Keizer never reach an engine at all.
 
-| Value | Engine | Status |
-|---|---|---|
-| `"ainalrami"` *(default)* | [Ainalrami](https://github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Implements C.04.3 effective 1 February 2026; permitted on a FIDE-homologated tournament, with the paperwork caveat below |
-| `"javafo"` | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; implements the 2017 edition of C.04.3 |
+`Pairing.trf_input/5` builds the TRF once and Ainalrami turns those bytes
+into `[{white_rank, black_rank}]`. Everything downstream - `create_round/5`,
+board numbering/freezing, absentee byes, standings - is shared.
 
-**Both engines are handed the byte-identical TRF.** `Pairing.javafo_input/4`
-builds the file once and the engine choice only decides what turns those
-bytes into `[{white_rank, black_rank}]`. Everything downstream -
-`create_round/5`, board numbering/freezing, absentee byes, standings - is
-shared and cannot tell which engine answered. That is deliberate: it keeps
-the two directly comparable on real tournament data (pair a round with one,
-delete it, pair it with the other, diff), rather than only on synthetic
-input.
+A tournament that was in progress on JaVaFo gets its next round from
+Ainalrami (2026 rules); the migration `retire_javafo_pairing_engine` wrote an
+audit row `tournament.pairing_engine_retired` for each such tournament. That
+is not stamped as a FIDE-mode departure.
 
-**Why Ainalrami is the default, and what that costs on the FIDE side.** The
-default flipped on 2026-08-25. JaVaFo 2.2 implements C.04.3 as it stood
-until 31 January 2026 and has not been updated for the edition effective
-1 February 2026, so leaving it as the default meant handing arbiters
-superseded pairings without their having asked for them. A program with no
-engine of its own answers FIDE's FE1 question *"Internal engine: YES/NO"*
-with **NO - thru JaVaFo**, exactly as Vega, Swiss Manager and
-TournamentService do, and JaVaFo's own endorsement is what then covers
-pairing legality for the whole event. That
-answer no longer describes what this app normally does. The cost is
-paperwork rather than pairing quality: a rated event paired by Ainalrami was
-not paired by the engine such an answer names. Which engine a homologated
-tournament uses is the arbiter's decision, and the Settings page says so
-there instead of blocking the choice. See `docs/fide-endorsement.md`.
+FIDE's FE1 question *"Internal engine: YES/NO"* is therefore answered YES
+for the program as it now stands. See `docs/fide-endorsement.md`.
 
 **TRF extensions.** Ainalrami reads all three this app emits: `XXR` (round
 count), `XXP` (forbidden pairings and club/federation exclusions -
@@ -93,29 +79,9 @@ guard is still doing work now that one module both writes and reads the
 file. That check is against the
 generated file rather than against the tournament's settings, so the next
 extension this pipeline learns to emit is refused by default instead of
-being silently ignored by whichever engine happens to be selected. It cannot
+being silently ignored by the engine. It cannot
 live in the changeset: forbidden pairings and exclusion rules live in their
-own table and can be added at any point mid-tournament, long after the
-engine choice has locked.
-
-**Two guards, both in the data layer** (the Settings UI renders from the
-same rules, but the UI has never been the enforcement here):
-
-1. `pairing_engine` is a member of `Tournaments.locked_fields/1` - frozen
-   once the first round is paired, like `pairing_system` itself. Two
-   independent Dutch implementations will not always choose the same
-   pairing, and swapping mid-event hands the new engine a history it did
-   not produce.
-2. Round robin and Keizer ignore the setting entirely (see below); it is
-   read only on the Swiss path.
-
-There used to be a third: `"ainalrami"` was refused on a `fide_homologated`
-tournament, and ticking `fide_homologated` on a tournament already running
-Ainalrami was refused too. That block was removed on 2026-08-21 -
-`Tournament.validate_pairing_engine/1` now passes the changeset through
-unchanged, and the comment above it records why: refusing outright asserted
-a quality judgement the measurements do not support. The Settings page warns
-on a homologated tournament instead.
+own table and can be added at any point mid-tournament.
 
 ### Bye exclusions - "no pairing-allocated bye" (not a FIDE rule)
 
@@ -137,10 +103,8 @@ every pack switch it gates the control only: a player who already has an
 exclusion keeps the control, and the exclusion keeps pairing, with the
 switch off. The players list marks such a player "no bye".
 
-- **Swiss, Ainalrami only.** Round robin, Keizer and team Swiss have no
-  pairing-allocated bye to withhold and do not show it. With JaVaFo
-  selected the form says it is not available and why, in one line; JaVaFo
-  is never handed it.
+- **Individual Swiss.** Round robin, Keizer and team Swiss have no
+  pairing-allocated bye to withhold and do not show it.
 - **Always warned.** Every time it is ticked the form says it is not a FIDE
   rule and what that costs; on a FIDE-homologated tournament it adds the
   stronger warning that the tournament's FIDE record will say so.
@@ -218,8 +182,8 @@ preference keeps the control, and the preference keeps pairing, with the
 switch off. Every time one is chosen
 the form says it is not a FIDE rule and what the chosen one does; the
 players list tags such a player "bye: must", "bye: rather" or "bye: rather
-not". Swiss with Ainalrami only; with JaVaFo a stored one gets a one-line
-"not applied", and round robin, Keizer and team Swiss do not show it.
+not". It applies to every individual Swiss; round robin, Keizer and team Swiss do
+not show it.
 
 **Never on a FIDE-rated tournament.** With "FIDE-homologated" ticked the
 form does not offer them. If the tournament becomes FIDE-rated while
@@ -603,11 +567,6 @@ would leave a mixed, likely-inconsistent pairing history. The lock lives in
 `Tournaments.locked_fields/1` and is enforced inside `update_tournament/2`,
 which is what the Settings page's disabled select renders from - one rule,
 one place, so the two can't drift.
-
-`pairing_engine` (the Swiss engine - see above) locks on exactly the same
-condition and for the same reason one level down: JaVaFo and Ainalrami are
-two independent implementations of the Dutch system, and a round already on
-the board was decided by whichever one was configured at the time.
 
 `rr_cycles` (round robin only) locks separately, once the second cycle has
 a round paired. Until then a change only lengthens or shortens rounds nobody

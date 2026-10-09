@@ -202,8 +202,8 @@ things are absent. It is not a tickbox on a tournament, and it was never
 meant to be. `fide_homologated` is not a weak version of this - it is a
 different kind of thing.
 
-The Vega report is the more instructive half. Vega, like OpenPairings on a
-JaVaFo tournament, delegates pairing to JaVaFo; the verifier records that
+The Vega report is the more instructive half. Vega, like OpenPairings
+did before JaVaFo was removed, delegates pairing to JaVaFo; the verifier records that
 Vega enters FIDE mode automatically after a standard installation, that
 this is documented in the manual rather than announced in the program, and
 that VCL.05 could only be judged by testing, not by reading. And then, in
@@ -328,8 +328,8 @@ what the application permits:
 | # | site | what it does |
 |---|---|---|
 | 1 | `tournament.ex:1324` | gates whether `fide_tournament_id` appears in `missing_recommended_fields/1` - a soft, explicitly non-blocking nudge (`tournament.ex:1273-1279`) |
-| 2 | `settings_options_live.ex:645` | renders one advisory `.error-note` sentence beside the engine picker |
-| 3 | `settings_options_live.ex:1012` | renders a second one in the JaVaFo confirm panel |
+| 2 | `settings_options_live.ex:645` | rendered one advisory `.error-note` sentence beside the engine picker (removed with the picker) |
+| 3 | `settings_options_live.ex:1012` | rendered a second one in the JaVaFo confirm panel (removed with it) |
 | 4 | `print_controller.ex:1580` | adds a "FIDE ID:" item to the printed tournament-info line |
 | 5 | `snapshot.ex:153` | publishes `"fide_rated" => t.fide_homologated` to OpenResults |
 | 6 | `swar_export.ex:220` | writes it as an `i32` into the SWAR binary |
@@ -480,14 +480,12 @@ proposed again:
   choose among them. FIDE mandates no selection. An empty list already blocks
   pairing via `missing_setup_fields/1`.
 - **`acceleration`** - Baku is FIDE's own (C.04.7). Both values are FIDE's.
-- **`pairing_engine`** - and this is the interesting one. `VCL.03` wants a
-  system *the program is endorsed for*, which today points at **JaVaFo**;
-  rules currency points at **Ainalrami**, which implements the edition in
-  force since 1 February 2026 where JaVaFo implements the 2017 one. The
-  regulations point in opposite directions, so the module does not pretend
-  to settle it. The advisory note on the Options page is the right treatment
-  and stays. Flagging JaVaFo would also have unilaterally reversed a decision
-  the maintainer made on 2026-08-21.
+- **`pairing_engine`** - this was the interesting one while it existed.
+  `VCL.03` wanted a system *the program is endorsed for*, which then pointed
+  at JaVaFo, while rules currency pointed at Ainalrami (the edition in force
+  since 1 February 2026; JaVaFo implemented the 2017 one). JaVaFo and the
+  `pairing_engine` column have since been removed: Ainalrami is the only
+  Swiss engine, so there is no choice left to flag.
 - **Forbidden pairings, club/federation exclusions, soft rules** - `XXP` is
   FIDE's own TRF extension and the endorsed engine implements it. Q196 *does*
   make adding a prohibited pairing after round 1 a hard failure, citing
@@ -938,8 +936,8 @@ touched, because 0.56.0 refuses nothing.
     `TODO.md:571-576` records Dutch as complete at 918/918 and
     test-enforced, so an untranslated addition fails the suite.
 29. `docs/fide-endorsement.md:196-224` - Section A currently says FIDE Mode
-    is "inherited from JaVaFo's own endorsement - not applicable to audit",
-    with a block quote at `:198-208` saying that will not survive the next
+    was "inherited from JaVaFo's own endorsement - not applicable to audit"
+    (JaVaFo has since been removed), with a block quote at `:198-208` saying that will not survive the next
     cycle. When this ships, that section is rewritten, not annotated.
 30. `TODO.md:347-352`, `docs/features.md`, `CHANGELOG.md` - the changelog
     entry belongs in the same commit as the user-visible change, and
@@ -1245,7 +1243,7 @@ migration and a decision, not a refactor:
     rating" says the same thing without using a word that sounds like a
     conformance claim. One gettext string, one Dutch string, no migration.
   * **Move the two advisory notes on the Options page** (`:645`, `:1012`,
-    both keyed on `fide_homologated`) to key on nothing at all. They are
+    both keyed on `fide_homologated`; both since removed with the engine picker) to key on nothing at all. They are
     about which edition of the rules an engine implements, which is true
     whether or not the event is being rated - and section 3.2 explains why
     the engine choice is deliberately *not* a compliance departure. Keying

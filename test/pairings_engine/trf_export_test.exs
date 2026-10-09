@@ -267,7 +267,7 @@ defmodule PairingsEngine.TrfExportTest do
     assert length(parsed.players) == 3
   end
 
-  test "the JaVaFo-input path never gets the column legend (it's opt-in, TrfExport-only)" do
+  test "the engine-input path never gets the column legend (it's opt-in, TrfExport-only)" do
     text =
       Trf.serialize(%{
         tournament: %{name: "T", type: "swiss"},
@@ -676,8 +676,7 @@ defmodule PairingsEngine.TrfExportTest do
         code
       end
 
-      assert code.(pairing_engine: "javafo") == "FIDE_DUTCH_2017"
-      assert code.(pairing_engine: "javafo", acceleration: "baku") == "FIDE_DUTCH_2017_BAKU"
+      assert code.(acceleration: "none") == "FIDE_DUTCH_2025"
       assert code.(acceleration: "baku") == "FIDE_DUTCH_2025_BAKU"
       assert code.(pairing_system: "keizer") == "CUSTOM_SWISS"
       assert code.(swiss_match_format: true) == "CUSTOM_SWISS"

@@ -7,12 +7,11 @@ sync, automatic FIDE title-norm judgment (B.01), and no-account mobile result
 entry. Runs locally and deploys unchanged to a server or as a standalone
 binary, with user accounts and per-user tournaments.
 
-Swiss pairing runs on either of two engines, chosen per tournament:
-**[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** - the default, a
-FIDE Dutch-system engine written for this project in Elixir, with no JVM and
-no external binary - or JaVaFo. Ainalrami implements C.04.3 **effective
-1 February 2026**, the current rules rather than the 2017 edition JaVaFo and
-most other engines still ship. See [Pairing engines](#pairing-engines).
+Swiss pairing runs on **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)**,
+a FIDE Dutch-system engine written for this project in Elixir, with no JVM
+and no external binary. It implements C.04.3 **effective 1 February 2026**,
+the current rules rather than the 2017 edition most other engines still
+ship. See [Pairing engine](#pairing-engine).
 
 ## Tech stack
 
@@ -26,16 +25,13 @@ most other engines still ship. See [Pairing engines](#pairing-engines).
 - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** for Swiss
   pairing - an in-house Elixir dependency, so it runs in-process with no
   subprocess and no JVM.
-- **JaVaFo** (© Roberto Ricca), an external `.jar`, run as a subprocess - the
-  alternative to Ainalrami, selectable per tournament, not bundled, see
-  Quick start below.
 - **Burrito** for standalone single-file binaries (bundles the BEAM runtime
   itself - see [`docs/binaries.md`](docs/binaries.md)).
 
 ## Quick start
 
-Requires Erlang/OTP 29 + Elixir 1.20, and Java 8+ if you want the JaVaFo
-engine as well as the built-in one.
+Requires Erlang/OTP 29 + Elixir 1.20. Nothing else: no Java, no external
+pairing program.
 
 ```bash
 mix setup
@@ -45,29 +41,16 @@ mix phx.server
 Then open http://localhost:4000 and register an account (in dev, the
 confirmation e-mail appears at http://localhost:4000/dev/mailbox).
 
-**JaVaFo:** the JAR is not bundled (it is © Roberto Ricca). Download it from
-https://www.rrweb.org/javafo/ and save it as `priv/javafo/javafo.jar`. It is
-only needed for Swiss tournaments switched to JaVaFo - round robin, Keizer,
-and any Swiss left on the default engine all run without Java installed at
-all.
-
-For a from-scratch environment setup (installing Erlang/Elixir/Java, first-run
+For a from-scratch environment setup (installing Erlang/Elixir, first-run
 gotchas), see [`docs/setup-guide.md`](docs/setup-guide.md).
 
-## Pairing engines
+## Pairing engine
 
-Swiss tournaments pick an engine per tournament; round robin (Berger) and
-Keizer have no such choice and never call either one.
-
-| engine | rules edition | runs as | needs Java |
-|---|---|---|---|
-| **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (default) | C.04.3, **1 Feb 2026** | in-process Elixir | no |
-| **JaVaFo 2.2** | C.04.3, 2017 | subprocess, `.jar` | yes |
-
-The two disagree on roughly 4% of rounds, and that is the size of the rules
-change rather than a defect in either: JaVaFo is FIDE-endorsed, and it
-implements the **superseded** edition - it has not been updated for 2026. An engine that
-agreed with both editions at once would be reading neither.
+Every Swiss tournament is paired by
+**[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)**, in-process, by
+C.04.3 as it stands from **1 February 2026**. Round robin (Berger) and Keizer
+compute their own pairings and never call it. Earlier versions could also
+run JaVaFo (the 2017 rules) as an external `.jar`; that option is gone.
 
 Ainalrami is cross-checked against **bbpPairings 6.0.0**, an independent
 Apache-2.0 implementation of the same 2026 rules, by replaying whole
@@ -101,10 +84,9 @@ lib/pairings_engine_web/   Phoenix web layer - router, LiveViews, controllers,
                             components, layouts
 lib/pairings_engine_web/live/   one LiveView per top-bar tab/page
 priv/repo/migrations/      Ecto migrations (SQLite)
-priv/javafo/               javafo.jar goes here (not bundled)
-priv/bbppairings/          bbpPairings binaries (bundled - Apache-2.0, unlike
-                            JaVaFo - used only by the cross-program-agreement
-                            test harness, see docs/fide-endorsement.md)
+priv/bbppairings/          bbpPairings binaries (bundled - Apache-2.0 - used
+                            only by the cross-program-agreement test
+                            harness, see docs/fide-endorsement.md)
 priv/norm_templates/       official FIDE .xlsx report templates
 assets/                    hand-written CSS + JS (esbuild), no Node deps
 test/                      ExUnit; test/fixtures/ holds real anonymized

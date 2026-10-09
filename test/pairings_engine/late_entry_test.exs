@@ -408,7 +408,7 @@ defmodule PairingsEngine.LateEntryTest do
 
     test "unpairing round 4 and pairing it again keeps the score the same" do
       %{tournament: t, late: late} =
-        setup_event(%{pairing_engine: "ainalrami", tiebreaks: ["BH"]})
+        setup_event(%{tiebreaks: ["BH"]})
 
       Repo.delete!(late)
       p = old_style(t)

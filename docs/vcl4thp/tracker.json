@@ -3091,7 +3091,7 @@
    },
    "answer": "Y",
    "status": "met",
-   "note": "The engine's output order already follows C.04.2:3.6 (higher score of the higher-ranked player, then sum of scores, then lower TPN, bye last) and plan_boards numbers it in that order (pairing.ex:881-891). Test: board_order_c0402_test.exs (14, 15 and 22 players, 5 rounds, varied results). JaVaFo not checked."
+   "note": "The engine's output order already follows C.04.2:3.6 (higher score of the higher-ranked player, then sum of scores, then lower TPN, bye last) and plan_boards numbers it in that order (pairing.ex:881-891). Test: board_order_c0402_test.exs (14, 15 and 22 players, 5 rounds, varied results)."
   },
   {
    "q": 188,

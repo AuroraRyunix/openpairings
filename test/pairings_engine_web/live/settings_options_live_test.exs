@@ -126,209 +126,38 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
-  describe "Swiss engine - Ainalrami by default, JaVaFo the opt-out" do
-    # The direction reversed on 2026-08-25. JaVaFo implements C.04.3 as it
-    # stood until 31 January 2026 and was never updated for the edition
-    # effective 1 February 2026, so it was the default that handed arbiters
-    # superseded pairings. The dialog now guards the way OUT, not the way in.
-    test "both engines are offered, Ainalrami selected, and the copy is accurate", %{
+  describe "Swiss engine - Ainalrami, named rather than offered" do
+    test "the page names the engine, offers no choice, and the copy is accurate", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
-      assert html =~ ~s(name="tournament[pairing_engine]")
-      assert html =~ "implements the 2026 rules"
-      assert html =~ "implements the 2017 rules"
+      assert has_element?(lv, "#swiss-engine-name", "Ainalrami")
+      refute html =~ ~s(name="tournament[pairing_engine]")
+      assert html =~ "1 February 2026"
 
       # The copy must be ACCURATE, which is stricter than "cautious".
-      # Understating an engine misleads an arbiter exactly as badly as
-      # overselling one, and every claim below was true of the OLD copy and
-      # is false now.
       assert html =~ "2.5 billion individual pairings"
       refute html =~ "488 million"
       refute html =~ "experimental"
-      refute html =~ "FIDE-endorsed (default)"
-
-      refute html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
-      assert tournament.pairing_engine == "ainalrami"
+      refute html =~ "2017 rules"
     end
 
-    test "selecting JaVaFo asks first, and does not save until confirmed", %{
+    test "a form that still carries an engine saves everything else", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      html =
-        render_submit(lv, "save", %{
-          "tournament" => %{"name" => tournament.name, "pairing_engine" => "javafo"}
-        })
-
-      assert html =~ "Switch to JaVaFo?"
-      assert html =~ "superseded rules"
-      # Nothing written yet - the dialog is a gate, not a notification.
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
-
-      render_click(lv, "confirm_engine", %{})
-      assert Repo.reload!(tournament).pairing_engine == "javafo"
-    end
-
-    test "cancelling the dialog leaves the engine alone", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       render_submit(lv, "save", %{
-        "tournament" => %{"name" => tournament.name, "pairing_engine" => "javafo"}
+        "tournament" => %{"name" => "Renamed", "pairing_engine" => "javafo"}
       })
 
-      html = render_click(lv, "cancel_engine", %{})
-
-      refute html =~ "Switch to JaVaFo?"
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
-    end
-
-    # The dialog gates the CHANGE, not the value. A tournament already on
-    # JaVaFo must be able to edit anything else on this page without the
-    # dialog reappearing every time.
-    test "editing other settings on a tournament already using JaVaFo does not re-prompt", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope, %{"pairing_engine" => "javafo"})
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      html =
-        render_submit(lv, "save", %{
-          "tournament" => %{"name" => "Renamed", "pairing_engine" => "javafo"}
-        })
-
-      refute html =~ "Switch to JaVaFo?"
       assert Repo.reload!(tournament).name == "Renamed"
-    end
-
-    # Switching back to the current-rules engine needs no ceremony.
-    test "switching back to Ainalrami saves immediately", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope, %{"pairing_engine" => "javafo"})
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      html =
-        render_submit(lv, "save", %{
-          "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
-        })
-
-      refute html =~ "Switch to JaVaFo?"
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
-    end
-
-    test "confirming with no pending change is a no-op rather than a crash", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      render_click(lv, "confirm_engine", %{})
-
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
-    end
-
-    test "a FIDE-homologated tournament states the position on both engines",
-         %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      {:ok, _} =
-        Tournaments.update_tournament(tournament, %{
-          "fide_homologated" => "true",
-          "fide_tournament_id" => "12345"
-        })
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      # Neither engine is blocked here, and neither is allowed SILENTLY.
-      # The block was removed deliberately (2026-08-21) because the exposure
-      # is paperwork rather than pairing quality; what replaced it has to
-      # keep saying so.
-      refute html =~ ~r/value="ainalrami"[^>]*disabled/s
-      refute html =~ ~r/value="javafo"[^>]*disabled/s
-
-      # The note used to rest on OpenPairings' own endorsement. That claim is
-      # gone from the whole interface (2026-08-25) - FIDE has said existing
-      # endorsements are revoked in the coming Acceptance Cycle, so it was a
-      # promise with a shelf life, and the app should not be trading on it.
-      # What is left is the thing that is actually true and actually decides
-      # the question: which edition of the rules each engine implements.
-      refute html =~ "endorse"
-      assert html =~ "1 February 2026"
-      assert html =~ "2017"
-    end
-
-    test "switching a homologated tournament to JaVaFo still asks first", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope)
-
-      {:ok, _} =
-        Tournaments.update_tournament(tournament, %{
-          "fide_homologated" => "true",
-          "fide_tournament_id" => "12345"
-        })
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      html =
-        render_submit(lv, "save", %{
-          "tournament" => %{"name" => tournament.name, "pairing_engine" => "javafo"}
-        })
-
-      assert html =~ "Switch to JaVaFo?"
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
-    end
-
-    test "the select is disabled once round 1 has been paired, and explains why on click", %{
-      conn: conn,
-      scope: scope
-    } do
-      # Deliberately a round robin: it pairs without JaVaFo, so this test
-      # runs anywhere. The lock is on the field, not on the pairing system.
-      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-      refute html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
-
-      pair_round_robin_round_1(tournament)
-
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-      assert html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
-
-      html = render_click(lv, "locked_hint", %{"field" => "pairing_engine"})
-      assert html =~ "hands the new engine a history it did not produce"
-      assert html =~ "Unlock"
-    end
-
-    test "a submitted change to pairing_engine is dropped server-side once locked", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
-      pair_round_robin_round_1(tournament)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      render_submit(lv, "save", %{
-        "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
-      })
-
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
     end
   end
 
@@ -395,7 +224,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
         PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
     end
 
-    @tag :javafo
     test "the checkbox is enabled before any round is paired, disabled after match 1", %{
       conn: conn,
       scope: scope
@@ -424,7 +252,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       refute html =~ "immediate two-game rematch"
     end
 
-    @tag :javafo
     test "a submitted change to swiss_match_format is dropped server-side once locked", %{
       conn: conn,
       scope: scope
@@ -530,21 +357,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       render_click(lv, "unlock_field", %{"field" => "pairing_system"})
 
-      html =
-        render_submit(lv, "save", %{
-          "tournament" => %{
-            "name" => tournament.name,
-            "pairing_system" => "keizer",
-            "pairing_engine" => "javafo"
-          }
-        })
+      render_submit(lv, "save", %{
+        "tournament" => %{
+          "name" => tournament.name,
+          "pairing_system" => "keizer",
+          "rr_match_format" => "true"
+        }
+      })
 
-      # pairing_engine wasn't unlocked, so it must not slip through even
+      # rr_match_format wasn't unlocked, so it must not slip through even
       # though pairing_system, submitted in the same form, was allowed.
-      refute html =~ "Switch to JaVaFo?"
       reloaded = Repo.reload!(tournament)
       assert reloaded.pairing_system == "keizer"
-      assert reloaded.pairing_engine != "javafo"
+      refute reloaded.rr_match_format
     end
   end
 

@@ -106,13 +106,13 @@ defmodule PairingsEngineWeb.PostponedSendingTest do
       set!(postponed, "*W")
       set!(other, "1-0")
 
-      refused = get(conn, ~p"/t/#{t.id}/export/trf?dialect=javafo")
+      refused = get(conn, ~p"/t/#{t.id}/export/trf?dialect=engine")
       assert redirected_to(refused) == ~p"/t/#{t.id}/settings/export"
       assert Phoenix.Flash.get(refused.assigns.flash, :error) =~ "postponed game"
 
       # Once played, it is a result like any other.
       set!(Repo.reload!(postponed), "1/2-1/2")
-      assert response(get(conn, ~p"/t/#{t.id}/export/trf?dialect=javafo"), 200) =~ "001"
+      assert response(get(conn, ~p"/t/#{t.id}/export/trf?dialect=engine"), 200) =~ "001"
     end
   end
 

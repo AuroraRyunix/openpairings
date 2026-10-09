@@ -39,7 +39,6 @@ defmodule PairingsEngine.Trf26RoundTripTest do
             name: "Round Trip",
             type: "swiss",
             pairing_system: "swiss",
-            pairing_engine: "ainalrami",
             rounds_count: 9,
             round_dates: for(n <- 1..9, do: "2026-03-0#{rem(n, 9) + 1}"),
             tiebreaks: ~w(BH SB),
@@ -148,16 +147,11 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     assert reexported =~ tournament.rate_of_play
   end
 
-  test "which edition of the rules paired the boards survives" do
-    {ainalrami, _} = configured()
-    {imported, _, _} = round_trip(ainalrami)
-    assert imported.pairing_engine == "ainalrami"
+  test "the Dutch system survives as a Swiss" do
+    {tournament, _} = configured()
+    {imported, _, text} = round_trip(tournament)
+    assert text =~ "192 FIDE_DUTCH_2025"
     assert imported.pairing_system == "swiss"
-
-    {javafo, _} = configured(%{pairing_engine: "javafo"})
-    {imported, _, text} = round_trip(javafo)
-    assert text =~ "\r\n192 FIDE_DUTCH_2017\r\n"
-    assert imported.pairing_engine == "javafo"
   end
 
   test "the tie-breaks survive, and one this app cannot compute is dropped" do

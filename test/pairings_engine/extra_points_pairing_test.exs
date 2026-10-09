@@ -26,7 +26,6 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
           type: "swiss",
           rounds_count: 5,
           tiebreaks: ~w(BH),
-          pairing_engine: "ainalrami",
           initial_colour: "white",
           round_dates: List.duplicate("2026-09-01", 5)
         },
@@ -182,32 +181,6 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
       assert Enum.all?(entries, &(Standings.rank_score(&1, Repo.reload!(t)) == &1.points))
     end
 
-    @tag :javafo
-    test "JaVaFo reads them too: the same top-half-against-top-half round 1" do
-      t =
-        tournament(%{extra_points_mode: "acceleration", pairing_engine: "javafo"})
-
-      roster(t, %{1 => 1.0, 2 => 1.0, 3 => 1.0, 4 => 1.0})
-
-      assert {:ok, round} = Pairing.pair_next_round(t)
-      assert pairs(round) == halves()
-    end
-
-    @tag :javafo
-    test "JaVaFo pairs a counted handicap on the total as well" do
-      t =
-        tournament(%{
-          extra_points_mode: "handicap",
-          count_extra_points: true,
-          pairing_engine: "javafo"
-        })
-
-      roster(t, %{5 => 1.0, 6 => 1.0, 7 => 1.0, 8 => 1.0})
-
-      assert {:ok, round} = Pairing.pair_next_round(t)
-      assert pairs(round) == halves()
-    end
-
     test "kept in the standings, they rank on the total, as SWAR does" do
       t = tournament(%{extra_points_mode: "acceleration", count_extra_points: true})
       roster(t, %{8 => 3.0})
@@ -230,7 +203,7 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
 
       # Round 1 was paired on 1.0 and round 2 will be on 0.5: the XXA line
       # carries both, round by round.
-      trf = Pairing.javafo_input(Repo.reload!(t))
+      trf = Pairing.trf_input(Repo.reload!(t))
       assert trf =~ ~r/^XXA\s+1\s+1\.0\s+0\.5\s*$/m
 
       {:ok, r2} = Pairing.pair_next_round(Repo.reload!(t))
@@ -287,8 +260,8 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
     end
 
     test "a penalty (negative extra points) counts in the standings but never reaches XXA" do
-      # JaVaFo cannot read a negative XXA value - it dies on "0-1.0" - so
-      # virtual points stop at zero, for both engines.
+      # A TRF reader cannot take a negative XXA value - the old external
+      # engine died on "0-1.0" - so virtual points stop at zero.
       # The Players form refuses a negative value; an import (a TRF26 `299`
       # penalty, a SWAR round record) is how one arrives.
       t = tournament(%{extra_points_mode: "acceleration", count_extra_points: true})
@@ -299,7 +272,7 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
       refute Map.has_key?(r1.virtual_points, to_string(p1.id))
       white_wins(r1)
 
-      trf = Pairing.javafo_input(Repo.reload!(t))
+      trf = Pairing.trf_input(Repo.reload!(t))
       refute trf =~ "-1.0"
       refute trf =~ ~r/^XXA\s+1\s/m
 
@@ -313,7 +286,7 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
       {:ok, r1} = Pairing.pair_next_round(t)
       white_wins(r1)
 
-      trf = Pairing.javafo_input(Repo.reload!(t))
+      trf = Pairing.trf_input(Repo.reload!(t))
       assert trf =~ ~r/^XXA\s+1\s/m
       refute trf =~ ~r/^XXA\s+2\s/m
     end

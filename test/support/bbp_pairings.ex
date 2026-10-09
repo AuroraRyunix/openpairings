@@ -3,29 +3,25 @@ defmodule PairingsEngine.Test.BbpPairings do
   Runs a TRF16 tournament through `bbpPairings` (© Bierema Boyz Programming,
   Apache-2.0, vendored in `priv/bbppairings/` - see that directory's
   `LICENSE.txt`), a second, independently-written Dutch-system pairing
-  engine, standalone (no JaVaFo involved). Exists purely for the
-  cross-program-agreement check (`test/pairings_engine/cross_program_test.exs`)
-  described in `docs/fide-endorsement.md`: running the *same* TRF16 text
-  OpenPairings hands JaVaFo through a second, unrelated implementation and
-  diffing the resulting pairings is a much stronger correctness signal than
-  anything a single-engine checker can give, since it can't share a bug with
-  OpenPairings' own JaVaFo integration.
+  engine, standalone. Exists purely for the cross-program-agreement check
+  (`test/pairings_engine/cross_program_test.exs`) described in
+  `docs/fide-endorsement.md`: running the *same* TRF16 text OpenPairings
+  hands Ainalrami through a second, unrelated implementation and diffing the
+  resulting pairings is a much stronger correctness signal than anything a
+  single-engine checker can give, since it can't share a bug with
+  OpenPairings' own engine.
 
-  `bbpPairings`'s own interface intentionally mirrors JaVaFo's AUM (see its
-  README), so its `-p` pairing-output format is identical to what
-  `PairingsEngine.Pairing.parse_pairs/1` already parses: a count line, then
-  one `"white black"` starting-rank pair per line (`0` = pairing-allocated
-  bye) - reused directly here rather than a second parser.
+  Its `-p` pairing-output format is the TRF pairing programs' common one,
+  read by `parse_pairs/1`: a count line, then one `"white black"`
+  starting-rank pair per line (`0` = pairing-allocated bye).
 
-  One real divergence: unlike JaVaFo, bbpPairings refuses to guess an
-  unhistoried round's initial board-1 color ("BBP Pairings does not support
-  random selection of the initial piece color" - its README) and errors out
-  instead. `pair/2` appends an `XXC white1` line (JaVaFo's own extension
-  code, which bbpPairings also honors) whenever the TRF has no per-round
-  game columns yet, forcing the same deterministic choice on both engines so
-  a round-1 comparison isn't just diffing two arbitrary-but-different color
-  assignments. Rounds 2+ already carry real color history in the TRF, so
-  this never applies past round 1.
+  bbpPairings refuses to guess an unhistoried round's initial board-1 color
+  ("BBP Pairings does not support random selection of the initial piece
+  color" - its README) and errors out instead. `pair/2` appends an
+  `XXC white1` line whenever the TRF has no per-round game columns yet,
+  forcing a deterministic choice so a round-1 comparison isn't just diffing
+  two arbitrary-but-different color assignments. Rounds 2+ already carry
+  real color history in the TRF, so this never applies past round 1.
   """
 
   @doc "Absolute path to this OS's vendored bbpPairings binary, or `nil` if this OS has none vendored."
@@ -71,10 +67,9 @@ defmodule PairingsEngine.Test.BbpPairings do
   end
 
   @doc """
-  Pairs `trf` (TRF16 text, same shape `PairingsEngine.Pairing.javafo_input/4`
+  Pairs `trf` (TRF16 text, same shape `PairingsEngine.Pairing.trf_input/5`
   builds) via bbpPairings' Dutch-system engine, returning
-  `{:ok, [{white_rank, black_rank}, ...]}` (0 = pairing-allocated bye,
-  matching `PairingsEngine.Pairing.parse_pairs/1`'s own shape exactly) or
+  `{:ok, [{white_rank, black_rank}, ...]}` (0 = pairing-allocated bye) or
   `{:error, reason}`.
   """
   def pair(trf) when is_binary(trf) do
@@ -87,7 +82,7 @@ defmodule PairingsEngine.Test.BbpPairings do
 
       case System.cmd(binary_path(), ["--dutch", input, "-p", output], stderr_to_stdout: true) do
         {_out, 0} ->
-          output |> File.read!() |> PairingsEngine.Pairing.parse_pairs()
+          output |> File.read!() |> parse_pairs()
 
         {out, code} ->
           {:error, "bbpPairings failed (exit #{code}):\n#{out}"}
@@ -121,9 +116,27 @@ defmodule PairingsEngine.Test.BbpPairings do
     |> Enum.all?(fn line -> line |> String.slice(91..-1//1) |> String.trim() == "" end)
   end
 
-  # Same randomized-scratch-dir pattern `PairingsEngine.Pairing.workdir!/0`
-  # uses for its own JaVaFo runs (private there, so duplicated here rather
-  # than exposed just for this test-only caller).
+  @doc """
+  A TRF pairing program's `-p` output: first line the number of pairs, then
+  `"white black"` per line as starting ranks, `0` the pairing-allocated bye.
+  `{:error, message}` when the file is empty - a program that exits 0
+  having written nothing has paired nothing.
+  """
+  def parse_pairs(text) do
+    case text |> String.split(~r/\r?\n/) |> Enum.reject(&(String.trim(&1) == "")) do
+      [] ->
+        {:error, "The pairing program produced no pairings output (an empty pairings file)"}
+
+      [_count | lines] ->
+        {:ok,
+         Enum.map(lines, fn line ->
+           [w, b] = line |> String.split() |> Enum.map(&String.to_integer/1)
+           {w, b}
+         end)}
+    end
+  end
+
+  # A randomized scratch directory, so concurrent runs never share a file.
   defp workdir! do
     suffix = :crypto.strong_rand_bytes(12) |> Base.url_encode64(padding: false)
     dir = Path.join(System.tmp_dir!(), "bbppairings-#{suffix}")

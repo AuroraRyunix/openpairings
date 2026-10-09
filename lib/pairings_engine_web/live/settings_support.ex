@@ -1411,8 +1411,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
         reason: inspect(other)
       )
 
-  # The individual (JaVaFo/Ainalrami) path's own crash guard
-  # (`PairingsEngine.Pairing.run_ainalrami/5`) - same discipline as the team
+  # The individual (Ainalrami) path's own crash guard
+  # (`PairingsEngine.Pairing.run_ainalrami/6`) - same discipline as the team
   # path above: the round is left unpaired, nothing else changed.
   # A postponed-game warning the write path waits on (VCL4THP Q159-168) that
   # arrived unconfirmed - see `PairingsEngine.PostponedGames`. The pages that

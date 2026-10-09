@@ -23,7 +23,6 @@ defmodule PairingsEngineWeb.FideDepartureGateTest do
           %{
             "name" => "Gate",
             "type" => "swiss",
-            "pairing_engine" => "ainalrami",
             "start_date" => "2026-07-01",
             "rounds_count" => "5",
             "round_dates" => List.duplicate("2026-07-01", 5),

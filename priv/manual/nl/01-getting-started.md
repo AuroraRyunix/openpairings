@@ -70,9 +70,7 @@ vanuit de broncode op een Mac. Daarna start ze op dezelfde manier als de
 Linux-versie.
 
 Er is geen Java en geen databaseserver nodig. De Zwitserse paringsengine
-(Ainalrami) zit in het programma. JaVaFo, de eigen referentie-engine van FIDE,
-is een optioneel alternatief; het zit niet in de download (zie
-[Een ronde paren](06-pairing.md)).
+(Ainalrami) zit in het programma (zie [Een ronde paren](06-pairing.md)).
 
 ### Waar uw gegevens staan {#where-your-data-is}
 

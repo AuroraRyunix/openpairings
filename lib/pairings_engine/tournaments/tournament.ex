@@ -12,20 +12,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Which pairing engine PairingsEngine.Pairing.pair_next_round/1 dispatches
   # to - independent of `type` above (FIDE report classification).
   @pairing_systems ~w(swiss round_robin keizer)
-  # Which Swiss engine actually pairs the round, once `pairing_system` has
-  # already decided the Swiss path runs at all - round robin and Keizer never
-  # reach an engine, so this setting is inert for them (see
-  # `PairingsEngine.Pairing.pair_next_round/1`). "ainalrami" is the default
-  # (see the field itself below); BOTH values are permitted on a
-  # FIDE-homologated tournament since 2026-08-21 - the UI warns rather than
-  # blocking. See `validate_pairing_engine/1` below, which now refuses
-  # nothing and carries the reasoning, and docs/fide-endorsement.md.
-  #
-  # This comment said the opposite of both for six days: "javafo" as the
-  # default, and the only value a homologated tournament permits. It is the
-  # copy anyone grepping for `@pairing_engines` reads first, and it cited
-  # the two sources that refute it.
-  @pairing_engines ~w(javafo ainalrami)
   @rr_cycles_values [1, 2]
   # The Olympiad plays four boards and the largest national leagues ten; 20
   # is a sanity bound on a form field, not a regulation.
@@ -721,32 +707,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
     field :pairing_system, :string, default: "swiss"
-    # Swiss only: which engine pairs the round - "ainalrami" (the default,
-    # the sibling from-scratch Elixir Dutch engine,
-    # github.com/AuroraRyunix/Ainalrami) or "javafo" (the external Java
-    # program this app shelled out to first). Both are handed the
-    # byte-identical TRF16 the pipeline already builds, so the two stay
-    # directly comparable; see PairingsEngine.Pairing and
-    # docs/pairing-systems.md.
-    #
-    # Read ONLY on the Swiss path - round robin (Berger) and Keizer compute
-    # their own pairings and never consult it, same "inert unless swiss"
-    # tolerance as `acceleration`/`swiss_match_format`.
-    #
-    # Neither combination this field used to refuse is refused any more -
-    # Ainalrami on a homologated tournament, and Ainalrami with Baku
-    # acceleration - see `validate_pairing_engine/1` below for why each
-    # went. Still locked once the tournament has paired its first round,
-    # same as `pairing_system`; see
-    # `PairingsEngine.Tournaments.locked_fields/1`.
-    # Ainalrami by default since 2026-08-25. Not a preference: JaVaFo
-    # implements C.04.3 as it stood until 31 January 2026 and has not been
-    # updated for the edition effective 1 February 2026, so leaving it as
-    # the default handed arbiters superseded pairings. Existing tournaments
-    # keep whatever they were created with - the engine is locked once a
-    # round is paired, and changing one mid-event is exactly what C.04.2
-    # forbids.
-    field :pairing_engine, :string, default: "ainalrami"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
     # Round-robin only: "match format" - round N and round N+1 are the SAME
@@ -776,11 +736,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :keizer_top_value, :integer
     # Swiss only: "match format" - the sibling feature to `rr_match_format`
     # above, same immediate-two-game-rematch-with-reversed-colours concept,
-    # but for Swiss the first leg is a real JaVaFo decision (who plays
+    # but for Swiss the first leg is a real engine decision (who plays
     # whom), not a fixed schedule; the second leg is then an exact
     # colour-reversed mirror of the first, inserted alongside it by
     # PairingsEngine.Pairing.do_pair/2 in the same transaction, with no
-    # second JaVaFo call. Like `acceleration`, this is only meaningful when
+    # second engine call. Like `acceleration`, this is only meaningful when
     # `pairing_system == "swiss"` - inert (never read) otherwise, same
     # tolerance as that field (no changeset error for setting it on a
     # non-swiss tournament; see PairingsEngine.Pairing.accelerations/3
@@ -907,7 +867,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:
-    # its own JaVaFo run and its own pairing-allocated byes, merged into ONE
+    # its own engine run and its own pairing-allocated byes, merged into ONE
     # combined Round with board numbers running continuously across
     # categories in `categories` order (see PairingsEngine.Pairing's
     # per-category pairing logic). Requires `categories_enabled` and is not
@@ -928,7 +888,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # rule - is tried: "strong" puts it above the quality criteria (the
     # engine would rather float a player than seat the pair), "weak" makes
     # it a tie-break and nothing more (docs/forbidden-pairings.md, "Soft
-    # rules"). JaVaFo and Keizer have no such option and ignore it.
+    # rules"). Keizer has no such option and ignores it.
     field :soft_position, :string, default: "strong"
 
     # Extra points (SWAR parity #12, "XtPts") - see docs/extra-points.md.
@@ -1316,7 +1276,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :fide_id_ranges,
       :officials,
       :pairing_system,
-      :pairing_engine,
       :rr_cycles,
       :rr_match_format,
       :rr_reverse_last_two,
@@ -1358,7 +1317,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:standard, @standards)
     |> validate_inclusion(:pairing_system, @pairing_systems)
-    |> validate_inclusion(:pairing_engine, @pairing_engines)
     |> validate_inclusion(:rr_cycles, @rr_cycles_values)
     |> validate_inclusion(:publish_mode, @publish_modes)
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
@@ -1397,7 +1355,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       message: "must not contain quotes, slashes or control characters"
     )
     |> validate_keizer_top_value()
-    |> validate_pairing_engine()
     |> validate_abs_scoring()
     |> validate_rr_match_format()
     |> validate_swiss_match_format()
@@ -1536,36 +1493,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       _ -> validate_number(changeset, field, opts)
     end
   end
-
-  # Ainalrami on a FIDE-homologated tournament used to be REFUSED here, on
-  # the grounds that OpenPairings' endorsement is FE1's "Internal engine:
-  # NO - thru JaVaFo", and a rated round paired by anything else makes that
-  # declaration untrue.
-  #
-  # It is now the arbiter's decision, taken deliberately (2026-08-21): the
-  # engine agrees with bbpPairings across ~488 million pairings. The one
-  # place it differed - Article 5.2.5's parity - was settled by the FIDE
-  # Systems of Pairings and Programs Commission on 2026-08-28, against this
-  # project, and v0.14.0 conforms (see the sibling project's
-  # dispute-initial-colour.md). So the divergence this paragraph was written
-  # around is gone; refusing outright asserted a quality judgement the
-  # measurements did not support then and do not now.
-  #
-  # What has NOT changed is the paperwork, and that is the real risk: a
-  # rated event paired this way was not paired by the engine OpenPairings'
-  # endorsement names. So the UI warns prominently instead of blocking, and
-  # docs/fide-endorsement.md now says so rather than claiming every rated
-  # round is a JaVaFo round.
-  defp validate_pairing_engine(changeset), do: changeset
-
-  # (There used to be a `validate_ainalrami_excludes_baku/1` here. Ainalrami
-  # did not read `XXA` at all, so an accelerated tournament would have been
-  # paired on unaccelerated brackets - a wrong pairing that looks entirely
-  # legal. It reads both `XXA` and `XXP` as of ainalrami `451c749`, verified
-  # against bbpPairings on 1.79M rounds carrying those lines, so the
-  # restriction is gone. `Pairing` still guards the general case at pairing
-  # time by scanning the TRF it actually generated, so a future extension is
-  # refused by default without anyone updating a list here.)
 
   # `rr_match_format` (immediate two-game rematch) and `rr_cycles == 2`
   # (season-style repeat a full cycle apart) are two different shapes of
@@ -2429,7 +2356,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def type_label(other), do: other
 
   def pairing_systems, do: @pairing_systems
-  def pairing_engines, do: @pairing_engines
   def rr_cycles_values, do: @rr_cycles_values
   def soft_positions, do: @soft_positions
 
@@ -2437,12 +2363,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def soft_position_label("weak"), do: "Weak - only as a tie-break"
   def soft_position_label(other), do: other
 
-  def pairing_engine_label("javafo"), do: "JaVaFo (2017 rules)"
-  def pairing_engine_label("ainalrami"), do: "Ainalrami"
-  def pairing_engine_label(other), do: other
-
-  # Names the SYSTEM, not the engine - which one runs it is a separate
-  # setting, and naming JaVaFo here was wrong the day a second engine landed.
+  # Names the SYSTEM, not the engine.
   def pairing_system_label("swiss"), do: "Swiss - FIDE Dutch"
   def pairing_system_label("round_robin"), do: "Round robin (Berger)"
   def pairing_system_label("keizer"), do: "Keizer"
@@ -2513,16 +2434,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
   The name of the program that actually pairs this tournament, for anywhere
   a page or a FIDE report has to say WHICH one produced the round.
 
-  Lives here rather than in each page because it had already drifted once:
-  the Pairings page hardcoded "JaVaFo" for every Swiss tournament, so a
-  tournament opted into Ainalrami still had a button reading "Pair round 5
-  (JaVaFo)" over pairings JaVaFo never produced. Round robin and Keizer
-  compute their own schedules and consult no Swiss engine at all.
+  Lives here rather than in each page because it had already drifted once,
+  when the pages named an engine that had not produced the round. Round
+  robin and Keizer compute their own schedules and consult no Swiss engine
+  at all.
   """
   def engine_name(%{pairing_system: "round_robin"}), do: "Berger"
   def engine_name(%{pairing_system: "keizer"}), do: "Keizer"
-  def engine_name(%{pairing_engine: "ainalrami"}), do: "Ainalrami"
-  def engine_name(_swiss), do: "JaVaFo"
+  def engine_name(_swiss), do: "Ainalrami"
 
   @max_rounds 99
 

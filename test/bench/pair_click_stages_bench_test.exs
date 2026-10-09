@@ -212,7 +212,6 @@ defmodule PairingsEngineWeb.Bench.PairClickStagesBenchTest do
         "name" => "Bench #{size}",
         "type" => "swiss",
         "rounds_count" => "9",
-        "pairing_engine" => "ainalrami",
         "tiebreaks" => ["BH", "BHC1", "SB", "DE"],
         "round_dates" => List.duplicate("2026-09-01", 9)
       })

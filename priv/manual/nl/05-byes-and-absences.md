@@ -211,8 +211,8 @@ behandeld als iemand die al een bye had: de engine geeft hem die nooit. Wanneer 
 enkele legale ronde de bye bij elke uitgesloten speler vandaan kan houden, zegt de
 pagina Paringen dat en biedt ze **Toch paren, zonder de uitsluiting van <naam>** aan.
 
-Alles hiervan geldt alleen voor de Ainalrami-engine (ze worden niet aan JaVaFo
-gegeven), en wordt vastgelegd in de uitleg van de ronde, het auditlogboek en de
+Alles hiervan geldt alleen voor individuele Zwitserse toernooien, en wordt
+vastgelegd in de uitleg van de ronde, het auditlogboek en de
 notities van de TRF-export, omdat de ronde niet meer is wat een door FIDE
 onderschreven programma zou paren.
 

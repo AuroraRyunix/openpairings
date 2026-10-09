@@ -13,7 +13,6 @@ defmodule PairingsEngine.PairingSharedHistoryTest do
   alias PairingsEngine.{Pairing, Repo, Tournaments}
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Player, Tournament}
 
-  @tag :javafo
   test "a category run's query count does not scale with the number of categories" do
     two = query_count_for_categories(2)
     four = query_count_for_categories(4)
@@ -32,7 +31,6 @@ defmodule PairingsEngine.PairingSharedHistoryTest do
              "should be per-category work only"
   end
 
-  @tag :javafo
   test "the single-pool path builds its shared history once" do
     tournament = swiss_tournament()
 
@@ -59,7 +57,6 @@ defmodule PairingsEngine.PairingSharedHistoryTest do
     assert count < 40, "#{count} queries to pair one Swiss round (was 43, now 35)"
   end
 
-  @tag :javafo
   test "forbidden pairings are still honoured after being read once per run" do
     tournament = swiss_tournament()
 

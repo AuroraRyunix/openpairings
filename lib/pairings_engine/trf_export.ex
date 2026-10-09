@@ -1,7 +1,7 @@
 defmodule PairingsEngine.TrfExport do
   @moduledoc """
   User-facing FIDE TRF16 export of a tournament's full roster, as opposed to
-  `PairingsEngine.Pairing.javafo_input/2` (a JaVaFo-only input file, built
+  `PairingsEngine.Pairing.trf_input/5` (the engine's input file, built
   from active players and fed straight into the pairing engine - never
   downloaded by a user).
 
@@ -705,7 +705,7 @@ defmodule PairingsEngine.TrfExport do
           # C.04.3 Art. 5.1 / C.04.6 Art. 4.1: the initial colour drawn by
           # lot (or set by the arbiter), when one is on record - `152` in a
           # TRF26 report, `XXC white1`/`black1` in the engine dialect, the
-          # spelling JaVaFo reads. Nothing when there is none (a round robin,
+          # spelling TRF16 pairing programs read. Nothing when there is none (a round robin,
           # or an event paired before the draw was stored), as before.
           initial_colour: initial_colour_code(tournament),
           tie_breaks:
@@ -1577,10 +1577,11 @@ defmodule PairingsEngine.TrfExport do
   defp app_version, do: PairingsEngine.Build.version()
 
   # TRF26's `192`: which system paired the boards, in FIDE's own
-  # `TournamentTypeCodeTable192-TRF26` vocabulary. JaVaFo implements the
-  # Dutch system as it stood before 1 July 2025 (`FIDE_DUTCH_2017`) and
-  # Ainalrami the edition in force since - the table's code for that is
-  # `FIDE_DUTCH_2025` (`_BAKU` under Baku acceleration). Before 0.69.0 this
+  # `TournamentTypeCodeTable192-TRF26` vocabulary. Ainalrami implements the
+  # Dutch system in force since 1 July 2025 - the table's code for that is
+  # `FIDE_DUTCH_2025` (`_BAKU` under Baku acceleration). A tournament once
+  # paired by the external 2017 engine this app no longer has is exported
+  # as `_2025` too: there is no record left of which rounds it paired. Before 0.69.0 this
   # wrote `FIDE_DUTCH_2026`, a code FIDE's table has never had: the pinned
   # `Ainalrami.Trf.serialize/2` validates `192` against its own copy of the
   # table, which carried the same mistake until Ainalrami 0.33.0 put
@@ -1624,9 +1625,6 @@ defmodule PairingsEngine.TrfExport do
 
       t.swiss_match_format ->
         "CUSTOM_SWISS"
-
-      t.pairing_engine == "javafo" ->
-        "FIDE_DUTCH_2017" <> baku
 
       true ->
         "FIDE_DUTCH_2025" <> baku

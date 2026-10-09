@@ -68,9 +68,7 @@ program opens your browser.
 the source code on a Mac. It then starts the same way as the Linux build.
 
 No Java and no database server are needed. The Swiss pairing engine
-(Ainalrami) is part of the program. JaVaFo, FIDE's own reference engine, is an
-optional alternative engine; it is not included in the download (see
-[Pairing a round](06-pairing.md)).
+(Ainalrami) is part of the program (see [Pairing a round](06-pairing.md)).
 
 ### Where your data is
 

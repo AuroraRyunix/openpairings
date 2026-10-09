@@ -1550,7 +1550,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   points the rounds were paired with. --%>
             <span id="postponed-trf-outside-checkers">
               {gettext(
-                "So an outside pairing program or checker (JaVaFo, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
+                "So an outside pairing program or checker (bbpPairings, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
               )}
             </span>
           </span>

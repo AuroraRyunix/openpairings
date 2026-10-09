@@ -4,25 +4,15 @@ defmodule PairingsEngine.Pairing do
   creates the round with its pairings.
 
   Ainalrami (github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch-system
-  engine in pure Elixir, is the default. It implements C.04.3 as it stands
-  in the edition effective 1 February 2026.
-
-  A tournament may instead select `pairing_engine: "javafo"` - JaVaFo
-  (© Roberto Ricca), invoked as `java -jar javafo.jar input.trf -p
-  output.txt`, whose output lists one "white black" pair of TRF starting
-  ranks per line with 0 meaning the pairing-allocated bye. It carries FIDE's
-  endorsement, and implements the 2017 rules. Everything up to and including the TRF text is
-  **identical** for both engines: `run_engine/5` is handed the very same
-  bytes `javafo_input/4` built, so the two are directly comparable on real
-  tournament data rather than only on synthetic input, and only the last
-  step - how those bytes become `[{white_rank, black_rank}]` - differs.
-  Everything downstream (`create_round/5`, board freezing, absentee byes) is
-  common to both.
+  engine in pure Elixir, is the engine. It implements C.04.3 as it stands
+  in the edition effective 1 February 2026, and runs in this BEAM: no
+  subprocess, no JVM, no scratch file. Its input is still TRF text
+  (`trf_input/5`), because that is the one form of the field FIDE's tools
+  can also read.
 
   See `docs/pairing-systems.md` for the arbiter-facing description, and
-  `docs/fide-endorsement.md` for what running a rated event on Ainalrami
-  does to the "Internal engine: NO - thru JaVaFo" answer on FE1. It is no
-  longer refused, but it is not free either.
+  `docs/fide-endorsement.md` for where that leaves the endorsement
+  paperwork.
   """
 
   import Ecto.Query
@@ -51,37 +41,11 @@ defmodule PairingsEngine.Pairing do
   # written by one implementation and read by another on every pairing.
   alias Ainalrami.Trf
 
-  def javafo_jar do
-    Path.join(:code.priv_dir(:pairings_engine), "javafo/javafo.jar")
-  end
-
-  # A private scratch directory for one JaVaFo run, removed again when that
-  # run finishes.
-  #
-  # These files hold the tournament's whole roster, and the previous fixed
-  # path (`$TMPDIR/pairingsengine/t<id>_r<n>.trf`) was entirely predictable:
-  # on a shared host any other local account could read the players out of it,
-  # or pre-create the path as a symlink and have `File.write!/2` follow it and
-  # clobber a file of their choosing under this app's user. A random directory
-  # name can't be guessed ahead of the write, and 0700 keeps its contents to
-  # this user even where $TMPDIR is world-readable.
-  defp workdir! do
-    suffix = :crypto.strong_rand_bytes(12) |> Base.url_encode64(padding: false)
-    dir = Path.join(System.tmp_dir!(), "pairingsengine-#{suffix}")
-
-    File.mkdir_p!(dir)
-    File.chmod!(dir, 0o700)
-
-    dir
-  end
-
-  # Fires with the exact TRF text about to be sent to JaVaFo, before it ever
-  # touches disk - the scratch file itself is deleted right after each run
-  # (see `workdir!/0`'s doc), so this is the only way to observe it
-  # afterward. Exists purely for test observability (see the `:javafo`-tagged
-  # tests in pairing_test.exs that attach a handler to this event to inspect
-  # the generated TRF's colour/rank content) - nothing in the app itself
-  # subscribes to it.
+  # Fires with the exact TRF text about to be handed to the engine. The text
+  # never touches disk and is gone once the round is paired, so this is the
+  # only way to observe it afterward. Exists purely for test observability
+  # (tests attach a handler to inspect the generated TRF's colour/rank
+  # content) - nothing in the app itself subscribes to it.
   defp emit_trf_built(tournament_id, round_number, category_name, trf) do
     :telemetry.execute(
       [:pairings_engine, :pairing, :trf_built],
@@ -93,9 +57,8 @@ defmodule PairingsEngine.Pairing do
   @doc """
   Pairs the next round. Dispatches on `tournament.pairing_system`:
 
-    * `"swiss"` (default) - the Dutch path below, run on whichever engine
-      `tournament.pairing_engine` names: Ainalrami in-process by default,
-      or JaVaFo as a subprocess.
+    * `"swiss"` (default) - the Dutch path below, paired by Ainalrami
+      in-process.
     * `"round_robin"` - delegates to `PairingsEngine.RoundRobin.pair_next_round/1`.
     * `"keizer"` - delegates to `PairingsEngine.Keizer.pair_next_round/1`.
 
@@ -721,10 +684,9 @@ defmodule PairingsEngine.Pairing do
   @doc """
   What pairing round `paired + 1` of an individual Swiss would read, read
   once for the preview. `{:ok, context}` or `{:error, reason}`, the reason
-  one of `:not_individual_swiss`, `:javafo`, `:read_only`, `:no_round`,
+  one of `:not_individual_swiss`, `:read_only`, `:no_round`,
   `:all_rounds_paired` and `:too_few_players` - the cases in which the real
-  "pair next round" would refuse whatever the results, and JaVaFo, whose
-  one JVM per outcome the preview does not offer.
+  "pair next round" would refuse whatever the results.
 
   Everything that does not depend on the open games' results is worked out
   here, once: the history with every player's games (`precompute_games/2`),
@@ -751,9 +713,6 @@ defmodule PairingsEngine.Pairing do
     cond do
       tournament.pairing_system != "swiss" or Tournament.team?(tournament) ->
         {:error, :not_individual_swiss}
-
-      tournament.pairing_engine != "ainalrami" ->
-        {:error, :javafo}
 
       Tournaments.ensure_writable(tournament) != :ok ->
         {:error, :read_only}
@@ -1180,11 +1139,11 @@ defmodule PairingsEngine.Pairing do
 
   ## ---------- the pairing run ----------
 
-  # Runs JaVaFo once for `next_number` and inserts its result as a `Round`.
+  # Runs the engine once for `next_number` and inserts its result as a `Round`.
   # When `tournament.swiss_match_format` is set, this is leg 1 of a match:
   # `create_round/5` also inserts leg 2 (`next_number + 1`) in the same
   # transaction, an exact colour-reversed mirror of leg 1 - no second
-  # JaVaFo call, no new TRF file (see `create_mirrored_leg/4`). Round-
+  # engine call, no new TRF file (see `create_mirrored_leg/4`). Round-
   # specific absentees for `next_number` (`round_absentees` below) are
   # threaded through so leg 2 can mirror their requested-bye rows too,
   # rather than independently re-evaluating `absent_for_round?/2` for
@@ -1268,9 +1227,9 @@ defmodule PairingsEngine.Pairing do
     #
     # The actual `insert_round_absentee_byes/3` call happens later, inside
     # `create_round/5`'s or `insert_category_round/3`'s `Repo.transaction`
-    # (after JaVaFo has already succeeded) rather than here - see those
-    # functions. Running it here, before JaVaFo is even invoked, would
-    # permanently commit these bye rows even if JaVaFo then failed, bricking
+    # (after the engine has already succeeded) rather than here - see those
+    # functions. Running it here, before the engine is even invoked, would
+    # permanently commit these bye rows even if the engine then failed, bricking
     # the round on retry (UNIQUE(player_id, round) violation).
     result =
       if tournament.pair_by_category do
@@ -1345,11 +1304,12 @@ defmodule PairingsEngine.Pairing do
   # round (`absent_rounds`) still holds their global `pairing_number` and
   # still appears in `active_players/1`, just not here.
   #
-  # We still need a LOCAL contiguous 1..M rank map: sending JaVaFo a TRF
-  # whose starting ranks aren't contiguous 1..N crashes it with a bare
-  # NullPointerException - confirmed against the real jar (see
-  # `test/pairings_engine/swar_import_test.exs`'s "pairing a new round after
-  # import doesn't crash when a historical opponent is now excluded").
+  # We still need a LOCAL contiguous 1..M rank map: a TRF whose starting
+  # ranks aren't contiguous 1..N is not one a TRF pairing program can be
+  # trusted with (the external engine this app used to run died on one with
+  # a bare NullPointerException - see `test/pairings_engine/swar_import_test.exs`'s
+  # "pairing a new round after import doesn't crash when a historical
+  # opponent is now excluded").
   #
   # Crucially, that local map is now built over the FULL frozen roster
   # (`full_roster_players/1` - every player who ever held a `pairing_number`,
@@ -1359,20 +1319,20 @@ defmodule PairingsEngine.Pairing do
   # absentee - would miss the rank map, and
   # `remap_trf_rows_to_local_ranks/2` would rewrite that genuinely-played
   # game into a synthetic bye code, silently destroying its colour history
-  # and letting JaVaFo violate FIDE colour alternation. Scoping the map to
+  # and letting the engine violate FIDE colour alternation. Scoping the map to
   # the full roster guarantees every possible historical opponent resolves
   # to a real rank with a real TRF row.
   #
   # A row is sent for every full-roster player (a rank column with no
-  # matching row is meaningless to JaVaFo). Players who aren't actually
-  # candidates for THIS round - everyone not in `players` - are still marked
-  # with an explicit `0000 - Z` line via `javafo_input/4`'s `eligible_ids`
-  # (`mark_ineligible_for_round/2`), the verified-safe JaVaFo-native way to
-  # keep a player's real history while excluding them from pairing this run.
+  # matching row is meaningless). Players who aren't actually candidates
+  # for THIS round - everyone not in `players` - are still marked with an
+  # explicit `0000 - Z` line via `trf_input/5`'s `eligible_ids`
+  # (`mark_ineligible_for_round/2`), the TRF-native way to keep a player's
+  # real history while excluding them from pairing this run.
   #
-  # JaVaFo's output pairs (local ranks) are translated back to real players
-  # via the inverse map in `create_round/5`. Board numbering (JaVaFo's output
-  # *order*, not its rank values) is completely unaffected by this.
+  # The engine's output pairs (local ranks) are translated back to real
+  # players via the inverse map in `create_round/5`. Board numbering (the
+  # output *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, run) do
     # The same tournament-wide history the per-category path has always
     # built, which this path had not. Without it, the old standings ordering
@@ -1408,7 +1368,7 @@ defmodule PairingsEngine.Pairing do
         _ ->
           run_span(run, :input, fn ->
             {:trf,
-             javafo_input(
+             trf_input(
                tournament,
                full_roster,
                local_rank_by_player_id,
@@ -1519,7 +1479,7 @@ defmodule PairingsEngine.Pairing do
 
   defp run_single_engine(tournament, input, next_number, soft, run, player_by_local_rank) do
     case run_span(run, :engine, fn ->
-           run_engine(tournament, input, next_number, nil, 0, soft, run)
+           run_engine(tournament, input, next_number, nil, soft, run)
          end) do
       {:ok, pairs, deferred} ->
         {:ok,
@@ -1542,17 +1502,17 @@ defmodule PairingsEngine.Pairing do
   # category is blank or doesn't match any listed category - a deliberate
   # product decision to still pair these players together as their own
   # pool, rather than excluding them from pairing entirely. Runs every
-  # category's independent JaVaFo call (or synthesizes a 1-player group's
+  # category's independent engine run (or synthesizes a 1-player group's
   # automatic bye) FIRST, entirely before any DB round/pairing row exists -
   # deliberately mirroring `do_pair_single/4`'s own ordering (build TRF /
-  # run JaVaFo, only touch the DB once every pairing decision is known).
+  # run the engine, only touch the DB once every pairing decision is known).
   # This isn't just style parity: `games_per_player/2` (used while building
   # each category's TRF input) queries "every paired Round of this
   # tournament" with no round-number filter, so if the `next_number` Round
   # row already existed (even pairing-less) while a later category's TRF
   # was being built, every player would pick up a phantom "Z" (zero-point
   # bye) game for the round STILL BEING PAIRED - corrupting the TRF's game
-  # history and (confirmed by hitting it) crashing JaVaFo. Only once every
+  # history and (confirmed by hitting it) crashing the engine. Only once every
   # category's pairing decision is known does `insert_category_round/3`
   # open ONE transaction and write the Round + every category's pairings,
   # in category-list order, boards numbered continuously - the single
@@ -1616,12 +1576,10 @@ defmodule PairingsEngine.Pairing do
        ) do
     result =
       groups
-      |> Enum.with_index()
-      |> Enum.reduce_while({:ok, []}, fn {{category_name, group_players}, index}, {:ok, acc} ->
+      |> Enum.reduce_while({:ok, []}, fn {category_name, group_players}, {:ok, acc} ->
         case compute_category_group(
                tournament,
                category_name,
-               index,
                group_players,
                next_number,
                shared_history,
@@ -1640,12 +1598,11 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  # A 1-player group can't go through JaVaFo at all - it's given a
+  # A 1-player group can't go through the engine at all - it's given a
   # pairing-allocated bye directly once `insert_category_round/3` writes it.
   defp compute_category_group(
          _tournament,
          category_name,
-         _index,
          [player],
          _next_number,
          _shared_history,
@@ -1659,7 +1616,6 @@ defmodule PairingsEngine.Pairing do
   defp compute_category_group(
          tournament,
          category_name,
-         index,
          group_players,
          next_number,
          shared_history,
@@ -1703,7 +1659,7 @@ defmodule PairingsEngine.Pairing do
       with_bye_exclusions(tournament, group_players, local_rank_by_player_id, next_number)
 
     case run_span(run, :engine, fn ->
-           run_engine(tournament, {:trf, trf}, next_number, category_name, index, soft, run)
+           run_engine(tournament, {:trf, trf}, next_number, category_name, soft, run)
          end) do
       {:ok, pairs, explanation} ->
         {:ok, {category_name, :paired, pairs, player_by_local_rank, explanation}}
@@ -1718,16 +1674,15 @@ defmodule PairingsEngine.Pairing do
   # A player with `no_bye` set must not receive the pairing-allocated bye in
   # the rounds it covers. Ainalrami takes the list as `:bye_exclusions` and
   # treats each listed player exactly as C.04.3 [C2] treats one who already
-  # had a bye; nothing else about the pairing changes. JaVaFo has no such
-  # option, so it is never handed one - the player form says so rather than
-  # offering a setting nothing reads. See docs/pairing-systems.md.
+  # had a bye; nothing else about the pairing changes. See
+  # docs/pairing-systems.md.
 
   # The ranks to exclude from the bye in this run, on the tournament struct
   # the engine call already receives (see `Tournament`'s
   # `engine_bye_exclusions`). `players` is the round's pairing pool; an
   # exclusion the arbiter lifted for this run ("pair anyway") is left out.
   defp with_bye_exclusions(
-         %Tournament{pairing_engine: "ainalrami"} = tournament,
+         %Tournament{} = tournament,
          players,
          local_rank_by_player_id,
          round_number
@@ -1748,15 +1703,12 @@ defmodule PairingsEngine.Pairing do
     }
   end
 
-  defp with_bye_exclusions(tournament, _players, _local_rank_by_player_id, _round_number),
-    do: tournament
-
   ## ---------- bye preferences (an organiser's wish, not FIDE's) ----------
   #
   # "Must get", "rather gets" and "rather not" the pairing-allocated bye
   # (`Player`'s `bye_preference`) - the fourth setting, "must not get", is
   # the bye exclusion above. Ainalrami resolves them
-  # (`Ainalrami.ByePreference`); JaVaFo is never handed any. NOT on a
+  # (`Ainalrami.ByePreference`). NOT on a
   # FIDE-rated tournament (`fide_homologated`): a stored preference is
   # ignored there, not deleted, and the Players and Pairings pages say so.
 
@@ -1944,9 +1896,9 @@ defmodule PairingsEngine.Pairing do
   # `tournament.categories` list order - see `category_groups/2`). Only
   # reached once every category's pairing decision succeeded (see
   # `do_pair_by_category/3`), so this itself can no longer fail on a
-  # category's JaVaFo call - the `Repo.transaction/1` wrapper here exists
+  # category's engine run - the `Repo.transaction/1` wrapper here exists
   # for ordinary DB-write atomicity (Round + N Pairings as one unit), not to
-  # guard against a JaVaFo failure (that's already been ruled out).
+  # guard against an engine failure (that's already been ruled out).
   defp insert_category_round(tournament, plan, next_number, round_absentees) do
     group_results = plan.groups
 
@@ -1994,7 +1946,7 @@ defmodule PairingsEngine.Pairing do
       insert_boards(round, boards)
       any_bye? = Enum.any?(boards, fn {_board, _white, black} -> is_nil(black) end)
 
-      # A pairing-allocated bye (from any category's JaVaFo output, or a
+      # A pairing-allocated bye (from any category's engine output, or a
       # 1-player group's automatic bye) awards points immediately without
       # ever going through Tournaments.update_pairing_result/2 - same
       # point-changing-write gap as elsewhere in this module. See
@@ -2032,28 +1984,13 @@ defmodule PairingsEngine.Pairing do
     |> Enum.reject(fn {_name, group} -> group == [] end)
   end
 
-  # A category-safe filename: category names are free text, so they're
-  # slugified (and index-prefixed, to avoid collisions between categories
-  # that slugify identically) before landing in a temp file path - each
-  # category's TRF input/output pair gets a distinct filename so parallel
-  # or sequential category runs within one round never collide.
-  defp category_file_slug(category_name, index) do
-    slug =
-      category_name
-      |> to_string()
-      |> String.replace(~r/[^A-Za-z0-9_-]+/, "_")
-
-    slug = if slug in ["", "_"], do: "cat", else: slug
-    "#{index}_#{slug}"
-  end
-
   # Builds one category's TRF input. Unlike the earlier design, this is NOT
   # scoped to just the category's players: every category's TRF now carries
   # the FULL frozen roster (`full_roster` - every category, every historical
   # opponent), remapped to one shared local 1..M numbering, with only THIS
   # category's players (`eligible_ids`) left un-marked as pairing candidates.
   # Everyone else - other categories, now-ineligible players - gets an
-  # explicit `0000 - Z` line via `mark_ineligible_for_round/2` so JaVaFo
+  # explicit `0000 - Z` line via `mark_ineligible_for_round/2` so the engine
   # keeps their real history (needed so a past opponent's colour/result
   # resolves via `remap_trf_rows_to_local_ranks/2` instead of being
   # bye-rewritten) while still not pairing them this run. Same reasoning as
@@ -2062,7 +1999,7 @@ defmodule PairingsEngine.Pairing do
   # `forbidden_pairs/3`/`exclusion_pairs/3`/`accelerations/4`
   # now also see the full roster rather than just this category - intentional
   # and harmless: a forbidden/exclusion line naming a player who's
-  # ineligible-this-round is inert to JaVaFo, and this incidentally widens
+  # ineligible-this-round is inert to the engine, and this incidentally widens
   # `accelerations`' roster scope too (a direction a separate Baku
   # acceleration audit finding wants; not verified here). `shared_history`
   # (see `build_shared_history/1`) is computed once by
@@ -2084,7 +2021,7 @@ defmodule PairingsEngine.Pairing do
       |> mark_ineligible_for_round(eligible_ids)
       |> remap_trf_rows_to_local_ranks(local_rank_by_player_id)
       # Physical row order, not just the `:rank` field - see the identical
-      # re-sort (and its full rationale) in `javafo_input/4`.
+      # re-sort (and its full rationale) in `trf_input/5`.
       |> Enum.sort_by(& &1.rank)
 
     engine_trf(
@@ -2105,7 +2042,7 @@ defmodule PairingsEngine.Pairing do
   # outside the writer entirely. Nothing checked those lines' columns, and
   # nothing checked that the ranks they name are ranks the file actually
   # has; the `XXA` column bug that made every accelerated export unreadable
-  # by anything but JaVaFo (see `accelerations/4`) lived in exactly that gap
+  # by other TRF readers (see `accelerations/4`) lived in exactly that gap
   # for as long as it did because the writer never saw the line.
   #
   # They are all fields of the tournament map now, so `Ainalrami.Trf` emits
@@ -2131,18 +2068,16 @@ defmodule PairingsEngine.Pairing do
           type: tournament.type,
           chief_arbiter: tournament.chief_arbiter,
           # Written as `XXR`, not as the `142` header - see the `xxr: true`
-          # below. Required by JaVaFo to plan the pairing, and read back off
-          # the FILE by `run_ainalrami/4` so both engines are told the same
-          # thing.
+          # below. Read back off the FILE by `run_ainalrami/6`, so the
+          # engine is told what a checker reproducing the round is told.
           number_of_rounds: tournament.rounds_count,
-          # The drawing of lots (or the arbiter's choice), written as JaVaFo's
+          # The drawing of lots (or the arbiter's choice), written as
           # `XXC white1` / `XXC black1` - see `xxc: true` below - and handed
           # to Ainalrami as its `:initial_colour` option by
           # `ainalrami_opts/3`, which reads it back off the file. nil - no
           # draw on record, for a tournament that paired round 1 before the
-          # draw was stored - writes no line, and both engines work the
-          # colour out as they always did (Ainalrami from the boards,
-          # JaVaFo from its own lot).
+          # draw was stored - writes no line, and the engine works the
+          # colour out from the boards as it always did.
           initial_colour: engine_initial_colour(tournament),
           # One group per forbidden pairing, plus the club/federation
           # exclusion rules, deduplicated against them.
@@ -2163,12 +2098,11 @@ defmodule PairingsEngine.Pairing do
         },
         players: attach_accelerations(trf_rows, accelerations)
       },
-      # JaVaFo reads `XXR` and not `142`. See `Ainalrami.Trf.serialize/2`.
+      # The `XXR`/`XXC` spelling rather than `142`/`152`: the extension
+      # lines TRF pairing programs (and FIDE's checkers) read, so the file
+      # the engine pairs from is one they can replay. See
+      # `Ainalrami.Trf.serialize/2`.
       xxr: true,
-      # And `XXC` and not `152`. Measured 2026-09-13 on a six-player round
-      # one: with `152 B`, `152 W` or no line at all, JaVaFo put the top seed
-      # on White in some runs and on Black in others - it draws the colour
-      # itself when not told - while `XXC black1` gave Black every run.
       xxc: true
     )
   end
@@ -2220,12 +2154,12 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
-  # JaVaFo/TRF16 convention: a player row that already carries a result for
+  # TRF16 pairing-program convention: a player row that already carries a result for
   # the round about to be paired is treated as already decided for that
   # round and excluded from pairing this run. Used so a round-specific
   # absentee or a permanently withdrawn/forfeited player can still be SENT a
   # row (needed so their past opponents' colour/result history resolves
-  # correctly via `remap_trf_rows_to_local_ranks/2` below) while JaVaFo still
+  # correctly via `remap_trf_rows_to_local_ranks/2` below) while the engine still
   # leaves them unpaired this round. `rows`' games lists never include the
   # round about to be paired in the first place (`games_per_player/3` only
   # ever iterates already-paired rounds), so appending one more entry always
@@ -2395,157 +2329,26 @@ defmodule PairingsEngine.Pairing do
     :ok
   end
 
-  ## ---------- pairing engines ----------
+  ## ---------- the pairing engine ----------
   #
-  # The single seam where a TRF becomes a list of pairs. Both Swiss pairing
-  # paths (`do_pair_single/4` and the per-category
-  # `compute_category_group/8`) funnel through here, so a new engine is added
-  # in exactly one place and neither path can drift from the other.
+  # The single seam where the engine's input becomes a list of pairs. Both
+  # Swiss pairing paths (`do_pair_single/4` and the per-category
+  # `compute_category_group/7`) funnel through here, so neither can drift
+  # from the other.
   #
-  # The contract in both directions is deliberately identical to what the
-  # JaVaFo-only code already had:
-  #
-  #   * IN - the exact TRF text `javafo_input/4` produced, unmodified. Not a
-  #     re-serialization, not a restructured intermediate: the same bytes.
-  #     That is what makes the two engines comparable on real tournament
-  #     data (feed one round to both, diff the answers) and it is why
-  #     `emit_trf_built/4` still fires exactly once per engine run, engine
-  #     choice notwithstanding.
+  #   * IN - the exact TRF text `trf_input/5` produced, unmodified, or - for
+  #     a preview outcome - a parsed field re-ranked from its base
+  #     (`rerank_field/5`). `emit_trf_built/4` fires once per real run with
+  #     the text.
   #   * IN - `soft`, the arbiter's wishes from `soft_pairs/5`, in the same
-  #     local ranks as the TRF. The one input the two engines do NOT share:
-  #     the TRF has no way to say "if you can", so it rides alongside the
-  #     file, and only Ainalrami takes it.
-  #   * OUT - `{:ok, [{white_rank, black_rank}]}` in the LOCAL contiguous
-  #     rank numbering the TRF was built in, `0` for the pairing-allocated
-  #     bye (`parse_pairs/1`'s long-standing shape), or `{:error, message}`
-  #     with a plain user-facing string. `create_round/5` and
-  #     `insert_category_pairings/4` are untouched and cannot tell which
-  #     engine answered.
-
-  # `input` is `{:trf, text}`, or `{:parsed, field}` - a preview outcome's
-  # field re-ranked from its base (`rerank_field/5`), which only Ainalrami
-  # takes.
-  defp run_engine(tournament, input, round_number, category_name, category_index, soft, run)
-
-  defp run_engine(
-         %Tournament{pairing_engine: "ainalrami"} = tournament,
-         input,
-         round_number,
-         category_name,
-         _category_index,
-         soft,
-         run
-       ) do
-    run_ainalrami(tournament, input, round_number, category_name, soft, run)
-  end
-
-  # JaVaFo has no "rather not": `soft` is dropped here, on purpose and in the
-  # open. The Settings page says as much beside the control.
-  defp run_engine(
-         tournament,
-         {:trf, trf},
-         round_number,
-         category_name,
-         category_index,
-         _soft,
-         _run
-       ) do
-    case run_javafo(tournament, trf, round_number, category_name, category_index) do
-      {:ok, pairs} -> {:ok, pairs, nil}
-      {:error, _message} = error -> error
-    end
-  end
-
-  # How long the external pairing engine gets before it is killed.
-  #
-  # `System.cmd/3` has no timeout of its own: a JVM that hangs - on a
-  # pathological entry list, on a full disk, on a machine that has swapped
-  # itself to death - blocks the calling process forever, and that process is
-  # a LiveView handling an arbiter's click. Sixty seconds is far beyond any
-  # real run (a large Swiss is well under a second) and short enough that the
-  # arbiter gets a sentence instead of a frozen page.
-  @engine_timeout_ms 60_000
-
-  @doc """
-  Runs `fun` in a task and gives it `timeout` milliseconds.
-
-  Returns `{:ok, result}` with whatever `fun` returned, or `:timeout` after
-  killing the task - which closes the port and so takes the external process
-  down with it.
-
-  Public only so it can be tested without a JVM on the machine.
-  """
-  @spec run_with_timeout((-> result), non_neg_integer()) :: {:ok, result} | :timeout
-        when result: term()
-  def run_with_timeout(fun, timeout \\ @engine_timeout_ms) when is_function(fun, 0) do
-    task = Task.async(fun)
-
-    case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
-      {:ok, result} -> {:ok, result}
-      nil -> :timeout
-      # `Task.async/1` links, so the caller is normally already gone by the
-      # time this could be seen; kept so an abnormal exit still crashes the
-      # way it did before rather than turning into a CaseClauseError.
-      {:exit, reason} -> exit(reason)
-    end
-  end
-
-  # Unchanged from the two copies this replaced, down to the scratch-file
-  # names and the exact error strings - see `workdir!/0` for why the
-  # directory is randomized, 0700 and deleted in an `after`.
-  defp run_javafo(tournament, trf, round_number, category_name, category_index) do
-    dir = workdir!()
-    stem = javafo_file_stem(tournament, round_number, category_name, category_index)
-    input = Path.join(dir, stem <> ".trf")
-    output = Path.join(dir, stem <> "_pairs.txt")
-
-    try do
-      File.write!(input, trf)
-
-      run =
-        run_with_timeout(fn ->
-          System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true)
-        end)
-
-      case run do
-        :timeout ->
-          Logger.error(
-            "JaVaFo timed out after #{@engine_timeout_ms}ms for " <>
-              "#{engine_log_scope(tournament, round_number, category_name)}"
-          )
-
-          {:error, javafo_timeout_message(category_name)}
-
-        {:ok, {_out, 0}} ->
-          case output |> File.read!() |> parse_pairs() do
-            {:ok, pairs} ->
-              {:ok, pairs}
-
-            {:error, message} ->
-              Logger.error(
-                "JaVaFo produced no pairings output for #{engine_log_scope(tournament, round_number, category_name)} (exit 0, empty output file)"
-              )
-
-              {:error, javafo_empty_output_message(message, category_name)}
-          end
-
-        {:ok, {out, code}} ->
-          Logger.error(
-            "JaVaFo failed for #{engine_log_scope(tournament, round_number, category_name)} (exit #{code}):\n#{out}"
-          )
-
-          {:error, javafo_failure_message(code, out, category_name)}
-      end
-    after
-      File.rm_rf(dir)
-    end
-  end
-
-  defp javafo_file_stem(tournament, round_number, nil, _index),
-    do: "t#{tournament.id}_r#{round_number}"
-
-  defp javafo_file_stem(tournament, round_number, category_name, index),
-    do: "t#{tournament.id}_r#{round_number}_cat_#{category_file_slug(category_name, index)}"
+  #     local ranks as the TRF. The TRF has no way to say "if you can", so
+  #     it rides alongside the file.
+  #   * OUT - `{:ok, [{white_rank, black_rank}], deferred}` in the LOCAL
+  #     contiguous rank numbering the TRF was built in, `0` for the
+  #     pairing-allocated bye (`parse_pairs/1`'s long-standing shape), or
+  #     `{:error, message}` with a plain user-facing string.
+  defp run_engine(tournament, input, round_number, category_name, soft, run),
+    do: run_ainalrami(tournament, input, round_number, category_name, soft, run)
 
   defp engine_log_scope(tournament, round_number, nil),
     do: "tournament #{tournament.id} round #{round_number}"
@@ -2553,42 +2356,15 @@ defmodule PairingsEngine.Pairing do
   defp engine_log_scope(tournament, round_number, category_name),
     do: "tournament #{tournament.id} round #{round_number} category #{category_name}"
 
-  defp javafo_empty_output_message(message, nil), do: message
-
-  defp javafo_empty_output_message(message, category_name),
-    do: "#{message} (category \"#{category_name}\")"
-
-  defp javafo_timeout_message(nil),
-    do:
-      "JaVaFo did not finish within #{div(@engine_timeout_ms, 1000)} seconds and was stopped. " <>
-        "Try again; if it keeps happening the entry list or the pairing " <>
-        "restrictions may be more than the engine can resolve."
-
-  defp javafo_timeout_message(category_name),
-    do:
-      "JaVaFo did not finish within #{div(@engine_timeout_ms, 1000)} seconds for category " <>
-        "\"#{category_name}\" and was stopped. Try again; if it keeps happening the entry " <>
-        "list or the pairing restrictions may be more than the engine can resolve."
-
-  defp javafo_failure_message(code, out, nil), do: "JaVaFo failed (exit #{code}):\n#{out}"
-
-  defp javafo_failure_message(code, out, category_name),
-    do: "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"
-
-  # Ainalrami runs IN THIS BEAM - no subprocess, no JVM, no temp file, so
-  # none of `run_javafo/5`'s scratch-directory machinery applies. It reads
-  # the same TRF text through its own `Ainalrami.Trf.parse/1` and returns
-  # pairs in the same local-rank convention, differing only in spelling the
-  # pairing-allocated bye `nil` where JaVaFo's text output spells it `0`;
-  # `ainalrami_bye_to_zero/1` normalizes that so `create_round/5` sees the
-  # shape it has always seen.
+  # Ainalrami reads the TRF text through its own `Ainalrami.Trf.parse/1`
+  # and returns pairs in local ranks, spelling the pairing-allocated bye
+  # `nil`; `ainalrami_bye_to_zero/1` turns that into the `0` the rest of
+  # this module (and every TRF pairing program's output) uses.
   #
   # `expected_rounds` is read back out of the TRF rather than off the
-  # tournament struct on purpose: it must be whatever the FILE says, since
-  # that is what JaVaFo would have been told (`XXR`), and Ainalrami's
-  # final-round colour exception keys off it. Taking it from the struct
-  # would silently diverge the two engines on the last round if the two ever
-  # disagreed.
+  # tournament struct on purpose: it must be whatever the FILE says (`XXR`),
+  # because the file is what a FIDE checker reproduces the round from, and
+  # the final-round colour exception keys off it.
   # The options every Ainalrami call takes, built once so that the
   # pairing, its explanation, and a page judging an alternative afterwards
   # all read the same values. They were written out twice and happened to
@@ -2687,7 +2463,7 @@ defmodule PairingsEngine.Pairing do
         player_by_local_rank =
           Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-        trf = javafo_input(tournament, full_roster, local_rank_by_player_id, seated, history)
+        trf = trf_input(tournament, full_roster, local_rank_by_player_id, seated, history)
         parsed = Ainalrami.Trf.parse(trf)
 
         # The wishes as they stand NOW, like the forbidden pairings in the
@@ -2840,11 +2616,10 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  # Any single-pool Swiss round - whoever paired it. The account explains the
-  # boards AS PLAYED, so it does not need the engine that produced them; a
-  # JaVaFo round, which records no reasoning of its own, is exactly where an
-  # after-the-fact analysis is worth the most. The record carries
-  # `"paired_by"` so the page says "analysed by", never "paired by".
+  # Any single-pool Swiss round. The account explains the boards AS PLAYED,
+  # so it does not need a record of the engine's own reasoning; a round
+  # paired before accounts existed is exactly where an after-the-fact
+  # analysis is worth the most.
   # A team Swiss paired by teams is not: its rounds were decided team against
   # team by C.04.6, which the individual engine's account cannot describe.
   defp reexplainable?(t),
@@ -2880,11 +2655,9 @@ defmodule PairingsEngine.Pairing do
   overwriting it would erase exactly that. "What if?" still judges such a
   round live.
 
-  A JaVaFo-paired round is analysed the same way. JaVaFo records nothing
-  about its reasoning, so this is the only account such a round can ever
-  have - and it is Ainalrami's reading of JaVaFo's boards, which the record
-  says (`"paired_by"`) and the page repeats. A `:better` verdict there is
-  not a bug report but a disagreement between two engines.
+  A round paired before accounts existed - or by the external engine this
+  app used to offer - is analysed the same way: this is the only account
+  it can ever have.
   """
   def reexplain_round(%Tournament{} = tournament, round_number) do
     with false <- Tournaments.write_refused(tournament),
@@ -2904,9 +2677,6 @@ defmodule PairingsEngine.Pairing do
         |> explanation_payload()
         |> keep_bye_preference(round.explanation)
         |> Map.put("origin", "recomputed")
-        # Who produced the boards. "engine" above is who ANALYSED them, and
-        # for a JaVaFo round the two differ - which the page must say.
-        |> Map.put("paired_by", tournament.pairing_engine)
 
       round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
     else
@@ -2961,7 +2731,7 @@ defmodule PairingsEngine.Pairing do
   the boards are read, never touched. A round with no account yet gets one
   as `reexplain_round/2` would have given it, at full depth. Refused for a
   hand-edited or per-category round, for the reasons given there. The
-  account keeps its `"origin"` and `"paired_by"` and gains
+  account keeps its `"origin"` (and an old record's `"paired_by"`) and gains
   `"depth" => "full"`.
   """
   def deepen_round(%Tournament{} = tournament, round_number) do
@@ -2990,7 +2760,7 @@ defmodule PairingsEngine.Pairing do
         case status do
           # No usable record before this: the provenance a recompute would
           # have written, since that is what this is, at full depth.
-          :stale -> %{"origin" => "recomputed", "paired_by" => tournament.pairing_engine}
+          :stale -> %{"origin" => "recomputed"}
           :current -> Map.take(round.explanation || %{}, ["origin", "paired_by"])
         end
 
@@ -3026,8 +2796,9 @@ defmodule PairingsEngine.Pairing do
       (`PairingsEngine.ExplanationJobs`), or was when the node went down.
     * `:failed` - working it out failed; the explanation page offers to try
       again.
-    * `:none` - no account at all: a JaVaFo round, a round from before
-      accounts existed, or no round.
+    * `:none` - no account at all: a round from before accounts existed
+      (or paired by the external engine this app no longer has), or no
+      round.
 
   A pending or failed record already carries the round's deviation facts
   (who an exclusion passed over for the bye, whether the arbiter's wishes
@@ -3247,10 +3018,7 @@ defmodule PairingsEngine.Pairing do
               {:error, :nothing_to_explain}
 
             payload ->
-              {:ok,
-               payload
-               |> Map.put("origin", "recomputed")
-               |> Map.put("paired_by", tournament.pairing_engine)}
+              {:ok, Map.put(payload, "origin", "recomputed")}
           end
         end
 
@@ -3417,7 +3185,7 @@ defmodule PairingsEngine.Pairing do
   # (`"field"`, so the account can be rebuilt after a restart), the
   # deviation facts, and no brackets yet - `PairingsEngine.RoundExplanation`
   # reads that as "no account", which is what it is until the job is done.
-  # nil for a JaVaFo round, which has nothing to work out.
+  # nil when no section has anything to work out.
   defp pending_payload(tournament, round_number, sections) do
     built =
       for {category_name, %{} = deferred, by_rank} <- sections do
@@ -3579,11 +3347,10 @@ defmodule PairingsEngine.Pairing do
         {:error, ainalrami_unsupported_message(codes, category_name)}
     end
   rescue
-    # Ainalrami raises where JaVaFo writes an empty file - a proven
-    # structural deadlock, not a search that gave up (see the exception's own
-    # doc). Mapped onto the same `{:error, string}` shape so
-    # `pair_next_round/1`'s callers, which just render the reason as-is,
-    # cannot tell which engine refused.
+    # Ainalrami raises on a proven structural deadlock, not a search that
+    # gave up (see the exception's own doc). Mapped onto an
+    # `{:error, string}` shape so `pair_next_round/1`'s callers can render
+    # the reason as-is.
     # The organiser's bye exclusions, not the rules, made the round
     # impossible: handed back as data, so the page can name the players and
     # offer to pair without one of them (`bye_exclusion_error/2` turns the
@@ -3603,8 +3370,8 @@ defmodule PairingsEngine.Pairing do
     # The TRF we just built is our own, so this should be unreachable; it is
     # caught rather than allowed to escape because an unhandled raise here
     # would take down the whole LiveView instead of showing the arbiter a
-    # message, and because Ainalrami validates result-code combinations more
-    # eagerly than JaVaFo does.
+    # message, and because Ainalrami validates result-code combinations
+    # eagerly.
     e in Ainalrami.Trf.ValidationError ->
       Logger.error(
         "Ainalrami rejected the generated TRF for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
@@ -3932,8 +3699,8 @@ defmodule PairingsEngine.Pairing do
   #     `Tournament.engine_point_system/1`, which is the same tournament
   #     record the line would have been written from, so the file and the
   #     option cannot disagree.
-  #   * `XXC`, `152` - the initial colour drawn by lot, in JaVaFo's spelling
-  #     (what `engine_trf/6` writes, `xxc: true`) and TRF16's. `parse/1`
+  #   * `XXC`, `152` - the initial colour drawn by lot, in the extension
+  #     spelling (what `engine_trf/6` writes, `xxc: true`) and TRF16's. `parse/1`
   #     reads either into `tournament[:initial_colour]`, and
   #     `ainalrami_opts/3` passes that as `:initial_colour` - the OPTION
   #     `pair_next_round/2` actually acts on.
@@ -3990,48 +3757,16 @@ defmodule PairingsEngine.Pairing do
     reasons = Enum.map_join(codes, "; ", &"the TRF extension #{&1}")
 
     ainalrami_scoped(
-      "Ainalrami does not implement #{reasons}. Nothing was paired - Ainalrami would have ignored the rule rather than applied it. Use JaVaFo for this tournament.",
+      "Ainalrami does not implement #{reasons}. Nothing was paired - Ainalrami would have ignored the rule rather than applied it.",
       category_name
     )
   end
 
-  # JaVaFo pairing output: first line = number of pairs, then "white black"
-  # per line as TRF starting ranks; 0 = pairing-allocated bye. Returns
-  # `{:ok, pairs}`, or `{:error, message}` when the output file is entirely
-  # empty - JaVaFo has been observed to exit 0 having written nothing, and
-  # the old bare `[_count | lines] = ...` match crashed the whole
-  # `pair_next_round/1` call with an opaque MatchError instead of the same
-  # tidy `{:error, ...}` shape the nonzero-exit path already returns. A
-  # present-but-"0" count line with no pair lines still parses as
-  # `{:ok, []}`, exactly as before.
-  #
-  # `@doc false` and `def` (not `defp`) purely so tests can drive this
-  # parsing edge case directly - same precedent as
-  # `PairingsEngine.Fide.Sync`/`PairingsEngine.Federations.BEL.Sync`.
-  @doc false
-  def parse_pairs(text) do
-    case text |> String.split(~r/\r?\n/) |> Enum.reject(&(String.trim(&1) == "")) do
-      [] ->
-        {:error,
-         "JaVaFo produced no pairings output (it exited successfully but wrote an empty pairings file)"}
-
-      [_count | lines] ->
-        {:ok, parse_pair_lines(lines)}
-    end
-  end
-
-  defp parse_pair_lines(lines) do
-    Enum.map(lines, fn line ->
-      [w, b] = line |> String.split() |> Enum.map(&String.to_integer/1)
-      {w, b}
-    end)
-  end
-
   # `player_by_local_rank` is `do_pair_single/4`'s local 1..M rank map
   # (inverse of `local_rank_by_player_id`), NOT global `pairing_number` - see
-  # that function's doc comment for why. JaVaFo's output pairs are starting
+  # that function's doc comment for why. The engine's output pairs are starting
   # ranks in whatever numbering it was given, so the lookup here must use
-  # the exact same map that was fed into `javafo_input/3`.
+  # the exact same map that was fed into `trf_input/5`.
   ## ---------- the engine's own account of the round ----------
 
   # Turns what `Ainalrami.Pairing.explain_round/3` reports into something a
@@ -4045,7 +3780,7 @@ defmodule PairingsEngine.Pairing do
   # column is JSON, where tuples do not exist - so pairs become two-element
   # lists and rungs become labelled maps.
   #
-  # Returns nil when no section has anything to report, so a JaVaFo round
+  # Returns nil when no section has anything to report, so such a round
   # stores nothing at all rather than an empty husk that reads, to the page,
   # like an explanation that came back blank.
   defp explanation_payload(sections) do
@@ -4484,7 +4219,7 @@ defmodule PairingsEngine.Pairing do
 
   # `swiss_match_format`'s second leg: same match, same boards, colours
   # reversed - an exact mirror of leg 1's freshly-inserted pairings, built
-  # from Elixir data (no second JaVaFo call, no new TRF file). See the
+  # from Elixir data (no second engine call, no new TRF file). See the
   # field's doc comment on PairingsEngine.Tournaments.Tournament and the
   # module doc above `do_pair/2`.
   #
@@ -4556,10 +4291,10 @@ defmodule PairingsEngine.Pairing do
     leg2
   end
 
-  ## ---------- JaVaFo TRF input ----------
+  ## ---------- the engine's TRF input ----------
 
   @doc """
-  Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXA/XXP extensions).
+  Builds the TRF text the engine takes as input (TRF16 + XXR/XXA/XXP extensions).
 
   `rank_by_player_id` is an optional override, same idea as
   `forbidden_pairs/3`/`exclusion_pairs/3`'s own override: when
@@ -4568,23 +4303,22 @@ defmodule PairingsEngine.Pairing do
   `do_pair_single/4` passes a local contiguous 1..M rank map instead (built
   over the full frozen roster), so a gap in the middle of the global
   `pairing_number` range - an absent player excluded from THIS round only,
-  not from the tournament's frozen numbering - never reaches JaVaFo as a gap
-  in the TRF's starting-rank sequence, which is confirmed to crash it with a
-  bare NullPointerException. See the `do_pair_single/4` doc comment for the
-  full story.
+  not from the tournament's frozen numbering - never reaches the engine as
+  a gap in the TRF's starting-rank sequence. See the `do_pair_single/4` doc
+  comment for the full story.
 
   `eligible_ids`, when given, is a `MapSet` of the player ids that are
   actual pairing candidates for the round about to be paired. Every other
   player in `players` gets a `0000 - Z` line appended via
-  `mark_ineligible_for_round/2` instead - the JaVaFo-native way to keep a
+  `mark_ineligible_for_round/2` instead - the TRF-native way to keep a
   player's real history in the file while excluding them from pairing this
   run. The pairing path (`do_pair_single/4`/`build_category_trf/5`) uses this
-  to send JaVaFo the full roster while still only offering the actually-
+  to send the engine the full roster while still only offering the actually-
   eligible players as candidates. `nil` (every existing caller, including
   tests and `PairingsEngine.TrfExport`-adjacent callers) skips this step
   entirely, so behaviour is byte-identical when omitted.
   """
-  def javafo_input(
+  def trf_input(
         tournament,
         players \\ nil,
         rank_by_player_id \\ nil,
@@ -4637,7 +4371,7 @@ defmodule PairingsEngine.Pairing do
   line each. Each pair's player ids are translated to their starting rank
   (`pairing_number`) among `players` for this pairing run. A pair is
   skipped silently if either player isn't in `players` at all, or hasn't
-  been assigned a `pairing_number` yet - JaVaFo only needs to hear about
+  been assigned a `pairing_number` yet - the engine only needs to hear about
   players it's actually being asked to pair.
 
   Returns ranks rather than the `"XXP a b\\r\\n"` text it used to, because
@@ -4747,9 +4481,9 @@ defmodule PairingsEngine.Pairing do
   soft rules - and an empty list leaves the engine's ladder untouched, so
   its FIDE behaviour is byte for byte what it was.
 
-  Only Ainalrami reads this. JaVaFo has no such option and Keizer no such
-  rung; for them a wish is simply not a rule, and the Options page says so
-  beside the control. `rules` nil reads the tournament's own.
+  Only the Swiss engine reads this. Keizer has no such rung; for it a wish
+  is simply not a rule, and the Options page says so beside the control.
+  `rules` nil reads the tournament's own.
   """
   def soft_pairs(tournament, players, rank_by_player_id, forbidden, round_number, rules \\ nil) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
@@ -4778,14 +4512,14 @@ defmodule PairingsEngine.Pairing do
   `%{player_id => [1.0, 1.0, 0.5, ...]}` - one value per round played so
   far, per FIDE C.04.7 Baku Acceleration. `engine_trf/5` hangs each list on
   its player's TRF row, and `Ainalrami.Trf.serialize/2` writes it as
-  JaVaFo's fixed-column `XXA` extension line.
+  the fixed-column `XXA` extension line.
 
   Returns `%{}` unless `tournament.pairing_system == "swiss"` and either
   `tournament.acceleration == "baku"` or the players' extra points feed the
   pairing (`Tournament.extra_points_pairing?/1` - acceleration mode, or a
   counted handicap; docs/extra-points.md): round robin's fixed Berger
   schedule ignores acceleration entirely, and Keizer never goes through
-  JaVaFo at all. Baku takes precedence over extra points; the changeset
+  the Swiss engine at all. Baku takes precedence over extra points; the changeset
   refuses the two together.
 
   Keyed by player id and not by rank on purpose. This used to emit the line
@@ -4797,38 +4531,25 @@ defmodule PairingsEngine.Pairing do
   contain is a rule the engine cannot apply and cannot report. The row's own
   `:rank` is now the only answer.
 
-  ## Verified mechanism (do not re-guess this - see below)
+  ## The `XXA` line (do not re-guess this)
 
-  Per the JaVaFo 2.2 Advanced User Manual
-  (rrweb.org/javafo/aum/JaVaFo2_AUM.htm): JaVaFo does **not** compute Baku
-  acceleration on its own from a single flag. Its own words: *"JaVaFo can be
-  informed of the fictitious points that are assigned to each player, using
-  the extension code XXA"* and *"It is mandatory to keep the full record of
-  the fictitious points assigned round by round, because this record is
-  used to determine the floaters history of each player"*. So **we**
-  compute every Group-A player's virtual points for every round played so
-  far ourselves, straight from the FIDE C.04.7 text, and hand JaVaFo the
+  A TRF pairing program does **not** compute Baku acceleration on its own
+  from a single flag: it is told the fictitious points assigned to each
+  player, round by round, on `XXA` lines, and it needs the full record
+  because that record determines the floaters history. So **we** compute
+  every Group-A player's virtual points for every round played so far
+  ourselves, straight from the FIDE C.04.7 text, and hand the engine the
   full history - one column per round.
 
-  The manual's format spec: `"XXA NNNN pp.p pp.p ..."`, where `XXA` starts
-  at column 1, `NNNN` (the player's starting rank) starts at column 5, and
-  each `pp.p` starts at column `10 + 5*(r-1)` (`r` = round). This is a
-  **fixed-column** format, unlike the free-form `XXR`/`XXP` extension lines
-  beside it - confirmed by direct experiment against the real
-  `javafo.jar`: a free-form space-separated `"XXA 1 1.0 1.0\\r\\n"` line
-  crashes JaVaFo with a bare `NullPointerException`
-  (`B.A.B.D.J`/`B.A.B.I.K`/...), while the fixed-column form runs
-  clean. Those columns are `Ainalrami.Trf`'s `@xxa_rank_cols` and
-  `xxa_points_cols/1` now, checked against bbpPairings' own reader rather
-  than against JaVaFo alone - which is what caught the rank field being one
-  column too wide here, an error JaVaFo tolerated for as long as it was the
-  only reader. The same experiment (8 players, round 2, Group A = ranks 1-4 given
-  a flat +1.0/+1.0 virtual-point history) also confirmed the values are not
-  silently ignored: JaVaFo's round-2 pairing genuinely changed shape between
-  the unaccelerated and accelerated runs, matching the FIDE description
-  (Group-A players effectively face each other/tougher opposition sooner)
-  - see `PairingsEngine.PairingTest` for the same assertion as an
-  automated, `:javafo`-tagged end-to-end test.
+  The format: `"XXA NNNN pp.p pp.p ..."`, `XXA` at column 1, `NNNN` (the
+  player's starting rank) from column 5, and each `pp.p` at column
+  `10 + 5*(r-1)` (`r` = round). It is **fixed-column**, unlike the
+  free-form `XXR`/`XXP` lines beside it: a free-form
+  `"XXA 1 1.0 1.0\\r\\n"` line crashed the external engine this app used
+  to run. Those columns are `Ainalrami.Trf`'s `@xxa_rank_cols` and
+  `xxa_points_cols/1`, checked against bbpPairings' own reader - which is
+  what caught the rank field being one column too wide here, an error the
+  first reader tolerated for as long as it was the only one.
 
   ## FIDE C.04.7 Baku Acceleration, as implemented here
 
@@ -4938,11 +4659,11 @@ defmodule PairingsEngine.Pairing do
   end
 
   # Virtual points are never negative. A negative extra point is a penalty,
-  # and it still counts in the standings, but JaVaFo cannot read one in an
+  # and it still counts in the standings, but a TRF reader cannot read one in an
   # `XXA` slot: measured 2026-09-27 on a real SWAR file whose player was
-  # given -1.0 in one round, JaVaFo died with `NumberFormatException: For
-  # input string: "0-1.0"` and paired nothing. Both engines are handed the
-  # same file, so the floor applies to both. A round's recorded value (a
+  # given -1.0 in one round, the external engine this app used to run died
+  # with `NumberFormatException: For input string: "0-1.0"` and paired
+  # nothing, and a FIDE checker replaying the file would fare no better. A round's recorded value (a
   # SWAR import can bring a negative one) is kept as it came - the export
   # writes it back - and floored only here, on its way to the engine.
   defp virtual_value(nil), do: 0.0
@@ -5074,7 +4795,7 @@ defmodule PairingsEngine.Pairing do
   @doc """
   Builds the `Ainalrami.Trf.serialize/2`-shaped player list (rank,
   identity fields, points, full-history games) for `players`, covering every
-  paired round of `tournament` with no filtering. Shared by `javafo_input/2`
+  paired round of `tournament` with no filtering. Shared by `trf_input/5`
   (active players only, feeding the pairing engine) and
   `PairingsEngine.TrfExport` (the full roster, for the user-facing TRF
   download, which additionally trims each player's `:games` down to a
@@ -5232,8 +4953,8 @@ defmodule PairingsEngine.Pairing do
     # was scored one way in the crosstable and handed to the engine another,
     # which puts players in the wrong score brackets.
     #
-    # SWAR itself sends Points + SpecialPts in the TRF it hands JaVaFo
-    # (standings.ex records the EnvoiJAVAFO.cpp reference), so this was also
+    # SWAR itself sends Points + SpecialPts in the TRF it hands its pairing
+    # engine (standings.ex records the SWAR source reference), so this was also
     # sending a different column than the program it was reverse-engineered
     # from. Inert unless `presence_value` is set, i.e. everywhere but 3-2-1.
     base + Standings.presence_points_for_code(t, g.result)
@@ -5266,7 +4987,7 @@ defmodule PairingsEngine.Pairing do
 
   # Every player who ever received a pairing_number, regardless of current
   # active/absent/forfeit/withdrawn status - the full frozen roster. Used to
-  # scope the local rank map fed to JaVaFo (see `do_pair_single/4` and
+  # scope the local rank map fed to the engine (see `do_pair_single/4` and
   # `build_category_trf/5`): every possible historical opponent must resolve
   # to a real rank with a real row in the TRF, or `remap_trf_rows_to_local_ranks/2`
   # silently destroys that game's colour history - see that function's doc.
@@ -5372,7 +5093,7 @@ defmodule PairingsEngine.Pairing do
   this specific round via `absent_rounds` (SWAR "Absent at the rounds
   x,y,z"), and not a late entrant whose `start_round` hasn't been reached
   yet (Keizer). Pure with respect to round-specific filtering - safe to
-  unit-test without invoking JaVaFo.
+  unit-test without invoking the engine.
   """
   def eligible_players(tournament_id, round_number),
     do: tournament_id |> active_players() |> eligible_from(round_number)
@@ -5793,13 +5514,13 @@ defmodule PairingsEngine.Pairing do
 
   defp provisional_points(_pairing, _white?, _tournament), do: nil
 
-  # JaVaFo/TRF16 rule: opponent 0000 may only ever carry a bye/unplayed code
+  # TRF16 rule: opponent 0000 may only ever carry a bye/unplayed code
   # (F/H/Z/U) - never a played-game code (1/=/0/+/-). Reported bug: a
   # SWAR-imported round could carry a played-game result on a game with no
   # real opponent (e.g. a bye's score recorded as if it were an ordinary
-  # game), producing an illegal "0000 - 1" / "0000 - =" row that crashes
-  # JaVaFo with "B.A.B.E: Unexpected format of player line". This is the
-  # single choke point both `javafo_input/2` and `PairingsEngine.TrfExport`
+  # game), producing an illegal "0000 - 1" / "0000 - =" row that TRF
+  # readers reject ("Unexpected format of player line"). This is the
+  # single choke point both `trf_input/5` and `PairingsEngine.TrfExport`
   # go through (via `trf_player_rows/2`), so normalizing here fixes both.
   #
   # A playing code with no opponent is reinterpreted by the point value it

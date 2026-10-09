@@ -55,8 +55,8 @@ byevoorkeuren niet worden toegepast.
 
 ## Zwitsers {#swiss}
 
-De knop luidt **Ronde N paren (Ainalrami)** of **(JaVaFo)**, met de naam van de
-engine van het toernooi. Druk erop en bevestig. Het programma
+De knop luidt **Ronde N paren (Ainalrami)**, met de naam van de engine. Druk
+erop en bevestig. Het programma
 
 1. geeft de paringsnummers als dit de eerste ronde is (hoogste rating eerst; de
    startkleur wordt door loting bepaald, tenzij u die zelf instelt),
@@ -164,9 +164,11 @@ Voor een Zwitserse ronde die door Ainalrami is gepaard, toont de pagina
   de criteria van C.04.3, en of de keuze van de engine de beste is. De antwoorden
   worden uitgewerkt wanneer u een vraag opent, en worden opgeslagen.
 
-Ook rondetoernooi en Keizer hebben een exacte verantwoording. Voor een Zwitserse
-ronde die door JaVaFo is gepaard, is de pagina een eerlijke vergelijking van
-invoer en uitvoer: de redenering van JaVaFo is niet beschikbaar.
+Ook rondetoernooi en Keizer hebben een exacte verantwoording. Een Zwitserse
+ronde zonder eigen verantwoording - gepaard voordat het programma er een
+bijhield, of door een engine die het niet meer heeft - kan achteraf worden
+geanalyseerd vanuit de borden zoals ze gespeeld zijn; de pagina biedt dat aan
+en zegt dat ze het gedaan heeft.
 
 Als een regel van de organisator de ronde heeft veranderd (een byevoorkeur, een
 paarwens), meldt de pagina welk bord is verplaatst en wat de FIDE-regels alleen
@@ -183,7 +185,7 @@ verschuiven** (het bordbereik is gegeven), **vast met open kleuren**, of **open*
 met de spelers die erbij betrokken kunnen zijn en de partijen die het beslissen.
 De voorvertoning werkt zichzelf bij wanneer een resultaat wordt ingevoerd, en kan
 worden afgedrukt (vaste borden en een lijst op naam). Ze is beschikbaar voor
-afzonderlijke Zwitserse toernooien met de Ainalrami-engine, en pas als ze is
+afzonderlijke Zwitserse toernooien, en pas als ze is
 ingeschakeld: ze hoort bij het Belgische pakket onder Account, **Functies**
 ([Accounts](15-accounts-and-handoff.md)).
 

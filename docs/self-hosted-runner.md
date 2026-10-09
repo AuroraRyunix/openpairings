@@ -1,15 +1,14 @@
-# Self-hosted runner: SWAR and JaVaFo tests
+# Self-hosted runner: SWAR fixture tests
 
 > **Parked (2026-09-13):** no runner is registered, so the workflow runs on
 > manual trigger only. After registering one, restore the `push: branches: ["main"]`
 > trigger at the top of `.github/workflows/artifact-tests.yml`.
 
 
-`.github/workflows/artifact-tests.yml` runs the ~111 tests that CI otherwise
-skips: 51 tagged `:swar_fixture` (need the real `.swar` fixture files, which
-can never be committed - see `.gitignore` and `test/test_helper.exs`) and 61
-tagged `:javafo` (need the third-party `javafo.jar`, which is not ours to
-redistribute). Background: `docs/test-quality-2026-09-13.md`, section
+`.github/workflows/artifact-tests.yml` runs the tests that CI otherwise
+skips: those tagged `:swar_fixture` (need the real `.swar` fixture files, which
+can never be committed - see `.gitignore` and `test/test_helper.exs`).
+Background: `docs/test-quality-2026-09-13.md`, section
 "Proposal: a self-hosted runner that already holds the files".
 
 Those tests need a machine that already legitimately holds those files -
@@ -55,27 +54,21 @@ must be handled carefully - see "Security" below before registering one.
   workflow's "Verify Elixir/Erlang toolchain" step checks this and fails
   clearly if the installed `elixir --version` doesn't satisfy it; it does
   **not** install or change your toolchain.
-- **Java**, if the pairing tests call `java -jar javafo.jar` (they do - see
-  `PairingsEngine.Pairing.javafo_jar/0` and its callers in
-  `lib/pairings_engine/pairing.ex`). Any JRE recent enough to run JaVaFo
-  works; install it the way you already install Java on this PC.
 
-The workflow deliberately does **not** install or provision either of
-these - it uses whatever is already on this machine's `PATH`, the same way
+No Java is needed. The workflow deliberately does **not** install or
+provision the toolchain - it uses whatever is already on this machine's `PATH`, the same way
 you'd run `mix test` here yourself.
 
 ## 3. Artifacts
 
-Create one folder on this machine holding exactly these four files:
+Create one folder on this machine holding exactly these three files:
 
 - `c-reeks.swar`
 - `problemski.swar`
 - `test3-321.swar`
-- `javafo.jar`
 
 (These are the same files `test/test_helper.exs` looks for locally, just
-collected in one place instead of already sitting in `test/fixtures/` and
-`priv/javafo/`.)
+collected in one place instead of already sitting in `test/fixtures/`.)
 
 Then set the environment variable `OPENPAIRINGS_ARTIFACTS` to that folder's
 path, **for the account the runner service runs as**. Two ways to do that:
@@ -98,7 +91,7 @@ path, **for the account the runner service runs as**. Two ways to do that:
 Either way, restart the runner service afterwards so it picks up the
 variable. The workflow's "Place the artifacts" step fails with a clear,
 named error (which file, which folder) if `OPENPAIRINGS_ARTIFACTS` isn't
-set, doesn't exist, or is missing one of the four files - it never silently
+set, doesn't exist, or is missing one of the three files - it never silently
 skips them the way a normal `mix test` run does locally.
 
 ## 4. Security
@@ -130,7 +123,7 @@ skips them the way a normal `mix test` run does locally.
 ## 5. Using it
 
 - Results appear on GitHub under the **Actions** tab, as a separate
-  workflow named **"SWAR and JaVaFo tests"** - distinct from the "Elixir CI"
+  workflow named **"SWAR fixture tests"** - distinct from the "Elixir CI"
   workflow that runs on every push and PR.
 - If this PC is off or the runner service isn't running, a triggering push
   just leaves the job **queued**. It is not silently skipped and it does
@@ -138,7 +131,7 @@ skips them the way a normal `mix test` run does locally.
   binaries/release workflows) is a completely separate workflow file and is
   unaffected either way. A queued job eventually times out (the job's
   `timeout-minutes: 30`) if the runner never comes online for it.
-- To trigger manually: **Actions -> SWAR and JaVaFo tests -> Run workflow**
+- To trigger manually: **Actions -> SWAR fixture tests -> Run workflow**
   (this is what `workflow_dispatch` enables), and pick the branch (normally
   `main`).
 

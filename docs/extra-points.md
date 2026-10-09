@@ -32,8 +32,8 @@ also feeds the pairing is `Tournament.extra_points_pairing?/1`.
 The engine is handed the extra points as **virtual points** - TRF's `XXA`
 extension, the same mechanism Baku acceleration uses
 (`docs/acceleration.md`): one value per player per round, added to the
-player's score when the engine builds the score groups. Both engines read it
-(JaVaFo per its manual; Ainalrami since `451c749`, which adds
+player's score when the engine builds the score groups. Ainalrami reads it
+(since `451c749`, which adds
 `accelerations[round]` to every score the pairing reads, float history
 included). The TRF's own points column (`001`, columns 81-84) stays game
 points: an engine reconciles that column against the games it holds
@@ -56,7 +56,7 @@ engines define for exactly this.
 
 The history matters. The engine judges a float by the two players' scores
 AS THEIR BRACKETS SAW THEM in that round, virtual points included - which is
-why JaVaFo's manual insists on "the full record of the fictitious points
+why the FIDE Dutch engines need "the full record of the fictitious points
 assigned round by round". SWAR does the same: each round's `ROUND.XtraPts`
 is frozen when the round is set up (`InitNextRonde`,
 `AssignXtraPointsManuels`) and `EcrireXXA_AccelereManuel` writes them all.
@@ -75,9 +75,9 @@ own values are whole and half points.
 
 Virtual points are never negative. A negative extra point - a penalty -
 still counts in the standings when they count, but it goes to the engine as
-zero: JaVaFo cannot read a negative `XXA` value (measured on a real SWAR
-file with a -1.0 in one round: `NumberFormatException: For input string:
-"0-1.0"`, and no pairing), and both engines are handed the same file. A
+zero: the fixed-column `XXA` field cannot carry a negative value (JaVaFo,
+measured on a real SWAR file with a -1.0 in one round, failed with
+`NumberFormatException: For input string: "0-1.0"`). A
 round's recorded value is kept as it came (a SWAR import can bring a
 negative one, and the export writes it back); the floor is applied on the
 way to the engine (`Pairing.virtual_value/1`).
@@ -191,7 +191,7 @@ form before it is saved; "Apply" uses the saved mode and bands.
 ## Checked against SWAR (2026-09-27)
 
 Six real SWAR files carry XtraPoints (they are real events and are never
-committed). Each round of five of them was replayed by hand through JaVaFo -
+committed). Each round of five of them was replayed by hand through the app -
 import, unpair from that round on, give every player the `XtraPts` SWAR
 froze into that round, mark absent everyone SWAR did not pair, pair it here,
 and compare the boards with SWAR's - once in acceleration mode and once

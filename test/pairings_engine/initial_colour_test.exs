@@ -196,29 +196,6 @@ defmodule PairingsEngine.InitialColourTest do
     end
   end
 
-  describe "JaVaFo honours it" do
-    @describetag :javafo
-
-    test "a Black draw turns every board of round 1 round" do
-      t =
-        swiss(%{pairing_engine: "javafo"}) |> Tournaments.ensure_initial_colour(fn -> "black" end)
-
-      assert {:ok, _} = Pairing.pair_next_round(t)
-
-      assert round_one(t) == [{"Carol", "Alice"}, {"Bob", "Dave"}]
-      assert last_trf() =~ ~r/^XXC black1\r?$/m
-    end
-
-    test "a White draw gives the top seed White" do
-      t =
-        swiss(%{pairing_engine: "javafo"}) |> Tournaments.ensure_initial_colour(fn -> "white" end)
-
-      assert {:ok, _} = Pairing.pair_next_round(t)
-
-      assert round_one(t) == [{"Alice", "Carol"}, {"Dave", "Bob"}]
-    end
-  end
-
   describe "the lock" do
     test "it can be changed until round 1 is paired, and not after" do
       t = swiss()

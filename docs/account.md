@@ -99,8 +99,7 @@ tournament" is pressed, so a change made in another tab applies. Imports
 
 Deliberately not offered, and why (see `Accounts.TournamentDefaults`):
 tie-breaks (the right list differs per type, and FIDE's default for the
-type is applied), the pairing engine (a JaVaFo default would quietly
-select the superseded C.04.3 for every event), the chief arbiter (a name
+type is applied), there is no pairing engine to default (Ainalrami is the only Swiss engine), the chief arbiter (a name
 and a FIDE id kept together by the officials picker - half a default makes
 a broken report), and scoring (per-event club choices; a new tournament
 starts with FIDE's).

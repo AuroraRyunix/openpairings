@@ -6,7 +6,7 @@ defmodule PairingsEngine.PairingDisplay do
   sequence.
 
   **Pure and read-only**: nothing here ever writes `pairing.board` - the
-  real, engine-assigned board number stays exactly what JaVaFo/the pairing
+  real, engine-assigned board number stays exactly what the pairing
   algorithm computed, in the database, forever. Results, the audit trail,
   TRF export, and every other lookup keyed on a pairing's real board
   number are completely unaffected. This only decides what LABEL to print

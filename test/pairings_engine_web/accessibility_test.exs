@@ -39,7 +39,6 @@ defmodule PairingsEngineWeb.AccessibilityTest do
         "name" => "Accessibility Open",
         "type" => "swiss",
         "rounds_count" => "5",
-        "pairing_engine" => "ainalrami",
         "categories_enabled" => true
       })
 

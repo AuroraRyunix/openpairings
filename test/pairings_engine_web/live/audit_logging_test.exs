@@ -128,7 +128,6 @@ defmodule PairingsEngineWeb.AuditLoggingTest do
     assert row.details["white"] == "Alice"
   end
 
-  @tag :javafo
   test "pairing a round logs a rich pairing.round_paired entry", %{conn: conn, scope: scope} do
     t = setup_tournament(scope)
 

@@ -20,8 +20,9 @@ defmodule PairingsEngine.PairingRationale do
 
   ## What is and isn't knowable
 
-  JaVaFo (the FIDE Dutch-system engine used for Swiss) is an opaque binary -
-  its internal tie-break reasoning cannot be extracted. What we *can* capture
+  A Swiss round with no stored account - one paired before accounts
+  existed, or by the external engine this app once ran - is a black box:
+  the engine's reasoning was never recorded. What we *can* capture
   is the input state that constrains its decision (each player's pre-round
   score, starting rank, colour history) and observable properties of its
   output (which brackets each pairing spans, who floated, who got the bye).
@@ -29,12 +30,11 @@ defmodule PairingsEngine.PairingRationale do
   ladder values are computed by us, so for those systems the explanation is
   exact rather than inferred.
 
-  **Ainalrami is the exception on the Swiss side.** It reports its own
-  bracket composition, floats and criterion scores, and a round it paired
-  has that account stored on the round row at pairing time - see
+  **Ainalrami reports its own account.** Bracket composition, floats and
+  criterion scores are stored on the round row at pairing time - see
   `PairingsEngine.RoundExplanation`. Where one exists the page quotes it
-  instead of inferring, and everything in this module remains the fallback:
-  for JaVaFo rounds, and for every round paired before the column existed.
+  instead of inferring, and everything in this module remains the fallback
+  for the rounds that have none.
   """
 
   import Ecto.Query
@@ -515,7 +515,7 @@ defmodule PairingsEngine.PairingRationale do
 
   # Pre-round score brackets over exactly the players this round actually
   # paired (both colours plus the pairing-allocated bye recipient) - the set
-  # JaVaFo was asked to pair. Highest bracket first; `odd` flags a bracket
+  # the engine was asked to pair. Highest bracket first; `odd` flags a bracket
   # that couldn't pair entirely within itself and therefore had to float a
   # player to an adjacent bracket.
   defp score_groups(boards) do
@@ -610,7 +610,7 @@ defmodule PairingsEngine.PairingRationale do
   end
 
   # Returns `{combined, pairing_allocated_only}` - `combined` is every player
-  # who's had ANY bye before (a real pairing-allocated one, JaVaFo
+  # who's had ANY bye before (a real pairing-allocated one, a TRF
   # WIN_BYE/DRAW_BYE, OR a requested/absence bye recorded in the "byes"
   # table), which is what the existing "already had a bye" note has always
   # meant and continues to mean. `pairing_allocated_only` is the strict

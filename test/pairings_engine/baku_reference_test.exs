@@ -20,8 +20,7 @@ defmodule PairingsEngine.BakuReferenceTest do
   the lower-ranked of the two.
 
   `BAKU_FUZZ_COUNT` (default 4) sets the number of tournaments and
-  `BAKU_FUZZ_FIRST` (default 1) the first seed; `BAKU_FUZZ_ENGINE=javafo`
-  pairs with JaVaFo instead of Ainalrami; `BAKU_FUZZ_REPORT=1` prints the
+  `BAKU_FUZZ_FIRST` (default 1) the first seed; `BAKU_FUZZ_REPORT=1` prints the
   counts and `BAKU_FUZZ_DUMP=path` writes every difference to a file. Run
   big counts in batches of about 50: the whole run is one test, and the
   SQL sandbox drops a connection held for more than two minutes. On
@@ -42,7 +41,7 @@ defmodule PairingsEngine.BakuReferenceTest do
   # The file the engine was handed, captured as `CrossProgramTest` does, so
   # a difference can be told apart: wrong input (bbpPairings on OpenPairings'
   # own file disagrees with the reference) or an engine of its own mind
-  # (JaVaFo, given the right file, still pairing differently).
+  # (given the right file, still pairing differently).
   setup do
     handler = "baku-reference-#{System.unique_integer([:positive])}"
 
@@ -77,7 +76,7 @@ defmodule PairingsEngine.BakuReferenceTest do
 
     if System.get_env("BAKU_FUZZ_REPORT") do
       IO.puts(
-        "\nBaku reference (#{engine()}): #{count} tournaments, #{rounds} rounds compared, " <>
+        "\nBaku reference: #{count} tournaments, #{rounds} rounds compared, " <>
           "#{refused} refused by both references, " <>
           "#{length(engine_only)} differing by the engine alone on the right input, " <>
           "#{length(diffs)} differing round(s) - " <>
@@ -92,11 +91,10 @@ defmodule PairingsEngine.BakuReferenceTest do
       do: File.write!(path, Enum.map_join(diffs, "\n\n", &format/1))
 
     assert diffs == [], Enum.map_join(diffs, "\n\n", &format/1)
-    # Only JaVaFo pairs its own way from a right file; Ainalrami is the reference.
-    assert engine_only == [] or engine() == "javafo"
+    # Ainalrami is one of the references, so from a right file it never
+    # pairs its own way.
+    assert engine_only == []
   end
-
-  defp engine, do: System.get_env("BAKU_FUZZ_ENGINE", "ainalrami")
 
   defp run_one(seed) do
     player_count = Enum.random(5..40)
@@ -107,8 +105,7 @@ defmodule PairingsEngine.BakuReferenceTest do
         name: "Baku #{seed}",
         type: "swiss",
         rounds_count: round_count,
-        acceleration: "baku",
-        pairing_engine: engine()
+        acceleration: "baku"
       })
 
     ratings = Enum.take_random(1000..2600, player_count)
@@ -128,7 +125,7 @@ defmodule PairingsEngine.BakuReferenceTest do
         {:cont, %{acc | rounds: acc.rounds + 1, diffs: List.wrap(diff) ++ acc.diffs}}
       else
         # Both references find no legal round where the engine paired one -
-        # seen with JaVaFo only, late in a small event. Not a question of
+        # seen with the old external engine only, late in a small event. Not a question of
         # bracket order; the tournament stops there.
         :refused -> {:halt, %{acc | refused: acc.refused + 1}}
         {:error, _reason} -> {:halt, acc}

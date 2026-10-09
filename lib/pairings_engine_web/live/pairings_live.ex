@@ -3480,8 +3480,8 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # Team Swiss (`PairingsEngine.TeamSwiss`) is the one path that can
   # genuinely take a while: 10-50 seconds at 300-500 teams, running IN THIS
-  # BEAM with no subprocess timeout of its own (unlike JaVaFo/Ainalrami's
-  # individual path, which already has `Engine.run_with_timeout/2`). Run in
+  # BEAM with no timeout of its own (the individual engine is well under a
+  # second on any real field, so it runs inline). Run in
   # a supervised task so the LiveView process - and so the socket - stays
   # responsive while it works, the same pattern `FideLive`'s connection poll
   # uses: `send/2` a plain message back to this process rather than
@@ -3993,7 +3993,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     """
   end
 
-  # Long JaVaFo failures come through as multi-line output - show a short
+  # Long engine failures come through as multi-line output - show a short
   # first-line preview as the collapsed summary, never a truncated message
   # (the full text is always available by expanding the block).
   defp error_summary(text) do
@@ -4001,14 +4001,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # The pairing engine actually used, for button/notice copy - only Swiss runs
-  # JaVaFo, so the label must not claim it for round-robin (Berger schedule) or
-  # Keizer.
-  # Swiss falls through to whichever engine the tournament actually selected.
-  # This used to hardcode "JaVaFo" for every Swiss tournament, so a
-  # tournament opted into Ainalrami still had a button reading "Pair round 5
-  # (JaVaFo)" and a sheet describing pairings JaVaFo had not produced - the
-  # one place in the app where the engine choice was invisible after making
-  # it.
+  # Ainalrami, so the label must not claim it for round-robin (Berger
+  # schedule) or Keizer.
   defp pairing_engine_label(tournament), do: Tournament.engine_name(tournament)
 
   defp pairing_engine_description(%{pairing_system: "round_robin"}),
@@ -4016,10 +4010,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp pairing_engine_description(%{pairing_system: "keizer"}), do: "Keizer ladder pairing"
 
-  defp pairing_engine_description(%{pairing_engine: "ainalrami"}),
-    do: "FIDE Dutch pairing (Ainalrami)"
-
-  defp pairing_engine_description(_swiss), do: "FIDE Dutch pairing (JaVaFo)"
+  defp pairing_engine_description(_swiss), do: "FIDE Dutch pairing (Ainalrami)"
 
   # Bare display name for an audit-log payload (nil = a bye's empty side).
   defp player_name(nil), do: nil
@@ -4127,7 +4118,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp format_score(v), do: v
 
-  # A round's pairings preload in whatever order the DB/JaVaFo output them,
+  # A round's pairings preload in whatever order the DB/engine output them,
   # not board order. `PairingDisplay.with_display_boards/1` both sorts
   # (fixed-table boards moved to the end, ordered by their own table
   # number) and relabels (the ordinary boards renumbered to close the gap
@@ -4158,7 +4149,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # Cosmetic-only: under `rr_match_format`/`swiss_match_format`, round
   # 2k-1/2k are legs 1/2 of the same "match" (Pairing.max_pairable_round/1,
   # RoundRobin.do_pair/3 - leg 2 is always a colour-reversed mirror of leg
-  # 1, never a separate JaVaFo decision). `rounds_count` keeps meaning
+  # 1, never a separate engine decision). `rounds_count` keeps meaning
   # "total physical rounds" everywhere else; this only changes what the
   # round-picker buttons and the "Round N" heading display.
   defp match_format?(%Tournament{rr_match_format: true}), do: true

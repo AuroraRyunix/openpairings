@@ -61,11 +61,10 @@ Options page as two player `<select>`s and the exclusion settings.
 
 The TRF carries an extension line for this: `XXP <ids...>` - all player ids
 listed on one `XXP` line must never be paired against each other; multiple
-`XXP` lines are allowed, one per rule. Both Swiss engines read it (see
-`docs/pairing-systems.md`), and both are handed the same file, so nothing
-below depends on which one is selected.
+`XXP` lines are allowed, one per rule. Ainalrami reads it (see
+`docs/pairing-systems.md`).
 
-`PairingsEngine.Pairing.javafo_input/2` puts one group per forbidden
+`PairingsEngine.Pairing.trf_input/5` puts one group per forbidden
 pairing in the tournament map it hands to `Ainalrami.Trf.serialize/2`,
 which writes them as `XXP` lines after the player rows. The ids in a group
 are **not** the players' database ids - they're each player's TRF starting
@@ -153,7 +152,7 @@ and case-insensitively; a blank one is never a group.
 * Soft rules reach Ainalrami as whole groups (`Exclusions.soft_groups/4`,
   through `Pairing.soft_pairs/6`) - C.05 5.2's own example is one: "players
   from the same federation shall, if possible, not meet in the last rounds".
-  JaVaFo and Keizer have no such option and ignore them.
+  Keizer has no such option and ignores them.
 * The TRF26 report writes each hard rule as one `260` per club, federation
   or group, with its rounds when it does not hold for the whole event; the
   engine dialect writes the `XXP` groups that hold for the next round.
@@ -247,8 +246,8 @@ can": they are handed to `Ainalrami.Pairing.pair_next_round/2` as its
 therefore **never** an `XXP` line - `forbidden_pairs/4` and
 `exclusion_pairs/4` read hard rows only.
 
-Only Ainalrami reads the wishes. JaVaFo has no such option and Keizer's
-matcher no such rung (`read_forbidden/2` skips soft rows), so for them a
+Ainalrami reads the wishes. Keizer's
+matcher has no such rung (`read_forbidden/2` skips soft rows), so for it a
 soft pair is simply not a rule. The Options page says which is the case for
 the tournament in front of the arbiter rather than letting a wish be set
 that nothing reads.

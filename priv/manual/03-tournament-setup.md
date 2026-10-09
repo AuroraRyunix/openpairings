@@ -147,12 +147,10 @@ standings or FIDE reports, and are not published to OpenResults.
 
 **Pairing system.** The system is fixed once the first round is paired.
 
-**Swiss engine.** *Ainalrami* is the default and is built into the program;
-it follows C.04.3 as it stands from 1 February 2026. *JaVaFo* is FIDE's
-reference implementation of the 2017 edition and needs Java and the JaVaFo
-program file installed separately (it is not included). The engine is
-fixed once the first round is paired. Both engines are given exactly the
-same file (a TRF file built and checked by the program).
+**Swiss engine.** Every Swiss tournament is paired by *Ainalrami*, which is
+built into the program and follows C.04.3 as it stands from 1 February 2026.
+There is nothing to choose or install; the page names it. The engine is given
+a TRF file built and checked by the program.
 
 ![The Options settings page with the pairing system, Swiss engine and tournament rating](screenshots/03-settings-options.png "Settings, Options")
 
@@ -240,7 +238,7 @@ below.
 
 ## Forbidden pairings page
 
-Who must not meet whom. Everything here is kept by both Swiss engines and by
+Who must not meet whom. Everything here is kept by the Swiss engine and by
 Keizer; a round robin's schedule is fixed and ignores it.
 
 **Effect on the next round.** How many of the games the field could have
@@ -270,8 +268,8 @@ some, then **Save group**.
 
 **How hard to try the wishes.** *Strong* puts the wishes before the colour
 and float criteria, *Weak* uses them only as a last tie-break. Wishes are
-applied by the Ainalrami engine only: JaVaFo and Keizer keep the rules but
-ignore the wishes, and the page says so.
+applied by the Swiss engine only: Keizer keeps the rules but ignores the
+wishes, and the page says so.
 
 > [!FIDE] Set before round 1
 > FIDE's General Regulations (C.05 5.2) allow restrictions on the pairings -

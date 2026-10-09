@@ -97,7 +97,7 @@ defmodule PairingsEngine.Norms.Forms do
   `source` (`:app` | `:tools`) picks `B22`'s ("Program used") default when
   `officials["pairing_program"]` hasn't been overridden by hand: the
   signed-in Tournament Manager actually ran the pairings, so it reads
-  "OpenPairings (With JaVaFo)"; the public Tools page only ever generates
+  "OpenPairings (With Ainalrami)"; the public Tools page only ever generates
   norm reports from an already-paired file someone uploaded, so crediting
   OpenPairings there would be false - it defaults to "Swar (With JaVaFo)"
   instead (the common case: SWAR is what most uploads come from). A TRF
@@ -544,15 +544,15 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   # B22 is a statement to FIDE about which program produced the pairings, so
-  # it has to name the engine this tournament actually used. It said "With
-  # JaVaFo" unconditionally, which became false the moment Ainalrami could be
-  # selected - and false on a round robin or a Keizer event, where no Swiss
-  # engine is consulted at all.
+  # it has to name the engine this tournament actually used - and no Swiss
+  # engine on a round robin or a Keizer event, where none is consulted at
+  # all. The Tools default names SWAR's own pairing program, as SWAR spells
+  # it, because that is what most uploads come from.
   defp default_pairing_program(:tools, _tournament), do: "Swar (With JaVaFo)"
 
   defp default_pairing_program(_app, tournament) do
     case Tournament.engine_name(tournament) do
-      swiss when swiss in ["JaVaFo", "Ainalrami"] -> "OpenPairings (With #{swiss})"
+      "Ainalrami" -> "OpenPairings (With Ainalrami)"
       _own -> "OpenPairings"
     end
   end

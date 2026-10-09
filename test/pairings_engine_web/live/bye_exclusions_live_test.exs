@@ -21,7 +21,6 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
           %{
             "name" => "Bye exclusions",
             "type" => "swiss",
-            "pairing_engine" => "ainalrami",
             "start_date" => "2026-07-01",
             "rounds_count" => "5",
             "round_dates" => List.duplicate("2026-07-01", 5),
@@ -112,15 +111,6 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
       assert has_element?(lv, "#player-no-bye-fide-warning")
     end
 
-    test "JaVaFo: not offered, with a one-line reason", %{conn: conn, scope: scope} do
-      t = tournament(scope, %{"pairing_engine" => "javafo"})
-      p = player(t, "Anna")
-      lv = open_edit(conn, t, p)
-
-      assert has_element?(lv, "#player-no-bye-javafo")
-      refute has_element?(lv, "#player-no-bye-toggle")
-    end
-
     test "round robin and Keizer: not there at all", %{conn: conn, scope: scope} do
       for system <- ~w(round_robin keizer) do
         t = tournament(scope, %{"pairing_system" => system})
@@ -128,7 +118,6 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
         lv = open_edit(conn, t, p)
 
         refute has_element?(lv, "#player-no-bye")
-        refute has_element?(lv, "#player-no-bye-javafo")
         refute has_element?(lv, "#player-no-bye-marker-#{p.id}")
       end
     end

@@ -45,8 +45,7 @@ defmodule PairingsEngineWeb.ExplanationPendingLiveTest do
       Tournaments.create_tournament(scope, %{
         "name" => "Later",
         "type" => "swiss",
-        "rounds_count" => "5",
-        "pairing_engine" => "ainalrami"
+        "rounds_count" => "5"
       })
 
     for n <- 1..7 do

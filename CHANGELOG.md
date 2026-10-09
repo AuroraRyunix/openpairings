@@ -17,6 +17,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Removed] **JaVaFo.** Ainalrami - the default since August, and the one
+  that knows the rules changed in February - is now the only Swiss engine.
+  Gone with it: the *Swiss engine* choice on Settings, Options (the page now
+  just names Ainalrami), the "Switch to JaVaFo?" dialog, every "not with
+  JaVaFo" note on the Players, Pairings and Forbidden pairings pages, and any
+  reason to have Java installed. A tournament still set to JaVaFo when this
+  version first starts is moved to Ainalrami, and the upgrade writes one line
+  in its audit trail saying so and how many rounds were already paired; its
+  rounds stay as played, and its next round is paired by the 2026 rules
+  instead of the 2017 ones. That is the upgrade's doing, not the arbiter's,
+  and it is not marked as a FIDE-mode departure: the rules it moves to are
+  the ones in force. Old JSON exports that name an engine still import - the
+  key is ignored - and a TRF whose type code says `FIDE_DUTCH_2017` imports
+  as a Swiss, with a line in the review saying the next rounds follow the
+  current edition. The older TRF spelling is `?dialect=engine` now;
+  `?dialect=javafo` still works for anyone who bookmarked it.
+
 ## [0.80.0] - 2026-10-09
 
 - [Feature] **Tournament groups: one event, several tournaments, one click

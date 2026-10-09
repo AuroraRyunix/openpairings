@@ -157,7 +157,6 @@ defmodule PairingsEngine.TrfFlowValidationTest do
         "federation" => "BEL",
         "chief_arbiter" => "Arbiter, Test",
         "rounds_count" => rounds,
-        "pairing_engine" => "ainalrami",
         "acceleration" => if(baku?, do: "baku", else: "none"),
         "points_win" => win,
         "points_draw" => draw,

@@ -48,6 +48,9 @@ op de keuze van het bestand:
 - *De aanpassingen.* Elke plek waar de import iets moest beslissen, wordt vermeld: de
   standaard puntentelling die is gebruikt wanneer het bestand geen puntensysteem heeft,
   het type toernooi dat is overgenomen wanneer de code ontbreekt of onbekend is,
+  een Zwitsers toernooi waarvan de code zegt dat het met de editie van 2017 van het
+  Nederlandse systeem is gepaard (de rondes blijven zoals gespeeld; de rondes die hier
+  worden gepaard, volgen de huidige),
   rondetoernooi-cycli die zijn teruggebracht tot wat het programma speelt, tiebreaks die
   niet in het bestand stonden of die het programma niet berekent, een aantal rondes dat
   is overgenomen uit de rondes die het bestand bevat, deputy-arbiters boven de vierde,
@@ -142,8 +145,7 @@ wordt uitgelegd in [Verzenden naar FIDE](11-fide-report.md).
 Het geschreven bestand is TRF26, het rapportformaat van 2026. Het heeft de spelerregels
 in de TRF16-indeling, en de toernooirecords: het aantal rondes (142), de startkleur
 (152), het puntensysteem als dat niet 1, ½, 0 is (162), het programma (182), het type
-toernooi (192, bijvoorbeeld `FIDE_DUTCH_2025` voor rondes die door de Ainalrami-engine
-zijn gepaard, `FIDE_DUTCH_2017` voor JaVaFo, `_BAKU` met versnelling,
+toernooi (192, bijvoorbeeld `FIDE_DUTCH_2025` voor een Zwitsers toernooi, `_BAKU` met versnelling,
 `BERGER_ROUNDROBIN_Gn`, `FIDE_TEAM_TYPEA_MP_GP`, of `CUSTOM_SWISS` voor Keizer), de
 tiebreaks (202), het speeltempo (222), de virtuele Baku-punten (250), de verboden
 paringen (260), een bye die voor een nog niet gepaarde ronde is toegekend (240) en de
@@ -152,8 +154,9 @@ lezer van het bestand wil tonen, worden in kopieën geschreven als `###`-comment
 Elke gepaarde ronde kan ook worden geselecteerd met `?rounds=1-5` in het adres van de
 download (bereiken en losse rondes, zoals `1-3,6`).
 
-De oudere TRF16-schrijfwijze van de uitbreidingsregels, die JaVaFo en bbpPairings lezen,
-is beschikbaar door `?dialect=javafo` toe te voegen aan het adres van de download.
+De oudere TRF16-schrijfwijze van de uitbreidingsregels, die TRF-paringsprogramma's zoals
+bbpPairings lezen, is beschikbaar door `?dialect=engine` toe te voegen aan het adres van
+de download.
 
 ### Back-up en kopie {#backup-and-copy}
 

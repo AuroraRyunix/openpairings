@@ -69,7 +69,7 @@ computing everything and truncating the display.
 
 ### Validation
 
-`Ainalrami.Trf.serialize/2` (shared with the JaVaFo pairing input
+`Ainalrami.Trf.serialize/2` (shared with the pairing input
 builder) validates every result code and every mutually-referencing pair of
 opponents before returning text, raising `Ainalrami.Trf.ValidationError`
 on anything illegal. One error type for the condition, and one
@@ -101,11 +101,10 @@ export writes them in FIDE's own spelling:
     event, a half-point pairing-allocated bye).
   * **`182`** - `OpenPairings v<version>`, the program that produced the file.
   * **`192`** - the encoded type of tournament, from FIDE's code table
-    (`TournamentTypeCodeTable192-TRF26`): `FIDE_DUTCH_2025` for a round
-    paired by Ainalrami (before 0.69.0 this was written `FIDE_DUTCH_2026`,
-    a code the table does not have; import still reads it),
-    `FIDE_DUTCH_2017` for one paired by
-    JaVaFo, `_BAKU` appended under Baku acceleration, `BERGER_ROUNDROBIN_Gn`
+    (`TournamentTypeCodeTable192-TRF26`): `FIDE_DUTCH_2025` for a Dutch
+    Swiss (before 0.69.0 this was written `FIDE_DUTCH_2026`,
+    a code the table does not have; import still reads it;
+    `FIDE_DUTCH_2017` is never written), `_BAKU` appended under Baku acceleration, `BERGER_ROUNDROBIN_Gn`
     for a round robin, `FIDE_TEAM_TYPEA_MP_GP` (or `BERGER_TEAM_ROUNDROBIN_Gn`
     for a team round robin) for a team event, and `CUSTOM_SWISS` for Keizer,
     which has no FIDE code.
@@ -143,8 +142,8 @@ export writes them in FIDE's own spelling:
     The older spelling below keeps the draw, and scores it as one: it is
     read by pairing programs, which pair a postponed game as one and cannot
     read `?`. (Where a tournament counts a postponed game as something other
-    than a draw, an outside pairing program or checker - JaVaFo, a FIDE
-    pairing checker - cannot reproduce the rounds paired since from either
+    than a draw, an outside pairing program or checker, such as a FIDE
+    pairing checker, cannot reproduce the rounds paired since from either
     download: the TRF26 file marks the game `?` but values it at a draw
     through `X`, and this one writes the draw itself. Only the app's own
     engine is handed the provisional points. The Pairings page says so in
@@ -157,10 +156,11 @@ export writes them in FIDE's own spelling:
     worth. FIDE never answered that question, so the file for rating no
     longer asks it: it leaves the open game out of the round instead.
 
-`?dialect=javafo` on the download URL asks for the older spelling instead -
-`XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what JaVaFo,
-bbpPairings and older checkers read. The file the app builds for its own
-pairing engines is always that spelling (see `Ainalrami.Trf`'s "Two
+`?dialect=engine` on the download URL asks for the older spelling instead -
+`XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what bbpPairings
+and older checkers read (`?dialect=javafo` is still accepted as a legacy
+alias). The file the app builds for its own
+pairing engine is always that spelling (see `Ainalrami.Trf`'s "Two
 dialects"), and the two spellings parse to the same tournament.
 
 Team records (`300` onwards, `310`, `801`, `802`) and national-rating
@@ -199,7 +199,7 @@ a comment line after the header records:
 (`docs/design-fide-mode.md`, section 4); `Ainalrami.Trf.parse/1` skips it,
 so a copy reads exactly as the file sent. No TRF record is added or
 changed. Any download of a round already sent carries the line, whatever
-route produced it. The older spelling (`?dialect=javafo`) carries no
+route produced it. The older spelling (`?dialect=engine`) carries no
 comment line - it is read by pairing programs - and refuses to write a
 round with an open postponed game at all: it has no `?` and would have to
 write a draw that never happened.

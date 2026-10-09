@@ -61,7 +61,7 @@ deploy the default app instead, restarting the wrong service while the
 operator watched a wall of output for the one they asked for.
 
 First, once per run and not once per app, it **installs prerequisites** on the
-target if they are missing (Java, Erlang, Elixir) - idempotent, safe to rerun,
+target if they are missing (Erlang, Elixir) - idempotent, safe to rerun,
 and shared by both apps since they compile with the same toolchain.
 
 Then, for each selected app in turn:
@@ -99,8 +99,8 @@ Then, for each selected app in turn:
    `NoNewPrivileges=true` so nothing it execs can climb back,
    `ProtectSystem=strict` making the whole filesystem read-only except the
    `ReadWritePaths` it genuinely needs, `ProtectHome` hiding /home and
-   /root, and `PrivateTmp` giving it a /tmp of its own - which is where the
-   JaVaFo scratch files go. The uploaded tree is chowned to that account
+   /root, and `PrivateTmp` giving it a /tmp of its own - which is where
+   temporary files go. The uploaded tree is chowned to that account
    before the service starts, because `ProtectSystem=strict` otherwise
    leaves it unable to write its own `_build`. If a unit
    already exists from a prior deploy, its `SECRET_KEY_BASE` is **reused**
@@ -1021,7 +1021,7 @@ Nothing production-sensitive is committed to this repository:
 
 If you're setting up a **new** deployment target from scratch rather than
 redeploying the existing one, you need: a target host reachable over SSH,
-Java + Erlang + Elixir (the deploy script installs these if absent on a
+Erlang + Elixir (the deploy script installs these if absent on a
 Rocky/RHEL-family target), a Gmail account with an app password (or another
 SMTP provider - the mailer config in `config/runtime.exs` is Gmail-specific
 today), and a domain pointed at the host for `PHX_HOST`.

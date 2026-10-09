@@ -455,9 +455,9 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
     test "the TRF handed to the engine is byte-identical before and after a pin" do
       {t, _round, players} = fixture()
 
-      before_input = PairingCtx.javafo_input(t)
+      before_input = PairingCtx.trf_input(t)
       :ok = apply_pin(players, {9, @colliding})
-      after_input = PairingCtx.javafo_input(Repo.reload!(t))
+      after_input = PairingCtx.trf_input(Repo.reload!(t))
 
       assert after_input == before_input,
              "a fixed_board pin changed the engine's input file - a seating " <>

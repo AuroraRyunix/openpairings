@@ -58,8 +58,8 @@ defmodule PairingsEngine.Tournaments.Round do
 
     # What the pairing engine reported about its own decision, captured when
     # the round was paired - see `PairingsEngine.Pairing.explanation/3`. Only
-    # Ainalrami produces one; a JaVaFo round, and every round paired before
-    # this column existed, leaves it nil and the rationale page falls back to
+    # Ainalrami produces one; every round paired before this column existed
+    # (or by the external engine this app once ran) leaves it nil and the rationale page falls back to
     # reconstructing brackets from the round's inputs and outputs.
     #
     # Stored rather than recomputed because it is a record of what happened,

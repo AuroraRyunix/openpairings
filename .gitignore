@@ -60,7 +60,8 @@ npm-debug.log
 # real tournament data (personal player info)
 /test/fixtures/*.swar
 
-# JaVaFo binary: not ours to redistribute - see README for the download link
+# The external pairing jar this app used to run (since removed): not ours to
+# redistribute, so a copy left in an old checkout must never be committed
 /priv/javafo/*.jar
 
 # graphify skill output (not part of the app)

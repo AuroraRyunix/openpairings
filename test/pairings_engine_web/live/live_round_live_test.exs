@@ -246,9 +246,8 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert shifted_pos < wheelchair_pos
   end
 
-  # A default (swiss) tournament - pairs via JaVaFo, unlike the keizer test
+  # A default (swiss) tournament - pairs via Ainalrami, unlike the keizer test
   # below which dispatches to PairingsEngine.Keizer instead.
-  @tag :javafo
   test "shows the latest round's pairings and current standings, and updates live when a result is entered elsewhere",
        %{conn: conn, scope: scope} do
     {:ok, tournament} =

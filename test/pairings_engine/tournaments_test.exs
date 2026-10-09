@@ -1058,7 +1058,6 @@ defmodule PairingsEngine.TournamentsTest do
       assert updated.pairing_number == 1
     end
 
-    @tag :javafo
     test "editing an existing pairing_number is rejected once round 4 has been paired" do
       {:ok, tournament} =
         Tournaments.create_tournament(user_scope(), %{
@@ -1098,7 +1097,6 @@ defmodule PairingsEngine.TournamentsTest do
       assert Repo.reload!(alice).pairing_number == alice.pairing_number
     end
 
-    @tag :javafo
     test "resubmitting the same pairing_number after round 4 is a no-op, not an error" do
       {:ok, tournament} =
         Tournaments.create_tournament(user_scope(), %{

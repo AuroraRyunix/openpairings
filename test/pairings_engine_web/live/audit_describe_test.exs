@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
-             chess960 chess rnbqkbnr)
+             chess960 chess rnbqkbnr javafo ainalrami)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list
@@ -492,6 +492,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "tournament.locked_field_changed" => [
       %{"field" => "pairing_engine", "from" => "javafo", "to" => "ainalrami"},
       %{"field" => "pair_by_category", "from" => false, "to" => true}
+    ],
+    "tournament.pairing_engine_retired" => [
+      %{"from" => "javafo", "to" => "ainalrami", "rounds_paired" => 4},
+      %{"from" => "javafo", "to" => "ainalrami", "rounds_paired" => 1},
+      %{"from" => "javafo", "to" => "ainalrami", "rounds_paired" => 0}
     ],
     "tournament.fide_compliance_lost" => [
       %{"setting" => "pairing_system", "code" => "non_fide_pairing_system", "round" => 3},

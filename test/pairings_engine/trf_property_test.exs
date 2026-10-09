@@ -5,7 +5,7 @@ defmodule PairingsEngine.TrfPropertyTest do
 
   These generate random-but-legal rosters and round histories (contiguous
   starting ranks, mutually consistent result codes - the shape any real
-  pairing run, JaVaFo-fed or not, actually produces) and check
+  pairing run actually produces) and check
   `serialize/1`'s output against ground truth computed independently of
   `serialize/1` itself - reading `parse/1`'s output back and comparing
   against the input, not re-deriving column positions the way `Trf`'s own

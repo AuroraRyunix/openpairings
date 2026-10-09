@@ -1,7 +1,7 @@
 # OpenPairings documentation
 
 OpenPairings is a chess tournament manager (Elixir/Phoenix + LiveView + SQLite):
-Swiss pairing on Ainalrami or JaVaFo, round robin (Berger), the Keizer
+Swiss pairing on Ainalrami (the only Swiss engine), round robin (Berger), the Keizer
 system, FIDE tiebreaks (C.07), TRF26 and TRF16 export/import, FIDE + KBSB
 rating lists, SWAR import, per-tournament sharing, and FIDE norm/report
 forms.
@@ -24,8 +24,8 @@ everything the app does and what is planned next.
 - [FIDE endorsement readiness](fide-endorsement.md) - the Verification Check
   List mapped against OpenPairings, current gaps, and the RTG/FPC
   fuzz-testing harness plan. Read its own opening note first: the document
-  is built on a "JaVaFo wrapper" framing that it now says out loud has
-  expired, because the shipped default is our own engine.
+  is built on a "JaVaFo wrapper" framing that no longer holds: JaVaFo has
+  been removed and our own engine, Ainalrami, is the only one.
 - [Accessibility pass, 2026-09-13](accessibility-2026-09-13.md) - the first
   WCAG 2.2 AA pass: findings, every contrast change with its ratios, what is
   recommended rather than built, and the keyboard and NVDA checklist.
@@ -46,13 +46,13 @@ everything the app does and what is planned next.
   round robin, match and game points, team tie-breaks, board statistics, the
   TRF team section, and why team events are not published yet. Team Swiss is
   [phase 2](teams-phase-2-plan.md).
-- [Pairing systems](pairing-systems.md) - Swiss (FIDE Dutch, on Ainalrami
-  by default or JaVaFo by choice), round robin (Berger tables,
+- [Pairing systems](pairing-systems.md) - Swiss (FIDE Dutch, on Ainalrami),
+  round robin (Berger tables,
   single/double), and the Keizer system (ladder
   values, retroactive recalculation, Keizer-point standings); the per-tournament
   selector locks after the first pairing.
 - [Forbidden pairings](forbidden-pairings.md) - pairs of players that must
-  never meet: managed in Settings, enforced in Swiss by either engine (the
+  never meet: managed in Settings, enforced in Swiss (the
   `XXP` line) and in Keizer;
   round robin ignores them by design. Includes club/federation exclusion rules
   (never pair clubmates / same-federation players, for all or only listed

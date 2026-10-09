@@ -490,8 +490,8 @@ defmodule PairingsEngine.RoundRobinTest do
     # awards points immediately (see PairingsEngine.Standings) without ever
     # going through Tournaments.update_pairing_result/2, so every bye-write
     # site needs its own Tournaments.invalidate_manual_ranking/1 call - see
-    # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the Swiss/
-    # JaVaFo-path equivalent and docs/manual-standings.md.
+    # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the
+    # Swiss-path equivalent and docs/manual-standings.md.
 
     test "an odd-player-count structural bye marks a hand-set manual order stale" do
       tournament = round_robin_tournament(rr_cycles: 1)

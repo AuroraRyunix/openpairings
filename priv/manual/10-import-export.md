@@ -47,7 +47,9 @@ follows the choice of the file:
   tie-breaks; the review then lists what the import used instead.
 - *The adjustments.* Every place where the import had to decide something is
   listed: the default scoring used when the file has no point system, the
-  tournament type imported when the code is missing or unknown, round-robin
+  tournament type imported when the code is missing or unknown, a Swiss whose
+  code says it was paired by the 2017 edition of the Dutch system (its rounds
+  are kept as played; the rounds paired here follow the current one), round-robin
   cycles reduced to what the program plays, tie-breaks that were not in the
   file or that the program does not compute, a number of rounds taken from the
   rounds the file holds, deputy arbiters beyond the fourth, team forfeit and
@@ -141,9 +143,8 @@ sent. This is a part of the reporting procedure and is explained in
 The file written is TRF26, the 2026 report format. It has the player rows in
 the TRF16 layout, and the tournament records: number of rounds (142), initial
 colour (152), the point system if it is not 1, ½, 0 (162), the program (182),
-the type of tournament (192, for example `FIDE_DUTCH_2025` for rounds
-paired by the Ainalrami engine, `FIDE_DUTCH_2017` for JaVaFo, `_BAKU` with
-acceleration, `BERGER_ROUNDROBIN_Gn`, `FIDE_TEAM_TYPEA_MP_GP`, or
+the type of tournament (192, for example `FIDE_DUTCH_2025` for a Swiss,
+`_BAKU` with acceleration, `BERGER_ROUNDROBIN_Gn`, `FIDE_TEAM_TYPEA_MP_GP`, or
 `CUSTOM_SWISS` for Keizer), the tie-breaks (202), the rate of play (222), the
 Baku virtual points (250), the prohibited pairings (260), a bye granted for a
 round that is not yet paired (240) and the administrative extra points (299).
@@ -152,9 +153,9 @@ comment lines in copies. Each paired round can also be selected by
 `?rounds=1-5` in the address of the download (ranges and single rounds, such
 as `1-3,6`).
 
-The older TRF16 spelling of the extension lines, which JaVaFo and
-bbpPairings read, is available by adding `?dialect=javafo` to the address of
-the download.
+The older TRF16 spelling of the extension lines, which TRF pairing programs
+such as bbpPairings read, is available by adding `?dialect=engine` to the
+address of the download.
 
 ### Backup and copy
 

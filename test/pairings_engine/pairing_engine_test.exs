@@ -1,16 +1,9 @@
 defmodule PairingsEngine.PairingEngineTest do
   @moduledoc """
-  `tournaments.pairing_engine` - which Swiss engine actually pairs a round.
-
-  JaVaFo stays the default. Ainalrami is opt-in, and may be selected even on
-  a FIDE-homologated tournament, with a warning - see
-  docs/fide-endorsement.md for what that costs on paper.
-
-  Note which tests carry `@tag :javafo` and which don't. The Ainalrami tests
-  are deliberately untagged: Ainalrami needs no jar, no JVM and no external
-  binary at all, so unlike every other Swiss pairing test in this suite they
-  run on a bare checkout and in CI. That is a real property of the feature,
-  not a testing convenience, so it is exercised rather than assumed.
+  The Swiss engine, Ainalrami, as this app drives it: dispatch, the TRF
+  extensions it must honour, soft rules, and the account it keeps of each
+  round. It needs no jar, no JVM and no external binary, so every test here
+  runs on a bare checkout and in CI.
   """
   use PairingsEngine.DataCase, async: true
 
@@ -51,8 +44,8 @@ defmodule PairingsEngine.PairingEngineTest do
   ## ---------- dispatch ----------
 
   describe "engine dispatch" do
-    test "a Swiss tournament set to ainalrami pairs a round through Ainalrami" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+    test "a Swiss tournament pairs a round through Ainalrami" do
+      t = tournament()
       players = roster(t)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -76,7 +69,7 @@ defmodule PairingsEngine.PairingEngineTest do
       # 1 would light up like a christmas tree if it were). This proves the
       # other direction: that a real compromise is actually surfaced, rather
       # than the panel only ever being able to say "fine".
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 9})
+      t = tournament(%{rounds_count: 9})
       roster(t, 10)
 
       given_up =
@@ -121,11 +114,8 @@ defmodule PairingsEngine.PairingEngineTest do
              end)
     end
 
-    @tag :javafo
-    test "a Swiss tournament left on the default pairs through Ainalrami" do
+    test "an even field is paired in full, every player seated" do
       t = tournament()
-      assert t.pairing_engine == "ainalrami"
-
       players = roster(t)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -135,13 +125,13 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Enum.sort(paired_player_ids(round)) == players |> Enum.map(& &1.id) |> Enum.sort()
     end
 
-    test "Ainalrami's nil bye is normalized to the pairing-allocated bye row JaVaFo's 0 produces" do
+    test "Ainalrami's nil bye is normalized to the pairing-allocated bye row" do
       # Ainalrami returns `{white_rank, nil}` for the pairing-allocated bye
-      # where JaVaFo's text output writes a literal `0`. If the adapter
+      # where the rest of the app speaks TRF's `0`. If the adapter
       # dropped that translation, `create_round/5` would try to look up rank
       # `nil` in the local rank map and crash - so an odd field is the
       # cheapest direct test of it.
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       roster(t, 5)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -155,7 +145,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "Ainalrami pairs several rounds in a row off its own result history" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 3})
+      t = tournament(%{rounds_count: 3})
       roster(t)
 
       assert {:ok, r1} = Pairing.pair_next_round(t)
@@ -218,7 +208,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # engine would otherwise produce, and the experiment can only pass if the
     # constraint actually reached it.
     test "without a forbidden pairing, ranks 1 and 3 are the natural round-1 pair" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       [p1, _p2, p3, _p4] = roster(t, 4)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -228,7 +218,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "Ainalrami keeps a forbidden pair apart" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       [p1, p2, p3, p4] = roster(t, 4)
 
       # A pairing number has to exist before XXP lines can name anyone, so
@@ -255,7 +245,7 @@ defmodule PairingsEngine.PairingEngineTest do
       # `XXP` lines (see `Exclusions`), so they travel the identical path --
       # but they are the case an arbiter never enters by hand, and so the one
       # least likely to be noticed if it silently stopped working.
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       {:ok, _} = Tournaments.add_pairing_rule(t, %{"kind" => "club"})
       [p1, _p2, p3, _p4] = roster(t, 4)
 
@@ -277,30 +267,6 @@ defmodule PairingsEngine.PairingEngineTest do
           Enum.sort([a.id, b.id])
       end)
     end
-
-    @tag :javafo
-    test "the same tournament on JaVaFo pairs that forbidden pair apart, as always" do
-      t = tournament(%{pairing_engine: "javafo"})
-      [p1, p2 | _] = roster(t)
-
-      {:ok, round} = Pairing.pair_next_round(t)
-      :ok = delete_round(t, round)
-
-      {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p2.id)
-
-      assert {:ok, round} = Pairing.pair_next_round(Repo.reload!(t))
-
-      met? =
-        round
-        |> Repo.preload(:pairings)
-        |> Map.fetch!(:pairings)
-        |> Enum.any?(fn pairing ->
-          Enum.sort([pairing.white_player_id, pairing.black_player_id]) ==
-            Enum.sort([p1.id, p2.id])
-        end)
-
-      refute met?
-    end
   end
 
   defp delete_round(tournament, round) do
@@ -315,7 +281,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # pairing leaves every alternative to be opened (version 4); this works
     # them all out at once, past the cap.
     test "works out every alternative past the cap, and touches no board" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 15)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -336,7 +302,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a round with no account yet gets one, at full depth, marked as recomputed" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 15)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -344,7 +310,7 @@ defmodule PairingsEngine.PairingEngineTest do
 
       assert {:ok, deepened} = Pairing.deepen_round(t, 1)
       assert deepened.explanation["origin"] == "recomputed"
-      assert deepened.explanation["paired_by"] == "ainalrami"
+      refute Map.has_key?(deepened.explanation, "paired_by")
       assert deepened.explanation["depth"] == "full"
 
       [section] = deepened.explanation["sections"]
@@ -352,7 +318,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a hand-edited round is refused, like a recompute" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 15)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -383,7 +349,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # reason: round 1 pairs 1v3 and 2v4, so a wish to keep 1 and 3 apart can
     # only be honoured by changing the round.
     test "a soft forbidden pairing steers Ainalrami without becoming a rule" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       [p1, p2, p3, p4] = roster(t, 4)
 
       {:ok, round} = Pairing.pair_next_round(t)
@@ -395,7 +361,7 @@ defmodule PairingsEngine.PairingEngineTest do
       t = Repo.reload!(t)
 
       # Not a rule: the TRF both engines read carries no XXP line for it.
-      refute Pairing.javafo_input(t) =~ "XXP"
+      refute Pairing.trf_input(t) =~ "XXP"
 
       assert {:ok, round} = Pairing.pair_next_round(t)
 
@@ -418,7 +384,7 @@ defmodule PairingsEngine.PairingEngineTest do
       # Three players, every pair soft: one takes the bye and the other two
       # MUST meet. The same three pairs as rules leave no legal round at all
       # (next test) - that contrast is the whole difference between the two.
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       [p1, p2, p3] = roster(t, 3)
 
       {:ok, round} = Pairing.pair_next_round(t)
@@ -436,7 +402,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "as rules, the same three pairs leave no legal round" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       [p1, p2, p3] = roster(t, 3)
 
       {:ok, round} = Pairing.pair_next_round(t)
@@ -450,7 +416,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "clubmates are kept apart for the first N rounds, and only those" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
 
       {:ok, _} =
         Tournaments.add_pairing_rule(t, %{
@@ -484,7 +450,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a wish for the last rounds is sent in those rounds and no others" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
 
       {:ok, _} =
         Tournaments.add_pairing_rule(t, %{
@@ -507,7 +473,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "with no soft rules the engine is handed nothing, so its ladder is untouched" do
-      t = tournament(%{pairing_engine: "ainalrami"})
+      t = tournament()
       players = roster(t, 4)
       rank_by_id = players |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
 
@@ -525,77 +491,11 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  ## ---------- changeset guards ----------
+  ## ---------- Baku ----------
 
-  describe "changeset: Ainalrami on a FIDE-homologated tournament is allowed, with warnings in the UI" do
-    # Refused outright until 2026-08-21, now the arbiter's call. The engine
-    # agrees with bbpPairings across ~488M pairings, and where it differs
-    # from JaVaFo it is on Article 5.2.5's TPN parity - where it follows the
-    # handbook text and JaVaFo carries pre-2026 behaviour. Blocking asserted
-    # a quality judgement the measurements do not support.
-    #
-    # The exposure is paperwork, not pairings: OpenPairings is endorsed as
-    # "Internal engine: NO - thru JaVaFo", so a rated round paired by
-    # Ainalrami was not produced by the engine that endorsement names. The
-    # UI warns prominently in two places; the data layer does not refuse.
-    test "selecting Ainalrami on a FIDE-homologated tournament is allowed" do
-      t = tournament(%{fide_homologated: true, fide_tournament_id: "12345"})
-
-      assert {:ok, updated} =
-               Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
-
-      assert updated.pairing_engine == "ainalrami"
-      assert updated.fide_homologated
-    end
-
-    test "turning ON FIDE homologation while the engine is Ainalrami is allowed" do
-      t = tournament(%{pairing_engine: "ainalrami"})
-
-      assert {:ok, updated} =
-               Tournaments.update_tournament(t, %{
-                 "fide_homologated" => "true",
-                 "fide_tournament_id" => "12345"
-               })
-
-      assert updated.fide_homologated
-      assert updated.pairing_engine == "ainalrami"
-    end
-
-    test "JaVaFo on a FIDE-homologated tournament is of course fine" do
-      t = tournament(%{fide_homologated: true, fide_tournament_id: "12345"})
-
-      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "javafo"})
-      assert updated.pairing_engine == "javafo"
-    end
-
-    test "an unknown engine name is rejected outright" do
+  describe "changeset: Baku acceleration on a Swiss" do
+    test "turning ON Baku acceleration is allowed" do
       t = tournament()
-
-      assert {:error, changeset} =
-               Tournaments.update_tournament(t, %{"pairing_engine" => "bbppairings"})
-
-      assert %{pairing_engine: _} = errors_on(changeset)
-    end
-  end
-
-  # These two used to assert the OPPOSITE - that Ainalrami and Baku were
-  # mutually exclusive - because Ainalrami's TRF parser discarded `XXA`
-  # entirely and would have paired an accelerated tournament on
-  # unaccelerated brackets. It reads `XXA` (and `XXP`) as of ainalrami
-  # `451c749`, verified against bbpPairings over 1.79M rounds carrying
-  # those lines, so the combination is now legal and these assert that it
-  # is allowed rather than refused.
-  describe "changeset: Ainalrami works with Baku acceleration" do
-    test "selecting Ainalrami on a Baku-accelerated tournament is allowed" do
-      t = tournament(%{acceleration: "baku"})
-
-      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
-      assert updated.pairing_engine == "ainalrami"
-      assert updated.acceleration == "baku"
-    end
-
-    test "turning ON Baku acceleration while the engine is Ainalrami is allowed" do
-      t = tournament(%{pairing_engine: "ainalrami"})
 
       assert {:ok, updated} = Tournaments.update_tournament(t, %{"acceleration" => "baku"})
       assert updated.acceleration == "baku"
@@ -603,115 +503,31 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  ## ---------- the lock ----------
-
-  describe "pairing_engine locks once round 1 is paired" do
-    test "it is not locked before anything is paired" do
-      t = tournament()
-      refute :pairing_engine in Tournaments.locked_fields(t)
-
-      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
-      assert updated.pairing_engine == "ainalrami"
-    end
-
-    test "it joins locked_fields/1 once a round exists" do
-      t = tournament(%{pairing_engine: "ainalrami"})
-      roster(t)
-      {:ok, _round} = Pairing.pair_next_round(t)
-
-      t = Repo.reload!(t)
-      assert :pairing_engine in Tournaments.locked_fields(t)
-    end
-
-    test "update_tournament/2 refuses the switch after round 1" do
-      t = tournament(%{pairing_engine: "ainalrami"})
-      roster(t)
-      {:ok, _round} = Pairing.pair_next_round(t)
-      t = Repo.reload!(t)
-
-      assert Tournaments.update_tournament(t, %{"pairing_engine" => "javafo"}) ==
-               {:error, :locked_after_pairing}
-
-      assert Repo.reload!(t).pairing_engine == "ainalrami"
-    end
-
-    test "re-submitting the same engine unchanged still saves" do
-      # The ordinary form case: the control is disabled but still posts its
-      # current value.
-      t = tournament(%{pairing_engine: "ainalrami"})
-      roster(t)
-      {:ok, _round} = Pairing.pair_next_round(t)
-      t = Repo.reload!(t)
-
-      assert {:ok, _} =
-               Tournaments.update_tournament(t, %{
-                 "pairing_engine" => "ainalrami",
-                 "venue" => "Town Hall"
-               })
-    end
-  end
-
-  ## ---------- the other two pairing systems ignore it entirely ----------
+  ## ---------- the other two pairing systems never reach the engine ----------
 
   describe "round robin and Keizer are unaffected" do
-    test "a round robin set to ainalrami pairs its Berger schedule, engine untouched" do
-      t = tournament(%{pairing_system: "round_robin", pairing_engine: "ainalrami"})
+    test "a round robin pairs its Berger schedule" do
+      t = tournament(%{pairing_system: "round_robin"})
       roster(t, 4)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
       assert length(Repo.preload(round, :pairings).pairings) == 2
     end
 
-    test "a round robin pairs identically whichever engine is selected" do
-      # Same roster, same schedule: `pairing_engine` is never read on this
-      # path, so the two must produce the same Berger round.
-      shape = fn engine ->
-        t = tournament(%{pairing_system: "round_robin", pairing_engine: engine})
-        roster(t, 4)
-        {:ok, round} = Pairing.pair_next_round(t)
-
-        round
-        |> Repo.preload(:pairings)
-        |> Map.fetch!(:pairings)
-        |> Enum.map(fn p ->
-          {p.board, player_number(p.white_player_id), player_number(p.black_player_id)}
-        end)
-      end
-
-      assert shape.("javafo") == shape.("ainalrami")
-    end
-
-    test "a Keizer tournament set to ainalrami pairs through Keizer's own algorithm" do
-      t = tournament(%{pairing_system: "keizer", pairing_engine: "ainalrami"})
+    test "a Keizer tournament pairs through Keizer's own algorithm" do
+      t = tournament(%{pairing_system: "keizer"})
       roster(t, 4)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
       assert length(Repo.preload(round, :pairings).pairings) == 2
     end
 
-    test "a Keizer tournament pairs identically whichever engine is selected" do
-      shape = fn engine ->
-        t = tournament(%{pairing_system: "keizer", pairing_engine: engine})
-        roster(t, 4)
-        {:ok, round} = Pairing.pair_next_round(t)
-
-        round
-        |> Repo.preload(:pairings)
-        |> Map.fetch!(:pairings)
-        |> Enum.map(fn p ->
-          {p.board, player_number(p.white_player_id), player_number(p.black_player_id)}
-        end)
-      end
-
-      assert shape.("javafo") == shape.("ainalrami")
-    end
-
-    test "a forbidden pairing on a round robin is not refused, engine notwithstanding" do
+    test "a forbidden pairing on a round robin is not refused" do
       # The XXP guard is Swiss-only: a round robin's fixed schedule never
       # builds a TRF at all, so an Ainalrami round robin with a forbidden
       # pairing must still pair (the schedule ignores the rule by design -
       # see docs/pairing-systems.md).
-      t = tournament(%{pairing_system: "round_robin", pairing_engine: "ainalrami"})
+      t = tournament(%{pairing_system: "round_robin"})
       [p1, p2 | _] = roster(t, 4)
 
       {:ok, round} = Pairing.pair_next_round(t)
@@ -723,152 +539,11 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  defp player_number(nil), do: nil
-  defp player_number(id), do: Repo.get!(PairingsEngine.Tournaments.Player, id).pairing_number
-
-  ## ---------- the two engines against each other ----------
-
-  describe "differential: Ainalrami vs JaVaFo on the same tournament" do
-    # The settings dialog tells an arbiter that Ainalrami found ZERO
-    # disagreements against bbpPairings over ~488 million pairings. That
-    # claim is earned in the engine's own repository, on a 36-core machine,
-    # over hours -- it cannot be re-run here and should not be.
-    #
-    # What CAN be checked here, and is worth checking because it is the
-    # claim as the arbiter experiences it, is that the two engines wired
-    # into THIS app agree about who plays whom on ordinary tournaments,
-    # through this app's own TRF construction and result plumbing rather
-    # than in isolation.
-    #
-    # Colours are deliberately not compared. The engines are known to
-    # disagree about Article 5.2.5's TPN parity -- an open question raised
-    # with FIDE, where Ainalrami follows the handbook text and every
-    # reference implementation carries pre-2026 behaviour -- so asserting
-    # colour equality would encode the disputed reading as correct.
-    @tag :javafo
-    test "they agree on the boards, round after round" do
-      for size <- [6, 8, 10] do
-        a = tournament(%{pairing_engine: "ainalrami", rounds_count: 3})
-        j = tournament(%{pairing_engine: "javafo", rounds_count: 3})
-
-        roster(a, size)
-        roster(j, size)
-
-        for round_number <- 1..3 do
-          {:ok, ra} = Pairing.pair_next_round(a)
-          {:ok, rj} = Pairing.pair_next_round(j)
-
-          assert boards(ra) == boards(rj),
-                 """
-                 #{size} players, round #{round_number}: the two engines seated
-                 different boards.
-
-                   ainalrami: #{inspect(boards(ra))}
-                   javafo:    #{inspect(boards(rj))}
-                 """
-
-          # Advance both on the SAME results, so round n+1 is compared from
-          # an identical history rather than from whatever each engine's own
-          # previous round happened to produce.
-          enter_same_results(ra, rj)
-        end
-      end
-    end
-
-    # A field with a bye every round is where the two most plausibly part
-    # company: C2 governs who may receive a second one, and it is the rule
-    # the known bbpPairings defects violate.
-    @tag :javafo
-    test "they agree on an odd field, where a bye is allocated every round" do
-      a = tournament(%{pairing_engine: "ainalrami", rounds_count: 3})
-      j = tournament(%{pairing_engine: "javafo", rounds_count: 3})
-
-      roster(a, 7)
-      roster(j, 7)
-
-      for _round <- 1..3 do
-        {:ok, ra} = Pairing.pair_next_round(a)
-        {:ok, rj} = Pairing.pair_next_round(j)
-
-        assert boards(ra) == boards(rj)
-        assert byes(ra) == byes(rj), "the two engines gave the bye to different players"
-
-        enter_same_results(ra, rj)
-      end
-    end
-  end
-
-  # Unordered pairs, sorted - who played whom, with colour deliberately
-  # discarded (see the describe block above).
-  defp boards(round) do
-    round
-    |> Repo.preload(:pairings)
-    |> Map.fetch!(:pairings)
-    |> Enum.reject(&is_nil(&1.black_player_id))
-    |> Enum.map(fn p ->
-      Enum.sort([player_seed(p.white_player_id), player_seed(p.black_player_id)])
-    end)
-    |> Enum.sort()
-  end
-
-  defp byes(round) do
-    round
-    |> Repo.preload(:pairings)
-    |> Map.fetch!(:pairings)
-    |> Enum.filter(&is_nil(&1.black_player_id))
-    |> Enum.map(&player_seed(&1.white_player_id))
-    |> Enum.sort()
-  end
-
-  # Compares by NAME, not by database id: the two tournaments hold different
-  # player rows, so ids are meaningless across them and "P3" is the only
-  # thing that means the same player in both.
-  defp player_seed(nil), do: nil
-  defp player_seed(id), do: Repo.get!(PairingsEngine.Tournaments.Player, id).name
-
-  # Results are decided by WHICH PLAYER wins, never by which seat.
-  #
-  # Scoring "1-0" on every board looks equivalent and is not: the two
-  # engines legitimately disagree about colours (Article 5.2.5's TPN parity
-  # - see the describe block), so the same pair can be seated the opposite
-  # way round in each tournament and "White wins" then hands the point to a
-  # DIFFERENT player. Round two is then compared from two different score
-  # histories, and the test reports an engine disagreement that is entirely
-  # its own doing. It did exactly that before this was fixed.
-  #
-  # The lower seed always wins, translated into whichever seat that player
-  # actually occupies, so both tournaments carry identical standings into
-  # the next round no matter how the colours fell.
-  defp enter_same_results(round_a, round_b) do
-    for round <- [round_a, round_b] do
-      round
-      |> Repo.preload(:pairings)
-      |> Map.fetch!(:pairings)
-      |> Enum.each(fn p ->
-        result =
-          cond do
-            is_nil(p.black_player_id) -> "bye"
-            seed_number(p.white_player_id) < seed_number(p.black_player_id) -> "1-0"
-            true -> "0-1"
-          end
-
-        Repo.update!(Ecto.Changeset.change(p, result: result))
-      end)
-
-      Repo.update!(Ecto.Changeset.change(round, status: "finished"))
-    end
-  end
-
-  defp seed_number(id) do
-    "P" <> n = player_seed(id)
-    String.to_integer(n)
-  end
-
   ## ---------- the engine's own account of the round ----------
 
   describe "explanation capture" do
     test "an Ainalrami round records the brackets the engine actually built" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       players = roster(t, 8)
       roster_ids = players |> Enum.map(& &1.id) |> MapSet.new()
 
@@ -907,7 +582,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "the stored pairs are the pairs that were actually seated" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 8)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -937,7 +612,7 @@ defmodule PairingsEngine.PairingEngineTest do
       # exactly the sum of the boards beneath it"), and an arbiter checking
       # the arithmetic is exactly the person this feature is for. Note the
       # float edges are INCLUDED - drop them and the columns stop adding up.
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 10)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -966,7 +641,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # am I not playing him", which the engine computed on every round and
     # discarded until Ainalrami 0.18.
     test "the record carries what each bracket was paired FROM" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       players = roster(t, 8)
       ids = MapSet.new(players, & &1.id)
 
@@ -990,7 +665,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a pair the arbiter forbade is recorded as excluded, with the reason" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       [p1, p2 | _] = roster(t, 8)
       {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p2.id)
 
@@ -1008,7 +683,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # each. Since version 4 that happens when somebody opens the question,
     # and the answer is stored so it happens once.
     test "an odd field records who had the bye, and why once asked" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       players = roster(t, 7)
       ids = MapSet.new(players, & &1.id)
 
@@ -1031,7 +706,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "an even field has no bye to explain, and round one has no floats" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 8)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -1080,7 +755,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a stale record is recomputed from the boards as played - and no pairing changes" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 7)
       assert {:ok, round} = Pairing.pair_next_round(t)
       before = boards(t.id, 1)
@@ -1102,7 +777,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a round changed by hand after pairing is left exactly as it is" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 8)
       assert {:ok, round} = Pairing.pair_next_round(t)
 
@@ -1125,7 +800,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a current record is not touched, so the button is idempotent" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 8)
       assert {:ok, _round} = Pairing.pair_next_round(t)
       t = Repo.get!(Tournament, t.id)
@@ -1134,7 +809,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "a round with no record at all gets one" do
-      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      t = tournament(%{rounds_count: 5})
       roster(t, 8)
       assert {:ok, round} = Pairing.pair_next_round(t)
       round |> Ecto.Changeset.change(explanation: nil) |> Repo.update!()
@@ -1144,25 +819,24 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Tournaments.get_round(t.id, 1).explanation["version"] == 3
     end
 
-    test "any single-pool Swiss round is eligible, whoever paired it" do
-      javafo = tournament(%{pairing_engine: "javafo"})
-      categories = tournament(%{pairing_engine: "ainalrami", pair_by_category: true})
-      round_robin = tournament(%{pairing_engine: "ainalrami", pairing_system: "round_robin"})
+    test "any single-pool Swiss round is eligible" do
+      swiss = tournament()
+      categories = tournament(%{pair_by_category: true})
+      round_robin = tournament(%{pairing_system: "round_robin"})
       blank = %PairingsEngine.Tournaments.Round{}
       current = %PairingsEngine.Tournaments.Round{explanation: %{"version" => 3}}
 
       assert Pairing.reexplain_status(categories, blank) == :ineligible
       assert Pairing.reexplain_status(round_robin, blank) == :ineligible
-      assert Pairing.reexplain_status(javafo, nil) == :ineligible
-      # A JaVaFo round is not ineligible - only current or stale, like any other.
-      assert Pairing.reexplain_status(javafo, current) == :current
+      assert Pairing.reexplain_status(swiss, nil) == :ineligible
+      assert Pairing.reexplain_status(swiss, current) == :current
     end
 
-    # JaVaFo records nothing, so the recompute is the only account such a
-    # round can ever have - Ainalrami's reading of JaVaFo's boards, and the
-    # record says so.
-    test "a JaVaFo-paired round gets an Ainalrami analysis, marked as such" do
-      t = tournament(%{pairing_engine: "javafo", rounds_count: 5})
+    # A round paired before accounts existed (or by the external engine this
+    # app once ran) has no record, so the recompute is the only account it
+    # can ever have - Ainalrami's reading of the boards as played.
+    test "a round with no record of its own gets an Ainalrami analysis, marked recomputed" do
+      t = tournament(%{rounds_count: 5})
       players = roster(t, 6)
       Pairing.ensure_pairing_numbers(t, players)
 
@@ -1176,7 +850,7 @@ defmodule PairingsEngine.PairingEngineTest do
           status: "playing"
         })
 
-      # What JaVaFo would have written for round one: S1 against S2.
+      # Boards written by something other than this engine.
       for {board, white, black} <- [{1, p1, p4}, {2, p5, p2}, {3, p3, p6}] do
         Repo.insert!(%PairingsEngine.Tournaments.Pairing{
           round_id: round.id,
@@ -1194,27 +868,11 @@ defmodule PairingsEngine.PairingEngineTest do
       explanation = Tournaments.get_round(t.id, 1).explanation
       assert explanation["version"] == 3
       assert explanation["engine"] == "ainalrami"
-      assert explanation["paired_by"] == "javafo"
+      refute Map.has_key?(explanation, "paired_by")
       assert explanation["origin"] == "recomputed"
       [%{"brackets" => [bracket]}] = explanation["sections"]
       assert length(bracket["states"]) == 6
       assert boards(t.id, 1) == before
-    end
-  end
-
-  describe "the JaVaFo engine" do
-    @tag :javafo
-    test "stores nothing rather than an empty explanation" do
-      # Explicit since 2026-08-25: Ainalrami is the default, so a test about
-      # the OTHER engine has to say so rather than lean on a default that no
-      # longer points at it.
-      # nil, not %{} - the page distinguishes "this engine cannot explain
-      # itself" from "it explained and had nothing to say".
-      t = tournament(%{pairing_engine: "javafo"})
-      roster(t, 6)
-
-      assert {:ok, round} = Pairing.pair_next_round(t)
-      assert round.explanation == nil
     end
   end
 end

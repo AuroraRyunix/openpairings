@@ -610,8 +610,7 @@ where everyone has their own account. Local mode is for one person on one
 computer, and it is not a shortcut to skip setting up the other thing.
 
 No Java is needed for either mode. Pairing is done by Ainalrami, which is
-Elixir and is inside the binary; JaVaFo is the only thing that ever wanted a
-JVM, and it is now the non-default alternative.
+Elixir and is inside the binary.
 
 ## Running the binary
 
@@ -638,12 +637,6 @@ PORT=4000 \
 
 Burrito binaries also accept `maintenance` sub-commands, e.g.
 `./pairings_engine_… maintenance uninstall` to clear the self-extracted cache.
-
-## Not in the binary
-
-- **JaVaFo** (Swiss pairing engine) is © Roberto Ricca and not bundled. Install
-  a JRE on the target and drop `javafo.jar` at `priv/javafo/javafo.jar` inside
-  the extracted release, or run non-Swiss systems (round-robin / Keizer).
 
 ## CI (all five targets)
 

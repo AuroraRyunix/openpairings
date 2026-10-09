@@ -49,8 +49,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        dirty: false,
        stale: false,
        # Which locked pairing-shape control (if any) the user just tried to
-       # interact with - one of `:pairing_system`, `:pairing_engine`,
-       # `:rr_cycles`, `:rr_match_format`, `:swiss_match_format`, or nil.
+       # interact with - one of `:pairing_system`, `:rr_cycles`, `:rr_match_format`, `:swiss_match_format`, or nil.
        locked_hint: nil,
        # Fields the arbiter has deliberately unlocked for THIS save, via the
        # "Unlock" button on the locked-field warning - see
@@ -61,12 +60,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        # just saved goes right back to frozen, same as any other locked
        # field once round 1 is paired).
        unlocked_fields: MapSet.new(),
-       # Holds the pending settings params while the "switching engine"
-       # dialog is up; nil when no dialog is showing.
-       engine_confirm: nil,
-       # Which subject's form the pending dialog came from, so a confirmed
-       # save reports back beside the button that was pressed.
-       engine_confirm_section: nil,
        # Which subject's save produced the current `note`/`error`. Each card
        # saves on its own, so the feedback has to say WHICH one saved rather
        # than appearing once at the foot of the page.
@@ -104,7 +97,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       acceleration_locked?: :acceleration in fide_locked,
       paired_rounds: Pairing.paired_rounds_count(tournament.id),
       pairing_system_locked?: :pairing_system in locked,
-      pairing_engine_locked?: :pairing_engine in locked,
       rr_cycles_locked?: :rr_cycles in locked,
       rr_reverse_last_two_locked?: :rr_reverse_last_two in locked,
       rr_match_format_locked?: :rr_match_format in locked,
@@ -153,7 +145,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # send. `String.to_existing_atom/1` on an unguarded param is a crafted
   # event away from an `ArgumentError` that takes the sender's socket down
   # with it, and the atom table is not the caller's to grow either.
-  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_reverse_last_two rr_match_format swiss_match_format initial_colour rating_method initial_order_tiebreak)
+  @locked_fields ~w(pairing_system rr_cycles rr_reverse_last_two rr_match_format swiss_match_format initial_colour rating_method initial_order_tiebreak)
 
   def handle_event("locked_hint", %{"field" => field}, socket)
       when field in @locked_fields do
@@ -202,57 +194,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
     with :proceed <- fide_gate(socket, "save", payload, base, params) do
-      # Switching the engine is the one setting on this page that changes who
-      # computes the pairings, so it asks first rather than saving silently
-      # with an explanation buried in a hint the arbiter has already scrolled
-      # past.
-      #
-      # The direction reversed on 2026-08-25. It used to guard the way IN to
-      # Ainalrami, when JaVaFo was the default and the endorsed one. Now the
-      # choice that deserves a second look is the way OUT: JaVaFo implements
-      # C.04.3 as it stood until 31 January 2026 and has not been updated for
-      # the edition effective 1 February 2026, so selecting it means pairing a
-      # 2026 tournament by superseded rules.
-      if switching_to_javafo?(base, params) do
-        {:noreply, assign(socket, engine_confirm: params, engine_confirm_section: section)}
-      else
-        save_settings(socket, base, params, section)
-      end
+      save_settings(socket, base, params, section)
     end
-  end
-
-  def handle_event("confirm_engine", _params, socket) do
-    case socket.assigns.engine_confirm do
-      nil ->
-        {:noreply, socket}
-
-      params ->
-        base = Tournaments.get_tournament!(socket.assigns.tournament.id)
-        section = socket.assigns.engine_confirm_section || "pairing"
-
-        save_settings(
-          assign(socket, engine_confirm: nil, engine_confirm_section: nil),
-          base,
-          params,
-          section
-        )
-    end
-  end
-
-  def handle_event("cancel_engine", _params, socket) do
-    {:noreply, assign(socket, engine_confirm: nil)}
   end
 
   ## ---------- helpers ----------
-
-  # Server-side enforcement of the locks: drop any submitted value for a
-  # locked field regardless of the HTML `disabled` attribute.
-  # Only when it is actually a CHANGE. Re-saving the page with JaVaFo
-  # already selected must not re-prompt, or every unrelated edit on a
-  # tournament already using it drags the dialog back up.
-  defp switching_to_javafo?(base, params) do
-    params["pairing_engine"] == "javafo" and base.pairing_engine != "javafo"
-  end
 
   defp save_settings(socket, base, params, section) do
     # The fields deliberately unlocked FOR THIS SAVE - read from the
@@ -325,7 +271,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp strip_locked_pairing_fields(params, assigns) do
     params
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
-    |> maybe_drop_locked("pairing_engine", assigns.pairing_engine_locked?)
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
     |> maybe_drop_locked("rr_reverse_last_two", assigns.rr_reverse_last_two_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
@@ -386,12 +331,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     do:
       gettext(
         "Swiss, round robin and Keizer decide colours, floats, repeats and what round comes next in completely different ways. Rounds already paired were paired under the current system; switching now doesn't repair them to match - it leaves what's already on the board decided by one system while everything from here on is judged by another."
-      )
-
-  defp pairing_engine_warning,
-    do:
-      gettext(
-        "JaVaFo and Ainalrami are two independent implementations of the pairing rules. A round already on the board was decided by whichever engine was configured at the time; switching now hands the new engine a history it did not produce, so every colour, float and rematch judgement from here on is made against a bracket shape the other engine chose."
       )
 
   # TRF26 record 172's codes, with what each means.
@@ -520,45 +459,18 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 )
               }
             >
-              <div class="locked-wrap">
-                <select name="tournament[pairing_engine]" disabled={@pairing_engine_locked?}>
-                  <option value="javafo" selected={@tournament.pairing_engine == "javafo"}>
-                    {gettext("JaVaFo - external, implements the 2017 rules")}
-                  </option>
-
-                  <option value="ainalrami" selected={@tournament.pairing_engine == "ainalrami"}>
-                    {gettext("Ainalrami - built in, implements the 2026 rules (default)")}
-                  </option>
-                </select>
-                <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
-              </div>
-
-              <.locked_hint_message
-                field={:pairing_engine}
-                locked_hint={@locked_hint}
-                warning={pairing_engine_warning()}
-              />
+              <p id="swiss-engine-name">
+                <strong>Ainalrami</strong>
+              </p>
               <span class="hint">
                 <.rich_text text={
                   gettext(
-                    "%[engine] is the default. It is built into the app - no Java, nothing to install - and it implements C.04.3 as it stands from %[date], the current edition."
+                    "%[engine] pairs every Swiss tournament here. It is built into the app - nothing to install - and it implements C.04.3 as it stands from %[date], the current edition."
                   )
                 }>
                   <:part name="engine"><strong>Ainalrami</strong></:part>
 
                   <:part name="date"><strong>{gettext("1 February 2026")}</strong></:part>
-                </.rich_text>
-              </span>
-
-              <span class="hint">
-                <.rich_text text={
-                  gettext(
-                    "%[engine] is the external engine this app paired with first. It implements the %[edition] of the same rules and has not been updated for the current one, so the two disagree on roughly 4% of rounds - that gap is the size of the rules change, not a fault in either."
-                  )
-                }>
-                  <:part name="engine"><strong>JaVaFo</strong></:part>
-
-                  <:part name="edition"><strong>{gettext("2017 edition")}</strong></:part>
                 </.rich_text>
               </span>
 
@@ -571,16 +483,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   <:part name="pairings">
                     <strong>{gettext("2.5 billion individual pairings")}</strong>
                   </:part>
-                </.rich_text>
-              </span>
-
-              <span :if={@tournament.fide_homologated} class="error-note">
-                <.rich_text text={
-                  gettext(
-                    "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2017 one it was last built for. Neither is a settled paperwork position - it is yours to make."
-                  )
-                }>
-                  <:part name="flag"><strong>{gettext("FIDE-homologated")}</strong></:part>
                 </.rich_text>
               </span>
             </.setting_field>
@@ -1013,76 +915,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             {gettext("Forbidden pairings")}
           </.link>
         </p>
-      </div>
-
-      <div
-        :if={@engine_confirm}
-        class="modal-overlay"
-        phx-window-keydown="cancel_engine"
-        phx-key="escape"
-      >
-        <div
-          class="modal-card"
-          phx-click-away="cancel_engine"
-          style="max-width: 640px"
-          id="engine-confirm-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="engine-confirm-title"
-          tabindex="-1"
-          phx-hook="DialogFocus"
-          data-dialog
-        >
-          <h2 id="engine-confirm-title">{gettext("Switch to JaVaFo?")}</h2>
-
-          <p class="hint">
-            <strong>{gettext("This pairs the tournament by superseded rules.")}</strong>
-            <.rich_text text={
-              gettext(
-                "JaVaFo implements C.04.3 as it stood until %[date] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4% of rounds, and that gap is the size of the rules change."
-              )
-            }>
-              <:part name="date"><strong>{gettext("31 January 2026")}</strong></:part>
-            </.rich_text>
-          </p>
-
-          <p class="hint">
-            <.rich_text text={
-              gettext(
-                "There are real reasons to choose it. Most tournament software has shipped JaVaFo for years, so an arbiter reconciling this event against another program will find %[matching] boards - and a board that matches is a board nobody has to argue about."
-              )
-            }>
-              <:part name="matching"><strong>{gettext("matching")}</strong></:part>
-            </.rich_text>
-          </p>
-
-          <p class="hint">
-            {gettext(
-              "You can switch back at any time before round one is paired. Once a round exists the engine is locked, because changing pairing system mid-tournament is not something the regulations allow."
-            )}
-          </p>
-
-          <p :if={@tournament.fide_homologated} class="error-note">
-            <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
-            <.rich_text text={
-              gettext(
-                "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2017 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
-              )
-            }>
-              <:part name="rated"><em>{gettext("submitted for rating")}</em></:part>
-            </.rich_text>
-          </p>
-
-          <div class="actions">
-            <button type="button" class="pe-btn primary" phx-click="confirm_engine">
-              {gettext("Use JaVaFo")}
-            </button>
-
-            <button type="button" class="pe-btn" phx-click="cancel_engine">
-              {gettext("Keep Ainalrami")}
-            </button>
-          </div>
-        </div>
       </div>
     </Layouts.app>
     """

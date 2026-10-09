@@ -227,7 +227,6 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
     } do
       tournament =
         create_tournament(scope, %{
-          "pairing_engine" => "ainalrami",
           "extra_points_mode" => "acceleration",
           "start_date" => "2026-07-01",
           "round_dates" => List.duplicate("2026-07-01", 5),

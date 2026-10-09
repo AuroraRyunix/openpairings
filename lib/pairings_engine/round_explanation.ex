@@ -19,8 +19,8 @@ defmodule PairingsEngine.RoundExplanation do
 
   @doc """
   The stored account, with player ids resolved to players, or nil when the
-  round has none (every JaVaFo round, and every round paired before the
-  column existed).
+  round has none (every round paired before the column existed, or by the
+  external engine this app no longer has).
   """
   def for_round(%{explanation: nil}, _players), do: nil
 

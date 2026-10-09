@@ -20,10 +20,6 @@ defmodule PairingsEngine.Accounts.TournamentDefaults do
       `Tiebreaks.fide_defaults/1` for its type, and the right list for a
       round robin, a Swiss and a team event are different lists. One stored
       list would be the wrong one for every type but one.
-    * **Pairing engine.** Ainalrami is the default because JaVaFo implements
-      the superseded edition of C.04.3 (see `Tournament`'s
-      `pairing_engine`), so a per-account default of JaVaFo would quietly
-      re-select the superseded rules for every event.
     * **Chief arbiter.** It is a name AND a FIDE id kept together by the
       officials picker (`PairingsEngineWeb.ArbiterCombo`); a default that
       filled one half would produce a report with a name and no id.

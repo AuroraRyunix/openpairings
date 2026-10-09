@@ -1649,6 +1649,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         system: trf_system_phrase(a)
       )
 
+  defp trf_adjustment_text(%{code: :dutch_2017} = a),
+    do:
+      gettext(
+        "The file's tournament type code %{code} says its rounds were paired by the 2017 edition of the Dutch system. They are kept as played; the rounds paired here follow the edition in force since July 2025.",
+        code: a.type_code
+      )
+
   defp trf_adjustment_text(%{code: :rr_cycles_clamped} = a),
     do:
       gettext(
@@ -1803,9 +1810,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
     do: gettext("The import adjusted something this page cannot describe (%{code}).", code: code)
 
   defp trf_system_phrase(%{pairing_system: "round_robin"}), do: gettext("a round robin")
-
-  defp trf_system_phrase(%{pairing_engine: "javafo"}),
-    do: gettext("a Swiss paired by the Dutch system as it stood before July 2025 (JaVaFo)")
 
   defp trf_system_phrase(_),
     do: gettext("a Swiss paired by the Dutch system in force since July 2025")

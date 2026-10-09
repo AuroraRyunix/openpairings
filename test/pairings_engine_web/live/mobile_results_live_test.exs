@@ -38,9 +38,8 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
 
   # Everything below (level/round/board-range enforcement) is built by
   # inserting `Round`/`Pairing` rows directly rather than going through
-  # `Engine.pair_next_round/1`, unlike `paired_tournament/0` above - it needs
-  # no `@tag :javafo` and no jar most checkouts of this repo don't have (see
-  # `test/test_helper.exs`), and it is the only way to get a SPECIFIC board
+  # `Engine.pair_next_round/1`, unlike `paired_tournament/0` above - it is
+  # the only way to get a SPECIFIC board
   # already carrying a result, or a SECOND round, without depending on what
   # the real pairing engine happens to produce.
   defp new_tournament(name \\ "Mobile Level Test") do
@@ -85,7 +84,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
     round
   end
 
-  @tag :javafo
   test "shows each player's rating and their score entering the round", %{conn: conn} do
     tournament = paired_tournament()
     conn = enrolled_conn(conn, tournament)
@@ -97,7 +95,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
     assert html =~ "0 pts"
   end
 
-  @tag :javafo
   test "locking blocks result entry until unlocked again", %{conn: conn} do
     tournament = paired_tournament()
     conn = enrolled_conn(conn, tournament)
@@ -129,7 +126,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
   end
 
   describe "extra results (forfeits/asymmetric codes, behind \"More…\")" do
-    @tag :javafo
     test "the extra codes are hidden until \"More…\" is tapped, then settable", %{conn: conn} do
       tournament = paired_tournament()
       conn = enrolled_conn(conn, tournament)
@@ -150,7 +146,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
              |> Map.fetch!(:result) == "1-0FF"
     end
 
-    @tag :javafo
     test "the played-but-unrated codes are offered and writable from a phone", %{conn: conn} do
       # The write guard was a hand-copied ten-item list whose comment claimed
       # it mirrored the Pairings page. It had been missing these three since
@@ -172,7 +167,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
              |> Map.fetch!(:result) == "1/2-1/2U"
     end
 
-    @tag :javafo
     test "a board already carrying an extra-code result shows its panel without a tap", %{
       conn: conn
     } do
@@ -194,7 +188,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
   end
 
   describe "audit trail" do
-    @tag :javafo
     test "entering a result from a phone writes an audit row (previously wrote nothing at all)",
          %{conn: conn} do
       tournament = paired_tournament()
@@ -219,7 +212,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
                ~s(Via the phone "Board 3 tablet")
     end
 
-    @tag :javafo
     test "a phone with no label is still identifiable, by enrollment id", %{conn: conn} do
       tournament = paired_tournament()
       {:ok, enrollment} = Mobile.create_enrollment(tournament.id)
@@ -259,7 +251,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
   end
 
   describe "revoking an enrollment reaches the phone that is holding it" do
-    @tag :javafo
     test "the revoked phone is sent back to the code-entry page", %{conn: conn} do
       # `revoke/1` only wrote `revoked_at` and told nobody. The page kept
       # reloading the round on every tournament change and re-checked the
@@ -276,7 +267,6 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       assert_redirect(lv, ~p"/m")
     end
 
-    @tag :javafo
     test "a different phone on the same tournament stays put", %{conn: conn} do
       # The broadcast goes to the whole tournament topic, so the id has to
       # be checked - otherwise revoking one phone would evict all of them.

@@ -22,7 +22,6 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
           %{
             "name" => "Bye preferences",
             "type" => "swiss",
-            "pairing_engine" => "ainalrami",
             "start_date" => "2026-07-01",
             "rounds_count" => "5",
             "round_dates" => List.duplicate("2026-07-01", 5),
@@ -146,21 +145,6 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       assert has_element?(lv, "#player-bye-preference-ignored")
       assert has_element?(lv, "#player-bye-preference-marker-#{stored.id}.pe-tag-muted")
       assert Repo.reload!(stored).bye_preference == "want_hard"
-    end
-
-    test "JaVaFo: no control, a one-line reason; a stored one names its value", %{
-      conn: conn,
-      scope: scope
-    } do
-      t = tournament(scope, %{"pairing_engine" => "javafo"})
-      p = player(t, "Anna")
-      lv = open_edit(conn, t, p)
-      refute has_element?(lv, "#player-bye-preference-select")
-      assert has_element?(lv, "#player-bye-preference-javafo", "not available")
-
-      q = player(t, "Bert", %{"bye_preference" => "want_soft"})
-      lv = open_edit(conn, t, q)
-      assert has_element?(lv, "#player-bye-preference-javafo")
     end
 
     test "round robin and Keizer: not there at all", %{conn: conn, scope: scope} do

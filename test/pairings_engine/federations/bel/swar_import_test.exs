@@ -533,7 +533,6 @@ defmodule PairingsEngine.Federations.BEL.SwarImportTest do
   # opponent. Fixed by resolving historical opponent identity against every
   # player who ever received a pairing_number, regardless of current
   # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
-  @tag :javafo
   test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
     assert {:ok, tournament, _warnings} =
              SwarImport.import_file(@test3_321)

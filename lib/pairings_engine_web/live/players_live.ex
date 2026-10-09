@@ -2100,9 +2100,6 @@ defmodule PairingsEngineWeb.PlayersLive do
   #             robin, Keizer and team Swiss have no pairing-allocated bye
   #             to withhold), or the BEL pack's switch is off and this
   #             player has no exclusion stored;
-  #   :javafo - JaVaFo pairs this tournament and has no such option, so the
-  #             form says so in one line instead of offering a setting
-  #             nothing reads;
   #   :on     - offered.
   #
   # A player who already HAS an exclusion keeps the control even with the
@@ -2114,7 +2111,6 @@ defmodule PairingsEngineWeb.PlayersLive do
     cond do
       not enabled? -> :hidden
       tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :not_swiss
-      tournament.pairing_engine == "javafo" -> :javafo
       true -> :on
     end
   end
@@ -2123,7 +2119,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp no_bye_marker?(player, tournament) do
     player.no_bye and tournament.pairing_system == "swiss" and
-      tournament.pairing_engine == "ainalrami" and not Tournament.team_swiss?(tournament)
+      not Tournament.team_swiss?(tournament)
   end
 
   defp no_bye_title(%{no_bye_rounds: rounds}) when rounds in [nil, ""],
@@ -2154,16 +2150,6 @@ defmodule PairingsEngineWeb.PlayersLive do
     <p id="player-no-bye-not-swiss" class="hint" style="grid-column: 1 / -1; margin: 0">
       {gettext(
         "Exclude from the pairing-allocated bye: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
-      )}
-    </p>
-    """
-  end
-
-  defp no_bye_fields(%{mode: :javafo} = assigns) do
-    ~H"""
-    <p id="player-no-bye-javafo" class="hint" style="grid-column: 1 / -1; margin: 0">
-      {gettext(
-        "Exclude from the pairing-allocated bye: not available - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it."
       )}
     </p>
     """
@@ -2243,11 +2229,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Whether the player form offers a bye preference, and how:
   #
   #   :hidden     - not a Swiss the Dutch engine pairs player by player,
-  #                 the "Bye preferences" switch is off and this player has
-  #                 none stored, or JaVaFo pairs it and this player has none
-  #                 stored;
-  #   :javafo     - JaVaFo pairs it and this player has one stored, which
-  #                 JaVaFo will not read: said in one line;
+  #                 or the "Bye preferences" switch is off and this player
+  #                 has none stored;
   #   :fide_rated - the tournament is FIDE-rated, where the preferences are
   #                 not offered at all; a stored one is shown as ignored
   #                 (and kept, not deleted);
@@ -2266,7 +2249,6 @@ defmodule PairingsEngineWeb.PlayersLive do
       not enabled? -> :hidden
       tournament.pairing_system != "swiss" or Tournament.team_swiss?(tournament) -> :not_swiss
       tournament.fide_homologated -> :fide_rated
-      tournament.pairing_engine == "javafo" -> :javafo
       true -> :on
     end
   end
@@ -2287,7 +2269,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp bye_preference_marker?(player, tournament) do
     player.bye_preference in Player.bye_preferences() and tournament.pairing_system == "swiss" and
-      tournament.pairing_engine == "ainalrami" and not Tournament.team_swiss?(tournament)
+      not Tournament.team_swiss?(tournament)
   end
 
   defp bye_preference_tag("want_hard"), do: gettext("bye: must")
@@ -2330,23 +2312,6 @@ defmodule PairingsEngineWeb.PlayersLive do
       {gettext(
         "Bye preference: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
       )}
-    </p>
-    """
-  end
-
-  defp bye_preference_fields(%{mode: :javafo} = assigns) do
-    ~H"""
-    <p id="player-bye-preference-javafo" class="hint" style="grid-column: 1 / -1; margin: 0">
-      <%= if @form["bye_preference"] in [nil, ""] do %>
-        {gettext(
-          "Bye preference: not available - this tournament pairs with JaVaFo, which has no such option. Switch the tournament to the Ainalrami engine to use it."
-        )}
-      <% else %>
-        {gettext(
-          "Bye preference (%{what}): not applied - this tournament pairs with JaVaFo, which has no such option. Only the Ainalrami engine applies it.",
-          what: bye_preference_label(@form["bye_preference"])
-        )}
-      <% end %>
     </p>
     """
   end

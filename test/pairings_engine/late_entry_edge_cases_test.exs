@@ -54,7 +54,6 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
             name: "Late entry edge cases",
             type: "swiss",
             pairing_system: "swiss",
-            pairing_engine: "ainalrami",
             rounds_count: rounds_count,
             round_dates:
               for(d <- 1..rounds_count, do: Date.to_iso8601(Date.add(~D[2026-03-01], d))),

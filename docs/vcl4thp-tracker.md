@@ -292,7 +292,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-09
 | 184 | Mixed standard/forfeit results? | N | met | ok | No code mixes a played result with a forfeit (results.ex:89-114). |
 | 185 | Unrated results (game under one move)? | Y | met | ok | 1-0U, 0-1U, 1/2-1/2U, exported as W/L/D (results.ex:100-102,261-265). |
 | 186 | All enterable results handled correctly? | Y | met | ok | One classification table drives standings, tie-breaks, engine input, export and import (results.ex:89-114). |
-| 187 | Boards ordered by the published rules? | Y | met | ok | The engine's output order already follows C.04.2:3.6 (higher score of the higher-ranked player, then sum of scores, then lower TPN, bye last) and plan_boards numbers it in that order (pairing.ex:881-891). Test: board_order_c0402_test.exs (14, 15 and 22 players, 5 rounds, varied results). JaVaFo not checked. |
+| 187 | Boards ordered by the published rules? | Y | met | ok | The engine's output order already follows C.04.2:3.6 (higher score of the higher-ranked player, then sum of scores, then lower TPN, bye last) and plan_boards numbers it in that order (pairing.ex:881-891). Test: board_order_c0402_test.exs (14, 15 and 22 players, 5 rounds, varied results). |
 | 188 | With acceleration, ordered by real + fictitious points? | Y | met | ok | With Baku acceleration the boards come in C.04.2:3.6 order on real plus virtual points; test board_order_baku_test.exs (16 players, rounds 1-3, checked against 3.6 with Group A's virtual points, and shown to differ from real points alone). |
 
 ## Changing past results

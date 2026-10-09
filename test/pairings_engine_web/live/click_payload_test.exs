@@ -33,8 +33,7 @@ defmodule PairingsEngineWeb.ClickPayloadTest do
       Tournaments.create_tournament(scope, %{
         "name" => "Click Payload Open",
         "type" => "swiss",
-        "rounds_count" => "5",
-        "pairing_engine" => "ainalrami"
+        "rounds_count" => "5"
       })
 
     players =
@@ -54,8 +53,7 @@ defmodule PairingsEngineWeb.ClickPayloadTest do
       Tournaments.create_tournament(scope, %{
         "name" => "Click Payload Other",
         "type" => "swiss",
-        "rounds_count" => "5",
-        "pairing_engine" => "ainalrami"
+        "rounds_count" => "5"
       })
 
     {:ok, other_player} =

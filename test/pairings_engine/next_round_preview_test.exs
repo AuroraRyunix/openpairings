@@ -178,24 +178,6 @@ defmodule PairingsEngine.NextRoundPreviewTest do
       assert NextRoundPreview.run(reload(t)) == {:error, {:too_many, 7}}
     end
 
-    test "not with JaVaFo: one JVM per outcome" do
-      t = plain_tournament(10, %{pairing_engine: "javafo"})
-      # Paired by Ainalrami here, so no JVM is needed for the test itself.
-      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
-        set: [pairing_engine: "ainalrami"]
-      )
-
-      pair!(t)
-      finish_some(t, 3)
-
-      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
-        set: [pairing_engine: "javafo"]
-      )
-
-      assert NextRoundPreview.availability(reload(t)) == :javafo
-      assert NextRoundPreview.run(reload(t)) == {:error, :javafo}
-    end
-
     test "not for the last round of the schedule, nor a read-only or team event" do
       t = plain_tournament(8, %{rounds_count: 1})
       pair!(t)

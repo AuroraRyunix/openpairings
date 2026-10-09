@@ -885,7 +885,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       # The first board (A vs B, board order) is the one kept. Matched as
       # "<strong>A</strong>" rather than a bare letter - a bare "C"/"D"
       # false-positives on the random CSP nonce (base64) and on the
-      # print-footer credit's "JaVaFo"/"Dutch".
+      # print-footer credit's "Ainalrami"/"Dutch".
       assert html =~ "<strong>A</strong>"
       assert html =~ "<strong>B</strong>"
       refute html =~ "<strong>C</strong>"

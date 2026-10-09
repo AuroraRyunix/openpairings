@@ -27,7 +27,6 @@ defmodule PairingsEngineWeb.HookEventsTest do
         "name" => "Hook Events Open",
         "type" => "swiss",
         "rounds_count" => "5",
-        "pairing_engine" => "ainalrami",
         "categories_enabled" => true
       })
 

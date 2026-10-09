@@ -209,8 +209,7 @@ one who already had a bye: the engine never gives it to them. When no legal
 round can keep the bye away from every excluded player, the Pairings page says so and offers **Pair anyway,
 ignoring the exclusion for <name>**.
 
-All of these apply to the Ainalrami engine only (they are not given to JaVaFo)
-and are recorded in
+All of these apply to individual Swiss tournaments only and are recorded in
 the round's explanation, the audit trail and the notes of the TRF export,
 because the round no longer is what a FIDE-endorsed program would pair.
 

@@ -1044,15 +1044,19 @@ gaps identified there, extracted here as actionable items:
   against ground truth via `parse/1` round-tripping rather than re-deriving
   `Trf`'s own column positions; (2)
   `test/pairings_engine/cross_program_test.exs` - runs OpenPairings' real
-  `Pairing.pair_next_round/1` (JaVaFo) against `bbpPairings` (Bierema Boyz
-  Programming, Apache-2.0, vendored in `priv/bbppairings/` - a genuinely
-  independent second Dutch-system implementation, not JaVaFo again) on
+  `Pairing.pair_next_round/1` (JaVaFo then, Ainalrami since JaVaFo was
+  removed) against `bbpPairings` (Bierema Boyz Programming, Apache-2.0,
+  vendored in `priv/bbppairings/` - a genuinely independent second
+  Dutch-system implementation) on
   byte-identical TRF16 input, diffing the actual pairing every round across
   `PAIRING_FUZZ_COUNT` (default 8, set much higher for a deliberate
   "throw a pile of random tournaments at it" pass) synthetic tournaments.
-  Both tagged `:javafo`/`:bbppairings`, gated in `test_helper.exs` exactly
-  like the existing `:swar_fixture` pattern.
-  **First real finding, not yet resolved**: a `PAIRING_FUZZ_COUNT=200` run
+  Tagged `:bbppairings`, gated in `test_helper.exs` exactly like the
+  existing `:swar_fixture` pattern.
+  ~~First real finding~~ - **obsolete**: JaVaFo is removed, the harness now
+  compares Ainalrami with bbpPairings, and the disagreement below stopped
+  reproducing on 2026-09-13 (see `cross_program_test.exs`'s moduledoc).
+  Kept for the record: a `PAIRING_FUZZ_COUNT=200` run
   found ~6 disagreements (~1.2% of rounds) on small rosters (5-13 players),
   always a same-score-group-splitting choice in an otherwise-legal
   situation (verified against JaVaFo run standalone, bypassing OpenPairings
@@ -1075,7 +1079,7 @@ gaps identified there, extracted here as actionable items:
 - ~~Trailing pairing-allocated byes scored as draws instead of their
   awarded value~~ (VCL.19) - **shipped**: found while auditing
   `standings.ex` against FIDE's C.07 revision effective 1 March 2026
-  (Art. 16.2.1/16.3). `Pairing.result == "bye"` (JaVaFo's own
+  (Art. 16.2.1/16.3). `Pairing.result == "bye"` (the engine's own
   odd-player-count byes) was marked `voluntary: true` - inconsistent with
   the `byes`-table path, which already excluded `"pairing-allocated"` from
   its own `voluntary` set. A trailing occurrence (the common last-round

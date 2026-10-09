@@ -529,13 +529,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
         "A round robin's schedule is fixed, so it never reads any of this. The rules are kept in case the tournament is paired another way."
       )
 
-  defp engine_note(%Tournament{pairing_system: "swiss", pairing_engine: "ainalrami"}), do: nil
-
-  defp engine_note(%Tournament{pairing_system: "swiss"}),
-    do:
-      gettext(
-        "This tournament pairs with JaVaFo: the rules are kept, but the wishes (if possible) are not applied until the engine is Ainalrami."
-      )
+  defp engine_note(%Tournament{pairing_system: "swiss"}), do: nil
 
   defp engine_note(_tournament),
     do: gettext("Keizer keeps the rules; it has no \"if possible\", so wishes are not applied.")

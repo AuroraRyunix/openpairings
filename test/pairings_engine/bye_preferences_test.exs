@@ -30,8 +30,7 @@ defmodule PairingsEngine.ByePreferencesTest do
           %{
             "name" => "Bye preferences",
             "type" => "swiss",
-            "rounds_count" => "5",
-            "pairing_engine" => "ainalrami"
+            "rounds_count" => "5"
           },
           attrs
         )

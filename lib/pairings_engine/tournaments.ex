@@ -1060,15 +1060,7 @@ defmodule PairingsEngine.Tournaments do
       # paired.
       cycle = RoundRobin.total_rounds(max(RoundRobin.frozen_schedule_size(tournament), 2), 1)
 
-      # `pairing_engine` belongs here for the same reason `pairing_system`
-      # does, one level down: JaVaFo and Ainalrami are two independent Dutch
-      # implementations, and a round already on the board was decided by
-      # whichever one was configured at the time. Swapping engines mid-event
-      # hands the new one a history it did not produce, and every colour /
-      # float / rematch judgement from then on is made against a bracket
-      # shape the previous engine chose - the same "silently reinterprets
-      # rounds that already exist" failure this whole list guards.
-      base = ~w(pairing_system pairing_engine rr_match_format swiss_match_format
+      base = ~w(pairing_system rr_match_format swiss_match_format
                 pair_by_category abs_value abs_jusque abs_nbfois)a
 
       # A team event's match size is how its boards are numbered and how

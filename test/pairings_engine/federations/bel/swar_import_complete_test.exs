@@ -72,7 +72,7 @@ defmodule PairingsEngine.Federations.BEL.SwarImportCompleteTest do
       assert t.extra_points_bands == "1800:0.5, 2000:1"
 
       # The next round's XXA history is the file's, then today's value.
-      trf = PairingsEngine.Pairing.javafo_input(t)
+      trf = PairingsEngine.Pairing.trf_input(t)
       assert trf =~ ~r/^XXA\s+\d+\s+1\.0\s+0\.5\s+0\.5\s*$/m
     end
 

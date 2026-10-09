@@ -19,7 +19,6 @@ defmodule PairingsEngine.CombinedFeaturesTest do
       name: "Combined",
       type: "swiss",
       pairing_system: "swiss",
-      pairing_engine: "ainalrami",
       rounds_count: 6,
       round_dates: List.duplicate("2026-09-01", 6),
       tiebreaks: ~w(BH),

@@ -353,6 +353,28 @@ defmodule PairingsEngine.TournamentImportTest do
     assert [%{soft: false}] = Tournaments.list_forbidden_pairings(imported.id)
   end
 
+  # Files written before JaVaFo was removed carry the tournament's engine.
+  # The export no longer writes the key; an old file with it, set to the
+  # engine that is gone, still imports - the key is simply not read.
+  test "an export without the engine key, and an old one naming JaVaFo, both import" do
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+
+    envelope = TournamentExport.export_tournament(original)
+    [entry] = envelope["tournaments"]
+    refute Map.has_key?(entry["tournament"], "pairing_engine")
+
+    old =
+      update_in(envelope, ["tournaments"], fn tournaments ->
+        Enum.map(tournaments, &put_in(&1, ["tournament", "pairing_engine"], "javafo"))
+      end)
+
+    assert {:ok, [imported]} = TournamentImport.import(old, importer)
+    assert imported.pairing_system == original.pairing_system
+    assert length(Tournaments.list_players(imported.id)) == 3
+  end
+
   test "round-trip re-derives status instead of trusting whatever the export snapshotted" do
     owner = user_scope()
     importer = user_scope()

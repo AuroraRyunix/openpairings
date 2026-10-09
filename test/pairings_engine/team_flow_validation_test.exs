@@ -227,7 +227,6 @@ defmodule PairingsEngine.TeamFlowValidationTest do
         "federation" => "BEL",
         "chief_arbiter" => "Arbiter, Test",
         "rounds_count" => rounds,
-        "pairing_engine" => "ainalrami",
         "team_boards" => boards,
         "team_lineups" => if(optional?, do: "optional", else: "required"),
         "team_match_points_win" => mw,

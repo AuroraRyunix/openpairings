@@ -18,56 +18,32 @@
 # longer buy parallelism.
 
 # Some tests depend on artifacts this repo doesn't (and, for the .swar
-# files, shouldn't) commit to git: two personal-data SWAR fixtures used
-# heavily by swar_import_test.exs (test/fixtures/*.swar - gitignored, see
-# .gitignore) and the JaVaFo pairing engine jar (priv/javafo/javafo.jar - a
-# third-party binary not ours to redistribute, see docs/setup-guide.md's
-# "JaVaFo" section for the download link - NOT docs/README.md, which this
-# comment used to point at and which has never actually had that link).
-# Locally both are present and the full suite runs. Anywhere else (a fresh
-# checkout, CI) the dependent tests are excluded instead of failing outright
-# - everything else still runs and still catches regressions. Tests are
-# tagged `@moduletag :swar_fixture` / `@tag :javafo` at the call sites that
-# actually need the missing file.
+# files, shouldn't) commit to git: personal-data SWAR fixtures used heavily
+# by swar_import_test.exs (test/fixtures/*.swar - gitignored, see
+# .gitignore). Locally they are present and the full suite runs. Anywhere
+# else (a fresh checkout, CI) the dependent tests are excluded instead of
+# failing outright - everything else still runs and still catches
+# regressions. Tests are tagged `@moduletag :swar_fixture` (and
+# `:bbppairings`, `:snapshot_fixtures`) at the call sites that actually need
+# the missing artifact.
 #
-# That exclusion used to be silent: one `IO.puts` line in a CI log nobody
-# reads, then the job goes green having never run the JaVaFo pairing path at
-# all - the engine was only ever exercised on the maintainer's own laptop.
-# It stays silent-ish for a bare local checkout on purpose (`mix test`
-# refusing to run at all just because a third-party jar isn't installed yet
-# would be worse), but it is now loud everywhere it can be, and fatal in CI
-# for anything that is not a known, permanent gap:
+# That exclusion is loud everywhere it can be, and fatal in CI for anything
+# that is not a known, permanent gap:
 #
 #   - a GitHub Actions annotation (`::warning::`) and a row in the run's step
 #     summary, so the gap shows up on the Checks tab next to the green
 #     checkmark instead of only in scrollback nobody opens;
 #   - `SKIP_MISSING_ARTIFACTS`, a comma-separated allowlist (env var) of tags
 #     PERMITTED to be excluded without failing the build. Unset - the default
-#     for every local checkout - means "all of them", i.e. today's forgiving
-#     behaviour. CI sets it to `swar_fixture,javafo` (see elixir.yml): the
-#     .swar fixtures can never be committed (real personal data, see above),
-#     and - per the investigation below - javafo.jar can't be fetched
-#     reliably in CI either, so both are permanent, known gaps rather than
-#     regressions. `bbppairings` was deliberately NOT in that list while
-#     the vendored Linux binary ran on CI's runner. It no longer does (it is
-#     a 32-bit build needing a GLIBC_ABI_GNU_TLS version the runner's 32-bit
-#     libc lacks), so CI now lists it too; `BbpPairings.available?/0` checks
-#     that the binary starts, so a Windows or Linux checkout where it does
-#     run still runs those tests.
-#
-# javafo.jar fetch, investigated and rejected: rrweb.org/javafo/ has no
-# `<a href>` (or guessable filename - javafo.jar, JaVaFo.jar, JaVaFo2.zip all
-# 404) pointing at an actual .jar or .zip anywhere on the landing page or its
-# linked sub-pages (JaVaFo.htm, JaVaFo1.html, the Word-export's own
-# JaVaFo_files/filelist.xml were all checked by hand). The site also fronts
-# some paths with its own bot-detection - a non-standard HTTP 999 "AW
-# Special Error" for a plain `curl` User-Agent with no Referer, which is
-# exactly what an unadorned fetch step would send. Even with a URL, a fetch
-# that can start failing the moment a WAF heuristic changes, with no action
-# possible on this repo's side, is precisely the kind of fragile that fails
-# SILENTLY unless it's built to hard-fail the instant the download isn't a
-# real jar - and there is no way to prove that reliably against a site this
-# repo doesn't control. Loud-but-not-fatal exclusion is the honest answer.
+#     for every local checkout - means "all of them", i.e. the forgiving
+#     behaviour. CI lists `swar_fixture` (see elixir.yml): the .swar fixtures
+#     can never be committed (real personal data, see above), so that is a
+#     permanent, known gap rather than a regression. `bbppairings` was
+#     deliberately NOT in that list while the vendored Linux binary ran on
+#     CI's runner. It no longer does (it is a 32-bit build needing a
+#     GLIBC_ABI_GNU_TLS version the runner's 32-bit libc lacks), so CI now
+#     lists it too; `BbpPairings.available?/0` checks that the binary starts,
+#     so a Windows or Linux checkout where it does run still runs those tests.
 # All three, because swar_import_test.exs reads all three: with only the first
 # two present (the state of any checkout made before test3-321.swar existed)
 # its test3-321 tests failed on a missing file instead of being excluded.
@@ -76,8 +52,6 @@ swar_fixtures =
 
 missing_swar_fixtures = Enum.reject(swar_fixtures, &File.exists?/1)
 swar_fixtures_present? = missing_swar_fixtures == []
-
-javafo_present? = File.exists?(PairingsEngine.Pairing.javafo_jar())
 
 # bbpPairings is vendored (priv/bbppairings/ - see PairingsEngine.Test.BbpPairings'
 # moduledoc) for Linux and Windows, so this only ever excludes anything on an
@@ -141,7 +115,7 @@ end
 # Which excluded tags are allowed to be missing without failing the build -
 # see the big comment above. :all (unset/"all"/"*") is every local checkout,
 # forever: `mix test` must keep working the moment someone clones this repo,
-# with no jar and no personal fixtures in sight.
+# with no personal fixtures in sight.
 lenient_tags =
   case System.get_env("SKIP_MISSING_ARTIFACTS") do
     unset when unset in [nil, "", "all", "*"] -> :all
@@ -153,7 +127,6 @@ lenient? = fn tag -> lenient_tags == :all or MapSet.member?(lenient_tags, Atom.t
 candidates = [
   {swar_fixtures_present?, :swar_fixture,
    "#{Enum.join(missing_swar_fixtures, ", ")} not present"},
-  {javafo_present?, :javafo, "#{PairingsEngine.Pairing.javafo_jar()} not present"},
   {bbppairings_present?, :bbppairings, "no vendored bbpPairings binary for this OS"},
   {openresults_fixtures_present?, :snapshot_fixtures,
    "no ../openresults checkout beside this one (and OPENRESULTS_FIXTURES is unset)"}

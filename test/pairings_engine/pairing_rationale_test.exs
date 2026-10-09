@@ -129,9 +129,8 @@ defmodule PairingsEngine.PairingRationaleTest do
     assert rationale.summary.byes == 0
   end
 
-  ## ---------- swiss (real JaVaFo): floater + bye on an odd field ----------
+  ## ---------- swiss (the real engine): floater + bye on an odd field ----------
 
-  @tag :javafo
   test "for_round/2 flags the floater and names the bye recipient in a later Swiss round" do
     t = Repo.insert!(%Tournament{name: "Swiss", type: "swiss", rounds_count: 5})
 
@@ -166,7 +165,7 @@ defmodule PairingsEngine.PairingRationaleTest do
     assert %{bye_detail: detail} = rationale.byes.allocated
     assert detail.player.id in Enum.map(Map.values(p), & &1.id)
 
-    # No rematches in round 2 (a fresh field, JaVaFo avoids repeats).
+    # No rematches in round 2 (a fresh field, the engine avoids repeats).
     assert rationale.summary.rematches == 0
 
     # Score groups were computed from pre-round standings.
@@ -238,7 +237,6 @@ defmodule PairingsEngine.PairingRationaleTest do
       end
     end
 
-    @tag :javafo
     test "extra points are excluded when count_extra_points is off" do
       {t, players} = tournament_with_extra_points(false)
       alice = players["Alice"]
@@ -255,7 +253,6 @@ defmodule PairingsEngine.PairingRationaleTest do
       assert rationale_score(t, 2, alice.id) == entry.points
     end
 
-    @tag :javafo
     test "extra points are included when count_extra_points is on" do
       {t, players} = tournament_with_extra_points(true)
       alice = players["Alice"]

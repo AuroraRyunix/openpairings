@@ -19,10 +19,10 @@ defmodule PairingsEngineWeb.TranslationsTest do
     * `This tournament has no round` rendered as "Dit toernooi is
       gearchiveerd." - "this tournament is archived", which is a different
       claim about a different thing.
-    * Worst, the engine-switch confirmation had its two buttons swapped:
-      `Use JaVaFo` read "JaVaFo behouden" (keep) and `Keep Ainalrami` read
-      "Ainalrami gebruiken" (use). A Dutch arbiter choosing a pairing engine
-      was reading the opposite of what each button did.
+    * Worst, the engine-switch confirmation (since removed with the engine
+      choice) had its two buttons swapped: "use" read "keep" and "keep" read
+      "use". A Dutch arbiter choosing a pairing engine was reading the
+      opposite of what each button did.
 
   None of this is visible in a completeness count, which is why counting was
   never enough and why this is a test rather than a script somebody
@@ -145,7 +145,7 @@ defmodule PairingsEngineWeb.TranslationsTest do
   #
   # For `nl` the remedy is the opposite: read the guess, correct it, then
   # remove the flag. Never strip a Dutch flag without reading what it left
-  # behind - that is how "Use JaVaFo" came to say "keep JaVaFo".
+  # behind - that is how a "use" button came to say "keep".
   test "no message in any locale is left as a machine's guess" do
     for path <- all_catalogues(), message <- messages(path) do
       refute "fuzzy" in List.flatten(message.flags),
@@ -226,8 +226,8 @@ defmodule PairingsEngineWeb.TranslationsTest do
     # else, so `%%` is NOT an escape here the way it is in a printf format or a
     # GNU gettext c-format string. It reaches the screen as two characters.
     #
-    # Two strings on Settings > Options - the engine comparison and the "Switch
-    # to JaVaFo?" confirmation - read "roughly 4%% of rounds" for exactly this
+    # Two strings on Settings > Options - an engine comparison and an engine
+    # switch confirmation, both since removed - read "roughly 4%% of rounds" for exactly this
     # reason, in English as well as in Dutch, because the habit was carried over
     # from a language where the doubling means something.
     #

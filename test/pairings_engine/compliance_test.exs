@@ -95,8 +95,7 @@ defmodule PairingsEngine.ComplianceTest do
           "absent_counts_as_vur" => "false",
           "manual_ranking" => "true",
           "soft_position" => "weak",
-          "tiebreaks" => [],
-          "pairing_engine" => "javafo"
+          "tiebreaks" => []
         })
 
       assert Compliance.check(t) == []

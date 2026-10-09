@@ -87,7 +87,7 @@ defmodule PairingsEngine.Tournaments.Player do
     # else. `no_bye_rounds` blank means every round; otherwise the rounds it
     # applies to, in `absent_rounds`' canonical form and parsed by the same
     # two functions. Only Ainalrami honours it (`PairingsEngine.Pairing`'s
-    # `bye_exclusion_ranks/4`); JaVaFo, round robin and Keizer ignore it.
+    # `bye_exclusion_ranks/4`); round robin and Keizer ignore it.
     # See docs/pairing-systems.md, "Bye exclusions".
     field :no_bye, :boolean, default: false
     field :no_bye_rounds, :string, default: ""

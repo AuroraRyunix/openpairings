@@ -4,7 +4,7 @@ SWAR parity #13. `tournaments.acceleration` is `"none"` (default) or
 `"baku"`, set from the Settings screen ("Baku acceleration (FIDE C.04.7)"
 dropdown, `PairingsEngineWeb.SettingsLive`). It only affects the **Swiss**
 pairing engine (`tournament.pairing_system == "swiss"`) - round robin has a
-fixed Berger schedule and Keizer never goes through JaVaFo at all, so both
+fixed Berger schedule and Keizer never reaches the engine at all, so both
 silently ignore it.
 
 ## Why this needed engine work, not just a setting
@@ -13,26 +13,22 @@ silently ignore it.
 and the IT3 form label ("Accelerated") already existed before this feature -
 but nothing ever read the setting when actually building a round's pairing
 input. An arbiter could turn Baku acceleration on, see it reflected on the
-FIDE report, and it would have exactly zero effect on the pairings JaVaFo
+FIDE report, and it would have exactly zero effect on the pairings the engine
 produced. `PairingsEngine.Pairing.accelerations/3` (and its call from
-`javafo_input/2`) is the fix: it's the only place `tournament.acceleration`
+`trf_input/5`) is the fix: it's the only place `tournament.acceleration`
 now actually reaches the pairing engine.
 
 ## The verified mechanism
 
-JaVaFo 2.2 does **not** compute Baku acceleration on its own from a single
-flag. Per the JaVaFo Advanced User Manual
-(`rrweb.org/javafo/aum/JaVaFo2_AUM.htm`), JaVaFo's own words:
-
-> JaVaFo can be informed of the fictitious points that are assigned to each
-> player, using the extension code XXA.
-
-> It is mandatory to keep the full record of the fictitious points assigned
-> round by round, because this record is used to determine the floaters
-> history of each player.
+The engine does **not** compute Baku acceleration on its own from a single
+flag. Acceleration reaches a Dutch engine as fictitious points, using the
+TRF extension code `XXA` (the mechanism JaVaFo's Advanced User Manual
+documents, and which Ainalrami reads). The full round-by-round record
+is mandatory, because it is used to determine each player's floater
+history.
 
 So **we** compute every Group-A player's virtual points ourselves, straight
-from FIDE C.04.7, and hand JaVaFo the full round-by-round history via one
+from FIDE C.04.7, and hand the engine the full round-by-round history via one
 `XXA` TRF16 extension line per Group-A player:
 
 ```
@@ -42,16 +38,13 @@ XXA NNNN pp.p pp.p ...
 `XXA` at column 1, the player's starting rank (`NNNN`) right-aligned in
 columns 5-9, then one right-aligned `pp.p` virtual-points value per round in
 5-column slots starting at column 10 - a genuinely **fixed-column** format,
-unlike this codebase's other free-form `XXR`/`XXP` extension lines. This was
-confirmed by direct experiment against the real `priv/javafo/javafo.jar`: a
-free-form space-separated `"XXA 1 1.0 1.0\r\n"` line crashes JaVaFo with a
-bare `NullPointerException` (`B.A.B.D.J` / `B.A.B.I.K` / ...), while the
-fixed-column form runs clean and genuinely changes the resulting pairing.
-That same experiment is now the automated, `:javafo`-tagged end-to-end test
-`PairingsEngine.PairingTest` - "`pair_next_round/1` pairs round 2
-differently when Baku acceleration is on vs off" - the test that proves
-JaVaFo actually *honours* the directive rather than silently ignoring it,
-which is the exact bug this feature closes.
+unlike this codebase's other free-form `XXR`/`XXP` extension lines. (This was
+verified against JaVaFo when it was still part of the app: a free-form
+`"XXA 1 1.0 1.0"` line crashed it, while the fixed-column form ran clean.)
+The test `PairingsEngine.PairingTest` - "`pair_next_round/1` pairs round 2
+differently when Baku acceleration is on vs off" - proves the engine
+actually *honours* the directive rather than silently ignoring it, which is
+the exact bug this feature closes.
 
 ## FIDE C.04.7, as implemented
 

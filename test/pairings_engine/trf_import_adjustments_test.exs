@@ -101,7 +101,7 @@ defmodule PairingsEngine.TrfImportAdjustmentsTest do
     end
 
     test "no tournament type code" do
-      assert %{pairing_system: "swiss", pairing_engine: "ainalrami"} =
+      assert %{pairing_system: "swiss"} =
                find(review!(trf(one_round())), :default_system)
 
       refute :default_system in codes(review!(trf(one_round(), %{type_code: "FIDE_DUTCH_2025"})))

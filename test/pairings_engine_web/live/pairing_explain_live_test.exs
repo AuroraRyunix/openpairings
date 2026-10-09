@@ -10,7 +10,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
   setup :register_and_log_in_user
 
-  # Hand-builds a 5-player, 3-round Swiss (no JaVaFo) exercising every trail
+  # Hand-builds a 5-player, 3-round Swiss (no engine run) exercising every trail
   # case: a player absent an early round, byes, decisive/drawn results, and a
   # still-pending final round. Returns the tournament plus its players. Carol
   # is absent in round 1 (no pairing), then present rounds 2-3; round 3 is
@@ -49,12 +49,11 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
   # Round 1 of a fresh tournament: nobody has played, so nobody has a colour
   # preference and every board is decided by Article 5.2.5 - the one rule
   # where this engine knowingly differs from both reference implementations.
-  defp round_one_only(scope, engine) do
+  defp round_one_only(scope) do
     {:ok, t} =
       Tournaments.create_tournament(scope, %{
         "name" => "First",
-        "type" => "swiss",
-        "pairing_engine" => engine
+        "type" => "swiss"
       })
 
     [a, b] =
@@ -103,7 +102,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     end
 
     test "a round paired on game points alone has no note", %{conn: conn, scope: scope} do
-      t = round_one_only(scope, "ainalrami")
+      t = round_one_only(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
       refute has_element?(lv, "#virtual-points-note")
       refute has_element?(lv, "#baku-note")
@@ -112,7 +111,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
   describe "Article 5.2.5" do
     test "a board decided by 5.2.5 says so", %{conn: conn, scope: scope} do
-      t = round_one_only(scope, "javafo")
+      t = round_one_only(scope)
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 
@@ -120,21 +119,9 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "tournament pairing number is odd"
     end
 
-    test "how the parity was read is named only when Ainalrami produced the round",
-         %{conn: conn, scope: scope} do
-      # The note describes what THIS engine does with 5.2.5's parity, so it
-      # belongs only on a round this engine paired. On a JaVaFo round it
-      # would claim a reading JaVaFo does not necessarily hold - it carries
-      # pre-2026 behaviour, from before the SPP settled the question on
-      # 2026-08-28. The engine is locked once a round is paired - correctly,
-      # since C.04.2 does not allow changing pairing system mid-tournament -
-      # so each case needs its own tournament rather than a flip.
-      javafo = round_one_only(scope, "javafo")
-      {:ok, _lv, html} = live(conn, ~p"/t/#{javafo.id}/pairings/1/explain")
-      refute html =~ "The parity is taken on a numbering"
-
-      ainalrami = round_one_only(scope, "ainalrami")
-      {:ok, _lv, html} = live(conn, ~p"/t/#{ainalrami.id}/pairings/1/explain")
+    test "how the parity was read is named, and settled", %{conn: conn, scope: scope} do
+      t = round_one_only(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
       assert html =~ "The parity is taken on a numbering"
 
       # And it says the ruling settled it, rather than presenting the
@@ -224,7 +211,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     refute html =~ "#f1efe9"
   end
 
-  @tag :javafo
   test "identifies the floater pairing and the bye recipient in a Swiss round", %{
     conn: conn,
     scope: scope
@@ -282,7 +268,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     refute html =~ "#3a6ea5"
   end
 
-  @tag :javafo
   test "the pairing-numbers list shows starting rank vs. starting rank, the classic pairing-sheet format",
        %{conn: conn, scope: scope} do
     {:ok, t} =
@@ -386,7 +371,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html2 =~ "Round 2"
   end
 
-  @tag :javafo
   test "flags a genuine prior-bye recipient with the red warning note", %{
     conn: conn,
     scope: scope
@@ -1198,9 +1182,9 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     end
   end
 
-  # The page has always RECONSTRUCTED its brackets, because JaVaFo hands back
-  # nothing but pairs. Ainalrami records its own decision at pairing time, so
-  # for those rounds the page quotes the engine instead of inferring it.
+  # The page used to RECONSTRUCT its brackets from nothing but pairs.
+  # Ainalrami records its own decision at pairing time, so the page quotes
+  # the engine instead of inferring it.
   describe "the engine's own account" do
     defp ainalrami_round(scope) do
       {:ok, t} =
@@ -1209,8 +1193,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
           "type" => "swiss",
           "rounds_count" => "5"
         })
-
-      {:ok, t} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
 
       for n <- 1..8 do
         {:ok, _} = Tournaments.create_player(t.id, %{"name" => "P#{n}"})
@@ -1281,8 +1263,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
           "type" => "swiss",
           "rounds_count" => "5"
         })
-
-      {:ok, t} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
 
       for n <- 1..count do
         {:ok, _} =
@@ -1474,10 +1454,10 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert board_signature(round) == boards_before
     end
 
-    # JaVaFo records no reasoning, so a round it paired can only ever get
-    # Ainalrami's after-the-fact analysis - and the page must say exactly
-    # that, in the offer and on the account it produces.
-    test "a JaVaFo round offers an analysis, and says who paired it", %{
+    # A round with no record of its own - paired before accounts existed, or
+    # by the external engine this app once ran - can only ever get an
+    # after-the-fact analysis, and the page offers it.
+    test "a round with no record offers an analysis, and the recompute fills it in", %{
       conn: conn,
       scope: scope
     } do
@@ -1485,7 +1465,6 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
         Tournaments.create_tournament(scope, %{
           "name" => "Old school",
           "type" => "swiss",
-          "pairing_engine" => "javafo",
           "rounds_count" => "5"
         })
 
@@ -1508,16 +1487,16 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       board(r1, 3, p3, p6, "")
 
       {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
-      assert html =~ "paired by JaVaFo, which records no reasoning"
+      assert html =~ "from before the detailed analysis"
       refute html =~ "pe-account-subgroups"
 
       lv |> element("#recompute button") |> render_click()
       {to, _flash} = assert_redirect(lv, 10_000)
 
       {:ok, _lv, html} = live(conn, to)
-      assert html =~ "Analysed after the fact by Ainalrami"
+      assert html =~ "Recomputed after the fact"
       assert html =~ "pe-account-subgroups"
-      refute html =~ "which records no reasoning"
+      refute html =~ "from before the detailed analysis"
     end
 
     test "a current account makes no such offer", %{conn: conn, scope: scope} do
@@ -1733,22 +1712,26 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "What the engine reported"
     end
 
-    @tag :javafo
-    test "a JaVaFo round keeps the reconstruction and says so", %{conn: conn, scope: scope} do
-      # Named explicitly since 2026-08-25: this is a test ABOUT JaVaFo, and
-      # the default now points at the other engine.
-      {:ok, t} =
-        Tournaments.create_tournament(scope, %{
-          "name" => "Recon",
-          "type" => "swiss",
-          "pairing_engine" => "javafo"
-        })
+    test "a round with no record keeps the reconstruction and says so", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Recon", "type" => "swiss"})
 
-      for n <- 1..6 do
-        {:ok, _} = Tournaments.create_player(t.id, %{"name" => "P#{n}"})
-      end
+      players =
+        for n <- 1..4 do
+          {:ok, p} =
+            Tournaments.create_player(t.id, %{"name" => "P#{n}", "fide_rating" => 2000 - n * 50})
 
-      {:ok, _round} = Pairing.pair_next_round(t)
+          p
+        end
+
+      Pairing.ensure_pairing_numbers(t, players)
+      [p1, p2, p3, p4] = t.id |> Tournaments.list_players() |> Enum.sort_by(& &1.pairing_number)
+
+      r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+      board(r1, 1, p1, p3, "")
+      board(r1, 2, p4, p2, "")
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 

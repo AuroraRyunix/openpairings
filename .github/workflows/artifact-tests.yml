@@ -3,12 +3,12 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: SWAR and JaVaFo tests
+name: SWAR fixture tests
 
 # A SEPARATE workflow from elixir.yml on purpose: this repo is PUBLIC, and
 # this job runs on a self-hosted runner - the maintainer's own PC, or a VM
 # they control - because that is the only place the proprietary .swar
-# fixtures and javafo.jar legitimately exist (see test/test_helper.exs and
+# fixtures legitimately exist (see test/test_helper.exs and
 # docs/test-quality-2026-09-13.md's "Proposal: a self-hosted runner that
 # already holds the files"). A self-hosted runner executes whatever code the
 # triggering event checks out, on that real machine. `pull_request` (and
@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   artifact-tests:
-    name: SWAR and JaVaFo tests
+    name: SWAR fixture tests
     if: github.repository == 'AuroraRyunix/openpairings'
     runs-on: [self-hosted, windows, openpairings-artifacts]
     permissions:
@@ -69,16 +69,14 @@ jobs:
           }
 
           # Exactly the files test/test_helper.exs looks for - see its
-          # swar_fixtures list and PairingsEngine.Pairing.javafo_jar/0.
+          # swar_fixtures list.
           $required = @(
             @{ Name = "c-reeks.swar";   Dest = "test\fixtures\c-reeks.swar" },
             @{ Name = "problemski.swar"; Dest = "test\fixtures\problemski.swar" },
-            @{ Name = "test3-321.swar"; Dest = "test\fixtures\test3-321.swar" },
-            @{ Name = "javafo.jar";     Dest = "priv\javafo\javafo.jar" }
+            @{ Name = "test3-321.swar"; Dest = "test\fixtures\test3-321.swar" }
           )
 
           New-Item -ItemType Directory -Force -Path "test\fixtures" | Out-Null
-          New-Item -ItemType Directory -Force -Path "priv\javafo" | Out-Null
 
           foreach ($file in $required) {
             $src = Join-Path $artifactsDir $file.Name
@@ -133,17 +131,16 @@ jobs:
       # allowed to be missing: if one disappeared after the placement step
       # above somehow succeeded, test_helper.exs must fail the build, not
       # silently exclude the very tests this job exists to run.
-      - name: Run SWAR and JaVaFo tests
+      - name: Run SWAR fixture tests
         shell: pwsh
-        run: mix test --only swar_fixture --only javafo
+        run: mix test --only swar_fixture
         env:
           MIX_ENV: test
           SKIP_MISSING_ARTIFACTS: none
 
       # Always, even on failure or cancellation: the .swar files are real
-      # personal data and javafo.jar is a third-party binary not ours to
-      # redistribute - see .gitignore and test/test_helper.exs. Neither
-      # should linger in the runner's checkout after the job ends. _build and
+      # personal data - see .gitignore and test/test_helper.exs. They
+      # should not linger in the runner's checkout after the job ends. _build and
       # deps are also removed so nothing about this proprietary run persists
       # into the next job's cache.
       - name: Remove copied artifacts and build output
@@ -153,6 +150,5 @@ jobs:
           Remove-Item -Path "test\fixtures\c-reeks.swar" -Force -ErrorAction SilentlyContinue
           Remove-Item -Path "test\fixtures\problemski.swar" -Force -ErrorAction SilentlyContinue
           Remove-Item -Path "test\fixtures\test3-321.swar" -Force -ErrorAction SilentlyContinue
-          Remove-Item -Path "priv\javafo\javafo.jar" -Force -ErrorAction SilentlyContinue
           Remove-Item -Path "_build" -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -Path "deps" -Recurse -Force -ErrorAction SilentlyContinue

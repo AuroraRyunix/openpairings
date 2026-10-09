@@ -992,7 +992,7 @@ a number on a standings column - in SWAR itself they are an input to
 **manual acceleration**. `CalculLeClassement` (SWAR's standings routine)
 adds `ExtraPts` into the sort unconditionally, and separately,
 `AssignExtraPointsNextRound` copies each player's `ExtraPts` into the round
-record and writes it into the `.trn` file handed to JaVaFo as an `XXA`
+record and writes it into the `.trn` file SWAR hands to JaVaFo as an `XXA`
 line - so JaVaFo brackets the *next* round by score-plus-acceleration, the
 same mechanism Baku uses here, just driven by hand instead of by a formula.
 See
@@ -1245,7 +1245,7 @@ can hold. What changed on the way:
   acceleration mode, with each round's `XtraPts` as its recorded history.
 - **Pairing numbers are SWAR's seed order** (`SwarImport.prepare_players/1`):
   players in `(category when separate, Rank)` order, which is how SWAR
-  numbers its Berger tables and orders its JaVaFo input. `Ni` only finds a
+  numbers its Berger tables and orders its pairing input. `Ni` only finds a
   record's opponent. A round robin continued here therefore plays SWAR's
   own table, one per category when categories are separate
   (`RoundRobin.schedule_groups/2`), and keeps SWAR's full-point free round -
