@@ -49,8 +49,7 @@ gotchas), see [`docs/setup-guide.md`](docs/setup-guide.md).
 Every Swiss tournament is paired by
 **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)**, in-process, by
 C.04.3 as it stands from **1 February 2026**. Round robin (Berger) and Keizer
-compute their own pairings and never call it. Earlier versions could also
-run JaVaFo (the 2017 rules) as an external `.jar`; that option is gone.
+compute their own pairings and never call it.
 
 Ainalrami is cross-checked against **bbpPairings 6.0.0**, an independent
 Apache-2.0 implementation of the same 2026 rules, by replaying whole
