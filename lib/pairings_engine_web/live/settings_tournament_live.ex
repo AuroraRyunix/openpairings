@@ -798,6 +798,28 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 max="99"
               />
             </.setting_field>
+
+            <%!-- VCL4THP Q214: the regulations may also say each game counts
+                  at the rating of its round. Not the default - C.07
+                  Article 10 makes the first rating the rule. --%>
+            <.setting_field
+              :if={@tournament.long_event}
+              label={gettext("Rating-based tie-breaks use each round's rating")}
+              hint={
+                gettext(
+                  "Only if your tournament regulations say so. On, each opponent counts at the rating they held in the round the game was played, and the round above is ignored; Rating (RTNG) still sorts by the first rating. Off, the default, every opponent counts at one rating for the whole event."
+                )
+              }
+            >
+              <input type="hidden" name="tournament[tiebreak_rating_per_round]" value="false" />
+              <input
+                id="tiebreak-rating-per-round"
+                type="checkbox"
+                name="tournament[tiebreak_rating_per_round]"
+                value="true"
+                checked={@tournament.tiebreak_rating_per_round}
+              />
+            </.setting_field>
           </.setting_group>
         </div>
 

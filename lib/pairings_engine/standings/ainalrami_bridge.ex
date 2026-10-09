@@ -105,7 +105,8 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
 
     # One rating per player: for a tournament lasting more than 30 days,
     # the one valid in the round the arbiter chose, the first by default
-    # (C.07 Article 10, VCL4THP Q215-Q216; `PeriodRatings`).
+    # (C.07 Article 10, VCL4THP Q215-Q216; `PeriodRatings`). Per round on
+    # top of it when the arbiter asked for that (Q214, `round_ratings/3`).
     tiebreak_round = PeriodRatings.tiebreak_round(tournament)
 
     participants =
@@ -117,6 +118,7 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
             entry.player
             |> PeriodRatings.at_round(tiebreak_round, tournament)
             |> rating(tournament),
+          round_ratings: round_ratings(entry.player, tournament, rounds),
           rounds:
             entry.games
             |> Enum.filter(&(&1.round <= rounds))
@@ -129,6 +131,24 @@ defmodule PairingsEngine.Standings.AinalramiBridge do
       predetermined?: tournament.pairing_system == "round_robin",
       total_rounds: tournament.rounds_count
     )
+  end
+
+  # VCL4THP Q214: with the tournament's regulations saying so, the rating
+  # each player held in each round, for Ainalrami to count their opponents
+  # at. Empty otherwise - and empty is what keeps every other tournament's
+  # tie-breaks exactly where they were. A round the player was unrated in
+  # is left out, so it falls back to the first rating rather than to
+  # nothing.
+  defp round_ratings(player, tournament, rounds) do
+    if PeriodRatings.per_round_tiebreaks?(tournament) do
+      for r <- 1..rounds//1,
+          rating = player |> PeriodRatings.at_round(r, tournament) |> rating(tournament),
+          not is_nil(rating),
+          into: %{},
+          do: {r, rating}
+    else
+      %{}
+    end
   end
 
   # The Tournament Rating (`Player.rating/2`): the TEC Manual's rating for

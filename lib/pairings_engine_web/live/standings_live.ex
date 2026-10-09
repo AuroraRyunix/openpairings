@@ -683,6 +683,24 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
+  defp rating_basis_text(:per_round),
+    do:
+      gettext(
+        "Rating-based tie-breaks count each opponent at the rating they held in the round the game was played, as the tournament regulations say."
+      )
+
+  defp rating_basis_text({:round, round}),
+    do:
+      gettext("Rating-based tie-breaks count every player at the rating valid in round %{round}.",
+        round: round
+      )
+
+  defp rating_basis_text(:first),
+    do:
+      gettext(
+        "Rating-based tie-breaks count every player at their first rating of the tournament (C.07 Article 10)."
+      )
+
   defp dropped_reason_text(:not_calculable) do
     gettext(
       "OpenPairings cannot calculate this tie-break for this kind of tournament - a team tie-break in an individual event, or one team standings do not calculate. It would score zero for everybody and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
@@ -912,6 +930,20 @@ defmodule PairingsEngineWeb.StandingsLive do
           )}
         </strong>
         {dropped_reason_text(reason)}
+      </p>
+
+      <%!-- A long event's rating tie-breaks can rest on one of three
+            ratings; say which, or the numbers are unverifiable. --%>
+      <p
+        :if={
+          @entries != [] and !@team? and @tournament.long_event and
+            Enum.any?(@effective_tiebreaks, &PairingsEngine.Tiebreaks.rating_based?/1)
+        }
+        id="tiebreak-rating-basis"
+        class="hint"
+        style="margin-bottom: 10px"
+      >
+        {rating_basis_text(PairingsEngine.PeriodRatings.tiebreak_rating_basis(@tournament))}
       </p>
 
       <p

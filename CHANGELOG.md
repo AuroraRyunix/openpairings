@@ -17,6 +17,18 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Rating tie-breaks can count each game at the rating of its round**
+  (Settings, Tournament, *Rating-based tie-breaks use each round's rating*, shown
+  once the tournament lasts more than 30 days). On, each opponent counts at the
+  rating they held in the round the game was played: ARO and its cuts, TPR, PTP,
+  APRO and APPO, and the per-round working the public standings show. RTNG still
+  sorts by the first rating. Off by default, because C.07 Article 10 makes the
+  first rating the rule unless the regulations say otherwise; this is for the
+  regulations that do. The standings now say which rating the tie-breaks used,
+  which beats leaving people to reverse-engineer it from the ARO column. Carried
+  by the JSON export and import; TRF has one rating per player and stays that way.
+  Needs Ainalrami with per-round tie-break ratings (VCL4THP Q214).
+
 ## [0.79.0] - 2026-10-09
 
 - [Feature] **Round-1 absentees as late entries can be switched per tournament**

@@ -172,6 +172,24 @@ are the last group of the list.
   The page says which tie-break was dropped and why. The number worked out is
   the one written to the tie-break line of the TRF, so a checker computes the
   same values.
+- **Rating-based tie-breaks when a player has more than one rating.** In a
+  tournament that lasts more than 30 days (Settings, Tournament, *Tournament
+  lasts more than 30 days*) a player can get a new rating mid-event. C.07
+  Article 10 advises against rating-based tie-breaks then, and when they
+  are used anyway counts every player at their **first** rating, unless the
+  tournament regulations say otherwise. That is the default. The
+  regulations can say otherwise in two ways, both in Settings, Tournament:
+  - *Rating-based tie-breaks use the rating valid in round*: every player
+    counts at the one rating valid in that round, for the whole event.
+  - *Rating-based tie-breaks use each round's rating*: each opponent counts
+    at the rating they held in the round the game was played - a game in
+    round 2 at the old list, one in round 7 at the new. ARO (and its cuts),
+    TPR, PTP, APRO and APPO all follow it, and the per-round working on the
+    public standings shows the rating each game counted at. RTNG still sorts
+    by the first rating, and whether a player counts as unrated is still
+    decided by it. This one overrides the round above.
+
+  Above the standings a line says which of the three is in force.
 - **Players still level after every tie-break.** *Players still level share
   a place* (Settings, Tournament): off (the default), the remaining ties are
   ordered by rating and then by name and numbered one after the other; on,

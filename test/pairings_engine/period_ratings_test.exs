@@ -63,6 +63,28 @@ defmodule PairingsEngine.PeriodRatingsTest do
 
       assert PeriodRatings.tiebreak_round(%Tournament{tiebreak_rating_round: 5}) == 1
     end
+
+    test "per-round tie-break ratings: only for a long event, never the default (Q214)" do
+      refute PeriodRatings.per_round_tiebreaks?(%Tournament{})
+      refute PeriodRatings.per_round_tiebreaks?(%Tournament{long_event: true})
+      refute PeriodRatings.per_round_tiebreaks?(%Tournament{tiebreak_rating_per_round: true})
+
+      per_round = %Tournament{
+        long_event: true,
+        tiebreak_rating_per_round: true,
+        tiebreak_rating_round: 5
+      }
+
+      assert PeriodRatings.per_round_tiebreaks?(per_round)
+      # The chosen round gives way; the one rating left is the first.
+      assert PeriodRatings.tiebreak_round(per_round) == 1
+      assert PeriodRatings.tiebreak_rating_basis(per_round) == :per_round
+
+      assert PeriodRatings.tiebreak_rating_basis(%{per_round | tiebreak_rating_per_round: false}) ==
+               {:round, 5}
+
+      assert PeriodRatings.tiebreak_rating_basis(%Tournament{}) == :first
+    end
   end
 
   test "spans_over_30_days?/1 reads the round dates" do
@@ -132,6 +154,85 @@ defmodule PairingsEngine.PeriodRatingsTest do
       chosen = %{t | tiebreak_rating_round: 3}
       event = AinalramiBridge.event(entries, chosen, 0)
       assert Map.fetch!(event.participants, ps["Carol"].id).rating == 1850
+    end
+
+    test "per round: each opponent counts at the rating of the round they were met (Q214)", %{
+      t: t,
+      players: ps
+    } do
+      for _ <- 1..3 do
+        {:ok, round} = Pairing.pair_next_round(Repo.reload!(t))
+
+        for p <- Tournaments.get_round(t.id, round.number).pairings, p.black_player_id do
+          {:ok, _} = Tournaments.update_pairing_result(p, "1/2-1/2")
+        end
+      end
+
+      t = Repo.reload!(t)
+      carol = ps["Carol"].id
+      off = Standings.standings(t)
+
+      # Off - the default - nobody carries per-round ratings.
+      event = AinalramiBridge.event(off, t, 3)
+      assert Map.fetch!(event.participants, carol).round_ratings == %{}
+
+      {:ok, on_t} = Tournaments.update_tournament(t, %{"tiebreak_rating_per_round" => "true"})
+      on = Standings.standings(on_t)
+      event = AinalramiBridge.event(on, on_t, 3)
+      assert Map.fetch!(event.participants, carol).rating == 1800
+
+      assert Map.fetch!(event.participants, carol).round_ratings ==
+               %{1 => 1800, 2 => 1800, 3 => 1850}
+
+      # Whoever met Carol in round 3 gains 50/3 on the sum's average; the
+      # others met her before her new rating and move not at all.
+      met_in_3 =
+        for e <- off,
+            g <- e.games,
+            g.round == 3 and g.opponent_id == carol,
+            do: e.player.id
+
+      initial = %{2000 => 2000, 1900 => 1900, 1800 => 1800, 1700 => 1700}
+      by_id = Map.new(off, &{&1.player.id, &1.player.fide_rating})
+
+      expected_aro = fn entry, carol_r3 ->
+        ratings =
+          for g <- entry.games, g.played do
+            if g.opponent_id == carol and g.round == 3,
+              do: carol_r3,
+              else: initial[by_id[g.opponent_id]]
+          end
+
+        floor(Enum.sum(ratings) / length(ratings) + 0.5)
+      end
+
+      for {e_off, e_on} <-
+            Enum.zip(Enum.sort_by(off, & &1.player.id), Enum.sort_by(on, & &1.player.id)) do
+        assert e_off.tiebreaks["ARO"] == expected_aro.(e_off, 1800)
+        assert e_on.tiebreaks["ARO"] == expected_aro.(e_on, 1850)
+
+        if e_on.player.id not in met_in_3,
+          do: assert(e_on.tiebreaks["ARO"] == e_off.tiebreaks["ARO"])
+      end
+
+      assert met_in_3 != []
+
+      # The working the public page shows names the same rating.
+      [opponent] = met_in_3
+      working = PairingsEngine.TiebreakWorking.working(on, on_t, ~w(ARO))
+      part = Enum.find(working[opponent]["ARO"].parts, &(&1.round == 3))
+      assert part.value == 1850.0
+    end
+
+    test "per round is carried by the JSON export", %{t: t} do
+      {:ok, t} =
+        Tournaments.update_tournament(t, %{
+          "tiebreak_rating_per_round" => "true",
+          "tiebreak_rating_round" => "3"
+        })
+
+      [data] = PairingsEngine.TournamentExport.export_tournament(t)["tournaments"]
+      assert data["tournament"]["tiebreak_rating_per_round"] == true
     end
 
     test "a TRF of a later period carries that period's rating", %{t: t, players: ps} do

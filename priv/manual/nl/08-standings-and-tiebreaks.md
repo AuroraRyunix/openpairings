@@ -175,6 +175,25 @@ vormen de laatste groep van de lijst.
   De pagina zegt welke tiebreak is weggevallen en waarom. Het berekende getal is
   hetzelfde als dat op de tiebreakregel van de TRF, zodat een controleur dezelfde
   waarden uitrekent.
+- **Op rating gebaseerde tiebreaks als een speler meer dan één rating heeft.** In
+  een toernooi dat langer dan 30 dagen duurt (Instellingen, Toernooi, *Toernooi
+  duurt langer dan 30 dagen*) kan een speler tijdens het toernooi een nieuwe rating
+  krijgen. C.07 artikel 10 raadt op rating gebaseerde tiebreaks dan af, en als ze
+  toch gebruikt worden telt elke speler met zijn **eerste** rating, tenzij het
+  reglement van het toernooi iets anders zegt. Dat is de standaard. Het reglement
+  kan op twee manieren iets anders zeggen, allebei in Instellingen, Toernooi:
+  - *Op rating gebaseerde tiebreaks gebruiken de rating geldig in ronde*: elke
+    speler telt het hele toernooi met de ene rating die in die ronde geldig was.
+  - *Op rating gebaseerde tiebreaks gebruiken de rating van elke ronde*: elke
+    tegenstander telt met de rating die hij had in de ronde waarin de partij
+    gespeeld werd - een partij in ronde 2 met de oude lijst, een in ronde 7 met de
+    nieuwe. ARO (en zijn cuts), TPR, PTP, APRO en APPO volgen dat allemaal, en de
+    berekening per ronde in de publieke stand toont met welke rating elke partij
+    telde. RTNG sorteert nog altijd op de eerste rating, en die beslist ook nog
+    altijd of een speler als ongerate telt. Deze instelling gaat voor op de ronde
+    hierboven.
+
+  Boven de stand staat een regel die zegt welke van de drie geldt.
 - **Spelers die na elke tiebreak nog gelijk staan.** *Spelers die nog gelijk staan delen een plaats*
   (Instellingen, Toernooi): uitgeschakeld (de standaard), dan worden de overgebleven
   gelijke spelers gerangschikt op rating en daarna op naam, en één na één genummerd;

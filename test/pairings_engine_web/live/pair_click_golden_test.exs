@@ -93,6 +93,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   writes the "Pawn" club as one `260` group line instead of its six pairs.
   With those taken out the regenerated file is equal, term for term, to the
   one before - every board, account and standing included.
+
+  And for per-round tie-break ratings (rating-per-round, VCL4THP Q214):
+  every JSON export gains `tournament.tiebreak_rating_per_round` (false).
+  With that key taken out the regenerated file is equal, term for term, to
+  the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

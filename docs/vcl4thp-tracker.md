@@ -5,7 +5,7 @@
 
 Where OpenPairings stands against FIDE's Verification Checklist for
 Tournament Handler Programs, version 13 (FIDE TEC draft, 2026-08-25). Answers
-reviewed 2026-10-08. The goal before applying for a TAPC:
+reviewed 2026-10-09. The goal before applying for a TAPC:
 no failure and no penalty on our path, and every answer checked.
 
 Every question is asked **in FIDE mode**: anything only possible after
@@ -16,13 +16,13 @@ FIDE mode (`PairingsEngine.Compliance`).
 ## Summary
 
 ```
-VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-08
+VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-09
   Questions on our path:  185 of 225
   First failure:          none - no answer on our path is a failure
   Failures on the path:   0
-  Penalties on the path:  3% (over 100% fails)
-  Answers:                217 met, 5 gaps, 3 still to check
-  On the path:            183 met, 1 gaps, 1 still to check
+  Penalties on the path:  0% (over 100% fails)
+  Answers:                218 met, 4 gaps, 3 still to check
+  On the path:            184 met, 0 gaps, 1 still to check
 ```
 
 - **met**: checked, evidence in the note.
@@ -334,7 +334,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-08
 | 211 | Advises against rating tie-breaks for those (C.07:10)? | Y | met | ok | With the flag on and a rating-based tie-break in the list, C.07 Article 10's advice against them is shown (#long-event-rating-tiebreaks). Test: long_event_and_correction_live_test.exs. |
 | 212 | Several ratings per player for long events? | Y | met | ok | Each player can hold later ratings with the round each applies from (players.period_ratings, entered on the Players dialog #player-period-ratings). Tests: period_ratings_test.exs. |
 | 213 | Ratings linked to rounds? | Y | met | ok | Each rating carries its first round; expected scores (We, W-We) use both players' ratings of each game's round (PeriodRatings.expected_score/4). Test: period_ratings_test.exs 'expected scores count each game'. |
-| 214 | Rating tie-breaks per round's rating? | N | gap | -3% | Costs 3%. The rating-based tie-breaks use one rating per player (the first, or the chosen round's): Ainalrami's tie-break event takes one rating per participant, so a rating per round needs an engine change. |
+| 214 | Rating tie-breaks per round's rating? | Y | met | ok | Q214 asks whether, when players hold more than one rating, the rating-based tie-breaks can be calculated with the rating valid for each round. C.07 Article 10's note makes the first rating the rule 'unless the specific regulations of the tournament state otherwise' (Q215, required, stays the default); per round is that otherwise, recommended. Settings, Tournament, 'Rating-based tie-breaks use each round's rating' (tiebreak_rating_per_round, long events only, off by default): each opponent counts at the rating they held in the round the game was played, via Ainalrami's Participant.round_ratings (branch rating-per-round) - ARO and cuts, TPR, PTP, APRO, APPO and the ARO working; RTNG and the unrated check stay on the first rating. Tests: period_ratings_test.exs 'per round: each opponent counts', long_event_and_correction_live_test.exs 'per-round tie-break ratings'; Ainalrami tiebreaks_test.exs 'ARO uses each opponent's rating'. |
 | 215 | Default first rating (C.07:10)? | Y | met | ok | By default the rating-based tie-breaks use each player's first rating (PeriodRatings.tiebreak_round/1). Test: period_ratings_test.exs. |
 | 216 | User chooses which rating? | Y | met | ok | tournaments.tiebreak_rating_round chooses the round whose ratings the tie-breaks use (#tiebreak-rating-round; AinalramiBridge event/3). Test: period_ratings_test.exs. |
 

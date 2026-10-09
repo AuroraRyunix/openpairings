@@ -187,14 +187,40 @@ defmodule PairingsEngine.PeriodRatings do
   end
 
   @doc """
-  The round whose ratings the rating-based tie-breaks use: the one the
-  arbiter chose for a long event, otherwise 1 - the first rating (C.07
-  Article 10).
+  The round whose ratings the rating-based tie-breaks use as each player's
+  one rating: the one the arbiter chose for a long event, otherwise 1 - the
+  first rating (C.07 Article 10). With `per_round_tiebreaks?/1` on, the
+  chosen round is ignored: the opponents' ratings come round by round, and
+  the one rating left (RTNG, who counts as unrated) is the first.
   """
+  def tiebreak_round(%{long_event: true, tiebreak_rating_per_round: true}), do: 1
+
   def tiebreak_round(%{long_event: true, tiebreak_rating_round: r}) when is_integer(r) and r > 0,
     do: r
 
   def tiebreak_round(_tournament), do: 1
+
+  @doc """
+  Whether the rating-based tie-breaks count each opponent at the rating
+  they held in the round the game was played (VCL4THP Q214): a long event
+  whose arbiter ticked it. C.07 Article 10's note makes the first rating
+  the rule "unless the specific regulations of the tournament state
+  otherwise"; this is the otherwise, so it is never the default.
+  """
+  def per_round_tiebreaks?(%{long_event: true, tiebreak_rating_per_round: true}), do: true
+  def per_round_tiebreaks?(_tournament), do: false
+
+  @doc """
+  What the rating-based tie-breaks of `tournament` count each opponent at,
+  as `:per_round`, `{:round, n}` or `:first`.
+  """
+  def tiebreak_rating_basis(tournament) do
+    cond do
+      per_round_tiebreaks?(tournament) -> :per_round
+      tiebreak_round(tournament) > 1 -> {:round, tiebreak_round(tournament)}
+      true -> :first
+    end
+  end
 
   @doc """
   Whether `tournament`'s dates span more than 30 days - the round dates

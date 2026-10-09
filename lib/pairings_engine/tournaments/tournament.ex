@@ -281,9 +281,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # the game's round, and a TRF of chosen rounds writes the rating valid
     # in its first round. `tiebreak_rating_round` is which rating the
     # rating-based tie-breaks use: the one valid in that round; nil is the
-    # first rating, C.07 Article 10's default.
+    # first rating, C.07 Article 10's default. `tiebreak_rating_per_round`
+    # is the regulations saying otherwise in the other direction (VCL4THP
+    # Q214): each opponent counts at the rating they held in the round the
+    # game was played, and `tiebreak_rating_round` is ignored. Off by
+    # default, because Article 10 makes the first rating the rule.
     field :long_event, :boolean, default: false
     field :tiebreak_rating_round, :integer
+    field :tiebreak_rating_per_round, :boolean, default: false
 
     # Whether players still level after the whole tie-break list share a place
     # (C.07 Article 2.1: the regulations say). Off, the default, keeps the
@@ -1289,6 +1294,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :chess960,
       :long_event,
       :tiebreak_rating_round,
+      :tiebreak_rating_per_round,
       :shared_places,
       :acceleration,
       :status,

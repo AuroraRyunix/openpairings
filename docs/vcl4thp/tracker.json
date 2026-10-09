@@ -1,7 +1,7 @@
 {
  "checklist": "VCL4THP",
  "version": "13 (FIDE TEC draft, 2026-08-25)",
- "reviewed": "2026-10-08",
+ "reviewed": "2026-10-09",
  "questions": [
   {
    "q": 1,
@@ -3539,9 +3539,9 @@
     "next": 215,
     "penalty": 3
    },
-   "answer": "N",
-   "status": "gap",
-   "note": "Costs 3%. The rating-based tie-breaks use one rating per player (the first, or the chosen round's): Ainalrami's tie-break event takes one rating per participant, so a rating per round needs an engine change."
+   "answer": "Y",
+   "status": "met",
+   "note": "Q214 asks whether, when players hold more than one rating, the rating-based tie-breaks can be calculated with the rating valid for each round. C.07 Article 10's note makes the first rating the rule 'unless the specific regulations of the tournament state otherwise' (Q215, required, stays the default); per round is that otherwise, recommended. Settings, Tournament, 'Rating-based tie-breaks use each round's rating' (tiebreak_rating_per_round, long events only, off by default): each opponent counts at the rating they held in the round the game was played, via Ainalrami's Participant.round_ratings (branch rating-per-round) - ARO and cuts, TPR, PTP, APRO, APPO and the ARO working; RTNG and the unrated check stay on the first rating. Tests: period_ratings_test.exs 'per round: each opponent counts', long_event_and_correction_live_test.exs 'per-round tie-break ratings'; Ainalrami tiebreaks_test.exs 'ARO uses each opponent's rating'."
   },
   {
    "q": 215,

@@ -64,6 +64,29 @@ defmodule PairingsEngineWeb.LongEventAndCorrectionLiveTest do
       assert Tournaments.get_tournament!(t.id).tiebreak_rating_round == 3
     end
 
+    test "per-round tie-break ratings are a setting, and the standings say which rating counts (Q214)",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope, %{"long_event" => "true", "tiebreaks" => ["ARO", "BH"]})
+      refute t.tiebreak_rating_per_round
+
+      {:ok, standings, _html} = live(conn, ~p"/t/#{t.id}/standings")
+      assert has_element?(standings, "#tiebreak-rating-basis", "first rating")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+      assert has_element?(lv, "#tiebreak-rating-per-round")
+
+      lv
+      |> form("#tournament-settings-form", %{
+        "tournament" => %{"tiebreak_rating_per_round" => "true"}
+      })
+      |> render_submit()
+
+      assert Tournaments.get_tournament!(t.id).tiebreak_rating_per_round
+
+      {:ok, standings, _html} = live(conn, ~p"/t/#{t.id}/standings")
+      assert has_element?(standings, "#tiebreak-rating-basis", "round the game was played")
+    end
+
     test "advises against rating-based tie-breaks (C.07 Article 10)", %{conn: conn, scope: scope} do
       t = tournament(scope, %{"long_event" => "true"})
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
