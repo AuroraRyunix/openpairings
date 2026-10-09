@@ -7,6 +7,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Publishing,
     Tournaments,
     TournamentExport,
+    TournamentGroups,
     TournamentImport,
     TrfExport,
     TrfImport,
@@ -62,6 +63,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
      socket
      |> assign(
        page_title: "Tournaments",
+       collapsed_groups: MapSet.new(),
        creating: false,
        importing: false,
        importing_trf: false,
@@ -211,6 +213,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     assign(socket,
       tournaments: tournaments,
+      list_blocks: list_blocks(tournaments),
       # Open postponed games per tournament, one query for the list: a
       # tournament with one is not over, however its status reads, and
       # archiving it (closing the event) says so first.
@@ -219,6 +222,44 @@ defmodule PairingsEngineWeb.TournamentsLive do
         |> Enum.map(fn {t, _count, _owner?} -> t.id end)
         |> PairingsEngine.PostponedGames.open_counts()
     )
+  end
+
+  # The list as it is shown: each tournament on its own, except the ones in
+  # a group (`PairingsEngine.TournamentGroups`), which are gathered under
+  # their group where the first of them would have been - the list stays
+  # newest-first, a group sits where its newest member does, and inside it
+  # the group's own order wins. Only the tournaments on this list are
+  # looked up, so a sibling this user cannot open is not on it.
+  defp list_blocks(tournaments) do
+    groups =
+      tournaments
+      |> Enum.map(fn {t, _count, _owner?} -> t.id end)
+      |> TournamentGroups.memberships_for()
+
+    {blocks, _seen} =
+      Enum.flat_map_reduce(tournaments, MapSet.new(), fn {t, _, _} = row, seen ->
+        case Map.get(groups, t.id) do
+          nil ->
+            {[{:single, row}], seen}
+
+          %{group_id: group_id} = m ->
+            if MapSet.member?(seen, group_id) do
+              {[], seen}
+            else
+              rows =
+                tournaments
+                |> Enum.filter(fn {other, _, _} ->
+                  match?(%{group_id: ^group_id}, Map.get(groups, other.id))
+                end)
+                |> Enum.sort_by(fn {other, _, _} -> {groups[other.id].position, other.id} end)
+
+              {[{:group, %{id: group_id, name: m.group_name, rows: rows}}],
+               MapSet.put(seen, group_id)}
+            end
+        end
+      end)
+
+    blocks
   end
 
   # The archive button's confirmation. With a postponed game still to be
@@ -806,6 +847,25 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   ## ---------- Duplicate tournament ("Copy of ...") ----------
+
+  # Folding a group on the home list. Per page, per visit: it is a way of
+  # looking at the list, not a setting anybody asked to keep.
+  def handle_event("toggle_group", %{"id" => id}, socket) do
+    case Integer.parse(to_string(id)) do
+      {group_id, ""} ->
+        collapsed = socket.assigns.collapsed_groups
+
+        collapsed =
+          if MapSet.member?(collapsed, group_id),
+            do: MapSet.delete(collapsed, group_id),
+            else: MapSet.put(collapsed, group_id)
+
+        {:noreply, assign(socket, collapsed_groups: collapsed)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
 
   # Reuses the same export -> import round trip Settings > Export/backup and
   # "re-upload a .json backup" already go through (PairingsEngine.
@@ -2951,120 +3011,57 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </thead>
 
           <tbody>
-            <tr :for={{t, player_count, owned?} <- @tournaments}>
-              <td>
-                <.link navigate={~p"/t/#{t.id}/players"}><strong>{t.name}</strong></.link>
-                <span
-                  :if={!owned?}
-                  class="badge muted"
-                  title={gettext("Shared with you by its owner")}
-                >{gettext("shared")}</span>
-              </td>
-
-              <td>{Tournament.type_label(t.type)}</td>
-
-              <td class="num">{t.rounds_count}</td>
-
-              <td class="num">{player_count}</td>
-
-              <td>{date_range(t.start_date, t.end_date)}</td>
-
-              <td>
-                <span class={["badge", status_class(t.status)]}>{t.status}</span>
-                <.link
-                  :if={Map.get(@postponed_counts, t.id, 0) > 0}
-                  navigate={~p"/t/#{t.id}/pairings"}
-                  id={"tournament-pending-#{t.id}"}
-                  class="pending-chip"
-                  title={
-                    gettext("Postponed games still to be played - the standings are provisional")
-                  }
-                >
-                  {PairingsEngineWeb.Postponed.pending_text(Map.get(@postponed_counts, t.id))}
-                </.link>
-                <%!-- Two badges, never one that has to mean either. A copy can
-                      be both at once: received from A, and since handed on to
-                      C. See `PairingsEngine.Handoff`. --%>
-                <span
-                  :if={Handoff.handed_away?(t)}
-                  class="badge muted"
-                  title={
-                    gettext("Checked out to %{place} - read-only here",
-                      place: t.handed_off_to || gettext("another copy")
-                    )
-                  }
-                >{gettext("handed off")}</span>
-                <span
-                  :if={Handoff.received?(t)}
-                  class="badge muted"
-                  title={
-                    gettext("Handed to this machine by %{place}", place: Handoff.origin_label(t))
-                  }
-                >{gettext("on loan")}</span>
-              </td>
-
-              <td style="text-align: right">
-                <%!-- The title appears only on a row whose backup would
-                      actually carry a key, so it is never a warning about
-                      nothing. --%>
-                <a
-                  class="pe-btn"
-                  href={~p"/t/#{t.id}/export/json"}
-                  target="_blank"
-                  title={export_key_warning(t)}
-                >{gettext("Export")}</a>
-                <button class="pe-btn" phx-click="duplicate" phx-value-id={t.id}>
-                  {gettext("Copy")}
-                </button>
-                <%!-- Exactly one of these renders, because they are the two
-                      directions of the same lock. A row that offered both
-                      would be offering to hand off a tournament that is
-                      already somewhere else. --%>
-                <button
-                  :if={!Handoff.handed_away?(t)}
-                  class="pe-btn"
-                  phx-click="handoff_start"
-                  phx-value-id={t.id}
-                >
-                  {if Handoff.received?(t), do: gettext("Give back"), else: gettext("Hand off")}
-                </button>
-                <button
-                  :if={Handoff.handed_away?(t)}
-                  class="pe-btn tonal"
-                  phx-click="return_start"
-                  phx-value-id={t.id}
-                >
-                  {gettext("Bring it back")}
-                </button>
-                <button
-                  :if={!Handoff.handed_away?(t)}
-                  class="pe-btn"
-                  id={"archive-#{t.id}"}
-                  phx-click="archive_tournament"
-                  phx-value-id={t.id}
-                  data-confirm={archive_confirm(t, @postponed_counts)}
-                >
-                  {gettext("Archive")}
-                </button>
-                <button
-                  :if={owned?}
-                  class="pe-btn danger-link"
-                  phx-click="delete_start"
-                  phx-value-id={t.id}
-                >
-                  {gettext("Delete")}
-                </button>
-                <button
-                  :if={!owned?}
-                  class="pe-btn danger-link"
-                  phx-click="leave_tournament"
-                  phx-value-id={t.id}
-                  data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
-                >
-                  {gettext("Leave")}
-                </button>
-              </td>
-            </tr>
+            <%= for block <- @list_blocks do %>
+              <%= case block do %>
+                <% {:single, {t, player_count, owned?}} -> %>
+                  <.tournament_row
+                    t={t}
+                    player_count={player_count}
+                    owned?={owned?}
+                    postponed_counts={@postponed_counts}
+                  />
+                <% {:group, group} -> %>
+                  <%!-- One header row per group, then its tournaments in
+                        the group's own order. Collapsing is this page's
+                        state, not the group's: nobody else's list folds
+                        because yours did. --%>
+                  <tr id={"home-group-#{group.id}"} class="home-group-row">
+                    <td colspan="7">
+                      <button
+                        type="button"
+                        id={"home-group-toggle-#{group.id}"}
+                        class="home-group-toggle"
+                        phx-click="toggle_group"
+                        phx-value-id={group.id}
+                        aria-expanded={to_string(!MapSet.member?(@collapsed_groups, group.id))}
+                      >
+                        <.icon
+                          name={
+                            if MapSet.member?(@collapsed_groups, group.id),
+                              do: "hero-chevron-right",
+                              else: "hero-chevron-down"
+                          }
+                          class="size-4"
+                        />
+                        <strong>{group.name}</strong>
+                        <span class="home-group-count">
+                          {ngettext("%{count} tournament", "%{count} tournaments", length(group.rows))}
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                  <%= unless MapSet.member?(@collapsed_groups, group.id) do %>
+                    <.tournament_row
+                      :for={{t, player_count, owned?} <- group.rows}
+                      t={t}
+                      player_count={player_count}
+                      owned?={owned?}
+                      postponed_counts={@postponed_counts}
+                      grouped
+                    />
+                  <% end %>
+              <% end %>
+            <% end %>
           </tbody>
         </table>
       </div>
@@ -3443,6 +3440,130 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </div>
     </div>
+    """
+  end
+
+  # One row of the home list. A function component because a row now
+  # appears in two places - on its own, and under its group's header - and
+  # two copies of sixty lines of buttons would drift by the second release.
+  attr :t, Tournament, required: true
+  attr :player_count, :integer, required: true
+  attr :owned?, :boolean, required: true
+  attr :postponed_counts, :map, required: true
+  attr :grouped, :boolean, default: false
+
+  defp tournament_row(assigns) do
+    ~H"""
+    <tr id={"tournament-row-#{@t.id}"} class={[@grouped && "home-group-member"]}>
+      <td>
+        <.link navigate={~p"/t/#{@t.id}/players"}><strong>{@t.name}</strong></.link>
+        <span
+          :if={!@owned?}
+          class="badge muted"
+          title={gettext("Shared with you by its owner")}
+        >{gettext("shared")}</span>
+      </td>
+
+      <td>{Tournament.type_label(@t.type)}</td>
+
+      <td class="num">{@t.rounds_count}</td>
+
+      <td class="num">{@player_count}</td>
+
+      <td>{date_range(@t.start_date, @t.end_date)}</td>
+
+      <td>
+        <span class={["badge", status_class(@t.status)]}>{@t.status}</span>
+        <.link
+          :if={Map.get(@postponed_counts, @t.id, 0) > 0}
+          navigate={~p"/t/#{@t.id}/pairings"}
+          id={"tournament-pending-#{@t.id}"}
+          class="pending-chip"
+          title={gettext("Postponed games still to be played - the standings are provisional")}
+        >
+          {PairingsEngineWeb.Postponed.pending_text(Map.get(@postponed_counts, @t.id))}
+        </.link>
+        <%!-- Two badges, never one that has to mean either. A copy can
+              be both at once: received from A, and since handed on to
+              C. See `PairingsEngine.Handoff`. --%>
+        <span
+          :if={Handoff.handed_away?(@t)}
+          class="badge muted"
+          title={
+            gettext("Checked out to %{place} - read-only here",
+              place: @t.handed_off_to || gettext("another copy")
+            )
+          }
+        >{gettext("handed off")}</span>
+        <span
+          :if={Handoff.received?(@t)}
+          class="badge muted"
+          title={gettext("Handed to this machine by %{place}", place: Handoff.origin_label(@t))}
+        >{gettext("on loan")}</span>
+      </td>
+
+      <td style="text-align: right">
+        <%!-- The title appears only on a row whose backup would
+              actually carry a key, so it is never a warning about
+              nothing. --%>
+        <a
+          class="pe-btn"
+          href={~p"/t/#{@t.id}/export/json"}
+          target="_blank"
+          title={export_key_warning(@t)}
+        >{gettext("Export")}</a>
+        <button class="pe-btn" phx-click="duplicate" phx-value-id={@t.id}>
+          {gettext("Copy")}
+        </button>
+        <%!-- Exactly one of these renders, because they are the two
+              directions of the same lock. A row that offered both
+              would be offering to hand off a tournament that is
+              already somewhere else. --%>
+        <button
+          :if={!Handoff.handed_away?(@t)}
+          class="pe-btn"
+          phx-click="handoff_start"
+          phx-value-id={@t.id}
+        >
+          {if Handoff.received?(@t), do: gettext("Give back"), else: gettext("Hand off")}
+        </button>
+        <button
+          :if={Handoff.handed_away?(@t)}
+          class="pe-btn tonal"
+          phx-click="return_start"
+          phx-value-id={@t.id}
+        >
+          {gettext("Bring it back")}
+        </button>
+        <button
+          :if={!Handoff.handed_away?(@t)}
+          class="pe-btn"
+          id={"archive-#{@t.id}"}
+          phx-click="archive_tournament"
+          phx-value-id={@t.id}
+          data-confirm={archive_confirm(@t, @postponed_counts)}
+        >
+          {gettext("Archive")}
+        </button>
+        <button
+          :if={@owned?}
+          class="pe-btn danger-link"
+          phx-click="delete_start"
+          phx-value-id={@t.id}
+        >
+          {gettext("Delete")}
+        </button>
+        <button
+          :if={!@owned?}
+          class="pe-btn danger-link"
+          phx-click="leave_tournament"
+          phx-value-id={@t.id}
+          data-confirm={"Leave \"#{@t.name}\"? You'll lose access to it unless the owner invites you again."}
+        >
+          {gettext("Leave")}
+        </button>
+      </td>
+    </tr>
     """
   end
 end

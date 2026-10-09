@@ -17,7 +17,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, PeriodRatings, Tournaments, Tiebreaks}
+  alias PairingsEngine.{Audit, PeriodRatings, TournamentGroups, Tournaments, Tiebreaks}
+  alias PairingsEngine.TournamentGroups.{Group, Member}
   alias PairingsEngine.Authz
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.UploadGuard
@@ -77,6 +78,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        pending_logo_upload?: false
      )
      |> assign_collaborators()
+     |> assign_group(nil)
      |> allow_upload(:logo,
        auto_upload: true,
        accept: ~w(.png .jpg .jpeg .gif .webp),
@@ -84,6 +86,25 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        max_file_size: 2_000_000,
        progress: &handle_upload_progress/3
      )}
+  end
+
+  # The Group card's state, and the switcher in the layout with it - this
+  # page hands the layout its own copy so a change shows at the top at once.
+  defp assign_group(socket, error) do
+    %{current_scope: scope, tournament: tournament} = socket.assigns
+    switcher = TournamentGroups.switcher(scope, tournament)
+    current = switcher && Enum.find(switcher.members, & &1.current?)
+
+    assign(socket,
+      group_switcher: switcher,
+      group_error: error,
+      joinable_groups:
+        if(switcher, do: [], else: TournamentGroups.joinable_groups(scope, tournament)),
+      group_create_form: to_form(%{"name" => ""}, as: :group),
+      group_join_form: to_form(%{"group_id" => ""}, as: :join),
+      group_rename_form: to_form(%{"name" => switcher && switcher.group.name}, as: :group_rename),
+      group_label_form: to_form(%{"label" => current && current.own_label}, as: :member)
+    )
   end
 
   defp assign_collaborators(socket) do
@@ -119,7 +140,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
            fide_locked: Tournaments.fide_locked_fields(tournament),
            stale: false
          )
-         |> assign_collaborators()}
+         |> assign_collaborators()
+         |> assign_group(nil)}
     end
   end
 
@@ -277,6 +299,53 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
+  ## ---------- Group (an event of several tournaments) ----------
+
+  def handle_event("group_create", %{"group" => %{"name" => name}}, socket) do
+    socket.assigns.current_scope
+    |> TournamentGroups.create_group(socket.assigns.tournament, name)
+    |> group_result(socket, gettext("Group created."))
+  end
+
+  def handle_event("group_join", %{"join" => %{"group_id" => group_id}}, socket) do
+    socket.assigns.current_scope
+    |> TournamentGroups.join_group(socket.assigns.tournament, group_id)
+    |> group_result(socket, gettext("Added to the group."))
+  end
+
+  def handle_event("group_rename", %{"group_rename" => %{"name" => name}}, socket) do
+    socket.assigns.current_scope
+    |> TournamentGroups.rename_group(socket.assigns.tournament, name)
+    |> group_result(socket, gettext("Group renamed."))
+  end
+
+  def handle_event("group_label", %{"member" => %{"label" => label}}, socket) do
+    socket.assigns.current_scope
+    |> TournamentGroups.set_label(socket.assigns.tournament, label)
+    |> group_result(socket, gettext("Label saved."))
+  end
+
+  def handle_event("group_move", %{"id" => id, "dir" => dir}, socket)
+      when dir in ["up", "down"] do
+    case Integer.parse(id) do
+      {member_id, ""} ->
+        direction = if dir == "up", do: :up, else: :down
+
+        socket.assigns.current_scope
+        |> TournamentGroups.move(socket.assigns.tournament, member_id, direction)
+        |> group_result(socket, nil)
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("group_leave", _params, socket) do
+    socket.assigns.current_scope
+    |> TournamentGroups.leave_group(socket.assigns.tournament)
+    |> group_result(socket, gettext("Taken out of the group."))
+  end
+
   ## ---------- Print logo (SWAR parity #14-16) ----------
 
   def handle_event("validate_logo", _params, socket), do: {:noreply, socket}
@@ -372,6 +441,42 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   ## ---------- helpers ----------
 
+  # "Spring Open 2026 (Open, U20)": the group by its name and the members
+  # this user can see, so two groups with the same name can be told apart.
+  defp joinable_options(groups) do
+    Enum.map(groups, fn %{group: g, labels: labels} ->
+      {"#{g.name} (#{Enum.join(labels, ", ")})", g.id}
+    end)
+  end
+
+  defp group_result({:ok, _}, socket, nil), do: {:noreply, assign_group(socket, nil)}
+
+  defp group_result({:ok, _}, socket, message),
+    do: {:noreply, socket |> assign_group(nil) |> put_flash(:info, message)}
+
+  defp group_result({:error, reason}, socket, _message),
+    do: {:noreply, assign_group(socket, group_error_text(reason))}
+
+  defp group_error_text(:already_grouped),
+    do: gettext("This tournament is already in a group. Take it out of that one first.")
+
+  defp group_error_text(:not_grouped), do: gettext("This tournament is not in a group.")
+
+  defp group_error_text(:not_found),
+    do: gettext("That group is not one you can add this tournament to.")
+
+  defp group_error_text(:not_authorized),
+    do: gettext("You are not allowed to change this tournament.")
+
+  defp group_error_text(%Ecto.Changeset{data: %Group{}}),
+    do: gettext("Give the group a name of at most %{count} characters.", count: Group.max_name())
+
+  defp group_error_text(%Ecto.Changeset{data: %Member{}}),
+    do: gettext("A label can be at most %{count} characters.", count: Member.max_label())
+
+  defp group_error_text(reason) when reason in [:archived, :handed_off], do: error_text(reason)
+  defp group_error_text(_), do: gettext("That did not work. Reload the page and try again.")
+
   defp swap(list, index, delta) do
     target = index + delta
 
@@ -430,6 +535,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
       tournament={@tournament}
+      group_switcher={@group_switcher}
       active="settings"
     >
       <div class="page-header">
@@ -829,6 +935,152 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>
       </form>
+
+      <%!-- Tournament groups (`PairingsEngine.TournamentGroups`). The list
+            shows only the members this user can open - the switcher's rule,
+            for the switcher's reason. --%>
+      <div class="card" id="group-card">
+        <h2>{gettext("Group")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Several tournaments of one event - the Open, a youth section, a rapid on the side - can be put in a group. Each keeps its own players, rounds and pairings; the group adds a switcher at the top of every page that opens the same page of another one."
+          )}
+        </p>
+
+        <p :if={@group_error} id="group-error" class="error-note" role="alert">{@group_error}</p>
+
+        <%= if @group_switcher do %>
+          <.form
+            for={@group_rename_form}
+            id="group-rename-form"
+            phx-submit="group_rename"
+            class="group-inline-form"
+          >
+            <.input
+              field={@group_rename_form[:name]}
+              type="text"
+              label={gettext("Group name")}
+              maxlength={Group.max_name()}
+              required
+            />
+            <button type="submit" class="pe-btn">{gettext("Rename")}</button>
+          </.form>
+
+          <.form
+            for={@group_label_form}
+            id="group-label-form"
+            phx-submit="group_label"
+            class="group-inline-form"
+          >
+            <.input
+              field={@group_label_form[:label]}
+              type="text"
+              label={gettext("This tournament's label in the switcher")}
+              placeholder={@tournament.name}
+              maxlength={Member.max_label()}
+            />
+            <button type="submit" class="pe-btn">{gettext("Save label")}</button>
+          </.form>
+          <p class="hint" style="margin-top: 0">
+            {gettext("Leave the label empty to show the tournament's own name.")}
+          </p>
+
+          <ol class="tb-list" id="group-order">
+            <li
+              :for={{m, i} <- Enum.with_index(@group_switcher.members)}
+              id={"group-member-#{m.id}"}
+            >
+              <span class="tb-order">{i + 1}.</span>
+              <div>
+                <div class="tb-name">
+                  {m.label}
+                  <span :if={m.current?} class="badge muted">{gettext("this tournament")}</span>
+                </div>
+                <div :if={m.label != m.name} class="tb-desc">{m.name}</div>
+              </div>
+              <div class="tb-buttons">
+                <button
+                  type="button"
+                  class="pe-btn"
+                  id={"group-up-#{m.id}"}
+                  title={gettext("Move up")}
+                  aria-label={gettext("Move %{tournament} up", tournament: m.label)}
+                  disabled={i == 0}
+                  phx-click="group_move"
+                  phx-value-id={m.id}
+                  phx-value-dir="up"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="pe-btn"
+                  id={"group-down-#{m.id}"}
+                  title={gettext("Move down")}
+                  aria-label={gettext("Move %{tournament} down", tournament: m.label)}
+                  disabled={i == length(@group_switcher.members) - 1}
+                  phx-click="group_move"
+                  phx-value-id={m.id}
+                  phx-value-dir="down"
+                >
+                  ↓
+                </button>
+              </div>
+            </li>
+          </ol>
+
+          <div class="actions">
+            <button
+              type="button"
+              id="group-leave"
+              class="pe-btn danger-link"
+              phx-click="group_leave"
+              data-confirm={
+                gettext(
+                  "Take this tournament out of the group %{name}? Nothing in the tournament itself changes. A group left empty is removed.",
+                  name: @group_switcher.group.name
+                )
+              }
+            >
+              {gettext("Take out of the group")}
+            </button>
+          </div>
+        <% else %>
+          <.form
+            for={@group_create_form}
+            id="group-create-form"
+            phx-submit="group_create"
+            class="group-inline-form"
+          >
+            <.input
+              field={@group_create_form[:name]}
+              type="text"
+              label={gettext("New group")}
+              placeholder={gettext("e.g. Spring Open 2026")}
+              maxlength={Group.max_name()}
+              required
+            />
+            <button type="submit" class="pe-btn primary">{gettext("Create group")}</button>
+          </.form>
+
+          <.form
+            :if={@joinable_groups != []}
+            for={@group_join_form}
+            id="group-join-form"
+            phx-submit="group_join"
+            class="group-inline-form"
+          >
+            <.input
+              field={@group_join_form[:group_id]}
+              type="select"
+              label={gettext("Or add it to an existing group")}
+              options={joinable_options(@joinable_groups)}
+            />
+            <button type="submit" class="pe-btn">{gettext("Add to group")}</button>
+          </.form>
+        <% end %>
+      </div>
 
       <%!-- Not on a local install. The invitation is an email, which goes
             to the console there, and the listener is pinned to loopback so

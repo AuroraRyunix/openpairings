@@ -589,7 +589,20 @@ defmodule PairingsEngine.TournamentExport do
       # copy shows the same codes, and tells the same drift.
       "sent_receipts" => PairingsEngine.SentReceipts.export_receipts(t.id)
     }
+    |> put_group_block(t)
     |> put_handoff_blocks(t, Keyword.get(opts, :include_handoff, false))
+  end
+
+  # The event this tournament belongs to (`PairingsEngine.TournamentGroups`):
+  # name, label, position. Information for whoever reads the file, not an
+  # instruction - `TournamentImport` ignores it and the copy arrives
+  # ungrouped. Absent for a tournament in no group, so an ungrouped
+  # tournament's envelope is byte for byte what it always was.
+  defp put_group_block(map, t) do
+    case PairingsEngine.TournamentGroups.export_block(t.id) do
+      nil -> map
+      block -> Map.put(map, "group", block)
+    end
   end
 
   # Absent rather than empty when this is not a hand-off. An `[]` would read

@@ -27,11 +27,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # both languages spell the same (`is`, `in`, `was`, `per`, `extra`, `via`,
   # `gratis` - the Players page's own label for a free entry in both), chess
   # and software loanwords the catalogue keeps (`bye`, `rating`, `logo`,
-  # `link`, `token`, `computer`), identifiers (`FIDE`, `SWAR`, `guid`), and
+  # `link`, `token`, `computer`, `label`), identifiers (`FIDE`, `SWAR`, `guid`), and
   # labels whose Dutch msgstr is currently the English word: the `Support`
   # role and the phone access levels (see
   # docs/translations-audit-2026-09-12.md, finding 14).
-  @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token
+  @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
              chess960 chess rnbqkbnr)
 
@@ -520,6 +520,15 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "collaborator.accepted" => [%{"email" => "an@example.org"}],
     "collaborator.declined" => [%{"email" => "an@example.org"}],
     "collaborator.removed" => [%{"email" => "an@example.org"}],
+    "group.created" => [%{"name" => "Lenteopen"}],
+    "group.joined" => [%{"name" => "Lenteopen"}],
+    "group.left" => [%{"name" => "Lenteopen"}],
+    "group.renamed" => [%{"from" => "Lenteopen", "to" => "Najaarsopen"}],
+    "group.label_set" => [
+      %{"name" => "Lenteopen", "from" => nil, "to" => "U20"},
+      %{"name" => "Lenteopen", "from" => "U20", "to" => nil}
+    ],
+    "group.reordered" => [%{"name" => "Lenteopen"}],
     "forbidden_pairing.added" => [%{"player_a_id" => 3, "player_b_id" => 8}],
     "forbidden_pairing.removed" => [%{"player_a_id" => 3, "player_b_id" => 8}],
     "forbidden_pairing.changed" => [

@@ -3095,6 +3095,130 @@ a.pending-chip:hover {
 }
 .fide-mode-strip a { margin-left: 4px; }
 
+/* The event switcher (`PairingsEngineWeb.Components.GroupSwitcher`): the
+   sibling tournaments of one event as a segmented control, the current one
+   marked the way the current top-bar tab is. A dropdown on a phone, where a
+   row of labels would only scroll sideways. */
+.group-switcher {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 14px;
+}
+.group-switcher-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.group-switcher-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.group-switcher-item {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.group-switcher-item:hover { background: var(--surface-hover); color: var(--text); }
+.group-switcher-item.current { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* The home list: a group's header row, then its tournaments, set in a
+   little so the eye reads them as belonging to it. */
+.home-group-row > td { background: var(--surface-alt); padding-top: 6px; padding-bottom: 6px; }
+.home-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.home-group-toggle:hover { background: var(--surface-hover); color: var(--text); }
+.home-group-count { font-size: 12.5px; color: var(--text-soft); }
+.home-group-member > td:first-child { padding-left: 30px; }
+
+/* The Group card on Settings: a field and its button on one line. */
+.group-inline-form {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-bottom: 10px;
+}
+.group-inline-form > .fieldset { flex: 1 1 260px; margin-bottom: 0; }
+.group-inline-form > .pe-btn { margin-bottom: 2px; }
+
+.group-switcher-menu { display: none; position: relative; }
+.group-switcher-menu > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.group-switcher-menu > summary::-webkit-details-marker { display: none; }
+.group-switcher-menu-panel { display: none; }
+.group-switcher-menu[open] > .group-switcher-menu-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  max-width: calc(100vw - 28px);
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.group-switcher-menu-item {
+  padding: 12px 14px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.group-switcher-menu-item:hover { background: var(--surface-hover); color: var(--text); }
+.group-switcher-menu-item.current { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+@media (max-width: 768px) {
+  .group-switcher-segments { display: none; }
+  .group-switcher-menu { display: block; }
+}
+
 /* The in-app update notice - see PairingsEngineWeb.UpdateNotice and
    PairingsEngine.Updates. Same rounded-card shape as .archived-banner
    rather than the root layout's sticky .deploy-banner/.site-notice bars:

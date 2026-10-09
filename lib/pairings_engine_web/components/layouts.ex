@@ -6,6 +6,7 @@ defmodule PairingsEngineWeb.Layouts do
   use PairingsEngineWeb, :html
 
   import PairingsEngineWeb.Components.ConnectionStatus, only: [publish_pill: 1]
+  import PairingsEngineWeb.Components.GroupSwitcher, only: [group_switcher: 1]
 
   alias PairingsEngine.Authz
   alias PairingsEngine.Build
@@ -88,9 +89,23 @@ defmodule PairingsEngineWeb.Layouts do
         "database query and a filesystem check, so a page that omits this attribute " <>
         "gets nothing rather than that cost paid on every single render."
 
+  attr :group_switcher, :any,
+    default: :auto,
+    doc:
+      "the event switcher's data (`PairingsEngine.TournamentGroups.switcher/2`). " <>
+        "Looked up here by default; a page that already holds it (Settings, which " <>
+        "edits it) passes its own copy so the strip moves the moment it changes."
+
   slot :inner_block, required: true
 
   def app(assigns) do
+    # The event switcher (`Components.GroupSwitcher`). Looked up here rather
+    # than threaded through thirty callers, for the reason the publish pill's
+    # comment gives below. One indexed lookup for a tournament in no group,
+    # which is most of them.
+    assigns =
+      assign(assigns, :group_switcher, resolve_group_switcher(assigns))
+
     # A page that forgets the attribute gets the cached value rather than a
     # permanent "Checking…". It will not update live there, which is a
     # missing feature; a pill frozen on the wrong word would be a lie.
@@ -493,6 +508,8 @@ defmodule PairingsEngineWeb.Layouts do
     <%!-- `id` and `tabindex="-1"` for the root layout's skip link, which
           moves focus here as well as the scroll position. --%>
     <main class="page" id="main-content" tabindex="-1">
+      <.group_switcher switcher={@group_switcher} current_path={@current_path} />
+
       <%!-- Non-modal, machine-wide, desktop-only - see
             `PairingsEngineWeb.UpdateNotice` and `PairingsEngine.Updates`.
             Notify, and the arbiter applies it - never a timer. A
@@ -713,6 +730,18 @@ defmodule PairingsEngineWeb.Layouts do
     </svg>
     """
   end
+
+  defp resolve_group_switcher(%{group_switcher: :auto, tournament: tournament} = assigns) do
+    case {tournament, assigns[:current_scope]} do
+      {%PairingsEngine.Tournaments.Tournament{}, %PairingsEngine.Accounts.Scope{user: %{}}} ->
+        PairingsEngine.TournamentGroups.switcher(assigns.current_scope, tournament)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp resolve_group_switcher(%{group_switcher: given}), do: given
 
   defp tab_class(true), do: "active"
   defp tab_class(false), do: nil

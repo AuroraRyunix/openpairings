@@ -17,6 +17,23 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Tournament groups: one event, several tournaments, one click
+  between them** (Settings, Tournament, *Group*). The Open, the U20 and the
+  rapid on the side were separate islands in the list; put them in a group and
+  every page of each gets a switcher at the top - "Open | U20 | U12" - that
+  opens the same page of the sibling: Standings to Standings, Players to
+  Players, and the Players page when the sibling has no such page. A dropdown on
+  a phone. Each tournament keeps its own players, rounds and pairings; this is
+  not player categories. Create a group from a tournament, add one to a group
+  you can already edit, give it a short label, reorder, take it out - the last
+  one out takes the group with it. Owners and collaborators alike, on the
+  tournaments they may edit. The switcher lists only the tournaments the viewer
+  may open, so sharing one section of an event does not announce the others. The
+  home list gathers a group under its name, foldable. The JSON export names the
+  group for whoever reads the file; the import ignores it and the copy arrives
+  ungrouped, because the file does not get to decide what this machine's
+  tournaments belong to. Not a FIDE matter, and not published to OpenResults yet.
+
 - [Feature] **Rating tie-breaks can count each game at the rating of its round**
   (Settings, Tournament, *Rating-based tie-breaks use each round's rating*, shown
   once the tournament lasts more than 30 days). On, each opponent counts at the

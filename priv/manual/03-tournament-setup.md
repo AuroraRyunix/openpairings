@@ -99,6 +99,50 @@ Pairings page ([Pairing a round](06-pairing.md)).
 **Logo.** A PNG, JPEG, GIF or WebP image of at most 2 MB, stored with the
 tournament and printed on the documents.
 
+## Tournament groups
+
+One event is often several separate tournaments: the Open, a youth section, a
+rapid on the side. Each has its own players, rounds and pairings - that is
+what makes them separate tournaments rather than
+[categories](13-categories-and-norms.md) of one. A **group** strings them
+together.
+
+On **Settings → Tournament**, the **Group** card:
+
+- **Create group** starts a new group, named as you like, with this tournament
+  in it.
+- **Or add it to an existing group** lists the groups you can already edit -
+  the ones holding a tournament you may edit - and adds this tournament at the
+  end. A tournament is in one group at most.
+- **This tournament's label in the switcher** is a short name such as *Open*
+  or *U20*. Empty, the switcher shows the tournament's own name.
+- The arrows change the order, the **Rename** button the group's name.
+- **Take out of the group** removes this tournament from it. Nothing in the
+  tournament itself changes. The last tournament out removes the group.
+
+Once a group holds two tournaments you can open, every page of each starts
+with a **switcher**: the group's name and its tournaments side by side, the
+current one marked. A click opens the same page of the other tournament -
+Standings to Standings, a settings page to the same settings page - or its
+Players page when it has no such page (the Teams page of an individual
+tournament, one round's explanation). On a phone the switcher is a dropdown.
+
+Who may do what: anyone who may edit a tournament - its owner, or a
+collaborator who accepted the invitation - may put it in a group, label it,
+reorder the group or take it out. The switcher and the card only ever show
+the tournaments *you* may open. A tournament shared with you alone does not
+reveal the rest of the event.
+
+On the **Tournaments** page the tournaments of a group are listed together
+under the group's name, in the group's order. The arrow before the name folds
+the group away. Archived and handed-off tournaments are read-only here too:
+unarchive or take back first. A tournament in the recycle bin drops out of
+the switcher and returns to its group when restored; deleting it for good
+takes it out.
+
+Groups are a convenience of this program. They do not change pairing,
+standings or FIDE reports, and are not published to OpenResults.
+
 ## Options page
 
 **Pairing system.** The system is fixed once the first round is paired.

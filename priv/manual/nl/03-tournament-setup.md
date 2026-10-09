@@ -104,6 +104,50 @@ e-mailadres (zie [Accounts, delen en overdracht](15-accounts-and-handoff.md)).
 **Logo.** Een PNG-, JPEG-, GIF- of WebP-afbeelding van maximaal 2 MB, die bij het
 toernooi wordt opgeslagen en op de documenten wordt afgedrukt.
 
+## Toernooigroepen {#tournament-groups}
+
+Eén evenement bestaat vaak uit meerdere afzonderlijke toernooien: de open reeks, een
+jeugdreeks, een rapidtoernooi ernaast. Elk heeft zijn eigen spelers, rondes en
+paringen - daarom zijn het afzonderlijke toernooien en geen
+[categorieën](13-categories-and-norms.md) van één toernooi. Een **groep** brengt ze
+samen.
+
+Op **Instellingen → Toernooi**, de kaart **Groep**:
+
+- **Groep aanmaken** start een nieuwe groep, met een naam naar keuze, met dit
+  toernooi erin.
+- **Of voeg het toe aan een bestaande groep** toont de groepen die u al kunt
+  bewerken - die waarin een toernooi zit dat u mag bewerken - en voegt dit toernooi
+  achteraan toe. Een toernooi zit in hoogstens één groep.
+- **Label van dit toernooi in de keuzestrook** is een korte naam zoals *Open* of
+  *U20*. Leeg toont de keuzestrook de eigen naam van het toernooi.
+- De pijlen veranderen de volgorde, de knop **Hernoemen** de naam van de groep.
+- **Uit de groep halen** haalt dit toernooi eruit. In het toernooi zelf verandert
+  niets. Het laatste toernooi dat vertrekt, verwijdert de groep.
+
+Zodra een groep twee toernooien bevat die u kunt openen, begint elke pagina van elk
+met een **keuzestrook**: de naam van de groep en haar toernooien naast elkaar, het
+huidige gemarkeerd. Een klik opent dezelfde pagina van het andere toernooi -
+Rangschikking naar Rangschikking, een instellingenpagina naar dezelfde
+instellingenpagina - of de pagina Spelers wanneer het die pagina niet heeft (de
+pagina Ploegen van een individueel toernooi, de uitleg van één ronde). Op een
+telefoon is de keuzestrook een uitklapmenu.
+
+Wie wat mag: wie een toernooi mag bewerken - de eigenaar, of een medewerker die de
+uitnodiging aanvaardde - mag het in een groep zetten, een label geven, de groep
+herschikken of het eruit halen. De keuzestrook en de kaart tonen alleen de toernooien
+die *u* mag openen. Een toernooi dat alleen met u gedeeld is, verraadt de rest van het
+evenement niet.
+
+Op de pagina **Toernooien** staan de toernooien van een groep samen onder de naam van
+de groep, in de volgorde van de groep. De pijl voor de naam klapt de groep dicht.
+Gearchiveerde en overgedragen toernooien zijn ook hier alleen-lezen: dearchiveer of
+haal eerst terug. Een toernooi in de prullenbak verdwijnt uit de keuzestrook en keert
+bij herstel terug in zijn groep; definitief verwijderen haalt het eruit.
+
+Groepen zijn een gemak van dit programma. Ze veranderen niets aan paren,
+rangschikking of FIDE-rapporten, en worden niet gepubliceerd op OpenResults.
+
 ## Pagina Opties {#options-page}
 
 **Paringssysteem.** Het systeem ligt vast zodra de eerste ronde is gepaard.

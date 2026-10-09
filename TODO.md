@@ -1102,16 +1102,33 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
-- **Tournament groups (asked 2026-10-08).** One event is often several
-  separate tournaments - the Open, the U20, the U12, a rapid on the side.
-  Today each is its own island in the list. Wanted: put tournaments in a
-  group (an "event"), and from any of them jump straight to a sibling, e.g.
-  a switcher in the tournament header ("Open | U20 | U12"). Distinct from
-  player categories (one tournament, several categories): these are
-  separate tournaments with their own players, rounds and pairings. To
-  decide when it is picked up: who may group what (owner only, or shared
-  arbiters too), whether the home list collapses a group into one row,
-  and whether OpenResults publishes the group as one event page with tabs.
+- ~~**Tournament groups (asked 2026-10-08).**~~ - **built 2026-10-09**
+  (branch `tournament-groups`). One event is often several separate
+  tournaments - the Open, the U20, the U12, a rapid on the side. Shipped:
+  `PairingsEngine.TournamentGroups` (tables `tournament_groups` and
+  `tournament_group_members`, a tournament in one group at most, an optional
+  short label, an order); a "Group" card on Settings, Tournament (create,
+  join a group you can already edit, label, reorder, rename, take out - the
+  last one out deletes the group); a switcher at the top of every tournament
+  page (`Components.GroupSwitcher`, segmented, a dropdown on a phone) that
+  opens the same sub-page of the sibling, else its Players page; the home
+  list gathers a group under its name, foldable. Decided: anyone who may
+  edit a tournament (owner or accepted collaborator) may group it, and
+  joining an existing group needs edit rights on one of its members too;
+  the switcher lists only the siblings the viewer may open. JSON export
+  carries a `"group"` block (name, label, position) as information; import
+  ignores it. Binned tournaments keep their membership (hidden, back on
+  restore); a purge removes it and an emptied group.
+
+  Still open: **OpenResults publishing the group as one event page.** Not
+  done in this pass, deliberately: the snapshot contract is specified in the
+  OpenResults repo, and a sibling list there would have to name only
+  siblings that are themselves published (by their public slugs) - otherwise
+  publishing one section announces the unpublished others, the same leak the
+  switcher's no-leak rule exists to prevent. Needs an additive `"event"` key
+  (name, label, published siblings' slugs and labels) in `Snapshot.build/1`
+  plus the OpenResults side that renders it, and a republish of every member
+  when the group changes.
 
 - ~~**History page (`/t/:id/history`) reported as "just a read-only thing"**~~
   - **answered 2026-08-16.** Nothing was broken: the restore buttons only

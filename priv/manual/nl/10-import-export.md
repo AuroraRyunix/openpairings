@@ -100,6 +100,11 @@ auditlogboek en de medewerkers reizen alleen mee in een overdrachtsbestand, en d
 medewerkers komen terug als openstaande uitnodigingen die elke persoon moet
 aanvaarden.
 
+Een toernooi in een groep ([Toernooigroepen](03-tournament-setup.md#tournament-groups))
+neemt de naam van de groep, zijn label en zijn plaats mee in het bestand, ter
+informatie. De import gebruikt ze niet: de kopie komt in geen enkele groep aan, en u
+voegt ze op haar pagina Instellingen aan een groep toe als u ze daar wilt.
+
 ### SWAR-bestand {#swar-file}
 
 Met de functie *SWAR-import* aan (menu Account, **Functies**, Belgisch pakket) leest

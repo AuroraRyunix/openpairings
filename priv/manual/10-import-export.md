@@ -99,6 +99,11 @@ be switched on again for the copy, [Publishing](14-publishing.md)). The audit
 trail and the collaborators travel only in a hand-off file, and the
 collaborators come back as pending invitations that each person must accept.
 
+A tournament in a group ([Tournament groups](03-tournament-setup.md#tournament-groups))
+carries the group's name, its label and its place in the file, for whoever
+reads it. The import does not use them: the copy arrives in no group, and you
+add it to one on its Settings page if you want it there.
+
 ### SWAR file
 
 With the *SWAR import* feature on (Account menu, **Features**, Belgian pack),

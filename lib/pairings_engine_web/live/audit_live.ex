@@ -146,7 +146,8 @@ defmodule PairingsEngineWeb.AuditLive do
     {"tournament",
      ~w(tournament.created tournament.deleted tournament.restored tournament.archived
         tournament.unarchived tournament.duplicated tournament.left tournament.handoff_forced
-        handoff.handed_off handoff.received handoff.returned handoff.released)}
+        handoff.handed_off handoff.received handoff.returned handoff.released
+        group.created group.joined group.left group.renamed group.label_set group.reordered)}
   ]
 
   @impl true
@@ -1561,6 +1562,43 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("tournament.left", d),
     do: gettext("Left tournament %{name} (gave up collaborator access).", name: name(d, "name"))
+
+  # Tournament groups (`PairingsEngine.TournamentGroups`). Logged on the
+  # tournament that was acted on, which is the one whose trail this is.
+  def describe("group.created", d),
+    do: gettext("Started the group %{name} with this tournament.", name: name(d, "name"))
+
+  def describe("group.joined", d),
+    do: gettext("Added this tournament to the group %{name}.", name: name(d, "name"))
+
+  def describe("group.left", d),
+    do: gettext("Took this tournament out of the group %{name}.", name: name(d, "name"))
+
+  def describe("group.renamed", d),
+    do:
+      gettext("Renamed the group from %{from} to %{to}.",
+        from: name(d, "from"),
+        to: name(d, "to")
+      )
+
+  def describe("group.label_set", d) do
+    case d["to"] do
+      blank when blank in [nil, ""] ->
+        gettext("Cleared this tournament's label in the group %{name}; it shows its own name.",
+          name: name(d, "name")
+        )
+
+      label ->
+        gettext("Labelled this tournament %{label} in the group %{name}.",
+          label: text(label),
+          name: name(d, "name")
+        )
+    end
+  end
+
+  def describe("group.reordered", d),
+    do:
+      gettext("Changed the order of the tournaments in the group %{name}.", name: name(d, "name"))
 
   # `restored_to` is the restore point's own summary, copied in when the
   # row was written. For a point the app took itself that summary is an

@@ -299,6 +299,23 @@ defmodule PairingsEngine.Tournaments do
           (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user)))
   end
 
+  @doc """
+  A query selecting the id of every tournament `scope`'s user may open -
+  the same rule as `get_authorized_tournament/2` (owned, or shared and
+  accepted, and not in the recycle bin), for callers that need it over a set
+  instead of one id at a time. `PairingsEngine.TournamentGroups` uses it so
+  a sibling the user cannot open is never so much as named to them.
+  """
+  def authorized_tournament_ids(%Scope{} = scope) do
+    user = scope.user
+
+    from t in Tournament,
+      where:
+        is_nil(t.deleted_at) and
+          (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user))),
+      select: t.id
+  end
+
   # Only *accepted* collaborator rows grant access - a pending invite (added
   # but not yet accepted via `/invites/:token`, see `accept_invitation/2`)
   # must not unlock the tournament for anyone. This is the single choke
@@ -1323,6 +1340,10 @@ defmodule PairingsEngine.Tournaments do
     else
       Repo.delete(tournament)
       |> tap_ok(fn deleted ->
+        # The membership row went with the tournament (ON DELETE CASCADE);
+        # a group it leaves empty goes too, rather than lingering as a
+        # name with nothing under it.
+        PairingsEngine.TournamentGroups.prune_empty_groups()
         broadcast_tournament_change(deleted.id, :tournament)
         broadcast_tournament_list(deleted)
       end)
