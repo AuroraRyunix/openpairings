@@ -17,6 +17,13 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Round-1 absentees as late entries can be switched per tournament**
+  (Settings, Options, next to the late-entrant numbering). New tournaments have
+  it on; an older or imported one can switch it on - or off - until round 1 is
+  paired, then the checkbox greys out with the reason and the server refuses the
+  change too, since flipping it would renumber players in rounds already
+  played. Not shown for Baku (always on), round robin or Keizer. Moving toward
+  C.04.2 2.4 is not a FIDE departure; the change goes in the audit log.
 - [Feature] **Tom W, a pale sky-blue theme with a royal-blue accent,** under Board in the theme picker. Named for someone whose help shaped a good deal of this app; he gets a colour scheme, which is more than arbiters usually get. A light theme, so the accent picker works on it exactly as on Light: red means red.
 - [Removed] **Mocha.** It did not earn its place. If it was your theme you are back on System, on every device, until you pick another.
 - [Fix] **Dropdown arrows stay inside their box.** Every dropdown draws its own

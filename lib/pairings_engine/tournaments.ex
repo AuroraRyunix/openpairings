@@ -713,6 +713,7 @@ defmodule PairingsEngine.Tournaments do
       tournament
       |> Tournament.changeset(attrs)
       |> Tournament.validate_no_team_keizer()
+      |> validate_round_one_absentees_switch(tournament)
       |> follow_round_robin_shape(tournament)
       |> record_soft_position_change(tournament)
       |> stamp_compliance_loss(fn ->
@@ -723,6 +724,33 @@ defmodule PairingsEngine.Tournaments do
         broadcast_tournament_change(updated.id, :settings)
         broadcast_tournament_list(updated)
       end)
+    end
+  end
+
+  @doc """
+  Whether any pairing exists for round 1 of the tournament. From then on
+  `round_one_absentees_late` is frozen: flipping it would renumber players in
+  rounds that were already played.
+  """
+  def round_one_paired?(tournament_id) do
+    Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id and r.number == 1)
+  end
+
+  # `round_one_absentees_late` may change only while round 1 is unpaired.
+  # Refused here, not just greyed out on the Options page, because the page is
+  # a courtesy and this is the rule. Saving the same value again is no change
+  # and passes.
+  defp validate_round_one_absentees_switch(changeset, tournament) do
+    if Ecto.Changeset.get_change(changeset, :round_one_absentees_late) != nil and
+         round_one_paired?(tournament.id) do
+      Ecto.Changeset.add_error(
+        changeset,
+        :round_one_absentees_late,
+        "cannot change once round 1 is paired",
+        validation: :round_one_paired
+      )
+    else
+      changeset
     end
   end
 

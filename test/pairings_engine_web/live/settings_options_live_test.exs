@@ -640,4 +640,97 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       assert :sys.get_state(lv.pid).socket.assigns.locked_hint == :pairing_system
     end
   end
+
+  describe "round-1 absentees as late entries - switchable until round 1 is paired" do
+    defp pair_swiss_round_1(tournament) do
+      for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
+        Tournaments.create_player(tournament.id, %{name: name, fide_rating: rating})
+      end
+
+      {:ok, _round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    defp switch_off_flag(tournament) do
+      tournament
+      |> Ecto.Changeset.change(round_one_absentees_late: false)
+      |> Repo.update!()
+    end
+
+    test "shown for a Swiss, hidden for Baku and for a round robin", %{conn: conn, scope: scope} do
+      swiss = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{swiss.id}/settings/options")
+      assert has_element?(lv, "input[type=checkbox][name='tournament[round_one_absentees_late]']")
+
+      baku = create_tournament(scope, %{"acceleration" => "baku"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{baku.id}/settings/options")
+      refute has_element?(lv, "input[name='tournament[round_one_absentees_late]']")
+
+      rr = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{rr.id}/settings/options")
+      refute has_element?(lv, "input[name='tournament[round_one_absentees_late]']")
+    end
+
+    test "an older tournament switches it on before round 1, and the change is audited", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = scope |> create_tournament() |> switch_off_flag()
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      refute has_element?(
+               lv,
+               "input[type=checkbox][name='tournament[round_one_absentees_late]'][checked]"
+             )
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "round_one_absentees_late" => "true"}
+      })
+
+      assert Repo.reload!(tournament).round_one_absentees_late
+
+      assert Enum.any?(
+               Audit.list_for_tournament(tournament.id, action: "tournament.settings_updated"),
+               &Map.has_key?(&1.details["changed_fields"], "round_one_absentees_late")
+             )
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "round_one_absentees_late" => "false"}
+      })
+
+      refute Repo.reload!(tournament).round_one_absentees_late
+    end
+
+    test "disabled with a reason once round 1 is paired, and the server refuses it too", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = scope |> create_tournament() |> switch_off_flag()
+      pair_swiss_round_1(tournament)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      assert html =~ ~r/name="tournament\[round_one_absentees_late\]"[^>]*disabled/
+      assert has_element?(lv, "#round-one-absentees-late-locked")
+
+      # The disabled checkbox is not sent, but a crafted event is: the page
+      # drops it, like every other frozen field.
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "round_one_absentees_late" => "true"}
+      })
+
+      refute Repo.reload!(tournament).round_one_absentees_late
+
+      # And the context refuses it outright, whoever calls.
+      assert {:error, changeset} =
+               Tournaments.update_tournament(
+                 Tournaments.get_tournament!(tournament.id),
+                 %{"round_one_absentees_late" => "true"}
+               )
+
+      assert changeset.errors[:round_one_absentees_late]
+      refute Repo.reload!(tournament).round_one_absentees_late
+    end
+  end
 end

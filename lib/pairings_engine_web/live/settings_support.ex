@@ -1115,12 +1115,24 @@ defmodule PairingsEngineWeb.SettingsSupport do
   # A new team tournament with Keizer (`Tournament.validate_no_team_keizer/1`)
   # gets its own sentence; every other changeset its field errors.
   def error_text(%Ecto.Changeset{errors: errors}) do
-    if Enum.any?(errors, fn {_field, {_msg, opts}} -> opts[:validation] == :team_keizer end),
-      do:
+    validation? = fn kind ->
+      Enum.any?(errors, fn {_field, {_msg, opts}} -> opts[:validation] == kind end)
+    end
+
+    cond do
+      validation?.(:round_one_paired) ->
+        gettext(
+          "Not saved: round 1 is already paired, so round-1 absentees can no longer be switched between late entries and numbered-with-the-field. Doing so would renumber players in rounds already played."
+        )
+
+      validation?.(:team_keizer) ->
         gettext(
           "Keizer cannot pair team against team, so a team tournament cannot use it. Choose Swiss (FIDE's team Swiss, C.04.6) or Round robin."
-        ),
-      else: Enum.map_join(errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+        )
+
+      true ->
+        Enum.map_join(errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+    end
   end
 
   def error_text(:locked_in_fide_mode),

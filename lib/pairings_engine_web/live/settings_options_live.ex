@@ -112,6 +112,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       initial_colour_locked?: :initial_colour in locked,
       rating_method_locked?: :rating_method in locked,
       initial_order_tiebreak_locked?: :initial_order_tiebreak in locked,
+      round_one_paired?: Tournaments.round_one_paired?(tournament.id),
       team_lineups_locked?: :team_lineups in locked
     )
   end
@@ -333,6 +334,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     |> maybe_drop_locked("rating_method", assigns.rating_method_locked?)
     |> maybe_drop_locked("initial_order_tiebreak", assigns.initial_order_tiebreak_locked?)
     |> maybe_drop_locked("team_lineups", assigns.team_lineups_locked?)
+    |> maybe_drop_locked("round_one_absentees_late", assigns.round_one_paired?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -704,6 +706,33 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </option>
               </select>
             </.setting_field>
+
+            <.setting_toggle
+              :if={
+                @tournament.pairing_system == "swiss" and @tournament.acceleration != "baku" and
+                  !Tournament.team?(@tournament)
+              }
+              name="tournament[round_one_absentees_late]"
+              label={gettext("Players absent from round 1 are late entries (FIDE C.04.2 2.4)")}
+              hint={
+                gettext(
+                  "They get no pairing number when round 1 is paired and are numbered when they arrive, by the setting above. On for every tournament created from version 0.79 on; off, the old way, for older and imported ones. Can be switched until round 1 is paired."
+                )
+              }
+              checked={@tournament.round_one_absentees_late}
+              disabled={@round_one_paired?}
+            >
+              <span
+                :if={@round_one_paired?}
+                id="round-one-absentees-late-locked"
+                class="hint"
+                style="display: block"
+              >
+                {gettext(
+                  "Locked: round 1 is paired, and switching would renumber players in rounds already played."
+                )}
+              </span>
+            </.setting_toggle>
 
             <.setting_field
               label={gettext("Cycles")}

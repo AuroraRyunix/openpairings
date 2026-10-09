@@ -246,5 +246,39 @@ defmodule PairingsEngine.RoundOneAbsenteesLateTest do
 
       assert number(x) == 11
     end
+
+    test "switched on before round 1, the same tournament treats the absentee as a late entry" do
+      t = new_tournament()
+
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [round_one_absentees_late: false]
+      )
+
+      {:ok, _} =
+        Tournaments.update_tournament(Repo.reload!(t), %{"round_one_absentees_late" => "true"})
+
+      x = add_player(t, "Absent, Round One", 2090, %{"absent_rounds" => "1"})
+      play_round(t)
+
+      assert number(x) == nil
+      assert numbers(t) == Enum.to_list(1..16)
+    end
+
+    test "and cannot be switched once round 1 is paired" do
+      t = new_tournament()
+
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [round_one_absentees_late: false]
+      )
+
+      play_round(t)
+
+      assert {:error, _} =
+               Tournaments.update_tournament(Repo.reload!(t), %{
+                 "round_one_absentees_late" => "true"
+               })
+
+      refute Repo.reload!(t).round_one_absentees_late
+    end
   end
 end

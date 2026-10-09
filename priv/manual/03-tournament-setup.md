@@ -143,9 +143,14 @@ round) is a late entrant too: they get no pairing number when round 1 is
 paired, and are numbered when they arrive, by the setting above (C.04.2 2.4).
 If round 1 is unpaired and paired again with them present, they are numbered
 with the field by rating. This holds for every Swiss tournament created from
-version 0.79 on. A tournament created earlier, or imported from a TRF or SWAR
-file, keeps numbering round-1 absentees with the field as it always did: its
-numbers came from somewhere else and stay as they are. A backup file keeps
+version 0.79 on, which have it switched on. A tournament created earlier, or
+imported from a TRF or SWAR file, keeps numbering round-1 absentees with the
+field as it always did: its numbers came from somewhere else and stay as they
+are. It can be switched on, or off again, with the checkbox *Players absent
+from round 1 are late entries* right below the setting above, but only until
+round 1 is paired; after that the checkbox is greyed out, because switching
+would renumber players in rounds already played. Baku always has it on, and
+the checkbox does not appear for a round robin or Keizer. A backup file keeps
 what its tournament had.
 
 **Initial colour.** For the first round of a Swiss tournament: drawn by lot

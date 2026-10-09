@@ -150,11 +150,16 @@ latere startronde) is ook een laatkomer: bij het paren van ronde 1 krijgt die
 geen paringsnummer, en wordt genummerd bij aankomst, volgens de instelling
 hierboven (C.04.2 2.4). Wordt ronde 1 ontpaard en opnieuw gepaard terwijl de
 speler er wel is, dan krijgt die met het veld een nummer volgens rating. Dat
-geldt voor elk Zwitsers toernooi dat vanaf versie 0.79 is aangemaakt. Een
-toernooi van daarvoor, of een dat uit een TRF- of SWAR-bestand is
-geïmporteerd, blijft afwezigen in ronde 1 met het veld nummeren zoals het
-altijd deed: de nummers kwamen van elders en blijven zoals ze zijn. Een
-back-upbestand houdt wat het toernooi had.
+geldt voor elk Zwitsers toernooi dat vanaf versie 0.79 is aangemaakt; die
+hebben het ingeschakeld. Een toernooi van daarvoor, of een dat uit een TRF- of
+SWAR-bestand is geïmporteerd, blijft afwezigen in ronde 1 met het veld nummeren
+zoals het altijd deed: de nummers kwamen van elders en blijven zoals ze zijn.
+Met het selectievakje *Spelers die in ronde 1 afwezig zijn, zijn laatkomers*,
+direct onder de instelling hierboven, kan het worden in- of weer
+uitgeschakeld, maar alleen zolang ronde 1 niet is gepaard; daarna is het vakje
+grijs, omdat omschakelen spelers in al gespeelde ronden zou hernummeren. Baku
+heeft het altijd aan, en bij een round robin of Keizer verschijnt het vakje
+niet. Een back-upbestand houdt wat het toernooi had.
 
 **Beginkleur.** Voor de eerste ronde van een Zwitsers toernooi: door loting
 bepaald wanneer ronde 1 wordt gepaard, of Wit of Zwart door u gekozen. De gebruikte

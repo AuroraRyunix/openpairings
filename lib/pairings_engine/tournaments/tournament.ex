@@ -1331,6 +1331,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :rating_method,
       :initial_order_tiebreak,
       :late_entry_numbering,
+      :round_one_absentees_late,
       :pair_by_category,
       :soft_position,
       :extra_points_mode,
