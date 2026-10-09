@@ -87,3 +87,7 @@ graphify-out/
 /_build_hosted*/
 # Plug-ins placed inside the checkout, as the hosted server does (<app>/plugins/<name>)
 /plugins/
+
+# Asset tool binaries the installers drop in the root when MIX_BUILD_PATH is custom
+/tailwind-*
+/esbuild-*
