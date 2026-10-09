@@ -202,6 +202,7 @@
   --surface-alt: #1b211d;
   --surface-hover: #1e251f;
   --scrim: rgba(0, 0, 0, 0.6);
+  --pe-bg-alt: var(--surface-alt);
 
   color-scheme: dark;
   --color-base-100: #1b211d;
@@ -242,6 +243,7 @@
   --surface-alt: #1f2732;
   --surface-hover: #242d39;
   --scrim: rgba(0, 0, 0, 0.62);
+  --pe-bg-alt: var(--surface-alt);
 
   color-scheme: dark;
   --color-base-100: #1a2029;
