@@ -21,7 +21,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-09
   First failure:          none - no answer on our path is a failure
   Failures on the path:   0
   Penalties on the path:  0% (over 100% fails)
-  Answers:                218 met, 4 gaps, 3 still to check
+  Answers:                219 met, 4 gaps, 2 still to check
   On the path:            184 met, 0 gaps, 1 still to check
 ```
 
@@ -55,7 +55,7 @@ VCL4THP 13 (FIDE TEC draft, 2026-08-25), answers reviewed 2026-10-09
 | 12 | Manual reachable from inside the program (e.g. F1)? | Y | met | ok | The Help link is in the top bar of every page, signed in or not, and inside a tournament opens the chapter for the current tab (layouts.ex #topbar-help, help_path/1; help_live_test.exs 'opens the chapter that matches the tab'). |
 | 13 | Manual available separately (PDF / web link)? | Y | met | - | The manual is also a separate resource: plain Markdown files in priv/manual/ in the public repository (docs/manual/README.md points to them). |
 | 14 | At least an essential-functions English manual? | Y | met | - | Covered by the in-app manual: rating lists (chapter 4), set-up and tie-breaks (3, 8), byes (5), pairings (6), printouts of results and standings (9) (priv/manual; help_live.ex). |
-| 15 | Commit to completing a partial manual within a year? | Y | check | - | Not reached while Q11 is YES. If FIDE judges the manual partial: the maintainer's commitment to complete it within a year of the TAPC (5%). See docs/vcl4thp/questions.md. |
+| 15 | Commit to completing a partial manual within a year? | Y | met | - | Not reached while Q11 is YES. Should FIDE judge the manual partial, the maintainer commits to completing it within a year of the TAPC (confirmed 2026-10-09). See docs/vcl4thp/questions.md. |
 
 ## Engine verification (checker, generator)
 

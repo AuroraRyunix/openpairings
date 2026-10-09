@@ -243,8 +243,8 @@
     "next": null
    },
    "answer": "Y",
-   "status": "check",
-   "note": "Not reached while Q11 is YES. If FIDE judges the manual partial: the maintainer's commitment to complete it within a year of the TAPC (5%). See docs/vcl4thp/questions.md."
+   "status": "met",
+   "note": "Not reached while Q11 is YES. Should FIDE judge the manual partial, the maintainer commits to completing it within a year of the TAPC (confirmed 2026-10-09). See docs/vcl4thp/questions.md."
   },
   {
    "q": 16,
