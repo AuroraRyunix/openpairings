@@ -605,6 +605,9 @@ defmodule PairingsEngineWeb.Layouts do
       {render_slot(@inner_block)}
     </main>
     <.flash_group flash={@flash} />
+    <%= for overlay <- PairingsEngine.Plugins.page_overlays() do %>
+      {overlay}
+    <% end %>
     """
   end
 

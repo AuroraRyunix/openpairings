@@ -123,6 +123,21 @@ defmodule PairingsEngine.Plugins do
     end)
   end
 
+  ## ---------- page overlays ----------
+
+  @doc """
+  What the active plugins draw over every page (`page_overlay/1`), in build
+  order, nils dropped. A plugin that raises draws nothing rather than
+  taking the page down with it.
+  """
+  def page_overlays(assigns \\ %{}) do
+    for plugin <- all(),
+        exports?(plugin, :page_overlay, 1),
+        rendered = safely(plugin, :page_overlay, fn -> plugin.page_overlay(assigns) end, nil),
+        rendered != nil,
+        do: rendered
+  end
+
   ## ---------- features ----------
 
   @doc "The `PairingsEngine.Features` catalogue entries the plugins add."

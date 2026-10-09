@@ -14,6 +14,8 @@ defmodule PairingsEngine.FakePlugin do
   """
   @behaviour PairingsEngine.Plugin
 
+  import Phoenix.Component, only: [sigil_H: 2]
+
   alias PairingsEngine.Tournaments.Tournament
 
   @doc "Makes the fake plugin active until the calling test ends."
@@ -111,5 +113,18 @@ defmodule PairingsEngine.FakePlugin do
   @impl true
   def roster_candidates(_scope, t, _team) do
     if ours?(t), do: {:ok, "the fake list", opt(:candidates) || []}, else: :none
+  end
+
+  @impl true
+  def page_overlay(_assigns) do
+    maybe_raise()
+
+    if opt(:overlay) do
+      assigns = %{}
+
+      ~H"""
+      <div id="fake-overlay" aria-hidden="true">watching</div>
+      """
+    end
   end
 end

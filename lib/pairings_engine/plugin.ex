@@ -56,6 +56,12 @@ defmodule PairingsEngine.Plugin do
       from its own data, offered on the Teams page.
     * `migrations_path/0` - the plugin's own migrations, run with the
       core's.
+    * `page_overlay/1` - something drawn over every page of the app, after
+      the flash messages: a rendered component, or nil for nothing. The
+      plugin owns the markup and its styling; the core only gives it a
+      place to stand. It must not take clicks or focus away from the page
+      underneath - it is decoration, and decoration that gets in the way
+      is a bug with good intentions.
 
   The five identity callbacks are required; every hook is optional.
 
@@ -128,6 +134,7 @@ defmodule PairingsEngine.Plugin do
   @callback roster_candidates(Scope.t(), Tournament.t(), Team.t()) ::
               {:ok, String.t(), [map()]} | :none
   @callback migrations_path() :: String.t()
+  @callback page_overlay(map()) :: Phoenix.LiveView.Rendered.t() | nil
 
   @optional_callbacks routes: 0,
                       tournament_menu_entries: 2,
@@ -136,5 +143,6 @@ defmodule PairingsEngine.Plugin do
                       check_lineups: 1,
                       team_schedule: 1,
                       roster_candidates: 3,
-                      migrations_path: 0
+                      migrations_path: 0,
+                      page_overlay: 1
 end

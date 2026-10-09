@@ -71,6 +71,12 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       assert Plugins.tournament_menu_entries(scope, t) == []
     end
 
+    test "no page gets an overlay", %{conn: conn} do
+      if Enum.empty?(Plugins.compiled()), do: assert(Plugins.page_overlays() == [])
+      {:ok, lv, _html} = live(conn, ~p"/")
+      refute has_element?(lv, "#fake-overlay")
+    end
+
     test "the roster's board order is still enforced", %{scope: scope} do
       {t, _} =
         team_round_robin([{"A", [2000, 1900]}, {"B", [1800, 1700]}], user_id: scope.user.id)
@@ -253,6 +259,26 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       names = t.id |> Tournaments.team_roster(a.id) |> Enum.map(& &1.name)
       assert names == ["A 1", "Listed One", "Listed Two"]
       refute has_element?(lv, button)
+    end
+  end
+
+  describe "a plugin's page overlay" do
+    test "is drawn on every page when the plugin offers one", %{conn: conn} do
+      FakePlugin.register(overlay: true)
+      {:ok, lv, _html} = live(conn, ~p"/")
+      assert has_element?(lv, "#fake-overlay")
+    end
+
+    test "is nothing when the plugin answers nil", %{conn: conn} do
+      FakePlugin.register()
+      {:ok, lv, _html} = live(conn, ~p"/")
+      refute has_element?(lv, "#fake-overlay")
+    end
+
+    test "a plugin that raises costs the overlay, not the page", %{conn: conn} do
+      FakePlugin.register(overlay: true, raise: true)
+      {:ok, lv, _html} = live(conn, ~p"/")
+      refute has_element?(lv, "#fake-overlay")
     end
   end
 
