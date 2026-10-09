@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-10-09
+
 - [Feature] **Tournament groups: one event, several tournaments, one click
   between them** (Settings, Tournament, *Group*). The Open, the U20 and the
   rapid on the side were separate islands in the list; put them in a group and
