@@ -59,7 +59,8 @@ defmodule PairingsEngine.Plugin do
     * `page_overlay/1` - something drawn over every page of the app, after
       the flash messages: a rendered component, or nil for nothing. The
       plugin owns the markup and its styling; the core only gives it a
-      place to stand. It must not take clicks or focus away from the page
+      place to stand, and the viewer's `current_scope` (nil when signed
+      out) so it can choose whom to draw for. It must not take clicks or focus away from the page
       underneath - it is decoration, and decoration that gets in the way
       is a bug with good intentions.
 

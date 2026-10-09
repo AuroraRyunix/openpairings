@@ -622,7 +622,7 @@ defmodule PairingsEngineWeb.Layouts do
       {render_slot(@inner_block)}
     </main>
     <.flash_group flash={@flash} />
-    <%= for overlay <- PairingsEngine.Plugins.page_overlays() do %>
+    <%= for overlay <- PairingsEngine.Plugins.page_overlays(%{current_scope: @current_scope}) do %>
       {overlay}
     <% end %>
     """

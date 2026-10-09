@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The sign-in page says what the app does now, not what it did in the summer.** Event groups, FIDE mode and the Dutch manual made the list; "validated against 2.5 billion pairings" became "checked against billions", which stays true without a recount. "Welcome back" and "Confirm it's you" finally speak Dutch too.
+
 - [Removed] **JaVaFo.** Ainalrami - the default since August, and the one
   that knows the rules changed in February - is now the only Swiss engine.
   Gone with it: the *Swiss engine* choice on Settings, Options (the page now

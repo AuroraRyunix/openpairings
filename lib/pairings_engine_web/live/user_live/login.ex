@@ -76,13 +76,17 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Swiss (Dutch), round robin, Keizer & team tournaments")}
+                {gettext("Swiss (Dutch), round robin, Keizer & team tournaments, grouped per event")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
                 {gettext(
-                  "Ainalrami · our own FIDE 2026 Swiss engine, validated against 2.5 billion pairings"
+                  "Ainalrami · our own FIDE 2026 Swiss engine, checked against billions of pairings"
                 )}
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                {gettext("FIDE mode · warns you before anything would break the rules")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
@@ -96,7 +100,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Invite co-arbiters · run a tournament together, with a full audit trail")}
+                {gettext("Co-arbiters, a full audit trail and a manual in English & Dutch")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
@@ -116,7 +120,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
         <div class="auth-panel">
           <div class="auth-card">
             <h2 class="auth-card-title">
-              {if @current_scope, do: "Confirm it's you", else: "Welcome back"}
+              {if @current_scope, do: gettext("Confirm it's you"), else: gettext("Welcome back")}
             </h2>
             <p class="auth-card-sub">
               <%= if @current_scope do %>
