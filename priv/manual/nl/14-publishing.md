@@ -95,4 +95,6 @@ Pagina **Paringen**, **Meer**, **Lokale weergave & telefoon-QR** (de pagina `/t/
 > [!NOTE]
 > Publiceren blokkeert nooit het paren of het invoeren van uitslagen.
 
+Een wijziging wordt enkele seconden nadat u ze maakt verzonden; het label in de bovenbalk zegt intussen *Bezig met verzenden*. Als er voor toeschouwers niets veranderd is (een dialoogvenster bevestigd terwijl er niets te doen was, een uitslag ingevoerd en meteen teruggenomen), wordt er niets verzonden en blijft het label zoals het was. **Opnieuw proberen**, publiceren uit- en weer aanzetten, en het programma opnieuw starten verzenden altijd.
+
 Een verzending die niet aankomt, wordt bewaard en opnieuw geprobeerd met steeds langere pauzes; de status van de verbinding wordt getoond als een klein label in de bovenbalk, en de pagina zegt wat er mis is. De openbare pagina haalt de zaal in wanneer de verbinding terug is.

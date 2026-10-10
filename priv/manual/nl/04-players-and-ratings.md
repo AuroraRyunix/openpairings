@@ -164,6 +164,8 @@ Elke wijziging vraagt om uw bevestiging; bij een regeneratie komt eerst een lijs
 van de spelers wier nummer verandert. Rondes die al gepaard waren, gebruikten de
 oude nummers, dus een paringscontroleur zal ze niet langer reproduceren; het
 dialoogvenster zegt dat. Elke wijziging wordt in het auditlogboek geschreven.
+Een regeneratie terwijl de nummers de ratings al volgen, zegt dat en wijzigt
+niets.
 
 Tot ronde 4 gepaard is, waarschuwt de pagina Paringen boven *Ronde N paren*
 wanneer de nummers de ratings niet meer volgen - een rating die na ronde 1 is

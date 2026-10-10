@@ -797,6 +797,13 @@ defmodule PairingsEngineWeb.PairingsLive do
           |> assign(tpn_gate: nil, tournament: fresh_tournament(socket))
           |> pair_individual(snapshot: false)
 
+        # Somebody else renumbered while the question was on screen. Nothing
+        # to log; the round is still waiting to be paired.
+        {:unchanged, _order} ->
+          socket
+          |> assign(tpn_gate: nil, tournament: fresh_tournament(socket))
+          |> pair_individual(snapshot: false)
+
         {:error, reason} ->
           {:noreply, assign(socket, tpn_gate: nil, error: tpn_gate_error(reason))}
       end

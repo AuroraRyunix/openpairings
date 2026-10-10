@@ -94,6 +94,37 @@ defmodule PairingsEngine.TpnTest do
     assert Tpn.regeneration_changes(t) == []
   end
 
+  # The Players page's "Regenerate from ratings" on numbers that already
+  # follow them used to rewrite all of them and announce it, which queued a
+  # publish of an unchanged tournament. Now it is told there is nothing to do.
+  test "a regeneration with nothing to move writes nothing and tells nobody",
+       %{t: t, p: p} do
+    t = Repo.update!(Ecto.Changeset.change(t, publish_to_openresults: true))
+    assert {:ok, _round} = Pairing.pair_next_round(t)
+    Repo.delete_all(PairingsEngine.Publishing.QueueEntry)
+    Repo.update_all(Tournament, set: [pairing_numbers_origin: "import"])
+
+    Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+    before = Enum.map(~w(Alice Bob Carol Dave), &number(p[&1]))
+
+    assert {:unchanged, order} = Tpn.regenerate(t)
+
+    assert names(order) == ~w(Alice Bob Carol Dave)
+    assert Enum.map(~w(Alice Bob Carol Dave), &number(p[&1])) == before
+    refute_received {:tournament_changed, _id, _hint}
+    assert PairingsEngine.Publishing.queued(t.id) == nil
+    # Nobody regenerated anything, so a file's numbers are still the file's.
+    assert Tpn.imported?(t)
+
+    # And the moment there is something to move, it moves and says so.
+    {:ok, _} = Tournaments.update_player(Repo.reload!(p["Dave"]), %{fide_rating: 2100})
+    Repo.delete_all(PairingsEngine.Publishing.QueueEntry)
+    assert {:ok, _order} = Tpn.regenerate(t)
+    assert_received {:tournament_changed, _id, :players}
+    assert %PairingsEngine.Publishing.QueueEntry{} = PairingsEngine.Publishing.queued(t.id)
+    refute Tpn.imported?(t)
+  end
+
   # C.04.2 2.3 allows the regeneration until round 4; C.04.2 2.4 gives a late
   # entry its TPN "only when they actually arrive", and C.04.7 1.3.1 sends a
   # Baku event's late entries through that Article. So a Baku player who has
