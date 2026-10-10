@@ -1485,7 +1485,14 @@ defmodule PairingsEngine.Tournaments do
         # asking whether it needs to be. On both edges, so the answer does
         # not depend on which one somebody remembered.
         PairingsEngine.Publishing.Accepted.forget(updated.id)
-        if enabled?, do: PairingsEngine.Publishing.enqueue(updated)
+
+        # Off takes the queued publish with it. The row used to stay, be
+        # refused on every pass as "not set to publish", and keep the top
+        # bar saying "Sending" about a tournament that was sending nothing.
+        if enabled?,
+          do: PairingsEngine.Publishing.enqueue(updated),
+          else: PairingsEngine.Publishing.dequeue(updated.id)
+
         broadcast_tournament_change(updated.id, :settings)
       end)
     end
@@ -1847,6 +1854,9 @@ defmodule PairingsEngine.Tournaments do
       |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
       |> Repo.update()
       |> tap_ok(fn updated ->
+        # A binned tournament sends nothing, so it waits for nothing.
+        # `restore_tournament/1` queues it again.
+        PairingsEngine.Publishing.dequeue(updated.id)
         broadcast_tournament_change(updated.id, :tournament)
         broadcast_tournament_list(updated)
       end)
@@ -1863,6 +1873,9 @@ defmodule PairingsEngine.Tournaments do
     |> Ecto.Changeset.change(deleted_at: nil)
     |> Repo.update()
     |> tap_ok(fn updated ->
+      # The broadcast below queues it, and whatever went unsent while it was
+      # in the bin goes out: nothing is assumed about what the site holds.
+      PairingsEngine.Publishing.Accepted.forget(updated.id)
       broadcast_tournament_change(updated.id, :tournament)
       broadcast_tournament_list(updated)
     end)
@@ -2158,6 +2171,9 @@ defmodule PairingsEngine.Tournaments do
         # The copy that left may publish to the same address. From here on
         # this machine does not know what the results site holds.
         PairingsEngine.Publishing.Accepted.forget(updated.id)
+        # And nothing waits to be sent from here while it is away. Taking it
+        # back queues it again.
+        PairingsEngine.Publishing.dequeue(updated.id)
         broadcast_tournament_change(updated.id, :tournament)
         broadcast_tournament_list(updated)
         {:ok, updated}

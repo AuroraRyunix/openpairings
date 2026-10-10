@@ -190,12 +190,6 @@ defmodule PairingsEngine.Publishing.UnchangedPropertyTest do
   # until the queue is empty or the server has had enough chances to fail.
   defp drain_and_compare(ctx) do
     Enum.reduce_while(1..8, nil, fn _pass, _ ->
-      # A row queued before its tournament stopped publishing is refused on
-      # every pass and stays. That is the queue's business and older than
-      # this test; it is not a document anybody is waiting for.
-      off = from t in Tournament, where: t.publish_to_openresults == false, select: t.id
-      Repo.delete_all(from q in QueueEntry, where: q.tournament_id in subquery(off))
-
       Repo.update_all(QueueEntry,
         set: [next_attempt_at: DateTime.add(DateTime.utc_now(), -1, :second), stopped_at: nil]
       )

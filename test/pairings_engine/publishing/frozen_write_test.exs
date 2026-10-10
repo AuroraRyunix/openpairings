@@ -126,6 +126,15 @@ defmodule PairingsEngine.Publishing.FrozenWriteTest do
         assert Publishing.queued(published.id)
 
         frozen = freeze(published, unquote(reason))
+
+        # A hand-off takes its own queue row with it these days. This test is
+        # about what a REFUSED rotation does to a row, so one is put back.
+        Publishing.queued(published.id) ||
+          PairingsEngine.Repo.insert!(%PairingsEngine.Publishing.QueueEntry{
+            tournament_id: published.id,
+            next_attempt_at: DateTime.utc_now()
+          })
+
         watch_requests()
 
         assert {:error, _} = Publishing.rotate_address(frozen)

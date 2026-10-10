@@ -461,14 +461,15 @@ defmodule PairingsEngine.Publishing do
   Queue rows that are due to be attempted now, oldest first.
 
   A row whose tournament has since been handed off or binned is not due and
-  never will be while that lasts. It is skipped rather than attempted-and-
-  refused, and above all rather than deleted: the row is the only record that
-  something is unsent, and a tournament comes back from both states
-  (`Tournaments.take_back/2`, `Tournaments.restore_tournament/1`). Attempting
-  it would log a warning every thirty seconds and drive the backoff that real
-  failures need, for a refusal that is not a failure. `publish/1` refuses the
-  same two states independently, so nothing here is load-bearing for safety;
-  this is about not making noise.
+  never will be while that lasts. Such a row should not exist: handing off,
+  binning and switching publishing off each remove it, and `drain/0` drops
+  any that slipped through (`drop_withdrawn/0`). It used to be kept as "the
+  record that something is unsent", which it was - and also the reason the
+  top bar said "Sending" for as long as the tournament stayed away. Coming
+  back (`Tournaments.take_back/2`, `Tournaments.restore_tournament/1`) queues
+  the tournament again and sends it whatever it holds, which is the same
+  promise kept without the row. The filter stays for the moment between a
+  hand-off and the next drain; `publish/1` refuses the same states anyway.
   """
   def due(now \\ DateTime.utc_now()) do
     Repo.all(
@@ -570,6 +571,8 @@ defmodule PairingsEngine.Publishing do
   # answer bought five times. They keep their own backoff, so nothing waits
   # longer than it would have after failing for real.
   defp drain_due do
+    drop_withdrawn()
+
     {sent, failed, _halt} =
       Enum.reduce(due(), {0, 0, nil}, fn entry, {sent, failed, halt} ->
         case if(halt, do: {:error, halt}, else: publish(entry.tournament, :skip_unchanged)) do
@@ -591,6 +594,35 @@ defmodule PairingsEngine.Publishing do
       end)
 
     {sent, failed}
+  end
+
+  # Rows for tournaments that are not this machine's to send any more:
+  # publishing switched off, in the recycle bin, handed off. Each of those
+  # removes its own row now; this is for rows queued before that was true,
+  # and for whichever path somebody adds next and forgets. Dropped, not
+  # attempted: a refusal every pass is noise, and a row that can never be
+  # sent is a "Sending" that never ends.
+  defp drop_withdrawn do
+    withdrawn =
+      from t in Tournament,
+        where:
+          t.publish_to_openresults != true or not is_nil(t.deleted_at) or
+            not is_nil(t.handed_off_at),
+        select: t.id
+
+    ids =
+      Repo.all(
+        from q in QueueEntry,
+          where: q.tournament_id in subquery(withdrawn),
+          select: q.tournament_id
+      )
+
+    if ids != [] do
+      Repo.delete_all(from q in QueueEntry, where: q.tournament_id in ^ids)
+      Enum.each(ids, &broadcast_queue/1)
+    end
+
+    :ok
   end
 
   defp halts_pass(%Failure{reason: {:unreachable, _}} = failure), do: failure
@@ -714,7 +746,9 @@ defmodule PairingsEngine.Publishing do
   @doc """
   Drops `tournament_id`'s queued publish, if any. For the consent dialog's
   "no": publishing goes back off, and a row left behind would only be the
-  record of something the arbiter just declined.
+  record of something the arbiter just declined. And for every other way a
+  tournament stops being sent from here - the switch, the recycle bin, a
+  hand-off (`PairingsEngine.Tournaments`).
   """
   def dequeue(tournament_id) do
     Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^tournament_id)

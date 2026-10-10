@@ -1346,6 +1346,50 @@ defmodule PairingsEngine.PublishingTest do
     end
   end
 
+  describe "a tournament whose publishing is switched off" do
+    test "takes its queued publish with it" do
+      t = tournament()
+      :ok = Publishing.enqueue(t)
+      assert Publishing.pending_count() == 1
+
+      {:ok, off} = Tournaments.set_publish_to_openresults(t, false)
+
+      # What the top bar counts. One left here was "Sending", indefinitely.
+      assert Publishing.pending_count() == 0
+      assert Publishing.queued(off.id) == nil
+    end
+
+    test "a row that is there anyway is dropped by the drain, not refused forever" do
+      t = tournament()
+
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [publish_to_openresults: false]
+      )
+
+      Repo.insert!(%QueueEntry{tournament_id: t.id, next_attempt_at: DateTime.utc_now()})
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Publishing.queue_topic(t.id))
+
+      stub(fn _conn -> flunk("nothing should have been sent") end)
+
+      # Not a failure, and not a send: there was nothing to do.
+      assert {0, 0} = Publishing.drain()
+      assert Publishing.pending_count() == 0
+      assert_received {:publish_queue_changed, _id}
+    end
+
+    test "a published tournament beside it is still sent" do
+      off = tournament(publish: false)
+      on = tournament()
+      Repo.insert!(%QueueEntry{tournament_id: off.id, next_attempt_at: DateTime.utc_now()})
+      :ok = Publishing.enqueue(on)
+
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+
+      assert {1, 0} = Publishing.drain()
+      assert Publishing.pending_count() == 0
+    end
+  end
+
   describe "a tournament handed off to another copy of the app" do
     test "is not published, even from a queue row that predates the hand-off" do
       t = tournament()
@@ -1367,10 +1411,24 @@ defmodule PairingsEngine.PublishingTest do
       assert {:error, message} = Publishing.publish(handed)
       assert message =~ "handed off"
 
-      # The row stays. It is the record that something is unsent, the
-      # tournament comes back (`take_back/2`), and deleting it would lose
-      # that - refusing to send is not the same as having nothing to send.
+      # The row goes with the hand-off. It used to stay as "the record that
+      # something is unsent", and the top bar said "Sending" until the
+      # tournament came home. Coming home queues it again instead.
+      assert Publishing.pending_count() == 0
+
+      {:ok, _back} = Tournaments.take_back(handed, handed.handoff_token)
+      assert %QueueEntry{} = Publishing.queued(t.id)
+    end
+
+    test "a row from before hand-offs removed their own is dropped by the drain" do
+      t = tournament()
+      {:ok, handed} = Tournaments.hand_off(t, "the club PC")
+      Repo.insert!(%QueueEntry{tournament_id: handed.id, next_attempt_at: DateTime.utc_now()})
       assert Publishing.pending_count() == 1
+
+      stub(fn _conn -> flunk("nothing should have been sent") end)
+      assert {0, 0} = Publishing.drain()
+      assert Publishing.pending_count() == 0
     end
 
     test "queues nothing while it is away, including from the write funnel" do
@@ -1434,6 +1492,28 @@ defmodule PairingsEngine.PublishingTest do
 
       assert {:error, message} = Publishing.publish(binned)
       assert message =~ "recycle bin"
+    end
+
+    test "takes its queued publish into the bin, and queues again on the way out" do
+      t = tournament()
+      :ok = Publishing.enqueue(t)
+      assert Publishing.pending_count() == 1
+
+      {:ok, binned} = Tournaments.soft_delete_tournament(t)
+      assert Publishing.pending_count() == 0
+
+      {:ok, restored} = Tournaments.restore_tournament(binned)
+      assert %QueueEntry{} = Publishing.queued(restored.id)
+
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, :posted)
+        Req.Test.json(conn, %{"ok" => true})
+      end)
+
+      assert {1, 0} = Publishing.drain()
+      assert_received :posted
     end
 
     test "publishes again when it is restored" do
