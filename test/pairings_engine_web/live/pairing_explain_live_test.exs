@@ -1530,7 +1530,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
       assert html =~ "swapping seats"
 
-      assert html =~ "Legal, but worse" or html =~ "Equal on every criterion" or
+      assert html =~ "Legal, but worse" or html =~ "Equally good by every rule" or
                html =~ "Not allowed" or html =~ "That is the pairing that was played"
     end
 

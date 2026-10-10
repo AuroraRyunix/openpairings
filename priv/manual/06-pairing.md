@@ -181,6 +181,24 @@ For a Swiss round paired by Ainalrami the page shows
   terms of the criteria of C.04.3, and whether the engine's choice is the best.
   The answers are worked out when you open a question, and are saved.
 
+Often another candidate would have cost nothing at all: the pairing with that
+player floating instead is *equally good by every rule*. The line then says so
+and links to **Equally good alternatives** under the same score group, where
+each such alternative is one item: the boards as played beside the board the
+alternative would have had, and why it was not chosen. The reason is always
+the same one. When two pairings satisfy every criterion equally, the system
+does not choose; it takes the first possibility in its fixed order - top half
+against bottom half in pairing-number order, then the bottom half rearranged,
+smallest change first, then players exchanged between the halves. That keeps
+the bottom half as close as possible to the pairing-number order, so in the
+end the pairing numbers decide. Where the record shows it, the item names the
+step: which bottom-half player is left over, or that the alternative needs an
+exchange between the halves. *The FIDE wording* gives the article (C.04.3
+3.8.1, with 4.2 for transpositions and 4.3 for exchanges). Beyond three
+alternatives the rest are behind *and N more*. An item shows the one board of
+the alternative that the record keeps; how the other players of the affected
+boards would then have been paired is not stored.
+
 Colours follow C.04.2 3.4: only games actually played count. A forfeit (won or
 lost, by either side), a bye or an absence is not a colour, and the colour due
 is worked out as if those rounds came first - a history W B *forfeit* W counts

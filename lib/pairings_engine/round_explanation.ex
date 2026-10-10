@@ -182,6 +182,155 @@ defmodule PairingsEngine.RoundExplanation do
   defp answer("float/" <> _, json, by_id), do: alternative(json, by_id, :floater)
   defp answer(_question, _json, _by_id), do: nil
 
+  ## ---------- equally good alternatives, one item per alternative ----------
+
+  @doc """
+  The equally good alternatives among a set of "why him and not me" answers,
+  one item per alternative PAIRING rather than one line per question.
+
+  `entries` are resolved answers - a version-3 bracket's
+  `float_alternatives`, a version-4 answer from `answers/2`, or a section's
+  `bye` - `bracket` is the bracket they were asked of (`nil` for the bye)
+  and `section` the resolved section, whose brackets hold the boards as
+  played. Nothing is read that an old record does not have: this is done
+  when the page is drawn, so a round explained last month groups like one
+  explained today.
+
+  What makes two answers the same alternative: the engine reaches each by
+  forcing ONE player out of the bracket and pairing again, so the same
+  candidate under two floaters' questions of the same bracket is the same
+  search and the same pairing. Two different candidates are two different
+  pairings, however alike their lines look, and stay two items.
+
+  Each item:
+
+    * `candidate` - the player the alternative sends down (or gives the bye);
+    * `kind` - `:float` or `:bye`;
+    * `instead_of` - whose place they would take: the floaters whose
+      question this answers, or the bye's holder;
+    * `stayed` - those of `instead_of` the alternative keeps in the bracket;
+    * `pick` - `:actual`, `:alternative` or `:tie`: which of the two the
+      fixed order of C.04.3 puts first;
+    * `group` - the first score group where the two pairings differ;
+    * `proposed` - `{candidate, opponent}` (`opponent` nil for the bye), or
+      nil when the record does not say. It is the one board of the
+      alternative the record keeps;
+    * `score` - the opponent's score;
+    * `played` - the boards of the round as played that the alternative
+      would not have, in board order: the candidate's, their new opponent's,
+      and that of anybody in `stayed`;
+    * `step` - `nil`, or what separates the two in the fixed order when the
+      record shows it beyond doubt (a homogeneous bracket of odd size with
+      one floater, who is in the bottom half and stays): `:bottom_half`
+      when the candidate is in the bottom half too (which of S2 is left
+      over), `:exchange` when the candidate is in the top half (a top-half
+      player can only leave if a bottom-half player takes that place).
+  """
+  def equal_alternatives(section, bracket, entries) do
+    boards = Enum.flat_map(section.brackets, & &1.pairs)
+
+    rows =
+      for entry <- entries,
+          not is_nil(entry),
+          {kind, subject} = subject(entry),
+          %{outcome: :tie, player: %{}} = candidate <- Map.get(entry, :candidates) || [],
+          do: {kind, subject, candidate}
+
+    rows
+    |> Enum.map(fn {kind, _subject, c} -> {kind, c.player.id} end)
+    |> Enum.uniq()
+    |> Enum.map(fn key ->
+      rows
+      |> Enum.filter(fn {kind, _subject, c} -> {kind, c.player.id} == key end)
+      |> equal_item(bracket, boards)
+    end)
+  end
+
+  defp subject(%{holder: holder}), do: {:bye, holder}
+  defp subject(%{floater: floater}), do: {:float, floater}
+
+  defp equal_item([{kind, _subject, c} | _] = rows, bracket, boards) do
+    instead_of = rows |> Enum.map(&elem(&1, 1)) |> Enum.uniq_by(& &1.id)
+
+    stayed =
+      for {_kind, subject, %{stayed: true}} <- rows, uniq: true, do: subject
+
+    proposed = proposed(c)
+
+    %{
+      kind: kind,
+      candidate: c.player,
+      instead_of: instead_of,
+      stayed: stayed,
+      pick: (c.at && c.at.lex) || :tie,
+      group: c.at && c.at.group,
+      proposed: proposed,
+      score: c.fate && c.fate.score,
+      played: played_boards(boards, kind, c.player, proposed, instead_of, stayed),
+      step: step(kind, bracket, instead_of, stayed, c)
+    }
+  end
+
+  defp proposed(%{fate: %{opponent: opponent}, player: player}), do: {player, opponent}
+  defp proposed(_candidate), do: nil
+
+  # The played boards the alternative breaks up. The candidate's own and
+  # their new opponent's (the bye's holder, when the candidate would take
+  # the bye) for certain; a floater the alternative keeps in the bracket no
+  # longer plays the board they floated to. A board that IS the proposed
+  # one - two floaters, and the candidate was the other - is not a change.
+  defp played_boards(_boards, _kind, _candidate, nil, _instead_of, _stayed), do: []
+
+  defp played_boards(boards, kind, candidate, {_, opponent}, instead_of, stayed) do
+    moved =
+      [candidate, opponent] ++ if(kind == :bye, do: instead_of, else: stayed)
+
+    ids = moved |> Enum.reject(&is_nil/1) |> MapSet.new(& &1.id)
+    bye? = is_nil(opponent)
+    proposed_ids = pair_ids({candidate, opponent})
+
+    Enum.filter(boards, fn {a, b} = board ->
+      pair_ids(board) != proposed_ids and
+        ((a && MapSet.member?(ids, a.id)) || (b && MapSet.member?(ids, b.id)) ||
+           (bye? and (is_nil(a) or is_nil(b))))
+    end)
+    |> Enum.uniq_by(&pair_ids/1)
+  end
+
+  defp pair_ids({a, b}), do: Enum.sort([a && a.id, b && b.id])
+
+  # Said only where the record leaves no room: S1 and S2 as the regulation
+  # forms them (a homogeneous bracket of 2k+1, one of them leaving), the
+  # floater from S2, kept in by the alternative, and the played pairing
+  # first in the order. Anything else gets the general sentence, which is
+  # true of every tie.
+  defp step(
+         :float,
+         %{heterogeneous?: false, floats: [_only], s1: s1, s2: s2, group: group, pairs: pairs},
+         [floater],
+         [_stayed],
+         %{at: %{lex: :actual, group: at_group}, player: candidate}
+       )
+       when s1 != [] and at_group == group do
+    cond do
+      not in?(s2, floater) or rem(length(s1) + length(s2), 2) == 0 -> nil
+      # "The played pairing needs no exchange" is only true if it has none.
+      not Enum.all?(pairs, &across_halves?(&1, s1, s2)) -> nil
+      in?(s2, candidate) -> :bottom_half
+      in?(s1, candidate) -> :exchange
+      true -> nil
+    end
+  end
+
+  defp step(_kind, _bracket, _instead_of, _stayed, _candidate), do: nil
+
+  defp in?(players, %{id: id}), do: Enum.any?(players, &(&1.id == id))
+
+  defp across_halves?({%{} = a, %{} = b}, s1, s2),
+    do: (in?(s1, a) and in?(s2, b)) or (in?(s2, a) and in?(s1, b))
+
+  defp across_halves?(_pair, _s1, _s2), do: false
+
   defp bracket(bracket, by_id) do
     %{
       group: bracket["group"],

@@ -192,6 +192,25 @@ Voor een Zwitserse ronde die door Ainalrami is gepaard, toont de pagina
   de criteria van C.04.3, en of de keuze van de engine de beste is. De antwoorden
   worden uitgewerkt wanneer u een vraag opent, en worden opgeslagen.
 
+Vaak zou een andere kandidaat helemaal niets gekost hebben: de paring waarin
+die speler doorschuift is *even goed volgens elke regel*. De regel zegt dat dan
+en verwijst naar **Even goede alternatieven** onder dezelfde scoregroep, waar
+elk zo'n alternatief één item is: de borden zoals gespeeld naast het bord dat
+het alternatief zou hebben gehad, en waarom het niet gekozen is. De reden is
+altijd dezelfde. Als twee paringen elk criterium even goed vervullen, kiest het
+systeem niet; het neemt de eerste mogelijkheid in zijn vaste volgorde -
+bovenste helft tegen onderste helft in volgorde van paringsnummer, daarna de
+onderste helft herschikt, de kleinste wijziging eerst, daarna spelers gewisseld
+tussen de helften. Zo blijft de onderste helft zo dicht mogelijk bij de
+volgorde van de paringsnummers, en uiteindelijk beslissen dus de
+paringsnummers. Waar de opgeslagen gegevens het tonen, noemt het item de stap:
+welke speler uit de onderste helft overblijft, of dat het alternatief een
+uitwisseling tussen de helften nodig heeft. *De FIDE-formulering* geeft het
+artikel (C.04.3 3.8.1, met 4.2 voor transposities en 4.3 voor uitwisselingen).
+Na drie alternatieven staan de overige achter *en nog N*. Een item toont het
+ene bord van het alternatief dat bewaard is; hoe de andere spelers van de
+betrokken borden dan gepaard zouden zijn, wordt niet opgeslagen.
+
 Kleuren volgen C.04.2 3.4: alleen partijen die echt gespeeld zijn tellen. Een
 forfait (gewonnen of verloren, door wie ook), een bye of een afwezigheid is geen
 kleur, en de verschuldigde kleur wordt bepaald alsof die ronden vooraan stonden -

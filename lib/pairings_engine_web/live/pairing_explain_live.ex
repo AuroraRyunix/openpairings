@@ -1122,12 +1122,24 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp candidate_text(%{outcome: :tie, at: at} = c) do
     which =
       case at.lex do
-        :actual -> gettext("the transposition order picked what was played")
-        :alternative -> gettext("the transposition order would have picked THIS - worth a look")
-        _ -> gettext("even the transposition order does not separate them")
+        :actual ->
+          gettext(
+            "the played pairing comes first in the fixed order, so the pairing numbers decided"
+          )
+
+        :alternative ->
+          gettext("this one comes first in the fixed order - worth a look")
+
+        _ ->
+          gettext("the fixed order does not separate them either")
       end
 
-    gettext("equal on every criterion; %{which} - %{fate}", which: which, fate: fate_text(c))
+    verdict = gettext("equally good by every rule; %{which}", which: which)
+
+    case fate_text(c) do
+      "" -> verdict
+      fate -> gettext("%{verdict} - %{fate}", verdict: verdict, fate: fate)
+    end
   end
 
   defp candidate_text(%{outcome: :better, at: at} = c) do
@@ -1173,6 +1185,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   attr :title, :string, required: true
   attr :open, :boolean, required: true
   attr :status, :any, required: true
+  attr :equal, :string, default: nil
 
   # One "why him and not me" of a version-4 account: a disclosure button
   # (aria-expanded, aria-controls) over a panel that says "Working it out…"
@@ -1265,15 +1278,227 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           </button>
         </p>
 
-        <ul :if={@answer && !@answer.skipped} id={"#{@dom}-answer"}>
-          <li :for={c <- @answer.candidates} class={outcome_class(c)}>
-            {c.player.name}
-            <span class="pe-verdict-why">— {candidate_text(c)}</span>
-          </li>
-        </ul>
+        <.candidate_rows
+          :if={@answer && !@answer.skipped}
+          id={"#{@dom}-answer"}
+          candidates={@answer.candidates}
+          equal={@equal}
+        />
       </div>
     </div>
     """
+  end
+
+  attr :id, :string, required: true
+  attr :candidates, :list, required: true
+  attr :equal, :string, default: nil
+
+  # The lines of one "why him and not me": a candidate each, with the
+  # verdict. A tie is the short form - what it cost is nothing, so the line
+  # points at the item that lays the two pairings side by side.
+  defp candidate_rows(assigns) do
+    ~H"""
+    <ul id={@id}>
+      <li :for={c <- @candidates} id={"#{@id}-c-#{c.player.id}"} class={outcome_class(c)}>
+        {c.player.name}
+        <span class="pe-verdict-why">— {candidate_text(c)}</span>
+        <a
+          :if={@equal && c.outcome == :tie}
+          id={"#{@id}-c-#{c.player.id}-compare"}
+          class="pe-equal-link"
+          href={"##{@equal}-#{c.player.id}"}
+          title={expert_sentence()}
+        >
+          {gettext("Show the comparison")}<span class="sr-only">: {c.player.name}</span>
+        </a>
+      </li>
+    </ul>
+    """
+  end
+
+  # How many equally good alternatives a bracket lists before the rest go
+  # behind "and N more". Three is a bracket's worth; a round-one bracket of
+  # everybody can tie a dozen ways and nobody wants them all at once.
+  @equal_shown 3
+
+  attr :id, :string, required: true
+  attr :items, :list, required: true
+
+  # Every equally good alternative of one bracket (or of the bye), each ONE
+  # item: what would change, both versions side by side, and why the played
+  # one came first. The general rule is said once, above the list, and the
+  # regulation's own words wait behind a disclosure for whoever wants them.
+  defp equal_alternatives(assigns) do
+    {shown, more} = Enum.split(assigns.items, @equal_shown)
+    assigns = assign(assigns, shown: shown, more: more)
+
+    ~H"""
+    <section :if={@items != []} id={@id} class="pe-why-me pe-equal" aria-labelledby={"#{@id}-title"}>
+      <h4 id={"#{@id}-title"} class="pe-equal-title">
+        {ngettext(
+          "An equally good alternative",
+          "%{count} equally good alternatives",
+          length(@items)
+        )}
+      </h4>
+
+      <p id={"#{@id}-rule"} class="hint">
+        {gettext(
+          "Another legal pairing, exactly as good as the played one by every rule of C.04.3. The system does not choose between such pairings: it takes the first possibility in its fixed order - top half against bottom half in pairing-number order, then the bottom half rearranged, smallest change first, then players exchanged between the halves. That keeps the bottom half as close as possible to the pairing-number order, so in the end the pairing numbers decide."
+        )}
+      </p>
+
+      <details id={"#{@id}-expert"} class="pe-equal-expert">
+        <summary>{gettext("The FIDE wording")}</summary>
+        <p>{expert_sentence()}</p>
+      </details>
+
+      <ul id={"#{@id}-list"} class="pe-equal-list">
+        <.equal_alternative :for={item <- @shown} id={"#{@id}-#{item.candidate.id}"} item={item} />
+      </ul>
+
+      <details :if={@more != []} id={"#{@id}-more"} class="pe-equal-more">
+        <summary>{gettext("and %{count} more", count: length(@more))}</summary>
+        <ul id={"#{@id}-more-list"} class="pe-equal-list">
+          <.equal_alternative :for={item <- @more} id={"#{@id}-#{item.candidate.id}"} item={item} />
+        </ul>
+      </details>
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :item, :map, required: true
+
+  defp equal_alternative(assigns) do
+    ~H"""
+    <li id={@id} class="pe-equal-item" tabindex="-1">
+      <p class="pe-equal-head"><strong>{equal_title(@item)}</strong></p>
+
+      <div class="pe-equal-boards">
+        <div>
+          <p id={"#{@id}-played-label"} class="pe-subgroup-label">{gettext("As played")}</p>
+          <ul id={"#{@id}-played"} aria-labelledby={"#{@id}-played-label"}>
+            <li :for={board <- @item.played}>{seeded_board(board)}</li>
+            <li :if={@item.played == []} class="hint">{gettext("not recorded")}</li>
+          </ul>
+        </div>
+        <div>
+          <p id={"#{@id}-proposed-label"} class="pe-subgroup-label">
+            {gettext("In the alternative")}
+          </p>
+          <ul id={"#{@id}-proposed"} aria-labelledby={"#{@id}-proposed-label"}>
+            <li :if={@item.proposed}>{proposed_text(@item)}</li>
+            <li :for={p <- stayed_floaters(@item)}>
+              {gettext("%{name} stays in the %{group} score group",
+                name: seeded_name(p),
+                group: score_str(@item.group)
+              )}
+            </li>
+            <li class="hint">
+              {gettext("how the other players of these boards are then paired was not recorded")}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <p id={"#{@id}-why"} class={["pe-equal-why", @item.pick == :alternative && "is-better"]}>
+        {equal_reason(@item)}
+      </p>
+    </li>
+    """
+  end
+
+  # The one sentence for whoever knows the regulation: the article that
+  # says what happens when the criteria run out, and its own terms.
+  defp expert_sentence do
+    gettext(
+      "C.04.3 Article 3.8.1: with all quality criteria equally satisfied, the better candidate is the one generated earlier in the sequence of candidates - transpositions in S2 (Article 4.2), then exchanges between S1 and S2 (Article 4.3)."
+    )
+  end
+
+  defp equal_title(%{kind: :bye} = item) do
+    gettext("%{candidate} takes the bye instead of %{names}",
+      candidate: item.candidate.name,
+      names: names(item.instead_of)
+    )
+  end
+
+  defp equal_title(%{stayed: []} = item),
+    do: gettext("%{candidate} floats as well", candidate: item.candidate.name)
+
+  defp equal_title(item) do
+    gettext("%{candidate} floats instead of %{names}",
+      candidate: item.candidate.name,
+      names: names(item.stayed)
+    )
+  end
+
+  # A floater the alternative keeps in the bracket - not the bye's holder,
+  # whose line is the candidate's own ("takes the bye instead of").
+  defp stayed_floaters(%{kind: :float, stayed: stayed}), do: stayed
+  defp stayed_floaters(_item), do: []
+
+  defp seeded_board({a, b}), do: "#{seeded_name(a)} – #{seeded_name(b)}"
+
+  defp proposed_text(%{proposed: {candidate, nil}}), do: seeded_board({candidate, nil})
+
+  defp proposed_text(%{proposed: {candidate, opponent}, score: score}) do
+    gettext("%{board} (%{opponent} has %{score})",
+      board: seeded_board({candidate, opponent}),
+      opponent: opponent.name,
+      score: score_str(score)
+    )
+  end
+
+  defp seeded_name(nil), do: gettext("bye")
+  defp seeded_name(player), do: "#{player.name} (#{seed_of(player)})"
+
+  # Why the alternative was not the round. The general sentence is true of
+  # every tie; the second one only where the record shows the step itself.
+  defp equal_reason(%{pick: :actual, step: :bottom_half, stayed: [floater]} = item) do
+    gettext(
+      "Not chosen because the played pairing comes earlier in the fixed order. In the played pairing %{floater} (no. %{a}) is the bottom-half player left over; in the alternative it is %{candidate} (no. %{b}). The fixed order reaches the played arrangement of the bottom half first.",
+      floater: floater.name,
+      a: seed_of(floater),
+      candidate: item.candidate.name,
+      b: seed_of(item.candidate)
+    )
+  end
+
+  defp equal_reason(%{pick: :actual, step: :exchange} = item) do
+    gettext(
+      "Not chosen because the played pairing comes earlier in the fixed order. In the alternative %{candidate} (no. %{b}) leaves the group from the top half, so a player from the bottom half has to take a place in the top half. The system tries such an exchange between the halves only after every arrangement of the bottom half, and the played pairing needs none.",
+      candidate: item.candidate.name,
+      b: seed_of(item.candidate)
+    )
+  end
+
+  defp equal_reason(%{pick: :actual}),
+    do: gettext("Not chosen because the played pairing comes earlier in the fixed order.")
+
+  defp equal_reason(%{pick: :alternative}) do
+    gettext(
+      "This one comes EARLIER in the fixed order than the played pairing, so the system should have taken it - worth a look."
+    )
+  end
+
+  defp equal_reason(_item),
+    do: gettext("The fixed order does not separate the two either.")
+
+  # The worked-out "why him and not me" answers of one bracket, whichever
+  # way its record keeps them: in the record (version 3) or beside it,
+  # worked out when opened (version 4).
+  defp float_entries(bracket, answers) do
+    bracket.float_alternatives ++
+      for(q <- bracket.float_questions, answer = Map.get(answers, q.key), do: answer)
+  end
+
+  defp bye_entries(section, answers) do
+    Enum.reject(
+      [section.bye, section.bye_question && Map.get(answers, section.bye_question.key)],
+      &is_nil/1
+    )
   end
 
   defp fate_text(%{fate: %{opponent: %{name: name}, score: score}}),
@@ -1350,13 +1575,18 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp verdict_text(%{verdict: {:tie, group, pick}}) do
     which =
       case pick do
-        :actual -> gettext("picks what was played")
-        :alternative -> gettext("would have picked the proposal - worth a look")
-        _ -> gettext("does not separate them either")
+        :actual ->
+          gettext("what was played comes first in that order, so the pairing numbers decided")
+
+        :alternative ->
+          gettext("the proposal comes first in that order - worth a look")
+
+        _ ->
+          gettext("that order does not separate them either")
       end
 
     gettext(
-      "Equal on every criterion at score group %{group}; the transposition order (section 3) %{which}.",
+      "Equally good by every rule at score group %{group}. The system then takes the first possibility in its fixed order, which keeps the bottom half as close as possible to the pairing-number order (C.04.3 Article 3.8.1): %{which}.",
       group: score_str(group),
       which: which
     )
@@ -3935,7 +4165,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           )}
         </p>
 
-        <div :for={section <- @engine_account} class="pe-account-section">
+        <div :for={{section, s} <- Enum.with_index(@engine_account)} class="pe-account-section">
           <h3 :if={section.category}>{section.category}</h3>
 
           <%!-- The float cascade: one line per bracket, top to bottom - who
@@ -3964,7 +4194,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </tbody>
           </table>
 
-          <div :for={bracket <- section.brackets} class="pe-account-bracket">
+          <div :for={{bracket, b} <- Enum.with_index(section.brackets)} class="pe-account-bracket">
             <div class="pe-account-head">
               <strong>{score_str(bracket.group)}</strong>
               <span class="hint">
@@ -4061,12 +4291,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 )}
                 <.deepen_button busy={@busy} />
               </p>
-              <ul :if={!alt.skipped}>
-                <li :for={c <- alt.candidates} class={outcome_class(c)}>
-                  {c.player.name}
-                  <span class="pe-verdict-why">— {candidate_text(c)}</span>
-                </li>
-              </ul>
+              <.candidate_rows
+                :if={!alt.skipped}
+                id={"why-float-#{s}-#{b}-#{alt.floater.id}"}
+                candidates={alt.candidates}
+                equal={"equal-alt-#{s}-#{b}"}
+              />
             </div>
 
             <%!-- The same question on a round paired since 2026-09-28: worked
@@ -4077,6 +4307,21 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               title={gettext("Why %{name} floated and not somebody else", name: q.floater.name)}
               open={MapSet.member?(@alt_open, q.key)}
               status={alt_status(@alt_running, @alt_failed, @alt_answers, q.key)}
+              equal={"equal-alt-#{s}-#{b}"}
+            />
+
+            <%!-- The ties of the questions above, one item per alternative
+                  pairing: the boards it would change beside the boards as
+                  played, and why the played one came first. --%>
+            <.equal_alternatives
+              id={"equal-alt-#{s}-#{b}"}
+              items={
+                RoundExplanation.equal_alternatives(
+                  section,
+                  bracket,
+                  float_entries(bracket, @alt_answers)
+                )
+              }
             />
 
             <ul :if={bracket.edges == []} class="pe-account-pairs">
@@ -4192,12 +4437,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               )}
               <.deepen_button busy={@busy} />
             </p>
-            <ul :if={!section.bye.skipped}>
-              <li :for={c <- section.bye.candidates} class={outcome_class(c)}>
-                {c.player.name}
-                <span class="pe-verdict-why">— {candidate_text(c)}</span>
-              </li>
-            </ul>
+            <.candidate_rows
+              :if={!section.bye.skipped}
+              id={"why-bye-#{s}"}
+              candidates={section.bye.candidates}
+              equal={"equal-alt-#{s}-bye"}
+            />
           </div>
 
           <.alternative_question
@@ -4206,6 +4451,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             title={gettext("Why the bye went to %{name}", name: section.bye_question.holder.name)}
             open={MapSet.member?(@alt_open, section.bye_question.key)}
             status={alt_status(@alt_running, @alt_failed, @alt_answers, section.bye_question.key)}
+            equal={"equal-alt-#{s}-bye"}
+          />
+
+          <.equal_alternatives
+            id={"equal-alt-#{s}-bye"}
+            items={
+              RoundExplanation.equal_alternatives(section, nil, bye_entries(section, @alt_answers))
+            }
           />
         </div>
 

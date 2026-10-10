@@ -4440,6 +4440,22 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-why-me .is-impossible, .pe-why-me .is-ineligible { color: var(--danger); }
 .pe-why-me .is-better { color: var(--danger); font-weight: 600; }
 .pe-why-me .is-tie { color: var(--warn); }
+/* Equally good alternatives: one item per alternative pairing, the boards
+   as played beside the boards it would have had. Not a warning - nothing
+   went wrong, the pairing numbers decided - so it keeps the plain rule. */
+.pe-equal-title { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.pe-equal .hint { margin: 0 0 4px; }
+.pe-equal-expert, .pe-equal-more { margin: 0 0 6px; }
+.pe-equal-expert summary, .pe-equal-more summary { cursor: pointer; color: var(--text-soft); }
+.pe-equal-expert p { margin: 4px 0 0 14px; }
+.pe-why-me ul.pe-equal-list { list-style: none; padding-left: 0; }
+.pe-equal-item { margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; scroll-margin-top: 80px; }
+.pe-equal-item:target, .pe-equal-item:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pe-equal-head, .pe-equal-why { margin: 0 0 4px; }
+.pe-equal-why { color: var(--text-soft); }
+.pe-equal-boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; margin: 0 0 4px; }
+.pe-equal-boards p { margin: 0; }
+.pe-equal-link { margin-left: 6px; white-space: nowrap; }
 /* The offer to bring an older account up to date: the warning colour,
    because the page beneath it is missing the half that answers questions. */
 .pe-recompute { border-left: 3px solid var(--warn); }
