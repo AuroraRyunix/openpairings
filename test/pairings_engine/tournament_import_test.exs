@@ -810,6 +810,40 @@ defmodule PairingsEngine.TournamentImportTest do
       assert imported.public_hidden_tiebreaks == ["BH", "SB"]
     end
 
+    test "public_live_boards survives the round trip, and a file without it or with junk is off" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Live Round Trip",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: owner.user.id,
+          public_live_boards: true
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      assert Repo.reload!(imported).public_live_boards
+
+      for junk <- [:absent, "yes", 1, nil] do
+        envelope =
+          update_in(
+            TournamentExport.export_tournament(original),
+            ["tournaments", Access.at(0), "tournament"],
+            fn t ->
+              if junk == :absent,
+                do: Map.delete(t, "public_live_boards"),
+                else: Map.put(t, "public_live_boards", junk)
+            end
+          )
+
+        assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+        refute Repo.reload!(imported).public_live_boards
+      end
+    end
+
     test "public_hall survives the round trip, and a file without it or with junk gets the defaults" do
       owner = user_scope()
       importer = user_scope()

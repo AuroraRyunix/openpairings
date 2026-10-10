@@ -577,6 +577,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # and none of the rest would read as broken rather than as withheld.
     field :public_hidden_tiebreaks, {:array, :string}, default: []
 
+    # "This tournament has live boards": the arbiter's word that a relay in
+    # the hall is sending the moves to the results site, which then links its
+    # pages to the live boards. Off unless ticked. It says nothing to the
+    # relay and starts nothing - a link to boards nobody is feeding is the
+    # arbiter's to avoid. Written by `Tournaments.set_live_boards/2`, not
+    # cast: a stray form field must not be able to flip it.
+    field :public_live_boards, :boolean, default: false
+
     # Default false. It used to sit beside `public_pages_enabled`, which
     # answered the separate question "may anyone with the link read this
     # HERE" - that field was dropped on 2026-08-29 with the local public

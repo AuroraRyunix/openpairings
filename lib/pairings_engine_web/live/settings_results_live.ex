@@ -480,6 +480,34 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
+  # "Live boards" - the arbiter's word that a relay in the hall is feeding
+  # the results site. Refused while publishing is off, where the switch is
+  # not drawn either: there is no page to put the link on.
+  def handle_event("toggle_live_boards", _params, socket) do
+    tournament = socket.assigns.tournament
+
+    if tournament.publish_to_openresults do
+      on? = not tournament.public_live_boards
+
+      case Tournaments.set_live_boards(tournament, on?) do
+        {:ok, tournament} ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "openresults.live_boards", %{
+            enabled: on?
+          })
+
+          {:noreply, assign(socket, tournament: tournament)}
+
+        {:error, :archived} ->
+          {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, gettext("Could not change this"))}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   # A page the retired "Standings"/"Round pairings" switch still keeps off.
   def handle_event("show_legacy_page", %{"key" => key}, socket) do
     case Tournaments.show_legacy_page(socket.assigns.tournament, key) do
@@ -1297,6 +1325,44 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             {gettext(
               "The players in start order, before a game has been played. Off: spectators see nothing until the first round's pairings are public."
             )}
+          </p>
+        </div>
+
+        <%!-- Only while publishing is on: the link it asks for goes on the
+              published pages, and there are none to put it on otherwise.
+              The setting itself is kept, so switching publishing back on
+              finds it as it was left. --%>
+        <div
+          :if={@tournament.publish_to_openresults}
+          id="live-boards-setting"
+          class="set-field solo"
+          style="margin-top: 20px"
+        >
+          <.publish_toggle
+            id="live-boards-toggle"
+            label={gettext("Live boards")}
+            state={if @tournament.public_live_boards, do: :public, else: :not_public}
+            on_text={gettext("On")}
+            off_text={gettext("Off")}
+            phx-click="toggle_live_boards"
+          />
+          <p class="hint" style="margin: 6px 0 0">
+            <.rich_text text={
+              gettext(
+                "Shows a Live link on the results site. Needs a relay in the hall sending the moves - see %[link]."
+              )
+            }>
+              <:part name="link">
+                <.link
+                  id="live-boards-manual-link"
+                  href={PairingsEngineWeb.Components.ManualLink.path(:live_boards)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  {gettext("the manual")}
+                </.link>
+              </:part>
+            </.rich_text>
           </p>
         </div>
       </div>

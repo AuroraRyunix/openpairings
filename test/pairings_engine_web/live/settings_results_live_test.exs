@@ -378,6 +378,64 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
     end
   end
 
+  describe "Live boards" do
+    setup do
+      Publishing.put_endpoint("https://openresults.example/")
+      Publishing.put_token("s3cret")
+      Req.Test.set_req_test_to_shared(%{})
+      :ok
+    end
+
+    test "not offered while the tournament is not published, and the event does nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute has_element?(lv, "#live-boards-setting")
+      refute has_element?(lv, "#live-boards-toggle")
+
+      # A hand-made event gets no further than the page does.
+      render_hook(lv, "toggle_live_boards", %{})
+      refute Tournaments.get_tournament!(tournament.id).public_live_boards
+      assert Audit.list_for_tournament(tournament.id, action: "openresults.live_boards") == []
+    end
+
+    test "off by default; switching it on and off is saved, audited and re-published", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(lv, "#live-boards-toggle[aria-checked='false']")
+      assert has_element?(lv, "#live-boards-setting #live-boards-manual-link")
+      refute Map.has_key?(Snapshot.build(tournament)["tournament"], "live_boards")
+
+      lv |> element("#live-boards-toggle") |> render_click()
+
+      assert has_element?(lv, "#live-boards-toggle[aria-checked='true']")
+      on = Tournaments.get_tournament!(tournament.id)
+      assert on.public_live_boards
+      assert Snapshot.build(on)["tournament"]["live_boards"] == true
+      assert Publishing.queued(tournament.id)
+
+      assert [log] = Audit.list_for_tournament(tournament.id, action: "openresults.live_boards")
+      assert log.details["enabled"] == true
+
+      lv |> element("#live-boards-toggle") |> render_click()
+
+      assert has_element?(lv, "#live-boards-toggle[aria-checked='false']")
+      off = Tournaments.get_tournament!(tournament.id)
+      refute off.public_live_boards
+      refute Map.has_key?(Snapshot.build(off)["tournament"], "live_boards")
+
+      assert [_, _] = Audit.list_for_tournament(tournament.id, action: "openresults.live_boards")
+    end
+  end
+
   describe "the retired Standings and Round pairings switches" do
     test "are not offered", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)

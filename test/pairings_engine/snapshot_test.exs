@@ -644,6 +644,24 @@ defmodule PairingsEngine.SnapshotTest do
              }
     end
 
+    test "live_boards is true when the arbiter says so, and not a key at all otherwise" do
+      {tournament, _} = swiss_fixture()
+
+      # Absent, not false: a tournament that never touched the switch
+      # publishes what it published before the switch existed.
+      refute Map.has_key?(Snapshot.build(tournament)["tournament"], "live_boards")
+
+      {:ok, on} = Tournaments.set_live_boards(tournament, true)
+      assert Snapshot.build(on)["tournament"]["live_boards"] == true
+
+      {:ok, off} = Tournaments.set_live_boards(on, false)
+      refute Map.has_key?(Snapshot.build(off)["tournament"], "live_boards")
+
+      # Everything else is untouched by it.
+      assert Map.delete(Snapshot.build(on)["tournament"], "live_boards") ==
+               Snapshot.build(off)["tournament"]
+    end
+
     test "the hall display settings travel resolved, the announcement only when set" do
       {tournament, _} = swiss_fixture()
 

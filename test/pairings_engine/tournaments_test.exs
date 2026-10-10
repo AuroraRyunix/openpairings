@@ -2259,6 +2259,41 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "set_live_boards/2" do
+    test "off by default; on is stored, enqueues a publish and broadcasts" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Live Test",
+          type: "swiss",
+          rounds_count: 5,
+          publish_to_openresults: true
+        })
+
+      refute tournament.public_live_boards
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, updated} = Tournaments.set_live_boards(tournament, true)
+      assert Repo.reload!(updated).public_live_boards
+
+      assert PairingsEngine.Publishing.queued(tournament.id)
+      tournament_id = tournament.id
+      assert_receive {:tournament_changed, ^tournament_id, :settings}
+
+      assert {:ok, off} = Tournaments.set_live_boards(updated, false)
+      refute Repo.reload!(off).public_live_boards
+    end
+
+    test "an archived tournament is refused" do
+      {:ok, archived} =
+        Tournaments.archive_tournament(
+          Repo.insert!(%Tournament{name: "Live Archived", type: "swiss", rounds_count: 5})
+        )
+
+      assert Tournaments.set_live_boards(archived, true) == {:error, :archived}
+      refute Repo.reload!(archived).public_live_boards
+    end
+  end
+
   describe "set_logo/2, clear_logo/1 and detect_image_type/1" do
     # 1x1 transparent PNG - real signature bytes, not a fake/truncated stub.
     @tiny_png Base.decode64!(

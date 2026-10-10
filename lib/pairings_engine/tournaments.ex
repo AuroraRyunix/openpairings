@@ -1648,6 +1648,30 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Says whether this tournament has live boards - the "Live boards" switch on
+  Settings, Results site. The snapshot then carries
+  `tournament.live_boards: true` and the results site links its pages to the
+  live boards; off, the key is not sent at all.
+
+  Enqueues a publish like `set_public_display/3`: the link is on pages
+  cached per snapshot, so it appears and goes with the next copy and not
+  before.
+  """
+  @spec set_live_boards(Tournament.t(), boolean()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()} | {:error, :archived}
+  def set_live_boards(%Tournament{} = tournament, on?) when is_boolean(on?) do
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(public_live_boards: on?)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
+    end
+  end
+
+  @doc """
   Shows a page the retired "Standings" or "Round pairings" switch still
   keeps off (`PairingsEngine.PublicDisplay.legacy_keys/0`) - the one way
   back, since neither switch is on the settings page any more. From then on
