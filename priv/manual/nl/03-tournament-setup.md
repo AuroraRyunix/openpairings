@@ -184,7 +184,10 @@ niet, dus wie dat kiest, haalt het toernooi uit de FIDE-modus
 ([FIDE-modus](02-fide-mode.md)). Een toernooi dat is aangemaakt voordat
 *Volgens rating* de standaard werd, houdt *Achter het veld* zoals het dat had,
 zonder de FIDE-modus te verlaten; een back-upbestand uit die tijd ook, wanneer
-het wordt geïmporteerd. Wijzigt u deze drie instellingen na ronde 1, dan wordt niemand
+het wordt geïmporteerd. Zo'n toernooi zegt dat één keer, op deze pagina en op de
+pagina Paringen, tot ronde 4 gepaard is: **Overschakelen naar volgens rating**
+wijzigt de instelling, **Behouden** laat ze staan, en elk antwoord wordt
+onthouden. Wijzigt u deze drie instellingen na ronde 1, dan wordt niemand
 die al een nummer heeft opnieuw genummerd; de pagina zegt dat.
 
 Een speler die in ronde 1 afwezig is (een gevraagde bye, een afwezigheid, een

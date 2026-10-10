@@ -160,12 +160,14 @@ old numbers, so a pairing checker will no longer reproduce them; the dialog
 says so. Each change is written to the audit trail.
 
 Until round 4 is paired, the Pairings page warns above *Pair round N* when the
-numbers no longer follow the ratings - a rating corrected after round 1, say,
-or numbers left by an older version. It names each player with their rating,
-their number and the number their rating earns, and **Regenerate from
-ratings…** opens this list. Players of equal rating in any order, and late
-entrants numbered after the field, are not reported. It does not stop the
-pairing.
+numbers no longer follow the ratings - a rating corrected after round 1, a
+late entrant numbered after the field, or numbers that came with an imported
+file. It names each player with their rating, their number and the number
+their rating earns, and **Regenerate from ratings…** opens this list. Players
+of equal rating in any order are never reported: that is what an exchange is
+for. Pressing *Pair round N* for rounds 2 to 4 then asks first
+([Pairing a round](06-pairing.md), *When the pairing numbers do not follow the
+ratings*).
 
 **Starting numbers of a round robin.** Before round 1 the button **Starting
 numbers** opens the list the Berger tables pair by. Enter the result of a
@@ -252,7 +254,10 @@ number, matching by national ID, then FIDE ID. It never blanks a club.
 A player added after rounds have been paired can be given a round in which
 they join (**Joins in round** on the form; the next round to be paired is
 offered). In a Swiss tournament their pairing number follows the setting
-*Late entrants' pairing numbers* (by rating, or after the field). The form says what the rounds before it count as. When absences
+*Late entrants' pairing numbers* (by rating, or after the field). A tournament
+that still numbers them after the field because it is older than the default
+says so once, on the Pairings page and on the Options page, and offers to
+switch ([Tournament set-up](03-tournament-setup.md)). The form says what the rounds before it count as. When absences
 score points (Scoring page), the rounds before the entry count as absences
 as set on the Scoring page. In a Swiss tournament the new player is paired in
 the round they join, with the others. In a round robin a player who is added

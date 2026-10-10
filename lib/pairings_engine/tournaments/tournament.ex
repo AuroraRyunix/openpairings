@@ -864,6 +864,26 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `PairingsEngine.Pairing.round_one_absentees_late?/1`.
     field :round_one_absentees_late, :boolean, default: false
 
+    # Who put the pairing numbers there when it was not the pairing:
+    # "import" (a TRF or SWAR file's own numbers) or "exchange" (an arbiter's
+    # TPN exchange, `PairingsEngine.Tpn.exchange/3`). Nil: the pairing issued
+    # them, and those are the ones unpairing the last round takes back
+    # (`PairingsEngine.Pairing.delete_round/2`) - a number somebody chose is
+    # not the pairing's to throw away. Not cast; written by the import, the
+    # exchange and the regeneration only.
+    field :pairing_numbers_origin, :string
+
+    # The out-of-place players (`PairingsEngine.Tpn.out_of_place/1`) the
+    # arbiter chose to pair with anyway: their ids, sorted and comma-joined
+    # (`Tpn.signature/1`). The question before pairing rounds 2-4 is asked
+    # again only when the set is a different one. Not cast, not exported -
+    # the ids are this database's.
+    field :tpn_order_accepted, :string
+
+    # The notice that a grandfathered `late_entry_numbering` "end" is not
+    # what C.04.2 2.4 says, answered - either way. Not cast.
+    field :late_entry_notice_dismissed, :boolean, default: false
+
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:

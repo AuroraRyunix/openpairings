@@ -105,7 +105,7 @@ defmodule PairingsEngine.TournamentExport do
     team_board_colours team_pab_match_points team_pab_game_points team_withdrawal_annul
     team_lineups team_rating_method team_unrated_rating teams_ordered_by_hand
     team_pairing_mode initial_colour initial_colour_drawn rating_method initial_order_tiebreak late_entry_numbering
-    round_one_absentees_late
+    round_one_absentees_late pairing_numbers_origin
     soft_position
     extra_points_mode count_extra_points extra_points_bands
     publish_mode publish_delay_minutes standings_through
@@ -177,6 +177,12 @@ defmodule PairingsEngine.TournamentExport do
   #     unlocking. The hand-off flow moves a release token exactly once, in
   #     its own envelope block, and `PairingsEngine.Handoff` is the only thing
   #     that writes this column.
+  #   tpn_order_accepted, late_entry_notice_dismissed
+  #     Two questions this copy's arbiter answered: pair with these players
+  #     out of rating order, and keep numbering late entrants at the end.
+  #     The first is a list of player ids, which mean nothing in another
+  #     database (an import mints new ones); the second is cheap to ask the
+  #     next arbiter again, and theirs to answer.
   #   send_confirmation_needed
   #     Whether THIS copy, imported from a file, has been confirmed as the
   #     one that reports. Decided by the import that makes a copy, from the
@@ -245,6 +251,7 @@ defmodule PairingsEngine.TournamentExport do
     openresults_key openresults_claim
     handed_off_at handed_off_to handoff_token handoff_origin
     send_confirmation_needed
+    tpn_order_accepted late_entry_notice_dismissed
   )a
 
   @doc false

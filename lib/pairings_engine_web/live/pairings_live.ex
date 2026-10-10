@@ -2,6 +2,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngineWeb.ByePreferenceText
+  alias PairingsEngineWeb.LateEntryNotice
   alias PairingsEngineWeb.PublicLink
 
   import PairingsEngineWeb.SettingsSupport,
@@ -111,6 +112,11 @@ defmodule PairingsEngineWeb.PairingsLive do
        # rule): who is excluded, and the one player whose exclusion lifted
        # for this round lets it pair - see `handle_event("pair_ignoring_bye_exclusion", ...)`.
        bye_exclusion_block: nil,
+       # "Pair round N" stopped because the pairing numbers do not follow the
+       # ratings while they can still be corrected (`Tpn.gate/1`): the
+       # players out of place and the round, until the arbiter picks one of
+       # the dialog's three answers - see the "tpn_gate_*" events.
+       tpn_gate: nil,
        # Set while a team Swiss round is pairing in a supervised task (see
        # `do_pair_team_swiss_async/1`) - 300-500 teams can take 10-50
        # seconds, run IN THIS BEAM with no subprocess timeout of its own.
@@ -362,7 +368,12 @@ defmodule PairingsEngineWeb.PairingsLive do
         setup_warnings: Tournaments.setup_warnings(t),
         # Pairing numbers that no longer follow the ratings, while they can
         # still be corrected (round 4 not paired). A warning, not a lock.
-        tpn_out_of_order: if(t.archived_at, do: [], else: Tpn.out_of_order(t)),
+        tpn_out_of_order: if(t.archived_at, do: [], else: Tpn.warning(t)),
+        # The same once round 4 is paired and C.04.2 2.3 has closed: nothing
+        # to do about it, so a note, for the arbiter who is asked why.
+        tpn_locked: if(t.archived_at, do: [], else: Tpn.locked_out_of_place(t)),
+        # A grandfathered "late entrants at the end", not yet asked about.
+        late_entry_notice: Tournaments.late_entry_notice?(t),
         # A round robin's rounds do not depend on results, so the rest of
         # the table does not wait for them after a round paired by hand.
         can_pair:
@@ -756,8 +767,75 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The three answers to the pairing-number question (`tpn_gate/2`, the
+  # dialog): renumber and pair, pair as it is, or neither. Only while the
+  # dialog is open - the events carry nothing, the socket holds the round.
+  def handle_event("tpn_gate_cancel", _params, socket),
+    do: {:noreply, assign(socket, tpn_gate: nil)}
+
+  def handle_event("tpn_gate_renumber", _params, socket) do
+    with %{round: round} <- socket.assigns.tpn_gate,
+         false <- socket.assigns.pairing_in_progress do
+      %{tournament: t, current_scope: scope} = socket.assigns
+
+      Snapshots.capture(t, "pairing.round_paired", scope,
+        summary: "Before renumbering by rating and pairing round #{round}"
+      )
+
+      changes = Tpn.regeneration_changes(t)
+
+      case Tpn.regenerate(t) do
+        {:ok, _order} ->
+          # The same entry the Players page's regeneration writes: it is
+          # the same regeneration.
+          Audit.log(t.id, scope, "player.pairing_numbers_changed", %{
+            regenerated: length(changes),
+            round: round - 1
+          })
+
+          socket
+          |> assign(tpn_gate: nil, tournament: fresh_tournament(socket))
+          |> pair_individual(snapshot: false)
+
+        {:error, reason} ->
+          {:noreply, assign(socket, tpn_gate: nil, error: tpn_gate_error(reason))}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("tpn_gate_pair_anyway", _params, socket) do
+    with %{round: round, rows: rows} <- socket.assigns.tpn_gate,
+         false <- socket.assigns.pairing_in_progress do
+      %{tournament: t, current_scope: scope} = socket.assigns
+
+      case Tpn.accept(t, rows) do
+        {:ok, t} ->
+          # Not a FIDE-mode departure: the numbers are what they were, and
+          # the rule's remedy was offered. Just written down, with names.
+          Audit.log(t.id, scope, "pairing.tpn_order_accepted", %{
+            round: round,
+            count: length(rows),
+            players: tpn_gate_names(rows)
+          })
+
+          socket |> assign(tpn_gate: nil, tournament: t) |> pair_individual([])
+
+        {:error, reason} ->
+          {:noreply, assign(socket, tpn_gate: nil, error: error_text(reason))}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("late_entry_notice_" <> answer, _params, socket),
+    do: {:noreply, socket |> LateEntryNotice.answer(answer) |> refresh()}
+
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
+    numbers_cleared = Engine.numbers_cleared_by_unpairing(t.id, round_number)
 
     # Unpairing deletes the round and every result in it. Snapshot first -
     # see PairingsEngine.Snapshots for why this sits at the call site and
@@ -768,9 +846,12 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case Engine.delete_round(t.id, round_number) do
       :ok ->
-        Audit.log(t.id, socket.assigns.current_scope, "pairing.round_deleted", %{
-          round: round_number
-        })
+        Audit.log(
+          t.id,
+          socket.assigns.current_scope,
+          "pairing.round_deleted",
+          round_deleted_details(round_number, numbers_cleared)
+        )
 
         {:noreply, socket |> assign(error: nil) |> refresh()}
 
@@ -3419,32 +3500,75 @@ defmodule PairingsEngineWeb.PairingsLive do
         do_pair_team_swiss_async(socket)
 
       true ->
-        # Already taken by the click the Level-4 question interrupted: the
-        # confirmed run pairs from the very same state.
-        unless socket.assigns.fide_gate_confirmed do
-          PairTiming.span(:snapshot, fn ->
-            Snapshots.capture(
-              socket.assigns.tournament,
-              "pairing.round_paired",
-              socket.assigns.current_scope,
-              summary: "Before pairing round #{socket.assigns.round_number}"
-            )
-          end)
+        # C.04.2 2.2-2.4: pairing numbers that do not follow the ratings,
+        # found while 2.3 still lets them be corrected, stop the click and
+        # ask. Once per set of players; an individual Swiss only.
+        case Tpn.gate(socket.assigns.tournament) do
+          [] -> pair_individual(socket, [])
+          rows -> {:noreply, assign(socket, error: nil, tpn_gate: tpn_gate(socket, rows))}
         end
-
-        result =
-          PairTiming.span(:pair, fn ->
-            Engine.pair_next_round(socket.assigns.tournament,
-              acknowledged: socket.assigns.pair_acknowledged,
-              fide_departure_guard: not socket.assigns.fide_gate_confirmed
-            )
-          end)
-
-        socket
-        |> assign(recorded_missing: missing_to_record(socket))
-        |> apply_pair_result(result)
     end
   end
+
+  defp pair_individual(socket, opts) do
+    # Already taken by the click the Level-4 question interrupted: the
+    # confirmed run pairs from the very same state. Or by the renumbering
+    # that came just before this (`snapshot: false`).
+    unless socket.assigns.fide_gate_confirmed or opts[:snapshot] == false do
+      PairTiming.span(:snapshot, fn ->
+        Snapshots.capture(
+          socket.assigns.tournament,
+          "pairing.round_paired",
+          socket.assigns.current_scope,
+          summary: "Before pairing round #{socket.assigns.round_number}"
+        )
+      end)
+    end
+
+    result =
+      PairTiming.span(:pair, fn ->
+        Engine.pair_next_round(socket.assigns.tournament,
+          acknowledged: socket.assigns.pair_acknowledged,
+          fide_departure_guard: not socket.assigns.fide_gate_confirmed
+        )
+      end)
+
+    socket
+    |> assign(recorded_missing: missing_to_record(socket))
+    |> apply_pair_result(result)
+  end
+
+  # How many names the dialog lists before "and N more": enough to show the
+  # pattern, few enough that the three buttons stay on the screen.
+  @tpn_gate_shown 12
+
+  defp tpn_gate(socket, rows) do
+    t = socket.assigns.tournament
+
+    %{
+      round: socket.assigns.next_pairable,
+      rows: rows,
+      shown: Enum.take(rows, @tpn_gate_shown),
+      more: max(length(rows) - @tpn_gate_shown, 0),
+      imported?: Tpn.imported?(t),
+      appended?: t.late_entry_numbering in ~w(after end)
+    }
+  end
+
+  defp tpn_gate_names(rows) do
+    names = rows |> Enum.take(@tpn_gate_shown) |> Enum.map_join(", ", & &1.player.name)
+    if length(rows) > @tpn_gate_shown, do: names <> ", ...", else: names
+  end
+
+  defp tpn_gate_error(:locked),
+    do: gettext("Round 4 is paired: the pairing numbers can no longer change (C.04.2).")
+
+  defp tpn_gate_error(reason), do: error_text(reason)
+
+  defp round_deleted_details(round_number, 0), do: %{round: round_number}
+
+  defp round_deleted_details(round_number, cleared),
+    do: %{round: round_number, numbers_cleared: cleared}
 
   defp fresh_tournament(socket) do
     Tournaments.get_authorized_tournament(
@@ -5254,6 +5378,107 @@ defmodule PairingsEngineWeb.PairingsLive do
     """
   end
 
+  attr :gate, :map, required: true
+
+  # "Pair round N" stopped: the pairing numbers do not follow the ratings
+  # and C.04.2 2.3 still lets them be corrected. Three ways out, and Escape
+  # is the third.
+  defp tpn_gate_dialog(assigns) do
+    ~H"""
+    <div class="pe-modal" phx-window-keydown="tpn_gate_cancel" phx-key="escape">
+      <div
+        class="pe-modal-card pe-modal-wide"
+        id="tpn-gate-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="tpn-gate-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <header class="pe-modal-head">
+          <h2 id="tpn-gate-title">
+            {gettext("The pairing numbers do not follow the ratings")}
+          </h2>
+
+          <p :if={@gate.imported?} id="tpn-gate-imported">
+            {gettext(
+              "These numbers came with the imported file. Before round %{n} is paired, check that they are the ones you want.",
+              n: @gate.round
+            )}
+          </p>
+
+          <p :if={!@gate.imported? and @gate.appended?} id="tpn-gate-appended">
+            {gettext(
+              "Round %{n} would be paired with these players out of place. Late entrants are numbered at the end in this tournament, wherever their rating puts them.",
+              n: @gate.round
+            )}
+          </p>
+
+          <p :if={!@gate.imported? and !@gate.appended?} id="tpn-gate-plain">
+            {gettext("Round %{n} would be paired with these players out of place.", n: @gate.round)}
+          </p>
+        </header>
+
+        <div class="pe-modal-body">
+          <ul id="tpn-gate-list" class="tpn-order-warning-list">
+            <li :for={row <- @gate.shown} id={"tpn-gate-#{row.player.id}"}>
+              {gettext("%{name} (%{rating}): number %{number}, by rating %{expected}",
+                name: row.player.name,
+                rating: row.rating,
+                number: row.number,
+                expected: row.expected
+              )}
+            </li>
+
+            <li :if={@gate.more > 0} id="tpn-gate-more">
+              {gettext("and %{count} more", count: @gate.more)}
+            </li>
+          </ul>
+
+          <p class="pe-modal-warn" role="alert">
+            {gettext(
+              "The pairing rules read these numbers as the ranking: who is in the top half of a score group, who floats, who gets which colour. FIDE (C.04.2 2.3) lets them be corrected only until round 4 is paired - after that they stay as they are."
+            )}
+          </p>
+
+          <p class="pe-modal-note">
+            {gettext(
+              "Renumbering changes the numbers only. The rounds already played keep their boards and results."
+            )}
+          </p>
+        </div>
+
+        <footer class="pe-modal-foot">
+          <button type="button" class="pe-btn" id="tpn-gate-cancel" phx-click="tpn_gate_cancel">
+            {gettext("Cancel")}
+          </button>
+
+          <button
+            type="button"
+            class="pe-btn"
+            id="tpn-gate-pair-anyway"
+            phx-click="tpn_gate_pair_anyway"
+            phx-disable-with={gettext("Pairing…")}
+          >
+            {gettext("Pair anyway")}
+          </button>
+
+          <button
+            type="button"
+            class="pe-btn primary pe-modal-go"
+            id="tpn-gate-renumber"
+            phx-click="tpn_gate_renumber"
+            phx-disable-with={gettext("Pairing…")}
+          >
+            {gettext("Renumber by rating and pair")}
+          </button>
+        </footer>
+      </div>
+    </div>
+    """
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -5519,6 +5744,38 @@ defmodule PairingsEngineWeb.PairingsLive do
           {gettext("Regenerate from ratings…")}
         </.link>
       </div>
+
+      <%!-- The same finding once round 4 is paired: C.04.2 2.3 no longer
+            lets anybody correct it, so no button and no dialog - a note,
+            folded, for the arbiter who has to explain a seeding. --%>
+      <details :if={@tpn_locked != []} id="tpn-locked-note" class="tpn-locked-note">
+        <summary>
+          {ngettext(
+            "%{count} pairing number does not follow the ratings, and can no longer be corrected.",
+            "%{count} pairing numbers do not follow the ratings, and can no longer be corrected.",
+            length(@tpn_locked)
+          )}
+        </summary>
+
+        <p>
+          {gettext(
+            "FIDE's rules (C.04.2 2.3) allow pairing numbers to be corrected only until round 4 is paired. These were given before that - by a late entry numbered at the end, a rating corrected afterwards or an imported file - and now stand for the rest of the tournament."
+          )}
+        </p>
+
+        <ul class="tpn-order-warning-list">
+          <li :for={row <- @tpn_locked} id={"tpn-locked-#{row.player.id}"}>
+            {gettext("%{name} (%{rating}): number %{number}, by rating %{expected}",
+              name: row.player.name,
+              rating: row.rating,
+              number: row.number,
+              expected: row.expected
+            )}
+          </li>
+        </ul>
+      </details>
+
+      <LateEntryNotice.notice show={@late_entry_notice} />
 
       <%!-- The round bar: which round, how it stands, and everything to do
             with it. The picker and the status on the left, the round's
@@ -6560,6 +6817,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </div>
       <.mpa_dialog :if={@mpa_dialog} dialog={@mpa_dialog} />
+      <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
           <caption>{gettext("Matches - round %{n}", n: @round_number)}</caption>

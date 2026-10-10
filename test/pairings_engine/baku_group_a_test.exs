@@ -298,10 +298,14 @@ defmodule PairingsEngine.BakuGroupATest do
     end
 
     test "a number issued before round 1 is handed back, and the field closes ranks" do
-      # Round 1 paired over nine, then unpaired: everybody holds a number.
+      # Round 1 paired over nine, then unpaired: everybody holds a number -
+      # as long as the numbers are somebody's choice (an exchange's here).
+      # The pairing's own are taken back by the unpairing, and there would
+      # be nothing left to hand back.
       t = tournament(5, 9)
       play_round(t)
       assert Repo.reload!(t).baku_group_a_last == 6
+      Repo.update_all(Tournament, set: [pairing_numbers_origin: "exchange"])
       :ok = Pairing.delete_round(t.id, 1)
 
       p3 = player_named(t, "P3, Baku")

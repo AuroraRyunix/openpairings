@@ -296,7 +296,12 @@ defmodule PairingsEngine.TournamentImport do
       )
       |> Ecto.Changeset.change(
         round_one_absentees_late:
-          round_one_absentees_late(t_attrs, tournament.round_one_absentees_late)
+          round_one_absentees_late(t_attrs, tournament.round_one_absentees_late),
+        pairing_numbers_origin:
+          pairing_numbers_origin(t_attrs, tournament.pairing_numbers_origin),
+        # The entry's players are new rows with new ids, so an answer given
+        # about the old ones is about nobody.
+        tpn_order_accepted: nil
       )
       |> update!()
 
@@ -417,6 +422,26 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
+  # Whose the pairing numbers are (`Tournament`'s `pairing_numbers_origin`),
+  # not cast, so carried by hand. A file without the key predates it:
+  # `fallback` then - the live row's value for a restore, and for a new row
+  # what the migration decided for the rows it found (`file_origin/1`).
+  defp pairing_numbers_origin(t_attrs, fallback) do
+    case Map.fetch(t_attrs, "pairing_numbers_origin") do
+      {:ok, origin} when origin in ~w(import exchange) -> origin
+      {:ok, _other} -> nil
+      :error -> fallback
+    end
+  end
+
+  # A tournament that carries a TRF import record or a SWAR guid came from a
+  # file, numbers included.
+  defp file_origin(t_attrs) do
+    if is_map(Map.get(t_attrs, "import_findings")) or
+         Map.get(t_attrs, "swar_guid") not in [nil, ""],
+       do: "import"
+  end
+
   # A file written before `late_entry_numbering` travelled carries none, and
   # its tournament numbered late entrants after the field - the only thing
   # this app did then. Left alone, the schema's "rating" default would quietly
@@ -527,7 +552,10 @@ defmodule PairingsEngine.TournamentImport do
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil, records!(t_data, "teams") != []))
-      |> Ecto.Changeset.change(round_one_absentees_late: round_one_absentees_late(t_attrs, false))
+      |> Ecto.Changeset.change(
+        round_one_absentees_late: round_one_absentees_late(t_attrs, false),
+        pairing_numbers_origin: pairing_numbers_origin(t_attrs, file_origin(t_attrs))
+      )
       |> insert!("the \"tournament\" block")
 
     team_map = import_teams!(tournament, records!(t_data, "teams"))

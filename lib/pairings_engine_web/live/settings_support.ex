@@ -44,7 +44,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
   @settings_diff_ignore ~w(id status public_slug public_slug_minted_at public_slug_server
     public_slug_published_at deleted_at
     manual_ranking_stale fide_compliance_lost_round
-    logo_data logo_content_type inserted_at updated_at user_id)a
+    logo_data logo_content_type inserted_at updated_at user_id
+    pairing_numbers_origin tpn_order_accepted late_entry_notice_dismissed)a
 
   @doc """
   Sub-nav shown at the top of every Settings page, so the user can hop

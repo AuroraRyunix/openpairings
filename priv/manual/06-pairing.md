@@ -80,6 +80,32 @@ FIDE title, then the criterion the tournament announced
 no legal pairing at all, the program says so and offers **Pair round N by
 hand…** (see *Changing a pairing by hand*).
 
+**When the pairing numbers do not follow the ratings.** The pairing rules read
+the pairing numbers as the ranking, so a strong player holding a high number
+is paired as a weak one for the whole event. For rounds 2, 3 and 4 the
+program therefore checks the numbers when you press **Pair round N**, and
+stops if any player is out of place - a late entrant numbered after the
+field, a rating corrected after round 1, or numbers that came with an
+imported TRF or SWAR file (the dialog says which). It lists the players with
+their rating, their number and the number their rating earns, and offers:
+
+- **Renumber by rating and pair** - the same regeneration as on the Players
+  page ([Players and rating lists](04-players-and-ratings.md)), then the round;
+- **Pair anyway** - the round is paired on the numbers as they are. The
+  decision is written to the audit trail, and the program does not ask again
+  unless a different set of players is out of place;
+- **Cancel** - nothing is paired.
+
+Neither answer takes the tournament out of FIDE mode. Players of equal rating
+in any order are not out of place. Round 1 needs no question: it gives the
+numbers itself. Round robin, Keizer and team tournaments are not checked.
+
+> [!FIDE] C.04.2 2.3
+> Pairing numbers can be corrected only until round 4 is paired. From round 5
+> on the program no longer asks; if numbers are still out of place the
+> Pairings page keeps a short note saying so and why they stand, with the
+> players concerned.
+
 **Board order.** The boards are numbered as C.04.2 Art. 3.6 orders them: first
 by the score of the pair's higher-ranked player, highest first; then by the sum
 of the two players' scores; then by the pairing number of the higher-ranked
@@ -367,6 +393,14 @@ the same way, and are judged the same.
 
 In a Swiss match format the two rounds of a match go together. A round that
 has been sent to the rating office cannot be unpaired.
+
+Unpairing round 1 of an individual Swiss - so that no round is left - also
+takes back the pairing numbers that round gave. The next round 1 numbers
+everybody who is entered by then, by rating, so a round paired to try the
+program out before the field is complete leaves nothing behind. Numbers you
+chose stay: an exchange made on the Players page, and the numbers of an
+imported file; a player entered afterwards is then placed among them by
+rating. Round robin, Keizer and team tournaments keep their numbers.
 
 ## Entering results
 

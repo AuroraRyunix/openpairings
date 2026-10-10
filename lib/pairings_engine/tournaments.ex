@@ -753,6 +753,42 @@ defmodule PairingsEngine.Tournaments do
     Repo.exists?(from r in Round, where: r.tournament_id == ^tournament_id and r.number == 1)
   end
 
+  @doc """
+  Whether to tell the arbiter that this tournament numbers its late
+  entrants at the end, which C.04.2 2.4 does not: an individual Swiss still
+  on the grandfathered `late_entry_numbering` "end", round 4 not yet paired
+  (after that the numbers are final and the news is only irritating), and
+  the question not answered before.
+  """
+  def late_entry_notice?(%Tournament{} = tournament) do
+    tournament.late_entry_numbering == "end" and
+      not tournament.late_entry_notice_dismissed and
+      is_nil(tournament.archived_at) and
+      PairingsEngine.Tpn.editable?(tournament)
+  end
+
+  @doc """
+  Answers that notice with "by rating": the setting changes exactly as
+  saving it on the Options page would (it is never locked - it renumbers
+  nobody, it only decides where the next late entrant goes), and the
+  notice is not shown again.
+  """
+  def switch_late_entry_numbering(%Tournament{} = tournament) do
+    with {:ok, updated} <- update_tournament(tournament, %{"late_entry_numbering" => "rating"}) do
+      dismiss_late_entry_notice(updated)
+    end
+  end
+
+  @doc "Answers that notice with \"keep it\": only the notice goes."
+  def dismiss_late_entry_notice(%Tournament{} = tournament) do
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(late_entry_notice_dismissed: true)
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
+  end
+
   # `round_one_absentees_late` may change only while round 1 is unpaired.
   # Refused here, not just greyed out on the Options page, because the page is
   # a courtesy and this is the rule. Saving the same value again is no change

@@ -22,7 +22,17 @@ defmodule PairingsEngine.Tpn do
   them first, in the order round 1 would (`Pairing.initial_order/1`), and a
   player entered after that is placed by rating when round 1 is paired
   (`seed_newcomers/2`), never simply last. Once a round exists, a later
-  entry is numbered last as it always was, and a regeneration places them.
+  entry is placed by the tournament's `late_entry_numbering` - by rating,
+  or last - and a regeneration puts right whatever "last" got wrong.
+
+  ## Numbers that do not follow the ratings
+
+  Nothing in the pairing objects to a 2365 holding number 43; it just pairs
+  them as one. So the numbers are checked from outside: `out_of_place/1`
+  finds everybody whose number is not the one their rating earns,
+  `gate/1` is what "Pair round N" stops for while a correction is still
+  allowed, `warning/1` is the Pairings page's list, and
+  `locked_out_of_place/1` the note once it is too late.
 
   ## A regeneration
 
@@ -109,10 +119,13 @@ defmodule PairingsEngine.Tpn do
   `expected` being the number a regeneration (`regenerate/1`) would give
   them; empty when everything is in order or nothing can be done about it.
 
-  A warning, never a refusal - the Pairings page shows it above "Pair
-  round N" and links here. It exists because a bad number is otherwise
-  silent: the production case was a 2090 numbered 17th after an older
-  version re-paired round 1, and nothing anywhere said so.
+  The lenient reading: what is wrong even granting the tournament its
+  setting. The Pairings page falls back to it once the arbiter has chosen
+  to pair with the stricter list (`warning/1`); the question before
+  pairing asks about that stricter list (`out_of_place/1`, `gate/1`). It
+  exists because a bad number is otherwise silent: the production case was
+  a 2090 numbered 17th after an older version re-paired round 1, and
+  nothing anywhere said so.
 
   What does not count as out of order:
 
@@ -126,20 +139,136 @@ defmodule PairingsEngine.Tpn do
       round-1 bye. Before round 1 nobody is late.
   """
   def out_of_order(%Tournament{} = t) do
-    if applies?(t) and editable?(t), do: misplaced(t), else: []
+    if applies?(t) and editable?(t) do
+      field = late_entrants(t)
+
+      t
+      |> numbered()
+      |> Enum.reject(fn {p, _n} -> after_the_field?(p, field) end)
+      |> misplaced(t)
+    else
+      []
+    end
   end
 
-  defp misplaced(t) do
-    numbered = t.id |> Tournaments.list_players() |> Enum.filter(&is_integer(&1.pairing_number))
-    checked = Enum.reject(numbered, &after_the_field?(&1, late_entrants(t)))
-    slots = checked |> Enum.map(& &1.pairing_number) |> Enum.sort()
+  @doc """
+  Every pairing number that does not follow the ratings, whatever put it
+  there and whether or not it can still be corrected: `out_of_order/1`
+  without its excuse for late entrants numbered after the field, and
+  without its round-4 limit. Same row shape. Empty before round 1 (which
+  numbers or seeds the field itself) and for anything but an individual
+  Swiss.
 
-    checked
-    |> Enum.sort_by(&{-Player.rating(&1, t), &1.pairing_number})
+  It looks one pairing ahead. Where late entrants are appended
+  (`late_entry_numbering` "after" or "end"), an active player still waiting
+  for a number is given the one the next pairing will hand them - last -
+  so the question can be asked before that pairing rather than after it.
+  Under "rating" the pairing places them correctly itself, and they are
+  left out.
+
+  Equal ratings in any order are still fine, so an exchange
+  (`exchange/3`, equal ratings only) never shows up here: there is nothing
+  deliberate to nag about.
+  """
+  def out_of_place(%Tournament{} = t) do
+    if applies?(t) and Engine.paired_rounds_count(t.id) > 0,
+      do: t |> projected() |> misplaced(t),
+      else: []
+  end
+
+  @doc """
+  The out-of-place players "Pair round N" stops for (`out_of_place/1`):
+  only while a correction is still allowed and a round exists (rounds 2 to
+  4), and only when the arbiter has not already chosen to pair with exactly
+  this set (`accept/2`). Empty otherwise.
+  """
+  def gate(%Tournament{} = t) do
+    with true <- editable?(t),
+         [_ | _] = rows <- out_of_place(t),
+         false <- signature(rows) == accepted(t) do
+      rows
+    else
+      _ -> []
+    end
+  end
+
+  @doc """
+  The list the Pairings page shows while a correction is allowed: everybody
+  out of place, or - once the arbiter chose to pair with exactly those
+  anyway - `out_of_order/1`, which leaves the late entrants numbered after
+  the field out of it. Asked and answered is not a reason to keep asking.
+  """
+  def warning(%Tournament{} = t) do
+    cond do
+      not editable?(t) -> []
+      gate(t) != [] -> out_of_place(t)
+      true -> out_of_order(t)
+    end
+  end
+
+  @doc """
+  The out-of-place players once round 4 is paired and C.04.2 2.3 no longer
+  lets anybody correct them - for the note that says so. Empty until then.
+  """
+  def locked_out_of_place(%Tournament{} = t) do
+    if applies?(t) and not editable?(t), do: out_of_place(t), else: []
+  end
+
+  @doc "Which players `rows` are, as stored by `accept/2`: their ids, sorted, comma-joined."
+  def signature(rows),
+    do: rows |> Enum.map(& &1.player.id) |> Enum.sort() |> Enum.join(",")
+
+  @doc """
+  Records that the arbiter pairs with `rows` out of place, so `gate/1` does
+  not ask about the same players again. Returns the tournament as stored.
+  """
+  def accept(%Tournament{} = t, rows) do
+    with :ok <- Tournaments.ensure_writable(t) do
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [tpn_order_accepted: signature(rows)]
+      )
+
+      {:ok, %{t | tpn_order_accepted: signature(rows)}}
+    end
+  end
+
+  @doc "Whether the numbers came with a TRF or SWAR file rather than from this app."
+  def imported?(%Tournament{} = t), do: stored(t, :pairing_numbers_origin) == "import"
+
+  # Read from the row, not the struct: the page's copy of the tournament
+  # can be older than what an exchange, a regeneration or an answer wrote.
+  defp accepted(t), do: stored(t, :tpn_order_accepted)
+
+  defp stored(t, column),
+    do: Repo.one(from x in Tournament, where: x.id == ^t.id, select: field(x, ^column))
+
+  defp numbered(t) do
+    t.id
+    |> Tournaments.list_players()
+    |> Enum.filter(&is_integer(&1.pairing_number))
+    |> Enum.map(&{&1, &1.pairing_number})
+  end
+
+  # The numbering as the next pairing will leave it, as far as that can go
+  # wrong: with the waiting late entrants appended where they are appended.
+  defp projected(%Tournament{late_entry_numbering: numbering} = t)
+       when numbering in ~w(after end),
+       do: order(t)
+
+  defp projected(t), do: numbered(t)
+
+  # `rows` is `[{player, number}]`. Sorted by rating over the same set of
+  # numbers; whoever does not land on their own is out of place. Equal
+  # ratings sort by the number they hold, so they never are.
+  defp misplaced(rows, t) do
+    slots = rows |> Enum.map(&elem(&1, 1)) |> Enum.sort()
+
+    rows
+    |> Enum.sort_by(fn {p, n} -> {-Player.rating(p, t), n} end)
     |> Enum.zip(slots)
-    |> Enum.reject(fn {p, slot} -> p.pairing_number == slot end)
-    |> Enum.map(fn {p, slot} ->
-      %{player: p, rating: Player.rating(p, t), number: p.pairing_number, expected: slot}
+    |> Enum.reject(fn {{_p, n}, slot} -> n == slot end)
+    |> Enum.map(fn {{p, n}, slot} ->
+      %{player: p, rating: Player.rating(p, t), number: n, expected: slot}
     end)
     |> Enum.sort_by(& &1.number)
   end
@@ -240,7 +369,21 @@ defmodule PairingsEngine.Tpn do
       end)
 
     write(t, swapped)
+    # Somebody chose these numbers, so unpairing back to nothing keeps them
+    # (`Pairing.delete_round/2`). A file's numbers stay a file's.
+    mark_origin(t, nil, "exchange")
     {:ok, order(t)}
+  end
+
+  defp mark_origin(t, from, to) do
+    query = from(x in Tournament, where: x.id == ^t.id)
+
+    query =
+      if is_nil(from),
+        do: where(query, [x], is_nil(x.pairing_numbers_origin)),
+        else: where(query, [x], x.pairing_numbers_origin == ^from)
+
+    Repo.update_all(query, set: [pairing_numbers_origin: to])
   end
 
   @doc """
@@ -269,6 +412,9 @@ defmodule PairingsEngine.Tpn do
   def regenerate(%Tournament{} = t) do
     with :ok <- guard(t) do
       write(t, Enum.map(regenerated(t, order(t)), & &1.id))
+      # Regenerated, a file's numbers are no longer the file's. An exchange
+      # survives a regeneration (Q155), so that mark stays.
+      mark_origin(t, "import", nil)
       {:ok, order(t)}
     end
   end

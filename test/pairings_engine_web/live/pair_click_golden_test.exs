@@ -102,6 +102,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   And by hand when the engine choice went: `tournament.pairing_engine` taken out
   of the three JSON exports, the only place it appeared. Every other term,
   the pairings included, is the file as it was.
+
+  And for whose the pairing numbers are (tpn-holes): every JSON export gains
+  `tournament.pairing_numbers_origin` (nil in the three scenarios - the
+  pairing issued them). With that key taken out the regenerated file is
+  equal, term for term, to the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

@@ -166,6 +166,9 @@ defmodule PairingsEngine.RoundOneAbsenteesLateTest do
     test "present when round 1 was paired, absent when it is paired again: the number goes back" do
       t = new_tournament()
       play_round(t)
+      # Numbers somebody chose (an exchange's) survive the unpairing; the
+      # pairing's own are taken back by it, leaving none to hand back.
+      Repo.update_all(Tournament, set: [pairing_numbers_origin: "exchange"])
       :ok = Pairing.delete_round(t.id, 1)
 
       p3 = Enum.find(Tournaments.list_players(t.id), &(&1.name == "P03"))

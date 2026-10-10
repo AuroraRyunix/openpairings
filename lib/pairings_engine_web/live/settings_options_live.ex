@@ -105,6 +105,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       rating_method_locked?: :rating_method in locked,
       initial_order_tiebreak_locked?: :initial_order_tiebreak in locked,
       round_one_paired?: Tournaments.round_one_paired?(tournament.id),
+      late_entry_notice: Tournaments.late_entry_notice?(tournament),
       team_lineups_locked?: :team_lineups in locked
     )
   end
@@ -179,6 +180,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     new_rate = if current in list, do: current, else: ""
 
     {:noreply, assign(socket, standard: new_standard, rate_of_play: new_rate)}
+  end
+
+  # The grandfathered "late entrants at the end" notice, answered
+  # (`PairingsEngineWeb.LateEntryNotice`).
+  def handle_event("late_entry_notice_" <> answer, _params, socket) do
+    {:noreply,
+     socket |> PairingsEngineWeb.LateEntryNotice.answer(answer) |> assign_pairing_locks()}
   end
 
   def handle_event("save", %{"tournament" => params} = payload, socket) do
@@ -418,6 +426,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       </div>
       <.settings_subnav tournament={@tournament} active={:options} />
       <.stale_banner stale={@stale} />
+      <PairingsEngineWeb.LateEntryNotice.notice show={@late_entry_notice} />
       <.fide_exit_dialog
         id="fide-gate"
         step={@fide_gate && @fide_gate.step}

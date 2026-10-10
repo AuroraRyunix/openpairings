@@ -606,6 +606,8 @@ defmodule PairingsEngine.Pairing do
             from(t in Tournament, where: t.id == ^tournament_id),
             set: [team_pairing_mode: nil, baku_group_a_last: nil]
           )
+
+          clear_issued_pairing_numbers(tournament_id)
         end
 
         :ok
@@ -619,6 +621,66 @@ defmodule PairingsEngine.Pairing do
     Tournaments.broadcast_tournament_change(tournament_id, :rounds)
     Tournaments.refresh_status!(tournament_id)
     :ok
+  end
+
+  # An individual Swiss unpaired back to nothing gives its pairing numbers
+  # back too: the next round 1 numbers whoever is there then, by the initial
+  # order (C.04.2 2.2), as if the first attempt had never happened. Leaving
+  # them was how a round 1 paired and unpaired for practice, months before
+  # the event, came to decide the seeding of everybody who entered after it.
+  #
+  # Only numbers the pairing issued. A file's own numbers and an arbiter's
+  # exchange (`Tournament`'s `pairing_numbers_origin`) stay, and round 1
+  # seeds any newcomer among them (`seed_newcomers_before_round_one/3`).
+  #
+  # Only the Swiss. A round robin's numbers are its Berger table and may
+  # have been drawn by lot (`PairingsEngine.StartingNumbers`, which reopens
+  # them itself); Keizer's are labels, its order being its own ranking; a
+  # team event's player numbers order its boards, and its teams' numbers
+  # were cleared a few lines up.
+  defp clear_issued_pairing_numbers(tournament_id) do
+    tournament = Repo.get!(Tournament, tournament_id)
+
+    if clears_numbers?(tournament) do
+      Repo.update_all(
+        from(p in Player,
+          where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
+        ),
+        set: [pairing_number: nil]
+      )
+
+      # Nobody is out of place any more, so nothing is accepted either.
+      Repo.update_all(from(t in Tournament, where: t.id == ^tournament_id),
+        set: [tpn_order_accepted: nil]
+      )
+    end
+  end
+
+  defp clears_numbers?(%Tournament{} = tournament),
+    do: PairingsEngine.Tpn.applies?(tournament) and is_nil(tournament.pairing_numbers_origin)
+
+  @doc """
+  How many pairing numbers unpairing round `number` would take back
+  (`delete_round/2` unpairing an individual Swiss to nothing): 0 when a
+  round is left afterwards, when the numbers were a file's or an arbiter's,
+  or for any other pairing system. For the caller's audit entry, asked
+  before the round goes.
+  """
+  def numbers_cleared_by_unpairing(tournament_id, number) do
+    tournament = Repo.get!(Tournament, tournament_id)
+    paired = paired_rounds_count(tournament_id)
+    last? = number == paired and (paired == 1 or (tournament.swiss_match_format and paired == 2))
+
+    if last? and clears_numbers?(tournament) do
+      Repo.aggregate(
+        from(p in Player,
+          where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
+        ),
+        :count
+      )
+    else
+      0
+    end
   end
 
   # The bye rows an unpairing leaves standing: a half-point, zero-point or

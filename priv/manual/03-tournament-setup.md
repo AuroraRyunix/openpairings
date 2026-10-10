@@ -177,6 +177,9 @@ instead. The FIDE rules do not, so choosing it takes the tournament out of
 FIDE mode ([FIDE mode](02-fide-mode.md)). A tournament created before *By
 rating* became the default keeps *After the field* as it had it, without
 leaving FIDE mode; so does a backup file from that time when it is imported.
+Such a tournament says so once, on this page and on the Pairings page, until
+round 4 is paired: **Switch to by rating** changes the setting, **Keep**
+leaves it, and either answer is remembered.
 Changing these three settings after round 1 renumbers nobody already
 numbered; the page says so.
 

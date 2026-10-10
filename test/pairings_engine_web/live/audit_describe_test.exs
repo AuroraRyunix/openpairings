@@ -300,7 +300,16 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       },
       %{"round" => 2, "board" => 9, "white" => "Chris Maes", "from" => "1-0", "to" => ""}
     ],
-    "pairing.round_deleted" => [%{"round" => 3}],
+    "pairing.round_deleted" => [
+      %{"round" => 3},
+      %{"round" => 1, "numbers_cleared" => 1},
+      %{"round" => 1, "numbers_cleared" => 13}
+    ],
+    "pairing.tpn_order_accepted" => [
+      %{"round" => 2, "count" => 1, "players" => "Ann Peeters"},
+      %{"round" => 3, "count" => 2, "players" => "Ann Peeters, Bram Claes"}
+    ],
+    "tournament.late_entry_numbering_kept" => [%{}],
     "pairing.boards_announced" => [
       %{
         "round" => 4,

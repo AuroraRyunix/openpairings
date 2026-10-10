@@ -104,6 +104,7 @@ defmodule PairingsEngineWeb.AuditLive do
         team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
+        pairing.tpn_order_accepted
         pairing.chess960_drawn pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
@@ -121,6 +122,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
         pairing.announcement_compared pairing.announcement_acknowledged)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
+        tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed forbidden_pairing.changed
@@ -672,8 +674,34 @@ defmodule PairingsEngineWeb.AuditLive do
         round: value(d, "round")
       )
 
+  def describe("pairing.round_deleted", %{"numbers_cleared" => n} = d)
+      when is_integer(n) and n > 0,
+      do:
+        ngettext(
+          "Unpaired round %{round}. No round is left, so the pairing number it issued was taken back.",
+          "Unpaired round %{round}. No round is left, so the %{count} pairing numbers it issued were taken back.",
+          n,
+          round: value(d, "round")
+        )
+
   def describe("pairing.round_deleted", d),
     do: gettext("Unpaired round %{round}.", round: value(d, "round"))
+
+  def describe("pairing.tpn_order_accepted", d),
+    do:
+      ngettext(
+        "Paired round %{round} with %{count} pairing number out of rating order, on the arbiter's decision: %{players}.",
+        "Paired round %{round} with %{count} pairing numbers out of rating order, on the arbiter's decision: %{players}.",
+        count(d, "count"),
+        round: value(d, "round"),
+        players: value(d, "players")
+      )
+
+  def describe("tournament.late_entry_numbering_kept", _d),
+    do:
+      gettext(
+        "Kept numbering late entrants at the end, when asked whether to switch to by rating."
+      )
 
   def describe("pairing.chess960_drawn", d),
     do:

@@ -85,6 +85,34 @@ de FIDE-titel, daarna het criterium dat het toernooi heeft aangekondigd
 geen wettige paring vindt, meldt het programma dit en biedt het **Ronde N met de
 hand paren…** aan (zie *Een paring met de hand wijzigen*).
 
+**Wanneer de paringsnummers de ratings niet volgen.** De paringsregels lezen de
+paringsnummers als de rangorde, dus een sterke speler met een hoog nummer wordt
+het hele toernooi als een zwakke gepaard. Voor ronde 2, 3 en 4 controleert het
+programma daarom de nummers wanneer u op **Ronde N paren** drukt, en stopt het
+als een speler op de verkeerde plaats staat - een laatkomer die achter het veld
+is genummerd, een rating die na ronde 1 is gecorrigeerd, of nummers die met een
+geïmporteerd TRF- of SWAR-bestand zijn meegekomen (het dialoogvenster zegt
+welke). Het toont de spelers met hun rating, hun nummer en het nummer dat hun
+rating oplevert, en biedt aan:
+
+- **Hernummeren volgens rating en paren** - dezelfde regeneratie als op de pagina
+  Spelers ([Spelers en ratinglijsten](04-players-and-ratings.md)), daarna de ronde;
+- **Toch paren** - de ronde wordt gepaard op de nummers zoals ze zijn. De
+  beslissing komt in het auditlogboek, en het programma vraagt het niet opnieuw
+  tenzij een andere groep spelers op de verkeerde plaats staat;
+- **Annuleren** - er wordt niets gepaard.
+
+Geen van beide antwoorden haalt het toernooi uit de FIDE-modus. Spelers met
+gelijke rating in om het even welke volgorde staan niet verkeerd. Ronde 1 heeft
+geen vraag nodig: die kent de nummers zelf toe. Rondetoernooien, Keizer en
+teamtoernooien worden niet gecontroleerd.
+
+> [!FIDE] C.04.2 2.3
+> Paringsnummers kunnen alleen gecorrigeerd worden tot ronde 4 gepaard is. Vanaf
+> ronde 5 vraagt het programma niets meer; staan er dan nog nummers verkeerd,
+> dan houdt de pagina Paringen een korte notitie bij die dat zegt en waarom ze
+> blijven gelden, met de betrokken spelers.
+
 **Bordvolgorde.** De borden worden genummerd zoals C.04.2 art. 3.6 ze ordent:
 eerst volgens de score van de hoger gerangschikte speler van het paar, hoogste
 eerst; dan volgens de som van de scores van beide spelers; dan volgens het
@@ -391,6 +419,15 @@ en worden op dezelfde manier beoordeeld.
 
 Bij een Zwitsers matchformaat horen de twee rondes van een match bij elkaar. Een
 ronde die naar het ratingkantoor is verzonden, kan niet worden ontpaard.
+
+Ronde 1 van een individueel Zwitsers toernooi ontparen - zodat er geen ronde
+overblijft - neemt ook de paringsnummers terug die die ronde heeft toegekend. De
+volgende ronde 1 nummert iedereen die dan is ingeschreven, volgens rating, zodat
+een ronde die werd gepaard om het programma uit te proberen voordat het veld
+compleet was niets achterlaat. Nummers die u koos blijven: een wissel op de
+pagina Spelers, en de nummers van een geïmporteerd bestand; wie daarna wordt
+ingeschreven, komt er volgens rating tussen. Rondetoernooien, Keizer en
+teamtoernooien behouden hun nummers.
 
 ## Resultaten invoeren {#entering-results}
 

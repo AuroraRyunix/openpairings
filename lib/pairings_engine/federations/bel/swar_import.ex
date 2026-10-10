@@ -1441,7 +1441,12 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       |> resolve_official_fide_ids()
 
     # `swar_settings` is not cast (no form may write it); set on the struct.
-    %Tournament{user_id: scope && scope.user.id, swar_settings: swar_settings(data)}
+    # So are the pairing numbers' origin: they are the file's.
+    %Tournament{
+      user_id: scope && scope.user.id,
+      swar_settings: swar_settings(data),
+      pairing_numbers_origin: "import"
+    }
     |> Tournament.changeset(attrs)
     |> Repo.insert()
   end

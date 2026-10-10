@@ -780,7 +780,9 @@ defmodule PairingsEngine.TrfImport do
   ## ---------- tournament ----------
 
   defp create_tournament(data, scope) do
-    %Tournament{user_id: scope && scope.user.id}
+    # The numbers are the file's (`pairing_numbers_origin`), so unpairing
+    # back to nothing leaves them be.
+    %Tournament{user_id: scope && scope.user.id, pairing_numbers_origin: "import"}
     |> Tournament.changeset(tournament_attrs(data))
     |> Repo.insert()
     |> case do

@@ -167,11 +167,14 @@ dialoogvenster zegt dat. Elke wijziging wordt in het auditlogboek geschreven.
 
 Tot ronde 4 gepaard is, waarschuwt de pagina Paringen boven *Ronde N paren*
 wanneer de nummers de ratings niet meer volgen - een rating die na ronde 1 is
-gecorrigeerd, bijvoorbeeld, of nummers die een oudere versie heeft
-achtergelaten. Ze noemt elke speler met rating, nummer en het nummer dat de
-rating oplevert, en **Opnieuw aanmaken volgens rating…** opent deze lijst.
-Spelers met gelijke rating in om het even welke volgorde, en laatkomers die
-achter het veld zijn genummerd, worden niet gemeld. Paren blijft mogelijk.
+gecorrigeerd, een laatkomer die achter het veld is genummerd, of nummers die
+met een geïmporteerd bestand zijn meegekomen. Ze noemt elke speler met rating,
+nummer en het nummer dat de rating oplevert, en **Opnieuw aanmaken volgens
+rating…** opent deze lijst. Spelers met gelijke rating in om het even welke
+volgorde worden nooit gemeld: daar dient een wissel voor. Wie voor ronde 2 tot
+en met 4 op *Ronde N paren* drukt, krijgt dan eerst een vraag
+([Een ronde paren](06-pairing.md), *Wanneer de paringsnummers de ratings niet
+volgen*).
 
 **Startnummers van een rondetoernooi.** Vóór ronde 1 opent de knop
 **Startnummers** de lijst waarop de Berger-tabellen paren. Voer het resultaat van
@@ -263,7 +266,10 @@ club leeg.
 Een speler die wordt toegevoegd nadat rondes zijn gepaard, kan een ronde krijgen
 waarin hij meedoet (**Speelt mee vanaf ronde** op het formulier; de volgende te
 paren ronde wordt aangeboden). In een Zwitsers toernooi volgt hun paringsnummer de
-instelling *Paringsnummers van laatkomers* (volgens rating, of achter het veld). Het
+instelling *Paringsnummers van laatkomers* (volgens rating, of achter het veld). Een
+toernooi dat ze nog achter het veld nummert omdat het ouder is dan de standaard,
+zegt dat één keer, op de pagina Paringen en op de pagina Opties, en biedt aan om
+over te schakelen ([Een toernooi instellen](03-tournament-setup.md)). Het
 formulier zegt wat de rondes ervoor tellen. Wanneer afwezigheid punten oplevert
 (pagina Puntentelling), tellen de rondes vóór de inschrijving als afwezigheid, zoals
 ingesteld op de pagina Puntentelling. In een Zwitsers toernooi wordt de nieuwe
