@@ -584,6 +584,8 @@ defmodule PairingsEngine.Pairing do
             where: b.id not in ^kept
         )
 
+        reopen_prohibitions(tournament_id, Enum.min(numbers))
+
         # A team event's draw order is only frozen while a round exists.
         # Unpairing the last one gives the teams back to the Teams page, so
         # a team can still be added, removed or re-seeded before the event
@@ -620,6 +622,32 @@ defmodule PairingsEngine.Pairing do
 
     Tournaments.broadcast_tournament_change(tournament_id, :rounds)
     Tournaments.refresh_status!(tournament_id)
+    :ok
+  end
+
+  # A prohibition added once rounds were paired holds "from the next round"
+  # (`from_round`, VCL4THP Q217). Unpair that round's predecessor and the
+  # next round is an earlier one: the arbiter who forbids a pair after
+  # seeing it on the sheet, unpairs and pairs again, means the round they
+  # are looking at. The explicit pairs were handed to the engine for it
+  # anyway while the TRF's `260` went on saying "from the round after"; the
+  # pairing rules read `from_round` and sat the round out. One answer now:
+  # the first round still to be paired, and the whole event when none is.
+  defp reopen_prohibitions(tournament_id, first_unpaired) do
+    from_round = if first_unpaired <= 1, do: nil, else: first_unpaired
+
+    for schema <- [
+          PairingsEngine.Tournaments.ForbiddenPairing,
+          PairingsEngine.Tournaments.PairingRule
+        ] do
+      Repo.update_all(
+        from(row in schema,
+          where: row.tournament_id == ^tournament_id and row.from_round > ^first_unpaired
+        ),
+        set: [from_round: from_round]
+      )
+    end
+
     :ok
   end
 
@@ -2525,7 +2553,22 @@ defmodule PairingsEngine.Pairing do
         player_by_local_rank =
           Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-        trf = trf_input(tournament, full_roster, local_rank_by_player_id, seated, history)
+        # For `round_number`, not for the round after the last one paired:
+        # this used to leave the round out, so a club rule for "the first
+        # three rounds" was gone from round 3's rebuilt field the moment
+        # round 3 existed - and the checker, the re-explanation and every
+        # "why not this pairing" answer judged the round without the rule
+        # it was paired under (or with one that only starts later).
+        trf =
+          trf_input(
+            tournament,
+            full_roster,
+            local_rank_by_player_id,
+            seated,
+            history,
+            round_number
+          )
+
         parsed = Ainalrami.Trf.parse(trf)
 
         # The wishes as they stand NOW, like the forbidden pairings in the
@@ -4385,7 +4428,8 @@ defmodule PairingsEngine.Pairing do
         players \\ nil,
         rank_by_player_id \\ nil,
         eligible_ids \\ nil,
-        shared_history \\ nil
+        shared_history \\ nil,
+        round_number \\ nil
       ) do
     players = players || active_players(tournament.id)
     trf_players = trf_player_rows(tournament, players, shared_history)
@@ -4418,7 +4462,12 @@ defmodule PairingsEngine.Pairing do
       trf_players,
       players,
       rank_by_player_id,
-      paired_rounds_count(tournament.id) + 1,
+      # The round the file is FOR. The next one to pair, unless the caller
+      # is rebuilding an earlier round's field (`engine_field/2`) and says
+      # which: the pairing rules hold per round ("the first three rounds",
+      # "from round 4"), and a round judged under the next round's rules is
+      # judged under the wrong ones.
+      round_number || paired_rounds_count(tournament.id) + 1,
       # nil for a caller with no run history in hand (TRF export, tests):
       # `forbidden_pairs/4` and `exclusion_pairs/6` fall back to reading it
       # themselves, exactly as they always did.

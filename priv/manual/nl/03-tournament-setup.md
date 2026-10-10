@@ -280,6 +280,8 @@ beperkingen samen met de al gespeelde partijen een speler niemand meer laten om
 te treffen, of de ronde helemaal niet meer paarbaar maken, zegt de pagina dat in
 het rood voordat u op Paren drukt. Sluiten ze meer dan de helft van de
 mogelijke partijen uit, dan waarschuwt ze dat de engine weinig keuze overhoudt.
+Een bord dat met forfait eindigde is geen gespeelde partij: de twee mogen nog
+tegen elkaar gepaard worden, en de pagina telt het zo.
 
 **Regels.** *Spelers van dezelfde club* of *Spelers van dezelfde federatie*
 treffen elkaar niet - elke club of federatie, of alleen de clubs of federaties
@@ -298,6 +300,11 @@ treffen. **Enkel indien mogelijk** maakt er een wens van. Een paar wordt een
 wens of weer een regel met **Maak er een wens van** / **Maak er een regel van**;
 een groep wijzigt u met **Bewerken**, dat de leden aanvinkt zodat u er kunt
 toevoegen of weghalen, en dan **Groep opslaan**.
+
+Een paar of een regel die u toevoegt wanneer er al rondes gepaard zijn, geldt
+vanaf de eerstvolgende ronde die gepaard wordt, en het TRF-rapport zegt dat.
+Maakt u daarna een ronde ongedaan, dan geldt de beperking vanaf die ronde: paar
+ze opnieuw en de beperking wordt toegepast.
 
 **Hoe zwaar de wensen wegen.** *Sterk* zet de wensen vóór de kleur- en
 floatcriteria, *Zwak* gebruikt ze alleen als laatste beslissing. Alleen de
@@ -339,7 +346,9 @@ een ronde waarvoor een speler afwezig was (leeg: afwezigheden leveren niets op).
 Daarbij horen twee optionele grenzen: de laatste ronde waarvoor het nog geldt, en
 een maximum voor het aantal rondes van een speler dat wordt betaald. *Een
 overgeslagen ronde als vrijwillig niet gespeelde ronde behandelen voor tiebreaks*
-verandert hoe de tiebreaks van C.07 die rondes behandelen. *Rondes voor een
+verandert hoe de tiebreaks van C.07 die rondes behandelen; een ronde die evenveel
+oplevert als een winst is daar een bye van een vol punt, wat deze instelling ook
+zegt (C.07 16.1.1 houdt "aangevraagde bye" voor een half punt of geen). *Rondes voor een
 laatkomer die meedoet tellen als afwezigheid* betaalt de rondes vóór een late
 inschrijving op dezelfde manier. Deze instellingen veranderen de punten, de
 tiebreaks en daarmee de rangschikking, en liggen vast na ronde 1. *Het byetype

@@ -1331,8 +1331,11 @@ defmodule PairingsEngine.SnapshotTest do
       refute Enum.any?(round2["byes"], &(&1["kind"] == "vacated-seat"))
       refute json =~ "vacated-seat"
 
+      # Player 7 is on no board of round 2 and has no bye in it: the sheet
+      # says so, which is not a result either.
       assert round2["byes"] == [
-               %{"player" => players[5].pairing_number, "kind" => "half-point", "points" => 0.5}
+               %{"player" => players[5].pairing_number, "kind" => "half-point", "points" => 0.5},
+               %{"player" => players[7].pairing_number, "kind" => "not-paired", "points" => 0.0}
              ]
 
       for token <- @withheld_tokens, do: refute(json =~ token)

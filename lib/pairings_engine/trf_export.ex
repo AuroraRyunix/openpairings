@@ -634,10 +634,21 @@ defmodule PairingsEngine.TrfExport do
          rounds == [] or rounds != Enum.to_list(1..Enum.max(rounds)) do
       rows
     else
+      # Places among the players IN THE FILE. The standings also rank a
+      # player nobody has paired yet - a late entrant waiting for their
+      # first round, already holding the points their missed rounds pay; a
+      # no-show withdrawn before round 1 - and that player has no pairing
+      # number and so no `001` line. Their place was handed out anyway, and
+      # the file went from 3 to 5 with nobody in between.
+      in_file = MapSet.new(rows, & &1.id)
+
       place =
         tournament
         |> PairingsEngine.Standings.standings(through_round: Enum.max(rounds))
-        |> Map.new(&{&1.player.id, &1.rank})
+        |> Enum.filter(&MapSet.member?(in_file, &1.player.id))
+        |> Enum.sort_by(& &1.rank)
+        |> Enum.with_index(1)
+        |> Map.new(fn {entry, place} -> {entry.player.id, place} end)
 
       Enum.map(rows, fn row ->
         case Map.fetch(place, row.id) do

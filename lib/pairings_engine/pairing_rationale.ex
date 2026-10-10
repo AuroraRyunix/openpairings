@@ -736,6 +736,13 @@ defmodule PairingsEngine.PairingRationale do
 
   defp prior_opponents(_tournament_id, through) when through < 1, do: MapSet.new()
 
+  # The pairs who have PLAYED each other. A forfeited board is not a game
+  # (C.04.2 3.5: two participants who did not play their game "may be paired
+  # together in a future round"), and the engine pairs them again without a
+  # second thought - `Ainalrami.Trf.game_was_played?/1`. This used to count
+  # every board with two names on it, so the page flagged the engine's own
+  # legal pairing as a REMATCH anomaly, in the danger colour. The colours
+  # had the same disease and got the same cure (`colour_records/2`).
   defp prior_opponents(tournament_id, through) do
     Repo.all(
       from p in "pairings",
@@ -743,10 +750,11 @@ defmodule PairingsEngine.PairingRationale do
         on: p.round_id == r.id,
         where:
           r.tournament_id == ^tournament_id and r.number <= ^through and
-            not is_nil(p.black_player_id),
-        select: {p.white_player_id, p.black_player_id}
+            not is_nil(p.white_player_id) and not is_nil(p.black_player_id),
+        select: {p.white_player_id, p.black_player_id, p.result}
     )
-    |> MapSet.new(fn {w, b} -> pair_key(w, b) end)
+    |> Enum.reject(fn {_w, _b, result} -> Results.forfeit?(result) end)
+    |> MapSet.new(fn {w, b, _result} -> pair_key(w, b) end)
   end
 
   # Returns `{combined, pairing_allocated_only}` - `combined` is every player

@@ -225,19 +225,20 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
     for round <- snapshot["rounds"],
         bye <- round["byes"] || [],
         bye["player"] == no,
-        bye["kind"] != "not-joined",
+        bye["kind"] not in ["not-joined", "not-paired"],
         into: %{},
         do: {round["number"], bye["points"]}
   end
 
-  # The rounds published as "not yet joined": worth nothing, and no game.
+  # The rounds published as "not yet joined", or as "not paired" (withdrawn,
+  # removed from the pairing): worth nothing, and no game.
   defp not_joined_rounds(snapshot, player) do
     no = Repo.reload!(player).pairing_number
 
     for round <- snapshot["rounds"],
         bye <- round["byes"] || [],
         bye["player"] == no,
-        bye["kind"] == "not-joined",
+        bye["kind"] in ["not-joined", "not-paired"],
         do: {round["number"], bye["points"]}
   end
 
