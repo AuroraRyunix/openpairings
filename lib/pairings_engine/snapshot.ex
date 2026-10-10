@@ -326,6 +326,22 @@ defmodule PairingsEngine.Snapshot do
     }
     |> put_tournament_categories(t)
     |> put_team_event(t)
+    |> put_group(t)
+  end
+
+  # Added 2026-10-10. The event this tournament is one section of, when it
+  # is in a group (`PairingsEngine.TournamentGroups`) AND at least one other
+  # section is on the results site: the event's public id and name, this
+  # tournament's label and place, and the siblings a reader may be told
+  # about - only the ones that are published themselves. Absent otherwise,
+  # which is also what every snapshot before this date looks like. The rule
+  # for who is named is `TournamentGroups.published_block/1`'s, not this
+  # module's; a snapshot that named an unpublished section would announce it.
+  defp put_group(info, %Tournament{} = t) do
+    case PairingsEngine.TournamentGroups.published_block(t) do
+      nil -> info
+      block -> Map.put(info, "group", block)
+    end
   end
 
   # The point system as OpenPairings applies it (`Standings`): the outcome

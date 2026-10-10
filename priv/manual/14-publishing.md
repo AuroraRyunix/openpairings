@@ -82,6 +82,9 @@ tie-break column does not change the order it decides, and the page says
 when the order used a tie-break that is hidden. The tie-break working
 answers a spectator's *why am I fourth* (the opponent of each round and its value).
 The *Rounds-present* column is public only if you tick it.
+*Federation flags* draws a small flag beside each federation code; it is on
+unless you untick it, shows nothing where *Federations* is off, and a player
+under the FIDE flag gets the code and no flag.
 
 > [!WARNING]
 > Names, board numbers, results and places are always shown: a tournament that

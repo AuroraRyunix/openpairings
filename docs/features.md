@@ -207,6 +207,11 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   standings table and prints with them. Publishing it is opt-in and separate:
   tick "Rounds-present column" under Settings - Results site, the only public
   display tick that starts off. Readers there can then sort by it.
+- **Federation flags (public display tick)** - "Federation flags" under
+  Settings - Results site, in the "About each player" group: `display.flags`
+  in the snapshot, on by default, resolved like every other key. The results
+  site draws a flag beside the federation code only when the key is `true`
+  (absent means off there), and nothing where "Federations" is off.
 - **Manual standings order** - an explicit arbiter override with a visible
   banner everywhere and a staleness flag raised the moment any result changes.
   Display-only; never touches points, tiebreaks, or the TRF.

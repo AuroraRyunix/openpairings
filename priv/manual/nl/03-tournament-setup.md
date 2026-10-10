@@ -146,7 +146,30 @@ haal eerst terug. Een toernooi in de prullenbak verdwijnt uit de keuzestrook en 
 bij herstel terug in zijn groep; definitief verwijderen haalt het eruit.
 
 Groepen zijn een gemak van dit programma. Ze veranderen niets aan paren,
-rangschikking of FIDE-rapporten, en worden niet gepubliceerd op OpenResults.
+rangschikking of FIDE-rapporten.
+
+### Een groep op de uitslagensite {#a-group-on-the-results-site}
+
+Zodra twee of meer toernooien van een groep [gepubliceerd](14-publishing.md) zijn,
+toont OpenResults ze als één evenement: een rij tabs bovenaan de pagina's van elk
+toernooi (*Open | U20 | U12*, volgens het label, in de volgorde van de groep) die
+dezelfde pagina van het andere toernooi opent - stand naar stand, ronde 3 naar
+ronde 3 - en een **evenementpagina** die ze oplijst met hun aantal spelers en de
+ronde waarin ze zitten. De startpagina van de uitslagensite zet ze samen onder de naam
+van de groep. De kaart **Groep** toont *De evenementpagina openen* zodra dit toernooi
+er deel van is.
+
+- Alleen gepubliceerde toernooien worden genoemd. Een toernooi van de groep dat niet
+  gepubliceerd is, in de prullenbak zit of overgedragen is, staat nergens op de
+  uitslagensite: niet zijn naam, niet zijn label, geen lege plek waar het zou staan.
+- Een toernooi dat gepubliceerd is maar **niet op de startpagina vermeld** staat, wordt
+  alleen genoemd op de andere toernooien die er ook niet vermeld staan. Een vermelde
+  pagina verwijst nooit naar een pagina die alleen via de link bereikbaar is.
+- De **naam van de groep** is openbaar als naam van het evenement zodra twee van haar
+  toernooien gepubliceerd zijn.
+- Een toernooi publiceren of intrekken, hernoemen, een label, de volgorde of de naam
+  van de groep wijzigen verstuurt de andere toernooien vanzelf opnieuw; u hoeft ze niet
+  één voor één te publiceren.
 
 ## Pagina Opties {#options-page}
 

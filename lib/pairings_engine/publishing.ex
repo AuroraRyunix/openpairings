@@ -714,6 +714,18 @@ defmodule PairingsEngine.Publishing do
   publish is the opposite of that.
   """
   def publish(%Tournament{} = tournament) do
+    result = send_snapshot(tournament)
+
+    # What just landed may have changed what this tournament's siblings in
+    # an event should say about it - a first publish most of all. See
+    # `PairingsEngine.TournamentGroups`, "On the results site".
+    with {:ok, _body} <- result,
+         do: PairingsEngine.TournamentGroups.record_published(tournament.id)
+
+    result
+  end
+
+  defp send_snapshot(%Tournament{} = tournament) do
     cond do
       not configured?() ->
         {:error, "no OpenResults server is configured"}
@@ -1698,6 +1710,7 @@ defmodule PairingsEngine.Publishing do
       |> Ecto.Changeset.change(
         publish_to_openresults: false,
         openresults_key: nil,
+        openresults_group_sent: nil,
         public_slug_minted_at: nil,
         public_slug_server: nil,
         public_slug_published_at: nil

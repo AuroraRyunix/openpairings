@@ -76,6 +76,33 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
       assert has_element?(lv2, ~s(#group-switch-#{u20.id}[aria-current="page"]))
     end
 
+    test "says what the group means on the results site, and links the event once there is one",
+         %{conn: conn, scope: scope} do
+      import Ecto.Query
+
+      PairingsEngine.Publishing.put_endpoint("https://openresults.example/")
+      PairingsEngine.Publishing.put_token("s3cret")
+      %{open: open, u20: u20, group: group} = grouped(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+      assert has_element?(lv, "#group-published")
+      refute has_element?(lv, "#group-event-link")
+
+      # Both sections on the results site.
+      Repo.update_all(
+        from(t in Tournaments.Tournament, where: t.id in ^[open.id, u20.id]),
+        set: [publish_to_openresults: true, openresults_key: "k", public_listed: true]
+      )
+
+      slug = Repo.get!(TournamentGroups.Group, group.id).public_slug
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+
+      assert has_element?(
+               lv,
+               ~s(#group-event-link[href="https://openresults.example/e/#{slug}"])
+             )
+    end
+
     test "reorders, renames and leaves", %{conn: conn, scope: scope} do
       %{open: open, u20: u20, group: group} = grouped(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")

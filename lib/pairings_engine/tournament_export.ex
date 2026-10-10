@@ -248,7 +248,7 @@ defmodule PairingsEngine.TournamentExport do
     registration_list_public
     swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
-    openresults_key openresults_claim
+    openresults_key openresults_claim openresults_group_sent
     handed_off_at handed_off_to handoff_token handoff_origin
     send_confirmation_needed
     tpn_order_accepted late_entry_notice_dismissed

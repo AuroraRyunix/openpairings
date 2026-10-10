@@ -97,6 +97,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
     assign(socket,
       group_switcher: switcher,
+      group_event_url: switcher && PairingsEngineWeb.PublicLink.event_url(tournament),
       group_error: error,
       joinable_groups:
         if(switcher, do: [], else: TournamentGroups.joinable_groups(scope, tournament)),
@@ -984,6 +985,24 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </.form>
           <p class="hint" style="margin-top: 0">
             {gettext("Leave the label empty to show the tournament's own name.")}
+          </p>
+
+          <%!-- What the group means off this machine. The link exists only
+                when this tournament's published page really is shown as part
+                of the event - see `TournamentGroups.published_block/1`. --%>
+          <p class="hint" id="group-published" style="margin-top: 0">
+            {gettext(
+              "On the results site, the published tournaments of a group are one event: tabs at the top of each to switch between them, and an event page that lists them. Only tournaments that are published are named there, and one that is not listed on the front page is named only on the others that are not listed either. The group's name is shown as the event's name."
+            )}
+            <a
+              :if={@group_event_url}
+              id="group-event-link"
+              href={@group_event_url}
+              target="_blank"
+              rel="noopener"
+            >
+              {gettext("Open the event page")}
+            </a>
           </p>
 
           <ol class="tb-list" id="group-order">

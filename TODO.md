@@ -1081,8 +1081,17 @@ gaps identified there, extracted here as actionable items:
   ignores it. Binned tournaments keep their membership (hidden, back on
   restore); a purge removes it and an emptied group.
 
-  Still open: **OpenResults publishing the group as one event page.** Not
-  done in this pass, deliberately: the snapshot contract is specified in the
+  ~~Still open: OpenResults publishing the group as one event page.~~ **Built
+  2026-10-10** (branch `publish-flags-groups`, with OpenResults'
+  `live-boards`): the snapshot's additive `tournament.group` block
+  (`TournamentGroups.published_block/1` - event id, name, own label and
+  position, siblings by slug/label/name, only siblings on the results site,
+  unlisted ones only among unlisted), a random `tournament_groups.public_slug`
+  as the event id, `tournaments.openresults_group_sent` as the fingerprint
+  that tells `sync_published/1` which members to re-send, and on OpenResults
+  the tab strip, `/e/<id>` and the grouped front page. The note it replaces,
+  for the record: not
+  done in that pass, deliberately: the snapshot contract is specified in the
   OpenResults repo, and a sibling list there would have to name only
   siblings that are themselves published (by their public slugs) - otherwise
   publishing one section announces the unpublished others, the same leak the

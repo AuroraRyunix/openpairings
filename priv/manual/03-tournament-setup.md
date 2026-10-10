@@ -140,8 +140,30 @@ unarchive or take back first. A tournament in the recycle bin drops out of
 the switcher and returns to its group when restored; deleting it for good
 takes it out.
 
-Groups are a convenience of this program. They do not change pairing,
-standings or FIDE reports, and are not published to OpenResults.
+Groups do not change pairing, standings or FIDE reports.
+
+### A group on the results site
+
+When two or more tournaments of a group are [published](14-publishing.md),
+OpenResults shows them as one event: a row of tabs at the top of each
+tournament's pages (*Open | U20 | U12*, by label, in the group's order) that
+opens the same page of the other one - standings to standings, round 3 to
+round 3 - and an **event page** that lists them with their number of players
+and the round they are in. The front page of the results site gathers them
+under the group's name. The card **Group** shows *Open the event page* once
+this tournament is part of one.
+
+- Only published tournaments are named. A tournament of the group that is
+  not published, is in the recycle bin or was handed off appears nowhere on
+  the results site: not its name, not its label, not a gap where it would be.
+- A tournament that is published but **not listed** on the front page is
+  named only on the other tournaments that are not listed either. A listed
+  page never points to a link-only one.
+- The **group's name** is public as the event's name as soon as two of its
+  tournaments are published.
+- Publishing or withdrawing a tournament, renaming it, changing a label, the
+  order or the group's name sends the other tournaments again by itself; you
+  do not publish them one by one.
 
 ## Options page
 

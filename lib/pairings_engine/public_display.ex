@@ -50,6 +50,13 @@ defmodule PairingsEngine.PublicDisplay do
   So `default:` is part of a field, and `show?/2` reads it. Everything else
   stays exactly as it was, defaults to shown, and must: this is an exception
   for a NEW column, not a licence to make the next one quiet too.
+
+  `flags` (2026-10-10) is the case in point: new, and still on by default. A
+  flag is the federation code drawn as a picture - the same fact, already
+  public wherever "Federations" is ticked and absent wherever it is not - so
+  there is no number on anybody's page they did not ask for. The results site
+  reads an ABSENT `flags` as off, so a snapshot from an older app draws none;
+  that is its rule for this key, not this module's.
   """
 
   @legacy_keys ~w(standings pairings)
@@ -112,6 +119,18 @@ defmodule PairingsEngine.PublicDisplay do
         group: :player,
         label: "Federations",
         hint: "The three-letter country code."
+      },
+      %{
+        key: "flags",
+        group: :player,
+        label: "Federation flags",
+        # On unless switched off, like its neighbours: a flag is the
+        # federation code drawn, not a new fact about anybody. It shows
+        # nothing where "Federations" is off, because the results site has no
+        # code to draw a flag for.
+        hint:
+          "A small flag beside the federation code. Shows nothing where Federations " <>
+            "is off, and none for a player under the FIDE flag."
       },
       %{
         key: "club",

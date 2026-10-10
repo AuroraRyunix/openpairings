@@ -85,7 +85,8 @@ defmodule PairingsEngine.SnapshotFixtures do
       {"snapshot_swiss.json", :swiss_snapshot_tournament},
       {"snapshot_keizer.json", :keizer_snapshot_tournament},
       {"snapshot_team_roundrobin.json", :team_snapshot_fixture_published},
-      {"snapshot_team_lineups_optional.json", :team_optional_fixture_published}
+      {"snapshot_team_lineups_optional.json", :team_optional_fixture_published},
+      {"snapshot_swiss_grouped.json", :swiss_grouped_snapshot_tournament}
     ]
   end
 
@@ -93,6 +94,43 @@ defmodule PairingsEngine.SnapshotFixtures do
   def swiss_snapshot_tournament, do: elem(swiss_fixture(), 0)
   @doc false
   def keizer_snapshot_tournament, do: elem(keizer_fixture(), 0)
+
+  @doc false
+  # The swiss fixture as one section of an event: renamed to the U20 of a
+  # group whose Open is on the results site too, so the snapshot carries the
+  # `tournament.group` block (`TournamentGroups.published_block/1`). The Open
+  # here is a bare row with the swiss fixture's own slug - only its slug,
+  # name and label travel - and the group's public id is pinned, where a
+  # real one is random, for the reason `@fixture_published_at` is.
+  def swiss_grouped_snapshot_tournament do
+    alias PairingsEngine.TournamentGroups.{Group, Member}
+
+    u20 =
+      swiss_fixture()
+      |> elem(0)
+      |> Ecto.Changeset.change(name: "Gent Spring U20 2026", public_slug: "gent-spring-u20-2026")
+      |> Repo.update!()
+
+    open =
+      Repo.insert!(%Tournament{
+        name: "Gent Spring Open 2026",
+        type: "swiss",
+        pairing_system: "swiss",
+        rounds_count: 5,
+        public_slug: "gent-spring-open-2026",
+        public_listed: true,
+        publish_to_openresults: true,
+        openresults_key: "fixture-key-not-a-secret"
+      })
+
+    group =
+      Repo.insert!(%Group{name: "Gent Spring Festival 2026", public_slug: "5c1f0e9a7b3d2c4e6f"})
+
+    Repo.insert!(%Member{group_id: group.id, tournament_id: open.id, position: 0, label: "Open"})
+    Repo.insert!(%Member{group_id: group.id, tournament_id: u20.id, position: 1, label: "U20"})
+
+    u20
+  end
 
   # `published_at` is stamped to a fixed instant before writing.
   #
@@ -143,7 +181,15 @@ defmodule PairingsEngine.SnapshotFixtures do
 
     for {name, fun} <- contract_fixtures(), reduce: [] do
       changed ->
-        content = apply(__MODULE__, fun, []) |> stable_json()
+        # Each fixture in a transaction of its own, rolled back: two of them
+        # are built from the same tournament (the swiss fixture, and the
+        # swiss fixture as a section of an event), and the second must not
+        # find the first one's slug already taken.
+        {:error, content} =
+          Repo.transaction(fn ->
+            Repo.rollback(apply(__MODULE__, fun, []) |> stable_json())
+          end)
+
         path = Path.join(dir, name)
         previous = if File.exists?(path), do: File.read!(path)
 

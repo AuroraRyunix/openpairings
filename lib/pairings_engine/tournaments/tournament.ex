@@ -620,6 +620,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # (which adopts or discards it). Not cast, for the same reason as the key.
     field :openresults_claim, :map
 
+    # A fingerprint of the `group` block in the last snapshot of this
+    # tournament that reached the results site (nil: it carried none). Local
+    # bookkeeping, written only by `TournamentGroups.record_published/1` and
+    # cleared with a takedown; never cast, never exported. It is how the app
+    # knows a sibling's change left this tournament's public page out of
+    # date - see `PairingsEngine.TournamentGroups`, "On the results site".
+    field :openresults_group_sent, :string
+
     # The three facts about a slug the results site created, all nil for a
     # slug it did not. Only consulted in public mode (a desktop copy with no
     # operator token, see `PairingsEngine.Publishing.public_mode?/0`). There

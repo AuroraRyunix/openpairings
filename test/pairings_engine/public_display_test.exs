@@ -109,6 +109,18 @@ defmodule PairingsEngine.PublicDisplayTest do
       end
     end
 
+    test "flags are a key of their own, on by default, stored only when off" do
+      assert "flags" in PublicDisplay.keys()
+      assert PublicDisplay.default("flags")
+      assert PublicDisplay.show?(nil, "flags")
+      assert PublicDisplay.resolve(nil)["flags"] == true
+      assert PublicDisplay.resolve(%{"flags" => false})["flags"] == false
+
+      everything = Map.new(PublicDisplay.keys(), &{&1, "true"})
+      refute Map.has_key?(PublicDisplay.cast(everything), "flags")
+      assert PublicDisplay.cast(Map.delete(everything, "flags"))["flags"] == false
+    end
+
     test "keys are unique, and are what travels" do
       keys = PublicDisplay.keys()
       assert length(Enum.uniq(keys)) == length(keys)

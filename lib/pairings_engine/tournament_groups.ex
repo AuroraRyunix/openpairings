@@ -33,6 +33,41 @@ defmodule PairingsEngine.TournamentGroups do
   tell, which is the point of access control and should stay true when two
   arbiters happen to run sections of the same event.
 
+  ## On the results site
+
+  A published member's snapshot carries a `group` block
+  (`published_block/1`): the event's name and random public id, this
+  tournament's label and place, and its siblings by public slug, label and
+  name. OpenResults turns that into a tab strip and an event page.
+
+  The rule that governs it is the switcher's rule pointed outward: **a
+  snapshot names only siblings that are themselves on the results site.**
+  Publishing the Open must not announce a U12 the arbiter has not published -
+  not its name, not its label, not that it exists. So:
+
+    * a sibling is named only while it is set to publish, a copy of it is on
+      the site as far as this machine knows (`Publishing.on_site?/1`), and it
+      is neither in the recycle bin nor handed off;
+    * a sibling that is published but not listed on the site's front page is
+      named only in the snapshots of members that are unlisted too. A listed
+      page is one anybody browsing can reach, and naming a link-only section
+      there would list it by another door;
+    * `position` counts among the tournaments named, never the stored order,
+      whose gaps would be a count of the ones left out;
+    * a tournament with no sibling to name carries no block at all. "Part of
+      an event" with nothing beside it is a statement that something else
+      exists.
+
+  When any of that changes - a sibling published, withdrawn, renamed,
+  relabelled, moved, listed, binned - the other members' pages are out of
+  date, and nothing an arbiter did to THEM says so. `sync_published/1` finds
+  them: each tournament remembers a fingerprint of the block it last sent
+  (`tournaments.openresults_group_sent`, written by `record_published/1`
+  after a publish lands), and a member whose block would now read differently
+  is queued again. It runs from the same funnel every write goes through, so
+  it costs one indexed lookup for a tournament in no group and never sends
+  anything that has not changed.
+
   ## Deleting
 
   A tournament purged for good takes its membership with it (the foreign
@@ -44,7 +79,7 @@ defmodule PairingsEngine.TournamentGroups do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Audit, Repo, Tournaments}
+  alias PairingsEngine.{Audit, Publishing, Repo, Tournaments}
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.TournamentGroups.{Group, Member}
   alias PairingsEngine.Tournaments.Tournament
@@ -163,6 +198,172 @@ defmodule PairingsEngine.TournamentGroups do
     end
   end
 
+  ## ---------- on the results site ----------
+
+  @doc """
+  The `group` block of `tournament`'s published snapshot, or nil when it is
+  in no group or has no sibling that may be named. See the moduledoc, "On
+  the results site", for what may be named and why.
+
+      %{"id" => "9f2c...", "name" => "Spring Festival", "label" => "Open",
+        "position" => 1,
+        "siblings" => [%{"slug" => "...", "label" => "U20", "name" => "Spring U20"}]}
+
+  `siblings` are the OTHER members, in the event's order; `position` is this
+  tournament's place among itself and them, from 1.
+  """
+  @spec published_block(Tournament.t()) :: map() | nil
+  def published_block(%Tournament{id: id} = tournament) do
+    case membership(id) do
+      nil -> nil
+      %Member{group: group} -> block_for(tournament, group, group_rows(group.id))
+    end
+  end
+
+  @doc """
+  Whether a copy of `tournament` is public on the results site as far as
+  this machine can vouch for: set to publish, a copy there, not binned, not
+  in somebody else's custody.
+  """
+  @spec on_results_site?(Tournament.t()) :: boolean()
+  def on_results_site?(%Tournament{} = t) do
+    t.publish_to_openresults == true and is_nil(t.deleted_at) and is_nil(t.handed_off_at) and
+      Publishing.on_site?(t)
+  end
+
+  @doc """
+  The event's public id (`/e/<id>` on the results site) when `tournament`'s
+  published page shows it as part of an event, else nil.
+  """
+  @spec published_event_id(Tournament.t()) :: String.t() | nil
+  def published_event_id(%Tournament{} = tournament) do
+    case on_results_site?(tournament) && published_block(tournament) do
+      %{"id" => id} -> id
+      _none -> nil
+    end
+  end
+
+  @doc """
+  Queues a publish for every member of `tournament_id`'s group - and the
+  tournament itself - whose published `group` block would now read
+  differently from the one it last sent. A no-op for a tournament in no
+  group whose last snapshot carried no block either.
+
+  Called from `Tournaments.broadcast_tournament_change/2`, so every write
+  that could change what a sibling's page says (a rename, the publish
+  switch, the listing, the bin) reaches it without knowing it exists.
+  """
+  @spec sync_published(integer()) :: :ok
+  def sync_published(tournament_id) when is_integer(tournament_id) do
+    case membership(tournament_id) do
+      nil -> sync_tournaments([tournament_id])
+      %Member{group_id: group_id} -> sync_tournaments(member_tournament_ids(group_id))
+    end
+  end
+
+  def sync_published(_other), do: :ok
+
+  @doc """
+  Records that `tournament_id`'s snapshot just reached the results site with
+  the `group` block it has now, then checks its siblings: a first publish is
+  the moment a tournament becomes nameable in theirs.
+  """
+  @spec record_published(integer()) :: :ok
+  def record_published(tournament_id) when is_integer(tournament_id) do
+    case Repo.get(Tournament, tournament_id) do
+      nil ->
+        :ok
+
+      %Tournament{} = tournament ->
+        sent = fingerprint(published_block(tournament))
+
+        if sent != tournament.openresults_group_sent do
+          Repo.update_all(from(t in Tournament, where: t.id == ^tournament_id),
+            set: [openresults_group_sent: sent]
+          )
+        end
+
+        sync_published(tournament_id)
+    end
+  end
+
+  @doc false
+  # The tournaments among `ids` whose block is out of date on the site, each
+  # queued. `Publishing.enqueue/1` ignores the ones that do not publish.
+  def sync_tournaments(ids) when is_list(ids) do
+    Repo.all(from t in Tournament, where: t.id in ^ids)
+    |> Enum.each(fn %Tournament{} = t ->
+      if t.publish_to_openresults and
+           fingerprint(published_block(t)) != t.openresults_group_sent do
+        Publishing.enqueue(t)
+      end
+    end)
+
+    :ok
+  end
+
+  defp group_rows(group_id) do
+    Repo.all(
+      from m in Member,
+        join: t in Tournament,
+        on: t.id == m.tournament_id,
+        where: m.group_id == ^group_id,
+        order_by: [asc: m.position, asc: m.id],
+        select: {m, t}
+    )
+  end
+
+  defp block_for(%Tournament{id: id} = self, %Group{} = group, rows) do
+    named = Enum.filter(rows, fn {_m, t} -> t.id == id or nameable?(t, self) end)
+
+    case Enum.find_index(named, fn {_m, t} -> t.id == id end) do
+      index when is_integer(index) and length(named) > 1 ->
+        {own, _self} = Enum.at(named, index)
+
+        %{
+          "id" => ensure_public_slug(group),
+          "name" => group.name,
+          "label" => own.label || self.name,
+          "position" => index + 1,
+          "siblings" =>
+            for {m, t} <- named, t.id != id do
+              %{"slug" => t.public_slug, "label" => m.label || t.name, "name" => t.name}
+            end
+        }
+
+      _alone_or_not_a_member ->
+        nil
+    end
+  end
+
+  # Whether `sibling` may be named in `self`'s snapshot.
+  defp nameable?(%Tournament{} = sibling, %Tournament{} = self) do
+    on_results_site?(sibling) and (listed?(sibling) or not listed?(self))
+  end
+
+  # The same reading the snapshot's own `listed` key uses.
+  defp listed?(%Tournament{public_listed: listed}), do: listed != false
+
+  # Every group has a slug from the migration or its changeset; this is for
+  # a row something else wrote without one.
+  defp ensure_public_slug(%Group{public_slug: slug}) when is_binary(slug) and slug != "", do: slug
+
+  defp ensure_public_slug(%Group{id: id}) do
+    slug = Group.generate_public_slug()
+
+    Repo.update_all(from(g in Group, where: g.id == ^id and is_nil(g.public_slug)),
+      set: [public_slug: slug]
+    )
+
+    Repo.one(from g in Group, where: g.id == ^id, select: g.public_slug)
+  end
+
+  defp fingerprint(nil), do: nil
+
+  defp fingerprint(%{} = block) do
+    :crypto.hash(:sha256, :erlang.term_to_binary(block)) |> Base.encode16(case: :lower)
+  end
+
   ## ---------- writing ----------
 
   @doc """
@@ -182,6 +383,7 @@ defmodule PairingsEngine.TournamentGroups do
       |> tap_ok(fn group ->
         Audit.log(tournament.id, scope, "group.created", %{name: group.name})
         broadcast(group.id)
+        sync_tournaments([tournament.id])
       end)
     end
   end
@@ -197,6 +399,7 @@ defmodule PairingsEngine.TournamentGroups do
          {:ok, _member} <- insert_member(group, tournament, next_position(group.id)) do
       Audit.log(tournament.id, scope, "group.joined", %{name: group.name})
       broadcast(group.id)
+      sync_tournaments(member_tournament_ids(group.id))
       {:ok, group}
     end
   end
@@ -217,6 +420,8 @@ defmodule PairingsEngine.TournamentGroups do
 
       Audit.log(tournament.id, scope, "group.left", %{name: member.group.name})
       broadcast_to(siblings)
+      # The leaver too: its page still says it is part of the event.
+      sync_tournaments(siblings)
       {:ok, member.group}
     end
   end
@@ -229,6 +434,7 @@ defmodule PairingsEngine.TournamentGroups do
       if renamed.name != group.name do
         Audit.log(tournament.id, scope, "group.renamed", %{from: group.name, to: renamed.name})
         broadcast(renamed.id)
+        sync_tournaments(member_tournament_ids(renamed.id))
       end
 
       {:ok, renamed}
@@ -251,6 +457,7 @@ defmodule PairingsEngine.TournamentGroups do
         })
 
         broadcast(member.group_id)
+        sync_tournaments(member_tournament_ids(member.group_id))
       end
 
       {:ok, updated}
@@ -284,6 +491,7 @@ defmodule PairingsEngine.TournamentGroups do
             swap_positions(group.id, member_id, Enum.at(visible, target))
             Audit.log(tournament.id, scope, "group.reordered", %{name: group.name})
             broadcast(group.id)
+            sync_tournaments(member_tournament_ids(group.id))
             {:ok, group}
           end
       end
@@ -392,6 +600,14 @@ defmodule PairingsEngine.TournamentGroups do
       a |> Ecto.Changeset.change(position: b.position) |> Repo.update!()
       b |> Ecto.Changeset.change(position: a.position) |> Repo.update!()
     end)
+  end
+
+  @doc "The other tournaments in `tournament_id`'s group; `[]` when it is in none."
+  def sibling_ids(tournament_id) do
+    case membership(tournament_id) do
+      nil -> []
+      %Member{group_id: group_id} -> member_tournament_ids(group_id) -- [tournament_id]
+    end
   end
 
   defp member_tournament_ids(group_id) do

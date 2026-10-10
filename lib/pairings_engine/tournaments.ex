@@ -70,6 +70,12 @@ defmodule PairingsEngine.Tournaments do
       # uncommitted transaction would be both wasteful and, if the drain ran
       # at the wrong moment, a snapshot of a half-imported tournament.
       PairingsEngine.Publishing.enqueue_id(tournament_id)
+
+      # And what is true of this tournament is printed on its siblings' pages
+      # too, when it is part of a published event: its name, whether it is
+      # there at all. One indexed lookup for a tournament in no group, and it
+      # queues only members whose page would actually read differently.
+      PairingsEngine.TournamentGroups.sync_published(tournament_id)
     end
 
     :ok
@@ -1366,8 +1372,13 @@ defmodule PairingsEngine.Tournaments do
     if handed_off?(tournament) do
       {:error, :handed_off}
     else
+      # Read before the row goes: the membership cascades away with it, and
+      # the siblings' published pages still name this tournament.
+      siblings = PairingsEngine.TournamentGroups.sibling_ids(tournament.id)
+
       Repo.delete(tournament)
       |> tap_ok(fn deleted ->
+        PairingsEngine.TournamentGroups.sync_tournaments(siblings)
         # The membership row went with the tournament (ON DELETE CASCADE);
         # a group it leaves empty goes too, rather than lingering as a
         # name with nothing under it.

@@ -138,6 +138,22 @@ defmodule PairingsEngineWeb.PublicLink do
     end
   end
 
+  @doc """
+  The address of the event page a grouped tournament is shown under on the
+  results site (`/e/<id>`), or nil when its published page is not part of
+  an event - not in a group, not on the site, or no sibling there to show
+  beside it. See `PairingsEngine.TournamentGroups.published_event_id/1`.
+  """
+  @spec event_url(Tournament.t()) :: String.t() | nil
+  def event_url(%Tournament{} = tournament) do
+    with base when is_binary(base) <- base(tournament),
+         id when is_binary(id) <- PairingsEngine.TournamentGroups.published_event_id(tournament) do
+      base <> "/e/" <> URI.encode_www_form(id)
+    else
+      _none -> nil
+    end
+  end
+
   defp path(%Tournament{public_slug: slug}, :register),
     do: "/t/#{URI.encode_www_form(slug)}/register"
 
