@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-10-10
+
 - [Feature] **"Pair round N" now stops when the pairing numbers do not follow the ratings - while that can still be fixed.** A Swiss could reach round 6 with its strongest player seeded forty-third, and the only thing that said so was a yellow line nobody is obliged to read. For rounds 2, 3 and 4 - the last moment C.04.2 2.3 allows a correction - the pair button now opens a dialog instead: who is out of place (name, rating, number, the number their rating earns; the first twelve, then "and N more"), why it matters, and three answers. **Renumber by rating and pair** runs the Players page's regeneration and then pairs. **Pair anyway** pairs on the numbers as they are, writes the decision to the audit trail, and does not ask again unless a different set of players is out of place. **Cancel** does neither. It counts late entrants numbered after the field too, and looks one pairing ahead, so the question comes before the round that would append them rather than after. Numbers that came with a TRF or SWAR file get the same question, worded to say where they came from. Equal ratings in any order are still nobody's business; an exchange between them never triggers it. Neither answer leaves FIDE mode. Round robin, Keizer and team events are not asked. The yellow list stays, and now lists the same players the dialog would.
 
 - [Feature] **After round 4, a note instead of a silence.** Once round 4 is paired the numbers are final, so there is no dialog and no button - but if they are out of rating order, the Pairings page keeps a folded line saying so, with the players and the rule that closed the door. For the arbiter who gets asked in round 6.
