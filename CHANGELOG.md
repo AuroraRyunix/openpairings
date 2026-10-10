@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **On a phone, Advanced and Settings open again - and you can see they exist.** The tab bar scrolled sideways, which hid both menus off the right edge with nothing to hint at them, and made the bar a scrolling strip that touch browsers clip menus out of: you tapped Advanced, it "opened", and Pairing rationale was nowhere. The tabs now wrap onto two rows, every one on screen, and the menus drop below the bar across the full width.
+
 ## [0.82.0] - 2026-10-10
 
 - [Fix] **The pairing explanation no longer gives a forfeit a colour.** It counted the seat of every forfeited game as a colour played, so a player with White, then a forfeit at Black, read as balanced and "due White" - and the page printed "✗ against due colour" beside the Black the engine had correctly given. FIDE C.04.2 3.4 counts played games only, and so does the page now: forfeits show as dashed "not played" squares, a **counts as** strip shows the history the way the rule reads it (unplayed rounds first), the due colour follows the same ladder Ainalrami uses, and a verdict that hinges on a skipped round names it. The team account's colour column puts its unplayed rounds first too. The pairings themselves were never wrong; only the commentary was.

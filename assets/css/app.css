@@ -4232,34 +4232,46 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
      (`.account-menu-version`). */
   .topbar .app-version { display: none; }
 
-  .topbar nav a {
+
+  /* The tabs WRAP on a phone; they do not scroll sideways. They used to: a
+     strip with `overflow-x: auto`, which hid Advanced and Settings off the
+     right edge with nothing to say they were there, and - the part that
+     made "Advanced > Pairing rationale" unreachable - made the strip a
+     scroll container. Touch browsers clip a menu panel that opens out of a
+     scrolling strip, whatever its containing block says, so the menu
+     "opened" into nothing. Two visible rows of tabs and no scroller: every
+     tab is on screen, and the panels below have nothing to be clipped by. */
+  .topbar > nav:not(.topbar-auth) {
+    order: 3;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 2px 2px;
+  }
+
+  .topbar > nav:not(.topbar-auth) a,
+  .topbar > nav:not(.topbar-auth) .topbar-menu > summary {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 15px;
+  }
+
+  .topbar-auth a {
     min-height: 44px;
     display: flex;
     align-items: center;
   }
 
-  .topbar > nav:not(.topbar-auth) {
-    order: 3;
-    flex-basis: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 2px;
-  }
-
-  .topbar > nav:not(.topbar-auth) a {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-
-  /* The tab strip scrolls horizontally on a phone, and a scroll container
-     clips every descendant whose containing block passes through it. The
-     panel used to be `position: fixed` inside it to escape that, which is
-     the shape touch browsers get wrong (a fixed box inside a scrolling,
-     composited strip is clipped or mispositioned on iOS Safari, so the
-     menu "did not open"). Instead the BAR is the containing block: it is
-     not a scroller, so an absolute panel anchored to it is never clipped,
-     scrolls with the page, and spans the bar's width whichever tab opened
-     it. `position: static` on the menu hands the anchoring up to the bar.
+  /* The BAR is the containing block for an open menu: an absolute panel
+     anchored to it spans the bar's width whichever tab opened it and
+     scrolls with the page. `position: static` on the menu hands the
+     anchoring up to the bar. (The panel was once `position: fixed` inside a
+     scrolling strip - the shape iOS Safari gets wrong; the strip is gone,
+     see above.)
 
      Same specificity as `.topbar-menu[open] > .topbar-menu-panel` (two
      classes and an attribute), later in the file, so this wins. Tall
