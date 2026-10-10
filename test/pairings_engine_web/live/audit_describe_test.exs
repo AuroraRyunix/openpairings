@@ -686,6 +686,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
         "announcement" => true
       }
     ],
+    "openresults.live_boards" => [%{"enabled" => true}, %{"enabled" => false}],
     "openresults.taken_down" => [%{"slug" => "k3v9x2"}],
     "openresults.kept_withdrawn" => [
       %{"slug" => "k3v9x2", "kind" => "taken_down", "taken_down_at" => "2026-09-13T10:02:11Z"},

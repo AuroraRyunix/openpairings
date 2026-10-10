@@ -289,6 +289,7 @@ defmodule PairingsEngine.TournamentImport do
         public_listed: truthy(Map.get(t_attrs, "public_listed")),
         public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
         public_hall: public_display_or_nil(Map.get(t_attrs, "public_hall")),
+        public_live_boards: truthy(Map.get(t_attrs, "public_live_boards")),
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(
@@ -549,6 +550,7 @@ defmodule PairingsEngine.TournamentImport do
         public_listed: truthy(Map.get(t_attrs, "public_listed")),
         public_display: public_display_or_nil(Map.get(t_attrs, "public_display")),
         public_hall: public_display_or_nil(Map.get(t_attrs, "public_hall")),
+        public_live_boards: truthy(Map.get(t_attrs, "public_live_boards")),
         public_hidden_tiebreaks: hidden_tiebreaks(Map.get(t_attrs, "public_hidden_tiebreaks"))
       )
       |> Ecto.Changeset.change(pairing_state(t_attrs, nil, records!(t_data, "teams") != []))

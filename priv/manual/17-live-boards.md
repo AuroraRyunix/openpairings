@@ -20,7 +20,7 @@ relay sends moves. Alnasl itself is planned.
 | The live pages: broadcast, All boards, projector view, piece sets, PGN, broadcast delay | built |
 | The ingest route that takes a board's moves and clocks, and the relay keys | built |
 | Alnasl, the relay in the hall | planned, design stage |
-| An arbiter's switch in OpenPairings that says a tournament has live boards | planned |
+| An arbiter's switch in OpenPairings that says a tournament has live boards | built |
 
 ## What Alnasl is {#what-alnasl-is}
 
@@ -182,19 +182,26 @@ The file is built on each request, at the broadcast delay.
 flags (the *Federation flags* tick, on unless it is unticked), a small flag is
 shown beside a player's federation code: on the starting list, the entry list,
 the player card, the hall display and the live pages (on the projector view,
-the flag alone, without the code). A player with a FIDE flag, or a code that
-names no country, keeps the code and gets no picture.
+the flag alone, without the code). A player listed under FIDE itself (code
+FID) gets a white flag with the word FIDE on it. A code that names no
+federation keeps the code and gets no picture.
 
 ## Turning live boards on {#turning-live-boards-on}
 
-*Planned.* The results site shows the live pages from a word in the snapshot
-that OpenPairings sends: `live_boards: true` in the tournament part. When that
-word is there, the public pages link to the live boards. A page that is
-already cached shows the link only after the next publish. The live pages work
-with or without the word.
+*Built.* In OpenPairings: Settings, OpenResults, the card *Publishing each
+round*, the switch **Live boards**. It is off for every tournament until you
+switch it on, and it is offered only while the tournament is published.
 
-The arbiter's own switch for this is not built. The current OpenPairings does
-not have it yet, so for now no tournament says it has live boards.
+On, OpenPairings sends a word in the snapshot (`live_boards: true` in the
+tournament part) and publishes the tournament again at once. The public pages
+then link to the live boards. Off, the word is not sent and the link goes with
+the next copy. The live pages themselves work with or without the word, for
+anyone who has their address.
+
+The switch is your statement that the boards are being relayed. It does not
+start Alnasl and does not look for it: with no relay sending moves, the link
+leads to boards in the starting position. The setting is in a JSON backup and
+is written to the audit log.
 
 ## Limits {#limits}
 

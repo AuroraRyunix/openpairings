@@ -21,7 +21,7 @@ doorstuurt. Alnasl zelf is gepland.
 | De livepagina's: uitzending, Alle borden, beamerweergave, stukkensets, PGN, uitzendvertraging | gebouwd |
 | De ingestroute die de zetten en klokken van een bord ontvangt, en de relaissleutels | gebouwd |
 | Alnasl, het relais in de zaal | gepland, ontwerpfase |
-| Een schakelaar van de arbiter in OpenPairings die zegt dat een toernooi live borden heeft | gepland |
+| Een schakelaar van de arbiter in OpenPairings die zegt dat een toernooi live borden heeft | gebouwd |
 
 ## Wat Alnasl is {#what-alnasl-is}
 
@@ -185,19 +185,23 @@ bij elk verzoek opgebouwd, op de uitzendvertraging.
 vinkje *Federatievlaggen*, standaard aan tenzij u het uitvinkt), wordt een klein vlaggetje
 naast de federatiecode van een speler getoond: op de startlijst, de inschrijvingslijst, de
 spelerskaart, het zaalscherm en de livepagina's (op de beamerweergave alleen de vlag, zonder
-de code). Een speler met een FIDE-vlag, of een code die geen land aanduidt, houdt de code en
-krijgt geen plaatje.
+de code). Een speler die onder de FIDE zelf staat (code FID) krijgt een witte vlag met het
+woord FIDE erop. Een code die geen federatie aanduidt, houdt de code en krijgt geen plaatje.
 
 ## De livepagina's aanzetten {#turning-live-boards-on}
 
-*Gepland.* De uitslagensite toont de livepagina's op basis van een woord in de momentopname
-die OpenPairings stuurt: `live_boards: true` in het deel over het toernooi. Wanneer dat woord
-er staat, linken de openbare pagina's naar de live borden. Een pagina die al in de cache
-staat, toont de link pas na de volgende publicatie. De livepagina's werken met of zonder dat
-woord.
+*Gebouwd.* In OpenPairings: Instellingen, OpenResults, de kaart *Elke ronde publiceren*, de
+schakelaar **Live borden**. Hij staat uit voor elk toernooi tot u hem aanzet, en wordt alleen
+aangeboden zolang het toernooi gepubliceerd is.
 
-De schakelaar van de arbiter zelf is nog niet gebouwd. Het huidige OpenPairings heeft hem
-nog niet, dus voorlopig zegt geen enkel toernooi dat het live borden heeft.
+Aan: OpenPairings stuurt een woord mee in de momentopname (`live_boards: true` in het deel
+over het toernooi) en publiceert het toernooi meteen opnieuw. De openbare pagina's linken dan
+naar de live borden. Uit: het woord wordt niet gestuurd en de link verdwijnt met de volgende
+kopie. De livepagina's zelf werken met of zonder dat woord, voor wie hun adres heeft.
+
+De schakelaar is uw verklaring dat de borden worden doorgestuurd. Hij start Alnasl niet en
+zoekt er niet naar: zonder relais dat zetten stuurt, leidt de link naar borden in de
+beginstelling. De instelling zit in een JSON-back-up en komt in het auditlogboek.
 
 ## Beperkingen {#limits}
 

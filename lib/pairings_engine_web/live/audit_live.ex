@@ -130,6 +130,7 @@ defmodule PairingsEngineWeb.AuditLive do
         category.created category.removed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.hall
+        openresults.live_boards
         openresults.taken_down
         openresults.auto_publish
         openresults.kept_withdrawn
@@ -1866,6 +1867,17 @@ defmodule PairingsEngineWeb.AuditLive do
         else: gettext("No announcement.")
       )
     ])
+  end
+
+  # The "Live boards" switch on Settings -> Results site.
+  def describe("openresults.live_boards", d) do
+    if truthy?(d["enabled"]),
+      do:
+        gettext("Said this tournament has live boards: the results site links its pages to them."),
+      else:
+        gettext(
+          "Said this tournament has no live boards: the results site stops linking to them."
+        )
   end
 
   def describe("openresults.taken_down", d),

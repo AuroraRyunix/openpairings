@@ -327,7 +327,17 @@ defmodule PairingsEngine.Snapshot do
     |> put_tournament_categories(t)
     |> put_team_event(t)
     |> put_group(t)
+    |> put_live_boards(t)
   end
+
+  # Added 2026-10-10. `live_boards: true` when the arbiter ticked "Live
+  # boards"; no key at all otherwise. Absent and not `false`: the results
+  # site links on an explicit `true` only, and a snapshot from a tournament
+  # that never heard of the switch should look exactly as it did yesterday.
+  defp put_live_boards(info, %Tournament{public_live_boards: true}),
+    do: Map.put(info, "live_boards", true)
+
+  defp put_live_boards(info, %Tournament{}), do: info
 
   # Added 2026-10-10. The event this tournament is one section of, when it
   # is in a group (`PairingsEngine.TournamentGroups`) AND at least one other

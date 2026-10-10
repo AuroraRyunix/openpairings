@@ -72,6 +72,15 @@ by hand, and it stays where you put it.
 **Before round 1, spectators see the starting ranking** (off by default).
 Without it the public sees only the list of players once a round is public.
 
+**Live boards** (off by default, and offered only while the tournament is
+published). Switch it on when a relay in the hall is sending the moves of the
+games to the results site: the published pages then carry a **Live boards**
+link beside the rounds. The switch only puts the link there. It does not
+start a relay and does not check that one is running, so with nothing sending
+moves the link leads to boards that stay in the starting position. Switching
+it on or off sends the tournament to the results site again. See
+[Turning live boards on](17-live-boards.md#turning-live-boards-on).
+
 ### What the public page shows
 
 Switches choose which details a published page may show (ratings, titles,
@@ -83,8 +92,9 @@ when the order used a tie-break that is hidden. The tie-break working
 answers a spectator's *why am I fourth* (the opponent of each round and its value).
 The *Rounds-present* column is public only if you tick it.
 *Federation flags* draws a small flag beside each federation code; it is on
-unless you untick it, shows nothing where *Federations* is off, and a player
-under the FIDE flag gets the code and no flag.
+unless you untick it, and shows nothing where *Federations* is off. A player
+listed under FIDE itself (code FID) gets a white flag with the word FIDE; a
+code that names no federation gets the code and no flag.
 
 > [!WARNING]
 > Names, board numbers, results and places are always shown: a tournament that

@@ -22,7 +22,8 @@ defmodule PairingsEngineWeb.Components.ManualLink do
     fide_settings: {"fide-mode", "the-fide-page-of-the-settings"},
     trf_import: {"import-export", "trf-file"},
     trf_export: {"fide-report", "the-export-page"},
-    teams: {"teams", "setting-up"}
+    teams: {"teams", "setting-up"},
+    live_boards: {"live-boards", "turning-live-boards-on"}
   }
 
   @doc "Every topic, as `topic => {chapter slug, heading id}`."
