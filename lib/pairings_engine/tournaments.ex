@@ -1481,6 +1481,10 @@ defmodule PairingsEngine.Tournaments do
       |> Ecto.Changeset.change(publish_to_openresults: enabled?)
       |> Repo.update()
       |> tap_ok(fn updated ->
+        # Off and back on is an arbiter asking for the page to be sent, not
+        # asking whether it needs to be. On both edges, so the answer does
+        # not depend on which one somebody remembered.
+        PairingsEngine.Publishing.Accepted.forget(updated.id)
         if enabled?, do: PairingsEngine.Publishing.enqueue(updated)
         broadcast_tournament_change(updated.id, :settings)
       end)
@@ -2151,6 +2155,9 @@ defmodule PairingsEngine.Tournaments do
     case result do
       {1, _} ->
         updated = Repo.reload!(tournament)
+        # The copy that left may publish to the same address. From here on
+        # this machine does not know what the results site holds.
+        PairingsEngine.Publishing.Accepted.forget(updated.id)
         broadcast_tournament_change(updated.id, :tournament)
         broadcast_tournament_list(updated)
         {:ok, updated}
@@ -2185,6 +2192,7 @@ defmodule PairingsEngine.Tournaments do
       |> Ecto.Changeset.change(handed_off_at: nil, handed_off_to: nil, handoff_token: nil)
       |> Repo.update()
       |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.Accepted.forget(updated.id)
         broadcast_tournament_change(updated.id, :tournament)
         broadcast_tournament_list(updated)
       end)

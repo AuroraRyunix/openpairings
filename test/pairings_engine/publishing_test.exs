@@ -1396,10 +1396,12 @@ defmodule PairingsEngine.PublishingTest do
 
       stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
 
-      assert {:ok, _} = Publishing.publish(back)
-
+      # The drain first: a tournament back from a trip is sent whatever it
+      # holds, because nobody here knows what the other copy published.
       :ok = Publishing.enqueue(back)
       assert {1, 0} = Publishing.drain()
+
+      assert {:ok, _} = Publishing.publish(back)
     end
 
     test "an ARCHIVED tournament still publishes, deliberately" do

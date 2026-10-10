@@ -241,6 +241,10 @@ defmodule PairingsEngine.PublicPublishingTest do
 
       # Once per installation, once per tournament: the next publish is just
       # the publish.
+      # Nothing changed in between, and the drain no longer sends what the
+      # site already has. This is the same publish an hour or a restart
+      # later, when it does.
+      PairingsEngine.Publishing.Accepted.forget(t.id)
       Publishing.enqueue(minted)
       assert {1, 0} = Publishing.drain()
       assert [{"POST", "/api/snapshots", _, _}] = Server.requests()
@@ -627,6 +631,10 @@ defmodule PairingsEngine.PublicPublishingTest do
       })
 
       published = Tournaments.get_tournament!(t.id)
+      # Nothing changed in between, and the drain no longer sends what the
+      # site already has. This is the same publish an hour or a restart
+      # later, when it does.
+      PairingsEngine.Publishing.Accepted.forget(t.id)
       Publishing.enqueue(published)
       make_due(t.id)
       capture_log(fn -> Publishing.drain() end)
@@ -1060,6 +1068,10 @@ defmodule PairingsEngine.PublicPublishingTest do
       Server.requests()
 
       Server.install(self(), %{{"POST", "/api/snapshots"} => Server.error(403, "not_owner")})
+      # Nothing changed in between, and the drain no longer sends what the
+      # site already has. This is the same publish an hour or a restart
+      # later, when it does.
+      PairingsEngine.Publishing.Accepted.forget(t.id)
       Publishing.enqueue(published)
 
       # Several rounds of it - a first refusal, then the arbiter's Try again -

@@ -55,6 +55,21 @@ defmodule PairingsEngineWeb.TpnLiveTest do
     assert number(p["Dave"]) == 1
   end
 
+  test "a regeneration with nothing to move says so and leaves no trace",
+       %{conn: conn, t: t, p: p} do
+    {:ok, _round} = Pairing.pair_next_round(Repo.reload!(t))
+    entries = Repo.aggregate(PairingsEngine.Audit.AuditLog, :count, :id)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+    lv |> element("#open-tpn") |> render_click()
+    lv |> element("#tpn-regenerate") |> render_click()
+
+    refute has_element?(lv, "#tpn-regenerate-confirm")
+    assert has_element?(lv, "#flash-info")
+    assert Enum.map(~w(Alice Bob Carol Dave), &number(p[&1])) == [1, 2, 3, 4]
+    assert Repo.aggregate(PairingsEngine.Audit.AuditLog, :count, :id) == entries
+  end
+
   test "no dialog once round 4 is paired", %{conn: conn, t: t} do
     for n <- 1..4, do: Repo.insert!(%Round{tournament_id: t.id, number: n, status: "done"})
     {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")

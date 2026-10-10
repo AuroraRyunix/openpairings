@@ -153,6 +153,12 @@ everybody else.
 > [!NOTE]
 > Publishing never blocks pairing or result entry.
 
+A change is sent a few seconds after you make it; the label in the top bar
+says *Sending* meanwhile. When nothing has changed for spectators (a dialog
+confirmed with nothing to do, a result typed and taken back at once), nothing
+is sent, and the label stays as it was. **Try again**, switching publishing off
+and on, and a restart of the program always send.
+
 A send that does not arrive is
 kept and tried again with longer pauses; the status of the connection is shown
 as a small label in the top bar, and the page says what is wrong. The public

@@ -125,7 +125,16 @@ defmodule PairingsEngine.Publishing do
   import Ecto.Query
 
   alias PairingsEngine.{Authz, Meta, Repo, Snapshot, Tournaments}
-  alias PairingsEngine.Publishing.{Drain, Failure, Installation, QueueEntry, TakedownJournal}
+
+  alias PairingsEngine.Publishing.{
+    Accepted,
+    Drain,
+    Failure,
+    Installation,
+    QueueEntry,
+    TakedownJournal
+  }
+
   alias PairingsEngine.Tournaments.{Tournament, Round}
 
   require Logger
@@ -268,8 +277,20 @@ defmodule PairingsEngine.Publishing do
   # send would fail against a URL with no host. The settings form already
   # passes blanks through `blank_to_nil/1`, but that guard lives in the
   # caller, and these are public functions.
-  def put_endpoint(url) when is_binary(url), do: put_url("openresults_endpoint", url)
-  def put_endpoint(nil), do: meta_delete("openresults_endpoint")
+  #
+  # A new address or token is a different server or a different right to
+  # write to it, so what the old one accepted is forgotten. The binding in
+  # `acceptance_binding/1` would refuse the comparison anyway; this is the
+  # same fact stated where somebody will look for it.
+  def put_endpoint(url) when is_binary(url) do
+    Accepted.forget_all()
+    put_url("openresults_endpoint", url)
+  end
+
+  def put_endpoint(nil) do
+    Accepted.forget_all()
+    meta_delete("openresults_endpoint")
+  end
 
   def put_public_base(url) when is_binary(url), do: put_url("openresults_public_base", url)
   def put_public_base(nil), do: meta_delete("openresults_public_base")
@@ -281,10 +302,15 @@ defmodule PairingsEngine.Publishing do
     end
   end
 
-  def put_token(token) when is_binary(token),
-    do: meta_put("openresults_token", String.trim(token))
+  def put_token(token) when is_binary(token) do
+    Accepted.forget_all()
+    meta_put("openresults_token", String.trim(token))
+  end
 
-  def put_token(nil), do: meta_delete("openresults_token")
+  def put_token(nil) do
+    Accepted.forget_all()
+    meta_delete("openresults_token")
+  end
 
   @doc """
   Whether publishing can be attempted at all.
@@ -518,6 +544,10 @@ defmodule PairingsEngine.Publishing do
   Returns `{sent, failed}`. Never raises: this runs from a timer, and a
   publish failing is an ordinary event rather than an exceptional one.
 
+  A row whose document is the one the results site already holds is neither:
+  it is consumed without a request (`PairingsEngine.Publishing.Accepted`) and
+  counted nowhere, because nothing happened.
+
   In public mode, a halted installation (`Installation.halted?/0`) drains
   nothing and touches no row: with no key and no consent to get one there is
   nothing this machine may send, and after a revocation there is nothing it
@@ -542,7 +572,14 @@ defmodule PairingsEngine.Publishing do
   defp drain_due do
     {sent, failed, _halt} =
       Enum.reduce(due(), {0, 0, nil}, fn entry, {sent, failed, halt} ->
-        case if(halt, do: {:error, halt}, else: publish(entry.tournament)) do
+        case if(halt, do: {:error, halt}, else: publish(entry.tournament, :skip_unchanged)) do
+          # Settled exactly like a send: the row goes only if nothing was
+          # queued while the document was being built, so a write that
+          # arrived in that window still gets its own look.
+          {:ok, :unchanged} ->
+            settle(entry)
+            {sent, failed, halt}
+
           {:ok, _} ->
             settle(entry)
             {sent + 1, failed, halt}
@@ -645,6 +682,9 @@ defmodule PairingsEngine.Publishing do
     if match?({:rejected, _, "address_blocked", _}, Installation.state()),
       do: Installation.clear_state()
 
+    # Somebody pressed a button that says send. It sends.
+    Accepted.forget(tournament_id)
+
     {count, _} =
       Repo.update_all(
         from(q in QueueEntry, where: q.tournament_id == ^tournament_id),
@@ -712,20 +752,85 @@ defmodule PairingsEngine.Publishing do
   **Binned is refused**, for the reason `soft_delete_tournament/1` states: an
   arbiter putting a tournament in the recycle bin is withdrawing it, and a
   publish is the opposite of that.
-  """
-  def publish(%Tournament{} = tournament) do
-    result = send_snapshot(tournament)
 
-    # What just landed may have changed what this tournament's siblings in
-    # an event should say about it - a first publish most of all. See
-    # `PairingsEngine.TournamentGroups`, "On the results site".
-    with {:ok, _body} <- result,
-         do: PairingsEngine.TournamentGroups.record_published(tournament.id)
+  ## `:always` and `:skip_unchanged`
+
+  Called as above, this sends - always. Only the drain passes
+  `:skip_unchanged`, and then a document identical to the one the results
+  site last accepted is not posted and the answer is `{:ok, :unchanged}`.
+  `PairingsEngine.Publishing.Accepted` has the conditions, all of which lean
+  towards sending.
+  """
+  @spec publish(Tournament.t(), :always | :skip_unchanged) :: {:ok, term()} | {:error, term()}
+  def publish(%Tournament{} = tournament, unchanged \\ :always)
+      when unchanged in [:always, :skip_unchanged] do
+    # One send per tournament at a time, build included. Two overlapping
+    # sends can reach the server in the other order, and then "the last
+    # document this side saw accepted" is not the one the server kept.
+    # A lock held by a process that dies is released with it.
+    result =
+      :global.trans(
+        {{__MODULE__, :send, tournament.id}, self()},
+        fn -> send_snapshot(tournament, unchanged) end,
+        [node()]
+      )
+
+    case result do
+      # What just landed may have changed what this tournament's siblings in
+      # an event should say about it - a first publish most of all. See
+      # `PairingsEngine.TournamentGroups`, "On the results site". Run for an
+      # unchanged document too: it is the one on the site, so the block it
+      # carries is the block that was sent, and a sibling that is waiting to
+      # hear that would otherwise be queued again on every write, forever.
+      {:ok, _body} ->
+        PairingsEngine.TournamentGroups.record_published(tournament.id)
+
+      # Any failure, including a refusal before anything left: the next
+      # queued publish is sent whatever it holds.
+      {:error, _reason} ->
+        Accepted.failed(tournament.id)
+    end
 
     result
   end
 
-  defp send_snapshot(%Tournament{} = tournament) do
+  @doc false
+  # Everything besides the document that has to be the same for "the server
+  # already has this" to still be true: where it goes, the key that claims
+  # the slug there, the credential, and the version of the code that built
+  # it. The slug itself is inside the document. Public for the tests, which
+  # need a way to say "accepted by an older version".
+  def acceptance_binding(%Tournament{} = tournament, version \\ app_version()) do
+    {endpoint(), tournament.openresults_key, credential(), mode(), version}
+  end
+
+  defp app_version, do: Application.spec(:pairings_engine, :vsn) |> to_string()
+
+  # The document, posted - unless the drain asked and the server has it.
+  # `post` is the mode's own request, so each keeps its own kind of error.
+  defp deliver(%Tournament{} = tournament, unchanged, post) do
+    payload = Snapshot.build(tournament)
+    binding = acceptance_binding(tournament)
+
+    if unchanged == :skip_unchanged and Accepted.unchanged?(tournament.id, payload, binding) do
+      Logger.info(
+        "OpenResults: tournament #{tournament.id} is unchanged since the results site " <>
+          "last accepted it; nothing sent"
+      )
+
+      {:ok, :unchanged}
+    else
+      result = post.(payload)
+
+      # Remembered only here, only for this exact document, and only once
+      # the server has said yes to it.
+      with {:ok, _body} <- result, do: Accepted.record(tournament.id, payload, binding)
+
+      result
+    end
+  end
+
+  defp send_snapshot(%Tournament{} = tournament, unchanged) do
     cond do
       not configured?() ->
         {:error, "no OpenResults server is configured"}
@@ -740,14 +845,14 @@ defmodule PairingsEngine.Publishing do
         {:error, "this tournament is in the recycle bin"}
 
       public_mode?() ->
-        publish_public(tournament)
+        publish_public(tournament, unchanged)
 
       true ->
         # The key is minted here rather than at the call site so that every
         # path into a publish - the button, the drain, a future one - gets it
         # without having to know it exists.
         tournament = ensure_key(tournament)
-        tournament |> Snapshot.build() |> post(tournament)
+        deliver(tournament, unchanged, &post(&1, tournament))
     end
   end
 
@@ -758,14 +863,18 @@ defmodule PairingsEngine.Publishing do
   # The tournament key is minted AFTER the slug, not before as in operator
   # mode: it is a claim on a slug, and in public mode the slug does not exist
   # until the server has created it.
-  defp publish_public(%Tournament{} = tournament) do
+  defp publish_public(%Tournament{} = tournament, unchanged) do
     result =
       with :ok <- ensure_installation(),
            {:ok, tournament} <- ensure_minted(tournament) do
-        send_public(tournament, :may_remint)
+        send_public(tournament, :may_remint, unchanged)
       end
 
     case result do
+      # Nothing was asked, so nothing was learned about the installation.
+      {:ok, :unchanged} ->
+        result
+
       {:ok, _body} ->
         Installation.clear_state()
         result
@@ -805,10 +914,15 @@ defmodule PairingsEngine.Publishing do
   # The key is minted after the slug and kept through a re-mint: it was never
   # accepted under a slug that never had a publish, so the new slug is the
   # first thing it claims.
-  defp send_public(%Tournament{} = tournament, remint) do
+  defp send_public(%Tournament{} = tournament, remint, unchanged) do
     tournament = ensure_key(tournament)
 
-    case tournament |> Snapshot.build() |> post_public(tournament.openresults_key) do
+    case deliver(tournament, unchanged, &post_public(&1, tournament.openresults_key)) do
+      # An entry to compare with exists only after a publish that already
+      # marked the first one.
+      {:ok, :unchanged} = same ->
+        same
+
       {:ok, _body} = ok ->
         mark_first_publish(tournament)
         ok
@@ -816,7 +930,7 @@ defmodule PairingsEngine.Publishing do
       {:error, %Failure{reason: {:refused, rejection}}} = refused ->
         if remint == :may_remint and Failure.effective_code(rejection) == "not_owner" and
              public_slug_state(tournament) == :minted,
-           do: remint(tournament),
+           do: remint(tournament, unchanged),
            else: refused
 
       {:error, %Failure{}} = error ->
@@ -831,14 +945,14 @@ defmodule PairingsEngine.Publishing do
   # waits for the first publish), so a new one is minted and the send carries
   # on without a word to the arbiter. Once: if the new slug is refused too,
   # that refusal is the answer.
-  defp remint(%Tournament{} = tournament) do
+  defp remint(%Tournament{} = tournament, unchanged) do
     Logger.info(
       "OpenResults: tournament #{tournament.id}'s address never received a publish and is " <>
         "no longer this computer's; asking the results site for a new one"
     )
 
     with {:ok, reminted} <- Installation.mint(tournament) do
-      send_public(reminted, :no_remint)
+      send_public(reminted, :no_remint, unchanged)
     end
   end
 
@@ -1718,6 +1832,8 @@ defmodule PairingsEngine.Publishing do
       |> Repo.update()
 
     Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^tournament.id)
+    # The server holds nothing now, so there is nothing to be identical to.
+    Accepted.forget(tournament.id)
     Tournaments.broadcast_tournament_change(updated.id, :settings)
 
     updated
@@ -2216,6 +2332,9 @@ defmodule PairingsEngine.Publishing do
       |> Repo.update()
       |> case do
         {:ok, updated} ->
+          # Another machine's copy sits at the adopted address. Whatever
+          # this one sent anywhere before says nothing about it.
+          Accepted.forget(updated.id)
           Tournaments.broadcast_tournament_change(updated.id, :settings)
           {:ok, updated}
 
