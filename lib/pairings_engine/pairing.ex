@@ -584,6 +584,8 @@ defmodule PairingsEngine.Pairing do
             where: b.id not in ^kept
         )
 
+        reopen_prohibitions(tournament_id, Enum.min(numbers))
+
         # A team event's draw order is only frozen while a round exists.
         # Unpairing the last one gives the teams back to the Teams page, so
         # a team can still be added, removed or re-seeded before the event
@@ -620,6 +622,32 @@ defmodule PairingsEngine.Pairing do
 
     Tournaments.broadcast_tournament_change(tournament_id, :rounds)
     Tournaments.refresh_status!(tournament_id)
+    :ok
+  end
+
+  # A prohibition added once rounds were paired holds "from the next round"
+  # (`from_round`, VCL4THP Q217). Unpair that round's predecessor and the
+  # next round is an earlier one: the arbiter who forbids a pair after
+  # seeing it on the sheet, unpairs and pairs again, means the round they
+  # are looking at. The explicit pairs were handed to the engine for it
+  # anyway while the TRF's `260` went on saying "from the round after"; the
+  # pairing rules read `from_round` and sat the round out. One answer now:
+  # the first round still to be paired, and the whole event when none is.
+  defp reopen_prohibitions(tournament_id, first_unpaired) do
+    from_round = if first_unpaired <= 1, do: nil, else: first_unpaired
+
+    for schema <- [
+          PairingsEngine.Tournaments.ForbiddenPairing,
+          PairingsEngine.Tournaments.PairingRule
+        ] do
+      Repo.update_all(
+        from(row in schema,
+          where: row.tournament_id == ^tournament_id and row.from_round > ^first_unpaired
+        ),
+        set: [from_round: from_round]
+      )
+    end
+
     :ok
   end
 

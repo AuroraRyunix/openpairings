@@ -249,7 +249,8 @@ are ruled out, and how many wishes there are. When the restrictions and the
 games already played leave a player nobody to meet, or leave no way to pair
 the round at all, the page says so in red before you press Pair. When they
 rule out more than half of the possible games it warns that the engine has
-little left to choose from.
+little left to choose from. A forfeited board is not a game played: the two
+may still be paired with each other, and the page counts them so.
 
 **Rules.** *Players of the same club* or *Players of the same federation* do
 not meet - every club or federation, or only the ones you list (comma
@@ -268,6 +269,10 @@ forbidden pair, three or more a group whose members never meet each other.
 back into a rule with **Make it a wish** / **Make it a rule**; a group is
 changed with **Edit**, which ticks its members so you can add or remove
 some, then **Save group**.
+
+A pair or a rule added once rounds are paired holds from the next round to be
+paired, and the TRF report says so. Unpair a round afterwards and it holds
+from that round: pair it again and the restriction is applied.
 
 **How hard to try the wishes.** *Strong* puts the wishes before the colour
 and float criteria, *Weak* uses them only as a last tie-break. Wishes are
@@ -306,7 +311,9 @@ pairing-allocated bye; and the treatment of a team that withdraws.
 player was absent for (blank: absences score nothing). Two optional limits go
 with it: the last round it still applies to, and a cap on how many of a
 player's rounds are paid. *Treat a round sat out as a voluntary unplayed round
-for tiebreaks* changes how the tie-breaks of C.07 treat those rounds. *Rounds
+for tiebreaks* changes how the tie-breaks of C.07 treat those rounds; a round
+paid as much as a win is a full-point bye there whatever this says (C.07
+16.1.1 keeps "requested bye" for half a point or none). *Rounds
 before a late entrant joins count as absences* pays the rounds before a late
 entry in the same way. These settings change the points, the tie-breaks and
 with them the standings, and are locked after round 1. *Ask the bye type for

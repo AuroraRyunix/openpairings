@@ -957,7 +957,46 @@ defmodule PairingsEngine.Snapshot do
         }
       end
 
-    Enum.sort_by(allocated ++ recorded ++ not_joined(round, t, nos), & &1["player"])
+    rows = allocated ++ recorded ++ not_joined(round, t, nos)
+
+    Enum.sort_by(rows ++ not_paired(round, t, nos, rows), & &1["player"])
+  end
+
+  # Everybody else who is in the document and not in this round: a player
+  # who withdrew (and perhaps came back two rounds later), one taken off
+  # their board by hand, one flagged as forfeiting the event. The standings
+  # count the round as nothing for them. The snapshot said nothing at all,
+  # and the results site - which adds the rounds up and reads silence as
+  # "unknown" - printed a dash for their score from that round to the end
+  # of the event. `not_joined/3` fixed that for late entrants on 2026-10-10
+  # and stopped one case short.
+  #
+  # Only a player with NO pairing of this round, visible or not: one whose
+  # board is withheld (hidden, an unnumbered opponent, a result recorded
+  # against a vacated seat while results are private) has a figure the
+  # arbiter is keeping back, and a zero here would be an invented one.
+  #
+  # An individual Swiss only, like `not_joined/3`: Keizer pays a round not
+  # played by its own arithmetic, and a round robin seats everybody.
+  defp not_paired(%Round{} = round, %Tournament{} = t, nos, rows) do
+    if LateEntry.derives?(t) do
+      seated =
+        for p <- round.pairings,
+            id <- [p.white_player_id, p.black_player_id],
+            not is_nil(id),
+            into: MapSet.new(),
+            do: id
+
+      listed = MapSet.new(rows, & &1["player"])
+
+      for {player_id, no} <- nos,
+          not MapSet.member?(seated, player_id),
+          not MapSet.member?(listed, no) do
+        %{"player" => no, "kind" => "not-paired", "points" => 0.0}
+      end
+    else
+      []
+    end
   end
 
   # A round played before a late entrant joined, in a tournament where that

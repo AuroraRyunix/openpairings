@@ -8,8 +8,9 @@ defmodule PairingsEngine.RestrictionCheck do
   The last question is a perfect-matching one, and Ainalrami already answers
   it for team pairing (`Ainalrami.TeamPairing.Matching.feasible?/2`, a
   greedy pass with an exact memoised search behind it). The same oracle is
-  asked here over the players, with "allowed" meaning not met before and
-  not ruled out by a hard prohibition in that round. It knows nothing about
+  asked here over the players, with "allowed" meaning not played before (a
+  forfeited board is not a game) and not ruled out by a hard prohibition in
+  that round. It knows nothing about
   colours, so "pairable" is a necessary condition and not a promise - but
   "not pairable" is a proof: no engine can pair that round, and the arbiter
   would rather hear it now than from the Pair button. An odd field leaves
@@ -107,6 +108,10 @@ defmodule PairingsEngine.RestrictionCheck do
     MapSet.union(explicit, rules)
   end
 
+  # Met means played. A forfeited board leaves the two free to be paired
+  # again (C.04.2 3.5), and the engine does pair them; counting it here made
+  # "not pairable" - which the moduledoc sells as a proof - true of rounds
+  # the Pair button then paired.
   defp met_keys(tournament_id) do
     Repo.all(
       from p in Pairing,
@@ -115,9 +120,10 @@ defmodule PairingsEngine.RestrictionCheck do
         where:
           r.tournament_id == ^tournament_id and not is_nil(p.white_player_id) and
             not is_nil(p.black_player_id),
-        select: {p.white_player_id, p.black_player_id}
+        select: {p.white_player_id, p.black_player_id, p.result}
     )
-    |> MapSet.new(fn {a, b} -> key(a, b) end)
+    |> Enum.reject(fn {_a, _b, result} -> PairingsEngine.Results.forfeit?(result) end)
+    |> MapSet.new(fn {a, b, _result} -> key(a, b) end)
   end
 
   defp key(a, b) when a <= b, do: {a, b}

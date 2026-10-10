@@ -1204,10 +1204,19 @@ defmodule PairingsEngine.Standings do
             # OUT (Tournament.absent_counts_as_vur, on by default). An
             # absence and a requested bye are one event under two names, so
             # they get one answer here. See that field's doc.
+            #
+            # Unless it was paid what a win is paid. C.07 16.1.1 defines a
+            # requested bye as "a half-point-bye or a zero-point-bye"; an
+            # unplayed round worth a win is a full-point bye (16.2.1) and
+            # is never re-read as a draw. The TRF has always said so - such
+            # an absence is written `F` (`Pairing.unplayed_code/2`) - while
+            # this flag said the opposite, so the rank column of the app's
+            # own file did not follow from the file.
             voluntary:
               (bye.type in ["requested-half", "requested-zero"] and
                  not structural_bye?(tournament, bye)) or
-                (bye.type == "absent" and tournament.absent_counts_as_vur),
+                (bye.type == "absent" and tournament.absent_counts_as_vur and
+                   not full_point?(points, tournament)),
             # The `byes`-table row's own type ("requested-half" /
             # "requested-zero" / "absent") - carried through so display code
             # (PairingsEngine.PlayerCard.result_label/2) can label the bye by
@@ -1231,6 +1240,10 @@ defmodule PairingsEngine.Standings do
       Map.update(acc, player_id, records, &(&1 ++ records))
     end)
   end
+
+  # Worth a win, in a tournament where a win is worth something.
+  defp full_point?(points, tournament),
+    do: points == tournament.points_win and points != tournament.points_loss
 
   # An odd-sized round robin pairs exactly one player per round against the
   # phantom. `PairingsEngine.RoundRobin.create_round/4` records that as a

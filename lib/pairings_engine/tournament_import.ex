@@ -456,6 +456,19 @@ defmodule PairingsEngine.TournamentImport do
       else: Map.put(t_attrs, "late_entry_numbering", "end")
   end
 
+  # A file written before `absent_counts_as_vur` existed carries none, and
+  # its tournament counted an absence at its awarded value in the opponents'
+  # tie-breaks: the column arrived as `false` for every row already there
+  # (`AddAbsentCountsAsVur`), and the schema default became `true` later.
+  # Without this the same event broke ties one way where it stood and
+  # another way out of its own backup. Same cure as the two above; a restore
+  # point keeps the live row's value and never gets here.
+  defp legacy_absent_counts_as_vur(t_attrs) do
+    if Map.has_key?(t_attrs, "absent_counts_as_vur"),
+      do: t_attrs,
+      else: Map.put(t_attrs, "absent_counts_as_vur", false)
+  end
+
   # SWAR bookkeeping (`TournamentExport`'s `@tournament_fields`: the guid,
   # `swar_settings` and the two-axis category columns), so a restored copy
   # writes the `.swar` file the original did. `swar_guid` and the category
@@ -508,6 +521,7 @@ defmodule PairingsEngine.TournamentImport do
       |> legacy_extra_points_mode(t_data)
       |> legacy_late_entry_absences()
       |> legacy_late_entry_numbering()
+      |> legacy_absent_counts_as_vur()
       |> unique_swar_guid()
 
     tournament =
