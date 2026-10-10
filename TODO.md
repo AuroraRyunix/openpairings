@@ -491,151 +491,108 @@ Still open, and each needs a decision rather than typing:
 ## The 2026 Acceptance Cycle (dominates everything below)
 
 FIDE TEC circulated draft **VCL4THP v13** and a revised **TEC Manual** on
-2026-08-25, for consultation until **2026-09-07**. When the final versions
-publish, TEC announces a new Acceptance Cycle and **existing endorsements
-are revoked** - every vendor re-qualifies. Our feedback is
-[tec-feedback-2026-09.md](docs/tec-feedback-2026-09.md), **sent 2026-09-08**.
+2026-08-25. When the final versions publish, TEC announces a new Acceptance
+Cycle and **existing endorsements are revoked** - every vendor re-qualifies.
+Our feedback is [tec-feedback-2026-09.md](docs/tec-feedback-2026-09.md),
+**sent 2026-09-08**.
 
-That letter makes exactly one commitment, and it is now owed rather than
-merely intended: **C.2 says "We will implement `?`"** as the ITDX
-unknown-result code. Nothing in either repository implements it. It is
-small - one more code in the two lists, plus a decision about whether an
-arbiter can type it or it is parse-only (parse-only is the safer reading; a
-THP that lets you type "unknown" invites it as a placeholder) - but it is a
-promise in writing to the body that will assess us, so it should land
-before the Acceptance Cycle opens rather than after.
+The source of truth is [docs/vcl4thp/tracker.json](docs/vcl4thp/tracker.json),
+rendered in [docs/vcl4thp-tracker.md](docs/vcl4thp-tracker.md); `mix
+pairings.vcl` prints the summary. This section is a short reading of it and
+goes stale the moment the tracker moves - trust the tracker. It is our own
+read, not a verdict: TEC verifies, we do not. Status as of the tracker
+review of 2026-10-09 (0.83.0):
 
-The letter also says, at C.1, "We currently implement TRF16 and are ready
-to move." That was true when it was drafted on 08-25 and was overtaken on
-09-07, when TRF26 shipped in both repositories. Understating our own
-position does us no harm; noted here only so nobody reads the sent copy as
-current.
+```
+Questions on our path:  185 of 225
+Failures on the path:   0
+Penalties on the path:  0% (over 100% fails)
+Answers:                219 met, 4 gaps, 2 still to check
+On the path:            184 met, 0 gaps, 1 still to check
+```
 
-The VCL is 226 questions with **accumulating penalty percentages, where
-over 100% is a failure**, plus hard stops that end verification on the
-spot. What follows is our own read of where we stand. It is a read, not a
-verdict - TEC verifies, we do not.
+### Open on our path
 
-### Hard failures (verification stops)
+- **Q37 / Q39: report other engines' faults and our reading differences to
+  TEC.** Q37 is marked "check", Q39 "check" (a NO on Q39 costs 50%). The
+  bbpPairings [C2] fault went to TEC in the 2026-09-08 letter and upstream;
+  not on record as sent: the confirmed Gacrux 5.2.5 finding and the
+  TieBreakServer findings A-D, nor the tie-break reading differences (the
+  letter predates them). **Letter drafted, not sent.** The draft lives outside
+  the repository, waiting for the maintainer.
+- **Unknown result `?` (the one commitment in the feedback letter, C.2).**
+  The parse side exists: unknown result symbols import as unknown (0.78.0,
+  Q166) and a `?` in a TRF has its later rounds checked (0.79.0). Whether an
+  arbiter can also TYPE it was left as parse-only by intent (unverified,
+  check).
 
-- **FIDE Mode: the mechanism exists as of 0.56.0, the Levels do not.**
-  Answered 2026-09-10: it is per tournament, it is the default, and there is
-  **no toggle** - the compliant settings are what a new tournament gets, and
-  compliance is computed from them rather than set. `PairingsEngine.Compliance`
-  is that computation; `tournaments.fide_compliance_lost_round` records the
-  round it was first lost, survives a restore, a hand-off and a backup, and is
-  what the `###` comment will read. Three settings qualify as departures and
-  roughly two dozen were examined and rejected - the reasoning per setting is
-  in that module, and it is the part worth reviewing.
-  Still to do: the `###` emitter itself (Ainalrami side, then
-  `TrfExport`), and the Levels, which stay blocked on TEC. See
-  [docs/design-fide-mode.md](docs/design-fide-mode.md) sections 3 and 6.
-- ~~**Adjourned games are not implemented at all** (Q157-169).~~ **Built
-  on branch `postponed-games` (2026-09-24), not verified yet.** A result
-  state (`"*"`, "postponed"), "counts as a draw for pairing purposes" in the
-  one results table, the warnings as codes in `PairingsEngine.PostponedGames`
-  (no Level attached - still blocked on TEC), and "not final" on standings,
-  prints, the snapshot and the TRF while any remain. See
-  [docs/design-fide-mode.md](docs/design-fide-mode.md) Phase 5.
-- **Prohibited pairings can be added mid-tournament** (Q196).
-  Tournaments.add_forbidden_pairing/3 does not go through
-  ensure_unlocked/2. Cheap to fix - but see the feedback draft, where we
-  argue this should be a Level-4 warning rather than a prohibition, since
-  C.05:5.2 binds the ORGANISER to communicate, not the software to refuse.
-- **Past results are editable in any round** (Q189-191). C.04.2:4.3 allows
-  only the round immediately preceding the last one played.
-- ~~**TRF import does not verify the imported rounds** against the pairing
-  rules (Q54).~~ **Done 2026-09-08.** Every round an individual-Swiss file
-  records is scored against the absolute criteria before the import
-  returns (`PairingsEngine.TrfImport`'s `verification_warnings/2`, on
-  `Ainalrami.Alternatives.violations/1` and `Pairing.bye_eligibility/2`),
-  and a rematch, an absolute colour clash, a `260` violation or a second
-  pairing-allocated bye is reported as an `:illegal_round` warning naming
-  the round, the players and the rule. Three deliberate limits, all in
-  `docs/trf-import.md`: it reports only the ABSOLUTE criteria, never "we
-  would have paired this differently"; it judges only what the file says
-  is a Dutch Swiss, since a round robin's fixed schedule and Keizer are
-  not Dutch-legal by design; and it never blocks the import, which is what
-  an arbiter recovering a historical event needs.
+### Off the path: the four gaps
 
-### Accumulating penalties
+All four are answered YES/NO in a way that only matters if FIDE mode is left,
+which the tracker treats as off the path (a departure from FIDE mode does not
+count against us):
 
-Over 100% fails, so these add up rather than standing alone:
+- **Q61, Q77, Q87:** "Level-3 + `###` if that makes pairings wrong?" - cannot
+  happen in FIDE mode (Q57, Q75, Q85). YES itself would cost 7% each if
+  reached.
+- **Q99:** "Always reverses those two rounds?" (double round robin) - answered
+  N, off the path because Q98 is YES. The reversal is a setting, default on
+  for new double round robins, not forced.
 
-- Tournaments over 30 days, where a player may hold more than one rating
-  (Q210, **40%**; Q212, 35%)
-- ~~Unrated players in rating-based tie-breaks (Q208, **32%**)~~ **Fixed
-  2026-08-29**, and it was never only an acceptance item: ARO/AROC1 averaged
-  an unrated opponent in as a literal 0, so one unrated entrant moved prize
-  placings in any tournament using them. C.07 Art. 10 gives no substitute
-  rating - it drops the tie-break outright when unrated players are present -
-  so `Standings.effective_tiebreaks/1` does that, and the standings page
-  names the code and the escape hatch.
-- Consistency checks only on explicit request (Q140, **25%**)
-- Custom Rating Lists (Q117, 18%)
-- Chess960 (Q222, 15%) - **deferred by decision, 2026-08-25.** Cheap for
-  the penalty it carries (a start-position draw would satisfy the question)
-  but deliberately not now. Keep it on the list.
-- ~~W/D/L unrated results, games shorter than one move (Q185, 7%)~~ -
-  **shipped 0.17.1.** The codes were already read and written; what
-  0.17.1 fixed is that they reached the *pairing engine* correctly. The
-  score in TRF columns 81-84 came from a hand-written mapping separate
-  from the crosstable's, and `W`/`D` were not on it - so an unrated win
-  was banked as a loss and the player was bracketed a full point low.
+### Depends on FIDE, not on us
 
-  Both remaining copies - `TrfImport`'s and `bye_safe_result/2`'s - were
-  closed on 2026-08-28, so **Q185 is now genuinely finished**. Neither was
-  mis-scoring anything: each was a complete partition as of v0.14.0, and the
-  exposure was drift rather than a live defect, which this note previously
-  implied. Both are now checked at build time against the engine's own
-  vocabulary, so a code the engine accepts and the call site does not fails
-  the build naming itself.
+- **VCL4THP v13 is a draft** (2026-08-25). The final text, and with it the
+  Level definitions and the question list itself, can still change; an
+  endorsement lapses on a rule change or major version. (Level machinery was
+  built against the draft we obtained.)
+- **TRF-26 is not formally approved**, though FIDE's rating server accepts it.
+  We write and read TRF26 and TRF16 (since 2026-09-07).
+- Terminology: what is pursued first is a **TAPC** (Technical Acceptance of
+  Product Compliance); endorsement is a separate later step with a commercial
+  agreement.
 
-### Blocked on FIDE
+### The separate track: Ainalrami as an engine
 
-- **The VCL4THP v13 text and the Level 1-5 definitions** - phase 0 of the
-  FIDE Mode work, attempted 2026-09-10 and **not obtainable publicly**. SPP
-  is still down, TEC publishes neither, and the endorsement page points at
-  a handbook appendix the current handbook does not contain. The newest
-  public checklist is the 2017 one, which has eighteen items and **no
-  warning levels at all** - so the Level machinery has no prior art to
-  reason from. A request is drafted at
-  [docs/request-tec-vcl4thp.md](docs/request-tec-vcl4thp.md); the
-  maintainer sends it - **sent 2026-09-10**. Phase 2 of the build plan
-  should not start until it is answered.
+Ainalrami's own endorsement as a pairing engine (FIDE form FE1 plus two
+auto-test reports, at most 1 difference per 500 tournaments). **The
+application is not drafted yet.** The validation data exists:
 
-  There is also a contact inside the commission who can be telephoned, which
-  is a better channel for the parts that are ambiguous rather than missing.
-  [docs/tec-call-questions.md](docs/tec-call-questions.md) is the call sheet,
-  ordered by what it costs to guess wrong; the first four questions decide
-  code that cannot be written without them. Whatever is said should be
-  written into that file the same day, including the hedges - a remembered
-  phone call is the same kind of single unverifiable source that this whole
-  section exists to warn about.
+- Individual Swiss: 2.33 billion pairings against bbpPairings, 11 differing
+  rounds, all where bbpPairings itself errors - 3 confirmed as its known bug,
+  8 still to confirm.
+- Team Swiss: 3.55 billion rounds against a brute-force reference, 0
+  failures.
 
-  Also worth fixing while writing to them: we say endorsement where the
-  thing being pursued first is a **TAPC**, and endorsement is a separate
-  later step needing a commercial agreement. Using a body's own terms
-  wrongly in a submission is a poor first impression.
+(These figures come from the maintainer, not from a file in this repository
+(unverified, check before quoting them to anyone).)
 
-- **TRF-26.** Required throughout (Q21 PTC input, Q217 report completeness
-  at 30%), but the Manual documents Records 162/172/299 as clarifications
-  OF a specification rather than as one. Whether it is published *as* a
-  specification is the main question in our feedback, and it is the only
-  part of this still blocked: **we implement TRF26 and TRF16 today**, both
-  directions, since 2026-09-07. Building against clarifications was the
-  cheaper risk than waiting - if the published text differs we adjust a
-  writer we already have, rather than starting one.
+JaVaFo was removed in 0.81.0: Ainalrami is the only Swiss engine, so FE1's
+"internal engine" answer is YES.
 
-### Where we are already strong
+### Closed since this section was first written
 
-Written down so it is not accidentally rebuilt. Q19-23 wants a free CLI
-Pairing/Tie-Break Checker AND a Random Tournament Generator, and Ainalrami
-has both. Q33's mandatory 50,000-tournament cross-test we exceed by five
-orders of magnitude. Q70-88's scoring and PAB configuration landed
-2026-08-24. Q180-184's result codes are already exact: 1/2-0, 0-1/2 and 0-0
-are supported, forfeits are restricted to the three legal codes, and the
-illegal combinations cannot be entered.
+- FIDE mode with Levels, leaving it on purpose (asks twice), the `###` lines
+  in TRF26, past results locked to the last two rounds played (Q189-191):
+  0.56.0 for the mechanism, 0.72.0 onward for the rest.
+- Adjourned/postponed games (Q157-169): 0.65.0, with FIDE mode making nothing
+  final while one is open in 0.78.0.
+- Prohibited pairings mid-tournament (Q196): in FIDE mode adding one after
+  round 1 leaves FIDE mode behind a Level-4 confirmation; 0.79.0. The
+  prohibitions page got its own place and rules the same release.
+- Rating tie-breaks at each round's rating (Q214): 0.80.0.
+- Tournaments over 30 days and several ratings per player (Q210, Q212):
+  0.75.0.
+- Chess960 (Q222): 0.75.0.
+- Consistency checks (Q140): marked met in the tracker, off the path (the
+  check also runs unasked); no CHANGELOG entry found for a version.
+- Custom rating lists (Q117): met in the tracker; no version found in the
+  CHANGELOG.
+- TRF import verifies the imported rounds (Q54): 2026-09-08.
+- Unrated players in rating tie-breaks (Q208): 2026-08-29.
+- W/D/L unrated results (Q185): 0.17.1.
+- The list of "where we are already strong" (checker and generator Q19-23, the
+  50,000-tournament cross-test Q33, scoring and byes, result codes) is in the
+  tracker with evidence per question.
 
 ## Known gaps / deferred features
 
@@ -1106,7 +1063,7 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
-- ~~**Tournament groups (asked 2026-10-08).**~~ - **built 2026-10-09**
+- ~~**Tournament groups (asked 2026-10-08).**~~ - **built 2026-10-09, shipped in 0.80.0**
   (branch `tournament-groups`). One event is often several separate
   tournaments - the Open, the U20, the U12, a rapid on the side. Shipped:
   `PairingsEngine.TournamentGroups` (tables `tournament_groups` and
