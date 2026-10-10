@@ -77,6 +77,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     round = tournament.id |> Tournaments.get_round(round_number) |> preload_pairings()
     players = Tournaments.list_players(tournament.id)
     engine_account = round && RoundExplanation.for_round(round, players)
+
+    # Where the engine wrote down each player's colour state, the due-colour
+    # tags quote it rather than the reconstruction - one opinion per page.
+    rationale = with_engine_colours(rationale, engine_account)
     account_divergence = if round, do: RoundExplanation.divergence(round), else: :no_record
 
     # Can this round's account be brought up to date from the boards as
@@ -134,6 +138,64 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
      )}
   end
+
+  # The engine's own colour state for every player it recorded one for,
+  # laid over the reconstruction's. The two compute the same thing from the
+  # same played games now, so disagreement means the data moved after
+  # pairing - and what decided the pairing is what this page explains.
+  defp with_engine_colours(nil, _account), do: nil
+  defp with_engine_colours(rationale, nil), do: rationale
+
+  defp with_engine_colours(rationale, account) do
+    states =
+      for section <- account,
+          bracket <- section.brackets,
+          state <- bracket.states,
+          reduce: %{} do
+        acc -> Map.put_new(acc, state.player.id, state)
+      end
+
+    if states == %{} do
+      rationale
+    else
+      boards =
+        Enum.map(rationale.boards, fn b ->
+          %{
+            b
+            | white: engine_colour_side(b.white, states),
+              black: engine_colour_side(b.black, states)
+          }
+        end)
+
+      %{rationale | boards: boards}
+    end
+  end
+
+  defp engine_colour_side(nil, _states), do: nil
+
+  defp engine_colour_side(side, states) do
+    case Map.get(states, side.player.id) do
+      nil ->
+        side
+
+      state ->
+        due = engine_due(state.preference)
+
+        %{
+          side
+          | colour_due: due,
+            colour_ok: if(due, do: side.colour == due),
+            colour_class: if(due, do: state.class),
+            # The reason was worked out for the reconstruction's verdict;
+            # it only still applies if the engine reached the same one.
+            colour_reason: if(due == side.colour_due, do: side.colour_reason)
+        }
+    end
+  end
+
+  defp engine_due("w"), do: :w
+  defp engine_due("b"), do: :b
+  defp engine_due(_), do: nil
 
   ## ---------- the alternatives, worked out when opened ----------
   ##
@@ -431,27 +493,55 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   attr :player, :map, default: nil
   attr :colour, :string, required: true
   attr :trails, :map, required: true
+  attr :id, :string, default: nil
 
   # A seat, with the colour history that makes a colour verdict legible. The
   # squares are the point: "colour preference denied" is a sentence, but
   # B B W B is the reason, and an arbiter reading it to a player can point
   # at it. Round 1 has no history, so it renders as the name alone.
+  #
+  # The chips are round by round, as it happened - a forfeit is a dashed
+  # "not played" chip, not the colour of the seat nobody sat in. When that
+  # leaves a gap between played games, a second strip says how FIDE reads
+  # the same history (C.04.2 3.4: unplayed rounds move to the front), because
+  # that, not the first strip, is what the preference is computed from.
   defp seat(assigns) do
+    history = seat_history(assigns.trails, assigns.player && assigns.player.id)
+    assigns = assign(assigns, history: history, counts_as: counts_as(history))
+
     ~H"""
-    <div :if={@player} class="pe-seat">
+    <div :if={@player} class="pe-seat" id={@id}>
       <span class={["pe-seat-badge", "is-#{@colour}"]}>{String.upcase(@colour)}</span>
       <span class="pe-seat-name">{@player.name}</span>
       <span class="pe-seat-history" title={gettext("Colours in the last rounds, oldest first")}>
         <%!-- The squares are colour alone; a screen reader gets each one's
         round and colour as words, and the strip is named once. --%>
-        <span :if={seat_history(@trails, @player.id) != []} class="sr-only">
+        <span :if={@history != []} class="sr-only">
           {gettext("Colours in the last rounds, oldest first")}:
         </span>
         <span
-          :for={{number, mark} <- seat_history(@trails, @player.id)}
-          class={["pe-seat-chip", "is-#{mark}"]}
+          :for={{number, mark} <- @history}
+          id={@id && "#{@id}-r#{number}"}
+          class={["pe-seat-chip" | chip_classes(mark)]}
+          data-mark={mark}
           title={chip_title(number, mark)}
         ><span class="sr-only">{chip_title(number, mark)}</span></span>
+      </span>
+      <span
+        :if={@counts_as}
+        id={@id && "#{@id}-counts"}
+        class="pe-seat-counts"
+        title={gettext("C.04.2 3.4: only played games count; unplayed rounds move to the front")}
+      >
+        <span class="pe-seat-counts-label">{gettext("counts as")}</span>
+        <span class="pe-seat-history" aria-hidden="true">
+          <span :for={mark <- @counts_as} class={["pe-seat-chip" | chip_classes(mark)]}></span>
+        </span>
+        <span class="sr-only">
+          {counts_as_words(@counts_as)}. {gettext(
+            "C.04.2 3.4: only played games count; unplayed rounds move to the front"
+          )}
+        </span>
       </span>
     </div>
 
@@ -461,14 +551,55 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     """
   end
 
+  defp chip_classes("w"), do: ["is-w"]
+  defp chip_classes("b"), do: ["is-b"]
+  defp chip_classes("u"), do: ["is-none", "is-unplayed"]
+  defp chip_classes(kind), do: ["is-none", "is-#{kind}"]
+
   defp chip_title(number, "w"), do: gettext("Round %{n}: White", n: number)
   defp chip_title(number, "b"), do: gettext("Round %{n}: Black", n: number)
+  defp chip_title(number, "forfeit"), do: gettext("Round %{n}: forfeit, not played", n: number)
+  defp chip_title(number, "bye"), do: gettext("Round %{n}: bye, no game", n: number)
   defp chip_title(number, _mark), do: gettext("Round %{n}: no game", n: number)
 
+  # The window the chips show, read the way C.04.2 3.4 reads it - or nil
+  # when that reading changes nothing in the window, which covers both "no
+  # gaps at all" and "the gaps were already at the front".
+  defp counts_as([]), do: nil
+
+  defp counts_as(history) do
+    marks = Enum.map(history, fn {_n, m} -> if m in ["w", "b"], do: m, else: "u" end)
+
+    compacted =
+      marks
+      |> Enum.map(&mark_atom/1)
+      |> PairingRationale.compact_colours()
+      |> Enum.map(&Atom.to_string/1)
+
+    if compacted == marks, do: nil, else: compacted
+  end
+
+  defp mark_atom("w"), do: :w
+  defp mark_atom("b"), do: :b
+  defp mark_atom(_), do: :u
+
+  defp counts_as_words(marks) do
+    words =
+      Enum.map_join(marks, " ", fn
+        "w" -> gettext("White")
+        "b" -> gettext("Black")
+        _ -> gettext("not played")
+      end)
+
+    gettext("Counts as: %{colours}", colours: words)
+  end
+
   # The last few rounds' colours, oldest first. Anything that is not a played
-  # colour (a bye, an absence) is its own neutral marker rather than being
-  # skipped, because a gap in the colour record is itself part of why a
-  # preference lands where it does.
+  # colour - a forfeit, a bye, an absence - is its own neutral marker rather
+  # than being skipped, because a gap in the colour record is itself part of
+  # why a preference lands where it does. `counts_as/1` is the skipped view.
+  defp seat_history(_trails, nil), do: []
+
   defp seat_history(trails, player_id) do
     case Map.get(trails || %{}, player_id) do
       nil ->
@@ -478,24 +609,31 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         rounds
         |> Enum.reject(& &1[:current])
         |> Enum.take(-6)
-        |> Enum.map(fn round ->
-          # The trails spell colours "W"/"B" (and "bye"/"absent"). This
-          # matched lowercase, so every chip drew as the empty box - six of
-          # them after every name, saying nothing.
-          mark =
-            case round[:colour] do
-              c when c in ["w", "W"] -> "w"
-              c when c in ["b", "B"] -> "b"
-              _ -> "none"
-            end
-
-          {round[:round], mark}
-        end)
+        |> Enum.map(fn round -> {round[:round], trail_mark(round)} end)
 
       _ ->
         []
     end
   end
+
+  # The trails spell colours "W"/"B" (and "bye"/"absent"); a forfeit keeps
+  # the seat's colour there, and its outcome is what gives it away. The
+  # colour of a seat nobody played from is not a colour anybody had.
+  defp trail_mark(%{outcome: outcome}) when outcome in [:forfeit_win, :forfeit_loss],
+    do: "forfeit"
+
+  defp trail_mark(%{colour: c}) when c in ["w", "W"], do: "w"
+  defp trail_mark(%{colour: c}) when c in ["b", "B"], do: "b"
+  defp trail_mark(%{colour: "bye"}), do: "bye"
+  defp trail_mark(_round), do: "none"
+
+  # A seat's DOM id in the engine account: a floater sits in two brackets'
+  # rows, so the bracket's score is part of it (in hundredths - a dot in an
+  # id is a CSS selector waiting to go wrong).
+  defp seat_id(_bracket, nil), do: nil
+
+  defp seat_id(bracket, player),
+    do: "pe-seat-#{round((bracket.group || 0) * 100)}-#{player.id}"
 
   ## ---------- "what if" - a swap or a pair, judged live ----------
   ##
@@ -2195,7 +2333,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           <span :if={@dir == :down} class="pe-tag pe-tag-down">{gettext("▼ paired down")}</span>
           <span :if={@dir == :up} class="pe-tag pe-tag-up">{gettext("▲ paired up")}</span>
         </div>
-        <div class="pe-due">
+        <div class="pe-due" id={"pe-due-#{@board.board}-#{@colour}"}>
           <span :if={@side.colour_due == nil} class="pe-tag pe-tag-muted">{gettext(
             "no colour history yet"
           )}</span>
@@ -2206,6 +2344,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             {gettext("✗ against due colour (%{due})", due: colour_word(@side.colour_due))}
           </span>
         </div>
+        <%!-- Only when the verdict leans on a round that was skipped: the
+              chips show the gap, this says why it does not count. --%>
+        <p
+          :if={@side[:colour_reason]}
+          id={"pe-due-reason-#{@board.board}-#{@colour}"}
+          class="pe-due-reason"
+        >
+          {colour_reason_text(@side.colour_reason)}
+        </p>
         <div
           :if={@side.ladder_value}
           class="pe-ladder"
@@ -2219,6 +2366,40 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     </div>
     """
   end
+
+  defp colour_reason_text(%{basis: :repeat, due: due, last: last, skipped: skipped}) do
+    gettext("due %{due}: last two played games were %{last} (%{skipped})",
+      due: colour_name(due),
+      last: colour_name(last),
+      skipped: skipped_text(skipped)
+    )
+  end
+
+  defp colour_reason_text(%{due: due, last: last, skipped: skipped}) do
+    gettext("due %{due}: last played game was %{last} (%{skipped})",
+      due: colour_name(due),
+      last: colour_name(last),
+      skipped: skipped_text(skipped)
+    )
+  end
+
+  defp colour_name(:w), do: gettext("White")
+  defp colour_name(:b), do: gettext("Black")
+
+  defp skipped_text([%{round: n, mark: :forfeit}]),
+    do: gettext("round %{n} was a forfeit and does not count", n: n)
+
+  defp skipped_text([%{round: n, mark: :bye}]),
+    do: gettext("round %{n} was a bye and does not count", n: n)
+
+  defp skipped_text([%{round: n}]),
+    do: gettext("round %{n} had no game and does not count", n: n)
+
+  defp skipped_text(skipped),
+    do:
+      gettext("rounds %{rounds} were not played and do not count",
+        rounds: Enum.map_join(skipped, ", ", & &1.round)
+      )
 
   # A "which round?" picker so the arbiter can hop between explanations
   # without going back to the audit page first.
@@ -2257,7 +2438,36 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp points(n) when is_float(n), do: if(n == Float.round(n), do: trunc(n), else: n)
   defp points(n), do: n
 
-  defp colour_history([]), do: "-"
+  attr :colours, :list, required: true
+  attr :rounds_before, :integer, required: true
+
+  # The engine records played matches only, which is already C.04.2 3.4's
+  # reading minus the unplayed rounds it moves to the front. Those come back
+  # here as faded "u"s - the rounds before this one the team has no colour
+  # for - so the column reads the way FIDE writes it rather than looking like
+  # the team skipped a round's worth of arithmetic.
+  defp team_colours(assigns) do
+    unplayed = max(assigns.rounds_before - length(assigns.colours), 0)
+    assigns = assign(assigns, unplayed: unplayed)
+
+    ~H"""
+    <span :if={@colours == [] and @unplayed == 0}>-</span>
+    <span
+      :if={@unplayed > 0}
+      class="pe-team-unplayed"
+      title={gettext("C.04.2 3.4: only played games count; unplayed rounds move to the front")}
+    >
+      <span :for={_ <- 1..@unplayed//1} aria-hidden="true">u </span><span class="sr-only">{ngettext(
+        "%{count} unplayed round, counted first",
+        "%{count} unplayed rounds, counted first",
+        @unplayed
+      )}</span>
+    </span>
+    {colour_history(@colours)}
+    """
+  end
+
+  defp colour_history([]), do: ""
 
   defp colour_history(colours),
     do: Enum.map_join(colours, " ", &if(&1 == "white", do: gettext("W"), else: gettext("B")))
@@ -2481,7 +2691,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 <th scope="row">{team_label(t.team)}</th>
                 <td class="num">{points(t.match_points)}</td>
                 <td class="num">{points(t.game_points)}</td>
-                <td>{colour_history(t.colours)}</td>
+                <td id={"team-colours-#{t.tpn}"}>
+                  <.team_colours colours={t.colours} rounds_before={@round_number - 1} />
+                </td>
                 <td>{preference_text(t.preference)}</td>
                 <td>{yes_no(t.had_bye?)}</td>
                 <td>{yes_no(t.won_by_forfeit?)}</td>
@@ -3878,8 +4090,18 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               class={["pe-verdict-row", edge.gave_up == [] && "is-clean"]}
             >
               <div class="pe-verdict-seats">
-                <.seat player={edge.white} colour="w" trails={@trails} />
-                <.seat player={edge.black} colour="b" trails={@trails} />
+                <.seat
+                  player={edge.white}
+                  colour="w"
+                  trails={@trails}
+                  id={seat_id(bracket, edge.white)}
+                />
+                <.seat
+                  player={edge.black}
+                  colour="b"
+                  trails={@trails}
+                  id={seat_id(bracket, edge.black)}
+                />
               </div>
 
               <div class="pe-verdict-tags">

@@ -24,6 +24,52 @@ defmodule PairingsEngine.PairingRationaleTest do
     end
   end
 
+  describe "compact_colours/1 (C.04.2 3.4)" do
+    test "FIDE's own examples" do
+      assert PairingRationale.compact_colours("BWBuW") == "uBWBW"
+      assert PairingRationale.compact_colours("WBuWB") == "uWBWB"
+      assert PairingRationale.compact_colours("BWWuBuW") == "uuBWWBW"
+    end
+
+    test "lists: anything not a colour is unplayed and goes first, in order kept" do
+      assert PairingRationale.compact_colours([:w, :forfeit, :b, :bye]) == [:u, :u, :w, :b]
+      assert PairingRationale.compact_colours([:u, :w, :b]) == [:u, :w, :b]
+      assert PairingRationale.compact_colours([]) == []
+    end
+  end
+
+  describe "colour_preference/1 - Ainalrami's ladder" do
+    test "a difference of two is absolute" do
+      assert %{due: :b, class: :absolute, basis: :imbalance} =
+               PairingRationale.colour_preference([:w, :b, :w, :w])
+    end
+
+    test "the same colour twice running outranks a difference of one" do
+      # W W W B B: one White up, but the last two were Black.
+      assert %{due: :w, class: :absolute, basis: :repeat} =
+               PairingRationale.colour_preference([:w, :w, :w, :b, :b])
+    end
+
+    test "a difference of one is strong, balance is mild alternation" do
+      assert %{due: :b, class: :strong} = PairingRationale.colour_preference([:w])
+
+      assert %{due: :w, class: :mild, basis: :alternate} =
+               PairingRationale.colour_preference([:w, :b])
+    end
+
+    test "played_colours/1 drops every round that was not a played game" do
+      records = [
+        %{round: 1, mark: :w},
+        %{round: 2, mark: :forfeit},
+        %{round: 3, mark: :b},
+        %{round: 4, mark: :bye},
+        %{round: 5, mark: :absent}
+      ]
+
+      assert PairingRationale.played_colours(records) == [:w, :b]
+    end
+  end
+
   test "for_round/2 returns nil for a round that hasn't been paired" do
     t = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
     assert PairingRationale.for_round(t, 1) == nil

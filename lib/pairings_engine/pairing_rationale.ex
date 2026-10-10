@@ -38,7 +38,7 @@ defmodule PairingsEngine.PairingRationale do
   """
 
   import Ecto.Query
-  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, PlayerCard, Categories}
+  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, PlayerCard, Categories, Results}
   alias PairingsEngine.Tournaments.{Round, Player}
 
   @doc """
@@ -61,7 +61,9 @@ defmodule PairingsEngine.PairingRationale do
   where each `board_context` carries `:board`, `:category`, `:is_bye`,
   `:floater`, `:rematch`, and a `:white` / `:black` side map
   (`%{player:, score:, pairing_number:, standings_rank:, colour:, colour_due:,
-  colour_ok:, ladder_value:}`).
+  colour_ok:, colour_class:, colour_reason:, ladder_value:}`). The due
+  colour is computed from played games only (FIDE C.04.2 3.4) - see
+  `colour_preference/1`.
   """
   def for_round(tournament, round_number) do
     case Tournaments.get_round(tournament.id, round_number) do
@@ -75,7 +77,7 @@ defmodule PairingsEngine.PairingRationale do
 
     score_by_player = pre_round_scores(tournament, prior, round.virtual_points)
     ladder = ladder_values(tournament, prior)
-    colour_hist = colour_history(tournament.id, prior)
+    colour_hist = colour_records(tournament.id, prior)
     played_before = prior_opponents(tournament.id, prior)
     {prior_bye_players, prior_pairing_bye_players} = players_with_prior_bye(tournament.id, prior)
 
@@ -472,7 +474,9 @@ defmodule PairingsEngine.PairingRationale do
     %{score: score, standings_rank: rank} =
       Map.get(scores, player.id, %{score: 0.0, standings_rank: nil})
 
-    due = due_colour(Map.get(colour_hist, player.id, []))
+    records = Map.get(colour_hist, player.id, [])
+    pref = records |> played_colours() |> colour_preference()
+    due = pref && pref.due
 
     %{
       player: player,
@@ -483,6 +487,8 @@ defmodule PairingsEngine.PairingRationale do
       colour: colour,
       colour_due: due,
       colour_ok: colour_matches_due?(colour, due),
+      colour_class: pref && pref.class,
+      colour_reason: colour_reason(records, pref),
       had_prior_bye: MapSet.member?(prior_bye_players, player.id)
     }
   end
@@ -538,11 +544,21 @@ defmodule PairingsEngine.PairingRationale do
 
   ## ---------- colours ----------
 
-  # Each player's colour sequence over real (non-bye) games in rounds `<=
-  # through`, in round order.
-  defp colour_history(_tournament_id, through) when through < 1, do: %{}
+  # Each player's round-by-round colour record over rounds `<= through`,
+  # oldest first: `%{round:, mark:}` where `mark` is `:w`/`:b` for a game
+  # actually played (or being played), or why there was none - `:forfeit`
+  # (either side, won, lost or double), `:bye` (pairing-allocated or
+  # requested) or `:absent` (not seated at all, which is also what a round
+  # before a late entry looks like).
+  #
+  # This used to collect every non-bye pairing's seat as a colour, forfeits
+  # included. FIDE C.04.2 3.4 says only played games count, Ainalrami agrees
+  # (`Ainalrami.Trf.game_was_played?/1`), and so this page was the one voice
+  # in the room giving a forfeit a colour - which is how "✗ against due
+  # colour" came to be printed next to a pairing the engine got right.
+  defp colour_records(_tournament_id, through) when through < 1, do: %{}
 
-  defp colour_history(tournament_id, through) do
+  defp colour_records(tournament_id, through) do
     rounds =
       Repo.all(
         from r in Round.without_explanation(),
@@ -551,37 +567,161 @@ defmodule PairingsEngine.PairingRationale do
           preload: [pairings: []]
       )
 
-    for round <- rounds, p <- round.pairings, p.result != "bye", reduce: %{} do
-      acc ->
-        acc =
-          if p.white_player_id,
-            do: Map.update(acc, p.white_player_id, [:w], &(&1 ++ [:w])),
-            else: acc
+    requested =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament_id and b.round <= ^through,
+          select: {b.player_id, b.round}
+      )
+      |> MapSet.new()
 
-        if p.black_player_id,
-          do: Map.update(acc, p.black_player_id, [:b], &(&1 ++ [:b])),
-          else: acc
+    seen =
+      for round <- rounds, p <- round.pairings, reduce: %{} do
+        acc ->
+          bye? = p.result == "bye" or is_nil(p.black_player_id)
+
+          acc
+          |> put_mark(p.white_player_id, round.number, seat_mark(p.result, :w, bye?))
+          |> put_mark(p.black_player_id, round.number, seat_mark(p.result, :b, bye?))
+      end
+
+    player_ids =
+      (Enum.map(Map.keys(seen), &elem(&1, 0)) ++ Enum.map(requested, &elem(&1, 0)))
+      |> Enum.uniq()
+
+    Map.new(player_ids, fn id ->
+      records =
+        Enum.map(1..through, fn r ->
+          mark =
+            Map.get(seen, {id, r}) ||
+              if(MapSet.member?(requested, {id, r}), do: :bye, else: :absent)
+
+          %{round: r, mark: mark}
+        end)
+
+      {id, records}
+    end)
+  end
+
+  defp put_mark(acc, nil, _round, _mark), do: acc
+  defp put_mark(acc, id, round, mark), do: Map.put(acc, {id, round}, mark)
+
+  defp seat_mark(_result, _colour, true), do: :bye
+
+  # A forfeit of any flavour is the only seated board that is not a game.
+  # A board with no result yet still is one: the pairing refuses to go past
+  # it, except for a match-format Swiss, whose second leg is paired with the
+  # first still in progress - and those players are very much sitting there.
+  defp seat_mark(result, colour, false) do
+    if Results.forfeit?(result), do: :forfeit, else: colour
+  end
+
+  @doc """
+  The colours of the games actually played, oldest first, from a
+  round-by-round record (`%{round:, mark:}` maps, or bare marks). Everything
+  that is not `:w`/`:b` is dropped - C.04.2 3.4.
+  """
+  def played_colours(records), do: for(r <- records, (m = mark(r)) in [:w, :b], do: m)
+
+  defp mark(%{mark: m}), do: m
+  defp mark(m), do: m
+
+  @doc """
+  FIDE C.04.2 3.4's reading of a colour history: unplayed rounds move to the
+  front, played ones keep their order. Takes a list of marks (`:w`, `:b`,
+  anything else is unplayed and comes back as `:u`) or a string in FIDE's own
+  notation (`"BWBuW"` -> `"uBWBW"`).
+  """
+  def compact_colours(history) when is_binary(history) do
+    history
+    |> String.graphemes()
+    |> Enum.map(fn
+      "W" -> :w
+      "B" -> :b
+      _ -> :u
+    end)
+    |> compact_colours()
+    |> Enum.map_join(fn
+      :w -> "W"
+      :b -> "B"
+      :u -> "u"
+    end)
+  end
+
+  def compact_colours(marks) when is_list(marks) do
+    {played, unplayed} = Enum.split_with(marks, &(&1 in [:w, :b]))
+    List.duplicate(:u, length(unplayed)) ++ played
+  end
+
+  @doc """
+  A player's colour preference from their PLAYED colours (`[:w | :b]`,
+  oldest first), as `%{due:, class:, basis:}`, or `nil` with no games.
+
+  Ported from Ainalrami's own `colour_stats/1` ladder (itself bbpPairings'),
+  so the page and the engine cannot hold two opinions: a difference of two
+  or more outranks the same colour twice running, which outranks a
+  difference of one, which outranks plain alternation. `class` is FIDE's
+  absolute/strong/mild; `basis` says which rung decided it - `:imbalance`
+  (order is irrelevant), `:repeat` (the last two games) or `:alternate`
+  (the last game).
+  """
+  def colour_preference([]), do: nil
+
+  def colour_preference(colours) do
+    whites = Enum.count(colours, &(&1 == :w))
+    blacks = Enum.count(colours, &(&1 == :b))
+    imbalance = abs(whites - blacks)
+    last = List.last(colours)
+    run = colours |> Enum.reverse() |> Enum.take_while(&(&1 == last)) |> length()
+    lower = if whites > blacks, do: :b, else: :w
+
+    cond do
+      imbalance > 1 -> %{due: lower, class: :absolute, basis: :imbalance}
+      run > 1 -> %{due: alternate(last), class: :absolute, basis: :repeat}
+      imbalance > 0 -> %{due: lower, class: :strong, basis: :imbalance}
+      true -> %{due: alternate(last), class: :mild, basis: :alternate}
     end
   end
 
   @doc """
-  The FIDE due colour for a player given their prior colour sequence
-  (`[:w | :b]`, oldest first): the colour that restores balance, or - when
-  balanced - the alternation of their last colour. `nil` when there's no
-  history (no preference yet). Exposed for focused testing.
+  The FIDE due colour for a player given their prior PLAYED colour sequence
+  (`[:w | :b]`, oldest first) - `colour_preference/1`'s `:due`. `nil` when
+  there's no history (no preference yet). Exposed for focused testing.
   """
-  def due_colour([]), do: nil
-
   def due_colour(colours) do
-    whites = Enum.count(colours, &(&1 == :w))
-    blacks = Enum.count(colours, &(&1 == :b))
+    case colour_preference(colours) do
+      nil -> nil
+      %{due: due} -> due
+    end
+  end
 
-    cond do
-      whites > blacks -> :b
-      blacks > whites -> :w
-      # Balanced - due colour is the opposite of the most recent one (FIDE
-      # colour alternation, C.04.2.D).
-      true -> alternate(List.last(colours))
+  # Why the preference landed where it did, when the answer leans on a round
+  # that was skipped: the last game (alternation) or the last two (a repeated
+  # colour) are only "last" once the unplayed rounds have been moved out of
+  # the way, and a reader looking at the round-by-round chips deserves to be
+  # told which ones moved. `nil` when nothing was skipped or order is moot.
+  defp colour_reason(_records, nil), do: nil
+  defp colour_reason(_records, %{basis: :imbalance}), do: nil
+
+  defp colour_reason(records, %{basis: basis, due: due}) do
+    played_at =
+      records
+      |> Enum.with_index()
+      |> Enum.filter(fn {r, _i} -> r.mark in [:w, :b] end)
+      |> Enum.map(&elem(&1, 1))
+
+    keep = if basis == :repeat, do: 2, else: 1
+    from = Enum.at(played_at, -keep)
+
+    skipped =
+      records
+      |> Enum.drop(from + 1)
+      |> Enum.reject(&(&1.mark in [:w, :b]))
+
+    if skipped == [] do
+      nil
+    else
+      %{basis: basis, due: due, last: alternate(due), skipped: skipped}
     end
   end
 

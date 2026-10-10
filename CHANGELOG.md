@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The pairing explanation no longer gives a forfeit a colour.** It counted the seat of every forfeited game as a colour played, so a player with White, then a forfeit at Black, read as balanced and "due White" - and the page printed "✗ against due colour" beside the Black the engine had correctly given. FIDE C.04.2 3.4 counts played games only, and so does the page now: forfeits show as dashed "not played" squares, a **counts as** strip shows the history the way the rule reads it (unplayed rounds first), the due colour follows the same ladder Ainalrami uses, and a verdict that hinges on a skipped round names it. The team account's colour column puts its unplayed rounds first too. The pairings themselves were never wrong; only the commentary was.
+
 ## [0.81.0] - 2026-10-10
 
 - [Fix] **A late entrant's running score on the results site no longer turns into a dash.** In an event that pays nothing for an absence, the rounds before a player joined were simply missing from what OpenResults received, and it read "missing" as "unknown" - so "points before this round" showed a dash beside every late entrant for the rest of the event. Those rounds now travel as "not yet joined", worth zero, which is what the standings had counted all along.

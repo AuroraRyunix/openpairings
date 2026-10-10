@@ -164,6 +164,17 @@ Voor een Zwitserse ronde die door Ainalrami is gepaard, toont de pagina
   de criteria van C.04.3, en of de keuze van de engine de beste is. De antwoorden
   worden uitgewerkt wanneer u een vraag opent, en worden opgeslagen.
 
+Kleuren volgen C.04.2 3.4: alleen partijen die echt gespeeld zijn tellen. Een
+forfait (gewonnen of verloren, door wie ook), een bye of een afwezigheid is geen
+kleur, en de verschuldigde kleur wordt bepaald alsof die ronden vooraan stonden -
+een geschiedenis W Z *forfait* W telt als *u* W Z W. De kleine kleurvakjes naast
+een naam tonen de ronden zoals ze verliepen, de niet-gespeelde gestippeld; waar
+dat afwijkt van hoe de regel het leest, volgt een strook **telt als** met de
+niet-gespeelde ronden vooraan. Hangt een verschuldigde kleur af van een
+overgeslagen ronde, dan zegt de bordkaart welke, bijvoorbeeld *verwachte kleur
+Wit: laatst gespeelde partij was met Zwart (ronde 3 was een forfait en telt niet
+mee)*.
+
 Ook rondetoernooi en Keizer hebben een exacte verantwoording. Een Zwitserse
 ronde zonder eigen verantwoording - gepaard voordat het programma er een
 bijhield, of door een engine die het niet meer heeft - kan achteraf worden

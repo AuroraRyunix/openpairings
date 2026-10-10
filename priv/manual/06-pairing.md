@@ -155,6 +155,16 @@ For a Swiss round paired by Ainalrami the page shows
   terms of the criteria of C.04.3, and whether the engine's choice is the best.
   The answers are worked out when you open a question, and are saved.
 
+Colours follow C.04.2 3.4: only games actually played count. A forfeit (won or
+lost, by either side), a bye or an absence is not a colour, and the colour due
+is worked out as if those rounds came first - a history W B *forfeit* W counts
+as *u* W B W. The small colour squares beside a name show the rounds as they
+happened, with the unplayed ones dashed; where that differs from how the rule
+reads it, a **counts as** strip follows with the unplayed rounds moved to the
+front. When a due colour depends on a round that was skipped, the board card
+says which one, for example *due White: last played game was Black (round 3
+was a forfeit and does not count)*.
+
 Round robin and Keizer have an exact account too. A Swiss round with no
 account of its own - paired before the program kept one, or by an engine it
 no longer has - can be analysed after the fact from the boards as played; the

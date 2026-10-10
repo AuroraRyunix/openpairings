@@ -46,6 +46,24 @@ defmodule PairingsEngineWeb.TeamExplainLiveTest do
     refute has_element?(lv, "#team-account-not-recorded")
   end
 
+  # C.04.2 3.4: a round without a match is not a colour. The bye team's
+  # column leads with the unplayed round, the way FIDE writes it.
+  test "the colours column puts unplayed rounds first", %{conn: conn, scope: scope} do
+    {t, _} = team_swiss(teams(5), user_id: scope.user.id)
+    round = pair_next!(t) |> Repo.preload(:pairings, force: true)
+
+    for p <- round.pairings, p.black_player_id do
+      {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+    end
+
+    pair_next!(t)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    assert has_element?(lv, "#team-colours-5 .pe-team-unplayed", "u")
+    refute has_element?(lv, "#team-colours-1 .pe-team-unplayed")
+  end
+
   test "a bracket's upfloater sets, the one rejected and what decided", %{
     conn: conn,
     scope: scope
