@@ -69,7 +69,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.80.0",
+      version: "0.81.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()) ++ plugin_paths("lib"),
       test_paths: ["test" | plugin_paths("test")],

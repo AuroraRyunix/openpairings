@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-10-10
+
+- [Fix] **A late entrant's running score on the results site no longer turns into a dash.** In an event that pays nothing for an absence, the rounds before a player joined were simply missing from what OpenResults received, and it read "missing" as "unknown" - so "points before this round" showed a dash beside every late entrant for the rest of the event. Those rounds now travel as "not yet joined", worth zero, which is what the standings had counted all along.
+
 - [Change] **The sign-in page says what the app does now, not what it did in the summer.** Event groups, FIDE mode and the Dutch manual made the list; "validated against 2.5 billion pairings" became "checked against billions", which stays true without a recount. "Welcome back" and "Confirm it's you" finally speak Dutch too.
 
 - [Removed] **JaVaFo.** Ainalrami - the default since August, and the one

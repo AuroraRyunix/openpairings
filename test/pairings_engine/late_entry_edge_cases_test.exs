@@ -225,7 +225,19 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
     for round <- snapshot["rounds"],
         bye <- round["byes"] || [],
         bye["player"] == no,
+        bye["kind"] != "not-joined",
         into: %{},
+        do: {round["number"], bye["points"]}
+  end
+
+  # The rounds published as "not yet joined": worth nothing, and no game.
+  defp not_joined_rounds(snapshot, player) do
+    no = Repo.reload!(player).pairing_number
+
+    for round <- snapshot["rounds"],
+        bye <- round["byes"] || [],
+        bye["player"] == no,
+        bye["kind"] == "not-joined",
         do: {round["number"], bye["points"]}
   end
 
@@ -267,6 +279,11 @@ defmodule PairingsEngine.LateEntryEdgeCasesTest do
 
       assert points == standings_points,
              "round #{round}: snapshot #{points}, standings #{standings_points}"
+    end
+
+    for {round, points} <- not_joined_rounds(snap, player) do
+      assert points == 0.0
+      refute Map.has_key?(games, round)
     end
 
     got

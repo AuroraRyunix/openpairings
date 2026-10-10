@@ -957,7 +957,26 @@ defmodule PairingsEngine.Snapshot do
         }
       end
 
-    Enum.sort_by(allocated ++ recorded, & &1["player"])
+    Enum.sort_by(allocated ++ recorded ++ not_joined(round, t, nos), & &1["player"])
+  end
+
+  # A round played before a late entrant joined, in a tournament where that
+  # round is not an absence (`LateEntry.applies?/1` false - every FIDE-style
+  # event): worth nothing, and until 2026-10-10 not published at all. The
+  # player was simply missing from the round, and the results site, which
+  # adds each round's figures up into a running total, read "missing" as
+  # "unknown" and showed a dash beside them for the rest of the event. One
+  # explicit zero says what the standings already count.
+  defp not_joined(%Round{} = round, %Tournament{} = t, nos) do
+    if LateEntry.applies?(t) or not LateEntry.derives?(t) do
+      []
+    else
+      for {player_id, {start, _how}} <- LateEntry.effective_start_rounds(t),
+          start > round.number,
+          Map.has_key?(nos, player_id) do
+        %{"player" => Map.fetch!(nos, player_id), "kind" => "not-joined", "points" => 0.0}
+      end
+    end
   end
 
   defp recorded_result?(%{result: r}), do: r not in [nil, "", "bye"]

@@ -555,5 +555,30 @@ defmodule PairingsEngine.LateEntryTest do
       row = Enum.find(snapshot["standings"]["rows"], &(&1["player"] == late.pairing_number))
       assert row["points"] == 1.5
     end
+
+    test "a FIDE event tells the results site each round before joining was worth nothing" do
+      # Without these rows the late entrant was simply missing from rounds 1-3,
+      # and the results site showed a dash for their running total from then on.
+      %{tournament: t, late: late} =
+        setup_event(%{abs_value: nil, abs_nbfois: nil, abs_jusque: nil})
+
+      for n <- 1..3 do
+        {:ok, _} = Tournaments.publish_round_now(Tournaments.get_round(t.id, n))
+      end
+
+      snapshot = Snapshot.build(Tournaments.get_tournament!(t.id))
+
+      per_round =
+        for round <- snapshot["rounds"],
+            bye <- round["byes"],
+            bye["player"] == late.pairing_number,
+            do: {round["number"], bye["kind"], bye["points"]}
+
+      assert Enum.sort(per_round) == [
+               {1, "not-joined", 0.0},
+               {2, "not-joined", 0.0},
+               {3, "not-joined", 0.0}
+             ]
+    end
   end
 end
