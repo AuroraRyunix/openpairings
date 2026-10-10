@@ -4,21 +4,22 @@ Live borden tonen de partijen van een ronde terwijl ze gespeeld worden, zet voor
 zet, met de klokken, op de uitslagensite. De zetten komen van een relais in de
 speelzaal. Alnasl is dat relais: een klein kastje naast elektronische DGT-borden
 dat de zetten leest en ze naar OpenResults stuurt. De toeschouwerspagina's zijn
-gebouwd en getest op een ontwikkeltak van OpenResults. Alnasl zelf is gepland.
+gebouwd en staan op de uitslagensite; ze blijven leeg tot een relais zetten
+doorstuurt. Alnasl zelf is gepland.
 
-> [!WARNING] Nog niet beschikbaar - dit hoofdstuk beschrijft wat gebouwd is en wat gepland is
-> Live borden staan nog niet op de openbare uitslagensite. Ze leven op een
-> ontwikkeltak van OpenResults. Ook het Alnasl-relais is nog niet af: de repository
-> bevat het plan en een hulpmiddel om het signaal van het bord op te nemen, en er
-> draait nog niets. Elk onderdeel hieronder is als **gebouwd** of **gepland**
-> aangeduid.
+> [!WARNING] Het relais is nog niet beschikbaar
+> De livepagina's horen bij de uitslagensite, maar een toernooi toont pas borden
+> wanneer een relais in de zaal de zetten doorstuurt - en Alnasl, dat relais, is
+> nog niet af: de repository bevat het plan en een hulpmiddel om het signaal van
+> het bord op te nemen, en er draait nog niets. Elk onderdeel hieronder is als
+> **gebouwd** of **gepland** gemarkeerd.
 
 ## Stand van zaken in één oogopslag {#status-at-a-glance}
 
 | Onderdeel | Stand |
 | --- | --- |
-| De livepagina's: uitzending, Alle borden, beamerweergave, stukkensets, PGN, uitzendvertraging | gebouwd, op de ontwikkeltak |
-| De ingestroute die de zetten en klokken van een bord ontvangt, en de relaissleutels | gebouwd, op de ontwikkeltak |
+| De livepagina's: uitzending, Alle borden, beamerweergave, stukkensets, PGN, uitzendvertraging | gebouwd |
+| De ingestroute die de zetten en klokken van een bord ontvangt, en de relaissleutels | gebouwd |
 | Alnasl, het relais in de zaal | gepland, ontwerpfase |
 | Een schakelaar van de arbiter in OpenPairings die zegt dat een toernooi live borden heeft | gepland |
 
@@ -66,7 +67,7 @@ niet beschrijven.
 
 ## Relaissleutels {#relay-keys}
 
-*Gebouwd, op de ontwikkeltak.* Een relais is een kastje tussen mensen in een zaal,
+*Gebouwd.* Een relais is een kastje tussen mensen in een zaal,
 en het mag het hele toernooi niet kunnen herschrijven. Daarom krijgt elk relais een
 eigen sleutel. Een beheerder van de uitslagensite maakt een relaissleutel voor één
 toernooi, op de pagina Toernooien, het toernooi, Relaissleutels. De sleutel wordt
@@ -79,11 +80,11 @@ niets publiceren, verwijderen of anders wijzigen. Ze heeft een eigen budget van
 relaissleutels ervan, en een overdracht naar een andere installatie trekt ze in.
 
 De route is `POST /api/tournaments/:slug/live`. Het volledige contract voor wie een
-relais schrijft, staat in `docs/live-boards-api.md` op de ontwikkeltak.
+relais schrijft, staat in `docs/live-boards-api.md` van OpenResults.
 
 ## Toeschouwerspagina's {#spectator-pages}
 
-*Gebouwd, op de ontwikkeltak.* De pagina's werken als verbindingen: ze lezen de
+*Gebouwd.* De pagina's werken als verbindingen: ze lezen de
 partijen zelf opnieuw in, dus een zet verschijnt binnen een seconde, en er wordt
 niets uit een cache geleverd.
 
@@ -110,14 +111,14 @@ onder elkaar en schuift niets opzij. Er is geen evaluatiebalk, want er is geen e
 
 ### Alle borden {#all-boards}
 
-*Gebouwd, op de ontwikkeltak.* Alle borden, op `/t/<toernooi>/live/<ronde>/all`, is
+*Gebouwd.* Alle borden, op `/t/<toernooi>/live/<ronde>/all`, is
 een raster van elk bord van een ronde, met een klok op elke tegel en een
 livemarkering bij de partijen die lopen. Het is één klik heen en terug van de
 uitzending.
 
 ### De beamerweergave {#the-projector-view}
 
-*Gebouwd, op de ontwikkeltak.* De beamerweergave zet de partijen die u kiest op een
+*Gebouwd.* De beamerweergave zet de partijen die u kiest op een
 scherm in de zaal. Ze opent vanuit de uitzending of Alle borden met de knop
 *Beamer*, die een lijst van de borden van de ronde toont om aan te vinken: allemaal,
 geen, of enkele.
@@ -143,14 +144,14 @@ verandert niet. Zie [Het zaalscherm en de beamerweergave](16-openresults.md#the-
 
 ### Stukkensets {#piece-sets}
 
-*Gebouwd, op de ontwikkeltak.* De borden worden getekend met een van twee
+*Gebouwd.* De borden worden getekend met een van twee
 stukkensets: Cburnett, de standaard, en Chessnut. De kijker kiest met de keuzelijst
 Stukken op de livepagina's, en de keuze wordt in de browser onthouden. Een scherm
 zonder keuzelijst krijgt een set in het adres, met `?pieces=chessnut`.
 
 ### Forfaits en uitslagen {#forfeits-and-results}
 
-*Gebouwd, op de ontwikkeltak.* Een forfait dat de arbiter heeft gepubliceerd
+*Gebouwd.* Een forfait dat de arbiter heeft gepubliceerd
 (`1-0FF`, `0-1FF` of `0-0FF`) wordt als forfait getoond, wat het relais ook stuurt.
 Aan een forfaitbord zit niemand, dus het bord toont *Forfait* of *Dubbel forfait*, de
 uitslag als `1-0 FF`, en een leeg bord met *Niet gespeeld - forfait*. Een bord met een
@@ -164,7 +165,7 @@ afgelopen partij alleen *Partij voorbij*.
 
 ### De uitzendvertraging {#the-broadcast-delay}
 
-*Gebouwd, op de ontwikkeltak.* Sommige organisatoren moeten de partij een aantal minuten
+*Gebouwd.* Sommige organisatoren moeten de partij een aantal minuten
 na het spel tonen, onder anti-valsspelregels. Een beheerder van de uitslagensite stelt
 dit per toernooi in, in minuten, op de pagina Toernooien, het toernooi, *Vertraging live
 borden*. De standaard is 0. Elke pagina, het zaalscherm en de PGN-download tonen dan de
@@ -174,13 +175,13 @@ meteen, in beide richtingen.
 
 ### PGN-download {#pgn-download}
 
-*Gebouwd, op de ontwikkeltak.* Een partij kan als PGN-bestand worden gedownload. Het adres
+*Gebouwd.* Een partij kan als PGN-bestand worden gedownload. Het adres
 eindigt op `/pgn`, bijvoorbeeld `/t/<toernooi>/live/<ronde>/<bord>/pgn`. Het bestand wordt
 bij elk verzoek opgebouwd, op de uitzendvertraging.
 
 ### Federatievlaggen {#federation-flags}
 
-*Gebouwd, op de ontwikkeltak.* Waar OpenPairings de instelling voor vlaggen meestuurt (het
+*Gebouwd.* Waar OpenPairings de instelling voor vlaggen meestuurt (het
 vinkje *Federatievlaggen*, standaard aan tenzij u het uitvinkt), wordt een klein vlaggetje
 naast de federatiecode van een speler getoond: op de startlijst, de inschrijvingslijst, de
 spelerskaart, het zaalscherm en de livepagina's (op de beamerweergave alleen de vlag, zonder
@@ -208,4 +209,4 @@ nog niet, dus voorlopig zegt geen enkel toernooi dat het live borden heeft.
 - **Onwettige zetten worden geweigerd.** De site controleert elke zet op de regels. Een zet
   die onwettig is, of op twee legale zetten past, weigert de update en noemt de zet, en er
   wordt uit die update niets bewaard.
-- **Alleen twee stukkensets** worden aangeboden, en voorlopig alleen op de ontwikkeltak.
+- **Alleen twee stukkensets** worden aangeboden.

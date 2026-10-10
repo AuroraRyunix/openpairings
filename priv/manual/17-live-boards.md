@@ -3,21 +3,22 @@
 Live boards show the games of a round as they are played, move by move, with
 the clocks, on the results site. The moves come from a relay in the playing
 hall. Alnasl is that relay: a small box beside electronic DGT boards that reads
-the moves and sends them to OpenResults. The spectator pages are built and
-tested on a development branch of OpenResults. Alnasl itself is planned.
+the moves and sends them to OpenResults. The spectator pages are built and on the results site; they stay empty until a
+relay sends moves. Alnasl itself is planned.
 
-> [!WARNING] Not available yet - this chapter describes what is built and what is planned
-> Live boards are not on the public results site yet. They live on a
-> development branch of OpenResults. The Alnasl relay is not finished either:
-> its repository holds the plan and a tool for recording the board's signal, and
-> nothing runs yet. Each part below is marked **built** or **planned**.
+> [!WARNING] The relay is not available yet
+> The live pages are part of the results site, but a tournament shows boards
+> only when a relay in the hall sends its moves - and Alnasl, that relay, is
+> not finished: its repository holds the plan and a tool for recording the
+> board's signal, and nothing runs yet. Each part below is marked **built** or
+> **planned**.
 
 ## Status at a glance {#status-at-a-glance}
 
 | Part | Status |
 | --- | --- |
-| The live pages: broadcast, All boards, projector view, piece sets, PGN, broadcast delay | built, on the development branch |
-| The ingest route that takes a board's moves and clocks, and the relay keys | built, on the development branch |
+| The live pages: broadcast, All boards, projector view, piece sets, PGN, broadcast delay | built |
+| The ingest route that takes a board's moves and clocks, and the relay keys | built |
 | Alnasl, the relay in the hall | planned, design stage |
 | An arbiter's switch in OpenPairings that says a tournament has live boards | planned |
 
@@ -62,7 +63,7 @@ No setup steps are given here, because the sources do not describe them yet.
 
 ## Relay keys {#relay-keys}
 
-*Built, on the development branch.* A relay is a box in a room full of people,
+*Built.* A relay is a box in a room full of people,
 and it must not be able to rewrite the whole tournament. So each relay gets its
 own key. An administrator of the results site makes a relay key for one
 tournament, on the page Tournaments, the tournament, Relay keys. The key is
@@ -75,11 +76,11 @@ requests a minute. Taking a tournament down removes its relay keys, and a
 transfer to another installation revokes them.
 
 The route is `POST /api/tournaments/:slug/live`. Its full contract, for whoever
-writes a relay, is in the development branch's `docs/live-boards-api.md`.
+writes a relay, is in OpenResults' `docs/live-boards-api.md`.
 
 ## Spectator pages {#spectator-pages}
 
-*Built, on the development branch.* The pages are sockets: they re-read the
+*Built.* The pages are sockets: they re-read the
 games themselves, so a move appears within a second and no page is served from
 a cache.
 
@@ -107,14 +108,14 @@ engine.
 
 ### All boards {#all-boards}
 
-*Built, on the development branch.* All boards, at
+*Built.* All boards, at
 `/t/<tournament>/live/<round>/all`, is a grid of every board of a round, with a
 clock on each tile and a live badge on the games in progress. It is one click
 from the broadcast and back.
 
 ### The projector view {#the-projector-view}
 
-*Built, on the development branch.* The projector view puts the games you choose
+*Built.* The projector view puts the games you choose
 on a screen in the hall. It opens from the broadcast or All boards with the
 *Projector* button, which shows a list of the round's boards to tick: all of
 them, none, or a few.
@@ -140,14 +141,14 @@ separate page and is not changed. See
 
 ### Piece sets {#piece-sets}
 
-*Built, on the development branch.* The boards are drawn with one of two piece
+*Built.* The boards are drawn with one of two piece
 sets: Cburnett, the default, and Chessnut. The viewer chooses with the Pieces
 picker on the live pages, and the choice is remembered in the browser. A screen
 with no picker can be given a set in the address, with `?pieces=chessnut`.
 
 ### Forfeits and results {#forfeits-and-results}
 
-*Built, on the development branch.* A forfeit that the arbiter published
+*Built.* A forfeit that the arbiter published
 (`1-0FF`, `0-1FF` or `0-0FF`) shows as a forfeit whatever the relay sends. Nobody
 sits at a forfeited board, so the board shows *Forfeit* or *Double forfeit*, the
 result as `1-0 FF`, and an empty board marked *Not played - forfeit*. A board with
@@ -161,7 +162,7 @@ shows only *Game over*.
 
 ### The broadcast delay {#the-broadcast-delay}
 
-*Built, on the development branch.* Some organisers must show the game a number
+*Built.* Some organisers must show the game a number
 of minutes behind the play, under anti-cheating rules. An administrator of the
 results site sets this per tournament, in minutes, on the page Tournaments, the
 tournament, *Live board delay*. The default is 0. Every page, the hall display
@@ -171,13 +172,13 @@ sent to a browser. A change takes effect at once, both ways.
 
 ### PGN download {#pgn-download}
 
-*Built, on the development branch.* A game can be downloaded as a PGN file. The
+*Built.* A game can be downloaded as a PGN file. The
 address ends in `/pgn`, for example `/t/<tournament>/live/<round>/<board>/pgn`.
 The file is built on each request, at the broadcast delay.
 
 ### Federation flags {#federation-flags}
 
-*Built, on the development branch.* Where OpenPairings sends the setting for
+*Built.* Where OpenPairings sends the setting for
 flags (the *Federation flags* tick, on unless it is unticked), a small flag is
 shown beside a player's federation code: on the starting list, the entry list,
 the player card, the hall display and the live pages (on the projector view,
@@ -205,4 +206,4 @@ not have it yet, so for now no tournament says it has live boards.
 - **Illegal moves are refused.** The site checks every move against the rules.
   A move that is illegal, or that fits two legal moves, refuses the update and
   names the move, and nothing is stored from that update.
-- **Only two piece sets** are offered, and only on the development branch for now.
+- **Only two piece sets** are offered.
