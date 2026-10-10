@@ -107,6 +107,12 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   `tournament.pairing_numbers_origin` (nil in the three scenarios - the
   pairing issued them). With that key taken out the regenerated file is
   equal, term for term, to the one before.
+
+  And for the results site's per-round figures (app-path audit, 2026-10):
+  the withdrawn player of the first scenario is published as `not-paired`,
+  0 points, in the two rounds after leaving - two rows in the public
+  snapshot. With those rows taken out the regenerated file is equal, term
+  for term, to the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

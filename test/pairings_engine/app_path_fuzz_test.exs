@@ -151,6 +151,18 @@ defmodule PairingsEngine.AppPathFuzzTest do
 
     dates = for r <- 1..rounds, do: Date.add(~D[2026-08-01], (r - 1) * 7)
 
+    # Baku, or the players' extra points in the pairing (as acceleration, or
+    # as a handicap that counts), or neither. The changeset refuses both.
+    {acceleration, extra_mode, count_extra} =
+      Enum.random([
+        {"none", "handicap", false},
+        {"none", "handicap", false},
+        {"none", "handicap", false},
+        {"baku", "handicap", false},
+        {"none", "acceleration", false},
+        {"none", "handicap", true}
+      ])
+
     attrs = %{
       "name" => "AppPath #{seed}",
       "type" => "swiss",
@@ -161,7 +173,10 @@ defmodule PairingsEngine.AppPathFuzzTest do
       "end_date" => Date.to_iso8601(List.last(dates)),
       "round_dates" => Enum.map(dates, &Date.to_iso8601/1),
       "rounds_count" => rounds,
-      "acceleration" => Enum.random(~w(none none none baku)),
+      "acceleration" => acceleration,
+      "extra_points_mode" => extra_mode,
+      "count_extra_points" => count_extra,
+      "ask_bye_type" => chance(30),
       "points_win" => win,
       "points_draw" => draw,
       "points_loss" => loss,
@@ -188,6 +203,18 @@ defmodule PairingsEngine.AppPathFuzzTest do
       stats: %{},
       failures: []
     }
+
+    st =
+      note(
+        st,
+        "config " <>
+          inspect(
+            Map.take(
+              attrs,
+              ~w(acceleration extra_points_mode count_extra_points ask_bye_type points_win bye_value abs_value late_entry_numbering)
+            )
+          )
+      )
 
     st = Enum.reduce(1..n, st, fn _, acc -> add_player(acc, 1) end)
     st = maybe_forbid(st)
@@ -244,7 +271,11 @@ defmodule PairingsEngine.AppPathFuzzTest do
     {:ok, _p} =
       Tournaments.create_player(st.tid, %{
         "name" => "Player#{String.pad_leading("#{i}", 2, "0")}, S#{st.seed}",
-        "fide_rating" => if(chance(12), do: 0, else: between(1200, 2500)),
+        # Rounded to 50, so some share a rating and the title and the name
+        # get to decide (C.04.2 2.2.2, 2.2.3).
+        "fide_rating" => if(chance(12), do: 0, else: between(24, 50) * 50),
+        "title" => if(chance(20), do: Enum.random(~w(GM IM WGM FM WIM CM WFM WCM)), else: ""),
+        "extra_points" => if(chance(25), do: Enum.random([0.5, 1.0]), else: 0.0),
         "federation" => Enum.random(~w(BEL BEL NED FRA)),
         "club" => Enum.random(~w(A B C D)),
         "start_round" => start_round
@@ -306,7 +337,15 @@ defmodule PairingsEngine.AppPathFuzzTest do
       kept = String.split(p.absent_rounds || "", ",", trim: true)
 
       {:ok, _} =
-        Tournaments.update_player(p, %{"absent_rounds" => Enum.join(kept ++ ["#{r}"], ",")})
+        Tournaments.update_player(
+          p,
+          %{
+            "absent_rounds" => Enum.join(kept ++ ["#{r}"], ","),
+            # Read only where the tournament asks the bye type.
+            "bye_types" => %{"#{r}" => Enum.random(~w(requested-half requested-zero full-point))}
+          },
+          acknowledged: [:second_half_bye, :sent_round_changed]
+        )
 
       bump(st, :absences)
     else
@@ -530,7 +569,7 @@ defmodule PairingsEngine.AppPathFuzzTest do
         else: fail(st, "pairing numbers are not 1..N: #{inspect(numbers)}")
 
     if t.late_entry_numbering == "rating" and
-         Enum.map(numbered, & &1.id) != Enum.map(Pairing.initial_order(numbered, t), & &1.id) do
+         Enum.map(numbered, & &1.id) != Enum.map(Enum.sort_by(numbered, &seed_key/1), & &1.id) do
       fail(
         st,
         "pairing numbers do not follow the initial order: " <>
@@ -540,6 +579,12 @@ defmodule PairingsEngine.AppPathFuzzTest do
       st
     end
   end
+
+  # C.04.2 2.2, written out again here rather than borrowed from the app:
+  # rating, then title (GM-IM-WGM-FM-WIM-CM-WFM-WCM-none), then the name.
+  @titles ~w(GM IM WGM FM WIM CM WFM WCM)
+  defp seed_key(p),
+    do: {-(p.fide_rating || 0), Enum.find_index(@titles, &(&1 == p.title)) || 8, p.name}
 
   # Unpair, pair again, nothing else touched: the same round.
   defp maybe_repair(st, _round, r) do
@@ -759,24 +804,33 @@ defmodule PairingsEngine.AppPathFuzzTest do
             lost = MapSet.difference(roster(original), roster(other))
             gained = MapSet.difference(roster(other), roster(original))
 
-            if kind == :trf and roster(original) != roster(other) and
-                 MapSet.subset?(lost, unnumbered) and MapSet.subset?(gained, withdrawn) do
-              if MapSet.size(gained) > 0,
-                do: bump(acc, :round_trip_trf_withdrawn_came_back),
-                else: bump(acc, :round_trip_trf_unnumbered_left_out)
-            else
-              only_original = MapSet.difference(roster(original), roster(other))
-              only_copy = MapSet.difference(roster(other), roster(original))
+            # Nor for the players' extra points: the rounds paired with them
+            # are in the file (`XXA`/`250`), what the next round would be
+            # paired with is not.
+            extra? = PairingsEngine.Tournaments.Tournament.extra_points_pairing?(tournament(acc))
 
-              fail(
-                acc,
-                "round #{r}: paired differently after a #{kind} round trip" <>
-                  " [only in the original: #{Enum.map_join(only_original, "; ", &"#{&1} (#{who(acc, &1)})")}]" <>
-                  " [only in the copy: #{Enum.map_join(only_copy, "; ", &"#{&1} (#{who(acc, &1)})")}]" <>
-                  "
+            if kind == :trf and extra? and roster(original) == roster(other) do
+              bump(acc, :round_trip_trf_extra_points_left_behind)
+            else
+              if kind == :trf and roster(original) != roster(other) and
+                   MapSet.subset?(lost, unnumbered) and MapSet.subset?(gained, withdrawn) do
+                if MapSet.size(gained) > 0,
+                  do: bump(acc, :round_trip_trf_withdrawn_came_back),
+                  else: bump(acc, :round_trip_trf_unnumbered_left_out)
+              else
+                only_original = MapSet.difference(roster(original), roster(other))
+                only_copy = MapSet.difference(roster(other), roster(original))
+
+                fail(
+                  acc,
+                  "round #{r}: paired differently after a #{kind} round trip" <>
+                    " [only in the original: #{Enum.map_join(only_original, "; ", &"#{&1} (#{who(acc, &1)})")}]" <>
+                    " [only in the copy: #{Enum.map_join(only_copy, "; ", &"#{&1} (#{who(acc, &1)})")}]" <>
+                    "
   original #{inspect(original, limit: 60)}
   #{kind}     #{inspect(other, limit: 60)}"
-              )
+                )
+              end
             end
 
           other when kind == :trf and is_list(other) ->
@@ -785,6 +839,16 @@ defmodule PairingsEngine.AppPathFuzzTest do
             if Enum.any?(players(acc), &(&1.status == "withdrawn")),
               do: bump(acc, :round_trip_trf_withdrawn_came_back),
               else: fail(acc, "round #{r}: the trf copy pairs a round the original cannot")
+
+          {:error, _} when kind == :trf and is_list(original) ->
+            # And the other way round: the copy is a player short - the one
+            # with no number yet - and what is left cannot be paired.
+            if Enum.any?(
+                 players(acc),
+                 &(is_nil(&1.pairing_number) and &1.name in roster(original))
+               ),
+               do: bump(acc, :round_trip_trf_unnumbered_left_out),
+               else: fail(acc, "round #{r}: the trf copy cannot pair a round the original can")
 
           other ->
             fail(
@@ -835,6 +899,11 @@ defmodule PairingsEngine.AppPathFuzzTest do
         )
         |> Enum.map(&{&1.board, names[&1.white_player_id], names[&1.black_player_id]})
 
+      # Why not is not compared: the message counts the players, and a
+      # copy may hold fewer (see `round_trip/2`).
+      {:error, {reason, _message}} when is_atom(reason) ->
+        {:error, reason}
+
       {:error, reason} ->
         {:error, inspect(reason, limit: 6)}
     end
@@ -881,6 +950,13 @@ defmodule PairingsEngine.AppPathFuzzTest do
           # what is asked of it then. (Observation O1 in the audit.)
           String.contains?(text, "\n240 ") and not rounds_differ? ->
             bump(st, :engine_check_rounds_ok_future_bye)
+
+          # A handicap that counts is in the pairing and deliberately not
+          # in the file as virtual points (`Pairing.accelerated_rows/4`: a
+          # head start is not something a pairing checker should add back),
+          # so the file's rounds are not the engine's to reproduce.
+          t.extra_points_mode == "handicap" and t.count_extra_points ->
+            bump(st, :engine_check_handicap_not_in_file)
 
           # A player nobody has paired yet has no number and is not in the
           # file, but has a place in the standings (finding F9, open).

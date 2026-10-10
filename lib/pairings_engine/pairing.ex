@@ -2553,7 +2553,22 @@ defmodule PairingsEngine.Pairing do
         player_by_local_rank =
           Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-        trf = trf_input(tournament, full_roster, local_rank_by_player_id, seated, history)
+        # For `round_number`, not for the round after the last one paired:
+        # this used to leave the round out, so a club rule for "the first
+        # three rounds" was gone from round 3's rebuilt field the moment
+        # round 3 existed - and the checker, the re-explanation and every
+        # "why not this pairing" answer judged the round without the rule
+        # it was paired under (or with one that only starts later).
+        trf =
+          trf_input(
+            tournament,
+            full_roster,
+            local_rank_by_player_id,
+            seated,
+            history,
+            round_number
+          )
+
         parsed = Ainalrami.Trf.parse(trf)
 
         # The wishes as they stand NOW, like the forbidden pairings in the
@@ -4413,7 +4428,8 @@ defmodule PairingsEngine.Pairing do
         players \\ nil,
         rank_by_player_id \\ nil,
         eligible_ids \\ nil,
-        shared_history \\ nil
+        shared_history \\ nil,
+        round_number \\ nil
       ) do
     players = players || active_players(tournament.id)
     trf_players = trf_player_rows(tournament, players, shared_history)
@@ -4446,7 +4462,12 @@ defmodule PairingsEngine.Pairing do
       trf_players,
       players,
       rank_by_player_id,
-      paired_rounds_count(tournament.id) + 1,
+      # The round the file is FOR. The next one to pair, unless the caller
+      # is rebuilding an earlier round's field (`engine_field/2`) and says
+      # which: the pairing rules hold per round ("the first three rounds",
+      # "from round 4"), and a round judged under the next round's rules is
+      # judged under the wrong ones.
+      round_number || paired_rounds_count(tournament.id) + 1,
       # nil for a caller with no run history in hand (TRF export, tests):
       # `forbidden_pairs/4` and `exclusion_pairs/6` fall back to reading it
       # themselves, exactly as they always did.

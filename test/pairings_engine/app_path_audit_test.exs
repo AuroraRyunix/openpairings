@@ -252,24 +252,53 @@ defmodule PairingsEngine.AppPathAuditTest do
       assert [%{from_round: 2}] = Tournaments.list_forbidden_pairings(t.id)
     end
 
-    test "a pairing rule added at the same moment holds for that round too", %{t: t} do
-      {:ok, _} =
-        Tournaments.add_pairing_rule(fresh(t), %{
-          "kind" => "group",
-          "player_ids" => [player(t, "P03").id, player(t, "P04").id]
-        })
-
-      # Added with round 1 paired and round 2 open: from round 2.
-      assert [%{from_round: 2}] = Tournaments.list_pairing_rules(t.id)
-      pair!(t)
-      pairs = Enum.map(names(t, 2), fn {w, b} -> Enum.sort([w, b]) end)
-      refute ["P03", "P04"] in pairs
-      refute ["P01", "P02"] in pairs
-    end
-
     test "unpaired back to nothing, it holds for the whole event", %{t: t} do
       :ok = Pairing.delete_round(t.id, 1)
       assert [%{from_round: nil}] = Tournaments.list_forbidden_pairings(t.id)
+    end
+  end
+
+  describe "a pairing rule added after a round that is then unpaired" do
+    # The same gesture with a rule instead of a pair, and the worse half of
+    # the finding: a rule reads its own first round, so the round paired
+    # again came out exactly as before and the arbiter was left wondering
+    # what the rule was for.
+    test "holds for the round paired again" do
+      t = tournament(%{"rounds_count" => 3})
+      add_players(t, [2400, 2300, 2200, 2100])
+      pair!(t)
+      play(t, 1)
+      pair!(t)
+
+      {:ok, _} =
+        Tournaments.add_pairing_rule(fresh(t), %{
+          "kind" => "group",
+          "player_ids" => [player(t, "P01").id, player(t, "P02").id]
+        })
+
+      assert [%{from_round: 3}] = Tournaments.list_pairing_rules(t.id)
+      :ok = Pairing.delete_round(t.id, 2)
+      assert [%{from_round: 2}] = Tournaments.list_pairing_rules(t.id)
+
+      pair!(t)
+      refute ["P01", "P02"] in Enum.map(names(t, 2), fn {w, b} -> Enum.sort([w, b]) end)
+    end
+
+    test "a rule that was there all along is left alone" do
+      t = tournament(%{"rounds_count" => 3})
+      add_players(t, [2400, 2300, 2200, 2100])
+
+      {:ok, _} =
+        Tournaments.add_pairing_rule(fresh(t), %{
+          "kind" => "group",
+          "player_ids" => [player(t, "P01").id, player(t, "P02").id]
+        })
+
+      pair!(t)
+      play(t, 1)
+      pair!(t)
+      :ok = Pairing.delete_round(t.id, 2)
+      assert [%{from_round: nil}] = Tournaments.list_pairing_rules(t.id)
     end
   end
 
@@ -482,6 +511,100 @@ defmodule PairingsEngine.AppPathAuditTest do
 
       {:ok, [current]} = TournamentImport.import(data, scope)
       assert current.absent_counts_as_vur == true
+    end
+  end
+
+  ## ---------- F9: the TRF's rank column and a player who is not in the file ----------
+
+  describe "the TRF's places when the standings hold a player the file does not" do
+    # A late entrant added after round 1, in a tournament that pays the
+    # round they missed: half a point already, no game yet, so no pairing
+    # number and no `001` line. The standings rank them above the round-1
+    # losers, and the file's places skipped the one they hold.
+    test "the places in the file are 1 to N" do
+      t = tournament(%{"rounds_count" => 3, "abs_value" => 0.5, "late_entry_absences" => true})
+      add_players(t, [2400, 2300, 2200, 2100])
+      pair!(t)
+      play(t, 1)
+
+      {:ok, late} =
+        Tournaments.create_player(t.id, %{
+          "name" => "Late, Entrant",
+          "fide_rating" => 2000,
+          "start_round" => 2
+        })
+
+      assert is_nil(late.pairing_number)
+      table = Standings.standings(fresh(t))
+      assert Enum.find(table, &(&1.player.id == late.id)).rank == 3
+
+      {:ok, text} = TrfExport.export(fresh(t))
+
+      places =
+        for "001" <> _ = line <- String.split(text, "\n"),
+            do: line |> binary_part(85, 4) |> String.trim() |> String.to_integer()
+
+      assert Enum.sort(places) == [1, 2, 3, 4]
+    end
+  end
+
+  ## ---------- F10: an earlier round is judged under its own rules ----------
+
+  describe "the field a paired round is checked in" do
+    # "Players of the same club do not meet in the first round." Round 1 is
+    # paired under it. The checker behind a manual pairing alteration, the
+    # re-explanation and the page's "why not" answers all rebuild round 1's
+    # field - and built it for the round after the last one paired, where
+    # the rule no longer holds. So the engine's verdict on round 1 was a
+    # verdict on a round with other rules.
+    setup do
+      t = tournament(%{"rounds_count" => 4})
+      add_players(t, [2400, 2300, 2200, 2100, 2000, 1900])
+
+      # 1 and 4 would meet in round 1 (top half against bottom half).
+      for name <- ~w(P01 P04) do
+        {:ok, _} = Tournaments.update_player(player(t, name), %{"club" => "Same"})
+      end
+
+      {:ok, _} =
+        Tournaments.add_pairing_rule(fresh(t), %{
+          "kind" => "club",
+          "window" => "first",
+          "window_rounds" => 1
+        })
+
+      pair!(t)
+      %{t: t}
+    end
+
+    test "the rule kept the two apart in round 1", %{t: t} do
+      refute ["P01", "P04"] in Enum.map(names(t, 1), fn {w, b} -> Enum.sort([w, b]) end)
+    end
+
+    test "the rebuilt field of round 1 holds the rule it was paired under", %{t: t} do
+      {:ok, field} = Pairing.engine_field(fresh(t), 1)
+      rank = field.local_rank_by_player_id
+      pair = Enum.sort([rank[player(t, "P01").id], rank[player(t, "P04").id]])
+
+      assert pair in Enum.map(field.opts[:forbidden_pairs] || [], &Enum.sort/1)
+    end
+
+    test "a rule that starts later is not read back into an earlier round", %{t: t} do
+      play(t, 1)
+
+      {:ok, _} =
+        Tournaments.add_pairing_rule(fresh(t), %{
+          "kind" => "group",
+          "player_ids" => [player(t, "P02").id, player(t, "P03").id]
+        })
+
+      # Added with round 1 paired: from round 2. Round 1's field has no
+      # business with it.
+      {:ok, field} = Pairing.engine_field(fresh(t), 1)
+      rank = field.local_rank_by_player_id
+      pair = Enum.sort([rank[player(t, "P02").id], rank[player(t, "P03").id]])
+
+      refute pair in Enum.map(field.opts[:forbidden_pairs] || [], &Enum.sort/1)
     end
   end
 
