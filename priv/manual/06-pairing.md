@@ -154,6 +154,12 @@ given to the player who has had White less often. The top value of the ladder
 is set on the Options page. The Standings page shows the Keizer table instead
 of the tie-break table.
 
+A player who is **expelled** after playing keeps a rung on the ladder: the
+opponents keep the Keizer points their games against that player gave them,
+and those games are valued like any other as the ladder moves. The expelled
+player is not paired again and has no row in the Keizer table. A player
+expelled before ever being paired is simply not on the ladder.
+
 ## Team tournaments
 
 For Swiss and round robin team tournaments, **Pair round N** pairs team

@@ -206,7 +206,11 @@ are the last group of the list.
   in the cross table and count for rating, but not for anybody's score or
   tie-breaks. The player is shown after the others, with *-* for the place and
   the note *withdrawn, not counted*. At exactly half or more the results
-  stay and count. The TRF report always keeps every game.
+  stay and count. The TRF report always keeps every game. The rule is
+  FIDE's and does not ask where the tournament came from: a round robin
+  imported from a SWAR file with a player marked *forfait général* is read
+  the same way. The public results site marks the row too
+  ([OpenResults](16-openresults.md#the-standings-page)).
 
 A tie-break that cannot be calculated for a tournament is not shown as a column
 of zeros: it is dropped, with a note.

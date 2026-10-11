@@ -582,9 +582,10 @@ defmodule PairingsEngine.TrfExport do
     # engine's input, byte for byte, and keeps what the event used.
     history = if dialect == :trf26, do: Pairing.rating_history(tournament)
 
+    engine_rows = Pairing.trf_player_rows(tournament, players, history)
+
     trf_players =
-      tournament
-      |> Pairing.trf_player_rows(players, history)
+      engine_rows
       |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect)))
       |> period_ratings(tournament, players, rounds)
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
@@ -607,10 +608,15 @@ defmodule PairingsEngine.TrfExport do
       |> serialize(trf_players, players, rounds, last_round, point_system, dialect, rating?)
       |> mark_unknown(unknown)
 
+    # Two files score a postponed game differently from the standings the
+    # places came from, and take their places again from themselves: the
+    # one for rating (not played, zero) and a TRF26 whose `?` is worth the
+    # file's draw while the tournament counts the game as a win or a loss.
     text =
-      if rating? and Enum.any?(trf_players, &not_played_postponed?/1),
-        do: rerank(text, trf_players),
-        else: text
+      if (rating? and Enum.any?(trf_players, &not_played_postponed?/1)) or
+           (unknown != [] and valued_otherwise?(engine_rows, point_system)),
+         do: rerank(text, trf_players),
+         else: text
 
     national_rating_records(text, tournament, trf_players, players, rounds, dialect)
   end
@@ -842,13 +848,31 @@ defmodule PairingsEngine.TrfExport do
     %{row | games: games}
   end
 
+  # Whether a game this file writes as `?` counts, in the tournament, as
+  # anything but the draw the file's `X` says. Read from the boards - the
+  # valuation is frozen on each when it is postponed - and not from the
+  # setting, which may have changed since. With draws all round (FIDE's
+  # own valuation, and the default) the standings' places are the file's
+  # and nothing is re-ranked.
+  defp valued_otherwise?(engine_rows, point_system) do
+    Enum.any?(engine_rows, fn row ->
+      Enum.any?(row.games, fn game ->
+        (Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true) and
+          is_number(Map.get(game, :provisional_points)) and
+          game.provisional_points != point_system.draw
+      end)
+    end)
+  end
+
   defp not_played_postponed?(row),
     do: Enum.any?(row.games, &(Map.get(&1, :not_played_postponed) == true))
 
   # The rank column (86-89) of a file for rating that wrote a postponed game
-  # as not played. `with_final_ranks/4` took the places from the standings,
-  # which count the game as what it was given when it was postponed; the
-  # file counts zero for both players. So the places are taken again from
+  # as not played - and of a TRF26 whose `?` is a draw where the tournament
+  # counts a win or a loss (`valued_otherwise?/2`; audit 2026-10 part 2, G9:
+  # places 1-2-3-4 beside points 1, 3, 0, 1). `with_final_ranks/4` took the
+  # places from the standings, which count the game as what it was given
+  # when it was postponed; the file counts zero, or a draw, for both players. So the places are taken again from
   # the file itself, with its own tie-break list (`212`, or the score then
   # `202`), by the same `Ainalrami.Tiebreaks` a checker reading the file
   # uses (`ainalrami -c`, VCL4THP Q21). Players the tie-breaks leave level

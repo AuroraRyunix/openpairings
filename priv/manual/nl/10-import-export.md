@@ -175,6 +175,14 @@ De oudere TRF16-schrijfwijze van de uitbreidingsregels, die TRF-paringsprogramma
 bbpPairings lezen, is beschikbaar door `?dialect=engine` toe te voegen aan het adres van
 de download.
 
+Een uitgestelde partij wordt geschreven als het onbekende resultaat `?`, in het bestand
+een remise waard (de `X` van record 162). Wanneer het toernooi een uitgestelde partij
+intussen als iets anders telt - bijvoorbeeld een overwinning voor de speler die het
+uitstel niet vroeg, wat alleen buiten de FIDE-modus kan - verschillen de rangschikking
+en het bestand in punten; de plaatskolom van het bestand wordt dan berekend uit de
+eigen punten en tiebreaks van het bestand, en niet overgenomen van de pagina
+Rangschikking. Met de standaardwaardering (remise voor beiden) zijn de twee gelijk.
+
 ### Back-up en kopie {#backup-and-copy}
 
 - **Volledige back-up exporteren (JSON)** - het hierboven beschreven bestand, voor dit

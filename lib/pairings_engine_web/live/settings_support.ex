@@ -1216,6 +1216,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text({:not_on_team, _id}),
     do: gettext("Not saved: a player in the line-up is not on that team.")
 
+  def error_text(:board_changed),
+    do:
+      gettext(
+        "Not saved: this board changed - somebody else changed its players while this page was open. Reload the page and enter the result on the board as it is now."
+      )
+
   def error_text(:match_score_set),
     do:
       gettext(

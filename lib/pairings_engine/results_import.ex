@@ -419,8 +419,15 @@ defmodule PairingsEngine.ResultsImport do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:error, ["Could not save results: #{changeset_error_text(changeset)}"]}
 
-      # A refusal the checks above let through (another arbiter changed a
-      # board between the check and the write, say): nothing was written.
+      # Another arbiter changed a board's players between the check and the
+      # write. Nothing was written, for any board.
+      {:error, :board_changed} ->
+        {:error,
+         [
+           "Could not save results: a board's players changed while the import ran. Reload the page and import again."
+         ]}
+
+      # Any other refusal the checks above let through: nothing was written.
       {:error, reason} ->
         {:error, ["Could not save results: #{inspect(reason)}"]}
     end

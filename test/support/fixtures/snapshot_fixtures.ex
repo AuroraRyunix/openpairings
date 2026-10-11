@@ -86,7 +86,8 @@ defmodule PairingsEngine.SnapshotFixtures do
       {"snapshot_keizer.json", :keizer_snapshot_tournament},
       {"snapshot_team_roundrobin.json", :team_snapshot_fixture_published},
       {"snapshot_team_lineups_optional.json", :team_optional_fixture_published},
-      {"snapshot_swiss_grouped.json", :swiss_grouped_snapshot_tournament}
+      {"snapshot_swiss_grouped.json", :swiss_grouped_snapshot_tournament},
+      {"snapshot_roundrobin_uncounted.json", :round_robin_uncounted_tournament}
     ]
   end
 
@@ -576,6 +577,78 @@ defmodule PairingsEngine.SnapshotFixtures do
     ])
 
     {tournament, players}
+  end
+
+  @doc false
+  # A six-player round robin, finished, in which number 6 won two games,
+  # forfeited the other three and was withdrawn: fewer than half the games
+  # played, so C.05 6.6 keeps the results in the table and counts them for
+  # nobody. The one fixture whose standings carry `"uncounted": true`.
+  def round_robin_uncounted_tournament do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Leuven Gesloten Toernooi 2026",
+        type: "roundrobin",
+        pairing_system: "round_robin",
+        city: "Leuven",
+        federation: "BEL",
+        chief_arbiter: "Jorian Burssens",
+        start_date: "2026-05-04",
+        end_date: "2026-05-08",
+        round_dates: ~w(2026-05-04 2026-05-05 2026-05-06 2026-05-07 2026-05-08),
+        rounds_count: 5,
+        tiebreaks: ~w(SB DE),
+        publish_mode: "manual",
+        public_slug: "leuven-gesloten-2026"
+      })
+
+    roster = [
+      {1, "Claes, Pieter", 2301, "BEL"},
+      {2, "Janssens, Lotte", 2255, "BEL"},
+      {3, "Dubois, Aurélie", 2210, "FRA"},
+      {4, "Bakker, Sven", 2188, "NED"},
+      {5, "Schmitz, Jürgen", 2140, "GER"},
+      {6, "Maes, Kobe", 2096, "BEL"}
+    ]
+
+    p =
+      for {no, name, rating, fed} <- roster, into: %{} do
+        {no,
+         Repo.insert!(%Player{
+           tournament_id: tournament.id,
+           pairing_number: no,
+           name: name,
+           fide_rating: rating,
+           federation: fed,
+           # The Players page's Forfeit tick, which is how a player is
+           # withdrawn there.
+           forfeit: no == 6
+         })}
+      end
+
+    # C.05 Annex 1, the table for five or six players.
+    schedule = [
+      [{1, 6, "0-1"}, {2, 5, "1-0"}, {3, 4, "1/2-1/2"}],
+      [{6, 4, "1-0"}, {5, 3, "0-1"}, {1, 2, "1/2-1/2"}],
+      [{2, 6, "1-0FF"}, {3, 1, "1/2-1/2"}, {4, 5, "1-0"}],
+      [{6, 5, "0-1FF"}, {1, 4, "1-0"}, {2, 3, "1/2-1/2"}],
+      [{3, 6, "1-0FF"}, {4, 2, "0-1"}, {5, 1, "1/2-1/2"}]
+    ]
+
+    for {games, number} <- Enum.with_index(schedule, 1) do
+      round = insert_round(tournament, number, ~U[2026-05-04 18:00:00Z])
+
+      boards(
+        round,
+        for(
+          {{white, black, result}, board} <- Enum.with_index(games, 1),
+          do: {board, p[white], p[black], result}
+        )
+      )
+    end
+
+    {:ok, tournament} = Tournaments.publish_standings_through(tournament, 5)
+    Tournaments.get_tournament!(tournament.id)
   end
 
   # A published round's results switch is ON unless a test says otherwise:

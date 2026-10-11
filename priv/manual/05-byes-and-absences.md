@@ -33,7 +33,9 @@ explained in [Players and rating lists](04-players-and-ratings.md):
   points scored so far ([Standings and tie-breaks](08-standings-and-tiebreaks.md)).
 - **Expelled** in the registration form expels the player. The presence cell
   shows `E`. An expelled player is not paired any more and does not appear in
-  the standings.
+  the standings. In a Keizer tournament the expelled player keeps a
+  place on the ladder for the games already played against them, so a win
+  over them is worth what it was; only their own row leaves the table.
 - The menu on the header of the column marks everybody present or absent at
   once; use this at the start of the event or the start of a round.
 

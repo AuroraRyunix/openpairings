@@ -62,6 +62,15 @@ only after a confirmation.
 > last two rounds played ([FIDE mode](02-fide-mode.md)); an earlier mistake is
 > corrected after the tournament, in the report to the rating office.
 
+When two arbiters work on the same round, a result is refused if the
+players at the board are no longer the ones your page showed - a colleague
+swapped or replaced a player after your page was drawn. The message is *Not
+saved: this board changed*; nothing is written. Reload the page and enter the
+result on the board as it is now. A phone used for results says the same for
+its board. Two arbiters entering a different result on the same, unchanged
+board is not refused: the last one entered stands, and both are in the audit
+trail.
+
 ### Correcting a result for the rating report only
 
 A wrong result found after the next round is already over cannot change

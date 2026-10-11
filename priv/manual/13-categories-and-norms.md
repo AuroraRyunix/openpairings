@@ -72,6 +72,15 @@ The forms use the FIDE house style for names (given name, SURNAME in capitals).
 
 ![The Norms page with the IT3, FA1/IA1 and IT4 forms and the Not ready to submit to FIDE banner](screenshots/13-norms-forms.png "Advanced, Norms")
 
+The page also judges, per player, whether the event amounts to a title norm
+(FIDE B.01). One rule concerns round robins only: games against an **unrated
+player who scored zero** are not norm games (B.01 1.4.2). "Scored zero" is
+read as the points from games actually played: a point for a bye or for a
+win by forfeit is not a score, so an unrated player with only such points is
+still left out, and one draw over the board is enough for their games to
+count. The games stay in the standings and in the rating report; only the
+norm calculation leaves them out.
+
 ### Norms without an account
 
 The **Tools** tab in the top bar opens a public page for arbiters who have no

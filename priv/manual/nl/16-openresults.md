@@ -50,6 +50,21 @@ zichzelf ongeveer elke 20 seconden, zonder de hele pagina opnieuw te laden.
 De voorpagina zet de toernooien op de site in drie groepen: lopend, aankomend en
 afgelopen. Ze is doorzoekbaar.
 
+In een rondetoernooi wordt een speler wiens resultaten niet meetellen
+(teruggetrokken of uitgesloten na minder dan de helft van de partijen, FIDE C.05 6.6;
+zie [Rangschikking en tiebreaks](08-standings-and-tiebreaks.md)) na de gerangschikte
+spelers getoond, zonder plaatsnummer, in gedempte letters, met de opmerking
+*resultaten tellen niet mee (teruggetrokken)* en een voetnoot die de regel uitlegt. De
+kruistabel en de eigen kaart van de speler zeggen hetzelfde. Op de kaarten van de
+andere spelers is de partij tegen die speler gemarkeerd als *niet meegeteld* en voegt
+ze niets toe aan de lopende score. Het zaalscherm toont alleen gerangschikte spelers.
+
+In een Keizer-toernooi zijn de punten die per ronde worden getoond de partijpunten
+waaruit de kolom *Score* van de Keizer-tabel bestaat. Een overgeslagen ronde is daar
+niets waard, wat **Punten voor een overgeslagen ronde** op de pagina Opties ook zegt:
+die instelling hoort bij de Zwitserse telling, en Keizer betaalt een afwezigheid
+volgens zijn eigen regel, op de ladder.
+
 ### Ronden en paringen {#rounds-and-pairings}
 
 Elke gepubliceerde ronde heeft een eigen pagina, met de paringen en, wanneer de

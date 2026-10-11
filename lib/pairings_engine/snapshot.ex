@@ -979,7 +979,7 @@ defmodule PairingsEngine.Snapshot do
           # round and the cumulative-absence count SWAR's two "Pt ABSENT" caps
           # need, so a capped absence is published at the value the crosstable
           # actually used.
-          "points" => Standings.bye_points_for_row(row, t, absent_counts)
+          "points" => recorded_bye_points(row, t, absent_counts)
         }
       end
 
@@ -987,6 +987,18 @@ defmodule PairingsEngine.Snapshot do
 
     Enum.sort_by(rows ++ not_paired(round, t, nos, rows), & &1["player"])
   end
+
+  # A Keizer ladder pays a round sat out by its own rule (a third of the
+  # player's rung) and its row's `score` counts the round as nothing. The
+  # Swiss figure - "Points for a round sat out" - was published beside it
+  # anyway, so a spectator adding the rounds up got more than the row said
+  # (audit 2026-10 part 2, G12). The ladder's own word for the round travels
+  # instead: `Keizer.raw_bye_points/2`, the arithmetic `score` is made of.
+  defp recorded_bye_points(row, %Tournament{pairing_system: "keizer"} = t, _absent_counts),
+    do: Keizer.raw_bye_points(row.type, t)
+
+  defp recorded_bye_points(row, %Tournament{} = t, absent_counts),
+    do: Standings.bye_points_for_row(row, t, absent_counts)
 
   # Everybody else who is in the document and not in this round: a player
   # who withdrew (and perhaps came back two rounds later), one taken off
@@ -1140,6 +1152,33 @@ defmodule PairingsEngine.Snapshot do
 
   defp maybe_put_extra_points(row, %Tournament{}, _entry), do: row
 
+  # A round-robin player who left with fewer than half their games played
+  # (C.05 6.6): the results stay in the table and count for nobody, the row
+  # comes last and has no place. The arbiter's page has said so all along;
+  # the snapshot sent the row with a rank and with points the rows above it
+  # do not have, and let the spectators work it out (audit 2026-10 part 2,
+  # G8). `rank` and `points` still travel as they did, for a results site
+  # that has not heard of the key. Absent unless true.
+  # The entries the tie-breaks were worked out on. `Standings` hands every
+  # entry its whole game list back once the ranking is done (the cross table
+  # wants it); a working built from those lists explained a Sonneborn-Berger
+  # of 4.5 with parts that add up to 8. The uncounted rows have no working:
+  # their tie-breaks are zero by decree, not by arithmetic.
+  defp counted_entries(entries) do
+    case for(%{c05_uncounted: true} = e <- entries, into: MapSet.new(), do: e.player.id) do
+      %MapSet{map: map} when map_size(map) == 0 ->
+        entries
+
+      out ->
+        for e <- entries, not MapSet.member?(out, e.player.id) do
+          %{e | games: Enum.reject(e.games, &MapSet.member?(out, &1.opponent_id))}
+        end
+    end
+  end
+
+  defp maybe_put_uncounted(row, %{c05_uncounted: true}), do: Map.put(row, "uncounted", true)
+  defp maybe_put_uncounted(row, _entry), do: row
+
   # Computed here, ordered here, tiebroken here. OpenResults never calculates a
   # placing - the arbiter's screen and the public page have to agree, and the
   # printed crosstable is the document of record.
@@ -1212,7 +1251,7 @@ defmodule PairingsEngine.Snapshot do
     working =
       if PublicDisplay.show?(t.public_display, "tiebreak_working") and shown != [] do
         TiebreakWorking.working(
-          entries,
+          counted_entries(entries),
           t,
           Enum.filter(shown, &(&1 in TiebreakWorking.publishable_codes()))
         )
@@ -1239,6 +1278,7 @@ defmodule PairingsEngine.Snapshot do
         }
         |> maybe_put_rounds_played(t, e)
         |> maybe_put_extra_points(t, e)
+        |> maybe_put_uncounted(e)
       end)
 
     %{

@@ -18,6 +18,13 @@ defmodule PairingsEngine.Norms.TitleNorms do
       applied: it is a property of the application, not of this event, so a
       judgment here stays conservative on game count.
 
+      **A round robin's scoreless unrated player** (1.4.2): games against
+      an unrated player "who scores zero against rated opponents" in a
+      round robin are not included. Applied as: an opponent with no FIDE
+      rating whose points from games actually played in the event add up
+      to zero. Points for a bye or a win by forfeit are not a score.
+      `scoreless_unrated/2`.
+
       **An UNRATED game counts.** 1.4.2 excludes a game "decided by
       forfeit, adjudication or any means other than over the board play";
       it says nothing about rating. A game recorded `1-0U` was decided over
@@ -293,8 +300,13 @@ defmodule PairingsEngine.Norms.TitleNorms do
 
     event_type = Tournament.effective_norm_event_type(tournament)
 
+    scoreless = scoreless_unrated(entries, tournament)
+
     Map.new(entries, fn entry ->
-      games = counted_games(entry, by_id)
+      games =
+        entry
+        |> counted_games(by_id)
+        |> Enum.reject(&MapSet.member?(scoreless, &1.opponent.id))
 
       verdicts =
         Enum.map(
@@ -328,6 +340,35 @@ defmodule PairingsEngine.Norms.TitleNorms do
         opp_entry -> [%{opponent: opp_entry.player, points: g.points}]
       end
     end)
+  end
+
+  # B.01 1.4.2: not included are "games against unrated players who score
+  # zero against rated opponents in round robin tournaments". Read the way
+  # the rating officer reads it: the unrated player's total from games
+  # actually PLAYED is zero. A bye, a win by forfeit or any other point
+  # nobody had to sit down for is not a score - an unrated player with a
+  # free round and nine losses has still scored nothing. One draw, and
+  # their games count.
+  #
+  # An individual round robin only, as the article says. Left out, the game
+  # counted as a point against an opponent raised to the rating floor,
+  # which is the direction a norm calculation may not err in.
+  defp scoreless_unrated(entries, tournament) do
+    if tournament.pairing_system == "round_robin" and not Tournament.team?(tournament) do
+      for entry <- entries,
+          fide_rating(entry.player) == 0,
+          played =
+            Enum.filter(
+              entry.games,
+              &(PairingsEngine.Standings.finished_game?(&1) and &1.opponent_id != nil)
+            ),
+          played != [],
+          Enum.all?(played, &(to_standard(&1.points, tournament) == 0.0)),
+          into: MapSet.new(),
+          do: entry.player.id
+    else
+      MapSet.new()
+    end
   end
 
   defp evaluate_norm(title, player, games, tournament, event_type) do

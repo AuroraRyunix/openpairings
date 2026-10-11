@@ -63,6 +63,15 @@ pas na een bevestiging gewijzigd.
 > gespeelde rondes ([FIDE-modus](02-fide-mode.md)); een eerdere fout wordt na het
 > toernooi gecorrigeerd, in het verslag aan het ratingkantoor.
 
+Wanneer twee arbiters aan dezelfde ronde werken, wordt een resultaat geweigerd als de
+spelers aan het bord niet meer degenen zijn die uw pagina toonde - een collega heeft
+een speler gewisseld of vervangen nadat uw pagina was opgebouwd. De melding is *Niet
+opgeslagen: dit bord is gewijzigd*; er wordt niets weggeschreven. Laad de pagina
+opnieuw en voer het resultaat in op het bord zoals het nu is. Een telefoon die voor
+resultaten wordt gebruikt, zegt hetzelfde voor zijn bord. Twee arbiters die een
+verschillend resultaat invoeren op hetzelfde, ongewijzigde bord worden niet geweigerd:
+het laatst ingevoerde resultaat geldt, en beide staan in het auditlogboek.
+
 ### Een resultaat alleen voor het ratingverslag corrigeren {#correcting-a-result-for-the-rating-report-only}
 
 Een fout resultaat dat wordt ontdekt nadat de volgende ronde al is afgelopen, kan
