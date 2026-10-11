@@ -1255,6 +1255,33 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     })
   end
 
+  # Six players, three rounds of seven. No. 4 plays round 1 and then has
+  # nothing; no. 3 misses round 3 only (after the bye in round 2).
+  defp withdrawn_trf do
+    g = fn opponent, colour -> %{opponent_rank: opponent, colour: colour, result: "="} end
+    none = %{opponent_rank: nil, colour: nil, result: "Z"}
+    pab = %{opponent_rank: nil, colour: nil, result: "U"}
+
+    games = %{
+      1 => [g.(4, "w"), g.(5, "b"), g.(2, "w")],
+      2 => [g.(5, "w"), g.(6, "b"), g.(1, "b")],
+      3 => [g.(6, "w"), pab, none],
+      4 => [g.(1, "b"), none, none],
+      5 => [g.(2, "b"), g.(1, "w"), g.(6, "w")],
+      6 => [g.(3, "b"), g.(2, "w"), g.(5, "b")]
+    }
+
+    names = ~w(Stays Bravo Once Gone Echo Foxtrot)
+
+    Ainalrami.Trf.serialize(%{
+      tournament: %{name: "Withdrawn Open", type: "swiss", number_of_rounds: 7},
+      players:
+        for {rank, rounds} <- Enum.sort(games) do
+          %{rank: rank, name: "#{Enum.at(names, rank - 1)}, Player", points: 1.5, games: rounds}
+        end
+    })
+  end
+
   # Chooses the file and presses Import - which, for a file the import has
   # anything to say about, stops at the review step (`#trf-review`).
   defp submit_trf(conn, content) do
@@ -1362,6 +1389,43 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       tournament = last_tournament_named("Rematch Open")
       assert tournament.import_findings["pibe"] == []
       assert tournament.import_findings["version"] == "TRF16"
+    end
+
+    # A TRF cannot say "withdrew" (audit finding F6): the review lists who
+    # looks it, a tick per player, and the import does what was ticked.
+    test "a player who looks withdrawn is listed with a tick, and imported as chosen",
+         %{conn: conn} do
+      lv = submit_trf(conn, withdrawn_trf())
+
+      assert has_element?(lv, "#trf-review-withdrawn")
+      section = lv |> element("#trf-review-withdrawn") |> render()
+      assert section =~ "Looks withdrawn - will be paired in the next round"
+      assert section =~ "Gone, Player"
+      refute section =~ "Stays, Player"
+
+      # Two rounds of nothing: ticked already. One: not.
+      assert has_element?(lv, "#trf-review-withdraw-4[checked]")
+      refute has_element?(lv, "#trf-review-withdraw-3[checked]")
+
+      # The arbiter knows better about both.
+      lv |> element("#trf-review-withdraw-4") |> render_click()
+      lv |> element("#trf-review-withdraw-3") |> render_click()
+      refute has_element?(lv, "#trf-review-withdraw-4[checked]")
+      assert has_element?(lv, "#trf-review-withdraw-3[checked]")
+
+      lv |> element("#trf-review-confirm") |> render_click()
+      {_to, _flash} = assert_redirect(lv)
+
+      tournament = last_tournament_named("Withdrawn Open")
+      status = Map.new(Tournaments.list_players(tournament.id), &{&1.name, &1.status})
+      assert status["Gone, Player"] == "active"
+      assert status["Once, Player"] == "withdrawn"
+      assert status["Stays, Player"] == "active"
+
+      assert [
+               %{"name" => "Once, Player", "withdrawn" => true, "suggested" => false},
+               %{"name" => "Gone, Player", "withdrawn" => false, "suggested" => true}
+             ] = tournament.import_findings["looks_withdrawn"]
     end
 
     test "import_trf still lands on the tournament for a file confirmed straight through",

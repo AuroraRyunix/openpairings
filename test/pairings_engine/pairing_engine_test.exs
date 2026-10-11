@@ -549,7 +549,7 @@ defmodule PairingsEngine.PairingEngineTest do
 
       assert {:ok, round} = Pairing.pair_next_round(t)
 
-      assert %{"engine" => "ainalrami", "version" => 4, "sections" => [section]} =
+      assert %{"engine" => "ainalrami", "version" => 5, "sections" => [section]} =
                round.explanation
 
       # One pool, so no category name.
@@ -765,7 +765,7 @@ defmodule PairingsEngine.PairingEngineTest do
       assert %{recomputed: 1} = Pairing.reexplain_tournament(t)
 
       after_round = Tournaments.get_round(t.id, 1)
-      assert after_round.explanation["version"] == 3
+      assert after_round.explanation["version"] == 5
       assert after_round.explanation["origin"] == "recomputed"
       [%{"bye" => bye, "brackets" => [bracket]}] = after_round.explanation["sections"]
       assert bye["holder"]
@@ -816,7 +816,7 @@ defmodule PairingsEngine.PairingEngineTest do
       t = Repo.get!(Tournament, t.id)
 
       assert %{recomputed: 1} = Pairing.reexplain_tournament(t)
-      assert Tournaments.get_round(t.id, 1).explanation["version"] == 3
+      assert Tournaments.get_round(t.id, 1).explanation["version"] == 5
     end
 
     test "any single-pool Swiss round is eligible" do
@@ -824,7 +824,7 @@ defmodule PairingsEngine.PairingEngineTest do
       categories = tournament(%{pair_by_category: true})
       round_robin = tournament(%{pairing_system: "round_robin"})
       blank = %PairingsEngine.Tournaments.Round{}
-      current = %PairingsEngine.Tournaments.Round{explanation: %{"version" => 3}}
+      current = %PairingsEngine.Tournaments.Round{explanation: %{"version" => 5}}
 
       assert Pairing.reexplain_status(categories, blank) == :ineligible
       assert Pairing.reexplain_status(round_robin, blank) == :ineligible
@@ -866,7 +866,7 @@ defmodule PairingsEngine.PairingEngineTest do
       assert %{recomputed: 1} = Pairing.reexplain_tournament(t)
 
       explanation = Tournaments.get_round(t.id, 1).explanation
-      assert explanation["version"] == 3
+      assert explanation["version"] == 5
       assert explanation["engine"] == "ainalrami"
       refute Map.has_key?(explanation, "paired_by")
       assert explanation["origin"] == "recomputed"

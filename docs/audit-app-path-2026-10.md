@@ -41,8 +41,8 @@ Two instruments, both in `test/pairings_engine/`:
   `APP_PATH_FUZZ_COUNT` (default 6, a few seconds) and `APP_PATH_FUZZ_FIRST`.
 
 - **`app_path_audit_test.exs`** - one focused test per finding. Tests of
-  findings that are not fixed are skipped; `APP_PATH_OPEN=1` runs them, and
-  they fail.
+  findings that were not fixed were skipped, and `APP_PATH_OPEN=1` ran them
+  to watch them fail; since 2026-10-11 none is skipped (F6, F8).
 
 Beside those, a reading of every place that recomputes something the engine
 also holds (`pairing_rationale.ex`, `restriction_check.ex`,
@@ -67,10 +67,13 @@ hard it was to find.
 | F5 | Low | **An absence paid a full point: the standings and the TRF disagree about what it is.** `Standings` marked every `absent` row voluntary (a requested bye) when `absent_counts_as_vur` is on, whatever it paid. C.07 16.1.1 defines a requested bye as "a half-point-bye or a zero-point-bye"; an unplayed round worth a win is 16.2.1's full-point bye, and the app's own TRF writes it `F`. In the last round (16.2.5 / 16.3.2) the standings counted it as a draw in the opponents' Buchholz and the file's rank column did not follow from the file - `ainalrami -c` says "rank(s) do not follow". Only tournaments with `abs_value == points_win`. | Eight players, `abs_value` 1.0, P05 absent in the last round: an opponent's BH is half a point below the sum of their opponents' scores. Fuzz: 4 of 260. | `an announced absence worth a full point` (3) | **Yes** - such a row is not voluntary. **A rules reading; veto it if you read 16.1.1 otherwise.** |
 | F9 | Low | **The TRF's place column counts players who are not in the file.** `TrfExport.with_final_ranks/4` took each row's place from the standings, which also rank a player with no pairing number (a late entrant not yet paired who already holds paid absences; a no-show withdrawn before round 1). The file's places then skip a number. Not the file for rating when it re-ranks (`rerank/2`), every other TRF26. | `abs_value` 0.5, four players, round 1, add a late entrant for round 2, export: places 1, 2, 4, 5. | `the TRF's places when the standings hold a player the file does not` | **Yes** |
 | F7 | Low | **A backup older than `absent_counts_as_vur` is restored with the opposite setting.** DB default `false` (migration of 2026-08-05), schema default `true` (changed later, no data migration). A file without the key got the schema's answer; the tournament it was taken from had the migration's. The same shape as the grandfathered `late_entry_numbering`, which has its `legacy_` function; this one had none. | Export, delete the key, import: `true`. | `an export written before absent_counts_as_vur existed` | **Yes** (`legacy_absent_counts_as_vur/1`) |
-| F6 | Low | **A TRF cannot say "withdrew", and the import does not ask.** Export a tournament with a withdrawn player to TRF, import it, pair the next round: the copy pairs them. The file shows a player with nothing in the later rounds, which is also what an absentee looks like. Same for the players' extra points when they are in the pairing: the rounds paired with them are in the file (`XXA`/`250`), what the next round is paired with is not. The JSON export carries both; 100% of JSON round trips paired identically. | Six players, round 1, withdraw P06, round 2, TRF out and in, pair round 3: P06 is on a board. Fuzz: every TRF round trip with a withdrawal. | `a withdrawn player, exported to TRF and imported again` (skipped, open) | **No** - a format limit. What would help is an import note naming every player with nothing in the trailing rounds ("withdrawn? they will be paired"). |
-| F8 | Low | **In a Baku round the explanation page counts floaters by game points.** The page builds its brackets on game points and says so in a note; it then flags every board between a Group A loser and a Group B winner (one pairing-score bracket) as a floater, and counts them in the summary. | Eight players, Baku, round 1, pair round 2: `summary.floaters == 2`. | `the explanation page in a Baku round` (skipped, open) | **No** - the fix is to carry Baku's virtual points into `pre_round_scores/3` as the recorded extra points already are, and reword the note (EN + NL). Not small, so not done here. |
+| F6 | Low | **A TRF cannot say "withdrew", and the import does not ask.** Export a tournament with a withdrawn player to TRF, import it, pair the next round: the copy pairs them. The file shows a player with nothing in the later rounds, which is also what an absentee looks like. Same for the players' extra points when they are in the pairing: the rounds paired with them are in the file (`XXA`/`250`), what the next round is paired with is not. The JSON export carries both; 100% of JSON round trips paired identically. | Six players, round 1, withdraw P06, round 2, TRF out and in, pair round 3: P06 is on a board. Fuzz: every TRF round trip with a withdrawal. | `a withdrawn player, exported to TRF and imported again` (two tests, both run) | **Answered 2026-10-11** - the format cannot say it, so the import does: the review lists every player who played and then has no game and no bye in the trailing round(s) of an unfinished Swiss (`TrfImport.looks_withdrawn/3`), with a tick each to import them as withdrawn (ticked already at two rounds or more), and the choice is kept in `import_findings`. An import nobody reviews (`import_text/2`) still brings them back active, as the file says. **Still open, and still a format limit:** the extra points the next round is paired with are not in the file. |
+| F8 | Low | **In a Baku round the explanation page counts floaters by game points.** The page builds its brackets on game points and says so in a note; it then flags every board between a Group A loser and a Group B winner (one pairing-score bracket) as a floater, and counts them in the summary. | Eight players, Baku, round 1, pair round 2: `summary.floaters == 2`. | `the explanation page in a Baku round` (two tests, both run) | **Yes, 2026-10-11** - `PairingRationale` adds Baku's virtual points for the round (`Pairing.accelerations/3`, the pairing's own function) to the scores it builds brackets and floats on; each side keeps its share as `virtual`, the page shows "1.0 (+1.0 virtual)", and the note says the brackets are on game points plus virtual points (EN + NL). |
 
-Ten findings: 1 high, 3 medium, 6 low. Eight fixed, two documented.
+Ten findings: 1 high, 3 medium, 6 low. Eight fixed in the audit, two
+documented then and closed on 2026-10-11: F8 fixed, F6 answered by the
+import asking (the format limit itself stands, and so does the half of F6
+about extra points - see its row).
 
 Each fixed finding's test was run against the code as it was (the files
 checked out from 0.83.0) and failed there; the two open ones fail now.
@@ -198,8 +201,8 @@ The comparison is `PRAGMA table_info` against the struct defaults, for
 - A counted handicap is in the pairing and not in the file as virtual
   points (`Pairing.accelerated_rows/4`), so no checker reproduces those
   rounds from the TRF. Deliberate, and such an event is out of FIDE mode.
-- The player card's float column and the Baku note on the explanation page
-  both work from game points. F8 is the part of that which misleads.
+- The player card's float column works from game points. (The explanation
+  page did too, which was F8; it no longer does.)
 
 ## Not covered
 

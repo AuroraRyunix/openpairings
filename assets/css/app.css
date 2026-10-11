@@ -4456,6 +4456,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-equal-boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 16px; margin: 0 0 4px; }
 .pe-equal-boards p { margin: 0; }
 .pe-equal-link { margin-left: 6px; white-space: nowrap; }
+.pe-equal-leaves { color: var(--text-soft); font-style: italic; }
+.pe-equal .pe-equal-unchanged { margin: 0 0 4px; }
 /* The offer to bring an older account up to date: the warning colour,
    because the page beneath it is missing the half that answers questions. */
 .pe-recompute { border-left: 3px solid var(--warn); }

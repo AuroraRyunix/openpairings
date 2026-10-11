@@ -111,7 +111,7 @@ defmodule PairingsEngine.ExplanationJobsTest do
       assert Pairing.explanation_state(round) == :ready
       # The brackets only; the alternatives are worked out when opened, and
       # stored against the fingerprint the account keeps.
-      assert round.explanation["version"] == 4
+      assert round.explanation["version"] == 5
       assert round.explanation["alternatives"] == "on_demand"
       assert round.explanation["job"] == pending_job
       refute Map.has_key?(round.explanation, "status")
