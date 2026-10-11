@@ -184,7 +184,7 @@ For a Swiss round paired by Ainalrami the page shows
 Often another candidate would have cost nothing at all: the pairing with that
 player floating instead is *equally good by every rule*. The line then says so
 and links to **Equally good alternatives** under the same score group, where
-each such alternative is one item: the boards as played beside the board the
+each such alternative is one item: the boards as played beside the boards the
 alternative would have had, and why it was not chosen. The reason is always
 the same one. When two pairings satisfy every criterion equally, the system
 does not choose; it takes the first possibility in its fixed order - top half
@@ -195,9 +195,31 @@ end the pairing numbers decide. Where the record shows it, the item names the
 step: which bottom-half player is left over, or that the alternative needs an
 exchange between the halves. *The FIDE wording* gives the article (C.04.3
 3.8.1, with 4.2 for transpositions and 4.3 for exchanges). Beyond three
-alternatives the rest are behind *and N more*. An item shows the one board of
-the alternative that the record keeps; how the other players of the affected
-boards would then have been paired is not stored.
+alternatives the rest are behind *and N more*.
+
+An item shows both versions whole, side by side: under **As played** every
+board of the round that the alternative would not have, under **In the
+alternative** every board it would have instead, White named first. Where a
+different player goes down from a score group, both sides say who. Boards that
+are the same in both are left out and counted (*4 other boards are the same in
+both*). An alternative that changes more than 40 boards is not listed; the item
+then shows the one board of the player concerned and says how many would
+change.
+
+An answer worked out by an earlier version of the program kept only one board
+of the alternative - the new opponent of the player concerned - and is still shown
+that way, with the remark that the rest was not recorded. Such a round has a
+notice at the top of the page, *This round's engine account is from before
+alternatives were kept whole*, with the button **Recompute, for every round of
+this tournament that needs it**. It works the opened answers out again and
+changes no pairing. A round whose boards were changed by hand after pairing is
+left as it is.
+
+**Baku acceleration.** In a round paired with virtual points, the score groups
+and the floats on this page are the ones the engine built: game points plus
+virtual points. A player who has virtual points is shown with both, for example
+*1.0 (+1.0 virtual)* - one game point, paired as two. The standings never count
+virtual points, so a score group here is not a place in the standings.
 
 Colours follow C.04.2 3.4: only games actually played count. A forfeit (won or
 lost, by either side), a bye or an absence is not a colour, and the colour due

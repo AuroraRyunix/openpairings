@@ -113,6 +113,16 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   0 points, in the two rounds after leaving - two rows in the public
   snapshot. With those rows taken out the regenerated file is equal, term
   for term, to the one before.
+
+  And for the Baku rounds' audit rows (audit finding F8, 2026-10-11): the
+  `:options` scenario's three accelerated rounds were logged on game points,
+  as the explanation page drew them. Their `pairing.round_paired` rows now
+  carry the scores the rounds were paired on - `score` with the virtual
+  point in it and `virtual` beside it, the score groups split accordingly,
+  `floater` and `floater_count` no longer counting a Group A loser against
+  a Group B winner. Compared term by term with the file before: 82
+  differences, every one of them in those three rows and those fields. No
+  board, no TRF, no export, no snapshot.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

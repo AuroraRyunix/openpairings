@@ -84,18 +84,25 @@ defmodule PairingsEngine.TrfImport do
   Imports `content` exactly like `import_text/2`, and returns the whole
   import report instead of the warnings alone: `{:ok, tournament, report}`.
 
-  `report` is `%{version:, adjustments:, warnings:}` - `version` the TRF
-  version the file was recognised as (`:trf06`, `:trf16` or `:trf26`,
-  `detect_version/2`), `adjustments` one `%{kind: :adjustment, code:}` map
-  (plus that code's own data) per thing this import changed, defaulted or
-  left out to fit the file into a tournament here (`adjustments/3`), and
-  `warnings` what `import_text/2` returns. The import stores the report's
-  record with the tournament (`Tournament.import_findings`, see
-  `findings/1`), so the rule breaks in it stay identified as an Import PIBE.
+  `report` is `%{version:, adjustments:, warnings:, looks_withdrawn:}` -
+  `version` the TRF version the file was recognised as (`:trf06`, `:trf16`
+  or `:trf26`, `detect_version/2`), `adjustments` one `%{kind: :adjustment,
+  code:}` map (plus that code's own data) per thing this import changed,
+  defaulted or left out to fit the file into a tournament here
+  (`adjustments/3`), `warnings` what `import_text/2` returns, and
+  `looks_withdrawn` the players `looks_withdrawn/3` names. The import stores
+  the report's record with the tournament (`Tournament.import_findings`,
+  see `findings/1`), so the rule breaks in it stay identified as an Import
+  PIBE.
+
+  `opts[:withdraw]` is a list of starting ranks to import as withdrawn. Only
+  a rank the report lists under `looks_withdrawn` is honoured - this is the
+  review step's tick, not a way to withdraw anybody at all - and each
+  entry's `withdrawn` says what was done with it.
   """
-  def import_with_report(content, scope \\ nil) when is_binary(content) do
+  def import_with_report(content, scope \\ nil, opts \\ []) when is_binary(content) do
     case build_structs_with_data(content) do
-      {:ok, {_tournament, _players, data}} -> run_import(data, scope, :commit)
+      {:ok, {_tournament, _players, data}} -> run_import(data, scope, :commit, opts)
       {:error, reason} -> {:error, reason}
     end
   end
@@ -114,7 +121,7 @@ defmodule PairingsEngine.TrfImport do
   def review(content, scope \\ nil) when is_binary(content) do
     case build_structs_with_data(content) do
       {:ok, {_tournament, _players, data}} ->
-        PairingsEngine.StandingsCache.bypass(fn -> run_import(data, scope, :dry_run) end)
+        PairingsEngine.StandingsCache.bypass(fn -> run_import(data, scope, :dry_run, []) end)
 
       {:error, reason} ->
         {:error, reason}
@@ -122,7 +129,9 @@ defmodule PairingsEngine.TrfImport do
   end
 
   @doc "Whether a report has anything to show the arbiter before the import."
-  def report_empty?(%{adjustments: [], warnings: []}), do: true
+  def report_empty?(%{adjustments: [], warnings: []} = report),
+    do: Map.get(report, :looks_withdrawn, []) == []
+
   def report_empty?(_report), do: false
 
   @doc """
@@ -629,11 +638,11 @@ defmodule PairingsEngine.TrfImport do
   # is known. Broadcasts are suppressed for the whole transaction either
   # way, and a dry run never reaches the post-commit broadcasts below, so a
   # tournament that never existed is never announced.
-  defp run_import(data, scope, mode) do
+  defp run_import(data, scope, mode, opts) do
     result =
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
-          case do_import(data, scope) do
+          case do_import(data, scope, opts) do
             {:ok, _tournament, report} when mode == :dry_run ->
               Repo.rollback({:dry_run, report})
 
@@ -673,7 +682,7 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
-  defp do_import(data, scope) do
+  defp do_import(data, scope, opts) do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_rank = create_players(tournament, data.players)
       paired = paired_rounds_from_data(data.players)
@@ -725,14 +734,119 @@ defmodule PairingsEngine.TrfImport do
           unknown_result_warnings(data) ++
           notes ++ acceleration_notes ++ verification_warnings(data, paired)
 
+      tournament = Repo.reload!(tournament)
+
       report = %{
         version: data.trf_version,
-        adjustments: adjustments(data, Repo.reload!(tournament), paired),
-        warnings: warnings
+        adjustments: adjustments(data, tournament, paired),
+        warnings: warnings,
+        looks_withdrawn:
+          data
+          |> looks_withdrawn(tournament, paired)
+          |> withdraw_chosen(players_by_rank, Keyword.get(opts, :withdraw, []))
       }
 
       {:ok, tournament, report}
     end
+  end
+
+  ## ---------- players who look withdrawn ----------
+
+  # A round a player has nothing in: no opponent, and not a bye that pays or
+  # that the pairing gave them. Blank, a zero-point bye (`Z`), and the two
+  # ways older programs write an absentee (`0000 - -`, `0000 - 0`).
+  @nothing_codes [nil, "", " ", "Z", "-", "0"]
+
+  @doc """
+  The players of a file who look withdrawn (audit 2026-10, finding F6).
+
+  A TRF has no record for "withdrew". A tournament exported with a
+  withdrawn player and imported again has that player active, and the next
+  round pairs them. The file cannot be made to say it, so the import says
+  what it sees and asks.
+
+  The rule, and what each part of it is for:
+
+    * **Nothing in the last paired round of the file, or in the last
+      several in a row** - no game and no bye. A zero-point bye counts as
+      nothing: it is how an absence is written. A half-point or full-point
+      bye is something: a player who asked for one is still in the event.
+    * **Something in a round before that.** A late entrant has blank rounds
+      at the START and games at the end, and is never listed; neither is a
+      player with nothing at all, who may simply not have arrived yet.
+    * **Nothing recorded for the round about to be paired** (TRF26's `240`).
+      A player with a bye asked for next round is in touch with the arbiter.
+    * **Rounds still to pair** - the file has fewer paired rounds than it
+      announces, or does not say how many there are. In a finished event
+      nobody is paired again and there is nothing to ask.
+    * **A Swiss system or Keizer, players and not teams.** A round robin's
+      schedule is fixed, and a team's players sit rounds out as a matter of
+      course.
+
+  Each entry is `%{rank:, name:, last_round:, trailing:, suggested:}` -
+  `last_round` the last round the player has anything in, `trailing` how
+  many rounds of nothing follow, and `suggested` the review step's default
+  tick: `trailing >= 2`. One missed round is far more often one missed
+  round than a withdrawal, and a player wrongly withdrawn is not on the
+  pairing sheet at all, which is the worse mistake to make silently; two or
+  more in a row, after turning up, is the shape of somebody who has gone
+  home. Either guess is one click to reverse, before the import or after.
+  """
+  def looks_withdrawn(data, tournament, paired) do
+    announced = data.tournament[:number_of_rounds]
+    finished? = is_integer(announced) and announced > 0 and paired >= announced
+
+    if finished? or paired < 2 or tournament.pairing_system == "round_robin" or
+         Tournament.team?(tournament) do
+      []
+    else
+      for p <- Enum.sort_by(data.players, & &1.rank),
+          trailing = trailing_nothing(p.games, paired),
+          trailing > 0 and trailing < paired,
+          nothing?(Enum.at(p.games, paired)) do
+        %{
+          rank: p.rank,
+          name: String.trim(p.name || ""),
+          last_round: paired - trailing,
+          trailing: trailing,
+          suggested: trailing >= 2
+        }
+      end
+    end
+  end
+
+  # How many rounds of nothing end the player's `paired` rounds. A games
+  # list shorter than that is blank for the rest.
+  defp trailing_nothing(games, paired) do
+    paired..1//-1
+    |> Enum.take_while(&nothing?(Enum.at(games, &1 - 1)))
+    |> length()
+  end
+
+  defp nothing?(nil), do: true
+  defp nothing?(game), do: is_nil(game[:opponent_rank]) and game[:result] in @nothing_codes
+
+  # The ticks of the review step, applied: each listed player the arbiter
+  # chose is withdrawn, exactly as the player dialog would do it, and every
+  # entry says what happened to it. A rank that is not on the list is
+  # ignored - the option withdraws nobody the report did not name.
+  defp withdraw_chosen(looks, players_by_rank, chosen) do
+    chosen = MapSet.new(chosen)
+
+    Enum.map(looks, fn entry ->
+      withdrawn? = MapSet.member?(chosen, entry.rank)
+
+      if withdrawn? do
+        case Tournaments.update_player(Map.fetch!(players_by_rank, entry.rank), %{
+               "status" => "withdrawn"
+             }) do
+          {:ok, _player} -> :ok
+          _refused -> Repo.rollback("Could not import #{entry.name} as withdrawn.")
+        end
+      end
+
+      Map.put(entry, :withdrawn, withdrawn?)
+    end)
   end
 
   defp note(text), do: %{kind: :note, text: text}
@@ -2723,9 +2837,22 @@ defmodule PairingsEngine.TrfImport do
   a pairing rule - the Import PIBE, one entry per round with what broke - and
   the rounds that could not be checked at all.
   """
-  def findings(%{version: version, adjustments: adjustments, warnings: warnings}) do
+  def findings(%{version: version, adjustments: adjustments, warnings: warnings} = report) do
     %{
       "version" => version_label(version),
+      # Who looked withdrawn, and what the arbiter chose for each: a TRF
+      # cannot say, so the choice is kept where the file's other gaps are.
+      "looks_withdrawn" =>
+        for w <- Map.get(report, :looks_withdrawn, []) do
+          %{
+            "rank" => w.rank,
+            "name" => w.name,
+            "last_round" => w.last_round,
+            "trailing_rounds" => w.trailing,
+            "suggested" => w.suggested,
+            "withdrawn" => Map.get(w, :withdrawn, false)
+          }
+        end,
       "adjustments" => Enum.map(adjustments, &json_map/1),
       "pibe" =>
         warnings

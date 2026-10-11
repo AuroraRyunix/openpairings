@@ -695,9 +695,33 @@ defmodule PairingsEngineWeb.TournamentsLive do
     do: {:noreply, socket}
 
   def handle_event("confirm_trf_import", _params, socket) do
-    content = socket.assigns.trf_review.content
-    commit_trf(assign(socket, trf_review: nil), content)
+    %{content: content, withdraw: withdraw} = socket.assigns.trf_review
+    commit_trf(assign(socket, trf_review: nil), content, MapSet.to_list(withdraw))
   end
+
+  # One tick of "import as withdrawn" on the review step. Only a rank the
+  # report itself listed can be ticked.
+  def handle_event(
+        "toggle_trf_withdraw",
+        %{"rank" => rank},
+        %{assigns: %{trf_review: %{}}} = socket
+      ) do
+    review = socket.assigns.trf_review
+
+    with {rank, ""} <- Integer.parse(to_string(rank)),
+         true <- Enum.any?(review.report.looks_withdrawn, &(&1.rank == rank)) do
+      withdraw =
+        if MapSet.member?(review.withdraw, rank),
+          do: MapSet.delete(review.withdraw, rank),
+          else: MapSet.put(review.withdraw, rank)
+
+      {:noreply, assign(socket, trf_review: %{review | withdraw: withdraw})}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_trf_withdraw", _params, socket), do: {:noreply, socket}
 
   def handle_event("cancel_trf_import", _params, socket),
     do: {:noreply, assign(socket, trf_review: nil, importing_trf: true, error: nil)}
@@ -1346,11 +1370,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
       [{:trf_review, content, {:ok, report}}] ->
         if TrfImport.report_empty?(report) do
-          commit_trf(socket, content)
+          commit_trf(socket, content, [])
         else
           {:noreply,
            assign(socket,
-             trf_review: %{content: content, report: report},
+             trf_review: %{
+               content: content,
+               report: report,
+               # The ticks, starting from the report's own suggestion.
+               withdraw:
+                 for(
+                   %{rank: rank, suggested: true} <- report.looks_withdrawn,
+                   into: MapSet.new(),
+                   do: rank
+                 )
+             },
              importing: false,
              importing_trf: false,
              error: nil
@@ -1508,10 +1542,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # `pibe.import` row per round of the file that broke a pairing rule, so
   # the PIBE is logged as one (VCL4THP item 112). The same record is kept on
   # the tournament itself (`TrfImport.findings/1`).
-  defp commit_trf(socket, content) do
+  defp commit_trf(socket, content, withdraw) do
     scope = socket.assigns.current_scope
 
-    case crash_safe(fn -> TrfImport.import_with_report(content, scope) end) do
+    case crash_safe(fn -> TrfImport.import_with_report(content, scope, withdraw: withdraw) end) do
       {:ok, tournament, report} ->
         findings = TrfImport.findings(report)
 
@@ -1519,7 +1553,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           name: tournament.name,
           version: findings["version"],
           adjustments: length(report.adjustments),
-          pibe_rounds: Enum.map(findings["pibe"], & &1["round"])
+          pibe_rounds: Enum.map(findings["pibe"], & &1["round"]),
+          # Who looked withdrawn in the file, and who was imported as such.
+          looked_withdrawn: Enum.map(findings["looks_withdrawn"], & &1["name"]),
+          imported_withdrawn:
+            for(%{"withdrawn" => true, "name" => name} <- findings["looks_withdrawn"], do: name)
         })
 
         for %{"round" => round} = pibe <- findings["pibe"] do
@@ -1827,7 +1865,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
       assign(assigns,
         pibe?: TrfImport.pibe?(report),
         version: trf_version_text(report.version),
-        sections: trf_review_sections(report)
+        sections: trf_review_sections(report),
+        looks_withdrawn: Map.get(report, :looks_withdrawn, [])
       )
 
     ~H"""
@@ -1871,6 +1910,42 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h3>{gettext("Adjustments")}</h3>
         <ul class="trf-review-list">
           <li :for={line <- @sections.adjustments}>{line}</li>
+        </ul>
+      </div>
+
+      <%!-- A TRF cannot say "withdrew". The file is read for what a
+            withdrawal looks like, and the arbiter decides per player. --%>
+      <div :if={@looks_withdrawn != []} id="trf-review-withdrawn">
+        <h3>
+          {gettext(
+            "Looks withdrawn - will be paired in the next round unless you mark them withdrawn"
+          )}
+        </h3>
+        <p class="hint">
+          {gettext(
+            "A TRF file cannot say that a player withdrew. These players played earlier and have no game and no bye in the last round or rounds of the file. Ticked, a player is imported as withdrawn; unticked, as active, and the next round pairs them. A player with nothing in the last two rounds or more is ticked for you; one missed round is not. You can change it afterwards in the player list."
+          )}
+        </p>
+        <ul class="trf-review-list trf-review-withdrawn">
+          <li :for={w <- @looks_withdrawn} id={"trf-review-withdrawn-#{w.rank}"}>
+            <label>
+              <input
+                type="checkbox"
+                id={"trf-review-withdraw-#{w.rank}"}
+                phx-click="toggle_trf_withdraw"
+                phx-value-rank={w.rank}
+                checked={MapSet.member?(@review.withdraw, w.rank)}
+              />
+              {gettext("Import as withdrawn")}:
+            </label>
+            <strong>{w.name}</strong>
+            {gettext("(no. %{rank})", rank: w.rank)} - {ngettext(
+              "nothing in the last round; last seen in round %{last}",
+              "nothing in the last %{count} rounds; last seen in round %{last}",
+              w.trailing,
+              last: w.last_round
+            )}
+          </li>
         </ul>
       </div>
 

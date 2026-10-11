@@ -371,8 +371,46 @@ with no answer, shows as failed rather than a spinner forever. The
 compliance checks are not alternatives and stay in the click, as above.
 
 Records of version 3 and earlier keep their alternatives inline and show
-exactly as before; Recompute and the whole-round "Work it out now" still
-write version 3.
+exactly as before; Recompute and the whole-round "Work it out now" write
+the inline form too, at the current version.
+
+**Version 5 (2026-10-11): the alternative, whole.** Ainalrami 0.43.0 hands
+back, with every candidate it searched and found a round for, the round
+itself as far as it differs from the played one. `candidate_json/2` keeps it
+under `"alternative"`: `"pairs"` (its boards the played round lacks,
+`[white id, black id | null]`), `"played"` (the played boards it lacks),
+`"unchanged"` (boards both have), `"brackets"` (each bracket it changes,
+complete: `"group"`, `"pairs"`, `"floats"`), `"bye"` and `"step"`
+(`"transposition"`, `"exchange"`, `"floater"` or null); or
+`{"skipped": "too_many_boards", "count": n}` past the engine's cap of 40
+boards. No key at all for a candidate with no round to show, or when a
+player in it cannot be named. Both forms of the record are written at
+version 5 - which form a record has is still said by `"alternatives"`, not
+by the number. `Pairing.account_version/0` is the number.
+
+A version-3 or -4 record reads and renders as before: one board of the
+alternative, and "not recorded" for the rest. `reexplain_status/2` calls it
+`:stale` when it holds a tie without its boards - inline, or among its
+stored answers - and `:current` otherwise: only a tie is ever drawn with
+its boards, so a round without one has nothing to gain and is not nagged
+about it. (A stale one whose boards were changed by hand stays
+`:hand_edited` and untouched.) The page's Recompute card says why, and
+`reexplain_round/2` upgrades it. A version-3 record, or none, is rebuilt
+whole as it always was. A version-4 record is not rebuilt: its brackets,
+its `"pairs"` and its `"job"` stay, the answers already stored in
+`round_alternatives` are worked out again - same question, and past the cap
+if the stored one was - and the number becomes 5. An answer that cannot be
+worked out again is kept as it was. Whether a page shows an item whole is
+decided by the answer, not the record's number: a question opened on an old
+record after this release already gets the new answer.
+
+The page (`equal_alternative/1`) lays the two out board for board, White
+first, with who goes down from each changed score group where that differs
+(the lowest bracket's leftover is the bye and is a board already), and
+counts the boards that are the same. The step is said in the record's own
+terms where the record shows it (`RoundExplanation.equal_alternatives/3`'s
+`step`, about the candidate's bracket) and otherwise in the engine's
+(`whole.step`, about the first bracket where the two rounds differ).
 
 **Tests** run the same work inline, before `pair_next_round/2` returns
 (`config :pairings_engine, :explanation_jobs, :inline`), so every existing

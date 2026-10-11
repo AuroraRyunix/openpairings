@@ -75,7 +75,11 @@ defmodule PairingsEngine.PairingRationale do
   defp build(tournament, round, round_number) do
     prior = round_number - 1
 
-    score_by_player = pre_round_scores(tournament, prior, round.virtual_points)
+    baku = baku_points(tournament, round_number)
+
+    score_by_player =
+      tournament |> pre_round_scores(prior, round.virtual_points) |> add_baku_points(baku)
+
     ladder = ladder_values(tournament, prior)
     colour_hist = colour_records(tournament.id, prior)
     played_before = prior_opponents(tournament.id, prior)
@@ -139,6 +143,11 @@ defmodule PairingsEngine.PairingRationale do
       # alone. Baku's are not recorded - they follow from the rules - and
       # the page names them from the tournament's own setting.
       virtual_points: virtual_points_by_id(round.virtual_points),
+      # Baku's (C.04.7), `%{player_id => points}` for this round: worked out
+      # from the rules as the pairing worked them out, and already in every
+      # `score` above - a side keeps its share as `virtual`, so the page can
+      # show "2.0 (+1.0 virtual)" and nobody takes a bracket for a standing.
+      baku_points: baku,
       summary: %{
         boards: Enum.count(boards, &(not &1.is_bye)),
         byes: Enum.count(boards, & &1.is_bye),
@@ -481,6 +490,9 @@ defmodule PairingsEngine.PairingRationale do
     %{
       player: player,
       score: score,
+      # The part of `score` that is Baku's virtual points; 0.0 for every
+      # other round and player.
+      virtual: scores |> Map.get(player.id, %{}) |> Map.get(:virtual, 0.0),
       pairing_number: player.pairing_number,
       standings_rank: rank,
       ladder_value: Map.get(ladder, player.id),
@@ -825,6 +837,41 @@ defmodule PairingsEngine.PairingRationale do
   defp pre_round_scores(tournament, through, _virtual),
     do: score_map(tournament, round_standings(tournament, [through])[through])
 
+  # Baku's virtual points for the round being explained, by player id -
+  # `Pairing.accelerations/3`, the function the pairing itself hands the
+  # engine, read at this round's column. Until 2026-10-11 the page left
+  # them out, built its brackets on game points, and then called every
+  # board between a Group A loser and a Group B winner a float: an account
+  # of the round that disagreed with the round (audit finding F8).
+  defp baku_points(%{acceleration: "baku", pairing_system: "swiss"} = tournament, round_number) do
+    for {id, by_round} <-
+          PairingsEngine.Pairing.accelerations(
+            tournament,
+            Tournaments.list_players(tournament.id),
+            round_number
+          ),
+        points = Enum.at(by_round, round_number - 1),
+        is_number(points) and points > 0,
+        into: %{},
+        do: {id, points / 1}
+  end
+
+  defp baku_points(_tournament, _round_number), do: %{}
+
+  defp add_baku_points(scores, baku) do
+    Enum.reduce(baku, scores, fn {id, points}, acc ->
+      entry = Map.get(acc, id, %{score: 0.0, standings_rank: nil})
+
+      Map.put(
+        acc,
+        id,
+        entry
+        |> Map.put(:score, Float.round(entry.score + points, 2))
+        |> Map.put(:virtual, points)
+      )
+    end)
+  end
+
   defp virtual_points_by_id(virtual) when is_map(virtual) do
     for {id, points} <- virtual,
         {int_id, ""} <- [Integer.parse(to_string(id))],
@@ -987,7 +1034,16 @@ defmodule PairingsEngine.PairingRationale do
       colour_ok: s.colour_ok,
       ladder_value: s.ladder_value
     }
+    |> put_virtual(Map.get(s, :virtual, 0.0))
   end
+
+  # `score` is what the round was paired on. Where part of it is Baku's
+  # virtual points the record says how much, so the score is not read back
+  # as a standing a year later. No key for anybody else.
+  defp put_virtual(payload, virtual) when is_number(virtual) and virtual > 0,
+    do: Map.put(payload, :virtual, virtual)
+
+  defp put_virtual(payload, _virtual), do: payload
 
   defp bye_payload(nil), do: nil
 

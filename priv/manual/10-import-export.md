@@ -69,6 +69,23 @@ follows the choice of the file:
   rules, counting that game as a draw for both players - what the import makes
   of it, a postponed game. The review says which rounds were checked that way
   and lists every game assumed, with its round and its two players.
+- *Players who look withdrawn.* A TRF file cannot say that a player withdrew:
+  it shows a player with nothing in the later rounds, which is also what an
+  absence looks like. So the review lists, under *Looks withdrawn - will be
+  paired in the next round unless you mark them withdrawn*, every player who
+  played or had a bye earlier and has no game and no bye in the last round of
+  the file, or in the last several in a row. Each has a tick **Import as
+  withdrawn**. Ticked, the player is imported as withdrawn and is not paired
+  again; unticked, as active, and the next round pairs them. A player with
+  nothing in the last two rounds or more is ticked already; a player who missed
+  only the last round is not, because one missed round is usually just that.
+  Change either as you see fit, here or afterwards in the player list. Not
+  listed: a late entrant (blank rounds at the start, games at the end), a
+  player with nothing in any round, a player with a half-point or full-point
+  bye in the last round or a bye already granted for the next one, anyone in a
+  file whose rounds have all been played, and the players of a round robin or
+  a team event. A zero-point bye counts as nothing. What you chose is kept
+  with the tournament and in its audit log.
 - *Rounds that break a pairing rule.* If a round of the file breaks a rule, the
   review is headed *This file's rounds break the FIDE pairing rules* and says
   that importing is not compliant with the pairing rules. This is a warning

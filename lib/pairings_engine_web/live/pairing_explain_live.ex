@@ -134,6 +134,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        busy: nil,
        no_show: nil,
        account_origin: round && round.explanation && round.explanation["origin"],
+       account_version: round && round.explanation && round.explanation["version"],
        account_divergence: account_divergence,
        page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
      )}
@@ -358,6 +359,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       engine_account: round && RoundExplanation.for_round(round, players),
       account_divergence: if(round, do: RoundExplanation.divergence(round), else: :no_record),
       account_origin: round && round.explanation && round.explanation["origin"],
+      account_version: round && round.explanation && round.explanation["version"],
       recompute: Engine.reexplain_status(tournament, round),
       explanation_state: state
     )
@@ -1370,6 +1372,58 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   attr :id, :string, required: true
   attr :item, :map, required: true
 
+  # Two renderings, chosen by what the record holds. An answer worked out
+  # since version 5 has the whole alternative, and both rounds are laid out
+  # board for board. An older one has the candidate's new opponent and
+  # nothing else, and says so rather than guessing the rest.
+  defp equal_alternative(%{item: %{whole: %{alternative: _}}} = assigns) do
+    ~H"""
+    <li id={@id} class="pe-equal-item is-whole" tabindex="-1">
+      <p class="pe-equal-head"><strong>{equal_title(@item)}</strong></p>
+
+      <div class="pe-equal-boards">
+        <div>
+          <p id={"#{@id}-played-label"} class="pe-subgroup-label">{gettext("As played")}</p>
+          <ul id={"#{@id}-played"} aria-labelledby={"#{@id}-played-label"}>
+            <li :for={board <- @item.whole.played}>{seeded_board(board)}</li>
+            <li :for={leave <- @item.whole.leaves} :if={leave.played != []} class="pe-equal-leaves">
+              {leaves_text(leave.group, leave.played)}
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p id={"#{@id}-proposed-label"} class="pe-subgroup-label">
+            {gettext("In the alternative")}
+          </p>
+          <ul id={"#{@id}-proposed"} aria-labelledby={"#{@id}-proposed-label"}>
+            <li :for={board <- @item.whole.alternative}>{seeded_board(board)}</li>
+            <li
+              :for={leave <- @item.whole.leaves}
+              :if={leave.alternative != []}
+              class="pe-equal-leaves"
+            >
+              {leaves_text(leave.group, leave.alternative)}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <p id={"#{@id}-unchanged"} class="hint pe-equal-unchanged">
+        {gettext("White is named first on every board.")}
+        {ngettext(
+          "One other board is the same in both.",
+          "%{count} other boards are the same in both.",
+          @item.whole.unchanged
+        )}
+      </p>
+
+      <p id={"#{@id}-why"} class={["pe-equal-why", @item.pick == :alternative && "is-better"]}>
+        {equal_reason(@item)}
+      </p>
+    </li>
+    """
+  end
+
   defp equal_alternative(assigns) do
     ~H"""
     <li id={@id} class="pe-equal-item" tabindex="-1">
@@ -1395,7 +1449,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 group: score_str(@item.group)
               )}
             </li>
-            <li class="hint">
+            <li :if={match?(%{skipped: _}, @item.whole)} id={"#{@id}-too-many"} class="hint">
+              {gettext(
+                "the alternative changes %{count} boards, too many to list here",
+                count: @item.whole.count
+              )}
+            </li>
+            <li :if={is_nil(@item.whole)} class="hint">
               {gettext("how the other players of these boards are then paired was not recorded")}
             </li>
           </ul>
@@ -1441,6 +1501,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp seeded_board({a, b}), do: "#{seeded_name(a)} – #{seeded_name(b)}"
 
+  defp leaves_text(group, players) do
+    ngettext(
+      "Goes down from the %{group} score group: %{names}",
+      "Go down from the %{group} score group: %{names}",
+      length(players),
+      group: score_str(group),
+      names: Enum.map_join(players, ", ", &seeded_name/1)
+    )
+  end
+
   defp proposed_text(%{proposed: {candidate, nil}}), do: seeded_board({candidate, nil})
 
   defp proposed_text(%{proposed: {candidate, opponent}, score: score}) do
@@ -1471,6 +1541,33 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       "Not chosen because the played pairing comes earlier in the fixed order. In the alternative %{candidate} (no. %{b}) leaves the group from the top half, so a player from the bottom half has to take a place in the top half. The system tries such an exchange between the halves only after every arrangement of the bottom half, and the played pairing needs none.",
       candidate: item.candidate.name,
       b: seed_of(item.candidate)
+    )
+  end
+
+  # The engine's own reading of the step (version 5), for the ties the
+  # record alone could not place: it is about the bracket where the two
+  # rounds first differ, which need not be the candidate's.
+  defp equal_reason(%{pick: :actual, whole: %{step: :transposition, group: group}})
+       when not is_nil(group) do
+    gettext(
+      "Not chosen because the played pairing comes earlier in the fixed order. The two first differ in the %{group} score group. Both pair its top half against its bottom half; the alternative needs a later arrangement of the bottom half than the played pairing does.",
+      group: score_str(group)
+    )
+  end
+
+  defp equal_reason(%{pick: :actual, whole: %{step: :exchange, group: group}})
+       when not is_nil(group) do
+    gettext(
+      "Not chosen because the played pairing comes earlier in the fixed order. The two first differ in the %{group} score group. The played pairing pairs its top half against its bottom half; the alternative has to exchange players between the halves, which the system tries only after every arrangement of the bottom half.",
+      group: score_str(group)
+    )
+  end
+
+  defp equal_reason(%{pick: :actual, whole: %{step: :floater, group: group}})
+       when not is_nil(group) do
+    gettext(
+      "Not chosen because the played pairing comes earlier in the fixed order. The two first differ in the %{group} score group, where players who came down from a higher group are paired first: the alternative sends a different player on from it.",
+      group: score_str(group)
     )
   end
 
@@ -1638,6 +1735,18 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp baku_round?(_tournament, _round_number), do: false
 
+  # A score the round was paired on. Baku's virtual points are in it (the
+  # brackets are built on the sum) but are not the player's, so they are
+  # shown apart: nobody should read a bracket's score as a standing.
+  defp side_score(%{virtual: virtual, score: score}) when is_number(virtual) and virtual > 0 do
+    gettext("%{points} (+%{virtual} virtual)",
+      points: score_str(Float.round(score - virtual, 2)),
+      virtual: score_str(virtual)
+    )
+  end
+
+  defp side_score(side), do: score_str(side.score)
+
   defp score_str(nil), do: "0"
   defp score_str(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
   defp score_str(n), do: to_string(n)
@@ -1723,8 +1832,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp float_note(%{white: w, black: b}) when not is_nil(b) do
     {high, low} = if w.score >= b.score, do: {w, b}, else: {b, w}
 
-    "Floater - #{high.player.name} (#{score_str(high.score)}) paired down against " <>
-      "#{low.player.name} (#{score_str(low.score)}), who paired up."
+    "Floater - #{high.player.name} (#{side_score(high)}) paired down against " <>
+      "#{low.player.name} (#{side_score(low)}), who paired up."
   end
 
   defp float_note(_), do: nil
@@ -2133,11 +2242,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # <title>/popover-adjacent one-liner for a dot, including the
   # against-due-colour note when applicable (task 3).
   defp dot_title(%{colour: :bye} = w),
-    do: "#{w.side.player.name} - bye, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+    do: "#{w.side.player.name} - bye, score #{side_score(w.side)}#{due_title_suffix(w)}"
 
   defp dot_title(w),
     do:
-      "#{w.side.player.name} - #{colour_word(w.colour)}, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+      "#{w.side.player.name} - #{colour_word(w.colour)}, score #{side_score(w.side)}#{due_title_suffix(w)}"
 
   # Article 5.2.5 is the last resort: it is reached only when NEITHER player
   # holds a colour preference, which is exactly the state the rationale
@@ -2556,7 +2665,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             class="pe-score"
             title={gettext("Score going into this round - what this pairing was based on")}
           >
-            {score_str(@side.score)}
+            {side_score(@side)}
           </span>
           <span class="pe-seed" title={gettext("starting rank")}>#{@side.pairing_number}</span>
           <span class="pe-side-colour">{colour_word(@colour)}</span>
@@ -3294,7 +3403,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         style="margin: 4px 0 12px"
       >
         {gettext(
-          "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the starting list, as it stood when round 1 was paired, was given virtual points for pairing, which the engine added to their scores when it built the brackets. A player who joined later is never in that group. The scores shown here are game points without them, and the standings never count them."
+          "This round was paired with Baku acceleration (FIDE C.04.7): the top half of the starting list, as it stood when round 1 was paired, was given virtual points for pairing, which the engine added to their scores when it built the brackets. A player who joined later is never in that group. The brackets and floats on this page are the engine's, on game points plus virtual points; such a player's score reads as game points with the virtual points beside them, like \"1.0 (+1.0 virtual)\". The standings never count them."
         )}
       </p>
 
@@ -3304,7 +3413,18 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             answers questions, and an offer at the foot of a long page was
             found by nobody. It writes the account only. --%>
       <div :if={@recompute == :stale} id="recompute" class="card pe-recompute" style="margin: 8px 0">
-        <p style="margin: 0 0 8px">
+        <%!-- Two kinds of old. A version-3 or -4 account has everything but
+              the boards of its alternatives; anything older is missing the
+              analysis itself. The button is the same one. --%>
+        <p :if={@account_version in [3, 4]} id="recompute-whole" style="margin: 0 0 8px">
+          <strong>
+            {gettext("This round's engine account is from before alternatives were kept whole.")}
+          </strong>
+          {gettext(
+            "It names each equally good alternative by one board only. Explained again, every board of the alternative is shown beside the played one. It writes the account only: no pairing is ever changed by this."
+          )}
+        </p>
+        <p :if={@account_version not in [3, 4]} style="margin: 0 0 8px">
           <strong>
             {gettext("This round's engine account is from before the detailed analysis.")}
           </strong>
@@ -3504,7 +3624,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                     <span class="pe-tag pe-tag-muted">{gettext("Board %{n}", n: w.board)}</span>
                     <span :if={w.colour == :bye} class="pe-tag pe-tag-bye">{gettext("bye")}</span>
                     <span :if={w.colour != :bye} class="pe-side-colour">{colour_word(w.colour)}</span>
-                    <span class="pe-score">{score_str(w.side.score)}</span>
+                    <span class="pe-score">{side_score(w.side)}</span>
                     <span class="pe-seed">{gettext("seed #%{n}", n: w.side.pairing_number)}</span>
                   </div>
 
@@ -3614,7 +3734,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               <div class="pe-pop-name">{w.side.player.name}</div>
               <div class="pe-pop-tags">
                 <span class="pe-side-colour">{colour_label}</span>
-                <span class="pe-score">{score_str(w.side.score)}</span>
+                <span class="pe-score">{side_score(w.side)}</span>
                 <span class="pe-seed">{gettext("seed #%{n}", n: w.side.pairing_number)}</span>
                 <span :if={duo_rating(w) != nil} class="pe-tag pe-tag-muted">
                   {duo_rating(w)}

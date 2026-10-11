@@ -225,6 +225,27 @@ defmodule PairingsEngine.RoundExplanation do
       when the candidate is in the bottom half too (which of S2 is left
       over), `:exchange` when the candidate is in the top half (a top-half
       player can only leave if a bottom-half player takes that place).
+
+  A version-5 answer (2026-10-11) keeps the whole alternative, and its item
+  has it:
+
+    * `whole` - `nil` for an older answer, which is then drawn from the one
+      board above as it always was. Otherwise `%{skipped: :too_many_boards,
+      count: n}` when the engine did not write it out, or
+
+          %{
+            played: [{white, black | nil}],       # played boards it lacks
+            alternative: [{white, black | nil}],  # its boards instead
+            unchanged: n,                         # boards both have
+            leaves: [%{group:, played: [player], alternative: [player]}],
+            step: :transposition | :exchange | :floater | nil,
+            group: score                          # where the two first differ
+          }
+
+      `leaves` is, for each bracket the alternative changes, who goes down
+      from it in either version - listed only where the two differ. `step`
+      is the engine's own word for what the alternative does to the halves
+      of the bracket where the two first differ; `nil` is "not known".
   """
   def equal_alternatives(section, bracket, entries) do
     boards = Enum.flat_map(section.brackets, & &1.pairs)
@@ -242,14 +263,14 @@ defmodule PairingsEngine.RoundExplanation do
     |> Enum.map(fn key ->
       rows
       |> Enum.filter(fn {kind, _subject, c} -> {kind, c.player.id} == key end)
-      |> equal_item(bracket, boards)
+      |> equal_item(bracket, boards, section)
     end)
   end
 
   defp subject(%{holder: holder}), do: {:bye, holder}
   defp subject(%{floater: floater}), do: {:float, floater}
 
-  defp equal_item([{kind, _subject, c} | _] = rows, bracket, boards) do
+  defp equal_item([{kind, _subject, c} | _] = rows, bracket, boards, section) do
     instead_of = rows |> Enum.map(&elem(&1, 1)) |> Enum.uniq_by(& &1.id)
 
     stayed =
@@ -267,8 +288,44 @@ defmodule PairingsEngine.RoundExplanation do
       proposed: proposed,
       score: c.fate && c.fate.score,
       played: played_boards(boards, kind, c.player, proposed, instead_of, stayed),
-      step: step(kind, bracket, instead_of, stayed, c)
+      step: step(kind, bracket, instead_of, stayed, c),
+      whole: whole_item(rows, section, c)
     }
+  end
+
+  # The same candidate under two floaters' questions is one search and one
+  # round, so any row's copy will do - but one of them may be an answer
+  # from before the boards were kept, hence the first that has it.
+  defp whole_item(rows, section, c) do
+    case Enum.find_value(rows, fn {_kind, _subject, row} -> row.whole end) do
+      nil ->
+        nil
+
+      %{skipped: _} = skipped ->
+        skipped
+
+      whole ->
+        played_floats = Map.new(section.brackets, &{&1.group, &1.floats})
+
+        # Whoever is left over in the lowest bracket has nowhere to go
+        # down to: that is the bye, and the bye is already a board.
+        lowest = section.brackets |> Enum.map(& &1.group) |> Enum.min(fn -> nil end)
+
+        %{
+          played: whole.played,
+          alternative: whole.pairs,
+          unchanged: whole.unchanged,
+          leaves:
+            for %{group: group, floats: theirs} <- whole.brackets,
+                group != lowest,
+                ours = Map.get(played_floats, group, []),
+                MapSet.new(ours, & &1.id) != MapSet.new(theirs, & &1.id) do
+              %{group: group, played: ours, alternative: theirs}
+            end,
+          step: whole.step,
+          group: c.at && c.at.group
+        }
+    end
   end
 
   defp proposed(%{fate: %{opponent: opponent}, player: player}), do: {player, opponent}
@@ -401,9 +458,50 @@ defmodule PairingsEngine.RoundExplanation do
       reason: reason(c["reason"]),
       at: differs(c["at"]),
       fate: fate(c["fate"], by_id),
-      stayed: c["stayed"]
+      stayed: c["stayed"],
+      # Version 5: the whole round this candidate's alternative stands for.
+      # nil for every answer worked out before it was kept.
+      whole: whole(c["alternative"], by_id)
     }
   end
+
+  @steps ~w(transposition exchange floater)
+
+  defp whole(%{"skipped" => "too_many_boards", "count" => count}, _by_id),
+    do: %{skipped: :too_many_boards, count: count}
+
+  defp whole(%{"pairs" => pairs, "played" => played} = w, by_id)
+       when is_list(pairs) and is_list(played) do
+    resolved = %{
+      pairs: boards(pairs, by_id),
+      played: boards(played, by_id),
+      unchanged: w["unchanged"] || 0,
+      brackets:
+        Enum.map(w["brackets"] || [], fn b ->
+          %{
+            group: b["group"],
+            pairs: boards(b["pairs"] || [], by_id),
+            floats: names(b["floats"], by_id)
+          }
+        end),
+      bye: player(w["bye"], by_id),
+      step: if(w["step"] in @steps, do: String.to_atom(w["step"]))
+    }
+
+    # A player deleted since leaves a board with a hole in it. Half an
+    # alternative is not shown as a whole one: the answer falls back to the
+    # one board it always had.
+    if Enum.all?(resolved.pairs ++ resolved.played, &match?({%{}, _}, &1)) and
+         Enum.all?(Enum.zip(pairs ++ played, resolved.pairs ++ resolved.played), fn
+           {[_w, b], {_white, black}} -> is_nil(b) == is_nil(black)
+         end),
+       do: resolved
+  end
+
+  defp whole(_none, _by_id), do: nil
+
+  defp boards(list, by_id),
+    do: Enum.map(list, fn [w, b] -> {player(w, by_id), player(b, by_id)} end)
 
   defp reason(nil), do: nil
   defp reason(r) when r in @bye_reasons, do: String.to_atom(r)

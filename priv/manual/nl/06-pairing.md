@@ -195,7 +195,7 @@ Voor een Zwitserse ronde die door Ainalrami is gepaard, toont de pagina
 Vaak zou een andere kandidaat helemaal niets gekost hebben: de paring waarin
 die speler doorschuift is *even goed volgens elke regel*. De regel zegt dat dan
 en verwijst naar **Even goede alternatieven** onder dezelfde scoregroep, waar
-elk zo'n alternatief één item is: de borden zoals gespeeld naast het bord dat
+elk zo'n alternatief één item is: de borden zoals gespeeld naast de borden die
 het alternatief zou hebben gehad, en waarom het niet gekozen is. De reden is
 altijd dezelfde. Als twee paringen elk criterium even goed vervullen, kiest het
 systeem niet; het neemt de eerste mogelijkheid in zijn vaste volgorde -
@@ -207,9 +207,32 @@ paringsnummers. Waar de opgeslagen gegevens het tonen, noemt het item de stap:
 welke speler uit de onderste helft overblijft, of dat het alternatief een
 uitwisseling tussen de helften nodig heeft. *De FIDE-formulering* geeft het
 artikel (C.04.3 3.8.1, met 4.2 voor transposities en 4.3 voor uitwisselingen).
-Na drie alternatieven staan de overige achter *en nog N*. Een item toont het
-ene bord van het alternatief dat bewaard is; hoe de andere spelers van de
-betrokken borden dan gepaard zouden zijn, wordt niet opgeslagen.
+Na drie alternatieven staan de overige achter *en nog N*.
+
+Een item toont beide versies volledig, naast elkaar: onder **Zoals gespeeld**
+elk bord van de ronde dat het alternatief niet zou hebben, onder **In het
+alternatief** elk bord dat het in de plaats zou hebben, met wit eerst. Waar een
+andere speler uit een scoregroep doorschuift, zeggen beide kanten wie. Borden
+die in beide hetzelfde zijn, worden weggelaten en geteld (*4 andere borden zijn
+in beide hetzelfde*). Een alternatief dat meer dan 40 borden verandert, wordt
+niet opgesomd; het item toont dan het ene bord van de betrokken speler en zegt
+hoeveel borden zouden veranderen.
+
+Een antwoord dat door een eerdere versie van het programma is uitgewerkt,
+bewaarde maar één bord van het alternatief - de nieuwe tegenstander van de betrokken speler - en wordt nog
+altijd zo getoond, met de opmerking dat de rest niet is vastgelegd. Zo'n ronde
+heeft bovenaan de pagina een melding, *De verantwoording van de engine voor
+deze ronde dateert van voor alternatieven volledig werden bewaard*, met de knop
+**Opnieuw berekenen, voor elke ronde van dit toernooi die het nodig heeft**. Die werkt
+de geopende antwoorden opnieuw uit en verandert geen enkele paring. Een ronde
+waarvan de borden na het paren met de hand zijn gewijzigd, blijft zoals ze is.
+
+**Baku-versnelling.** In een ronde die met virtuele punten is gepaard, zijn de
+scoregroepen en de floats op deze pagina die van de engine: partijpunten plus
+virtuele punten. Een speler met virtuele punten wordt met beide getoond,
+bijvoorbeeld *1.0 (+1.0 virtueel)* - één partijpunt, gepaard als twee. De stand
+telt virtuele punten nooit mee; een scoregroep hier is dus geen plaats in de
+stand.
 
 Kleuren volgen C.04.2 3.4: alleen partijen die echt gespeeld zijn tellen. Een
 forfait (gewonnen of verloren, door wie ook), een bye of een afwezigheid is geen

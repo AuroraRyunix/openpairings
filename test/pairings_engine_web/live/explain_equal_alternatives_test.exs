@@ -201,6 +201,244 @@ defmodule PairingsEngineWeb.ExplainEqualAlternativesTest do
     assert has_element?(lv, ~s(#{dom}-answer-c-#{a}-compare[href="#{item}"]))
   end
 
+  # ---- version 5: the whole alternative ---------------------------------
+
+  # A tie as an answer worked out since version 5 stores it: the old keys,
+  # and the round the alternative stands for. Two boards change here - the
+  # candidate takes the floater's board, the floater the candidate's.
+  defp whole_tie(candidate, ctx, step) do
+    partner = partner_of(ctx, candidate)
+
+    Map.put(tie(candidate, ctx), "alternative", %{
+      "pairs" => [[candidate, ctx.opponent], [ctx.floater, partner]],
+      "played" => [[ctx.floater, ctx.opponent], [candidate, partner]],
+      "unchanged" => 1,
+      "brackets" => [
+        %{"group" => ctx.group, "pairs" => [[ctx.floater, partner]], "floats" => [candidate]}
+      ],
+      "bye" => nil,
+      "step" => step
+    })
+  end
+
+  defp partner_of(ctx, player) do
+    ctx.round.explanation["sections"]
+    |> Enum.flat_map(& &1["brackets"])
+    |> Enum.flat_map(& &1["pairs"])
+    |> Enum.find_value(fn
+      [^player, other] -> other
+      [other, ^player] -> other
+      _ -> nil
+    end)
+  end
+
+  defp store_answer(ctx, candidates) do
+    question = RoundExplanation.float_question_key(0, ctx.index, ctx.floater)
+
+    :stored =
+      ExplanationJobs.store_alternative(ctx.round.id, ctx.round.explanation["job"], question, %{
+        "floater" => ctx.floater,
+        "candidates" => candidates
+      })
+
+    question
+  end
+
+  test "a version-5 answer shows both rounds whole: every changed board, and how many are not",
+       %{conn: conn, scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+    assert ctx.round.explanation["version"] == 5
+    # The tie is placed one bracket up, where the record alone cannot say
+    # what the step was - so the words are the engine's.
+    store_answer(ctx, [
+      put_in(whole_tie(a, ctx, "transposition"), ["at", "group"], ctx.group + 1.0)
+    ])
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain")
+
+    item = "#equal-alt-0-#{ctx.index}-#{a}"
+    assert has_element?(lv, "li#{item}.is-whole")
+
+    names = Map.new(Tournaments.list_players(ctx.t.id), &{&1.id, &1.name})
+    played = lv |> element("ul#{item}-played") |> render()
+    proposed = lv |> element("ul#{item}-proposed") |> render()
+
+    # Two boards on each side, the same four players, differently paired.
+    for id <- [ctx.floater, ctx.opponent, a, partner_of(ctx, a)] do
+      assert played =~ names[id]
+      assert proposed =~ names[id]
+    end
+
+    assert length(Regex.scan(~r/<li/, played)) == 3
+    assert length(Regex.scan(~r/<li/, proposed)) == 3
+
+    # Who goes down, on both sides, since that is what changed.
+    assert played =~ "Goes down from the"
+    assert proposed =~ "Goes down from the"
+
+    assert lv |> element("#{item}-unchanged") |> render() =~ "One other board is the same in both"
+
+    # Nothing is left to guess, so nothing says "not recorded".
+    refute render(lv) =~ "was not recorded"
+
+    # The engine's own word for the step, in plain ones.
+    assert lv |> element("#{item}-why") |> render() =~ "later arrangement of the bottom half"
+
+    # The account is current: no offer to explain it again.
+    refute has_element?(lv, "#recompute")
+  end
+
+  test "an alternative too large to list keeps the one board and says how many changed",
+       %{conn: conn, scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+
+    store_answer(ctx, [
+      Map.put(tie(a, ctx), "alternative", %{"skipped" => "too_many_boards", "count" => 57})
+    ])
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain")
+
+    item = "#equal-alt-0-#{ctx.index}-#{a}"
+    assert has_element?(lv, "li#{item}")
+    refute has_element?(lv, "li#{item}.is-whole")
+    assert lv |> element("#{item}-too-many") |> render() =~ "57"
+  end
+
+  test "an alternative naming a player deleted since falls back to the one board",
+       %{conn: conn, scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+
+    store_answer(ctx, [
+      update_in(whole_tie(a, ctx, nil), ["alternative", "pairs"], &[[a, -1] | tl(&1)])
+    ])
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain")
+
+    item = "#equal-alt-0-#{ctx.index}-#{a}"
+    assert has_element?(lv, "li#{item}")
+    refute has_element?(lv, "li#{item}.is-whole")
+  end
+
+  test "an old account still renders the old way, and offers to be explained again",
+       %{conn: conn, scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+    store_version_3(ctx, [tie(a, ctx)])
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain")
+
+    item = "#equal-alt-0-#{ctx.index}-#{a}"
+    assert has_element?(lv, "li#{item}")
+    refute has_element?(lv, "li#{item}.is-whole")
+    assert lv |> element("ul#{item}-proposed") |> render() =~ "was not recorded"
+
+    # The existing offer, with the words for this kind of old.
+    assert has_element?(lv, "#recompute #recompute-whole")
+    assert has_element?(lv, ~s(#recompute button[phx-click="reexplain"]))
+  end
+
+  test "explaining an old on-demand account again gives its opened answers their boards",
+       %{conn: conn, scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+
+    # As a round paired last week has it: version 4, one question opened,
+    # its answer without the alternative's boards.
+    old = Map.put(ctx.round.explanation, "version", 4)
+    round = ctx.round |> Ecto.Changeset.change(explanation: old) |> Repo.update!()
+    question = store_answer(ctx, [tie(a, ctx)])
+
+    boards =
+      Repo.preload(round, :pairings).pairings
+      |> Enum.map(&{&1.white_player_id, &1.black_player_id})
+
+    assert Pairing.reexplain_status(ctx.t, round) == :stale
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain")
+    assert has_element?(lv, "#recompute-whole")
+
+    lv |> element(~s(#recompute button[phx-click="reexplain"])) |> render_click()
+    path = ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain"
+    assert_redirect(lv, path, 30_000)
+    {:ok, lv, _html} = live(conn, path)
+
+    again = Tournaments.get_round(ctx.t.id, ctx.round.number)
+    assert again.explanation["version"] == 5
+    # The same account - brackets, pairs, fingerprint - not a rebuilt one.
+    assert Map.delete(again.explanation, "version") == Map.delete(old, "version")
+    assert Pairing.reexplain_status(ctx.t, again) == :current
+
+    # The answer was worked out again by the engine: every candidate that
+    # found a round now has it.
+    %{^question => answer} = Pairing.stored_alternatives(again)
+
+    for c <- answer["candidates"], c["outcome"] not in ["impossible", "ineligible"] do
+      assert %{"pairs" => pairs, "played" => played, "unchanged" => n} = c["alternative"]
+      assert length(pairs) == length(played)
+      assert n + length(pairs) == length(boards)
+    end
+
+    assert Enum.any?(answer["candidates"], &is_map(&1["alternative"]))
+
+    # And no board moved.
+    assert Repo.preload(again, :pairings).pairings
+           |> Enum.map(&{&1.white_player_id, &1.black_player_id}) == boards
+
+    refute has_element?(lv, "#recompute")
+  end
+
+  # Only a tie is ever drawn with its boards. An old account without one
+  # would gain nothing from being explained again, so nobody is asked to.
+  test "an old account with no tie in it is current, and offers nothing",
+       %{conn: conn, scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+
+    # Version 4, nothing opened yet; then one answer, and no tie in it.
+    old = Map.put(ctx.round.explanation, "version", 4)
+    round = ctx.round |> Ecto.Changeset.change(explanation: old) |> Repo.update!()
+    assert Pairing.reexplain_status(ctx.t, round) == :current
+
+    store_answer(ctx, [Map.put(tie(a, ctx), "outcome", "worse")])
+    assert Pairing.reexplain_status(ctx.t, round) == :current
+    assert {:skip, :current} = Pairing.reexplain_round(ctx.t, round.number)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{ctx.t.id}/pairings/#{ctx.round.number}/explain")
+    refute has_element?(lv, "#recompute")
+
+    # Version 3, the answers inline: the same.
+    round = store_version_3(ctx, [Map.put(tie(a, ctx), "outcome", "impossible")])
+    assert Pairing.reexplain_status(ctx.t, round) == :current
+
+    # A tie, and it is stale again.
+    round = store_version_3(ctx, [tie(a, ctx)])
+    assert Pairing.reexplain_status(ctx.t, round) == :stale
+  end
+
+  test "a hand-edited old account stays as it is", %{scope: scope} do
+    ctx = floated_round(scope)
+    [a, _b] = ctx.others
+    old = Map.put(ctx.round.explanation, "version", 4)
+    round = ctx.round |> Ecto.Changeset.change(explanation: old) |> Repo.update!()
+    question = store_answer(ctx, [tie(a, ctx)])
+
+    [p1, p2 | _] = Repo.preload(round, :pairings).pairings |> Enum.filter(& &1.black_player_id)
+    p1 |> Ecto.Changeset.change(black_player_id: p2.black_player_id) |> Repo.update!()
+    p2 |> Ecto.Changeset.change(black_player_id: p1.black_player_id) |> Repo.update!()
+
+    round = Tournaments.get_round(ctx.t.id, ctx.round.number)
+    assert Pairing.reexplain_status(ctx.t, round) == :hand_edited
+    assert {:skip, :hand_edited} = Pairing.reexplain_round(ctx.t, round.number)
+
+    kept = Tournaments.get_round(ctx.t.id, ctx.round.number)
+    assert kept.explanation == old
+    assert %{^question => %{"candidates" => [c]}} = Pairing.stored_alternatives(kept)
+    refute Map.has_key?(c, "alternative")
+  end
+
   test "a round with no ties has no such block", %{conn: conn, scope: scope} do
     ctx = floated_round(scope)
     [a, _b] = ctx.others
