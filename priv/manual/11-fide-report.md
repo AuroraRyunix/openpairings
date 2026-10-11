@@ -161,9 +161,9 @@ each file is for. A round counts for the month of its date.
 
 **Which tournaments are listed.** A tournament from which at least one file
 was sent, and a tournament marked **FIDE-rated** (Settings, FIDE). Nothing
-else: a club evening that is not marked FIDE-rated and never sent anything
+else: a club evening that is not marked FIDE-homologated and never sent anything
 does not appear. *Not sent yet: round N has finished and has no receipt* is
-said only of a tournament marked FIDE-rated; one that is not, but sent a
+said only of a tournament marked FIDE-homologated; one that is not, but sent a
 round once, is listed with that receipt and the label *not marked
 FIDE-rated*, and nothing is expected of its other rounds. The FIDE-rated
 tick is the only "this tournament is rated" setting there is; there is none

@@ -166,7 +166,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
 
       <p class="hint rinbox-intro" id="rating-inbox-intro">
         {gettext(
-          "Listed here: every tournament from which a round was sent for rating, and every tournament marked FIDE-rated (Settings, FIDE). A round counts for the month of its date."
+          "Listed here: every tournament from which a round was sent for rating, and every tournament marked FIDE-homologated (Settings, FIDE). A round counts for the month of its date."
         )}
         {gettext(
           "\"Sent\" means the arbiter pressed Send and the file was downloaded to their computer. Whether they then mailed it to you is something this page cannot know: the download here is that same file, in case it never arrived."
@@ -175,7 +175,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
 
       <p :if={@periods == []} id="rating-inbox-empty" class="hint rinbox-intro">
         {gettext(
-          "Nothing here yet. A tournament appears once a round of it has been sent for rating, or once it is marked FIDE-rated and has a finished round."
+          "Nothing here yet. A tournament appears once a round of it has been sent for rating, or once it is marked FIDE-homologated and has a finished round."
         )}
       </p>
 
@@ -204,7 +204,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
               id={"rating-inbox-unrated-#{b.tournament.id}-#{month_id(p.period)}"}
               class="badge muted"
             >
-              {gettext("not marked FIDE-rated")}
+              {gettext("not marked FIDE-homologated")}
             </span>
           </h3>
 
@@ -213,7 +213,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
             class="rinbox-note"
           >
             {gettext(
-              "Listed because a round of it was sent. It is not marked FIDE-rated, so no report is expected for its other rounds and no rating list applies."
+              "Listed because a round of it was sent. It is not marked FIDE-homologated, so no report is expected for its other rounds and no rating list applies."
             )}
           </p>
 
