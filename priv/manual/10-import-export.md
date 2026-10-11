@@ -163,7 +163,10 @@ address of the download.
   tournament. On the Tournaments page **Export all (JSON)** exports every
   tournament you own in one file.
 - **Export .swar (v7, experimental)** (Belgian pack) writes a SWAR file. A
-  line lists what the SWAR format cannot hold of this tournament.
+  line lists what the SWAR format cannot hold of this tournament - among them
+  an absence worth anything but half a point (SWAR has a tick box for the
+  half point and nothing else) and an expelled player, who is written as
+  SWAR's *Forfeit*, as a withdrawn player is.
 - **Export SWAR results page (.html)** (Belgian pack) writes the SWAR-style
   results page.
 - **Publish to the federation's results site** (Belgian pack, administrator).

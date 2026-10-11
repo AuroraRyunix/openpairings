@@ -99,7 +99,9 @@ inschrijven om resultaten in te voeren**. Die maakt een QR-code en een code van
 kan daarna resultaten voor dat toernooi invoeren, zonder account.
 
 - Een **helpertelefoon** vult borden in die nog geen resultaat hebben, alleen in de
-  laatst gepaarde ronde, en kan een resultaat dat al is vastgelegd niet wijzigen.
+  laatst gepaarde ronde, en kan een resultaat dat al is vastgelegd niet wijzigen -
+  ook niet een resultaat dat de arbiter net heeft ingevoerd, voordat het scherm van
+  de telefoon was bijgewerkt.
 - Een **deputy-telefoon** kan in elke ronde een resultaat invoeren en corrigeren.
 - Een telefoon kan worden beperkt tot een reeks borden.
 
