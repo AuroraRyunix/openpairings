@@ -121,6 +121,53 @@ defmodule PairingsEngine.PublicDisplayTest do
       assert PublicDisplay.cast(Map.delete(everything, "flags"))["flags"] == false
     end
 
+    # 2026-10-11: with Federations off and Flags on, the results site drew
+    # nothing and the settings page offered the box anyway.
+    test "flags follow federations: not shown, not offered and not counted while those are off" do
+      assert PublicDisplay.parent("flags") == "federation"
+      assert PublicDisplay.parent("federation") == nil
+      assert Enum.map(PublicDisplay.children("federation"), & &1.key) == ["flags"]
+      assert PublicDisplay.children("club") == []
+
+      fed_off = %{"federation" => false}
+
+      refute PublicDisplay.show?(fed_off, "flags")
+      assert PublicDisplay.ticked?(fed_off, "flags")
+      refute PublicDisplay.offered?(fed_off, "flags")
+      assert PublicDisplay.offered?(nil, "flags")
+      assert PublicDisplay.resolve(fed_off)["flags"] == false
+      assert PublicDisplay.resolve(fed_off)["federation"] == false
+      # One box unticked, one more thing hidden - not two.
+      untouched = PublicDisplay.hidden_count(nil)
+      assert PublicDisplay.hidden_count(fed_off) == untouched + 1
+      assert PublicDisplay.hidden_count(%{"flags" => false}) == untouched + 1
+    end
+
+    test "the stored flags tick survives federations being off, either way round" do
+      # Every box at its default, so the stored map holds only what the test did.
+      everything = Map.new(PublicDisplay.keys() -- ["rounds_played"], &{&1, "true"})
+
+      # Federations unticked on a form that still had the flags box: both
+      # are read off the form.
+      off = PublicDisplay.cast(Map.delete(everything, "federation"), nil)
+      assert off == %{"federation" => false}
+
+      off_unflagged = PublicDisplay.cast(Map.drop(everything, ["federation", "flags"]), nil)
+      assert off_unflagged == %{"federation" => false, "flags" => false}
+
+      # The next form has no flags box. Its absence is not an untick.
+      no_box = Map.drop(everything, ["federation", "flags"])
+      assert PublicDisplay.cast(no_box, off) == %{"federation" => false}
+      assert PublicDisplay.cast(no_box, off_unflagged) == off_unflagged
+
+      # Federations ticked again, still no flags box on that form: the
+      # arbiter's choice comes back, whichever it was.
+      back = Map.delete(everything, "flags")
+      assert PublicDisplay.cast(back, off) == %{}
+      assert PublicDisplay.resolve(PublicDisplay.cast(back, off))["flags"] == true
+      assert PublicDisplay.cast(back, off_unflagged) == %{"flags" => false}
+    end
+
     test "keys are unique, and are what travels" do
       keys = PublicDisplay.keys()
       assert length(Enum.uniq(keys)) == length(keys)

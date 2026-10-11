@@ -689,6 +689,70 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert display["club"] == false
     end
 
+    # 2026-10-11. "Federation flags" is a sub-option of "Federations".
+    test "the flags tick is only offered while Federations is on, and comes back as it was left",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      everything = Map.new(PublicDisplay.keys(), &{&1, "true"})
+
+      assert has_element?(lv, "#display-toggle-federation input[checked]")
+      assert has_element?(lv, "#display-toggle-flags.is-sub input[checked]")
+
+      # The arbiter unticks the flags, then Federations.
+      render_change(lv, "save_display", %{"display" => Map.delete(everything, "flags")})
+      assert has_element?(lv, "#display-toggle-flags input:not([checked])")
+
+      render_change(lv, "save_display", %{
+        "display" => Map.drop(everything, ["flags", "federation"])
+      })
+
+      refute has_element?(lv, "#display-toggle-flags")
+      assert has_element?(lv, "#display-toggle-federation input:not([checked])")
+
+      # Something else changes meanwhile; the form has no flags box to send.
+      render_change(lv, "save_display", %{
+        "display" => Map.drop(everything, ["flags", "federation", "club"])
+      })
+
+      refute has_element?(lv, "#display-toggle-flags")
+
+      # Federations back on: the box returns unticked, as it was left.
+      render_change(lv, "save_display", %{"display" => Map.drop(everything, ["flags", "club"])})
+
+      assert has_element?(lv, "#display-toggle-flags input:not([checked])")
+      display = Tournaments.get_tournament!(tournament.id) |> Snapshot.build()
+      assert display["tournament"]["display"]["federation"] == true
+      assert display["tournament"]["display"]["flags"] == false
+    end
+
+    test "Federations off with the flags tick stored on: the box is gone and the snapshot sends no flags",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      tournament =
+        tournament
+        |> Ecto.Changeset.change(public_display: %{"federation" => false, "flags" => true})
+        |> Repo.update!()
+
+      display = Snapshot.build(tournament)["tournament"]["display"]
+      assert display["federation"] == false
+      assert display["flags"] == false
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      refute has_element?(lv, "#display-toggle-flags")
+
+      # Federations ticked on a form with no flags box: the flags are back.
+      ticked = PublicDisplay.keys() |> Map.new(&{&1, "true"}) |> Map.delete("flags")
+      render_change(lv, "save_display", %{"display" => ticked})
+
+      assert has_element?(lv, "#display-toggle-flags.is-on input[checked]")
+
+      display = Tournaments.get_tournament!(tournament.id) |> Snapshot.build()
+      assert display["tournament"]["display"]["flags"] == true
+    end
+
     test "names and results are not offered as hideable", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 

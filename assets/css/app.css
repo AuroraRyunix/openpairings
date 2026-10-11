@@ -6857,6 +6857,35 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   font-weight: 500;
 }
 
+/* A tick and the sub-option that hangs off it ("Federations" and its
+   flags): one run that wraps as a unit, so the child never ends up at the
+   start of the next line pretending to be independent. */
+.display-family {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.display-toggle.is-sub {
+  border-style: dashed;
+  padding-left: 8px;
+  gap: 5px;
+}
+
+.display-sub-mark {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--text-soft);
+}
+
+@media (max-width: 480px) {
+  .display-family { flex-wrap: wrap; }
+  .display-toggle.is-sub { margin-left: 16px; }
+}
+
 /* The hall display card: core_components' <.input> read as settings fields -
    the same small soft label as `.set-field`, the four views on one row, the
    two numbers side by side. */

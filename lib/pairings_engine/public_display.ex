@@ -57,7 +57,24 @@ defmodule PairingsEngine.PublicDisplay do
   there is no number on anybody's page they did not ask for. The results site
   reads an ABSENT `flags` as off, so a snapshot from an older app draws none;
   that is its rule for this key, not this module's.
+
+  ## One key hangs off another
+
+  `flags` is a sub-option of `federation` (`parent/1`): a flag is drawn
+  beside a federation, so with federations hidden there is nothing to draw it
+  for. `show?/2` is where that is decided - `flags` is shown only when its own
+  tick AND `federation` are - and the snapshot, the settings page and every
+  other reader ask `show?/2`, so none of them can hold a second opinion. The
+  arbiter's own tick stays stored underneath (`ticked?/2`, and `cast/2` leaves
+  it alone while the box is not on the form), so switching federations back on
+  brings back the choice they had made rather than a default. Until
+  2026-10-11 the two were independent, which let an arbiter tick a box that
+  did nothing and then go looking for the flags.
   """
+
+  # Sub-option -> the key it needs. One level deep, and `show?/2` relies on
+  # that: a parent with a parent of its own would want a loop here.
+  @parents %{"flags" => "federation"}
 
   @legacy_keys ~w(standings pairings)
 
@@ -125,12 +142,13 @@ defmodule PairingsEngine.PublicDisplay do
         group: :player,
         label: "Federation flags",
         # On unless switched off, like its neighbours: a flag is the
-        # federation code drawn, not a new fact about anybody. It shows
-        # nothing where "Federations" is off, because the results site has no
-        # code to draw a flag for.
+        # federation code drawn, not a new fact about anybody. A sub-option
+        # of "Federations" (`parent/1`): not offered, and not sent, while
+        # that is off.
         hint:
-          "A small flag beside the federation code. Shows nothing where Federations " <>
-            "is off, and none for a player under the FIDE flag."
+          "A small flag beside each player's name and federation code. Part of " <>
+            "Federations: not offered while that is off. None for a player under " <>
+            "the FIDE flag."
       },
       %{
         key: "club",
@@ -251,11 +269,24 @@ defmodule PairingsEngine.PublicDisplay do
   because all three are real: `nil` for a tournament that predates the feature,
   partial because only changed ticks are stored, and unknown keys because a
   database can outlive the code that wrote it.
+
+  A sub-option (`parent/1`) is shown only when its parent is too: `flags`
+  with `federation` off answers false whatever is stored for it. This is the
+  one place that says so - the snapshot (`resolve/1`) and the settings page
+  both come through here.
   """
   @spec show?(map() | nil, String.t()) :: boolean()
-  def show?(nil, key), do: default(key)
+  def show?(display, key), do: ticked?(display, key) and offered?(display, key)
 
-  def show?(display, key) when is_map(display) do
+  @doc """
+  What the arbiter's own tick for `key` says, parent or no parent.
+
+  Not what is published - that is `show?/2`. This is the stored choice, which
+  for a sub-option outlives its parent being switched off, and is what the
+  box shows again when the parent comes back.
+  """
+  @spec ticked?(map() | nil, String.t()) :: boolean()
+  def ticked?(display, key) when is_map(display) do
     case Map.get(display, key) do
       true -> true
       false -> false
@@ -263,7 +294,31 @@ defmodule PairingsEngine.PublicDisplay do
     end
   end
 
-  def show?(_not_a_map, key), do: default(key)
+  def ticked?(_nil_or_not_a_map, key), do: default(key)
+
+  @doc """
+  The key a sub-option needs, or nil for a key that stands on its own.
+
+  `"flags"` needs `"federation"`, and that is the whole list.
+  """
+  @spec parent(String.t()) :: String.t() | nil
+  def parent(key), do: Map.get(@parents, key)
+
+  @doc "The sub-options of `key`, as fields, in order. Empty for nearly every key."
+  @spec children(String.t()) :: [map()]
+  def children(key), do: Enum.filter(fields(), &(parent(&1.key) == key))
+
+  @doc """
+  Whether the settings page has a box for `key` right now: always, except a
+  sub-option whose parent is off.
+  """
+  @spec offered?(map() | nil, String.t()) :: boolean()
+  def offered?(display, key) do
+    case parent(key) do
+      nil -> true
+      parent -> ticked?(display, parent)
+    end
+  end
 
   @doc """
   Whether `key` is shown when the tournament has said nothing about it.
@@ -329,7 +384,7 @@ defmodule PairingsEngine.PublicDisplay do
     # comprehension is also a FILTER on its own truthiness, so every unticked
     # box silently dropped out of the result and nothing was recorded as off.
     keys()
-    |> Enum.map(&{&1, truthy?(Map.get(params, &1))})
+    |> Enum.map(&{&1, submitted?(params, previous, &1)})
     |> Enum.reject(fn {key, ticked?} -> ticked? == default(key) end)
     |> Map.new()
     # The form has no box for a retired key, so an absent one means "not on
@@ -337,9 +392,29 @@ defmodule PairingsEngine.PublicDisplay do
     |> Map.merge(Map.take(previous || %{}, @legacy_keys))
   end
 
-  @doc "How many keys this tournament has turned off."
+  @doc """
+  How many keys this tournament has turned off.
+
+  A sub-option that is not offered (`offered?/2`) is not counted: the arbiter
+  unticked one box, and being told two things are hidden would be the page
+  doing sums at them.
+  """
   @spec hidden_count(map() | nil) :: non_neg_integer()
-  def hidden_count(display), do: Enum.count(keys(), &(not show?(display, &1)))
+  def hidden_count(display),
+    do: Enum.count(keys(), &(offered?(display, &1) and not show?(display, &1)))
+
+  # A sub-option whose parent was off when the form was drawn had no box on
+  # it, so its absence is "not on this form" and not "unticked" - the same
+  # distinction the retired keys get below. What was stored stands, which is
+  # what brings the arbiter's choice back with the parent. A caller that
+  # does send the key is believed.
+  defp submitted?(params, previous, key) do
+    if Map.has_key?(params, key) or offered?(previous, key) do
+      truthy?(Map.get(params, key))
+    else
+      ticked?(previous, key)
+    end
+  end
 
   defp truthy?(value), do: value in [true, "true", "on", "1"]
 end

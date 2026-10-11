@@ -542,6 +542,30 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "build/1 - flags follow federations (2026-10-11)" do
+    test "federations off sends flags off, whatever is stored for the flags tick" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Flags",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          standings_through: 0,
+          public_slug: "flags1",
+          public_display: %{"federation" => false, "flags" => true}
+        })
+
+      display = Snapshot.build(tournament)["tournament"]["display"]
+      assert display["federation"] == false
+      assert display["flags"] == false
+
+      {:ok, shown} = Tournaments.set_public_display(tournament, all_shown())
+      display = Snapshot.build(shown)["tournament"]["display"]
+      assert display["federation"] == true
+      assert display["flags"] == true
+    end
+  end
+
   describe "build/1 - the publisher field (2026-09-14)" do
     test "absent when the tournament has no owner" do
       {tournament, _} = swiss_fixture()

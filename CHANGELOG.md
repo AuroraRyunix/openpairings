@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The *Federation flags* tick did nothing with *Federations* off, and was offered anyway.** A flag is drawn for a federation, so with federations hidden there was nothing to draw it for; the page let you tick the box regardless and left you to look for the flags. It is a sub-option of *Federations* now: attached to it on *Settings, Results site*, only there while *Federations* is ticked, and never sent as on while it is not. Your choice is kept underneath, so ticking *Federations* again brings the flags tick back as you left it. *N of M hidden* counts the one box you unticked, not two. The results site, from its next version, also draws the flag beside the player's name - on the standings, the pairings and the cross-table, which is where people were looking for it.
+
 ## [0.84.0] - 2026-10-11
 
 - [Change] **Send says what it does, which is download.** The confirmation used to promise that the round would be *sent*, and at least one arbiter took the program at its word and waited for the rating officer to receive something. Nothing was ever going to arrive: **Send…** downloads the rating file and records that it was handed over, and the e-mail is yours to write. The confirmation (rounds and postponed-games file) now says *downloading is not sending*, a line under both Send buttons says it permanently, and the Export page says it a third time after the download, with the receipt code. The Dutch confirmation was also rewritten into Dutch. Manual chapter 11.

@@ -1086,6 +1086,45 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   defp hidden_count(tournament), do: PublicDisplay.hidden_count(tournament.public_display)
 
+  # The ticks that stand on their own, and under each the sub-options that
+  # are on offer right now - none while their parent is unticked.
+  defp top_fields(group),
+    do: Enum.filter(PublicDisplay.fields(group), &(PublicDisplay.parent(&1.key) == nil))
+
+  defp offered_children(tournament, field) do
+    Enum.filter(
+      PublicDisplay.children(field.key),
+      &PublicDisplay.offered?(tournament.public_display, &1.key)
+    )
+  end
+
+  attr :tournament, :map, required: true
+  attr :field, :map, required: true
+  attr :sub, :boolean, default: false
+
+  defp display_toggle(assigns) do
+    ~H"""
+    <label
+      id={"display-toggle-#{@field.key}"}
+      class={[
+        "display-toggle",
+        @sub && "is-sub",
+        show?(@tournament, @field.key) && "is-on"
+      ]}
+      title={@field.hint}
+    >
+      <.icon :if={@sub} name="hero-arrow-turn-down-right-micro" class="display-sub-mark" />
+      <input
+        type="checkbox"
+        name={"display[#{@field.key}]"}
+        value="true"
+        checked={show?(@tournament, @field.key)}
+      />
+      <span>{@field.label}</span>
+    </label>
+    """
+  end
+
   defp hall_min(key), do: HallDisplay.range(key).first
   defp hall_max(key), do: HallDisplay.range(key).last
 
@@ -1418,20 +1457,25 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               <span class="hint">{about}</span>
             </div>
 
+            <%!-- A sub-option ("Federation flags" under "Federations") sits
+                  in the same unbreakable run as its parent and is only there
+                  while the parent is ticked - the same treatment "Which
+                  tie-breaks" gets below. A box that does nothing is not a
+                  setting, it is a decoy. Its stored tick survives the
+                  absence, so it comes back as the arbiter left it. --%>
             <div class="display-grid">
-              <label
-                :for={field <- PublicDisplay.fields(group)}
-                class={["display-toggle", show?(@tournament, field.key) && "is-on"]}
-                title={field.hint}
+              <span
+                :for={field <- top_fields(group)}
+                class="display-family"
               >
-                <input
-                  type="checkbox"
-                  name={"display[#{field.key}]"}
-                  value="true"
-                  checked={show?(@tournament, field.key)}
+                <.display_toggle tournament={@tournament} field={field} />
+                <.display_toggle
+                  :for={sub <- offered_children(@tournament, field)}
+                  tournament={@tournament}
+                  field={sub}
+                  sub
                 />
-                <span>{field.label}</span>
-              </label>
+              </span>
             </div>
           </div>
 
