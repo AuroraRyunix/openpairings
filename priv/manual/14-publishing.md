@@ -93,8 +93,8 @@ answers a spectator's *why am I fourth* (the opponent of each round and its valu
 The *Rounds-present* column is public only if you tick it.
 *Federation flags* draws a small flag beside each federation code; it is on
 unless you untick it, and shows nothing where *Federations* is off. A player
-listed under FIDE itself (code FID) gets a white flag with the word FIDE; a
-code that names no federation gets the code and no flag.
+listed under FIDE itself, or with a code that names no country, keeps the
+code and gets no picture.
 
 > [!WARNING]
 > Names, board numbers, results and places are always shown: a tournament that
@@ -152,6 +152,12 @@ everybody else.
 
 > [!NOTE]
 > Publishing never blocks pairing or result entry.
+
+A change is sent a few seconds after you make it; the label in the top bar
+says *Sending* meanwhile. When nothing has changed for spectators (a dialog
+confirmed with nothing to do, a result typed and taken back at once), nothing
+is sent, and the label stays as it was. **Try again**, switching publishing off
+and on, and a restart of the program always send.
 
 A send that does not arrive is
 kept and tried again with longer pauses; the status of the connection is shown

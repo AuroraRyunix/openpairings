@@ -3498,6 +3498,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     {:noreply, socket |> assign_players() |> assign(tpn: order, tpn_changes: nil)}
   end
 
+  # Asked for, and already so. No audit entry: the log records what was
+  # changed, and this is the one outcome that changed nothing.
+  defp tpn_result(socket, {:unchanged, order}, _details) do
+    {:noreply,
+     socket
+     |> put_flash(:info, gettext("The numbers already follow the ratings. Nothing changed."))
+     |> assign(tpn: order, tpn_changes: nil)}
+  end
+
   defp tpn_result(socket, {:error, reason}, _details) do
     message =
       case reason do

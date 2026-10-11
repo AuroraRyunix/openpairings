@@ -192,4 +192,185 @@ defmodule PairingsEngine.RoundExplanationTest do
     assert bracket.states == []
     assert bracket.exclusions == []
   end
+
+  describe "equal_alternatives/3 - one item per alternative pairing" do
+    # Eight players, two brackets. The 2.0 bracket is five strong - S1 is
+    # 1 and 2, S2 is 3, 4 and 5 - and 5 floats down to meet 6.
+    defp field, do: for(n <- 1..8, do: player(n, n))
+
+    defp tie(id, opponent, extra \\ %{}) do
+      Map.merge(
+        %{
+          "player" => id,
+          "outcome" => "tie",
+          "reason" => nil,
+          "at" => %{"group" => 2.0, "label" => nil, "lex" => "actual"},
+          "fate" => %{"opponent" => opponent, "score" => 1.0},
+          "stayed" => true
+        },
+        extra
+      )
+    end
+
+    defp two_brackets(top_extra, section_extra \\ %{}) do
+      top =
+        Map.merge(
+          %{
+            "group" => 2.0,
+            "mdps" => [],
+            "residents" => [1, 2, 3, 4, 5],
+            "floats" => [5],
+            "pairs" => [[1, 3], [2, 4]],
+            "heterogeneous" => false,
+            "s1" => [1, 2],
+            "s2" => [3, 4, 5]
+          },
+          top_extra
+        )
+
+      bottom = %{
+        "group" => 1.0,
+        "mdps" => [5],
+        "residents" => [6, 7, 8],
+        "floats" => [],
+        "pairs" => [[5, 6], [7, 8]]
+      }
+
+      section = Map.merge(%{"category" => nil, "brackets" => [top, bottom]}, section_extra)
+      round = %{explanation: %{"engine" => "ainalrami", "version" => 3, "sections" => [section]}}
+
+      [%{brackets: [bracket | _]} = resolved] = RoundExplanation.for_round(round, field())
+      {resolved, bracket}
+    end
+
+    defp ids(players), do: Enum.map(players, & &1.id)
+    defp board_ids(boards), do: Enum.map(boards, fn {a, b} -> {a && a.id, b && b.id} end)
+
+    test "an alternative that touches two boards is one item, and so is one that touches three" do
+      {section, bracket} =
+        two_brackets(%{
+          "float_alternatives" => [
+            %{
+              "floater" => 5,
+              "candidates" => [
+                # 4 goes down to meet 6: boards 2-4 and 5-6 are gone.
+                tie(4, 6),
+                # 1 goes down to meet 7: boards 1-3, 5-6 and 7-8 are gone.
+                tie(1, 7),
+                # Not a tie, so not an item.
+                tie(3, 6, %{"outcome" => "worse"})
+              ]
+            }
+          ]
+        })
+
+      assert [two, three] =
+               RoundExplanation.equal_alternatives(section, bracket, bracket.float_alternatives)
+
+      assert two.candidate.id == 4
+      assert two.kind == :float
+      assert ids(two.instead_of) == [5]
+      assert ids(two.stayed) == [5]
+      assert two.pick == :actual
+      assert board_ids([two.proposed]) == [{4, 6}]
+      assert board_ids(two.played) == [{2, 4}, {5, 6}]
+
+      assert three.candidate.id == 1
+      assert board_ids(three.played) == [{1, 3}, {5, 6}, {7, 8}]
+    end
+
+    test "what separates the two is named only where the record shows it" do
+      {section, bracket} =
+        two_brackets(%{
+          "float_alternatives" => [
+            %{"floater" => 5, "candidates" => [tie(4, 6), tie(1, 7)]}
+          ]
+        })
+
+      # 4 is in the bottom half like the floater: which of S2 is left over.
+      # 1 is in the top half: it can only leave by an exchange.
+      assert [%{step: :bottom_half}, %{step: :exchange}] =
+               RoundExplanation.equal_alternatives(section, bracket, bracket.float_alternatives)
+
+      # A played pairing that is not top half against bottom half may have
+      # needed an exchange itself, so nothing is claimed about it.
+      {section, bracket} =
+        two_brackets(%{
+          "pairs" => [[1, 2], [3, 4]],
+          "float_alternatives" => [%{"floater" => 5, "candidates" => [tie(4, 6)]}]
+        })
+
+      assert [%{step: nil, pick: :actual}] =
+               RoundExplanation.equal_alternatives(section, bracket, bracket.float_alternatives)
+    end
+
+    test "the same candidate under two floaters' questions is the same alternative" do
+      # Six in the bracket, 5 and 6 both float; forcing 4 out is one search
+      # whichever floater the question was about.
+      {section, bracket} =
+        two_brackets(%{
+          "residents" => [1, 2, 3, 4, 5, 6],
+          "floats" => [5, 6],
+          "s1" => [1, 2, 3],
+          "s2" => [4, 5, 6],
+          "float_alternatives" => [
+            %{"floater" => 5, "candidates" => [tie(4, 7)]},
+            %{"floater" => 6, "candidates" => [tie(4, 7, %{"stayed" => false})]}
+          ]
+        })
+
+      assert [item] =
+               RoundExplanation.equal_alternatives(section, bracket, bracket.float_alternatives)
+
+      assert item.candidate.id == 4
+      assert ids(item.instead_of) == [5, 6]
+      assert ids(item.stayed) == [5]
+      # Two floaters: S1 and S2 are no longer the regulation's, so no step.
+      assert item.step == nil
+    end
+
+    test "a record from before the subgroups were kept still groups" do
+      {section, bracket} =
+        two_brackets(%{
+          "float_alternatives" => [%{"floater" => 5, "candidates" => [tie(4, 6), tie(1, 7)]}]
+        })
+
+      old = %{bracket | s1: [], s2: []}
+
+      assert [%{step: nil, played: [_, _]}, %{step: nil, played: [_, _, _]}] =
+               RoundExplanation.equal_alternatives(section, old, old.float_alternatives)
+    end
+
+    test "the bye's ties are items too, and which way the order falls is kept" do
+      {section, _bracket} =
+        two_brackets(%{}, %{
+          "bye" => %{
+            "holder" => 8,
+            "group" => 1.0,
+            "candidates" => [
+              tie(7, nil, %{
+                "fate" => %{"opponent" => nil, "score" => nil},
+                "at" => %{"group" => 1.0, "label" => nil, "lex" => "alternative"}
+              }),
+              tie(6, nil, %{"outcome" => "ineligible", "reason" => "pairing_bye"})
+            ]
+          }
+        })
+
+      # The fixture's 7-8 stands in for the holder's board.
+      assert [item] = RoundExplanation.equal_alternatives(section, nil, [section.bye])
+      assert item.kind == :bye
+      assert item.candidate.id == 7
+      assert ids(item.instead_of) == [8]
+      assert item.pick == :alternative
+      assert board_ids([item.proposed]) == [{7, nil}]
+      assert board_ids(item.played) == [{7, 8}]
+    end
+
+    test "no ties, no items - and no entries, no crash" do
+      {section, bracket} = two_brackets(%{})
+      assert RoundExplanation.equal_alternatives(section, bracket, []) == []
+      assert RoundExplanation.equal_alternatives(section, nil, [nil]) == []
+    end
+  end
 end

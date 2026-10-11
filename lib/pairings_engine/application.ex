@@ -41,6 +41,10 @@ defmodule PairingsEngine.Application do
       true -> :ok
     end
 
+    # Owned by this process, which outlives every child below - see
+    # `PairingsEngine.Publishing.Accepted`, "Memory, not the database".
+    PairingsEngine.Publishing.Accepted.init()
+
     children = [
       PairingsEngineWeb.Telemetry,
       PairingsEngine.Repo,

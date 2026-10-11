@@ -96,7 +96,8 @@ enter results**. It makes a QR code and an
 and can then enter results for that tournament only, without an account.
 
 - A **helper** phone fills in boards that have no result, in the latest paired
-  round only, and cannot change a result that is on file.
+  round only, and cannot change a result that is on file - also not one the
+  arbiter entered a moment ago, before the phone's screen caught up.
 - A **deputy** phone can enter and correct a result in any round.
 - A phone can be limited to a range of boards.
 

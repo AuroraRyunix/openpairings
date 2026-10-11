@@ -101,6 +101,53 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert Enum.map(rationale.score_groups, & &1.score) == [1.0]
     end
 
+    # Audit finding F8. Round 2 of a Baku event: Group A's losers (0 + 1
+    # virtual) meet Group B's winners (1) in ONE bracket. The page shows
+    # the score the round was paired on, the virtual part apart, and calls
+    # nobody a floater for it.
+    test "a Baku round's scores carry the virtual points, marked as virtual",
+         %{conn: conn, scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Baku",
+          "type" => "swiss",
+          "rounds_count" => "6",
+          "acceleration" => "baku"
+        })
+
+      for n <- 1..8 do
+        {:ok, _} =
+          Tournaments.create_player(t.id, %{"name" => "P#{n}", "fide_rating" => 2500 - n * 50})
+      end
+
+      {:ok, r1} = Pairing.pair_next_round(t)
+
+      for p <- Repo.preload(r1, pairings: [:white_player, :black_player]).pairings,
+          p.black_player_id do
+        result =
+          if p.white_player.fide_rating > p.black_player.fide_rating, do: "1-0", else: "0-1"
+
+        {:ok, _} = Tournaments.update_pairing_result(p, result)
+      end
+
+      {:ok, _r2} = Pairing.pair_next_round(Tournaments.get_tournament!(t.id))
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+      assert has_element?(lv, "#baku-note")
+      note = lv |> element("#baku-note") |> render()
+      assert note =~ "game points plus virtual points"
+      refute note =~ "game points without them"
+
+      # Group A's winners and losers both: game points, then the point.
+      assert html =~ "1.0 (+1.0 virtual)"
+      assert html =~ "0.0 (+1.0 virtual)"
+
+      rationale = PairingRationale.for_round(Tournaments.get_tournament!(t.id), 2)
+      assert rationale.summary.floaters == 0
+      assert Enum.sort(Enum.map(rationale.score_groups, & &1.score)) == [0.0, 1.0, 2.0]
+    end
+
     test "a round paired on game points alone has no note", %{conn: conn, scope: scope} do
       t = round_one_only(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
@@ -1530,7 +1577,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
       assert html =~ "swapping seats"
 
-      assert html =~ "Legal, but worse" or html =~ "Equal on every criterion" or
+      assert html =~ "Legal, but worse" or html =~ "Equally good by every rule" or
                html =~ "Not allowed" or html =~ "That is the pairing that was played"
     end
 

@@ -185,8 +185,8 @@ bij elk verzoek opgebouwd, op de uitzendvertraging.
 vinkje *Federatievlaggen*, standaard aan tenzij u het uitvinkt), wordt een klein vlaggetje
 naast de federatiecode van een speler getoond: op de startlijst, de inschrijvingslijst, de
 spelerskaart, het zaalscherm en de livepagina's (op de beamerweergave alleen de vlag, zonder
-de code). Een speler die onder de FIDE zelf staat (code FID) krijgt een witte vlag met het
-woord FIDE erop. Een code die geen federatie aanduidt, houdt de code en krijgt geen plaatje.
+de code). Een speler die onder de FIDE zelf staat, of een code heeft die geen land aanduidt,
+houdt de code en krijgt geen plaatje.
 
 ## De livepagina's aanzetten {#turning-live-boards-on}
 

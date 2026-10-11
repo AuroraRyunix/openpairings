@@ -70,6 +70,23 @@ op de keuze van het bestand:
   paringsregels, met die partij geteld als remise voor beide spelers - wat de import
   ervan maakt, een uitgestelde partij. De controle zegt welke rondes zo getoetst zijn
   en somt elke aangenomen partij op, met de ronde en de twee spelers.
+- *Spelers die teruggetrokken lijken.* Een TRF-bestand kan niet zeggen dat een speler
+  zich heeft teruggetrokken: het toont een speler met niets in de latere rondes, en zo
+  ziet een afwezigheid er ook uit. De controle somt daarom, onder *Lijkt teruggetrokken -
+  wordt in de volgende ronde gepaard tenzij u hem als teruggetrokken markeert*, elke
+  speler op die eerder speelde of een bye had en geen partij en geen bye heeft in de
+  laatste ronde van het bestand, of in de laatste paar rondes na elkaar. Elk heeft een
+  vinkje **Importeren als teruggetrokken**. Aangevinkt wordt de speler als teruggetrokken
+  geïmporteerd en niet meer gepaard; niet aangevinkt als actief, en dan paart de volgende
+  ronde hem. Een speler met niets in de laatste twee rondes of meer is al aangevinkt; een
+  speler die alleen de laatste ronde miste niet, want één gemiste ronde is meestal niet
+  meer dan dat. Pas beide aan zoals u wilt, hier of nadien in de spelerslijst. Niet in de
+  lijst: een late instapper (lege rondes vooraan, partijen achteraan), een speler met
+  niets in geen enkele ronde, een speler met een bye van een half of een heel punt in de
+  laatste ronde of een bye die al voor de volgende is toegekend, iedereen in een bestand
+  waarvan alle rondes gespeeld zijn, en de spelers van een rondetoernooi of een
+  ploegentoernooi. Een bye van nul punten telt als niets. Wat u koos, wordt bij het
+  toernooi en in het auditlogboek bewaard.
 - *Rondes die een paringsregel breken.* Als een ronde van het bestand een regel breekt,
   krijgt de controle de kop *Deze rondes van het bestand breken de FIDE-paringsregels*
   en zegt dat het importeren niet in overeenstemming is met de paringsregels. Dit is
@@ -164,7 +181,10 @@ de download.
   toernooi. Op de pagina Toernooien exporteert **Alles exporteren (JSON)** elk toernooi
   dat u bezit in één bestand.
 - **.swar exporteren (v7, experimenteel)** (Belgisch pakket) schrijft een SWAR-bestand.
-  Een regel somt op wat het SWAR-formaat van dit toernooi niet kan bevatten.
+  Een regel somt op wat het SWAR-formaat van dit toernooi niet kan bevatten -
+  onder meer een afwezigheid die iets anders dan een half punt waard is (SWAR
+  heeft een vakje voor het halve punt en verder niets) en een uitgesloten speler,
+  die als *Forfait* van SWAR wordt weggeschreven, net als een teruggetrokken speler.
 - **SWAR-resultatenpagina exporteren (.html)** (Belgisch pakket) schrijft de
   resultatenpagina in SWAR-stijl.
 - **Publiceren op de uitslagensite van de federatie** (Belgisch pakket, beheerder).

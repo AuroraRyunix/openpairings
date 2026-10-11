@@ -70,7 +70,9 @@ defmodule PairingsEngine.Norms.TitleNorms do
     * **Federation mix** (1.4.3 / 1.4.4): opponents from at least two
       federations other than the player's own; at most 3/5 of opponents
       from the player's own federation and at most 2/3 from any single
-      federation (maxima rounded DOWN per 1.4.4). The exemptions of 1.4.3
+      federation (maxima rounded DOWN per 1.4.4). An opponent under the
+      FIDE flag ("FID") is accepted and is nobody's foreigner (1.4.2): not
+      one of the two federations. The exemptions of 1.4.3
       (a)-(c) follow the tournament's `norm_event_type` - see "Event
       types" below. 1.4.3 (d) (a Swiss with at least 20 foreign rated
       players from 3+ federations, 10 of them titled, in every round) is not
@@ -368,7 +370,13 @@ defmodule PairingsEngine.Norms.TitleNorms do
     # --- federation mix (1.4.3 / 1.4.4); maxima rounded DOWN per 1.4.4.
     own_fed = normalize_fed(player.federation)
     opp_feds = Enum.map(opponents, &normalize_fed(&1.federation))
-    foreign_feds = opp_feds |> Enum.reject(&(&1 in [nil, own_fed])) |> Enum.uniq() |> length()
+    # 1.4.2: "Players with federation 'FID' are accepted, but do not count
+    # as a foreign player." They were counted as one more federation, so an
+    # opponent under the FIDE flag could supply the second foreign
+    # federation 1.4.3 asks for (audit 2026-10 part 2, G3).
+    foreign_feds =
+      opp_feds |> Enum.reject(&(&1 in [nil, own_fed] or fid?(&1))) |> Enum.uniq() |> length()
+
     own_fed_count = Enum.count(opp_feds, &(&1 != nil and &1 == own_fed))
 
     max_one_fed =
@@ -541,6 +549,8 @@ defmodule PairingsEngine.Norms.TitleNorms do
   # in effect" is FIDE's, never a national list.
   defp fide_rating(%{fide_rating: r}) when is_integer(r) and r > 0, do: r
   defp fide_rating(_), do: 0
+
+  defp fid?(fed), do: is_binary(fed) and String.upcase(String.trim(fed)) == "FID"
 
   defp normalize_fed(nil), do: nil
   defp normalize_fed(""), do: nil

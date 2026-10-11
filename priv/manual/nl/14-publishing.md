@@ -62,7 +62,7 @@ De automatisering verplaatst een ronde alleen omhoog; u kunt een ronde altijd me
 
 ### Wat de openbare pagina toont {#what-the-public-page-shows}
 
-Schakelaars bepalen welke details een gepubliceerde pagina mag tonen (ratings, titels, federaties, clubs, categorieën, spelerskaarten, de standpagina, de paringspagina's, de kolommen van de stand en welke tiebreaks), en apart of de berekening van de tiebreaks gepubliceerd wordt. Een detail dat u verbergt, wordt helemaal niet naar de uitslagensite gestuurd. Een tiebreakkolom verbergen verandert de volgorde die ze beslist niet, en de pagina zegt wanneer de volgorde een verborgen tiebreak heeft gebruikt. De berekening van de tiebreak beantwoordt de vraag van een toeschouwer *waarom sta ik vierde* (de tegenstander van elke ronde en de waarde ervan). De kolom *Aanwezig in ronden* is alleen openbaar als u haar aanvinkt. *Federation flags* tekent een vlaggetje naast elke federatiecode; het staat aan tot u het uitvinkt en toont niets waar *Federations* uit staat. Een speler die onder de FIDE zelf staat (code FID) krijgt een witte vlag met het woord FIDE; een code die geen federatie aanduidt, krijgt de code zonder vlag.
+Schakelaars bepalen welke details een gepubliceerde pagina mag tonen (ratings, titels, federaties, clubs, categorieën, spelerskaarten, de standpagina, de paringspagina's, de kolommen van de stand en welke tiebreaks), en apart of de berekening van de tiebreaks gepubliceerd wordt. Een detail dat u verbergt, wordt helemaal niet naar de uitslagensite gestuurd. Een tiebreakkolom verbergen verandert de volgorde die ze beslist niet, en de pagina zegt wanneer de volgorde een verborgen tiebreak heeft gebruikt. De berekening van de tiebreak beantwoordt de vraag van een toeschouwer *waarom sta ik vierde* (de tegenstander van elke ronde en de waarde ervan). De kolom *Aanwezig in ronden* is alleen openbaar als u haar aanvinkt. *Federation flags* tekent een vlaggetje naast elke federatiecode; het staat aan tot u het uitvinkt en toont niets waar *Federations* uit staat. Een speler die onder de FIDE zelf staat, of een code heeft die geen land aanduidt, houdt de code en krijgt geen plaatje.
 
 > [!WARNING]
 > Namen, bordnummers, uitslagen en plaatsen worden altijd getoond: een toernooi dat ze niet mag tonen, moet niet gepubliceerd worden.
@@ -94,5 +94,7 @@ Pagina **Paringen**, **Meer**, **Lokale weergave & telefoon-QR** (de pagina `/t/
 
 > [!NOTE]
 > Publiceren blokkeert nooit het paren of het invoeren van uitslagen.
+
+Een wijziging wordt enkele seconden nadat u ze maakt verzonden; het label in de bovenbalk zegt intussen *Bezig met verzenden*. Als er voor toeschouwers niets veranderd is (een dialoogvenster bevestigd terwijl er niets te doen was, een uitslag ingevoerd en meteen teruggenomen), wordt er niets verzonden en blijft het label zoals het was. **Opnieuw proberen**, publiceren uit- en weer aanzetten, en het programma opnieuw starten verzenden altijd.
 
 Een verzending die niet aankomt, wordt bewaard en opnieuw geprobeerd met steeds langere pauzes; de status van de verbinding wordt getoond als een klein label in de bovenbalk, en de pagina zegt wat er mis is. De openbare pagina haalt de zaal in wanneer de verbinding terug is.

@@ -31,6 +31,20 @@ defmodule PairingsEngine.AppPathFuzzTest do
     * the file for rating passes the engine's own checker, as long as no
       earlier round was changed after a later one was paired.
 
+  Every third tournament (the seeds divisible by 3) allows postponed games
+  (audit part 2): some boards are postponed - by White, by Black, by nobody
+  in particular - under a random valuation for the player who asked and the
+  one who did not; some are played later, some never. Then, on top:
+
+    * the standings count an open postponed board as what the tournament's
+      setting said when it was postponed, worked out here and not asked of
+      the app - and the engine was paired on the standings (above);
+    * the snapshot says `provisional` exactly while a postponed game is open
+      in the rounds its standings cover, and counts them right;
+    * at the end the rounds are sent for rating, the games still open are
+      played and sent as late games, and over all the files every game
+      played over the board is there once: not twice, not never.
+
   APP_PATH_FUZZ_COUNT (default 6), APP_PATH_FUZZ_FIRST (default 1).
   """
 
@@ -43,6 +57,7 @@ defmodule PairingsEngine.AppPathFuzzTest do
 
   alias PairingsEngine.{
     Pairing,
+    PostponedGames,
     Repo,
     Snapshot,
     Standings,
@@ -189,6 +204,22 @@ defmodule PairingsEngine.AppPathFuzzTest do
       "tiebreaks" => ~w(BH SB)
     }
 
+    # Postponed games: every third seed, decided off the seed and not off
+    # the generator, so the other two thirds are the tournaments they were
+    # before this axis existed.
+    postponed? = rem(seed, 3) == 0
+    outcomes = ~w(draw win loss)
+
+    attrs =
+      if postponed?,
+        do:
+          Map.merge(attrs, %{
+            "postponed_games" => true,
+            "postponed_requester_outcome" => Enum.at(outcomes, rem(div(seed, 3), 3)),
+            "postponed_opponent_outcome" => Enum.at(outcomes, rem(div(seed, 9), 3))
+          }),
+        else: attrs
+
     {:ok, t} = Tournaments.create_tournament(attrs)
 
     st = %{
@@ -200,6 +231,11 @@ defmodule PairingsEngine.AppPathFuzzTest do
       # An earlier round was changed after a later one was paired: the
       # rounds no longer follow from the file, and nobody claims they do.
       replayable?: true,
+      postponed?: postponed?,
+      # pairing id => {round, what White counts as, what Black counts as}
+      # while the board waits, by the tournament's setting when postponed.
+      postponed: %{},
+      dates: dates,
       stats: %{},
       failures: []
     }
@@ -221,6 +257,7 @@ defmodule PairingsEngine.AppPathFuzzTest do
 
     Enum.reduce_while(1..rounds, st, fn r, acc ->
       acc = before_round(acc, r)
+      acc = play_postponed(acc, 40)
       acc = round_trip(acc, r)
 
       case pair(acc) do
@@ -235,6 +272,7 @@ defmodule PairingsEngine.AppPathFuzzTest do
             |> enter_results(r)
             |> maybe_edit_earlier(r)
             |> check_scores(r)
+            |> check_postponed_valuation(r)
             |> check_snapshot(r)
             |> bump(:rounds)
 
@@ -248,10 +286,16 @@ defmodule PairingsEngine.AppPathFuzzTest do
       end
     end)
     |> check_with_engine()
+    |> check_rated_once()
   end
 
   defp tournament(st), do: Tournaments.get_tournament!(st.tid)
-  defp pair(st), do: Pairing.pair_next_round(tournament(st))
+
+  # The Pairings page's confirmation that an older postponed game is still
+  # open - the one thing pairing asks about them, and nothing when there is
+  # none.
+  @pair_ack [acknowledged: [:adjourned_older_round_open]]
+  defp pair(st), do: Pairing.pair_next_round(tournament(st), @pair_ack)
 
   defp bump(st, key, by \\ 1), do: %{st | stats: Map.update(st.stats, key, by, &(&1 + by))}
 
@@ -423,17 +467,117 @@ defmodule PairingsEngine.AppPathFuzzTest do
       if p.white_player_id && p.black_player_id && p.result in [nil, ""] do
         result =
           cond do
+            acc.postponed? and chance(10) -> Enum.random(~w(* *W *B))
             chance(8) -> Enum.random(~w(1-0FF 0-1FF 0-0FF))
             true -> Enum.random(~w(1-0 0-1 1/2-1/2 1-0 0-1))
           end
 
-        case Tournaments.update_pairing_result(p, result, []) do
-          {:ok, _} -> bump(acc, :games)
+        opts = if acc.postponed?, do: [played_on: Enum.at(acc.dates, r - 1)], else: []
+
+        case Tournaments.update_pairing_result(p, result, opts) do
+          {:ok, _} -> acc |> bump(:games) |> postponed_now(p, r, result)
           other -> fail(acc, "round #{r}: result #{result} refused: #{inspect(other, limit: 4)}")
         end
       else
         acc
       end
+    end)
+  end
+
+  # A board just postponed: what each side counts as while it waits, from
+  # the tournament's setting as it is now - the player who asked gets the
+  # requester's outcome, the other one (and both, when nobody is named) the
+  # opponent's. From here on no checker replays the rounds: they were paired
+  # on a score that is not in the file.
+  defp postponed_now(st, p, r, result) when result in ~w(* *W *B) do
+    t = tournament(st)
+    asked = t.postponed_requester_outcome
+    other = t.postponed_opponent_outcome
+
+    {white, black} =
+      case result do
+        "*W" -> {asked, other}
+        "*B" -> {other, asked}
+        "*" -> {other, other}
+      end
+
+    %{st | postponed: Map.put(st.postponed, p.id, {r, white, black}), replayable?: false}
+    |> bump(:postponed)
+  end
+
+  defp postponed_now(st, _p, _r, _result), do: st
+
+  # Open postponed games get played: `pct` percent of them, some days after
+  # their round.
+  defp play_postponed(%{postponed?: false} = st, _pct), do: st
+
+  defp play_postponed(st, pct) do
+    st.tid
+    |> PostponedGames.open_games()
+    |> Enum.filter(fn _ -> chance(pct) end)
+    |> Enum.reduce(st, fn %{round: rn, pairing: p}, acc ->
+      result = Enum.random(~w(1-0 0-1 1/2-1/2))
+
+      opts = [
+        acknowledged: PostponedGames.acknowledgement_ids(),
+        played_on: Date.add(Enum.at(acc.dates, rn - 1), between(1, 30))
+      ]
+
+      case Tournaments.update_pairing_result(Repo.reload!(p), result, opts) do
+        {:ok, _} ->
+          %{acc | postponed: Map.delete(acc.postponed, p.id)} |> bump(:postponed_played)
+
+        other ->
+          fail(
+            acc,
+            "postponed game of round #{rn}: #{result} refused: #{inspect(other, limit: 4)}"
+          )
+      end
+    end)
+  end
+
+  # What a waiting board is worth, written out here: the standings must
+  # hold exactly this for both players, and the engine is paired on the
+  # standings (`check_engine_scores/2`).
+  defp check_postponed_valuation(%{postponed?: false} = st, _r), do: st
+
+  defp check_postponed_valuation(st, r) do
+    t = tournament(st)
+    table = Map.new(Standings.standings(t), &{&1.player.id, &1})
+    worth = %{"win" => t.points_win, "draw" => t.points_draw, "loss" => t.points_loss}
+
+    open = MapSet.new(PostponedGames.open_games(st.tid), & &1.pairing.id)
+
+    st =
+      if open == MapSet.new(Map.keys(st.postponed)),
+        do: st,
+        else:
+          fail(
+            st,
+            "after round #{r}: the app holds #{MapSet.size(open)} open postponed games, this run postponed #{map_size(st.postponed)} and has not played them"
+          )
+
+    Enum.reduce(st.postponed, st, fn {id, {rn, white, black}}, acc ->
+      p = Repo.get!(PairingsEngine.Tournaments.Pairing, id)
+
+      Enum.reduce([{p.white_player_id, white}, {p.black_player_id, black}], acc, fn {pid, as},
+                                                                                    acc ->
+        record = table |> Map.fetch!(pid) |> Map.fetch!(:games) |> Enum.find(&(&1.round == rn))
+
+        cond do
+          is_nil(record) ->
+            fail(acc, "after round #{r}: no record of the postponed game of round #{rn}")
+
+          abs(record.points - worth[as]) > 0.001 ->
+            fail(
+              acc,
+              "after round #{r}: a postponed game of round #{rn} counts #{record.points} in the standings, the setting says a #{as} (#{worth[as]})"
+            )
+
+          true ->
+            acc
+        end
+      end)
     end)
   end
 
@@ -450,9 +594,15 @@ defmodule PairingsEngine.AppPathFuzzTest do
           p = Enum.random(games)
           result = Enum.random(~w(1-0 0-1 1/2-1/2 1-0FF) -- [p.result])
 
-          case Tournaments.update_pairing_result(p, result, []) do
-            {:ok, _} -> %{st | replayable?: false} |> bump(:earlier_edits)
-            _refused -> st
+          # Not a board that is or was postponed: its result is
+          # `play_postponed/2`'s to give.
+          if Map.has_key?(st.postponed, p.id) or p.provisional_white do
+            st
+          else
+            case Tournaments.update_pairing_result(p, result, []) do
+              {:ok, _} -> %{st | replayable?: false} |> bump(:earlier_edits)
+              _refused -> st
+            end
           end
       end
     else
@@ -663,7 +813,14 @@ defmodule PairingsEngine.AppPathFuzzTest do
     # The TRF's points column against the standings.
     case TrfExport.export(t) do
       {:ok, text} ->
-        by_name = Map.new(table, &{&1.player.name, &1.points})
+        # A postponed board is `?` in the file and worth the file's own `X`,
+        # a draw, whatever the tournament counts it as meanwhile
+        # (`TrfExport.report_unknown/2`, deliberate). So a player waiting on
+        # a board that counts as a win or a loss is not asked here.
+        waiting = waiting_on_non_draw(st)
+
+        by_name =
+          for e <- table, e.player.id not in waiting, into: %{}, do: {e.player.name, e.points}
 
         Enum.reduce(Trf.parse(text).players, st, fn row, acc ->
           shown = Map.get(by_name, row.name)
@@ -677,9 +834,22 @@ defmodule PairingsEngine.AppPathFuzzTest do
             else: acc
         end)
 
+      # FIDE mode sends no file while a postponed game is open (VCL4THP Q169).
+      {:error, {:open_postponed, _games}} when map_size(st.postponed) > 0 ->
+        bump(st, :trf_refused_open_postponed)
+
       {:error, reason} ->
         fail(st, "after round #{r}: no TRF: #{inspect(reason, limit: 6)}")
     end
+  end
+
+  defp waiting_on_non_draw(st) do
+    for {id, {_round, white, black}} <- st.postponed,
+        p = Repo.get!(PairingsEngine.Tournaments.Pairing, id),
+        {pid, as} <- [{p.white_player_id, white}, {p.black_player_id, black}],
+        as != "draw",
+        into: MapSet.new(),
+        do: pid
   end
 
   # What OpenResults is sent. It adds the per-round figures up; a round with
@@ -695,6 +865,8 @@ defmodule PairingsEngine.AppPathFuzzTest do
     snapshot = Snapshot.build(t)
     after_round = get_in(snapshot, ["standings", "after_round"])
     names = Map.new(snapshot["players"], &{&1["no"], &1["name"]})
+
+    st = check_snapshot_provisional(st, snapshot, after_round)
 
     if after_round != r do
       note(st, "snapshot standings after round #{inspect(after_round)}, not #{r}")
@@ -744,6 +916,25 @@ defmodule PairingsEngine.AppPathFuzzTest do
         end
       end)
     end
+  end
+
+  # `provisional` and the count beside it: exactly the postponed games still
+  # open in the rounds the standings cover.
+  defp check_snapshot_provisional(%{postponed?: false} = st, _snapshot, _after), do: st
+  defp check_snapshot_provisional(st, _snapshot, nil), do: st
+
+  defp check_snapshot_provisional(st, snapshot, after_round) do
+    open = Enum.count(st.postponed, fn {_id, {rn, _w, _b}} -> rn <= after_round end)
+    said = snapshot["standings"]["postponed_games"] || 0
+    flag = snapshot["standings"]["provisional"] == true
+
+    if said == open and flag == open > 0,
+      do: st,
+      else:
+        fail(
+          st,
+          "snapshot after round #{after_round}: #{open} postponed game(s) open, the standings block says provisional=#{flag}, postponed_games=#{said}"
+        )
   end
 
   defp who(st, name) do
@@ -809,8 +1000,16 @@ defmodule PairingsEngine.AppPathFuzzTest do
             # paired with is not.
             extra? = PairingsEngine.Tournaments.Tournament.extra_points_pairing?(tournament(acc))
 
-            if kind == :trf and extra? and roster(original) == roster(other) do
-              bump(acc, :round_trip_trf_extra_points_left_behind)
+            # Nor for what a postponed game counts as while it waits: the
+            # file says `?`, worth the draw its own `X` declares, and the
+            # copy pairs on that draw where the original pairs on the win or
+            # the loss the tournament gave the board.
+            waiting? = kind == :trf and MapSet.size(waiting_on_non_draw(acc)) > 0
+
+            if (kind == :trf and extra? and roster(original) == roster(other)) or waiting? do
+              if waiting?,
+                do: bump(acc, :round_trip_trf_postponed_valuation_left_behind),
+                else: bump(acc, :round_trip_trf_extra_points_left_behind)
             else
               if kind == :trf and roster(original) != roster(other) and
                    MapSet.subset?(lost, unnumbered) and MapSet.subset?(gained, withdrawn) do
@@ -888,7 +1087,7 @@ defmodule PairingsEngine.AppPathFuzzTest do
   end
 
   defp pair_names(t) do
-    case Pairing.pair_next_round(Tournaments.get_tournament!(t.id)) do
+    case Pairing.pair_next_round(Tournaments.get_tournament!(t.id), @pair_ack) do
       {:ok, round} ->
         names = Map.new(Tournaments.list_players(t.id), &{&1.id, &1.name})
 
@@ -979,6 +1178,93 @@ defmodule PairingsEngine.AppPathFuzzTest do
 
       {:error, reason} ->
         fail(st, "no TRF at the end: #{inspect(reason, limit: 6)}")
+    end
+  end
+
+  ## ---------- the files for rating, with postponed games ----------
+
+  # The Export page's "Send": every round, then - once the games still open
+  # have been played - the late games, a file per rating period. Over all of
+  # them, each game played over the board is there once.
+  defp check_rated_once(%{postponed?: false} = st), do: st
+
+  defp check_rated_once(st) do
+    t = tournament(st)
+    paired = Pairing.paired_rounds_count(st.tid)
+
+    if paired == 0 do
+      st
+    else
+      # FIDE mode sends no round with a postponed game open; "not played in
+      # this event" is the arbiter's way past that, and the game is rated
+      # later, in the late file.
+      st =
+        t
+        |> PostponedGames.blocking_games()
+        |> Enum.reduce(st, fn game, acc ->
+          case PostponedGames.report_not_played(t, game.pairing.id) do
+            {:ok, _} -> acc
+            other -> fail(acc, "not played in this event refused: #{inspect(other, limit: 4)}")
+          end
+        end)
+
+      t = tournament(st)
+      meta = TrfExport.export_meta(t, nil)
+      build = fn fresh -> TrfExport.export(fresh, meta.rounds, for: :rating) end
+
+      {st, files} =
+        case PostponedGames.send_rounds(t, meta.rounds, build, acknowledged: [:round_sent_before]) do
+          {:ok, %{file: text}} ->
+            {bump(st, :sent), [text]}
+
+          other ->
+            {fail(st, "the rounds could not be sent for rating: #{inspect(other, limit: 6)}"), []}
+        end
+
+      # Most of them: a game nobody ever plays stays out of every file.
+      st = play_postponed(st, 75)
+      t = tournament(st)
+
+      periods =
+        t
+        |> PostponedGames.sendable_late_games()
+        |> Enum.map(&PostponedGames.late_period/1)
+        |> Enum.uniq()
+        |> Enum.reject(&is_nil/1)
+
+      {st, files} =
+        Enum.reduce(periods, {st, files}, fn period, {acc, files} ->
+          case PostponedGames.send_late_games(t, &TrfExport.postponed_export(&1, period: period)) do
+            {:ok, text, _games, _receipt} ->
+              {bump(acc, :late_files), files ++ [text]}
+
+            other ->
+              {fail(acc, "late games of #{period} not sent: #{inspect(other, limit: 6)}"), files}
+          end
+        end)
+
+      # Every board with two players and a result decided over the board,
+      # twice (once on each player's line).
+      expected =
+        2 *
+          Enum.count(
+            for(r <- 1..paired, b <- boards(st, r), do: b),
+            &(&1.white_player_id && &1.black_player_id && &1.result in ~w(1-0 0-1 1/2-1/2))
+          )
+
+      written =
+        files
+        |> Enum.flat_map(fn text -> Trf.parse(text).players end)
+        |> Enum.flat_map(& &1.games)
+        |> Enum.count(&(&1.result in ~w(1 0 =) and not is_nil(&1.opponent_rank)))
+
+      if written == expected,
+        do: st,
+        else:
+          fail(
+            st,
+            "the files for rating hold #{written} player-games played over the board, the tournament #{expected}: a game is rated twice, or never"
+          )
     end
   end
 end

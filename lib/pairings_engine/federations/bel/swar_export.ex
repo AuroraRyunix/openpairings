@@ -1426,6 +1426,14 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # a player who is BOTH globally absent AND carries round-specific text
   # cannot round-trip through this one field - an ambiguity in SWAR's own
   # encoding, not something export can fix.
+  #
+  # An expelled player is SWAR's Forfeit too, and so is one who is out with
+  # a withdrawn team. `status` was not read here at all, so the Expelled
+  # tick went out as Present: SWAR paired the player in the next round, and
+  # so did this app when the file came back (audit 2026-10 part 2, G5). The
+  # import reads the code as the `forfeit` flag, which keeps them off the
+  # boards; "expelled" itself has no place in the format.
+  defp reverse_absent_code(%{status: status}) when status in ["withdrawn", "expelled"], do: 1
   defp reverse_absent_code(%{forfeit: true}), do: 1
   defp reverse_absent_code(%{absent: true}), do: 2
   defp reverse_absent_code(%{absent_rounds: rounds}) when rounds not in [nil, ""], do: 2
@@ -1740,6 +1748,19 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
         gettext(
           "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values, scored by that type's rules - by SWAR, and by OpenPairings when it is imported back: a zero-point bye is worth the bye value, an absence nothing, and a 0-0 nothing."
         ),
+      # SWAR's "Pt ABSENT" is a tick box for half a point (`TOptions.cpp`),
+      # so any other value goes out as that half and came back as it, with
+      # nothing said (audit 2026-10 part 2, G6). Under the 3-2-1 type the
+      # sentence above already says an absence is worth nothing.
+      (not custom_points?(t) and (t.abs_value || 0.0) > 0 and t.abs_value != 0.5) &&
+        gettext(
+          "SWAR pays an absence half a point or nothing. This tournament pays %{value}: the file says half a point, and SWAR will score every absence at that.",
+          value: format_points(t.abs_value)
+        ),
+      Enum.any?(players, &(&1.status == "expelled")) &&
+        gettext(
+          "SWAR has no expelled players: one is written as its \"Forfeit\", which keeps them out of the next pairings there. Imported back, they are a player who forfeited the event, and are in the standings again."
+        ),
       (not acceleration? and not t.count_extra_points and any_extra?) &&
         gettext(
           "Players' extra points are not written, because this tournament does not count them and SWAR always would."
@@ -1763,6 +1784,12 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     ]
     |> Enum.filter(&is_binary/1)
   end
+
+  defp format_points(value) when is_float(value) do
+    if value == Float.round(value), do: "#{trunc(value)}", else: "#{value}"
+  end
+
+  defp format_points(value), do: "#{value}"
 
   defp band_count(t) do
     case Tournament.parse_extra_points_bands(t.extra_points_bands) do

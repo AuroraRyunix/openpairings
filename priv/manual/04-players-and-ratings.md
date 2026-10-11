@@ -157,7 +157,8 @@ to correct a mistake.
 Every change asks for your confirmation, a regeneration listing the
 players whose number changes first. Rounds that were already paired used the
 old numbers, so a pairing checker will no longer reproduce them; the dialog
-says so. Each change is written to the audit trail.
+says so. Each change is written to the audit trail. A regeneration when the
+numbers already follow the ratings says so and changes nothing.
 
 Until round 4 is paired, the Pairings page warns above *Pair round N* when the
 numbers no longer follow the ratings - a rating corrected after round 1, a

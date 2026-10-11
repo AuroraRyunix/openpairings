@@ -4,9 +4,9 @@ defmodule PairingsEngine.AppPathAuditTest do
   place where the app tells the engine, or says about the engine, something
   the engine does not hold.
 
-  The tests of findings that are NOT fixed are tagged `:app_path_open` and
-  skipped; `APP_PATH_OPEN=1 mix test test/pairings_engine/app_path_audit_test.exs`
-  runs them, and they fail, which is the point of them.
+  The last two open findings (F6, F8) were closed on 2026-10-11, so no test
+  here is skipped any more and `APP_PATH_OPEN` does nothing. A finding
+  opened later gets a skipped test of its own again, and a way to run it.
   """
 
   use PairingsEngine.DataCase, async: true
@@ -26,8 +26,6 @@ defmodule PairingsEngine.AppPathAuditTest do
     TrfExport,
     TrfImport
   }
-
-  @open System.get_env("APP_PATH_OPEN") == "1"
 
   defp tournament(attrs) do
     rounds = Map.get(attrs, "rounds_count", 5)
@@ -461,11 +459,13 @@ defmodule PairingsEngine.AppPathAuditTest do
 
   describe "a withdrawn player, exported to TRF and imported again" do
     # TRF has no record for "withdrew". The file shows a player with nothing
-    # in the later rounds, which is also what an absentee looks like, and
-    # the import brings them back as active: the copy pairs somebody the
-    # original would not.
-    @tag skip: if(@open, do: false, else: "open finding F6 - APP_PATH_OPEN=1 runs it")
-    test "the copy does not pair them in the next round" do
+    # in the later rounds, which is also what an absentee looks like, so the
+    # file cannot be made to say it. Since 2026-10-11 the import says what
+    # it sees instead: the review names every player who played and then
+    # has nothing in the trailing rounds, and the arbiter ticks the ones to
+    # import as withdrawn (`TrfImport.looks_withdrawn/3`). The format limit
+    # stands; the copy no longer pairs them behind the arbiter's back.
+    setup do
       t = tournament(%{"rounds_count" => 4})
       add_players(t, [2400, 2300, 2200, 2100, 2000, 1900])
       pair!(t)
@@ -475,10 +475,25 @@ defmodule PairingsEngine.AppPathAuditTest do
       play(t, 2)
 
       {:ok, text} = TrfExport.export(fresh(t))
-      {:ok, copy, _warnings} = TrfImport.import_text(text)
+      %{text: text}
+    end
+
+    test "the import's review names them", %{text: text} do
+      {:ok, report} = TrfImport.review(text)
+      assert [%{name: "P06", last_round: 1, trailing: 1}] = report.looks_withdrawn
+    end
+
+    test "ticked, the copy does not pair them in the next round", %{text: text} do
+      {:ok, report} = TrfImport.review(text)
+      ranks = Enum.map(report.looks_withdrawn, & &1.rank)
+
+      {:ok, copy, _report} = TrfImport.import_with_report(text, nil, withdraw: ranks)
       {:ok, _} = Pairing.pair_next_round(fresh(copy))
 
       refute "P06" in Enum.flat_map(names(copy, 3), &Tuple.to_list/1)
+
+      assert [%{"name" => "P06", "withdrawn" => true}] =
+               fresh(copy).import_findings["looks_withdrawn"]
     end
   end
 
@@ -612,10 +627,10 @@ defmodule PairingsEngine.AppPathAuditTest do
 
   describe "the explanation page in a Baku round" do
     # Round 2 of a Baku event pairs Group A's losers (0 + 1 virtual) with
-    # Group B's winners (1 + 0): one bracket, nobody floats. The page builds
-    # its brackets on game points, says so in a note, and then counts every
-    # one of those boards as a floater.
-    @tag skip: if(@open, do: false, else: "open finding F8 - APP_PATH_OPEN=1 runs it")
+    # Group B's winners (1 + 0): one bracket, nobody floats. The page built
+    # its brackets on game points, said so in a note, and then counted
+    # every one of those boards as a floater. Fixed 2026-10-11: the virtual
+    # points are in the page's scores, as they were in the engine's.
     test "a board inside one pairing-score bracket is not a floater" do
       t = tournament(%{"rounds_count" => 6, "acceleration" => "baku"})
       add_players(t, [2400, 2350, 2300, 2250, 2200, 2150, 2100, 2050])
@@ -623,7 +638,47 @@ defmodule PairingsEngine.AppPathAuditTest do
       play(t, 1)
       pair!(t)
 
-      assert PairingRationale.for_round(fresh(t), 2).summary.floaters == 0
+      rationale = PairingRationale.for_round(fresh(t), 2)
+      assert rationale.summary.floaters == 0
+
+      # Group A is the top four, a point each in round 2; nobody else.
+      group_a = for n <- 1..4, do: player(t, "P0#{n}").id
+      assert rationale.baku_points == Map.new(group_a, &{&1, 1.0})
+
+      # A side's score is the one it was paired on, with the virtual part
+      # kept apart; the two sides of every board agree on it.
+      for board <- rationale.boards, not board.is_bye do
+        assert board.white.score == board.black.score
+
+        for side <- [board.white, board.black] do
+          expected = if side.player.id in group_a, do: 1.0, else: 0.0
+          assert side.virtual == expected
+        end
+      end
+
+      # And the brackets are the engine's own: the same score groups its
+      # stored account has.
+      account = t.id |> Tournaments.get_round(2) |> Map.fetch!(:explanation)
+
+      engine_groups =
+        for section <- account["sections"], bracket <- section["brackets"] do
+          bracket["group"] * 1.0
+        end
+
+      page_groups = for group <- rationale.score_groups, do: group.score * 1.0
+      assert Enum.sort(page_groups) == Enum.sort(engine_groups)
+    end
+
+    test "a round after the accelerated ones is on game points again" do
+      t = tournament(%{"rounds_count" => 2, "acceleration" => "baku"})
+      add_players(t, [2400, 2350, 2300, 2250, 2200, 2150, 2100, 2050])
+      pair!(t)
+      play(t, 1)
+      pair!(t)
+
+      rationale = PairingRationale.for_round(fresh(t), 2)
+      assert rationale.baku_points == %{}
+      assert Enum.all?(rationale.boards, &(&1.white.virtual == 0.0))
     end
   end
 end

@@ -41,6 +41,10 @@ defmodule PairingsEngine.Pairing do
   # written by one implementation and read by another on every pairing.
   alias Ainalrami.Trf
 
+  # The version a round's engine account is written at - see
+  # `account_version/0`.
+  @account_version 5
+
   # Fires with the exact TRF text about to be handed to the engine. The text
   # never touches disk and is gone once the round is paired, so this is the
   # only way to observe it afterward. Exists purely for test observability
@@ -2699,9 +2703,13 @@ defmodule PairingsEngine.Pairing do
   Whether a round's stored engine account is current, or could be brought
   up to date by `reexplain_round/2`:
 
-    * `:current` - a version-3 record; nothing to do.
-    * `:stale` - no record, or one from before the alternatives existed,
-      and the boards still match what the engine paired: recomputable.
+    * `:current` - a record of the current version (`account_version/0`),
+      or a version-3 or -4 one with nothing to gain from being explained
+      again; nothing to do.
+    * `:stale` - no record, one from before the alternatives existed, or a
+      version-3 or -4 record holding an equally good alternative without
+      its boards (they are kept since version 5, 2026-10-11) - and the
+      boards still match what the engine paired: recomputable.
     * `:hand_edited` - the boards were changed after pairing. The stored
       record is the engine's original decision and is kept as it is.
     * `:ineligible` - not a single-pool Swiss round. Which engine paired it
@@ -2730,10 +2738,55 @@ defmodule PairingsEngine.Pairing do
   defp reexplainable?(t),
     do: t.pairing_system == "swiss" and not t.pair_by_category and not Tournament.team_swiss?(t)
 
-  defp current_account?(%{explanation: %{"version" => v}}) when is_integer(v) and v >= 3,
-    do: true
+  defp current_account?(%{explanation: %{"version" => v}})
+       when is_integer(v) and v >= @account_version,
+       do: true
+
+  # Versions 3 and 4 differ from 5 in one thing: a worked-out alternative
+  # has one board instead of all of them. Only a tie is ever drawn with its
+  # boards, so a record without one - most rounds of most tournaments - is
+  # as current as it will ever need to be, and is not offered a recompute
+  # that would change nothing anybody can see.
+  defp current_account?(%{explanation: %{"version" => v}} = round) when v in [3, 4],
+    do: not tie_without_boards?(round)
 
   defp current_account?(_round), do: false
+
+  defp tie_without_boards?(%{explanation: %{"sections" => sections} = record} = round)
+       when is_list(sections) do
+    inline =
+      for section <- sections,
+          entry <- [
+            section["bye"]
+            | Enum.flat_map(section["brackets"] || [], &(&1["float_alternatives"] || []))
+          ],
+          is_map(entry),
+          candidate <- entry["candidates"] || [],
+          do: candidate
+
+    stored =
+      if RoundExplanation.on_demand?(record) and is_binary(record["job"]) and
+           is_integer(Map.get(round, :id)) do
+        for {_question, answer} <- ExplanationJobs.stored_alternatives(round.id, record["job"]),
+            candidate <- answer["candidates"] || [],
+            do: candidate
+      else
+        []
+      end
+
+    Enum.any?(inline ++ stored, &(&1["outcome"] == "tie" and not is_map(&1["alternative"])))
+  end
+
+  defp tie_without_boards?(_round), do: false
+
+  @doc """
+  The version an engine account is written at. 5 since 2026-10-11: every
+  worked-out alternative carries the whole round it stands for (Ainalrami
+  0.43.0), not just the candidate's new opponent. A version-3 or version-4
+  record reads and renders as it always did, and `reexplain_round/2`
+  brings it up to date.
+  """
+  def account_version, do: @account_version
 
   # A record whose pairs no longer match the boards was edited by hand after
   # the engine paired it. No record at all is not "edited".
@@ -2746,7 +2799,13 @@ defmodule PairingsEngine.Pairing do
   Recomputes one round's engine account from the boards AS PLAYED - the
   field rebuilt as it stood before the round, the actual pairs explained
   under the engine's ladder, the float and bye alternatives judged - and
-  stores it as a version-3 record, marked `"origin" => "recomputed"`.
+  stores it as a current record, marked `"origin" => "recomputed"`.
+
+  A version-4 record - the alternatives worked out when opened - is not
+  rebuilt: its brackets are as good as they were. The answers somebody had
+  already opened are worked out again, so they gain the alternative's
+  boards, and the record is marked current. An answer that cannot be
+  worked out again (a player deleted since) is kept as it was.
 
   **This never changes a pairing.** It reads the boards and writes
   `rounds.explanation`, nothing else; the searches it runs to judge the
@@ -2768,6 +2827,7 @@ defmodule PairingsEngine.Pairing do
     with false <- Tournaments.write_refused(tournament),
          round when not is_nil(round) <- Tournaments.get_round(tournament.id, round_number),
          :stale <- reexplain_status(tournament, round),
+         :rebuild <- upgrade_on_demand(tournament, round),
          {:ok, field} <- engine_field(tournament, round_number),
          {:ok, pairs} <- field_pairs(field) do
       account =
@@ -2785,6 +2845,9 @@ defmodule PairingsEngine.Pairing do
 
       round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
     else
+      {:upgraded, result} ->
+        result
+
       {:error, :no_such_round} ->
         {:skip, :no_such_round}
 
@@ -2800,6 +2863,53 @@ defmodule PairingsEngine.Pairing do
       status when status in [:current, :hand_edited, :ineligible, :pending, :failed] ->
         {:skip, status}
     end
+  end
+
+  # An older record whose alternatives are worked out when opened: the
+  # questions already answered are asked again - same question, same depth -
+  # and the record is marked current. The brackets, the pairs the questions
+  # are worked out from and the record's "job" stay exactly as they are, so
+  # every stored answer still belongs to it. `:rebuild` for any other
+  # record, which `reexplain_round/2` then rebuilds whole.
+  defp upgrade_on_demand(
+         tournament,
+         %Round{explanation: %{"version" => 4, "job" => job} = record} = round
+       ) do
+    if RoundExplanation.on_demand?(record) do
+      cap = Ainalrami.Alternatives.max_candidates()
+
+      for {question, stored} <- ExplanationJobs.stored_alternatives(round.id, job),
+          {:ok, parsed} <- [RoundExplanation.parse_question(record, question)] do
+        # Past the cap means the arbiter asked for the whole bracket once;
+        # they get the whole bracket again.
+        full? = length(stored["candidates"] || []) > cap
+
+        case safe_alternative(tournament, round.number, job, parsed, full?) do
+          {:ok, answer} -> ExplanationJobs.store_alternative(round.id, job, question, answer)
+          _kept -> :kept
+        end
+      end
+
+      {:upgraded,
+       round
+       |> Ecto.Changeset.change(explanation: Map.put(record, "version", @account_version))
+       |> Repo.update()}
+    else
+      :rebuild
+    end
+  end
+
+  defp upgrade_on_demand(_tournament, _round), do: :rebuild
+
+  defp safe_alternative(tournament, round_number, job, parsed, full?) do
+    work_out_alternative(tournament, round_number, job, parsed, full?)
+  rescue
+    e ->
+      Logger.warning(
+        "could not work an alternative out again for round #{round_number}: #{Exception.message(e)}"
+      )
+
+      {:error, :raised}
   end
 
   @doc """
@@ -2861,13 +2971,15 @@ defmodule PairingsEngine.Pairing do
            ),
          payload when not is_nil(payload) <-
            explanation_payload([{nil, account, field.player_by_local_rank}]) do
+      # A version-3 or -4 record is stale only for want of its
+      # alternatives' boards: it is still the account it was, and keeps
+      # saying where it came from. Anything older was no usable record, and
+      # gets the provenance a recompute would have written, since that is
+      # what this is, at full depth.
       provenance =
-        case status do
-          # No usable record before this: the provenance a recompute would
-          # have written, since that is what this is, at full depth.
-          :stale -> %{"origin" => "recomputed"}
-          :current -> Map.take(round.explanation || %{}, ["origin", "paired_by"])
-        end
+        if status == :current or (round.explanation || %{})["version"] in [3, 4],
+          do: Map.take(round.explanation || %{}, ["origin", "paired_by"]),
+          else: %{"origin" => "recomputed"}
 
       payload =
         payload
@@ -3928,7 +4040,7 @@ defmodule PairingsEngine.Pairing do
       sections when on_demand? ->
         %{
           "engine" => "ainalrami",
-          "version" => 4,
+          "version" => @account_version,
           "alternatives" => "on_demand",
           "sections" => sections
         }
@@ -3939,8 +4051,13 @@ defmodule PairingsEngine.Pairing do
       # what each other candidate would have cost. An older record simply
       # lacks the keys, and `PairingsEngine.RoundExplanation` reads them as
       # empty rather than refusing the round.
+      #
+      # Version 5 (2026-10-11) is both forms with one addition: a worked-out
+      # candidate carries "alternative", the whole round it stands for as
+      # far as it differs from the played one (`whole_json/2`). Which form a
+      # record has is said by its "alternatives" key, not by the number.
       sections ->
-        %{"engine" => "ainalrami", "version" => 3, "sections" => sections}
+        %{"engine" => "ainalrami", "version" => @account_version, "sections" => sections}
     end
   end
 
@@ -4171,7 +4288,46 @@ defmodule PairingsEngine.Pairing do
       "fate" => candidate |> Map.get(:fate) |> fate_json(by_rank),
       "stayed" => Map.get(candidate, :floater_stayed?)
     }
+    |> put_unless_empty("alternative", candidate |> Map.get(:alternative) |> whole_json(by_rank))
   end
+
+  # The round an alternative stands for, as far as it differs from the
+  # played one (Ainalrami >= 0.43): its boards and the played boards they
+  # replace, `[white, black]` in player ids with nil for the bye, each
+  # changed bracket complete, who has the bye, and the step when the engine
+  # could name it. nil - and so no key - from an older engine, for a
+  # candidate with no round to show, and when a player in it cannot be
+  # named: half a pairing is worse than the one board the record always had.
+  defp whole_json(%{skipped: why, count: count}, _by_rank),
+    do: %{"skipped" => Atom.to_string(why), "count" => count}
+
+  defp whole_json(%{pairs: pairs, played: played} = whole, by_rank) do
+    boards = fn list ->
+      Enum.map(list, fn {w, b} -> [player_id(w, by_rank), b && player_id(b, by_rank)] end)
+    end
+
+    json = %{
+      "pairs" => boards.(pairs),
+      "played" => boards.(played),
+      "unchanged" => whole.unchanged,
+      "brackets" =>
+        Enum.map(whole.brackets, fn bracket ->
+          %{
+            "group" => bracket.group,
+            "pairs" => boards.(bracket.pairs),
+            "floats" => Enum.map(bracket.floats, &player_id(&1, by_rank))
+          }
+        end),
+      "bye" => whole.bye && player_id(whole.bye, by_rank),
+      "step" => whole.step && Atom.to_string(whole.step)
+    }
+
+    ranks = for {w, b} <- pairs ++ played, rank <- [w, b], not is_nil(rank), do: rank
+
+    if Enum.all?(ranks, &player_id(&1, by_rank)), do: json
+  end
+
+  defp whole_json(_none, _by_rank), do: nil
 
   defp reason_json(nil), do: nil
   defp reason_json(reason) when is_atom(reason), do: Atom.to_string(reason)

@@ -102,7 +102,7 @@ defmodule PairingsEngine.AlternativesOnDemandTest do
 
     round = Tournaments.get_round(t.id, paired.number)
     assert Pairing.explanation_state(round) == :ready
-    assert %{"version" => 4, "alternatives" => "on_demand", "job" => job} = round.explanation
+    assert %{"version" => 5, "alternatives" => "on_demand", "job" => job} = round.explanation
     # The pending record's fingerprint, kept: the answers are stored against it.
     assert job == paired.explanation["job"]
 
@@ -114,6 +114,44 @@ defmodule PairingsEngine.AlternativesOnDemandTest do
 
     assert Pairing.stored_alternatives(round) == %{}
     assert SlowExplainer.question_calls() == 0
+  end
+
+  test "a worked-out answer keeps the whole alternative, in player ids" do
+    {t, round} = round_two()
+    {floats, bye} = question_keys(round, t)
+    ids = t.id |> Tournaments.list_players() |> MapSet.new(& &1.id)
+    boards = length(hd(round.explanation["sections"])["pairs"])
+
+    for question <- [bye | floats] do
+      assert Pairing.open_alternative(t, round.number, question) == :started
+    end
+
+    stored = Pairing.stored_alternatives(Tournaments.get_round(t.id, round.number))
+    searched = for {_q, a} <- stored, c <- a["candidates"], is_map(c["alternative"]), do: c
+    assert searched != []
+
+    for %{"alternative" => whole} = c <- searched do
+      assert c["outcome"] in ~w(same worse better tie incomparable)
+      assert length(whole["pairs"]) == length(whole["played"])
+      assert whole["unchanged"] + length(whole["pairs"]) == boards
+
+      for [w, b] <- whole["pairs"] ++ whole["played"] do
+        assert MapSet.member?(ids, w)
+        assert is_nil(b) or MapSet.member?(ids, b)
+      end
+
+      for bracket <- whole["brackets"] do
+        assert is_number(bracket["group"])
+        assert Enum.all?(bracket["floats"], &MapSet.member?(ids, &1))
+      end
+
+      assert whole["step"] in [nil, "transposition", "exchange", "floater"]
+    end
+
+    # A candidate with no round to show has no such key at all.
+    for {_q, a} <- stored, c <- a["candidates"], c["outcome"] in ~w(impossible ineligible) do
+      refute Map.has_key?(c, "alternative")
+    end
   end
 
   test "one question's answer is exactly the engine's answer for that floater" do

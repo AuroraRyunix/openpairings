@@ -45,6 +45,14 @@ defmodule PairingsEngine.Tpn do
   Both write the numbers only, never a rating, a result or a round; the
   rounds already paired keep their games, which are the players', not the
   numbers'.
+
+  ## Nothing to do
+
+  A regeneration of numbers that already follow the ratings writes nothing,
+  announces nothing and answers `{:unchanged, order}` (`write/2`). It used
+  to rewrite every number with the value it already had and broadcast the
+  result, which queued a publish of an identical tournament and left the top
+  bar saying "Sending" about it.
   """
 
   import Ecto.Query
@@ -329,8 +337,10 @@ defmodule PairingsEngine.Tpn do
   def seed_newcomers(%Tournament{} = t, players) do
     if Enum.any?(players, &is_nil(&1.pairing_number)) and
          Enum.any?(Tournaments.list_players(t.id), &is_integer(&1.pairing_number)) do
-      write(t, Enum.map(order(t), fn {p, _n} -> p.id end))
-      :seeded
+      case write(t, Enum.map(order(t), fn {p, _n} -> p.id end)) do
+        :written -> :seeded
+        :unchanged -> :none
+      end
     else
       :none
     end
@@ -368,11 +378,16 @@ defmodule PairingsEngine.Tpn do
         id -> id
       end)
 
-    write(t, swapped)
-    # Somebody chose these numbers, so unpairing back to nothing keeps them
-    # (`Pairing.delete_round/2`). A file's numbers stay a file's.
-    mark_origin(t, nil, "exchange")
-    {:ok, order(t)}
+    case write(t, swapped) do
+      :written ->
+        # Somebody chose these numbers, so unpairing back to nothing keeps
+        # them (`Pairing.delete_round/2`). A file's numbers stay a file's.
+        mark_origin(t, nil, "exchange")
+        {:ok, order(t)}
+
+      :unchanged ->
+        {:unchanged, order(t)}
+    end
   end
 
   defp mark_origin(t, from, to) do
@@ -408,14 +423,23 @@ defmodule PairingsEngine.Tpn do
   @doc """
   Regenerates the numbers from the current ratings, keeping the order of
   equal ratings (see the moduledoc). Refused like `exchange/3`.
+
+  `{:unchanged, order}` when every number is already the one it would get:
+  nothing is written, nothing is broadcast, and a file's numbers stay
+  marked as the file's - nobody regenerated anything.
   """
   def regenerate(%Tournament{} = t) do
     with :ok <- guard(t) do
-      write(t, Enum.map(regenerated(t, order(t)), & &1.id))
-      # Regenerated, a file's numbers are no longer the file's. An exchange
-      # survives a regeneration (Q155), so that mark stays.
-      mark_origin(t, "import", nil)
-      {:ok, order(t)}
+      case write(t, Enum.map(regenerated(t, order(t)), & &1.id)) do
+        :written ->
+          # Regenerated, a file's numbers are no longer the file's. An
+          # exchange survives a regeneration (Q155), so that mark stays.
+          mark_origin(t, "import", nil)
+          {:ok, order(t)}
+
+        :unchanged ->
+          {:unchanged, order(t)}
+      end
     end
   end
 
@@ -438,19 +462,34 @@ defmodule PairingsEngine.Tpn do
 
   defp sort_by_number(players), do: Enum.sort_by(players, &{&1.pairing_number, &1.name, &1.id})
 
+  # Numbers `ids` 1..N. `:unchanged`, and no write and no broadcast, when
+  # every one of them holds that number already: a broadcast is a claim that
+  # something changed, and everything downstream of it - open pages, the
+  # standings cache, the publish queue - believes it.
   defp write(t, ids) do
-    Repo.transaction(fn ->
-      ids
-      |> Enum.with_index(1)
-      |> Enum.each(fn {id, number} ->
-        Repo.update_all(
-          from(p in Player, where: p.id == ^id and p.tournament_id == ^t.id),
-          set: [pairing_number: number]
-        )
-      end)
-    end)
+    wanted = Enum.with_index(ids, 1)
 
-    Tournaments.broadcast_tournament_change(t.id, :players)
+    held =
+      Repo.all(
+        from p in Player, where: p.tournament_id == ^t.id, select: {p.id, p.pairing_number}
+      )
+      |> Map.new()
+
+    if Enum.all?(wanted, fn {id, number} -> Map.get(held, id) == number end) do
+      :unchanged
+    else
+      Repo.transaction(fn ->
+        Enum.each(wanted, fn {id, number} ->
+          Repo.update_all(
+            from(p in Player, where: p.id == ^id and p.tournament_id == ^t.id),
+            set: [pairing_number: number]
+          )
+        end)
+      end)
+
+      Tournaments.broadcast_tournament_change(t.id, :players)
+      :written
+    end
   end
 
   defp guard(t) do
