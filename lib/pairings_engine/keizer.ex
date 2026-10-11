@@ -182,6 +182,7 @@ defmodule PairingsEngine.Keizer do
   defp insert_absentee_byes(tournament, round_number, ladder_pool, eligible_ids) do
     rows =
       ladder_pool
+      |> Enum.filter(&(&1.status == "active"))
       |> Enum.reject(&MapSet.member?(eligible_ids, &1.id))
       # A round before the player joined is not a round they were absent
       # from. `Keizer.score_round/5` already guards on `start_round` before
@@ -210,7 +211,8 @@ defmodule PairingsEngine.Keizer do
   ## ---------- DB edge: standings ----------
 
   @doc """
-  Ranked Keizer standings for `tournament`: one entry per ladder player,
+  Ranked Keizer standings for `tournament`: one entry per ladder player
+  still in the event (somebody expelled keeps a rung and has no row),
   `%{rank:, player:, value:, points:, played:, wins:, draws:, losses:,
   raw_points:}` - `value` is the player's current ladder value, `points`
   their Keizer points (1 decimal), `raw_points` the same rounds scored in
@@ -244,7 +246,11 @@ defmodule PairingsEngine.Keizer do
     %{order: order, values: values, scored: scored} =
       recalculate(ladder_pool, games, byes, tournament.keizer_top_value, through)
 
+    # The table is the players still in the event, numbered among
+    # themselves. Somebody expelled keeps a rung - the people who beat them
+    # are paid from it - and loses the row.
     order
+    |> Enum.filter(&(&1.status == "active"))
     |> Enum.with_index(1)
     |> Enum.map(fn {player, rank} ->
       entry = Map.fetch!(scored, player.id)
@@ -267,6 +273,21 @@ defmodule PairingsEngine.Keizer do
         raw_points: stats.raw_points
       }
     end)
+  end
+
+  @doc """
+  What a `byes`-table row of `type` adds to a row's `raw_points`: the
+  tournament's bye value for a bye, nothing for a round sat out. The same
+  two answers `round_stat/3` gives for `:unpaired_bye` and `:excused`, for
+  the one reader (the published snapshot's per-round figures) that has the
+  row and not the ladder. "Points for a round sat out" is a Swiss setting
+  and is not consulted.
+  """
+  def raw_bye_points(type, %Tournament{} = t) do
+    case bye_class_and_fraction(type) do
+      {:unpaired_bye, _} -> t.bye_value
+      {:excused, _} -> 0.0
+    end
   end
 
   defp round_stats(entries, t) do
@@ -405,15 +426,39 @@ defmodule PairingsEngine.Keizer do
 
   ## ---------- DB edge: data extraction ----------
 
-  # The full ladder pool considered for ranking/scoring - every non-withdrawn
-  # player, regardless of `absent`/`forfeit` (those affect eligibility for
-  # *pairing*, not whether a player stays on the list and keeps scoring
-  # excused-absence fractions - see the module doc). Matches
-  # `PairingsEngine.Standings`, which also doesn't filter by status.
+  # The pool that is ranked and valued: every player in the event, whatever
+  # `absent`/`forfeit` say (those decide who is PAIRED, not who has a rung),
+  # plus anybody expelled or withdrawn by status who sat at a board before
+  # they left. A win pays the opponent's rung, so an opponent taken off the
+  # ladder made every win over them worth nothing, retroactively - the
+  # arbiter expelled one player and fined everybody who had beaten them.
+  # They keep the rung; `compute_standings/2` drops the row, and
+  # `Engine.eligible_players/2` never offers them a board.
+  #
+  # Somebody who left without ever being paired has no game to value and is
+  # not in the pool, as before.
   defp ladder_players(tournament_id) do
-    tournament_id
-    |> Tournaments.list_players()
-    |> Enum.filter(&(&1.status == "active"))
+    players = Tournaments.list_players(tournament_id)
+
+    if Enum.all?(players, &(&1.status == "active")) do
+      players
+    else
+      seated = seated_player_ids(tournament_id)
+      Enum.filter(players, &(&1.status == "active" or MapSet.member?(seated, &1.id)))
+    end
+  end
+
+  defp seated_player_ids(tournament_id) do
+    from(p in Pairing,
+      join: r in Round,
+      on: p.round_id == r.id,
+      where: r.tournament_id == ^tournament_id,
+      select: {p.white_player_id, p.black_player_id}
+    )
+    |> Repo.all()
+    |> Enum.flat_map(&Tuple.to_list/1)
+    |> Enum.reject(&is_nil/1)
+    |> MapSet.new()
   end
 
   defp rounds_data(_tournament_id, 0), do: {[], []}

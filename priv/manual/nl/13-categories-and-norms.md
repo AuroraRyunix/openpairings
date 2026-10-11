@@ -46,6 +46,15 @@ De formulieren gebruiken de FIDE-huisstijl voor namen (voornaam, ACHTERNAAM in h
 
 ![De pagina Normen met de IT3-, FA1/IA1- en IT4-formulieren en de banner Nog niet klaar om bij FIDE in te dienen](screenshots/13-norms-forms.png "Geavanceerd, Normen")
 
+De pagina beoordeelt ook per speler of het evenement een titelnorm oplevert (FIDE
+B.01). Eén regel geldt alleen voor rondetoernooien: partijen tegen een **speler zonder
+rating die nul heeft gescoord** zijn geen normpartijen (B.01 1.4.2). "Nul gescoord"
+wordt gelezen als de punten uit werkelijk gespeelde partijen: een punt voor een bye of
+voor een forfaitoverwinning is geen score, dus een speler zonder rating met alleen
+zulke punten blijft buiten beschouwing, en één remise aan het bord volstaat om zijn
+partijen te laten meetellen. De partijen blijven in de rangschikking en in het
+ratingverslag staan; alleen de normberekening laat ze weg.
+
 ### Normen zonder account {#norms-without-an-account}
 
 Het tabblad **Hulpmiddelen** in de bovenbalk opent een openbare pagina voor arbiters zonder account: upload `.swar`- of `.trf`-bestanden (tot tien, elk 5 MB), vul de officials in, en download de IT3-, FA1- en IA1-formulieren, gecombineerd over de bestanden.

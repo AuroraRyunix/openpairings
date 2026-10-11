@@ -49,6 +49,21 @@ every 20 seconds without reloading the whole page.
 The front page lists the tournaments on the site in three groups: live,
 upcoming and finished. It can be searched.
 
+In a round robin, a player whose results are not counted (withdrawn or
+expelled with fewer than half of the games played, FIDE C.05 6.6; see
+[Standings and tie-breaks](08-standings-and-tiebreaks.md)) is listed after
+the ranked players, without a place number, in muted type, with the note
+*results not counted (withdrawn)* and a footnote that explains the rule. The
+cross-table and the player's own card say the same. On the other players'
+cards the game against that player is marked *not counted* and adds nothing
+to the running score. The hall display lists ranked players only.
+
+In a Keizer tournament the points shown for each round are the game points
+the Keizer table's *Score* column is made of. A round sat out is worth
+nothing there, whatever **Points for a round sat out** says on the Options
+page: that setting belongs to the Swiss scoring, and Keizer pays an absence
+by its own rule, on the ladder.
+
 ### Rounds and pairings {#rounds-and-pairings}
 
 Each published round has its own page, with the pairings and, when the arbiter

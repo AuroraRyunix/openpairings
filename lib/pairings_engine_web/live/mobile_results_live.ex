@@ -266,6 +266,19 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                       )
                     end
 
+                  # The arbiter moved somebody since this phone drew the
+                  # board. Nothing was written; the reload shows who sits
+                  # there now.
+                  {:error, :board_changed} ->
+                    put_flash(
+                      socket,
+                      :error,
+                      gettext(
+                        "Not saved: board %{board} changed - the arbiter changed its players. Check who is on it now and enter the result again.",
+                        board: pairing.board
+                      )
+                    )
+
                   {:error, :archived} ->
                     put_flash(
                       socket,

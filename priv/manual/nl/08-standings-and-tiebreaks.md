@@ -211,7 +211,11 @@ vormen de laatste groep van de lijst.
   rating, maar niet voor de score of de tiebreaks van wie dan ook. De speler wordt na
   de anderen getoond, met *-* voor de plaats en de opmerking *teruggetrokken, niet
   meegeteld*. Bij precies de helft of meer blijven de resultaten staan en tellen ze
-  mee. Het TRF-verslag bewaart altijd elke partij.
+  mee. Het TRF-verslag bewaart altijd elke partij. De regel is die van de FIDE en
+  vraagt niet waar het toernooi vandaan komt: een rondetoernooi dat uit een
+  SWAR-bestand is geïmporteerd met een speler die als *forfait général* is gemarkeerd,
+  wordt op dezelfde manier gelezen. De publieke resultatensite markeert de rij ook
+  ([OpenResults](16-openresults.md#the-standings-page)).
 
 Een tiebreak die voor een toernooi niet kan worden berekend, wordt niet getoond als
 kolom met nullen: hij valt weg, met een opmerking.

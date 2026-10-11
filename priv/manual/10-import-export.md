@@ -174,6 +174,14 @@ The older TRF16 spelling of the extension lines, which TRF pairing programs
 such as bbpPairings read, is available by adding `?dialect=engine` to the
 address of the download.
 
+A postponed game is written as the unknown result `?`, worth a draw in the
+file (the `X` of record 162). When the tournament counts a postponed game as
+something else meanwhile - a win for the player who did not ask, say, which
+is only possible outside FIDE mode - the standings and the file differ in
+points, so the file's rank column is then worked out from the file's own
+points and tie-breaks, not copied from the Standings page. With the default
+valuation (a draw for both) the two are the same.
+
 ### Backup and copy
 
 - **Export full backup (JSON)** - the file described above, for this

@@ -34,7 +34,10 @@ zoals uitgelegd in [Spelers en ratinglijsten](04-players-and-ratings.md):
   de tot dan toe behaalde punten ([Rangschikking en tiebreaks](08-standings-and-tiebreaks.md)).
 - **Uitgesloten** op het inschrijfformulier sluit de speler uit. De
   aanwezigheidscel toont `E`. Een uitgesloten speler wordt niet meer gepaard en
-  verschijnt niet in de rangschikking.
+  verschijnt niet in de rangschikking. In een Keizer-toernooi houdt de uitgesloten
+  speler een plaats op de ladder voor de partijen die al tegen hem zijn gespeeld, zodat
+  een overwinning op hem waard blijft wat ze was; alleen zijn eigen rij verdwijnt uit
+  de tabel.
 - Het menu op de kop van de kolom markeert iedereen in één keer aanwezig of
   afwezig; gebruik dit aan het begin van het evenement of het begin van een ronde.
 

@@ -164,6 +164,13 @@ aan de speler die minder vaak wit heeft gehad. De hoogste waarde van de ladder
 wordt ingesteld op de pagina Opties. De pagina Stand toont de Keizer-tabel in
 plaats van de tiebreak-tabel.
 
+Een speler die **uitgesloten** wordt nadat hij heeft gespeeld, houdt een sport op de
+ladder: de tegenstanders behouden de Keizer-punten die hun partijen tegen die speler
+opleverden, en die partijen worden gewaardeerd zoals elke andere wanneer de ladder
+verschuift. De uitgesloten speler wordt niet meer gepaard en heeft geen rij in de
+Keizer-tabel. Een speler die wordt uitgesloten voordat hij ooit gepaard is, staat
+gewoon niet op de ladder.
+
 ## Teamtoernooien {#team-tournaments}
 
 Voor Zwitserse en rondetoernooien met ploegen paart **Ronde N paren** ploeg

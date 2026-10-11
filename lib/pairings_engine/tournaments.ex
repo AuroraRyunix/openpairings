@@ -5970,7 +5970,11 @@ defmodule PairingsEngine.Tournaments do
   confirmed it: a postponed game (`"*"`) given a result that is not a draw
   returns `{:error, {:needs_acknowledgement, [:adjourned_non_draw_result]}}`
   (VCL4THP Q163), and goes through when the caller passes that id in
-  `opts[:acknowledged]`. Every round paired since counted the game as a
+  `opts[:acknowledged]`.
+
+  Refuses, with `{:error, :board_changed}` and nothing written, a result
+  for a board whose players are no longer the ones `pairing` holds - see
+  `ensure_board_unchanged/1`. Every round paired since counted the game as a
   draw, and those pairings stand - so the arbiter is told before the score
   they were made with changes, whichever screen the result comes from. See
   `PairingsEngine.PostponedGames.result_warnings/2`.
@@ -5980,6 +5984,7 @@ defmodule PairingsEngine.Tournaments do
 
     with :ok <- ensure_writable(tournament_id),
          %Tournament{} = tournament <- Repo.get(Tournament, tournament_id),
+         :ok <- ensure_board_unchanged(pairing),
          :ok <- ensure_result_round_open(tournament, pairing),
          :ok <- ensure_no_match_score(pairing),
          :ok <- ensure_postponed_allowed(tournament, result),
@@ -5994,6 +5999,34 @@ defmodule PairingsEngine.Tournaments do
         |> postponed_attrs(pairing, result, opts)
         |> Map.merge(correction_attrs(pairing, result))
       )
+    end
+  end
+
+  # The caller holds the board as its page last drew it; the row is written
+  # by id, whoever sits there now. Between a co-arbiter's swap and this
+  # page's refresh, "1-0 on the board I am looking at" was recorded for two
+  # other people, and nobody was told (audit 2026-10 part 2, G11). The seats
+  # are the one thing a result is ABOUT, so they are compared with the
+  # stored row and a difference refuses the write. The result itself is
+  # still last-write-wins: two arbiters entering the same board is a
+  # disagreement, not a mix-up.
+  #
+  # A row that is gone is not this check's business - the update fails on
+  # its own.
+  defp ensure_board_unchanged(%Pairing{id: id} = pairing) do
+    case Repo.one(
+           from p in Pairing,
+             where: p.id == ^id,
+             select: {p.white_player_id, p.black_player_id}
+         ) do
+      nil ->
+        :ok
+
+      {white, black} when white == pairing.white_player_id and black == pairing.black_player_id ->
+        :ok
+
+      _other_players ->
+        {:error, :board_changed}
     end
   end
 
