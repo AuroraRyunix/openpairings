@@ -1002,10 +1002,14 @@ defmodule PairingsEngine.Snapshot do
   # against a vacated seat while results are private) has a figure the
   # arbiter is keeping back, and a zero here would be an invented one.
   #
-  # An individual Swiss only, like `not_joined/3`: Keizer pays a round not
-  # played by its own arithmetic, and a round robin seats everybody.
+  # An individual Swiss, like `not_joined/3` - and an individual round
+  # robin, which was left out on the grounds that it "seats everybody". It
+  # does not: with a Berger table per category the shorter table's players
+  # have nothing in the longer one's last rounds, and a category of one has
+  # no table at all (audit 2026-10 part 2, G4). Keizer still pays a round
+  # not played by its own arithmetic and is not asked.
   defp not_paired(%Round{} = round, %Tournament{} = t, nos, rows) do
-    if LateEntry.derives?(t) do
+    if LateEntry.derives?(t) or individual_round_robin?(t) do
       seated =
         for p <- round.pairings,
             id <- [p.white_player_id, p.black_player_id],
@@ -1024,6 +1028,11 @@ defmodule PairingsEngine.Snapshot do
       []
     end
   end
+
+  defp individual_round_robin?(%Tournament{pairing_system: "round_robin"} = t),
+    do: not Tournament.team?(t)
+
+  defp individual_round_robin?(%Tournament{}), do: false
 
   # A round played before a late entrant joined, in a tournament where that
   # round is not an absence (`LateEntry.applies?/1` false - every FIDE-style

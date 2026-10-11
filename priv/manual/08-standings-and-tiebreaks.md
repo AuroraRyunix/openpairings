@@ -199,7 +199,8 @@ are the last group of the list.
   group above) are not used in a round robin (C.07 Article 8); the page says
   so.
 - **Round robin, a player who withdrew early (C.05 6.6).** A player of an
-  individual round robin who withdrew or was expelled having completed fewer
+  individual round robin who withdrew (**Forfeit** in the registration form)
+  or was expelled having completed fewer
   than half of their games (over the board; forfeits and postponed games not
   yet played do not count) is taken out of the standings: their results stay
   in the cross table and count for rating, but not for anybody's score or

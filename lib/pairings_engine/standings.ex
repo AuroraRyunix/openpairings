@@ -470,8 +470,9 @@ defmodule PairingsEngine.Standings do
   standings; at 50% or more they stay and are counted. So:
 
     * only a round robin played player by player (a team round robin has its
-      own standings), and only a player whose status is `withdrawn` or
-      `expelled`;
+      own standings), and only a player who is withdrawn
+      (`Player.withdrawn?/1`: the Forfeit tick, or the `withdrawn` status)
+      or expelled;
     * "completed" games are games played over the board: a forfeit is not
       a completed game, nor is a postponed game still to be played. Counted
       over the whole event, whatever round the standings are asked about;
@@ -485,10 +486,16 @@ defmodule PairingsEngine.Standings do
   player's games or points), as the regulation says.
   """
   def uncounted_withdrawals(tournament, players) do
+    # `Player.withdrawn?/1`, not the status alone: the Players page
+    # withdraws a player with the Forfeit tick, and the `withdrawn` status
+    # is a withdrawn TEAM's roster - which never plays an individual round
+    # robin. Reading only the status, the rule applied to an expelled player
+    # and to nobody the arbiter had withdrawn the documented way (audit
+    # 2026-10 part 2, G1).
     withdrawn =
       Enum.filter(
         players,
-        &(&1.status in ~w(withdrawn expelled) and is_integer(&1.pairing_number))
+        &((Player.withdrawn?(&1) or Player.expelled?(&1)) and is_integer(&1.pairing_number))
       )
 
     if withdrawn == [] or not individual_round_robin?(tournament) do

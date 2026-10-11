@@ -326,8 +326,9 @@ defmodule PairingsEngine.Mobile do
        looking at is no longer the latest, regardless of how they got there.
     2. **Board range** - `board_in_range?/2`, both levels.
     3. **Fill-once** - a `"helper"` may set a result on `pairing` only while
-       `pairing.result` is blank (`""`); a `"deputy"` may always correct one,
-       which is today's original behaviour.
+       the board's STORED result is blank (`""`), whatever the caller's copy
+       says; a `"deputy"` may always correct one, which is today's original
+       behaviour.
 
   Returns `:ok` or `{:error, reason}`; the caller (`MobileResultsLive`) maps
   `reason` to the flash message a helper actually sees.
@@ -337,9 +338,18 @@ defmodule PairingsEngine.Mobile do
   def permit_result(%Enrollment{} = enrollment, %Pairing{} = pairing, round_number, latest_round) do
     with :ok <- permit_round(enrollment, round_number, latest_round),
          :ok <- check_board_range(enrollment, pairing.board) do
-      check_blank(enrollment, pairing)
+      check_blank(enrollment, stored(pairing))
     end
   end
+
+  # The board as the database holds it now. Fill-once used to be asked of
+  # the copy the phone's page was holding, which is blank for as long as the
+  # page is behind: a helper could then write over the result the arbiter
+  # had entered at the desk a moment earlier - the one thing a helper is not
+  # allowed to do (audit 2026-10 part 2, G7). A pairing that was never saved
+  # has no row to read and is taken as given.
+  defp stored(%Pairing{id: nil} = pairing), do: pairing
+  defp stored(%Pairing{id: id} = pairing), do: Repo.get(Pairing, id) || pairing
 
   @doc """
   Whether `board` falls inside `enrollment`'s board range. `board_from` and

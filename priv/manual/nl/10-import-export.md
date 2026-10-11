@@ -164,7 +164,10 @@ de download.
   toernooi. Op de pagina Toernooien exporteert **Alles exporteren (JSON)** elk toernooi
   dat u bezit in één bestand.
 - **.swar exporteren (v7, experimenteel)** (Belgisch pakket) schrijft een SWAR-bestand.
-  Een regel somt op wat het SWAR-formaat van dit toernooi niet kan bevatten.
+  Een regel somt op wat het SWAR-formaat van dit toernooi niet kan bevatten -
+  onder meer een afwezigheid die iets anders dan een half punt waard is (SWAR
+  heeft een vakje voor het halve punt en verder niets) en een uitgesloten speler,
+  die als *Forfait* van SWAR wordt weggeschreven, net als een teruggetrokken speler.
 - **SWAR-resultatenpagina exporteren (.html)** (Belgisch pakket) schrijft de
   resultatenpagina in SWAR-stijl.
 - **Publiceren op de uitslagensite van de federatie** (Belgisch pakket, beheerder).
