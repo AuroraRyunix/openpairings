@@ -474,7 +474,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp trf_send_confirm(selected, rounds) do
     send =
       gettext(
-        "Send round %{rounds}? This downloads the file for rating to your computer and records every result in it as sent. It does not deliver the file: you still have to email it to your rating officer (or hand it in) yourself. Afterwards, changing one of these results asks for confirmation, and these rounds cannot be sent a second time.",
+        "Send round %{rounds}? This downloads the rating file to your computer and records every result in it as sent. Downloading is not sending: you still have to send the downloaded file to your rating officer yourself. After this, changing one of these results asks for confirmation, and these rounds cannot be sent a second time.",
         rounds: trf_rounds_param(selected) |> String.replace(",", ", ")
       )
 
@@ -495,7 +495,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp send_is_not_delivery_text,
     do:
       gettext(
-        "Send does not deliver anything. It downloads the file for rating and records it as sent; you still email that file to your rating officer (or hand it in) yourself."
+        "Downloading is not sending. Send downloads the rating file and records it as handed over; you still have to send that file to your rating officer yourself."
       )
 
   # The newest receipts this page did not know about yet, after a change
@@ -512,7 +512,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       socket,
       :info,
       gettext(
-        "Downloaded and recorded as sent (receipt %{codes}). Nothing has been delivered: now email the downloaded file to your rating officer, or hand it in.",
+        "Downloaded and recorded as sent (receipt %{codes}). Nothing has reached your rating officer yet: now send them the downloaded file yourself.",
         codes: Enum.join(codes, ", ")
       )
     )
@@ -975,7 +975,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
         <p class="hint" style="margin-top: 0">
           {gettext(
-            "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or press Send. Send downloads the file for rating to your computer and records its rounds as sent, so a round is never sent twice and a sent result asks for confirmation before it changes. It delivers nothing: you email the downloaded file to your rating officer yourself."
+            "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or press Send. Send downloads the rating file to your computer and records its rounds as sent, so a round is never sent twice and a sent result asks for confirmation before it changes. The program delivers nothing: you send the downloaded file to your rating officer yourself."
           )}
           {gettext(
             "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
@@ -1509,7 +1509,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                     data-confirm={
                       @late_packed != [] &&
                         gettext(
-                          "Send the postponed-games file as the separate tournament %{name}? This downloads the file to your computer and records the ticked games as sent, so they are never sent again. It does not deliver the file: you still have to email it to your rating officer (or hand it in) yourself.",
+                          "Send the postponed-games file as the separate tournament %{name}? This downloads the file to your computer and records the ticked games as sent, so they are never sent again. Downloading is not sending: you still have to send the downloaded file to your rating officer yourself.",
                           name: PostponedGames.report_name(@tournament)
                         )
                     }

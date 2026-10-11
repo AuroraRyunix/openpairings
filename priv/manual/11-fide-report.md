@@ -47,13 +47,21 @@ paired round with its boards and its state:
 
 Tick the rounds you want and press:
 
-- **Send…** - builds the file for the rating office and **marks every game in
-  it as sent**, in one step. The file is named after the type of the
-  tournament, the FIDE tournament ID, the name and the rounds. It holds only
-  the records of the report, no comments.
+- **Send…** - builds the file for the rating office, downloads it to your
+  computer and **marks every game in it as sent**, in one step. The file is
+  named after the type of the tournament, the FIDE tournament ID, the name and
+  the rounds. It holds only the records of the report, no comments.
 - **Download a copy (not for rating)** and **All rounds (TRF copy, not for
   rating)** - copies for your own use or another program. The file name ends
   `COPY-NOT-FOR-RATING` and the file says so in a `###` comment line.
+
+> [!IMPORTANT]
+> **Downloading is not sending.** *Send…* delivers nothing to anybody: it
+> hands you the file and records that it was handed over. You still have to
+> send the downloaded file to your rating officer yourself (by e-mail, or
+> however your federation wants it). The confirmation says so, the line
+> under the button says so, and the page says it once more after the
+> download, with the receipt code.
 
 > [!WARNING]
 > A sent round cannot be sent again, and cannot be unpaired. A sent result can
@@ -124,8 +132,9 @@ its state, the date it was played and the file it is in:
   later is a separate step that is written to the audit trail).
 - Enter the **tournament name** of the postponed-games file (by default the
   event's name plus *postponed games*) and its **FIDE tournament ID**.
-- **Make this file** builds the file for one rating period (month); *Send…* marks
-  its games as sent. A page note says which month and that the file must be
+- **Make this file** builds the file for one rating period (month); *Send…*
+  downloads it and marks its games as sent - and, as with a round, you send
+  the downloaded file to your rating officer yourself. A page note says which month and that the file must be
   sent before the end of that month. A game that has been sent in its round
   with its real result is never offered again.
 
@@ -138,27 +147,48 @@ its state, the date it was played and the file it is in:
 - **Receipt (JSON)** on the Export page downloads the receipt of one sent file:
   its code and fingerprint, round or period, who sent it and when, the games as
   sent, and the file's SHA-256 and name. The receipt keeps the exact file too;
-  the rating period inbox downloads and checks that one.
+  the rating inbox downloads and checks that one.
 
 ## The rating period inbox
 
-For the administrator of the installation: **Rating period inbox**, linked
-from *Connections* and from the Export page. It lists every tournament on the
-installation by FIDE rating period: what was sent for rating, what is still
-missing, which postponed games are still open, and which rating list each
-file goes to. A round counts for the month of its date.
+For the rating officer, who is an administrator of the installation: **Rating
+inbox**, in the **Account** menu on every page and at the top of the *Admin*
+page. Only an administrator sees those links; on a tournament's Export page
+an administrator also has a small *Open the rating inbox* link under the Send
+button. It shows, by FIDE rating period, what was sent for rating, what is
+still missing, which postponed games are still open, and which rating list
+each file is for. A round counts for the month of its date.
 
-The list follows FIDE's deadline (B.02 Art. 9.1). A tournament goes to the
-list of the month it ended in, or to the next month's list when it ended with
-five days or fewer left in its month; a postponed-games file counts from the
-date of its last game. Each tournament says where it stands:
+**Which tournaments are listed.** A tournament from which at least one file
+was sent, and a tournament marked **FIDE-rated** (Settings, FIDE). Nothing
+else: a club evening that is not marked FIDE-rated and never sent anything
+does not appear. *Not sent yet: round N has finished and has no receipt* is
+said only of a tournament marked FIDE-rated; one that is not, but sent a
+round once, is listed with that receipt and the label *not marked
+FIDE-rated*, and nothing is expected of its other rounds. The FIDE-rated
+tick is the only "this tournament is rated" setting there is; there is none
+for a national rating.
 
-- *Goes to the list of …: send it before …* - in time.
-- In amber, *Past the list of …* - that list is gone; the file goes to a later
-  one, and the line names the first list it can still make and the last one
-  it can make at all.
+*Sent* means the arbiter pressed **Send…** and the file was downloaded to
+their computer. Whether they then sent it on to you, the page cannot know:
+its **Download file** is that same file, in case it never arrived.
+
+**The rating list.** FIDE publishes a list on the first day of every month,
+and the inbox names a list by that date. The file should be uploaded in time
+for the list after the month the tournament ended in, or for the list one
+month later when it ended with five days or fewer left in its month (B.02
+Art. 9.1); a postponed-games file counts from the date of its last game. A
+tournament that lasts more than 30 days reports every month (Art. 4.1), so
+its rounds of a month count from the last of them, not from the end of the
+tournament: the October rounds of a championship that runs until April are
+for the list of 1 November. Each tournament says where it stands:
+
+- *For the rating list of 1 …: to be uploaded by …* - in time.
+- In amber, *Missed the rating list of …* (for a monthly report: *Overdue*) -
+  that list is gone; the line names the next list it can still make and the
+  day after which it is not rated at all.
 - In red, *Will not be rated* - it missed the third list after the
-  tournament ended.
+  tournament's last day.
 
 Nothing is refused: a late file can still be sent, and the inbox shows the
 list it will make. Each sent file can be downloaded (**Download file**) and

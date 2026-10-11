@@ -44,13 +44,21 @@ met haar borden en haar status:
 
 Vink de rondes aan die u wilt en druk op:
 
-- **Versturen…** - maakt het bestand voor het ratingbureau en **markeert elke partij
+- **Versturen…** - maakt het bestand voor het ratingbureau, downloadt het naar uw computer en **markeert elke partij
   erin als verstuurd**, in één stap. Het bestand krijgt een naam naar het type
   van het toernooi, het FIDE-toernooi-ID, de naam en de rondes. Het bevat alleen
   de records van het rapport, geen opmerkingen.
 - **Een kopie downloaden (niet voor rating)** en **Alle rondes (TRF-kopie, niet voor
   rating)** - kopieën voor uw eigen gebruik of een ander programma. De bestandsnaam
   eindigt op `COPY-NOT-FOR-RATING` en het bestand zegt dat in een `###`-commentaarregel.
+
+> [!IMPORTANT]
+> **Downloaden is niet versturen.** *Versturen…* bezorgt niets bij wie dan ook:
+> u krijgt het bestand, en het programma noteert dat het is afgegeven. U moet
+> het gedownloade bestand daarna zelf nog naar uw ratingverantwoordelijke sturen
+> (per e-mail, of zoals uw federatie het vraagt). De bevestiging zegt het, de
+> regel onder de knop zegt het, en de pagina zegt het na de download nog eens,
+> met de code van het ontvangstbewijs.
 
 > [!WARNING]
 > Een verstuurde ronde kan niet opnieuw verstuurd worden, en kan niet ongedaan gemaakt worden
@@ -122,8 +130,9 @@ ze gespeeld is en het bestand waarin ze zit:
   is een aparte stap die in het auditlogboek wordt vastgelegd).
 - Voer de **toernooinaam** van het bestand met uitgestelde partijen in (standaard de naam van de competitie
   plus *uitgestelde partijen*) en het **FIDE-toernooi-ID** ervan.
-- **Dit bestand maken** maakt het bestand voor één ratingperiode (maand); *Versturen…* markeert
-  de partijen erin als verstuurd. Een paginanotitie zegt welke maand het is en dat het bestand
+- **Dit bestand maken** maakt het bestand voor één ratingperiode (maand); *Versturen…* downloadt het en markeert
+  de partijen erin als verstuurd - en zoals bij een ronde stuurt u het gedownloade bestand
+  zelf naar uw ratingverantwoordelijke. Een paginanotitie zegt welke maand het is en dat het bestand
   vóór het einde van die maand verstuurd moet zijn. Een partij die in haar ronde met de echte
   uitslag is verstuurd, wordt nooit opnieuw aangeboden.
 
@@ -133,28 +142,52 @@ ze gespeeld is en het bestand waarin ze zit:
   een fout stopt de download met een melding.
 - Het bestand terug importeren in OpenPairings (of in een ander programma) is de beste
   controle dat het zegt wat u denkt dat het zegt ([Importeren en exporteren](10-import-export.md)).
-- **Ontvangstbewijs (JSON)** op de pagina Exporteren downloadt het ontvangstbewijs van één verstuurd bestand: code en vingerafdruk, ronde of periode, wie het verstuurde en wanneer, de partijen zoals verstuurd, en de SHA-256 en naam van het bestand. Het ontvangstbewijs bewaart ook het exacte bestand; de inbox per ratingperiode downloadt en controleert dat bestand.
+- **Ontvangstbewijs (JSON)** op de pagina Exporteren downloadt het ontvangstbewijs van één verstuurd bestand: code en vingerafdruk, ronde of periode, wie het verstuurde en wanneer, de partijen zoals verstuurd, en de SHA-256 en naam van het bestand. Het ontvangstbewijs bewaart ook het exacte bestand; de ratinginbox downloadt en controleert dat bestand.
 
 ## De inbox per ratingperiode {#the-rating-period-inbox}
 
-Voor de beheerder van de installatie: **Inbox ratingperiodes**, bereikbaar via
-*Verbindingen* en via de pagina Exporteren. Ze toont elk toernooi op de
-installatie per FIDE-ratingperiode: wat voor de rating is verstuurd, wat nog
-ontbreekt, welke uitgestelde partijen nog openstaan en in welke ratinglijst elk
-bestand terechtkomt. Een ronde telt mee voor de maand van haar datum.
+Voor de ratingverantwoordelijke, die beheerder van de installatie is:
+**Ratinginbox**, in het menu **Account** op elke pagina en bovenaan de pagina
+*Beheer*. Alleen een beheerder ziet die links; op de pagina Exporteren van een
+toernooi heeft een beheerder ook een kleine link *De ratinginbox openen* onder
+de knop Versturen. De inbox toont per FIDE-ratingperiode wat voor de rating is
+verstuurd, wat nog ontbreekt, welke uitgestelde partijen nog openstaan en voor
+welke ratinglijst elk bestand bestemd is. Een ronde telt mee voor de maand van
+haar datum.
 
-De lijst volgt de termijn van FIDE (B.02 art. 9.1). Een toernooi komt in de
-lijst van de maand waarin het eindigde, of in die van de volgende maand als het
-eindigde met vijf dagen of minder over in zijn maand; een bestand met uitgestelde
-partijen telt vanaf de datum van zijn laatste partij. Bij elk toernooi staat
-waar het staat:
+**Welke toernooien erin staan.** Een toernooi waarvan minstens één bestand is
+verstuurd, en een toernooi dat als **FIDE-gehomologeerd** is aangeduid
+(Instellingen, FIDE). Niets anders: een clubavond die niet als FIDE-gehomologeerd
+is aangeduid en nooit iets verstuurde, verschijnt niet. *Nog niet verstuurd:
+ronde N is afgelopen en heeft geen ontvangstbewijs* wordt alleen gezegd van een
+toernooi dat als FIDE-gehomologeerd is aangeduid; een toernooi dat dat niet is maar
+ooit een ronde verstuurde, staat er met dat ontvangstbewijs en het label *niet
+aangeduid als FIDE-gehomologeerd*, en van zijn andere rondes wordt niets verwacht.
+Het vinkje FIDE-gehomologeerd is de enige instelling die zegt dat een toernooi
+geratet wordt; voor een nationale rating bestaat er geen.
 
-- *Komt in de lijst van …: verstuur het voor …* - op tijd.
-- In oranje, *De lijst van … is gesloten* - die lijst is voorbij; het bestand
-  komt in een latere lijst, en de regel noemt de eerste lijst die het nog kan
-  halen en de laatste die het überhaupt kan halen.
-- In rood, *Wordt niet geratet* - het heeft de derde lijst na het einde van het
-  toernooi gemist.
+*Verstuurd* betekent dat de arbiter op **Versturen…** drukte en dat het bestand
+naar zijn computer werd gedownload. Of hij het daarna naar u heeft
+doorgestuurd, kan de pagina niet weten: **Bestand downloaden** geeft datzelfde
+bestand, voor het geval het nooit is aangekomen.
+
+**De ratinglijst.** FIDE publiceert op de eerste dag van elke maand een lijst,
+en de inbox noemt een lijst bij die datum. Het bestand moet op tijd zijn
+geüpload voor de lijst na de maand waarin het toernooi eindigde, of voor de
+lijst een maand later als het eindigde met vijf dagen of minder over in zijn
+maand (B.02 art. 9.1); een bestand met uitgestelde partijen telt vanaf de datum
+van zijn laatste partij. Een toernooi dat langer dan 30 dagen duurt, rapporteert
+elke maand (art. 4.1): zijn rondes van een maand tellen dus vanaf de laatste
+daarvan, niet vanaf het einde van het toernooi. De oktoberrondes van een
+kampioenschap dat tot april loopt, zijn voor de lijst van 1 november. Bij elk
+toernooi staat hoe het ervoor staat:
+
+- *Voor de ratinglijst van 1 …: te uploaden tegen …* - op tijd.
+- In oranje, *De ratinglijst van … is gemist* (bij een maandrapport: *Achterstallig*) -
+  die lijst is voorbij; de regel noemt de eerstvolgende lijst die het nog kan
+  halen en de dag waarna het helemaal niet meer geratet wordt.
+- In rood, *Wordt niet geratet* - het heeft de derde lijst na de laatste dag
+  van het toernooi gemist.
 
 Niets wordt geweigerd: een laat bestand kan nog altijd verstuurd worden, en de
 inbox toont de lijst waarin het terechtkomt. Elk verstuurd bestand kan worden

@@ -1790,7 +1790,9 @@ label.field > span {
 .rinbox-receipt-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; overflow-wrap: anywhere; }
 .rinbox-receipt-file { font-size: 12.5px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
 .rinbox-receipt-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.badge.rinbox-drift { background: var(--warn-soft); color: var(--warn); }
+/* A badge is one line by trade. This one carries a sentence, so on a phone it
+   left the card and took the page's width with it. It may wrap. */
+.badge.rinbox-drift { background: var(--warn-soft); color: var(--warn); white-space: normal; height: auto; max-width: 100%; line-height: 1.35; padding-top: 2px; padding-bottom: 2px; border-radius: 10px; }
 .rinbox-check { grid-column: 1 / -1; min-width: 0; }
 .rinbox-check pre { margin: 6px 0 0; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; color: var(--text-soft); }
 @media (max-width: 640px) {

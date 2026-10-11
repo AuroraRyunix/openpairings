@@ -39,7 +39,8 @@ mix phx.server
 ```
 
 Then open http://localhost:4000 and register an account (in dev, the
-confirmation e-mail appears at http://localhost:4000/dev/mailbox).
+confirmation e-mail appears at http://localhost:4000/dev/mailbox; `mix pairings.dev_login`
+prints a one-time login link for a dev administrator instead, and runs in dev only).
 
 For a from-scratch environment setup (installing Erlang/Elixir, first-run
 gotchas), see [`docs/setup-guide.md`](docs/setup-guide.md).

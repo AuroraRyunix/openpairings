@@ -106,13 +106,13 @@ defmodule PairingsEngineWeb.RatingInboxLiveTest do
     end
 
     test "in time for the month's list: normal", %{t: t} do
-      assert {:normal, %{target: ~D[2026-09-01], closes: ~D[2026-09-30]}} =
+      assert {:normal, %{list: ~D[2026-10-01], closes: ~D[2026-09-30]}} =
                level(t, ~D[2026-09-20])
     end
 
     test "after it closed: a later list, amber", %{t: t, conn: conn} do
       assert {:later, %{lands_in: lands_in}} = level(t, ~D[2026-10-05])
-      assert lands_in == ~D[2026-10-01]
+      assert lands_in == ~D[2026-11-01]
 
       {:ok, view, _html} = live(conn, ~p"/admin/rating-inbox")
       assert has_element?(view, "#rating-inbox-list-#{t.id}-2026-09[data-level]")
@@ -120,6 +120,127 @@ defmodule PairingsEngineWeb.RatingInboxLiveTest do
 
     test "past the third list: will not be rated, red", %{t: t} do
       assert {:late, %{lands_in: nil}} = level(t, ~D[2027-01-05])
+    end
+  end
+
+  describe "which tournaments are listed" do
+    test "not marked FIDE-rated and nothing sent: not listed, finished round or not", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, "Inbox club evening")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/rating-inbox")
+
+      refute has_element?(view, "#rating-inbox-2026-09-t#{t.id}")
+      refute has_element?(view, "#rating-inbox-missing-#{t.id}-2026-09")
+    end
+
+    test "not marked FIDE-rated but sent once: its receipt, and no round called missing", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, "Inbox sent once")
+      receipt = send!(conn, t)
+
+      {:ok, _} = Engine.pair_next_round(Tournaments.get_tournament!(t.id))
+
+      for p <- Tournaments.get_round(t.id, 2).pairings do
+        {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+
+      {:ok, view, _html} = live(conn, ~p"/admin/rating-inbox")
+
+      assert has_element?(view, "#rating-inbox-receipt-#{receipt.id}")
+      assert has_element?(view, "#rating-inbox-unrated-#{t.id}-2026-09")
+      refute has_element?(view, "#rating-inbox-missing-#{t.id}-2026-09")
+      refute has_element?(view, "#rating-inbox-list-#{t.id}-2026-09")
+    end
+
+    test "marked FIDE-rated: the unsent finished round is missing, with its list", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, "Inbox rated")
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id), set: [fide_homologated: true])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/rating-inbox")
+
+      assert has_element?(view, "#rating-inbox-missing-#{t.id}-2026-09")
+      assert has_element?(view, "#rating-inbox-list-#{t.id}-2026-09[data-basis=final]")
+      refute has_element?(view, "#rating-inbox-unrated-#{t.id}-2026-09")
+    end
+  end
+
+  describe "the way in" do
+    test "an administrator has it in the account menu and on the admin page", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      assert has_element?(view, "#account-menu-rating-inbox[href='/admin/rating-inbox']")
+      assert has_element?(view, "#admin-rating-inbox-link[href='/admin/rating-inbox']")
+    end
+
+    test "an ordinary account has no link to it anywhere", %{conn: conn, user: user, scope: scope} do
+      t = tournament(scope, "Inbox no door")
+      {:ok, plain} = Accounts.set_role(user.email, "owner")
+      conn = log_in_user(conn, plain)
+
+      {:ok, home, _html} = live(conn, ~p"/")
+      refute has_element?(home, "#account-menu-rating-inbox")
+
+      {:ok, export, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(export, "#trf-send-note")
+      refute has_element?(export, "#account-menu-rating-inbox")
+      refute has_element?(export, "#rating-inbox-link")
+    end
+
+    test "on a tournament's Export page it is a small link, not a button", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, "Inbox small door")
+
+      {:ok, export, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+
+      assert has_element?(
+               export,
+               "#trf-send-note a#rating-inbox-link[href='/admin/rating-inbox']"
+             )
+
+      refute has_element?(export, "#rating-inbox-link.pe-btn")
+    end
+  end
+
+  describe "downloading is not sending" do
+    test "the page says so under the Send button", %{conn: conn, scope: scope} do
+      t = tournament(scope, "Inbox not delivered")
+
+      {:ok, export, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+
+      assert has_element?(export, "#trf-send-note", "Downloading is not sending")
+      assert has_element?(export, "#trf-send-note", "to your rating officer yourself")
+    end
+
+    test "the confirmation says so before anything is recorded", %{conn: conn, scope: scope} do
+      t = tournament(scope, "Inbox confirm")
+
+      {:ok, export, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      # The finished round arrives ticked; the confirmation is on the button
+      # as soon as there is something to send.
+
+      assert has_element?(export, "#trf-send[data-confirm*='Downloading is not sending']")
+      assert has_element?(export, "#trf-send[data-confirm*='to your rating officer yourself']")
+    end
+
+    test "after a send the page repeats it, with the receipt", %{conn: conn, scope: scope} do
+      t = tournament(scope, "Inbox reminder")
+
+      {:ok, export, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      receipt = send!(conn, t)
+      _ = :sys.get_state(export.pid)
+
+      assert has_element?(export, "#flash-info", receipt.code)
+      assert has_element?(export, "#flash-info", "Nothing has reached your rating officer yet")
     end
   end
 

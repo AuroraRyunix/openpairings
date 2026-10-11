@@ -104,7 +104,8 @@ defmodule PairingsEngine.RatingInbox do
       for %SentReceipt{kind: "report", round: round} <- receipts, into: MapSet.new(), do: round
 
     missing =
-      for %{state: :ready, round: round} <- (rated?(t) && PostponedGames.trf_round_states(t)) || [],
+      for %{state: :ready, round: round} <-
+            (rated?(t) && PostponedGames.trf_round_states(t)) || [],
           not MapSet.member?(sent_rounds, round),
           period = round_period(t, round),
           do: {period, t, :missing, round}
