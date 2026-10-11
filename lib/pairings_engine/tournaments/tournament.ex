@@ -44,6 +44,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # whether or not it has players, every match gets all its boards, empty
   # seats included, and the results go on the boards or on the match.
   @team_lineups ~w(required optional)
+  # What a match awarded as a whole pays the winner in game points
+  # (`PairingsEngine.TeamStandings`): "seated" - a point per board it
+  # filled, which is C.07 Art. 11.1.2 read straight; "full" - the full board
+  # count whatever it seated, for leagues whose regulations fix a team
+  # forfeit's score.
+  @team_forfeit_board_points ~w(seated full)
   # How a team's rating is worked out for seeding (docs/team-tournaments.md,
   # "Team rating"): see `PairingsEngine.Tournaments.team_rating/2`.
   @team_rating_methods ~w(olympiad first_boards roster manual)
@@ -802,6 +808,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # have and as they do for an individual round robin here.
     field :team_withdrawal_annul, :boolean, default: false
 
+    # See `@team_forfeit_board_points`. "seated" is what the app always did
+    # and what every tournament has until somebody chooses otherwise. Scoring,
+    # so a FIDE-mode lock once round 1 is paired, like the bye's value.
+    field :team_forfeit_board_points, :string, default: "seated"
+
     # "required" (default, and every tournament from before the setting) or
     # "optional": see `@team_lineups`. Locked once round 1 is paired
     # (`Tournaments.locked_fields/1`): the boards already written were laid
@@ -1325,6 +1336,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :team_pab_match_points,
       :team_pab_game_points,
       :team_withdrawal_annul,
+      :team_forfeit_board_points,
       :team_lineups,
       :team_rating_method,
       :team_unrated_rating,
@@ -1377,6 +1389,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_number(:team_match_points_loss, greater_than_or_equal_to: 0)
     |> validate_inclusion(:team_board_colours, @team_board_colours)
     |> validate_inclusion(:team_lineups, @team_lineups)
+    |> validate_inclusion(:team_forfeit_board_points, @team_forfeit_board_points)
     |> validate_inclusion(:team_rating_method, @team_rating_methods)
     |> validate_inclusion(:norm_event_type, @norm_event_types)
     |> validate_number(:team_unrated_rating,
@@ -2264,6 +2277,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   @doc "The values `team_board_colours` takes."
   def team_board_colours, do: @team_board_colours
+
+  @doc "The values `team_forfeit_board_points` takes."
+  def team_forfeit_board_points_values, do: @team_forfeit_board_points
+
+  @doc """
+  Whether a match awarded as a whole pays the winner the full board count
+  (`team_forfeit_board_points` "full") rather than a point per board it
+  seated. False for an individual tournament, which has no matches to award.
+  """
+  def team_forfeit_full?(%{team_forfeit_board_points: "full"} = t), do: team?(t)
+  def team_forfeit_full?(_), do: false
 
   @doc "The values `team_lineups` takes."
   def team_lineups_values, do: @team_lineups

@@ -96,6 +96,25 @@ line-ups (*Line-ups*) and the **Forfeit by decision** controls.
   not, it is marked **no team** and counts for no team until you make it a board
   of the match.
 
+**A match forfeited as a whole.** Settings - Scoring - *A match forfeited as a
+whole* says what such a match pays the team it is awarded to in game points:
+*One per board it seated* (the default: a team that seated seven of eight
+wins 7-0, and a team with no line-up 0-0 - the match points are right either
+way) or *The full board count* (8-0 on eight boards whatever was seated, for
+regulations that fix the score of a team forfeit). It applies to a match
+forfeited by decision before any game of it was played, and to a match
+against a team out of the round as a team. A match forfeited after games
+were played keeps the sum of its boards, and a single forfeited board is
+always one board's point. The extra game points belong to the team: no
+board's result changes and no player's board statistics move. The setting
+travels with the tournament's export; a TRF has no record for it, so a
+tournament read from a TRF comes back on the default.
+
+> [!FIDE] A match forfeited as a whole
+> Scoring: in FIDE mode it cannot be changed after round 1. The default is
+> C.07 Art. 11.1.2 as written (game points are the sum of the players'
+> points); the full count is the competition's own regulation.
+
 A team can be marked **absent as a team** for a round on its card (before the
 round is paired); a team that withdraws is shown as *withdrawn, results not
 counted* in the standings (round robin, under 50% played, FIDE General

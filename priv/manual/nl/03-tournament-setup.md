@@ -338,8 +338,9 @@ waarde van de **door de paring toegekende bye** (standaard: een winst).
 
 **Matchpunten** (ploegentoernooien): 2 voor een gewonnen match, 1 voor een
 gelijkgespeelde match en 0 voor een verloren match, standaard; de matchpunten en
-partijpunten van een door de paring toegekende bye; en de behandeling van een
-ploeg die zich terugtrekt.
+partijpunten van een door de paring toegekende bye; wat een wedstrijd die als
+geheel forfait is aan partijpunten oplevert ([Ploegen](12-teams.md)); en de
+behandeling van een ploeg die zich terugtrekt.
 
 **Byes en afwezigheden.** *Punten voor een overgeslagen ronde* is de waarde van
 een ronde waarvoor een speler afwezig was (leeg: afwezigheden leveren niets op).

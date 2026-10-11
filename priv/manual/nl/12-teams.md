@@ -90,6 +90,24 @@ een uitslag heeft, een link naar de opstellingen van de wedstrijd (*Opstellingen
   dan wordt het gemarkeerd als **geen ploeg** en telt het voor geen enkele ploeg totdat u het een bord van
   de wedstrijd maakt.
 
+**Een wedstrijd die als geheel forfait is.** Instellingen - Puntentelling - *Een wedstrijd die als geheel
+forfait is* bepaalt hoeveel partijpunten zo'n wedstrijd oplevert voor de ploeg die ze krijgt toegewezen:
+*Eén per opgesteld bord* (de standaard: een ploeg die zeven van de acht borden bezette, wint met 7-0, en een
+ploeg zonder opstelling met 0-0 - de wedstrijdpunten kloppen in beide gevallen) of *Het volledige aantal
+borden* (8-0 op acht borden, wat er ook was opgesteld, voor reglementen die de uitslag van een ploegforfait
+vastleggen). Het geldt voor een wedstrijd die bij beslissing forfait werd verklaard voordat er een partij
+van gespeeld was, en voor een wedstrijd tegen een ploeg die als ploeg niet aan de ronde deelneemt. Een
+wedstrijd die forfait werd verklaard nadat er partijen gespeeld waren, behoudt de som van haar borden, en
+één forfaitbord blijft altijd het punt van één bord. De extra partijpunten zijn van de ploeg: geen enkel
+bordresultaat verandert en de bordstatistieken van de spelers blijven wat ze waren. De instelling gaat mee
+in de export van het toernooi; een TRF heeft er geen record voor, dus een toernooi dat uit een TRF wordt
+ingelezen, staat weer op de standaard.
+
+> [!FIDE] Een wedstrijd die als geheel forfait is
+> Puntentelling: in FIDE-modus kan dit na ronde 1 niet meer gewijzigd worden. De standaard is C.07 art.
+> 11.1.2 zoals het er staat (partijpunten zijn de som van de punten van de spelers); het volledige aantal is
+> het eigen reglement van de competitie.
+
 Een ploeg kan op haar kaart voor een ronde als **afwezig als ploeg** gemarkeerd worden (vóór de ronde gepaard
 is); een ploeg die zich terugtrekt, wordt in de rangschikking getoond als *teruggetrokken, uitslagen niet
 geteld* (rondetoernooi, minder dan 50% gespeeld, FIDE Algemeen Reglement 6.6).

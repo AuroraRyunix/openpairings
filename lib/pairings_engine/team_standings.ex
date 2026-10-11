@@ -21,6 +21,14 @@ defmodule PairingsEngine.TeamStandings do
   points count each board as soon as its result is in. So a half-reported
   match moves GP, and moves MP when it is finished.
 
+  One exception, and only when the tournament asks for it
+  (`team_forfeit_board_points` "full"): a match awarded as a whole
+  (`awarded_whole/5`) pays the winner the full board count, whatever it
+  seated - league regulations that fix a team forfeit at 8-0 on eight
+  boards. Those game points belong to the team and to no player: no board's
+  result changes and the board statistics do not see them. The default,
+  "seated", is Art. 11.1.2 to the letter.
+
   Match points are the primary score (C.04.6 Art. 1.2.2's default, and the
   one every FIDE team event ranks on): the table is sorted by MP, then by the
   configured tie-breaks in order.
@@ -185,12 +193,19 @@ defmodule PairingsEngine.TeamStandings do
       |> Repo.all()
       |> Enum.group_by(& &1.round_id)
 
+    # Only a tournament that pays a whole forfeit in full needs to know
+    # which teams were out of a round; everybody else is spared the query.
+    teams =
+      if Tournament.team_forfeit_full?(t),
+        do: Map.new(Tournaments.list_teams(t.id), &{&1.id, &1}),
+        else: %{}
+
     for round <- rounds, m <- Map.get(matches_by_round, round.id, []) do
-      score_match(m, round, t, boards)
+      score_match(m, round, t, boards, teams)
     end
   end
 
-  defp score_match(%Match{team_b_id: nil} = m, round, t, boards) do
+  defp score_match(%Match{team_b_id: nil} = m, round, t, boards, _teams) do
     # A team Swiss's pairing-allocated bye pays "as many match points and
     # game points as are rewarded for a draw" (C.04.6 Art. 1.4): the draw's
     # match points, and a draw on every board. A round robin's bye pays
@@ -210,6 +225,7 @@ defmodule PairingsEngine.TeamStandings do
       forfeited_to: nil,
       double_forfeit?: false,
       played_before_decision?: false,
+      awarded_full: nil,
       match_score: nil,
       scored?: true,
       complete?: true,
@@ -222,7 +238,7 @@ defmodule PairingsEngine.TeamStandings do
     }
   end
 
-  defp score_match(%Match{} = m, round, t, boards) do
+  defp score_match(%Match{} = m, round, t, boards, teams) do
     board_rows =
       round.pairings
       |> Enum.filter(&(&1.match_id == m.id))
@@ -251,6 +267,20 @@ defmodule PairingsEngine.TeamStandings do
     postponed_boards = Enum.count(board_rows, &Results.postponed?(&1.pairing.result))
     gp_a = board_rows |> Enum.map(&(&1.a_points || 0.0)) |> Enum.sum() |> round1()
     gp_b = board_rows |> Enum.map(&(&1.b_points || 0.0)) |> Enum.sum() |> round1()
+
+    # `team_forfeit_board_points` "full": a match awarded as a whole pays
+    # the full board count to the team it went to and nothing to the other.
+    # The boards keep the results they have; only the match's game points
+    # are fixed.
+    awarded_full = if scored?, do: awarded_whole(m, round.number, t, teams, board_rows)
+
+    {gp_a, gp_b} =
+      case awarded_full do
+        :a -> {full_board_points(t, round.number, boards), 0.0}
+        :b -> {0.0, full_board_points(t, round.number, boards)}
+        nil -> {gp_a, gp_b}
+      end
+
     # A double forfeit (`TeamMatches.double_forfeit/2`): both teams lost the
     # match by forfeit - the loss's match points to each, although the game
     # points are level at nothing (TRF-2026 `330` "--"; Ainalrami's reading
@@ -280,6 +310,11 @@ defmodule PairingsEngine.TeamStandings do
       # result entered by hand (`reached/1`).
       double_forfeit_decided?: m.double_forfeit and is_map(m.forfeit_previous_results),
       played_before_decision?: PairingsEngine.TeamMatches.played_before_decision?(m),
+      # `:a` or `:b` when the match's game points are the full board count
+      # of a whole forfeit rather than the sum of its boards (see
+      # `awarded_whole/5`); nil for every other match.
+      awarded_full: awarded_full,
+      board_count: boards,
       # A match decided by its score alone (`TeamMatches.set_match_score/4`),
       # `{a, b}` as entered; its boards carry the results it was written as,
       # which is what everything here adds up.
@@ -308,6 +343,63 @@ defmodule PairingsEngine.TeamStandings do
   defp awarded_unseated?(%Match{} = m, rows) do
     side = if m.forfeited_to_team_id == m.team_a_id, do: :a_player_id, else: :b_player_id
     rows != [] and Enum.all?(rows, &is_nil(Map.get(&1, side)))
+  end
+
+  # The side a match was awarded to AS A WHOLE, for a tournament that pays
+  # such a match in full (`team_forfeit_board_points` "full"); nil for any
+  # other match and any other tournament. Two ways to get there, and in
+  # both nobody played a game:
+  #
+  #   * the arbiter forfeited the match (`TeamMatches.forfeit_match/3`)
+  #     before any game of it was played. A match forfeited after play
+  #     keeps the sum of its boards: the teams sat down, and the decision
+  #     already turned every board they filled;
+  #   * one team was out of the round as a team (absent or withdrawn,
+  #     `Tournaments.team_in_round?/2`) and the other was not.
+  #
+  # A double forfeit pays nobody, a match decided by an entered score says
+  # its own score, and a board forfeit - one empty seat, one player who did
+  # not come - is a board's business and stays a point per board.
+  defp awarded_whole(%Match{} = m, round_number, t, teams, rows) do
+    cond do
+      not Tournament.team_forfeit_full?(t) -> nil
+      m.double_forfeit or match_score(m) != nil -> nil
+      PairingsEngine.TeamMatches.played_before_decision?(m) -> nil
+      m.forfeited_to_team_id == m.team_a_id -> :a
+      m.forfeited_to_team_id == m.team_b_id -> :b
+      Enum.any?(rows, &Results.played?(&1.pairing.result)) -> nil
+      true -> side_left_in_round(m, round_number, teams)
+    end
+  end
+
+  defp side_left_in_round(%Match{} = m, round_number, teams) do
+    in? = fn id ->
+      case Map.get(teams, id) do
+        nil -> true
+        team -> Tournaments.team_in_round?(team, round_number)
+      end
+    end
+
+    case {in?.(m.team_a_id), in?.(m.team_b_id)} do
+      {true, false} -> :a
+      {false, true} -> :b
+      _ -> nil
+    end
+  end
+
+  # What every board of the match pays when each is a forfeit win: the
+  # board count times what one forfeit win is worth here - the same figure
+  # a fully seated team would have added up to, so the two cannot differ.
+  defp full_board_points(t, round_number, boards) do
+    one =
+      Standings.seat_points(
+        %PairingsEngine.Tournaments.Pairing{result: "1-0FF"},
+        round_number,
+        t,
+        :white
+      )
+
+    round1(boards * one)
   end
 
   defp awarded_points(t, %Match{} = m) do
@@ -553,9 +645,20 @@ defmodule PairingsEngine.TeamStandings do
       mp: mp,
       gp: gp,
       opp_gp: opp_gp,
-      board_points: Map.new(m.boards, &{&1.board, Map.get(&1, pts)})
+      board_points: record_board_points(m, side, pts, gp)
     }
   end
+
+  # A whole forfeit paid in full is the full count spread evenly over the
+  # boards for the team it went to, empty seats included, so a tie-break
+  # that weighs boards (BB, Board Count) adds up to the same game points
+  # the table shows. Every other match: what each board paid.
+  defp record_board_points(%{awarded_full: side, board_count: count}, side, _pts, gp)
+       when side in [:a, :b],
+       do: Map.new(1..count, &{&1, gp / count})
+
+  defp record_board_points(m, _side, pts, _gp),
+    do: Map.new(m.boards, &{&1.board, Map.get(&1, pts)})
 
   defp played_records(entry), do: Enum.filter(entry.records, &(&1.scored? and not &1.bye?))
 

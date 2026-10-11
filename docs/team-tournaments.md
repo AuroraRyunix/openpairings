@@ -779,6 +779,25 @@ withdrew come back (`teams.withdrawal_player_ids`, so a player withdrawn on
 their own before stays withdrawn) and those decisions are withdrawn. A
 restore point is taken before a withdrawal; both are in the audit trail.
 
+**A match forfeited as a whole.** `team_forfeit_board_points`
+(Settings - Scoring - *A match forfeited as a whole*): "seated", the default
+and what every tournament had before the setting, pays the awarded team one
+game point per board it filled - C.07 Art. 11.1.2 as written, and 7-0 for a
+team that seated seven of eight. "full" pays the full board count whatever
+it seated, for leagues whose regulations fix a team forfeit's score (KBSB
+Art. 37.c: 8-0, 6-0, 4-0). It applies in `TeamStandings.score_match/5` to a
+match forfeited by decision before any game was played and to a match
+against a team out of the round as a team; a match forfeited after play, a
+double forfeit, a match decided by an entered score and every single board
+forfeit are scored as before. The points are the match's, not a board's:
+`boards` and `board_stats/2` are untouched, and the board-weighted
+tie-break spreads them over every board so it still adds up to the game
+points. Standings, tie-breaks, the snapshot and the TRF `310` totals all
+read the one figure. It is in the JSON export; a TRF has no record for it.
+FIDE mode: scoring, so locked once round 1 is paired
+(`Tournaments.fide_locked_fields/1`), like the bye's value; not a
+departure.
+
 **A team round robin and the 50% rule.** FIDE's General Regulations for
 Competitions, Art. 6.6, for a player who withdraws from a round robin: under
 50% of the games played, the results "remain in the tournament table (for

@@ -1147,6 +1147,8 @@ defmodule PairingsEngine.Tournaments do
   #     count by another name - Q57/Q58 (C.04.1:1, the number of rounds is
   #     announced beforehand).
   #   * the scoring system, team match points included - Q75/Q76.
+  #     What a whole forfeit pays in game points (`team_forfeit_board_points`)
+  #     is scoring too, and goes where the rest of it goes.
   #   * the pairing-allocated bye's value, and the SWAR 3-2-1 presence points
   #     that ride on it - Q85/Q86.
   #   * `acceleration` - Q109/Q110 (removed or changed after round 1).
@@ -1162,7 +1164,7 @@ defmodule PairingsEngine.Tournaments do
   @fide_locked ~w(rounds_count rr_cycles points_win points_draw points_loss
                   team_match_points_win team_match_points_draw team_match_points_loss
                   bye_value presence_value presence_on_allocated_bye
-                  team_pab_match_points team_pab_game_points
+                  team_pab_match_points team_pab_game_points team_forfeit_board_points
                   acceleration pairing_system tiebreaks)a
 
   @doc """

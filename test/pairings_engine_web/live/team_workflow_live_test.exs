@@ -242,6 +242,32 @@ defmodule PairingsEngineWeb.TeamWorkflowLiveTest do
       render_submit(lv, "save", %{"tournament" => %{"team_withdrawal_annul" => "true"}})
       assert Repo.reload!(t).team_withdrawal_annul
     end
+
+    test "a team event chooses what a whole forfeit pays, before round 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _} =
+        team_round_robin([{"A", [2100, 2000]}, {"B", [2050, 1950]}],
+          boards: 2,
+          rounds_count: 1,
+          user_id: scope.user.id
+        )
+
+      assert t.team_forfeit_board_points == "seated"
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/scoring")
+      assert has_element?(lv, "#team-forfeit-board-points option[value=seated][selected]")
+      refute has_element?(lv, "#team-forfeit-board-points[disabled]")
+
+      render_submit(lv, "save", %{"tournament" => %{"team_forfeit_board_points" => "full"}})
+      assert Repo.reload!(t).team_forfeit_board_points == "full"
+      assert has_element?(lv, "#team-forfeit-board-points option[value=full][selected]")
+
+      # Scoring: FIDE mode locks it with the rest once a round is paired.
+      pair_all!(Repo.reload!(t))
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/scoring")
+      assert has_element?(lv, "#team-forfeit-board-points[disabled]")
+    end
   end
 
   describe "the Standings page (A4)" do

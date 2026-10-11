@@ -327,7 +327,8 @@ the **pairing-allocated bye** (default: a win).
 
 **Match points** (team events): 2 for a won match, 1 for a drawn match, 0 for
 a lost match by default; the match points and game points of a
-pairing-allocated bye; and the treatment of a team that withdraws.
+pairing-allocated bye; what a match forfeited as a whole pays in game points
+([Teams](12-teams.md)); and the treatment of a team that withdraws.
 
 **Byes and absences.** *Points for a round sat out* is the value of a round a
 player was absent for (blank: absences score nothing). Two optional limits go

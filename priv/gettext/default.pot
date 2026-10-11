@@ -877,7 +877,7 @@ msgstr ""
 msgid "Last name"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:492
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:524
 #, elixir-autogen, elixir-format
 msgid "Last round this still applies to"
 msgstr ""
@@ -1434,7 +1434,7 @@ msgid "Save round dates"
 msgstr ""
 
 #: lib/pairings_engine_web/live/badge_studio_live.ex:1436
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:686
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:718
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:934
 #, elixir-autogen, elixir-format
 msgid "Save settings"
@@ -2016,7 +2016,7 @@ msgstr ""
 msgid "▼ paired down"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:614
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:646
 #, elixir-autogen, elixir-format
 msgid "⚠ This changes FIDE tiebreak results, not just scoring."
 msgstr ""
@@ -2032,32 +2032,32 @@ msgstr ""
 msgid "📱 Enrol a phone to enter results"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:450
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:482
 #, elixir-autogen, elixir-format
 msgid "Byes and absences"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:466
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:498
 #, elixir-autogen, elixir-format
 msgid "Points for a round sat out"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:494
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:526
 #, elixir-autogen, elixir-format
 msgid "After this round (inclusive of it), a round sat out scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:518
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:550
 #, elixir-autogen, elixir-format
 msgid "Cap: only a player's first N rounds sat out are paid"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:520
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:552
 #, elixir-autogen, elixir-format
 msgid "Counting this round, once a player has sat out this many rounds, any further one scores an ordinary loss instead. Leave blank so every one pays, no matter how many the player racks up."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:468
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:500
 #, elixir-autogen, elixir-format
 msgid "Leave blank if this doesn't apply - a round sat out then scores the same as an ordinary loss, same as before this was set."
 msgstr ""
@@ -2159,7 +2159,7 @@ msgstr ""
 msgid "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:459
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:491
 #, elixir-autogen, elixir-format
 msgid "FIDE's default is zero. Most opens pay half a point for the first one or two, which is what the two limits below are for. SWAR calls this option \"Pt ABSENT\"."
 msgstr ""
@@ -2249,7 +2249,7 @@ msgstr ""
 msgid "Norm (e.g. \"IM norm\")"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:555
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:587
 #, elixir-autogen, elixir-format
 msgid "On (the default) = a trailing one is downgraded to a draw for opponents' Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off = it always counts at its award value above, same as a forfeit loss."
 msgstr ""
@@ -2379,7 +2379,7 @@ msgstr ""
 msgid "Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - players can be assigned to. Off by default; turn on to start adding them below."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:553
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:585
 #, elixir-autogen, elixir-format
 msgid "Treat a round sat out as a voluntary unplayed round for tiebreaks"
 msgstr ""
@@ -3622,7 +3622,7 @@ msgstr ""
 msgid "Save"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:614
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:646
 #, elixir-autogen, elixir-format
 msgid "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
 msgstr ""
@@ -3962,7 +3962,7 @@ msgstr ""
 msgid "What"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:453
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:485
 #, elixir-autogen, elixir-format
 msgid "What a round a player sits out is worth, and how many of them are paid. This covers every absence the pairing knows about, whether the player asked for a specific round off or is marked absent outright - those are the same event, because the only way you know before pairing is that they told you. Somebody who was paired and then didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the odd player out when the field is uneven - has its own value above."
 msgstr ""
@@ -11014,7 +11014,7 @@ msgstr ""
 msgid "A draw (FIDE)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:625
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:657
 #, elixir-autogen, elixir-format
 msgid "A game that is not played in its round - moved to a later date, or adjourned - can be recorded as postponed by White or by Black. The tournament goes on; until the game is played it counts as set here, in the standings, the tie-breaks and the pairing. Changing these values later only affects games postponed after the change."
 msgstr ""
@@ -11051,7 +11051,7 @@ msgstr[1] ""
 msgid "A win"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:641
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:673
 #, elixir-autogen, elixir-format
 msgid "Allow postponed games"
 msgstr ""
@@ -11108,12 +11108,12 @@ msgstr ""
 msgid "Confirmed over the warning that the round had already been sent in a TRF finalised for sending."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:665
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:697
 #, elixir-autogen, elixir-format
 msgid "Counts as, for the opponent"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:650
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:682
 #, elixir-autogen, elixir-format
 msgid "Counts as, for the player who postponed it"
 msgstr ""
@@ -11141,7 +11141,7 @@ msgid_plural "Exported a TRF for sending (rounds %{rounds}) and marked %{count} 
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:679
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:711
 #, elixir-autogen, elixir-format
 msgid "FIDE allows only a draw for both. Anything else - a win for the player who postponed it, so they are paired higher up, for example - takes the tournament out of FIDE mode."
 msgstr ""
@@ -11194,7 +11194,7 @@ msgstr ""
 msgid "Nothing to send: no postponed game was played after its round was sent."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:643
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:675
 #, elixir-autogen, elixir-format
 msgid "Off (the default) = no postponed option is offered anywhere. On = the result lists offer \"postponed by White\" and \"postponed by Black\", and a Postponed games page lists them and exports their TRF."
 msgstr ""
@@ -11220,7 +11220,7 @@ msgid "Postponed game, for the player who postponed it"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:1269
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:622
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:654
 #, elixir-autogen, elixir-format
 msgid "Postponed games"
 msgstr ""
@@ -12206,7 +12206,7 @@ msgstr[1] ""
 msgid "Joins in round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:578
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:610
 #, elixir-autogen, elixir-format
 msgid "On (the default) = a player who joins in round 4 is scored for rounds 1-3 as if absent: the points above, within both limits, and they use up the absences allowed. This is what SWAR does. Off = those rounds score nothing."
 msgstr ""
@@ -12230,7 +12230,7 @@ msgid_plural "Rounds %{rounds} are before this player joins and score nothing."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:576
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:608
 #, elixir-autogen, elixir-format
 msgid "Rounds before a late entrant joins count as absences"
 msgstr ""
@@ -14873,7 +14873,7 @@ msgstr ""
 msgid "(empty: forfeit)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:423
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:455
 #, elixir-autogen, elixir-format
 msgid "A team that withdraws"
 msgstr ""
@@ -14934,7 +14934,7 @@ msgstr ""
 msgid "FIDE mode: round 1 is paired, so each team's board order is fixed, as FIDE team events require. Players cannot move up or down, change team or leave a team they have played for. A new player can still be added at the bottom of a team, as a reserve."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:442
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:474
 #, elixir-autogen, elixir-format
 msgid "FIDE's rule for a player who withdraws from a round robin (General Regulations for Competitions 6.6): under 50% played, the results stay in the table for rating but do not count in the final ranking. Off by default: the results stand, as for an individual round robin here. The games always stay for the rating report."
 msgstr ""
@@ -15138,7 +15138,7 @@ msgstr ""
 msgid "Set both line-ups back to the rosters?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:435
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:467
 #, elixir-autogen, elixir-format
 msgid "Take its matches out of the team standings when it played fewer than half of them"
 msgstr ""
@@ -18143,7 +18143,7 @@ msgstr ""
 msgid "Added the pairing rule: %{rule}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:599
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:631
 #, elixir-autogen, elixir-format
 msgid "Ask the bye type for each absence"
 msgstr ""
@@ -18357,7 +18357,7 @@ msgstr ""
 msgid "Nothing has been sent yet, so there is no receipt."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_scoring_live.ex:601
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:633
 #, elixir-autogen, elixir-format
 msgid "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round - in the player dialog, or with Mark absent on the Pairings page - asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round and goes into the TRF; a bye picked ahead also survives unpairing and comes back on import."
 msgstr ""
@@ -19553,4 +19553,29 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_support.ex:1221
 #, elixir-autogen, elixir-format
 msgid "Not saved: this board changed - somebody else changed its players while this page was open. Reload the page and enter the result on the board as it is now."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:420
+#, elixir-autogen, elixir-format
+msgid "A match forfeited as a whole"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:445
+#, elixir-autogen, elixir-format
+msgid "For a match the arbiter forfeits before a game is played, and a match against a team out of the round. The full count is for regulations that fix a team forfeit's score; a single forfeited board always stays one board's point."
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:423
+#, elixir-autogen, elixir-format
+msgid "Game points for the team it is awarded to"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:433
+#, elixir-autogen, elixir-format
+msgid "One per board it seated"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_scoring_live.ex:436
+#, elixir-autogen, elixir-format
+msgid "The full board count (%{boards}-0)"
 msgstr ""

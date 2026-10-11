@@ -175,7 +175,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       params
       |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
         absent_counts_as_vur late_entry_absences ask_bye_type team_match_points_win team_match_points_draw team_match_points_loss
-        team_pab_match_points team_pab_game_points team_withdrawal_annul
+        team_pab_match_points team_pab_game_points team_withdrawal_annul team_forfeit_board_points
         postponed_games postponed_requester_outcome postponed_opponent_outcome))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
@@ -414,6 +414,38 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 />
               </.setting_field>
             </.setting_group>
+          </div>
+
+          <div id="team-forfeit-settings">
+            <h3>{gettext("A match forfeited as a whole")}</h3>
+
+            <.setting_group>
+              <.setting_field label={gettext("Game points for the team it is awarded to")}>
+                <select
+                  id="team-forfeit-board-points"
+                  name="tournament[team_forfeit_board_points]"
+                  disabled={:team_forfeit_board_points in @fide_locked}
+                >
+                  <option
+                    value="seated"
+                    selected={@tournament.team_forfeit_board_points != "full"}
+                  >
+                    {gettext("One per board it seated")}
+                  </option>
+                  <option value="full" selected={@tournament.team_forfeit_board_points == "full"}>
+                    {gettext("The full board count (%{boards}-0)",
+                      boards: max(@tournament.team_boards || 1, 1)
+                    )}
+                  </option>
+                </select>
+              </.setting_field>
+            </.setting_group>
+
+            <p class="hint">
+              {gettext(
+                "For a match the arbiter forfeits before a game is played, and a match against a team out of the round. The full count is for regulations that fix a team forfeit's score; a single forfeited board always stays one board's point."
+              )}
+            </p>
           </div>
 
           <div
