@@ -471,6 +471,20 @@ defmodule PairingsEngineWeb.Layouts do
                 {gettext("Features")}
               </.link>
 
+              <%!-- The rating inbox is the rating officer's page, not a
+                    tournament's, and its only obvious door used to be a
+                    button on a tournament's Export page. Here it is reachable
+                    from every page, a tournament's included, for exactly the
+                    accounts the route lets in (`RequireRole`, `:admin`). --%>
+              <.link
+                :if={Authz.may_administer?(@current_scope.user)}
+                id="account-menu-rating-inbox"
+                navigate={~p"/admin/rating-inbox"}
+                class="topbar-menu-item"
+              >
+                {gettext("Rating inbox")}
+              </.link>
+
               <%!-- The phone layout's copy of the version: there the bar has
                     no room for `version_link/1`, which is hidden, so it is
                     here. Hidden in this menu from 769px up, where the bar

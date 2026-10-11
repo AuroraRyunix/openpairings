@@ -474,7 +474,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp trf_send_confirm(selected, rounds) do
     send =
       gettext(
-        "Send round %{rounds}? The file downloads, and every result in it is marked as sent: changing one afterwards asks for confirmation, and these rounds cannot be sent a second time.",
+        "Send round %{rounds}? This downloads the file for rating to your computer and records every result in it as sent. It does not deliver the file: you still have to email it to your rating officer (or hand it in) yourself. Afterwards, changing one of these results asks for confirmation, and these rounds cannot be sent a second time.",
         rounds: trf_rounds_param(selected) |> String.replace(",", ", ")
       )
 
@@ -488,6 +488,34 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           rounds: Enum.join(before, ", ")
         ) <> " " <> send
     end
+  end
+
+  # Said under both Send buttons and again after a send: the download is not
+  # the delivery.
+  defp send_is_not_delivery_text,
+    do:
+      gettext(
+        "Send does not deliver anything. It downloads the file for rating and records it as sent; you still email that file to your rating officer (or hand it in) yourself."
+      )
+
+  # The newest receipts this page did not know about yet, after a change
+  # elsewhere: a send, whose download opened in another tab.
+  defp new_receipt_codes(before, now) do
+    known = MapSet.new(before, & &1.id)
+    for r <- now, not MapSet.member?(known, r.id), do: SentReceipt.code_text(r)
+  end
+
+  defp flash_new_receipts(socket, []), do: socket
+
+  defp flash_new_receipts(socket, codes) do
+    put_flash(
+      socket,
+      :info,
+      gettext(
+        "Downloaded and recorded as sent (receipt %{codes}). Nothing has been delivered: now email the downloaded file to your rating officer, or hand it in.",
+        codes: Enum.join(codes, ", ")
+      )
+    )
   end
 
   defp sent_before_selected(rounds, selected) do
@@ -507,11 +535,16 @@ defmodule PairingsEngineWeb.SettingsExportLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
+        before = socket.assigns.receipt_files
+
+        socket =
+          socket
+          |> assign(tournament: tournament)
+          |> assign_trf_state()
+          |> assign_swar_export_notes()
+
         {:noreply,
-         socket
-         |> assign(tournament: tournament)
-         |> assign_trf_state()
-         |> assign_swar_export_notes()}
+         flash_new_receipts(socket, new_receipt_codes(before, socket.assigns.receipt_files))}
     end
   end
 
@@ -942,7 +975,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
         <p class="hint" style="margin-top: 0">
           {gettext(
-            "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or send them: sending marks their results as sent, so a round is never sent twice and a sent result asks for confirmation before it changes."
+            "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or press Send. Send downloads the file for rating to your computer and records its rounds as sent, so a round is never sent twice and a sent result asks for confirmation before it changes. It delivers nothing: you email the downloaded file to your rating officer yourself."
           )}
           {gettext(
             "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
@@ -1180,15 +1213,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               {gettext("Receipt (JSON)")}
             </button>
 
-            <.link
-              :if={PairingsEngine.Authz.may_administer?(@current_scope.user)}
-              id="rating-inbox-link"
-              class="pe-btn"
-              navigate={~p"/admin/rating-inbox"}
-            >
-              {gettext("Rating period inbox")}
-            </.link>
-
             <a
               class="trf-all-link"
               style="margin-left: auto"
@@ -1198,6 +1222,22 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               {gettext("All rounds (TRF copy, not for rating)")}
             </a>
           </div>
+
+          <%!-- Under the button, always: "Send" sends nothing. It was read as
+                "the app mails my rating officer", which it has never done. --%>
+          <p id="trf-send-note" class="hint" style="margin: 8px 0 0">
+            {send_is_not_delivery_text()}
+            <%!-- The rating inbox is the rating officer's page (Admin, and the
+                  account menu). Here it is a footnote, for those who may
+                  open it, and nothing at all for those who may not. --%>
+            <.link
+              :if={@may_admin?}
+              id="rating-inbox-link"
+              navigate={~p"/admin/rating-inbox"}
+            >
+              {gettext("Open the rating inbox")}
+            </.link>
+          </p>
 
           <%!-- The organiser's bye exclusions are not a FIDE rule and no TRF
                 line records them, so a checker replaying the file pairs
@@ -1469,7 +1509,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                     data-confirm={
                       @late_packed != [] &&
                         gettext(
-                          "Send the postponed-games file as the separate tournament %{name}? The file downloads, and the ticked games are marked as sent, so they are never sent again.",
+                          "Send the postponed-games file as the separate tournament %{name}? This downloads the file to your computer and records the ticked games as sent, so they are never sent again. It does not deliver the file: you still have to email it to your rating officer (or hand it in) yourself.",
                           name: PostponedGames.report_name(@tournament)
                         )
                     }
@@ -1478,6 +1518,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   </button>
                 </.form>
               </div>
+              <p id="trf-late-send-note" class="hint" style="margin: 8px 0 0">
+                {send_is_not_delivery_text()}
+              </p>
             </div>
           </div>
         </div>

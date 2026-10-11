@@ -7,6 +7,19 @@ defmodule PairingsEngine.RatingInbox do
   round of a FIDE-rated tournament, dated in the period, with no receipt),
   and which postponed games are still open - and the deadline.
 
+  ## Which tournaments are in it
+
+  `listed?/2`: a tournament that has a sent receipt, or that is marked
+  FIDE-rated (Settings, FIDE: `fide_homologated`, the one "this is rated"
+  fact a tournament has - there is no national-rating flag, and
+  `rating_method` only says which rating seeds the players). A tournament
+  that merely exists and finished a round is nobody's rating business.
+
+  A round "missing" and a rating list to make are said of FIDE-rated
+  tournaments only (`rated?/1`). A club evening somebody once pressed Send
+  on is listed with that receipt and nothing more: no receipt was ever
+  owed for its other rounds.
+
   ## Which period a thing belongs to
 
     * a round's report: the month of the round's date (the tournament's
@@ -43,7 +56,8 @@ defmodule PairingsEngine.RatingInbox do
   `open_list` for the postponed-games file (counted from the last game's
   date). `level` is the worst `list_status/2` level among the things still
   to send in the period (`:normal` when nothing is); `overdue?` is
-  `level != :normal`. `today` decides both.
+  `level != :normal`. `today` decides both. For a tournament that is not
+  FIDE-rated `missing` is empty and both lists are nil.
   """
   def periods(today \\ Date.utc_today()) do
     receipts = Repo.all(from s in SentReceipt, select: s) |> Enum.group_by(& &1.tournament_id)
@@ -52,12 +66,26 @@ defmodule PairingsEngine.RatingInbox do
       Repo.all(from t in Tournament, where: is_nil(t.deleted_at), order_by: [asc: t.name])
 
     tournaments
-    |> Enum.filter(&(Map.has_key?(receipts, &1.id) or &1.fide_homologated))
+    |> Enum.filter(&listed?(&1, Map.get(receipts, &1.id, [])))
     |> Enum.flat_map(&facts(&1, Map.get(receipts, &1.id, [])))
     |> Enum.group_by(&elem(&1, 0), &Tuple.delete_at(&1, 0))
     |> Enum.map(fn {period, items} -> period(period, items, today) end)
     |> Enum.sort_by(&Date.to_gregorian_days(&1.period), :desc)
   end
+
+  @doc """
+  Whether `tournament` belongs in the inbox, given its sent receipts: it has
+  one, or it is marked FIDE-rated.
+  """
+  def listed?(%Tournament{} = tournament, receipts) when is_list(receipts),
+    do: receipts != [] or rated?(tournament)
+
+  @doc """
+  Whether `tournament` is meant to be rated, as far as it says so itself:
+  the FIDE-rated tickbox on Settings, FIDE. Only such a tournament owes a
+  report, so only it can have a round missing or a list to make.
+  """
+  def rated?(%Tournament{fide_homologated: rated}), do: rated == true
 
   # `{period, tournament, kind, data}` for everything a tournament has.
   defp facts(%Tournament{} = t, receipts) do
@@ -76,7 +104,7 @@ defmodule PairingsEngine.RatingInbox do
       for %SentReceipt{kind: "report", round: round} <- receipts, into: MapSet.new(), do: round
 
     missing =
-      for %{state: :ready, round: round} <- PostponedGames.trf_round_states(t),
+      for %{state: :ready, round: round} <- (rated?(t) && PostponedGames.trf_round_states(t)) || [],
           not MapSet.member?(sent_rounds, round),
           period = round_period(t, round),
           do: {period, t, :missing, round}
@@ -100,7 +128,7 @@ defmodule PairingsEngine.RatingInbox do
           missing: for({_t, :missing, r} <- rows, do: r) |> Enum.sort(),
           open: for({_t, :open, g} <- rows, do: g)
         }
-        |> with_lists(today)
+        |> with_lists(period, today)
       end)
       |> Enum.sort_by(&String.downcase(&1.tournament.name || ""))
 
@@ -116,20 +144,72 @@ defmodule PairingsEngine.RatingInbox do
     %{period: period, level: level, overdue?: level != :normal, tournaments: tournaments}
   end
 
-  defp with_lists(bucket, today) do
+  defp with_lists(%{tournament: t} = bucket, period, today) do
     report_list =
-      case tournament_last_day(bucket.tournament) do
-        %Date{} = day -> list_status(day, today)
-        nil -> nil
+      with true <- rated?(t),
+           {basis, %Date{} = day} <- report_day(t, period) do
+        list_status(day, today, basis)
+      else
+        _ -> nil
       end
 
     open_list =
-      case last_game_day(bucket) do
-        %Date{} = day -> list_status(day, today)
-        nil -> nil
+      with true <- rated?(t),
+           %Date{} = day <- last_game_day(bucket) do
+        list_status(day, today)
+      else
+        _ -> nil
       end
 
     Map.merge(bucket, %{report_list: report_list, open_list: open_list})
+  end
+
+  @doc """
+  The day the report of `tournament`'s rounds in `period` (the first day of
+  a month) is counted from, as `{:final, day}` or `{:interim, day}`; nil
+  when the tournament has no date at all.
+
+  A tournament of 30 days or fewer is reported once, counted from its last
+  day (FIDE B.02 Art. 9.1). One lasting more than 30 days reports interim
+  results every month (Art. 4.1), so its rounds of a month are counted from
+  the last of them - `:interim` - except in the month it ends, which is the
+  final report. Telling an October round of a club championship that it has
+  until April was the previous arrangement, and it was wrong.
+  """
+  def report_day(%Tournament{} = t, %Date{} = period) do
+    last = tournament_last_day(t)
+
+    cond do
+      is_nil(last) ->
+        nil
+
+      not long?(t, last) or Date.beginning_of_month(last) == period ->
+        {:final, last}
+
+      true ->
+        in_period =
+          for text <- t.round_dates || [],
+              {:ok, d} <- [parse_date(text)],
+              Date.beginning_of_month(d) == period,
+              do: d
+
+        case in_period do
+          [] -> {:final, last}
+          days -> {:interim, Enum.max(days, Date)}
+        end
+    end
+  end
+
+  # More than 30 days from the first day (the earliest round date, else the
+  # start date) to the last: Art. 4.1's "lasting more than 30 days".
+  defp long?(%Tournament{} = t, %Date{} = last) do
+    dates =
+      for text <- [t.start_date | t.round_dates || []], {:ok, d} <- [parse_date(text)], do: d
+
+    case dates do
+      [] -> false
+      dates -> Date.diff(last, Enum.min(dates, Date)) > 30
+    end
   end
 
   defp level_rank(:normal), do: 0
@@ -182,50 +262,67 @@ defmodule PairingsEngine.RatingInbox do
   defp parse_date(_), do: :error
 
   @doc """
-  Where a report counted from `last_day` (a tournament's last day, or the
-  last game's day of a postponed-games file) stands on `today`, under FIDE
-  B.02 Art. 9.1 (2024): the report should reach the Rating Officer in time
-  for the monthly list the tournament is registered in - the list of the
-  month of `last_day` - or, when five days or fewer remain from `last_day`
-  to the end of that month, the following month's list. A report that
-  misses its list still goes to a later one, and is not rated only if it
-  misses the third list counted from the target list (the target list and
-  the two after it).
+  Where a report counted from `last_day` stands on `today`. `last_day` is a
+  tournament's last day, the last game's day of a postponed-games file, or
+  (`basis` `:interim`) the last round of a month of a tournament lasting
+  more than 30 days.
 
-  Returns `%{target:, closes:, last_chance:, level:, lands_in:}`:
+  FIDE publishes a rating list on the first day of every month (B.02 Art.
+  7.1). Art. 9.1 (2024): the report should be uploaded in time for the list
+  after the month of `last_day` or, when five days or fewer remain from
+  `last_day` to the end of that month, for the list one month later; a
+  report not in time for the third list after the tournament ends is not
+  rated. Art. 4.1 gives interim results "a monthly basis" and no day count,
+  so an interim report borrows the same five days, and - not being the
+  tournament report - is never called unrated, only overdue.
 
-    * `target` - the first day of the target list's month; `closes` its
-      last day (the date a report should be in by);
-    * `last_chance` - the last day of the third list's month;
-    * `level` - `:normal` (on or before `closes`), `:later` (past it, but
-      it can still make the third list; `lands_in` is the first day of the
-      month of the list it will now make) or `:late` (past `last_chance`:
-      it will not be rated; `lands_in` nil).
+  Returns `%{basis:, list:, closes:, last_list:, last_chance:, level:,
+  lands_in:}`:
 
-  The monthly list is dated by the month it covers, as the rest of this
-  page treats a rating period; whether the Rating Officer's own cut-off is
-  earlier is the federation's business, as `PostponedGames.rating_period/1`
-  says.
+    * `list` - the date of the list the report is for (a first of the
+      month); `closes` the day before it, the date to have it uploaded by;
+    * `last_list` - the date of the third list after `last_day`, and
+      `last_chance` the day before it (both nil for `:interim`);
+    * `level` - `:normal` (on or before `closes`), `:later` (past it;
+      `lands_in` is the date of the next list it can still make) or `:late`
+      (past `last_chance`: it will not be rated; `lands_in` nil).
+
+  The third list is counted from the day the tournament ended, as the
+  article says, not from the list it was due in: an event ending on the
+  28th is due a month later than one ending on the 20th, and lost on the
+  same day. Whether the Rating Officer's own cut-off is earlier than the
+  eve of the list is the federation's business, as
+  `PostponedGames.rating_period/1` says.
   """
-  def list_status(%Date{} = last_day, %Date{} = today) do
+  def list_status(%Date{} = last_day, %Date{} = today, basis \\ :final)
+      when basis in [:final, :interim] do
     eom = Date.end_of_month(last_day)
+    next = Date.add(eom, 1)
 
-    month =
-      if Date.diff(eom, last_day) <= 5,
-        do: Date.beginning_of_month(Date.add(eom, 1)),
-        else: Date.beginning_of_month(last_day)
+    list = if Date.diff(eom, last_day) <= 5, do: Date.shift(next, month: 1), else: next
+    closes = Date.add(list, -1)
 
-    closes = Date.end_of_month(month)
-    last_chance = month |> Date.shift(month: 2) |> Date.end_of_month()
+    last_list = if basis == :final, do: Date.shift(next, month: 2)
+    last_chance = last_list && Date.add(last_list, -1)
+
+    next_list = today |> Date.end_of_month() |> Date.add(1)
 
     {level, lands_in} =
       cond do
-        Date.compare(today, closes) != :gt -> {:normal, month}
-        Date.compare(today, last_chance) != :gt -> {:later, Date.beginning_of_month(today)}
+        Date.compare(today, closes) != :gt -> {:normal, list}
+        is_nil(last_chance) or Date.compare(today, last_chance) != :gt -> {:later, next_list}
         true -> {:late, nil}
       end
 
-    %{target: month, closes: closes, last_chance: last_chance, level: level, lands_in: lands_in}
+    %{
+      basis: basis,
+      list: list,
+      closes: closes,
+      last_list: last_list,
+      last_chance: last_chance,
+      level: level,
+      lands_in: lands_in
+    }
   end
 
   defp sort_key(%{receipt: %{kind: kind, round: round, sent_at: at}}),

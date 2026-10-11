@@ -203,11 +203,20 @@ defmodule PairingsEngineWeb.AdminLive do
     >
       <h1>{gettext("Admin")}</h1>
 
-      <p>
-        <.link id="admin-rating-inbox-link" navigate={~p"/admin/rating-inbox"}>
-          {gettext("Rating period inbox")}
+      <nav class="admin-links" aria-label={gettext("Admin pages")}>
+        <.link
+          id="admin-rating-inbox-link"
+          navigate={~p"/admin/rating-inbox"}
+          class="admin-link-card"
+        >
+          <strong>{gettext("Rating inbox")}</strong>
+          <span>
+            {gettext(
+              "For the rating officer: what every tournament sent for rating, per rating period, what is still missing, and the files themselves."
+            )}
+          </span>
         </.link>
-      </p>
+      </nav>
 
       <div class="set-card">
         <h2>{gettext("Who may administer this installation")}</h2>

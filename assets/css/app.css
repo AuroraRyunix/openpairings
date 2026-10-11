@@ -1752,6 +1752,71 @@ label.field > span {
 .set-card > .hint { margin: 0 0 14px; }
 .set-card > :last-child { margin-bottom: 0; }
 
+/* The rating inbox (/admin/rating-inbox). It was a `.pe-table` per tournament
+   dropped into a card with nothing around it: at phone width the table kept
+   its width and the page scrolled sideways to 854px, taking the Download and
+   Check buttons off the screen with it. The tournament names were bare <h3>s
+   the size of body text, so nothing said where one tournament stopped and the
+   next began. A receipt is a row that wraps, not a table row; a tournament is
+   a ruled block. */
+.rinbox-header { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+.rinbox-intro { max-width: 80ch; line-height: 1.5; margin: 0 0 16px; }
+.rinbox-period { min-width: 0; }
+.rinbox-period.is-later { border-color: var(--warn); }
+.rinbox-period.is-late { border-color: var(--danger); }
+.rinbox-period > h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 16px; margin: 0 0 4px; }
+.badge.rinbox-level.is-later { background: var(--warn-soft); color: var(--warn); }
+.badge.rinbox-level.is-late { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.rinbox-t { padding: 14px 0; border-top: 1px solid var(--border); min-width: 0; }
+.rinbox-period > h2 + .rinbox-t { border-top: none; padding-top: 8px; }
+.rinbox-t:last-child { padding-bottom: 0; }
+.rinbox-t > :last-child { margin-bottom: 0; }
+.rinbox-t-name a { font-weight: 600; }
+.rinbox-t-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 15px; font-weight: 600; line-height: 1.35; margin: 0 0 6px; overflow-wrap: anywhere; }
+.rinbox-note { font-size: 13px; line-height: 1.45; color: var(--text-soft); margin: 0 0 8px; max-width: 80ch; }
+.rinbox-note.is-later { color: var(--warn); }
+.rinbox-note.is-late { color: var(--danger); }
+.rinbox-line { margin: 0 0 6px; line-height: 1.45; overflow-wrap: anywhere; }
+.rinbox-receipts { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.rinbox-receipt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.rinbox-receipt-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; overflow-wrap: anywhere; }
+.rinbox-receipt-file { font-size: 12.5px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.rinbox-receipt-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.badge.rinbox-drift { background: var(--warn-soft); color: var(--warn); }
+.rinbox-check { grid-column: 1 / -1; min-width: 0; }
+.rinbox-check pre { margin: 6px 0 0; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; color: var(--text-soft); }
+@media (max-width: 640px) {
+  .rinbox-receipt { grid-template-columns: minmax(0, 1fr); }
+  .rinbox-receipt-actions { justify-content: flex-start; }
+}
+
+/* The way into a page from the admin page: a row you can hit, not a bare
+   link floating above the first card. */
+.admin-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; margin: 0 0 16px; }
+.admin-link-card {
+  display: block;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.admin-link-card:hover { border-color: var(--accent); background: var(--surface-hover); }
+.admin-link-card strong { display: block; color: var(--accent); margin-bottom: 2px; }
+.admin-link-card span { display: block; font-size: 13px; line-height: 1.45; color: var(--text-soft); }
+@media (prefers-reduced-motion: reduce) { .admin-link-card { transition: none; } }
+
 /* A reassurance is not a control surface. Tinted and ruled rather than
    raised, so it reads as an aside and does not compete with the cards that
    actually carry switches. */
