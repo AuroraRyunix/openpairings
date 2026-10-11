@@ -182,9 +182,8 @@ The file is built on each request, at the broadcast delay.
 flags (the *Federation flags* tick, on unless it is unticked), a small flag is
 shown beside a player's federation code: on the starting list, the entry list,
 the player card, the hall display and the live pages (on the projector view,
-the flag alone, without the code). A player listed under FIDE itself (code
-FID) gets a white flag with the word FIDE on it. A code that names no
-federation keeps the code and gets no picture.
+the flag alone, without the code). A player listed under FIDE itself, or with a
+code that names no country, keeps the code and gets no picture.
 
 ## Turning live boards on {#turning-live-boards-on}
 

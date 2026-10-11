@@ -93,8 +93,8 @@ answers a spectator's *why am I fourth* (the opponent of each round and its valu
 The *Rounds-present* column is public only if you tick it.
 *Federation flags* draws a small flag beside each federation code; it is on
 unless you untick it, and shows nothing where *Federations* is off. A player
-listed under FIDE itself (code FID) gets a white flag with the word FIDE; a
-code that names no federation gets the code and no flag.
+listed under FIDE itself, or with a code that names no country, keeps the
+code and gets no picture.
 
 > [!WARNING]
 > Names, board numbers, results and places are always shown: a tournament that
