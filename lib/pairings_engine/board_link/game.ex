@@ -37,6 +37,7 @@ defmodule PairingsEngine.BoardLink.Game do
     field :pgn, :string
     field :reconstructed, :integer, default: 0
     field :guessed, :integer, default: 0
+    field :rewritten, :integer, default: 0
     field :first_reported_at, :utc_datetime
     field :reported_at, :utc_datetime
     field :finished_at, :utc_datetime

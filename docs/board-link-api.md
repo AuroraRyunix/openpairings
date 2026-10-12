@@ -88,12 +88,26 @@ X-Board-Box-Version: 0.4.0
 No cookies, no session, no CSRF token. Use HTTPS whenever the root says
 `https`.
 
+## Fields nobody asked for
+
+A field in a request body that this document does not name is **ignored**,
+not refused: a newer box can talk to an older OpenPairings. The other way
+round holds too - a box must ignore fields in an answer that it does not
+know. Nothing unknown is stored.
+
 ## Limits
 
 | | |
 |---|---|
 | requests per code | 1200 a minute; beyond it `429 rate_limited`, `Retry-After: 60` |
-| refused codes per client address | 30 in 10 minutes; beyond it a wrong code gets `429` instead of `401`. A valid code is never refused for somebody else's wrong ones |
+| refused codes per client address | 30 in 10 minutes; beyond it a wrong code gets `429` with `Retry-After: 600` instead of `401`. A valid code is never refused for somebody else's wrong ones |
+| the secret | 20 to 200 bytes; anything else is `401` without being looked up |
+| `game` | 1 to 64 bytes |
+| `seq` | 0 to 9 007 199 254 740 991 (2^53 - 1) |
+| `white_ms`, `black_ms`, each entry of `move_clocks` | 0 to 360 000 000 (a hundred hours) |
+| `reconstructed`, `guessed`, `rewritten` | 0 to 2000 |
+| `start_fen` | 100 bytes |
+| `X-Board-Box`, `X-Board-Box-Version`; `name`, `version` of `POST /box` | 80 and 40 characters; longer is cut, not refused |
 | games in one request | 64 |
 | moves in one game | 1000 plies |
 | one move | 2 to 10 characters from `A-Z a-z 0-9 + # = -` |
@@ -149,7 +163,7 @@ What this code gives access to. This is the request to poll.
 | `tournaments[].id` | integer; the `:id` of the routes below |
 | `tournaments[].label` | the tournament's short label inside its group, or `null` |
 | `tournaments[].state` | `"setup"`, `"running"` or `"finished"`. Information only |
-| `tournaments[].version` | opaque string. It changes whenever `GET /tournaments/:id` would answer differently |
+| `tournaments[].version` | opaque string. It changes whenever `GET /tournaments/:id` would answer differently - and that includes **every result the arbiter enters**, since the document carries it. So during a round the listing changes about once a game, and a box fetches the tournament again each time. That is intended: the document is a few kilobytes |
 
 A tournament code lists one tournament, or none once it is deleted or
 archived. A group code lists every tournament of the group that the person
@@ -274,11 +288,29 @@ Everything the box needs for one tournament. `ETag` is the `version`;
 The round to have on the boards, or `null` before round 1 is paired.
 
 OpenPairings has no "start the round" act: **a round that is paired is on.**
-`current_round` is the lowest-numbered paired round that still has a game
-without a result; when every paired round is complete it is the highest
-paired round. In a Swiss that is simply the latest round. In a round robin,
-where every round is paired at once, it moves on when the last result of a
-round is entered.
+Which of the paired rounds, exactly:
+
+1. Take the rounds that were paired **last, together**. A Swiss (individual
+   or team) and a Keizer pair one round at a time, so that is the newest
+   round. A Swiss played as two-leg matches pairs both legs at once, so it
+   is the newest two. A round robin pairs every round at once, so it is all
+   of them.
+2. Among those, `current_round` is the lowest-numbered round that still has
+   a game without a result. When none has, it is the highest of them.
+
+So in a Swiss it is the latest paired round, whatever is still open in an
+earlier one: a postponed game of round 2, or a result of round 2 cleared to
+be corrected, does not make round 2 "current" again while round 3 is being
+played. In a round robin it starts at round 1 and moves on when the last
+result of a round is entered. A postponed game is a result (`*`), so marking
+a game postponed lets a round robin move on; a game left without any result
+holds it at that round.
+
+`current_round` therefore only goes down when a round is unpaired - never
+because a result was cleared - in every system but the round robin, where
+clearing a result of an earlier round still brings it back to that round. A
+box should not move boards that have a game under way back to an earlier
+round on its own (Alnasl does not).
 
 When `current_round` changes, the box starts that round by itself. A box may
 let the arbiter override which round it shows; OpenPairings does not need to
@@ -374,6 +406,7 @@ OpenResults' ingest: that is what makes a retry safe.
 | `result` | no | the result **the board saw**: `"1-0"`, `"1/2-1/2"`, `"0-1"`, or `null` / `"*"` for none |
 | `reconstructed` | default 0 | how many of the moves the box worked out after the fact |
 | `guessed` | default 0 | how many it guessed where the board was ambiguous |
+| `rewritten` | default 0 | how many it first read as another move of the same piece and corrected later. A rewritten move may also be counted in one of the two above |
 | `start_fen` | no | the start position, for a game that does not begin from the usual one |
 | `pgn` | no | the box's own PGN of the game, stored as sent and offered to the arbiter as "the box's own PGN" |
 | `replace` | no | `true`: store this report whatever `seq` is held |
@@ -533,6 +566,24 @@ Said here so nobody builds against something that is not there.
 - **Binding a code to one box.** A code is a bearer secret; two boxes given
   the same code both work, and the settings page then shows whichever called
   last. Make one code per box.
+
+## Proposed, not built
+
+Two things a box's side of this turned up, written down so they are not
+found again. Neither is in the API.
+
+- **More than one game for a pairing.** A report is one game per `game`, and
+  a newer report replaces the older. A play-off of two rapid games on the
+  same board, or a game begun again, has nowhere to go: the box keeps the
+  earlier games to itself. A second key beside `game` (a game number within
+  the pairing, default 1) would hold them; the arbiter's page would then
+  list the games of a pairing and compare the result with the last.
+- **A page behind the code's address.** The QR code holds
+  `<root>#<secret>`, which a phone's camera offers to *open*. Opened, it is
+  a `404` (the fragment is not sent, so nothing leaks). A small page at
+  `<root>` that reads its own fragment in the browser and says "this is a
+  connect code for a hall box: copy it" with a copy button would turn a
+  dead end into the next step, without the secret ever reaching the server.
 
 ## A session, start to finish
 

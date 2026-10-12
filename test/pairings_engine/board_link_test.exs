@@ -174,6 +174,9 @@ defmodule PairingsEngine.BoardLinkTest do
           "move_clocks" => [5_400_000, nil, 5_390_000],
           "reconstructed" => 2,
           "guessed" => 1,
+          "rewritten" => 1,
+          # A field this version has never heard of: ignored, not refused.
+          "mood" => "tense",
           "pgn" => "1. e4 e5 2. Nf3 1-0"
         })
 
@@ -184,8 +187,18 @@ defmodule PairingsEngine.BoardLinkTest do
       assert game.move_clocks == [5_400_000, nil, 5_390_000]
       assert game.result == "1-0"
       assert game.status == "finished"
-      assert game.reconstructed == 2 and game.guessed == 1
+      assert game.reconstructed == 2 and game.guessed == 1 and game.rewritten == 1
+      assert %{rewritten: 1} = BoardLink.summaries(t.id)[board1.game_uid]
       assert game.finished_at
+
+      # A box that does not know the count sends none, and none is zero.
+      assert {:ok, %{applied: true}} =
+               BoardLink.report(link, t, report |> Map.delete("rewritten") |> Map.put("seq", 2))
+
+      assert BoardLink.get_game(t.id, board1.game_uid).rewritten == 0
+
+      assert {:error, :invalid_request, "rewritten" <> _} =
+               BoardLink.report(link, t, report |> Map.put("rewritten", -1) |> Map.put("seq", 3))
 
       # The one rule: a board never enters a result.
       assert Repo.get!(Pairing, board1.id).result == ""
@@ -300,6 +313,105 @@ defmodule PairingsEngine.BoardLinkTest do
       assert :mismatch == BoardLink.compare("0-1", seen.("1-0"))
       assert :mismatch == BoardLink.compare("1/2-1/2", seen.("1-0"))
       assert :mismatch == BoardLink.compare("0-0", seen.("1/2-1/2"))
+    end
+  end
+
+  describe "the round that is on" do
+    # A paired round `number` with one game, and that game's result.
+    defp round_with(t, number, result, [white, black]) do
+      round =
+        Repo.insert!(%PairingsEngine.Tournaments.Round{
+          tournament_id: t.id,
+          number: number,
+          status: "playing"
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: result
+      })
+    end
+
+    defp current(t), do: Document.document(Repo.reload!(t))["current_round"]
+
+    defp results(boards, result),
+      do:
+        for(
+          b <- boards,
+          do:
+            Pairing |> Repo.get!(b.id) |> Ecto.Changeset.change(result: result) |> Repo.update!()
+        )
+
+    test "a Swiss: the round paired last, whatever is still open before it", %{
+      tournament: t,
+      boards: [board1 | _] = boards,
+      players: [a, b | _]
+    } do
+      assert current(t) == 1
+
+      # Round 2 is paired while a game of round 1 has no result at all.
+      results(tl(boards), "1-0")
+      round_with(t, 2, "", [b, a])
+      assert current(t) == 2
+      doc = Document.document(Repo.reload!(t))
+      assert ["finished", "current"] == Enum.map(doc["rounds"], & &1["state"])
+
+      # A result of round 1 entered, then cleared to be corrected: round 2 stays on.
+      results([board1], "0-1")
+      assert current(t) == 2
+      results([board1], "")
+      assert current(t) == 2
+
+      # Everything complete: still the last round, until another is paired.
+      results(boards, "1/2-1/2")
+      Repo.update_all(Pairing, set: [result: "1-0"])
+      assert current(t) == 2
+      round_with(t, 3, "", [a, b])
+      assert current(t) == 3
+    end
+
+    test "a round robin, every round paired at once: the first round with a game still open", %{
+      tournament: t,
+      boards: boards,
+      players: [a, b | _]
+    } do
+      t = t |> Ecto.Changeset.change(pairing_system: "round_robin") |> Repo.update!()
+      round_with(t, 2, "", [b, a])
+      round_with(t, 3, "", [a, b])
+      assert current(t) == 1
+
+      results(boards, "1-0")
+      assert current(t) == 2
+
+      # A postponed game is a result: it does not hold the schedule up.
+      results(boards, "*")
+      assert current(t) == 2
+
+      # A result cleared in round 1 brings a round robin back to round 1:
+      # nothing has said round 2 was begun.
+      results(tl(boards), "")
+      assert current(t) == 1
+    end
+
+    test "a Swiss of two-leg matches: the first open leg of the pair that was paired last", %{
+      tournament: t,
+      boards: boards,
+      players: [a, b | _]
+    } do
+      t = t |> Ecto.Changeset.change(swiss_match_format: true) |> Repo.update!()
+      round_with(t, 2, "", [b, a])
+      assert current(t) == 1
+
+      results(boards, "1-0")
+      assert current(t) == 2
+
+      # The next match: legs 3 and 4, paired together. Leg 2 unfinished changes nothing.
+      round_with(t, 3, "", [a, b])
+      round_with(t, 4, "", [b, a])
+      assert current(t) == 3
     end
   end
 

@@ -19640,7 +19640,7 @@ msgstr ""
 msgid "Box"
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:182
+#: lib/pairings_engine_web/live/board_game_live.ex:183
 #, elixir-autogen, elixir-format
 msgid "Clocks at the last report: White %{white}, Black %{black}."
 msgstr ""
@@ -19670,7 +19670,7 @@ msgstr ""
 msgid "Done, hide it"
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:214
+#: lib/pairings_engine_web/live/board_game_live.ex:215
 #, elixir-autogen, elixir-format
 msgid "Download PGN"
 msgstr ""
@@ -19690,7 +19690,7 @@ msgstr ""
 msgid "Games the boards reported"
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:199
+#: lib/pairings_engine_web/live/board_game_live.ex:200
 #, elixir-autogen, elixir-format
 msgid "Headers from the tournament; the result is the one entered here, or * until there is one."
 msgstr ""
@@ -19700,7 +19700,7 @@ msgstr ""
 msgid "Last contact"
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:189
+#: lib/pairings_engine_web/live/board_game_live.ex:190
 #, elixir-autogen, elixir-format
 msgid "Last report %{at} UTC."
 msgstr ""
@@ -19720,7 +19720,7 @@ msgstr ""
 msgid "Made a connect code for a board box for the whole group %{group} (ends in %{hint})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:168
+#: lib/pairings_engine_web/live/board_game_live.ex:169
 #, elixir-autogen, elixir-format
 msgid "Moves"
 msgstr ""
@@ -19740,7 +19740,7 @@ msgstr ""
 msgid "No code yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:171
+#: lib/pairings_engine_web/live/board_game_live.ex:172
 #, elixir-autogen, elixir-format
 msgid "No moves reported."
 msgstr ""
@@ -19851,12 +19851,7 @@ msgstr ""
 msgid "The box sends the moves to %{server}, tournament %{slug}. It learns both over the link."
 msgstr ""
 
-#: lib/pairings_engine_web/live/board_game_live.ex:159
-#, elixir-autogen, elixir-format
-msgid "The box worked out %{reconstructed} of these moves after the fact and guessed %{guessed}. A guessed move is the box's best reading of an unclear board, not something it saw."
-msgstr ""
-
-#: lib/pairings_engine_web/live/board_game_live.ex:223
+#: lib/pairings_engine_web/live/board_game_live.ex:224
 #, elixir-autogen, elixir-format
 msgid "The box's own PGN"
 msgstr ""
@@ -20045,4 +20040,9 @@ msgstr ""
 #: lib/pairings_engine_web/live/players_live.ex:4946
 #, elixir-autogen, elixir-format
 msgid "Withdrawn from the tournament"
+msgstr ""
+
+#: lib/pairings_engine_web/live/board_game_live.ex:159
+#, elixir-autogen, elixir-format
+msgid "The box worked out %{reconstructed} of these moves after the fact, guessed %{guessed} and rewrote %{rewritten}. A guessed move is the box's best reading of an unclear board, not something it saw; a rewritten move was first read as another move of the same piece."
 msgstr ""

@@ -533,7 +533,7 @@ defmodule PairingsEngine.BoardLink do
                 attrs
                 |> Map.take(
                   ~w(seq status result moves move_clocks white_ms black_ms running start_fen pgn
-                     reconstructed guessed)a
+                     reconstructed guessed rewritten)a
                 )
                 |> Map.merge(%{
                   link_id: link.id,
@@ -593,6 +593,7 @@ defmodule PairingsEngine.BoardLink do
          {:ok, result} <- result(p["result"]),
          {:ok, reconstructed} <- bounded_int(p["reconstructed"], "reconstructed", 0, 2000, 0),
          {:ok, guessed} <- bounded_int(p["guessed"], "guessed", 0, 2000, 0),
+         {:ok, rewritten} <- bounded_int(p["rewritten"], "rewritten", 0, 2000, 0),
          {:ok, start_fen} <- text(p["start_fen"], "start_fen", 100),
          {:ok, pgn} <- text(p["pgn"], "pgn", @max_pgn_bytes) do
       {:ok,
@@ -610,6 +611,7 @@ defmodule PairingsEngine.BoardLink do
          result: result,
          reconstructed: reconstructed,
          guessed: guessed,
+         rewritten: rewritten,
          start_fen: start_fen,
          pgn: pgn,
          replace: p["replace"] == true
@@ -733,7 +735,7 @@ defmodule PairingsEngine.BoardLink do
 
   @doc """
   The same without the moves, for a page that shows a column and not a game:
-  `%{game_uid => %{status, result, plies, reconstructed, guessed}}`.
+  `%{game_uid => %{status, result, plies, reconstructed, guessed, rewritten}}`.
   """
   def summaries(tournament_id) do
     Repo.all(
@@ -745,7 +747,8 @@ defmodule PairingsEngine.BoardLink do
           result: g.result,
           moves: g.moves,
           reconstructed: g.reconstructed,
-          guessed: g.guessed
+          guessed: g.guessed,
+          rewritten: g.rewritten
         }
     )
     |> Map.new(fn g ->
@@ -828,6 +831,7 @@ defmodule PairingsEngine.BoardLink do
         "pgn" => g.pgn,
         "reconstructed" => g.reconstructed,
         "guessed" => g.guessed,
+        "rewritten" => g.rewritten,
         "first_reported_at" => g.first_reported_at && DateTime.to_iso8601(g.first_reported_at),
         "reported_at" => g.reported_at && DateTime.to_iso8601(g.reported_at),
         "finished_at" => g.finished_at && DateTime.to_iso8601(g.finished_at)
@@ -865,6 +869,7 @@ defmodule PairingsEngine.BoardLink do
           pgn: short_text(e["pgn"], @max_pgn_bytes),
           reconstructed: int_or(e["reconstructed"], 0),
           guessed: int_or(e["guessed"], 0),
+          rewritten: int_or(e["rewritten"], 0),
           first_reported_at: datetime(e["first_reported_at"]),
           reported_at: datetime(e["reported_at"]),
           finished_at: datetime(e["finished_at"])

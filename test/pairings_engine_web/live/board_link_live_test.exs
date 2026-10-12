@@ -267,6 +267,7 @@ defmodule PairingsEngineWeb.BoardLinkLiveTest do
             "result" => "1-0",
             "reconstructed" => 2,
             "guessed" => 1,
+            "rewritten" => 3,
             "white_ms" => 3_600_000,
             "black_ms" => 59_000,
             "pgn" => "1. e4 e5 2. Nf3 1-0"

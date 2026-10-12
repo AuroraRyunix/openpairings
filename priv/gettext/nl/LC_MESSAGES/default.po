@@ -19632,7 +19632,7 @@ msgstr "Bord zag"
 msgid "Box"
 msgstr "Kastje"
 
-#: lib/pairings_engine_web/live/board_game_live.ex:182
+#: lib/pairings_engine_web/live/board_game_live.ex:183
 #, elixir-autogen, elixir-format
 msgid "Clocks at the last report: White %{white}, Black %{black}."
 msgstr "Klokken bij de laatste melding: wit %{white}, zwart %{black}."
@@ -19662,7 +19662,7 @@ msgstr "Een kastje koppelen zet dit niet aan. Het plaatst een Live-link op de op
 msgid "Done, hide it"
 msgstr "Klaar, verberg de code"
 
-#: lib/pairings_engine_web/live/board_game_live.ex:214
+#: lib/pairings_engine_web/live/board_game_live.ex:215
 #, elixir-autogen, elixir-format
 msgid "Download PGN"
 msgstr "PGN downloaden"
@@ -19682,7 +19682,7 @@ msgstr "Ingevoerd door de arbiter"
 msgid "Games the boards reported"
 msgstr "Partijen die de borden meldden"
 
-#: lib/pairings_engine_web/live/board_game_live.ex:199
+#: lib/pairings_engine_web/live/board_game_live.ex:200
 #, elixir-autogen, elixir-format
 msgid "Headers from the tournament; the result is the one entered here, or * until there is one."
 msgstr "Kopregels uit het toernooi; de uitslag is die welke hier ingevoerd is, of * zolang er geen is."
@@ -19692,7 +19692,7 @@ msgstr "Kopregels uit het toernooi; de uitslag is die welke hier ingevoerd is, o
 msgid "Last contact"
 msgstr "Laatste contact"
 
-#: lib/pairings_engine_web/live/board_game_live.ex:189
+#: lib/pairings_engine_web/live/board_game_live.ex:190
 #, elixir-autogen, elixir-format
 msgid "Last report %{at} UTC."
 msgstr "Laatste melding %{at} UTC."
@@ -19712,7 +19712,7 @@ msgstr "Koppelcode voor een bordkastje gemaakt (eindigt op %{hint})."
 msgid "Made a connect code for a board box for the whole group %{group} (ends in %{hint})."
 msgstr "Koppelcode voor een bordkastje gemaakt voor de hele groep %{group} (eindigt op %{hint})."
 
-#: lib/pairings_engine_web/live/board_game_live.ex:168
+#: lib/pairings_engine_web/live/board_game_live.ex:169
 #, elixir-autogen, elixir-format
 msgid "Moves"
 msgstr "Zetten"
@@ -19732,7 +19732,7 @@ msgstr "Nieuwe code"
 msgid "No code yet."
 msgstr "Nog geen code."
 
-#: lib/pairings_engine_web/live/board_game_live.ex:171
+#: lib/pairings_engine_web/live/board_game_live.ex:172
 #, elixir-autogen, elixir-format
 msgid "No moves reported."
 msgstr "Geen zetten gemeld."
@@ -19843,12 +19843,7 @@ msgstr "Het kastje belt deze server op %{address}."
 msgid "The box sends the moves to %{server}, tournament %{slug}. It learns both over the link."
 msgstr "Het kastje stuurt de zetten naar %{server}, toernooi %{slug}. Het verneemt beide via de koppeling."
 
-#: lib/pairings_engine_web/live/board_game_live.ex:159
-#, elixir-autogen, elixir-format
-msgid "The box worked out %{reconstructed} of these moves after the fact and guessed %{guessed}. A guessed move is the box's best reading of an unclear board, not something it saw."
-msgstr "Het kastje heeft %{reconstructed} van deze zetten achteraf afgeleid en er %{guessed} geraden. Een geraden zet is de beste lezing van een onduidelijk bord door het kastje, niet iets wat het zag."
-
-#: lib/pairings_engine_web/live/board_game_live.ex:223
+#: lib/pairings_engine_web/live/board_game_live.ex:224
 #, elixir-autogen, elixir-format
 msgid "The box's own PGN"
 msgstr "De eigen PGN van het kastje"
@@ -20038,3 +20033,8 @@ msgstr "Deze speler staat bewaard als \"krijgt de bye nooit\" en tegelijk met ee
 #, elixir-autogen, elixir-format
 msgid "Withdrawn from the tournament"
 msgstr "Teruggetrokken uit het toernooi"
+
+#: lib/pairings_engine_web/live/board_game_live.ex:159
+#, elixir-autogen, elixir-format
+msgid "The box worked out %{reconstructed} of these moves after the fact, guessed %{guessed} and rewrote %{rewritten}. A guessed move is the box's best reading of an unclear board, not something it saw; a rewritten move was first read as another move of the same piece."
+msgstr "Het kastje heeft %{reconstructed} van deze zetten achteraf afgeleid, er %{guessed} geraden en er %{rewritten} herschreven. Een geraden zet is de beste lezing van een onduidelijk bord door het kastje, niet iets wat het zag; een herschreven zet werd eerst als een andere zet van hetzelfde stuk gelezen."

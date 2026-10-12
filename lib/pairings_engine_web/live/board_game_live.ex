@@ -152,14 +152,15 @@ defmodule PairingsEngineWeb.BoardGameLive do
         </p>
 
         <p
-          :if={@game && (@game.reconstructed > 0 or @game.guessed > 0)}
+          :if={@game && (@game.reconstructed > 0 or @game.guessed > 0 or @game.rewritten > 0)}
           id="board-game-doubt"
           class="hint"
         >
           {gettext(
-            "The box worked out %{reconstructed} of these moves after the fact and guessed %{guessed}. A guessed move is the box's best reading of an unclear board, not something it saw.",
+            "The box worked out %{reconstructed} of these moves after the fact, guessed %{guessed} and rewrote %{rewritten}. A guessed move is the box's best reading of an unclear board, not something it saw; a rewritten move was first read as another move of the same piece.",
             reconstructed: @game.reconstructed,
-            guessed: @game.guessed
+            guessed: @game.guessed,
+            rewritten: @game.rewritten
           )}
         </p>
       </div>

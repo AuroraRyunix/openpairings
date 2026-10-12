@@ -35,7 +35,7 @@ defmodule PairingsEngine.BoardLink.Document do
 
   @settings ~w(name venue city federation start_date end_date time_control rate_of_play
                standard rounds_count round_dates chess960 type team_boards public_live_boards
-               public_display status)a
+               public_display status pairing_system swiss_match_format)a
 
   @doc "A short opaque string that differs whenever `document/1` would."
   @spec version(Tournament.t()) :: String.t()
@@ -80,7 +80,7 @@ defmodule PairingsEngine.BoardLink.Document do
 
     teams = team_names(t)
     matches = matches_by_id(t, rounds)
-    current = current_round(rounds)
+    current = current_round(rounds, t)
 
     %{
       "version" => version(t),
@@ -126,20 +126,49 @@ defmodule PairingsEngine.BoardLink.Document do
     }
   end
 
-  # The round to have on the boards: the first paired round still waiting
-  # for a result, or the last one when none is. There is no "start the
-  # round" button in OpenPairings - a round that is paired is on, which is
-  # why a Swiss needs nothing more than this. A round robin pairs every
-  # round at once, and there the first unfinished one is the one being
-  # played.
-  defp current_round([]), do: nil
+  # The round to have on the boards. There is no "start the round" button in
+  # OpenPairings: a round that is paired is on. So the question is which of
+  # the paired rounds, and the answer starts from how they were paired:
+  #
+  #   * the rounds that were paired LAST, TOGETHER (`last_batch/2`) are the
+  #     only candidates - one round in a Swiss or a Keizer, both legs of a
+  #     two-leg Swiss match, every round of a round robin;
+  #   * among those, the first that still has a game without a result; when
+  #     none has, the last of them.
+  #
+  # It used to be "the first paired round with a result missing", over all
+  # rounds. That is the same thing for a round robin, and wrong for a Swiss
+  # in two ways a hall would notice: a result of round 2 cleared to be
+  # corrected during round 3 said "round 2 is on" until it was typed again,
+  # and a game of round 2 left open (postponed, and not yet marked so) kept
+  # a freshly paired round 3 from ever being the current one. A box would
+  # walk its boards back mid-game, or never forward.
+  defp current_round([], _tournament), do: nil
 
-  defp current_round(rounds) do
-    case Enum.find(rounds, &open?/1) do
+  defp current_round(rounds, %Tournament{} = t) do
+    batch = last_batch(rounds, t)
+
+    case Enum.find(batch, &open?/1) do
       %Round{number: number} -> number
-      nil -> List.last(rounds).number
+      nil -> List.last(batch).number
     end
   end
+
+  # The rounds paired most recently, in one go. Read off the pairing system,
+  # which is what decides it and is locked once round 1 is paired - not off
+  # timestamps, which would make "together" a matter of how fast the disk is.
+  defp last_batch(rounds, %Tournament{pairing_system: "round_robin"}), do: rounds
+
+  defp last_batch(rounds, %Tournament{pairing_system: "swiss", swiss_match_format: true}) do
+    last = List.last(rounds)
+
+    # Legs are rounds 2k-1 and 2k, inserted as one unit.
+    if rem(last.number, 2) == 0,
+      do: Enum.filter(rounds, &(&1.number >= last.number - 1)),
+      else: [last]
+  end
+
+  defp last_batch(rounds, _one_round_at_a_time), do: [List.last(rounds)]
 
   defp open?(%Round{pairings: pairings}),
     do: Enum.any?(pairings, &(kind(&1) == "game" and &1.result == ""))
