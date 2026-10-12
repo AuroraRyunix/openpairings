@@ -80,6 +80,8 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      # What the boards in the hall report, for the board column.
+      PairingsEngine.BoardLink.subscribe(tournament.id)
     end
 
     {:ok,
@@ -92,6 +94,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        # entered. Anything else opens the latest round, as before.
        round_number: initial_round(params["round"], tournament, paired),
        error: nil,
+       # What the boards in the hall reported - see `assign_board_reports/1`.
+       board_reports: nil,
        # Bumped whenever a result-entry write is REFUSED (e.g. an archived
        # tournament) - see the `result`/`confirm_clear_result` handlers'
        # comments and the `.BlindResultEntry` hook's `updated()` for why: a
@@ -256,6 +260,20 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_info({:next_round_preview, message}, socket),
     do: {:noreply, NextRoundPreviewPanel.handle_info(message, socket)}
 
+  # A board in the hall reported (`PairingsEngine.BoardLink`). Only the
+  # board column is read again, and only when what it shows changed - a
+  # result or a state. A move is not news to this page: twelve boards
+  # reporting every move would otherwise have it reloading all afternoon.
+  def handle_info({:board_game, _tournament_id, _game, :state}, socket),
+    do: {:noreply, assign_board_reports(socket)}
+
+  def handle_info({:board_game, _tournament_id, _game, _moves}, socket), do: {:noreply, socket}
+
+  # A code made or withdrawn, a box seen for the first time: the column
+  # appears or goes.
+  def handle_info({:board_link, _tournament_id}, socket),
+    do: {:noreply, assign_board_reports(socket)}
+
   defp tournament_changed(hint, socket) do
     case Tournaments.get_authorized_tournament(
            socket.assigns.current_scope,
@@ -310,6 +328,20 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   defp already_current?(_hint, _tournament, _socket), do: false
+
+  # What the boards in the hall reported, per game, for the column beside
+  # the results - or nil for a tournament with no live boards, which then
+  # has no such column at all. See `board_report/1`.
+  defp assign_board_reports(socket) do
+    id = socket.assigns.tournament.id
+
+    assign(socket,
+      board_reports:
+        if(PairingsEngine.BoardLink.connected?(id),
+          do: PairingsEngine.BoardLink.summaries(id)
+        )
+    )
+  end
 
   @impl true
   def handle_async(:next_round_preview, result, socket),
@@ -399,6 +431,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       |> put_explanation_state(round)
       |> NextRoundPreviewPanel.refresh()
       |> assign_announcements()
+      |> assign_board_reports()
 
     if Keyword.get(opts, :keep_gesture, false) do
       socket
@@ -3986,6 +4019,70 @@ defmodule PairingsEngineWeb.PairingsLive do
   # board list came to as JSON), and evaluated again on every render.
   # Written out, they are static markup sent once, and a board's options
   # cost one flag each.
+  # What the board in the hall reported for this game, beside the result
+  # the arbiter entered (`PairingsEngine.BoardLink.compare/2`). Quiet when
+  # they agree or the board said nothing; red, with the reason in words,
+  # when they differ. It is a warning and nothing else: no button here
+  # enters anything, and nothing waits for it to go away.
+  attr :pairing, :map, required: true
+  attr :report, :any, required: true
+  attr :tournament, :map, required: true
+
+  defp board_report(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :state,
+        if(assigns.pairing.result == "bye" or is_nil(assigns.pairing.black_player_id),
+          do: :none,
+          else: PairingsEngine.BoardLink.compare(assigns.pairing.result, assigns.report)
+        )
+      )
+
+    ~H"""
+    <span :if={@state == :none} id={"board-report-#{@pairing.id}"} class="board-report none">
+      <span aria-hidden="true">-</span>
+    </span>
+    <.link
+      :if={@state != :none}
+      id={"board-report-#{@pairing.id}"}
+      navigate={~p"/t/#{@tournament.id}/games/#{@pairing.game_uid}"}
+      class={["board-report", to_string(@state)]}
+      data-state={@state}
+      title={board_report_title(@state, @pairing, @report)}
+    >
+      <.icon :if={@state == :mismatch} name="hero-exclamation-triangle" class="size-4" />
+      <%= cond do %>
+        <% @state == :live and @report.status == "finished" -> %>
+          {gettext("no result")}
+        <% @state == :live -> %>
+          {gettext("playing")}
+        <% true -> %>
+          {@report.result}
+      <% end %>
+      <span :if={@state == :mismatch} class="board-report-note">
+        {gettext("differs")}
+      </span>
+    </.link>
+    """
+  end
+
+  defp board_report_title(:mismatch, pairing, report),
+    do:
+      gettext(
+        "The board saw %{board}, the result entered is %{entered}. Check the scoresheets. Nothing is blocked.",
+        board: report.result,
+        entered: pairing.result
+      )
+
+  defp board_report_title(:match, _pairing, _report),
+    do: gettext("The board saw the same result. Open the game.")
+
+  defp board_report_title(:pending, _pairing, _report),
+    do: gettext("What the board saw. No result has been entered yet. Open the game.")
+
+  defp board_report_title(_live, _pairing, _report), do: gettext("Open the game.")
+
   attr :result, :string, required: true
   attr :postponed_games, :boolean, default: false
 
@@ -7080,12 +7177,19 @@ defmodule PairingsEngineWeb.PairingsLive do
               <th class="pairing-result">{gettext("Result")}</th>
 
               <th class="pairing-black">{gettext("Black")}</th>
+
+              <%!-- Only for a tournament with live boards: what the board
+                    reported, beside what was entered. It reports; it never
+                    enters. --%>
+              <th :if={@board_reports} class="pairing-boardlink" id="board-column">
+                {gettext("Board saw")}
+              </th>
             </tr>
           </thead>
 
           <tbody>
             <tr :if={@round == nil}>
-              <td colspan="4">
+              <td colspan={if @board_reports, do: "5", else: "4"}>
                 <div class="empty">
                   <p><strong>{gettext("This round has not been paired yet.")}</strong></p>
 
@@ -7334,6 +7438,14 @@ defmodule PairingsEngineWeb.PairingsLive do
                   swap_first={@swap_first}
                   seat_pick={@seat_pick}
                   scores={@scores}
+                />
+              </td>
+
+              <td :if={@board_reports} class="pairing-boardlink">
+                <.board_report
+                  pairing={pairing}
+                  report={Map.get(@board_reports, pairing.game_uid)}
+                  tournament={@tournament}
                 />
               </td>
             </tr>

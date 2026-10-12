@@ -51,8 +51,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
   Sub-nav shown at the top of every Settings page, so the user can hop
   between the pages without going back through the top-bar "Settings ▾"
   menu. `active` is one of `:tournament`, `:options`, `:results`,
-  `:scoring`, `:dates`, `:categories`, `:extra_points`, `:fide`, `:about`,
-  `:export`.
+  `:boards`, `:scoring`, `:dates`, `:categories`, `:extra_points`, `:fide`,
+  `:about`, `:export`.
   """
   attr :tournament, :map, required: true
   attr :active, :atom, required: true
@@ -86,6 +86,13 @@ defmodule PairingsEngineWeb.SettingsSupport do
         class={["pe-btn", "filter-picker", @active == :results && "active"]}
       >
         {gettext("OpenResults")}
+      </.link>
+
+      <.link
+        navigate={~p"/t/#{@tournament.id}/settings/boards"}
+        class={["pe-btn", "filter-picker", @active == :boards && "active"]}
+      >
+        {gettext("Live boards")}
       </.link>
 
       <.link

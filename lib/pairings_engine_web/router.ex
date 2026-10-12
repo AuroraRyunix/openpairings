@@ -111,6 +111,8 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/settings/options", SettingsOptionsLive
       live "/t/:id/settings/restrictions", SettingsRestrictionsLive
       live "/t/:id/settings/results", SettingsResultsLive
+      live "/t/:id/settings/boards", SettingsBoardsLive
+      live "/t/:id/games/:game", BoardGameLive
       live "/t/:id/settings/scoring", SettingsScoringLive
       live "/t/:id/settings/dates", SettingsDatesLive
       live "/t/:id/settings/extra-points", ExtraPointsLive
@@ -288,6 +290,24 @@ defmodule PairingsEngineWeb.Router do
     pipe_through [:api]
 
     get "/fide/search", FideLookupController, :search
+  end
+
+  # The board link: a box in the playing hall asking who sits where and
+  # reporting what its boards saw (`PairingsEngine.BoardLink`,
+  # docs/board-link-api.md). The `:api` pipeline and nothing else - no
+  # session, no CSRF token, because nothing here is a browser. The bearer
+  # secret and both rate limits are in the controller's own plug, so a route
+  # added to this scope cannot be added without them.
+  #
+  # Core, not a plug-in: the desktop edition speaks it too, to a box on the
+  # same PC.
+  scope "/api/boards/v1", PairingsEngineWeb do
+    pipe_through [:api]
+
+    get "/link", BoardLinkController, :link
+    post "/box", BoardLinkController, :box
+    get "/tournaments/:id", BoardLinkController, :tournament
+    post "/tournaments/:id/games", BoardLinkController, :games
   end
 
   # Changing language. A controller rather than a LiveView event: the choice

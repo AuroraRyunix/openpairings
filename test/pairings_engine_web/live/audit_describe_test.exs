@@ -687,6 +687,15 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       }
     ],
     "openresults.live_boards" => [%{"enabled" => true}, %{"enabled" => false}],
+    "boards.code_created" => [%{"hint" => "x7Qa"}],
+    "boards.group_code_created" => [%{"hint" => "x7Qa", "group" => "Zomertoernooi"}],
+    "boards.code_revoked" => [
+      %{"hint" => "x7Qa", "group" => false, "box" => "Zaal A"},
+      %{"hint" => "x7Qa", "group" => true, "box" => nil}
+    ],
+    "boards.relay_key_saved" => [%{}],
+    "boards.relay_key_cleared" => [%{}],
+    "boards.box_connected" => [%{"box" => "Zaal A", "version" => "0.4.0", "hint" => "x7Qa"}],
     "openresults.taken_down" => [%{"slug" => "k3v9x2"}],
     "openresults.kept_withdrawn" => [
       %{"slug" => "k3v9x2", "kind" => "taken_down", "taken_down_at" => "2026-09-13T10:02:11Z"},

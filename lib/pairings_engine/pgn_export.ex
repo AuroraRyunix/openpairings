@@ -1,12 +1,20 @@
 defmodule PairingsEngine.PgnExport do
   @moduledoc """
-  Metadata-only PGN export. OpenPairings never records moves, so every
+  PGN export. OpenPairings records no moves of its own, so by default every
   game's movetext is just its result token (or `*` for an unplayed/unknown
-  result) - the value here is the Seven Tag Roster, built from the
+  result) - the value there is the Seven Tag Roster, built from the
   tournament, round and pairing data the app already has. See
   `docs/pgn-export.md`.
+
+  With `moves: true` a game a board in the hall reported
+  (`PairingsEngine.BoardLink`) gets its moves and clock times as well. The
+  headers stay the tournament's and the `Result` stays the ARBITER's: a
+  board that saw 1-0 on a game the arbiter has not entered yet exports as
+  `*`, because that is what the tournament knows.
   """
 
+  alias PairingsEngine.BoardLink
+  alias PairingsEngine.BoardLink.TimeControl
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.Tournament
 
@@ -24,16 +32,30 @@ defmodule PairingsEngine.PgnExport do
   to every game, right after `Round`. `N` is the REAL `pairing.board` -
   see `board_tag/1` for why this is the one board-numbered surface in the
   app that does NOT print `PairingDisplay`'s label.
+
+  `opts[:moves]` (default `false`) writes the moves and clock times a board
+  reported for a game, where one did, writes `Round` as `"3.12"` (round and
+  real board - the PGN convention for a round with many games, and unique
+  within the round for the reason `board_tag/1` gives) and adds a
+  `TimeControl` tag when the rate of play can be expressed as one.
+
+  `opts[:game]` keeps the one game with that `game_uid`.
   """
   def export(tournament, round_number \\ nil, opts \\ []) do
     board? = Keyword.get(opts, :board, false)
     boards = Keyword.get(opts, :boards)
+    game = Keyword.get(opts, :game)
+
+    reported =
+      if Keyword.get(opts, :moves, false), do: BoardLink.games_by_uid(tournament.id)
 
     tournament
     |> rounds_for(round_number)
     |> Enum.flat_map(&games_for_round(tournament, &1, board?))
-    |> Enum.filter(fn {_t, _round, pairing, _board} -> on_boards?(pairing, boards) end)
-    |> Enum.map(&game_text/1)
+    |> Enum.filter(fn {_t, _round, pairing, _board} ->
+      on_boards?(pairing, boards) and (is_nil(game) or pairing.game_uid == game)
+    end)
+    |> Enum.map(&game_text(&1, reported))
     |> Enum.join("\n\n")
     |> append_trailing_newline()
   end
@@ -62,7 +84,9 @@ defmodule PairingsEngine.PgnExport do
     |> Enum.map(&{tournament, round, &1, if(board?, do: &1.board)})
   end
 
-  defp game_text({tournament, round, pairing, board}) do
+  # `reported` is nil for the metadata-only export, which this clause leaves
+  # byte for byte what it always was.
+  defp game_text({tournament, round, pairing, board}, nil) do
     headers =
       [
         tag("Event", tournament.name),
@@ -78,6 +102,85 @@ defmodule PairingsEngine.PgnExport do
         ] ++ optional_tags(pairing)
 
     Enum.join(headers, "\n") <> "\n\n" <> result_tag(pairing.result)
+  end
+
+  defp game_text({tournament, round, pairing, board}, %{} = reported) do
+    game = Map.get(reported, pairing.game_uid)
+    result = result_tag(pairing.result)
+
+    headers =
+      [
+        tag("Event", tournament.name),
+        tag("Site", site_tag(tournament)),
+        tag("Date", date_tag(round.date)),
+        tag("Round", "#{round.number}.#{pairing.board}")
+      ] ++
+        board_tag(board) ++
+        [
+          tag("White", pairing.white_player.name),
+          tag("Black", pairing.black_player.name),
+          tag("Result", result)
+        ] ++
+        optional_tags(pairing) ++
+        time_control_tag(tournament) ++ start_tags(game)
+
+    Enum.join(headers, "\n") <> "\n\n" <> movetext(game, result)
+  end
+
+  defp time_control_tag(%Tournament{rate_of_play: rate}) do
+    case TimeControl.pgn(rate) do
+      nil -> []
+      value -> [tag("TimeControl", value)]
+    end
+  end
+
+  # A game that did not start from the usual position says so, or a reader
+  # replays the moves from the wrong one.
+  defp start_tags(%{start_fen: fen}) when is_binary(fen) and fen != "",
+    do: [tag("SetUp", "1"), tag("FEN", fen)]
+
+  defp start_tags(_game), do: []
+
+  defp movetext(nil, result), do: result
+  defp movetext(%{moves: []}, result), do: result
+
+  # `1. e4 {[%clk 1:29:58]} e5 {[%clk 1:29:51]} 2. Nf3 ... 1-0`, wrapped at
+  # 80 columns as the PGN standard asks of an export. A move arrives here as
+  # the box wrote it and `BoardLink` let it in: SAN's own characters and
+  # nothing that could open a comment or close a tag.
+  defp movetext(%{moves: moves} = game, result) do
+    clocks = game.move_clocks || []
+
+    moves
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {move, i} ->
+      number = if rem(i, 2) == 0, do: ["#{div(i, 2) + 1}."], else: []
+      number ++ [move] ++ clock_comment(Enum.at(clocks, i))
+    end)
+    |> Kernel.++([result])
+    |> wrap(80)
+  end
+
+  defp clock_comment(ms) when is_integer(ms) and ms >= 0 do
+    total = div(ms, 1000)
+    ["{[%clk #{div(total, 3600)}:#{two(rem(div(total, 60), 60))}:#{two(rem(total, 60))}]}"]
+  end
+
+  defp clock_comment(_none), do: []
+
+  defp two(n), do: n |> Integer.to_string() |> String.pad_leading(2, "0")
+
+  defp wrap(tokens, width) do
+    {lines, line} =
+      Enum.reduce(tokens, {[], ""}, fn token, {lines, line} ->
+        cond do
+          line == "" -> {lines, token}
+          String.length(line) + 1 + String.length(token) > width -> {[line | lines], token}
+          true -> {lines, line <> " " <> token}
+        end
+      end)
+
+    [line | lines] |> Enum.reverse() |> Enum.join("\n")
   end
 
   # `nil` when `export/3`'s `board:` option wasn't passed - supplemental,

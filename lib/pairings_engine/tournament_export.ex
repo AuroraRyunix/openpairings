@@ -241,6 +241,11 @@ defmodule PairingsEngine.TournamentExport do
   #     The installation key that minted it is not a tournament field at all
   #     and is in no export, backup or snapshot - see
   #     `PairingsEngine.Publishing.Installation`.
+  #   openresults_relay_key
+  #     The results site's relay key, held so the hall box can be handed it
+  #     (`PairingsEngine.BoardLink`). A credential for one box in one hall:
+  #     a copy of the tournament on another machine has its own box, or
+  #     none, and asks its own results site for its own key.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
     public_slug_minted_at public_slug_server public_slug_published_at
@@ -250,6 +255,7 @@ defmodule PairingsEngine.TournamentExport do
     swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim openresults_group_sent
+    openresults_relay_key
     handed_off_at handed_off_to handoff_token handoff_origin
     send_confirmation_needed
     tpn_order_accepted late_entry_notice_dismissed
@@ -507,7 +513,16 @@ defmodule PairingsEngine.TournamentExport do
   #     (`PairingsEngine.BoardAnnouncements`): a record of what is on the
   #     tables there, kept to warn that arbiter when the pairing differs.
   #     A copy on another machine has no such cards to warn about.
+  #   board_links
+  #     The connect codes of the hall boxes (`PairingsEngine.BoardLink`), and
+  #     the mobile enrolments' argument over again: a code was given to one
+  #     box for a tournament on one machine. Only its hash is stored, so the
+  #     file could not carry a working code if it tried - but a hash that
+  #     arrived by file would make the box's old secret valid on a machine
+  #     its arbiter never connected it to. The games those boxes reported DO
+  #     travel (`"board_games"`).
   @excluded_tables [
+    :board_links,
     :mobile_enrollments,
     :tournament_snapshots,
     :openresults_registrations,
@@ -597,8 +612,24 @@ defmodule PairingsEngine.TournamentExport do
       # copy shows the same codes, and tells the same drift.
       "sent_receipts" => PairingsEngine.SentReceipts.export_receipts(t.id)
     }
+    |> put_board_games(t)
     |> put_group_block(t)
     |> put_handoff_blocks(t, Keyword.get(opts, :include_handoff, false))
+  end
+
+  # The games the boards in the hall reported (`PairingsEngine.BoardLink`),
+  # each named by the `game_uid` of its pairing. A game that was played
+  # belongs to the tournament and travels with it. The connect codes and the
+  # relay key do not: see `@excluded_tables` and `openresults_relay_key`.
+  #
+  # Absent, not `[]`, for a tournament no board ever reported on - which is
+  # nearly all of them, and their envelopes stay byte for byte what they
+  # were.
+  defp put_board_games(map, t) do
+    case PairingsEngine.BoardLink.export_games(t.id) do
+      [] -> map
+      games -> Map.put(map, "board_games", games)
+    end
   end
 
   # The event this tournament belongs to (`PairingsEngine.TournamentGroups`):

@@ -107,12 +107,13 @@ the file sees where the pairings were not the program's own. (The file made by
 **Import an OpenPairings backup** reads a file made by **Export full backup
 (JSON)** (below), up to 10 MB. It gives a new tournament, owned by you, with
 the settings, officials, teams, every player field, rounds, results, byes,
-forbidden pairings, pairing rules and the record of what was sent to the rating office. The
+forbidden pairings, pairing rules, the record of what was sent to the rating office and the
+games that live boards reported ([Live boards](17-live-boards.md#games-and-pgn)). The
 original is never touched, even when you import your own file again. If
 anything goes wrong nothing is left behind.
 
 What does not travel: restore points, the logo, the phones enrolled for result
-entry, the lock of a hand-off, and everything that would act on its own:
+entry, the connect codes and the relay key of a board box, the lock of a hand-off, and everything that would act on its own:
 the publishing switch and address and the open entry form (publishing has to
 be switched on again for the copy, [Publishing](14-publishing.md)). The audit
 trail and the collaborators travel only in a hand-off file, and the
@@ -211,6 +212,9 @@ this round or all rounds, with or without board numbers, or a range of boards.
 The program does not record moves; each game in the PGN file has the
 players, the round, the date, the result and a result token as its move text.
 It is a valid PGN file, but a game that cannot be replayed.
+
+A tournament with live boards also has the games the boards reported, with
+their moves: see [Games and PGN](17-live-boards.md#games-and-pgn).
 
 ### The FIDE forms
 
