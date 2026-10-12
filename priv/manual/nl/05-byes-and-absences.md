@@ -10,8 +10,8 @@ hoe de tiebreaks van C.07 die behandelen.
 | --- | --- | --- | --- |
 | **Door de paring toegekende bye** | Het programma kent hem toe wanneer het aantal te paren spelers oneven is. | De waarde *Door de paring toegekende bye* op de pagina Puntentelling (standaard een winst). | Het is een bord van de ronde zonder tegenstander. |
 | **Afwezig voor een ronde** | De arbiter markeert de speler als afwezig voor bepaalde rondes, of voor het hele evenement. | *Punten voor een overgeslagen ronde* op de pagina Puntentelling (standaard niets). | Niet gepaard in die ronde. |
-| **Teruggetrokken (forfait)** | De arbiter markeert de speler als teruggetrokken (*Forfait*). | Niets: de speler krijgt ook niet de afwezigheidswaarde, en in een rondetoernooi is elke partij vanaf dan een verlies bij forfait. | Niet gepaard in een latere ronde. |
-| **Uitgesloten** | De arbiter vinkt **Uitgesloten** aan op het inschrijfformulier. | De speler wordt in geen enkele latere ronde gepaard en wordt uit de rangschikking gelaten. De al gespeelde partijen blijven: de tegenstanders houden de punten en tiebreaks die die partijen hun gaven. | Niet gepaard in een latere ronde. |
+| **Teruggetrokken** | De arbiter vinkt **Teruggetrokken uit het toernooi** aan (vroeger *Forfait* genoemd). | Niets: de speler krijgt ook niet de afwezigheidswaarde, en in een rondetoernooi is elke partij vanaf dan een verlies bij forfait. | Niet gepaard in een latere ronde. |
+| **Uitgesloten** | De arbiter vinkt **Uitgesloten door de arbiter** aan op het inschrijfformulier. | De speler wordt in geen enkele latere ronde gepaard en wordt uit de rangschikking gelaten. De al gespeelde partijen blijven: de tegenstanders houden de punten en tiebreaks die die partijen hun gaven. | Niet gepaard in een latere ronde. |
 | **Forfaitwinst / -verlies van een partij** | Een paring waarvan het resultaat als forfait wordt ingevoerd (1-0 FF, 0-1 FF, 0-0 FF). | Een forfaitwinst telt als winst, een forfaitverlies als verlies. | Het is een gewone paring. |
 | **Bye van een vol punt** | De arbiter geeft die, uit de *Lijst met niet-spelenden* van een gepaarde ronde, aan een speler die die ronde niet meespeelt; of kiest hem voor een komende ronde wanneer **Het byetype vragen bij elke afwezigheid** aan staat. | Wat een winst waard is. | Niet gepaard; de speler kan geen door de paring toegekende bye meer krijgen. |
 | **Bye van een half of nul punt** | Komt mee met een geïmporteerd SWAR- of TRF-bestand, of met de overdracht van een andere kopie; of wordt gekozen voor een komende ronde wanneer **Het byetype vragen bij elke afwezigheid** aan staat. | Een bye van een half punt is een remise waard; een bye van nul punt niets. | Niet gepaard. |
@@ -29,10 +29,12 @@ zoals uitgelegd in [Spelers en ratinglijsten](04-players-and-ratings.md):
   betekent het vakje **Afwezig** afwezig voor het hele evenement, en het veld
   **Afwezig in de rondes** neemt de rondes die worden overgeslagen, geschreven als
   `3,5` of `2-4` (komma's, puntkomma's, spaties en reeksen worden aanvaard).
-- **Forfait** op het inschrijfformulier trekt de speler terug. De rangschikking en
-  de afgedrukte rangschikking markeren zo'n speler als *teruggetrokken* en behouden
+- **Teruggetrokken uit het toernooi** (vroeger *Forfait* genoemd) op het
+  inschrijfformulier trekt de speler terug: niet meer gepaard, en de speler blijft in
+  de rangschikking en de afgedrukte rangschikking, gemarkeerd als *teruggetrokken*, met
   de tot dan toe behaalde punten ([Rangschikking en tiebreaks](08-standings-and-tiebreaks.md)).
-- **Uitgesloten** op het inschrijfformulier sluit de speler uit. De
+  De aanwezigheidscel toont `F`, de letter van SWAR.
+- **Uitgesloten door de arbiter** op het inschrijfformulier sluit de speler uit. De
   aanwezigheidscel toont `E`. Een uitgesloten speler wordt niet meer gepaard en
   verschijnt niet in de rangschikking. In een Keizer-toernooi houdt de uitgesloten
   speler een plaats op de ladder voor de partijen die al tegen hem zijn gespeeld, zodat
@@ -63,8 +65,9 @@ Het programma helpt op twee manieren:
   rondes (*De regels staan een speler slechts één halvepuntsbye per toernooi toe*),
   en vraagt de knop **Opslaan** *Toch opslaan?* De opslag gaat pas door nadat u
   bevestigt.
-- Het vakje **Komt niet in aanmerking voor byes van een half punt** markeert een
-  speler die er geen mag krijgen. Zolang het is aangevinkt, wordt een afwezigheid
+- Het vakje **Geen bye van een half punt voor deze speler** (vroeger *Komt niet in
+  aanmerking voor byes van een half punt*) markeert een speler met voorwaarden of
+  vrije inschrijving, die er geen mag krijgen. Zolang het is aangevinkt, wordt een afwezigheid
   van een half punt voor die speler geweigerd, en het vakje kan niet worden
   aangevinkt voor een speler die er al een heeft; de melding noemt de rondes.
 
@@ -199,17 +202,33 @@ of hem juist aan een bepaalde speler geven.
 > toegepast wanneer het toernooi FIDE-gehomologeerd is.
 
 Om ze te gebruiken, zet u **Byevoorkeuren** aan op de pagina Functies (accountmenu,
-*Functies*, Belgisch pakket). Het formulier van de speler biedt dan *Uitsluiten van
-de door de paring toegekende bye* en *Voorkeur voor de door de paring toegekende
-bye*, elk voor alle rondes of voor bepaalde rondes:
+*Functies*, Belgisch pakket). Het formulier van de speler biedt dan één
+keuzelijst, **Door de paring toegekende bye**, met één keuze:
 
-- **Moet hem krijgen, als een legale paring dat toelaat** - de speler krijgt de bye
+- **De FIDE-regels beslissen** (de standaard);
+- **Krijgt hem nooit** - de speler is in elke ronde uitgesloten van de bye;
+- **Niet in bepaalde rondes** - uitgesloten in de rondes die u typt en, als u wilt,
+  een voorkeur voor **de overige rondes** (de rondes van het toernooi die u niet
+  noemde);
+- **Liever niet**, **Liever wel** en **Moet hem krijgen, als een reglementaire paring
+  dat toelaat**, elk voor alle rondes of voor bepaalde rondes.
+
+Vroeger had het formulier een vakje *Uitsluiten van de door de paring toegekende
+bye* naast een keuzelijst *Voorkeur voor de door de paring toegekende bye*, wat
+tegenstrijdigheden toeliet; wat bewaard was, wordt als dezelfde keuze gelezen. Een
+speler die bewaard staat als "krijgt hem nooit" *en* met een voorkeur, verschijnt als
+*Krijgt hem nooit*, met een melding, en opslaan van het formulier laat de voorkeur vallen
+(de uitsluiting won altijd). De keuzes staan alleen in de lijst als hun schakelaar aan
+staat; een bewaarde waarde blijft in de lijst. In een FIDE-gehomologeerd toernooi worden
+de voorkeuren niet aangeboden en wordt een bewaarde als genegeerd getoond.
+
+- **Moet hem krijgen, als een reglementaire paring dat toelaat** - de speler krijgt de bye
   wanneer de ronde er een heeft, mits de rest nog legaal gepaard kan worden en de
   speler er nog geen had (FIDE-regel C2 wordt nooit overschreven);
 - **Krijgt hem liever** en **Liever niet** - beslissen tussen de spelers met de score
   die de bye krijgt, en tillen hem nooit naar een andere score.
 
-**Uitsluiten van de door de paring toegekende bye** betekent dat de speler wordt
+**Krijgt hem nooit** en **Niet in bepaalde rondes** betekenen dat de speler wordt
 behandeld als iemand die al een bye had: de engine geeft hem die nooit. Wanneer geen
 enkele legale ronde de bye bij elke uitgesloten speler vandaan kan houden, zegt de
 pagina Paringen dat en biedt ze **Toch paren, zonder de uitsluiting van <naam>** aan.

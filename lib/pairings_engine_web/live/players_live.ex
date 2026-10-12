@@ -24,6 +24,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   alias PairingsEngine.RatingLists
   alias PairingsEngineWeb.RegistrationQueue
 
+  alias PairingsEngine.Tournaments.ByeChoice
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Federations.BEL.Member
@@ -1730,7 +1731,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   # without it, whatever the page showed.
   def handle_event("save_player", %{"player" => params}, socket) do
     before = socket.assigns.editing_player
+    form_params = params
     params = keep_derived_start(params, socket.assigns.edit_derived_start)
+    params = expand_bye_choice(params, socket.assigns.tournament)
     sent = Tournaments.sent_absence_rounds(before, params)
     ack? = params["sent_ack"] == "true"
     half_ack? = params["half_ack"] == "true"
@@ -1780,7 +1783,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply,
          assign(socket,
            edit_error: nil,
-           edit_form: params,
+           edit_form: form_params,
            edit_half_rounds: Tournaments.second_half_bye_rounds(before, params),
            edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
          )}
@@ -1793,7 +1796,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                "Not saved: round %{rounds} was already sent to FIDE. Tick the box under the absences to change it anyway.",
                rounds: Enum.join(sent, ", ")
              ),
-           edit_form: params,
+           edit_form: form_params,
            edit_sent_rounds: sent
          )}
 
@@ -1801,7 +1804,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply,
          assign(socket,
            edit_error: error_text(changeset),
-           edit_form: params,
+           edit_form: form_params,
            edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
          )}
     end
@@ -2055,6 +2058,23 @@ defmodule PairingsEngineWeb.PlayersLive do
     ]
   end
 
+  # The dialog's one bye answer (`ByeChoice`) back into the stored fields. A
+  # tournament that ignores preferences (FIDE-rated) keeps the stored one.
+  defp expand_bye_choice(params, tournament) do
+    ByeChoice.expand(params, tournament.rounds_count,
+      keep_preference: bye_preference_mode(tournament, nil, true) == :fide_rated
+    )
+  end
+
+  # Expelled outranks Withdrawn outranks Absent: the pairing takes only
+  # "active" players, withdrawn ones are not paired whether or not they are
+  # also absent, and the standings drop an expelled player altogether.
+  defp status_out?(form), do: form["status"] == "expelled" or truthy?(form["forfeit"])
+
+  # What a greyed-out tick sends instead of itself: its current value.
+  defp tick_value(current, true), do: if(truthy?(current), do: "true", else: "false")
+  defp tick_value(_current, _disabled), do: "false"
+
   defp player_to_form(p) do
     %{
       "national_id" => p.national_id,
@@ -2140,66 +2160,100 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   defp no_bye_title(%{no_bye_rounds: rounds}) when rounds in [nil, ""],
-    do:
-      gettext(
-        "Excluded from the pairing-allocated bye in every round (organiser's rule, not FIDE)"
-      )
+    do: gettext("Never gets the pairing-allocated bye (organiser's rule, not FIDE)")
 
   defp no_bye_title(%{no_bye_rounds: rounds}),
     do:
       gettext(
-        "Excluded from the pairing-allocated bye in rounds %{rounds} (organiser's rule, not FIDE)",
+        "Does not get the pairing-allocated bye in rounds %{rounds} (organiser's rule, not FIDE)",
         rounds: rounds
       )
 
-  attr :mode, :atom, required: true
+  attr :no_bye_mode, :atom, required: true
+  attr :pref_mode, :atom, required: true
   attr :form, :map, required: true
   attr :tournament, :map, required: true
 
-  # First the tickbox; once ticked, "All rounds" or "Certain rounds", the
-  # rounds typed exactly like the absences above (same grammar, same parser,
-  # same look); and, every time it is on, the warning that this is not a
-  # FIDE rule - a stronger one on a FIDE-homologated tournament.
-  defp no_bye_fields(%{mode: :hidden} = assigns), do: ~H""
+  # ONE control for the pairing-allocated bye (`ByeChoice` says how its answer
+  # becomes the five stored fields). The two switches decide which choices are
+  # on the list: the exclusion's (never / not in certain rounds), the
+  # preferences' (rather not / rather gets it / must get it). A stored value
+  # whose switch is off keeps its place in the list (the call site passes
+  # "switch on, or stored"). On a FIDE-rated tournament the preferences are
+  # not offered and a stored one is shown as ignored, as before.
+  defp bye_control(%{no_bye_mode: :hidden, pref_mode: :hidden} = assigns), do: ~H""
 
-  defp no_bye_fields(%{mode: :not_swiss} = assigns) do
+  defp bye_control(assigns)
+       when assigns.no_bye_mode == :not_swiss or assigns.pref_mode == :not_swiss do
     ~H"""
-    <p id="player-no-bye-not-swiss" class="hint" style="grid-column: 1 / -1; margin: 0">
+    <p id="player-bye-not-swiss" class="hint" style="grid-column: 1 / -1; margin: 0">
       {gettext(
-        "Exclude from the pairing-allocated bye: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
+        "Pairing-allocated bye: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
       )}
     </p>
     """
   end
 
-  defp no_bye_fields(assigns) do
+  defp bye_control(assigns) do
+    ex? = assigns.no_bye_mode == :on
+    pref? = assigns.pref_mode == :on
+    current = ByeChoice.from_form(assigns.form, assigns.tournament.rounds_count)
+
+    # A stored preference on a FIDE-rated tournament is not a choice here.
+    choice =
+      if assigns.pref_mode == :fide_rated and current.choice in ByeChoice.preferences(),
+        do: "",
+        else: current.choice
+
     assigns =
       assigns
-      |> Phoenix.Component.assign(:on?, truthy?(assigns.form["no_bye"]))
+      |> Phoenix.Component.assign(:ex?, ex?)
+      |> Phoenix.Component.assign(:pref?, pref?)
+      |> Phoenix.Component.assign(:choice, choice)
+      |> Phoenix.Component.assign(:other, current.other)
+      |> Phoenix.Component.assign(:clash?, current.clash?)
       |> Phoenix.Component.assign(
         :scope,
-        if(assigns.form["no_bye_scope"] == "rounds", do: "rounds", else: "all")
+        if(assigns.form["bye_preference_scope"] == "rounds", do: "rounds", else: "all")
+      )
+      |> Phoenix.Component.assign(:options, bye_choice_options(ex?, pref?))
+      |> Phoenix.Component.assign(:other_options, bye_other_options(pref?, current.other))
+      |> Phoenix.Component.assign(
+        :shown_pref,
+        cond do
+          choice in ByeChoice.preferences() -> choice
+          choice == "rounds" and current.other in ByeChoice.preferences() -> current.other
+          true -> nil
+        end
       )
 
     ~H"""
-    <div id="player-no-bye" class="field" style="grid-column: 1 / -1">
-      <label class="check">
-        <input type="hidden" name="player[no_bye]" value="false" />
-        <input
-          type="checkbox"
-          id="player-no-bye-toggle"
-          name="player[no_bye]"
-          value="true"
-          checked={@on?}
-        /> {gettext("Exclude from the pairing-allocated bye")}
-      </label>
+    <div :if={@options != []} id="player-bye" class="field" style="grid-column: 1 / -1">
+      <.input
+        type="select"
+        id="player-bye-choice"
+        name="player[bye_choice]"
+        label={gettext("Pairing-allocated bye")}
+        value={@choice}
+        options={@options}
+        class="pe-select"
+      />
+      <p class="hint" id="player-bye-hint" style="margin: 4px 0 0">
+        {gettext(
+          "The bye the program gives to the odd player out when the field is uneven. Left on the FIDE rules, it goes to whoever they say."
+        )}
+      </p>
 
-      <div :if={@on?} class="radio-row" id="player-no-bye-scope">
+      <div
+        :if={@choice in ["avoid_soft", "want_soft", "want_hard"]}
+        class="radio-row"
+        id="player-bye-preference-scope"
+      >
         <label>
           <input
             type="radio"
-            id="player-no-bye-scope-all"
-            name="player[no_bye_scope]"
+            id="player-bye-preference-scope-all"
+            name="player[bye_preference_scope]"
             value="all"
             checked={@scope == "all"}
           /> {gettext("All rounds")}
@@ -2208,8 +2262,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         <label>
           <input
             type="radio"
-            id="player-no-bye-scope-rounds"
-            name="player[no_bye_scope]"
+            id="player-bye-preference-scope-rounds"
+            name="player[bye_preference_scope]"
             value="rounds"
             checked={@scope == "rounds"}
           /> {gettext("Certain rounds")}
@@ -2217,13 +2271,60 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
     </div>
 
-    <label :if={@on? and @scope == "rounds"} class="field" style="grid-column: span 2">
-      <span>{gettext("No pairing-allocated bye at the rounds (e.g. 3,5 or 2-4)")}</span>
-      <input id="player-no-bye-rounds" name="player[no_bye_rounds]" value={@form["no_bye_rounds"]} />
-    </label>
+    <div
+      :if={@options != [] and @clash?}
+      id="player-bye-clash-note"
+      class="pe-modal-warn"
+      role="note"
+      style="grid-column: 1 / -1"
+    >
+      {gettext(
+        "This player is stored as never getting the bye and also with a bye preference. The exclusion has always won; saving keeps it and drops the preference."
+      )}
+    </div>
 
     <div
-      :if={@on?}
+      :if={@choice == "rounds"}
+      class="field"
+      style="grid-column: 1 / -1; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))"
+    >
+      <.input
+        type="text"
+        id="player-no-bye-rounds"
+        name="player[no_bye_rounds]"
+        label={gettext("Not at the rounds (e.g. 3,5 or 2-4)")}
+        value={@form["no_bye_rounds"]}
+        class="pe-input"
+      />
+      <.input
+        :if={@other_options != []}
+        type="select"
+        id="player-bye-other"
+        name="player[bye_other]"
+        label={gettext("In the other rounds")}
+        value={@other}
+        options={@other_options}
+        class="pe-select"
+      />
+    </div>
+
+    <div
+      :if={@choice in ["avoid_soft", "want_soft", "want_hard"] and @scope == "rounds"}
+      class="field"
+      style="grid-column: span 2"
+    >
+      <.input
+        type="text"
+        id="player-bye-preference-rounds"
+        name="player[bye_preference_rounds]"
+        label={gettext("Bye preference at the rounds (e.g. 3,5 or 2-4)")}
+        value={@form["bye_preference_rounds"]}
+        class="pe-input"
+      />
+    </div>
+
+    <div
+      :if={@choice in ["never", "rounds"]}
       id="player-no-bye-warning"
       class="pe-modal-warn"
       role="note"
@@ -2238,7 +2339,100 @@ defmodule PairingsEngineWeb.PlayersLive do
         )}
       </p>
     </div>
+
+    <div
+      :if={@shown_pref}
+      id="player-bye-preference-warning"
+      class="pe-modal-warn"
+      role="note"
+      style="grid-column: 1 / -1"
+    >
+      <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
+        "A bye preference makes the Swiss pairings differ from what FIDE-endorsed programs produce in any round it changes, and a FIDE checker cannot replay that round. The round's explanation and the audit trail record it."
+      )}
+      <span id="player-bye-preference-meaning">
+        <%= case @shown_pref do %>
+          <% "want_hard" -> %>
+            {gettext(
+              "Must get it: whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - unless no legal pairing allows it; then the round is paired normally and the Pairings page says why."
+            )}
+          <% "want_soft" -> %>
+            {gettext(
+              "Rather gets it: decides the bye among the players on the score that gets it, at the cost of the quality criteria only. It never lifts the bye to a higher score and never makes the round unpairable."
+            )}
+          <% _avoid_soft -> %>
+            {gettext(
+              "Rather not: another player on the score that gets the bye takes it, if any can. It never lifts the bye to a higher score and never makes the round unpairable."
+            )}
+        <% end %>
+      </span>
+    </div>
+
+    <%= if @pref_mode == :fide_rated do %>
+      <p
+        :if={@form["bye_preference"] in [nil, ""]}
+        id="player-bye-preference-ignored"
+        class="hint"
+        style="grid-column: 1 / -1; margin: 0"
+      >
+        {gettext(
+          "Bye preference: not available - this tournament is FIDE-rated, and a preference is not a FIDE rule. \"Never\" and \"Not in certain rounds\" are the only ways to keep a player off the bye."
+        )}
+      </p>
+
+      <div
+        :if={@form["bye_preference"] not in [nil, ""]}
+        id="player-bye-preference-ignored"
+        class="pe-modal-warn"
+        role="note"
+        style="grid-column: 1 / -1"
+      >
+        <strong>{gettext("Bye preference ignored: this tournament is FIDE-rated.")}</strong> {gettext(
+          "This player's stored preference (%{what}) is not applied while the tournament is FIDE-rated, and cannot be changed here. It is kept, and applies again if the tournament stops being FIDE-rated.",
+          what: bye_preference_label(@form["bye_preference"])
+        )}
+      </div>
+    <% end %>
     """
+  end
+
+  # The choices on offer; `[]` when there is nothing to choose between.
+  defp bye_choice_options(ex?, pref?) do
+    fide = [{gettext("FIDE rules decide"), ""}]
+
+    ex =
+      if ex?,
+        do: [
+          {gettext("Never gets it"), "never"},
+          {gettext("Not in certain rounds"), "rounds"}
+        ],
+        else: []
+
+    prefs =
+      if pref?,
+        do: [
+          {gettext("Rather not"), "avoid_soft"},
+          {gettext("Rather gets it"), "want_soft"},
+          {gettext("Must get it, if a legal pairing allows"), "want_hard"}
+        ],
+        else: []
+
+    case ex ++ prefs do
+      [] -> []
+      more -> fide ++ more
+    end
+  end
+
+  # What the player prefers in the rounds the exclusion leaves.
+  defp bye_other_options(false, _other), do: []
+
+  defp bye_other_options(true, other) do
+    [
+      {gettext("FIDE rules decide"), ""},
+      {gettext("Rather not"), "avoid_soft"},
+      {gettext("Rather gets it"), "want_soft"},
+      {gettext("Must get it, if a legal pairing allows"), "want_hard"}
+    ] ++ if(other == "keep", do: [{gettext("As stored"), "keep"}], else: [])
   end
 
   ## ---------- Bye preferences (an organiser's wish, not FIDE's) ----------
@@ -2268,15 +2462,6 @@ defmodule PairingsEngineWeb.PlayersLive do
       tournament.fide_homologated -> :fide_rated
       true -> :on
     end
-  end
-
-  defp bye_preference_options do
-    [
-      {gettext("No preference (the FIDE rules decide)"), ""},
-      {gettext("Must get it, if a legal pairing allows"), "want_hard"},
-      {gettext("Rather gets it"), "want_soft"},
-      {gettext("Rather not"), "avoid_soft"}
-    ]
   end
 
   defp bye_preference_label("want_hard"), do: gettext("must get the pairing-allocated bye")
@@ -2312,136 +2497,6 @@ defmodule PairingsEngineWeb.PlayersLive do
     if tournament.fide_homologated,
       do: base <> " - " <> gettext("ignored: the tournament is FIDE-rated"),
       else: base
-  end
-
-  attr :mode, :atom, required: true
-  attr :form, :map, required: true
-  attr :tournament, :map, required: true
-
-  # The preference, then - unless it is none - "All rounds" or "Certain
-  # rounds" with the rounds typed like the absences, and the warning that it
-  # is not a FIDE rule, every time one is chosen.
-  defp bye_preference_fields(%{mode: :hidden} = assigns), do: ~H""
-
-  defp bye_preference_fields(%{mode: :not_swiss} = assigns) do
-    ~H"""
-    <p id="player-bye-preference-not-swiss" class="hint" style="grid-column: 1 / -1; margin: 0">
-      {gettext(
-        "Bye preference: only for an individual Swiss tournament - this one is a round robin, Keizer or team event."
-      )}
-    </p>
-    """
-  end
-
-  defp bye_preference_fields(%{mode: :fide_rated, form: %{"bye_preference" => pref}} = assigns)
-       when pref in [nil, ""] do
-    ~H"""
-    <p id="player-bye-preference-ignored" class="hint" style="grid-column: 1 / -1; margin: 0">
-      {gettext(
-        "Bye preference: not available - this tournament is FIDE-rated, and a preference is not a FIDE rule. The exclusion above is the only way to keep a player off the bye."
-      )}
-    </p>
-    """
-  end
-
-  defp bye_preference_fields(%{mode: :fide_rated} = assigns) do
-    ~H"""
-    <div
-      id="player-bye-preference-ignored"
-      class="pe-modal-warn"
-      role="note"
-      style="grid-column: 1 / -1"
-    >
-      <strong>{gettext("Bye preference ignored: this tournament is FIDE-rated.")}</strong> {gettext(
-        "This player's stored preference (%{what}) is not applied while the tournament is FIDE-rated, and cannot be changed here. It is kept, and applies again if the tournament stops being FIDE-rated.",
-        what: bye_preference_label(@form["bye_preference"])
-      )}
-    </div>
-    """
-  end
-
-  defp bye_preference_fields(assigns) do
-    assigns =
-      assigns
-      |> Phoenix.Component.assign(:on?, assigns.form["bye_preference"] not in [nil, ""])
-      |> Phoenix.Component.assign(
-        :scope,
-        if(assigns.form["bye_preference_scope"] == "rounds", do: "rounds", else: "all")
-      )
-
-    ~H"""
-    <div id="player-bye-preference" class="field" style="grid-column: 1 / -1">
-      <.input
-        type="select"
-        id="player-bye-preference-select"
-        name="player[bye_preference]"
-        label={gettext("Pairing-allocated bye preference")}
-        value={@form["bye_preference"] || ""}
-        options={bye_preference_options()}
-        class="pe-select"
-      />
-      <div :if={@on?} class="radio-row" id="player-bye-preference-scope">
-        <label>
-          <input
-            type="radio"
-            id="player-bye-preference-scope-all"
-            name="player[bye_preference_scope]"
-            value="all"
-            checked={@scope == "all"}
-          /> {gettext("All rounds")}
-        </label>
-
-        <label>
-          <input
-            type="radio"
-            id="player-bye-preference-scope-rounds"
-            name="player[bye_preference_scope]"
-            value="rounds"
-            checked={@scope == "rounds"}
-          /> {gettext("Certain rounds")}
-        </label>
-      </div>
-    </div>
-
-    <div :if={@on? and @scope == "rounds"} class="field" style="grid-column: span 2">
-      <.input
-        type="text"
-        id="player-bye-preference-rounds"
-        name="player[bye_preference_rounds]"
-        label={gettext("Bye preference at the rounds (e.g. 3,5 or 2-4)")}
-        value={@form["bye_preference_rounds"]}
-        class="pe-input"
-      />
-    </div>
-
-    <div
-      :if={@on?}
-      id="player-bye-preference-warning"
-      class="pe-modal-warn"
-      role="note"
-      style="grid-column: 1 / -1"
-    >
-      <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
-        "A bye preference makes the Swiss pairings differ from what FIDE-endorsed programs produce in any round it changes, and a FIDE checker cannot replay that round. The round's explanation and the audit trail record it."
-      )}
-      <span id="player-bye-preference-meaning">
-        <%= case @form["bye_preference"] do %>
-          <% "want_hard" -> %>
-            {gettext(
-              "Must get it: whenever the round has a pairing-allocated bye, this player gets it - even on a higher score - unless no legal pairing allows it; then the round is paired normally and the Pairings page says why."
-            )}
-          <% "want_soft" -> %>
-            {gettext(
-              "Rather gets it: decides the bye among the players on the score that gets it, at the cost of the quality criteria only. It never lifts the bye to a higher score and never makes the round unpairable."
-            )}
-          <% _avoid_soft -> %>
-            {gettext(
-              "Rather not: another player on the score that gets the bye takes it, if any can. It never lifts the bye to a higher score and never makes the round unpairable."
-            )}
-        <% end %>
-      </span>
-    </div>
-    """
   end
 
   # Picking a FIDE result also enriches the form with the matching KBSB row
@@ -2614,7 +2669,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # SWAR's own presence notation, which packs three facts into one cell:
   #
-  #     F           forfeited / withdrawn
+  #     F           withdrawn (the old Forfeit tick; the letter is SWAR's)
   #     A           absent for the WHOLE event (the `absent` boolean)
   #     A(1,2,3)    sitting out those rounds, and one of them is the round
   #                 now being paired - so absent RIGHT NOW
@@ -2678,7 +2733,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         gettext("Presence, %{name}: expelled", name: name)
 
       player.forfeit ->
-        gettext("Presence, %{name}: forfeited", name: name)
+        gettext("Presence, %{name}: withdrawn", name: name)
 
       player.absent ->
         gettext("Presence, %{name}: absent for the whole event", name: name)
@@ -4738,9 +4793,10 @@ defmodule PairingsEngineWeb.PlayersLive do
               )}
             </p>
           </div>
-          <.no_bye_fields mode={@no_bye_mode} form={@form} tournament={@tournament} />
-          <.bye_preference_fields
-            mode={bye_preference_mode(@tournament, @form, @bye_preferences?)}
+
+          <.bye_control
+            no_bye_mode={@no_bye_mode}
+            pref_mode={bye_preference_mode(@tournament, @form, @bye_preferences?)}
             form={@form}
             tournament={@tournament}
           />
@@ -4824,18 +4880,36 @@ defmodule PairingsEngineWeb.PlayersLive do
             </div>
           </div>
 
-          <div class="checkbox-row" style="grid-column: 1 / -1">
-            <label>
-              <input type="hidden" name="player[absent]" value="false" />
+          <%!-- The four ticks, in the order of how much they do. Expelled
+                outranks Withdrawn outranks Absent in the pairing and the
+                standings, so a tick that cannot matter is greyed out; the
+                value it holds is still sent back unchanged. --%>
+          <div class="status-ticks" id="player-status-ticks" style="grid-column: 1 / -1">
+            <label class="status-tick" id="player-absent-tick">
+              <input
+                type="hidden"
+                name="player[absent]"
+                value={tick_value(@form["absent"], status_out?(@form))}
+              />
               <input
                 type="checkbox"
                 name="player[absent]"
+                id="player-absent"
                 value="true"
                 checked={@form["absent"] in [true, "true"]}
-              /> {gettext("Absent")}
+                disabled={status_out?(@form)}
+              />
+              <span class="status-tick-text">
+                <strong>{gettext("Absent")}</strong>
+                <span class="status-tick-hint">
+                  {gettext(
+                    "Sits out every round, paired in none, until you untick it; each round scores as an absence. For single rounds use Absent at the rounds."
+                  )}
+                </span>
+              </span>
             </label>
 
-            <label>
+            <label class="status-tick" id="player-no-half-bye-tick">
               <input type="hidden" name="player[no_half_bye]" value="false" />
               <input
                 type="checkbox"
@@ -4843,10 +4917,42 @@ defmodule PairingsEngineWeb.PlayersLive do
                 id="player-no-half-bye"
                 value="true"
                 checked={@form["no_half_bye"] in [true, "true"]}
-              /> {gettext("Not eligible for half-point byes")}
+              />
+              <span class="status-tick-text">
+                <strong>{gettext("No half-point byes for this player")}</strong>
+                <span class="status-tick-hint">
+                  {gettext(
+                    "A half-point bye is refused for this player; a zero-point bye is offered instead. For a player with conditions or free entry."
+                  )}
+                </span>
+              </span>
             </label>
 
-            <label>
+            <label class="status-tick" id="player-withdrawn-tick">
+              <input
+                type="hidden"
+                name="player[forfeit]"
+                value={tick_value(@form["forfeit"], @form["status"] == "expelled")}
+              />
+              <input
+                type="checkbox"
+                name="player[forfeit]"
+                id="player-withdrawn"
+                value="true"
+                checked={@form["forfeit"] in [true, "true"]}
+                disabled={@form["status"] == "expelled"}
+              />
+              <span class="status-tick-text">
+                <strong>{gettext("Withdrawn from the tournament")}</strong>
+                <span class="status-tick-hint">
+                  {gettext(
+                    "No longer paired; stays in the standings with the points scored. (Formerly called Forfeit.)"
+                  )}
+                </span>
+              </span>
+            </label>
+
+            <label class="status-tick" id="player-expelled-tick">
               <input
                 type="hidden"
                 name="player[status]"
@@ -4860,17 +4966,13 @@ defmodule PairingsEngineWeb.PlayersLive do
                 id="player-expelled"
                 value="expelled"
                 checked={@form["status"] == "expelled"}
-              /> {gettext("Expelled")}
-            </label>
-
-            <label>
-              <input type="hidden" name="player[forfeit]" value="false" />
-              <input
-                type="checkbox"
-                name="player[forfeit]"
-                value="true"
-                checked={@form["forfeit"] in [true, "true"]}
-              /> {gettext("Forfeit")}
+              />
+              <span class="status-tick-text">
+                <strong>{gettext("Expelled by the arbiter")}</strong>
+                <span class="status-tick-hint">
+                  {gettext("No longer paired and left out of the standings.")}
+                </span>
+              </span>
             </label>
           </div>
         </div>

@@ -206,7 +206,7 @@ zin die zegt wat de letter in de cel betekent.
 
 | Cel | Betekenis |
 | --- | --- |
-| `F` | forfait / teruggetrokken |
+| `F` | teruggetrokken (vroeger forfait genoemd) |
 | `A` | afwezig voor het hele evenement |
 | `A(3,5)` | slaat die rondes over, en de ronde die op het punt staat gepaard te worden is er een van (nu afwezig) |
 | `a(3,5)` | heeft die rondes overgeslagen, maar is beschikbaar in de ronde die op het punt staat gepaard te worden |

@@ -4178,6 +4178,15 @@ a.pending-chip:hover {
 .checkbox-row { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
 .checkbox-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }
 .checkbox-row input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+/* The player dialog's status ticks: a box, a name and one line saying what it
+   does. Two columns where there is room, one on a phone. A tick that cannot
+   matter (an expelled player's Absent) is dimmed, not hidden. */
+.status-ticks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 20px; margin: 10px 0; }
+.status-tick { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.status-tick input[type="checkbox"] { width: auto; margin-top: 3px; accent-color: var(--accent); flex: none; }
+.status-tick-text { display: flex; flex-direction: column; gap: 2px; }
+.status-tick-hint { font-size: 12.5px; line-height: 1.4; color: var(--text-soft); font-weight: 400; }
+.status-tick:has(input[type="checkbox"]:disabled) { opacity: 0.5; cursor: default; }
 
 /* A `label.field` that wraps a checkbox: row-oriented (control + text on
    one line) instead of the .field default column. Replaces the per-call-

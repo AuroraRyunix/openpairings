@@ -537,7 +537,33 @@ defmodule PairingsEngine.Tournaments.Player do
           changeset
       end
 
-    validate_bye_settings_agree(changeset)
+    changeset
+    |> drop_redundant_avoid()
+    |> validate_bye_settings_agree()
+  end
+
+  # "Never gets it" and "rather not" together say one thing twice, and the
+  # engine already lets the stronger win (`Ainalrami.ByePreference`: a hard
+  # avoid beats any soft setting). The player dialog offers one choice and
+  # cannot produce the pair; for any other writer a save that touches either
+  # side keeps the exclusion and drops the redundant "rather not". A stored
+  # pair nobody touches is left exactly as it is, and still pairs as it did.
+  defp drop_redundant_avoid(changeset) do
+    touched? =
+      Enum.any?(
+        [:no_bye, :no_bye_rounds, :bye_preference, :bye_preference_rounds],
+        &changed?(changeset, &1)
+      )
+
+    if touched? and get_field(changeset, :no_bye) == true and
+         get_field(changeset, :no_bye_rounds) in [nil, ""] and
+         get_field(changeset, :bye_preference) == "avoid_soft" do
+      changeset
+      |> put_change(:bye_preference, "")
+      |> put_change(:bye_preference_rounds, "")
+    else
+      changeset
+    end
   end
 
   defp clear_bye_preference_rounds(changeset) do

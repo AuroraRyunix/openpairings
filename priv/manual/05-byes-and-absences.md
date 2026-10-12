@@ -10,8 +10,8 @@ in how the tie-breaks of C.07 treat it.
 | --- | --- | --- | --- |
 | **Pairing-allocated bye** | The program gives it, when the number of players to be paired is odd. | The *Pairing-allocated bye* value on the Scoring page (a win by default). | It is a board of the round with no opponent. |
 | **Absent for a round** | The arbiter marks the player absent for certain rounds, or for the whole event. | *Points for a round sat out* on the Scoring page (nothing by default). | Not paired in that round. |
-| **Withdrawn (forfeit)** | The arbiter marks the player as withdrawn (*Forfeit*). | Nothing: the player is not paid the absence value either, and in a round robin every game from then on is a forfeit loss. | Not paired in any later round. |
-| **Expelled** | The arbiter ticks **Expelled** in the registration form. | The player is not paired in any later round and is left out of the standings. The games already played stay: the opponents keep the points and tie-breaks those games gave them. | Not paired in any later round. |
+| **Withdrawn** | The arbiter ticks **Withdrawn from the tournament** (formerly called *Forfeit*). | Nothing: the player is not paid the absence value either, and in a round robin every game from then on is a forfeit loss. | Not paired in any later round. |
+| **Expelled** | The arbiter ticks **Expelled by the arbiter** in the registration form. | The player is not paired in any later round and is left out of the standings. The games already played stay: the opponents keep the points and tie-breaks those games gave them. | Not paired in any later round. |
 | **Forfeit win / loss of a game** | A pairing whose result is entered as a forfeit (1-0 FF, 0-1 FF, 0-0 FF). | A forfeit win scores the win, a forfeit loss the loss. | It is an ordinary pairing. |
 | **Full-point bye** | The arbiter gives it, from the *Not playing* list of a paired round, to a player who sits that round out; or picks it for a coming round when **Ask the bye type for each absence** is on. | What a win is worth. | Not paired; the player can no longer get the pairing-allocated bye. |
 | **Half-point or zero-point bye** | Arrives with an imported SWAR or TRF file, or from the hand-off of another copy; or is picked for a coming round when **Ask the bye type for each absence** is on. | A half-point bye is worth a draw; a zero-point bye nothing. | Not paired. |
@@ -23,15 +23,24 @@ Details of the scoring are in [Standings and tie-breaks](08-standings-and-tiebre
 The presence cell of a player (column *Pr.*) shows and sets presence, as
 explained in [Players and rating lists](04-players-and-ratings.md):
 
+- The four ticks of the registration form each carry a line saying what they
+  do. They are ranked: **Expelled by the arbiter** outranks **Withdrawn from the
+  tournament**, which outranks **Absent** (a player who is out for good is not also
+  "absent"). Ticking Expelled greys out Withdrawn and Absent, and ticking Withdrawn
+  greys out Absent; what they held is neither shown as changed nor rewritten, and
+  comes back if you untick. **Absent** is for the whole event, from now on, until you
+  untick it, and each round scores as an absence.
 - Open the cell's menu (right-click, or <kbd>Space</kbd> with the keyboard) to set
   the player **Absent** or **Present**; in the registration form the
   checkbox **Absent** means absent for the whole event and the field **Absent at
   the rounds** takes the rounds to sit out, written `3,5` or `2-4` (commas,
   semicolons, spaces and ranges are accepted).
-- **Forfeit** in the registration form withdraws the player. The standings
-  and the printed standings mark such a player *withdrawn* and keep the
-  points scored so far ([Standings and tie-breaks](08-standings-and-tiebreaks.md)).
-- **Expelled** in the registration form expels the player. The presence cell
+- **Withdrawn from the tournament** (formerly called *Forfeit*) in the
+  registration form withdraws the player: no longer paired, and the player
+  stays in the standings and the printed standings, marked *withdrawn*, with
+  the points scored so far ([Standings and tie-breaks](08-standings-and-tiebreaks.md)).
+  The presence cell shows `F`, the letter SWAR uses.
+- **Expelled by the arbiter** in the registration form expels the player. The presence cell
   shows `E`. An expelled player is not paired any more and does not appear in
   the standings. In a Keizer tournament the expelled player keeps a
   place on the ladder for the games already played against them, so a win
@@ -61,7 +70,8 @@ The program helps in two ways:
   (*The rules allow a player only one half-point bye in a tournament*) and
   the **Save** button asks *Save it anyway?* The save goes ahead only after you
   confirm.
-- The box **Not eligible for half-point byes** marks a player who may not
+- The box **No half-point byes for this player** (formerly *Not eligible for
+  half-point byes*) marks a player with conditions or free entry, who may not
   have one. While it is ticked, a half-point absence is refused for that
   player, and the box cannot be ticked for a player who already has one; the
   message names the rounds.
@@ -197,8 +207,24 @@ want to give it to a particular player.
 
 To use them turn on **Bye preferences**
 on the Features page (Account menu, *Features*, Belgian pack). The player's
-form then offers *Exclude from the pairing-allocated bye* and *Pairing-allocated
-bye preference*, each for all rounds or certain rounds:
+form then offers one control, **Pairing-allocated bye**, with one choice:
+
+- **FIDE rules decide** (the default);
+- **Never gets it** - the player is excluded from the bye in every round;
+- **Not in certain rounds** - excluded in the rounds you type, and, if you
+  like, a preference for **the other rounds** (the rounds of the tournament
+  that you did not name);
+- **Rather not**, **Rather gets it** and **Must get it, if a legal pairing
+  allows**, each for all rounds or certain rounds.
+
+Before this release the form had a tick *Exclude from the pairing-allocated
+bye* beside a select *Pairing-allocated bye preference*, which allowed
+contradictions; what was stored is read as the same choice. A player stored
+as never getting the bye *and* with a preference is shown as *Never gets it*,
+with a note, and saving the form drops the preference (the exclusion has always
+won). The choices are listed only when their switch is on; a stored value
+stays on the list. On a FIDE-homologated tournament the preferences are not
+offered and a stored one is shown as ignored.
 
 - **Must get it, if a legal pairing allows** - the player gets the bye
   whenever the round has one, provided the rest can still be paired legally
@@ -206,7 +232,7 @@ bye preference*, each for all rounds or certain rounds:
 - **Rather gets it** and **Rather not** - decide among the players on the
   score that gets the bye, never lifting it to another score.
 
-**Exclude from the pairing-allocated bye** means the player is treated as
+**Never gets it** and **Not in certain rounds** mean the player is treated as
 one who already had a bye: the engine never gives it to them. When no legal
 round can keep the bye away from every excluded player, the Pairings page says so and offers **Pair anyway,
 ignoring the exclusion for <name>**.

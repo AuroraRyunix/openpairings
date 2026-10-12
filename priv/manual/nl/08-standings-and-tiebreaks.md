@@ -203,7 +203,7 @@ vormen de laatste groep van de lijst.
   Buchholz-groep hierboven) worden niet gebruikt in een rondetoernooi (C.07 artikel
   8); de pagina meldt dat.
 - **Rondetoernooi, een speler die vroeg is teruggetrokken (C.05 6.6).** Een speler
-  van een individueel rondetoernooi die zich heeft teruggetrokken (**Forfait** op
+  van een individueel rondetoernooi die zich heeft teruggetrokken (**Teruggetrokken uit het toernooi** op
   het inschrijfformulier) of is uitgesloten na minder dan de helft van zijn
   partijen te hebben gespeeld (over het bord;
   forfaits en nog niet gespeelde uitgestelde partijen tellen niet mee), wordt uit de

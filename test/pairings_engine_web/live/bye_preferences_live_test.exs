@@ -68,12 +68,12 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       p = player(t, "Anna")
       lv = open_edit(conn, t, p)
 
-      assert has_element?(lv, "#player-bye-preference-select")
+      assert has_element?(lv, "#player-bye-choice")
       refute has_element?(lv, "#player-bye-preference-scope")
       refute has_element?(lv, "#player-bye-preference-warning")
 
       lv
-      |> form("#player-edit-form", %{"player" => %{"bye_preference" => "want_hard"}})
+      |> form("#player-edit-form", %{"player" => %{"bye_choice" => "want_hard"}})
       |> render_change()
 
       assert has_element?(lv, "#player-bye-preference-scope-all[checked]")
@@ -82,7 +82,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
 
       lv
       |> form("#player-edit-form", %{
-        "player" => %{"bye_preference" => "want_hard", "bye_preference_scope" => "rounds"}
+        "player" => %{"bye_choice" => "want_hard", "bye_preference_scope" => "rounds"}
       })
       |> render_change()
 
@@ -91,7 +91,7 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       lv
       |> form("#player-edit-form", %{
         "player" => %{
-          "bye_preference" => "want_hard",
+          "bye_choice" => "want_hard",
           "bye_preference_scope" => "rounds",
           "bye_preference_rounds" => "4-2"
         }
@@ -107,21 +107,31 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       assert Map.has_key?(row.details["changed_fields"], "bye_preference")
     end
 
-    test "wanting the bye while excluded from it is refused with a reason", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "the form cannot say never and want in one breath; the changeset still refuses it",
+         %{conn: conn, scope: scope} do
       t = tournament(scope)
       p = player(t, "Anna", %{"no_bye" => "true", "no_bye_scope" => "all"})
       lv = open_edit(conn, t, p)
 
-      html =
-        lv
-        |> form("#player-edit-form", %{"player" => %{"bye_preference" => "want_soft"}})
-        |> render_submit()
+      # One choice: picking "rather gets it" replaces the exclusion.
+      lv
+      |> form("#player-edit-form", %{"player" => %{"bye_choice" => "want_soft"}})
+      |> render_submit()
 
-      assert html =~ "cannot want the pairing-allocated bye while excluded from it"
-      assert Repo.reload!(p).bye_preference == ""
+      p = Repo.reload!(p)
+      assert p.bye_preference == "want_soft"
+      refute p.no_bye
+
+      # Any other writer still gets the reason.
+      {:error, cs} =
+        Tournaments.update_player(p, %{
+          "no_bye" => "true",
+          "no_bye_scope" => "all",
+          "bye_preference" => "want_soft"
+        })
+
+      assert {"cannot want the pairing-allocated bye while excluded from it" <> _, _} =
+               cs.errors[:bye_preference]
     end
 
     test "a FIDE-rated tournament says why it is not offered, and shows a stored one as ignored",
@@ -132,7 +142,8 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       t = tournament(scope, %{"fide_homologated" => "true"})
       plain = player(t, "Anna")
       lv = open_edit(conn, t, plain)
-      refute has_element?(lv, "#player-bye-preference-select")
+      refute has_element?(lv, "#player-bye-choice option[value=want_hard]")
+      assert has_element?(lv, "#player-bye-choice option[value=never]")
       # Switch on, so the note says why there is no control, never silence.
       assert has_element?(lv, "#player-bye-preference-ignored", "FIDE-rated")
 
@@ -141,9 +152,16 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       {:ok, t} = Tournaments.update_tournament(t, %{"fide_homologated" => "true"})
 
       lv = open_edit(conn, t, stored)
-      refute has_element?(lv, "#player-bye-preference-select")
+      refute has_element?(lv, "#player-bye-choice option[value=want_hard]")
       assert has_element?(lv, "#player-bye-preference-ignored")
       assert has_element?(lv, "#player-bye-preference-marker-#{stored.id}.pe-tag-muted")
+      assert Repo.reload!(stored).bye_preference == "want_hard"
+
+      # Saving the form, whatever else it changes, leaves the ignored one be.
+      lv
+      |> form("#player-edit-form", %{"player" => %{"bye_choice" => "", "name" => "Bert B"}})
+      |> render_submit()
+
       assert Repo.reload!(stored).bye_preference == "want_hard"
     end
 
@@ -170,13 +188,13 @@ defmodule PairingsEngineWeb.ByePreferencesLiveTest do
       t = tournament(scope)
       p = player(t, "Anna")
       lv = open_edit(conn, t, p)
-      refute has_element?(lv, "#player-bye-preference-select")
+      refute has_element?(lv, "#player-bye-choice")
       # One switch for both since 0.74.2: the exclusion is off with it.
-      refute has_element?(lv, "#player-no-bye-toggle")
+      refute has_element?(lv, "#player-bye-choice option[value=never]")
 
       stored = player(t, "Cleo", %{"bye_preference" => "avoid_soft"})
       lv = open_edit(conn, t, stored)
-      assert has_element?(lv, "#player-bye-preference-select")
+      assert has_element?(lv, "#player-bye-choice")
       assert has_element?(lv, "#player-bye-preference-marker-#{stored.id}")
     end
 

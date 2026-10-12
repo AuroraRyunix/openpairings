@@ -197,7 +197,7 @@ in the cell means.
 
 | Cell | Meaning |
 | --- | --- |
-| `F` | forfeited / withdrawn |
+| `F` | withdrawn (formerly called forfeit) |
 | `A` | absent for the whole event |
 | `A(3,5)` | sits out those rounds, and the round about to be paired is one of them (absent now) |
 | `a(3,5)` | has sat out those rounds, but is available in the round about to be paired |

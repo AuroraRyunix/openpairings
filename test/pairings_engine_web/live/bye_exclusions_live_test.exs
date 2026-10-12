@@ -50,7 +50,7 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
   describe "the player form, with the feature switched on" do
     setup [:register_and_log_in_user, :enable_federation_features]
 
-    test "a tickbox, then all or certain rounds, and the warning every time", %{
+    test "one choice: never, or certain rounds, and the warning every time", %{
       conn: conn,
       scope: scope
     } do
@@ -58,37 +58,38 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
       p = player(t, "Anna")
       lv = open_edit(conn, t, p)
 
-      assert has_element?(lv, "#player-no-bye-toggle")
-      refute has_element?(lv, "#player-no-bye-scope")
+      assert has_element?(lv, "#player-bye-choice")
+      assert has_element?(lv, "#player-bye-choice option[value=never]")
+      refute has_element?(lv, "#player-no-bye-rounds")
       refute has_element?(lv, "#player-no-bye-warning")
 
       lv
-      |> form("#player-edit-form", %{"player" => %{"no_bye" => "true"}})
+      |> form("#player-edit-form", %{"player" => %{"bye_choice" => "never"}})
       |> render_change()
 
-      assert has_element?(lv, "#player-no-bye-scope-all[checked]")
+      assert has_element?(lv, "#player-bye-choice option[value=never][selected]")
       assert has_element?(lv, "#player-no-bye-warning")
       refute has_element?(lv, "#player-no-bye-rounds")
       # Not FIDE-homologated: the general warning, not the stronger one.
       refute has_element?(lv, "#player-no-bye-fide-warning")
 
       lv
-      |> form("#player-edit-form", %{
-        "player" => %{"no_bye" => "true", "no_bye_scope" => "rounds"}
-      })
+      |> form("#player-edit-form", %{"player" => %{"bye_choice" => "rounds"}})
       |> render_change()
 
       assert has_element?(lv, "#player-no-bye-rounds")
+      assert has_element?(lv, "#player-bye-other")
 
       lv
       |> form("#player-edit-form", %{
-        "player" => %{"no_bye" => "true", "no_bye_scope" => "rounds", "no_bye_rounds" => "4-2"}
+        "player" => %{"bye_choice" => "rounds", "no_bye_rounds" => "4-2"}
       })
       |> render_submit()
 
       p = Repo.reload!(p)
       assert p.no_bye
       assert p.no_bye_rounds == "2,3,4"
+      assert p.bye_preference == ""
       assert has_element?(lv, "#player-no-bye-marker-#{p.id}")
 
       row = t.id |> Audit.list_for_tournament(action: "player.updated") |> List.first()
@@ -131,7 +132,7 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
       p = player(t, "Anna")
       lv = open_edit(conn, t, p)
 
-      refute has_element?(lv, "#player-no-bye")
+      refute has_element?(lv, "#player-bye")
     end
 
     test "but a stored exclusion stays visible and editable", %{conn: conn, scope: scope} do
@@ -140,7 +141,7 @@ defmodule PairingsEngineWeb.ByeExclusionsLiveTest do
       lv = open_edit(conn, t, p)
 
       assert has_element?(lv, "#player-no-bye-marker-#{p.id}")
-      assert has_element?(lv, "#player-no-bye-toggle")
+      assert has_element?(lv, "#player-bye-choice option[value=never][selected]")
     end
   end
 
