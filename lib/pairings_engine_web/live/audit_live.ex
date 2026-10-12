@@ -133,6 +133,7 @@ defmodule PairingsEngineWeb.AuditLive do
         openresults.live_boards
         boards.code_created boards.group_code_created boards.code_revoked
         boards.relay_key_saved boards.relay_key_cleared boards.box_connected
+        boards.relay_key_fetched boards.relay_key_refused boards.relay_key_replace
         openresults.taken_down
         openresults.auto_publish
         openresults.kept_withdrawn
@@ -1904,6 +1905,30 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("boards.relay_key_cleared", _d),
     do: gettext("Removed the results site's relay key.")
+
+  def describe("boards.relay_key_fetched", d) do
+    if truthy?(d["replaced"]),
+      do:
+        gettext(
+          "The results site handed out a new permission for the board box (relay key ending in %{hint}); the previous one no longer works.",
+          hint: d["hint"] || "?"
+        ),
+      else:
+        gettext(
+          "The results site handed out the board box's permission to send moves (relay key ending in %{hint}).",
+          hint: d["hint"] || "?"
+        )
+  end
+
+  def describe("boards.relay_key_refused", d),
+    do:
+      gettext(
+        "The results site did not hand out the board box's permission to send moves (%{reason}).",
+        reason: d["reason"] || "?"
+      )
+
+  def describe("boards.relay_key_replace", _d),
+    do: gettext("Asked the results site for a new permission for the board box.")
 
   def describe("boards.box_connected", d),
     do:

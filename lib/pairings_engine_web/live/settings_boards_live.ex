@@ -2,8 +2,15 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
   @moduledoc """
   Settings, Live boards (`/t/:id/settings/boards`): the connect codes for a
   hall box (`PairingsEngine.BoardLink`), what each box said the last time it
-  called, the relay key the box is handed for the results site, and the
-  games the boards have reported.
+  called, whether the box may send moves to the results site, and the games
+  the boards have reported.
+
+  The box's permission for the results site is fetched by this machine
+  (`PairingsEngine.BoardLink.RelayKeys`), so the card says where that stands
+  in words and has two buttons: "Try again" after a refusal and "Replace".
+  The words "relay key" are small print here on purpose - it is plumbing.
+  Pasting one is offered only where the results site said it cannot hand one
+  out.
 
   Anybody who may open the tournament may open the page; every button goes
   through `PairingsEngine.BoardLink`, which asks again who is pressing it and
@@ -18,6 +25,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, BoardLink, Mobile, TournamentGroups, Tournaments}
+  alias PairingsEngine.BoardLink.RelayKeys
   alias PairingsEngineWeb.BoardLinkAddress
 
   # Often enough that "connected" on this page is not a memory.
@@ -56,6 +64,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
       links: BoardLink.list_links(tournament),
       group: TournamentGroups.membership(tournament.id),
       target: BoardLink.openresults_target(tournament),
+      relay: RelayKeys.status(tournament),
       game_count: map_size(games),
       rounds: Tournaments.list_rounds(tournament.id),
       now: DateTime.utc_now()
@@ -84,7 +93,18 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     {:noreply, load(socket)}
   end
 
-  def handle_info({:board_link, _id}, socket), do: {:noreply, load(socket)}
+  # A code, a box - or the results site's answer about the box's permission,
+  # which lands in the tournament's own row: read it again.
+  def handle_info({:board_link, _id}, socket) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
+      nil -> {:noreply, socket}
+      tournament -> {:noreply, socket |> assign(tournament: tournament) |> load()}
+    end
+  end
+
   def handle_info({:board_game, _id, _game, :state}, socket), do: {:noreply, load(socket)}
   def handle_info(_message, socket), do: {:noreply, socket}
 
@@ -142,6 +162,24 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     end
   end
 
+  def handle_event("retry_relay_key", _params, socket) do
+    %{current_scope: user, tournament: tournament} = socket.assigns
+
+    case BoardLink.retry_relay_key(user, tournament) do
+      {:ok, tournament} -> {:noreply, socket |> assign(tournament: tournament) |> load()}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, refusal(reason))}
+    end
+  end
+
+  def handle_event("replace_relay_key", _params, socket) do
+    %{current_scope: user, tournament: tournament} = socket.assigns
+
+    case BoardLink.replace_relay_key(user, tournament) do
+      {:ok, tournament} -> {:noreply, socket |> assign(tournament: tournament) |> load()}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, refusal(reason))}
+    end
+  end
+
   def handle_event("clear_relay_key", _params, socket) do
     %{current_scope: user, tournament: tournament} = socket.assigns
 
@@ -167,7 +205,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
             enabled: on?
           })
 
-          {:noreply, assign(socket, tournament: tournament)}
+          {:noreply, socket |> assign(tournament: tournament) |> load()}
 
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, refusal(reason))}
@@ -192,6 +230,56 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     do: gettext("That does not look like a relay key: 16 to 200 characters, no spaces.")
 
   defp refusal(_other), do: gettext("Could not change this")
+
+  # Why the results site said no, in the arbiter's language. The site's own
+  # code is the fallback: a new one should read as a code, not as nothing.
+  defp relay_reason("unsupported"),
+    do: gettext("it is an older version that cannot do this by itself")
+
+  defp relay_reason("unauthorized"),
+    do: gettext("it does not accept the credentials this copy publishes with")
+
+  defp relay_reason("not_owner"),
+    do: gettext("it says this tournament belongs to another publisher")
+
+  defp relay_reason(code) when code in ~w(key_required key_mismatch),
+    do: gettext("it does not accept this tournament's publishing key")
+
+  defp relay_reason("installation_suspended"),
+    do: gettext("this copy's access to the results site is suspended")
+
+  defp relay_reason("installation_revoked"),
+    do: gettext("this copy's access to the results site has been withdrawn")
+
+  defp relay_reason("tournament_hidden"),
+    do: gettext("the operator of the results site has hidden this tournament")
+
+  defp relay_reason("address_blocked"),
+    do: gettext("requests from this address are blocked there")
+
+  defp relay_reason("relay_key_limit"),
+    do:
+      gettext(
+        "the tournament already holds as many as it may; the site's administrator can withdraw some"
+      )
+
+  defp relay_reason(code), do: gettext("it answered %{code}", code: code || "?")
+
+  # Why it has not arrived yet, or nil when there is nothing to say: the
+  # first try is under way.
+  defp relay_waiting("unreachable"),
+    do: gettext("The results site cannot be reached right now. This is tried again by itself.")
+
+  defp relay_waiting("tournament_not_published"),
+    do:
+      gettext(
+        "The results site does not show this tournament yet. This is tried again by itself once it does."
+      )
+
+  defp relay_waiting(nil), do: nil
+
+  defp relay_waiting(_busy),
+    do: gettext("The results site is busy or paused. This is tried again by itself.")
 
   @impl true
   def render(assigns) do
@@ -284,7 +372,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         <%= if @target do %>
           <p class="hint" style="margin-top: 0" id="boards-target">
             {gettext(
-              "The box sends the moves to %{server}, tournament %{slug}. It learns both over the link.",
+              "Connected to %{server} as %{slug}. The box sends the moves there and learns both over the link.",
               server: @target["server_url"],
               slug: @target["slug"]
             )}
@@ -306,70 +394,156 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
             </p>
           </div>
 
-          <h3 style="margin-top: 20px">{gettext("Relay key")}</h3>
+          <h3 style="margin-top: 20px">{gettext("May the box send moves there?")}</h3>
 
-          <p class="hint" style="margin-top: 0">
-            {gettext(
-              "The results site wants a relay key from a box. An administrator of the results site makes one for this tournament (Tournaments, the tournament, Relay keys); paste it here once and the box receives it over the link. It is kept on this machine, is not in an export, and is not shown again."
-            )}
-          </p>
+          <div id="boards-permission" data-state={@relay.state}>
+            <%= case @relay.state do %>
+              <% :held -> %>
+                <p id="relay-key-held" style="margin-top: 0">
+                  <.icon name="hero-check-circle" class="size-4" />
+                  {gettext("Yes. The box may send moves there.")}
+                </p>
 
-          <%= if @tournament.openresults_relay_key do %>
-            <p id="relay-key-saved">
-              <.icon name="hero-check-circle" class="size-4" />
-              {gettext("A relay key is saved (ends in %{hint}).",
-                hint: String.slice(@tournament.openresults_relay_key, -4, 4)
+                <p class="hint" id="relay-key-origin">
+                  <%= if @relay.origin == :fetched do %>
+                    {gettext(
+                      "This copy fetched the permission from the results site on %{date} (relay key ending in %{hint}) and hands it to the box over the link. Nothing to copy.",
+                      date: Calendar.strftime(@relay.at, "%d-%m-%Y %H:%M UTC"),
+                      hint: @relay.hint
+                    )}
+                  <% else %>
+                    {gettext(
+                      "With a relay key that was pasted here (ending in %{hint}). The box receives it over the link.",
+                      hint: @relay.hint
+                    )}
+                  <% end %>
+                </p>
+
+                <p :if={@relay.replacing?} class="hint" id="relay-key-replacing" role="status">
+                  {gettext(
+                    "Getting a new permission from the results site… The box keeps the old one until the new one is here."
+                  )}
+                </p>
+
+                <p :if={@relay.problem && !@relay.replacing?} class="hint" id="relay-key-problem">
+                  {gettext("The results site did not hand out a new one: %{reason}.",
+                    reason: relay_reason(@relay.problem)
+                  )}
+                </p>
+
+                <button
+                  :if={!@relay.replacing?}
+                  type="button"
+                  id="relay-key-replace"
+                  class="pe-btn"
+                  phx-click="replace_relay_key"
+                  data-confirm={
+                    gettext(
+                      "Replace the box's permission? The results site hands out a new one and stops accepting the old one. A box that is connected picks the new one up within seconds; one that is switched off picks it up when it is back."
+                    )
+                  }
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Replace the box's permission")}
+                </button>
+              <% :fetching -> %>
+                <p id="relay-key-fetching" style="margin-top: 0" role="status">
+                  <.icon name="hero-arrow-path" class="size-4" />
+                  {gettext("Getting permission from the results site…")}
+                </p>
+
+                <p :if={relay_waiting(@relay.reason)} class="hint" id="relay-key-waiting">
+                  {relay_waiting(@relay.reason)}
+                </p>
+
+                <p class="hint">
+                  {gettext(
+                    "Until it is here the box reads the boards and reports to this page, and sends nothing to the results site."
+                  )}
+                </p>
+              <% :refused -> %>
+                <p id="relay-key-refused" style="margin-top: 0" role="alert">
+                  <.icon name="hero-exclamation-triangle" class="size-4" />
+                  {gettext("Not yet. The results site did not give permission: %{reason}.",
+                    reason: relay_reason(@relay.reason)
+                  )}
+                </p>
+
+                <p class="hint">
+                  {gettext(
+                    "The box reads the boards and reports to this page, and sends nothing to the results site."
+                  )}
+                </p>
+
+                <button
+                  type="button"
+                  id="relay-key-retry"
+                  class="pe-btn"
+                  phx-click="retry_relay_key"
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Try again")}
+                </button>
+              <% _idle -> %>
+                <p class="hint" id="relay-key-idle" style="margin-top: 0">
+                  {gettext(
+                    "Not asked yet. This copy asks the results site for the box's permission by itself as soon as there is a connect code on this page, or the live link above is on. There is nothing to copy or paste."
+                  )}
+                </p>
+            <% end %>
+          </div>
+
+          <div :if={@relay.fallback?} id="relay-key-fallback" style="margin-top: 16px">
+            <p class="hint" style="margin-top: 0">
+              {gettext(
+                "This results site is an older version that cannot hand out the box's permission by itself. Until it is updated, ask its administrator for a relay key for this tournament (Tournaments, the tournament, Relay keys) and paste it here once; the box receives it over the link. It is kept on this machine, is not in an export, and is not shown again."
               )}
+            </p>
+
+            <.form
+              for={@relay_form}
+              id="relay-key-form"
+              phx-submit="save_relay_key"
+              class="group-inline-form"
+            >
+              <.input
+                field={@relay_form[:key]}
+                type="password"
+                label={gettext("Relay key")}
+                autocomplete="off"
+                placeholder="orrk_…"
+              />
               <button
-                type="button"
-                id="relay-key-clear"
-                class="pe-btn danger-link"
-                phx-click="clear_relay_key"
-                data-confirm={
-                  gettext(
-                    "Remove the relay key? The box stops receiving it, and can no longer send moves to the results site once it notices."
-                  )
-                }
+                type="submit"
+                class="pe-btn"
+                id="relay-key-save"
                 disabled={!is_nil(@tournament.archived_at)}
               >
-                {gettext("Remove")}
+                {gettext("Save")}
               </button>
-            </p>
-          <% else %>
-            <p class="hint" id="relay-key-missing">
-              {gettext(
-                "No relay key yet: the box will read the boards and report here, and send nothing to the results site."
-              )}
-            </p>
-          <% end %>
+            </.form>
 
-          <.form
-            for={@relay_form}
-            id="relay-key-form"
-            phx-submit="save_relay_key"
-            class="group-inline-form"
-          >
-            <.input
-              field={@relay_form[:key]}
-              type="password"
-              label={gettext("Relay key")}
-              autocomplete="off"
-              placeholder="orrk_…"
-            />
             <button
-              type="submit"
-              class="pe-btn"
-              id="relay-key-save"
+              :if={@relay.state == :held and @relay.origin == :pasted}
+              type="button"
+              id="relay-key-clear"
+              class="pe-btn danger-link"
+              phx-click="clear_relay_key"
+              data-confirm={
+                gettext(
+                  "Remove the relay key? The box stops receiving it, and can no longer send moves to the results site once it notices."
+                )
+              }
               disabled={!is_nil(@tournament.archived_at)}
             >
-              {gettext("Save")}
+              {gettext("Remove the pasted relay key")}
             </button>
-          </.form>
+          </div>
         <% else %>
           <p class="hint" style="margin-top: 0" id="boards-no-target">
             <.rich_text text={
               gettext(
-                "This tournament is not on a results site, so the box has nowhere to send the moves. It still reads the boards and reports here. Publishing is switched on under %[link]."
+                "Put the tournament on the results site first: Settings, %[link]. Until then the box has nowhere to send the moves; it still reads the boards and reports here. Once the tournament is there, this copy arranges the box's permission by itself."
               )
             }>
               <:part name="link">

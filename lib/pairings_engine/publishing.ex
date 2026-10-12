@@ -1858,6 +1858,9 @@ defmodule PairingsEngine.Publishing do
       |> Ecto.Changeset.change(
         publish_to_openresults: false,
         openresults_key: nil,
+        # The hall box's permission was for the page that is gone, and the
+        # results site deleted its half with the tournament.
+        openresults_relay_key: nil,
         openresults_group_sent: nil,
         public_slug_minted_at: nil,
         public_slug_server: nil,
@@ -1868,6 +1871,7 @@ defmodule PairingsEngine.Publishing do
     Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^tournament.id)
     # The server holds nothing now, so there is nothing to be identical to.
     Accepted.forget(tournament.id)
+    PairingsEngine.BoardLink.RelayKeys.forget(tournament.id)
     Tournaments.broadcast_tournament_change(updated.id, :settings)
 
     updated

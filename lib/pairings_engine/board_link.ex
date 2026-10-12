@@ -49,7 +49,7 @@ defmodule PairingsEngine.BoardLink do
 
   alias PairingsEngine.{Audit, Publishing, Repo, Results, TournamentGroups, Tournaments}
   alias PairingsEngine.Accounts.{Scope, User}
-  alias PairingsEngine.BoardLink.{Document, Game, Link}
+  alias PairingsEngine.BoardLink.{Document, Game, Link, RelayKeys}
   alias PairingsEngine.TournamentGroups.Member
   alias PairingsEngine.Tournaments.{Pairing, Round, Tournament}
 
@@ -90,6 +90,8 @@ defmodule PairingsEngine.BoardLink do
       {link, secret} = insert_link(scope, @tournament_prefix, tournament_id: tournament.id)
       Audit.log(tournament.id, scope, "boards.code_created", %{hint: link.secret_hint})
       notify(tournament.id)
+      # A box is coming: have its permission for the results site waiting.
+      Publishing.Drain.nudge()
       {:ok, link, secret}
     end
   end
@@ -113,6 +115,9 @@ defmodule PairingsEngine.BoardLink do
       })
 
       notify(tournament.id)
+      # For every member that is on the results site, not only this one -
+      # `RelayKeys.sweep/1` looks at them all.
+      Publishing.Drain.nudge()
       {:ok, link, secret}
     end
   end
@@ -272,6 +277,8 @@ defmodule PairingsEngine.BoardLink do
 
           notify(id)
         end
+
+        Publishing.Drain.nudge()
       end
 
       link
@@ -402,8 +409,36 @@ defmodule PairingsEngine.BoardLink do
   ## ---------- the relay key ----------
 
   @doc """
-  Stores the results site's relay key for `tournament` (nil or blank clears
-  it), to be handed to the box over the link. See the schema field.
+  "Try again", after the results site refused to hand out a key for
+  `tournament`'s box. See `PairingsEngine.BoardLink.RelayKeys`.
+  """
+  @spec retry_relay_key(Scope.t(), Tournament.t()) :: {:ok, Tournament.t()} | {:error, atom()}
+  def retry_relay_key(%Scope{} = scope, %Tournament{} = tournament) do
+    with {:ok, tournament} <- editable(scope, tournament) do
+      RelayKeys.ask_again(tournament)
+      {:ok, tournament}
+    end
+  end
+
+  @doc """
+  Asks the results site for a new key for `tournament`'s box. The site stops
+  accepting the old one the moment it hands out the new one; until then the
+  old one is kept, so a site that cannot be reached costs nothing.
+  """
+  @spec replace_relay_key(Scope.t(), Tournament.t()) :: {:ok, Tournament.t()} | {:error, atom()}
+  def replace_relay_key(%Scope{} = scope, %Tournament{} = tournament) do
+    with {:ok, tournament} <- editable(scope, tournament) do
+      Audit.log(tournament.id, scope, "boards.relay_key_replace", %{})
+      RelayKeys.ask_again(tournament, replace: true)
+      {:ok, tournament}
+    end
+  end
+
+  @doc """
+  Stores a relay key somebody pasted for `tournament` (nil or blank clears
+  it), to be handed to the box over the link. The fallback for a results
+  site that cannot hand one out by itself - see
+  `PairingsEngine.BoardLink.RelayKeys` for the normal way.
   """
   @spec set_relay_key(Scope.t(), Tournament.t(), String.t() | nil) ::
           {:ok, Tournament.t()} | {:error, atom()}
@@ -421,6 +456,7 @@ defmodule PairingsEngine.BoardLink do
         do: Audit.log(tournament.id, scope, "boards.relay_key_cleared", %{}),
         else: Audit.log(tournament.id, scope, "boards.relay_key_saved", %{})
 
+      RelayKeys.pasted(tournament.id)
       notify(tournament.id)
       {:ok, tournament}
     end
@@ -441,7 +477,7 @@ defmodule PairingsEngine.BoardLink do
   results site: `%{"server_url", "slug", "relay_key"}`. The address is the
   one spectators are given (`Publishing.public_base/0`), never the loopback
   one a server that hosts both uses for itself. `relay_key` is nil until one
-  has been saved.
+  has been fetched (`PairingsEngine.BoardLink.RelayKeys`) or pasted.
   """
   def openresults_target(%Tournament{} = tournament) do
     base = Publishing.public_base()
@@ -692,6 +728,10 @@ defmodule PairingsEngine.BoardLink do
   @doc "Subscribes the caller to `topic/1`."
   def subscribe(tournament_id),
     do: Phoenix.PubSub.subscribe(PairingsEngine.PubSub, topic(tournament_id))
+
+  @doc false
+  # For `PairingsEngine.BoardLink.RelayKeys`: a key arrived, or did not.
+  def announce(tournament_id), do: notify(tournament_id)
 
   # A code made or withdrawn, a relay key saved, a box seen for the first
   # time: the settings page and the Pairings page's column both care.

@@ -25,7 +25,7 @@ Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 | Onderdeel | Stand |
 | --- | --- |
 | De livepagina's: uitzending, Alle borden, beamerweergave, stukkensets, PGN, uitzendvertraging | gebouwd |
-| De ingestroute die de zetten en klokken van een bord ontvangt, en de relaissleutels | gebouwd |
+| De ingestroute die de zetten en klokken van een bord ontvangt, en de toestemming van het kastje om ze te gebruiken (door OpenPairings opgehaald, niets te kopiëren) | gebouwd |
 | De koppeling in OpenPairings: koppelcodes, wat het kastje te horen krijgt, wat het meldt, de bordkolom, bewaarde partijen en PGN | gebouwd |
 | De kant van Alnasl van de koppeling met OpenPairings | gebouwd, in Alnasl; met gesimuleerde borden doorlopen, nog niet in een zaal |
 | De koppeling van een desktopkopie naar een kastje op een andere machine | niet gebouwd, zie [Beperkingen](#limits) |
@@ -105,8 +105,9 @@ arbiter, die u niet kunt openen, gaat ook niet naar uw kastje.
 
 Wie het toernooi mag bewerken: de eigenaar en de arbiters met wie het gedeeld is.
 Niet op een gearchiveerd of overgedragen toernooi. Een code maken, een code
-intrekken, de relaissleutel bewaren of verwijderen, en de eerste keer dat een
-kastje een code gebruikt, staan allemaal in het auditlogboek.
+intrekken, de uitslagensite die de toestemming van het kastje uitgeeft of
+weigert, die toestemming vervangen, en de eerste keer dat een kastje een code
+gebruikt, staan allemaal in het auditlogboek.
 
 ### Wat het kastje te horen krijgt {#what-the-box-is-told}
 
@@ -130,22 +131,41 @@ een speler vervangen, een ronde opnieuw gepaard. Meldt het kastje nog een partij
 voor een paring die niet meer bestaat, of waarvan de spelers veranderd zijn, dan
 wordt de melding geweigerd en wordt er niets onder de verkeerde partij bewaard.
 
-### De relaissleutel {#the-relay-key-for-the-box}
+### De toestemming van het kastje voor de uitslagensite {#the-relay-key-for-the-box}
 
-Om zetten naar de uitslagensite te sturen heeft het kastje een relaissleutel nodig
-(zie [Relaissleutels](#relay-keys)). Een beheerder van de uitslagensite maakt er
-een voor het toernooi. Plak hem één keer in **Relaissleutel** op Instellingen,
-Live borden, en het kastje krijgt hem via de koppeling, samen met het adres van de
-uitslagensite en de openbare korte naam van het toernooi. Op het kastje hoeft
-niets getypt te worden.
+Om zetten naar de uitslagensite te sturen heeft het kastje de toestemming van
+die site nodig, voor dit ene toernooi. **OpenPairings regelt dat zelf.** Er is
+niemand om iets aan te vragen, niets te kopiëren en niets te plakken.
 
-De relaissleutel wordt op deze machine bewaard, zodat hij doorgegeven kan worden.
-Hij wordt na het bewaren niet opnieuw getoond (alleen zijn laatste vier tekens),
-en hij zit niet in een export. Het veld is er alleen zolang het toernooi
-gepubliceerd is.
+De kaart **De uitslagensite** op Instellingen, Live borden zegt hoe het ervoor
+staat:
 
-Zonder relaissleutel leest het kastje de borden nog wel en meldt het aan
+| De kaart zegt | Wat het betekent |
+| --- | --- |
+| *Zet het toernooi eerst op de uitslagensite* | Het toernooi is niet gepubliceerd, dus de zetten kunnen nergens heen. Instellingen, OpenResults. |
+| *Nog niet gevraagd.* | Het toernooi staat op de site en er is geen kastje in zicht. Niets te doen: er wordt gevraagd zodra er een koppelcode is of de Live-link aanstaat. |
+| *Toestemming wordt bij de uitslagensite opgehaald…* | Er wordt gevraagd. Meestal enkele seconden. Is de site niet bereikbaar, dan wordt het vanzelf opnieuw geprobeerd, en de kaart zegt dat. |
+| *Ja. Het kastje mag daar zetten naartoe sturen.* | Klaar. Het kastje krijgt de toestemming via de koppeling, met het adres van de site en de korte naam van het toernooi. Op het kastje wordt niets getypt. |
+| *Nog niet. De uitslagensite gaf geen toestemming: …* | De site zei nee, en de kaart zegt waarom. **Opnieuw proberen** vraagt meteen; er wordt ook vanzelf enkele keren per dag opnieuw gevraagd. |
+
+OpenPairings vraagt wanneer het toernooi op de uitslagensite staat en een van
+deze dingen waar is: een koppelcode bereikt het (zijn eigen code, of die van
+zijn groep), een kastje heeft een partij gemeld, of **Live-link op de
+uitslagensite** staat aan. De volgorde waarin u de dingen doet, maakt niet uit.
+Een code die gemaakt is voordat het toernooi gepubliceerd was, wordt bediend
+zodra de eerste publicatie is aangekomen.
+
+**De toestemming van het kastje vervangen** vraagt de uitslagensite om een
+nieuwe. De site aanvaardt de oude vanaf dat moment niet meer. Een verbonden
+kastje haalt de nieuwe binnen enkele seconden op; een kastje dat uitstaat,
+doet dat zodra het terug is. Gebruik dit wanneer een kastje zoek is of
+uitgeleend werd.
+
+Zonder de toestemming leest het kastje de borden nog wel en meldt het aan
 OpenPairings. Het stuurt niets naar de uitslagensite.
+
+Wat daarachter gebeurt, en het ene geval waarin een sleutel nog met de hand
+geplakt wordt, staat in [Relaissleutels](#relay-keys).
 
 ## De bordkolom {#the-board-column}
 
@@ -202,23 +222,52 @@ steeds geen zetten.
 
 ## Relaissleutels {#relay-keys}
 
-*Gebouwd.* Een relais is een kastje tussen mensen in een zaal,
-en het mag het hele toernooi niet kunnen herschrijven. Daarom krijgt elk relais een
-eigen sleutel. Een beheerder van de uitslagensite maakt een relaissleutel voor één
-toernooi, op de pagina Toernooien, het toernooi, Relaissleutels. De sleutel wordt
-één keer getoond en alleen als vingerafdruk bewaard. De pagina toont per sleutel
-wanneer ze voor het laatst gebruikt is, en een sleutel kan ingetrokken worden.
+*Gebouwd.* Dit deel is naslag. In het gewone verloop ziet u nooit een
+relaissleutel: zie [De toestemming van het kastje](#the-relay-key-for-the-box).
 
-De sleutel gaat via OpenPairings naar het kastje: zie
-[De relaissleutel](#the-relay-key-for-the-box).
+Een relais is een kastje tussen mensen in een zaal, en het mag het hele
+toernooi niet kunnen herschrijven. Daarom krijgt het kastje nooit waarmee
+OpenPairings publiceert. Het krijgt een **relaissleutel**: een sleutel die
+voor één toernooi werkt en alleen voor de liveroute. Ze kan niets publiceren,
+verwijderen of anders wijzigen, en heeft een eigen budget van 1200 verzoeken
+per minuut.
 
-Een relaissleutel werkt voor dat ene toernooi en alleen voor de liveroute. Ze kan
-niets publiceren, verwijderen of anders wijzigen. Ze heeft een eigen budget van
-1200 verzoeken per minuut. Een toernooi van de site halen verwijdert de
-relaissleutels ervan, en een overdracht naar een andere installatie trekt ze in.
+**Hoe het kastje er een krijgt.** OpenPairings vraagt de uitslagensite erom,
+met dezelfde gegevens waarmee het het toernooi publiceert, en de site geeft
+een relaissleutel aan precies die uitgever, alleen voor dat toernooi.
+OpenPairings bewaart ze op zijn eigen machine en geeft ze via de koppeling aan
+het kastje door. De uitslagensite bewaart alleen een vingerafdruk. De sleutel
+zit niet in een export, niet in een back-up die op een andere machine wordt
+teruggezet, en wordt nergens getoond: de instellingenpagina en het
+auditlogboek tonen haar laatste vier tekens.
 
-De route is `POST /api/tournaments/:slug/live`. Het volledige contract voor wie een
-relais schrijft, staat in `docs/live-boards-api.md` van OpenResults.
+**Opnieuw vragen vervangt.** Omdat de site alleen een vingerafdruk bewaart,
+kan ze dezelfde sleutel geen twee keer uitgeven. Telkens als OpenPairings
+vraagt, krijgt het een nieuwe sleutel en werkt de vorige niet meer. Dat is wat
+**De toestemming van het kastje vervangen** doet.
+
+**Wanneer het ophoudt.** Een toernooi van de uitslagensite halen verwijdert
+daar zijn relaissleutels, en OpenPairings gooit zijn kopie weg. Een overdracht
+naar een andere installatie trekt ze in, en dat gebeurt ook als de beheerder
+van de site de installatie intrekt. De beheerder van de uitslagensite ziet
+elke relaissleutel van een toernooi op de pagina Tournaments, het toernooi,
+Relay keys (wie ze maakte, wanneer, wanneer ze voor het laatst gebruikt is) en
+kan er daar elke van intrekken. Gebeurt dat, druk dan op **De toestemming van
+het kastje vervangen**.
+
+**Een oudere uitslagensite.** Een uitslagensite van voor dit alles kan geen
+relaissleutel uitgeven. De kaart zegt dan *Nog niet. De uitslagensite gaf geen
+toestemming: het is een oudere versie die dit niet zelf kan*, en toont alleen
+dan een veld **Relaissleutel**. Vraag de beheerder van die uitslagensite om
+een sleutel voor het toernooi te maken (Tournaments, het toernooi, Relay keys)
+en plak ze één keer. Het kastje krijgt ze zoals gewoonlijk via de koppeling.
+Is de site bijgewerkt, dan haalt **Opnieuw proberen** er een op de gewone
+manier.
+
+De route waar het kastje naar post is `POST /api/tournaments/:slug/live`, en
+die waarop OpenPairings vraagt `POST /api/tournaments/:slug/relay-keys`. Het
+volledige contract van beide staat in `docs/live-boards-api.md` van
+OpenResults.
 
 ## Toeschouwerspagina's {#spectator-pages}
 
@@ -357,8 +406,9 @@ auditlogboek.
   en er partijen voor melden. Hij kan geen uitslag invoeren, geen paring wijzigen en niets
   anders lezen. Trek een code in die u niet meer gebruikt.
 - **Wat meereist in een export.** De partijen die de borden meldden, zitten in de
-  JSON-export en in een herstelpunt. De koppelcodes en de relaissleutel niet: een kopie op
-  een andere machine maakt haar eigen.
+  JSON-export en in een herstelpunt. De koppelcodes en de toestemming van het kastje voor de
+  uitslagensite (de relaissleutel) niet: een kopie op een andere machine maakt
+  haar eigen codes en haalt haar eigen toestemming op.
 - **Alleen gepubliceerde partijen worden op de uitslagensite getoond.** Een partij op een
   bord dat niet in de gepubliceerde momentopname staat, wordt bewaard maar niet getoond, tot
   de arbiter die ronde publiceert.

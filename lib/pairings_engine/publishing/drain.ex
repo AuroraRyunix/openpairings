@@ -49,6 +49,14 @@ defmodule PairingsEngine.Publishing.Drain do
   publish already went out and was sent+deleted long before the delay
   elapsed, and nothing else was going to ask again.
 
+  ## The hall box's permission
+
+  Each pass also runs `PairingsEngine.BoardLink.RelayKeys.sweep/1`, which
+  asks the results site for the relay key of every tournament that wants one
+  and has none. It lives here because it needs exactly what this process
+  already is: something off every request path that comes back by itself
+  when the network does.
+
   ## Failures are not this process's business
 
   `drain/0` never raises, and a publish that fails is an ordinary outcome
@@ -191,6 +199,11 @@ defmodule PairingsEngine.Publishing.Drain do
 
   defp run do
     {sent, failed} = Publishing.drain()
+
+    # After the publishes, in the same pass: a tournament that has just
+    # reached the results site can be asked for its hall box's permission
+    # right away. Never raises, and its failures are its own business.
+    PairingsEngine.BoardLink.RelayKeys.sweep()
 
     if sent > 0 or failed > 0 do
       Logger.info("OpenResults publish: #{sent} sent, #{failed} failed")

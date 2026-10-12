@@ -25,7 +25,7 @@ moves and clocks for the spectators.
 | Part | Status |
 | --- | --- |
 | The live pages: broadcast, All boards, projector view, piece sets, PGN, broadcast delay | built |
-| The ingest route that takes a board's moves and clocks, and the relay keys | built |
+| The ingest route that takes a board's moves and clocks, and the box's permission to use it (fetched by OpenPairings, nothing to copy) | built |
 | The link in OpenPairings: connect codes, what the box is told, what it reports, the board column, stored games and PGN | built |
 | Alnasl's side of the link with OpenPairings | built, in Alnasl; run with simulated boards, not yet in a hall |
 | The link from a desktop copy to a box on another machine | not built, see [Limits](#limits) |
@@ -104,8 +104,8 @@ cannot open, is not handed to your box either.
 
 Whoever may edit the tournament: its owner and the arbiters it is shared with.
 Not on an archived or handed-off tournament. Making a code, withdrawing one,
-saving or removing the relay key, and the first time a box uses a code are all
-in the audit trail.
+the results site handing out or refusing the box's permission, replacing it, and
+the first time a box uses a code are all in the audit trail.
 
 ### What the box is told {#what-the-box-is-told}
 
@@ -128,21 +128,38 @@ replaced, a round paired again. If the box still reports a game for a pairing
 that no longer exists, or whose players changed, the report is refused and
 nothing is stored under the wrong game.
 
-### The relay key {#the-relay-key-for-the-box}
+### The box's permission for the results site {#the-relay-key-for-the-box}
 
-To send moves to the results site the box needs a relay key (see
-[Relay keys](#relay-keys)). An administrator of the results site makes one for
-the tournament. Paste it once into **Relay key** on Settings, Live boards, and
-the box receives it over the link, together with the address of the results
-site and the tournament's public short name. Nothing has to be typed on the
-box.
+To send moves to the results site the box needs that site's permission, for
+this one tournament. **OpenPairings arranges it by itself.** There is nothing
+to ask anybody for, nothing to copy and nothing to paste.
 
-The relay key is kept on this machine so that it can be handed on. It is not
-shown again once saved (only its last four characters), and it is not in an
-export. The field is there only while the tournament is published.
+The card **The results site** on Settings, Live boards says where it stands:
 
-Without a relay key the box still reads the boards and reports to OpenPairings.
-It sends nothing to the results site.
+| The card says | What it means |
+| --- | --- |
+| *Put the tournament on the results site first* | The tournament is not published, so there is nowhere to send moves. Settings, OpenResults. |
+| *Not asked yet.* | The tournament is on the site and no box is in sight. Nothing to do: it is asked as soon as there is a connect code or the live link is on. |
+| *Getting permission from the results site…* | Being asked. Usually a few seconds. If the site cannot be reached it is tried again by itself, and the card says so. |
+| *Yes. The box may send moves there.* | Done. The box receives the permission over the link, with the site's address and the tournament's short name. Nothing is typed on the box. |
+| *Not yet. The results site did not give permission: …* | The site said no, and the card says why. **Try again** asks at once; it is also asked again by itself a few times a day. |
+
+OpenPairings asks when the tournament is on the results site and one of these
+is true: a connect code reaches it (its own, or its group's), a box has
+reported a game, or **Live link on the results site** is on. It does not matter
+in which order you do things. A code made before the tournament was published
+is served as soon as the first publish has arrived.
+
+**Replace the box's permission** asks the results site for a new one. The site
+stops accepting the old one at that moment. A connected box picks the new one
+up within seconds; a box that is switched off picks it up when it is back. Use
+it when a box is lost or lent out.
+
+Without the permission the box still reads the boards and reports to
+OpenPairings. It sends nothing to the results site.
+
+What happens behind this, and the one case where a key is still pasted by
+hand, is in [Relay keys](#relay-keys).
 
 ## The board column {#the-board-column}
 
@@ -198,23 +215,47 @@ carries no moves.
 
 ## Relay keys {#relay-keys}
 
-*Built.* A relay is a box in a room full of people,
-and it must not be able to rewrite the whole tournament. So each relay gets its
-own key. An administrator of the results site makes a relay key for one
-tournament, on the page Tournaments, the tournament, Relay keys. The key is
-shown once and kept only as a fingerprint. The page lists each key with the
-time it was last used, and a key can be revoked.
+*Built.* This section is reference. In the normal flow you never see a relay
+key: see [The box's permission](#the-relay-key-for-the-box).
 
-The key is given to the box through OpenPairings: see
-[The relay key](#the-relay-key-for-the-box).
+A relay is a box in a room full of people, and it must not be able to rewrite
+the whole tournament. So the box is never given what OpenPairings publishes
+with. It gets a **relay key**: a credential that works for one tournament and
+for the live route only. It cannot publish, delete, or change anything else,
+and it has its own budget of 1200 requests a minute.
 
-A relay key works for that one tournament and for the live route only. It
-cannot publish, delete, or change anything else. It has its own budget of 1200
-requests a minute. Taking a tournament down removes its relay keys, and a
-transfer to another installation revokes them.
+**How the box gets one.** OpenPairings asks the results site, with the same
+credentials it publishes the tournament with, and the site hands a relay key
+to exactly that publisher, for that tournament only. OpenPairings keeps it on
+its own machine and hands it to the box over the link. The results site keeps
+only a fingerprint. The key is not in an export, not in a restore of another
+machine's backup, and not shown anywhere: the settings page and the audit
+trail show its last four characters.
 
-The route is `POST /api/tournaments/:slug/live`. Its full contract, for whoever
-writes a relay, is in OpenResults' `docs/live-boards-api.md`.
+**Asking again replaces.** Because the site keeps only a fingerprint, it
+cannot hand the same key out twice. Each time OpenPairings asks, it gets a new
+key and the previous one stops working. That is what **Replace the box's
+permission** does.
+
+**When it ends.** Taking the tournament down from the results site removes its
+relay keys there, and OpenPairings drops its copy. A transfer to another
+installation revokes them, and so does the site's administrator revoking the
+installation. The administrator of the results site sees every relay key of a
+tournament on the page Tournaments, the tournament, Relay keys (who made it,
+when, when it was last used) and can revoke any of them there. If that
+happens, press **Replace the box's permission**.
+
+**An older results site.** A results site from before this cannot hand out a
+relay key. The card then says *Not yet. The results site did not give
+permission: it is an older version that cannot do this by itself*, and only
+then shows a field **Relay key**. Ask the administrator of that results site
+to make a key for the tournament (Tournaments, the tournament, Relay keys) and
+paste it once. The box receives it over the link as usual. Once the site is
+updated, **Try again** fetches one the normal way.
+
+The route the box posts to is `POST /api/tournaments/:slug/live`, and the one
+OpenPairings asks on is `POST /api/tournaments/:slug/relay-keys`. The full
+contract of both is in OpenResults' `docs/live-boards-api.md`.
 
 ## Spectator pages {#spectator-pages}
 
@@ -355,8 +396,9 @@ is in a JSON backup and is written to the audit log.
   and report games for it. It cannot enter a result, change a pairing or read
   anything else. Withdraw a code you no longer use.
 - **What travels in an export.** The games the boards reported are in the JSON
-  export and in a restore point. The connect codes and the relay key are not: a
-  copy on another machine makes its own.
+  export and in a restore point. The connect codes and the box's permission for the
+  results site (the relay key) are not: a copy on another machine makes its own
+  codes and fetches its own permission.
 - **Only published games are shown on the results site.** A game on a board
   that is not in the published snapshot is stored but not shown, until the
   arbiter publishes that round.

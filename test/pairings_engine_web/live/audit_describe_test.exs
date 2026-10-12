@@ -695,6 +695,12 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     ],
     "boards.relay_key_saved" => [%{}],
     "boards.relay_key_cleared" => [%{}],
+    "boards.relay_key_fetched" => [
+      %{"hint" => "x9Qa", "replaced" => false},
+      %{"hint" => "x9Qa", "replaced" => true}
+    ],
+    "boards.relay_key_refused" => [%{"reason" => "not_owner"}],
+    "boards.relay_key_replace" => [%{}],
     "boards.box_connected" => [%{"box" => "Zaal A", "version" => "0.4.0", "hint" => "x7Qa"}],
     "openresults.taken_down" => [%{"slug" => "k3v9x2"}],
     "openresults.kept_withdrawn" => [
