@@ -196,6 +196,7 @@ defmodule PairingsEngineWeb.AdminLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_scope={@current_scope}
       current_path={assigns[:current_path]}
@@ -220,6 +221,7 @@ defmodule PairingsEngineWeb.AdminLive do
 
       <div class="set-card">
         <h2>{gettext("Who may administer this installation")}</h2>
+
         <p class="hint">
           {gettext(
             "An administrator can change where this machine publishes, download a backup, and update the rating lists. Support can see those things without changing them."
@@ -230,10 +232,13 @@ defmodule PairingsEngineWeb.AdminLive do
           <thead>
             <tr>
               <th>{gettext("Account")}</th>
+
               <th>{gettext("Role")}</th>
+
               <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={user <- @users}>
               <td>
@@ -241,11 +246,14 @@ defmodule PairingsEngineWeb.AdminLive do
                 <span :if={user.id == @current_scope.user.id} class="hint">
                   {gettext("(you)")}
                 </span>
+
                 <span :if={declared?(assigns, user)} class="hint">
                   {gettext("(set in the server configuration)")}
                 </span>
               </td>
+
               <td>{role_label(user)}</td>
+
               <td class="num">
                 <div :if={editable?(assigns, user)} class="actions">
                   <button
@@ -274,12 +282,14 @@ defmodule PairingsEngineWeb.AdminLive do
 
       <div :if={@pending} class="set-card" style="border-color: var(--warn)">
         <h2>{gettext("Change this role?")}</h2>
+
         <p>
           {gettext("%{email} becomes %{role}.",
             email: @pending.user.email,
             role: role_label(@pending.role)
           )}
         </p>
+
         <div class="actions">
           <button type="button" class="pe-btn primary" phx-click="confirm">
             {gettext("Change the role")}
@@ -290,18 +300,25 @@ defmodule PairingsEngineWeb.AdminLive do
 
       <div class="set-card">
         <h2>{gettext("This installation")}</h2>
+
         <dl class="pe-facts">
           <dt>{gettext("Version")}</dt>
+
           <dd>v{Application.spec(:pairings_engine, :vsn)}</dd>
+
           <dt>{gettext("Running as")}</dt>
+
           <dd>
             {if Authz.local_mode?(),
               do: gettext("a local install (no accounts, no roles needed)"),
               else: gettext("a hosted server")}
           </dd>
+
           <dt>{gettext("Database")}</dt>
+
           <dd>{database_size()}</dd>
         </dl>
+
         <p class="hint">
           {gettext("Backups, publishing and the rating lists are on the Connections page.")}
         </p>
@@ -311,6 +328,7 @@ defmodule PairingsEngineWeb.AdminLive do
             {gettext("Check for updates now")}
           </button>
         </div>
+
         <p :if={Authz.local_mode?() and @update_check} class="hint" role="status">
           {update_check_result(@update_check)}
         </p>
@@ -318,6 +336,7 @@ defmodule PairingsEngineWeb.AdminLive do
 
       <div class="set-card">
         <h2>{gettext("Recent activity")}</h2>
+
         <p class="hint">
           {gettext(
             "The most recent machine-wide actions: role changes, backup downloads, publishing changes and rating-list syncs."
@@ -329,10 +348,13 @@ defmodule PairingsEngineWeb.AdminLive do
             <thead>
               <tr>
                 <th style="width: 150px">{gettext("When")}</th>
+
                 <th style="width: 220px">{gettext("Who")}</th>
+
                 <th>{gettext("What")}</th>
               </tr>
             </thead>
+
             <tbody>
               <tr :if={@recent_activity == []}>
                 <td colspan="3">
@@ -344,7 +366,9 @@ defmodule PairingsEngineWeb.AdminLive do
 
               <tr :for={entry <- @recent_activity}>
                 <td style="white-space: nowrap">{AuditLive.format_time(entry.inserted_at)}</td>
+
                 <td title={AuditLive.actor_title(entry)}>{AuditLive.actor(entry)}</td>
+
                 <td>{AuditLive.describe(entry)}</td>
               </tr>
             </tbody>

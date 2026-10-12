@@ -281,6 +281,9 @@ defmodule PairingsEngine.Fide.Sync do
 
   defp broadcast(state) do
     Phoenix.PubSub.broadcast(PairingsEngine.PubSub, @topic, {:fide_sync, state})
+    # The download banner listens on its own topic, so a page that already
+    # follows `@topic` is not told everything twice.
+    PairingsEngine.Fide.AutoSync.notify()
     state
   end
 

@@ -350,6 +350,7 @@ defmodule PairingsEngineWeb.MatchLive do
     ~H"""
     <section id="lineup-checks" class="card" aria-live="polite">
       <h2>{gettext("Line-up checks")}</h2>
+
       <p class="hint">
         <%= if @draft? do %>
           {gettext(
@@ -361,9 +362,11 @@ defmodule PairingsEngineWeb.MatchLive do
           )}
         <% end %>
       </p>
+
       <p :if={@findings == []} id="lineup-checks-clear" class="ok-note">
         {gettext("No problems found in these line-ups.")}
       </p>
+
       <ul :if={@findings != []} id="lineup-findings" class="lineup-findings">
         <li
           :for={{finding, i} <- Enum.with_index(@findings)}
@@ -373,6 +376,7 @@ defmodule PairingsEngineWeb.MatchLive do
           <span class="lineup-finding-tag">
             {if finding.severity == :violation, do: gettext("Violation"), else: gettext("Warning")}
           </span>
+
           <span class="lineup-finding-where">
             {finding_where(finding, @team_a, @team_b)}
           </span>
@@ -408,6 +412,7 @@ defmodule PairingsEngineWeb.MatchLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -417,6 +422,7 @@ defmodule PairingsEngineWeb.MatchLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p :if={@match} class="subtitle" style="margin: 0">
             {gettext("Round %{round}, match %{match}: %{a} - %{b}",
               round: @round_number,
@@ -426,6 +432,7 @@ defmodule PairingsEngineWeb.MatchLive do
             )}
           </p>
         </div>
+
         <.link
           navigate={
             if @round_number,
@@ -439,10 +446,12 @@ defmodule PairingsEngineWeb.MatchLive do
       </div>
 
       <p role="status" aria-live="polite" class={@note && "ok-note"}>{@note}</p>
+
       <p :if={@error} id="match-error" role="alert" class="error-note">{@error}</p>
 
       <div :if={is_nil(@match)} class="card">
         <h2>{gettext("Match not found")}</h2>
+
         <p class="hint">{gettext("This round has no such match.")}</p>
       </div>
 
@@ -453,6 +462,7 @@ defmodule PairingsEngineWeb.MatchLive do
           class="card"
         >
           <h2>{gettext("Home and away")}</h2>
+
           <p class="hint">
             {gettext(
               "%{home} is the home team and has White on the odd boards; %{away} has White on the even boards.",
@@ -460,6 +470,7 @@ defmodule PairingsEngineWeb.MatchLive do
               away: team_name(@match.team_b)
             )}
           </p>
+
           <button
             :if={@open? and @writable?}
             id="swap-home"
@@ -478,6 +489,7 @@ defmodule PairingsEngineWeb.MatchLive do
 
         <div :if={@optional?} id="match-score" class="card">
           <h2>{gettext("Match score")}</h2>
+
           <%= if TeamMatches.match_score?(@match) do %>
             <p id="match-score-set">
               {gettext("Decided by its score: %{a} %{score_a} - %{score_b} %{b}",
@@ -487,11 +499,13 @@ defmodule PairingsEngineWeb.MatchLive do
                 score_b: format_score(@match.match_score_b)
               )}
             </p>
+
             <p class="hint">
               {gettext(
                 "Its boards carry the score as results - the winning team's wins on the top boards, the rest drawn - with no player on them, so no game goes to the rating report."
               )}
             </p>
+
             <button
               :if={@writable?}
               id="clear-match-score"
@@ -508,6 +522,7 @@ defmodule PairingsEngineWeb.MatchLive do
                 "Only the result of the match is known? Enter it here, in boards (2.5 and 1.5 for 2½-1½). It is written onto the boards, which need no players. A match with players on its boards takes each board's result on the Pairings page instead."
               )}
             </p>
+
             <.form
               :if={@open? and @unseated? and @writable?}
               for={@score_form}
@@ -535,9 +550,11 @@ defmodule PairingsEngineWeb.MatchLive do
                 {gettext("Save match score")}
               </button>
             </.form>
+
             <p :if={!@unseated?} id="match-score-seated" class="hint">
               {gettext("Players sit at this match's boards, so its result goes on each board.")}
             </p>
+
             <p :if={@unseated? and !@open?} class="hint">
               {gettext("This match already has a result.")}
             </p>
@@ -546,16 +563,19 @@ defmodule PairingsEngineWeb.MatchLive do
 
         <div class="card">
           <h2>{gettext("Line-ups")}</h2>
+
           <p :if={!@optional?} class="hint">
             {gettext(
               "Who plays on which board. Each team plays in its roster's board order: players can be left out, and the players below them move up, but nobody plays above a player listed higher. A team short of players leaves its bottom boards empty, and the other team wins them by forfeit."
             )}
           </p>
+
           <p :if={@optional?} id="lineups-optional-hint" class="hint">
             {gettext(
               "Line-ups are optional in this tournament: a board may stay empty, and its result is entered on the Pairings page all the same. Players who are entered keep their roster's board order."
             )}
           </p>
+
           <p :if={!@open?} id="lineups-closed" class="hint">
             {gettext("This match has a result, so its line-ups can no longer change.")}
           </p>
@@ -563,13 +583,17 @@ defmodule PairingsEngineWeb.MatchLive do
           <.form for={@form} id="lineup-form" phx-submit="save_lineups" phx-change="check_lineups">
             <table class="pe-table">
               <caption class="sr-only">{gettext("Line-ups by board")}</caption>
+
               <thead>
                 <tr>
                   <th scope="col" class="num">{gettext("Board")}</th>
+
                   <th scope="col">{team_name(@match.team_a)}</th>
+
                   <th scope="col">{team_name(@match.team_b)}</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr :for={k <- 1..max(@tournament.team_boards || 1, 1)} id={"lineup-board-#{k}"}>
                   <td class="num">
@@ -581,6 +605,7 @@ defmodule PairingsEngineWeb.MatchLive do
                       )})
                     </span>
                   </td>
+
                   <td>
                     <.input
                       type="select"
@@ -597,6 +622,7 @@ defmodule PairingsEngineWeb.MatchLive do
                       }
                     />
                   </td>
+
                   <td>
                     <.input
                       type="select"
@@ -616,10 +642,12 @@ defmodule PairingsEngineWeb.MatchLive do
                 </tr>
               </tbody>
             </table>
+
             <div :if={@open? and @writable?} class="actions">
               <button type="submit" class="pe-btn primary" id="save-lineups">
                 {gettext("Save line-ups")}
               </button>
+
               <button
                 type="button"
                 class="pe-btn"

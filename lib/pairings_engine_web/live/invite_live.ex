@@ -110,6 +110,7 @@ defmodule PairingsEngineWeb.InviteLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -119,14 +120,17 @@ defmodule PairingsEngineWeb.InviteLive do
           <%= cond do %>
             <% is_nil(@invitation) -> %>
               <h1>{gettext("Invitation not found")}</h1>
+
               <p class="hint">
                 {gettext("This invitation link is invalid, has already been used, or was declined.")}
               </p>
+
               <div class="actions">
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
               </div>
             <% @mismatch? -> %>
               <h1>{gettext("Wrong account")}</h1>
+
               <p class="hint">
                 <.rich_text text={
                   gettext(
@@ -134,14 +138,17 @@ defmodule PairingsEngineWeb.InviteLive do
                   )
                 }>
                   <:part name="invited"><strong>{@invitation.email}</strong></:part>
+
                   <:part name="current"><strong>{@current_scope.user.email}</strong></:part>
                 </.rich_text>
               </p>
+
               <div class="actions">
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
               </div>
             <% true -> %>
               <h1>{gettext("You've been invited")}</h1>
+
               <p class="hint" style="margin-top: 0">
                 <.rich_text text={
                   gettext(
@@ -149,9 +156,11 @@ defmodule PairingsEngineWeb.InviteLive do
                   )
                 }>
                   <:part name="owner"><strong>{@owner_email}</strong></:part>
+
                   <:part name="tournament"><strong>{@tournament.name}</strong></:part>
                 </.rich_text>
               </p>
+
               <div class="actions">
                 <button type="button" class="pe-btn primary" phx-click="accept">{gettext("Accept")}</button>
                 <button type="button" class="pe-btn" phx-click="decline">{gettext("Decline")}</button>

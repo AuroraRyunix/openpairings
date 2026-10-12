@@ -26,6 +26,7 @@ defmodule PairingsEngineWeb.PluginsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -34,6 +35,7 @@ defmodule PairingsEngineWeb.PluginsLive do
       <div class="page-header">
         <div>
           <h1>{gettext("Installed plug-ins")}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext(
               "Parts of this installation that are not in the published application: built in with it, and updated with it."
@@ -47,7 +49,9 @@ defmodule PairingsEngineWeb.PluginsLive do
           <h2>
             {plugin.name} <span class="badge muted">{plugin.version}</span>
           </h2>
+
           <p>{plugin.description}</p>
+
           <div class="actions">
             <.link href={plugin.path} id={"open-plugin-#{plugin.id}"} class="pe-btn primary">
               {gettext("Open %{name}", name: plugin.name)}

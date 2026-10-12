@@ -307,28 +307,45 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   @impl true
   def handle_async(:rating_freshness, {:ok, :stale}, socket) do
-    if PairingsEngine.Authz.may_administer?(socket.assigns.current_scope.user) do
-      if PairingsEngine.Fide.Sync.status().status not in [:downloading, :importing] do
-        PairingsEngine.Fide.Sync.start_sync()
-        Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
-      end
+    cond do
+      # A desktop install that has not been told to download on its own does
+      # not start 41 MB because somebody asked for a rating check. It raises
+      # the question (the banner) and checks against the copy it has.
+      not PairingsEngine.Fide.AutoSync.download_unasked?() ->
+        if PairingsEngine.Authz.may_administer?(socket.assigns.current_scope.user),
+          do: PairingsEngine.Fide.AutoSync.raise_pending()
 
-      {:noreply,
-       assign(socket,
-         rating_note:
+        {:noreply,
+         run_rating_check(
+           socket,
            gettext(
-             "The FIDE list on this machine is out of date. Updating it first; the check follows."
+             "The FIDE list on this machine is out of date, and it is not downloaded without asking. This compares against the copy that is here; an administrator can download the newer list and check again."
            )
-       )}
-    else
-      # Downloading the list is an administrator's act (Connections page).
-      {:noreply,
-       run_rating_check(
-         socket,
-         gettext(
-           "The FIDE list on this machine is out of date. Ask an administrator to update it under Connections, then check again."
-         )
-       )}
+         )}
+
+      PairingsEngine.Authz.may_administer?(socket.assigns.current_scope.user) ->
+        if PairingsEngine.Fide.Sync.status().status not in [:downloading, :importing] do
+          PairingsEngine.Fide.Sync.start_sync()
+          Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
+        end
+
+        {:noreply,
+         assign(socket,
+           rating_note:
+             gettext(
+               "The FIDE list on this machine is out of date. Updating it first; the check follows."
+             )
+         )}
+
+      true ->
+        # Downloading the list is an administrator's act (Connections page).
+        {:noreply,
+         run_rating_check(
+           socket,
+           gettext(
+             "The FIDE list on this machine is out of date. Ask an administrator to update it under Connections, then check again."
+           )
+         )}
     end
   end
 
@@ -2765,6 +2782,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -4663,6 +4681,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 )}
             <% end %>
           </p>
+
           <%!-- "Ask the bye type for each absence": one row per round not yet
                 paired, the likely answer already picked, so Save is usually
                 the only click. --%>
@@ -4691,6 +4710,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 /> {label}
               </label>
             </div>
+
             <%!-- Informational only: a picked bye is not an absence, so the
                   limits on paid absences never touch it. --%>
             <p
@@ -4704,6 +4724,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 n: @bye_types |> Enum.filter(&elem(&1, 2)) |> Enum.map_join(", ", &elem(&1, 0))
               )}
             </p>
+
             <%!-- The TEC Manual's Level 2 for a full-point bye (VCL4THP
                   Q178), the same words the Pairings page says it in. --%>
             <p

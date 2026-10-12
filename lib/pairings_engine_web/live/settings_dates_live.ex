@@ -198,6 +198,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -207,15 +208,12 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - Dates")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-
-      <.settings_subnav tournament={@tournament} active={:dates} />
-
-      <.stale_banner stale={@stale} />
-
+      <.settings_subnav tournament={@tournament} active={:dates} /> <.stale_banner stale={@stale} />
       <form id="round-dates-form" phx-submit="save" phx-change="rd_update">
         <div class="card">
           <h2>{gettext("Round dates")}</h2>
@@ -244,6 +242,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
             <button type="button" class="pe-btn" phx-click="rd_fill_sequential">
               {gettext("Fill sequentially from round 1")}
             </button>
+
             <button type="button" class="pe-btn" phx-click="rd_calc">
               {gettext("Calculate weekly from round 1")}
             </button>

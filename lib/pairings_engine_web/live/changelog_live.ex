@@ -22,6 +22,7 @@ defmodule PairingsEngineWeb.ChangelogLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -30,6 +31,7 @@ defmodule PairingsEngineWeb.ChangelogLive do
       <div class="page-header">
         <div>
           <h1>{gettext("Changelog")}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext("What's changed in OpenPairings, release by release")}
           </p>

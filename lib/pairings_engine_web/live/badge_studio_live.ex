@@ -652,6 +652,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -662,7 +663,9 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           <p class="hint" style="margin: 0">
             <.link navigate={~p"/badges"}>{gettext("Accreditation badges")}</.link>
           </p>
+
           <h1 id="badge-event-title">{@event.name}</h1>
+
           <p class="subtitle" style="margin: 0">
             {ngettext("1 badge", "%{count} badges", @badge_count)}
             <%= if @linked do %>
@@ -673,6 +676,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
             <% end %>
           </p>
         </div>
+
         <div class="flex flex-wrap items-center gap-2">
           <.link
             id="badge-tab-list"
@@ -681,6 +685,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           >
             <.icon name="hero-rectangle-stack" class="w-4 h-4" /> {gettext("Badges")}
           </.link>
+
           <.link
             id="badge-tab-settings"
             patch={~p"/badges/#{@event.id}/settings"}
@@ -688,6 +693,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           >
             <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> {gettext("Event settings")}
           </.link>
+
           <a
             id="print-all-badges"
             href={~p"/badges/#{@event.id}/print"}
@@ -697,6 +703,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           >
             <.icon name="hero-printer" class="w-4 h-4" /> {gettext("Print all")}
           </a>
+
           <button id="add-badge" type="button" class="pe-btn primary" phx-click="add_badge">
             <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add badge")}
           </button>
@@ -728,10 +735,12 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
             {gettext("The linked tournament is no longer available to you.")}
           <% end %>
         </p>
+
         <div :if={@linked} class="flex gap-2">
           <button id="import-players" type="button" class="pe-btn" phx-click="import_players">
             <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> {gettext("Import players")}
           </button>
+
           <button id="import-officials" type="button" class="pe-btn" phx-click="import_officials">
             <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> {gettext("Import officials")}
           </button>
@@ -744,19 +753,26 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         <thead>
           <tr>
             <th><span class="sr-only">{gettext("Photo")}</span></th>
+
             <th>{gettext("Name")}</th>
+
             <th>{gettext("Role")}</th>
+
             <th>{gettext("Rooms")}</th>
+
             <th>{gettext("Source")}</th>
+
             <th><span class="sr-only">{gettext("Actions")}</span></th>
           </tr>
         </thead>
+
         <tbody id="badges" phx-update="stream">
           <tr id="badges-empty" class="hidden only:table-row">
             <td colspan="6" class="empty">
               {gettext("No badges yet. Import them from the tournament, or add one by hand.")}
             </td>
           </tr>
+
           <tr :for={{dom_id, badge} <- @streams.badges} id={dom_id}>
             <td style="width: 44px">
               <div class="w-9 h-11 rounded overflow-hidden bg-neutral-200 flex items-center justify-center">
@@ -774,6 +790,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 />
               </div>
             </td>
+
             <td>
               <.link
                 navigate={~p"/badges/#{@event.id}/badge/#{badge.id}"}
@@ -782,12 +799,14 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               >
                 {Badge.display_name(badge) |> then(&if(&1 == "", do: gettext("(no name)"), else: &1))}
               </.link>
+
               <div class="hint">
                 {[badge.title, badge.federation, badge.fide_id]
                 |> Enum.reject(&(&1 in [nil, ""]))
                 |> Enum.join(" · ")}
               </div>
             </td>
+
             <td>
               <span
                 class="inline-block rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white"
@@ -796,7 +815,9 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 {badge.role}
               </span>
             </td>
+
             <td class="hint">{Enum.join(badge.room_access, " ")}</td>
+
             <td>
               <span class="hint">{source_label(badge)}</span>
               <span
@@ -807,6 +828,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 · {gettext("edited")}
               </span>
             </td>
+
             <td style="text-align: right; white-space: nowrap">
               <a
                 href={~p"/badges/#{@event.id}/print?badge=#{badge.id}"}
@@ -819,6 +841,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 <.icon name="hero-printer" class="w-4 h-4" />
                 <span class="sr-only">{gettext("Print this badge")}</span>
               </a>
+
               <button
                 type="button"
                 class="pe-btn"
@@ -830,6 +853,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 <.icon name="hero-document-duplicate" class="w-4 h-4" />
                 <span class="sr-only">{gettext("Duplicate")}</span>
               </button>
+
               <button
                 type="button"
                 class="pe-btn danger-link"
@@ -869,6 +893,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
             >
               <.icon name="hero-chevron-left" class="w-4 h-4" />
             </.link>
+
             <.link
               :if={@next_id}
               patch={~p"/badges/#{@event.id}/badge/#{@next_id}"}
@@ -883,6 +908,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
 
         <section class="card" aria-labelledby="badge-details-heading">
           <h2 id="badge-details-heading">{gettext("Badge")}</h2>
+
           <.form for={@badge_form} id="badge-form" phx-change="save_badge" phx-submit="save_badge">
             <div class="grid grid-cols-2 gap-x-3">
               <.input
@@ -902,13 +928,13 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 label={gettext("FIDE ID")}
                 inputmode="numeric"
                 phx-debounce="300"
-              />
-              <.input field={@badge_form[:role]} label={gettext("Role")} phx-debounce="300" />
+              /> <.input field={@badge_form[:role]} label={gettext("Role")} phx-debounce="300" />
               <.input field={@badge_form[:role_color]} type="color" label={gettext("Role colour")} />
             </div>
           </.form>
 
           <p class="hint mb-1">{gettext("Roles of this event")}</p>
+
           <div id="role-presets" class="flex flex-wrap gap-1.5">
             <button
               :for={role <- @event.roles}
@@ -930,6 +956,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         <section class="card" aria-labelledby="badge-rooms-heading">
           <div class="flex items-center justify-between gap-2 mb-2">
             <h2 id="badge-rooms-heading" class="m-0">{gettext("Room access")}</h2>
+
             <div class="flex gap-1">
               <button
                 id="rooms-all"
@@ -940,6 +967,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               >
                 {gettext("All")}
               </button>
+
               <button
                 id="rooms-first-half"
                 type="button"
@@ -949,6 +977,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               >
                 {gettext("First half")}
               </button>
+
               <button
                 id="rooms-none"
                 type="button"
@@ -960,6 +989,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               </button>
             </div>
           </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button
               :for={num <- 1..@event.room_count//1}
@@ -1027,6 +1057,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           phx-hook=".PastePhoto"
         >
           <h2 id="badge-photo-heading">{gettext("Photo")}</h2>
+
           <div class="flex gap-4">
             <div class="w-20 h-24 shrink-0 rounded overflow-hidden bg-neutral-200 flex items-center justify-center">
               <img
@@ -1042,6 +1073,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 class="w-8 h-8 text-neutral-400"
               />
             </div>
+
             <div class="flex flex-col gap-2 min-w-0">
               <form id="photo-upload-form" phx-change="validate_upload" phx-submit="validate_upload">
                 <label class="pe-btn cursor-pointer">
@@ -1049,14 +1081,17 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                   <.live_file_input upload={@uploads.photo} class="sr-only" />
                 </label>
               </form>
+
               <p :for={err <- upload_errors(@uploads.photo)} class="error-note">
                 {upload_error(err)}
               </p>
+
               <div :for={entry <- @uploads.photo.entries}>
                 <p :for={err <- upload_errors(@uploads.photo, entry)} class="error-note">
                   {upload_error(err)}
                 </p>
               </div>
+
               <button
                 id="fetch-fide-photo"
                 type="button"
@@ -1068,9 +1103,11 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     (@badge.photo_source == "fide" and @badge.photo_content_type != nil)
                 }
               >
-                <.icon name="hero-cloud-arrow-down" class="w-4 h-4" />
-                {if @fetching?, do: gettext("Fetching…"), else: gettext("Fetch from FIDE")}
+                <.icon name="hero-cloud-arrow-down" class="w-4 h-4" /> {if @fetching?,
+                  do: gettext("Fetching…"),
+                  else: gettext("Fetch from FIDE")}
               </button>
+
               <a
                 :if={@badge.fide_id not in [nil, ""]}
                 id="open-fide-profile"
@@ -1079,12 +1116,15 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 rel="noopener noreferrer"
                 class="pe-btn"
               >
-                <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
-                {gettext("Open FIDE profile")}
+                <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" /> {gettext(
+                  "Open FIDE profile"
+                )}
               </a>
+
               <p class="hint m-0">
                 {gettext("Or copy a photo and paste it here with Ctrl+V.")}
               </p>
+
               <p class="hint m-0">
                 <%= cond do %>
                   <% @badge.photo_source == "fide" and @badge.photo_content_type != nil -> %>
@@ -1097,6 +1137,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     )}
                 <% end %>
               </p>
+
               <button
                 :if={@badge.photo_content_type}
                 id="clear-photo"
@@ -1112,15 +1153,16 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
 
         <section :if={Badge.imported?(@badge)} class="card" id="badge-source">
           <h2>{gettext("Imported")}</h2>
+
           <p class="hint">
             {if @badge.source == "player",
               do: gettext("From the tournament's player list."),
               else: gettext("From the tournament's officials.")}
             <%= if @badge.edited_fields != [] do %>
-              {gettext("Changed by hand, and kept on re-import:")}
-              <strong>{@badge.edited_fields |> Enum.map(&field_label/1) |> Enum.join(", ")}</strong>.
+              {gettext("Changed by hand, and kept on re-import:")} <strong>{@badge.edited_fields |> Enum.map(&field_label/1) |> Enum.join(", ")}</strong>.
             <% end %>
           </p>
+
           <button
             :if={@badge.edited_fields != []}
             id="revert-badge"
@@ -1143,6 +1185,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           >
             <.icon name="hero-printer" class="w-4 h-4" /> {gettext("Print this badge")}
           </a>
+
           <button
             id="duplicate-this-badge"
             type="button"
@@ -1152,6 +1195,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           >
             {gettext("Duplicate")}
           </button>
+
           <button
             id="delete-this-badge"
             type="button"
@@ -1164,7 +1208,6 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           </button>
         </div>
       </div>
-
       {render_preview(assigns)}
     </div>
     """
@@ -1180,6 +1223,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
     >
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 id="badge-preview-heading" class="m-0">{gettext("Preview")}</h2>
+
         <div class="flex flex-wrap items-center gap-2">
           <div class="flex gap-1" role="group" aria-label={gettext("Preview mode")}>
             <button
@@ -1191,6 +1235,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
             >
               {gettext("Front and back")}
             </button>
+
             <button
               id="preview-flip"
               type="button"
@@ -1201,6 +1246,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               {gettext("Flip card")}
             </button>
           </div>
+
           <form id="zoom-form" phx-change="zoom">
             <label class="hint flex items-center gap-1">
               {gettext("Zoom")}
@@ -1222,6 +1268,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
             <div class="shadow-lg">
               <.badge_front id="preview-front" badge={@card} qr_svg={@qr_svg} />
             </div>
+
             <div class="shadow-lg">
               <.badge_back id="preview-back" badge={@card} qr_svg={@qr_svg} />
             </div>
@@ -1239,6 +1286,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 <div class="badge-flip-face">
                   <.badge_front id="preview-front" badge={@card} qr_svg={@qr_svg} />
                 </div>
+
                 <div class="badge-flip-face badge-flip-back">
                   <.badge_back id="preview-back" badge={@card} qr_svg={@qr_svg} />
                 </div>
@@ -1247,6 +1295,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           </div>
         <% end %>
       </div>
+
       <p class="hint mt-2 mb-0">
         {gettext("Actual size at 100%: A6, 105 x 148.5 mm. Printed two badges to an A4 sheet.")}
       </p>
@@ -1268,6 +1317,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
       <div class="flex flex-col gap-4">
         <section class="card" aria-labelledby="event-link-heading">
           <h2 id="event-link-heading">{gettext("Tournament")}</h2>
+
           <form id="event-link-form" phx-change="link_tournament">
             <.input
               name="link[tournament_id]"
@@ -1279,6 +1329,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               options={Enum.map(@tournaments, &{&1.name, &1.id})}
             />
           </form>
+
           <p class="hint m-0">
             {gettext("Only tournaments you own or collaborate on can be linked.")}
           </p>
@@ -1293,10 +1344,12 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         >
           <section class="card" aria-labelledby="event-header-heading">
             <h2 id="event-header-heading">{gettext("Header")}</h2>
+
             <div class="grid grid-cols-2 gap-x-3">
               <div class="col-span-2">
                 <.input field={@event_form[:name]} label={gettext("Event name")} phx-debounce="300" />
               </div>
+
               <div class="col-span-2">
                 <.input field={@event_form[:subtitle]} label={gettext("Subtitle")} phx-debounce="300" />
               </div>
@@ -1309,6 +1362,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                   phx-debounce="300"
                 />
               </div>
+
               <div class="col-span-2">
                 <.input
                   field={@event_form[:qr_url]}
@@ -1322,6 +1376,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           <section class="card" aria-labelledby="event-conditions-heading">
             <div class="flex items-center justify-between gap-2">
               <h2 id="event-conditions-heading" class="m-0">{gettext("Back of the badge")}</h2>
+
               <button
                 id="reset-conditions"
                 type="button"
@@ -1332,6 +1387,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 {gettext("Default text")}
               </button>
             </div>
+
             <.input
               field={@event_form[:conditions_title]}
               label={gettext("Heading")}
@@ -1353,6 +1409,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
 
           <section class="card" aria-labelledby="event-rooms-heading">
             <h2 id="event-rooms-heading">{gettext("Rooms")}</h2>
+
             <.input
               field={@event_form[:room_count]}
               type="select"
@@ -1374,15 +1431,18 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
           <section class="card" aria-labelledby="event-roles-heading">
             <div class="flex items-center justify-between gap-2 mb-2">
               <h2 id="event-roles-heading" class="m-0">{gettext("Roles")}</h2>
+
               <button id="add-role" type="button" class="pe-btn" phx-click="add_role">
                 <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add role")}
               </button>
             </div>
+
             <p class="hint">
               {gettext(
                 "The role banner's text and colour. Write them in the languages the event prints in; players and officials are imported with the first four."
               )}
             </p>
+
             <div id="event-roles" class="flex flex-col gap-1">
               <div
                 :for={{role, i} <- Enum.with_index(@preview_event.roles)}
@@ -1400,6 +1460,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     phx-debounce="300"
                   />
                 </div>
+
                 <div class="w-20">
                   <.input
                     name={"event[roles][#{i}][color]"}
@@ -1410,6 +1471,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     aria-label={gettext("Colour of role %{n}", n: i + 1)}
                   />
                 </div>
+
                 <div class="w-9 pb-3">
                   <button
                     :if={role["key"] not in @import_keys}
@@ -1426,6 +1488,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 </div>
               </div>
             </div>
+
             <p :for={{msg, _} <- Keyword.get_values(@event_form.errors, :roles)} class="error-note">
               {msg}
             </p>
@@ -1440,11 +1503,13 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
 
         <section class="card" aria-labelledby="event-logos-heading">
           <h2 id="event-logos-heading">{gettext("Logos")}</h2>
+
           <p class="hint">
             {gettext(
               "PNG, JPEG, GIF or WebP, up to 1 MB and 3000 x 3000 pixels. Saved as soon as it is chosen."
             )}
           </p>
+
           <div class="flex flex-col gap-3">
             <div :for={slot <- Event.logo_slots()} class="flex items-center gap-3" id={"logo-#{slot}"}>
               <div class="w-24 h-12 shrink-0 rounded bg-white border border-neutral-300 flex items-center justify-center overflow-hidden">
@@ -1455,6 +1520,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                   class="max-w-full max-h-full object-contain"
                 />
               </div>
+
               <div class="flex flex-col gap-1 min-w-0">
                 <span class="text-sm font-semibold">{logo_label(slot)}</span>
                 <div class="flex gap-2">
@@ -1464,10 +1530,10 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     phx-submit="validate_upload"
                   >
                     <label class="pe-btn cursor-pointer">
-                      {gettext("Upload")}
-                      <.live_file_input upload={@uploads[slot]} class="sr-only" />
+                      {gettext("Upload")} <.live_file_input upload={@uploads[slot]} class="sr-only" />
                     </label>
                   </form>
+
                   <button
                     :if={Map.get(@event, :"#{slot}_content_type")}
                     type="button"
@@ -1479,9 +1545,11 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     {gettext("Remove")}
                   </button>
                 </div>
+
                 <p :for={err <- upload_errors(@uploads[slot])} class="error-note">
                   {upload_error(err)}
                 </p>
+
                 <div :for={entry <- @uploads[slot].entries}>
                   <p :for={err <- upload_errors(@uploads[slot], entry)} class="error-note">
                     {upload_error(err)}
@@ -1494,7 +1562,9 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
 
         <section class="card" aria-labelledby="event-delete-heading">
           <h2 id="event-delete-heading">{gettext("Delete event")}</h2>
+
           <p class="hint">{gettext("Deletes the event and every badge in it, photos included.")}</p>
+
           <button
             id="delete-event"
             type="button"
@@ -1514,11 +1584,13 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         aria-labelledby="event-preview-heading"
       >
         <h2 id="event-preview-heading">{gettext("Preview")}</h2>
+
         <div class="overflow-auto rounded-lg bg-neutral-200/60 p-4">
           <div id="badge-preview" class="badge-zoom mx-auto flex w-max gap-6" style="zoom: 0.8;">
             <div class="shadow-lg">
               <.badge_front id="preview-front" badge={@card} qr_svg={@qr_svg} />
             </div>
+
             <div class="shadow-lg">
               <.badge_back id="preview-back" badge={@card} qr_svg={@qr_svg} />
             </div>

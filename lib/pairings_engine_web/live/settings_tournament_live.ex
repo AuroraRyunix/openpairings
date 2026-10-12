@@ -532,6 +532,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -617,6 +618,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               <:part name="norms">
                 <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
               </:part>
+
               <:part name="name"><em>{gettext("name")}</em></:part>
             </.rich_text>
           </p>
@@ -649,7 +651,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             fide_locked={@fide_locked}
             fields={[:tiebreaks]}
           />
-
           <%!-- A disabled fieldset disables every control inside it, the
                 move/remove buttons and the presets included. --%>
           <fieldset
@@ -760,6 +761,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   </option>
                 </optgroup>
               </select>
+
               <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
                 "Reset to FIDE default"
               )}</button>
@@ -779,9 +781,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 <option value="fixed" selected={@tournament.tiebreak_unrated_method == "fixed"}>
                   {gettext("Fixed rating")}
                 </option>
+
                 <option value="lowest" selected={@tournament.tiebreak_unrated_method == "lowest"}>
                   {gettext("Lowest rating in the field")}
                 </option>
+
                 <option value="average" selected={@tournament.tiebreak_unrated_method == "average"}>
                   {gettext("Average rating of the rated players")}
                 </option>
@@ -964,8 +968,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               label={gettext("Group name")}
               maxlength={Group.max_name()}
               required
-            />
-            <button type="submit" class="pe-btn">{gettext("Rename")}</button>
+            /> <button type="submit" class="pe-btn">{gettext("Rename")}</button>
           </.form>
 
           <.form
@@ -980,9 +983,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               label={gettext("This tournament's label in the switcher")}
               placeholder={@tournament.name}
               maxlength={Member.max_label()}
-            />
-            <button type="submit" class="pe-btn">{gettext("Save label")}</button>
+            /> <button type="submit" class="pe-btn">{gettext("Save label")}</button>
           </.form>
+
           <p class="hint" style="margin-top: 0">
             {gettext("Leave the label empty to show the tournament's own name.")}
           </p>
@@ -1016,8 +1019,10 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   {m.label}
                   <span :if={m.current?} class="badge muted">{gettext("this tournament")}</span>
                 </div>
+
                 <div :if={m.label != m.name} class="tb-desc">{m.name}</div>
               </div>
+
               <div class="tb-buttons">
                 <button
                   type="button"
@@ -1032,6 +1037,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 >
                   ↑
                 </button>
+
                 <button
                   type="button"
                   class="pe-btn"
@@ -1079,8 +1085,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               placeholder={gettext("e.g. Spring Open 2026")}
               maxlength={Group.max_name()}
               required
-            />
-            <button type="submit" class="pe-btn primary">{gettext("Create group")}</button>
+            /> <button type="submit" class="pe-btn primary">{gettext("Create group")}</button>
           </.form>
 
           <.form
@@ -1095,8 +1100,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               type="select"
               label={gettext("Or add it to an existing group")}
               options={joinable_options(@joinable_groups)}
-            />
-            <button type="submit" class="pe-btn">{gettext("Add to group")}</button>
+            /> <button type="submit" class="pe-btn">{gettext("Add to group")}</button>
           </.form>
         <% end %>
       </div>

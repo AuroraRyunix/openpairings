@@ -142,6 +142,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_scope={@current_scope}
       current_path={assigns[:current_path]}
@@ -150,14 +151,17 @@ defmodule PairingsEngineWeb.RatingInboxLive do
       <div class="page-header rinbox-header">
         <div>
           <h1>{gettext("Rating inbox")}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext("What was sent for rating, and what still has to come, per rating period")}
           </p>
         </div>
+
         <div class="actions" style="margin-top: 0">
           <button type="button" id="rating-inbox-refresh" class="pe-btn" phx-click="refresh">
             {gettext("Refresh")}
           </button>
+
           <.link id="rating-inbox-back" navigate={~p"/admin"} class="pe-btn">
             {gettext("Admin")}
           </.link>
@@ -167,8 +171,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
       <p class="hint rinbox-intro" id="rating-inbox-intro">
         {gettext(
           "Listed here: every tournament from which a round was sent for rating, and every tournament marked FIDE-homologated (Settings, FIDE). A round counts for the month of its date."
-        )}
-        {gettext(
+        )} {gettext(
           "\"Sent\" means the arbiter pressed Send and the file was downloaded to their computer. Whether they then mailed it to you is something this page cannot know: the download here is that same file, in case it never arrived."
         )}
       </p>
@@ -226,6 +229,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
           >
             {list_text(b.report_list)}
           </p>
+
           <p
             :if={b.open != [] and b.open_list}
             id={"rating-inbox-open-list-#{b.tournament.id}-#{month_id(p.period)}"}
@@ -241,9 +245,11 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                 <span title={PairingsEngineWeb.SentReceipt.stamp_title(s.receipt)}>
                   {PairingsEngineWeb.SentReceipt.stamp_text(s.receipt)}
                 </span>
+
                 <span :if={s.receipt.kind == "postponed"} class="badge muted">
                   {gettext("postponed games")}
                 </span>
+
                 <span
                   :if={s.changes != []}
                   id={"rating-inbox-drift-#{s.receipt.id}"}
@@ -251,6 +257,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                 >
                   {PairingsEngineWeb.SentReceipt.drift_title(s.receipt)}
                 </span>
+
                 <span class="rinbox-receipt-file">
                   <%= cond do %>
                     <% SentReceipts.file?(s.receipt) -> %>
@@ -268,6 +275,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                   </span>
                 </span>
               </div>
+
               <div
                 :if={s.receipt.kind == "report" or SentReceipts.file?(s.receipt)}
                 class="rinbox-receipt-actions"
@@ -281,6 +289,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                     do: gettext("Download file"),
                     else: gettext("Download TRF copy")}
                 </a>
+
                 <button
                   type="button"
                   id={"rating-inbox-check-#{s.receipt.id}"}
@@ -294,6 +303,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                     else: gettext("Check")}
                 </button>
               </div>
+
               <div
                 :if={@checks[s.receipt.id] not in [nil, :running]}
                 id={"rating-inbox-result-#{s.receipt.id}"}
@@ -304,8 +314,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
                   <% {:error, reason} -> %>
                     <strong>{error_text(reason)}</strong>
                   <% %{status: status, output: output} -> %>
-                    <strong>{check_label(status)}</strong>
-                    <pre :if={String.trim(output) != ""}>{output}</pre>
+                    <strong>{check_label(status)}</strong> <pre :if={String.trim(output) != ""}>{output}</pre>
                 <% end %>
               </div>
             </li>
@@ -316,8 +325,7 @@ defmodule PairingsEngineWeb.RatingInboxLive do
             id={"rating-inbox-missing-#{b.tournament.id}-#{month_id(p.period)}"}
             class="rinbox-line"
           >
-            <strong>{gettext("Not sent yet:")}</strong>
-            {ngettext(
+            <strong>{gettext("Not sent yet:")}</strong> {ngettext(
               "round %{rounds} has finished and has no receipt.",
               "rounds %{rounds} have finished and have no receipt.",
               length(b.missing),

@@ -16,11 +16,7 @@ federatie, titel, geboortejaar, en de standaard-, rapid- en blitzratings. Open
 **Verbindingen** (bovenbalk op de pagina Toernooien), sectie *FIDE-databank*, en
 druk de eerste keer op **Ratinglijst downloaden**. **Bijwerken vanaf FIDE**
 downloadt de huidige lijst opnieuw (FIDE publiceert elke maand een nieuwe lijst).
-Het programma houdt bij welke maand de lijst is die het heeft. Eén keer per dag,
-terwijl het draait, vraagt het ook aan FIDE of er een nieuwere lijst is en
-downloadt die alleen als die er is (ongeveer één keer per maand); offline gebeurt
-er niets. Dit staat standaard aan en heeft een vinkvakje onder Verbindingen om
-het uit te schakelen. De pagina toont hoeveel spelers de lokale databank bevat
+Het programma houdt bij welke maand de lijst is die het heeft. Eén keer per dag, terwijl het draait, vraagt het ook aan FIDE of er een nieuwere lijst is (één klein verzoek; offline gebeurt er niets). Wat het met het antwoord doet, is een keuze uit drie onder Verbindingen: op een **server** downloadt het de lijst zelf (ongeveer één keer per maand); op een **desktopinstallatie** **vraagt het eerst** (standaard), met een banner op elke pagina (voor beheerders): "FIDE-ratinglijst: er is een nieuwere lijst. De download is ongeveer 41 MB", met **Nu downloaden**, **Later** (de banner blijft een dag weg) en **Niet meer vragen**. Er wordt niets gedownload voordat u op **Nu downloaden** drukt. Onder Verbindingen heet de keuze *Automatisch downloaden*, *Eerst vragen* of *Nooit*; *Niet meer vragen* zet haar op *Nooit*, en u kunt altijd met de hand op **Bijwerken vanaf FIDE** drukken of haar terugzetten op *Eerst vragen*. Een ratingcontrole op de pagina Spelers die de lijst verouderd vindt, stelt op een desktopinstallatie dezelfde vraag in plaats van de download te starten. De pagina toont hoeveel spelers de lokale databank bevat
 en wanneer die voor het laatst is bijgewerkt. Op een desktopversie bent u de
 beheerder van uw eigen installatie. Op een server mag alleen de beheerder
 bijwerken. Een speler die niet in de lijst staat, heeft geen FIDE-rating (ongeveer

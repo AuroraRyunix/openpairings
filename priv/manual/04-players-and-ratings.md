@@ -14,10 +14,7 @@ federation, title, birth year, and the standard, rapid and blitz ratings.
 Open **Connections** (top bar on the Tournaments page), section *FIDE
 database*, and press **Download rating list** the first time. **Update from
 FIDE** downloads the current list again (FIDE publishes a new list every
-month). The program records which month's list it holds. Once a day, while it
-runs, it also asks FIDE whether a newer list exists and downloads it only
-if there is one (about once a month); nothing happens while offline. This is on
-by default and has a checkbox under Connections to switch it off. The page shows how many players the local database holds and when it
+month). The program records which month's list it holds. Once a day, while it runs, it also asks FIDE whether a newer list exists (one small request; nothing happens while offline). What it does with the answer is a three-way choice under Connections: on a **server** it downloads the list by itself (about once a month); on a **desktop** install it **asks you first** by default, with a banner on every page (for administrators): "FIDE rating list: a newer list is available. The download is about 41 MB", with **Download now**, **Later** (the banner stays away for a day) and **Don't ask again**. Nothing is downloaded until you press **Download now**. Under Connections the choice reads *Download it automatically*, *Ask me first* or *Never*; *Don't ask again* sets it to *Never*, and you can still press **Update from FIDE** by hand or set it back to *Ask me first* at any time. A rating check on the Players page that finds the list out of date raises the same question on a desktop install instead of starting the download. The page shows how many players the local database holds and when it
 was last updated. On a desktop
 build you are the administrator of your own installation. On a server only the
 administrator may update it. A player who is not in the list has no FIDE

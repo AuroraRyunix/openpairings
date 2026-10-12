@@ -47,6 +47,8 @@ defmodule PairingsEngineWeb.FideLive do
        page_title: "Connections",
        status: FideSync.status(),
        fide_auto_sync: PairingsEngine.Fide.AutoSync.enabled?(),
+       fide_auto_mode: PairingsEngine.Fide.AutoSync.mode(),
+       desktop?: PairingsEngine.Authz.local_mode?(),
        kbsb?: kbsb?,
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
@@ -336,6 +338,24 @@ defmodule PairingsEngineWeb.FideLive do
     end
   end
 
+  # Desktop's three-way version of the tick above. The value is matched, not
+  # converted: a crafted one is a no-op, and nothing here makes an atom.
+  def handle_event("set_fide_auto_mode", %{"mode" => mode}, socket)
+      when mode in ~w(auto ask never) do
+    if socket.assigns.may_admin? do
+      mode = Map.fetch!(%{"auto" => :auto, "ask" => :ask, "never" => :never}, mode)
+      PairingsEngine.Fide.AutoSync.put_mode(mode)
+
+      {:noreply,
+       assign(socket,
+         fide_auto_mode: mode,
+         fide_auto_sync: PairingsEngine.Fide.AutoSync.enabled?()
+       )}
+    else
+      {:noreply, put_flash(socket, :error, sync_restricted())}
+    end
+  end
+
   def handle_event("sync", _params, socket) do
     if socket.assigns.may_admin? do
       {:noreply, start_fide_sync(socket)}
@@ -594,6 +614,7 @@ defmodule PairingsEngineWeb.FideLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -653,7 +674,34 @@ defmodule PairingsEngineWeb.FideLive do
           )}
         </p>
 
-        <p class="hint">
+        <form
+          :if={@desktop?}
+          id="fide-auto-mode-form"
+          class="hint"
+          phx-change="set_fide_auto_mode"
+        >
+          <label for="fide-auto-sync">
+            {gettext(
+              "When the list is missing or FIDE has a newer one (checked once a day while the program runs, one small request; nothing happens while offline):"
+            )}
+          </label>
+
+          <select id="fide-auto-sync" name="mode" disabled={!@may_admin?}>
+            <option value="auto" selected={@fide_auto_mode == :auto}>
+              {gettext("Download it automatically")}
+            </option>
+
+            <option value="ask" selected={@fide_auto_mode == :ask}>
+              {gettext("Ask me first (about 41 MB)")}
+            </option>
+
+            <option value="never" selected={@fide_auto_mode == :never}>
+              {gettext("Never; I update it by hand")}
+            </option>
+          </select>
+        </form>
+
+        <p :if={!@desktop?} class="hint">
           <label>
             <input
               id="fide-auto-sync"
