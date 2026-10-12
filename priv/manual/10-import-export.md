@@ -214,7 +214,8 @@ players, the round, the date, the result and a result token as its move text.
 It is a valid PGN file, but a game that cannot be replayed.
 
 A tournament with live boards also has the games the boards reported, with
-their moves: see [Games and PGN](17-live-boards.md#games-and-pgn).
+their moves: see [Games and PGN](17-live-boards.md#games-and-pgn), and
+[Setting up electronic boards](18-setting-up-boards.md) for how they get there.
 
 ### The FIDE forms
 

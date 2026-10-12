@@ -86,6 +86,10 @@ van het bord verwijdert de correctie.
 Wanneer het laatste resultaat van een ronde binnen is, kan de volgende ronde worden
 gepaard.
 
+Met elektronische borden in de zaal heeft de pagina Paringen ook een kolom **Bord
+zag**: wat het bord meldde, naast uw invoer. Ze voert nooit een resultaat in. Zie
+[De bordkolom](17-live-boards.md#the-board-column).
+
 ## Resultaten uit een bestand (CSV) {#results-from-a-file-csv}
 
 **Meer**, **Resultaten importeren (CSV)** leest een bestand met per bord één regel

@@ -79,7 +79,8 @@ link beside the rounds. The switch only puts the link there. It does not
 start a relay and does not check that one is running, so with nothing sending
 moves the link leads to boards that stay in the starting position. Switching
 it on or off sends the tournament to the results site again. See
-[Turning live boards on](17-live-boards.md#turning-live-boards-on).
+[Turning live boards on](17-live-boards.md#turning-live-boards-on). To set up
+the boards in the hall, see [Setting up electronic boards](18-setting-up-boards.md).
 
 ### What the public page shows
 

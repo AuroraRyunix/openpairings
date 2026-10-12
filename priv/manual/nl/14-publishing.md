@@ -58,7 +58,7 @@ De automatisering verplaatst een ronde alleen omhoog; u kunt een ronde altijd me
 
 **Vóór ronde 1 ziet het publiek de startrangschikking** (standaard uit). Zonder die ziet het publiek, zodra een ronde openbaar is, alleen de lijst van spelers.
 
-**Live borden** (standaard uit, en alleen aangeboden zolang het toernooi gepubliceerd is). Zet dit aan wanneer een relais in de zaal de zetten van de partijen naar de uitslagensite stuurt: de gepubliceerde pagina's krijgen dan een link **Live borden** naast de ronden. De schakelaar zet alleen de link. Hij start geen relais en controleert niet of er een draait, dus zonder iets dat zetten stuurt, leidt de link naar borden die in de beginstelling blijven staan. Aan- of uitzetten stuurt het toernooi opnieuw naar de uitslagensite. Zie [De livepagina's aanzetten](17-live-boards.md#turning-live-boards-on).
+**Live borden** (standaard uit, en alleen aangeboden zolang het toernooi gepubliceerd is). Zet dit aan wanneer een relais in de zaal de zetten van de partijen naar de uitslagensite stuurt: de gepubliceerde pagina's krijgen dan een link **Live borden** naast de ronden. De schakelaar zet alleen de link. Hij start geen relais en controleert niet of er een draait, dus zonder iets dat zetten stuurt, leidt de link naar borden die in de beginstelling blijven staan. Aan- of uitzetten stuurt het toernooi opnieuw naar de uitslagensite. Zie [De livepagina's aanzetten](17-live-boards.md#turning-live-boards-on). Om de borden in de zaal in te richten, zie [Elektronische borden installeren](18-setting-up-boards.md).
 
 ### Wat de openbare pagina toont {#what-the-public-page-shows}
 

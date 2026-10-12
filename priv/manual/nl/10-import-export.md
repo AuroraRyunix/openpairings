@@ -216,7 +216,8 @@ ronde, de datum, het resultaat en een resultaatteken als zettekst. Het is een ge
 PGN-bestand, maar een partij die niet opnieuw kan worden afgespeeld.
 
 Een toernooi met live borden heeft ook de partijen die de borden meldden, met hun zetten:
-zie [Partijen en PGN](17-live-boards.md#games-and-pgn).
+zie [Partijen en PGN](17-live-boards.md#games-and-pgn), en
+[Elektronische borden installeren](18-setting-up-boards.md) voor hoe ze daar komen.
 
 ### De FIDE-formulieren {#the-fide-forms}
 

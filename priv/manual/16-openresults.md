@@ -28,6 +28,9 @@ chooses **Off**, **Link only** or **Listed** for each tournament. See
 [Connecting a results site](14-publishing.md#connecting-a-results-site) and
 [Publishing a tournament](14-publishing.md#publishing-a-tournament).
 
+The live pages, where spectators follow the games move by move, need electronic
+boards in the hall: see [Setting up electronic boards](18-setting-up-boards.md).
+
 Once a round is published it does not change on the site. The site keeps it
 for a long time, so a page that has already been loaded stays quick.
 

@@ -29,6 +29,9 @@ daarna voor elk toernooi **Uit**, **Alleen link** of **Op de voorpagina**. Zie
 [Een uitslagensite verbinden](14-publishing.md#connecting-a-results-site) en
 [Een toernooi publiceren](14-publishing.md#publishing-a-tournament).
 
+De livepagina's, waar toeschouwers de partijen zet voor zet volgen, vragen
+elektronische borden in de zaal: zie [Elektronische borden installeren](18-setting-up-boards.md).
+
 Zodra een ronde gepubliceerd is, verandert ze op de site niet meer. De site
 bewaart haar lang, zodat een pagina die al geladen is, snel blijft.
 

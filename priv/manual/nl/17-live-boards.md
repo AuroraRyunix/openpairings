@@ -7,12 +7,18 @@ DGT-borden die de zetten leest. Het praat met twee programma's. Aan
 **OpenPairings** vraagt het wie waar zit, en het meldt terug wat de borden zagen.
 Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 
-> [!WARNING] De kant van het kastje komt later
-> De livepagina's op de uitslagensite werken, en alles aan deze kant van de
-> koppeling ook: de koppelcodes, de bordkolom op de pagina Paringen, de bewaarde
-> partijen en hun PGN. De kant van Alnasl van de koppeling met OpenPairings komt
-> in een latere versie van Alnasl. Elk onderdeel hieronder is als **gebouwd** of
-> **gepland** gemarkeerd.
+> [!NOTE] Installeren
+> Dit hoofdstuk zegt wat live borden zijn en wat elke pagina ervan toont. Voor de
+> installatie, stap voor stap, gehost of op een desktopkopie, zie
+> [Elektronische borden installeren](18-setting-up-boards.md).
+
+> [!WARNING] Alnasl is een eerste versie
+> De livepagina's op de uitslagensite, de koppelcodes, de bordkolom op de pagina
+> Paringen en de bewaarde partijen met hun PGN zijn hier gebouwd. Alnasl, het
+> programma in de zaal, heeft de andere kant van de koppeling en heeft ze met
+> gesimuleerde borden tegen OpenPairings doorlopen. Het heeft één echt bord
+> gelezen; een hele partij op een echt bord is nog niet bewezen (zie zijn README,
+> "What is not done").
 
 ## Stand van zaken in één oogopslag {#status-at-a-glance}
 
@@ -21,7 +27,7 @@ Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 | De livepagina's: uitzending, Alle borden, beamerweergave, stukkensets, PGN, uitzendvertraging | gebouwd |
 | De ingestroute die de zetten en klokken van een bord ontvangt, en de relaissleutels | gebouwd |
 | De koppeling in OpenPairings: koppelcodes, wat het kastje te horen krijgt, wat het meldt, de bordkolom, bewaarde partijen en PGN | gebouwd |
-| De kant van Alnasl van de koppeling met OpenPairings | gepland, in een latere versie van Alnasl |
+| De kant van Alnasl van de koppeling met OpenPairings | gebouwd, in Alnasl; met gesimuleerde borden doorlopen, nog niet in een zaal |
 | De koppeling van een desktopkopie naar een kastje op een andere machine | niet gebouwd, zie [Beperkingen](#limits) |
 
 ## Wat Alnasl is {#what-alnasl-is}
@@ -63,9 +69,9 @@ in de eigen documentatie van Alnasl.
 
 ## Een kastje koppelen {#connecting-a-box}
 
-*Gebouwd in OpenPairings; de kant van Alnasl komt in een latere versie van
-Alnasl.* Een kastje wordt met een koppelcode aan OpenPairings gekoppeld. In
-OpenPairings: Instellingen, **Live borden**.
+*Gebouwd.* Een kastje wordt met een koppelcode aan OpenPairings gekoppeld. In
+OpenPairings: Instellingen, **Live borden**. Hetzelfde, als stappen, staat in
+[Elektronische borden installeren](18-setting-up-boards.md).
 
 ### Een code voor het toernooi {#a-code-for-the-tournament}
 
@@ -112,9 +118,12 @@ e-mailadres, geen telefoonnummer.
 
 Het krijgt ook te horen welke ronde bezig is. OpenPairings heeft geen knop die een
 ronde start: een ronde die gepaard is, is bezig. Wanneer u dus een ronde paart,
-start het kastje ze zelf, binnen ongeveer vijf seconden. In een round-robin,
-waar alle rondes in één keer gepaard worden, is de ronde die bezig is de eerste
-die nog op een uitslag wacht.
+start het kastje ze zelf, binnen ongeveer vijf seconden. Van de rondes die het laatst
+samen gepaard zijn (één in een Zwitsers of een Keizer, beide legs van een
+tweelegswedstrijd, alle rondes van een rondetoernooi), is de ronde die bezig is de
+eerste met een partij die nog openstaat, of de laatste als er geen is. Een
+uitslag die in ronde 2 gewist wordt terwijl ronde 3 gespeeld wordt, stuurt de
+borden dus niet terug naar ronde 2.
 
 Een wijziging daarna bereikt het kastje op dezelfde manier: een bord gewisseld,
 een speler vervangen, een ronde opnieuw gepaard. Meldt het kastje nog een partij
@@ -359,3 +368,8 @@ auditlogboek.
   op de regels. Een zet die onwettig is, of op twee legale zetten past, weigert de update en
   noemt de zet, en er wordt uit die update niets bewaard.
 - **Alleen twee stukkensets** worden aangeboden.
+- **Ploegentoernooien staan als losse borden op het kastje**, doorgenummerd door
+  de ronde, niet per wedstrijd gegroepeerd.
+- **Alleen de eerste partij van een bord in een ronde verlaat het kastje.**
+  Verdere partijen op hetzelfde bord blijven op het kastje.
+- **Chess960 wordt niet ondersteund.**

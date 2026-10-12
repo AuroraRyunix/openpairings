@@ -7,12 +7,18 @@ reads the moves. It talks to two programs. To **OpenPairings** it asks who sits
 where, and reports back what the boards saw. To **OpenResults** it sends the
 moves and clocks for the spectators.
 
-> [!WARNING] The box's side of the link comes later
-> The live pages on the results site work, and so does everything on this side
-> of the link: the connect codes, the board column on the Pairings page, the
-> stored games and their PGN. Alnasl's side of the link with OpenPairings
-> ships in a later version of Alnasl. Each part below is marked **built** or
-> **planned**.
+> [!NOTE] Setting it up
+> This chapter says what live boards are and what each page of them shows. For
+> the set-up, step by step, hosted or on a desktop copy, see
+> [Setting up electronic boards](18-setting-up-boards.md).
+
+> [!WARNING] Alnasl is a first build
+> The live pages on the results site, the connect codes, the board column on
+> the Pairings page and the stored games with their PGN are built here. Alnasl,
+> the program in the hall, has the other side of the link and has run it
+> against OpenPairings with simulated boards. It has read one real board; a
+> whole game on a real board is not yet proven (see its README, "What is not
+> done").
 
 ## Status at a glance {#status-at-a-glance}
 
@@ -21,7 +27,7 @@ moves and clocks for the spectators.
 | The live pages: broadcast, All boards, projector view, piece sets, PGN, broadcast delay | built |
 | The ingest route that takes a board's moves and clocks, and the relay keys | built |
 | The link in OpenPairings: connect codes, what the box is told, what it reports, the board column, stored games and PGN | built |
-| Alnasl's side of the link with OpenPairings | planned, in a later version of Alnasl |
+| Alnasl's side of the link with OpenPairings | built, in Alnasl; run with simulated boards, not yet in a hall |
 | The link from a desktop copy to a box on another machine | not built, see [Limits](#limits) |
 
 ## What Alnasl is {#what-alnasl-is}
@@ -62,9 +68,9 @@ Alnasl's own documentation.
 
 ## Connecting a box {#connecting-a-box}
 
-*Built in OpenPairings; Alnasl's side ships in a later version of Alnasl.* A
-box is connected to OpenPairings with a connect code. In OpenPairings: Settings,
-**Live boards**.
+*Built.* A box is connected to OpenPairings with a connect code. In
+OpenPairings: Settings, **Live boards**. The same, as steps, is in
+[Setting up electronic boards](18-setting-up-boards.md).
 
 ### A code for the tournament {#a-code-for-the-tournament}
 
@@ -111,9 +117,11 @@ e-mail address, no phone number.
 
 It is also told which round is on. OpenPairings has no button that starts a
 round: a round that is paired is on. So when you pair a round, the box starts
-it by itself, within about five seconds. In a round robin, where every round
-is paired at once, the round that is on is the first one still waiting for a
-result.
+it by itself, within about five seconds. Of the rounds paired last
+together (one in a Swiss or a Keizer, both legs of a two-leg match, every round
+of a round robin), the round that is on is the first with a game still open,
+or the last of them when none is. So a result cleared in round 2 while round 3
+is played does not send the boards back to round 2.
 
 A change after that reaches the box the same way: a board swapped, a player
 replaced, a round paired again. If the box still reports a game for a pairing
@@ -358,3 +366,8 @@ is in a JSON backup and is written to the audit log.
   against the rules. A move that is illegal, or that fits two legal moves,
   refuses the update and names the move, and nothing is stored from that update.
 - **Only two piece sets** are offered.
+- **Team events show as flat boards on the box**, numbered through the round,
+  not grouped by match.
+- **Only the first game of a board in a round leaves the box.** Further games on
+  the same board stay on the box.
+- **Chess960 is not supported.**

@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.Components.ManualLink do
     trf_export: {"fide-report", "the-export-page"},
     teams: {"teams", "setting-up"},
     live_boards: {"live-boards", "turning-live-boards-on"},
-    board_link: {"live-boards", "connecting-a-box"}
+    board_link: {"setting-up-boards", "set-up-hosted"}
   }
 
   @doc "Every topic, as `topic => {chapter slug, heading id}`."

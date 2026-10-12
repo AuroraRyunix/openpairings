@@ -83,6 +83,10 @@ Changing the board's result the ordinary way removes the correction.
 
 When the last result of a round is in, the next round can be paired.
 
+With electronic boards in the hall, the Pairings page also has a column **Board
+saw**: what the board reported, beside your entry. It never enters a result.
+See [The board column](17-live-boards.md#the-board-column).
+
 ## Results from a file (CSV)
 
 **More**, **Import results (CSV)** reads a file with one line `board,result`
