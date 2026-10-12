@@ -113,6 +113,67 @@ defmodule PairingsEngine.Federations.BEL.Members do
   end
 
   @doc """
+  The FIDE federation (a three-letter country code) of the person a Belgian
+  list row is, or `nil`.
+
+  The list's own `federation` column is NOT that. It is the member's wing
+  inside Belgium - a single letter, V, F or D - and written into a player's
+  `federation` it shows a flag for nobody, groups the player with strangers
+  under the federation exclusion rule and puts a letter in the TRF report.
+  A country can only come from the FIDE list, through the FIDE ID the row
+  carries; no FIDE ID, or one the local FIDE list does not know, is `nil`.
+  Nobody is assumed Belgian: a foreign national can be a member.
+  """
+  def fide_federation(%Member{fide_id: fide_id}) when is_integer(fide_id) do
+    case PairingsEngine.Fide.get_player(fide_id) do
+      %{federation: federation} when is_binary(federation) ->
+        federation = String.trim(federation)
+        if String.length(federation) == 3, do: federation, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  def fide_federation(_member), do: nil
+
+  @doc """
+  Whether `value` is the single-letter wing code (V, F or D, either case,
+  spaces ignored) rather than a country. Used to repair what the wing once
+  wrote into a player's federation.
+  """
+  def wing_letter?(value) when is_binary(value),
+    do: String.upcase(String.trim(value)) in ~w(V F D)
+
+  def wing_letter?(_value), do: false
+
+  @doc """
+  `attrs` (a player as a string-keyed map, from a backup or an export) with
+  the wing letter taken out of its `federation`, when it carries a Belgian
+  national ID: the FIDE list's federation for its FIDE ID, else blank.
+  Anything else, a real code or a letter on a player with no national ID,
+  comes back untouched.
+  """
+  def repair_wing_federation(%{"federation" => federation} = attrs) do
+    national_id = attrs |> Map.get("national_id") |> to_string() |> String.trim()
+
+    if wing_letter?(federation) and national_id != "" do
+      fide_id =
+        case attrs["fide_id"] do
+          id when is_integer(id) -> id
+          id when is_binary(id) -> with {n, ""} <- Integer.parse(String.trim(id)), do: n
+          _ -> nil
+        end
+
+      Map.put(attrs, "federation", fide_federation(%Member{fide_id: fide_id}) || "")
+    else
+      attrs
+    end
+  end
+
+  def repair_wing_federation(attrs), do: attrs
+
+  @doc """
   Normalized form used to match a typed player name against the list:
   lower-cased, accents stripped, and every run of non-alphanumerics
   collapsed to one space. `"Hendricks, Björn"` and `"hendricks  BJORN"`

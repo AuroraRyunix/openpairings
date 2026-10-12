@@ -112,6 +112,11 @@ Press **Add player**. The form first offers a search box:
 - Start typing a last name (`Lastname, Firstname`) or a number; choose the
   player from the results and the form is filled in: name, title, federation,
   FIDE ID, ratings, birth year and (Belgium) national ID and club.
+  The federation is the country code from the FIDE list. The Belgian list
+  has a column of its own that looks similar (V, F or D, the Flemish,
+  francophone or German-speaking wing); it is not a country and is never
+  put in the federation field. A member the FIDE list does not know is
+  added with the federation blank, to be typed if it matters.
 - Or fill the details in by hand below the search box.
 
 ![The Add player form with the search box and the search results](screenshots/04-add-player-form.png "Adding a player")

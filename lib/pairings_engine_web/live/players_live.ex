@@ -942,12 +942,12 @@ defmodule PairingsEngineWeb.PlayersLive do
             "name" => Member.full_name(kp),
             "national_id" => kp.national_id,
             "national_rating" => kp.national_rating,
-            "federation" => kp.federation,
             "club" => kp.club_name,
             "club_number" => kp.club_number,
             "birth_year" => kp.birth_year
           }
           |> Map.merge(fide_values)
+          |> put_if_blank("federation", Members.fide_federation(kp))
 
         {:noreply,
          assign(socket,
@@ -1031,11 +1031,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           |> Map.merge(%{
             "national_id" => kp.national_id,
             "national_rating" => kp.national_rating,
-            "federation" => kp.federation,
             "club" => kp.club_name,
             "club_number" => kp.club_number,
             "birth_year" => kp.birth_year
           })
+          |> put_if_blank("federation", Members.fide_federation(kp))
           |> put_if_blank("name", Member.full_name(kp))
           |> put_if_blank("fide_id", kp.fide_id)
 
@@ -1696,11 +1696,11 @@ defmodule PairingsEngineWeb.PlayersLive do
           form
           |> Map.merge(%{
             "national_rating" => kp.national_rating,
-            "federation" => kp.federation,
             "club" => kp.club_name,
             "club_number" => kp.club_number,
             "birth_year" => kp.birth_year
           })
+          |> put_if_blank("federation", Members.fide_federation(kp))
           |> put_if_blank("fide_id", kp.fide_id)
 
         newly_learned_fide_id = merged |> Map.get("fide_id") |> to_string() |> String.trim()

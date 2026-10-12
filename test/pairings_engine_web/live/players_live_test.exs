@@ -599,7 +599,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = render_change(lv, "lookup_kbsb_add", %{"player" => %{"national_id" => "12345"}})
 
       assert html =~ ~s(value="1850")
-      assert html =~ ~s(value="VSF")
+      # The list's wing (VSF) is not a country, so it is not copied as one.
+      refute html =~ ~s(value="VSF")
       assert html =~ ~s(value="1990")
       assert html =~ ~s(value="KSK Antwerpen")
       assert html =~ "Peeters, Jan"
@@ -808,7 +809,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "KBSB") |> render_click()
 
       assert html =~ ~s(value="1850")
-      assert html =~ ~s(value="VSF")
+      # The list's wing (VSF) is not a country, so it is not copied as one.
+      refute html =~ ~s(value="VSF")
       assert html =~ ~s(value="KSK Antwerpen")
       assert html =~ ~s(value="1990")
       assert html =~ ~s(value="555555")

@@ -184,7 +184,7 @@ those readers needed to change.
 | `fide_id` | `FideId` | |
 | `club_number` | `Club` | |
 | `club_name` | (resolved) | see "Club names" above |
-| `federation` | `Fed` | |
+| `federation` | `Fed` | the wing inside Belgium (V, F, D), NOT a country: never copied into a player's `federation` (`Members.fide_federation/1` supplies the FIDE list's country instead) |
 | `birth_year` | `Birthday` | **year only** - the leading 4 digits. The full birth date is never stored: no feature reads a day of birth, only the year (`ClubRefresh.year_agrees?/2`) |
 | `died` | `Died` | boolean (`1`/`0` -> `true`/`false`) |
 | `affiliated` | `Affiliated` | boolean, same conversion |

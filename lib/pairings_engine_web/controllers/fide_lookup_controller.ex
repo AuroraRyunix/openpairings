@@ -104,7 +104,9 @@ defmodule PairingsEngineWeb.FideLookupController do
       "fide_id" => member.fide_id,
       "national_id" => member.national_id,
       "name" => Member.full_name(member),
-      "federation" => blank_to_nil(member.federation),
+      # The list's own column is the member's wing inside Belgium, not a
+      # country; the country is the FIDE list's, when the FIDE ID is known.
+      "federation" => Members.fide_federation(member),
       "birth_year" => member.birth_year,
       "club" => blank_to_nil(member.club_name),
       "rating" => member.national_rating

@@ -72,7 +72,7 @@ defmodule PairingsEngine.Registrations.Review do
           notes: [note()]
         }
   def proposal(%Registration{} = registration, %Tournament{} = tournament, opts \\ []) do
-    typed = typed_attrs(registration, tournament)
+    typed = registration |> typed_attrs(tournament) |> without_wing_letter()
 
     {attrs, notes} =
       if Keyword.get(opts, :national_list, false),
@@ -139,7 +139,7 @@ defmodule PairingsEngine.Registrations.Review do
           |> put_present("national_rating", member.national_rating)
           |> put_present("club", blank_to_nil(member.club_name))
           |> put_present("club_number", member.club_number)
-          |> put_if_blank("federation", blank_to_nil(member.federation))
+          |> put_if_blank("federation", Members.fide_federation(member))
           |> put_if_blank("birth_year", member.birth_year)
           |> put_if_blank("fide_id", member.fide_id)
           |> put_if_blank("name", Member.full_name(member))
@@ -383,6 +383,16 @@ defmodule PairingsEngine.Registrations.Review do
     case Map.get(attrs, key) do
       nil -> Map.put(attrs, key, value)
       _already -> attrs
+    end
+  end
+
+  # An entry the results site filled from the Belgian list before that
+  # stopped copying the wing letter (V, F, D) as a country: the letter goes,
+  # the FIDE list (below) supplies the country if it knows the person.
+  defp without_wing_letter(attrs) do
+    case Members.repair_wing_federation(attrs) do
+      %{"federation" => ""} = repaired -> Map.delete(repaired, "federation")
+      repaired -> repaired
     end
   end
 

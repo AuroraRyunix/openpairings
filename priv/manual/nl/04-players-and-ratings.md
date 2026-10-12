@@ -116,6 +116,11 @@ Druk op **Speler toevoegen**. Het formulier biedt eerst een zoekvak aan:
 - Begin een achternaam te typen (`Achternaam, Voornaam`) of een nummer; kies de
   speler uit de resultaten en het formulier wordt ingevuld: naam, titel,
   federatie, FIDE-ID, ratings, geboortejaar en (België) nationaal ID en club.
+  De federatie is de landcode uit de FIDE-lijst. De Belgische lijst heeft een
+  kolom met een eigen, gelijkaardige inhoud (V, F of D: de Vlaamse,
+  Franstalige of Duitstalige vleugel); dat is geen land en komt nooit in het
+  veld federatie terecht. Een lid dat de FIDE-lijst niet kent, wordt met een
+  leeg veld toegevoegd, om zo nodig zelf in te vullen.
 - Of vul de gegevens onder het zoekvak met de hand in.
 
 ![Het formulier Speler toevoegen met het zoekvak en de zoekresultaten](screenshots/04-add-player-form.png "Een speler toevoegen")

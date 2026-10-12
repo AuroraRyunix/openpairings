@@ -844,7 +844,12 @@ defmodule PairingsEngine.TournamentImport do
 
   defp import_players!(tournament, players, team_map) do
     Map.new(Enum.with_index(players, 1), fn {p, n} ->
-      attrs = Map.put(p, "team_id", Map.get(team_map, Map.get(p, "team_id")))
+      # A backup written while the Belgian lookup copied the member's wing
+      # letter (V, F, D) into the federation must not bring it back.
+      attrs =
+        p
+        |> PairingsEngine.Federations.BEL.Members.repair_wing_federation()
+        |> Map.put("team_id", Map.get(team_map, Map.get(p, "team_id")))
 
       new_player =
         %Player{tournament_id: tournament.id}
