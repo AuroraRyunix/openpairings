@@ -288,9 +288,25 @@ defmodule PairingsEngine.BoardLink.RelayKeysTest do
       assert %{state: :refused, reason: "unsupported", fallback?: true} = RelayKeys.status(t)
       assert "boards.relay_key_refused" in actions(t)
 
-      site(fn _conn -> flunk("asked again within the hour") end)
+      site(fn _conn -> flunk("asked again within five minutes") end)
       assert RelayKeys.sweep() == 0
-      assert RelayKeys.sweep(later(3_600)) == 0
+      assert RelayKeys.sweep(later(240)) == 0
+    end
+
+    test "a site upgraded minutes later is found without anybody pressing anything", %{
+      scope: scope
+    } do
+      # A deploy that restarts this program first: the 404 is true for about
+      # as long as the other restart takes.
+      t = published(scope)
+      {:ok, _link, _secret} = BoardLink.create_link(scope, t)
+      answers(404, %{"errors" => %{"detail" => "Not Found"}})
+      assert RelayKeys.sweep() == 0
+
+      site([@key_a])
+      assert RelayKeys.sweep(later(301)) == 1
+      assert reload(t).openresults_relay_key == @key_a
+      assert %{state: :held} = RelayKeys.status(reload(t))
     end
 
     test "pasting a key still works there, and the box gets it", %{scope: scope} do

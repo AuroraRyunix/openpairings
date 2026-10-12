@@ -90,6 +90,13 @@ defmodule PairingsEngine.BoardLink.RelayKeys do
   # "Try again" is there for whoever knows that happened.
   @refused_retry_s 6 * 3_600
 
+  # "Unsupported" is the one refusal that mends itself in minutes: a deploy
+  # that restarts this program a moment before the results site answers 404
+  # for a route the site is about to have. Asked again every five minutes
+  # for the first hour, then on the slow schedule like any other refusal.
+  @unsupported_retry_s 300
+  @unsupported_quick_tries 12
+
   @temporary_codes ~w(tournament_not_published rate_limited publishing_paused storage_low
                       registration_closed)
 
@@ -401,6 +408,11 @@ defmodule PairingsEngine.BoardLink.RelayKeys do
     :later
   end
 
+  defp refused_wait("unsupported", attempts) when attempts <= @unsupported_quick_tries,
+    do: @unsupported_retry_s
+
+  defp refused_wait(_reason, _attempts), do: @refused_retry_s
+
   defp refused(%Tournament{} = tournament, row, reason, now) do
     row = row || %RelayRequest{tournament_id: tournament.id}
     news? = row.reason != reason or row.state == "wanted"
@@ -410,7 +422,7 @@ defmodule PairingsEngine.BoardLink.RelayKeys do
       state: if(holding?(tournament, row), do: "held", else: "refused"),
       reason: reason,
       attempts: row.attempts + 1,
-      next_attempt_at: DateTime.add(now, @refused_retry_s, :second),
+      next_attempt_at: DateTime.add(now, refused_wait(reason, row.attempts + 1), :second),
       # A replacement that was refused is not asked for again every six
       # hours behind the arbiter's back: the key that is held still works.
       replace: false
