@@ -364,7 +364,7 @@ Boards the arbiter has emptied or hidden are not listed.
 |---|---|
 | `server_url` | the results site's public address, no trailing slash. Post to `<server_url>/api/tournaments/<slug>/live` |
 | `slug` | the tournament's public short name there |
-| `relay_key` | the relay key to send as `Authorization: Bearer`, or `null` when the arbiter has not saved one. With `null`, do not post to the results site; keep reporting to OpenPairings |
+| `relay_key` | the relay key to send as `Authorization: Bearer`, or `null` while OpenPairings holds none. OpenPairings fetches it from the results site by itself (see below), so `null` is normally a matter of seconds after the tournament reaches the site; it stays `null` while the site is unreachable or refuses. With `null`, do not post to the results site; keep reporting to OpenPairings. **The key can change** (the arbiter replaced it, the site rotated it): always use the one in the newest document and drop the one before - the results site answers the old one with `403 relay_key_revoked` |
 
 Any of the three can change (publishing switched off, the address rotated, a
 new key saved). The `version` changes with them.
@@ -543,6 +543,15 @@ seat filled is listed with `kind: "bye"` until the other is.
   **arbiter's** result (`*` until entered).
 - Carries the games in a tournament export and in restore points. The codes
   and the relay key are in neither.
+- Fetches the relay key from the results site by itself
+  (`PairingsEngine.BoardLink.RelayKeys`; OpenResults' `docs/live-boards-api.md`,
+  "A relay key from the publisher"), with the credentials it publishes the
+  tournament with, as soon as the tournament is on the site and a code
+  reaches it, a board has reported a game of it, or its live link is on. The
+  tournament's `version` covers `openresults`, so the listing's version moves
+  when the key arrives or is replaced, and a box that polls sees it at its
+  next poll. Nobody pastes a key; the box never holds the publishing
+  credentials.
 - Writes the code's first use to the tournament's audit trail, with the box's
   name and version.
 

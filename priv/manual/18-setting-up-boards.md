@@ -51,9 +51,10 @@ Three programs, two directions of conversation.
   hall's network too, see below).
 - **OpenResults**, the public results site, shows the games live. Alnasl sends
   the moves there directly, and one way only: it reads nothing from it. The
-  address of the results site, the tournament's short name and the key all
-  come to Alnasl **through OpenPairings**, so nothing about them is typed on
-  the box.
+  address of the results site, the tournament's short name and the permission
+  to send there all come to Alnasl **through OpenPairings**, which fetches the
+  permission from the results site by itself. Nothing about them is typed on
+  the box, and nobody has to ask an administrator for anything.
 
 ## Set-up with a hosted OpenPairings {#set-up-hosted}
 
@@ -61,77 +62,78 @@ OpenPairings is on the web, Alnasl is in the hall with internet.
 
 ### In OpenPairings {#in-openpairings}
 
-1. **Publish the tournament to the results site.** Settings, **OpenResults**,
+1. **Put the tournament on the results site.** Settings, **OpenResults**,
    **On the results site**: **Link only** or **Listed**. The results site must
    be connected first (see
    [Connecting a results site](14-publishing.md#connecting-a-results-site)).
-   Wait until the tournament is on the site: Settings, **Live boards** then
-   says *The box sends the moves to … tournament …*. That line is not shown
-   before the tournament is on the site, and neither is the Relay key field.
-2. **Get a relay key.** The relay key lets the box send moves to the results
-   site, for this one tournament. **An administrator of the results site makes
-   it**, on the results site's page Tournaments, the tournament, **Relay
-   keys**. It is shown once. Ask that administrator for it. (The key is described in [Relay keys](17-live-boards.md#relay-keys).)
-3. **Paste the relay key.** Settings, **Live boards**, card **The results
-   site**, field **Relay key**, then **Save**. The card then says *A relay
-   key is saved (ends in …)*. It is kept on this server, is not shown again and
-   is not in an export. Without it the box still reads the boards and reports
-   to OpenPairings, but sends nothing to the results site.
-4. **Make a connect code.** On the same page, card **Codes for this
+   Once the tournament is on the site, Settings, **Live boards** says
+   *Connected to … as …*.
+2. **Make a connect code.** Settings, **Live boards**, card **Codes for this
    tournament**, press **New code**. The page shows the code as a line of text
    and as a QR code, **once**: *The new code. It is shown this once.* Copy the
    line now. If you lose it, make another; a code is one click.
-5. **Decide about the public link.** The switch **Live link on the results
+
+   That is all the box needs. The card **The results site** on the same page
+   goes from *Getting permission from the results site…* to *Yes. The box may
+   send moves there.* by itself, usually within seconds. There is no key to
+   ask for, copy or paste. (What happens behind it:
+   [The box's permission](17-live-boards.md#the-relay-key-for-the-box).)
+3. **Decide about the public link.** The switch **Live link on the results
    site** (On / Off) puts a *Live boards* link on the public pages. Connecting
    a box does not switch it on: it is yours to say, when the boards are really
    being relayed.
 
+Steps 1 and 2 may be done in either order. A code made before the tournament
+is on the results site works for the pairings at once, and the permission for
+the results site follows as soon as the tournament has arrived there.
+
 ### In Alnasl, in the hall {#in-alnasl}
 
-6. **Paste the code.** Open Alnasl (`http://localhost:4040`), **Setup**,
+4. **Paste the code.** Open Alnasl (`http://localhost:4040`), **Setup**,
    panel **Tournaments**. Paste the whole line in **Connect code** and press
    **Add**. From a phone: scan the QR code with the phone's *own* camera, copy
    the link it shows instead of opening it, and paste that. Alnasl's own page
    cannot scan the QR code (a browser only lends its camera to pages served
    over https), so the code is paste-only on the box.
-7. **Test connection.** It checks three things, each in words: *Address*
+5. **Test connection.** It checks three things, each in words: *Address*
    (OpenPairings answers), *Code* (the connect code is accepted), *Tournaments*
    (*The code reaches N tournament(s)*). Under each tournament you should see
-   the round that is on and *its results page and relay key came with it*.
+   the round that is on and *its results page and relay key came with it*
+   (the relay key is the permission OpenPairings fetched; you did nothing for it).
    Anything else is explained in [When something is wrong](#troubleshooting).
-8. **Say which tables play in the tournament.** Under the tournament:
+6. **Say which tables play in the tournament.** Under the tournament:
    **Tables from** … **to** …, then **These tables play here**. Table 5 is
    then the tournament's board 1. The box shows how many boards it now has.
-9. **Number the boards.** Boards, **Number by touching**: press Start, lift a
+7. **Number the boards.** Boards, **Number by touching**: press Start, lift a
    piece on table 1's board, then on table 2's, and so on. (On a phone this
    page is made to be held in one hand. To open the box from a phone, start it
    with `ALNASL_LISTEN=lan` and **set a PIN** in Setup first, before the hall
    fills up.) Or **Number all in connection order**, or type the number in the
    **Table** column.
-10. **Check "Ready for round N?"** on Boards. It must say *Ready*. If not, it
-    lists what is wrong, board by board: two boards with the same number, a
-    board that does not answer, a wrong starting position, a clock that is
-    not in its starting position (the lever up on White's side).
-11. **Check the Round page.** Every tile should read *Waiting for start*.
+8. **Check "Ready for round N?"** on Boards. It must say *Ready*. If not, it
+   lists what is wrong, board by board: two boards with the same number, a
+   board that does not answer, a wrong starting position, a clock that is
+   not in its starting position (the lever up on White's side).
+9. **Check the Round page.** Every tile should read *Waiting for start*.
 
 ### The round {#the-round}
 
-12. **Pair the round in OpenPairings** as always (**Pair round N**). OpenPairings
+10. **Pair the round in OpenPairings** as always (**Pair round N**). OpenPairings
     has no button that starts a round: a round that is paired is on. Within
     about five seconds the boards of that tournament show the new round, with
     names, ratings and colours. If it does not (no connection), **Start round
     N** on Alnasl's Round page does it by hand.
-13. **Play.** Keep Alnasl's Round page open. A tile per board shows the state
+11. **Play.** Keep Alnasl's Round page open. A tile per board shows the state
     as a shape and a word: *Live*, *Settling*, *Reconstructed*, *Out of sync*,
     *No signal*, *Clock wrong way*, *Finished*. On the Pairings page of
     OpenPairings, the column **Board saw** shows what the board reported,
     beside the result you enter.
-14. **Enter the results in OpenPairings**, on the Pairings page, as you always
+12. **Enter the results in OpenPairings**, on the Pairings page, as you always
     do ([Entering results](07-results.md)). A board never enters one. If the
     board saw another result than the one you entered, the entry is red with
     *differs* and the hover text says *Check the scoresheets. Nothing is
     blocked.* Check the scoresheet, correct whichever is wrong, and go on.
-15. **Spectators** see the moves on the results site's live pages. They only
+13. **Spectators** see the moves on the results site's live pages. They only
     see a game for a board of a **published** round.
 
 ## Set-up with the desktop edition {#set-up-desktop}
@@ -146,18 +148,22 @@ same PC**.
 > desktop OpenPairings today.** That is a known limit. If the box must be a
 > separate small computer, use the hosted edition.
 
-Steps 4 to 15 above are the same, with these differences:
+Steps 2 to 13 above are the same, with these differences:
 
 - **The code.** Settings, **Live boards** says, instead of a server address:
   *This copy answers on this computer only, so the box program has to run on
-  this computer too*. Make the code (step 4) and paste it in the Alnasl on the
-  same PC (step 6). Test connection works with no internet.
-- **The results site is optional.** With internet, do steps 1 to 3 as in the
+  this computer too*. Make the code (step 2) and paste it in the Alnasl on the
+  same PC (step 4). Test connection works with no internet.
+- **The results site is optional.** With internet, do step 1 as in the
   hosted set-up, and the moves also go to the results site. Without internet at
-  all, skip them: Alnasl and OpenPairings still work together.
-- **Publish while you still have internet.** The results address and the short
-  name that Alnasl needs exist only once the tournament has reached the results
-  site. If the event has no internet, do steps 1 to 3 at home.
+  all, skip it: Alnasl and OpenPairings still work together.
+- **Publish while you still have internet.** The results address, the short
+  name and the permission that Alnasl needs exist only once the tournament has
+  reached the results site and the desktop copy has fetched the permission. If
+  the event has no internet, do steps 1 and 2 at home and wait until the card
+  **The results site** says *Yes. The box may send moves there.* Offline, the
+  card keeps saying *Getting permission from the results site…* and tries
+  again by itself when there is a connection.
 
 ### What works without internet {#what-works-offline}
 
@@ -169,7 +175,7 @@ Steps 4 to 15 above are the same, with these differences:
 | The **Board saw** column, the game page and the PGN with moves | works | works |
 | Moves to the results site (live pages for spectators) | works | **waits** in Alnasl's queue (the Outbox page says how much), and goes out in order when there is a connection |
 | Lichess broadcast (if you set one up in Alnasl) | works | waits in the same way |
-| Publishing the tournament, getting the relay key | works | needs internet at that moment |
+| Publishing the tournament, and OpenPairings fetching the box's permission for the results site | works, by itself | waits, and happens by itself when there is a connection |
 
 A banner on every Alnasl page says when the results site cannot be reached.
 Play goes on and nothing is lost.
@@ -242,7 +248,8 @@ page.
    Alnasl has its own PGN page (*Whole round as PGN*).
 4. **What is kept where.** The games are kept with the tournament in
    OpenPairings and are in its JSON export and its restore points. The connect
-   codes and the relay key are not: a copy elsewhere makes its own. On the box,
+   codes and the box's permission for the results site are not: a copy
+   elsewhere makes its own codes and fetches its own permission. On the box,
    the games, the queue and the settings are on disk in Alnasl's data folder
    (`~/.alnasl` in production), with a PGN file per game.
 5. **Withdraw the codes** when the event is over: Settings, Live boards,
@@ -261,20 +268,22 @@ page.
 | Alnasl: *OpenPairings cannot be reached*; link says *No answer* | The server or the hall's network is down. Nothing is lost: the boards go on with the pairings they have and the box asks again by itself. | Check the network. A round paired meanwhile: **Start round N**. |
 | *No answer. This code is for an OpenPairings on this same computer: is it running?* | A desktop code is used on a computer that is not the one OpenPairings is on, or OpenPairings is not running. | Run Alnasl on the same PC as the desktop OpenPairings, and start OpenPairings. |
 | *Something answers at that address, but not as OpenPairings' board link* | A login page of the hall's network, or another program on that port. | Log in to the hall's network, or check the address. |
-| *… is not published on a results site, so its moves go to OpenPairings only* | The tournament is not on the results site. | Publish it (step 1). The address and key come by themselves afterwards. |
-| *… it is on a results site, but no relay key is saved in OpenPairings* | The relay key was not pasted. | Step 3. |
-| Settings, Live boards has no **Relay key** field | The tournament is not on the results site yet. | Publish it first (step 1). |
-| *That does not look like a relay key: 16 to 200 characters, no spaces.* | The key was cut or has spaces. | Paste it again. |
+| *… is not published on a results site, so its moves go to OpenPairings only* | The tournament is not on the results site. | Publish it (step 1). The address and the permission come by themselves afterwards. |
+| *… it is on a results site, but no relay key is saved in OpenPairings* | OpenPairings has not got the box's permission from the results site (yet). Usually it is seconds away; otherwise the results site cannot be reached, said no, or is an older version. | Open Settings, Live boards, card **The results site**: it says which. *Getting permission…*: wait, it is tried again by itself. *Not yet … : reason*: read the reason, then **Try again**. *Older version*: see the next row. |
+| The card says *it is an older version that cannot do this by itself* and shows a **Relay key** field | The results site is from before it could hand out the permission. | Ask that site's administrator for a relay key for the tournament and paste it in the field. See [Relay keys](17-live-boards.md#relay-keys). |
+| The card says *Put the tournament on the results site first* | The tournament is not on the results site yet. | Publish it (step 1). |
+| *That does not look like a relay key: 16 to 200 characters, no spaces.* | Only with an older results site: the pasted key was cut or has spaces. | Paste it again. |
+| The box was sending and the results site now refuses it | The permission was replaced or revoked (by you, or by the site's administrator). | Settings, Live boards, **Replace the box's permission**. The box picks the new one up by itself. |
 | *There are already 8 codes.* | The limit. | Withdraw a code you no longer use. |
 | *The code reaches no tournament just now* | The tournament was deleted or archived, or the group is empty. | Check the tournament; it cannot be on a box when archived or handed off. |
 | *OpenPairings asks to slow down* | Too many requests. | Nothing: the box tries again by itself. |
 | The new round does not appear | The box asks about every five seconds. | Wait a few seconds. If still nothing, look at the link state in Setup, or use **Start round N**. |
 | *Clock not in starting position: … the clock is turned or the lever is the wrong way* | The clock is not set for White (it stands to the right of the board, the lever up on White's side). | Turn the clock or tip the lever. The message goes by itself. |
 | The same game is reported twice | Two codes reach the same tournament on one box. | Keep one code (see [several tournaments](#several-tournaments)). |
-| No **Board saw** column on the Pairings page | No code reaches this tournament yet and no board has reported a game. | Make a code (step 4) and add it to the box. |
+| No **Board saw** column on the Pairings page | No code reaches this tournament yet and no board has reported a game. | Make a code (step 2) and add it to the box. |
 | Red *differs* in the Board saw column | The board saw another result than the one entered. | Check the scoresheets. Nothing is blocked. |
 | A tile says *Pairing changed in OpenPairings* | A pairing changed after moves were played. | See [During the round](#during-the-round). |
-| The results site shows nothing | Games wait in the queue; or the round is not published; or no relay key. | Alnasl's **Outbox** page says what waits and why. A game is only shown for a board of a published round. |
+| The results site shows nothing | Games wait in the queue; or the round is not published; or the box has no permission yet (the tournament is not on the results site, or the site is unreachable, said no, or is too old). | Alnasl's **Outbox** page says what waits and why, and Settings, Live boards, card **The results site** says where the permission stands. A game is only shown for a board of a published round. |
 
 ## Limits today {#limits-today}
 

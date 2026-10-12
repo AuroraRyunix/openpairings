@@ -523,6 +523,7 @@ defmodule PairingsEngine.TournamentExport do
   #     travel (`"board_games"`).
   @excluded_tables [
     :board_links,
+    :board_relay_requests,
     :mobile_enrollments,
     :tournament_snapshots,
     :openresults_registrations,

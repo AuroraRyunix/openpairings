@@ -77,6 +77,14 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# What a request's or a LiveView event's parameters must not carry into a
+# log line. "password" is Phoenix's own default and has to be repeated once
+# the list is set. "relay" is the form on Settings, Live boards
+# (`relay[key]`): the results site's relay key, pasted where the site cannot
+# hand one out. The filter matches on a substring of the parameter's name
+# and takes everything beneath it.
+config :phoenix, :filter_parameters, ["password", "relay"]
+
 # Where PairingsEngine.Federations.BEL.SwarUpload PUTs a generated SWAR
 # results page (step 1) and where it asks the federation to index what it
 # just staged (step 2). Fixed for every installation - the Belgian

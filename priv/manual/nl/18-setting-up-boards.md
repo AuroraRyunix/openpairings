@@ -53,8 +53,10 @@ Drie programma's, twee richtingen van gesprek.
 - **OpenResults**, de publieke uitslagensite, toont de partijen live. Alnasl
   stuurt de zetten er rechtstreeks heen, en in één richting: het leest er niets
   van. Het adres van de uitslagensite, de korte naam van het toernooi en de
-  sleutel komen allemaal **via OpenPairings** bij Alnasl, dus daarvan wordt op
-  het kastje niets getypt.
+  toestemming om daarheen te sturen komen allemaal **via OpenPairings** bij
+  Alnasl; OpenPairings haalt die toestemming zelf bij de uitslagensite op.
+  Daarvan wordt op het kastje niets getypt, en niemand hoeft een beheerder iets
+  te vragen.
 
 ## Installeren met een gehoste OpenPairings {#set-up-hosted}
 
@@ -62,85 +64,84 @@ OpenPairings staat op het web, Alnasl staat in de zaal met internet.
 
 ### In OpenPairings {#in-openpairings}
 
-1. **Publiceer het toernooi op de uitslagensite.** Instellingen, **OpenResults**,
+1. **Zet het toernooi op de uitslagensite.** Instellingen, **OpenResults**,
    **Op de uitslagensite**: **Alleen link** of **Op de voorpagina**. De
    uitslagensite moet eerst gekoppeld zijn (zie
    [Een uitslagensite verbinden](14-publishing.md#connecting-a-results-site)).
-   Wacht tot het toernooi op de site staat: Instellingen, **Live borden** zegt
-   dan *Het kastje stuurt de zetten naar … toernooi …*. Die regel verschijnt
-   niet zolang het toernooi niet op de site staat, en het veld Relaissleutel
-   ook niet.
-2. **Haal een relaissleutel.** Met de relaissleutel kan het kastje zetten naar
-   de uitslagensite sturen, voor dit ene toernooi. **Een beheerder van de
-   uitslagensite maakt hem**, op de pagina Toernooien van de uitslagensite, het
-   toernooi, **Relaissleutels**. Hij wordt één keer getoond. Vraag hem aan die
-   beheerder. (De sleutel is beschreven in
-   [Relaissleutels](17-live-boards.md#relay-keys).)
-3. **Plak de relaissleutel.** Instellingen, **Live borden**, kaart **De
-   uitslagensite**, veld **Relaissleutel**, dan **Opslaan**. De kaart zegt dan
-   *Er is een relaissleutel bewaard (eindigt op …)*. Hij wordt op deze server
-   bewaard, niet opnieuw getoond en zit niet in een export. Zonder sleutel leest
-   het kastje de borden nog wel en meldt het aan OpenPairings, maar het stuurt
-   niets naar de uitslagensite.
-4. **Maak een koppelcode.** Op dezelfde pagina, kaart **Codes voor dit
-   toernooi**, druk op **Nieuwe code**. De pagina toont de code als regel tekst
-   en als QR-code, **één keer**: *De nieuwe code. Ze wordt alleen nu getoond.*
-   Kopieer de regel nu. Bent u ze kwijt, maak dan een nieuwe; een code is één
-   klik.
-5. **Besluit over de openbare link.** De schakelaar **Live-link op de
+   Staat het toernooi op de site, dan zegt Instellingen, **Live borden**
+   *Verbonden met … als …*.
+2. **Maak een koppelcode.** Instellingen, **Live borden**, kaart **Codes voor
+   dit toernooi**, druk op **Nieuwe code**. De pagina toont de code als regel
+   tekst en als QR-code, **één keer**: *De nieuwe code. Ze wordt alleen nu
+   getoond.* Kopieer de regel nu. Bent u ze kwijt, maak dan een nieuwe; een
+   code is één klik.
+
+   Meer heeft het kastje niet nodig. De kaart **De uitslagensite** op dezelfde
+   pagina gaat vanzelf van *Toestemming wordt bij de uitslagensite opgehaald…*
+   naar *Ja. Het kastje mag daar zetten naartoe sturen.*, meestal binnen
+   enkele seconden. Er is geen sleutel om aan te vragen, te kopiëren of te
+   plakken. (Wat daarachter gebeurt:
+   [De toestemming van het kastje](17-live-boards.md#the-relay-key-for-the-box).)
+3. **Besluit over de openbare link.** De schakelaar **Live-link op de
    uitslagensite** (Aan / Uit) zet een link *Live borden* op de openbare
    pagina's. Een kastje koppelen zet hem niet aan: dat is aan u, wanneer de
    borden echt doorgegeven worden.
 
+Stap 1 en 2 mogen in beide volgordes. Een code die gemaakt is voordat het
+toernooi op de uitslagensite staat, werkt meteen voor de paringen, en de
+toestemming voor de uitslagensite volgt zodra het toernooi daar is aangekomen.
+
 ### In Alnasl, in de zaal {#in-alnasl}
 
-6. **Plak de code.** Open Alnasl (`http://localhost:4040`), **Instellingen**,
+4. **Plak de code.** Open Alnasl (`http://localhost:4040`), **Instellingen**,
    paneel **Toernooien**. Plak de hele regel in **Koppelcode** en druk op
    **Toevoegen**. Vanaf een telefoon: scan de QR-code met de *eigen* camera van
    de telefoon, kopieer de link die hij toont in plaats van hem te openen, en
    plak die. De pagina van Alnasl kan de QR-code zelf niet scannen (een browser
    leent zijn camera alleen aan pagina's via https), dus op het kastje is de code
    alleen te plakken.
-7. **Verbinding testen.** Dit controleert drie dingen, elk in woorden: *Adres*
+5. **Verbinding testen.** Dit controleert drie dingen, elk in woorden: *Adres*
    (OpenPairings antwoordt), *Code* (de koppelcode is aanvaard), *Toernooien*
    (*De code bereikt N toernooi(en)*). Onder elk toernooi ziet u de ronde die
-   bezig is en *de uitslagenpagina en relaysleutel zijn meegekomen*. Al het
-   andere wordt uitgelegd in [Als er iets mis is](#troubleshooting).
-8. **Geef op welke tafels in het toernooi spelen.** Onder het toernooi: **Tafels
+   bezig is en *de uitslagenpagina en relaysleutel zijn meegekomen* (de
+   relaissleutel is de toestemming die OpenPairings ophaalde; u deed er niets
+   voor). Al het andere wordt uitgelegd in
+   [Als er iets mis is](#troubleshooting).
+6. **Geef op welke tafels in het toernooi spelen.** Onder het toernooi: **Tafels
    van** … **tot** …, dan **Deze tafels spelen hier**. Tafel 5 is dan bord 1 van
    het toernooi. Het kastje toont hoeveel borden het nu heeft.
-9. **Nummer de borden.** Borden, **Nummeren door aan te raken**: druk op Start,
+7. **Nummer de borden.** Borden, **Nummeren door aan te raken**: druk op Start,
    til een stuk op van het bord van tafel 1, dan van tafel 2, enzovoort. (Op een
    telefoon is deze pagina gemaakt om in één hand te houden. Om het kastje vanaf
    een telefoon te openen, start u het met `ALNASL_LISTEN=lan` en **stelt u eerst
    een PIN in** bij Instellingen, voordat de zaal vol loopt.) Of **Alles nummeren
    in aansluitvolgorde**, of typ het nummer in de kolom **Tafel**.
-10. **Controleer "Klaar voor ronde N?"** op Borden. Het moet *Gereed* zeggen. Zo
-    niet, dan staat er bord per bord wat er mis is: twee borden met hetzelfde
-    nummer, een bord dat niet antwoordt, een verkeerde beginstelling, een klok
-    die niet in beginstelling staat (de wip omhoog aan de kant van wit).
-11. **Controleer de pagina Ronde.** Elke tegel moet *Wacht op begin* zeggen.
+8. **Controleer "Klaar voor ronde N?"** op Borden. Het moet *Gereed* zeggen. Zo
+   niet, dan staat er bord per bord wat er mis is: twee borden met hetzelfde
+   nummer, een bord dat niet antwoordt, een verkeerde beginstelling, een klok
+   die niet in beginstelling staat (de wip omhoog aan de kant van wit).
+9. **Controleer de pagina Ronde.** Elke tegel moet *Wacht op begin* zeggen.
 
 ### De ronde {#the-round}
 
-12. **Paar de ronde in OpenPairings** zoals altijd (**Ronde N paren**).
+10. **Paar de ronde in OpenPairings** zoals altijd (**Ronde N paren**).
     OpenPairings heeft geen knop die een ronde start: een ronde die gepaard is,
     is bezig. Binnen ongeveer vijf seconden tonen de borden van dat toernooi de
     nieuwe ronde, met namen, ratings en kleuren. Gebeurt dat niet (geen
     verbinding), dan doet **Ronde N starten** op de pagina Ronde van Alnasl het
     met de hand.
-13. **Spelen.** Houd de pagina Ronde van Alnasl open. Een tegel per bord toont de
+11. **Spelen.** Houd de pagina Ronde van Alnasl open. Een tegel per bord toont de
     toestand als een vorm en een woord: *Live*, *Bezig*, *Gereconstrueerd*,
     *Niet synchroon*, *Geen signaal*, *Klok verkeerd om*, *Afgelopen*. Op de
     pagina Paringen van OpenPairings toont de kolom **Bord zag** wat het bord
     meldde, naast de uitslag die u invoert.
-14. **Voer de uitslagen in OpenPairings in**, op de pagina Paringen, zoals u
+12. **Voer de uitslagen in OpenPairings in**, op de pagina Paringen, zoals u
     altijd doet ([Resultaten invoeren](07-results.md)). Een bord voert er nooit
     een in. Zag het bord een andere uitslag dan die u invoerde, dan staat de
     vermelding in het rood met *wijkt af* en zegt de hovertekst *Controleer de
     notatieformulieren. Er wordt niets geblokkeerd.* Controleer het
     notatieformulier, verbeter wat fout is, en ga door.
-15. **Toeschouwers** zien de zetten op de livepagina's van de uitslagensite. Ze
+13. **Toeschouwers** zien de zetten op de livepagina's van de uitslagensite. Ze
     zien een partij alleen voor een bord van een **gepubliceerde** ronde.
 
 ## Installeren met de desktopversie {#set-up-desktop}
@@ -156,20 +157,24 @@ dezelfde pc**.
 > Moet het kastje een aparte kleine computer zijn, gebruik dan de gehoste
 > versie.
 
-Stap 4 tot en met 15 hierboven zijn hetzelfde, met deze verschillen:
+Stap 2 tot en met 13 hierboven zijn hetzelfde, met deze verschillen:
 
 - **De code.** Instellingen, **Live borden** zegt in plaats van een
   serveradres: *Deze kopie antwoordt alleen op deze computer, dus het
-  kastjesprogramma moet ook op deze computer draaien*. Maak de code (stap 4) en
-  plak ze in de Alnasl op dezelfde pc (stap 6). Verbinding testen werkt zonder
+  kastjesprogramma moet ook op deze computer draaien*. Maak de code (stap 2) en
+  plak ze in de Alnasl op dezelfde pc (stap 4). Verbinding testen werkt zonder
   internet.
-- **De uitslagensite is optioneel.** Met internet doet u stap 1 tot en met 3 als
-  bij de gehoste installatie, en dan gaan de zetten ook naar de uitslagensite.
-  Zonder internet doet u ze niet: Alnasl en OpenPairings werken nog steeds samen.
-- **Publiceer zolang u nog internet hebt.** Het adres van de uitslagensite en de
-  korte naam die Alnasl nodig heeft, bestaan pas zodra het toernooi de
-  uitslagensite heeft bereikt. Heeft het evenement geen internet, doe dan stap 1
-  tot en met 3 thuis.
+- **De uitslagensite is optioneel.** Met internet doet u stap 1 als bij de
+  gehoste installatie, en dan gaan de zetten ook naar de uitslagensite. Zonder
+  internet doet u dat niet: Alnasl en OpenPairings werken nog steeds samen.
+- **Publiceer zolang u nog internet hebt.** Het adres van de uitslagensite, de
+  korte naam en de toestemming die Alnasl nodig heeft, bestaan pas zodra het
+  toernooi de uitslagensite heeft bereikt en de desktopkopie de toestemming
+  heeft opgehaald. Heeft het evenement geen internet, doe dan stap 1 en 2 thuis
+  en wacht tot de kaart **De uitslagensite** zegt *Ja. Het kastje mag daar
+  zetten naartoe sturen.* Zonder verbinding blijft de kaart *Toestemming wordt
+  bij de uitslagensite opgehaald…* zeggen en probeert ze het vanzelf opnieuw
+  zodra er verbinding is.
 
 ### Wat zonder internet werkt {#what-works-offline}
 
@@ -181,7 +186,7 @@ Stap 4 tot en met 15 hierboven zijn hetzelfde, met deze verschillen:
 | De kolom **Bord zag**, de partijpagina en de PGN met zetten | werkt | werkt |
 | Zetten naar de uitslagensite (livepagina's voor toeschouwers) | werkt | **wacht** in de wachtrij van Alnasl (de pagina Verzendlijst zegt hoeveel) en gaat in volgorde weg zodra er verbinding is |
 | Lichess-uitzending (als u er in Alnasl een instelde) | werkt | wacht op dezelfde manier |
-| Het toernooi publiceren, de relaissleutel krijgen | werkt | vraagt op dat moment internet |
+| Het toernooi publiceren, en OpenPairings dat de toestemming van het kastje voor de uitslagensite ophaalt | werkt, vanzelf | wacht, en gebeurt vanzelf zodra er verbinding is |
 
 Een balk op elke pagina van Alnasl zegt wanneer de uitslagensite niet bereikbaar
 is. Het spel gaat door en er gaat niets verloren.
@@ -258,7 +263,8 @@ ronde en eigen uitslagenpagina.
    steeds geen zetten. Alnasl heeft zelf een pagina PGN (*Hele ronde als PGN*).
 4. **Wat waar bewaard wordt.** De partijen worden bij het toernooi in
    OpenPairings bewaard en staan in de JSON-export en de herstelpunten. De
-   koppelcodes en de relaissleutel niet: een kopie elders maakt er zelf. Op het
+   koppelcodes en de toestemming van het kastje voor de uitslagensite niet: een
+   kopie elders maakt haar eigen codes en haalt haar eigen toestemming op. Op het
    kastje staan de partijen, de wachtrij en de instellingen op schijf in de
    gegevensmap van Alnasl (`~/.alnasl` in productie), met een PGN-bestand per
    partij.
@@ -279,20 +285,22 @@ ronde en eigen uitslagenpagina.
 | Alnasl: *OpenPairings is niet bereikbaar*; de koppeling zegt *Geen antwoord* | De server of het zaalnetwerk ligt eruit. Er gaat niets verloren: de borden gaan door met de paringen die ze hebben en het kastje vraagt vanzelf opnieuw. | Controleer het netwerk. Een ronde die intussen gepaard is: **Ronde N starten**. |
 | *Geen antwoord. Deze code is voor een OpenPairings op deze zelfde computer: draait het?* | Een desktopcode wordt gebruikt op een computer die niet die van OpenPairings is, of OpenPairings draait niet. | Draai Alnasl op dezelfde pc als de desktop-OpenPairings, en start OpenPairings. |
 | *Er antwoordt iets op dat adres, maar niet als de bordkoppeling van OpenPairings* | Een aanmeldpagina van het zaalnetwerk, of een ander programma op die poort. | Meld u aan op het zaalnetwerk, of controleer het adres. |
-| *… het is niet gepubliceerd op een uitslagensite, dus de zetten gaan alleen naar OpenPairings* | Het toernooi staat niet op de uitslagensite. | Publiceer het (stap 1). Het adres en de sleutel komen daarna vanzelf. |
-| *… het staat op een uitslagensite, maar in OpenPairings is geen relaysleutel opgeslagen* | De relaissleutel is niet geplakt. | Stap 3. |
-| Instellingen, Live borden heeft geen veld **Relaissleutel** | Het toernooi staat nog niet op de uitslagensite. | Publiceer het eerst (stap 1). |
-| *Dat lijkt niet op een relaissleutel: 16 tot 200 tekens, zonder spaties.* | De sleutel is afgebroken of heeft spaties. | Plak hem opnieuw. |
+| *… het is niet gepubliceerd op een uitslagensite, dus de zetten gaan alleen naar OpenPairings* | Het toernooi staat niet op de uitslagensite. | Publiceer het (stap 1). Het adres en de toestemming komen daarna vanzelf. |
+| *… het staat op een uitslagensite, maar in OpenPairings is geen relaysleutel opgeslagen* | OpenPairings heeft de toestemming van het kastje (nog) niet van de uitslagensite gekregen. Meestal is dat een kwestie van seconden; anders is de uitslagensite niet bereikbaar, zei ze nee, of is ze een oudere versie. | Open Instellingen, Live borden, kaart **De uitslagensite**: die zegt welke. *Toestemming wordt … opgehaald…*: wacht, het wordt vanzelf opnieuw geprobeerd. *Nog niet … : reden*: lees de reden, dan **Opnieuw proberen**. *Oudere versie*: zie de volgende rij. |
+| De kaart zegt *het is een oudere versie die dit niet zelf kan* en toont een veld **Relaissleutel** | De uitslagensite is van voor ze de toestemming kon uitgeven. | Vraag de beheerder van die site om een relaissleutel voor het toernooi en plak ze in het veld. Zie [Relaissleutels](17-live-boards.md#relay-keys). |
+| De kaart zegt *Zet het toernooi eerst op de uitslagensite* | Het toernooi staat nog niet op de uitslagensite. | Publiceer het (stap 1). |
+| *Dat lijkt niet op een relaissleutel: 16 tot 200 tekens, zonder spaties.* | Alleen bij een oudere uitslagensite: de geplakte sleutel is afgebroken of heeft spaties. | Plak hem opnieuw. |
+| Het kastje stuurde en de uitslagensite weigert het nu | De toestemming is vervangen of ingetrokken (door u, of door de beheerder van de site). | Instellingen, Live borden, **De toestemming van het kastje vervangen**. Het kastje haalt de nieuwe vanzelf op. |
 | *Er zijn al 8 codes.* | De grens. | Trek een code in die u niet meer gebruikt. |
 | *De code bereikt nu geen toernooi* | Het toernooi is verwijderd of gearchiveerd, of de groep is leeg. | Controleer het toernooi; een gearchiveerd of overgedragen toernooi kan niet op een kastje staan. |
 | *OpenPairings vraagt om het rustiger aan te doen* | Te veel verzoeken. | Niets: het kastje probeert het vanzelf opnieuw. |
 | De nieuwe ronde verschijnt niet | Het kastje vraagt ongeveer elke vijf seconden. | Wacht een paar seconden. Nog niets, kijk dan naar de stand van de koppeling bij Instellingen, of gebruik **Ronde N starten**. |
 | *Klok niet in beginstelling: … de klok staat omgekeerd of de wip staat verkeerd* | De klok staat niet voor wit klaar (ze staat rechts van het bord, de wip omhoog aan de kant van wit). | Draai de klok of tip de wip. De melding verdwijnt vanzelf. |
 | Dezelfde partij wordt twee keer gemeld | Twee codes bereiken hetzelfde toernooi op één kastje. | Houd één code (zie [meerdere toernooien](#several-tournaments)). |
-| Geen kolom **Bord zag** op de pagina Paringen | Nog geen code bereikt dit toernooi en geen bord meldde een partij. | Maak een code (stap 4) en voeg ze toe op het kastje. |
+| Geen kolom **Bord zag** op de pagina Paringen | Nog geen code bereikt dit toernooi en geen bord meldde een partij. | Maak een code (stap 2) en voeg ze toe op het kastje. |
 | Rood *wijkt af* in de kolom Bord zag | Het bord zag een andere uitslag dan de ingevoerde. | Controleer de notatieformulieren. Er wordt niets geblokkeerd. |
 | Een tegel zegt *Indeling gewijzigd in OpenPairings* | Een paring veranderde nadat er zetten waren gespeeld. | Zie [Tijdens de ronde](#during-the-round). |
-| De uitslagensite toont niets | De partijen wachten in de wachtrij; of de ronde is niet gepubliceerd; of er is geen relaissleutel. | De pagina **Verzendlijst** van Alnasl zegt wat er wacht en waarom. Een partij wordt alleen getoond voor een bord van een gepubliceerde ronde. |
+| De uitslagensite toont niets | De partijen wachten in de wachtrij; of de ronde is niet gepubliceerd; of het kastje heeft nog geen toestemming (het toernooi staat niet op de uitslagensite, of de site is onbereikbaar, zei nee, of is te oud). | De pagina **Verzendlijst** van Alnasl zegt wat er wacht en waarom, en Instellingen, Live borden, kaart **De uitslagensite** zegt hoe het met de toestemming staat. Een partij wordt alleen getoond voor een bord van een gepubliceerde ronde. |
 
 ## Beperkingen van nu {#limits-today}
 
